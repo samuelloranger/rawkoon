@@ -4,8 +4,6 @@ services:
     container_name: rawkoon
     env_file:
       - .env
-    environment:
-      - SERVE_STATIC=true
     volumes:
       - ./data:/app/data
       - ./vapid_keys:/app/vapid_keys

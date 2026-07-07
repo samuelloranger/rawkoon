@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import * as nodePath from "node:path";
 import { Elysia } from "elysia";
 import { swagger } from "@elysiajs/swagger";
@@ -33,7 +34,9 @@ import { globalRateLimit, strictAuthRateLimit } from "./middleware/rateLimit";
 import { resolveUser } from "./middleware/auth";
 import { initWorkers, setupScheduledJobs } from "./services/queueService";
 
-const serveStatic = Bun.env.SERVE_STATIC === "true";
+// The production image copies the built frontend into ./public (see
+// Dockerfile); in dev the directory doesn't exist and Vite serves the SPA.
+const serveStatic = existsSync("./public/index.html");
 const spaIndexHtmlPromise: Promise<string> = serveStatic
   ? Bun.file("./public/index.html").text()
   : Promise.resolve("");

@@ -14,7 +14,7 @@ Rawkoon is a Bun workspaces monorepo with three apps:
 | `@rawkoon/web`    | React 19 + Vite + TanStack Router/Query + Tailwind CSS 4 + i18next | `apps/web`    |
 | `@rawkoon/shared` | TypeScript types, pure utilities, cross-app constants              | `apps/shared` |
 
-The web app and API run as two processes in development. **In production they are a single container**: `Dockerfile` builds `apps/web/dist` into `apps/api/public/` and the API serves it via `@elysiajs/static` whenever `SERVE_STATIC=true` (see `apps/api/src/index.ts:43-46`, `:150-175`).
+The web app and API run as two processes in development. **In production they are a single container**: `Dockerfile` builds `apps/web/dist` into `apps/api/public/` and the API serves it via `@elysiajs/static` whenever `./public/index.html` exists — auto-detected at startup, no env flag (see `apps/api/src/index.ts:43-46`, `:150-175`).
 
 Why a single container: keeps the public attack surface to one port, lets the API inject the bootstrapped user payload directly into `index.html` (`__RAWKOON_BOOTSTRAP__`, `apps/api/src/index.ts:162-174`), and avoids a separate static-host service.
 
@@ -41,7 +41,7 @@ Why a single container: keeps the public attack surface to one port, lets the AP
 
 ## Production Static Serving
 
-When `SERVE_STATIC=true`:
+When `./public/index.html` exists (auto-detected at startup — true in the production image, absent in dev):
 
 - `@elysiajs/static` serves `./public` (the built web app) under `/`, with HTML excluded so the SPA shell can be hand-rendered with bootstrap injection.
 - A custom `onAfterHandle` serves pre-compressed `.gz` assets from `vite-plugin-compression2` when the client accepts gzip (`apps/api/src/index.ts:59-83`).

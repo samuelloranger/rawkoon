@@ -1,8 +1,8 @@
 # Deployment
 
-How Rawkoon ships to production: one Docker image with both API and web, served via `SERVE_STATIC=true`, fronted by `docker-compose.prod.yml`.
+How Rawkoon ships to production: one Docker image with both API and web — the API auto-serves the built frontend when `./public/index.html` exists — fronted by `docker-compose.prod.yml`.
 
-Last verified: 2026-05-25
+Last verified: 2026-07-07
 
 ## Single Image Strategy
 
@@ -23,15 +23,15 @@ docker build -t rawkoon:latest \
 
 Why a single image: keeps the public attack surface to one port, lets the API inject the bootstrapped user payload into `index.html` server-side (see `apps/api/src/index.ts:162-174`), and avoids syncing two deploy artifacts.
 
-## SERVE_STATIC
+## Static serving (auto-detected)
 
-When `SERVE_STATIC=true`, the API:
+Static serving is not configurable — the API serves the SPA whenever `./public/index.html` exists relative to its working directory. The production image creates it (Dockerfile copies `apps/web/dist` there); a dev checkout has no `apps/api/public/`, so the API stays API-only and Vite serves the frontend.
+
+When the built frontend is present, the API:
 
 1. Mounts `@elysiajs/static` on `/` against `./public`, with `*.html` excluded.
 2. Serves pre-compressed `.gz` assets (from `vite-plugin-compression2`) when the client's `Accept-Encoding` includes gzip — see `apps/api/src/index.ts:59-83`.
 3. Falls through to a `GET *` catch-all that returns `index.html` with `<script>window.__RAWKOON_BOOTSTRAP__=…</script>` injected (`apps/api/src/index.ts:162-174`). This pre-populates the user session before the SPA boots.
-
-In dev, leave `SERVE_STATIC` unset and run Vite separately.
 
 ## docker-compose.prod.yml
 
@@ -42,8 +42,6 @@ services:
   rawkoon:
     image: ghcr.io/samuelloranger/rawkoon:latest
     env_file: .env
-    environment:
-      - SERVE_STATIC=true
     volumes:
       - ./data:/app/data
       - ./vapid_keys:/app/vapid_keys

@@ -65,7 +65,7 @@ Why bypass for authed users: legitimate dashboards poll frequently (SSE fallback
 
 ## URL Conventions
 
-- All routes prefixed with `/api/` (so `SERVE_STATIC=true` can hand the rest to the SPA catch-all).
+- All routes prefixed with `/api/` (so production static serving can hand the rest to the SPA catch-all).
 - Path segments are kebab-case: `/api/clear-completed`, `/api/quality-profiles`, `/api/library/downloads`.
 - Verbs come from HTTP methods, not URL words.
 - Sub-resources nest under the parent: `/api/library/:id/grab`, `/api/library/:id/files`.
@@ -76,4 +76,4 @@ In non-production (`NODE_ENV !== "production"`) the API mounts `@elysiajs/swagge
 
 ## CORS
 
-`@elysiajs/cors` allows `CORS_ORIGIN` (defaults to `http://localhost:5173` for dev) with `credentials: true`. In production with `SERVE_STATIC=true`, web and API share an origin, so CORS is effectively a no-op.
+`@elysiajs/cors` allows `CORS_ORIGIN` (defaults to `http://localhost:5173` for dev) with `credentials: true`. In production (single container serving the SPA), web and API share an origin, so CORS is effectively a no-op.

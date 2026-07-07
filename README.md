@@ -65,8 +65,6 @@ services:
   rawkoon:
     image: ghcr.io/samuelloranger/rawkoon:latest
     env_file: [.env]
-    environment:
-      - SERVE_STATIC=true
     volumes:
       - ./data:/app/data
       - ./vapid_keys:/app/vapid_keys

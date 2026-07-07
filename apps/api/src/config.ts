@@ -11,12 +11,6 @@ const commaSeparatedEmails = z
       .filter(Boolean),
   );
 
-const booleanString = z
-  .string()
-  .optional()
-  .default("false")
-  .transform((v) => v.toLowerCase() === "true");
-
 const portNumber = z.coerce.number().int().min(1).max(65535);
 const githubRepoFullName = z
   .string()
@@ -64,7 +58,6 @@ const envSchema = z.object({
   WEBAUTHN_ORIGIN: z.string().optional(),
   BASE_URL: z.url().optional().default("http://localhost:3000"),
   CORS_ORIGIN: z.string().optional().default("http://localhost:5173"),
-  SERVE_STATIC: booleanString,
   LOG_LEVEL: z.string().optional().default("info"),
   TZ: z.string().optional().default("America/New_York"),
 
