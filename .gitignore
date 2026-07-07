@@ -82,3 +82,6 @@ dev-debug.log
 
 # Playwright runner artifacts
 test-results/
+
+# Built SPA copied for single-container serving (CI/screenshots)
+apps/api/public/

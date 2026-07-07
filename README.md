@@ -11,6 +11,8 @@
   <a href="https://github.com/samuelloranger/rawkoon/pkgs/container/rawkoon"><img src="https://img.shields.io/badge/ghcr.io-rawkoon-2496ED?logo=docker&logoColor=white" alt="Container image" /></a>
 </p>
 
+![Library screenshot](docs/screenshots/library.png)
+
 A self-hosted movie and TV library with a built-in download manager — one app instead of the Radarr/Sonarr/Overseerr stack. Discover titles through TMDB, search releases, grab them with qBittorrent, and track your library from a single web UI.
 
 Already running \*arr? **Settings → Library import** migrates your existing Radarr and/or Sonarr library (metadata, files, MediaInfo) so you can switch without starting over.

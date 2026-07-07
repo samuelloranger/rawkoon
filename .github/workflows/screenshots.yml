@@ -1,0 +1,92 @@
+name: Screenshots
+
+# Regenerates README screenshots against seeded demo data on every release,
+# and commits them back to the default branch. Manually runnable too.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: screenshots
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: demo
+          POSTGRES_PASSWORD: demo
+          POSTGRES_DB: rawkoon
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U demo"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+    env:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://demo:demo@localhost:5432/rawkoon
+      REDIS_HOST: localhost
+      REDIS_PORT: '6379'
+      SECRET_KEY: ci-screenshot-secret-key-0123456789abcdef
+      BETTER_AUTH_SECRET: ci-screenshot-auth-secret-0123456789abcdef
+      ALLOWED_EMAILS: demo@rawkoon.app
+      ADMIN_EMAILS: demo@rawkoon.app
+      BASE_URL: http://localhost:3000
+      CORS_ORIGIN: http://localhost:3000
+      API_PORT: '3000'
+      SCREENSHOT_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3'
+
+      - run: bun install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: bunx playwright install --with-deps chromium
+
+      - name: Build web SPA
+        run: bun run build
+        working-directory: apps/web
+
+      - name: Serve SPA from the API (auto-detected ./public)
+        run: cp -r apps/web/dist apps/api/public
+
+      - name: Migrate + generate Prisma client
+        run: bunx prisma migrate deploy && bunx prisma generate
+        working-directory: apps/api
+
+      - name: Seed demo data
+        run: bun scripts/screenshot/seed.ts
+
+      - name: Start API
+        run: |
+          (cd apps/api && bun src/index.ts &)
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:3000/api/health && break
+            sleep 1
+          done
+
+      - name: Capture screenshots
+        run: bun scripts/screenshot/shots.ts
+
+      - name: Commit and push screenshots
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'docs: update README screenshots [skip ci]'
+          file_pattern: 'docs/screenshots/*.png'
