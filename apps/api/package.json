@@ -1,0 +1,60 @@
+{
+  "name": "@rawkoon/api",
+  "version": "1.0.0",
+  "license": "GPL-3.0-or-later",
+  "packageManager": "bun@1.3.11",
+  "module": "src/index.ts",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "dev": "bun --env-file=../../.env --watch src/index.ts",
+    "test": "bun test test/ && bun test src/",
+    "db:generate": "set -a && . ../../.env && set +a && bunx prisma generate",
+    "db:migrate:dev": "set -a && . ../../.env && set +a && bunx prisma migrate dev && bunx prisma generate",
+    "db:migrate": "set -a && . ../../.env && set +a && bunx prisma migrate deploy",
+    "db:push": "set -a && . ../../.env && set +a && bunx prisma db push && bunx prisma generate",
+    "db:studio": "set -a && . ../../.env && set +a && bunx prisma studio",
+    "qbittorrent:client-debug": "bun src/scripts/qbittorrentClientDebug.ts",
+    "qbittorrent:request-logs": "bun src/scripts/qbittorrentRequestLogs.ts",
+    "library:check-integrity": "bun --env-file=../../.env src/scripts/checkLibraryIntegrity.ts",
+    "library:check-integrity:persist": "bun --env-file=../../.env src/scripts/checkLibraryIntegrity.ts --persist",
+    "library:refresh-titles": "bun --env-file=../../.env src/scripts/refreshLibraryTitlesFromTmdb.ts",
+    "library:refresh-titles:apply": "bun --env-file=../../.env src/scripts/refreshLibraryTitlesFromTmdb.ts --apply",
+    "postinstall": "prisma generate",
+    "format": "prettier --write \"{src,prisma}/**/*.{ts,js,json,md}\" \"*.{ts,js,json,md}\"",
+    "formatCheck": "prettier --check \"{src,prisma}/**/*.{ts,js,json,md}\" \"*.{ts,js,json,md}\"",
+    "typecheck": "tsc --noEmit",
+    "typecheck:native": "tsgo --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@better-auth/api-key": "^1.6.19",
+    "@better-auth/passkey": "^1.6.19",
+    "@better-auth/prisma-adapter": "^1.6.19",
+    "@elysiajs/cors": "^1.4.2",
+    "@elysiajs/static": "^1.4.10",
+    "@elysiajs/swagger": "^1.3.1",
+    "@prisma/adapter-pg": "7.8.0",
+    "@prisma/client": "7.8.0",
+    "@rawkoon/shared": "workspace:*",
+    "better-auth": "^1.6.19",
+    "bullmq": "^5.78.1",
+    "elysia": "^1.4.28",
+    "elysia-rate-limit": "^4.6.2",
+    "ioredis": "^5.11.1",
+    "node-html-parser": "^7.1.0",
+    "playwright": "^1.61.0",
+    "ua-parser-js": "^2.0.10",
+    "web-push": "^3.6.7",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/web-push": "^3.6.4",
+    "bun-types": "^1.3.14",
+    "eslint": "^10.3.0",
+    "prisma": "7.8.0"
+  }
+}

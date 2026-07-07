@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta
+      name="description"
+      content="Rawkoon — a self-hosted movie & TV library and download manager."
+    />
+
+    <!-- Security Headers - CSP should be configured via HTTP headers on the backend -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-Frame-Options" content="DENY" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
+    <!-- Apple iOS/MacOS Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Rawkoon" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#CF6A4E" />
+    <meta name="msapplication-navbutton-color" content="#CF6A4E" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+
+    <!-- Apple Touch Icons for iOS and macOS -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Theme Script - Must run before any content renders -->
+    <script>
+      document.documentElement.classList.add("dark");
+      document.documentElement.style.colorScheme = "dark";
+    </script>
+
+    <!-- Prevent flash of unstyled content (dark-only Cozy Dusk base) -->
+    <style>
+      html {
+        background-color: #1c1715;
+      }
+    </style>
+
+    <title>Rawkoon</title>
+  </head>
+  <body class="h-full bg-neutral-900">
+    <div id="root" class="h-full"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

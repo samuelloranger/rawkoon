@@ -1,0 +1,17 @@
+export const NOTIFICATION_ENDPOINTS = {
+  LIST: "/api/notifications",
+  UNREAD_COUNT: "/api/notifications/unread-count",
+  UNREAD_IDS: "/api/notifications/unread-ids",
+  MARK_READ: (id: number) => `/api/notifications/${id}/read`,
+  MARK_ALL_READ: "/api/notifications/read-all",
+  DELETE: (id: number) => `/api/notifications/${id}`,
+  DEVICES: "/api/notifications/devices",
+  DELETE_DEVICE: (id: number) => `/api/notifications/devices/${id}`,
+  SUBSCRIBE: "/api/notifications/subscribe",
+  UNSUBSCRIBE: "/api/notifications/unsubscribe",
+  VAPID_PUBLIC_KEY: "/api/notifications/vapid-public-key",
+  TEST: "/api/notifications/test",
+  CHANNELS: "/api/notifications/channels",
+  CHANNEL: (id: number) => `/api/notifications/channels/${id}`,
+  CHANNEL_TEST: (id: number) => `/api/notifications/channels/${id}/test`,
+} as const;

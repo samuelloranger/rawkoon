@@ -1,0 +1,633 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                      String    @id @default(uuid())
+  name                    String    @default("")
+  email                   String    @unique(map: "ix_users_email")
+  emailVerified           Boolean   @default(false) @map("email_verified")
+  passwordHash            String?   @map("password_hash")
+  isAdmin                 Boolean?  @map("is_admin")
+  lastLogin               DateTime? @map("last_login")
+  createdAt               DateTime? @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+  lastActivity            DateTime? @map("last_activity")
+  firstName               String?   @map("first_name")
+  lastName                String?   @map("last_name")
+  locale                  String?
+  avatarUrl               String?   @map("avatar_url")
+  navPosition             String?   @map("nav_position")
+  dashboardConfig         Json?     @map("dashboard_config")
+
+  notifications        Notification[]
+  userSubscriptions    UserSubscription[]
+  activityLogs         ActivityLog[]
+  notificationChannels NotificationChannel[]
+  invitationsSent      Invitation[]          @relation("InvitationInviter")
+  watchlistItems       WatchlistItem[]
+  discoverDismissals   DiscoverDismissal[]
+  baSessions           BaSession[]
+  baAccounts           BaAccount[]
+  baPasskeys           BaPasskey[]
+  baApiKeys            BaApiKey[]
+  mediaRequests        MediaRequest[] @relation("MediaRequestRequester")
+  decidedMediaRequests MediaRequest[] @relation("MediaRequestDecider")
+
+  @@map("users")
+}
+
+model Notification {
+  id                   Int       @id @default(autoincrement())
+  userId               String    @map("user_id")
+  title                String
+  body                 String
+  type                 String
+  read                 Boolean   @default(false)
+  readAt               DateTime? @map("read_at")
+  url                  String?
+  imageUrl             String?   @map("image_url")
+  notificationMetadata Json?     @map("notification_metadata")
+  createdAt            DateTime  @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt], map: "ix_notifications_created_at")
+  @@index([userId], map: "ix_notifications_user_id")
+  @@map("notifications")
+}
+
+model Integration {
+  id        Int       @id @default(autoincrement())
+  type      String    @unique(map: "ix_integrations_type")
+  enabled   Boolean   @default(false)
+  config    Json?
+  createdAt DateTime? @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+
+  @@map("integrations")
+}
+
+model BaApiKey {
+  id                  String    @id @default(uuid())
+  configId            String    @default("default") @map("config_id")
+  name                String?
+  start               String?
+  referenceId         String    @map("reference_id")
+  prefix              String?
+  key                 String
+  refillInterval      Int?      @map("refill_interval")
+  refillAmount        Int?      @map("refill_amount")
+  lastRefillAt        DateTime? @map("last_refill_at")
+  enabled             Boolean   @default(true)
+  rateLimitEnabled    Boolean   @default(true) @map("rate_limit_enabled")
+  rateLimitTimeWindow Int?      @map("rate_limit_time_window")
+  rateLimitMax        Int?      @map("rate_limit_max")
+  requestCount        Int       @default(0) @map("request_count")
+  remaining           Int?
+  lastRequest         DateTime? @map("last_request")
+  expiresAt           DateTime? @map("expires_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  permissions         String?   @db.Text
+  metadata            String?   @db.Text
+
+  user User @relation(fields: [referenceId], references: [id], onDelete: Cascade)
+
+  @@unique([name])
+  @@index([key], map: "ix_ba_api_keys_key")
+  @@index([referenceId], map: "ix_ba_api_keys_reference_id")
+  @@index([configId], map: "ix_ba_api_keys_config_id")
+  @@map("ba_api_keys")
+}
+
+model OidcProvider {
+  id           String   @id @default(uuid())
+  slug         String   @unique
+  name         String
+  discoveryUrl String   @map("discovery_url")
+  clientId     String   @map("client_id")
+  clientSecret String   @map("client_secret")
+  enabled      Boolean  @default(true)
+  iconUrl      String?  @map("icon_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("oidc_providers")
+}
+
+model UserSubscription {
+  id               Int       @id @default(autoincrement())
+  userId           String    @map("user_id")
+  subscriptionInfo String    @map("subscription_info")
+  endpoint         String?
+  createdAt        DateTime? @map("created_at")
+  updatedAt        DateTime? @map("updated_at")
+  deviceName       String?   @map("device_name")
+  osName           String?   @map("os_name")
+  osVersion        String?   @map("os_version")
+  browserName      String?   @map("browser_name")
+  browserVersion   String?   @map("browser_version")
+  platform         String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([endpoint], map: "ix_user_subscriptions_endpoint")
+  @@index([userId], map: "ix_user_subscriptions_user_id")
+  @@map("user_subscriptions")
+}
+
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  type      String   @db.VarChar(50)
+  userId    String?  @map("user_id")
+  payload   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt], map: "ix_activity_logs_created_at")
+  @@index([type], map: "ix_activity_logs_type")
+  @@index([userId], map: "ix_activity_logs_user_id")
+  @@map("activity_logs")
+}
+
+model Invitation {
+  id         Int       @id @default(autoincrement())
+  email      String
+  token      String    @unique(map: "ix_invitations_token")
+  status     String    @default("pending") @db.VarChar(20)
+  expiresAt  DateTime  @map("expires_at")
+  invitedBy  String?   @map("invited_by")
+  locale     String    @default("en")
+  isAdmin    Boolean   @default(false) @map("is_admin")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  acceptedAt DateTime? @map("accepted_at")
+
+  inviter User? @relation("InvitationInviter", fields: [invitedBy], references: [id], onDelete: SetNull)
+
+  @@unique([email, status], map: "ix_invitations_email_status")
+  @@map("invitations")
+}
+
+model NotificationChannel {
+  id        Int      @id @default(autoincrement())
+  userId    String   @map("user_id")
+  type      String   @db.VarChar(20)
+  label     String   @db.VarChar(100)
+  config    Json
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "ix_notification_channels_user_id")
+  @@map("notification_channels")
+}
+
+model QbittorrentRequestLog {
+  id            Int      @id @default(autoincrement())
+  method        String   @db.VarChar(10)
+  endpoint      String   @db.VarChar(255)
+  requestPath   String   @map("request_path") @db.VarChar(512)
+  statusCode    Int?     @map("status_code")
+  ok            Boolean  @default(false)
+  durationMs    Int      @map("duration_ms")
+  responseBytes Int?     @map("response_bytes")
+  authRetried   Boolean  @default(false) @map("auth_retried")
+  rid           Int?
+  fullUpdate    Boolean? @map("full_update")
+  itemCount     Int?     @map("item_count")
+  removedCount  Int?     @map("removed_count")
+  errorMessage  String?  @map("error_message") @db.Text
+  meta          Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt], map: "ix_qbittorrent_request_logs_created_at")
+  @@index([endpoint, createdAt], map: "ix_qbittorrent_request_logs_endpoint_created_at")
+  @@index([ok, createdAt], map: "ix_qbittorrent_request_logs_ok_created_at")
+  @@map("qbittorrent_request_logs")
+}
+
+model WatchlistItem {
+  id          Int      @id @default(autoincrement())
+  userId      String   @map("user_id")
+  tmdbId      Int      @map("tmdb_id")
+  mediaType   String   @map("media_type")
+  title       String
+  posterUrl   String?  @map("poster_url")
+  overview    String?
+  releaseYear Int?     @map("release_year")
+  voteAverage Float?   @map("vote_average")
+  addedAt     DateTime @default(now()) @map("added_at")
+
+  /// Cached TMDB theatrical release date (movies only). Used for day-before reminders.
+  movieReleaseDate       DateTime? @map("movie_release_date") @db.Date
+  /// YYYY-MM-DD release date we already sent a day-before reminder for (movies only).
+  releaseReminderSentFor String?   @map("release_reminder_sent_for") @db.VarChar(10)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tmdbId, mediaType], map: "uq_watchlist_user_tmdb_type")
+  @@index([userId, addedAt], map: "ix_watchlist_user_added_at")
+  @@map("watchlist_items")
+}
+
+model QualityProfile {
+  id                       Int      @id @default(autoincrement())
+  name                     String   @unique
+  minResolution            Int      @default(1080) @map("min_resolution") // 480 | 720 | 1080 | 2160
+  preferredSources         String[] @map("preferred_sources")
+  preferredCodecs          String[] @map("preferred_codecs")
+  preferredLanguages       String[] @default([]) @map("preferred_languages")
+  prioritizedTrackers      String[] @default([]) @map("prioritized_trackers")
+  preferTrackerOverQuality Boolean  @default(false) @map("prefer_tracker_over_quality")
+  maxSizeGb                Float?   @map("max_size_gb")
+  requireHdr               Boolean  @default(false) @map("require_hdr")
+  preferHdr                Boolean  @default(false) @map("prefer_hdr")
+  cutoffResolution         Int?     @map("cutoff_resolution")
+  minSeeders               Int      @default(0) @map("min_seeders")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  media              LibraryMedia[]
+  defaultForSettings MediaSettings[] @relation("DefaultQualityProfile")
+  customFormats      QualityProfileCustomFormat[]
+  mediaRequests      MediaRequest[]
+
+  @@map("quality_profiles")
+}
+
+model CustomFormat {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  /// FormatCondition[] (see customFormatTypes.ts). A format MATCHES when ALL
+  /// its conditions match; each condition is individually negatable.
+  conditions  Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  profileLinks QualityProfileCustomFormat[]
+
+  @@map("custom_formats")
+}
+
+model QualityProfileCustomFormat {
+  id               Int     @id @default(autoincrement())
+  qualityProfileId Int     @map("quality_profile_id")
+  customFormatId   Int     @map("custom_format_id")
+  score            Int     @default(0)
+  required         Boolean @default(false)
+  forbidden        Boolean @default(false)
+
+  qualityProfile QualityProfile @relation(fields: [qualityProfileId], references: [id], onDelete: Cascade)
+  customFormat   CustomFormat   @relation(fields: [customFormatId], references: [id], onDelete: Cascade)
+
+  @@unique([qualityProfileId, customFormatId])
+  @@index([qualityProfileId], map: "ix_qp_custom_format_profile")
+  @@map("quality_profile_custom_formats")
+}
+
+model BaSession {
+  id        String   @id @default(uuid())
+  expiresAt DateTime @map("expires_at")
+  token     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  ipAddress String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  providerId String?  @map("provider_id")
+  userId     String   @map("user_id")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "ix_ba_sessions_user_id")
+  @@map("ba_sessions")
+}
+
+model BaAccount {
+  id                    String    @id @default(uuid())
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  userId                String    @map("user_id")
+  accessToken           String?   @map("access_token") @db.Text
+  refreshToken          String?   @map("refresh_token") @db.Text
+  idToken               String?   @map("id_token") @db.Text
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope                 String?
+  password              String?   @db.Text
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "ix_ba_accounts_user_id")
+  @@map("ba_accounts")
+}
+
+model BaVerification {
+  id         String   @id @default(uuid())
+  identifier String
+  value      String   @db.Text
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("ba_verifications")
+}
+
+model BaPasskey {
+  id           String    @id @default(uuid())
+  name         String?
+  publicKey    String    @map("public_key") @db.Text
+  userId       String    @map("user_id")
+  credentialID String    @map("credential_id")
+  counter      Int
+  deviceType   String    @map("device_type")
+  backedUp     Boolean   @map("backed_up")
+  transports   String?
+  createdAt    DateTime? @map("created_at")
+  aaguid       String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([credentialID], map: "ix_ba_passkeys_credential_id")
+  @@index([userId], map: "ix_ba_passkeys_user_id")
+  @@map("ba_passkeys")
+}
+
+model LibraryMedia {
+  id                    Int       @id @default(autoincrement())
+  tmdbId                Int       @unique @map("tmdb_id")
+  type                  String // "movie" | "show"
+  title                 String
+  sortTitle             String?   @map("sort_title")
+  year                  Int?
+  status                String    @default("wanted") // wanted | downloading | downloaded | skipped | returning | in_production | planned | upgrading
+  tmdbStatus            String?   @map("tmdb_status")
+  tmdbStatusRefreshedAt DateTime? @map("tmdb_status_refreshed_at")
+  monitored             Boolean   @default(true)
+  posterUrl             String?   @map("poster_url")
+  overview              String?
+  overrides             Json?     @map("overrides")
+  digitalReleaseDate    DateTime? @map("digital_release_date")
+  qualityProfileId      Int?      @map("quality_profile_id")
+  searchAttempts        Int       @default(0) @map("search_attempts")
+  addedAt               DateTime  @default(now()) @map("added_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  qualityProfile    QualityProfile?   @relation(fields: [qualityProfileId], references: [id], onDelete: SetNull)
+  episodes          LibraryEpisode[]
+  files             MediaFile[]       @relation("MediaFileMedia")
+  downloadHistories DownloadHistory[]
+  blocklistEntries  GrabBlocklist[]
+  attentionAlerts   LibraryAttentionAlert[]
+  mediaRequests     MediaRequest[]
+
+  @@index([type], map: "ix_library_media_type")
+  @@index([status], map: "ix_library_media_status")
+  @@index([qualityProfileId], map: "ix_library_media_quality_profile_id")
+  @@map("library_media")
+}
+
+model LibraryEpisode {
+  id             Int       @id @default(autoincrement())
+  mediaId        Int       @map("media_id")
+  season         Int
+  episode        Int
+  title          String?
+  airDate        DateTime? @map("air_date") @db.Date
+  status         String    @default("wanted") // wanted | downloading | downloaded | skipped | upgrading
+  monitored      Boolean   @default(true)
+  tmdbEpisodeId  Int?      @map("tmdb_episode_id")
+  downloadedAt   DateTime? @map("downloaded_at")
+  searchAttempts Int       @default(0) @map("search_attempts")
+
+  media             LibraryMedia      @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  files             MediaFile[]       @relation("MediaFileEpisode")
+  downloadHistories DownloadHistory[]
+  blocklistEntries  GrabBlocklist[]
+  attentionAlerts   LibraryAttentionAlert[]
+
+  @@unique([mediaId, season, episode])
+  @@index([mediaId], map: "ix_library_episodes_media_id")
+  @@map("library_episodes")
+}
+
+model DownloadHistory {
+  id                         Int       @id @default(autoincrement())
+  mediaId                    Int?      @map("media_id")
+  episodeId                  Int?      @map("episode_id")
+  releaseTitle               String    @map("release_title")
+  indexer                    String?
+  torrentHash                String?   @map("torrent_hash")
+  downloadUrl                String?   @map("download_url")
+  qualityParsed              Json?     @map("quality_parsed")
+  grabbedAt                  DateTime  @default(now()) @map("grabbed_at")
+  completedAt                DateTime? @map("completed_at")
+  failed                     Boolean   @default(false)
+  failReason                 String?   @map("fail_reason")
+  isUpgrade                  Boolean   @default(false) @map("is_upgrade")
+  /// Local AI selected this release (RSS auto-grab or future AI grab flows)
+  aiPicked                   Boolean   @default(false) @map("ai_picked")
+  /// Set when post-processing fails after the torrent completed
+  postProcessError           String?   @map("post_process_error") @db.Text
+  /// Final library path after successful post-processing
+  postProcessDestinationPath String?   @map("post_process_destination_path") @db.Text
+
+  media   LibraryMedia?   @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+  episode LibraryEpisode? @relation(fields: [episodeId], references: [id], onDelete: SetNull)
+
+  @@unique([torrentHash], map: "ix_download_history_torrent_hash")
+  @@index([mediaId], map: "ix_download_history_media_id")
+  @@index([episodeId], map: "ix_download_history_episode_id")
+  @@map("download_history")
+}
+
+/// Open alerts are created by hourly cron from library grab/download conditions; one open row per (media, scope, kind).
+model LibraryAttentionAlert {
+  id                    Int       @id @default(autoincrement())
+  mediaId               Int       @map("media_id")
+  /// Target episode when scope_type = episode; null for movie or season_pack
+  episodeId             Int?      @map("episode_id")
+  /// TV season when scope_type = season_pack; optional mirror for episode scope
+  season                Int?
+  scopeType             String    @map("scope_type") // movie | episode | season_pack
+  kind                  String // LibraryAttentionKind
+  status                String    @default("open") // open | dismissed | resolved_auto
+  detail                String?   @db.Text
+  downloadHistoryId     Int?      @map("download_history_id")
+  searchAttempts        Int?      @map("search_attempts")
+  grabbedAt             DateTime? @map("grabbed_at")
+  libraryStatusSnapshot String?   @map("library_status_snapshot")
+  dismissedAt           DateTime? @map("dismissed_at")
+  resolvedAt            DateTime? @map("resolved_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  media   LibraryMedia    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  episode LibraryEpisode? @relation(fields: [episodeId], references: [id], onDelete: SetNull)
+
+  @@index([mediaId], map: "ix_library_attention_alert_media_id")
+  @@index([status], map: "ix_library_attention_alert_status")
+  @@index([episodeId], map: "ix_library_attention_alert_episode_id")
+  @@map("library_attention_alerts")
+}
+
+model GrabBlocklist {
+  id           Int      @id @default(autoincrement())
+  torrentHash  String?  @map("torrent_hash")
+  releaseTitle String   @map("release_title")
+  indexer      String?
+  mediaId      Int?     @map("media_id")
+  episodeId    Int?     @map("episode_id")
+  reason       String?
+  blockedAt    DateTime @default(now()) @map("blocked_at")
+
+  media   LibraryMedia?   @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+  episode LibraryEpisode? @relation(fields: [episodeId], references: [id], onDelete: SetNull)
+
+  @@index([torrentHash], map: "ix_grab_blocklist_hash")
+  @@index([mediaId], map: "ix_grab_blocklist_media_id")
+  @@index([episodeId], map: "ix_grab_blocklist_episode_id")
+  @@map("grab_blocklist")
+}
+
+/// Singleton media / library post-processing settings (row id = 1)
+model MediaSettings {
+  id                      Int      @id @default(1)
+  moviesLibraryPath       String?  @map("movies_library_path")
+  showsLibraryPath        String?  @map("shows_library_path")
+  fileOperation           String   @default("hardlink") @map("file_operation")
+  movieTemplate           String   @default("{title} ({year}) [{resolution} {source}]") @map("movie_template")
+  episodeTemplate         String   @default("{show}/Season {season}/{show} - S{season:02}E{episode:02} - {title} [{resolution} {source}]") @map("episode_template")
+  minSeedRatio            Float    @default(1) @map("min_seed_ratio")
+  postProcessingEnabled   Boolean  @default(false) @map("post_processing_enabled")
+  defaultQualityProfileId Int?     @map("default_quality_profile_id")
+  activeIndexerManager    String?  @map("active_indexer_manager")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  defaultQualityProfile QualityProfile? @relation("DefaultQualityProfile", fields: [defaultQualityProfileId], references: [id], onDelete: SetNull)
+
+  @@map("media_settings")
+}
+
+/// Singleton app-wide settings (row id = 1)
+model AppSettings {
+  id                         Int      @id @default(1)
+  countryCode                String   @default("US") @map("country_code") @db.VarChar(2)
+  upcomingWindowMonths       Int      @default(12) @map("upcoming_window_months")
+  upcomingLanguages          String   @default("en,fr") @map("upcoming_languages")
+  updatedAt                  DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
+}
+
+model MediaFile {
+  id             Int      @id @default(autoincrement())
+  mediaId        Int?     @map("media_id")
+  episodeId      Int?     @map("episode_id")
+  filePath       String   @map("file_path")
+  fileName       String   @map("file_name")
+  sizeBytes      BigInt   @map("size_bytes")
+  durationSecs   Float?   @map("duration_secs")
+  releaseGroup   String?  @map("release_group")
+  videoCodec     String?  @map("video_codec")
+  videoProfile   String?  @map("video_profile")
+  width          Int?
+  height         Int?
+  frameRate      Float?   @map("frame_rate")
+  bitDepth       Int?     @map("bit_depth")
+  videoBitrate   Int?     @map("video_bitrate")
+  hdrFormat      String?  @map("hdr_format")
+  resolution     Int?
+  source         String?
+  audioFormat    String?  @map("audio_format")
+  isProper       Boolean  @default(false) @map("is_proper")
+  audioTracks    Json     @default("[]") @map("audio_tracks")
+  subtitleTracks Json     @default("[]") @map("subtitle_tracks")
+  languageTags   String[] @default([]) @map("language_tags")
+  scannedAt      DateTime @default(now()) @map("scanned_at")
+
+  media   LibraryMedia?   @relation("MediaFileMedia", fields: [mediaId], references: [id], onDelete: Cascade)
+  episode LibraryEpisode? @relation("MediaFileEpisode", fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@index([mediaId], map: "ix_media_files_media_id")
+  @@index([episodeId], map: "ix_media_files_episode_id")
+  @@index([filePath], map: "ix_media_files_file_path")
+  @@index([languageTags], map: "ix_media_files_language_tags", type: Gin)
+  @@map("media_files")
+}
+
+model LibraryHealthLog {
+  id          Int      @id @default(autoincrement())
+  status      String
+  trigger     String   @default("manual")
+  startedAt   DateTime @default(now()) @map("started_at")
+  completedAt DateTime @map("completed_at")
+  durationMs  Int      @map("duration_ms")
+  summary     Json
+  issues      Json
+  warnings    String[] @default([])
+  error       String?  @db.Text
+
+  @@index([startedAt], map: "ix_library_health_log_started_at")
+  @@map("library_health_log")
+}
+
+enum MediaRequestStatus {
+  pending
+  approved
+  denied
+  available
+}
+
+model MediaRequest {
+  id               Int                @id @default(autoincrement())
+  tmdbId           Int                @map("tmdb_id")
+  type             String // "movie" | "show"
+  title            String
+  posterUrl        String?            @map("poster_url")
+  year             Int?
+  requestedById    String             @map("requested_by_id")
+  requestedBy      User               @relation("MediaRequestRequester", fields: [requestedById], references: [id], onDelete: Cascade)
+  status           MediaRequestStatus @default(pending)
+  qualityProfileId Int?               @map("quality_profile_id")
+  qualityProfile   QualityProfile?    @relation(fields: [qualityProfileId], references: [id], onDelete: SetNull)
+  libraryMediaId   Int?               @map("library_media_id")
+  libraryMedia     LibraryMedia?      @relation(fields: [libraryMediaId], references: [id], onDelete: SetNull)
+  denyReason       String?            @map("deny_reason")
+  decidedById      String?            @map("decided_by_id")
+  decidedBy        User?              @relation("MediaRequestDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+  createdAt        DateTime           @default(now()) @map("created_at")
+  decidedAt        DateTime?          @map("decided_at")
+
+  // Single-request behavior: only one request per TMDB item can exist at a time 
+  // since this is a self-hosted shared library instance.
+  @@unique([tmdbId, type])
+  @@index([requestedById], map: "ix_media_request_requested_by_id")
+  @@index([libraryMediaId], map: "ix_media_request_library_media_id")
+  @@index([qualityProfileId], map: "ix_media_request_quality_profile_id")
+  @@index([decidedById], map: "ix_media_request_decided_by_id")
+  @@map("media_requests")
+}
+
+model DiscoverDismissal {
+  id        Int      @id @default(autoincrement())
+  userId    String   @map("user_id")
+  tmdbId    Int      @map("tmdb_id")
+  mediaType String   @map("media_type")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tmdbId, mediaType], map: "uq_discover_dismissal_user_tmdb_type")
+  @@index([userId], map: "ix_discover_dismissals_user_id")
+  @@map("discover_dismissals")
+}

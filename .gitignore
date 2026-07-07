@@ -1,0 +1,84 @@
+# TypeScript
+*.tsbuildinfo
+
+# Environment
+.env
+
+# IDE / Editor
+.idea/
+.vscode/
+.cursor/
+*.swp
+*.swo
+*~
+
+# Claude Code local settings and ephemeral data (machine-specific)
+.claude/settings.local.json
+.claude/worktrees/
+
+# CodeGraph index (machine-local, rebuilt on demand)
+.codegraph/
+
+# Screenshot artifacts
+apps/web/screenshot-prod*.png
+apps/web/screenshot-prod*.json
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Instance configuration
+instance/
+
+# Node/Bun
+node_modules/
+dist/
+apps/web/dist/
+packages/*/dist/
+bun.lockb
+.pnpm-store/
+
+# Docker
+.docker/
+
+# VAPID Keys
+vapid_keys/
+
+# Uploaded images
+uploads/
+
+logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dev-debug.log
+# Dependency directories
+# Environment variables
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+# OS specific
+
+# Task files
+# tasks.json
+# tasks/ 
+.worktrees/
+.superpowers/
+
+
+# Playwright runner artifacts
+test-results/

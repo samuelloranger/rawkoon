@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "incremental": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@rawkoon/shared": ["./src/index.ts"],
+      "@rawkoon/shared/*": ["./src/*"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["src/**/__tests__"]
+}

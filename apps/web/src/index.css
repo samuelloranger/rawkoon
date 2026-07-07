@@ -1,0 +1,601 @@
+@import "tailwindcss";
+@plugin '@tailwindcss/typography';
+
+@layer utilities {
+  .prose :where(p):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+    margin-bottom: 0;
+  }
+
+  /* Tailwind Typography adds backtick pseudo-elements to <code> — remove them */
+  .prose :where(code)::before,
+  .prose :where(code)::after {
+    content: none;
+  }
+}
+
+/* Source paths for Tailwind to scan */
+@source "../index.html";
+@source "./**/*.{js,ts,jsx,tsx}";
+@source "../../shared/src/**/*.{js,ts,jsx,tsx}";
+
+/* Custom theme configuration */
+@theme {
+  /* Primary — warm apricot → terracotta (replaces green brand) */
+  --color-primary-50: #fdf5ef;
+  --color-primary-100: #f9e6d5;
+  --color-primary-200: #f2cdab;
+  --color-primary-300: #f0bf93;
+  --color-primary-400: #e8a06a; /* apricot accent */
+  --color-primary-500: #df8753;
+  --color-primary-600: #cf6a4e; /* terracotta */
+  --color-primary-700: #ad5440;
+  --color-primary-800: #8a4435;
+  --color-primary-900: #71382e;
+  --color-primary-950: #4f2419;
+
+  /* Neutral — warm brown (replaces cold gray; repaints all dark: surfaces) */
+  --color-neutral-50: #f4ece4; /* strong text */
+  --color-neutral-100: #e3d8cf; /* text */
+  --color-neutral-200: #d4c6b8;
+  --color-neutral-300: #b9a89a;
+  --color-neutral-400: #9c8d80; /* muted text */
+  --color-neutral-500: #6b5c50;
+  --color-neutral-600: #463a32; /* muted borders/icons */
+  --color-neutral-700: #322a25; /* borders */
+  --color-neutral-800: #241e1b; /* raised cards/panels */
+  --color-neutral-900: #1c1715; /* app base background */
+  --color-neutral-950: #141010; /* deepest wells */
+
+  /* Cozy Dusk semantic tokens */
+  --color-surface-base: #1c1715;
+  --color-surface-raised: #241e1b;
+  --color-surface-inset: #171311; /* between neutral-950 and neutral-900 */
+  --color-border: #322a25;
+  --color-border-strong: #3a2f27; /* between neutral-600 and neutral-700 */
+  --color-accent: #e8a06a;
+  --color-accent-strong: #cf6a4e;
+  --color-text-strong: #f4ece4;
+  --color-text: #e3d8cf;
+  --color-text-muted: #9c8d80;
+
+  /* Custom breakpoints */
+  --breakpoint-mobile-max: 945px;
+
+  /* Typography (ALREADY PRESENT — keep, do not duplicate) */
+  --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces Variable", ui-serif, Georgia, serif;
+  --font-mono: "Fira Code", ui-monospace, monospace;
+}
+
+/* Dark mode variant */
+@variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-surface-base);
+    color: var(--color-text);
+  }
+}
+
+/* Reserve space for the scrollbar so Headless UI scroll-lock (overflow: hidden) does not shift layout */
+html {
+  scrollbar-gutter: stable;
+}
+
+/* Prevent double-tap zoom on iOS PWA */
+html,
+body {
+  touch-action: manipulation;
+}
+
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+
+  /* Z-index scale */
+  --z-base: 0;
+  --z-dropdown: 20;
+  --z-sticky: 30;
+  --z-navigation: 50;
+  --z-modal-backdrop: 100;
+  --z-modal: 200;
+  --z-popover: 250;
+  --z-tooltip: 300;
+
+  /* Deprecated aliases of the @theme --color-surface-* tokens — kept until components migrate; do not add new ones. */
+  /* Dark surfaces — warm Cozy Dusk (aligned with @theme neutral scale) */
+  --surface-base: #1c1715;
+  --surface-1: #241e1b;
+  --surface-2: #322a25;
+  --surface-border: #322a25;
+  --surface-muted-fg: #9c8d80;
+}
+
+@keyframes discover-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes provider-select {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(0.94);
+  }
+  70% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.theme-transition {
+  transition: all 0.2s ease-in-out;
+}
+
+@keyframes shrink {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes slideInFromLeft {
+  from {
+    transform: translateX(calc(-100% - 1rem));
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutToLeft {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(calc(-100% - 1rem));
+    opacity: 0;
+  }
+}
+
+@keyframes fadeInSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Page transition animations */
+.page-transition {
+  width: 100%;
+  animation: fadeInSlide 0.3s ease-out;
+}
+
+.page-transition.page-enter {
+  animation: fadeInSlide 0.3s ease-out;
+}
+
+.page-transition.page-exit {
+  animation: fadeOutSlide 0.2s ease-in;
+}
+
+@keyframes fadeOutSlide {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeInBackdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOutBackdrop {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes scaleInImage {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes scaleOutImage {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+.image-modal-backdrop {
+  animation: fadeInBackdrop 0.2s ease-out;
+}
+
+.image-modal-backdrop-closing {
+  animation: fadeOutBackdrop 0.3s ease-in;
+}
+
+.image-modal-content {
+  animation: scaleInImage 0.3s ease-out;
+}
+
+.image-modal-content-closing {
+  animation: scaleOutImage 0.3s ease-in;
+}
+
+.image-modal-image {
+  animation: scaleInImage 0.3s ease-out;
+}
+
+.image-modal-image-closing {
+  animation: scaleOutImage 0.3s ease-in;
+}
+
+/* Collapsible animations */
+@keyframes collapsible-down {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+}
+
+@keyframes collapsible-up {
+  from {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes sheet-slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@utility animate-collapsible-down {
+  animation: collapsible-down 0.2s ease-out;
+}
+
+@utility animate-collapsible-up {
+  animation: collapsible-up 0.2s ease-in;
+}
+
+/* Poster shelf reveal */
+@keyframes posterReveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.home-poster-card {
+  animation: posterReveal 0.35s ease-out both;
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@utility no-scrollbar {
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* iOS Safari specific styles */
+@supports (-webkit-touch-callout: none) {
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input,
+  textarea,
+  [contenteditable] {
+    -webkit-user-select: auto;
+    user-select: auto;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:not(.checkbox):not([role="switch"]),
+  .btn,
+  a[role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .ios-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* PWA fullscreen mode adjustments */
+@media all and (display-mode: standalone) {
+  .pwa-hidden {
+    display: none;
+  }
+
+  .heading-safe-area {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .relative {
+    position: relative;
+    z-index: 10;
+  }
+}
+
+.safe-area-top {
+  height: var(--safe-top);
+}
+
+/* Dashboard stat card animations */
+@keyframes cardSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Smart greeting animations */
+@keyframes greetingFadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.greeting-subtext {
+  animation: greetingFadeSlideIn 0.5s ease-out;
+}
+
+@keyframes iconBounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.greeting-icon {
+  animation: iconBounce 2s ease-in-out 1;
+}
+
+/* Completion celebration animations */
+@keyframes checkboxCelebrate {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.3);
+  }
+  50% {
+    transform: scale(0.9);
+  }
+  70% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes checkmarkPop {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(-45deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.4) rotate(0deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes checkboxRipple {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+    box-shadow: 0 0 0 0 rgba(232, 160, 106, 0.7);
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+    box-shadow: 0 0 0 10px rgba(232, 160, 106, 0);
+  }
+}
+
+@keyframes rowCompleteFlash {
+  0% {
+    background-color: transparent;
+  }
+  30% {
+    background-color: rgba(232, 160, 106, 0.18);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes torrentUploadSweep {
+  0% {
+    transform: translateX(-140%);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: translateX(240%);
+    opacity: 0;
+  }
+}
+
+.checkbox-celebrate {
+  animation: checkboxCelebrate 0.5s ease-out;
+}
+
+.checkmark-pop {
+  animation: checkmarkPop 0.4s ease-out;
+}
+
+.checkbox-ripple {
+  animation: checkboxRipple 0.6s ease-out forwards;
+  background-color: rgba(232, 160, 106, 0.3);
+}
+
+.row-complete-flash {
+  animation: rowCompleteFlash 0.8s ease-out;
+}
+
+.torrent-progress-bar-active {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.torrent-progress-bar-active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: max(36%, 2.5rem);
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(207, 106, 78, 0) 0%,
+    rgba(207, 106, 78, 0.38) 18%,
+    rgba(255, 255, 255, 0.92) 50%,
+    rgba(207, 106, 78, 0.38) 82%,
+    rgba(207, 106, 78, 0) 100%
+  );
+  animation: torrentUploadSweep 1.2s linear infinite;
+  mix-blend-mode: plus-lighter;
+}
+
+.dark .torrent-progress-bar-active::after {
+  background: linear-gradient(
+    90deg,
+    rgba(232, 160, 106, 0) 0%,
+    rgba(232, 160, 106, 0.45) 18%,
+    rgba(255, 255, 255, 0.95) 50%,
+    rgba(232, 160, 106, 0.45) 82%,
+    rgba(232, 160, 106, 0) 100%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .torrent-progress-bar-active::after {
+    animation: none;
+    opacity: 0;
+  }
+
+  .home-poster-card {
+    animation: none;
+  }
+}

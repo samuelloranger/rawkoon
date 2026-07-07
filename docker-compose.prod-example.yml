@@ -1,0 +1,56 @@
+services:
+  rawkoon:
+    image: ghcr.io/samuelloranger/rawkoon:latest
+    container_name: rawkoon
+    env_file:
+      - .env
+    environment:
+      - SERVE_STATIC=true
+    volumes:
+      - ./data:/app/data
+      - ./vapid_keys:/app/vapid_keys
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - rawkoon-network
+    ports:
+      - "3000:3000"
+
+  db:
+    image: postgres:15
+    container_name: rawkoon-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - rawkoon-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: rawkoon-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD} --bind 0.0.0.0 --protected-mode yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - rawkoon-network
+
+networks:
+  rawkoon-network:
+    driver: bridge
+
+volumes:
+  db_data:
+  redis_data:

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="g" x1="0.12" y1="0.08" x2="0.88" y2="0.96">
+      <stop offset="0" stop-color="#F6C88E"/>
+      <stop offset="0.5" stop-color="#E8A06A"/>
+      <stop offset="1" stop-color="#C45A2F"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="#1C1715"/>
+  <!-- bold gradient reel ring with punched holes -->
+  <circle cx="256" cy="256" r="150" fill="none" stroke="url(#g)" stroke-width="44"/>
+  <g fill="#1C1715">
+    <circle cx="256" cy="106" r="13"/>
+    <circle cx="406" cy="256" r="13"/>
+    <circle cx="256" cy="406" r="13"/>
+    <circle cx="106" cy="256" r="13"/>
+  </g>
+  <!-- solid gradient play -->
+  <path d="M214 188 L342 256 L214 324 Z" fill="url(#g)" stroke="url(#g)" stroke-width="20" stroke-linejoin="round"/>
+</svg>

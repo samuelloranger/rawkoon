@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Prettier format check
+        run: bun run formatCheck
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          generate-routes: "true"
+      - name: Lint (ESLint on web + API — Makefile `make lint` matches)
+        run: bun run lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          generate-routes: "true"
+      - name: Typecheck
+        run: bun run typecheck
+
+  typecheck-native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          generate-routes: "true"
+      - name: Typecheck (tsgo / TS 7 native preview)
+        run: bun run typecheck:native
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          generate-routes: "true"
+      - name: Test
+        run: |
+          cd apps/web && bun run test --run
+          cd ../api && bun test test/ && bun test src/

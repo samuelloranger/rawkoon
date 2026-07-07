@@ -1,0 +1,68 @@
+{
+  "name": "rawkoon-monorepo",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "packageManager": "bun@1.3.11",
+  "scripts": {
+    "install:all": "bun install",
+    "build": "bun run build:web",
+    "build:web": "bun run --filter @rawkoon/web build",
+    "dev": "bun run --workspaces --if-present dev",
+    "dev:api": "bun run --filter @rawkoon/api dev",
+    "dev:web": "bun run --filter @rawkoon/web dev",
+    "dev:services": "docker compose up db redis -d",
+    "docker:down": "docker compose down",
+    "docker:rebuild": "docker compose build --no-cache",
+    "test": "bun run --filter @rawkoon/web test && bun run --filter @rawkoon/api test && bun run --filter @rawkoon/shared test",
+    "format": "bun run --workspaces --if-present format",
+    "formatCheck": "bun run --workspaces --if-present formatCheck",
+    "typecheck": "bun run --workspaces --if-present typecheck",
+    "typecheck:build": "tsc -b tsconfig.build.json --pretty false",
+    "typecheck:native": "bun run --workspaces --if-present typecheck:native",
+    "typecheck:native:build": "tsgo -b tsconfig.build.json --pretty false",
+    "lint": "bun run --filter @rawkoon/web lint && bun run --filter @rawkoon/api lint",
+    "knip": "knip",
+    "duplicates": "bunx jscpd apps/web/src apps/api/src apps/shared/src --min-lines 20 --min-tokens 100 --gitignore --ignore \"**/*.test.*,**/*.spec.*,**/__tests__/**,**/__fixtures__/**,**/*.d.ts,**/generated/**,**/emails/rendered/**\" --reporters console",
+    "clean": "rm -rf apps/web/dist node_modules apps/*/node_modules && docker compose down -v",
+    "db:migrate:dev": "bun run --filter @rawkoon/api db:migrate:dev",
+    "db:migrate:deploy": "bun run --filter @rawkoon/api db:migrate",
+    "db:migrate:push": "bun run --filter @rawkoon/api db:push",
+    "db:generate": "bun run --filter @rawkoon/api db:generate",
+    "db:studio": "bun run --filter @rawkoon/api db:studio",
+    "db:refresh-collation": "sh -c 'DB_NAME=${DB_NAME:-rawkoon}; DB_USER=${DB_USER:-rawkoon}; echo \"Refreshing template1 collation version...\"; docker compose exec -T db psql -U \"$DB_USER\" -d postgres -c \"ALTER DATABASE template1 REFRESH COLLATION VERSION;\"; echo \"Refreshing database collation version for database: $DB_NAME...\"; docker compose exec -T db psql -U \"$DB_USER\" -d postgres -c \"ALTER DATABASE $DB_NAME REFRESH COLLATION VERSION;\"; echo \"Done.\"'",
+    "prepare": "husky"
+  },
+  "workspaces": [
+    "apps/*"
+  ],
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
+    "@eslint/js": "^10.0.1",
+    "@types/react": "~19.2.17",
+    "@typescript-eslint/eslint-plugin": "^8.61.1",
+    "@typescript-eslint/parser": "^8.61.1",
+    "@typescript/native-preview": "^7.0.0-dev.20260616.1",
+    "elysia": "^1.4.29",
+    "eslint": "^10.5.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-no-hardcoded-strings": "^1.1.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.6.0",
+    "husky": "^9.1.7",
+    "knip": "^6.17.1",
+    "prettier": "^3.8.4",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.101.0",
+    "i18next": "^26.3.1",
+    "react": "19.2.7",
+    "react-i18next": "^17.0.8",
+    "recharts": "3.8.1",
+    "sharp": "^0.35.1"
+  },
+  "overrides": {
+    "@better-auth/core": "1.6.19"
+  },
+  "version": "1.0.0"
+}

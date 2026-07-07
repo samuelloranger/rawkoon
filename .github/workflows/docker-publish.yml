@@ -1,0 +1,68 @@
+name: Build and Push Docker Image
+
+on:
+  release:
+    types: [published]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/rawkoon
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_VERSION=${{ github.ref_name }}
+            GITHUB_RELEASES_REPO=${{ github.repository }}
+
+      - name: Trigger deployer
+        env:
+          DEPLOYER_URL: ${{ secrets.DEPLOYER_WEBHOOK_URL }}
+          DEPLOYER_SECRET: ${{ secrets.DEPLOYER_WEBHOOK_SECRET }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [ -z "$DEPLOYER_URL" ]; then
+            echo "No DEPLOYER_WEBHOOK_URL configured — skipping deploy trigger (image is published to ghcr)."
+            exit 0
+          fi
+          BODY=$(jq -nc \
+            --arg tag "${TAG#v}" \
+            '{action: "published", package: {name: "rawkoon", package_version: {container_metadata: {tag: {name: $tag}}}}}')
+          SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$DEPLOYER_SECRET" -binary | xxd -p -c 256)
+          curl -fsS -X POST "$DEPLOYER_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-Event: package" \
+            -H "X-Hub-Signature-256: sha256=$SIG" \
+            --data "$BODY"
