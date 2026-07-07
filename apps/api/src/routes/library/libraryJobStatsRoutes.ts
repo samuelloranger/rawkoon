@@ -25,8 +25,12 @@ export const libraryJobStatsRoutes = new Elysia()
           where: { type: "show" },
           _count: true,
         }),
+        // ::bigint — SUM(bigint) yields NUMERIC, which Prisma maps to Decimal;
+        // Decimal leaking into buildLibraryStatsResponse's bigint arithmetic
+        // corrupts the storage total (digit concatenation, then the
+        // MAX_SAFE_INTEGER clamp shows ~8192 TB).
         prisma.$queryRaw<{ resolution: number | null; size_bytes: bigint }[]>`
-          SELECT resolution, SUM(size_bytes) AS size_bytes
+          SELECT resolution, SUM(size_bytes)::bigint AS size_bytes
           FROM media_files
           GROUP BY resolution
         `,
