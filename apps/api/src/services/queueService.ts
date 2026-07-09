@@ -118,12 +118,14 @@ export function initWorkers() {
     QUEUE_NAMES.EXPRESS,
     async (job: Job) => {
       if (job.name.startsWith("log:")) {
-        const { processActivityLogJob } =
-          await import("./jobs/activityLogWorker");
+        const { processActivityLogJob } = await import(
+          "./jobs/activityLogWorker"
+        );
         return processActivityLogJob(job);
       }
-      const { processNotificationJob } =
-        await import("./jobs/notificationWorker");
+      const { processNotificationJob } = await import(
+        "./jobs/notificationWorker"
+      );
       return processNotificationJob(job);
     },
     { connection: redisConnection, concurrency: 10 },
@@ -133,8 +135,9 @@ export function initWorkers() {
   new Worker(
     QUEUE_NAMES.SCHEDULED_TASKS,
     async (job: Job) => {
-      const { processScheduledJob } =
-        await import("./jobs/scheduledTasksWorker");
+      const { processScheduledJob } = await import(
+        "./jobs/scheduledTasksWorker"
+      );
       return processScheduledJob(job);
     },
     { connection: redisConnection, concurrency: 3 }, // Allow a few scheduled tasks at once
@@ -144,8 +147,9 @@ export function initWorkers() {
   new Worker(
     QUEUE_NAMES.LIBRARY_MIGRATE,
     async (job: Job) => {
-      const { processLibraryMigrateJob } =
-        await import("./jobs/libraryMigrateWorker");
+      const { processLibraryMigrateJob } = await import(
+        "./jobs/libraryMigrateWorker"
+      );
       return processLibraryMigrateJob(job);
     },
     { connection: redisConnection, concurrency: 1 },
@@ -155,8 +159,9 @@ export function initWorkers() {
   new Worker(
     QUEUE_NAMES.LIBRARY_REINDEX_LANGUAGES,
     async (job: Job) => {
-      const { processLibraryReindexLanguagesJob } =
-        await import("./jobs/libraryReindexLanguagesWorker");
+      const { processLibraryReindexLanguagesJob } = await import(
+        "./jobs/libraryReindexLanguagesWorker"
+      );
       return processLibraryReindexLanguagesJob(job);
     },
     { connection: redisConnection, concurrency: 1 },
@@ -166,8 +171,9 @@ export function initWorkers() {
   new Worker(
     QUEUE_NAMES.LIBRARY_REMUX,
     async (job: Job) => {
-      const { processLibraryRemuxFileJob } =
-        await import("./jobs/libraryRemuxWorker");
+      const { processLibraryRemuxFileJob } = await import(
+        "./jobs/libraryRemuxWorker"
+      );
       return processLibraryRemuxFileJob(job);
     },
     { connection: redisConnection, concurrency: 1 },

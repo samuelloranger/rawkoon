@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - name: Prettier format check
+      - name: Format check (Biome)
         run: bun run formatCheck
 
   lint:
@@ -22,7 +22,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           generate-routes: "true"
-      - name: Lint (ESLint on web + API — Makefile `make lint` matches)
+      - name: Lint (Biome on web + API — Makefile `make lint` matches)
         run: bun run lint
 
   typecheck:

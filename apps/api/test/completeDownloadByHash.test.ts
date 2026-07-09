@@ -83,14 +83,14 @@ mock.module("@rawkoon/api/db", () => ({
 // Subscribe to the real libraryEventBus to capture emissions — don't mock
 // the module (it has a `libraryEventBus` export consumed by other modules,
 // and bun's mock.module is process-global, so a partial mock breaks them).
-const { libraryEventBus } =
-  await import("@rawkoon/api/services/libraryEvents");
+const { libraryEventBus } = await import("@rawkoon/api/services/libraryEvents");
 libraryEventBus.on("update", (ev: { mediaId: number }) => {
   state.emittedMediaIds.push(ev.mediaId);
 });
 
-const { completeDownloadByHash } =
-  await import("@rawkoon/api/workers/checkDownloadCompletion");
+const { completeDownloadByHash } = await import(
+  "@rawkoon/api/workers/checkDownloadCompletion"
+);
 
 describe("completeDownloadByHash", () => {
   beforeEach(() => {

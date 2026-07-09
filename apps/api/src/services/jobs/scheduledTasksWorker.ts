@@ -11,50 +11,58 @@ export async function processScheduledJob(job: Job) {
   try {
     switch (job.name) {
       case SCHEDULED_JOB_NAMES.CLEANUP_NOTIFICATIONS: {
-        const { cleanupOldNotifications } =
-          await import("../../workers/cleanupNotifications");
+        const { cleanupOldNotifications } = await import(
+          "../../workers/cleanupNotifications"
+        );
         await cleanupOldNotifications();
         break;
       }
       case SCHEDULED_JOB_NAMES.REFRESH_UPCOMING: {
-        const { refreshUpcoming } =
-          await import("../../workers/refreshUpcoming");
+        const { refreshUpcoming } = await import(
+          "../../workers/refreshUpcoming"
+        );
         await refreshUpcoming({ trigger: "queue" });
         break;
       }
       case SCHEDULED_JOB_NAMES.CHECK_MOVIE_RELEASE_REMINDERS: {
-        const { checkMovieReleaseReminders } =
-          await import("../../workers/checkMovieReleaseReminders");
+        const { checkMovieReleaseReminders } = await import(
+          "../../workers/checkMovieReleaseReminders"
+        );
         await checkMovieReleaseReminders();
         break;
       }
       case SCHEDULED_JOB_NAMES.CHECK_LIBRARY_MOVIE_RELEASES: {
-        const { checkMovieReleases } =
-          await import("../../workers/checkMovieReleases");
+        const { checkMovieReleases } = await import(
+          "../../workers/checkMovieReleases"
+        );
         await checkMovieReleases();
         break;
       }
       case SCHEDULED_JOB_NAMES.CHECK_LIBRARY_EPISODE_RELEASES: {
-        const { checkEpisodeReleases } =
-          await import("../../workers/checkEpisodeReleases");
+        const { checkEpisodeReleases } = await import(
+          "../../workers/checkEpisodeReleases"
+        );
         await checkEpisodeReleases();
         break;
       }
       case SCHEDULED_JOB_NAMES.SYNC_LIBRARY_SHOW_EPISODES: {
-        const { syncShowEpisodes } =
-          await import("../../workers/syncShowEpisodes");
+        const { syncShowEpisodes } = await import(
+          "../../workers/syncShowEpisodes"
+        );
         await syncShowEpisodes();
         break;
       }
       case SCHEDULED_JOB_NAMES.CHECK_LIBRARY_DOWNLOAD_COMPLETION: {
-        const { checkDownloadCompletion } =
-          await import("../../workers/checkDownloadCompletion");
+        const { checkDownloadCompletion } = await import(
+          "../../workers/checkDownloadCompletion"
+        );
         await checkDownloadCompletion();
         break;
       }
       case SCHEDULED_JOB_NAMES.CHECK_LIBRARY_INTEGRITY: {
-        const { runLibraryIntegrityCheck } =
-          await import("../libraryIntegrityRun");
+        const { runLibraryIntegrityCheck } = await import(
+          "../libraryIntegrityRun"
+        );
         const { trigger } = job.data as { trigger?: string };
         await runLibraryIntegrityCheck({ trigger: trigger ?? "cron" });
         break;
@@ -90,8 +98,9 @@ export async function processScheduledJob(job: Job) {
         break;
       }
       case SCHEDULED_JOB_NAMES.UPGRADE_MEDIA_SEARCH: {
-        const { upgradeMediaSearch } =
-          await import("../../workers/upgradeMediaSearch");
+        const { upgradeMediaSearch } = await import(
+          "../../workers/upgradeMediaSearch"
+        );
         const { mediaId, episodeId } = job.data as {
           mediaId: number;
           episodeId?: number | null;
@@ -105,8 +114,9 @@ export async function processScheduledJob(job: Job) {
         break;
       }
       case SCHEDULED_JOB_NAMES.SYNC_LIBRARY_ATTENTION_ALERTS: {
-        const { runSyncLibraryAttentionAlerts } =
-          await import("../../workers/syncLibraryAttentionAlerts");
+        const { runSyncLibraryAttentionAlerts } = await import(
+          "../../workers/syncLibraryAttentionAlerts"
+        );
         await runSyncLibraryAttentionAlerts();
         break;
       }

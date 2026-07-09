@@ -310,9 +310,7 @@ async function walkDownloadsOnce(
  * Cached 30s unless `refresh` bypasses cache.
  */
 export async function scanDownloads(
-  opts: {
-    refresh?: boolean;
-  } = {},
+  opts: { refresh?: boolean } = {},
 ): Promise<ScanResult> {
   const now = Date.now();
   if (!opts.refresh && cache && cache.expiresAt > now) {

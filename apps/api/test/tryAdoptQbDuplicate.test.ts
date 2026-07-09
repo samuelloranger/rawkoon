@@ -82,10 +82,12 @@ mock.module("@rawkoon/api/services/qbittorrent/config", () => ({
 // Spread the real module so unrelated consumers (postProcessor, dashboard
 // routes, …) still see every export under Bun's process-global mock.module.
 // Override only the functions this test exercises directly.
-const realTorrentQueries =
-  await import("@rawkoon/api/services/qbittorrent/torrentQueries");
-const realTorrentMutations =
-  await import("@rawkoon/api/services/qbittorrent/torrentMutations");
+const realTorrentQueries = await import(
+  "@rawkoon/api/services/qbittorrent/torrentQueries"
+);
+const realTorrentMutations = await import(
+  "@rawkoon/api/services/qbittorrent/torrentMutations"
+);
 mock.module("@rawkoon/api/services/qbittorrent/torrentQueries", () => ({
   ...realTorrentQueries,
   fetchQbittorrentTorrent: () => Promise.resolve({ torrent: state.torrent }),
@@ -137,8 +139,9 @@ mock.module("@rawkoon/api/services/postProcessorQueue", () => ({
 // process-global — stubbing them here would break other test files
 // (e.g. safeTorrentFetchUrl.test.ts) that depend on the real implementations.
 
-const { tryAdoptQbDuplicate } =
-  await import("@rawkoon/api/services/mediaGrabberAdopt");
+const { tryAdoptQbDuplicate } = await import(
+  "@rawkoon/api/services/mediaGrabberAdopt"
+);
 
 const baseCtx = {
   dhRowId: 1,

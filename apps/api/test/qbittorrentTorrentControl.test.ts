@@ -39,10 +39,12 @@ mock.module("@rawkoon/api/services/qbittorrent/clientFetch", () => ({
   fetchMaindata: async () => ({ torrents: new Map() }),
 }));
 
-const { pauseQbittorrentTorrent, resumeQbittorrentTorrent } =
-  await import("@rawkoon/api/services/qbittorrent/torrentMutations");
-const { fetchQbittorrentTorrents } =
-  await import("@rawkoon/api/services/qbittorrent/torrentQueries");
+const { pauseQbittorrentTorrent, resumeQbittorrentTorrent } = await import(
+  "@rawkoon/api/services/qbittorrent/torrentMutations"
+);
+const { fetchQbittorrentTorrents } = await import(
+  "@rawkoon/api/services/qbittorrent/torrentQueries"
+);
 
 afterAll(() => mock.restore());
 

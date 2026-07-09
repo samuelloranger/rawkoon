@@ -38,7 +38,8 @@ export interface QbittorrentDashboardTorrent {
   peers: number;
 }
 
-export interface QbittorrentTorrentListItem extends QbittorrentDashboardTorrent {
+export interface QbittorrentTorrentListItem
+  extends QbittorrentDashboardTorrent {
   category: string | null;
   tags: string[];
   ratio: number | null;
