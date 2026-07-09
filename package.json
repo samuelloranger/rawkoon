@@ -51,7 +51,7 @@
     "husky": "^9.1.7",
     "knip": "^6.17.1",
     "prettier": "^3.8.4",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.0",
