@@ -2,7 +2,8 @@ import { mock } from "bun:test";
 
 // Set required env vars for config validation in tests (only if not already set)
 // DATABASE_URL must NOT be set if no real DB is available — integration tests check its presence
-process.env.SECRET_KEY ??= "test-secret-key-for-tests-must-be-at-least-32-characters";
+process.env.SECRET_KEY ??=
+  "test-secret-key-for-tests-must-be-at-least-32-characters";
 process.env.BASE_URL ??= "http://localhost:3000";
 
 // Mock ioredis Redis singleton so it doesn't try to connect

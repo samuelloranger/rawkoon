@@ -88,10 +88,12 @@ export const libraryFilesRoutes = new Elysia()
         }
       >();
       if (activeHashes.length > 0) {
-        const { getQbittorrentIntegrationConfig } =
-          await import("@rawkoon/api/services/qbittorrent/config");
-        const { fetchQbittorrentTorrents } =
-          await import("@rawkoon/api/services/qbittorrent/torrentQueries");
+        const { getQbittorrentIntegrationConfig } = await import(
+          "@rawkoon/api/services/qbittorrent/config"
+        );
+        const { fetchQbittorrentTorrents } = await import(
+          "@rawkoon/api/services/qbittorrent/torrentQueries"
+        );
         const { enabled, config } = await getQbittorrentIntegrationConfig();
         if (enabled && config) {
           const { torrents } = await fetchQbittorrentTorrents(
@@ -167,8 +169,9 @@ export const libraryFilesRoutes = new Elysia()
       const ids = staleRows.map((r) => r.id);
       if (ids.length === 0) return { deleted: 0 };
 
-      const { emitLibraryUpdate } =
-        await import("@rawkoon/api/services/libraryEvents");
+      const { emitLibraryUpdate } = await import(
+        "@rawkoon/api/services/libraryEvents"
+      );
 
       await prisma.$transaction([
         prisma.libraryAttentionAlert.updateMany({
@@ -205,8 +208,9 @@ export const libraryFilesRoutes = new Elysia()
         return badRequest(set, "Invalid id");
       }
 
-      const { isRemovableDownloadHistoryEntry } =
-        await import("@rawkoon/shared");
+      const { isRemovableDownloadHistoryEntry } = await import(
+        "@rawkoon/shared"
+      );
 
       const dh = await prisma.downloadHistory.findFirst({
         where: { id: dhId, mediaId },
@@ -224,8 +228,9 @@ export const libraryFilesRoutes = new Elysia()
         );
       }
 
-      const { emitLibraryUpdate } =
-        await import("@rawkoon/api/services/libraryEvents");
+      const { emitLibraryUpdate } = await import(
+        "@rawkoon/api/services/libraryEvents"
+      );
 
       await prisma.$transaction([
         prisma.libraryAttentionAlert.updateMany({
@@ -273,15 +278,17 @@ export const libraryFilesRoutes = new Elysia()
         });
         if (!dh) return notFound(set, "Download history not found");
 
-        const { getQbittorrentIntegrationConfig } =
-          await import("@rawkoon/api/services/qbittorrent/config");
+        const { getQbittorrentIntegrationConfig } = await import(
+          "@rawkoon/api/services/qbittorrent/config"
+        );
         const {
           pauseQbittorrentTorrent,
           resumeQbittorrentTorrent,
           deleteQbittorrentTorrent,
         } = await import("@rawkoon/api/services/qbittorrent/torrentMutations");
-        const { emitLibraryUpdate } =
-          await import("@rawkoon/api/services/libraryEvents");
+        const { emitLibraryUpdate } = await import(
+          "@rawkoon/api/services/libraryEvents"
+        );
 
         if (body.action === "remove") {
           if (dh.torrentHash) {
@@ -294,8 +301,9 @@ export const libraryFilesRoutes = new Elysia()
               });
             }
           }
-          const { revertLibraryDownloadingIfNoOtherActiveGrabs } =
-            await import("@rawkoon/api/workers/checkDownloadCompletion");
+          const { revertLibraryDownloadingIfNoOtherActiveGrabs } = await import(
+            "@rawkoon/api/workers/checkDownloadCompletion"
+          );
           await revertLibraryDownloadingIfNoOtherActiveGrabs({
             id: dh.id,
             mediaId: dh.mediaId,
@@ -369,8 +377,9 @@ export const libraryFilesRoutes = new Elysia()
         if (!dh.completedAt)
           return badRequest(set, "Download not yet completed");
 
-        const { enqueueLibraryPostProcess } =
-          await import("@rawkoon/api/services/postProcessorQueue");
+        const { enqueueLibraryPostProcess } = await import(
+          "@rawkoon/api/services/postProcessorQueue"
+        );
         enqueueLibraryPostProcess(dhId);
         return { queued: true, download_history_id: dhId };
       } catch {

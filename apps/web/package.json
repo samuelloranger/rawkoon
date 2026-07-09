@@ -13,13 +13,13 @@
     "playwright:load:prod": "bun scripts/playwright-load.mjs",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "lint": "eslint .",
+    "lint": "biome lint .",
     "clean": "rm -rf dist node_modules",
     "generate-icons": "node scripts/generate-icons.js",
     "typecheck": "tsc --noEmit",
     "typecheck:native": "tsgo --noEmit",
-    "format": "prettier --write \"{src,scripts}/**/*.{ts,tsx,js,jsx,json,css,md}\" \"*.{ts,js,json,md}\"",
-    "formatCheck": "prettier --check \"{src,scripts}/**/*.{ts,tsx,js,jsx,json,css,md}\" \"*.{ts,js,json,md}\""
+    "format": "biome format --write .",
+    "formatCheck": "biome format ."
   },
   "dependencies": {
     "@better-auth/passkey": "^1.6.19",

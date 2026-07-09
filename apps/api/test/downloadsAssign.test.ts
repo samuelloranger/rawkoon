@@ -69,7 +69,10 @@ mock.module("@rawkoon/api/services/jellyfinLibraryRefresh", () => ({
 }));
 
 import { assignDownloadFromDisk } from "../src/services/downloadsAssign";
-import { invalidateDownloadsScannerCache, invalidateLibraryInodeKeySetCache } from "../src/services/downloadsScanner";
+import {
+  invalidateDownloadsScannerCache,
+  invalidateLibraryInodeKeySetCache,
+} from "../src/services/downloadsScanner";
 
 const MIN_BYTES = 100 * 1024 * 1024;
 
@@ -222,8 +225,9 @@ describe("assignDownloadFromDisk validation", () => {
         tmdbStatus: null,
       }),
     }));
-    const { assignDownloadFromDisk: assignWithStubTmdb } =
-      await import("../src/services/downloadsAssign");
+    const { assignDownloadFromDisk: assignWithStubTmdb } = await import(
+      "../src/services/downloadsAssign"
+    );
     const res = await assignWithStubTmdb({
       file_path: fp,
       tmdb_id: 1,

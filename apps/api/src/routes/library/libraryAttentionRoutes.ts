@@ -14,8 +14,8 @@ import {
 export const libraryAttentionRoutes = new Elysia()
   .get("/attention", async ({ request, set }) => {
     const u = await resolveUser(request);
-    if (!u) return ((set.status = 401), { error: "Unauthorized" });
-    if (!u.is_admin) return ((set.status = 403), { error: "Forbidden" });
+    if (!u) return (set.status = 401), { error: "Unauthorized" };
+    if (!u.is_admin) return (set.status = 403), { error: "Forbidden" };
     try {
       return await listOpenLibraryAttentionForApi();
     } catch (error) {
@@ -28,8 +28,8 @@ export const libraryAttentionRoutes = new Elysia()
     "/attention/:alertId/dismiss",
     async ({ request, params, set }) => {
       const u = await resolveUser(request);
-      if (!u) return ((set.status = 401), { error: "Unauthorized" });
-      if (!u.is_admin) return ((set.status = 403), { error: "Forbidden" });
+      if (!u) return (set.status = 401), { error: "Unauthorized" };
+      if (!u.is_admin) return (set.status = 403), { error: "Forbidden" };
       try {
         const alertId = parseInt(params.alertId, 10);
         if (!Number.isFinite(alertId))

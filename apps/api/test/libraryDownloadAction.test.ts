@@ -116,8 +116,9 @@ mock.module("@rawkoon/api/services/qbittorrent/torrentMutations", () => ({
   },
 }));
 
-const { libraryFilesRoutes } =
-  await import("@rawkoon/api/routes/library/libraryFilesRoutes");
+const { libraryFilesRoutes } = await import(
+  "@rawkoon/api/routes/library/libraryFilesRoutes"
+);
 
 afterAll(() => mock.restore());
 
