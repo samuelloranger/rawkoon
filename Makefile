@@ -51,7 +51,7 @@ rebuild: ## Rebuild Docker containers (fixes dependency issues)
 test: ## Run all tests (web, api, shared)
 	cd "$(CURDIR)" && bun run test
 
-lint: ## Lint web and API (ESLint — same command as CI)
+lint: ## Lint web and API (Biome — same command as CI)
 	cd "$(CURDIR)" && bun run lint
 
 clean: ## Clean all build artifacts and caches

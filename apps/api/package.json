@@ -24,11 +24,11 @@
     "library:refresh-titles": "bun --env-file=../../.env src/scripts/refreshLibraryTitlesFromTmdb.ts",
     "library:refresh-titles:apply": "bun --env-file=../../.env src/scripts/refreshLibraryTitlesFromTmdb.ts --apply",
     "postinstall": "prisma generate",
-    "format": "prettier --write \"{src,prisma}/**/*.{ts,js,json,md}\" \"*.{ts,js,json,md}\"",
-    "formatCheck": "prettier --check \"{src,prisma}/**/*.{ts,js,json,md}\" \"*.{ts,js,json,md}\"",
+    "format": "biome format --write .",
+    "formatCheck": "biome format .",
     "typecheck": "tsc --noEmit",
     "typecheck:native": "tsgo --noEmit",
-    "lint": "eslint ."
+    "lint": "biome lint ."
   },
   "dependencies": {
     "@better-auth/api-key": "^1.6.19",

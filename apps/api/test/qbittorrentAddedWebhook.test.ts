@@ -115,8 +115,9 @@ mock.module("@rawkoon/api/services/qbittorrent/config", () => ({
     }),
 }));
 
-const realQbClient =
-  await import("@rawkoon/api/services/qbittorrent/clientFetch");
+const realQbClient = await import(
+  "@rawkoon/api/services/qbittorrent/clientFetch"
+);
 mock.module("@rawkoon/api/services/qbittorrent/clientFetch", () => ({
   ...realQbClient,
   qbFetchJson: (_cfg: unknown, url: string): Promise<unknown> => {

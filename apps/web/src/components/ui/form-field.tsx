@@ -56,7 +56,8 @@ export const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(
 );
 FormInput.displayName = "FormInput";
 
-interface FormTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+interface FormTextareaProps
+  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
   error?: string;
   required?: boolean;
