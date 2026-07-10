@@ -23,21 +23,6 @@ downloads through qBittorrent, and tracks the library from one web UI.
 
 📖 **Live documentation: [samlo.cloud/rawkoon](https://samlo.cloud/rawkoon)**
 
-The documentation site is in [docs/](docs/). It is organized by audience:
-
-- **Use Rawkoon** — [Getting started](docs/getting-started.md) for the
-  day-to-day media workflow on a running instance.
-- **Self-host Rawkoon** — [Self-hosting](docs/self-hosting.md) to install and
-  configure your instance, plus [Integrations](docs/integrations.md) and
-  [Deployment and recovery](docs/deployment.md).
-- **Development** — [Architecture](docs/architecture.md) and
-  [Contributing](docs/development/contributing.md).
-
-To run the documentation site locally:
-
-    bun install
-    bun run docs:dev
-
 ## Run Rawkoon
 
     cp docker-compose.prod-example.yml docker-compose.prod.yml
