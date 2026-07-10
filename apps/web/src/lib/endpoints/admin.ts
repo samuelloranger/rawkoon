@@ -1,5 +1,4 @@
 export const ADMIN_ENDPOINTS = {
-  EXPORT: "/api/admin/export",
   TRIGGER_ACTION: "/api/admin/trigger-action",
   SCHEDULED_JOBS: "/api/admin/scheduled-jobs",
   LIBRARY_HEALTH: "/api/admin/library-health",

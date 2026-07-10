@@ -730,23 +730,6 @@
       "title": "Activité",
       "description": "Parcourez l’activité paginée du foyer avec des filtres."
     },
-    "dataExport": {
-      "title": "Export/Import",
-      "description": "Exporter et importer les données de l'application. Les identifiants utilisateur sont remplacés par des e-mails pour la portabilité.",
-      "exportTitle": "Exporter les données",
-      "exportDescription": "Télécharger toutes les données de l'application sous forme de fichier JSON. Les identifiants utilisateur seront remplacés par des adresses e-mail.",
-      "exportButton": "Exporter les données",
-      "exporting": "Exportation...",
-      "exportSuccess": "Données exportées avec succès",
-      "exportError": "Échec de l'exportation des données. Veuillez réessayer.",
-      "importTitle": "Importer les données",
-      "importDescription": "Téléverser un fichier JSON pour importer des données. Les e-mails utilisateur seront résolus en identifiants utilisateur. Les enregistrements avec des utilisateurs manquants seront ignorés.",
-      "importButton": "Importer les données",
-      "importing": "Importation...",
-      "importError": "Échec de l'importation des données. Veuillez vérifier le format du fichier et réessayer.",
-      "importSummary": "Importé : {{chores}} tâches, {{reminders}} rappels, {{taskCompletions}} complétions de tâches.",
-      "importWarnings": "{{count}} avertissement(s) survenu(s) lors de l'importation. Consultez la console pour plus de détails."
-    },
     "media": {
       "title": "Médias",
       "description": "Configurez les profils de qualité, le post-traitement de la bibliothèque, l'historique média et les imports.",

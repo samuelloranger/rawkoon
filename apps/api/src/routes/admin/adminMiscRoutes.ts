@@ -2,7 +2,6 @@ import { Elysia, t } from "elysia";
 import { UAParser } from "ua-parser-js";
 import { prisma } from "@rawkoon/api/db";
 import { requireAdmin } from "@rawkoon/api/middleware/auth";
-import { formatIso } from "@rawkoon/api/utils";
 import { badRequest, serverError } from "@rawkoon/api/errors";
 
 export const adminMiscRoutes = new Elysia()
@@ -140,16 +139,4 @@ export const adminMiscRoutes = new Elysia()
       }
     },
     { params: t.Object({ id: t.String() }) },
-  )
-
-  // GET /api/admin/export - Export all data
-  .get("/export", async ({ set }) => {
-    try {
-      return {
-        exported_at: formatIso(new Date()),
-      };
-    } catch (error) {
-      console.error("Error exporting data:", error);
-      return serverError(set, "Failed to export data");
-    }
-  });
+  );

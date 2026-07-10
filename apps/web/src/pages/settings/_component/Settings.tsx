@@ -3,7 +3,6 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { ProfileTab } from "@/pages/settings/_component/ProfileTab";
 import { NotificationsTab } from "@/pages/settings/_component/NotificationsTab";
 import { IntegrationsTab } from "@/pages/settings/_component/IntegrationsTab";
-import { DataExportTab } from "@/pages/settings/_component/DataExportTab";
 import { UsersTab } from "@/pages/settings/_component/UsersTab";
 import { JobsTab } from "@/pages/settings/_component/JobsTab";
 import { MediaSettingsTab } from "@/pages/settings/_component/MediaSettingsTab";
@@ -21,7 +20,6 @@ import {
   Bell,
   Puzzle,
   Users,
-  Database,
   Clock,
   ShieldCheck,
   History,
@@ -41,7 +39,6 @@ export type Tab =
   | "integrations"
   | "general"
   | "sso"
-  | "data-export"
   | "jobs"
   | "users"
   | "sessions"
@@ -111,11 +108,6 @@ export function Settings() {
           id: "media",
           label: t("settings.media.title"),
           icon: Clapperboard,
-        },
-        {
-          id: "data-export",
-          label: t("settings.dataExport.title"),
-          icon: Database,
         },
         {
           id: "releases",
@@ -219,9 +211,6 @@ export function Settings() {
             <GeneralSettingsTab />
           )}
           {activeTab === "sso" && currentUser?.is_admin && <OidcProvidersTab />}
-          {activeTab === "data-export" && currentUser?.is_admin && (
-            <DataExportTab />
-          )}
           {activeTab === "users" && currentUser?.is_admin && <UsersTab />}
           {activeTab === "sessions" && currentUser?.is_admin && <SessionsTab />}
           {activeTab === "api-keys" && currentUser?.is_admin && <ApiKeysTab />}
