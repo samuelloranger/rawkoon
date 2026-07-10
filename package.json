@@ -7,6 +7,9 @@
     "install:all": "bun install",
     "build": "bun run build:web",
     "build:web": "bun run --filter @rawkoon/web build",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
     "dev": "bun run --workspaces --if-present dev",
     "dev:api": "bun run --filter @rawkoon/api dev",
     "dev:web": "bun run --filter @rawkoon/web dev",
@@ -29,6 +32,7 @@
     "db:migrate:push": "bun run --filter @rawkoon/api db:push",
     "db:generate": "bun run --filter @rawkoon/api db:generate",
     "db:studio": "bun run --filter @rawkoon/api db:studio",
+    "rotate-secret": "bun run --filter @rawkoon/api rotate-secret",
     "db:refresh-collation": "sh -c 'DB_NAME=${DB_NAME:-rawkoon}; DB_USER=${DB_USER:-rawkoon}; echo \"Refreshing template1 collation version...\"; docker compose exec -T db psql -U \"$DB_USER\" -d postgres -c \"ALTER DATABASE template1 REFRESH COLLATION VERSION;\"; echo \"Refreshing database collation version for database: $DB_NAME...\"; docker compose exec -T db psql -U \"$DB_USER\" -d postgres -c \"ALTER DATABASE $DB_NAME REFRESH COLLATION VERSION;\"; echo \"Done.\"'",
     "prepare": "husky"
   },
@@ -42,7 +46,8 @@
     "elysia": "^1.4.29",
     "husky": "^9.1.7",
     "knip": "^6.17.1",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitepress": "1.6.4"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.0",

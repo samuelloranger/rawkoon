@@ -55,6 +55,36 @@ export function useLogin() {
   });
 }
 
+export function useSetupStatus() {
+  const fetcher = useFetcher();
+
+  return useQuery({
+    queryKey: queryKeys.auth.setupStatus(),
+    queryFn: () =>
+      fetcher<{ needs_setup: boolean }>(AUTH_ENDPOINTS.SETUP_STATUS),
+    staleTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useSignUp() {
+  const fetcher = useFetcher();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { email: string; password: string; name: string }) =>
+      fetcher<{ user: unknown; token: unknown }>(AUTH_ENDPOINTS.SIGN_UP, {
+        method: "POST",
+        body: data,
+      }),
+    onSuccess: () => {
+      resetUserCache();
+      queryClient.invalidateQueries({ queryKey: queryKeys.auth.all });
+    },
+  });
+}
+
 export function useValidateInvitation(token: string) {
   const fetcher = useFetcher();
 

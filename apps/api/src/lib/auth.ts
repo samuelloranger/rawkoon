@@ -7,6 +7,7 @@ import { prisma } from "@rawkoon/api/db";
 import { getBaseUrl, loadConfig } from "@rawkoon/api/config";
 import { decrypt } from "@rawkoon/api/services/crypto";
 import { hashPassword, verifyPassword } from "@rawkoon/api/utils/password";
+import { resolveFirstSignup } from "@rawkoon/api/lib/firstSignup";
 
 const config = loadConfig();
 const authSecret = config.BETTER_AUTH_SECRET || config.SECRET_KEY;
@@ -62,7 +63,21 @@ async function loadOidcProviders(): Promise<OidcConfig[]> {
     });
     return providers
       .map((p) => {
-        const clientSecret = p.clientSecret ? decrypt(p.clientSecret) : "";
+        let clientSecret = "";
+        if (p.clientSecret) {
+          try {
+            clientSecret = decrypt(p.clientSecret);
+          } catch (error) {
+            // Fail closed per-provider: SECRET_KEY likely changed. Skip this
+            // provider (don't take down the others) and surface the reason.
+            console.error(
+              `[auth] failed to decrypt client secret for OIDC provider "${p.slug}" — skipping it until re-saved: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+            return null;
+          }
+        }
         if (!clientSecret) return null;
         return {
           providerId: p.slug,
@@ -132,7 +147,10 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    disableSignUp: true,
+    // Sign-up stays reachable but is gated by the user.create hook below: only
+    // the first account (empty database) is allowed through, and it becomes the
+    // administrator. Every later sign-up is rejected there.
+    disableSignUp: false,
     revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, url }) => {
       // Never log the reset URL/token outside local development: it grants
@@ -176,6 +194,40 @@ export const auth = betterAuth({
   ],
   trustedOrigins: [process.env.CORS_ORIGIN || "http://localhost:5173", baseURL],
   databaseHooks: {
+    user: {
+      create: {
+        // First account through better-auth becomes admin; later public
+        // sign-ups are rejected. Admin-created users use a direct Prisma write
+        // (adminUserRoutes) and never reach this hook.
+        before: async (user) => {
+          const existingUserCount = await prisma.user.count();
+          return resolveFirstSignup(user, existingUserCount);
+        },
+      },
+    },
+    account: {
+      create: {
+        // Better Auth stores the credential password on the account row; the
+        // app mirrors it in User.passwordHash (read by the profile password
+        // change route). Backfill it when a credential account is created via
+        // sign-up. Admin-created users write both columns directly and never
+        // reach this hook.
+        after: async (account) => {
+          if (account.providerId !== "credential" || !account.password) return;
+          await prisma.user
+            .update({
+              where: { id: account.userId },
+              data: { passwordHash: account.password },
+            })
+            .catch((err) => {
+              console.error(
+                "[auth] failed to backfill User.passwordHash after sign-up:",
+                err,
+              );
+            });
+        },
+      },
+    },
     session: {
       create: {
         after: async (session, ctx) => {
