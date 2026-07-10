@@ -40,8 +40,6 @@ jobs:
       REDIS_PORT: '6379'
       SECRET_KEY: ci-screenshot-secret-key-0123456789abcdef
       BETTER_AUTH_SECRET: ci-screenshot-auth-secret-0123456789abcdef
-      ALLOWED_EMAILS: demo@rawkoon.app
-      ADMIN_EMAILS: demo@rawkoon.app
       BASE_URL: http://localhost:3000
       CORS_ORIGIN: http://localhost:3000
       API_PORT: '3000'

@@ -85,7 +85,23 @@ export class JackettAdapter implements IndexerManagerAdapter {
       signal: AbortSignal.timeout(45_000),
     }).catch(() => null);
 
-    if (!res?.ok) return { releases: [], indexerWarnings: [] };
+    // Surface a whole-Jackett connectivity/auth failure as a warning so it
+    // reaches the UI instead of looking like an empty (but successful) search.
+    if (!res) {
+      console.error(
+        `[JackettAdapter] search could not reach Jackett at ${this.config.website_url}`,
+      );
+      return { releases: [], indexerWarnings: [this.connectionWarning(null)] };
+    }
+    if (!res.ok) {
+      console.error(
+        `[JackettAdapter] search returned HTTP ${res.status} from ${this.config.website_url}`,
+      );
+      return {
+        releases: [],
+        indexerWarnings: [this.connectionWarning(res.status)],
+      };
+    }
 
     const body = (await res.json().catch(() => null)) as unknown;
     const record =
@@ -133,6 +149,17 @@ export class JackettAdapter implements IndexerManagerAdapter {
     }
 
     return { releases, indexerWarnings };
+  }
+
+  /** Build a UI-visible warning for a whole-Jackett connectivity/auth failure. */
+  private connectionWarning(status: number | null): IndexerWarning {
+    const auth = status === 401 || status === 403;
+    const error = auth
+      ? `Jackett rejected the request (HTTP ${status}) — check the API key in Settings.`
+      : status != null
+        ? `Jackett returned HTTP ${status} — check the Jackett server.`
+        : `Could not reach Jackett at ${this.config.website_url} — check that it is running and the URL is correct.`;
+    return { id: "jackett-connection", name: "Jackett", error };
   }
 
   async getIndexers(): Promise<NormalizedIndexer[]> {

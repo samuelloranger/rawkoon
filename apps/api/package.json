@@ -23,6 +23,7 @@
     "library:check-integrity:persist": "bun --env-file=../../.env src/scripts/checkLibraryIntegrity.ts --persist",
     "library:refresh-titles": "bun --env-file=../../.env src/scripts/refreshLibraryTitlesFromTmdb.ts",
     "library:refresh-titles:apply": "bun --env-file=../../.env src/scripts/refreshLibraryTitlesFromTmdb.ts --apply",
+    "rotate-secret": "bun --env-file=../../.env src/scripts/rotateSecret.ts",
     "postinstall": "prisma generate",
     "format": "biome format --write .",
     "formatCheck": "biome format .",

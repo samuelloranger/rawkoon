@@ -16,8 +16,16 @@ const normalizeSecret = (value: unknown): string => {
 
   try {
     return decrypt(trimmed).trim();
-  } catch {
-    return trimmed;
+  } catch (error) {
+    // A stored secret failed to decrypt (SECRET_KEY likely changed). Fail
+    // closed: return empty so the integration normalizes to null and shows as
+    // unconfigured, instead of using ciphertext as the key and failing silently.
+    console.error(
+      `[integrations] failed to decrypt a stored secret — integration will be treated as unconfigured until re-saved: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return "";
   }
 };
 

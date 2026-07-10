@@ -1,7 +1,3 @@
-export interface ExportDataResponse {
-  exported_at: string;
-}
-
 export interface TriggerActionResponse {
   success: boolean;
   message: string;

@@ -341,6 +341,14 @@
     "passwordNeedsSpecialChar": "Password must contain at least one special character",
     "signInWith": "Sign in with {{provider}}"
   },
+  "setup": {
+    "title": "Set up Rawkoon",
+    "subtitle": "Create the administrator account for this instance",
+    "name": "Name",
+    "nameRequired": "Name is required",
+    "createButton": "Create administrator",
+    "failed": "Could not create the administrator account"
+  },
   "acceptInvitation": {
     "title": "Accept Your Invitation",
     "description": "Complete your account setup to join Rawkoon.",
@@ -729,23 +737,6 @@
     "activity": {
       "title": "Activity",
       "description": "Browse the paginated household activity feed with filters."
-    },
-    "dataExport": {
-      "title": "Export/Import",
-      "description": "Export and import application data. User IDs are replaced with emails for portability.",
-      "exportTitle": "Export Data",
-      "exportDescription": "Download all application data as a JSON file. User IDs will be replaced with email addresses.",
-      "exportButton": "Export Data",
-      "exporting": "Exporting...",
-      "exportSuccess": "Data exported successfully!",
-      "exportError": "Failed to export data. Please try again.",
-      "importTitle": "Import Data",
-      "importDescription": "Upload a JSON file to import data. User emails will be resolved to user IDs. Records with missing users will be skipped.",
-      "importButton": "Import Data",
-      "importing": "Importing...",
-      "importError": "Failed to import data. Please check the file format and try again.",
-      "importSummary": "Imported: {{chores}} chores, {{reminders}} reminders, {{taskCompletions}} task completions.",
-      "importWarnings": "{{count}} warning(s) occurred during import. Check console for details."
     },
     "media": {
       "title": "Media",

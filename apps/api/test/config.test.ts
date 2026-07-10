@@ -14,23 +14,6 @@ describe("Config", () => {
   });
 
   describe("loadConfig", () => {
-    it("should parse comma-separated admin emails", () => {
-      Bun.env.ADMIN_EMAILS = "admin1@test.com, admin2@test.com";
-      const config = loadConfig();
-      expect(config.ADMIN_EMAILS).toEqual([
-        "admin1@test.com",
-        "admin2@test.com",
-      ]);
-    });
-
-    it("should return empty array when no emails configured", () => {
-      delete Bun.env.ADMIN_EMAILS;
-      delete Bun.env.ALLOWED_EMAILS;
-      const config = loadConfig();
-      expect(config.ADMIN_EMAILS).toEqual([]);
-      expect(config.ALLOWED_EMAILS).toEqual([]);
-    });
-
     it("should default IMAGE_STORAGE_DIR to ./data/images", () => {
       delete Bun.env.IMAGE_STORAGE_DIR;
       const config = loadConfig();

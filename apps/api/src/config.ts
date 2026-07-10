@@ -1,16 +1,5 @@
 import { z } from "zod/v4";
 
-const commaSeparatedEmails = z
-  .string()
-  .optional()
-  .default("")
-  .transform((v) =>
-    v
-      .split(",")
-      .map((e) => e.trim())
-      .filter(Boolean),
-  );
-
 const portNumber = z.coerce.number().int().min(1).max(65535);
 const githubRepoFullName = z
   .string()
@@ -73,10 +62,6 @@ const envSchema = z.object({
 
   // ── Image Storage ─────────────────────────────────────
   IMAGE_STORAGE_DIR: z.string().optional().default("./data/images"),
-
-  // ── Access Control ────────────────────────────────────
-  ALLOWED_EMAILS: commaSeparatedEmails,
-  ADMIN_EMAILS: commaSeparatedEmails,
 
   // ── Web Push (VAPID) ──────────────────────────────────
   VAPID_PUBLIC_KEY: z.string().optional(),

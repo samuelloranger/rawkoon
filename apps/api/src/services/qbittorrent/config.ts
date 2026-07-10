@@ -20,8 +20,15 @@ export const normalizeQbittorrentConfig = (
   if (password) {
     try {
       password = decrypt(password);
-    } catch {
-      // Keep legacy plaintext values working until they are re-saved.
+    } catch (error) {
+      // Fail closed: SECRET_KEY likely changed. Drop the value so qBittorrent
+      // reads as unconfigured rather than authenticating with ciphertext.
+      console.error(
+        `[qbittorrent] failed to decrypt stored password — treating qBittorrent as unconfigured until re-saved: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      password = null;
     }
   }
   if (!websiteUrl || !username || !password) return null;
@@ -30,8 +37,13 @@ export const normalizeQbittorrentConfig = (
   if (webhookSecret) {
     try {
       webhookSecret = decrypt(webhookSecret);
-    } catch {
-      // Keep legacy plaintext values working until they are re-saved.
+    } catch (error) {
+      console.error(
+        `[qbittorrent] failed to decrypt stored webhook secret — dropping it until re-saved: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      webhookSecret = null;
     }
   }
 

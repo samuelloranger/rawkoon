@@ -1,6 +1,8 @@
 export const AUTH_ENDPOINTS = {
   ME: "/api/auth/me",
   LOGIN: "/api/auth/sign-in/email",
+  SIGN_UP: "/api/auth/sign-up/email",
+  SETUP_STATUS: "/api/auth/setup-status",
   LOGOUT: "/api/auth/sign-out",
   FORGOT_PASSWORD: "/api/auth/forget-password",
   RESET_PASSWORD: "/api/auth/reset-password",
