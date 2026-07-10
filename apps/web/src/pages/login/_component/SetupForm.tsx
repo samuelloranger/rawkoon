@@ -67,7 +67,9 @@ export function SetupForm() {
             placeholder={t("setup.name")}
           />
           {errors.name && (
-            <p className="mt-1 text-sm text-red-400">{t("setup.nameRequired")}</p>
+            <p className="mt-1 text-sm text-red-400">
+              {t("setup.nameRequired")}
+            </p>
           )}
         </div>
 
