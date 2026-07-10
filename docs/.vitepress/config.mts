@@ -6,6 +6,7 @@ export default defineConfig({
   base: process.env.GITHUB_ACTIONS === "true" ? "/rawkoon/" : "/",
   title: "Rawkoon",
   description: "Self-hosted movie and TV library documentation",
+  sitemap: { hostname: "https://samlo.cloud/rawkoon/" },
   cleanUrls: true,
   appearance: false,
   vite: {

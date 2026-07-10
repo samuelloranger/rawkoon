@@ -21,6 +21,8 @@ downloads through qBittorrent, and tracks the library from one web UI.
 
 ## Start here
 
+📖 **Live documentation: [samlo.cloud/rawkoon](https://samlo.cloud/rawkoon)**
+
 The documentation site is in [docs/](docs/). It is organized by audience:
 
 - **Use Rawkoon** — [Getting started](docs/getting-started.md) for the
