@@ -205,6 +205,29 @@ export const auth = betterAuth({
         },
       },
     },
+    account: {
+      create: {
+        // Better Auth stores the credential password on the account row; the
+        // app mirrors it in User.passwordHash (read by the profile password
+        // change route). Backfill it when a credential account is created via
+        // sign-up. Admin-created users write both columns directly and never
+        // reach this hook.
+        after: async (account) => {
+          if (account.providerId !== "credential" || !account.password) return;
+          await prisma.user
+            .update({
+              where: { id: account.userId },
+              data: { passwordHash: account.password },
+            })
+            .catch((err) => {
+              console.error(
+                "[auth] failed to backfill User.passwordHash after sign-up:",
+                err,
+              );
+            });
+        },
+      },
+    },
     session: {
       create: {
         after: async (session, ctx) => {

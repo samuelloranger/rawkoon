@@ -36,6 +36,12 @@ export const publicAuthRoutes = new Elysia({ name: "auth/public" })
     },
     { query: t.Object({ token: t.String() }) },
   )
+  // Public: tells the login screen whether this is a fresh instance with no
+  // accounts yet, so it can show the first-run "create administrator" form.
+  .get("/api/auth/setup-status", async () => {
+    const userCount = await prisma.user.count();
+    return { needs_setup: userCount === 0 };
+  })
   .post(
     "/api/auth/accept-invitation",
     async ({ body, request, set }) => {

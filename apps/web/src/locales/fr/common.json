@@ -341,6 +341,14 @@
     "passwordNeedsSpecialChar": "Le mot de passe doit contenir au moins un caractère spécial",
     "signInWith": "Se connecter avec {{provider}}"
   },
+  "setup": {
+    "title": "Configurer Rawkoon",
+    "subtitle": "Créez le compte administrateur de cette instance",
+    "name": "Nom",
+    "nameRequired": "Le nom est requis",
+    "createButton": "Créer l'administrateur",
+    "failed": "Impossible de créer le compte administrateur"
+  },
   "acceptInvitation": {
     "title": "Accepter votre invitation",
     "description": "Finalisez la création de votre compte pour rejoindre Rawkoon.",

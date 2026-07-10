@@ -6,6 +6,7 @@ export const queryKeys = {
     passkeyCredentials: ["auth", "passkey-credentials"] as const,
     validateInvitation: (token: string) =>
       [...queryKeys.auth.all, "validate-invitation", token] as const,
+    setupStatus: () => [...queryKeys.auth.all, "setup-status"] as const,
     ssoProviders: () => [...queryKeys.auth.all, "sso-providers"] as const,
     oidcProviders: () => [...queryKeys.auth.all, "oidc-providers"] as const,
   },

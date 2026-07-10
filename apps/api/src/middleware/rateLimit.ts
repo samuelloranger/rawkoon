@@ -28,8 +28,8 @@ export const globalRateLimit = rateLimit({
 });
 
 /**
- * Strict rate limiting configuration for auth routes (sign-in, invitation)
- * Default: 30 requests per hour per IP.
+ * Strict rate limiting configuration for auth routes (sign-in, sign-up,
+ * invitation). Default: 30 requests per hour per IP.
  */
 export const strictAuthRateLimit = rateLimit({
   duration: 60 * 60 * 1000,
@@ -38,8 +38,9 @@ export const strictAuthRateLimit = rateLimit({
     const url = new URL(req.url);
     const path = url.pathname;
     const isSignIn = path.startsWith("/api/auth/sign-in");
+    const isSignUp = path.startsWith("/api/auth/sign-up");
     const isAcceptInvitation = path === "/api/auth/accept-invitation";
-    return !(isSignIn || isAcceptInvitation);
+    return !(isSignIn || isSignUp || isAcceptInvitation);
   },
   generator: (req) =>
     `ip_auth:${req.headers.get("x-forwarded-for")?.split(",")[0].trim() || req.headers.get("x-real-ip") || "unknown"}`,
