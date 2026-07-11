@@ -20,7 +20,10 @@ const VALID_SORT_BY = new Set<LibrarySortBy>([
   "file_size",
 ]);
 
-const AGGREGATE_SORTS = new Set<LibrarySortBy>(["file_size", "last_grabbed_at"]);
+const AGGREGATE_SORTS = new Set<LibrarySortBy>([
+  "file_size",
+  "last_grabbed_at",
+]);
 
 export function isAggregateSort(sortBy: LibrarySortBy): boolean {
   return AGGREGATE_SORTS.has(sortBy);
@@ -118,7 +121,5 @@ export function reorderByIds<T extends { id: number }>(
   orderedIds: number[],
 ): T[] {
   const byId = new Map(records.map((r) => [r.id, r]));
-  return orderedIds
-    .map((id) => byId.get(id))
-    .filter((r): r is T => r != null);
+  return orderedIds.map((id) => byId.get(id)).filter((r): r is T => r != null);
 }
