@@ -2,8 +2,8 @@
   "nav": {
     "dashboard": "Home",
     "chores": "Chores",
-    "explore": "Explore",
-    "discover": "Discover",
+    "explore": "Browse",
+    "discover": "For You",
     "habits": "Habits",
     "library": "Library",
     "requests": "Requests",
@@ -1228,7 +1228,7 @@
       "showsWithCount": "Shows ({{count}})",
       "statusAll": "All",
       "statusDownloaded": "Downloaded",
-      "statusWanted": "Wanted",
+      "statusWanted": "Missing",
       "statusDownloading": "Downloading",
       "languageAll": "All languages",
       "reindexLanguagesButton": "Re-index languages",
@@ -1248,15 +1248,15 @@
       "digitalRelease": "Digital {{date}}",
       "sort": {
         "added_at": "Date added",
-        "last_grabbed_at": "Last grab",
+        "last_grabbed_at": "Last download started",
         "title": "Title",
         "year": "Year",
         "status": "Status",
-        "digital_release_date": "Release Date",
-        "file_size": "File Size"
+        "digital_release_date": "Digital release",
+        "file_size": "File size"
       },
       "itemStatus": {
-        "wanted": "Wanted",
+        "wanted": "Missing",
         "downloading": "Downloading",
         "downloaded": "Downloaded",
         "skipped": "Skipped",
@@ -1290,7 +1290,7 @@
       "needsUpgrade": "Needs Upgrade",
       "episodesMissing_one": "{{count}} ep missing",
       "episodesMissing_other": "{{count}} eps missing",
-      "downloadsImport": "Downloads import"
+      "downloadsImport": "Import downloads"
     },
     "watchlist": {
       "pageTitle": "Watchlist",
