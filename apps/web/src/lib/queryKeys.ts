@@ -255,6 +255,14 @@ export const queryKeys = {
       q?: string;
       language?: string;
     }) => [...queryKeys.library.all, "list", filters] as const,
+    infinite: (filters?: {
+      type?: string;
+      status?: string;
+      q?: string;
+      language?: string;
+      sortBy?: string;
+      sortDir?: string;
+    }) => [...queryKeys.library.all, "infinite", filters] as const,
     item: (id: number) => [...queryKeys.library.all, "item", id] as const,
     recentlyAdded: (limit: number) =>
       [...queryKeys.library.all, "recently-added", limit] as const,

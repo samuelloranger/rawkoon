@@ -239,3 +239,43 @@ export async function fetchModalLibraryEpisodes(
     })),
   };
 }
+
+export const EXPLORE_BASE_CACHE_TTL = 15 * 60;
+
+export function exploreBaseCacheKey(language: string, region: string): string {
+  return `medias:explore:base:${language}:${region}`;
+}
+
+export interface ExploreBaseSections {
+  trending: unknown[];
+  popular_movies: unknown[];
+  popular_shows: unknown[];
+  upcoming_movies: unknown[];
+  now_playing: unknown[];
+  airing_today: unknown[];
+  on_the_air: unknown[];
+  top_rated_movies: unknown[];
+  top_rated_shows: unknown[];
+}
+
+/**
+ * Redis get-or-fetch for the raw TMDB Explore sections. The cached value is the
+ * external TMDB data only — never the enriched response — so callers must apply
+ * the current library membership map after this returns.
+ */
+export async function getExploreBaseSections(opts: {
+  cacheKey: string;
+  ttlSeconds: number;
+  skipCache: boolean;
+  getCache: <T>(key: string) => Promise<T | null>;
+  setCache: <T>(key: string, value: T, ttl: number) => Promise<void>;
+  fetchSections: () => Promise<ExploreBaseSections>;
+}): Promise<{ sections: ExploreBaseSections; cacheHit: boolean }> {
+  if (!opts.skipCache) {
+    const cached = await opts.getCache<ExploreBaseSections>(opts.cacheKey);
+    if (cached) return { sections: cached, cacheHit: true };
+  }
+  const sections = await opts.fetchSections();
+  await opts.setCache(opts.cacheKey, sections, opts.ttlSeconds);
+  return { sections, cacheHit: false };
+}
