@@ -13,17 +13,12 @@ import { toast } from "sonner";
 import { useLibraryNavigation } from "@/features/medias/context/LibraryNavigationContext";
 import { PageLayout } from "@/components/PageLayout";
 import { type SegmentedTabItem } from "@/components/ui/segmented-tabs";
-import { useLibrary } from "@/features/medias/hooks/useLibrary";
+import { useInfiniteLibrary } from "@/features/medias/hooks/useInfiniteLibrary";
 import { useLibraryLanguageTags } from "@/features/medias/hooks/useLibraryLanguageTags";
 import { useSearchLibraryMovie } from "@/features/medias/hooks/useSearchLibraryMovie";
 import { useLibraryEvents } from "@/features/medias/hooks/useLibraryEvents";
 import { useAuth } from "@/lib/auth/useAuth";
-import {
-  type FilterType,
-  type FilterStatus,
-  type SortDir,
-  sortItems,
-} from "@/utils/libraryUtils";
+import { type FilterType, type FilterStatus } from "@/utils/libraryUtils";
 import { LibraryPageHeader } from "./LibraryPageHeader";
 import { LibraryMobileFilterSheet } from "./LibraryMobileFilterSheet";
 import { TmdbSearchModal } from "./TmdbSearchModal";
@@ -68,12 +63,21 @@ export function LibraryPage() {
     viewMode,
   } = state;
 
-  // ─── Data fetch (server filters via query params) ──────────────────────────
-  const { data, isLoading, refetch } = useLibrary({
+  // ─── Data fetch (server filters + sort + pagination via query params) ───────
+  const {
+    data,
+    isLoading,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteLibrary({
     type: typeFilter !== "all" ? typeFilter : undefined,
     status: statusFilter !== "all" ? statusFilter : undefined,
     q: search || undefined,
     language: languageFilter !== "all" ? languageFilter : undefined,
+    sortBy,
+    sortDir,
   });
 
   const { data: languageTagsData } = useLibraryLanguageTags();
@@ -85,15 +89,11 @@ export function LibraryPage() {
     }
   }, [languageTags.length, languageFilter, setState]);
 
-  // ─── Pipeline: fetched items → sort ─────────────────────────────────────────
-  // Filtering is server-side (passed as query params to useLibrary above), so
-  // the client only sorts. The full sorted list is rendered via a virtualized
-  // continuous-scroll grid in LibraryGrid (no pagination).
-  const allItems = useMemo(() => data?.items ?? [], [data?.items]);
-
+  // Server returns already-sorted, already-filtered pages; the client only
+  // flattens the loaded pages into one list for the virtualized grid.
   const sorted = useMemo(
-    () => sortItems(allItems, sortBy, sortDir as SortDir),
-    [allItems, sortBy, sortDir],
+    () => data?.pages.flatMap((p) => p.items) ?? [],
+    [data?.pages],
   );
 
   const handleMovieSearch = (id: number) => {
@@ -109,8 +109,8 @@ export function LibraryPage() {
     );
   };
 
-  const movieCount = data?.movie_count ?? 0;
-  const showCount = data?.show_count ?? 0;
+  const movieCount = data?.pages[0]?.movie_count ?? 0;
+  const showCount = data?.pages[0]?.show_count ?? 0;
   const typeItems = [
     { id: "all", label: t("medias.library.typeAll") },
     {
@@ -197,6 +197,9 @@ export function LibraryPage() {
           onMovieSearch={handleMovieSearch}
           movieSearchPending={searchMovie.isPending}
           movieSearchId={searchMovie.variables?.id ?? null}
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          onLoadMore={() => fetchNextPage()}
         />
       </div>
 
