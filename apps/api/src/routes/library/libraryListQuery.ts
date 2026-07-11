@@ -21,13 +21,15 @@ const VALID_SORT_BY = new Set<LibrarySortBy>([
 ]);
 
 // Sorts that cannot be a plain column ORDER BY: file_size/last_grabbed_at are
-// aggregates over related rows, and title is display-derived (mapLibraryMedia
-// renders overrides.title over the raw column). All three are ordered in memory
-// over lightweight rows so the order matches what the user actually sees.
+// aggregates over related rows, and title/year are display-derived
+// (mapLibraryMedia renders overrides.title / overrides.year over the raw
+// columns). All four are ordered in memory over lightweight rows so the order
+// matches what the user actually sees.
 const AGGREGATE_SORTS = new Set<LibrarySortBy>([
   "file_size",
   "last_grabbed_at",
   "title",
+  "year",
 ]);
 
 export function isAggregateSort(sortBy: LibrarySortBy): boolean {
@@ -45,7 +47,7 @@ export function parseLibrarySort(
   return { sortBy: by, sortDir: dir };
 }
 
-// Non-null simple columns. (title is intentionally absent — it is
+// Non-null simple columns. (title/year are intentionally absent — they are
 // display-derived and ordered in memory; see AGGREGATE_SORTS.)
 const PLAIN_COLUMN: Partial<Record<LibrarySortBy, string>> = {
   added_at: "addedAt",
@@ -54,7 +56,6 @@ const PLAIN_COLUMN: Partial<Record<LibrarySortBy, string>> = {
 // Nullable simple columns → ordered nulls-last (matches the client's
 // null-last intent for these fields).
 const NULLABLE_COLUMN: Partial<Record<LibrarySortBy, string>> = {
-  year: "year",
   digital_release_date: "digitalReleaseDate",
 };
 
@@ -87,6 +88,8 @@ export interface AggregateSortRow {
   lastGrabbedAt: number | null;
   // Mapped (display) title — overrides.title when set, else the raw title.
   titleMapped: string;
+  // Mapped (display) year — overrides.year when set, else the raw year.
+  yearMapped: number | null;
 }
 
 export function orderAggregateIds(
@@ -114,6 +117,15 @@ export function orderAggregateIds(
     } else if (sortBy === "title") {
       // Match the client's localeCompare over the mapped (display) title.
       cmp = a.titleMapped.localeCompare(b.titleMapped);
+    } else if (sortBy === "year") {
+      // nulls always last, regardless of direction (matches the nulls-last
+      // convention used for other simple-column sorts in this route).
+      const aNull = a.yearMapped === null;
+      const bNull = b.yearMapped === null;
+      if (aNull && bNull) cmp = 0;
+      else if (aNull) return 1;
+      else if (bNull) return -1;
+      else cmp = a.yearMapped! - b.yearMapped!;
     } else {
       // last_grabbed_at: client treats null as epoch 0 (oldest).
       const aTime = a.lastGrabbedAt ?? 0;
