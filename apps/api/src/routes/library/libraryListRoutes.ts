@@ -95,6 +95,8 @@ export const libraryListRoutes = new Elysia()
               where: typedWhere,
               select: {
                 id: true,
+                title: true,
+                overrides: true,
                 files: { select: { sizeBytes: true } },
                 episodes: {
                   select: { files: { select: { sizeBytes: true } } },
@@ -111,11 +113,13 @@ export const libraryListRoutes = new Elysia()
               for (const f of r.files) total += f.sizeBytes;
               for (const ep of r.episodes)
                 for (const f of ep.files) total += f.sizeBytes;
+              const ov = (r.overrides ?? {}) as Record<string, unknown>;
               return {
                 id: r.id,
                 fileSizeTotal: total === 0n ? null : total,
                 lastGrabbedAt:
                   r.downloadHistories[0]?.grabbedAt.getTime() ?? null,
+                titleMapped: typeof ov.title === "string" ? ov.title : r.title,
               };
             });
             const orderedIds = orderAggregateIds(aggRows, sortBy, sortDir);

@@ -20,9 +20,14 @@ const VALID_SORT_BY = new Set<LibrarySortBy>([
   "file_size",
 ]);
 
+// Sorts that cannot be a plain column ORDER BY: file_size/last_grabbed_at are
+// aggregates over related rows, and title is display-derived (mapLibraryMedia
+// renders overrides.title over the raw column). All three are ordered in memory
+// over lightweight rows so the order matches what the user actually sees.
 const AGGREGATE_SORTS = new Set<LibrarySortBy>([
   "file_size",
   "last_grabbed_at",
+  "title",
 ]);
 
 export function isAggregateSort(sortBy: LibrarySortBy): boolean {
@@ -40,10 +45,10 @@ export function parseLibrarySort(
   return { sortBy: by, sortDir: dir };
 }
 
-// Non-null simple columns.
+// Non-null simple columns. (title is intentionally absent — it is
+// display-derived and ordered in memory; see AGGREGATE_SORTS.)
 const PLAIN_COLUMN: Partial<Record<LibrarySortBy, string>> = {
   added_at: "addedAt",
-  title: "title",
   status: "status",
 };
 // Nullable simple columns → ordered nulls-last (matches the client's
@@ -80,6 +85,8 @@ export interface AggregateSortRow {
   id: number;
   fileSizeTotal: bigint | null;
   lastGrabbedAt: number | null;
+  // Mapped (display) title — overrides.title when set, else the raw title.
+  titleMapped: string;
 }
 
 export function orderAggregateIds(
@@ -104,6 +111,9 @@ export function orderAggregateIds(
             : a.fileSizeTotal! > b.fileSizeTotal!
               ? 1
               : 0;
+    } else if (sortBy === "title") {
+      // Match the client's localeCompare over the mapped (display) title.
+      cmp = a.titleMapped.localeCompare(b.titleMapped);
     } else {
       // last_grabbed_at: client treats null as epoch 0 (oldest).
       const aTime = a.lastGrabbedAt ?? 0;
