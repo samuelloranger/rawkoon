@@ -9,8 +9,11 @@ import {
 import { getGlobalTmdbRegion } from "@rawkoon/api/utils/medias/tmdbRegion";
 import {
   enrichSearchItems,
+  EXPLORE_BASE_CACHE_TTL,
   EXPLORE_CATEGORY_PATHS,
+  exploreBaseCacheKey,
   fetchTmdbResults,
+  getExploreBaseSections,
   injectMediaType,
   libraryIdMapForTmdbIds,
   loadAllLibraryTmdbIds,
@@ -36,32 +39,53 @@ export const tmdbExploreRoutes = new Elysia()
       const fetchTmdb = (path: string, extra?: Record<string, string>) =>
         fetchTmdbResults(tmdbConfig.api_key, path, language, extra);
 
-      const [
-        trending,
-        popularMovies,
-        popularShows,
-        upcomingMovies,
-        nowPlaying,
-        airingToday,
-        onTheAir,
-        topRatedMovies,
-        topRatedShows,
-      ] = await Promise.all([
-        fetchTmdb("trending/all/day"),
-        fetchTmdb("movie/popular").then(injectMediaType("movie")),
-        fetchTmdb("tv/popular").then(injectMediaType("tv")),
-        fetchTmdb("movie/upcoming").then(injectMediaType("movie")),
-        fetchTmdb("movie/now_playing").then(injectMediaType("movie")),
-        fetchTmdb("tv/airing_today").then(injectMediaType("tv")),
-        fetchTmdb("tv/on_the_air").then(injectMediaType("tv")),
-        fetchTmdb("movie/top_rated").then(injectMediaType("movie")),
-        fetchTmdb("discover/tv", {
-          sort_by: "vote_average.desc",
-          with_origin_country: region,
-          "vote_count.gte": "200",
-          without_genres: "16",
-        }).then(injectMediaType("tv")),
-      ]);
+      const cacheKey = exploreBaseCacheKey(language, region);
+      const { sections } = await getExploreBaseSections({
+        cacheKey,
+        ttlSeconds: EXPLORE_BASE_CACHE_TTL,
+        skipCache,
+        getCache: getJsonCache,
+        setCache: setJsonCache,
+        fetchSections: async () => {
+          const [
+            trending,
+            popularMovies,
+            popularShows,
+            upcomingMovies,
+            nowPlaying,
+            airingToday,
+            onTheAir,
+            topRatedMovies,
+            topRatedShows,
+          ] = await Promise.all([
+            fetchTmdb("trending/all/day"),
+            fetchTmdb("movie/popular").then(injectMediaType("movie")),
+            fetchTmdb("tv/popular").then(injectMediaType("tv")),
+            fetchTmdb("movie/upcoming").then(injectMediaType("movie")),
+            fetchTmdb("movie/now_playing").then(injectMediaType("movie")),
+            fetchTmdb("tv/airing_today").then(injectMediaType("tv")),
+            fetchTmdb("tv/on_the_air").then(injectMediaType("tv")),
+            fetchTmdb("movie/top_rated").then(injectMediaType("movie")),
+            fetchTmdb("discover/tv", {
+              sort_by: "vote_average.desc",
+              with_origin_country: region,
+              "vote_count.gte": "200",
+              without_genres: "16",
+            }).then(injectMediaType("tv")),
+          ]);
+          return {
+            trending,
+            popular_movies: popularMovies,
+            popular_shows: popularShows,
+            upcoming_movies: upcomingMovies,
+            now_playing: nowPlaying,
+            airing_today: airingToday,
+            on_the_air: onTheAir,
+            top_rated_movies: topRatedMovies,
+            top_rated_shows: topRatedShows,
+          };
+        },
+      });
 
       const { libraryIdByTmdbId, allTmdbIds, movieTmdbIds, showTmdbIds } =
         await loadAllLibraryTmdbIds();
@@ -115,15 +139,15 @@ export const tmdbExploreRoutes = new Elysia()
       }
 
       return {
-        trending: normalize(trending),
-        popular_movies: normalize(popularMovies),
-        popular_shows: normalize(popularShows),
-        upcoming_movies: normalize(upcomingMovies),
-        now_playing: normalize(nowPlaying),
-        airing_today: normalize(airingToday),
-        on_the_air: normalize(onTheAir),
-        top_rated_movies: normalize(topRatedMovies),
-        top_rated_shows: normalize(topRatedShows),
+        trending: normalize(sections.trending),
+        popular_movies: normalize(sections.popular_movies),
+        popular_shows: normalize(sections.popular_shows),
+        upcoming_movies: normalize(sections.upcoming_movies),
+        now_playing: normalize(sections.now_playing),
+        airing_today: normalize(sections.airing_today),
+        on_the_air: normalize(sections.on_the_air),
+        top_rated_movies: normalize(sections.top_rated_movies),
+        top_rated_shows: normalize(sections.top_rated_shows),
         recommended,
       };
     } catch (error) {

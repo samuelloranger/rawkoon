@@ -45,6 +45,9 @@ interface LibraryGridProps {
   onMovieSearch: (id: number) => void;
   movieSearchPending: boolean;
   movieSearchId: number | null;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+  onLoadMore?: () => void;
 }
 
 export function LibraryGrid({
@@ -54,6 +57,9 @@ export function LibraryGrid({
   onMovieSearch,
   movieSearchPending,
   movieSearchId,
+  hasNextPage,
+  isFetchingNextPage,
+  onLoadMore,
 }: LibraryGridProps) {
   const { t } = useTranslation("common");
 
@@ -99,21 +105,36 @@ export function LibraryGrid({
     );
   }
 
-  return viewMode === "list" ? (
-    <VirtualList
-      items={items}
-      onMovieSearch={onMovieSearch}
-      movieSearchPending={movieSearchPending}
-      movieSearchId={movieSearchId}
-    />
-  ) : (
-    <VirtualGrid
-      items={items}
-      viewMode={viewMode}
-      onMovieSearch={onMovieSearch}
-      movieSearchPending={movieSearchPending}
-      movieSearchId={movieSearchId}
-    />
+  return (
+    <>
+      {viewMode === "list" ? (
+        <VirtualList
+          items={items}
+          onMovieSearch={onMovieSearch}
+          movieSearchPending={movieSearchPending}
+          movieSearchId={movieSearchId}
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          onLoadMore={onLoadMore}
+        />
+      ) : (
+        <VirtualGrid
+          items={items}
+          viewMode={viewMode}
+          onMovieSearch={onMovieSearch}
+          movieSearchPending={movieSearchPending}
+          movieSearchId={movieSearchId}
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          onLoadMore={onLoadMore}
+        />
+      )}
+      {isFetchingNextPage && (
+        <div className="flex justify-center py-4 text-sm text-neutral-400">
+          {t("common.loading", { defaultValue: "Loading…" })}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -141,6 +162,9 @@ interface VirtualGridProps {
   onMovieSearch: (id: number) => void;
   movieSearchPending: boolean;
   movieSearchId: number | null;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+  onLoadMore?: () => void;
 }
 
 function VirtualGrid({
@@ -149,6 +173,9 @@ function VirtualGrid({
   onMovieSearch,
   movieSearchPending,
   movieSearchId,
+  hasNextPage,
+  isFetchingNextPage,
+  onLoadMore,
 }: VirtualGridProps) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(0);
@@ -193,6 +220,20 @@ function VirtualGrid({
     rowVirtualizer.measure();
   }, [columns, rowVirtualizer]);
 
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  useEffect(() => {
+    const last = virtualRows[virtualRows.length - 1];
+    if (!last) return;
+    if (
+      last.index >= rowCount - 1 &&
+      hasNextPage &&
+      !isFetchingNextPage &&
+      onLoadMore
+    ) {
+      onLoadMore();
+    }
+  }, [virtualRows, rowCount, hasNextPage, isFetchingNextPage, onLoadMore]);
+
   return (
     <div ref={parentRef} className="animate-in fade-in duration-300">
       <div
@@ -202,7 +243,7 @@ function VirtualGrid({
           width: "100%",
         }}
       >
-        {rowVirtualizer.getVirtualItems().map((vrow) => {
+        {virtualRows.map((vrow) => {
           const start = vrow.index * columns;
           const rowItems = items.slice(start, start + columns);
           return (
@@ -252,6 +293,9 @@ interface VirtualListProps {
   onMovieSearch: (id: number) => void;
   movieSearchPending: boolean;
   movieSearchId: number | null;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+  onLoadMore?: () => void;
 }
 
 function VirtualList({
@@ -259,6 +303,9 @@ function VirtualList({
   onMovieSearch,
   movieSearchPending,
   movieSearchId,
+  hasNextPage,
+  isFetchingNextPage,
+  onLoadMore,
 }: VirtualListProps) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const scrollMargin = useScrollMargin(parentRef);
@@ -271,6 +318,20 @@ function VirtualList({
     getItemKey: (index) => items[index]!.id,
   });
 
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  useEffect(() => {
+    const last = virtualRows[virtualRows.length - 1];
+    if (!last) return;
+    if (
+      last.index >= items.length - 1 &&
+      hasNextPage &&
+      !isFetchingNextPage &&
+      onLoadMore
+    ) {
+      onLoadMore();
+    }
+  }, [virtualRows, items.length, hasNextPage, isFetchingNextPage, onLoadMore]);
+
   return (
     <div ref={parentRef} className="animate-in fade-in duration-300">
       <div
@@ -280,7 +341,7 @@ function VirtualList({
           width: "100%",
         }}
       >
-        {rowVirtualizer.getVirtualItems().map((vrow) => {
+        {virtualRows.map((vrow) => {
           const item = items[vrow.index]!;
           return (
             <div

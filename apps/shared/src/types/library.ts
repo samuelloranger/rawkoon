@@ -108,6 +108,7 @@ export interface LibraryListResponse {
   items: LibraryMedia[];
   movie_count: number;
   show_count: number;
+  has_more: boolean;
 }
 
 export interface AddToLibraryResponse {
