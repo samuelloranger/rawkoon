@@ -96,6 +96,7 @@ export const libraryListRoutes = new Elysia()
               select: {
                 id: true,
                 title: true,
+                year: true,
                 overrides: true,
                 files: { select: { sizeBytes: true } },
                 episodes: {
@@ -120,6 +121,7 @@ export const libraryListRoutes = new Elysia()
                 lastGrabbedAt:
                   r.downloadHistories[0]?.grabbedAt.getTime() ?? null,
                 titleMapped: typeof ov.title === "string" ? ov.title : r.title,
+                yearMapped: typeof ov.year === "number" ? ov.year : r.year,
               };
             });
             const orderedIds = orderAggregateIds(aggRows, sortBy, sortDir);

@@ -7,7 +7,7 @@ import type {
   ViewMode,
 } from "@/utils/libraryUtils";
 
-const LIBRARY_DEFAULTS = {
+export const LIBRARY_DEFAULTS = {
   type: "all" as FilterType,
   status: "all" as FilterStatus,
   language: "all" as string,

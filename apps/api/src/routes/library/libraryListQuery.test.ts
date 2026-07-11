@@ -34,13 +34,15 @@ describe("isAggregateSort", () => {
   it("is true for in-memory (aggregate/display-derived) sorts", () => {
     expect(isAggregateSort("file_size")).toBe(true);
     expect(isAggregateSort("last_grabbed_at")).toBe(true);
-    // title is display-derived (overrides.title), so it is ordered in memory.
+    // title/year are display-derived (overrides.title/year), so they are
+    // ordered in memory.
     expect(isAggregateSort("title")).toBe(true);
+    expect(isAggregateSort("year")).toBe(true);
   });
   it("is false for plain-column sorts", () => {
     expect(isAggregateSort("added_at")).toBe(false);
     expect(isAggregateSort("status")).toBe(false);
-    expect(isAggregateSort("year")).toBe(false);
+    expect(isAggregateSort("digital_release_date")).toBe(false);
   });
 });
 
@@ -52,10 +54,6 @@ describe("buildSimpleOrderBy", () => {
     ]);
   });
   it("orders nullable columns nulls-last", () => {
-    expect(buildSimpleOrderBy("year", "desc")).toEqual([
-      { year: { sort: "desc", nulls: "last" } },
-      { id: "desc" },
-    ]);
     expect(buildSimpleOrderBy("digital_release_date", "asc")).toEqual([
       { digitalReleaseDate: { sort: "asc", nulls: "last" } },
       { id: "asc" },
@@ -70,6 +68,7 @@ describe("buildSimpleOrderBy", () => {
   it("throws for in-memory sorts", () => {
     expect(() => buildSimpleOrderBy("file_size", "asc")).toThrow();
     expect(() => buildSimpleOrderBy("title", "asc")).toThrow();
+    expect(() => buildSimpleOrderBy("year", "asc")).toThrow();
   });
 });
 
@@ -84,9 +83,27 @@ describe("slicePage", () => {
 
 describe("orderAggregateIds", () => {
   const rows: AggregateSortRow[] = [
-    { id: 1, fileSizeTotal: 100n, lastGrabbedAt: 5, titleMapped: "Bravo" },
-    { id: 2, fileSizeTotal: null, lastGrabbedAt: null, titleMapped: "Charlie" },
-    { id: 3, fileSizeTotal: 300n, lastGrabbedAt: 9, titleMapped: "Alpha" },
+    {
+      id: 1,
+      fileSizeTotal: 100n,
+      lastGrabbedAt: 5,
+      titleMapped: "Bravo",
+      yearMapped: 2000,
+    },
+    {
+      id: 2,
+      fileSizeTotal: null,
+      lastGrabbedAt: null,
+      titleMapped: "Charlie",
+      yearMapped: null,
+    },
+    {
+      id: 3,
+      fileSizeTotal: 300n,
+      lastGrabbedAt: 9,
+      titleMapped: "Alpha",
+      yearMapped: 1990,
+    },
   ];
   it("sorts file_size desc, nulls last, id tie-break", () => {
     expect(orderAggregateIds(rows, "file_size", "desc")).toEqual([3, 1, 2]);
@@ -115,10 +132,48 @@ describe("orderAggregateIds", () => {
     // Item renamed to 'Aardvark' via override must lead an asc sort even though
     // its raw title would place it late.
     const withOverride: AggregateSortRow[] = [
-      { id: 10, fileSizeTotal: 1n, lastGrabbedAt: 1, titleMapped: "Zebra" },
-      { id: 11, fileSizeTotal: 1n, lastGrabbedAt: 1, titleMapped: "Aardvark" },
+      {
+        id: 10,
+        fileSizeTotal: 1n,
+        lastGrabbedAt: 1,
+        titleMapped: "Zebra",
+        yearMapped: 2020,
+      },
+      {
+        id: 11,
+        fileSizeTotal: 1n,
+        lastGrabbedAt: 1,
+        titleMapped: "Aardvark",
+        yearMapped: 2020,
+      },
     ];
     expect(orderAggregateIds(withOverride, "title", "asc")).toEqual([11, 10]);
+  });
+  it("sorts year asc, nulls last, id tie-break", () => {
+    // 1990(3), 2000(1), null(2)
+    expect(orderAggregateIds(rows, "year", "asc")).toEqual([3, 1, 2]);
+  });
+  it("sorts year desc, nulls last", () => {
+    expect(orderAggregateIds(rows, "year", "desc")).toEqual([1, 3, 2]);
+  });
+  it("orders an overridden year by its display value, not raw column", () => {
+    const withOverride: AggregateSortRow[] = [
+      {
+        id: 20,
+        fileSizeTotal: 1n,
+        lastGrabbedAt: 1,
+        titleMapped: "A",
+        yearMapped: 1980,
+      },
+      {
+        id: 21,
+        fileSizeTotal: 1n,
+        lastGrabbedAt: 1,
+        titleMapped: "B",
+        yearMapped: 2024,
+      },
+    ];
+    expect(orderAggregateIds(withOverride, "year", "desc")).toEqual([21, 20]);
   });
 });
 

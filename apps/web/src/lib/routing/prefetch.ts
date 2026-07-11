@@ -17,16 +17,28 @@ import type { LibraryListResponse } from "@rawkoon/shared/types";
 import { webFetcher } from "@/lib/api/fetcher";
 import { fetchAuthMeUser } from "@/lib/auth/fetchAuthMeUser";
 import { LIBRARY_PAGE_SIZE } from "@/features/medias/hooks/useInfiniteLibrary";
+import { LIBRARY_DEFAULTS } from "@/pages/medias/_component/useLibraryPageState";
 
 /**
  * The Library page reads an infinite query, so it can't go through the flat
  * ensureQueryData registry below — prefetch its first page explicitly.
+ *
+ * The route loader always calls this with no search params (see
+ * "/library"'s loader), so this must match what LibraryPage requests on a
+ * default/unfiltered load — same query key AND same request URL — or the
+ * loader prefetch is stored under a key the page never reads, and the page
+ * fires its own redundant request on mount.
  */
+const libraryDefaultFilters = {
+  sortBy: LIBRARY_DEFAULTS.sortBy as string,
+  sortDir: LIBRARY_DEFAULTS.sortDir as string,
+};
+
 const libraryInfinitePrefetchArgs = {
-  queryKey: queryKeys.library.infinite(undefined),
+  queryKey: queryKeys.library.infinite(libraryDefaultFilters),
   queryFn: ({ pageParam }: { pageParam: number }) =>
     webFetcher<LibraryListResponse>(
-      `${LIBRARY_ENDPOINTS.LIST}?page=${pageParam}&limit=${LIBRARY_PAGE_SIZE}`,
+      `${LIBRARY_ENDPOINTS.LIST}?page=${pageParam}&limit=${LIBRARY_PAGE_SIZE}&sort_by=${libraryDefaultFilters.sortBy}&sort_dir=${libraryDefaultFilters.sortDir}`,
     ),
   initialPageParam: 1,
   getNextPageParam: (
