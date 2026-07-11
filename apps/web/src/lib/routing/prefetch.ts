@@ -16,6 +16,24 @@ import {
 import type { LibraryListResponse } from "@rawkoon/shared/types";
 import { webFetcher } from "@/lib/api/fetcher";
 import { fetchAuthMeUser } from "@/lib/auth/fetchAuthMeUser";
+import { LIBRARY_PAGE_SIZE } from "@/features/medias/hooks/useInfiniteLibrary";
+
+/**
+ * The Library page reads an infinite query, so it can't go through the flat
+ * ensureQueryData registry below — prefetch its first page explicitly.
+ */
+const libraryInfinitePrefetchArgs = {
+  queryKey: queryKeys.library.infinite(undefined),
+  queryFn: ({ pageParam }: { pageParam: number }) =>
+    webFetcher<LibraryListResponse>(
+      `${LIBRARY_ENDPOINTS.LIST}?page=${pageParam}&limit=${LIBRARY_PAGE_SIZE}`,
+    ),
+  initialPageParam: 1,
+  getNextPageParam: (
+    lastPage: LibraryListResponse,
+    allPages: LibraryListResponse[],
+  ) => (lastPage.has_more ? allPages.length + 1 : undefined),
+};
 
 /**
  * Eager cache fill for `/` (home): every TanStack Query used by the home UI.
@@ -87,12 +105,7 @@ const routeQueryDefinitions = {
     },
   ],
 
-  "/library": () => [
-    {
-      queryKey: queryKeys.library.list({}),
-      queryFn: () => webFetcher<LibraryListResponse>(LIBRARY_ENDPOINTS.LIST),
-    },
-  ],
+  // "/library" is prefetched as an infinite query — see prefetchRouteData.
 
   "/notifications": () => [
     {
@@ -223,6 +236,10 @@ export async function prefetchRouteData(
     await prefetchHomePageData(queryClient);
     return;
   }
+  if (normalizedRouteId === "/library") {
+    await queryClient.ensureInfiniteQueryData(libraryInfinitePrefetchArgs);
+    return;
+  }
   await prefetchQueriesForRoute(queryClient, routeId, params);
 }
 
@@ -238,6 +255,11 @@ export function prefetchRouteDataOptimistic(
   const normalizedRouteId = routeId === "/dashboard" ? "/" : routeId;
   if (normalizedRouteId === "/") {
     prefetchHomePageDataOptimistic(queryClient);
+    return;
+  }
+
+  if (normalizedRouteId === "/library") {
+    void queryClient.prefetchInfiniteQuery(libraryInfinitePrefetchArgs);
     return;
   }
 
