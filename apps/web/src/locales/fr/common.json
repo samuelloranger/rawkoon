@@ -2,7 +2,7 @@
   "nav": {
     "dashboard": "Accueil",
     "chores": "Tâches",
-    "explore": "Découvrir",
+    "explore": "Parcourir",
     "discover": "Pour vous",
     "habits": "Habitudes",
     "library": "Bibliothèque",
@@ -1228,7 +1228,7 @@
       "showsWithCount": "Séries ({{count}})",
       "statusAll": "Tout",
       "statusDownloaded": "Téléchargé",
-      "statusWanted": "Voulu",
+      "statusWanted": "Manquant",
       "statusDownloading": "Téléchargement",
       "languageAll": "Toutes les langues",
       "reindexLanguagesButton": "Réindexer les langues",
@@ -1248,15 +1248,15 @@
       "digitalRelease": "Sortie numérique {{date}}",
       "sort": {
         "added_at": "Date d’ajout",
-        "last_grabbed_at": "Dernier grab",
+        "last_grabbed_at": "Dernier téléchargement",
         "title": "Titre",
         "year": "Année",
         "status": "Statut",
-        "digital_release_date": "Date de sortie",
+        "digital_release_date": "Sortie numérique",
         "file_size": "Taille"
       },
       "itemStatus": {
-        "wanted": "Voulu",
+        "wanted": "Manquant",
         "downloading": "Téléchargement",
         "downloaded": "Téléchargé",
         "skipped": "Ignoré",
