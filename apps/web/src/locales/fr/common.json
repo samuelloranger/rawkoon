@@ -1248,7 +1248,7 @@
       "digitalRelease": "Sortie numérique {{date}}",
       "sort": {
         "added_at": "Date d’ajout",
-        "last_grabbed_at": "Dernier téléchargement",
+        "last_grabbed_at": "Dernier téléchargement lancé",
         "title": "Titre",
         "year": "Année",
         "status": "Statut",

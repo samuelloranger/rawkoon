@@ -1248,7 +1248,7 @@
       "digitalRelease": "Digital {{date}}",
       "sort": {
         "added_at": "Date added",
-        "last_grabbed_at": "Last downloaded",
+        "last_grabbed_at": "Last download started",
         "title": "Title",
         "year": "Year",
         "status": "Status",
