@@ -10,6 +10,15 @@ import { TMDB_UPCOMING_CACHE_KEY } from "@rawkoon/api/utils/dashboard/tmdbUpcomi
 import { getGlobalTmdbRegion } from "@rawkoon/api/utils/medias/tmdbRegion";
 
 import { mapLibraryMedia, libraryMediaInclude } from "./libraryHelpers";
+import {
+  parseLibrarySort,
+  isAggregateSort,
+  buildSimpleOrderBy,
+  slicePage,
+  orderAggregateIds,
+  reorderByIds,
+  type AggregateSortRow,
+} from "./libraryListQuery";
 
 /**
  * Core CRUD: list, add, delete, and single-item fetch.
@@ -26,7 +35,8 @@ export const libraryListRoutes = new Elysia()
     "/",
     async ({ query, set }) => {
       try {
-        const { type, status, q, language, page, limit } = query;
+        const { type, status, q, language, page, limit, sort_by, sort_dir } =
+          query;
         const titleFilter = q
           ? { title: { contains: q, mode: "insensitive" as const } }
           : {};
@@ -37,29 +47,99 @@ export const libraryListRoutes = new Elysia()
             ? { files: { some: { languageTags: { has: language } } } }
             : {}),
         };
-        const take = limit ? Math.min(Math.max(1, limit), 100) : 5000;
-        const skip = page ? (Math.max(1, page) - 1) * take : undefined;
+        const typedWhere: Prisma.LibraryMediaWhereInput = {
+          ...sharedWhere,
+          ...(type ? { type } : {}),
+        };
 
-        const [items, counts] = await Promise.all([
-          prisma.libraryMedia.findMany({
-            where: { ...sharedWhere, ...(type ? { type } : {}) },
+        const countsPromise = prisma.libraryMedia.groupBy({
+          by: ["type"],
+          where: sharedWhere,
+          _count: true,
+        });
+
+        const paged = page !== undefined || limit !== undefined;
+        const { sortBy, sortDir } = parseLibrarySort(sort_by, sort_dir);
+
+        let mappedItems: ReturnType<typeof mapLibraryMedia>[];
+        let has_more = false;
+
+        if (!paged) {
+          // Legacy full-list path (title asc) for non-Library-page callers.
+          const items = await prisma.libraryMedia.findMany({
+            where: typedWhere,
             orderBy: { title: "asc" },
             include: libraryMediaInclude,
-            take,
-            skip,
-          }),
-          prisma.libraryMedia.groupBy({
-            by: ["type"],
-            where: sharedWhere,
-            _count: true,
-          }),
-        ]);
+            take: 5000,
+          });
+          mappedItems = items.map(mapLibraryMedia);
+        } else {
+          const take = Math.min(Math.max(1, limit ?? 60), 100);
+          const skip = (Math.max(1, page ?? 1) - 1) * take;
+
+          if (!isAggregateSort(sortBy)) {
+            const rows = await prisma.libraryMedia.findMany({
+              where: typedWhere,
+              orderBy: buildSimpleOrderBy(sortBy, sortDir),
+              include: libraryMediaInclude,
+              take: take + 1,
+              skip,
+            });
+            const sliced = slicePage(rows, take);
+            has_more = sliced.has_more;
+            mappedItems = sliced.items.map(mapLibraryMedia);
+          } else {
+            // Aggregate sort: order lightweight rows, then fetch full records
+            // only for the requested page.
+            const lightRows = await prisma.libraryMedia.findMany({
+              where: typedWhere,
+              select: {
+                id: true,
+                files: { select: { sizeBytes: true } },
+                episodes: {
+                  select: { files: { select: { sizeBytes: true } } },
+                },
+                downloadHistories: {
+                  orderBy: { grabbedAt: "desc" as const },
+                  take: 1,
+                  select: { grabbedAt: true },
+                },
+              },
+            });
+            const aggRows: AggregateSortRow[] = lightRows.map((r) => {
+              let total = 0n;
+              for (const f of r.files) total += f.sizeBytes;
+              for (const ep of r.episodes)
+                for (const f of ep.files) total += f.sizeBytes;
+              return {
+                id: r.id,
+                fileSizeTotal: total === 0n ? null : total,
+                lastGrabbedAt:
+                  r.downloadHistories[0]?.grabbedAt.getTime() ?? null,
+              };
+            });
+            const orderedIds = orderAggregateIds(aggRows, sortBy, sortDir);
+            const pageIdsPlusOne = orderedIds.slice(skip, skip + take + 1);
+            const sliced = slicePage(pageIdsPlusOne, take);
+            has_more = sliced.has_more;
+            const pageRecords = await prisma.libraryMedia.findMany({
+              where: { id: { in: sliced.items } },
+              include: libraryMediaInclude,
+            });
+            mappedItems = reorderByIds(pageRecords, sliced.items).map(
+              mapLibraryMedia,
+            );
+          }
+        }
+
+        const counts = await countsPromise;
         const movieCount = counts.find((c) => c.type === "movie")?._count ?? 0;
         const showCount = counts.find((c) => c.type === "show")?._count ?? 0;
         return {
-          items: items.map(mapLibraryMedia),
+          items: mappedItems,
           movie_count: movieCount,
           show_count: showCount,
+          has_more,
         };
       } catch {
         return serverError(set, "Failed to fetch library");
@@ -73,6 +153,8 @@ export const libraryListRoutes = new Elysia()
         language: t.Optional(t.String()),
         page: t.Optional(t.Numeric()),
         limit: t.Optional(t.Numeric()),
+        sort_by: t.Optional(t.String()),
+        sort_dir: t.Optional(t.String()),
       }),
     },
   )
