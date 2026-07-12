@@ -51,7 +51,8 @@ export function handleNotificationClick(event: NotificationEvent): void {
   }
 
   // Default: navigate to URL (for "open" action or notification click)
-  const url = normalizeNotificationUrl(notificationData.url) || "/";
+  const url =
+    normalizeNotificationUrl(notificationData.url) || "/notifications";
 
   event.waitUntil(
     sw.clients

@@ -10,27 +10,33 @@ import { notifyAdminsMediaDownloaded } from "@rawkoon/api/workers/notifyMediaDow
  */
 export function enqueueLibraryPostProcess(downloadHistoryId: number): void {
   void (async () => {
+    let mediaId: number | null | undefined;
     try {
       const settings = await prisma.mediaSettings.findUnique({
         where: { id: 1 },
       });
       if (!settings?.postProcessingEnabled) return;
 
-      const result = await postProcess(downloadHistoryId);
-
       // Look up mediaId for SSE broadcast (needed regardless of success/failure)
       const dh = await prisma.downloadHistory.findUnique({
         where: { id: downloadHistoryId },
         select: { mediaId: true },
       });
+      mediaId = dh?.mediaId;
+
+      const result = await postProcess(downloadHistoryId);
 
       if (!result.success) {
         await prisma.downloadHistory.update({
           where: { id: downloadHistoryId },
           data: { postProcessError: result.reason },
         });
-        if (dh?.mediaId != null) emitLibraryUpdate(dh.mediaId);
-        await notifyAdminsPostProcessFailed(downloadHistoryId, result.reason);
+        if (mediaId != null) emitLibraryUpdate(mediaId);
+        await notifyAdminsPostProcessFailed(
+          downloadHistoryId,
+          result.reason,
+          mediaId,
+        );
         return;
       }
       await prisma.downloadHistory.update({
@@ -40,9 +46,9 @@ export function enqueueLibraryPostProcess(downloadHistoryId: number): void {
           postProcessError: null,
         },
       });
-      if (dh?.mediaId != null) {
-        emitLibraryUpdate(dh.mediaId);
-        await notifyAdminsMediaDownloaded(dh.mediaId);
+      if (mediaId != null) {
+        emitLibraryUpdate(mediaId);
+        await notifyAdminsMediaDownloaded(mediaId);
       }
       await triggerJellyfinLibraryScan();
     } catch (e) {
@@ -56,7 +62,7 @@ export function enqueueLibraryPostProcess(downloadHistoryId: number): void {
           where: { id: downloadHistoryId },
           data: { postProcessError: msg },
         });
-        await notifyAdminsPostProcessFailed(downloadHistoryId, msg);
+        await notifyAdminsPostProcessFailed(downloadHistoryId, msg, mediaId);
       } catch (e) {
         console.warn(
           `[postProcess] failed to persist postProcessError dh=${downloadHistoryId}:`,

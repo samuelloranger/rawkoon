@@ -29,7 +29,7 @@ export async function notifyAdminsMediaDownloaded(
         title,
         body,
         "library_media_downloaded",
-        "/library",
+        `/library/${mediaId}`,
         undefined,
         imageUrl,
       );
