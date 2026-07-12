@@ -116,6 +116,7 @@ export async function checkEpisodeReleases(): Promise<void> {
       if (skippedEpisodes.length > 0) {
         await notifyAdminsLibraryGrabSkipped(
           `Season pack "${media.title}" S${season} — ${skippedEpisodes.length} episode(s) exceeded ${MAX_CRON_GRAB_ATTEMPTS} failed cron grab attempts (${result.reason}). Status set to skipped.`,
+          mediaId,
         );
       }
     } catch (e) {
@@ -156,6 +157,7 @@ export async function checkEpisodeReleases(): Promise<void> {
       if (reachedCap) {
         await notifyAdminsLibraryGrabSkipped(
           `Episode "${ep.media.title}" S${ep.season}E${ep.episode} (${ep.id}) exceeded ${MAX_CRON_GRAB_ATTEMPTS} failed cron grab attempts (${result.reason}). Status set to skipped.`,
+          ep.media.id,
         );
       }
     } catch (e) {
