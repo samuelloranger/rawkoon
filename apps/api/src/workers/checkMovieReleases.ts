@@ -79,6 +79,7 @@ export async function checkMovieReleases(): Promise<void> {
       if (reachedCap) {
         await notifyAdminsLibraryGrabSkipped(
           `Movie "${m.title}" (${m.id}) exceeded ${MAX_CRON_GRAB_ATTEMPTS} failed cron grab attempts (${result.reason}). Status set to skipped.`,
+          m.id,
         );
       }
     } catch (e) {
