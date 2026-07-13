@@ -58,9 +58,10 @@ export function useDiscoverDeck() {
         MEDIAS_ENDPOINTS.DISCOVER_DECK([...served.current], BATCH_LIMIT),
       );
       setSource(res.source);
-      // Merge BEFORE marking served — mergeBatch skips anything already in
-      // `served`, so ids must be added to `served` only after the merge.
-      setQueue((q) => mergeBatch(q, served.current, res.items));
+      // React may defer this updater until after the loop below, so preserve
+      // the served IDs from before this response for mergeBatch to compare.
+      const servedBeforeBatch = new Set(served.current);
+      setQueue((q) => mergeBatch(q, servedBeforeBatch, res.items));
       for (const item of res.items) served.current.add(item.tmdb_id);
       setStatus(res.items.length === 0 ? "exhausted" : "ready");
     } catch (err) {
