@@ -36,6 +36,7 @@ function parseFilenameForScan(nameWithoutExt: string): {
 function mapSettings(row: {
   moviesLibraryPath: string | null;
   showsLibraryPath: string | null;
+  downloadsPath: string | null;
   fileOperation: string;
   movieTemplate: string;
   episodeTemplate: string;
@@ -48,6 +49,7 @@ function mapSettings(row: {
   return {
     movies_library_path: row.moviesLibraryPath,
     shows_library_path: row.showsLibraryPath,
+    downloads_path: row.downloadsPath,
     file_operation: row.fileOperation,
     movie_template: row.movieTemplate,
     episode_template: row.episodeTemplate,
@@ -83,6 +85,7 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
         const update: {
           moviesLibraryPath?: string | null;
           showsLibraryPath?: string | null;
+          downloadsPath?: string | null;
           fileOperation?: string;
           movieTemplate?: string;
           episodeTemplate?: string;
@@ -95,6 +98,8 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
           update.moviesLibraryPath = body.movies_library_path;
         if (body.shows_library_path !== undefined)
           update.showsLibraryPath = body.shows_library_path;
+        if (body.downloads_path !== undefined)
+          update.downloadsPath = body.downloads_path;
         if (body.file_operation !== undefined) {
           if (
             body.file_operation !== "hardlink" &&
@@ -148,6 +153,7 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
       body: t.Object({
         movies_library_path: t.Optional(t.Union([t.String(), t.Null()])),
         shows_library_path: t.Optional(t.Union([t.String(), t.Null()])),
+        downloads_path: t.Optional(t.Union([t.String(), t.Null()])),
         file_operation: t.Optional(
           t.Union([t.Literal("hardlink"), t.Literal("move")]),
         ),

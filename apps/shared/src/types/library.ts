@@ -227,6 +227,7 @@ type MediaFileOperation = "hardlink" | "move";
 export interface MediaPostProcessingSettings {
   movies_library_path: string | null;
   shows_library_path: string | null;
+  downloads_path: string | null;
   file_operation: MediaFileOperation;
   movie_template: string;
   episode_template: string;
@@ -244,6 +245,7 @@ export interface MediaPostProcessingSettingsResponse {
 export interface UpdateMediaPostProcessingSettingsRequest {
   movies_library_path?: string | null;
   shows_library_path?: string | null;
+  downloads_path?: string | null;
   file_operation?: MediaFileOperation;
   movie_template?: string;
   episode_template?: string;

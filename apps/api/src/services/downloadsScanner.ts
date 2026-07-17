@@ -53,7 +53,11 @@ function inodeKey(
 export function deriveDownloadsScanRoots(media: {
   moviesLibraryPath: string | null;
   showsLibraryPath: string | null;
+  downloadsPath?: string | null;
 }): string[] {
+  const configured = media.downloadsPath?.trim();
+  if (configured) return [resolve(configured.replace(/\/+$/, ""))];
+
   const roots = new Set<string>();
   const m = media.moviesLibraryPath?.trim();
   const s = media.showsLibraryPath?.trim();
