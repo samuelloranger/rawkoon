@@ -796,6 +796,7 @@
       "postProcessingToggle": "Enable post-processing",
       "moviesPath": "Movies library path (absolute)",
       "showsPath": "TV shows library path (absolute)",
+      "downloadsPath": "Downloads folder path (absolute, optional — default: parent folder of the libraries)",
       "fileOperation": "File operation",
       "hardlink": "Hardlink (keeps seeding)",
       "move": "Move",

@@ -1,4 +1,5 @@
 import { readdir, stat } from "node:fs/promises";
+import type { Dirent } from "node:fs";
 import { join, extname } from "node:path";
 
 const VIDEO_EXT = new Set([".mkv", ".mp4", ".avi", ".m4v"]);
@@ -29,7 +30,13 @@ export async function listVideoFilesUnder(rootPath: string): Promise<string[]> {
 
 async function collectVideosFromDir(dir: string): Promise<string[]> {
   const found: string[] = [];
-  const entries = await readdir(dir, { withFileTypes: true });
+  let entries: Dirent[];
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    // Unreadable dir (permissions, vanished, etc.) — skip it, don't abort the walk.
+    return found;
+  }
   for (const ent of entries) {
     const full = join(dir, ent.name);
     if (ent.isDirectory()) {
