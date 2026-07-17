@@ -8,6 +8,7 @@ type MF = { filePath: string };
 let settingsRow: {
   moviesLibraryPath: string | null;
   showsLibraryPath: string | null;
+  downloadsPath?: string | null;
   fileOperation?: string;
 } | null;
 let mediaPaths: MF[] = [];
@@ -55,6 +56,16 @@ describe("downloadsScanner helpers", () => {
         showsLibraryPath: "/a/b/shows/something",
       }),
     ).toEqual(["/a/b", "/a/b/shows"]);
+  });
+
+  it("deriveDownloadsScanRoots prefers explicit downloadsPath override", () => {
+    expect(
+      deriveDownloadsScanRoots({
+        moviesLibraryPath: "/a/b/movies",
+        showsLibraryPath: "/a/b/shows",
+        downloadsPath: "/mnt/storage/Downloads/",
+      }),
+    ).toEqual(["/mnt/storage/Downloads"]);
   });
 
   it("pathIsInsideRoot rejects traversals outside root", () => {

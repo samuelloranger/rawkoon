@@ -68,6 +68,7 @@ export function MediaPostProcessingSettingsBody({
         postProcessingEnabled: z.boolean(),
         moviesPath: z.string(),
         showsPath: z.string(),
+        downloadsPath: z.string(),
         fileOperation: z.enum(["hardlink", "move"]),
         movieTemplate: z.string(),
         episodeTemplate: z.string(),
@@ -90,6 +91,7 @@ export function MediaPostProcessingSettingsBody({
       postProcessingEnabled: settings.post_processing_enabled,
       moviesPath: settings.movies_library_path ?? "",
       showsPath: settings.shows_library_path ?? "",
+      downloadsPath: settings.downloads_path ?? "",
       fileOperation: settings.file_operation === "move" ? "move" : "hardlink",
       movieTemplate: settings.movie_template,
       episodeTemplate: settings.episode_template,
@@ -122,6 +124,7 @@ export function MediaPostProcessingSettingsBody({
         post_processing_enabled: data.postProcessingEnabled,
         movies_library_path: data.moviesPath.trim() || null,
         shows_library_path: data.showsPath.trim() || null,
+        downloads_path: data.downloadsPath.trim() || null,
         file_operation: data.fileOperation,
         movie_template: data.movieTemplate,
         episode_template: data.episodeTemplate,
@@ -191,6 +194,13 @@ export function MediaPostProcessingSettingsBody({
               placeholder="/data/shows"
               className="font-mono text-xs"
               error={errors.showsPath?.message}
+            />
+            <FormInput
+              label={t("settings.mediaLibrary.downloadsPath")}
+              {...register("downloadsPath")}
+              placeholder="/data/downloads"
+              className="font-mono text-xs"
+              error={errors.downloadsPath?.message}
             />
           </div>
 

@@ -504,6 +504,7 @@ model MediaSettings {
   id                      Int      @id @default(1)
   moviesLibraryPath       String?  @map("movies_library_path")
   showsLibraryPath        String?  @map("shows_library_path")
+  downloadsPath           String?  @map("downloads_path")
   fileOperation           String   @default("hardlink") @map("file_operation")
   movieTemplate           String   @default("{title} ({year}) [{resolution} {source}]") @map("movie_template")
   episodeTemplate         String   @default("{show}/Season {season}/{show} - S{season:02}E{episode:02} - {title} [{resolution} {source}]") @map("episode_template")

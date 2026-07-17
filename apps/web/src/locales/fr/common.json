@@ -796,6 +796,7 @@
       "postProcessingToggle": "Activer le post-traitement",
       "moviesPath": "Chemin bibliothèque films (absolu)",
       "showsPath": "Chemin bibliothèque séries (absolu)",
+      "downloadsPath": "Chemin dossier Downloads (absolu, optionnel — défaut : dossier parent des bibliothèques)",
       "fileOperation": "Opération sur les fichiers",
       "hardlink": "Lien dur (garde le seed)",
       "move": "Déplacer",
