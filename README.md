@@ -9,6 +9,7 @@
   <a href="https://github.com/samuelloranger/rawkoon/releases"><img src="https://img.shields.io/github/v/release/samuelloranger/rawkoon" alt="Latest release" /></a>
   <a href="https://github.com/samuelloranger/rawkoon/actions/workflows/ci.yml"><img src="https://github.com/samuelloranger/rawkoon/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://github.com/samuelloranger/rawkoon/pkgs/container/rawkoon"><img src="https://img.shields.io/badge/ghcr.io-rawkoon-2496ED?logo=docker&logoColor=white" alt="Container image" /></a>
+  <a href="https://buymeacoffee.com/samlo122"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=black" alt="Buy me a coffee" /></a>
 </p>
 
 ![Library screenshot](docs/screenshots/library.png)
