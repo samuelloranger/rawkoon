@@ -43,7 +43,7 @@ export type RescanResult = {
   };
 };
 
-const VIDEO_EXTENSIONS = new Set([".mkv", ".mp4", ".avi"]);
+const VIDEO_EXTENSIONS = new Set([".mkv", ".mp4", ".avi", ".m4v"]);
 
 function normalizeForDiscovery(str: string): string {
   return str
