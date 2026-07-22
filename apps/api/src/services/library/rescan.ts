@@ -9,7 +9,12 @@ import {
   scanMediaInfo,
   remapPath,
 } from "@rawkoon/api/utils/medias/mediainfoScanner";
-import { parseFilenameMetadata } from "@rawkoon/api/utils/medias/filenameParser";
+import {
+  parseFilenameMetadata,
+  parseReleaseSeasonEpisode,
+  parseReleaseTitle,
+} from "@rawkoon/api/utils/medias/filenameParser";
+import { isExcludedDir } from "@rawkoon/api/utils/medias/fileIdentifier";
 import { enqueueLibraryPostProcess } from "@rawkoon/api/services/postProcessorQueue";
 import { getQbittorrentIntegrationConfig } from "@rawkoon/api/services/qbittorrent/config";
 import { fetchMaindata } from "@rawkoon/api/services/qbittorrent/clientFetch";
@@ -38,7 +43,7 @@ export type RescanResult = {
   };
 };
 
-const VIDEO_EXTENSIONS = new Set([".mkv", ".mp4", ".avi"]);
+const VIDEO_EXTENSIONS = new Set([".mkv", ".mp4", ".avi", ".m4v"]);
 
 function normalizeForDiscovery(str: string): string {
   return str
@@ -246,6 +251,128 @@ async function rescanLibraryItemInner(
     }
   }
 
+  // ── Step 1b (shows): Discovery — scan the show dir for untracked episode files ─
+  // Walk the configured shows library path for directories that fuzzy-match this
+  // show's title, then match each untracked video file to a LibraryEpisode by its
+  // SxxExx and insert a media_files row. Mirrors the movie discovery above; needed
+  // because a mislinked/failed post-process can leave real episode files on disk
+  // that never got tracked (e.g. an EEXIST collision).
+  if (mediaSettings && media.type === "show" && media.title) {
+    const libraryPath = mediaSettings.showsLibraryPath;
+    if (libraryPath) {
+      const remappedLibDir = remapPath(libraryPath);
+      const normalizedTitle = normalizeForDiscovery(media.title);
+      // Match the show folder exactly (optionally with a trailing year), not by
+      // substring: a short title like "From" must not admit "Tales From the
+      // Crypt" and pull that show's SxxExx files into the wrong library item.
+      const showDirNames = new Set([normalizedTitle]);
+      if (media.year != null) {
+        showDirNames.add(`${normalizedTitle} ${media.year}`);
+      }
+      const episodes = await prisma.libraryEpisode.findMany({
+        where: { mediaId },
+        select: { id: true, season: true, episode: true, status: true },
+      });
+      const epByKey = new Map(
+        episodes.map((e) => [`${e.season}x${e.episode}`, e]),
+      );
+
+      try {
+        const showDirs = await readdir(remappedLibDir, { withFileTypes: true });
+        for (const showEntry of showDirs) {
+          if (!showEntry.isDirectory()) continue;
+          if (!showDirNames.has(normalizeForDiscovery(showEntry.name)))
+            continue;
+
+          const showDiskDir = join(remappedLibDir, showEntry.name);
+          const showDbDir = join(libraryPath, showEntry.name);
+          // Recurse one level (Season folders) plus files directly under the show.
+          const seasonEntries = await readdir(showDiskDir, {
+            withFileTypes: true,
+          });
+          const scanDirs: Array<{ disk: string; db: string }> = [
+            { disk: showDiskDir, db: showDbDir },
+          ];
+          for (const se of seasonEntries) {
+            // Skip sidecar dirs (Sample, Extras, …) so a tagged sample video
+            // inside them can't be imported as the real episode.
+            if (se.isDirectory() && !isExcludedDir(se.name))
+              scanDirs.push({
+                disk: join(showDiskDir, se.name),
+                db: join(showDbDir, se.name),
+              });
+          }
+
+          for (const dir of scanDirs) {
+            const fileEntries = await readdir(dir.disk, {
+              withFileTypes: true,
+            }).catch(() => []);
+            for (const entry of fileEntries) {
+              if (!entry.isFile()) continue;
+              const ext = extname(entry.name).toLowerCase();
+              if (!VIDEO_EXTENSIONS.has(ext)) continue;
+
+              const dbPath = join(dir.db, entry.name);
+              if (trackedPaths.has(dbPath)) continue;
+
+              if (parseReleaseTitle(entry.name).isSample) continue;
+              const se = parseReleaseSeasonEpisode(entry.name);
+              if (!se || se.episode == null) continue;
+              const ep = epByKey.get(`${se.season}x${se.episode}`);
+              if (!ep) continue;
+
+              const mi = await scanMediaInfo(join(dir.disk, entry.name));
+              if (!mi) continue;
+
+              const fnData = parseFilenameMetadata(entry.name);
+              await prisma.mediaFile.create({
+                data: {
+                  mediaId,
+                  episodeId: ep.id,
+                  filePath: dbPath,
+                  fileName: entry.name,
+                  sizeBytes: mi.sizeBytes,
+                  durationSecs: mi.durationSecs,
+                  releaseGroup: mi.releaseGroup,
+                  videoCodec: mi.videoCodec,
+                  videoProfile: mi.videoProfile,
+                  width: mi.width,
+                  height: mi.height,
+                  frameRate: mi.frameRate,
+                  bitDepth: mi.bitDepth,
+                  videoBitrate: mi.videoBitrate,
+                  hdrFormat: mi.hdrFormat ?? fnData.hdrFormat,
+                  resolution: mi.resolution ?? fnData.resolution,
+                  source: mi.source ?? fnData.source,
+                  audioTracks: mi.audioTracks as object[],
+                  subtitleTracks: mi.subtitleTracks as object[],
+                  languageTags: classifyLanguageTags(
+                    mi.audioTracks as LibraryAudioTrack[],
+                    null,
+                  ),
+                },
+              });
+              await prisma.libraryEpisode.update({
+                where: { id: ep.id },
+                data: { status: "downloaded", downloadedAt: new Date() },
+              });
+              validEpisodeIds.add(ep.id);
+              // Intentionally do NOT set hasValidFile: it gates the requeue of
+              // null-episode (season-pack / full-series) download histories.
+              // Importing one orphaned episode must not suppress reprocessing a
+              // still-present pack that could recover the remaining episodes;
+              // per-episode histories are covered by validEpisodeIds above.
+              imported++;
+              trackedPaths.add(dbPath);
+            }
+          }
+        }
+      } catch {
+        // Library dir unreadable — skip discovery
+      }
+    }
+  }
+
   // ── Step 1c: Rename — rename files that don't match the configured template ─
   // Skipped when fileOperation is "none" (manual placement) or when a download
   // is in progress (the post-processor will rename after hardlinking).
@@ -363,19 +490,24 @@ async function rescanLibraryItemInner(
   let episodesReset = 0;
   let mediaReset = false;
 
-  if (imported === 0 && requeued === 0) {
-    if (media.type === "show") {
-      const result = await prisma.libraryEpisode.updateMany({
-        where: {
-          mediaId,
-          status: { notIn: ["wanted", "skipped"] },
-          files: { none: {} },
-        },
-        data: { status: "wanted", searchAttempts: 0, downloadedAt: null },
-      });
-      episodesReset = result?.count ?? 0;
-    }
+  // The per-episode reset only touches episodes with no files, so a discovery
+  // import (which gives its episode a file) never resets what it just imported.
+  // Gate it on `requeued` only — not `imported` — so importing one orphaned
+  // episode doesn't leave the show's other missing episodes stuck as
+  // downloaded/upgrading.
+  if (requeued === 0 && media.type === "show") {
+    const result = await prisma.libraryEpisode.updateMany({
+      where: {
+        mediaId,
+        status: { notIn: ["wanted", "skipped"] },
+        files: { none: {} },
+      },
+      data: { status: "wanted", searchAttempts: 0, downloadedAt: null },
+    });
+    episodesReset = result?.count ?? 0;
+  }
 
+  if (imported === 0 && requeued === 0) {
     const remainingFiles = await prisma.mediaFile.count({ where: { mediaId } });
     if (
       remainingFiles === 0 &&

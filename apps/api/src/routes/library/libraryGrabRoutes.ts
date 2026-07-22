@@ -6,6 +6,10 @@ import { badRequest, notFound, serverError } from "@rawkoon/api/errors";
 import { grabRelease } from "@rawkoon/api/services/mediaGrabberGrab";
 import { searchAndGrab } from "@rawkoon/api/services/mediaGrabberSearch";
 import {
+  episodeMapKey,
+  resolveGrabEpisodeId,
+} from "@rawkoon/api/services/grabEpisodeResolver";
+import {
   addJob,
   QUEUE_NAMES,
   SCHEDULED_JOB_NAMES,
@@ -39,7 +43,42 @@ export const libraryGrabRoutes = new Elysia()
           );
         }
 
-        const episodeId = body.episode_id ?? undefined;
+        let episodeId = body.episode_id ?? undefined;
+
+        // Reconcile the requested episode against the release's own SxxExx.
+        // The interactive search panel tags every grab with a single episode
+        // context, so grabbing a different episode's release from that panel
+        // would mislink it and make the post-processor render every grab to
+        // the same destination (later grabs then fail with EEXIST).
+        if (media.type === "show" && episodeId != null) {
+          const [requested, allEpisodes] = await Promise.all([
+            prisma.libraryEpisode.findFirst({
+              where: { id: episodeId, mediaId: id },
+              select: { id: true, season: true, episode: true },
+            }),
+            prisma.libraryEpisode.findMany({
+              where: { mediaId: id },
+              select: { id: true, season: true, episode: true },
+            }),
+          ]);
+          // A provided episode id that no longer belongs to this item is a
+          // stale context — reject rather than silently degrade to a
+          // season-pack grab.
+          if (!requested) {
+            return badRequest(set, "Episode not found for this library item");
+          }
+          const resolved = resolveGrabEpisodeId({
+            requested,
+            releaseTitle: body.release_title,
+            episodesBySeasonEpisode: new Map(
+              allEpisodes.map((e) => [episodeMapKey(e.season, e.episode), e]),
+            ),
+          });
+          if (!resolved.ok) {
+            return badRequest(set, resolved.reason);
+          }
+          episodeId = resolved.episodeId ?? undefined;
+        }
 
         const result = await grabRelease({
           mediaId: id,
