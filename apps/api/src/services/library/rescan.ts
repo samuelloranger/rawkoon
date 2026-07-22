@@ -9,7 +9,10 @@ import {
   scanMediaInfo,
   remapPath,
 } from "@rawkoon/api/utils/medias/mediainfoScanner";
-import { parseFilenameMetadata } from "@rawkoon/api/utils/medias/filenameParser";
+import {
+  parseFilenameMetadata,
+  parseReleaseSeasonEpisode,
+} from "@rawkoon/api/utils/medias/filenameParser";
 import { enqueueLibraryPostProcess } from "@rawkoon/api/services/postProcessorQueue";
 import { getQbittorrentIntegrationConfig } from "@rawkoon/api/services/qbittorrent/config";
 import { fetchMaindata } from "@rawkoon/api/services/qbittorrent/clientFetch";
@@ -242,6 +245,114 @@ async function rescanLibraryItemInner(
           where: { id: mediaId },
           data: { status: "downloaded" },
         });
+      }
+    }
+  }
+
+  // ── Step 1b (shows): Discovery — scan the show dir for untracked episode files ─
+  // Walk the configured shows library path for directories that fuzzy-match this
+  // show's title, then match each untracked video file to a LibraryEpisode by its
+  // SxxExx and insert a media_files row. Mirrors the movie discovery above; needed
+  // because a mislinked/failed post-process can leave real episode files on disk
+  // that never got tracked (e.g. an EEXIST collision).
+  if (mediaSettings && media.type === "show" && media.title) {
+    const libraryPath = mediaSettings.showsLibraryPath;
+    if (libraryPath) {
+      const remappedLibDir = remapPath(libraryPath);
+      const normalizedTitle = normalizeForDiscovery(media.title);
+      const episodes = await prisma.libraryEpisode.findMany({
+        where: { mediaId },
+        select: { id: true, season: true, episode: true, status: true },
+      });
+      const epByKey = new Map(
+        episodes.map((e) => [`${e.season}x${e.episode}`, e]),
+      );
+
+      try {
+        const showDirs = await readdir(remappedLibDir, { withFileTypes: true });
+        for (const showEntry of showDirs) {
+          if (!showEntry.isDirectory()) continue;
+          if (!normalizeForDiscovery(showEntry.name).includes(normalizedTitle))
+            continue;
+
+          const showDiskDir = join(remappedLibDir, showEntry.name);
+          const showDbDir = join(libraryPath, showEntry.name);
+          // Recurse one level (Season folders) plus files directly under the show.
+          const seasonEntries = await readdir(showDiskDir, {
+            withFileTypes: true,
+          });
+          const scanDirs: Array<{ disk: string; db: string }> = [
+            { disk: showDiskDir, db: showDbDir },
+          ];
+          for (const se of seasonEntries) {
+            if (se.isDirectory())
+              scanDirs.push({
+                disk: join(showDiskDir, se.name),
+                db: join(showDbDir, se.name),
+              });
+          }
+
+          for (const dir of scanDirs) {
+            const fileEntries = await readdir(dir.disk, {
+              withFileTypes: true,
+            }).catch(() => []);
+            for (const entry of fileEntries) {
+              if (!entry.isFile()) continue;
+              const ext = extname(entry.name);
+              if (!VIDEO_EXTENSIONS.has(ext)) continue;
+
+              const dbPath = join(dir.db, entry.name);
+              if (trackedPaths.has(dbPath)) continue;
+
+              const se = parseReleaseSeasonEpisode(entry.name);
+              if (!se || se.episode == null) continue;
+              const ep = epByKey.get(`${se.season}x${se.episode}`);
+              if (!ep) continue;
+
+              const mi = await scanMediaInfo(join(dir.disk, entry.name));
+              if (!mi) continue;
+
+              const fnData = parseFilenameMetadata(entry.name);
+              await prisma.mediaFile.create({
+                data: {
+                  mediaId,
+                  episodeId: ep.id,
+                  filePath: dbPath,
+                  fileName: entry.name,
+                  sizeBytes: mi.sizeBytes,
+                  durationSecs: mi.durationSecs,
+                  releaseGroup: mi.releaseGroup,
+                  videoCodec: mi.videoCodec,
+                  videoProfile: mi.videoProfile,
+                  width: mi.width,
+                  height: mi.height,
+                  frameRate: mi.frameRate,
+                  bitDepth: mi.bitDepth,
+                  videoBitrate: mi.videoBitrate,
+                  hdrFormat: mi.hdrFormat ?? fnData.hdrFormat,
+                  resolution: mi.resolution ?? fnData.resolution,
+                  source: mi.source ?? fnData.source,
+                  audioTracks: mi.audioTracks as object[],
+                  subtitleTracks: mi.subtitleTracks as object[],
+                  languageTags: classifyLanguageTags(
+                    mi.audioTracks as LibraryAudioTrack[],
+                    null,
+                  ),
+                },
+              });
+              await prisma.libraryEpisode.update({
+                where: { id: ep.id },
+                data: { status: "downloaded", downloadedAt: new Date() },
+              });
+              validEpisodeIds.add(ep.id);
+              hasValidFile = true;
+              imported++;
+              trackedPaths.add(dbPath);
+            }
+          }
+        }
+      } catch {
+        // Library dir unreadable — skip discovery
       }
     }
   }
