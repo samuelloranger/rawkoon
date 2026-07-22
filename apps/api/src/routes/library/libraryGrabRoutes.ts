@@ -61,6 +61,12 @@ export const libraryGrabRoutes = new Elysia()
               select: { id: true, season: true, episode: true },
             }),
           ]);
+          // A provided episode id that no longer belongs to this item is a
+          // stale context — reject rather than silently degrade to a
+          // season-pack grab.
+          if (!requested) {
+            return badRequest(set, "Episode not found for this library item");
+          }
           const resolved = resolveGrabEpisodeId({
             requested,
             releaseTitle: body.release_title,
