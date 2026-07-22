@@ -200,8 +200,6 @@ mock.module("@rawkoon/api/utils/medias/filenameParser", () => ({
     source: null,
     releaseGroup: null,
   }),
-  parseReleaseSeasonEpisode: () => null,
-  parseReleaseTitle: () => ({ isSample: false }),
 }));
 
 mock.module("@rawkoon/api/services/postProcessorQueue", () => ({
