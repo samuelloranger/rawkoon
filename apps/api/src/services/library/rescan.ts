@@ -309,7 +309,7 @@ async function rescanLibraryItemInner(
             }).catch(() => []);
             for (const entry of fileEntries) {
               if (!entry.isFile()) continue;
-              const ext = extname(entry.name);
+              const ext = extname(entry.name).toLowerCase();
               if (!VIDEO_EXTENSIONS.has(ext)) continue;
 
               const dbPath = join(dir.db, entry.name);
@@ -357,7 +357,11 @@ async function rescanLibraryItemInner(
                 data: { status: "downloaded", downloadedAt: new Date() },
               });
               validEpisodeIds.add(ep.id);
-              hasValidFile = true;
+              // Intentionally do NOT set hasValidFile: it gates the requeue of
+              // null-episode (season-pack / full-series) download histories.
+              // Importing one orphaned episode must not suppress reprocessing a
+              // still-present pack that could recover the remaining episodes;
+              // per-episode histories are covered by validEpisodeIds above.
               imported++;
               trackedPaths.add(dbPath);
             }
