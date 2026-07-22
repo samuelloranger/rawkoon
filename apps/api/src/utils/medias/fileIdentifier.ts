@@ -12,7 +12,7 @@ const EXCLUDED_DIR_NAMES = new Set([
   "behind the scenes",
 ]);
 
-function isExcludedDir(name: string): boolean {
+export function isExcludedDir(name: string): boolean {
   return EXCLUDED_DIR_NAMES.has(name.trim().toLowerCase());
 }
 
