@@ -260,6 +260,13 @@ async function rescanLibraryItemInner(
     if (libraryPath) {
       const remappedLibDir = remapPath(libraryPath);
       const normalizedTitle = normalizeForDiscovery(media.title);
+      // Match the show folder exactly (optionally with a trailing year), not by
+      // substring: a short title like "From" must not admit "Tales From the
+      // Crypt" and pull that show's SxxExx files into the wrong library item.
+      const showDirNames = new Set([normalizedTitle]);
+      if (media.year != null) {
+        showDirNames.add(`${normalizedTitle} ${media.year}`);
+      }
       const episodes = await prisma.libraryEpisode.findMany({
         where: { mediaId },
         select: { id: true, season: true, episode: true, status: true },
@@ -272,7 +279,7 @@ async function rescanLibraryItemInner(
         const showDirs = await readdir(remappedLibDir, { withFileTypes: true });
         for (const showEntry of showDirs) {
           if (!showEntry.isDirectory()) continue;
-          if (!normalizeForDiscovery(showEntry.name).includes(normalizedTitle))
+          if (!showDirNames.has(normalizeForDiscovery(showEntry.name)))
             continue;
 
           const showDiskDir = join(remappedLibDir, showEntry.name);
