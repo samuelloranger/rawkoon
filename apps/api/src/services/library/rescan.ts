@@ -12,7 +12,9 @@ import {
 import {
   parseFilenameMetadata,
   parseReleaseSeasonEpisode,
+  parseReleaseTitle,
 } from "@rawkoon/api/utils/medias/filenameParser";
+import { isExcludedDir } from "@rawkoon/api/utils/medias/fileIdentifier";
 import { enqueueLibraryPostProcess } from "@rawkoon/api/services/postProcessorQueue";
 import { getQbittorrentIntegrationConfig } from "@rawkoon/api/services/qbittorrent/config";
 import { fetchMaindata } from "@rawkoon/api/services/qbittorrent/clientFetch";
@@ -292,7 +294,9 @@ async function rescanLibraryItemInner(
             { disk: showDiskDir, db: showDbDir },
           ];
           for (const se of seasonEntries) {
-            if (se.isDirectory())
+            // Skip sidecar dirs (Sample, Extras, …) so a tagged sample video
+            // inside them can't be imported as the real episode.
+            if (se.isDirectory() && !isExcludedDir(se.name))
               scanDirs.push({
                 disk: join(showDiskDir, se.name),
                 db: join(showDbDir, se.name),
@@ -311,6 +315,7 @@ async function rescanLibraryItemInner(
               const dbPath = join(dir.db, entry.name);
               if (trackedPaths.has(dbPath)) continue;
 
+              if (parseReleaseTitle(entry.name).isSample) continue;
               const se = parseReleaseSeasonEpisode(entry.name);
               if (!se || se.episode == null) continue;
               const ep = epByKey.get(`${se.season}x${se.episode}`);
@@ -481,19 +486,24 @@ async function rescanLibraryItemInner(
   let episodesReset = 0;
   let mediaReset = false;
 
-  if (imported === 0 && requeued === 0) {
-    if (media.type === "show") {
-      const result = await prisma.libraryEpisode.updateMany({
-        where: {
-          mediaId,
-          status: { notIn: ["wanted", "skipped"] },
-          files: { none: {} },
-        },
-        data: { status: "wanted", searchAttempts: 0, downloadedAt: null },
-      });
-      episodesReset = result?.count ?? 0;
-    }
+  // The per-episode reset only touches episodes with no files, so a discovery
+  // import (which gives its episode a file) never resets what it just imported.
+  // Gate it on `requeued` only — not `imported` — so importing one orphaned
+  // episode doesn't leave the show's other missing episodes stuck as
+  // downloaded/upgrading.
+  if (requeued === 0 && media.type === "show") {
+    const result = await prisma.libraryEpisode.updateMany({
+      where: {
+        mediaId,
+        status: { notIn: ["wanted", "skipped"] },
+        files: { none: {} },
+      },
+      data: { status: "wanted", searchAttempts: 0, downloadedAt: null },
+    });
+    episodesReset = result?.count ?? 0;
+  }
 
+  if (imported === 0 && requeued === 0) {
     const remainingFiles = await prisma.mediaFile.count({ where: { mediaId } });
     if (
       remainingFiles === 0 &&
