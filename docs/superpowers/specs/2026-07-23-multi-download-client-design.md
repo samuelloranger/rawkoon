@@ -266,4 +266,14 @@ assign / hardlink / move logic (`downloadsAssign`, post-processors) is untouched
 - Multiple simultaneous clients + priority routing.
 - Auto-fallback re-grab on stall / failure.
 - Per-client push accelerators (qBittorrent webhook, Deluge events).
-- Additional clients (rTorrent, etc.) via the same interface.
+- Additional clients via the same interface, in rough priority order (all are
+  supported by Sonarr/Radarr and controllable over HTTP/RPC, so each is a new
+  `create*Adapter` + state normalizer, no interface change):
+  1. **rTorrent / ruTorrent** — XML-RPC (or SCGI); the seedbox default.
+  2. **Download Station** (Synology / QNAP) — HTTP API; the NAS crowd.
+  3. **Aria2** — JSON-RPC; easiest to implement (clean protocol).
+  4. **Flood** — REST API; modern web UI fronting rTorrent/qBittorrent.
+  5. **uTorrent** — legacy Web API; long tail but still requested.
+
+  Clients explicitly NOT planned: Vuze, Hadouken, Freebox, Torrent Blackhole,
+  and all Usenet clients (BitTorrent-only scope).

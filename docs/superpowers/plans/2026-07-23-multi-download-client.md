@@ -2146,3 +2146,20 @@ git commit -m "chore(downloads): docs + cleanup for multi download-client suppor
 **Placeholder scan:** route handler bodies in Task 11 Step 3 are described as structured comments rather than full Elysia code because they must mirror the existing (unread-in-full) qbittorrent route's auth/validation conventions verbatim — the step explicitly instructs reading that file and copying its shape. All pure logic (view builder, config, adapters, reconcile, normalizers) has complete runnable code + tests.
 
 **Type consistency:** `NormalizedTorrent`, `DownloadClientAdapter`, `AddTorrentInput`, `DownloadClientIntegrationConfig`, `classifyPendingAgainstTorrent`, `resolveActiveAdapter`, `buildAdapter` names are used consistently across tasks.
+
+---
+
+## Future Clients (out of scope — later layers)
+
+Each is a new `create*Adapter` + state normalizer implementing the same
+`DownloadClientAdapter` interface (plus a new `DownloadClientType` union member and
+a `buildAdapter` case). No interface or reconcile changes required. Priority order:
+
+1. **rTorrent / ruTorrent** — XML-RPC (or SCGI). Seedbox default; highest marginal coverage.
+2. **Download Station** (Synology / QNAP) — HTTP API with session token auth. NAS crowd.
+3. **Aria2** — JSON-RPC. Easiest to implement; clean protocol.
+4. **Flood** — REST API; web UI fronting rTorrent/qBittorrent.
+5. **uTorrent** — legacy Web API; long tail.
+
+Explicitly NOT planned: Vuze, Hadouken, Freebox, Torrent Blackhole, and all Usenet
+clients (BitTorrent-only scope).
