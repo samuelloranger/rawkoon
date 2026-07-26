@@ -183,8 +183,8 @@ const routeQueryDefinitions = {
         queryFn: () => webFetcher(INTEGRATION_ENDPOINTS.JELLYFIN),
       });
       queries.push({
-        queryKey: queryKeys.integrations.qbittorrent(),
-        queryFn: () => webFetcher(INTEGRATION_ENDPOINTS.QBITTORRENT),
+        queryKey: queryKeys.integrations.downloadClient(),
+        queryFn: () => webFetcher(INTEGRATION_ENDPOINTS.DOWNLOAD_CLIENT),
       });
     }
 

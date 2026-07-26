@@ -16,12 +16,8 @@ import {
 } from "@rawkoon/api/utils/medias/filenameParser";
 import { isExcludedDir } from "@rawkoon/api/utils/medias/fileIdentifier";
 import { enqueueLibraryPostProcess } from "@rawkoon/api/services/postProcessorQueue";
-import { getQbittorrentIntegrationConfig } from "@rawkoon/api/services/qbittorrent/config";
-import { fetchMaindata } from "@rawkoon/api/services/qbittorrent/clientFetch";
-import {
-  isCompletedDownloadState,
-  reconcilePendingDownloads,
-} from "@rawkoon/api/workers/checkDownloadCompletion";
+import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
+import { reconcilePendingDownloads } from "@rawkoon/api/workers/checkDownloadCompletion";
 import { classifyLanguageTags } from "@rawkoon/shared";
 import type { LibraryAudioTrack } from "@rawkoon/shared";
 import { renderMovieTemplate } from "@rawkoon/api/utils/medias/fileTemplate";
@@ -77,7 +73,7 @@ async function rescanLibraryItemInner(
   });
   if (!media) return null;
 
-  // ── Step 0: Reconcile pending download_history rows against qBittorrent ──
+  // ── Step 0: Reconcile pending rows against the active download client ──
   // If the item is stuck in "downloading" because the torrent was deleted or
   // errored out, mark the download_history failed and revert status so the
   // rescan can re-evaluate from "wanted". Missing torrents are treated as
@@ -440,37 +436,31 @@ async function rescanLibraryItemInner(
     }
   }
 
-  // ── Step 2: qBittorrent — re-queue post-processing for completed downloads ────
+  // ── Step 2: re-queue post-processing for completed client downloads ────
   // Handles the case where a torrent finished downloading but the hardlink/move
-  // step was missed. Only fires if the torrent is still present in qBittorrent
+  // step was missed. Only fires if the torrent is still present in the client
   // in a completed state, so intentionally-deleted torrents are never re-queued.
   let requeued = 0;
   const completedDhs = media.downloadHistories.filter((dh) => dh.torrentHash);
 
   if (completedDhs.length > 0) {
-    const qbCompleteHashes = new Set<string>();
+    const completeHashes = new Set<string>();
     try {
-      const qbCfg = await getQbittorrentIntegrationConfig();
-      if (qbCfg.enabled && qbCfg.config) {
-        const { torrents } = await fetchMaindata(qbCfg.config);
-        for (const [hash, raw] of torrents) {
-          const state = typeof raw.state === "string" ? raw.state : "";
-          const progress =
-            typeof raw.progress === "number" && Number.isFinite(raw.progress)
-              ? raw.progress
-              : 0;
-          if (isCompletedDownloadState(state) || progress >= 1) {
-            qbCompleteHashes.add(hash.toLowerCase());
-          }
+      const active = await resolveActiveAdapter();
+      if (active) {
+        const torrents = await active.adapter.listTorrents();
+        for (const torrent of torrents) {
+          if (torrent.state === "completed" || torrent.progress >= 1)
+            completeHashes.add(torrent.hash.toLowerCase());
         }
       }
     } catch {
-      // qBittorrent unreachable — skip re-queue
+      // Download client unreachable — skip re-queue.
     }
 
     for (const dh of completedDhs) {
       if (!dh.torrentHash) continue;
-      if (!qbCompleteHashes.has(dh.torrentHash.toLowerCase())) continue;
+      if (!completeHashes.has(dh.torrentHash.toLowerCase())) continue;
 
       // Re-queue only if the target file is actually missing from the library
       const needsRequeue =

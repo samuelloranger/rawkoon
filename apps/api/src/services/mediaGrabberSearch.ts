@@ -189,7 +189,7 @@ export async function searchAndGrab(opts: {
       if (result.grabbed) return result;
 
       // Only continue to the next candidate on a hash-level blocklist hit.
-      // All other failures (network, qBittorrent) are terminal.
+      // All other failures (network, download client) are terminal.
       if (!result.grabbed && result.reason.startsWith("Blocklisted:")) continue;
 
       return result;

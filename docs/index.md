@@ -20,7 +20,7 @@ features:
   - title: One library
     details: Manage movies and shows, quality profiles, downloads, collections, and calendar from one application.
   - title: Your integrations
-    details: Connect TMDB, qBittorrent, Prowlarr or Jackett, Jellyfin or Plex, and optional OIDC providers.
+    details: Connect TMDB, qBittorrent, Transmission or Deluge, Prowlarr or Jackett, Jellyfin or Plex, and optional OIDC providers.
   - title: Built to run at home
     details: One production container, PostgreSQL, Redis, and a documented full-instance backup and recovery procedure.
 ---

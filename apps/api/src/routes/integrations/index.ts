@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import { tmdbIntegrationRoutes } from "./tmdb";
-import { qbittorrentIntegrationRoutes } from "./qbittorrent";
+import { downloadClientIntegrationRoutes } from "./downloadClient";
 import { jellyfinIntegrationRoutes } from "./jellyfin";
 import { prowlarrIntegrationRoutes } from "./prowlarr";
 import { jackettIntegrationRoutes } from "./jackett";
@@ -9,7 +9,7 @@ import { localAiIntegrationRoutes } from "./local-ai";
 
 export const integrationsRoutes = new Elysia({ prefix: "/api/integrations" })
   .use(tmdbIntegrationRoutes)
-  .use(qbittorrentIntegrationRoutes)
+  .use(downloadClientIntegrationRoutes)
   .use(jellyfinIntegrationRoutes)
   .use(prowlarrIntegrationRoutes)
   .use(jackettIntegrationRoutes)

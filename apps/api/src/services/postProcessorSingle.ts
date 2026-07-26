@@ -1,4 +1,4 @@
-import { basename, extname, isAbsolute, join } from "node:path";
+import { basename, extname, join } from "node:path";
 import { stat, unlink } from "node:fs/promises";
 
 import { prisma } from "@rawkoon/api/db";
@@ -19,12 +19,7 @@ import {
   sanitizeFilenamePart,
   sanitizePathTemplateOutput,
 } from "@rawkoon/api/utils/medias/fileTemplate";
-import { getQbittorrentIntegrationConfig } from "@rawkoon/api/services/qbittorrent/config";
-import {
-  fetchQbittorrentTorrent,
-  fetchQbittorrentTorrentProperties,
-} from "@rawkoon/api/services/qbittorrent/torrentQueries";
-import { deleteQbittorrentTorrent } from "@rawkoon/api/services/qbittorrent/torrentMutations";
+import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import {
   markItemDownloaded,
   placeFile,
@@ -71,9 +66,9 @@ export async function postProcess(
     }
     // Season pack / intégrale — no episodeId — process all files in the folder
     if (!dh.episode) {
-      const qb = await getQbittorrentIntegrationConfig();
-      if (!qb.enabled || !qb.config) {
-        return { success: false, reason: "qBittorrent not configured" };
+      const active = await resolveActiveAdapter();
+      if (!active) {
+        return { success: false, reason: "Download client not configured" };
       }
       return postProcessSeasonPack(
         downloadHistoryId,
@@ -87,7 +82,7 @@ export async function postProcess(
         },
         settings,
         op,
-        qb,
+        active.adapter,
       );
     }
   } else {
@@ -96,7 +91,7 @@ export async function postProcess(
 
   // ── Pre-scan: check if a MediaFile already exists on disk for this item ──────
   // This handles cases where files were placed manually or by a previous run.
-  // If found, register the file and mark as downloaded without touching qBittorrent.
+  // If found, register the file without touching the download client.
   // Skipped for upgrade grabs — the old file is still present and should not short-circuit.
   if (!dh.isUpgrade) {
     const existingFiles = await prisma.mediaFile.findMany({
@@ -135,34 +130,18 @@ export async function postProcess(
     return { success: false, reason: "Torrent hash unknown" };
   }
 
-  const qb = await getQbittorrentIntegrationConfig();
-  if (!qb.enabled || !qb.config) {
-    return { success: false, reason: "qBittorrent not configured" };
+  const active = await resolveActiveAdapter();
+  if (!active) {
+    return { success: false, reason: "Download client not configured" };
   }
 
-  const tRes = await fetchQbittorrentTorrent(qb.config, qb.enabled, hash);
-  if (!tRes.torrent) {
-    return {
-      success: false,
-      reason: tRes.error ?? "Torrent not found in qBittorrent",
-    };
-  }
-
-  const tor = tRes.torrent;
-  const cpTrim = tor.content_path?.trim() ?? "";
-  let savePathForJoin: string | null = null;
-  if (!cpTrim || !isAbsolute(cpTrim)) {
-    const pRes = await fetchQbittorrentTorrentProperties(
-      qb.config,
-      qb.enabled,
-      hash,
-    );
-    savePathForJoin = pRes.properties?.save_path ?? null;
-  }
+  const tor = await active.adapter.getTorrent(hash);
+  if (!tor)
+    return { success: false, reason: "Torrent not found in download client" };
 
   const contentBase = resolveTorrentContentPath(
-    tor.content_path,
-    savePathForJoin,
+    tor.contentPath,
+    tor.savePath,
     tor.name,
   );
   if (!contentBase) {
@@ -351,16 +330,11 @@ export async function postProcess(
   const min = settings.minSeedRatio;
   const shouldRemove = min <= 0 || (ratio != null && ratio >= min);
   if (shouldRemove) {
-    const del = await deleteQbittorrentTorrent(qb.config, qb.enabled, {
-      hash,
-      delete_files: false,
-    });
-    if (!del.success) {
-      console.warn(
-        `[postProcess] Could not remove torrent ${hash}:`,
-        del.error,
+    await active.adapter
+      .remove(hash, false)
+      .catch((error) =>
+        console.warn(`[postProcess] Could not remove torrent ${hash}:`, error),
       );
-    }
   }
 
   return { success: true, destinationPath };
