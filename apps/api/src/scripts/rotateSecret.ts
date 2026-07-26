@@ -20,6 +20,7 @@ import {
   randomBytes,
 } from "node:crypto";
 import { prisma } from "../db";
+import { invalidateDownloadClientIntegrationConfigCache } from "../services/downloadClient/config";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
@@ -171,6 +172,7 @@ async function main() {
       }),
     ),
   ]);
+  await invalidateDownloadClientIntegrationConfigCache();
 
   console.log(
     "\nDone. Now set SECRET_KEY to the new value and restart the app.",

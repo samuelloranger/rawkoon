@@ -17,6 +17,7 @@ mock.module("@rawkoon/api/db", () => ({
   },
 }));
 mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
+  buildAdapter: (type: string) => ({ type }),
   resolveActiveAdapter: async () => ({
     adapter: {
       type: "transmission",

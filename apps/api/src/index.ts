@@ -29,7 +29,6 @@ import { searchRoutes } from "./routes/search";
 import { settingsRoutes } from "./routes/settings";
 import { systemRoutes } from "./routes/system";
 import { usersRoutes } from "./routes/users";
-import { webhooksRoutes } from "./routes/webhooks";
 import { globalRateLimit, strictAuthRateLimit } from "./middleware/rateLimit";
 import { resolveUser } from "./middleware/auth";
 import { initWorkers, setupScheduledJobs } from "./services/queueService";
@@ -119,7 +118,6 @@ export const app = new Elysia()
   .use(dashboardRoutes)
   .use(usersRoutes)
   .use(notificationsRoutes)
-  .use(webhooksRoutes)
   .use(labbyRoutes)
   .use(releasesRoutes)
   .use(settingsRoutes)

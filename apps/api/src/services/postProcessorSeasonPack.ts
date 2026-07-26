@@ -1,4 +1,4 @@
-import { basename, extname, isAbsolute, join } from "node:path";
+import { basename, extname, join } from "node:path";
 
 import { prisma } from "@rawkoon/api/db";
 import { classifyLanguageTags, type LibraryAudioTrack } from "@rawkoon/shared";
@@ -16,12 +16,7 @@ import {
   renderEpisodeTemplate,
   sanitizePathTemplateOutput,
 } from "@rawkoon/api/utils/medias/fileTemplate";
-import { getQbittorrentIntegrationConfig } from "@rawkoon/api/services/qbittorrent/config";
-import {
-  fetchQbittorrentTorrent,
-  fetchQbittorrentTorrentProperties,
-} from "@rawkoon/api/services/qbittorrent/torrentQueries";
-import { deleteQbittorrentTorrent } from "@rawkoon/api/services/qbittorrent/torrentMutations";
+import type { DownloadClientAdapter } from "@rawkoon/api/services/downloadClient/types";
 import { resolveDownloadedStatus } from "@rawkoon/api/utils/medias/libraryHelpers";
 
 import {
@@ -58,37 +53,20 @@ export async function postProcessSeasonPack(
     minSeedRatio: number;
   },
   op: "hardlink" | "move",
-  qb: Awaited<ReturnType<typeof getQbittorrentIntegrationConfig>>,
+  adapter: DownloadClientAdapter,
 ): Promise<
   | { success: true; destinationPath: string }
   | { success: false; reason: string }
 > {
   const hash = dh.torrentHash?.trim();
   if (!hash) return { success: false, reason: "Torrent hash unknown" };
-  const qbConfig = qb.config!;
-
-  const tRes = await fetchQbittorrentTorrent(qbConfig, qb.enabled, hash);
-  if (!tRes.torrent)
-    return {
-      success: false,
-      reason: tRes.error ?? "Torrent not found in qBittorrent",
-    };
-
-  const tor = tRes.torrent;
-  let savePathForJoin: string | null = null;
-  const cpTrim = tor.content_path?.trim() ?? "";
-  if (!cpTrim || !isAbsolute(cpTrim)) {
-    const pRes = await fetchQbittorrentTorrentProperties(
-      qbConfig,
-      qb.enabled,
-      hash,
-    );
-    savePathForJoin = pRes.properties?.save_path ?? null;
-  }
+  const tor = await adapter.getTorrent(hash);
+  if (!tor)
+    return { success: false, reason: "Torrent not found in download client" };
 
   const contentBase = resolveTorrentContentPath(
-    tor.content_path,
-    savePathForJoin,
+    tor.contentPath,
+    tor.savePath,
     tor.name,
   );
   if (!contentBase)
@@ -298,14 +276,13 @@ export async function postProcessSeasonPack(
   const min = settings.minSeedRatio;
   const shouldRemove = min <= 0 || (ratio != null && ratio >= min);
   if (shouldRemove) {
-    const del = await deleteQbittorrentTorrent(qbConfig, qb.enabled, {
-      hash,
-      delete_files: false,
-    });
-    if (!del.success)
-      console.warn(
-        `[postProcess/pack] Could not remove torrent ${hash}:`,
-        del.error,
+    await adapter
+      .remove(hash, false)
+      .catch((error) =>
+        console.warn(
+          `[postProcess/pack] Could not remove torrent ${hash}:`,
+          error,
+        ),
       );
   }
 

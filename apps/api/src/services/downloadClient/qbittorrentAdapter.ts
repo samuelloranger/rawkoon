@@ -43,6 +43,7 @@ export function qbRawToNormalized(
       .split(",")
       .map((label) => label.trim())
       .filter(Boolean),
+    ratio: typeof raw.ratio === "number" ? raw.ratio : null,
   };
 }
 
@@ -99,9 +100,7 @@ export function createQbittorrentAdapter(
     async listTorrents() {
       resetMaindataState();
       const { torrents } = await fetchMaindata(config);
-      return [...torrents].map(([hash, raw]) =>
-        qbRawToNormalized(hash, raw),
-      );
+      return [...torrents].map(([hash, raw]) => qbRawToNormalized(hash, raw));
     },
 
     async getTorrent(hash: string) {

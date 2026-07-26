@@ -11,8 +11,8 @@ You need:
 - Docker and Docker Compose.
 - A PostgreSQL database and Redis instance. The production example starts both.
 - A TMDB API key for discovery.
-- qBittorrent and either Prowlarr or Jackett before downloading media.
-- Paths that are mounted into both Rawkoon and qBittorrent if Rawkoon will
+- qBittorrent, Transmission, or Deluge and either Prowlarr or Jackett.
+- Paths mounted into both Rawkoon and the download client if Rawkoon will
   post-process downloaded files.
 
 ## Start the production stack
@@ -56,7 +56,7 @@ Sign in as an administrator and use **Settings → Library** to:
 5. Select the default quality profile after creating one.
 
 Hardlinking is usually the best choice for torrents: the library receives a
-second directory entry while qBittorrent can keep seeding the original file.
+second directory entry while the download client can keep seeding the original file.
 Both locations must be on the same filesystem. Use Move only when you do not
 need the completed torrent to remain at its download path.
 
@@ -65,8 +65,8 @@ need the completed torrent to remain at its download path.
 Use **Settings → Integrations** to configure and test:
 
 1. **TMDB** for discovery and catalog metadata.
-2. **qBittorrent** as the download client. Use **Configure webhooks** so
-   Rawkoon receives add and completion notifications.
+2. **qBittorrent**, **Transmission**, or **Deluge** as the active download
+   client. Rawkoon polls it automatically; no webhook setup is required.
 3. **Prowlarr** or **Jackett** as the active indexer manager.
 
 See [Integrations](/integrations) for the full service list and setup detail.

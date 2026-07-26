@@ -287,8 +287,8 @@ export async function grabRelease(opts: {
       const msg =
         e instanceof Error ? e.message : "Library status update failed";
       // The torrent was already handed to the client — don't mark DH as failed.
-      // A failed status update leaves the row active so the completion webhook
-      // and the safety-net poller can still process it when the download finishes.
+      // A failed status update leaves the row active so the poller can still
+      // process it when the download finishes.
       console.warn(
         `[mediaGrabber] Library status update failed for DH ${dhRow.id} (torrent already queued): ${msg}`,
       );

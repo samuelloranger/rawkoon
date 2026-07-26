@@ -69,51 +69,28 @@ mock.module("@rawkoon/api/lib/auth", () => ({
   },
   refreshOidcProviders: () => {},
 }));
-mock.module("@rawkoon/api/services/qbittorrent/config", () => ({
-  getQbittorrentIntegrationConfig: async () => ({
-    enabled: true,
-    config: {} as never,
+mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
+  buildAdapter: (type: string) => ({ type }),
+  resolveActiveAdapter: async () => ({
+    label: "rawkoon",
+    adapter: {
+      type: "transmission",
+      testConnection: async () => ({ ok: true }),
+      addTorrent: async () => ({ hash: null }),
+      listTorrents: async () => [],
+      getTorrent: async () => null,
+      pause: async (hash: string) => {
+        qbCalls.push({ fn: "pause", hash });
+        if (!pauseSucceeds) throw new Error("boom");
+      },
+      resume: async (hash: string) => {
+        qbCalls.push({ fn: "resume", hash });
+      },
+      remove: async (hash: string, deleteFiles: boolean) => {
+        qbCalls.push({ fn: "delete", hash, delete_files: deleteFiles });
+      },
+    },
   }),
-  normalizeQbittorrentConfig: () => null,
-  invalidateQbittorrentIntegrationConfigCache: async () => {},
-}));
-mock.module("@rawkoon/api/services/qbittorrent/torrentMutations", () => ({
-  setQbittorrentTorrentCategory: async () => ({
-    enabled: true,
-    connected: true,
-    success: true,
-  }),
-  setQbittorrentTorrentTags: async () => ({
-    enabled: true,
-    connected: true,
-    success: true,
-  }),
-  pauseQbittorrentTorrent: async (
-    _c: unknown,
-    _e: boolean,
-    p: { hash: string },
-  ) => {
-    qbCalls.push({ fn: "pause", hash: p.hash });
-    if (!pauseSucceeds)
-      return { enabled: true, connected: true, success: false, error: "boom" };
-    return { enabled: true, connected: true, success: true };
-  },
-  resumeQbittorrentTorrent: async (
-    _c: unknown,
-    _e: boolean,
-    p: { hash: string },
-  ) => {
-    qbCalls.push({ fn: "resume", hash: p.hash });
-    return { enabled: true, connected: true, success: true };
-  },
-  deleteQbittorrentTorrent: async (
-    _c: unknown,
-    _e: boolean,
-    p: { hash: string; delete_files: boolean },
-  ) => {
-    qbCalls.push({ fn: "delete", hash: p.hash, delete_files: p.delete_files });
-    return { enabled: true, connected: true, success: true };
-  },
 }));
 
 const { libraryFilesRoutes } = await import(

@@ -16,7 +16,7 @@ web interface ship in the same container.
             ├── Redis/BullMQ: scheduled and background work
             ├── TMDB: discovery and catalog metadata
             ├── Prowlarr or Jackett: release search
-            ├── qBittorrent: download client and completion notifications
+            ├── qBittorrent, Transmission, or Deluge: active download client
             └── Jellyfin/Plex, OIDC, and Web Push: optional services
 
 ## Workspaces and boundaries
@@ -72,11 +72,11 @@ corrected.
 ## Download lifecycle
 
     Add title → choose profile → search releases → score or reject candidates
-       → qBittorrent → completion webhook or periodic check
+       → active download client → adaptive completion polling
        → hardlink/move into the library → MediaInfo scan → library update
 
-Rawkoon records every grab before it sends it to qBittorrent. Completion is
-noticed through qBittorrent webhooks and a periodic safety check. If
+Rawkoon records every grab before it sends it to the active client. Completion
+is detected through adaptive polling. If
 post-processing is enabled, Rawkoon resolves the completed video file, places
 it according to your templates, scans it with MediaInfo, records the final
 path, and requests a Jellyfin refresh when configured.

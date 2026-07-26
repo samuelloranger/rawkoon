@@ -74,5 +74,5 @@ mounted at their original locations before rescanning or post-processing.
 
 Set <code>BASE_URL</code> and <code>CORS_ORIGIN</code> to Rawkoon's public
 URL. Forward <code>X-Forwarded-For</code> so rate limiting sees the real client
-IP. The qBittorrent webhook setup prefers the internal Docker address when one
-is available, which avoids a round trip through the public proxy.
+IP. Download-client polling uses the client URL configured in Settings, so an
+internal Docker address avoids a round trip through the public proxy.

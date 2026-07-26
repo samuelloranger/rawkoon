@@ -208,22 +208,25 @@ mock.module("@rawkoon/api/services/postProcessorQueue", () => ({
   },
 }));
 
-mock.module("@rawkoon/api/services/qbittorrent/config", () => ({
-  getQbittorrentIntegrationConfig: () =>
-    Promise.resolve({
-      enabled: qbCompleteHashes.size > 0,
-      config: qbCompleteHashes.size > 0 ? { url: "http://qb" } : null,
-    }),
-}));
-
-mock.module("@rawkoon/api/services/qbittorrent/clientFetch", () => ({
-  fetchMaindata: () => {
-    const torrents = new Map<string, Record<string, unknown>>();
-    for (const hash of qbCompleteHashes) {
-      torrents.set(hash, { state: "uploading", progress: 1 });
-    }
-    return Promise.resolve({ torrents });
-  },
+mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
+  buildAdapter: (type: string) => ({ type }),
+  resolveActiveAdapter: () =>
+    Promise.resolve(
+      qbCompleteHashes.size > 0
+        ? {
+            adapter: {
+              listTorrents: () =>
+                Promise.resolve(
+                  [...qbCompleteHashes].map((hash) => ({
+                    hash,
+                    state: "completed",
+                    progress: 1,
+                  })),
+                ),
+            },
+          }
+        : null,
+    ),
 }));
 
 mock.module("@rawkoon/api/workers/checkDownloadCompletion", () => ({

@@ -22,7 +22,6 @@ export interface QbittorrentIntegrationConfig {
   website_url: string;
   username: string;
   password: string;
-  webhook_secret?: string;
 }
 
 export interface QbittorrentDashboardTorrent {

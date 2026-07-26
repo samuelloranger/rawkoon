@@ -26,16 +26,6 @@ export interface JackettIntegration {
   rss_indexers: string[];
 }
 
-export interface QbittorrentIntegration {
-  type: "qbittorrent";
-  enabled: boolean;
-  website_url: string;
-  username: string;
-  password_set: boolean;
-  rawkoon_base_url?: string;
-  webhook_secret_configured?: boolean;
-}
-
 export type DownloadClientType = "qbittorrent" | "transmission" | "deluge";
 
 export interface DownloadClientIntegration {
@@ -71,11 +61,6 @@ export interface ProwlarrIntegrationUpdateResponse {
 export interface JackettIntegrationUpdateResponse {
   success: boolean;
   integration: JackettIntegration;
-}
-
-export interface QbittorrentIntegrationUpdateResponse {
-  success: boolean;
-  integration: QbittorrentIntegration;
 }
 
 export interface DownloadClientIntegrationUpdateResponse {

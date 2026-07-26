@@ -82,7 +82,8 @@ export const queryKeys = {
     jackett: () => [...queryKeys.integrations.all, "jackett"] as const,
     jackettIndexers: () =>
       [...queryKeys.integrations.all, "jackett", "indexers"] as const,
-    qbittorrent: () => [...queryKeys.integrations.all, "qbittorrent"] as const,
+    downloadClient: () =>
+      [...queryKeys.integrations.all, "download-client"] as const,
     tmdb: () => [...queryKeys.integrations.all, "tmdb"] as const,
     localAi: () => [...queryKeys.integrations.all, "local-ai"] as const,
   },

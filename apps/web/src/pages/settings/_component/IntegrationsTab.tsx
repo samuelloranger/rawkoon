@@ -4,7 +4,7 @@ import { SettingsPageHeader } from "@/pages/settings/_component/SettingsPageHead
 import { JellyfinIntegrationSection } from "@/pages/settings/_component/integrations/JellyfinIntegrationSection";
 import { ProwlarrIntegrationSection } from "@/pages/settings/_component/integrations/ProwlarrIntegrationSection";
 import { JackettIntegrationSection } from "@/pages/settings/_component/integrations/JackettIntegrationSection";
-import { QbittorrentIntegrationSection } from "@/pages/settings/_component/integrations/QbittorrentIntegrationSection";
+import { DownloadClientIntegrationSection } from "@/pages/settings/_component/integrations/DownloadClientIntegrationSection";
 import { TmdbIntegrationSection } from "@/pages/settings/_component/integrations/TmdbIntegrationSection";
 import { LocalAiIntegrationSection } from "@/pages/settings/_component/integrations/LocalAiIntegrationSection";
 
@@ -46,7 +46,7 @@ export function IntegrationsTab() {
             {t("settings.integrations.groups.infrastructure")}
           </h3>
           <div className="space-y-3">
-            <QbittorrentIntegrationSection />
+            <DownloadClientIntegrationSection />
           </div>
         </div>
         <div className="space-y-3">

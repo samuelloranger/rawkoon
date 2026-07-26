@@ -5,10 +5,7 @@ import {
 import { createDelugeAdapter } from "./delugeAdapter";
 import { createQbittorrentAdapter } from "./qbittorrentAdapter";
 import { createTransmissionAdapter } from "./transmissionAdapter";
-import type {
-  DownloadClientAdapter,
-  DownloadClientType,
-} from "./types";
+import type { DownloadClientAdapter, DownloadClientType } from "./types";
 
 export function buildAdapter(
   clientType: DownloadClientType,

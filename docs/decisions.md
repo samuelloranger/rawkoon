@@ -18,8 +18,8 @@ through third-party APIs.
 ### Decision
 
 Rawkoon owns one media model and one quality and release pipeline. TMDB
-provides discovery, Prowlarr or Jackett provide release results, qBittorrent
-handles grabs, and Rawkoon post-processes files into the library.
+provides discovery, Prowlarr or Jackett provide release results, the selected
+download client handles grabs, and Rawkoon post-processes files into the library.
 
 The existing Radarr and Sonarr integrations remain only for a one-time library
 import and for recognizing familiar filename conventions during file scanning.

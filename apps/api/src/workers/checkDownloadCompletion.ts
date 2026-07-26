@@ -6,7 +6,7 @@ import { enqueueLibraryPostProcess } from "@rawkoon/api/services/postProcessorQu
 import { notifyRequestAvailable } from "@rawkoon/api/services/mediaRequests";
 import { resolveDownloadedStatus } from "@rawkoon/api/utils/medias/libraryHelpers";
 
-/** qBittorrent states that indicate the torrent finished downloading */
+/** Legacy qBittorrent states used by duplicate-adoption compatibility code. */
 export function isCompletedDownloadState(state: string): boolean {
   return (
     state === "uploading" ||
@@ -22,7 +22,7 @@ export function isFailedState(state: string): boolean {
   return state === "error" || state === "missingFiles";
 }
 
-/** If qBittorrent reports failure and no other active grab exists, unblock stuck "downloading" rows */
+/** If a client reports failure and no other active grab exists, unblock the item. */
 export async function revertLibraryDownloadingIfNoOtherActiveGrabs(dh: {
   id: number;
   mediaId: number | null;
@@ -102,8 +102,6 @@ export async function markDownloadHistoryComplete(dh: {
 
 /**
  * Mark a single download as complete by its torrent hash.
- * Called directly by the qBittorrent webhook for immediate completion.
- *
  * Returns the download_history id whenever a non-failed DH row exists for the
  * hash. When multiple rows share a hash (common after retries/re-grabs), the
  * newest *pending* row is preferred and marked complete; if no pending row
@@ -246,8 +244,8 @@ function clearTrack(id: number) {
 
 /**
  * Reconcile a set of pending (non-completed, non-failed) download_history rows
- * against qBittorrent state. If `treatMissingAsFailed` is true, rows whose
- * torrent is absent from qBittorrent are marked failed and the library status
+ * against normalized download-client state. If `treatMissingAsFailed` is true,
+ * rows whose torrent is absent are marked failed and the library status
  * reverted — used by the rescan action so the UI isn't stuck on "downloading"
  * when the user deleted the torrent out-of-band.
  */
@@ -279,10 +277,7 @@ export async function reconcilePendingDownloads(
   try {
     torrents = await active.adapter.listTorrents();
   } catch (error) {
-    console.warn(
-      "[reconcilePendingDownloads] listTorrents failed:",
-      error,
-    );
+    console.warn("[reconcilePendingDownloads] listTorrents failed:", error);
     return result;
   }
 
@@ -387,9 +382,7 @@ export async function reconcilePendingDownloads(
 }
 
 /**
- * Safety-net fallback: polls qBittorrent for all pending downloads.
- * Runs every 30 minutes to catch completions that the webhook may have missed
- * (e.g. Rawkoon was down when the torrent finished, or hash was not yet known).
+ * Poll the active client for pending downloads.
  */
 export async function checkDownloadCompletion(): Promise<void> {
   const pending = await prisma.downloadHistory.findMany({
@@ -411,8 +404,7 @@ export async function checkDownloadCompletion(): Promise<void> {
   knownPendingIds = currentIds;
 
   if (!pending.length) {
-    nextPollAtMs =
-      nowMs + (settings?.downloadPollIdleSecs ?? 1800) * 1000;
+    nextPollAtMs = nowMs + (settings?.downloadPollIdleSecs ?? 1800) * 1000;
     return;
   }
   if (!hasNewPending && nowMs < nextPollAtMs) return;

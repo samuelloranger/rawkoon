@@ -25,6 +25,7 @@ const TORRENT_FIELDS = [
   "error",
   "isStalled",
   "labels",
+  "uploadRatio",
 ];
 
 export function transmissionRowToNormalized(
@@ -50,6 +51,7 @@ export function transmissionRowToNormalized(
     labels: Array.isArray(raw.labels)
       ? raw.labels.filter((label): label is string => typeof label === "string")
       : [],
+    ratio: typeof raw.uploadRatio === "number" ? raw.uploadRatio : null,
   };
 }
 
@@ -80,8 +82,7 @@ export function createTransmissionAdapter(
 
     let response = await request();
     if (response.status === 409) {
-      sessionId =
-        response.headers.get("X-Transmission-Session-Id") ?? "";
+      sessionId = response.headers.get("X-Transmission-Session-Id") ?? "";
       response = await request();
     }
     if (!response.ok) {

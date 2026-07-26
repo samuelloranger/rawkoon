@@ -22,6 +22,7 @@ const STATUS_FIELDS = [
   "save_path",
   "total_wanted",
   "label",
+  "ratio",
 ];
 
 export function delugeRowToNormalized(
@@ -42,6 +43,7 @@ export function delugeRowToNormalized(
     dlSpeed: num(raw.download_payload_rate),
     sizeBytes: num(raw.total_wanted),
     labels: str(raw.label) ? [str(raw.label)] : [],
+    ratio: typeof raw.ratio === "number" ? raw.ratio : null,
   };
 }
 
@@ -55,10 +57,7 @@ export function createDelugeAdapter(
   let rpcId = 0;
   let loggedIn = false;
 
-  const rawCall = async <T>(
-    method: string,
-    params: unknown[],
-  ): Promise<T> => {
+  const rawCall = async <T>(method: string, params: unknown[]): Promise<T> => {
     const response = await fetch(jsonUrl, {
       method: "POST",
       headers: {
@@ -92,10 +91,7 @@ export function createDelugeAdapter(
     loggedIn = true;
   };
 
-  const call = async <T>(
-    method: string,
-    params: unknown[],
-  ): Promise<T> => {
+  const call = async <T>(method: string, params: unknown[]): Promise<T> => {
     await ensureLogin();
     try {
       return await rawCall<T>(method, params);
@@ -157,9 +153,10 @@ export function createDelugeAdapter(
     },
 
     async listTorrents() {
-      const result = await call<
-        Record<string, Record<string, unknown>>
-      >("core.get_torrents_status", [{}, STATUS_FIELDS]);
+      const result = await call<Record<string, Record<string, unknown>>>(
+        "core.get_torrents_status",
+        [{}, STATUS_FIELDS],
+      );
       return Object.entries(result ?? {}).map(([hash, raw]) =>
         delugeRowToNormalized(hash, raw),
       );

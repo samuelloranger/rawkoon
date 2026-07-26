@@ -18,6 +18,7 @@ const base: NormalizedTorrent = {
   dlSpeed: 1,
   sizeBytes: 10,
   labels: [],
+  ratio: null,
 };
 const now = 1_000_000;
 const settings = { stallTimeoutSecs: 100, maxAgeSecs: 1000 };

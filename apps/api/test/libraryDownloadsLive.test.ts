@@ -46,46 +46,39 @@ mock.module("@rawkoon/api/lib/auth", () => ({
   },
   refreshOidcProviders: () => {},
 }));
-mock.module("@rawkoon/api/services/qbittorrent/config", () => ({
-  getQbittorrentIntegrationConfig: async () => ({
-    enabled: qbEnabled,
-    config: qbEnabled ? ({} as never) : null,
-  }),
-  normalizeQbittorrentConfig: () => null,
-  invalidateQbittorrentIntegrationConfigCache: async () => {},
-}));
-mock.module("@rawkoon/api/services/qbittorrent/torrentQueries", () => ({
-  fetchQbittorrentTorrents: async (
-    _c: unknown,
-    _e: boolean,
-    hashes: string[],
-  ) => ({
-    enabled: true,
-    connected: true,
-    torrents: hashes.includes("h1")
-      ? [
-          {
-            id: "h1",
-            name: "A",
-            progress: 0.43,
-            download_speed: 8000000,
-            eta_seconds: 360,
-            state: "downloading",
+mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
+  buildAdapter: (type: string) => ({ type }),
+  resolveActiveAdapter: async () =>
+    qbEnabled
+      ? {
+          label: "rawkoon",
+          adapter: {
+            type: "transmission",
+            testConnection: async () => ({ ok: true }),
+            addTorrent: async () => ({ hash: null }),
+            listTorrents: async () => [
+              {
+                hash: "h1",
+                name: "A",
+                progress: 0.43,
+                dlSpeed: 8000000,
+                state: "downloading",
+                savePath: "/dl",
+                contentPath: "/dl/A",
+                seeds: 1,
+                peers: 1,
+                sizeBytes: 10,
+                labels: [],
+                ratio: null,
+              },
+            ],
+            getTorrent: async () => null,
+            pause: async () => {},
+            resume: async () => {},
+            remove: async () => {},
           },
-        ]
-      : [],
-  }),
-  // Stub unused exports so the mock module satisfies all import sites
-  fetchQbittorrentTorrent: async () => ({
-    enabled: false,
-    connected: false,
-    torrent: null,
-  }),
-  fetchQbittorrentTorrentProperties: async () => ({
-    enabled: false,
-    connected: false,
-    properties: null,
-  }),
+        }
+      : null,
 }));
 
 const { libraryFilesRoutes } = await import(
