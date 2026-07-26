@@ -21,6 +21,7 @@ export interface NormalizedTorrent {
   /** bytes/s */
   dlSpeed: number;
   sizeBytes: number;
+  labels: string[];
 }
 
 export interface AddTorrentInput {

@@ -15,6 +15,7 @@ describe("transmissionRowToNormalized", () => {
         sizeWhenDone: 100,
         error: 0,
         isStalled: false,
+        labels: ["rawkoon-dh-123"],
       }),
     ).toEqual({
       hash: "dead",
@@ -27,6 +28,7 @@ describe("transmissionRowToNormalized", () => {
       peers: 5,
       dlSpeed: 2048,
       sizeBytes: 100,
+      labels: ["rawkoon-dh-123"],
     });
   });
 

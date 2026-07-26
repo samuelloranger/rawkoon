@@ -24,6 +24,7 @@ const TORRENT_FIELDS = [
   "sizeWhenDone",
   "error",
   "isStalled",
+  "labels",
 ];
 
 export function transmissionRowToNormalized(
@@ -46,6 +47,9 @@ export function transmissionRowToNormalized(
     peers: num(raw.peersConnected),
     dlSpeed: num(raw.rateDownload),
     sizeBytes: num(raw.sizeWhenDone),
+    labels: Array.isArray(raw.labels)
+      ? raw.labels.filter((label): label is string => typeof label === "string")
+      : [],
   };
 }
 

@@ -13,6 +13,7 @@ describe("delugeRowToNormalized", () => {
         num_peers: 1,
         save_path: "/dl",
         total_wanted: 500,
+        label: "rawkoon-dh-123",
       }),
     ).toEqual({
       hash: "abcd",
@@ -25,6 +26,7 @@ describe("delugeRowToNormalized", () => {
       peers: 1,
       dlSpeed: 0,
       sizeBytes: 500,
+      labels: ["rawkoon-dh-123"],
     });
   });
 });

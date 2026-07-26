@@ -39,6 +39,10 @@ export function qbRawToNormalized(
     peers: num(raw.num_leechs),
     dlSpeed: num(raw.dlspeed),
     sizeBytes: num(raw.size),
+    labels: str(raw.tags)
+      .split(",")
+      .map((label) => label.trim())
+      .filter(Boolean),
   };
 }
 

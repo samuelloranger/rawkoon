@@ -14,6 +14,7 @@ describe("qbRawToNormalized", () => {
         num_leechs: 1,
         dlspeed: 1000,
         size: 42,
+        tags: "rawkoon, rawkoon-dh-123",
       }),
     ).toEqual({
       hash: "abc123",
@@ -26,6 +27,7 @@ describe("qbRawToNormalized", () => {
       peers: 1,
       dlSpeed: 1000,
       sizeBytes: 42,
+      labels: ["rawkoon", "rawkoon-dh-123"],
     });
   });
 });

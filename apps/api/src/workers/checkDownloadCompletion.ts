@@ -1,8 +1,7 @@
 import { prisma } from "@rawkoon/api/db";
-import { getQbittorrentIntegrationConfig } from "@rawkoon/api/services/qbittorrent/config";
+import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
+import type { NormalizedTorrent } from "@rawkoon/api/services/downloadClient/types";
 import { emitLibraryUpdate } from "@rawkoon/api/services/libraryEvents";
-import { fetchMaindata } from "@rawkoon/api/services/qbittorrent/clientFetch";
-import { resetMaindataState } from "@rawkoon/api/services/qbittorrent/clientSession";
 import { enqueueLibraryPostProcess } from "@rawkoon/api/services/postProcessorQueue";
 import { notifyRequestAvailable } from "@rawkoon/api/services/mediaRequests";
 import { resolveDownloadedStatus } from "@rawkoon/api/utils/medias/libraryHelpers";
@@ -142,6 +141,109 @@ export type PendingReconcileResult = {
   missing: number;
 };
 
+export interface StallTrack {
+  createdAtMs: number;
+  lastProgress: number;
+  lastProgressAtMs: number;
+}
+
+export interface ReconcileSettings {
+  stallTimeoutSecs: number;
+  maxAgeSecs: number;
+}
+
+export type PendingOutcome =
+  | { outcome: "complete" }
+  | { outcome: "fail"; reason: string }
+  | { outcome: "wait"; progressed: boolean };
+
+export function classifyPendingAgainstTorrent(
+  torrent: NormalizedTorrent,
+  track: StallTrack,
+  nowMs: number,
+  settings: ReconcileSettings,
+): PendingOutcome {
+  if (nowMs - track.createdAtMs > settings.maxAgeSecs * 1000) {
+    return { outcome: "fail", reason: "exceeded max age with no completion" };
+  }
+  if (torrent.state === "completed" || torrent.progress >= 1) {
+    return { outcome: "complete" };
+  }
+  if (torrent.state === "error") {
+    return { outcome: "fail", reason: "download client reported error state" };
+  }
+  const progressed = torrent.progress > track.lastProgress + 1e-9;
+  if (progressed) return { outcome: "wait", progressed: true };
+
+  const timedOut =
+    nowMs - track.lastProgressAtMs > settings.stallTimeoutSecs * 1000;
+  if (
+    timedOut &&
+    (torrent.state === "stalled" || torrent.state === "downloading")
+  ) {
+    return {
+      outcome: "fail",
+      reason:
+        torrent.state === "stalled"
+          ? "stalled - no progress"
+          : "no progress before stall timeout",
+    };
+  }
+  return { outcome: "wait", progressed: false };
+}
+
+export function findPendingTorrent(
+  torrents: NormalizedTorrent[],
+  downloadHistoryId: number,
+  hash: string | null,
+): NormalizedTorrent | undefined {
+  const normalizedHash = hash?.trim().toLowerCase();
+  if (normalizedHash) {
+    const byHash = torrents.find(
+      (torrent) => torrent.hash.toLowerCase() === normalizedHash,
+    );
+    if (byHash) return byHash;
+  }
+  const tag = `rawkoon-dh-${downloadHistoryId}`.toLowerCase();
+  return torrents.find((torrent) =>
+    torrent.labels.some((label) => label.toLowerCase() === tag),
+  );
+}
+
+const stallTracks = new Map<number, StallTrack>();
+let lastReconcileHadProgressing = false;
+let nextPollAtMs = 0;
+let knownPendingIds = new Set<number>();
+
+export function computeNextPollDelaySecs(
+  hasProgressing: boolean,
+  activeSecs: number,
+  idleSecs: number,
+): number {
+  return hasProgressing ? activeSecs : idleSecs;
+}
+
+function getOrInitTrack(
+  id: number,
+  createdAtMs: number,
+  progress: number,
+  nowMs: number,
+): StallTrack {
+  const existing = stallTracks.get(id);
+  if (existing) return existing;
+  const track = {
+    createdAtMs,
+    lastProgress: progress,
+    lastProgressAtMs: nowMs,
+  };
+  stallTracks.set(id, track);
+  return track;
+}
+
+function clearTrack(id: number) {
+  stallTracks.delete(id);
+}
+
 /**
  * Reconcile a set of pending (non-completed, non-failed) download_history rows
  * against qBittorrent state. If `treatMissingAsFailed` is true, rows whose
@@ -155,109 +257,123 @@ export async function reconcilePendingDownloads(
     mediaId: number | null;
     episodeId: number | null;
     torrentHash: string | null;
+    createdAt?: Date | null;
   }>,
-  opts: { treatMissingAsFailed?: boolean } = {},
+  opts: {
+    treatMissingAsFailed?: boolean;
+    settings?: ReconcileSettings;
+  } = {},
 ): Promise<PendingReconcileResult> {
   const result: PendingReconcileResult = {
     completed: 0,
     failed: 0,
     missing: 0,
   };
+  lastReconcileHadProgressing = false;
   if (!pending.length) return result;
 
-  const qb = await getQbittorrentIntegrationConfig();
-  if (!qb.enabled || !qb.config) return result;
+  const active = await resolveActiveAdapter();
+  if (!active) return result;
 
-  resetMaindataState();
-  let torrents: Map<string, Record<string, unknown>>;
+  let torrents: NormalizedTorrent[];
   try {
-    ({ torrents } = await fetchMaindata(qb.config));
-  } catch (e) {
-    console.warn("[reconcilePendingDownloads] fetchMaindata failed:", e);
+    torrents = await active.adapter.listTorrents();
+  } catch (error) {
+    console.warn(
+      "[reconcilePendingDownloads] listTorrents failed:",
+      error,
+    );
     return result;
   }
 
-  const byHash = new Map<string, Record<string, unknown>>();
-  for (const [h, raw] of torrents) byHash.set(h.toLowerCase(), raw);
+  const settings = opts.settings ?? {
+    stallTimeoutSecs: 2700,
+    maxAgeSecs: 604800,
+  };
+  const nowMs = Date.now();
 
   for (let dh of pending) {
     try {
-      let raw: Record<string, unknown> | undefined;
-      const tag = `rawkoon-dh-${dh.id}`.toLowerCase();
-
-      if (dh.torrentHash) raw = byHash.get(dh.torrentHash.toLowerCase());
-      if (!raw) {
-        for (const [h, torrentRow] of torrents) {
-          const tStr =
-            typeof torrentRow.tags === "string" ? torrentRow.tags : "";
-          const tags = tStr
-            .split(",")
-            .map((x) => x.trim().toLowerCase())
-            .filter(Boolean);
-          if (tags.includes(tag)) {
-            raw = torrentRow;
-            if (!dh.torrentHash) {
-              const nh = h.toLowerCase();
-              await prisma.downloadHistory.update({
-                where: { id: dh.id },
-                data: { torrentHash: nh },
-              });
-              dh = { ...dh, torrentHash: nh };
-            }
-            break;
-          }
-        }
-      }
-
-      if (!raw) {
+      const match = findPendingTorrent(torrents, dh.id, dh.torrentHash);
+      if (!match) {
         if (opts.treatMissingAsFailed) {
           await prisma.downloadHistory.update({
             where: { id: dh.id },
             data: {
               failed: true,
-              failReason: "torrent missing from qBittorrent",
+              failReason: "torrent missing from download client",
             },
           });
           await revertLibraryDownloadingIfNoOtherActiveGrabs(dh);
           if (dh.mediaId != null) emitLibraryUpdate(dh.mediaId);
+          clearTrack(dh.id);
           result.missing += 1;
         }
         continue;
       }
 
-      const state = typeof raw.state === "string" ? raw.state : "";
-      const progress =
-        typeof raw.progress === "number" && Number.isFinite(raw.progress)
-          ? raw.progress
-          : 0;
+      if (!dh.torrentHash) {
+        const torrentHash = match.hash.toLowerCase();
+        await prisma.downloadHistory.update({
+          where: { id: dh.id },
+          data: { torrentHash },
+        });
+        dh = { ...dh, torrentHash };
+      }
 
-      if (isFailedState(state)) {
+      const track = getOrInitTrack(
+        dh.id,
+        dh.createdAt?.getTime() ?? nowMs,
+        match.progress,
+        nowMs,
+      );
+      const verdict = classifyPendingAgainstTorrent(
+        match,
+        track,
+        nowMs,
+        settings,
+      );
+
+      if (verdict.outcome === "wait") {
+        if (
+          match.state === "downloading" &&
+          (verdict.progressed || match.dlSpeed > 0)
+        ) {
+          lastReconcileHadProgressing = true;
+        }
+        if (verdict.progressed) {
+          track.lastProgress = match.progress;
+          track.lastProgressAtMs = nowMs;
+        }
+        continue;
+      }
+
+      if (verdict.outcome === "fail") {
         await prisma.downloadHistory.update({
           where: { id: dh.id },
           data: {
             failed: true,
-            failReason: `qBittorrent state: ${state || "unknown"}`,
+            failReason: verdict.reason,
           },
         });
         await revertLibraryDownloadingIfNoOtherActiveGrabs(dh);
         if (dh.mediaId != null) emitLibraryUpdate(dh.mediaId);
+        clearTrack(dh.id);
         result.failed += 1;
         continue;
       }
 
-      if (isCompletedDownloadState(state) || progress >= 1) {
-        let completedId: number | null = null;
-        if (dh.torrentHash) {
-          completedId = await completeDownloadByHash(dh.torrentHash);
-        }
-        if (completedId == null && !dh.torrentHash) {
-          await markDownloadHistoryComplete(dh);
-          completedId = dh.id;
-        }
-        if (completedId != null) {
-          enqueueLibraryPostProcess(completedId);
-          result.completed += 1;
-        }
+      let completedId = dh.torrentHash
+        ? await completeDownloadByHash(dh.torrentHash)
+        : null;
+      if (completedId == null) {
+        await markDownloadHistoryComplete(dh);
+        completedId = dh.id;
+      }
+      if (completedId != null) {
+        enqueueLibraryPostProcess(completedId);
+        clearTrack(dh.id);
+        result.completed += 1;
       }
     } catch (e) {
       console.warn(
@@ -278,7 +394,41 @@ export async function reconcilePendingDownloads(
 export async function checkDownloadCompletion(): Promise<void> {
   const pending = await prisma.downloadHistory.findMany({
     where: { completedAt: null, failed: false },
+    select: {
+      id: true,
+      mediaId: true,
+      episodeId: true,
+      torrentHash: true,
+      createdAt: true,
+    },
   });
-  if (!pending.length) return;
-  await reconcilePendingDownloads(pending);
+  const settings = await prisma.mediaSettings.findUnique({ where: { id: 1 } });
+  const nowMs = Date.now();
+  const currentIds = new Set(pending.map((download) => download.id));
+  const hasNewPending = pending.some(
+    (download) => !knownPendingIds.has(download.id),
+  );
+  knownPendingIds = currentIds;
+
+  if (!pending.length) {
+    nextPollAtMs =
+      nowMs + (settings?.downloadPollIdleSecs ?? 1800) * 1000;
+    return;
+  }
+  if (!hasNewPending && nowMs < nextPollAtMs) return;
+
+  await reconcilePendingDownloads(pending, {
+    settings: {
+      stallTimeoutSecs: settings?.downloadStallTimeoutSecs ?? 2700,
+      maxAgeSecs: settings?.downloadMaxAgeSecs ?? 604800,
+    },
+  });
+  nextPollAtMs =
+    nowMs +
+    computeNextPollDelaySecs(
+      lastReconcileHadProgressing,
+      settings?.downloadPollActiveSecs ?? 20,
+      settings?.downloadPollIdleSecs ?? 1800,
+    ) *
+      1000;
 }

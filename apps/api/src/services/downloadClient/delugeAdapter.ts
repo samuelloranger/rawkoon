@@ -21,6 +21,7 @@ const STATUS_FIELDS = [
   "num_peers",
   "save_path",
   "total_wanted",
+  "label",
 ];
 
 export function delugeRowToNormalized(
@@ -40,6 +41,7 @@ export function delugeRowToNormalized(
     peers: num(raw.num_peers),
     dlSpeed: num(raw.download_payload_rate),
     sizeBytes: num(raw.total_wanted),
+    labels: str(raw.label) ? [str(raw.label)] : [],
   };
 }
 
