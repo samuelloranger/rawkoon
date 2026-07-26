@@ -140,7 +140,10 @@ export function createTransmissionAdapter(
         result["torrent-added"]?.hashString ??
         result["torrent-duplicate"]?.hashString ??
         null;
-      return { hash: hash?.toLowerCase() ?? null };
+      return {
+        hash: hash?.toLowerCase() ?? null,
+        ...(result["torrent-duplicate"] ? { duplicate: true } : {}),
+      };
     },
 
     async listTorrents() {

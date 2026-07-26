@@ -133,6 +133,7 @@ mock.module("@rawkoon/api/utils/dashboard/tmdbUpcoming", () => ({
 }));
 
 mock.module("@rawkoon/api/workers/notificationService", () => ({
+  getAllUsers: () => Promise.resolve([]),
   createAndQueueNotification: (
     userId: string,
     _t: string,

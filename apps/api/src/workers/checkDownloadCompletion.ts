@@ -255,7 +255,7 @@ export async function reconcilePendingDownloads(
     mediaId: number | null;
     episodeId: number | null;
     torrentHash: string | null;
-    createdAt?: Date | null;
+    grabbedAt?: Date | null;
   }>,
   opts: {
     treatMissingAsFailed?: boolean;
@@ -318,7 +318,7 @@ export async function reconcilePendingDownloads(
 
       const track = getOrInitTrack(
         dh.id,
-        dh.createdAt?.getTime() ?? nowMs,
+        dh.grabbedAt?.getTime() ?? nowMs,
         match.progress,
         nowMs,
       );
@@ -392,7 +392,7 @@ export async function checkDownloadCompletion(): Promise<void> {
       mediaId: true,
       episodeId: true,
       torrentHash: true,
-      createdAt: true,
+      grabbedAt: true,
     },
   });
   const settings = await prisma.mediaSettings.findUnique({ where: { id: 1 } });

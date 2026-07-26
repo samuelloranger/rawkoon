@@ -9,8 +9,11 @@ import { prisma } from "@rawkoon/api/db";
 import { badRequest, serverError } from "@rawkoon/api/errors";
 import { requireAdmin } from "@rawkoon/api/middleware/auth";
 import { encrypt } from "@rawkoon/api/services/crypto";
-import { invalidateDownloadClientIntegrationConfigCache } from "@rawkoon/api/services/downloadClient/config";
-import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
+import {
+  getDownloadClientIntegrationConfig,
+  invalidateDownloadClientIntegrationConfigCache,
+} from "@rawkoon/api/services/downloadClient/config";
+import { buildAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import {
   isValidHttpUrl,
@@ -178,7 +181,7 @@ export const downloadClientIntegrationRoutes = new Elysia()
     },
   )
   .post("/download-client/test", async () => {
-    const active = await resolveActiveAdapter();
-    if (!active) return { ok: false, error: "not configured" };
-    return active.adapter.testConnection();
+    const { clientType, config } = await getDownloadClientIntegrationConfig();
+    if (!clientType || !config) return { ok: false, error: "not configured" };
+    return buildAdapter(clientType, config).testConnection();
   });

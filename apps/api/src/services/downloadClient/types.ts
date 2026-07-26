@@ -43,7 +43,9 @@ export interface DownloadClientAdapter {
   readonly type: DownloadClientType;
   testConnection(): Promise<{ ok: boolean; error?: string }>;
   /** Returns the info-hash if the client reports it on add, else null. */
-  addTorrent(input: AddTorrentInput): Promise<{ hash: string | null }>;
+  addTorrent(
+    input: AddTorrentInput,
+  ): Promise<{ hash: string | null; duplicate?: boolean }>;
   listTorrents(): Promise<NormalizedTorrent[]>;
   getTorrent(hash: string): Promise<NormalizedTorrent | null>;
   pause(hash: string): Promise<void>;

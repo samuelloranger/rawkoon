@@ -1,5 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { transmissionRowToNormalized } from "@rawkoon/api/services/downloadClient/transmissionAdapter";
+import {
+  createTransmissionAdapter,
+  transmissionRowToNormalized,
+} from "@rawkoon/api/services/downloadClient/transmissionAdapter";
 
 describe("transmissionRowToNormalized", () => {
   it("maps a downloading torrent", () => {
@@ -49,5 +52,35 @@ describe("transmissionRowToNormalized", () => {
     });
 
     expect(result.state).toBe("stalled");
+  });
+
+  it("reports when Transmission reused a duplicate torrent", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          result: "success",
+          arguments: {
+            "torrent-duplicate": { hashString: "DEADBEEF" },
+          },
+        }),
+      );
+
+    try {
+      const adapter = createTransmissionAdapter({
+        website_url: "http://localhost:9091",
+        username: "admin",
+        password: "secret",
+        label: "rawkoon",
+      });
+      const result = await adapter.addTorrent({
+        magnetOrUrl: "magnet:?xt=urn:btih:deadbeef",
+        tag: "rawkoon-dh-1",
+      });
+
+      expect(result).toEqual({ hash: "deadbeef", duplicate: true });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

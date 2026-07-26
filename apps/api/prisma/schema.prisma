@@ -444,7 +444,7 @@ model DownloadHistory {
   media   LibraryMedia?   @relation(fields: [mediaId], references: [id], onDelete: SetNull)
   episode LibraryEpisode? @relation(fields: [episodeId], references: [id], onDelete: SetNull)
 
-  @@unique([torrentHash], map: "ix_download_history_torrent_hash")
+  @@index([torrentHash], map: "ix_download_history_torrent_hash")
   @@index([mediaId], map: "ix_download_history_media_id")
   @@index([episodeId], map: "ix_download_history_episode_id")
   @@map("download_history")

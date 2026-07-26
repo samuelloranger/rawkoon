@@ -70,6 +70,20 @@ const parseClientType = (raw: unknown): DownloadClientType | null => {
     : null;
 };
 
+export const buildDownloadClientConfigState = (
+  enabled: boolean,
+  rawConfig: unknown,
+) => {
+  const clientType = parseClientType(rawConfig);
+  return {
+    enabled,
+    clientType,
+    config: clientType
+      ? normalizeDownloadClientConfig(rawConfig, clientType)
+      : null,
+  };
+};
+
 export const getDownloadClientIntegrationConfig = async (): Promise<{
   enabled: boolean;
   clientType: DownloadClientType | null;
@@ -78,19 +92,9 @@ export const getDownloadClientIntegrationConfig = async (): Promise<{
   const cached = await getJsonCache<{ enabled: boolean; config: unknown }>(
     CACHE_KEY,
   );
-  const build = (enabled: boolean, rawConfig: unknown) => {
-    const clientType = enabled ? parseClientType(rawConfig) : null;
-    return {
-      enabled,
-      clientType,
-      config:
-        enabled && clientType
-          ? normalizeDownloadClientConfig(rawConfig, clientType)
-          : null,
-    };
-  };
 
-  if (cached) return build(cached.enabled, cached.config);
+  if (cached)
+    return buildDownloadClientConfigState(cached.enabled, cached.config);
 
   const integration = await prisma.integration.findFirst({
     where: { type: "download-client" },
@@ -104,7 +108,7 @@ export const getDownloadClientIntegrationConfig = async (): Promise<{
     { enabled, config: rawConfig },
     CACHE_TTL_SECONDS,
   );
-  return build(enabled, rawConfig);
+  return buildDownloadClientConfigState(enabled, rawConfig);
 };
 
 export const invalidateDownloadClientIntegrationConfigCache = async () => {
