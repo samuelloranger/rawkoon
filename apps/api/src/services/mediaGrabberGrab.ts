@@ -1,9 +1,5 @@
 import { prisma } from "@rawkoon/api/db";
-import {
-  addQbittorrentMagnet,
-  addQbittorrentTorrentFile,
-} from "@rawkoon/api/services/qbittorrent/torrentAdd";
-import { getQbittorrentIntegrationConfig } from "@rawkoon/api/services/qbittorrent/config";
+import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import { infoHashFromMagnet } from "@rawkoon/api/utils/medias/prowlarrSearchUtils";
 import { MAX_TORRENT_FILE_BYTES } from "@rawkoon/api/constants/libraryGrab";
@@ -22,7 +18,7 @@ import {
 import { tryAdoptQbDuplicate } from "@rawkoon/api/services/mediaGrabberAdopt";
 
 /**
- * Add a known release URL to qBittorrent with Rawkoon categories/tags,
+ * Add a known release URL to the active download client,
  * create DownloadHistory, set library status, and log activity.
  */
 export async function grabRelease(opts: {
@@ -78,10 +74,10 @@ export async function grabRelease(opts: {
       };
     }
 
-    const qb = await getQbittorrentIntegrationConfig();
-    if (!qb.enabled || !qb.config) {
-      return { grabbed: false, reason: "qBittorrent not configured" };
-    }
+    const active = await resolveActiveAdapter();
+    if (!active)
+      return { grabbed: false, reason: "No download client configured" };
+    const { adapter } = active;
 
     const category = qbCategoryForLibraryType(media.type);
     const qJson = qualityJsonValue(releaseTitle, qualityParsed);
@@ -106,38 +102,46 @@ export async function grabRelease(opts: {
       },
     });
     pendingDownloadHistoryId = dhRow.id;
+    const tag = `rawkoon-dh-${dhRow.id}`;
 
     let torrentHash: string | null = isMagnet
       ? infoHashFromMagnet(downloadUrl)
       : null;
 
     if (isMagnet) {
-      const add = await addQbittorrentMagnet(qb.config, qb.enabled, {
-        magnet: downloadUrl,
-        category,
-        tags: ["rawkoon"],
-      });
-      if (!add.success) {
-        const adopted = await tryAdoptQbDuplicate({
-          dhRowId: dhRow.id,
-          mediaId,
-          episodeId: episodeId ?? null,
-          mediaType: media.type,
-          torrentHash,
-          releaseTitle,
-          qJson,
-          isUpgrade: opts.isUpgrade,
+      try {
+        const added = await adapter.addTorrent({
+          magnetOrUrl: downloadUrl,
+          category,
+          tag,
+          savePath: active.savePath,
         });
-        if (adopted) {
-          grabCommittedOk = true;
-          successReleaseTitle = releaseTitle;
-          return { grabbed: true, releaseTitle };
+        if (added.hash) torrentHash = added.hash;
+      } catch (error) {
+        if (adapter.type === "qbittorrent") {
+          const adopted = await tryAdoptQbDuplicate({
+            dhRowId: dhRow.id,
+            mediaId,
+            episodeId: episodeId ?? null,
+            mediaType: media.type,
+            torrentHash,
+            releaseTitle,
+            qJson,
+            isUpgrade: opts.isUpgrade,
+          });
+          if (adopted) {
+            grabCommittedOk = true;
+            successReleaseTitle = releaseTitle;
+            return { grabbed: true, releaseTitle };
+          }
         }
+        const reason =
+          error instanceof Error ? error.message : "Magnet add failed";
         await prisma.downloadHistory.update({
           where: { id: dhRow.id },
-          data: { failed: true, failReason: add.error ?? "Magnet add failed" },
+          data: { failed: true, failReason: reason },
         });
-        return { grabbed: false, reason: add.error ?? "Failed to add magnet" };
+        return { grabbed: false, reason };
       }
     } else {
       // Try to fetch the .torrent file. Some indexers redirect to a magnet instead.
@@ -188,72 +192,75 @@ export async function grabRelease(opts: {
 
       if (magnetFallback) {
         torrentHash = infoHashFromMagnet(magnetFallback);
-        const add = await addQbittorrentMagnet(qb.config, qb.enabled, {
-          magnet: magnetFallback,
-          category,
-          tags: ["rawkoon"],
-        });
-        if (!add.success) {
-          const adopted = await tryAdoptQbDuplicate({
-            dhRowId: dhRow.id,
-            mediaId,
-            episodeId: episodeId ?? null,
-            mediaType: media.type,
-            torrentHash,
-            releaseTitle,
-            qJson,
-            isUpgrade: opts.isUpgrade,
+        try {
+          const added = await adapter.addTorrent({
+            magnetOrUrl: magnetFallback,
+            category,
+            tag,
+            savePath: active.savePath,
           });
-          if (adopted) {
-            grabCommittedOk = true;
-            successReleaseTitle = releaseTitle;
-            return { grabbed: true, releaseTitle };
+          if (added.hash) torrentHash = added.hash;
+        } catch (error) {
+          if (adapter.type === "qbittorrent") {
+            const adopted = await tryAdoptQbDuplicate({
+              dhRowId: dhRow.id,
+              mediaId,
+              episodeId: episodeId ?? null,
+              mediaType: media.type,
+              torrentHash,
+              releaseTitle,
+              qJson,
+              isUpgrade: opts.isUpgrade,
+            });
+            if (adopted) {
+              grabCommittedOk = true;
+              successReleaseTitle = releaseTitle;
+              return { grabbed: true, releaseTitle };
+            }
           }
+          const reason =
+            error instanceof Error ? error.message : "Magnet add failed";
           await prisma.downloadHistory.update({
             where: { id: dhRow.id },
-            data: {
-              failed: true,
-              failReason: add.error ?? "Magnet add failed",
-            },
+            data: { failed: true, failReason: reason },
           });
-          return {
-            grabbed: false,
-            reason: add.error ?? "Failed to add magnet",
-          };
+          return { grabbed: false, reason };
         }
       } else if (fetchedFile) {
-        const add = await addQbittorrentTorrentFile(qb.config, qb.enabled, {
-          torrent: fetchedFile,
-          category,
-          tags: ["rawkoon"],
-        });
-        if (!add.success) {
-          const adopted = await tryAdoptQbDuplicate({
-            dhRowId: dhRow.id,
-            mediaId,
-            episodeId: episodeId ?? null,
-            mediaType: media.type,
-            torrentHash,
-            releaseTitle,
-            qJson,
-            isUpgrade: opts.isUpgrade,
+        try {
+          const added = await adapter.addTorrent({
+            fileBuffer: new Uint8Array(await fetchedFile.arrayBuffer()),
+            fileName: fetchedFile.name,
+            category,
+            tag,
+            savePath: active.savePath,
           });
-          if (adopted) {
-            grabCommittedOk = true;
-            successReleaseTitle = releaseTitle;
-            return { grabbed: true, releaseTitle };
+          if (added.hash) torrentHash = added.hash;
+        } catch (error) {
+          if (adapter.type === "qbittorrent") {
+            const adopted = await tryAdoptQbDuplicate({
+              dhRowId: dhRow.id,
+              mediaId,
+              episodeId: episodeId ?? null,
+              mediaType: media.type,
+              torrentHash,
+              releaseTitle,
+              qJson,
+              isUpgrade: opts.isUpgrade,
+            });
+            if (adopted) {
+              grabCommittedOk = true;
+              successReleaseTitle = releaseTitle;
+              return { grabbed: true, releaseTitle };
+            }
           }
+          const reason =
+            error instanceof Error ? error.message : "Torrent add failed";
           await prisma.downloadHistory.update({
             where: { id: dhRow.id },
-            data: {
-              failed: true,
-              failReason: add.error ?? "Torrent add failed",
-            },
+            data: { failed: true, failReason: reason },
           });
-          return {
-            grabbed: false,
-            reason: add.error ?? "Failed to add torrent",
-          };
+          return { grabbed: false, reason };
         }
       }
     }
@@ -279,7 +286,7 @@ export async function grabRelease(opts: {
     } catch (e) {
       const msg =
         e instanceof Error ? e.message : "Library status update failed";
-      // The torrent was already handed to qBittorrent — don't mark DH as failed.
+      // The torrent was already handed to the client — don't mark DH as failed.
       // A failed status update leaves the row active so the completion webhook
       // and the safety-net poller can still process it when the download finishes.
       console.warn(
