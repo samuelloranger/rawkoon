@@ -36,6 +36,19 @@ export interface QbittorrentIntegration {
   webhook_secret_configured?: boolean;
 }
 
+export type DownloadClientType = "qbittorrent" | "transmission" | "deluge";
+
+export interface DownloadClientIntegration {
+  type: "download-client";
+  enabled: boolean;
+  client_type: DownloadClientType;
+  website_url: string;
+  username: string;
+  password_set: boolean;
+  label: string;
+  save_path?: string;
+}
+
 export interface TmdbIntegration {
   type: "tmdb";
   enabled: boolean;
@@ -63,6 +76,11 @@ export interface JackettIntegrationUpdateResponse {
 export interface QbittorrentIntegrationUpdateResponse {
   success: boolean;
   integration: QbittorrentIntegration;
+}
+
+export interface DownloadClientIntegrationUpdateResponse {
+  success: boolean;
+  integration: DownloadClientIntegration;
 }
 
 export interface TmdbIntegrationUpdateResponse {
