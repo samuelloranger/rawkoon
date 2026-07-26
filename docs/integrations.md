@@ -9,14 +9,13 @@ service.
 | Service | Purpose |
 | --- | --- |
 | TMDB | Discovery, search, and media metadata. A TMDB API key is required for discovery. |
-| qBittorrent | Rawkoon's download client. The settings page can configure its add and completion hooks. |
+| qBittorrent, Transmission, or Deluge | The active download client. Rawkoon polls it for progress and completion. |
 | Prowlarr or Jackett | Indexer search. Choose one active indexer manager for the library grab pipeline. |
 | Jellyfin or Plex | Latest additions, watch activity, and supported notifications. |
 
-Rawkoon uses qBittorrent's **Run external program** capability to send an
-authenticated notification when a torrent is added or completed. Use the
-**Configure webhooks** action in Settings instead of manually re-creating that
-command.
+Choose one active download client. Rawkoon labels its torrents, polls the
+client automatically, and detects stalled or expired downloads without
+requiring webhook setup.
 
 ## Identity and notifications
 

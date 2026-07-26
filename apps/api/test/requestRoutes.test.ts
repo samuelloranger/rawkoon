@@ -126,6 +126,7 @@ mock.module("@rawkoon/api/services/libraryFromTmdb", () => ({
   }),
 }));
 mock.module("@rawkoon/api/workers/notificationService", () => ({
+  getAllUsers: async () => [],
   createAndQueueNotification: async () => true,
 }));
 

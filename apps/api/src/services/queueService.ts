@@ -207,7 +207,7 @@ export async function setupScheduledJobs() {
     },
     {
       name: SCHEDULED_JOB_NAMES.CHECK_LIBRARY_DOWNLOAD_COMPLETION,
-      pattern: "*/30 * * * *",
+      pattern: "*/20 * * * * *",
     },
     {
       name: SCHEDULED_JOB_NAMES.CHECK_LIBRARY_INTEGRITY,

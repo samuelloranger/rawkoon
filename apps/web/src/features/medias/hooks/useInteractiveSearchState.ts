@@ -248,7 +248,7 @@ export function useInteractiveSearchState({
 
     try {
       if (isSearchMode && libId != null && release.download_url) {
-        // Library grab — records in DB and sends URL to qBittorrent
+        // Library grab — records in DB and sends URL to the active client.
         if (libraryGrabMutation.isPending) return;
         await libraryGrabMutation.mutateAsync({
           download_url: release.download_url,

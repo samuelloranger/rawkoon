@@ -1,7 +1,7 @@
 # Getting started
 
 Rawkoon is a self-hosted movie and TV library. It discovers titles through
-TMDB, searches releases through an indexer, sends downloads to qBittorrent,
+TMDB, searches releases through an indexer, sends downloads to an active client,
 and can place completed files into your library automatically.
 
 This guide covers everyday use of an instance that is already running. If you

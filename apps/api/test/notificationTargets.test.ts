@@ -21,6 +21,7 @@ mock.module("@rawkoon/api/db", () => ({
 }));
 
 mock.module("@rawkoon/api/workers/notificationService", () => ({
+  getAllUsers: () => Promise.resolve([]),
   createAndQueueNotification: async (
     _userId: string,
     _title: string,

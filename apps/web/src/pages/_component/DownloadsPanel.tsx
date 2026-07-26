@@ -83,7 +83,7 @@ export function DownloadsPanel() {
 
         {!data?.enabled && !isLoading && (
           <p className="py-2 text-sm text-neutral-400 text-center">
-            {t("dashboard.home.qbittorrentNotConfigured")}
+            {t("dashboard.home.downloadClientNotConfigured")}
           </p>
         )}
 

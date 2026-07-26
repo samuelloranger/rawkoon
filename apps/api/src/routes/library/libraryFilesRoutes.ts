@@ -61,7 +61,7 @@ export const libraryFilesRoutes = new Elysia()
     }
   })
 
-  // GET /api/library/:id/downloads — Prowlarr/qBittorrent grab history
+  // GET /api/library/:id/downloads — grab history + live client progress
   .get("/:id/downloads", async ({ params, set }) => {
     try {
       const id = parseInt(params.id, 10);
@@ -73,7 +73,7 @@ export const libraryFilesRoutes = new Elysia()
         orderBy: { grabbedAt: "desc" },
       });
 
-      // Best-effort live progress for rows still downloading. qB down/disabled => live:null.
+      // Best-effort live progress for rows still downloading.
       const activeHashes = items
         .filter((h) => !h.completedAt && !h.failed && h.torrentHash)
         .map((h) => h.torrentHash as string);
@@ -88,26 +88,27 @@ export const libraryFilesRoutes = new Elysia()
         }
       >();
       if (activeHashes.length > 0) {
-        const { getQbittorrentIntegrationConfig } = await import(
-          "@rawkoon/api/services/qbittorrent/config"
+        const { resolveActiveAdapter } = await import(
+          "@rawkoon/api/services/downloadClient/registry"
         );
-        const { fetchQbittorrentTorrents } = await import(
-          "@rawkoon/api/services/qbittorrent/torrentQueries"
-        );
-        const { enabled, config } = await getQbittorrentIntegrationConfig();
-        if (enabled && config) {
-          const { torrents } = await fetchQbittorrentTorrents(
-            config,
-            true,
-            activeHashes,
-          );
-          for (const t of torrents) {
-            liveByHash.set(t.id.toLowerCase(), {
-              progress: t.progress,
-              download_speed: t.download_speed,
-              eta_seconds: t.eta_seconds,
-              state: t.state,
-            });
+        const active = await resolveActiveAdapter();
+        if (active) {
+          try {
+            const torrents = await active.adapter.listTorrents();
+            const wanted = new Set(
+              activeHashes.map((hash) => hash.toLowerCase()),
+            );
+            for (const torrent of torrents) {
+              if (!wanted.has(torrent.hash.toLowerCase())) continue;
+              liveByHash.set(torrent.hash.toLowerCase(), {
+                progress: torrent.progress,
+                download_speed: torrent.dlSpeed,
+                eta_seconds: null,
+                state: torrent.state,
+              });
+            }
+          } catch {
+            // Client unavailable: keep live progress null.
           }
         }
       }
@@ -278,27 +279,21 @@ export const libraryFilesRoutes = new Elysia()
         });
         if (!dh) return notFound(set, "Download history not found");
 
-        const { getQbittorrentIntegrationConfig } = await import(
-          "@rawkoon/api/services/qbittorrent/config"
+        const { resolveActiveAdapter } = await import(
+          "@rawkoon/api/services/downloadClient/registry"
         );
-        const {
-          pauseQbittorrentTorrent,
-          resumeQbittorrentTorrent,
-          deleteQbittorrentTorrent,
-        } = await import("@rawkoon/api/services/qbittorrent/torrentMutations");
         const { emitLibraryUpdate } = await import(
           "@rawkoon/api/services/libraryEvents"
         );
 
         if (body.action === "remove") {
           if (dh.torrentHash) {
-            const { enabled, config } = await getQbittorrentIntegrationConfig();
-            if (enabled && config) {
+            const active = await resolveActiveAdapter();
+            if (active) {
               // Best-effort: a missing torrent shouldn't block removing the row.
-              await deleteQbittorrentTorrent(config, true, {
-                hash: dh.torrentHash,
-                delete_files: body.delete_files ?? false,
-              });
+              await active.adapter
+                .remove(dh.torrentHash, body.delete_files ?? false)
+                .catch(() => {});
             }
           }
           const { revertLibraryDownloadingIfNoOtherActiveGrabs } = await import(
@@ -324,21 +319,12 @@ export const libraryFilesRoutes = new Elysia()
         if (!dh.torrentHash) {
           return badRequest(set, "Download has no torrent to control");
         }
-        const { enabled, config } = await getQbittorrentIntegrationConfig();
-        if (!enabled || !config) {
-          return badRequest(set, "qBittorrent integration is not configured");
+        const active = await resolveActiveAdapter();
+        if (!active) {
+          return badRequest(set, "Download client is not configured");
         }
-        const result =
-          body.action === "pause"
-            ? await pauseQbittorrentTorrent(config, true, {
-                hash: dh.torrentHash,
-              })
-            : await resumeQbittorrentTorrent(config, true, {
-                hash: dh.torrentHash,
-              });
-        if (!result.success) {
-          return serverError(set, result.error ?? "qBittorrent action failed");
-        }
+        if (body.action === "pause") await active.adapter.pause(dh.torrentHash);
+        else await active.adapter.resume(dh.torrentHash);
         emitLibraryUpdate(mediaId);
         return { success: true };
       } catch (err) {
