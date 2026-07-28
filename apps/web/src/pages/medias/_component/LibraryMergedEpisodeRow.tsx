@@ -285,13 +285,13 @@ export function MergedEpisodeRow({
             </Badge>
           ))}
 
-          <div className="shrink-0 flex items-center gap-0.5">
+          <div className="shrink-0 flex items-center gap-1">
             {onSearchEpisode && (
               <button
                 type="button"
                 onClick={handleSearch}
                 title={t("library.episodeInteractiveSearchTitle")}
-                className="rounded p-1 text-neutral-400 hover:text-primary-400 hover:bg-primary-950/30 transition-colors"
+                className="inline-flex size-6 items-center justify-center rounded p-1 text-neutral-400 hover:text-primary-400 hover:bg-primary-950/30 transition-colors"
               >
                 <Search size={11} />
               </button>
@@ -312,7 +312,7 @@ export function MergedEpisodeRow({
                 title={t("library.management.retrySearchTitle")}
                 onClick={handleRetry}
                 disabled={retryEpMut.isPending}
-                className="rounded p-1 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 disabled:opacity-50 transition-colors"
+                className="inline-flex size-6 items-center justify-center rounded p-1 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 disabled:opacity-50 transition-colors"
               >
                 <RefreshCw size={11} />
               </button>
@@ -326,7 +326,7 @@ export function MergedEpisodeRow({
               }
               onClick={handleToggleMonitored}
               disabled={toggleMonitoredMut.isPending}
-              className="rounded p-1 text-neutral-500 hover:text-neutral-400 disabled:opacity-50 transition-colors"
+              className="inline-flex size-6 items-center justify-center rounded p-1 text-neutral-500 hover:text-neutral-400 disabled:opacity-50 transition-colors"
             >
               {ep.monitored ? <Eye size={11} /> : <EyeOff size={11} />}
             </button>
@@ -338,7 +338,7 @@ export function MergedEpisodeRow({
                 title={t("library.media.deleteEpisode", {
                   defaultValue: "Delete episode",
                 })}
-                className="rounded p-1 text-neutral-400 hover:text-red-400 hover:bg-red-950/30 disabled:opacity-50 transition-colors"
+                className="inline-flex size-6 items-center justify-center rounded p-1 text-neutral-400 hover:text-red-400 hover:bg-red-950/30 disabled:opacity-50 transition-colors"
               >
                 <Trash2 size={11} />
               </button>

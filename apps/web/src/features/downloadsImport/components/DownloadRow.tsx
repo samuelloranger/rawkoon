@@ -146,7 +146,7 @@ function DownloadRowImpl({
                 </span>
                 <button
                   type="button"
-                  className="p-0.5 text-neutral-500 hover:text-red-600"
+                  className="inline-flex size-6 items-center justify-center rounded p-0.5 text-neutral-500 hover:text-red-600"
                   onClick={handleUnstage}
                   aria-label={t("downloadsImport.row.unstage")}
                 >
