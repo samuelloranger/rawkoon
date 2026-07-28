@@ -86,6 +86,7 @@ export function LibraryQualityProfileSection({
         right={searchNowButton}
       >
         <select
+          aria-label={t("library.management.qualityProfile")}
           value={mediaRow?.quality_profile_id ?? ""}
           onChange={(e) => {
             const v = e.target.value;
@@ -108,7 +109,7 @@ export function LibraryQualityProfileSection({
               });
           }}
           disabled={updateProfile.isPending || !mediaRow}
-          className="w-full rounded-lg border border-border bg-neutral-800/80 px-2.5 py-1.5 text-xs text-neutral-100 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+          className="focus-ring w-full rounded-lg border border-border bg-neutral-800/80 px-2.5 py-1.5 text-xs text-neutral-100 disabled:opacity-60"
         >
           <option value="">{t("library.management.qualityProfileNone")}</option>
           {profiles.map((p) => (

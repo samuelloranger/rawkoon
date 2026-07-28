@@ -50,9 +50,25 @@ export const LANGUAGE_OPTIONS = [
 
 // ─── Field label ──────────────────────────────────────────────────────────────
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <label className="text-sm font-medium text-neutral-300">{children}</label>
+/**
+ * Renders a real <label> when it points at a single control, and a plain <span>
+ * when it heads a group — a <label> with no control is a promise to screen
+ * readers that nothing keeps.
+ */
+function FieldLabel({
+  children,
+  htmlFor,
+}: {
+  children: React.ReactNode;
+  htmlFor?: string;
+}) {
+  const className = "text-sm font-medium text-neutral-300";
+  return htmlFor ? (
+    <label htmlFor={htmlFor} className={className}>
+      {children}
+    </label>
+  ) : (
+    <span className={className}>{children}</span>
   );
 }
 
@@ -75,7 +91,7 @@ const emptyPayload: QualityProfileFormPayload = {
 };
 
 const selectClass =
-  "w-full rounded-lg border px-3 py-2 text-sm border-neutral-700 bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/30 transition-colors";
+  "focus-ring w-full rounded-lg border px-3 py-2 text-sm border-neutral-700 bg-neutral-900 text-neutral-100 transition-colors";
 
 // ─── Form (remounted via key when editing target / server row changes) ─────────
 
@@ -138,8 +154,11 @@ export function QualityProfileForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
-          <FieldLabel>{t("settings.qualityProfiles.minResolution")}</FieldLabel>
+          <FieldLabel htmlFor="quality-profile-min-resolution">
+            {t("settings.qualityProfiles.minResolution")}
+          </FieldLabel>
           <select
+            id="quality-profile-min-resolution"
             value={form.min_resolution}
             onChange={(e) => set("min_resolution", Number(e.target.value))}
             className={selectClass}
@@ -151,10 +170,11 @@ export function QualityProfileForm({
           </select>
         </div>
         <div className="flex flex-col gap-1.5">
-          <FieldLabel>
+          <FieldLabel htmlFor="quality-profile-cutoff-resolution">
             {t("settings.qualityProfiles.cutoffResolution")}
           </FieldLabel>
           <select
+            id="quality-profile-cutoff-resolution"
             value={form.cutoff_resolution ?? ""}
             onChange={(e) =>
               set(

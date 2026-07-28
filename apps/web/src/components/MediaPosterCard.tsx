@@ -68,7 +68,7 @@ export function MediaPosterCard({
   rel,
   onClick,
   disabled,
-  accentRingClassName = "focus:ring-primary-400/60",
+  accentRingClassName = "focus-ring ",
   className,
   style,
   animationDelayMs,
@@ -104,6 +104,7 @@ export function MediaPosterCard({
       {/* Blurred thumbnail — loads instantly, hidden once full res is ready */}
       {thumbnailUrl && (
         <img
+          decoding="async"
           src={thumbnailUrl}
           alt=""
           aria-hidden="true"
@@ -115,6 +116,7 @@ export function MediaPosterCard({
       {/* Full-res poster — fades in over the thumbnail */}
       {showImage && (
         <img
+          decoding="async"
           src={posterUrl!}
           alt=""
           loading="lazy"

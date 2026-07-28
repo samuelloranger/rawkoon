@@ -116,7 +116,7 @@ export function BlocklistTab() {
                           <button
                             type="button"
                             onClick={() => onUnblock(entry)}
-                            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-neutral-400 transition-colors hover:bg-red-500/10 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                            className="focus-ring inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-neutral-400 transition-colors hover:bg-red-500/10 hover:text-red-400"
                             title={t("settings.blocklist.unblock")}
                           >
                             <Trash2 size={13} />
@@ -143,7 +143,7 @@ export function BlocklistTab() {
                       <button
                         type="button"
                         onClick={() => onUnblock(entry)}
-                        className="shrink-0 rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-red-500/10 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                        className="focus-ring shrink-0 rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-red-500/10 hover:text-red-400"
                         title={t("settings.blocklist.unblock")}
                         aria-label={t("settings.blocklist.unblock")}
                       >

@@ -97,7 +97,7 @@ export function LibraryInfoOverridesSection({ libraryId, item }: Props) {
   };
 
   const inputClass =
-    "w-full rounded-lg border border-border bg-neutral-900 px-2.5 py-1.5 text-xs text-neutral-200 focus:outline-none focus:ring-1 focus:ring-primary-500";
+    "focus-ring w-full rounded-lg border border-border bg-neutral-900 px-2.5 py-1.5 text-xs text-neutral-200";
   const labelClass = "text-[10px] font-medium text-neutral-400";
 
   return (

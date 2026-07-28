@@ -74,6 +74,8 @@ export function IntegrationSectionCard({
         >
           {logoUrl && (
             <img
+              loading="lazy"
+              decoding="async"
               src={logoUrl}
               alt={title}
               className="w-10 h-10 rounded-xl object-contain flex-shrink-0"

@@ -279,12 +279,13 @@ export function ProfileForm() {
         </h3>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-300 mb-2">
+          <p className="block text-sm font-medium text-neutral-300 mb-2">
             {t("settings.profile.profilePicture")}
-          </label>
+          </p>
           <div className="flex items-center gap-4">
             {avatarPreview || currentUser?.avatar_url ? (
               <img
+                decoding="async"
                 src={avatarPreview || currentUser?.avatar_url || ""}
                 alt={t("settings.profile.profilePictureAlt")}
                 className="h-14 w-14 rounded-full object-cover border border-neutral-600"
@@ -317,14 +318,18 @@ export function ProfileForm() {
 
         {/* Email (Read-only) */}
         <div>
-          <label className="block text-sm font-medium text-neutral-300 mb-2">
+          <label
+            htmlFor="profile-form-email"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
             {t("settings.profile.email")}
           </label>
           <input
+            id="profile-form-email"
             type="email"
             value={currentUser?.email || ""}
             disabled
-            className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-400 cursor-not-allowed"
+            className="focus-ring w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-400 cursor-not-allowed"
           />
           <p className="mt-1 text-sm text-neutral-400">
             {t("settings.profile.emailReadOnly")}
@@ -333,27 +338,35 @@ export function ProfileForm() {
 
         {/* First Name */}
         <div>
-          <label className="block text-sm font-medium text-neutral-300 mb-2">
+          <label
+            htmlFor="profile-form-first-name"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
             {t("settings.profile.firstName")}
           </label>
           <input
+            id="profile-form-first-name"
             type="text"
             {...registerProfile("first_name")}
             placeholder={t("settings.profile.firstNamePlaceholder")}
-            className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="focus-ring w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:border-transparent"
           />
         </div>
 
         {/* Last Name */}
         <div>
-          <label className="block text-sm font-medium text-neutral-300 mb-2">
+          <label
+            htmlFor="profile-form-last-name"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
             {t("settings.profile.lastName")}
           </label>
           <input
+            id="profile-form-last-name"
             type="text"
             {...registerProfile("last_name")}
             placeholder={t("settings.profile.lastNamePlaceholder")}
-            className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="focus-ring w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:border-transparent"
           />
         </div>
 
@@ -383,10 +396,14 @@ export function ProfileForm() {
 
         {/* Current Password */}
         <div>
-          <label className="block text-sm font-medium text-neutral-300 mb-2">
+          <label
+            htmlFor="profile-form-current-password"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
             {t("settings.profile.currentPassword") || "Current Password"}
           </label>
           <input
+            id="profile-form-current-password"
             type="password"
             {...registerPassword("current_password", {
               required:
@@ -397,7 +414,7 @@ export function ProfileForm() {
               t("settings.profile.currentPasswordPlaceholder") ||
               "Enter your current password"
             }
-            className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="focus-ring w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:border-transparent"
           />
           {passwordErrors.current_password && (
             <p className="mt-1 text-sm text-red-400">
@@ -408,10 +425,14 @@ export function ProfileForm() {
 
         {/* New Password */}
         <div>
-          <label className="block text-sm font-medium text-neutral-300 mb-2">
+          <label
+            htmlFor="profile-form-new-password"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
             {t("settings.profile.newPassword")}
           </label>
           <input
+            id="profile-form-new-password"
             type="password"
             {...registerPassword("new_password", {
               required:
@@ -425,7 +446,7 @@ export function ProfileForm() {
               },
             })}
             placeholder={t("settings.profile.newPasswordPlaceholder")}
-            className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="focus-ring w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:border-transparent"
           />
           {passwordErrors.new_password && (
             <p className="mt-1 text-sm text-red-400">
@@ -439,10 +460,14 @@ export function ProfileForm() {
 
         {/* Confirm New Password */}
         <div>
-          <label className="block text-sm font-medium text-neutral-300 mb-2">
+          <label
+            htmlFor="profile-form-confirm-password"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
             {t("settings.profile.confirmPassword") || "Confirm New Password"}
           </label>
           <input
+            id="profile-form-confirm-password"
             type="password"
             {...registerPassword("confirm_password", {
               required:
@@ -457,7 +482,7 @@ export function ProfileForm() {
               t("settings.profile.confirmPasswordPlaceholder") ||
               "Confirm your new password"
             }
-            className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="focus-ring w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:border-transparent"
           />
           {passwordErrors.confirm_password && (
             <p className="mt-1 text-sm text-red-400">
@@ -495,6 +520,7 @@ export function ProfileForm() {
                 keepSelection
               >
                 <img
+                  decoding="async"
                   ref={imageRef}
                   src={selectedImageUrl}
                   alt={t("settings.profile.profilePictureAlt")}

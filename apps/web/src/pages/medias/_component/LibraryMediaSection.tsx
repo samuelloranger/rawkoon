@@ -355,7 +355,7 @@ export function LibraryMediaSection({
                           "rounded-md p-2.5 mobile-max:px-3 mobile-max:py-3 transition-colors disabled:opacity-50",
                           anyMonitored
                             ? "text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/40"
-                            : "text-neutral-600 hover:text-neutral-400 hover:bg-neutral-800/40",
+                            : "text-neutral-500 hover:text-neutral-400 hover:bg-neutral-800/40",
                         )}
                       >
                         {anyMonitored ? (

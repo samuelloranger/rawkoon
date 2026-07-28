@@ -24,7 +24,7 @@ export function Toggle({
       style={{ touchAction: "manipulation" }}
     >
       <span
-        className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
+        className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
           checked ? "bg-primary-600" : "bg-neutral-700"
         }`}
       >

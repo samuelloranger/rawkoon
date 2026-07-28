@@ -57,12 +57,13 @@ export function NowWatchingWidget() {
                 <div className="flex h-16 w-[3rem] shrink-0 items-center justify-center overflow-hidden rounded-md bg-neutral-800">
                   {session.poster_url ? (
                     <img
+                      decoding="async"
                       src={session.poster_url}
                       alt=""
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <Film className="h-5 w-5 text-neutral-600" aria-hidden />
+                    <Film className="h-5 w-5 text-neutral-500" aria-hidden />
                   )}
                 </div>
 

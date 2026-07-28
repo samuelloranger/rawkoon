@@ -159,7 +159,7 @@ export function RequestsPage() {
         </div>
       ) : requests.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-xl bg-neutral-900/40 py-16 text-center ring-1 ring-neutral-800">
-          <Send className="h-7 w-7 text-neutral-600" />
+          <Send className="h-7 w-7 text-neutral-500" />
           <p className="text-sm text-neutral-400">{t("requests.empty")}</p>
         </div>
       ) : (

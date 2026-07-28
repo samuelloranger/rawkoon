@@ -34,7 +34,7 @@ export function LibraryPageHeader({
           <span>
             {t("medias.library.moviesWithCount", { count: movieCount })}
           </span>
-          <span className="mx-1.5 select-none text-neutral-600">·</span>
+          <span className="mx-1.5 select-none text-neutral-500">·</span>
           <span>
             {t("medias.library.showsWithCount", { count: showCount })}
           </span>
@@ -77,7 +77,7 @@ export function LibraryPageHeader({
           disabled={isLoading}
           className={cn(
             "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-800/60 text-neutral-400 transition-colors hover:text-neutral-100",
-            isLoading && "animate-spin pointer-events-none text-neutral-600",
+            isLoading && "animate-spin pointer-events-none text-neutral-500",
           )}
         >
           <RefreshCw size={14} />

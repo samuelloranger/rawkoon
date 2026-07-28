@@ -91,10 +91,12 @@ export function LibraryToolbar({
             className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
           />
           <input
+            type="search"
+            aria-label={t("medias.library.searchPlaceholder")}
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={t("medias.library.searchPlaceholder")}
-            className="w-full sm:w-80 rounded-xl border border-neutral-700 bg-neutral-900 pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-500 transition"
+            className="focus-ring w-full sm:w-80 rounded-xl border border-neutral-700 bg-neutral-900 pl-8 pr-3 py-2 text-sm focus:border-primary-500 transition"
           />
         </div>
 

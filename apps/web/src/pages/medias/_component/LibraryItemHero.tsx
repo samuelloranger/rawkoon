@@ -74,10 +74,13 @@ export function LibraryItemHero({
       {backdrop ? (
         <>
           <div className="absolute inset-0 bg-neutral-900" />
+          {/* The LCP element on this route — fetch it ahead of the poster. */}
           <img
             src={backdrop}
             alt=""
             aria-hidden
+            decoding="async"
+            fetchPriority="high"
             className={cn(
               "absolute inset-0 h-full w-full object-cover transition-opacity duration-700",
               backdropLoaded ? "opacity-100" : "opacity-0",
@@ -111,6 +114,7 @@ export function LibraryItemHero({
               <img
                 src={item.poster_url}
                 alt={item.title}
+                decoding="async"
                 className="w-[86px] md:w-[116px] rounded-xl object-cover shadow-2xl ring-1 ring-white/15"
                 onError={() => setPosterError(true)}
               />
@@ -184,7 +188,11 @@ export function LibraryItemHero({
                           ? "https://www.rottentomatoes.com/assets/pizza-pie/images/icons/tomatometer/tomatometer-fresh.149b5e8adc3.svg"
                           : "https://www.rottentomatoes.com/assets/pizza-pie/images/icons/tomatometer/tomatometer-rotten.f1ef4f02ce3.svg"
                       }
-                      alt=""
+                      alt={
+                        parseInt(rtScore) >= 60
+                          ? "Rotten Tomatoes: Fresh"
+                          : "Rotten Tomatoes: Rotten"
+                      }
                       className="h-4 w-4"
                     />
                     <span className="text-white/75 font-semibold">

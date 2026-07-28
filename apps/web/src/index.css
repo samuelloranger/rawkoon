@@ -38,9 +38,9 @@
   --color-neutral-100: #e3d8cf; /* text */
   --color-neutral-200: #d4c6b8;
   --color-neutral-300: #b9a89a;
-  --color-neutral-400: #9c8d80; /* muted text */
-  --color-neutral-500: #6b5c50;
-  --color-neutral-600: #463a32; /* muted borders/icons */
+  --color-neutral-400: #aa9a8c; /* muted text — 6.04:1 on surface-raised */
+  --color-neutral-500: #9d8775; /* faintest readable text — 4.82:1 on surface-raised */
+  --color-neutral-600: #463a32; /* borders only — 1.5:1, never use for text */
   --color-neutral-700: #322a25; /* borders */
   --color-neutral-800: #241e1b; /* raised cards/panels */
   --color-neutral-900: #1c1715; /* app base background */
@@ -52,11 +52,9 @@
   --color-surface-inset: #171311; /* between neutral-950 and neutral-900 */
   --color-border: #322a25;
   --color-border-strong: #3a2f27; /* between neutral-600 and neutral-700 */
-  --color-accent: #e8a06a;
-  --color-accent-strong: #cf6a4e;
   --color-text-strong: #f4ece4;
   --color-text: #e3d8cf;
-  --color-text-muted: #9c8d80;
+  --color-text-muted: #aa9a8c;
 
   /* Custom breakpoints */
   --breakpoint-mobile-max: 945px;
@@ -110,13 +108,20 @@ body {
   --z-popover: 250;
   --z-tooltip: 300;
 
-  /* Deprecated aliases of the @theme --color-surface-* tokens — kept until components migrate; do not add new ones. */
-  /* Dark surfaces — warm Cozy Dusk (aligned with @theme neutral scale) */
-  --surface-base: #1c1715;
-  --surface-1: #241e1b;
-  --surface-2: #322a25;
-  --surface-border: #322a25;
-  --surface-muted-fg: #9c8d80;
+}
+
+/*
+  The one focus indicator. Defined once so the Input and Select primitives and
+  the hand-rolled fields that never adopted them cannot drift apart. Two rings:
+  a surface-coloured gap, then the accent, so it stays visible on any surface.
+*/
+@utility focus-ring {
+  &:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--color-surface-base),
+      0 0 0 4px var(--color-primary-400);
+  }
 }
 
 @keyframes discover-in {
@@ -447,18 +452,41 @@ body {
   animation: greetingFadeSlideIn 0.5s ease-out;
 }
 
-@keyframes iconBounce {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
+@keyframes greetingIconSettle {
+  from {
     transform: translateY(-4px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
 
 .greeting-icon {
-  animation: iconBounce 2s ease-in-out 1;
+  animation: greetingIconSettle 0.5s cubic-bezier(0.16, 1, 0.3, 1) 1 both;
+}
+
+/*
+  Loading dots. A wave of opacity and a 2px lift. Deliberately not Tailwind's
+  bounce utility — its squash curve is a reflex, and three of them at once
+  reads as jitter.
+*/
+@keyframes loaderDotWave {
+  0%,
+  70%,
+  100% {
+    opacity: 0.28;
+    transform: translateY(0);
+  }
+  35% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+.loader-dot {
+  animation: loaderDotWave 1.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
 }
 
 /* Completion celebration animations */
@@ -590,12 +618,49 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /*
+    Collapse every animation and transition rather than listing them one by
+    one — enumerating them is how 19 of 21 went unguarded. Durations go to
+    ~0 instead of `animation: none` so keyframes still settle on their final
+    frame; `none` would strand anything that animates in from opacity: 0.
+  */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  /*
+    Exempt indeterminate progress. A frozen spinner reads as a hung app, which
+    is a worse outcome than the motion itself — slow it down instead of
+    stopping it.
+  */
+  .animate-spin,
+  [class*="animate-spin"] {
+    animation-duration: 1.5s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  .loader-dot {
+    animation-duration: 2s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  /* Purely decorative loops have no state to convey — drop them entirely. */
   .torrent-progress-bar-active::after {
-    animation: none;
+    animation: none !important;
     opacity: 0;
   }
 
-  .home-poster-card {
-    animation: none;
+  .greeting-icon {
+    animation: none !important;
   }
 }

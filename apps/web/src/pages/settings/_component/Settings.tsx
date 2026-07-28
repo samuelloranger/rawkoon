@@ -150,7 +150,7 @@ export function Settings() {
         <select
           value={activeTab}
           onChange={(e) => setActiveTab(e.target.value as Tab)}
-          className="w-full px-3 py-2 rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="focus-ring w-full px-3 py-2 rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-100 text-sm font-medium"
         >
           <optgroup label={t("settings.sections.account")}>
             {userTabs.map((tab) => (

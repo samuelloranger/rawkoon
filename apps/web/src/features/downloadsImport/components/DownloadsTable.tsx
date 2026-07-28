@@ -120,7 +120,7 @@ export function DownloadsTable({
           value={filenameSub}
           onChange={(e) => setFilenameSub(e.target.value)}
           placeholder={t("downloadsImport.toolbar.filenameFilter")}
-          className="flex-1 min-w-[160px] sm:max-w-xs rounded-xl border border-neutral-700 bg-neutral-900 px-2.5 py-1.5 text-sm"
+          className="focus-ring flex-1 min-w-[160px] sm:max-w-xs rounded-xl border border-neutral-700 bg-neutral-900 px-2.5 py-1.5 text-sm"
         />
         <select
           value={statusFilter}

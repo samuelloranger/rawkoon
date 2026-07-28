@@ -4,6 +4,7 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Toaster } from "sonner";
 import type { QueryClient } from "@tanstack/react-query";
 import { Sidebar } from "@/components/Sidebar";
@@ -34,6 +35,7 @@ function RootLayout() {
     bottom: "lg:pb-12",
   };
 
+  const { t } = useTranslation("common");
   const isSettings = router.location.pathname.startsWith("/settings");
   const shouldShowNav = !["/login"].includes(router.location.pathname);
 
@@ -42,13 +44,27 @@ function RootLayout() {
       <LibraryNavigationProvider>
         <ScrollRestoration />
         {shouldShowNav && (
-          <Sidebar
-            position={position}
-            onOpenQuickActions={() => setIsQuickActionsOpen(true)}
-          />
+          <>
+            {/*
+              Visible only once focused, so keyboard users can jump the sidebar
+              instead of tabbing every nav item on every route change.
+            */}
+            <a
+              href="#main-content"
+              className="focus-ring sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[var(--z-tooltip)] focus:rounded-lg focus:bg-neutral-800 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-neutral-50"
+            >
+              {t("a11y.skipToContent")}
+            </a>
+            <Sidebar
+              position={position}
+              onOpenQuickActions={() => setIsQuickActionsOpen(true)}
+            />
+          </>
         )}
         <div className={shouldShowNav ? contentPadding[position] : ""}>
           <main
+            id="main-content"
+            tabIndex={-1}
             className={`user min-h-full flex-1 flex flex-col ${isSettings ? "pb-0 min-h-screen" : "pb-10"}`}
           >
             <RouteDataRefetcher />

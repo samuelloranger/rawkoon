@@ -211,6 +211,8 @@ export function SessionsTab() {
                                     <Key className="size-3 shrink-0" />
                                   ) : providerIcon ? (
                                     <img
+                                      loading="lazy"
+                                      decoding="async"
                                       src={providerIcon}
                                       alt=""
                                       className="size-3.5 rounded shrink-0"

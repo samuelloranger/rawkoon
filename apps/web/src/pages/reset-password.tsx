@@ -99,7 +99,7 @@ function ResetPasswordPage() {
           <div className="text-center">
             <Link
               to="/login"
-              className="inline-flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              className="focus-ring inline-flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
             >
               {t("resetPassword.goToLogin")}
             </Link>
@@ -161,7 +161,7 @@ function ResetPasswordPage() {
                 id="password"
                 type="password"
                 autoComplete="new-password"
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-600 placeholder-neutral-400 text-white bg-neutral-800 rounded-t-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
+                className="focus-ring appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-600 placeholder-neutral-400 text-white bg-neutral-800 rounded-t-md focus:border-primary-500 focus:z-10 sm:text-sm"
                 placeholder={t("resetPassword.newPassword")}
                 {...register("password", {
                   required: true,
@@ -188,7 +188,7 @@ function ResetPasswordPage() {
                 id="confirmPassword"
                 type="password"
                 autoComplete="new-password"
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-600 placeholder-neutral-400 text-white bg-neutral-800 rounded-b-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
+                className="focus-ring appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-600 placeholder-neutral-400 text-white bg-neutral-800 rounded-b-md focus:border-primary-500 focus:z-10 sm:text-sm"
                 placeholder={t("resetPassword.confirmPassword")}
                 {...register("confirmPassword", {
                   required: true,
@@ -209,7 +209,7 @@ function ResetPasswordPage() {
             <button
               type="submit"
               disabled={resetPasswordMutation.isPending}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="focus-ring group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {resetPasswordMutation.isPending
                 ? t("common.loading")

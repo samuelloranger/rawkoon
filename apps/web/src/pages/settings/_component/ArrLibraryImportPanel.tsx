@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useId, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -26,19 +26,29 @@ function CredentialInput({
   type?: "text" | "password";
   error?: string;
 } & React.ComponentProps<"input">) {
+  const generatedId = useId();
+  const id = inputProps.id ?? generatedId;
+  const errorId = `${id}-error`;
   return (
     <div className="space-y-1">
-      <label className="text-[11px] font-medium text-neutral-400">
+      <label htmlFor={id} className="text-[11px] font-medium text-neutral-400">
         {label}
       </label>
       <input
+        id={id}
         type={type}
         placeholder={placeholder}
         autoComplete="off"
-        className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-xs text-neutral-100 placeholder-neutral-600 focus:outline-none focus:ring-1 focus:ring-primary-500"
+        aria-invalid={error ? true : undefined}
+        aria-errormessage={error ? errorId : undefined}
+        className="focus-ring w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-xs text-neutral-100 placeholder-neutral-500"
         {...inputProps}
       />
-      {error && <p className="mt-1 text-sm text-red-400">{error}</p>}
+      {error && (
+        <p id={errorId} role="alert" className="mt-1 text-sm text-red-400">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

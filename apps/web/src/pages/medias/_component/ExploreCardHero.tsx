@@ -373,6 +373,7 @@ export function ExploreCardHero({
             <img
               src={item.poster_url}
               alt={item.title}
+              decoding="async"
               className={cn(
                 "w-[88px] rounded-xl object-cover shadow-md ring-1 transition-[opacity,transform] duration-500 ease-out motion-reduce:transition-none",
                 heroBackdropUrl ? "ring-primary-500/30" : "ring-neutral-700",

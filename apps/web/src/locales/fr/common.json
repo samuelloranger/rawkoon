@@ -1783,5 +1783,8 @@
     "editTitle": "Modifier le format personnalisé",
     "formDescription": "Définissez les conditions qui doivent correspondre pour que ce format s'applique.",
     "conditions": "Conditions"
+  },
+  "a11y": {
+    "skipToContent": "Aller au contenu principal"
   }
 }
