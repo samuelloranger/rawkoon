@@ -1,79 +1,146 @@
 # Self-host Rawkoon
 
-This guide installs Rawkoon on your own server and completes the first
-administrator configuration. Once the instance is running and connected, see
-[Getting started](/getting-started) for the day-to-day media workflow.
+This guide will walk you through deploying Rawkoon using Docker Compose and configuring your administrator account.
 
-## Before you start
+## Prerequisites
 
-You need:
+Before starting, ensure you have:
+* **Docker and Docker Compose** installed.
+* **A TMDB API key** (free from [The Movie Database](https://www.themoviedb.org/)).
+* **A download client** (qBittorrent, Transmission, or Deluge) and an **indexer manager** (Prowlarr or Jackett).
 
-- Docker and Docker Compose.
-- A PostgreSQL database and Redis instance. The production example starts both.
-- A TMDB API key for discovery.
-- qBittorrent, Transmission, or Deluge and either Prowlarr or Jackett.
-- Paths mounted into both Rawkoon and the download client if Rawkoon will
-  post-process downloaded files.
+---
 
-## Start the production stack
+## 1. Create a Directory
+Create a dedicated folder for Rawkoon on your server:
+```bash
+mkdir rawkoon && cd rawkoon
+```
 
-The production image contains both the API and the built web application.
+---
 
-    cp docker-compose.prod-example.yml docker-compose.prod.yml
-    cp .env.example .env
+## 2. Docker Compose Configuration
+Create a `docker-compose.yml` file in that folder using the official Docker image (`ghcr.io/samuelloranger/rawkoon:latest`):
 
-Set at least these values in <code>.env</code>:
+```yaml
+services:
+  rawkoon:
+    image: ghcr.io/samuelloranger/rawkoon:latest
+    container_name: rawkoon
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./vapid_keys:/app/vapid_keys
+      # Mount your media paths here (must be identical to download client mount paths for hardlinking)
+      # - /mnt/storage:/mnt/storage
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - rawkoon-network
+    ports:
+      - "3000:3000"
 
-- <code>SECRET_KEY</code>
-- <code>BETTER_AUTH_SECRET</code>
-- <code>DATABASE_URL</code>
+  db:
+    image: postgres:17
+    container_name: rawkoon-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - rawkoon-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
-Then start the stack and apply migrations:
+  redis:
+    image: redis:7-alpine
+    container_name: rawkoon-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD} --bind 0.0.0.0 --protected-mode yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - rawkoon-network
 
-    docker compose -f docker-compose.prod.yml up -d
-    docker compose -f docker-compose.prod.yml exec rawkoon bunx prisma migrate deploy
+networks:
+  rawkoon-network:
+    driver: bridge
 
-Rawkoon listens on port <code>3000</code> by default.
+volumes:
+  db_data:
+  redis_data:
+```
 
-## Create the administrator
+---
 
-Rawkoon has no open registration. Open the instance in a browser and create
-an account: the **first** account created becomes the administrator. Once it
-exists, public sign-up closes and every later account is created by an
-administrator from **Settings → Users**.
+## 3. Environment Configuration
+Create a `.env` file in the same directory:
 
-<code>.env.example</code> is the complete environment-variable reference. Common
-optional settings include VAPID keys for web push and an OMDB API key.
+```env
+# -----------------------------------------------------------------------------
+# Database Setup
+# -----------------------------------------------------------------------------
+POSTGRES_DB=rawkoon
+POSTGRES_USER=rawkoon
+POSTGRES_PASSWORD=choose_a_strong_password
+# Must match the credentials above. Use 'db' as the database hostname.
+DATABASE_URL=postgresql://rawkoon:choose_a_strong_password@db:5432/rawkoon
 
-## Configure the media path
+# -----------------------------------------------------------------------------
+# Redis Setup
+# -----------------------------------------------------------------------------
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_PASSWORD=choose_a_redis_password
 
-Sign in as an administrator and use **Settings → Library** to:
+# -----------------------------------------------------------------------------
+# App Secrets
+# Generate random 32-character secrets using: openssl rand -base64 32
+# -----------------------------------------------------------------------------
+SECRET_KEY=paste_random_secret_here
+BETTER_AUTH_SECRET=paste_random_secret_here
 
-1. Enable post-processing.
-2. Set distinct movie and show library paths.
-3. Choose **Hardlink** or **Move** as the file operation.
-4. Set the naming templates and minimum seed ratio.
-5. Select the default quality profile after creating one.
+# -----------------------------------------------------------------------------
+# App Configuration
+# -----------------------------------------------------------------------------
+# Change this to your public domain if accessing externally (e.g., https://rawkoon.example.com)
+BASE_URL=http://localhost:3000
+CORS_ORIGIN=http://localhost:3000
+NODE_ENV=production
+TZ=UTC
+```
 
-Hardlinking is usually the best choice for torrents: the library receives a
-second directory entry while the download client can keep seeding the original file.
-Both locations must be on the same filesystem. Use Move only when you do not
-need the completed torrent to remain at its download path.
+---
 
-## Connect the required services
+## 4. Run the Stack
+Start the containers in detached mode:
+```bash
+docker compose up -d
+```
 
-Use **Settings → Integrations** to configure and test:
+Rawkoon will automatically wait for the database, run migrations, and listen on port `3000`.
 
-1. **TMDB** for discovery and catalog metadata.
-2. **qBittorrent**, **Transmission**, or **Deluge** as the active download
-   client. Rawkoon polls it automatically; no webhook setup is required.
-3. **Prowlarr** or **Jackett** as the active indexer manager.
+---
 
-See [Integrations](/integrations) for the full service list and setup detail.
+## 5. Initial UI Configuration
+Once the containers are up:
 
-## Next steps
+1. **Create the Administrator Account:** Open `http://localhost:3000` (or your domain) in your browser. The **first** account registered becomes the instance administrator. Once created, public registration closes automatically.
+2. **Set up Media Paths:** Navigate to **Settings → Library** to configure your movie/show storage paths, file naming template, and select whether you want to **Move** or **Hardlink** (recommended for seeding torrents) files.
+3. **Connect Integrations:** Go to **Settings → Integrations** to enter:
+   - Your **TMDB API key** (required for search and discovery).
+   - Your indexer manager (**Prowlarr** or **Jackett**).
+   - Your download client (**qBittorrent**, **Transmission**, or **Deluge**).
 
-- [Deployment and recovery](/deployment) covers production hardening, the
-  mounted directories, and the full-instance backup and restore procedure.
-- [Getting started](/getting-started) walks a signed-in user through adding a
-  title and grabbing a release once the instance is configured.
+See [Getting started](/getting-started) to add your first movie or show!
