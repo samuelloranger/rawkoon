@@ -447,18 +447,40 @@ body {
   animation: greetingFadeSlideIn 0.5s ease-out;
 }
 
-@keyframes iconBounce {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
+@keyframes greetingIconSettle {
+  from {
     transform: translateY(-4px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
 
 .greeting-icon {
-  animation: iconBounce 2s ease-in-out 1;
+  animation: greetingIconSettle 0.5s cubic-bezier(0.16, 1, 0.3, 1) 1 both;
+}
+
+/*
+  Loading dots. A wave of opacity and a 2px lift, not Tailwind's animate-bounce
+  — its squash curve is a reflex, and three of them at once reads as jitter.
+*/
+@keyframes loaderDotWave {
+  0%,
+  70%,
+  100% {
+    opacity: 0.28;
+    transform: translateY(0);
+  }
+  35% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+.loader-dot {
+  animation: loaderDotWave 1.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
 }
 
 /* Completion celebration animations */
@@ -590,12 +612,49 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /*
+    Collapse every animation and transition rather than listing them one by
+    one — enumerating them is how 19 of 21 went unguarded. Durations go to
+    ~0 instead of `animation: none` so keyframes still settle on their final
+    frame; `none` would strand anything that animates in from opacity: 0.
+  */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  /*
+    Exempt indeterminate progress. A frozen spinner reads as a hung app, which
+    is a worse outcome than the motion itself — slow it down instead of
+    stopping it.
+  */
+  .animate-spin,
+  [class*="animate-spin"] {
+    animation-duration: 1.5s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  .loader-dot {
+    animation-duration: 2s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  /* Purely decorative loops have no state to convey — drop them entirely. */
   .torrent-progress-bar-active::after {
-    animation: none;
+    animation: none !important;
     opacity: 0;
   }
 
-  .home-poster-card {
-    animation: none;
+  .greeting-icon {
+    animation: none !important;
   }
 }
