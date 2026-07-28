@@ -93,7 +93,7 @@ export function StatusDot({ status }: { status: string }) {
     return <AlertCircle size={11} className="text-neutral-400 shrink-0" />;
   }
   // wanted
-  return <Circle size={11} className="text-neutral-600 shrink-0" />;
+  return <Circle size={11} className="text-neutral-500 shrink-0" />;
 }
 
 export function Eyebrow({

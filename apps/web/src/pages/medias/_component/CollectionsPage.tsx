@@ -30,6 +30,8 @@ function CollectionCard({
         {/* Collection poster */}
         {collection.poster_url ? (
           <img
+            loading="lazy"
+            decoding="async"
             src={collection.poster_url}
             alt={collection.name}
             className="w-20 shrink-0 rounded-xl object-cover shadow-sm ring-1 ring-primary-500/30 self-start"
@@ -68,12 +70,14 @@ function CollectionCard({
                 key={movie.tmdb_id}
                 type="button"
                 onClick={() => setSelectedItem(movie)}
-                className="group relative w-12 shrink-0 overflow-hidden rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                className="focus-ring group relative w-12 shrink-0 overflow-hidden rounded-lg"
                 style={{ aspectRatio: "2/3" }}
                 title={movie.title}
               >
                 {movie.poster_url ? (
                   <img
+                    loading="lazy"
+                    decoding="async"
                     src={movie.poster_url}
                     alt={movie.title}
                     className="h-full w-full object-cover"
@@ -176,7 +180,7 @@ export function CollectionsPage() {
 
       {!isLoading && collections.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-          <Film size={40} className="text-neutral-600" />
+          <Film size={40} className="text-neutral-500" />
           <p className="text-sm font-medium text-neutral-400">
             {t("medias.collections.empty", "Your collection is complete!")}
           </p>

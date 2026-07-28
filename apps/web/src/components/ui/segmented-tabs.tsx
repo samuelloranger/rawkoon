@@ -214,7 +214,7 @@ export function SegmentedTabs<T extends string>({
               ref={isActive ? activeItemRef : undefined}
               className={cn(
                 "relative flex items-center gap-1.5 whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors duration-150",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-1 rounded-t-sm",
+                "focus-ring rounded-t-sm",
                 isActive
                   ? "text-neutral-100"
                   : "text-neutral-400 hover:text-neutral-300",

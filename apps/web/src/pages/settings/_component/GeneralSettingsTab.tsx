@@ -162,14 +162,17 @@ export function GeneralSettingsTab() {
         <h3 className="text-sm font-semibold text-neutral-100">Region</h3>
         <div className="max-w-md space-y-4">
           <div>
-            <label className="block text-sm font-medium text-neutral-300 mb-2">
+            <label
+              htmlFor="general-settings-tab-country-code"
+              className="block text-sm font-medium text-neutral-300 mb-2"
+            >
               {t("settings.general.countryCode")}
             </label>
             <Select
               value={countryCode}
               onValueChange={(value) => setValue("countryCode", value)}
             >
-              <SelectTrigger>
+              <SelectTrigger id="general-settings-tab-country-code">
                 <SelectValue>{countryLabel}</SelectValue>
               </SelectTrigger>
               <SelectContent className="max-h-72 overflow-y-auto">
@@ -195,7 +198,10 @@ export function GeneralSettingsTab() {
         </h3>
         <div className="max-w-md space-y-4">
           <div>
-            <label className="block text-sm font-medium text-neutral-300 mb-2">
+            <label
+              htmlFor="general-settings-tab-look-ahead-window"
+              className="block text-sm font-medium text-neutral-300 mb-2"
+            >
               Look-ahead window
             </label>
             <Select
@@ -210,7 +216,7 @@ export function GeneralSettingsTab() {
                 )
               }
             >
-              <SelectTrigger>
+              <SelectTrigger id="general-settings-tab-look-ahead-window">
                 <SelectValue>
                   {
                     WINDOW_OPTIONS.find((w) => w.value === upcomingWindowMonths)
@@ -231,10 +237,10 @@ export function GeneralSettingsTab() {
             </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-neutral-300 mb-3">
+          <fieldset>
+            <legend className="block text-sm font-medium text-neutral-300 mb-3">
               Languages to include
-            </label>
+            </legend>
             <div className="space-y-2">
               {LANGUAGE_OPTIONS.map((lang) => (
                 <label
@@ -257,7 +263,7 @@ export function GeneralSettingsTab() {
             <p className="mt-2 text-xs text-neutral-400">
               Select which languages to include in release searches
             </p>
-          </div>
+          </fieldset>
         </div>
       </section>
 

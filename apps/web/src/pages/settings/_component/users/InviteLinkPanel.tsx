@@ -33,7 +33,7 @@ export function InviteLinkPanel({ link, onDismiss }: InviteLinkPanelProps) {
           type="text"
           readOnly
           value={link}
-          className="flex-1 px-3 py-1.5 border border-neutral-700 rounded-md text-xs text-white bg-neutral-900 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="focus-ring flex-1 px-3 py-1.5 border border-neutral-700 rounded-md text-xs text-white bg-neutral-900"
         />
         <Button
           size="sm"

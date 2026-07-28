@@ -185,7 +185,7 @@ export function LibraryDownloadHistorySection({
                                 }),
                             });
                           }}
-                          className="rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-rose-400 disabled:opacity-40"
+                          className="inline-flex size-6 items-center justify-center rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-rose-400 disabled:opacity-40"
                         >
                           <Trash2 size={13} strokeWidth={2} />
                         </button>
@@ -201,7 +201,7 @@ export function LibraryDownloadHistorySection({
                             "library.management.removeDownloadHistoryTitle",
                           )}
                           onClick={() => deleteEntry.mutate(row.id)}
-                          className="rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-rose-400 disabled:opacity-40"
+                          className="inline-flex size-6 items-center justify-center rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-rose-400 disabled:opacity-40"
                         >
                           <Trash2 size={13} strokeWidth={2} />
                         </button>

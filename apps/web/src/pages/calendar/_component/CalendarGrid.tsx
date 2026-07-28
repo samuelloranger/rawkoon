@@ -119,7 +119,7 @@ export function CalendarGrid({
                         !isSelectedDate &&
                         isCurrentMonthDay &&
                         "text-neutral-300",
-                      !isCurrentMonthDay && "text-neutral-600",
+                      !isCurrentMonthDay && "text-neutral-500",
                     )}
                   >
                     {date?.getDate()}
@@ -137,6 +137,8 @@ export function CalendarGrid({
                       {dayReleases.slice(0, 2).map((item) =>
                         item.poster_url ? (
                           <img
+                            loading="lazy"
+                            decoding="async"
                             key={item.id}
                             src={item.poster_url}
                             alt=""

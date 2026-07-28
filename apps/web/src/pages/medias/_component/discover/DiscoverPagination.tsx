@@ -85,7 +85,7 @@ export function DiscoverPagination({
             <>
               <PageDot n={1} current={page} onClick={() => onPageChange(1)} />
               {page > 4 && (
-                <span className="px-0.5 text-xs text-neutral-600">…</span>
+                <span className="px-0.5 text-xs text-neutral-500">…</span>
               )}
             </>
           )}
@@ -103,7 +103,7 @@ export function DiscoverPagination({
           {page < totalPages - 2 && (
             <>
               {page < totalPages - 3 && (
-                <span className="px-0.5 text-xs text-neutral-600">…</span>
+                <span className="px-0.5 text-xs text-neutral-500">…</span>
               )}
               <PageDot
                 n={totalPages}

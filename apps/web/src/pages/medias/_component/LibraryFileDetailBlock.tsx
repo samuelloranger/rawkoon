@@ -395,7 +395,7 @@ export function FileDetailBlock({
                   setGroupValue(file.release_group ?? "");
                 }
               }}
-              className="flex-1 rounded border border-neutral-600 bg-neutral-900 px-1.5 py-0.5 text-xs text-neutral-200 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="focus-ring flex-1 rounded border border-neutral-600 bg-neutral-900 px-1.5 py-0.5 text-xs text-neutral-200"
             />
           </div>
         ) : (
@@ -409,7 +409,7 @@ export function FileDetailBlock({
             </span>
             <span className="min-w-0 flex-1 text-neutral-200">
               {file.release_group ?? (
-                <span className="text-neutral-600 italic text-[10px]">—</span>
+                <span className="text-neutral-500 italic text-[10px]">—</span>
               )}
               <Pencil
                 size={9}

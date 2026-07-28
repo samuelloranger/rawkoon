@@ -115,6 +115,8 @@ export function DiscoverCard({
     >
       {item.poster_url ? (
         <img
+          loading="lazy"
+          decoding="async"
           src={item.poster_url}
           alt=""
           aria-hidden="true"

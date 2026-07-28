@@ -183,6 +183,7 @@ export function UserProvisioningSection({
           <FormInput
             {...registerInvite("email")}
             type="email"
+            aria-label={t("settings.users.emailPlaceholder") || "Email"}
             placeholder={t("settings.users.emailPlaceholder") || "Email"}
             error={
               inviteErrors.email
@@ -195,12 +196,16 @@ export function UserProvisioningSection({
           />
 
           <div>
-            <label className="block text-sm font-medium text-neutral-300 mb-2">
+            <label
+              htmlFor="user-provisioning-section-locale"
+              className="block text-sm font-medium text-neutral-300 mb-2"
+            >
               {t("settings.users.locale")}
             </label>
             <select
+              id="user-provisioning-section-locale"
               {...registerInvite("locale")}
-              className="w-full px-3 py-2 border border-neutral-600 rounded-md text-white bg-neutral-700 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+              className="focus-ring w-full px-3 py-2 border border-neutral-600 rounded-md text-white bg-neutral-700 focus:border-primary-500"
             >
               <option value="en">English</option>
               <option value="fr">Français</option>
@@ -212,7 +217,7 @@ export function UserProvisioningSection({
               type="checkbox"
               id="is_admin_invite"
               {...registerInvite("is_admin")}
-              className="w-4 h-4 text-primary-600 rounded focus:ring-primary-600 ring-offset-neutral-800 focus:ring-2 bg-neutral-700 border-neutral-600"
+              className="focus-ring w-4 h-4 text-primary-600 rounded bg-neutral-700 border-neutral-600"
             />
             <label
               htmlFor="is_admin_invite"
@@ -268,12 +273,16 @@ export function UserProvisioningSection({
           />
 
           <div>
-            <label className="block text-sm font-medium text-neutral-300 mb-2">
+            <label
+              htmlFor="user-provisioning-direct-locale"
+              className="block text-sm font-medium text-neutral-300 mb-2"
+            >
               Locale
             </label>
             <select
+              id="user-provisioning-direct-locale"
               {...registerDirect("locale")}
-              className="w-full px-3 py-2 border border-neutral-600 rounded-md text-white bg-neutral-700 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+              className="focus-ring w-full px-3 py-2 border border-neutral-600 rounded-md text-white bg-neutral-700 focus:border-primary-500"
             >
               <option value="en">English</option>
               <option value="fr">Français</option>
@@ -285,7 +294,7 @@ export function UserProvisioningSection({
               type="checkbox"
               id="is_admin_direct"
               {...registerDirect("is_admin")}
-              className="w-4 h-4 text-primary-600 rounded focus:ring-primary-600 ring-offset-neutral-800 focus:ring-2 bg-neutral-700 border-neutral-600"
+              className="focus-ring w-4 h-4 text-primary-600 rounded bg-neutral-700 border-neutral-600"
             />
             <label
               htmlFor="is_admin_direct"

@@ -60,11 +60,12 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
     <Popover.Root open={isOpen} onOpenChange={setIsOpen}>
       <Popover.Trigger asChild>
         <button
-          className="flex h-9 items-center gap-2 rounded-xl px-1.5 hover:bg-white/[0.06] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+          className="focus-ring flex h-9 items-center gap-2 rounded-xl px-1.5 hover:bg-white/[0.06] transition-colors"
           aria-label={t("common.userMenu")}
         >
           {user.avatar_url ? (
             <img
+              decoding="async"
               src={user.avatar_url}
               alt={formatDisplayName(user)}
               className="h-7 w-7 rounded-lg object-cover ring-1 ring-white/10"

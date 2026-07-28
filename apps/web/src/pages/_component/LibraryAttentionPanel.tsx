@@ -209,7 +209,7 @@ function AttentionRow({
             disabled={dismissLoadingId === item.id}
             onClick={() => onDismiss(item.id)}
             aria-label={t("dashboard.libraryAttention.dismiss")}
-            className="p-1 rounded-md text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 disabled:opacity-50"
+            className="inline-flex size-6 items-center justify-center rounded-md p-1 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 disabled:opacity-50"
           >
             {dismissLoadingId === item.id ? (
               <Loader2 size={14} className="animate-spin" />

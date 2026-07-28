@@ -95,6 +95,8 @@ export function DiscoverDeck() {
             >
               {item.poster_url && (
                 <img
+                  loading="lazy"
+                  decoding="async"
                   src={item.poster_url}
                   alt=""
                   className="h-full w-full object-cover"

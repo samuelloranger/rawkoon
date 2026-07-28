@@ -56,10 +56,12 @@ export function TmdbMediaSearchPanel({
         />
         <input
           ref={inputRef}
+          type="search"
+          aria-label={t("medias.tmdb.placeholder")}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={t("medias.tmdb.placeholder")}
-          className="w-full rounded-xl border border-neutral-700 bg-neutral-950 pl-8 pr-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-500 transition"
+          className="focus-ring w-full rounded-xl border border-neutral-700 bg-neutral-950 pl-8 pr-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-400 focus:border-primary-500 transition"
         />
       </div>
 

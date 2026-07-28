@@ -92,7 +92,7 @@ function ForgotPasswordPage() {
               id="email"
               type="email"
               autoComplete="email"
-              className="appearance-none rounded-md relative block w-full px-3 py-2 border border-neutral-600 placeholder-neutral-400 text-white bg-neutral-800 focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
+              className="focus-ring appearance-none rounded-md relative block w-full px-3 py-2 border border-neutral-600 placeholder-neutral-400 text-white bg-neutral-800 focus:border-primary-500 focus:z-10 sm:text-sm"
               placeholder={t("login.email")}
               {...register("email", {
                 required: true,
@@ -113,7 +113,7 @@ function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={forgotPasswordMutation.isPending}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="focus-ring group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {forgotPasswordMutation.isPending
                 ? t("common.loading")

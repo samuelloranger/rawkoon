@@ -3,6 +3,7 @@ import "@fontsource-variable/hanken-grotesk/index.css";
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider } from "@tanstack/react-router";
+import { MotionConfig } from "motion/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { FetcherProvider } from "@/lib/api/context";
 import { router } from "@/router";
@@ -73,7 +74,15 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <FetcherProvider fetcher={webFetcher}>
-          <AppWithServiceWorkerIntegration />
+          {/*
+            reducedMotion="user" makes every `motion` component honour the OS
+            setting without each call site reaching for useReducedMotion.
+            Transforms and layout animations are dropped; opacity is kept, so
+            state changes stay legible.
+          */}
+          <MotionConfig reducedMotion="user">
+            <AppWithServiceWorkerIntegration />
+          </MotionConfig>
         </FetcherProvider>
       </QueryClientProvider>
     </ErrorBoundary>
