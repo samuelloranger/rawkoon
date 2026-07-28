@@ -57,6 +57,7 @@ export function NowWatchingWidget() {
                 <div className="flex h-16 w-[3rem] shrink-0 items-center justify-center overflow-hidden rounded-md bg-neutral-800">
                   {session.poster_url ? (
                     <img
+                      decoding="async"
                       src={session.poster_url}
                       alt=""
                       className="h-full w-full object-cover"

@@ -72,6 +72,8 @@ function TmdbSearchPanel({
             >
               {item.poster_url ? (
                 <img
+                  loading="lazy"
+                  decoding="async"
                   src={item.poster_url}
                   alt=""
                   className="mt-0.5 h-12 w-8 shrink-0 rounded object-cover"

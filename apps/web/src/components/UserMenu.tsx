@@ -65,6 +65,7 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
         >
           {user.avatar_url ? (
             <img
+              decoding="async"
               src={user.avatar_url}
               alt={formatDisplayName(user)}
               className="h-7 w-7 rounded-lg object-cover ring-1 ring-white/10"

@@ -285,6 +285,7 @@ export function ProfileForm() {
           <div className="flex items-center gap-4">
             {avatarPreview || currentUser?.avatar_url ? (
               <img
+                decoding="async"
                 src={avatarPreview || currentUser?.avatar_url || ""}
                 alt={t("settings.profile.profilePictureAlt")}
                 className="h-14 w-14 rounded-full object-cover border border-neutral-600"
@@ -519,6 +520,7 @@ export function ProfileForm() {
                 keepSelection
               >
                 <img
+                  decoding="async"
                   ref={imageRef}
                   src={selectedImageUrl}
                   alt={t("settings.profile.profilePictureAlt")}

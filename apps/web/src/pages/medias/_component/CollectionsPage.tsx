@@ -30,6 +30,8 @@ function CollectionCard({
         {/* Collection poster */}
         {collection.poster_url ? (
           <img
+            loading="lazy"
+            decoding="async"
             src={collection.poster_url}
             alt={collection.name}
             className="w-20 shrink-0 rounded-xl object-cover shadow-sm ring-1 ring-primary-500/30 self-start"
@@ -74,6 +76,8 @@ function CollectionCard({
               >
                 {movie.poster_url ? (
                   <img
+                    loading="lazy"
+                    decoding="async"
                     src={movie.poster_url}
                     alt={movie.title}
                     className="h-full w-full object-cover"

@@ -139,6 +139,7 @@ export function Sidebar({ onOpenQuickActions, position }: SidebarProps) {
             onMouseEnter={() => prefetchRoute("/")}
           >
             <img
+              decoding="async"
               src="/icon-32.png"
               alt=""
               className="h-7 w-7 transition-transform duration-200 group-hover:scale-110"
@@ -337,6 +338,7 @@ export function Sidebar({ onOpenQuickActions, position }: SidebarProps) {
               <div className="flex items-center gap-2 px-1.5 py-1">
                 {user.avatar_url ? (
                   <img
+                    decoding="async"
                     src={user.avatar_url}
                     alt={formatDisplayName(user)}
                     className="h-8 w-8 rounded-lg object-cover ring-1 ring-white/10 shrink-0"
@@ -413,6 +415,7 @@ export function Sidebar({ onOpenQuickActions, position }: SidebarProps) {
                 onMouseEnter={() => prefetchRoute("/")}
               >
                 <img
+                  decoding="async"
                   src="/icon-32.png"
                   alt=""
                   className="h-7 w-7 transition-transform duration-200 group-hover:scale-110"

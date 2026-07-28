@@ -160,6 +160,7 @@ export function LoginForm() {
             className="group relative w-full flex justify-center items-center gap-2.5 py-2 px-4 border border-neutral-600 text-sm font-medium rounded-md text-neutral-300 bg-neutral-800 hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 focus:ring-offset-neutral-900 transition-colors"
           >
             <img
+              decoding="async"
               src={oidcProviderIconUrl(provider.slug, provider.icon_url)}
               alt=""
               className="size-5 rounded object-contain"

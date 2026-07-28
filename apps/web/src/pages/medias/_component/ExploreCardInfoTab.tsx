@@ -198,6 +198,8 @@ export function ExploreCardInfoTab({
               >
                 {member.profile_url ? (
                   <img
+                    loading="lazy"
+                    decoding="async"
                     src={member.profile_url}
                     alt={member.name}
                     className="h-[54px] w-[54px] rounded-full object-cover ring-1 ring-neutral-700"
@@ -255,6 +257,8 @@ export function ExploreCardInfoTab({
                   <div className="flex flex-wrap gap-1.5">
                     {list.map((p) => (
                       <img
+                        loading="lazy"
+                        decoding="async"
                         key={p.id}
                         src={p.logo_url}
                         alt={p.name}

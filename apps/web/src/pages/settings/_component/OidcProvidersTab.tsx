@@ -190,6 +190,8 @@ function ProviderForm({
           />
           {iconUrl && (
             <img
+              loading="lazy"
+              decoding="async"
               src={iconUrl}
               alt=""
               className="size-8 rounded object-contain bg-neutral-800 p-0.5"
@@ -287,6 +289,8 @@ function ProviderRow({
     <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-neutral-700 bg-neutral-800">
       <div className="flex items-center gap-3 min-w-0">
         <img
+          loading="lazy"
+          decoding="async"
           src={oidcProviderIconUrl(provider.slug, provider.icon_url)}
           alt=""
           className="size-6 rounded object-contain shrink-0"

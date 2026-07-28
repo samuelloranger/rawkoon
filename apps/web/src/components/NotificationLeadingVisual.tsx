@@ -62,6 +62,8 @@ export function getTypeStyle(notification: {
       return {
         icon: (
           <img
+            loading="lazy"
+            decoding="async"
             src="https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/jellyfin.png"
             className="w-[18px] h-[18px] object-contain"
             alt="Jellyfin"
@@ -103,6 +105,8 @@ export function NotificationLeadingVisual({
   if (imageUrl && !failed) {
     return (
       <img
+        loading="lazy"
+        decoding="async"
         src={imageUrl}
         alt=""
         onError={() => setFailed(true)}

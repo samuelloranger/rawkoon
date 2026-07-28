@@ -137,6 +137,8 @@ export function CalendarGrid({
                       {dayReleases.slice(0, 2).map((item) =>
                         item.poster_url ? (
                           <img
+                            loading="lazy"
+                            decoding="async"
                             key={item.id}
                             src={item.poster_url}
                             alt=""

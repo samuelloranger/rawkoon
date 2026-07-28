@@ -74,10 +74,13 @@ export function LibraryItemHero({
       {backdrop ? (
         <>
           <div className="absolute inset-0 bg-neutral-900" />
+          {/* The LCP element on this route — fetch it ahead of the poster. */}
           <img
             src={backdrop}
             alt=""
             aria-hidden
+            decoding="async"
+            fetchPriority="high"
             className={cn(
               "absolute inset-0 h-full w-full object-cover transition-opacity duration-700",
               backdropLoaded ? "opacity-100" : "opacity-0",
@@ -111,6 +114,7 @@ export function LibraryItemHero({
               <img
                 src={item.poster_url}
                 alt={item.title}
+                decoding="async"
                 className="w-[86px] md:w-[116px] rounded-xl object-cover shadow-2xl ring-1 ring-white/15"
                 onError={() => setPosterError(true)}
               />

@@ -44,6 +44,8 @@ export function DiscoverServicePicker({
               ].join(" ")}
             >
               <img
+                loading="lazy"
+                decoding="async"
                 src={p.logo_url}
                 alt={p.name}
                 className="h-full w-full rounded-md object-contain"

@@ -67,6 +67,8 @@ export function CalendarDayPanel({
                     >
                       {item.poster_url ? (
                         <img
+                          loading="lazy"
+                          decoding="async"
                           src={item.poster_url}
                           alt=""
                           className="h-14 w-10 shrink-0 rounded-md object-cover ring-1 ring-black/50"
@@ -96,6 +98,8 @@ export function CalendarDayPanel({
                           <div className="mt-1.5 flex gap-1">
                             {item.providers.slice(0, 4).map((p) => (
                               <img
+                                loading="lazy"
+                                decoding="async"
                                 key={p.id}
                                 src={p.logo_url}
                                 alt={p.name}

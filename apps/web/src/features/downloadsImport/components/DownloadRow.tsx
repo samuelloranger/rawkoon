@@ -130,6 +130,8 @@ function DownloadRowImpl({
               <div className="flex items-center gap-1 rounded-full border border-primary-600/40 bg-primary-600/[0.08] px-2 py-0.5 max-w-[10rem]">
                 {staged.poster_url && (
                   <img
+                    loading="lazy"
+                    decoding="async"
                     src={staged.poster_url}
                     alt=""
                     className="h-6 w-4 rounded-sm object-cover"

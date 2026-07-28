@@ -175,6 +175,8 @@ export function MediaDetailInfoSections({
                   >
                     {c.logo_url ? (
                       <img
+                        loading="lazy"
+                        decoding="async"
                         src={c.logo_url}
                         alt=""
                         className="h-5 w-5 shrink-0 object-contain"
@@ -238,6 +240,8 @@ export function MediaDetailInfoSections({
                   >
                     {n.logo_url ? (
                       <img
+                        loading="lazy"
+                        decoding="async"
                         src={n.logo_url}
                         alt=""
                         className="h-4 w-8 object-contain"
@@ -259,6 +263,8 @@ export function MediaDetailInfoSections({
                   <div key={c.id} className="flex items-center gap-2 text-sm">
                     {c.profile_url ? (
                       <img
+                        loading="lazy"
+                        decoding="async"
                         src={c.profile_url}
                         alt=""
                         className="h-9 w-9 rounded-full object-cover"

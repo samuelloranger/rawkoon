@@ -78,6 +78,8 @@ export function DiscoverToolbar({
               activeProvider ? (
                 <span className="flex min-w-0 items-center gap-1.5">
                   <img
+                    loading="lazy"
+                    decoding="async"
                     src={activeProvider.logo_url}
                     alt=""
                     className="h-4 w-4 shrink-0 rounded-sm object-contain"
