@@ -45,21 +45,27 @@ const COMMON_TITLE_LANGUAGES = [
  * language picker. Private trackers name releases with different localized
  * titles, so the user can pick which language's title to search by.
  *
- * Order: the platform language first (the default query), then English and
- * French pinned, then the original-language title, then the common allowlist —
- * each included only when a non-empty title exists. Options are deduped by
- * query (case-insensitive) so the same title never appears twice.
+ * Order: `localized` first (the default query), then English and French
+ * pinned, then the original-language title, then the common allowlist — each
+ * included only when a non-empty title exists. Options are deduped by query
+ * (case-insensitive) so the same title never appears twice.
+ *
+ * `localizedLanguage` must be the language `localized` is actually written in,
+ * NOT the UI language: library titles are persisted in English regardless of
+ * the user's locale, and claiming otherwise both mislabels the default option
+ * and suppresses the real translation for that language.
  */
 export function buildTitleOptions(input: {
   localized: string;
-  platformLanguage: string;
+  /** ISO 639-1 code of the language `localized` is written in */
+  localizedLanguage: string;
   original?: string | null;
   originalLanguage?: string | null;
   translations?: { language_code: string; title: string }[];
   suffix?: string;
 }): TitleOption[] {
   const suffix = input.suffix ?? "";
-  const platform = (input.platformLanguage || "").toLowerCase();
+  const platform = (input.localizedLanguage || "").toLowerCase();
   const originalLanguage = (input.originalLanguage || "").toLowerCase();
 
   const translationByLang = new Map<string, string>();

@@ -13,7 +13,7 @@ describe("buildTitleOptions", () => {
   it("pins EN then FR, tags the original language, and includes allowlisted commons", () => {
     const options = buildTitleOptions({
       localized: "Spirited Away",
-      platformLanguage: "en",
+      localizedLanguage: "en",
       original: "千と千尋の神隠し",
       originalLanguage: "ja",
       translations: TRANSLATIONS,
@@ -34,7 +34,7 @@ describe("buildTitleOptions", () => {
   it("puts the platform language first (French platform)", () => {
     const options = buildTitleOptions({
       localized: "Le Voyage de Chihiro",
-      platformLanguage: "fr",
+      localizedLanguage: "fr",
       original: "千と千尋の神隠し",
       originalLanguage: "ja",
       translations: TRANSLATIONS,
@@ -50,7 +50,7 @@ describe("buildTitleOptions", () => {
   it("appends the season/episode suffix to every option", () => {
     const options = buildTitleOptions({
       localized: "Show",
-      platformLanguage: "en",
+      localizedLanguage: "en",
       translations: [
         { language_code: "en", title: "Show" },
         { language_code: "fr", title: "Émission" },
@@ -66,7 +66,7 @@ describe("buildTitleOptions", () => {
   it("dedupes options that resolve to the same query", () => {
     const options = buildTitleOptions({
       localized: "The Movie",
-      platformLanguage: "en",
+      localizedLanguage: "en",
       original: "The Movie",
       originalLanguage: "en",
       translations: [
@@ -81,7 +81,7 @@ describe("buildTitleOptions", () => {
   it("prefers the original_title value for the original-language entry", () => {
     const options = buildTitleOptions({
       localized: "Amelie",
-      platformLanguage: "en",
+      localizedLanguage: "en",
       original: "Le Fabuleux Destin d'Amélie Poulain",
       originalLanguage: "fr",
       translations: [
@@ -99,7 +99,7 @@ describe("buildTitleOptions", () => {
     // differs from TMDB's original_title — both must be reachable.
     const options = buildTitleOptions({
       localized: "The Office (US)",
-      platformLanguage: "en",
+      localizedLanguage: "en",
       original: "The Office",
       originalLanguage: "en",
       translations: [{ language_code: "en", title: "The Office" }],
@@ -119,7 +119,7 @@ describe("buildTitleOptions", () => {
   it("falls back to the localized title alone when there are no translations", () => {
     const options = buildTitleOptions({
       localized: "Solo Title",
-      platformLanguage: "en",
+      localizedLanguage: "en",
     });
     expect(options).toEqual([
       { languageCode: "en", query: "Solo Title", isOriginal: false },
@@ -129,7 +129,7 @@ describe("buildTitleOptions", () => {
   it("ignores too-short secondary titles but always keeps the platform title", () => {
     const options = buildTitleOptions({
       localized: "X",
-      platformLanguage: "en",
+      localizedLanguage: "en",
       translations: [
         { language_code: "en", title: "X" },
         { language_code: "fr", title: "Y" }, // too short (<2)
@@ -137,6 +137,26 @@ describe("buildTitleOptions", () => {
     });
     expect(options).toEqual([
       { languageCode: "en", query: "X", isOriginal: false },
+    ]);
+  });
+  // Regression: library titles are persisted in English, so an English-titled
+  // item viewed in a French UI must still offer TMDB's French title. Real data
+  // for "Knowing" (TMDB 13811), whose French title is "Prédictions".
+  it("offers the French translation for an English-stored title", () => {
+    const options = buildTitleOptions({
+      localized: "Knowing",
+      localizedLanguage: "en",
+      original: "Knowing",
+      originalLanguage: "en",
+      translations: [
+        { language_code: "fr", title: "Prédictions" },
+        { language_code: "de", title: "Die Prophezeiung" },
+      ],
+    });
+    expect(options).toEqual([
+      { languageCode: "en", query: "Knowing", isOriginal: false },
+      { languageCode: "fr", query: "Prédictions", isOriginal: false },
+      { languageCode: "de", query: "Die Prophezeiung", isOriginal: false },
     ]);
   });
 });
