@@ -205,10 +205,17 @@ export function MediaPostProcessingSettingsBody({
           </div>
 
           <div>
-            <label className={LABEL_CLASS}>
+            <label
+              htmlFor="media-post-processing-settings-body-file-operation"
+              className={LABEL_CLASS}
+            >
               {t("settings.mediaLibrary.fileOperation")}
             </label>
-            <select {...register("fileOperation")} className={SELECT_CLASS}>
+            <select
+              id="media-post-processing-settings-body-file-operation"
+              {...register("fileOperation")}
+              className={SELECT_CLASS}
+            >
               <option value="hardlink">
                 {t("settings.mediaLibrary.hardlink")}
               </option>
@@ -222,10 +229,14 @@ export function MediaPostProcessingSettingsBody({
           </div>
 
           <div>
-            <label className={LABEL_CLASS}>
+            <label
+              htmlFor="media-post-processing-settings-body-movie-template"
+              className={LABEL_CLASS}
+            >
               {t("settings.mediaLibrary.movieTemplate")}
             </label>
             <textarea
+              id="media-post-processing-settings-body-movie-template"
               {...register("movieTemplate")}
               rows={2}
               className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm font-mono text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
@@ -238,10 +249,14 @@ export function MediaPostProcessingSettingsBody({
           </div>
 
           <div>
-            <label className={LABEL_CLASS}>
+            <label
+              htmlFor="media-post-processing-settings-body-episode-template"
+              className={LABEL_CLASS}
+            >
               {t("settings.mediaLibrary.episodeTemplate")}
             </label>
             <textarea
+              id="media-post-processing-settings-body-episode-template"
               {...register("episodeTemplate")}
               rows={2}
               className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm font-mono text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
@@ -263,7 +278,10 @@ export function MediaPostProcessingSettingsBody({
           />
 
           <div>
-            <label className={LABEL_CLASS}>
+            <label
+              htmlFor="media-post-processing-settings-body-active-indexer-manager"
+              className={LABEL_CLASS}
+            >
               {t("settings.mediaLibrary.activeIndexerManager")}
             </label>
             {indexerOptions.length === 0 ? (
@@ -272,6 +290,7 @@ export function MediaPostProcessingSettingsBody({
               </p>
             ) : (
               <select
+                id="media-post-processing-settings-body-active-indexer-manager"
                 {...register("activeIndexerManager")}
                 className={SELECT_CLASS}
               >
@@ -293,10 +312,14 @@ export function MediaPostProcessingSettingsBody({
           </div>
 
           <div>
-            <label className={LABEL_CLASS}>
+            <label
+              htmlFor="media-post-processing-settings-body-default-quality-profile-id"
+              className={LABEL_CLASS}
+            >
               {t("settings.mediaLibrary.defaultQualityProfile")}
             </label>
             <select
+              id="media-post-processing-settings-body-default-quality-profile-id"
               {...register("defaultQualityProfileId")}
               className={SELECT_CLASS}
             >
@@ -342,10 +365,14 @@ export function MediaPostProcessingSettingsBody({
           className="font-mono text-xs"
         />
         <div>
-          <label className={LABEL_CLASS}>
+          <label
+            htmlFor="media-post-processing-settings-body-scan-type"
+            className={LABEL_CLASS}
+          >
             {t("settings.mediaLibrary.scanType")}
           </label>
           <select
+            id="media-post-processing-settings-body-scan-type"
             value={scanType}
             onChange={(e) =>
               setScanType(e.target.value === "show" ? "show" : "movie")

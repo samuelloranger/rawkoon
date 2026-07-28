@@ -72,10 +72,14 @@ function TmdbIntegrationSectionImpl({
       logoUrl="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136fe3fec72548ebc1fea3fbbd1ad9e36364db38b.svg"
     >
       <div>
-        <label className="block text-sm font-medium text-neutral-300 mb-2">
+        <label
+          htmlFor="tmdb-integration-section-api-key"
+          className="block text-sm font-medium text-neutral-300 mb-2"
+        >
           {t("settings.integrations.tmdb.apiKey")}
         </label>
         <input
+          id="tmdb-integration-section-api-key"
           type="password"
           value={apiKey}
           onChange={(event) => setApiKey(event.target.value)}
@@ -84,10 +88,14 @@ function TmdbIntegrationSectionImpl({
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-neutral-300 mb-2">
+        <label
+          htmlFor="tmdb-integration-section-popularity-threshold"
+          className="block text-sm font-medium text-neutral-300 mb-2"
+        >
           {t("settings.integrations.tmdb.popularityThreshold")}
         </label>
         <input
+          id="tmdb-integration-section-popularity-threshold"
           type="number"
           min={0}
           max={100}

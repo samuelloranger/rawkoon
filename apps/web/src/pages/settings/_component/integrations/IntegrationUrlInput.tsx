@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +33,9 @@ export function IntegrationUrlInput({
 }: IntegrationUrlInputProps) {
   const { t } = useTranslation("common");
   const [error, setError] = useState("");
+  const fieldId = useId();
+  const descriptionId = `${fieldId}-description`;
+  const errorId = `${fieldId}-error`;
 
   const handleBlur = () => {
     if (value && !isValidUrl(value)) {
@@ -50,18 +53,27 @@ export function IntegrationUrlInput({
 
   return (
     <div className={className}>
-      <label className="block text-sm font-medium text-neutral-300 mb-2">
+      <label
+        htmlFor={fieldId}
+        className="block text-sm font-medium text-neutral-300 mb-2"
+      >
         {label}
       </label>
       {description && (
-        <p className="mb-2 text-xs text-neutral-400">{description}</p>
+        <p id={descriptionId} className="mb-2 text-xs text-neutral-400">
+          {description}
+        </p>
       )}
       <input
+        id={fieldId}
         type="url"
         value={value}
         onChange={handleChange}
         onBlur={handleBlur}
         placeholder={placeholder}
+        aria-invalid={error ? true : undefined}
+        aria-errormessage={error ? errorId : undefined}
+        aria-describedby={description ? descriptionId : undefined}
         className={cn(
           "w-full px-4 py-2 border rounded-lg bg-neutral-900 text-white transition-colors",
           error
@@ -69,7 +81,11 @@ export function IntegrationUrlInput({
             : "border-neutral-600 focus:ring-primary-500",
         )}
       />
-      {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
+      {error && (
+        <p id={errorId} role="alert" className="mt-1 text-xs text-red-400">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

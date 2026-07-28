@@ -100,7 +100,7 @@ function SeasonList({
                         "text-neutral-300",
                       )}
                     >
-                      <span className="shrink-0 tabular-nums text-right font-mono text-[11px] text-neutral-600">
+                      <span className="shrink-0 tabular-nums text-right font-mono text-[11px] text-neutral-500">
                         {`E${String(ep.episode_number).padStart(2, "0")}`}
                       </span>
                       <span className="min-w-0 truncate leading-snug">

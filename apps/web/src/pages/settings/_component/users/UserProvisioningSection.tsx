@@ -195,10 +195,14 @@ export function UserProvisioningSection({
           />
 
           <div>
-            <label className="block text-sm font-medium text-neutral-300 mb-2">
+            <label
+              htmlFor="user-provisioning-section-locale"
+              className="block text-sm font-medium text-neutral-300 mb-2"
+            >
               {t("settings.users.locale")}
             </label>
             <select
+              id="user-provisioning-section-locale"
               {...registerInvite("locale")}
               className="w-full px-3 py-2 border border-neutral-600 rounded-md text-white bg-neutral-700 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
             >
@@ -268,10 +272,14 @@ export function UserProvisioningSection({
           />
 
           <div>
-            <label className="block text-sm font-medium text-neutral-300 mb-2">
+            <label
+              htmlFor="user-provisioning-direct-locale"
+              className="block text-sm font-medium text-neutral-300 mb-2"
+            >
               Locale
             </label>
             <select
+              id="user-provisioning-direct-locale"
               {...registerDirect("locale")}
               className="w-full px-3 py-2 border border-neutral-600 rounded-md text-white bg-neutral-700 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
             >

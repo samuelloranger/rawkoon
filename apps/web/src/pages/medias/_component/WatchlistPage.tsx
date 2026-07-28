@@ -112,7 +112,7 @@ function WatchlistCard({
           )}
           {score !== null && (
             <>
-              <span className="text-[8px] text-neutral-600">·</span>
+              <span className="text-[8px] text-neutral-500">·</span>
               <span
                 className={`text-[9px] font-semibold tabular-nums ${scoreColor}`}
               >
@@ -163,7 +163,7 @@ export function WatchlistPage() {
             <p className="text-sm font-medium text-neutral-500">
               {t("medias.watchlist.empty")}
             </p>
-            <p className="mt-1 text-xs text-neutral-600">
+            <p className="mt-1 text-xs text-neutral-500">
               {t("medias.watchlist.emptyHint")}
             </p>
           </div>

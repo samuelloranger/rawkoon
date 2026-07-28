@@ -67,7 +67,10 @@ export function TrackerPrioritySection({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-neutral-300">
+        <label
+          htmlFor="quality-profile-tracker-section-trackers-prioritaires"
+          className="text-sm font-medium text-neutral-300"
+        >
           Trackers prioritaires
         </label>
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
@@ -82,6 +85,7 @@ export function TrackerPrioritySection({
           </PopoverTrigger>
           <PopoverContent align="end" sideOffset={6} className="w-64 p-2">
             <input
+              id="quality-profile-tracker-section-trackers-prioritaires"
               autoFocus
               value={search}
               onChange={(e) => setSearch(e.target.value)}

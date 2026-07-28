@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, ChevronDown, X } from "lucide-react";
 import {
@@ -41,6 +41,8 @@ export function MultiSelect({
     onChange(selected.filter((v) => v !== value));
   };
 
+  const labelId = useId();
+
   const handleOpenChange = (next: boolean) => {
     if (next && triggerRef.current) {
       setPopoverWidth(triggerRef.current.offsetWidth);
@@ -50,12 +52,17 @@ export function MultiSelect({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium text-neutral-300">{label}</label>
+      <span id={labelId} className="text-sm font-medium text-neutral-300">
+        {label}
+      </span>
       <Popover open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <button
             ref={triggerRef}
             type="button"
+            aria-labelledby={labelId}
+            aria-haspopup="listbox"
+            aria-expanded={open}
             className={cn(
               "flex min-h-10 w-full flex-wrap items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-left text-sm transition-colors",
               "border-neutral-200 hover:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary-500/30",

@@ -119,7 +119,7 @@ export function CalendarGrid({
                         !isSelectedDate &&
                         isCurrentMonthDay &&
                         "text-neutral-300",
-                      !isCurrentMonthDay && "text-neutral-600",
+                      !isCurrentMonthDay && "text-neutral-500",
                     )}
                   >
                     {date?.getDate()}

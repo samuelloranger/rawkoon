@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { IntegrationUrlInput } from "@/pages/settings/_component/integrations/IntegrationUrlInput";
 
 interface CredentialIntegrationFieldsProps {
@@ -27,6 +28,10 @@ export function CredentialIntegrationFields({
   onPasswordChange,
   passwordPlaceholder,
 }: CredentialIntegrationFieldsProps) {
+  const fieldPrefix = useId();
+  const usernameId = `${fieldPrefix}-username`;
+  const passwordId = `${fieldPrefix}-password`;
+
   return (
     <>
       <IntegrationUrlInput
@@ -37,11 +42,16 @@ export function CredentialIntegrationFields({
       />
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-neutral-300">
+        <label
+          htmlFor={usernameId}
+          className="mb-2 block text-sm font-medium text-neutral-300"
+        >
           {usernameLabel}
         </label>
         <input
+          id={usernameId}
           type="text"
+          autoComplete="username"
           value={username}
           onChange={(event) => onUsernameChange(event.target.value)}
           placeholder="admin"
@@ -50,11 +60,16 @@ export function CredentialIntegrationFields({
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-neutral-300">
+        <label
+          htmlFor={passwordId}
+          className="mb-2 block text-sm font-medium text-neutral-300"
+        >
           {passwordLabel}
         </label>
         <input
+          id={passwordId}
           type="password"
+          autoComplete="current-password"
           value={password}
           onChange={(event) => onPasswordChange(event.target.value)}
           placeholder={passwordPlaceholder}

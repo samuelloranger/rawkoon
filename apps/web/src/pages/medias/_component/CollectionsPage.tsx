@@ -176,7 +176,7 @@ export function CollectionsPage() {
 
       {!isLoading && collections.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-          <Film size={40} className="text-neutral-600" />
+          <Film size={40} className="text-neutral-500" />
           <p className="text-sm font-medium text-neutral-400">
             {t("medias.collections.empty", "Your collection is complete!")}
           </p>

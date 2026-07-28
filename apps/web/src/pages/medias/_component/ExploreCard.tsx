@@ -107,7 +107,7 @@ export function ExploreCard({
           onKeyDown={(e) =>
             (e.key === "Enter" || e.key === " ") && openDetailOrLibrary()
           }
-          className="absolute inset-0 z-10 cursor-pointer focus:outline-none"
+          className="absolute inset-0 z-10 cursor-pointer rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
         />
 
         {/* Poster image */}
@@ -169,7 +169,7 @@ export function ExploreCard({
             )}
             {score !== null && (
               <>
-                <span className="text-[8px] text-neutral-600">·</span>
+                <span className="text-[8px] text-neutral-500">·</span>
                 <span
                   className={`text-[9px] font-semibold tabular-nums ${scoreColor}`}
                 >

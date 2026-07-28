@@ -92,10 +92,14 @@ function LocalAiIntegrationSectionImpl({
           placeholder="http://homelab:11434"
         />
         <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-neutral-300">
+          <label
+            htmlFor="local-ai-integration-section-model"
+            className="block text-sm font-medium text-neutral-300"
+          >
             Model
           </label>
           <Input
+            id="local-ai-integration-section-model"
             value={model}
             onChange={(e) => setModel(e.target.value)}
             placeholder="llama3.2"

@@ -233,7 +233,7 @@ export function MergedEpisodeRow({
                 }
                 onClick={handleToggleMonitored}
                 disabled={toggleMonitoredMut.isPending}
-                className="rounded-md p-2.5 text-neutral-600 hover:text-neutral-400 disabled:opacity-50 transition-colors"
+                className="rounded-md p-2.5 text-neutral-500 hover:text-neutral-400 disabled:opacity-50 transition-colors"
               >
                 {ep.monitored ? <Eye size={14} /> : <EyeOff size={14} />}
               </button>
@@ -251,7 +251,7 @@ export function MergedEpisodeRow({
                 </button>
               )}
               {file && (
-                <span className="p-1.5 text-neutral-600">
+                <span className="p-1.5 text-neutral-500">
                   {expanded ? (
                     <ChevronDown size={12} />
                   ) : (
@@ -326,7 +326,7 @@ export function MergedEpisodeRow({
               }
               onClick={handleToggleMonitored}
               disabled={toggleMonitoredMut.isPending}
-              className="rounded p-1 text-neutral-600 hover:text-neutral-400 disabled:opacity-50 transition-colors"
+              className="rounded p-1 text-neutral-500 hover:text-neutral-400 disabled:opacity-50 transition-colors"
             >
               {ep.monitored ? <Eye size={11} /> : <EyeOff size={11} />}
             </button>
@@ -344,7 +344,7 @@ export function MergedEpisodeRow({
               </button>
             )}
             {file && (
-              <span className="rounded p-1 text-neutral-600">
+              <span className="rounded p-1 text-neutral-500">
                 {expanded ? (
                   <ChevronDown size={10} />
                 ) : (

@@ -119,10 +119,14 @@ export function IndexerManagerIntegrationSection({
       />
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-neutral-300">
+        <label
+          htmlFor="indexer-manager-integration-section-api-key"
+          className="mb-2 block text-sm font-medium text-neutral-300"
+        >
           {t(`settings.integrations.${translationKey}.apiKey`)}
         </label>
         <input
+          id="indexer-manager-integration-section-api-key"
           type="password"
           value={apiKey}
           onChange={(event) => setApiKey(event.target.value)}

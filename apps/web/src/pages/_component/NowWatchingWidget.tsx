@@ -62,7 +62,7 @@ export function NowWatchingWidget() {
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <Film className="h-5 w-5 text-neutral-600" aria-hidden />
+                    <Film className="h-5 w-5 text-neutral-500" aria-hidden />
                   )}
                 </div>
 

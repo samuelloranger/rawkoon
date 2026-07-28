@@ -38,9 +38,9 @@
   --color-neutral-100: #e3d8cf; /* text */
   --color-neutral-200: #d4c6b8;
   --color-neutral-300: #b9a89a;
-  --color-neutral-400: #9c8d80; /* muted text */
-  --color-neutral-500: #6b5c50;
-  --color-neutral-600: #463a32; /* muted borders/icons */
+  --color-neutral-400: #aa9a8c; /* muted text — 6.04:1 on surface-raised */
+  --color-neutral-500: #9d8775; /* faintest readable text — 4.82:1 on surface-raised */
+  --color-neutral-600: #463a32; /* borders only — 1.5:1, never use for text */
   --color-neutral-700: #322a25; /* borders */
   --color-neutral-800: #241e1b; /* raised cards/panels */
   --color-neutral-900: #1c1715; /* app base background */
@@ -56,7 +56,7 @@
   --color-accent-strong: #cf6a4e;
   --color-text-strong: #f4ece4;
   --color-text: #e3d8cf;
-  --color-text-muted: #9c8d80;
+  --color-text-muted: #aa9a8c;
 
   /* Custom breakpoints */
   --breakpoint-mobile-max: 945px;
@@ -116,7 +116,7 @@ body {
   --surface-1: #241e1b;
   --surface-2: #322a25;
   --surface-border: #322a25;
-  --surface-muted-fg: #9c8d80;
+  --surface-muted-fg: #aa9a8c;
 }
 
 @keyframes discover-in {

@@ -184,7 +184,11 @@ export function LibraryItemHero({
                           ? "https://www.rottentomatoes.com/assets/pizza-pie/images/icons/tomatometer/tomatometer-fresh.149b5e8adc3.svg"
                           : "https://www.rottentomatoes.com/assets/pizza-pie/images/icons/tomatometer/tomatometer-rotten.f1ef4f02ce3.svg"
                       }
-                      alt=""
+                      alt={
+                        parseInt(rtScore) >= 60
+                          ? "Rotten Tomatoes: Fresh"
+                          : "Rotten Tomatoes: Rotten"
+                      }
                       className="h-4 w-4"
                     />
                     <span className="text-white/75 font-semibold">
