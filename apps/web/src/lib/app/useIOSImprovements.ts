@@ -1,8 +1,13 @@
 /**
  * Hook to handle iOS-specific improvements for better user experience
- * - Touch responsiveness improvements
- * - Prevents zoom on double tap for form elements
  * - Viewport height fix for iOS address bar
+ *
+ * Double-tap zoom is handled in CSS (`touch-action: manipulation` on
+ * html/body) plus the `user-scalable=no` viewport meta. It must NOT be done
+ * by preventing `touchend`: that also suppresses the synthesized `click`,
+ * and Radix primitives (Select, in particular) open on `click` for touch
+ * pointers — so any tap following another touch within ~300ms silently did
+ * nothing.
  */
 
 import { useEffect } from "react";
@@ -17,21 +22,6 @@ export function useIOSImprovements(): void {
       return;
     }
 
-    const touchStartHandler = () => {};
-
-    // Prevent zoom on double tap for form elements
-    let lastTouchEnd = 0;
-    const touchEndHandler = (event: TouchEvent) => {
-      const now = Date.now();
-      const timeSince = now - lastTouchEnd;
-
-      if (timeSince < 300 && timeSince > 40) {
-        event.preventDefault();
-      }
-
-      lastTouchEnd = now;
-    };
-
     const orientationChangeHandler = () => {
       window.setTimeout(setVH, 100);
     };
@@ -42,19 +32,12 @@ export function useIOSImprovements(): void {
       document.documentElement.style.setProperty("--vh", `${vh}px`);
     };
 
-    // Improve touch responsiveness
-    document.addEventListener("touchstart", touchStartHandler, {
-      passive: true,
-    });
-    document.addEventListener("touchend", touchEndHandler, false);
     setVH();
     window.addEventListener("resize", setVH);
     window.addEventListener("orientationchange", orientationChangeHandler);
 
     // Cleanup function
     return () => {
-      document.removeEventListener("touchstart", touchStartHandler);
-      document.removeEventListener("touchend", touchEndHandler);
       window.removeEventListener("resize", setVH);
       window.removeEventListener("orientationchange", orientationChangeHandler);
     };
