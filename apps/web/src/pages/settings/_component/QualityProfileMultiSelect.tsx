@@ -42,6 +42,7 @@ export function MultiSelect({
   };
 
   const labelId = useId();
+  const valueId = useId();
 
   const handleOpenChange = (next: boolean) => {
     if (next && triggerRef.current) {
@@ -60,7 +61,10 @@ export function MultiSelect({
           <button
             ref={triggerRef}
             type="button"
-            aria-labelledby={labelId}
+            // Both ids: aria-labelledby overrides descendant text in the
+            // accessible-name computation, so naming only the field would
+            // announce the label and drop the current selection entirely.
+            aria-labelledby={`${labelId} ${valueId}`}
             aria-haspopup="listbox"
             aria-expanded={open}
             className={cn(
@@ -71,9 +75,11 @@ export function MultiSelect({
             )}
           >
             {selected.length === 0 ? (
-              <span className="flex-1 text-neutral-500">{placeholder}</span>
+              <span id={valueId} className="flex-1 text-neutral-500">
+                {placeholder}
+              </span>
             ) : (
-              <span className="flex flex-1 flex-wrap gap-1">
+              <span id={valueId} className="flex flex-1 flex-wrap gap-1">
                 {selected.map((v) => {
                   const opt = options.find((o) => o.value === v);
                   return (

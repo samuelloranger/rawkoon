@@ -24,12 +24,22 @@ export function TmdbSearchModal({
   const internalRef = useRef<HTMLInputElement>(null);
   const inputRef = externalInputRef ?? internalRef;
   const titleId = useId();
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // The modal stays mounted when closed, so Escape is the only keyboard exit.
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      // A result can open ExploreCardDetailDialog on top of this one. Radix
+      // portals it to <body> and dismisses it on Escape without marking the
+      // event handled, so without this check one keypress would close both and
+      // drop the user out of their search entirely.
+      const topmost = document.querySelector<HTMLElement>(
+        '[role="dialog"][data-state="open"]',
+      );
+      if (topmost && !containerRef.current?.contains(topmost)) return;
+      onClose();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
@@ -37,6 +47,7 @@ export function TmdbSearchModal({
 
   return createPortal(
     <div
+      ref={containerRef}
       className={cn(
         "fixed inset-0 z-[var(--z-modal)] transition-opacity duration-200",
         isOpen

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -59,6 +59,9 @@ function ProviderForm({
   saving: boolean;
 }) {
   const { t } = useTranslation("common");
+  // The add form and an edit form can be open at once, so ids must be scoped
+  // per instance — otherwise the add form's labels target the edit form's inputs.
+  const fieldId = useId();
   const {
     register,
     handleSubmit,
@@ -86,11 +89,11 @@ function ProviderForm({
     <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="oidc-providers-tab-name" className={LABEL_CLASS}>
+          <label htmlFor={`${fieldId}-name`} className={LABEL_CLASS}>
             {t("settings.integrations.sso.providerName")}
           </label>
           <input
-            id="oidc-providers-tab-name"
+            id={`${fieldId}-name`}
             type="text"
             {...register("name")}
             placeholder={t("settings.integrations.sso.providerNamePlaceholder")}
@@ -101,11 +104,11 @@ function ProviderForm({
           )}
         </div>
         <div>
-          <label htmlFor="oidc-providers-tab-slug" className={LABEL_CLASS}>
+          <label htmlFor={`${fieldId}-slug`} className={LABEL_CLASS}>
             {t("settings.integrations.sso.providerSlug")}
           </label>
           <input
-            id="oidc-providers-tab-slug"
+            id={`${fieldId}-slug`}
             type="text"
             {...register("slug")}
             placeholder={t("settings.integrations.sso.providerSlugPlaceholder")}
@@ -124,15 +127,12 @@ function ProviderForm({
 
       {redirectUri && (
         <div>
-          <label
-            htmlFor="oidc-providers-tab-redirect-uri"
-            className={LABEL_CLASS}
-          >
+          <label htmlFor={`${fieldId}-redirect-uri`} className={LABEL_CLASS}>
             {t("settings.integrations.sso.redirectUri")}
           </label>
           <div className="flex items-center gap-2">
             <input
-              id="oidc-providers-tab-redirect-uri"
+              id={`${fieldId}-redirect-uri`}
               type="text"
               readOnly
               value={redirectUri}
@@ -156,14 +156,11 @@ function ProviderForm({
       )}
 
       <div>
-        <label
-          htmlFor="oidc-providers-tab-discovery-url"
-          className={LABEL_CLASS}
-        >
+        <label htmlFor={`${fieldId}-discovery-url`} className={LABEL_CLASS}>
           {t("settings.integrations.sso.discoveryUrl")}
         </label>
         <input
-          id="oidc-providers-tab-discovery-url"
+          id={`${fieldId}-discovery-url`}
           type="url"
           {...register("discovery_url")}
           placeholder={t("settings.integrations.sso.discoveryUrlPlaceholder")}
@@ -177,12 +174,12 @@ function ProviderForm({
       </div>
 
       <div>
-        <label htmlFor="oidc-providers-tab-icon-url" className={LABEL_CLASS}>
+        <label htmlFor={`${fieldId}-icon-url`} className={LABEL_CLASS}>
           {t("settings.integrations.sso.iconUrl")}
         </label>
         <div className="flex items-center gap-3">
           <input
-            id="oidc-providers-tab-icon-url"
+            id={`${fieldId}-icon-url`}
             type="url"
             {...register("icon_url")}
             placeholder={t("settings.integrations.sso.iconUrlPlaceholder")}
@@ -211,11 +208,11 @@ function ProviderForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="oidc-providers-tab-client-id" className={LABEL_CLASS}>
+          <label htmlFor={`${fieldId}-client-id`} className={LABEL_CLASS}>
             {t("settings.integrations.sso.clientId")}
           </label>
           <input
-            id="oidc-providers-tab-client-id"
+            id={`${fieldId}-client-id`}
             type="text"
             {...register("client_id")}
             placeholder={t("settings.integrations.sso.clientIdPlaceholder")}
@@ -228,14 +225,11 @@ function ProviderForm({
           )}
         </div>
         <div>
-          <label
-            htmlFor="oidc-providers-tab-client-secret"
-            className={LABEL_CLASS}
-          >
+          <label htmlFor={`${fieldId}-client-secret`} className={LABEL_CLASS}>
             {t("settings.integrations.sso.clientSecret")}
           </label>
           <input
-            id="oidc-providers-tab-client-secret"
+            id={`${fieldId}-client-secret`}
             type="password"
             {...register("client_secret")}
             placeholder={

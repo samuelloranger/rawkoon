@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { IndexerItem } from "@/pages/settings/useJackettIndexers";
@@ -53,6 +53,9 @@ export function IndexerManagerIntegrationSection({
   useIndexers,
 }: IndexerManagerIntegrationSectionProps) {
   const { t } = useTranslation("common");
+  // Prowlarr and Jackett both render this component, so the id must be
+  // per-instance or their labels would both resolve to the first input.
+  const apiKeyId = useId();
   const integration = data?.integration;
 
   const [websiteUrl, setWebsiteUrl] = useState(integration?.website_url || "");
@@ -120,13 +123,13 @@ export function IndexerManagerIntegrationSection({
 
       <div>
         <label
-          htmlFor="indexer-manager-integration-section-api-key"
+          htmlFor={apiKeyId}
           className="mb-2 block text-sm font-medium text-neutral-300"
         >
           {t(`settings.integrations.${translationKey}.apiKey`)}
         </label>
         <input
-          id="indexer-manager-integration-section-api-key"
+          id={apiKeyId}
           type="password"
           value={apiKey}
           onChange={(event) => setApiKey(event.target.value)}
