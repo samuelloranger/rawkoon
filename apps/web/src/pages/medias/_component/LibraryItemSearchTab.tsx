@@ -12,6 +12,12 @@ import {
 import { languageDisplayName } from "@/lib/utils/languageDisplayName";
 import { InteractiveSearchPanel } from "./InteractiveSearchPanel";
 
+/**
+ * Language library titles are stored in — mirrors the API's
+ * TMDB_LANGUAGE_LIBRARY_PERSISTENCE ("en-US").
+ */
+const LIBRARY_TITLE_LANGUAGE = "en";
+
 function libraryToMediaItem(item: LibraryMedia): MediaItem {
   return {
     id: String(item.id),
@@ -87,16 +93,20 @@ export function LibraryItemSearchTab({
 
   const localizedQuery = `${item.title}${ctxSuffix}`;
 
-  // Build the per-language title options for the search picker. The platform's
-  // own title is the default; EN/FR are pinned, then the original language, then
-  // a few common languages — letting the user search private trackers by
+  // Build the per-language title options for the search picker. The stored
+  // library title is the default; EN/FR are pinned, then the original language,
+  // then a few common languages — letting the user search private trackers by
   // whichever localized title they use.
-  const platformLanguage = (i18n.language || "en").split("-")[0].toLowerCase();
+  //
+  // `item.title` is always English: the API persists library titles with
+  // TMDB_LANGUAGE_LIBRARY_PERSISTENCE ("en-US") so DB values stay stable across
+  // locales. Passing the UI language here instead would label the English title
+  // as e.g. French and hide TMDB's actual French title from the picker.
   const titleOptions = useMemo<LabeledTitleOption[]>(() => {
     const originalTag = t("medias.interactive.originalTag", "original");
     return buildTitleOptions({
       localized: item.title,
-      platformLanguage,
+      localizedLanguage: LIBRARY_TITLE_LANGUAGE,
       original: tmdbOriginalTitle,
       originalLanguage: tmdbOriginalLanguage,
       translations: tmdbTitleTranslations,
@@ -110,7 +120,6 @@ export function LibraryItemSearchTab({
     });
   }, [
     item.title,
-    platformLanguage,
     tmdbOriginalTitle,
     tmdbOriginalLanguage,
     tmdbTitleTranslations,
