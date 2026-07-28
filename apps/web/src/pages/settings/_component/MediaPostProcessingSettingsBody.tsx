@@ -23,7 +23,7 @@ interface MediaPostProcessingSettingsBodyProps {
 }
 
 const SELECT_CLASS =
-  "w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/40";
+  "focus-ring w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100";
 
 const LABEL_CLASS = "block text-sm font-medium text-neutral-300 mb-1.5";
 
@@ -239,7 +239,7 @@ export function MediaPostProcessingSettingsBody({
               id="media-post-processing-settings-body-movie-template"
               {...register("movieTemplate")}
               rows={2}
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm font-mono text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+              className="focus-ring w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm font-mono text-neutral-100"
             />
             {errors.movieTemplate && (
               <p className="mt-1 text-sm text-red-400">
@@ -259,7 +259,7 @@ export function MediaPostProcessingSettingsBody({
               id="media-post-processing-settings-body-episode-template"
               {...register("episodeTemplate")}
               rows={2}
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm font-mono text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+              className="focus-ring w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm font-mono text-neutral-100"
             />
             {errors.episodeTemplate && (
               <p className="mt-1 text-sm text-red-400">

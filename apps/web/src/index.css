@@ -52,8 +52,6 @@
   --color-surface-inset: #171311; /* between neutral-950 and neutral-900 */
   --color-border: #322a25;
   --color-border-strong: #3a2f27; /* between neutral-600 and neutral-700 */
-  --color-accent: #e8a06a;
-  --color-accent-strong: #cf6a4e;
   --color-text-strong: #f4ece4;
   --color-text: #e3d8cf;
   --color-text-muted: #aa9a8c;
@@ -110,13 +108,20 @@ body {
   --z-popover: 250;
   --z-tooltip: 300;
 
-  /* Deprecated aliases of the @theme --color-surface-* tokens — kept until components migrate; do not add new ones. */
-  /* Dark surfaces — warm Cozy Dusk (aligned with @theme neutral scale) */
-  --surface-base: #1c1715;
-  --surface-1: #241e1b;
-  --surface-2: #322a25;
-  --surface-border: #322a25;
-  --surface-muted-fg: #aa9a8c;
+}
+
+/*
+  The one focus indicator. Defined once so the Input and Select primitives and
+  the hand-rolled fields that never adopted them cannot drift apart. Two rings:
+  a surface-coloured gap, then the accent, so it stays visible on any surface.
+*/
+@utility focus-ring {
+  &:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--color-surface-base),
+      0 0 0 4px var(--color-primary-400);
+  }
 }
 
 @keyframes discover-in {

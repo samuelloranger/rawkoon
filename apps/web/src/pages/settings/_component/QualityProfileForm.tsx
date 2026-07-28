@@ -91,7 +91,7 @@ const emptyPayload: QualityProfileFormPayload = {
 };
 
 const selectClass =
-  "w-full rounded-lg border px-3 py-2 text-sm border-neutral-700 bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/30 transition-colors";
+  "focus-ring w-full rounded-lg border px-3 py-2 text-sm border-neutral-700 bg-neutral-900 text-neutral-100 transition-colors";
 
 // ─── Form (remounted via key when editing target / server row changes) ─────────
 

@@ -65,7 +65,7 @@ export function MultiSelect({
             aria-expanded={open}
             className={cn(
               "flex min-h-10 w-full flex-wrap items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-left text-sm transition-colors",
-              "border-neutral-200 hover:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary-500/30",
+              "focus-ring border-neutral-200 hover:border-neutral-300",
               "border-neutral-700 bg-neutral-900 hover:border-neutral-600",
               open && "ring-2 ring-primary-500/30 border-primary-600",
             )}

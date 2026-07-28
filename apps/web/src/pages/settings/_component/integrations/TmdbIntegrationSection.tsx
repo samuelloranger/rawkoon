@@ -84,7 +84,7 @@ function TmdbIntegrationSectionImpl({
           value={apiKey}
           onChange={(event) => setApiKey(event.target.value)}
           placeholder={t("settings.integrations.tmdb.apiKeyPlaceholder")}
-          className="w-full px-4 py-2 border border-neutral-600 rounded-lg bg-neutral-900 text-white font-mono"
+          className="focus-ring w-full px-4 py-2 border border-neutral-600 rounded-lg bg-neutral-900 text-white font-mono"
         />
       </div>
       <div>
@@ -105,7 +105,7 @@ function TmdbIntegrationSectionImpl({
               Math.max(0, Math.min(100, Number(event.target.value) || 0)),
             )
           }
-          className="w-full px-4 py-2 border border-neutral-600 rounded-lg bg-neutral-900 text-white"
+          className="focus-ring w-full px-4 py-2 border border-neutral-600 rounded-lg bg-neutral-900 text-white"
         />
         <p className="mt-1 text-xs text-neutral-400">
           {t("settings.integrations.tmdb.popularityThresholdHelp")}

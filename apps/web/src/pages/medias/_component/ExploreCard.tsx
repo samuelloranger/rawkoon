@@ -107,7 +107,7 @@ export function ExploreCard({
           onKeyDown={(e) =>
             (e.key === "Enter" || e.key === " ") && openDetailOrLibrary()
           }
-          className="absolute inset-0 z-10 cursor-pointer rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
+          className="focus-ring absolute inset-0 z-10 cursor-pointer rounded-[inherit]"
         />
 
         {/* Poster image */}

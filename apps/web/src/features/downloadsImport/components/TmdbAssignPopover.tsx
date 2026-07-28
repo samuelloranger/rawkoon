@@ -53,7 +53,7 @@ function TmdbSearchPanel({
         value={input}
         onChange={(e) => setInput(e.target.value)}
         placeholder={t("downloadsImport.search.placeholder")}
-        className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-2.5 py-1.5 text-sm"
+        className="focus-ring w-full rounded-lg border border-neutral-700 bg-neutral-900 px-2.5 py-1.5 text-sm"
       />
       <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
         {enabled && q.isLoading && (

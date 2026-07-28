@@ -18,7 +18,7 @@ import {
 import { SettingsPageHeader } from "@/pages/settings/_component/SettingsPageHeader";
 
 const INPUT_CLASS =
-  "w-full px-4 py-2 border border-neutral-600 rounded-lg bg-neutral-900 text-white font-mono text-sm";
+  "focus-ring w-full px-4 py-2 border border-neutral-600 rounded-lg bg-neutral-900 text-white font-mono text-sm";
 const LABEL_CLASS = "block text-sm font-medium text-neutral-300 mb-2";
 
 const oidcProviderSchema = z.object({
@@ -136,7 +136,7 @@ function ProviderForm({
               type="text"
               readOnly
               value={redirectUri}
-              className="flex-1 px-4 py-2 border border-neutral-600 rounded-lg bg-neutral-800 text-neutral-300 font-mono text-sm cursor-default"
+              className="focus-ring flex-1 px-4 py-2 border border-neutral-600 rounded-lg bg-neutral-800 text-neutral-300 font-mono text-sm cursor-default"
             />
             <button
               type="button"
@@ -186,7 +186,7 @@ function ProviderForm({
             type="url"
             {...register("icon_url")}
             placeholder={t("settings.integrations.sso.iconUrlPlaceholder")}
-            className="flex-1 px-4 py-2 border border-neutral-600 rounded-lg bg-neutral-900 text-white font-mono text-sm"
+            className="focus-ring flex-1 px-4 py-2 border border-neutral-600 rounded-lg bg-neutral-900 text-white font-mono text-sm"
           />
           {iconUrl && (
             <img

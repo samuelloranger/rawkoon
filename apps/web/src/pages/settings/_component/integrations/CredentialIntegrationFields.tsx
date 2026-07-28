@@ -55,7 +55,7 @@ export function CredentialIntegrationFields({
           value={username}
           onChange={(event) => onUsernameChange(event.target.value)}
           placeholder="admin"
-          className="w-full rounded-lg border border-neutral-600 bg-neutral-900 px-4 py-2 text-white"
+          className="focus-ring w-full rounded-lg border border-neutral-600 bg-neutral-900 px-4 py-2 text-white"
         />
       </div>
 
@@ -73,7 +73,7 @@ export function CredentialIntegrationFields({
           value={password}
           onChange={(event) => onPasswordChange(event.target.value)}
           placeholder={passwordPlaceholder}
-          className="w-full rounded-lg border border-neutral-600 bg-neutral-900 px-4 py-2 font-mono text-white"
+          className="focus-ring w-full rounded-lg border border-neutral-600 bg-neutral-900 px-4 py-2 font-mono text-white"
         />
       </div>
     </>

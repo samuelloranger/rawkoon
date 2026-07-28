@@ -90,7 +90,7 @@ export function TrackerPrioritySection({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Rechercher un tracker…"
-              className="mb-2 w-full rounded-md border px-2.5 py-1.5 text-sm placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 border-neutral-700 bg-neutral-900 text-neutral-100"
+              className="focus-ring mb-2 w-full rounded-md border px-2.5 py-1.5 text-sm placeholder-neutral-400 border-neutral-700 bg-neutral-900 text-neutral-100"
             />
             {isFetching && available.length === 0 ? (
               <p className="px-2 py-3 text-center text-xs text-neutral-400">

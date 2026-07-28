@@ -160,7 +160,7 @@ function AcceptInvitationPage() {
                 type="email"
                 value={validation.email}
                 disabled
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-600 text-neutral-400 bg-neutral-700 rounded-t-md sm:text-sm"
+                className="focus-ring appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-600 text-neutral-400 bg-neutral-700 rounded-t-md sm:text-sm"
               />
             </div>
             <div>

@@ -11,7 +11,7 @@ interface Props {
 }
 
 const btn =
-  "flex items-center justify-center rounded-full transition-transform active:scale-90 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400/60";
+  "focus-ring flex items-center justify-center rounded-full transition-transform active:scale-90 disabled:opacity-40 /60";
 
 export function DiscoverActionBar({
   disabled,

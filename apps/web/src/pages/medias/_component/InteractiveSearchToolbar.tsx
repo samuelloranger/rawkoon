@@ -96,7 +96,7 @@ export function InteractiveSearchToolbar({
               }))
             }
             placeholder={t("medias.interactive.filterPlaceholder")}
-            className="h-10 w-full rounded-xl border pl-9 pr-9 text-sm focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 border-neutral-700 bg-neutral-800 text-neutral-100 placeholder:text-neutral-500"
+            className="focus-ring h-10 w-full rounded-xl border pl-9 pr-9 text-sm focus:border-primary-500 focus:bg-white border-neutral-700 bg-neutral-800 text-neutral-100 placeholder:text-neutral-500"
           />
           {filterQuery && (
             <button
@@ -229,7 +229,7 @@ export function InteractiveSearchToolbar({
                 }))
               }
               placeholder={t("medias.interactive.filterPlaceholder")}
-              className="h-10 w-full rounded-xl border pl-9 pr-9 text-sm focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 border-neutral-700 bg-neutral-800 text-neutral-100 placeholder:text-neutral-500"
+              className="focus-ring h-10 w-full rounded-xl border pl-9 pr-9 text-sm focus:border-primary-500 focus:bg-white border-neutral-700 bg-neutral-800 text-neutral-100 placeholder:text-neutral-500"
             />
             {filterQuery && (
               <button
@@ -311,7 +311,7 @@ export function InteractiveSearchToolbar({
                     sortBy: event.target.value as InteractiveSortKey,
                   }))
                 }
-                className="rounded-lg border px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary-500/30 border-neutral-700 bg-neutral-800 text-neutral-200"
+                className="focus-ring rounded-lg border px-2 py-1.5 text-xs border-neutral-700 bg-neutral-800 text-neutral-200"
               >
                 <option value="seeders">
                   {t("medias.interactive.sortOptions.seeders")}

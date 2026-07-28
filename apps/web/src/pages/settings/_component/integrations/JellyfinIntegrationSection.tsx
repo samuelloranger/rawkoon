@@ -92,7 +92,7 @@ function JellyfinIntegrationSectionImpl({
           value={apiKey}
           onChange={(event) => setApiKey(event.target.value)}
           placeholder={t("settings.integrations.jellyfin.apiKeyPlaceholder")}
-          className="w-full px-4 py-2 border border-neutral-600 rounded-lg bg-neutral-900 text-white font-mono"
+          className="focus-ring w-full px-4 py-2 border border-neutral-600 rounded-lg bg-neutral-900 text-white font-mono"
         />
       </div>
     </IntegrationSectionCard>

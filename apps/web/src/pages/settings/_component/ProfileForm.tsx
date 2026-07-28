@@ -329,7 +329,7 @@ export function ProfileForm() {
             type="email"
             value={currentUser?.email || ""}
             disabled
-            className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-400 cursor-not-allowed"
+            className="focus-ring w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-400 cursor-not-allowed"
           />
           <p className="mt-1 text-sm text-neutral-400">
             {t("settings.profile.emailReadOnly")}

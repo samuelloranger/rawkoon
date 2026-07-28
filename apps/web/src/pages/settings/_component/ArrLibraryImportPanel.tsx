@@ -41,7 +41,7 @@ function CredentialInput({
         autoComplete="off"
         aria-invalid={error ? true : undefined}
         aria-errormessage={error ? errorId : undefined}
-        className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+        className="focus-ring w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-xs text-neutral-100 placeholder-neutral-500"
         {...inputProps}
       />
       {error && (
