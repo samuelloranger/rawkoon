@@ -468,8 +468,9 @@ body {
 }
 
 /*
-  Loading dots. A wave of opacity and a 2px lift, not Tailwind's animate-bounce
-  — its squash curve is a reflex, and three of them at once reads as jitter.
+  Loading dots. A wave of opacity and a 2px lift. Deliberately not Tailwind's
+  bounce utility — its squash curve is a reflex, and three of them at once
+  reads as jitter.
 */
 @keyframes loaderDotWave {
   0%,

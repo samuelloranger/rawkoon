@@ -1783,5 +1783,8 @@
     "editTitle": "Edit custom format",
     "formDescription": "Define conditions that must match for this format to apply.",
     "conditions": "Conditions"
+  },
+  "a11y": {
+    "skipToContent": "Skip to main content"
   }
 }
