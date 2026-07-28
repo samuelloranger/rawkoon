@@ -56,6 +56,8 @@ export function TmdbMediaSearchPanel({
         />
         <input
           ref={inputRef}
+          type="search"
+          aria-label={t("medias.tmdb.placeholder")}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={t("medias.tmdb.placeholder")}

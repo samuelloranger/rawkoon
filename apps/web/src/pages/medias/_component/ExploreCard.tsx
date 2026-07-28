@@ -143,7 +143,7 @@ export function ExploreCard({
             onClick={handleAdd}
             disabled={isAdding}
             aria-label={`Add ${item.title}`}
-            className="absolute top-2 right-2 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 opacity-0 ring-1 ring-black/30 transition-opacity duration-200 group-hover:opacity-100 hover:bg-primary-400 disabled:opacity-40"
+            className="absolute top-2 right-2 z-20 flex size-6 items-center justify-center rounded-full bg-primary-500 opacity-0 ring-1 ring-black/30 transition-opacity duration-200 group-hover:opacity-100 hover:bg-primary-400 disabled:opacity-40"
           >
             {isAdding ? (
               <div className="h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-neutral-950 border-t-transparent" />

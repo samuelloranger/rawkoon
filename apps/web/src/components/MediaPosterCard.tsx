@@ -68,7 +68,7 @@ export function MediaPosterCard({
   rel,
   onClick,
   disabled,
-  accentRingClassName = "focus:ring-primary-400/60",
+  accentRingClassName = "focus-ring ",
   className,
   style,
   animationDelayMs,

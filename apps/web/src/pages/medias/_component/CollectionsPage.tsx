@@ -70,7 +70,7 @@ function CollectionCard({
                 key={movie.tmdb_id}
                 type="button"
                 onClick={() => setSelectedItem(movie)}
-                className="group relative w-12 shrink-0 overflow-hidden rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                className="focus-ring group relative w-12 shrink-0 overflow-hidden rounded-lg"
                 style={{ aspectRatio: "2/3" }}
                 title={movie.title}
               >

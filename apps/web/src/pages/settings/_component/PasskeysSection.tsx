@@ -67,10 +67,11 @@ export function PasskeysSection() {
       <div className="flex items-center gap-3 mb-6">
         <input
           type="text"
+          aria-label={t("settings.passkeys.namePlaceholder")}
           value={registerName}
           onChange={(e) => setRegisterName(e.target.value)}
           placeholder={t("settings.passkeys.namePlaceholder")}
-          className="flex-1 px-3 py-2 text-sm rounded-lg border border-neutral-600 bg-neutral-900 text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="focus-ring flex-1 px-3 py-2 text-sm rounded-lg border border-neutral-600 bg-neutral-900 text-white"
         />
         <Button
           onClick={handleRegister}

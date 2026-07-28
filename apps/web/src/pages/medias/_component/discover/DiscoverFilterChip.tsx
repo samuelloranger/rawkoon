@@ -39,7 +39,7 @@ export function DiscoverFilterChip({
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="flex min-w-0 w-full max-w-full items-center gap-1.5 rounded-full px-2.5 py-1.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              className="focus-ring flex min-w-0 w-full max-w-full items-center gap-1.5 rounded-full px-2.5 py-1.5 text-left"
             >
               <Icon
                 className={cn(

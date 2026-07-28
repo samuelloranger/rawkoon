@@ -66,7 +66,7 @@ export function NotificationsMenu() {
     <Popover.Root open={isOpen} onOpenChange={setIsOpen}>
       <Popover.Trigger asChild>
         <button
-          className="flex h-9 w-9 items-center justify-center relative rounded-xl text-neutral-400 hover:bg-white/[0.06] hover:text-neutral-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 transition-colors"
+          className="focus-ring flex h-9 w-9 items-center justify-center relative rounded-xl text-neutral-400 hover:bg-white/[0.06] hover:text-neutral-200 transition-colors"
           aria-label={t("notifications.bell")}
           onMouseEnter={() => prefetchRoute("/notifications")}
         >

@@ -86,6 +86,7 @@ export function LibraryQualityProfileSection({
         right={searchNowButton}
       >
         <select
+          aria-label={t("library.management.qualityProfile")}
           value={mediaRow?.quality_profile_id ?? ""}
           onChange={(e) => {
             const v = e.target.value;

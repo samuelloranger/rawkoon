@@ -349,7 +349,7 @@ export function ProfileForm() {
             type="text"
             {...registerProfile("first_name")}
             placeholder={t("settings.profile.firstNamePlaceholder")}
-            className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="focus-ring w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:border-transparent"
           />
         </div>
 
@@ -366,7 +366,7 @@ export function ProfileForm() {
             type="text"
             {...registerProfile("last_name")}
             placeholder={t("settings.profile.lastNamePlaceholder")}
-            className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="focus-ring w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:border-transparent"
           />
         </div>
 
@@ -414,7 +414,7 @@ export function ProfileForm() {
               t("settings.profile.currentPasswordPlaceholder") ||
               "Enter your current password"
             }
-            className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="focus-ring w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:border-transparent"
           />
           {passwordErrors.current_password && (
             <p className="mt-1 text-sm text-red-400">
@@ -446,7 +446,7 @@ export function ProfileForm() {
               },
             })}
             placeholder={t("settings.profile.newPasswordPlaceholder")}
-            className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="focus-ring w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:border-transparent"
           />
           {passwordErrors.new_password && (
             <p className="mt-1 text-sm text-red-400">
@@ -482,7 +482,7 @@ export function ProfileForm() {
               t("settings.profile.confirmPasswordPlaceholder") ||
               "Confirm your new password"
             }
-            className="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="focus-ring w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-neutral-100 focus:border-transparent"
           />
           {passwordErrors.confirm_password && (
             <p className="mt-1 text-sm text-red-400">

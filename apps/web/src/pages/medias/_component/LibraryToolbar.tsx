@@ -91,6 +91,8 @@ export function LibraryToolbar({
             className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
           />
           <input
+            type="search"
+            aria-label={t("medias.library.searchPlaceholder")}
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={t("medias.library.searchPlaceholder")}

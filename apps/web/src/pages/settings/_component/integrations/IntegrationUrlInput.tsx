@@ -78,7 +78,7 @@ export function IntegrationUrlInput({
           "w-full px-4 py-2 border rounded-lg bg-neutral-900 text-white transition-colors",
           error
             ? "border-red-500 focus:ring-red-400"
-            : "border-neutral-600 focus:ring-primary-500",
+            : "focus-ring border-neutral-600",
         )}
       />
       {error && (

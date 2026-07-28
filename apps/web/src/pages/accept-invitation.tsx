@@ -172,7 +172,7 @@ function AcceptInvitationPage() {
                 type="text"
                 autoComplete="given-name"
                 {...register("firstName")}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-600 placeholder-neutral-400 text-white bg-neutral-800 focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
+                className="focus-ring appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-600 placeholder-neutral-400 text-white bg-neutral-800 focus:border-primary-500 focus:z-10 sm:text-sm"
                 placeholder={t("acceptInvitation.firstName")}
               />
             </div>
@@ -185,7 +185,7 @@ function AcceptInvitationPage() {
                 type="text"
                 autoComplete="family-name"
                 {...register("lastName")}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-600 placeholder-neutral-400 text-white bg-neutral-800 focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
+                className="focus-ring appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-600 placeholder-neutral-400 text-white bg-neutral-800 focus:border-primary-500 focus:z-10 sm:text-sm"
                 placeholder={t("acceptInvitation.lastName")}
               />
             </div>
@@ -207,7 +207,7 @@ function AcceptInvitationPage() {
                   },
                   validate: (value) => validatePasswordComplexity(value, t),
                 })}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-600 placeholder-neutral-400 text-white bg-neutral-800 focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
+                className="focus-ring appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-600 placeholder-neutral-400 text-white bg-neutral-800 focus:border-primary-500 focus:z-10 sm:text-sm"
                 placeholder={t("acceptInvitation.password")}
               />
               {errors.password && (
@@ -230,7 +230,7 @@ function AcceptInvitationPage() {
                     value === password ||
                     t("acceptInvitation.passwordsDoNotMatch"),
                 })}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-600 placeholder-neutral-400 text-white bg-neutral-800 rounded-b-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
+                className="focus-ring appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-600 placeholder-neutral-400 text-white bg-neutral-800 rounded-b-md focus:border-primary-500 focus:z-10 sm:text-sm"
                 placeholder={t("acceptInvitation.confirmPassword")}
               />
               {errors.confirmPassword && (
@@ -245,7 +245,7 @@ function AcceptInvitationPage() {
             <button
               type="submit"
               disabled={acceptMutation.isPending}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 focus:ring-offset-neutral-900 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="focus-ring group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {acceptMutation.isPending
                 ? t("acceptInvitation.creating")
