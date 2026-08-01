@@ -27,11 +27,29 @@ const state: {
   rows: DhRow[];
   markedComplete: number[];
   emittedMediaIds: number[];
+  enqueuedJobIds: string[];
 } = {
   rows: [],
   markedComplete: [],
   emittedMediaIds: [],
+  enqueuedJobIds: [],
 };
+
+// The post-process queue is stubbed so the transition can be asserted without
+// redis. Job ids are captured because dedupe is part of the contract.
+mock.module("@rawkoon/api/services/queueService", () => ({
+  QUEUE_NAMES: { LIBRARY_POST_PROCESS: "library-post-process" },
+  POST_PROCESS_JOB_NAME: "post-process",
+  addJob: (
+    _queue: string,
+    _job: string,
+    _data: unknown,
+    opts?: { jobId?: string },
+  ) => {
+    state.enqueuedJobIds.push(opts?.jobId ?? "");
+    return Promise.resolve({});
+  },
+}));
 
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
@@ -77,6 +95,9 @@ mock.module("@rawkoon/api/db", () => ({
       findFirst: () => Promise.resolve(null),
       update: () => Promise.resolve({}),
     },
+    mediaSettings: {
+      findUnique: () => Promise.resolve({ postProcessingEnabled: true }),
+    },
   },
 }));
 
@@ -89,7 +110,7 @@ libraryEventBus.on("update", (ev: { mediaId: number }) => {
 });
 
 const { completeDownloadByHash } = await import(
-  "@rawkoon/api/workers/checkDownloadCompletion"
+  "@rawkoon/api/services/downloadOutcome"
 );
 
 describe("completeDownloadByHash", () => {
@@ -97,6 +118,7 @@ describe("completeDownloadByHash", () => {
     state.rows = [];
     state.markedComplete = [];
     state.emittedMediaIds = [];
+    state.enqueuedJobIds = [];
   });
 
   it("returns null when no DH row matches the hash", async () => {
@@ -136,6 +158,9 @@ describe("completeDownloadByHash", () => {
     expect(state.emittedMediaIds).toContain(10);
     // row has completedAt populated
     expect(state.rows[0]?.completedAt).toBeInstanceOf(Date);
+    // post-processing queued under a per-row job id, so a second enqueue
+    // while this one is pending is a no-op rather than a duplicate run
+    expect(state.enqueuedJobIds).toEqual(["post-process:42"]);
   });
 
   it("returns the id of an already-completed row WITHOUT marking it again (recovery handle)", async () => {
@@ -158,6 +183,8 @@ describe("completeDownloadByHash", () => {
     expect(state.rows[0]?.completedAt).toBe(alreadyCompletedAt);
     // And we did NOT re-emit a library update (no work to broadcast).
     expect(state.emittedMediaIds).toEqual([]);
+    // But post-processing IS re-queued — that is the whole point of the handle.
+    expect(state.enqueuedJobIds).toEqual(["post-process:99"]);
   });
 
   it("normalizes the hash before matching (uppercase / trailing whitespace)", async () => {

@@ -15,7 +15,7 @@ import {
   parseReleaseTitle,
 } from "@rawkoon/api/utils/medias/filenameParser";
 import { isExcludedDir } from "@rawkoon/api/utils/medias/fileIdentifier";
-import { enqueueLibraryPostProcess } from "@rawkoon/api/services/postProcessorQueue";
+import { enqueuePostProcess } from "@rawkoon/api/services/downloadOutcome";
 import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import { reconcilePendingDownloads } from "@rawkoon/api/workers/checkDownloadCompletion";
 import { classifyLanguageTags } from "@rawkoon/shared";
@@ -469,7 +469,7 @@ async function rescanLibraryItemInner(
           : !hasValidFile;
 
       if (needsRequeue) {
-        enqueueLibraryPostProcess(dh.id);
+        await enqueuePostProcess(dh.id);
         requeued++;
       }
     }

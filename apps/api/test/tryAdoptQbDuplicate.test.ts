@@ -30,6 +30,12 @@ const state: {
   }>;
   mediaUpdates: Array<{ where: { id: number }; data: Record<string, unknown> }>;
   torrent: typeof fakeTorrent | null;
+  approvedRequest: { id: number; requestedById: string; title: string } | null;
+  requestUpdates: Array<{
+    where: { id: number };
+    data: Record<string, unknown>;
+  }>;
+  mediaStatus: string;
 } = {
   qbCategoryCalls: [],
   qbTagCalls: [],
@@ -37,6 +43,9 @@ const state: {
   episodeUpdates: [],
   mediaUpdates: [],
   torrent: null,
+  approvedRequest: null,
+  requestUpdates: [],
+  mediaStatus: "downloaded",
 };
 
 mock.module("@rawkoon/api/db", () => ({
@@ -67,9 +76,32 @@ mock.module("@rawkoon/api/db", () => ({
         state.mediaUpdates.push(args);
         return Promise.resolve({});
       },
+      findUnique: () =>
+        Promise.resolve({
+          type: "show",
+          tmdbStatus: null,
+          status: state.mediaStatus,
+        }),
     },
     grabBlocklist: { findFirst: () => Promise.resolve(null) },
+    mediaSettings: {
+      findUnique: () => Promise.resolve({ postProcessingEnabled: true }),
+    },
+    mediaRequest: {
+      findFirst: () => Promise.resolve(state.approvedRequest),
+      update: (args: {
+        where: { id: number };
+        data: Record<string, unknown>;
+      }) => {
+        state.requestUpdates.push(args);
+        return Promise.resolve({});
+      },
+    },
   },
+}));
+
+mock.module("@rawkoon/api/workers/notificationService", () => ({
+  createAndQueueNotification: () => Promise.resolve(undefined),
 }));
 
 const realQbConfig = await import("@rawkoon/api/services/qbittorrent/config");
@@ -112,22 +144,23 @@ mock.module("@rawkoon/api/services/qbittorrent/torrentMutations", () => ({
   },
 }));
 
-mock.module("@rawkoon/api/workers/checkDownloadCompletion", () => ({
-  isCompletedDownloadState: (s: string) =>
-    s === "uploading" ||
-    s === "pausedUP" ||
-    s === "stalledUP" ||
-    s === "queuedUP" ||
-    s === "forcedUP",
-}));
-
 mock.module("@rawkoon/api/utils/activityLogs", () => ({
   logActivity: () => Promise.resolve(undefined),
 }));
 
-mock.module("@rawkoon/api/services/postProcessorQueue", () => ({
-  enqueueLibraryPostProcess: (id: number) => {
-    enqueuedDhIds.push(id);
+// Adoption now goes through the download outcome module, so what this test
+// asserts is that a completed adoption *queues post-processing* — not that a
+// particular function was called.
+mock.module("@rawkoon/api/services/queueService", () => ({
+  QUEUE_NAMES: { LIBRARY_POST_PROCESS: "library-post-process" },
+  POST_PROCESS_JOB_NAME: "post-process",
+  addJob: (
+    _queue: string,
+    _job: string,
+    data: { downloadHistoryId: number },
+  ) => {
+    enqueuedDhIds.push(data.downloadHistoryId);
+    return Promise.resolve({});
   },
 }));
 
@@ -161,6 +194,42 @@ describe("tryAdoptQbDuplicate", () => {
     state.episodeUpdates = [];
     state.mediaUpdates = [];
     state.torrent = { ...fakeTorrent };
+    state.approvedRequest = null;
+    state.requestUpdates = [];
+    state.mediaStatus = "downloaded";
+  });
+
+  // Adoption used to be a second, thinner finish path: it flipped the status by
+  // hand and never told a waiting requester. Routing it through the download
+  // outcome module fixes that.
+  it("marks an approved request available when the adopted torrent is complete", async () => {
+    state.approvedRequest = {
+      id: 5,
+      requestedById: "user-1",
+      title: "Example",
+    };
+
+    await tryAdoptQbDuplicate({ ...baseCtx, torrentHash: fakeTorrent.hash });
+
+    expect(state.requestUpdates).toHaveLength(1);
+    expect(state.requestUpdates[0]?.data.status).toBe("available");
+  });
+
+  it("leaves an approved request alone while the adopted torrent is still downloading", async () => {
+    state.approvedRequest = {
+      id: 5,
+      requestedById: "user-1",
+      title: "Example",
+    };
+    state.torrent = {
+      ...fakeTorrent,
+      state: incompleteQbState,
+      progress: 0.5,
+    };
+
+    await tryAdoptQbDuplicate({ ...baseCtx, torrentHash: fakeTorrent.hash });
+
+    expect(state.requestUpdates).toEqual([]);
   });
 
   it("enqueues post-processing when the adopted torrent is already complete", async () => {

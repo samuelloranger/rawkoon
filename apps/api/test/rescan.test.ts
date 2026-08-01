@@ -202,9 +202,16 @@ mock.module("@rawkoon/api/utils/medias/filenameParser", () => ({
   }),
 }));
 
-mock.module("@rawkoon/api/services/postProcessorQueue", () => ({
-  enqueueLibraryPostProcess: (dhId: number) => {
+// rescan only re-queues post-processing; the rest of the download outcome
+// module is not exercised here, so stub just the enqueue.
+const realDownloadOutcome = await import(
+  "@rawkoon/api/services/downloadOutcome"
+);
+mock.module("@rawkoon/api/services/downloadOutcome", () => ({
+  ...realDownloadOutcome,
+  enqueuePostProcess: (dhId: number) => {
     state.enqueuedDhIds.push(dhId);
+    return Promise.resolve(true);
   },
 }));
 
@@ -227,13 +234,6 @@ mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
           }
         : null,
     ),
-}));
-
-mock.module("@rawkoon/api/workers/checkDownloadCompletion", () => ({
-  isCompletedDownloadState: (s: string) =>
-    ["uploading", "stalledUP", "forcedUP", "queuedUP"].includes(s),
-  reconcilePendingDownloads: () =>
-    Promise.resolve({ completed: 0, failed: 0, missing: 0 }),
 }));
 
 mock.module("@rawkoon/shared", () => ({
