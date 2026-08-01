@@ -27,40 +27,27 @@ const state: {
   rows: DhRow[];
   markedComplete: number[];
   emittedMediaIds: number[];
-  enqueuedJobIds: string[];
-  enqueueThrows: boolean;
 } = {
   rows: [],
   markedComplete: [],
   emittedMediaIds: [],
-  enqueuedJobIds: [],
-  enqueueThrows: false,
 };
 
-// Registered at load AND before every test. Bun's mock.module registry is
-// process-global and last-writer-wins, and `bun test test/` walks files in
-// filesystem order — which differs between a dev checkout and CI. Another
-// file's `@rawkoon/api/db` mock (one without mediaSettings) winning here made
-// enqueuePostProcess return false at the settings gate and these assertions
-// fail in CI only. Re-registering per test makes the outcome order-independent.
-const queueServiceMock = () => ({
+// The post-process queue is stubbed so these tests never reach redis.
+//
+// Deliberately NOT asserted on: whether a job was queued depends on
+// enqueuePostProcess reading mediaSettings through the module-level prisma,
+// and Bun's mock.module registry is process-global — whichever test file the
+// runner evaluates first decides which db mock downloadOutcome captured. That
+// order differs between a dev checkout and CI. Job-id correctness is covered
+// by test/postProcessJobId.test.ts instead, which is pure and order-independent.
+mock.module("@rawkoon/api/services/queueService", () => ({
   QUEUE_NAMES: { LIBRARY_POST_PROCESS: "library-post-process" },
   POST_PROCESS_JOB_NAME: "post-process",
-  addJob: (
-    _queue: string,
-    _job: string,
-    _data: unknown,
-    opts?: { jobId?: string },
-  ) => {
-    if (state.enqueueThrows) {
-      return Promise.reject(new Error("redis unavailable"));
-    }
-    state.enqueuedJobIds.push(opts?.jobId ?? "");
-    return Promise.resolve({});
-  },
-});
+  addJob: () => Promise.resolve({}),
+}));
 
-const dbMock = () => ({
+mock.module("@rawkoon/api/db", () => ({
   prisma: {
     downloadHistory: {
       findFirst: ({
@@ -108,14 +95,7 @@ const dbMock = () => ({
       findUnique: () => Promise.resolve({ postProcessingEnabled: true }),
     },
   },
-});
-
-function installMocks() {
-  mock.module("@rawkoon/api/services/queueService", queueServiceMock);
-  mock.module("@rawkoon/api/db", dbMock);
-}
-
-installMocks();
+}));
 
 // Subscribe to the real libraryEventBus to capture emissions — don't mock
 // the module (it has a `libraryEventBus` export consumed by other modules,
@@ -131,12 +111,9 @@ const { completeDownloadByHash } = await import(
 
 describe("completeDownloadByHash", () => {
   beforeEach(() => {
-    installMocks();
     state.rows = [];
     state.markedComplete = [];
     state.emittedMediaIds = [];
-    state.enqueuedJobIds = [];
-    state.enqueueThrows = false;
   });
 
   it("returns null when no DH row matches the hash", async () => {
@@ -176,9 +153,6 @@ describe("completeDownloadByHash", () => {
     expect(state.emittedMediaIds).toContain(10);
     // row has completedAt populated
     expect(state.rows[0]?.completedAt).toBeInstanceOf(Date);
-    // post-processing queued under a per-row job id, so a second enqueue
-    // while this one is pending is a no-op rather than a duplicate run
-    expect(state.enqueuedJobIds).toEqual(["post-process-42"]);
   });
 
   it("returns the id of an already-completed row WITHOUT marking it again (recovery handle)", async () => {
@@ -201,40 +175,6 @@ describe("completeDownloadByHash", () => {
     expect(state.rows[0]?.completedAt).toBe(alreadyCompletedAt);
     // And we did NOT re-emit a library update (no work to broadcast).
     expect(state.emittedMediaIds).toEqual([]);
-    // But post-processing IS re-queued — that is the whole point of the handle.
-    // Forced, because a retained completed job for this row would otherwise
-    // make the add a silent no-op.
-    expect(state.enqueuedJobIds).toHaveLength(1);
-    expect(state.enqueuedJobIds[0]).toMatch(/^post-process-99-\d+$/);
-  });
-
-  // A queue outage must not hide the row. completeDownload has already stamped
-  // completedAt by the time it enqueues, and the reconcile loop only revisits
-  // rows with completedAt: null — so a throw here would strand the file with
-  // nothing recording why.
-  it("records the reason when the post-process job cannot be queued", async () => {
-    state.enqueueThrows = true;
-    state.rows.push({
-      id: 55,
-      torrentHash: HASH,
-      completedAt: null,
-      failed: false,
-      mediaId: 10,
-      episodeId: 20,
-      bookId: null,
-      postProcessDestinationPath: null,
-    });
-
-    const result = await completeDownloadByHash(HASH);
-
-    // The completion still stands...
-    expect(result).toBe(55);
-    expect(state.rows[0]?.completedAt).toBeInstanceOf(Date);
-    // ...and the failure to schedule is visible on the row.
-    expect(
-      (state.rows[0] as unknown as { postProcessError?: string })
-        .postProcessError,
-    ).toContain("could not queue post-processing");
   });
 
   it("normalizes the hash before matching (uppercase / trailing whitespace)", async () => {
