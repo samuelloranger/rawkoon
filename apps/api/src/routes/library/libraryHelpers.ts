@@ -41,6 +41,10 @@ export function mapLibraryMedia(item: {
   posterUrl: string | null;
   overview: string | null;
   overrides?: unknown;
+  originalTitle?: string | null;
+  originalLanguage?: string | null;
+  searchTitle?: string | null;
+  searchTitleLanguage?: string | null;
   digitalReleaseDate: Date | null;
   qualityProfileId: number | null;
   searchAttempts: number;
@@ -86,6 +90,10 @@ export function mapLibraryMedia(item: {
       typeof ov.poster_url === "string" ? ov.poster_url : item.posterUrl,
     overview: typeof ov.overview === "string" ? ov.overview : item.overview,
     overrides: ov,
+    original_title: item.originalTitle ?? null,
+    original_language: item.originalLanguage ?? null,
+    search_title: item.searchTitle ?? null,
+    search_title_language: item.searchTitleLanguage ?? null,
     digital_release_date: item.digitalReleaseDate?.toISOString() ?? null,
     quality_profile_id: item.qualityProfileId,
     search_attempts: item.searchAttempts,

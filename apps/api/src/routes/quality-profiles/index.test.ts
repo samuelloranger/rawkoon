@@ -43,6 +43,7 @@ type ProfileRow = {
   preferredSources: string[];
   preferredCodecs: string[];
   preferredLanguages: string[];
+  preferredSearchLanguage: string | null;
   prioritizedTrackers: string[];
   preferTrackerOverQuality: boolean;
   maxSizeGb: number | null;
@@ -124,6 +125,7 @@ function buildTxStub() {
           preferredSources: args.data.preferredSources,
           preferredCodecs: args.data.preferredCodecs,
           preferredLanguages: args.data.preferredLanguages,
+          preferredSearchLanguage: args.data.preferredSearchLanguage ?? null,
           prioritizedTrackers: args.data.prioritizedTrackers,
           preferTrackerOverQuality: args.data.preferTrackerOverQuality,
           maxSizeGb: args.data.maxSizeGb,
@@ -353,6 +355,30 @@ describe.serial("Quality Profiles API", () => {
     expect(p.min_seeders).toBe(0);
     expect(Array.isArray(p.custom_formats)).toBe(true);
     expect(p.custom_formats.length).toBe(0);
+    expect(p.preferred_search_language).toBeNull();
+  });
+
+  it("POST with preferred_search_language → stored and returned", async () => {
+    const res = await app.handle(
+      jsonReq("/api/quality-profiles", "POST", {
+        ...BASE_PROFILE,
+        name: "FR Search",
+        preferred_search_language: "fr",
+      }),
+    );
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as any;
+    expect(body.profile.preferred_search_language).toBe("fr");
+  });
+
+  it("POST with invalid preferred_search_language → 400", async () => {
+    const res = await app.handle(
+      jsonReq("/api/quality-profiles", "POST", {
+        ...BASE_PROFILE,
+        preferred_search_language: "VFQ",
+      }),
+    );
+    expect(res.status).toBe(400);
   });
 
   it("POST with min_seeders + custom_format assignment → 201, correct values in GET", async () => {

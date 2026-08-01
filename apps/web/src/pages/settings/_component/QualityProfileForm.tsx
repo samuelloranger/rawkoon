@@ -48,6 +48,19 @@ export const LANGUAGE_OPTIONS = [
   { value: "pt", label: "Português" },
 ];
 
+/** ISO 639-1 title languages for indexer query preference (not audio flags). */
+export const SEARCH_TITLE_LANGUAGE_OPTIONS = [
+  { value: "en", label: "English" },
+  { value: "fr", label: "Français" },
+  { value: "de", label: "Deutsch" },
+  { value: "es", label: "Español" },
+  { value: "it", label: "Italiano" },
+  { value: "ja", label: "日本語" },
+  { value: "ko", label: "한국어" },
+  { value: "pt", label: "Português" },
+  { value: "zh", label: "中文" },
+];
+
 // ─── Field label ──────────────────────────────────────────────────────────────
 
 /**
@@ -80,6 +93,7 @@ const emptyPayload: QualityProfileFormPayload = {
   preferred_sources: [],
   preferred_codecs: [],
   preferred_languages: [],
+  preferred_search_language: null,
   prioritized_trackers: [],
   prefer_tracker_over_quality: false,
   max_size_gb: null,
@@ -217,6 +231,38 @@ export function QualityProfileForm({
         selected={form.preferred_languages}
         onChange={(v) => set("preferred_languages", v)}
       />
+
+      <div className="flex flex-col gap-1.5">
+        <FieldLabel htmlFor="qp-preferred-search-language">
+          {t(
+            "settings.qualityProfiles.preferredSearchLanguage",
+            "Preferred search title language",
+          )}
+        </FieldLabel>
+        <select
+          id="qp-preferred-search-language"
+          className={selectClass}
+          value={form.preferred_search_language ?? ""}
+          onChange={(e) =>
+            set(
+              "preferred_search_language",
+              e.target.value === "" ? null : e.target.value,
+            )
+          }
+        >
+          <option value="">
+            {t(
+              "settings.qualityProfiles.preferredSearchLanguageDefault",
+              "English (default)",
+            )}
+          </option>
+          {SEARCH_TITLE_LANGUAGE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <TrackerPrioritySection
         trackers={form.prioritized_trackers}

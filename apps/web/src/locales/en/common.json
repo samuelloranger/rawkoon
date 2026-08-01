@@ -762,6 +762,8 @@
       "preferredSources": "Preferred sources",
       "preferredCodecs": "Preferred codecs",
       "preferredLanguages": "Preferred languages",
+      "preferredSearchLanguage": "Preferred search title language",
+      "preferredSearchLanguageDefault": "English (default)",
       "maxSizeGb": "Max size (GB)",
       "maxSizeGbPlaceholder": "Leave empty for no limit",
       "cutoffResolution": "Cutoff resolution (optional)",
