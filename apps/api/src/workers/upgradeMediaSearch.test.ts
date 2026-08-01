@@ -19,11 +19,13 @@ mock.module("@rawkoon/api/db", () => ({
   },
 }));
 
-// --- searchAndGrab mock ---
-const searchAndGrabMock = mock(async () => ({ grabbed: true }));
+// --- searchAndGrabWithTitleFallback mock ---
+const searchAndGrabWithTitleFallbackMock = mock(async () => ({
+  grabbed: true,
+}));
 
 mock.module("@rawkoon/api/services/mediaGrabberSearch", () => ({
-  searchAndGrab: searchAndGrabMock,
+  searchAndGrabWithTitleFallback: searchAndGrabWithTitleFallbackMock,
 }));
 
 describe("upgradeMediaSearch", () => {
@@ -32,24 +34,26 @@ describe("upgradeMediaSearch", () => {
     findUniqueEpisode.mockClear();
     updateMedia.mockClear();
     updateEpisode.mockClear();
-    searchAndGrabMock.mockClear();
+    searchAndGrabWithTitleFallbackMock.mockClear();
   });
 
-  it("returns early without calling searchAndGrab when media is not found", async () => {
+  it("returns early without calling search when media is not found", async () => {
     findUniqueMedia.mockImplementationOnce(async () => null);
 
     const { upgradeMediaSearch } = await import("./upgradeMediaSearch");
     await upgradeMediaSearch({ mediaId: 99 });
 
     expect(findUniqueMedia).toHaveBeenCalledTimes(1);
-    expect(searchAndGrabMock).not.toHaveBeenCalled();
+    expect(searchAndGrabWithTitleFallbackMock).not.toHaveBeenCalled();
     expect(updateMedia).not.toHaveBeenCalled();
     expect(updateEpisode).not.toHaveBeenCalled();
   });
 
-  it("reverts libraryEpisode status to 'downloaded' when searchAndGrab returns grabbed:false and episodeId is provided", async () => {
+  it("reverts libraryEpisode status to 'downloaded' when search returns grabbed:false and episodeId is provided", async () => {
     findUniqueMedia.mockImplementationOnce(async () => ({
       title: "Breaking Bad",
+      searchTitle: null,
+      originalTitle: null,
       type: "tv",
       qualityProfileId: 1,
     }));
@@ -57,7 +61,7 @@ describe("upgradeMediaSearch", () => {
       season: 3,
       episode: 7,
     }));
-    searchAndGrabMock.mockImplementationOnce(async () => ({
+    searchAndGrabWithTitleFallbackMock.mockImplementationOnce(async () => ({
       grabbed: false,
       reason: "no release found",
     }));
@@ -65,7 +69,7 @@ describe("upgradeMediaSearch", () => {
     const { upgradeMediaSearch } = await import("./upgradeMediaSearch");
     await upgradeMediaSearch({ mediaId: 1, episodeId: 42 });
 
-    expect(searchAndGrabMock).toHaveBeenCalledTimes(1);
+    expect(searchAndGrabWithTitleFallbackMock).toHaveBeenCalledTimes(1);
     expect(updateEpisode).toHaveBeenCalledTimes(1);
     expect(updateEpisode).toHaveBeenCalledWith({
       where: { id: 42 },
@@ -74,13 +78,15 @@ describe("upgradeMediaSearch", () => {
     expect(updateMedia).not.toHaveBeenCalled();
   });
 
-  it("reverts libraryMedia status to 'downloaded' when searchAndGrab returns grabbed:false and no episodeId", async () => {
+  it("reverts libraryMedia status to 'downloaded' when search returns grabbed:false and no episodeId", async () => {
     findUniqueMedia.mockImplementationOnce(async () => ({
       title: "Inception",
+      searchTitle: null,
+      originalTitle: null,
       type: "movie",
       qualityProfileId: 2,
     }));
-    searchAndGrabMock.mockImplementationOnce(async () => ({
+    searchAndGrabWithTitleFallbackMock.mockImplementationOnce(async () => ({
       grabbed: false,
       reason: "no release found",
     }));
@@ -88,7 +94,7 @@ describe("upgradeMediaSearch", () => {
     const { upgradeMediaSearch } = await import("./upgradeMediaSearch");
     await upgradeMediaSearch({ mediaId: 7 });
 
-    expect(searchAndGrabMock).toHaveBeenCalledTimes(1);
+    expect(searchAndGrabWithTitleFallbackMock).toHaveBeenCalledTimes(1);
     expect(updateMedia).toHaveBeenCalledTimes(1);
     expect(updateMedia).toHaveBeenCalledWith({
       where: { id: 7 },
@@ -97,18 +103,22 @@ describe("upgradeMediaSearch", () => {
     expect(updateEpisode).not.toHaveBeenCalled();
   });
 
-  it("does not revert any status when searchAndGrab returns grabbed:true", async () => {
+  it("does not revert any status when search returns grabbed:true", async () => {
     findUniqueMedia.mockImplementationOnce(async () => ({
       title: "Dune",
+      searchTitle: null,
+      originalTitle: null,
       type: "movie",
       qualityProfileId: 3,
     }));
-    searchAndGrabMock.mockImplementationOnce(async () => ({ grabbed: true }));
+    searchAndGrabWithTitleFallbackMock.mockImplementationOnce(async () => ({
+      grabbed: true,
+    }));
 
     const { upgradeMediaSearch } = await import("./upgradeMediaSearch");
     await upgradeMediaSearch({ mediaId: 5 });
 
-    expect(searchAndGrabMock).toHaveBeenCalledTimes(1);
+    expect(searchAndGrabWithTitleFallbackMock).toHaveBeenCalledTimes(1);
     expect(updateMedia).not.toHaveBeenCalled();
     expect(updateEpisode).not.toHaveBeenCalled();
   });
