@@ -1,5 +1,6 @@
 import { prisma } from "@rawkoon/api/db";
-import { searchAndGrab } from "@rawkoon/api/services/mediaGrabberSearch";
+import { searchAndGrabWithTitleFallback } from "@rawkoon/api/services/mediaGrabberSearch";
+import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
 import { MAX_CRON_GRAB_ATTEMPTS } from "@rawkoon/api/constants/libraryGrab";
 import { notifyAdminsLibraryGrabSkipped } from "@rawkoon/api/workers/notifyLibraryGrabSkipped";
 import {
@@ -8,19 +9,15 @@ import {
   toUtcMidnightDate,
 } from "@rawkoon/shared/utils/date";
 
-function episodeSearchQuery(
-  showTitle: string,
-  season: number,
-  episode: number,
-): string {
+function episodeSuffix(season: number, episode: number): string {
   const s = String(season).padStart(2, "0");
   const e = String(episode).padStart(2, "0");
-  return `${showTitle} S${s}E${e}`;
+  return ` S${s}E${e}`;
 }
 
-function seasonPackSearchQuery(showTitle: string, season: number): string {
+function seasonPackSuffix(season: number): string {
   const s = String(season).padStart(2, "0");
-  return `${showTitle} S${s}`;
+  return ` S${s}`;
 }
 
 export async function checkEpisodeReleases(): Promise<void> {
@@ -46,6 +43,8 @@ export async function checkEpisodeReleases(): Promise<void> {
         select: {
           id: true,
           title: true,
+          searchTitle: true,
+          originalTitle: true,
           qualityProfileId: true,
         },
       },
@@ -87,12 +86,18 @@ export async function checkEpisodeReleases(): Promise<void> {
     const mediaId = Number(mediaIdStr);
     const season = Number(seasonStr);
     const media = groupEps[0].media;
+    const { queries } = resolveSearchTitles({
+      title: media.title,
+      searchTitle: media.searchTitle,
+      originalTitle: media.originalTitle,
+    });
 
     try {
-      const result = await searchAndGrab({
+      const result = await searchAndGrabWithTitleFallback({
         mediaId,
         mediaType: "tv",
-        searchQuery: seasonPackSearchQuery(media.title, season),
+        titleBaseQueries: queries,
+        suffix: seasonPackSuffix(season),
         qualityProfileId: media.qualityProfileId,
       });
 
@@ -134,11 +139,17 @@ export async function checkEpisodeReleases(): Promise<void> {
 
   for (const ep of individualEpisodes) {
     try {
-      const result = await searchAndGrab({
+      const { queries } = resolveSearchTitles({
+        title: ep.media.title,
+        searchTitle: ep.media.searchTitle,
+        originalTitle: ep.media.originalTitle,
+      });
+      const result = await searchAndGrabWithTitleFallback({
         mediaId: ep.media.id,
         episodeId: ep.id,
         mediaType: "tv",
-        searchQuery: episodeSearchQuery(ep.media.title, ep.season, ep.episode),
+        titleBaseQueries: queries,
+        suffix: episodeSuffix(ep.season, ep.episode),
         qualityProfileId: ep.media.qualityProfileId,
       });
 
