@@ -14,6 +14,7 @@ export const QUEUE_NAMES = {
   LIBRARY_MIGRATE: "library-migrate",
   LIBRARY_REINDEX_LANGUAGES: "library-reindex-languages",
   LIBRARY_REMUX: "library-remux",
+  LIBRARY_POST_PROCESS: "library-post-process",
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -38,6 +39,9 @@ export const SCHEDULED_JOB_NAMES = {
 export const NOTIFICATION_JOB_NAMES = {
   SEND_NOTIFICATION: "send-notification",
 } as const;
+
+/** Job name on the post-process queue — see services/downloadOutcome.ts. */
+export const POST_PROCESS_JOB_NAME = "post-process";
 
 const defaultQueueOptions: QueueOptions = {
   connection: redisConnection,
@@ -85,12 +89,28 @@ export const libraryRemuxQueue = new Queue(QUEUE_NAMES.LIBRARY_REMUX, {
     removeOnFail: { age: 7 * 24 * 3600 },
   },
 });
+// Post-process places a completed download into the library — fs-heavy, one
+// file at a time. No auto-retry: `postProcess` is not proven idempotent across
+// both the single-file and season-pack pipelines, and retrying a half-placed
+// file is worse than surfacing the failure on the row.
+export const libraryPostProcessQueue = new Queue(
+  QUEUE_NAMES.LIBRARY_POST_PROCESS,
+  {
+    ...defaultQueueOptions,
+    defaultJobOptions: {
+      attempts: 1,
+      removeOnComplete: { age: 24 * 3600 },
+      removeOnFail: { age: 7 * 24 * 3600 },
+    },
+  },
+);
 const queues: Record<QueueName, Queue> = {
   [QUEUE_NAMES.EXPRESS]: expressQueue,
   [QUEUE_NAMES.SCHEDULED_TASKS]: scheduledTasksQueue,
   [QUEUE_NAMES.LIBRARY_MIGRATE]: libraryMigrateQueue,
   [QUEUE_NAMES.LIBRARY_REINDEX_LANGUAGES]: libraryReindexLanguagesQueue,
   [QUEUE_NAMES.LIBRARY_REMUX]: libraryRemuxQueue,
+  [QUEUE_NAMES.LIBRARY_POST_PROCESS]: libraryPostProcessQueue,
 };
 
 /**
@@ -175,6 +195,18 @@ export function initWorkers() {
         "./jobs/libraryRemuxWorker"
       );
       return processLibraryRemuxFileJob(job);
+    },
+    { connection: redisConnection, concurrency: 1 },
+  );
+
+  // 8. Library Post-Process Worker (concurrency 1 — one file at a time)
+  new Worker(
+    QUEUE_NAMES.LIBRARY_POST_PROCESS,
+    async (job: Job) => {
+      const { processPostProcessJob } = await import(
+        "./jobs/postProcessWorker"
+      );
+      return processPostProcessJob(job);
     },
     { connection: redisConnection, concurrency: 1 },
   );

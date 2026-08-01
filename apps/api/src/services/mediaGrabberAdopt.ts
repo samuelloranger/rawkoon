@@ -1,14 +1,13 @@
 import { Prisma } from "@prisma/client";
 
-import { prisma } from "@rawkoon/api/db";
 import { fetchQbittorrentTorrent } from "@rawkoon/api/services/qbittorrent/torrentQueries";
 import {
   setQbittorrentTorrentCategory,
   setQbittorrentTorrentTags,
 } from "@rawkoon/api/services/qbittorrent/torrentMutations";
 import { getQbittorrentIntegrationConfig } from "@rawkoon/api/services/qbittorrent/config";
-import { isCompletedDownloadState } from "@rawkoon/api/workers/checkDownloadCompletion";
-import { enqueueLibraryPostProcess } from "@rawkoon/api/services/postProcessorQueue";
+import { normalizeQbState } from "@rawkoon/api/services/downloadClient/stateNormalize";
+import { adoptDownload } from "@rawkoon/api/services/downloadOutcome";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import { qbCategoryForLibraryType } from "@rawkoon/api/services/mediaGrabberHelpers";
 
@@ -88,44 +87,19 @@ export async function tryAdoptQbDuplicate(ctx: {
   }
 
   const completed =
-    isCompletedDownloadState(info.torrent.state ?? "") &&
+    normalizeQbState(info.torrent.state ?? "") === "completed" &&
     (info.torrent.progress ?? 0) >= 1;
 
-  const now = new Date();
-  await prisma.downloadHistory.update({
-    where: { id: dhRowId },
-    data: {
-      torrentHash,
-      failed: false,
-      failReason: null,
-      ...(completed ? { completedAt: now } : {}),
-    },
-  });
-
   try {
-    const nextStatus: "downloading" | "downloaded" | "upgrading" = completed
-      ? "downloaded"
-      : isUpgrade
-        ? "upgrading"
-        : "downloading";
-    if (episodeId != null) {
-      await prisma.libraryEpisode.update({
-        where: { id: episodeId },
-        data: {
-          status: nextStatus,
-          searchAttempts: 0,
-          ...(completed ? { downloadedAt: now } : {}),
-        },
-      });
-    } else {
-      await prisma.libraryMedia.update({
-        where: { id: mediaId },
-        data: { status: nextStatus, searchAttempts: 0 },
-      });
-    }
+    await adoptDownload({
+      dh: { id: dhRowId, mediaId, episodeId },
+      torrentHash,
+      completed,
+      isUpgrade,
+    });
   } catch (e) {
     console.warn(
-      "[mediaGrabber] adopted qB torrent but failed to update library status:",
+      "[mediaGrabber] adopted qB torrent but failed to record the outcome:",
       e,
     );
   }
@@ -145,10 +119,6 @@ export async function tryAdoptQbDuplicate(ctx: {
   console.log(
     `[mediaGrabber] adopted existing qB torrent hash=${torrentHash} media=${mediaId} episode=${episodeId ?? "none"} completed=${completed}`,
   );
-
-  if (completed) {
-    enqueueLibraryPostProcess(dhRowId);
-  }
 
   return { adopted: true, completed };
 }
