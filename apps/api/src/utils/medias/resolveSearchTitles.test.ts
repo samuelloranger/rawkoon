@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+  releaseMatchesExpectedTitles,
   resolvePreferredSearchTitle,
   resolveSearchTitles,
 } from "./resolveSearchTitles";
@@ -104,5 +105,40 @@ describe("resolvePreferredSearchTitle", () => {
         translations: [],
       }),
     ).toEqual({ title: "Belflower", language: "en" });
+  });
+});
+
+describe("releaseMatchesExpectedTitles", () => {
+  it("matches preferred foreign title", () => {
+    expect(
+      releaseMatchesExpectedTitles(
+        "Bellefleur.S03E10.FRENCH.1080p.WEB.AC3.5.1.H264-MTLQC",
+        ["Bellefleur"],
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects english-only expectation for french release", () => {
+    expect(
+      releaseMatchesExpectedTitles(
+        "Bellefleur.S03E10.FRENCH.1080p.WEB.AC3.5.1.H264-MTLQC",
+        ["Belflower"],
+      ),
+    ).toBe(false);
+  });
+
+  it("accepts when either title in the set matches", () => {
+    expect(
+      releaseMatchesExpectedTitles(
+        "Bellefleur.S03E10.FRENCH.1080p.WEB.AC3.5.1.H264-MTLQC",
+        ["Belflower", "Bellefleur"],
+      ),
+    ).toBe(true);
+  });
+
+  it("allows exact title equality without trailing tokens", () => {
+    expect(releaseMatchesExpectedTitles("Bellefleur", ["Bellefleur"])).toBe(
+      true,
+    );
   });
 });

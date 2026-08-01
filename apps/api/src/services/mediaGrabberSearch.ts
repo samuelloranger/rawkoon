@@ -1,7 +1,6 @@
 import { prisma } from "@rawkoon/api/db";
 import { getActiveIndexerManager } from "@rawkoon/api/services/indexerManager";
 import {
-  normalizeTitleForMatch,
   parseReleaseSeasonEpisode,
   parseReleaseTitle,
 } from "@rawkoon/api/utils/medias/filenameParser";
@@ -13,6 +12,10 @@ import {
   type CandidateRow,
 } from "@rawkoon/api/services/mediaGrabberHelpers";
 import { grabRelease } from "@rawkoon/api/services/mediaGrabberGrab";
+import {
+  releaseMatchesExpectedTitles,
+  resolveSearchTitles,
+} from "@rawkoon/api/utils/medias/resolveSearchTitles";
 
 export async function searchAndGrab(opts: {
   mediaId: number;
@@ -56,11 +59,17 @@ export async function searchAndGrab(opts: {
     // when the freetext query contains a short/common word (e.g. "FROM").
     const media = await prisma.libraryMedia.findUnique({
       where: { id: mediaId },
-      select: { title: true },
+      select: {
+        title: true,
+        searchTitle: true,
+        originalTitle: true,
+      },
     });
-    const expectedTitle = media?.title
-      ? normalizeTitleForMatch(media.title)
-      : null;
+    const { matchTitles } = resolveSearchTitles({
+      title: media?.title ?? "",
+      searchTitle: media?.searchTitle ?? null,
+      originalTitle: media?.originalTitle ?? null,
+    });
     let expectedSeason: number | null = null;
     let expectedEpisode: number | null = null;
     if (episodeId != null) {
@@ -96,12 +105,9 @@ export async function searchAndGrab(opts: {
 
       if (parsed.isSample) continue;
 
-      // Reject releases whose title doesn't begin with the expected show/movie
+      // Reject releases whose title doesn't begin with an expected show/movie
       // title (freetext indexer results are noisy for short titles like "FROM").
-      if (expectedTitle) {
-        const normalizedRelease = normalizeTitleForMatch(title);
-        if (!normalizedRelease.startsWith(`${expectedTitle} `)) continue;
-      }
+      if (!releaseMatchesExpectedTitles(title, matchTitles)) continue;
 
       // For episode grabs, require the release's SxxExx to match the episode.
       if (expectedSeason != null && expectedEpisode != null) {
@@ -204,4 +210,35 @@ export async function searchAndGrab(opts: {
         e instanceof Error ? e.message : "Unexpected error during search/grab",
     };
   }
+}
+
+/**
+ * Try each base title (preferred → original) with the same suffix.
+ * Counts as a single logical attempt for cron callers.
+ */
+export async function searchAndGrabWithTitleFallback(opts: {
+  mediaId: number;
+  episodeId?: number;
+  mediaType: "tv" | "movie";
+  titleBaseQueries: string[];
+  suffix: string;
+  qualityProfileId: number | null;
+  isUpgrade?: boolean;
+}): Promise<
+  { grabbed: true; releaseTitle: string } | { grabbed: false; reason: string }
+> {
+  let lastReason = "No matching releases found";
+  for (const base of opts.titleBaseQueries) {
+    const result = await searchAndGrab({
+      mediaId: opts.mediaId,
+      episodeId: opts.episodeId,
+      mediaType: opts.mediaType,
+      searchQuery: `${base}${opts.suffix}`,
+      qualityProfileId: opts.qualityProfileId,
+      isUpgrade: opts.isUpgrade,
+    });
+    if (result.grabbed) return result;
+    lastReason = result.reason;
+  }
+  return { grabbed: false, reason: lastReason };
 }

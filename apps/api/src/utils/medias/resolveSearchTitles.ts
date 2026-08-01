@@ -1,3 +1,5 @@
+import { normalizeTitleForMatch } from "@rawkoon/api/utils/medias/filenameParser";
+
 /**
  * Resolves ordered indexer query titles and the match set for release filtering.
  * Legacy rows (null search/original) keep English-only `title` behavior.
@@ -56,4 +58,20 @@ export function resolvePreferredSearchTitle(input: {
   }
 
   return { title: input.englishTitle, language: "en" };
+}
+
+/** True when a release title matches any expected media title (normalized). */
+export function releaseMatchesExpectedTitles(
+  releaseTitle: string,
+  matchTitles: string[],
+): boolean {
+  if (matchTitles.length === 0) return true;
+  const normalizedRelease = normalizeTitleForMatch(releaseTitle);
+  return matchTitles.some((t) => {
+    const expected = normalizeTitleForMatch(t);
+    return (
+      normalizedRelease === expected ||
+      normalizedRelease.startsWith(`${expected} `)
+    );
+  });
 }
