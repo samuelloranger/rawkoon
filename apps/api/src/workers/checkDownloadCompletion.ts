@@ -1,137 +1,33 @@
 import { prisma } from "@rawkoon/api/db";
 import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import type { NormalizedTorrent } from "@rawkoon/api/services/downloadClient/types";
-import { emitLibraryUpdate } from "@rawkoon/api/services/libraryEvents";
-import { enqueueLibraryPostProcess } from "@rawkoon/api/services/postProcessorQueue";
-import { notifyRequestAvailable } from "@rawkoon/api/services/mediaRequests";
-import { resolveDownloadedStatus } from "@rawkoon/api/utils/medias/libraryHelpers";
-
-/** Legacy qBittorrent states used by duplicate-adoption compatibility code. */
-export function isCompletedDownloadState(state: string): boolean {
-  return (
-    state === "uploading" ||
-    state === "pausedUP" ||
-    state === "stoppedUP" ||
-    state === "stalledUP" ||
-    state === "queuedUP" ||
-    state === "forcedUP"
-  );
-}
-
-export function isFailedState(state: string): boolean {
-  return state === "error" || state === "missingFiles";
-}
-
-/** If a client reports failure and no other active grab exists, unblock the item. */
-export async function revertLibraryDownloadingIfNoOtherActiveGrabs(dh: {
-  id: number;
-  mediaId: number | null;
-  episodeId: number | null;
-}): Promise<void> {
-  if (dh.episodeId == null && dh.mediaId == null) return;
-
-  const otherPending = await prisma.downloadHistory.count({
-    where: {
-      id: { not: dh.id },
-      failed: false,
-      completedAt: null,
-      ...(dh.episodeId != null
-        ? { episodeId: dh.episodeId }
-        : { mediaId: dh.mediaId, episodeId: null }),
-    },
-  });
-  if (otherPending > 0) return;
-
-  if (dh.episodeId != null) {
-    await prisma.libraryEpisode.updateMany({
-      where: { id: dh.episodeId, status: "downloading" },
-      data: { status: "wanted" },
-    });
-    await prisma.libraryEpisode.updateMany({
-      where: { id: dh.episodeId, status: "upgrading" },
-      data: { status: "downloaded" },
-    });
-  } else if (dh.mediaId != null) {
-    await prisma.libraryMedia.updateMany({
-      where: { id: dh.mediaId, status: "downloading" },
-      data: { status: "wanted" },
-    });
-    await prisma.libraryMedia.updateMany({
-      where: { id: dh.mediaId, status: "upgrading" },
-      data: { status: "downloaded" },
-    });
-  }
-}
-
-export async function markDownloadHistoryComplete(dh: {
-  id: number;
-  mediaId: number | null;
-  episodeId: number | null;
-}): Promise<void> {
-  const completedAt = new Date();
-  await prisma.downloadHistory.update({
-    where: { id: dh.id },
-    data: { completedAt },
-  });
-
-  if (dh.episodeId != null) {
-    await prisma.libraryEpisode.update({
-      where: { id: dh.episodeId },
-      data: { status: "downloaded", downloadedAt: completedAt },
-    });
-  } else if (dh.mediaId != null) {
-    const media = await prisma.libraryMedia.findUnique({
-      where: { id: dh.mediaId },
-      select: { type: true, tmdbStatus: true },
-    });
-    await prisma.libraryMedia.update({
-      where: { id: dh.mediaId },
-      data: {
-        status: resolveDownloadedStatus(
-          media?.type ?? "movie",
-          media?.tmdbStatus ?? null,
-        ),
-      },
-    });
-  }
-
-  if (dh.mediaId != null) {
-    await notifyRequestAvailable(dh.mediaId);
-  }
-}
+import {
+  completeDownload,
+  completeDownloadByHash,
+  failDownload,
+} from "@rawkoon/api/services/downloadOutcome";
 
 /**
- * Mark a single download as complete by its torrent hash.
- * Returns the download_history id whenever a non-failed DH row exists for the
- * hash. When multiple rows share a hash (common after retries/re-grabs), the
- * newest *pending* row is preferred and marked complete; if no pending row
- * exists, the newest already-completed row's id is returned so the caller
- * can re-enqueue post-processing — this is the recovery handle for cases
- * where a previous post-process run left the DB marked complete but never
- * placed the file on disk.
+ * Reconcile — one pass comparing pending DownloadHistory rows against the
+ * download client, deciding per row whether it completed, failed, stalled, or
+ * should keep waiting.
+ *
+ * This module owns polling cadence and stall/max-age policy only. The
+ * transitions themselves belong to services/downloadOutcome.ts.
  */
-export async function completeDownloadByHash(
-  hash: string,
-): Promise<number | null> {
-  const normalizedHash = hash.toLowerCase().trim();
-  if (!normalizedHash) return null;
 
-  const pending = await prisma.downloadHistory.findFirst({
-    where: { torrentHash: normalizedHash, completedAt: null, failed: false },
-    orderBy: { id: "desc" },
-  });
-  if (pending) {
-    await markDownloadHistoryComplete(pending);
-    if (pending.mediaId != null) emitLibraryUpdate(pending.mediaId);
-    return pending.id;
-  }
+/** The subset of the download outcome module this loop drives. */
+export type DownloadOutcomeHandlers = {
+  completeDownload: typeof completeDownload;
+  completeDownloadByHash: typeof completeDownloadByHash;
+  failDownload: typeof failDownload;
+};
 
-  const completed = await prisma.downloadHistory.findFirst({
-    where: { torrentHash: normalizedHash, failed: false },
-    orderBy: { id: "desc" },
-  });
-  return completed?.id ?? null;
-}
+const defaultOutcome: DownloadOutcomeHandlers = {
+  completeDownload,
+  completeDownloadByHash,
+  failDownload,
+};
 
 export type PendingReconcileResult = {
   completed: number;
@@ -208,10 +104,34 @@ export function findPendingTorrent(
   );
 }
 
-const stallTracks = new Map<number, StallTrack>();
-let lastReconcileHadProgressing = false;
-let nextPollAtMs = 0;
-let knownPendingIds = new Set<number>();
+/**
+ * Poll state carried between reconcile passes.
+ *
+ * Explicit rather than module-global so a test can drive the loop with a fresh
+ * state instead of inheriting whatever the previous test left behind.
+ */
+export type ReconcileState = {
+  /** Per-row progress tracking, used to detect stalls. */
+  stallTracks: Map<number, StallTrack>;
+  /** Whether the last pass saw a row actually moving — drives poll cadence. */
+  lastReconcileHadProgressing: boolean;
+  /** Earliest time the next poll is allowed to do work. */
+  nextPollAtMs: number;
+  /** Rows seen last pass, so a newly-grabbed row can pre-empt the backoff. */
+  knownPendingIds: Set<number>;
+};
+
+export function createReconcileState(): ReconcileState {
+  return {
+    stallTracks: new Map(),
+    lastReconcileHadProgressing: false,
+    nextPollAtMs: 0,
+    knownPendingIds: new Set(),
+  };
+}
+
+/** Production state for the scheduled job. */
+const pollState = createReconcileState();
 
 export function computeNextPollDelaySecs(
   hasProgressing: boolean,
@@ -222,24 +142,21 @@ export function computeNextPollDelaySecs(
 }
 
 function getOrInitTrack(
+  state: ReconcileState,
   id: number,
   createdAtMs: number,
   progress: number,
   nowMs: number,
 ): StallTrack {
-  const existing = stallTracks.get(id);
+  const existing = state.stallTracks.get(id);
   if (existing) return existing;
   const track = {
     createdAtMs,
     lastProgress: progress,
     lastProgressAtMs: nowMs,
   };
-  stallTracks.set(id, track);
+  state.stallTracks.set(id, track);
   return track;
-}
-
-function clearTrack(id: number) {
-  stallTracks.delete(id);
 }
 
 /**
@@ -260,22 +177,41 @@ export async function reconcilePendingDownloads(
   opts: {
     treatMissingAsFailed?: boolean;
     settings?: ReconcileSettings;
+    state?: ReconcileState;
+    /**
+     * Torrent source. Defaults to the configured download client; passed in by
+     * callers that already hold an adapter, and by tests, which then need no
+     * module mocking to drive the loop.
+     */
+    listTorrents?: () => Promise<NormalizedTorrent[]>;
+    /**
+     * The transitions this loop delegates to. Defaults to the download outcome
+     * module — injectable so a test can assert what the loop *decided* without
+     * standing up the DB behind what the outcome then *does*.
+     */
+    outcome?: DownloadOutcomeHandlers;
   } = {},
 ): Promise<PendingReconcileResult> {
+  const state = opts.state ?? pollState;
+  const outcome = opts.outcome ?? defaultOutcome;
   const result: PendingReconcileResult = {
     completed: 0,
     failed: 0,
     missing: 0,
   };
-  lastReconcileHadProgressing = false;
+  state.lastReconcileHadProgressing = false;
   if (!pending.length) return result;
 
-  const active = await resolveActiveAdapter();
-  if (!active) return result;
+  let listTorrents = opts.listTorrents;
+  if (!listTorrents) {
+    const active = await resolveActiveAdapter();
+    if (!active) return result;
+    listTorrents = () => active.adapter.listTorrents();
+  }
 
   let torrents: NormalizedTorrent[];
   try {
-    torrents = await active.adapter.listTorrents();
+    torrents = await listTorrents();
   } catch (error) {
     console.warn("[reconcilePendingDownloads] listTorrents failed:", error);
     return result;
@@ -292,18 +228,15 @@ export async function reconcilePendingDownloads(
       const match = findPendingTorrent(torrents, dh.id, dh.torrentHash);
       if (!match) {
         if (opts.treatMissingAsFailed) {
-          await prisma.downloadHistory.update({
-            where: { id: dh.id },
-            data: {
-              failed: true,
-              failReason: "torrent missing from download client",
-            },
-          });
-          await revertLibraryDownloadingIfNoOtherActiveGrabs(dh);
-          if (dh.mediaId != null) emitLibraryUpdate(dh.mediaId);
-          clearTrack(dh.id);
+          await outcome.failDownload(
+            dh,
+            "torrent missing from download client",
+          );
           result.missing += 1;
         }
+        // The row is gone from the client either way — stop tracking it, or the
+        // map grows for every torrent the user ever removed out-of-band.
+        state.stallTracks.delete(dh.id);
         continue;
       }
 
@@ -317,6 +250,7 @@ export async function reconcilePendingDownloads(
       }
 
       const track = getOrInitTrack(
+        state,
         dh.id,
         dh.grabbedAt?.getTime() ?? nowMs,
         match.progress,
@@ -334,7 +268,7 @@ export async function reconcilePendingDownloads(
           match.state === "downloading" &&
           (verdict.progressed || match.dlSpeed > 0)
         ) {
-          lastReconcileHadProgressing = true;
+          state.lastReconcileHadProgressing = true;
         }
         if (verdict.progressed) {
           track.lastProgress = match.progress;
@@ -344,32 +278,21 @@ export async function reconcilePendingDownloads(
       }
 
       if (verdict.outcome === "fail") {
-        await prisma.downloadHistory.update({
-          where: { id: dh.id },
-          data: {
-            failed: true,
-            failReason: verdict.reason,
-          },
-        });
-        await revertLibraryDownloadingIfNoOtherActiveGrabs(dh);
-        if (dh.mediaId != null) emitLibraryUpdate(dh.mediaId);
-        clearTrack(dh.id);
+        await outcome.failDownload(dh, verdict.reason);
+        state.stallTracks.delete(dh.id);
         result.failed += 1;
         continue;
       }
 
-      let completedId = dh.torrentHash
-        ? await completeDownloadByHash(dh.torrentHash)
+      // Prefer the hash: several rows can share it after a retry or re-grab,
+      // and it also carries the recovery case for a row already marked complete
+      // whose file never reached the library.
+      const completedId = dh.torrentHash
+        ? await outcome.completeDownloadByHash(dh.torrentHash)
         : null;
-      if (completedId == null) {
-        await markDownloadHistoryComplete(dh);
-        completedId = dh.id;
-      }
-      if (completedId != null) {
-        enqueueLibraryPostProcess(completedId);
-        clearTrack(dh.id);
-        result.completed += 1;
-      }
+      if (completedId == null) await outcome.completeDownload(dh);
+      state.stallTracks.delete(dh.id);
+      result.completed += 1;
     } catch (e) {
       console.warn(
         `[reconcilePendingDownloads] Failed for download_history ${dh.id}:`,
@@ -399,26 +322,28 @@ export async function checkDownloadCompletion(): Promise<void> {
   const nowMs = Date.now();
   const currentIds = new Set(pending.map((download) => download.id));
   const hasNewPending = pending.some(
-    (download) => !knownPendingIds.has(download.id),
+    (download) => !pollState.knownPendingIds.has(download.id),
   );
-  knownPendingIds = currentIds;
+  pollState.knownPendingIds = currentIds;
 
   if (!pending.length) {
-    nextPollAtMs = nowMs + (settings?.downloadPollIdleSecs ?? 1800) * 1000;
+    pollState.nextPollAtMs =
+      nowMs + (settings?.downloadPollIdleSecs ?? 1800) * 1000;
     return;
   }
-  if (!hasNewPending && nowMs < nextPollAtMs) return;
+  if (!hasNewPending && nowMs < pollState.nextPollAtMs) return;
 
   await reconcilePendingDownloads(pending, {
+    state: pollState,
     settings: {
       stallTimeoutSecs: settings?.downloadStallTimeoutSecs ?? 2700,
       maxAgeSecs: settings?.downloadMaxAgeSecs ?? 604800,
     },
   });
-  nextPollAtMs =
+  pollState.nextPollAtMs =
     nowMs +
     computeNextPollDelaySecs(
-      lastReconcileHadProgressing,
+      pollState.lastReconcileHadProgressing,
       settings?.downloadPollActiveSecs ?? 20,
       settings?.downloadPollIdleSecs ?? 1800,
     ) *

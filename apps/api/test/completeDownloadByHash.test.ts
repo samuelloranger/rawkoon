@@ -33,6 +33,20 @@ const state: {
   emittedMediaIds: [],
 };
 
+// The post-process queue is stubbed so these tests never reach redis.
+//
+// Deliberately NOT asserted on: whether a job was queued depends on
+// enqueuePostProcess reading mediaSettings through the module-level prisma,
+// and Bun's mock.module registry is process-global — whichever test file the
+// runner evaluates first decides which db mock downloadOutcome captured. That
+// order differs between a dev checkout and CI. Job-id correctness is covered
+// by test/postProcessJobId.test.ts instead, which is pure and order-independent.
+mock.module("@rawkoon/api/services/queueService", () => ({
+  QUEUE_NAMES: { LIBRARY_POST_PROCESS: "library-post-process" },
+  POST_PROCESS_JOB_NAME: "post-process",
+  addJob: () => Promise.resolve({}),
+}));
+
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
     downloadHistory: {
@@ -77,6 +91,9 @@ mock.module("@rawkoon/api/db", () => ({
       findFirst: () => Promise.resolve(null),
       update: () => Promise.resolve({}),
     },
+    mediaSettings: {
+      findUnique: () => Promise.resolve({ postProcessingEnabled: true }),
+    },
   },
 }));
 
@@ -89,7 +106,7 @@ libraryEventBus.on("update", (ev: { mediaId: number }) => {
 });
 
 const { completeDownloadByHash } = await import(
-  "@rawkoon/api/workers/checkDownloadCompletion"
+  "@rawkoon/api/services/downloadOutcome"
 );
 
 describe("completeDownloadByHash", () => {

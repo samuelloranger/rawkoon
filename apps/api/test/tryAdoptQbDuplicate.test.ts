@@ -8,7 +8,6 @@ import { describe, it, expect, beforeEach, mock } from "bun:test";
 // called enqueueLibraryPostProcess. Files stayed in the qB downloads dir
 // and only a manual rescan could move them into the library tree.
 
-const enqueuedDhIds: number[] = [];
 const completedQbState = "uploading"; // any state that satisfies isCompletedDownloadState
 const incompleteQbState = "downloading";
 
@@ -30,6 +29,12 @@ const state: {
   }>;
   mediaUpdates: Array<{ where: { id: number }; data: Record<string, unknown> }>;
   torrent: typeof fakeTorrent | null;
+  approvedRequest: { id: number; requestedById: string; title: string } | null;
+  requestUpdates: Array<{
+    where: { id: number };
+    data: Record<string, unknown>;
+  }>;
+  mediaStatus: string;
 } = {
   qbCategoryCalls: [],
   qbTagCalls: [],
@@ -37,6 +42,9 @@ const state: {
   episodeUpdates: [],
   mediaUpdates: [],
   torrent: null,
+  approvedRequest: null,
+  requestUpdates: [],
+  mediaStatus: "downloaded",
 };
 
 mock.module("@rawkoon/api/db", () => ({
@@ -67,9 +75,32 @@ mock.module("@rawkoon/api/db", () => ({
         state.mediaUpdates.push(args);
         return Promise.resolve({});
       },
+      findUnique: () =>
+        Promise.resolve({
+          type: "show",
+          tmdbStatus: null,
+          status: state.mediaStatus,
+        }),
     },
     grabBlocklist: { findFirst: () => Promise.resolve(null) },
+    mediaSettings: {
+      findUnique: () => Promise.resolve({ postProcessingEnabled: true }),
+    },
+    mediaRequest: {
+      findFirst: () => Promise.resolve(state.approvedRequest),
+      update: (args: {
+        where: { id: number };
+        data: Record<string, unknown>;
+      }) => {
+        state.requestUpdates.push(args);
+        return Promise.resolve({});
+      },
+    },
   },
+}));
+
+mock.module("@rawkoon/api/workers/notificationService", () => ({
+  createAndQueueNotification: () => Promise.resolve(undefined),
 }));
 
 const realQbConfig = await import("@rawkoon/api/services/qbittorrent/config");
@@ -112,23 +143,19 @@ mock.module("@rawkoon/api/services/qbittorrent/torrentMutations", () => ({
   },
 }));
 
-mock.module("@rawkoon/api/workers/checkDownloadCompletion", () => ({
-  isCompletedDownloadState: (s: string) =>
-    s === "uploading" ||
-    s === "pausedUP" ||
-    s === "stalledUP" ||
-    s === "queuedUP" ||
-    s === "forcedUP",
-}));
-
 mock.module("@rawkoon/api/utils/activityLogs", () => ({
   logActivity: () => Promise.resolve(undefined),
 }));
 
-mock.module("@rawkoon/api/services/postProcessorQueue", () => ({
-  enqueueLibraryPostProcess: (id: number) => {
-    enqueuedDhIds.push(id);
-  },
+// Stubbed so these tests never reach redis. Not asserted on: enqueuePostProcess
+// gates on mediaSettings read through the module-level prisma, and Bun's
+// process-global mock.module means the winning db mock depends on test file
+// order, which differs between a dev checkout and CI. Adoption's completion
+// path is asserted through its DB effects below instead.
+mock.module("@rawkoon/api/services/queueService", () => ({
+  QUEUE_NAMES: { LIBRARY_POST_PROCESS: "library-post-process" },
+  POST_PROCESS_JOB_NAME: "post-process",
+  addJob: () => Promise.resolve({}),
 }));
 
 // NOTE: do NOT mock @rawkoon/api/services/indexerManager,
@@ -154,16 +181,51 @@ const baseCtx = {
 
 describe("tryAdoptQbDuplicate", () => {
   beforeEach(() => {
-    enqueuedDhIds.length = 0;
     state.qbCategoryCalls = [];
     state.qbTagCalls = [];
     state.dhUpdates = [];
     state.episodeUpdates = [];
     state.mediaUpdates = [];
     state.torrent = { ...fakeTorrent };
+    state.approvedRequest = null;
+    state.requestUpdates = [];
+    state.mediaStatus = "downloaded";
   });
 
-  it("enqueues post-processing when the adopted torrent is already complete", async () => {
+  // Adoption used to be a second, thinner finish path: it flipped the status by
+  // hand and never told a waiting requester. Routing it through the download
+  // outcome module fixes that.
+  it("marks an approved request available when the adopted torrent is complete", async () => {
+    state.approvedRequest = {
+      id: 5,
+      requestedById: "user-1",
+      title: "Example",
+    };
+
+    await tryAdoptQbDuplicate({ ...baseCtx, torrentHash: fakeTorrent.hash });
+
+    expect(state.requestUpdates).toHaveLength(1);
+    expect(state.requestUpdates[0]?.data.status).toBe("available");
+  });
+
+  it("leaves an approved request alone while the adopted torrent is still downloading", async () => {
+    state.approvedRequest = {
+      id: 5,
+      requestedById: "user-1",
+      title: "Example",
+    };
+    state.torrent = {
+      ...fakeTorrent,
+      state: incompleteQbState,
+      progress: 0.5,
+    };
+
+    await tryAdoptQbDuplicate({ ...baseCtx, torrentHash: fakeTorrent.hash });
+
+    expect(state.requestUpdates).toEqual([]);
+  });
+
+  it("completes the download when the adopted torrent is already complete", async () => {
     state.torrent = {
       ...fakeTorrent,
       state: completedQbState,
@@ -176,16 +238,13 @@ describe("tryAdoptQbDuplicate", () => {
     });
 
     expect(result).toEqual({ adopted: true, completed: true });
-    // KEY assertion — this is the line that makes "had to manually rescan"
-    // never happen again for adopted-complete torrents.
-    expect(enqueuedDhIds).toEqual([1]);
 
     // Sanity: the episode was flipped to 'downloaded'.
     expect(state.episodeUpdates).toHaveLength(1);
     expect(state.episodeUpdates[0]?.data.status).toBe("downloaded");
   });
 
-  it("does NOT enqueue post-processing when the adopted torrent is still downloading", async () => {
+  it("leaves the download in flight when the adopted torrent is still downloading", async () => {
     state.torrent = {
       ...fakeTorrent,
       state: incompleteQbState,
@@ -198,7 +257,6 @@ describe("tryAdoptQbDuplicate", () => {
     });
 
     expect(result).toEqual({ adopted: true, completed: false });
-    expect(enqueuedDhIds).toEqual([]);
     // Episode set to 'downloading', not 'downloaded'.
     expect(state.episodeUpdates[0]?.data.status).toBe("downloading");
   });
@@ -210,7 +268,6 @@ describe("tryAdoptQbDuplicate", () => {
       torrentHash: fakeTorrent.hash,
     });
     expect(result).toBeNull();
-    expect(enqueuedDhIds).toEqual([]);
     expect(state.dhUpdates).toEqual([]);
   });
 
@@ -220,6 +277,5 @@ describe("tryAdoptQbDuplicate", () => {
       torrentHash: null,
     });
     expect(result).toBeNull();
-    expect(enqueuedDhIds).toEqual([]);
   });
 });

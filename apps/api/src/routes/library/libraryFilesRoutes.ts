@@ -3,6 +3,10 @@ import { Elysia, t } from "elysia";
 import { requireUser, ensureAdmin } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound, serverError } from "@rawkoon/api/errors";
+import {
+  enqueuePostProcess,
+  revertToWantedIfNoActiveGrabs,
+} from "@rawkoon/api/services/downloadOutcome";
 import { rescanLibraryItem } from "@rawkoon/api/services/library/rescan";
 
 /**
@@ -296,10 +300,7 @@ export const libraryFilesRoutes = new Elysia()
                 .catch(() => {});
             }
           }
-          const { revertLibraryDownloadingIfNoOtherActiveGrabs } = await import(
-            "@rawkoon/api/workers/checkDownloadCompletion"
-          );
-          await revertLibraryDownloadingIfNoOtherActiveGrabs({
+          await revertToWantedIfNoActiveGrabs({
             id: dh.id,
             mediaId: dh.mediaId,
             episodeId: dh.episodeId,
@@ -363,10 +364,12 @@ export const libraryFilesRoutes = new Elysia()
         if (!dh.completedAt)
           return badRequest(set, "Download not yet completed");
 
-        const { enqueueLibraryPostProcess } = await import(
-          "@rawkoon/api/services/postProcessorQueue"
-        );
-        enqueueLibraryPostProcess(dhId);
+        // force: an operator retry must run even when a completed job for this
+        // row is still retained by the queue.
+        const queued = await enqueuePostProcess(dhId, { force: true });
+        if (!queued) {
+          return badRequest(set, "Post-processing is disabled");
+        }
         return { queued: true, download_history_id: dhId };
       } catch {
         return serverError(set, "Failed to queue post-processing");
