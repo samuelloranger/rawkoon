@@ -8,6 +8,7 @@ export const LIBRARY_ENDPOINTS = {
   REMOVE: (id: number) => `/api/library/${id}`,
   UPDATE_STATUS: (id: number) => `/api/library/${id}/status`,
   UPDATE_QUALITY_PROFILE: (id: number) => `/api/library/${id}/quality-profile`,
+  UPDATE_SEARCH_TITLE: (id: number) => `/api/library/${id}/search-title`,
   EPISODES: (id: number) => `/api/library/${id}/episodes`,
   DOWNLOADS: (id: number) => `/api/library/${id}/downloads`,
   CLEAR_FAILED_DOWNLOADS: (id: number) => `/api/library/${id}/downloads/failed`,

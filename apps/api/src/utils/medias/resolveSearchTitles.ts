@@ -75,3 +75,96 @@ export function releaseMatchesExpectedTitles(
     );
   });
 }
+
+const COMMON_TITLE_LANGUAGES = [
+  "es",
+  "de",
+  "it",
+  "pt",
+  "ja",
+  "ko",
+  "zh",
+  "ru",
+] as const;
+
+/**
+ * Build the TMDB title option set used to validate per-media search title picks.
+ * Mirrors web `buildTitleOptions` without season/episode suffix.
+ */
+export function buildSearchTitleOptions(input: {
+  englishTitle: string;
+  originalTitle?: string | null;
+  originalLanguage?: string | null;
+  translations?: { language_code: string; title: string }[];
+}): { languageCode: string; title: string }[] {
+  const platform = "en";
+  const originalLanguage = (input.originalLanguage || "").toLowerCase();
+
+  const translationByLang = new Map<string, string>();
+  for (const entry of input.translations ?? []) {
+    const code = entry.language_code?.toLowerCase();
+    const title = entry.title?.trim();
+    if (code && title && !translationByLang.has(code)) {
+      translationByLang.set(code, title);
+    }
+  }
+
+  type TitleCandidate = {
+    languageCode: string;
+    title: string | null;
+    isPlatform: boolean;
+  };
+
+  const coveredCodes = new Set([platform, originalLanguage].filter(Boolean));
+  const candidates: TitleCandidate[] = [
+    {
+      languageCode: platform,
+      title: input.englishTitle,
+      isPlatform: true,
+    },
+  ];
+  for (const code of ["en", "fr"]) {
+    if (!coveredCodes.has(code)) {
+      candidates.push({
+        languageCode: code,
+        title: translationByLang.get(code) ?? null,
+        isPlatform: false,
+      });
+    }
+  }
+  if (originalLanguage) {
+    candidates.push({
+      languageCode: originalLanguage,
+      title:
+        input.originalTitle?.trim() ||
+        translationByLang.get(originalLanguage) ||
+        null,
+      isPlatform: false,
+    });
+  }
+  for (const code of COMMON_TITLE_LANGUAGES) {
+    if (!coveredCodes.has(code)) {
+      candidates.push({
+        languageCode: code,
+        title: translationByLang.get(code) ?? null,
+        isPlatform: false,
+      });
+    }
+  }
+
+  const options: { languageCode: string; title: string }[] = [];
+  const seen = new Set<string>();
+  for (const candidate of candidates) {
+    const base = candidate.title?.trim();
+    const minLength = candidate.isPlatform ? 1 : 2;
+    if (!base || base.length < minLength) continue;
+    const dedupeKey = base.toLocaleLowerCase();
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    options.push({
+      languageCode: candidate.languageCode,
+      title: base,
+    });
+  }
+  return options;
+}
