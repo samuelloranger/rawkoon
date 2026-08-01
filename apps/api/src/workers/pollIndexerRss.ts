@@ -14,11 +14,21 @@ import {
   qualityProfileFormatsInclude,
 } from "@rawkoon/api/services/mediaGrabberHelpers";
 import type { AiPickMediaContext } from "@rawkoon/api/utils/medias/buildAiPickPrompt";
+import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
 import {
   APP_DISPLAY_TIMEZONE,
   localDateYmd,
   toUtcMidnightDate,
 } from "@rawkoon/shared/utils/date";
+
+function normalizedTitleSet(media: {
+  title: string;
+  searchTitle: string | null;
+  originalTitle: string | null;
+}): Set<string> {
+  const { matchTitles } = resolveSearchTitles(media);
+  return new Set(matchTitles.map((t) => normalizeTitleForMatch(t)));
+}
 
 export async function pollIndexerRss(): Promise<RssRunStats | null> {
   const adapter = await getActiveIndexerManager();
@@ -81,7 +91,14 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
         files: { none: {} },
         digitalReleaseDate: { lte: todayCutoff },
       },
-      select: { id: true, title: true, year: true, qualityProfileId: true },
+      select: {
+        id: true,
+        title: true,
+        searchTitle: true,
+        originalTitle: true,
+        year: true,
+        qualityProfileId: true,
+      },
     }),
     prisma.libraryEpisode.findMany({
       where: {
@@ -93,7 +110,13 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
       },
       include: {
         media: {
-          select: { id: true, title: true, qualityProfileId: true },
+          select: {
+            id: true,
+            title: true,
+            searchTitle: true,
+            originalTitle: true,
+            qualityProfileId: true,
+          },
         },
       },
     }),
@@ -101,11 +124,19 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
 
   const normalizedMovies = wantedMovies.map((m) => ({
     ...m,
-    normalizedTitle: normalizeTitleForMatch(m.title),
+    normalizedTitles: normalizedTitleSet({
+      title: m.title,
+      searchTitle: m.searchTitle,
+      originalTitle: m.originalTitle,
+    }),
   }));
   const normalizedEpisodes = wantedEpisodes.map((ep) => ({
     ...ep,
-    normalizedTitle: normalizeTitleForMatch(ep.media.title),
+    normalizedTitles: normalizedTitleSet({
+      title: ep.media.title,
+      searchTitle: ep.media.searchTitle,
+      originalTitle: ep.media.originalTitle,
+    }),
   }));
 
   // Build season-pack eligibility map: seasons where every monitored episode
@@ -113,7 +144,12 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
   type PackEligibleSeason = {
     mediaId: number;
     season: number;
-    media: { id: number; title: string; qualityProfileId: number | null };
+    media: {
+      id: number;
+      title: string;
+      qualityProfileId: number | null;
+    };
+    normalizedTitles: Set<string>;
   };
   const packEligibleSeasons = new Map<string, PackEligibleSeason>();
   {
@@ -146,10 +182,11 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
         const totalMonitored =
           monitoredCountMap.get(`${ep0.mediaId}:${ep0.season}`) ?? 0;
         if (groupEps.length === totalMonitored) {
-          packEligibleSeasons.set(`${ep0.normalizedTitle}:${ep0.season}`, {
+          packEligibleSeasons.set(`${ep0.mediaId}:${ep0.season}`, {
             mediaId: ep0.mediaId,
             season: ep0.season,
             media: ep0.media,
+            normalizedTitles: ep0.normalizedTitles,
           });
         }
       }
@@ -183,8 +220,16 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
 
     if (parsed.season !== null && parsed.episode === null) {
       // Season pack — match against pack-eligible seasons
-      const packKey = `${parsed.normalizedTitle}:${parsed.season}`;
-      const pack = packEligibleSeasons.get(packKey);
+      let pack: PackEligibleSeason | undefined;
+      for (const candidate of packEligibleSeasons.values()) {
+        if (
+          candidate.season === parsed.season &&
+          candidate.normalizedTitles.has(parsed.normalizedTitle)
+        ) {
+          pack = candidate;
+          break;
+        }
+      }
       if (!pack) continue;
       const key = `${pack.mediaId}:${pack.season}`;
       const entry = seasonPackCandidates.get(key);
@@ -196,7 +241,7 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
     if (parsed.season !== null && parsed.episode !== null) {
       const match = normalizedEpisodes.find(
         (ep) =>
-          ep.normalizedTitle === parsed.normalizedTitle &&
+          ep.normalizedTitles.has(parsed.normalizedTitle) &&
           ep.season === parsed.season &&
           ep.episode === parsed.episode,
       );
@@ -210,7 +255,7 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
       }
     } else {
       const match = normalizedMovies.find((m) => {
-        if (m.normalizedTitle !== parsed.normalizedTitle) return false;
+        if (!m.normalizedTitles.has(parsed.normalizedTitle)) return false;
         if (parsed.year !== null && m.year !== null)
           return m.year === parsed.year;
         return true;
