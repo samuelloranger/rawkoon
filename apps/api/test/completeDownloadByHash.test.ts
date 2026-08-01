@@ -28,11 +28,13 @@ const state: {
   markedComplete: number[];
   emittedMediaIds: number[];
   enqueuedJobIds: string[];
+  enqueueThrows: boolean;
 } = {
   rows: [],
   markedComplete: [],
   emittedMediaIds: [],
   enqueuedJobIds: [],
+  enqueueThrows: false,
 };
 
 // The post-process queue is stubbed so the transition can be asserted without
@@ -46,6 +48,9 @@ mock.module("@rawkoon/api/services/queueService", () => ({
     _data: unknown,
     opts?: { jobId?: string },
   ) => {
+    if (state.enqueueThrows) {
+      return Promise.reject(new Error("redis unavailable"));
+    }
     state.enqueuedJobIds.push(opts?.jobId ?? "");
     return Promise.resolve({});
   },
@@ -119,6 +124,7 @@ describe("completeDownloadByHash", () => {
     state.markedComplete = [];
     state.emittedMediaIds = [];
     state.enqueuedJobIds = [];
+    state.enqueueThrows = false;
   });
 
   it("returns null when no DH row matches the hash", async () => {
@@ -160,7 +166,7 @@ describe("completeDownloadByHash", () => {
     expect(state.rows[0]?.completedAt).toBeInstanceOf(Date);
     // post-processing queued under a per-row job id, so a second enqueue
     // while this one is pending is a no-op rather than a duplicate run
-    expect(state.enqueuedJobIds).toEqual(["post-process:42"]);
+    expect(state.enqueuedJobIds).toEqual(["post-process-42"]);
   });
 
   it("returns the id of an already-completed row WITHOUT marking it again (recovery handle)", async () => {
@@ -184,7 +190,39 @@ describe("completeDownloadByHash", () => {
     // And we did NOT re-emit a library update (no work to broadcast).
     expect(state.emittedMediaIds).toEqual([]);
     // But post-processing IS re-queued — that is the whole point of the handle.
-    expect(state.enqueuedJobIds).toEqual(["post-process:99"]);
+    // Forced, because a retained completed job for this row would otherwise
+    // make the add a silent no-op.
+    expect(state.enqueuedJobIds).toHaveLength(1);
+    expect(state.enqueuedJobIds[0]).toMatch(/^post-process-99-\d+$/);
+  });
+
+  // A queue outage must not hide the row. completeDownload has already stamped
+  // completedAt by the time it enqueues, and the reconcile loop only revisits
+  // rows with completedAt: null — so a throw here would strand the file with
+  // nothing recording why.
+  it("records the reason when the post-process job cannot be queued", async () => {
+    state.enqueueThrows = true;
+    state.rows.push({
+      id: 55,
+      torrentHash: HASH,
+      completedAt: null,
+      failed: false,
+      mediaId: 10,
+      episodeId: 20,
+      bookId: null,
+      postProcessDestinationPath: null,
+    });
+
+    const result = await completeDownloadByHash(HASH);
+
+    // The completion still stands...
+    expect(result).toBe(55);
+    expect(state.rows[0]?.completedAt).toBeInstanceOf(Date);
+    // ...and the failure to schedule is visible on the row.
+    expect(
+      (state.rows[0] as unknown as { postProcessError?: string })
+        .postProcessError,
+    ).toContain("could not queue post-processing");
   });
 
   it("normalizes the hash before matching (uppercase / trailing whitespace)", async () => {

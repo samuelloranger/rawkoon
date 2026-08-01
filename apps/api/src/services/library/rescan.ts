@@ -469,7 +469,10 @@ async function rescanLibraryItemInner(
           : !hasValidFile;
 
       if (needsRequeue) {
-        await enqueuePostProcess(dh.id);
+        // force: recovery for a file that never landed. A retained completed
+        // job for this row would otherwise swallow the add while we report it
+        // as requeued.
+        await enqueuePostProcess(dh.id, { force: true });
         requeued++;
       }
     }

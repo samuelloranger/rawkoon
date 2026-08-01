@@ -133,7 +133,26 @@ export async function completeDownload(dh: DownloadRef): Promise<number> {
     await notifyRequestAvailable(dh.mediaId);
   }
 
-  await enqueuePostProcess(dh.id);
+  // Scheduling must not undo the transition. The row is already stamped
+  // complete, and the reconcile loop only revisits rows with completedAt: null
+  // — so letting a queue outage throw here would strand the file with nothing
+  // recording why. Persist the reason instead: the UI surfaces it and rescan
+  // can re-queue.
+  try {
+    await enqueuePostProcess(dh.id);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(
+      `[downloadOutcome] failed to queue post-process dh=${dh.id}:`,
+      e,
+    );
+    await prisma.downloadHistory
+      .update({
+        where: { id: dh.id },
+        data: { postProcessError: `could not queue post-processing: ${msg}` },
+      })
+      .catch(() => {});
+  }
   return dh.id;
 }
 
@@ -165,7 +184,10 @@ export async function completeDownloadByHash(
   });
   if (!completed) return null;
 
-  await enqueuePostProcess(completed.id);
+  // force: this is the recovery path for a row whose file never landed. A
+  // completed job for the same row may still be retained by the queue, and
+  // BullMQ ignores an add whose id already exists.
+  await enqueuePostProcess(completed.id, { force: true });
   return completed.id;
 }
 
@@ -222,12 +244,28 @@ export async function adoptDownload(ctx: {
 }
 
 /**
+ * Build the job id for a post-process run.
+ *
+ * Hyphens, not colons: BullMQ reserves `:` as its key separator and rejects a
+ * custom id containing one (the only exception is a three-segment id, kept for
+ * repeatable-job compatibility — not something to rely on).
+ */
+export function postProcessJobId(
+  downloadHistoryId: number,
+  opts: { force?: boolean; nowMs?: number } = {},
+): string {
+  const base = `post-process-${downloadHistoryId}`;
+  return opts.force ? `${base}-${opts.nowMs ?? Date.now()}` : base;
+}
+
+/**
  * Schedule post-processing for a completed download.
  *
- * The job id keeps a row from being queued twice while a run is pending — the
- * recovery path in `completeDownloadByHash` relies on that being harmless.
- * `force` bypasses it so an operator retry always runs, even after a completed
- * job for the same row is still retained by the queue.
+ * The job id keeps a row from being queued twice while a run is pending.
+ * `force` bypasses that, and every *recovery* enqueue uses it — rescan, the
+ * already-complete branch of `completeDownloadByHash`, and the admin retry —
+ * because a retained completed job would otherwise make the add a silent no-op
+ * that still reports success.
  *
  * Returns false when post-processing is disabled, in which case nothing is
  * queued at all.
@@ -242,9 +280,7 @@ export async function enqueuePostProcess(
   });
   if (!settings?.postProcessingEnabled) return false;
 
-  const jobId = opts.force
-    ? `post-process:${downloadHistoryId}:${Date.now()}`
-    : `post-process:${downloadHistoryId}`;
+  const jobId = postProcessJobId(downloadHistoryId, opts);
 
   // Loaded lazily: queueService constructs BullMQ queues and opens a redis
   // client at import time, so pulling it into this module's import graph would
