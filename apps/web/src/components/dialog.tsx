@@ -42,17 +42,16 @@ export function Dialog({
           )}
         />
         <div className="fixed inset-0 z-[var(--z-modal)] overflow-y-auto overscroll-contain">
-          <div className="flex min-h-full items-center justify-center p-4 text-center">
+          <div className="flex min-h-full items-center justify-center pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[max(1rem,env(safe-area-inset-top,0px))] pb-[max(1rem,env(safe-area-inset-bottom,0px))] text-center">
             <RadixDialog.Content
               onOpenAutoFocus={(e) => e.preventDefault()}
               className={cn(
-                "pointer-events-auto flex max-h-[90dvh] w-full max-w-2xl flex-col rounded-2xl border p-6 text-left align-middle shadow-xl outline-none border-neutral-700 bg-neutral-800",
+                "pointer-events-auto relative flex max-h-[calc(90dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] w-full max-w-2xl flex-col rounded-2xl border p-6 text-left align-middle shadow-xl outline-none border-neutral-700 bg-neutral-800",
                 "data-[state=open]:animate-in data-[state=closed]:animate-out",
                 "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
                 "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
                 "data-[state=open]:duration-150 data-[state=closed]:duration-100",
                 bodyScroll ? "min-h-0 overflow-hidden" : "overflow-y-auto",
-                hideTitle && "relative",
                 panelClassName,
               )}
             >

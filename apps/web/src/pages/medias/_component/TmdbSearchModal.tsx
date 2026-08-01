@@ -69,7 +69,7 @@ export function TmdbSearchModal({
           isOpen ? "translate-y-0" : "-translate-y-1",
         )}
       >
-        <div className="shrink-0 flex items-start justify-between px-5 py-3.5 border-b border-neutral-800">
+        <div className="shrink-0 flex items-start justify-between px-5 pt-[calc(0.875rem+env(safe-area-inset-top,0px))] pb-3.5 border-b border-neutral-800">
           <div>
             <p id={titleId} className="text-sm font-semibold text-neutral-50">
               {t("medias.tmdb.title")}
@@ -87,7 +87,7 @@ export function TmdbSearchModal({
             <X size={16} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto overscroll-contain p-4">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
           <TmdbMediaSearchPanel inputRef={inputRef} variant="modal" />
         </div>
       </div>

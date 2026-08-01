@@ -154,12 +154,12 @@ export function LibraryPage() {
         isAdmin={user?.is_admin ?? false}
       />
 
-      <div className="space-y-4">
+      <div className="mt-3 space-y-4">
         <ManagementSection
           icon={BarChart3}
           title={t("library.stats.title")}
           collapsible
-          defaultOpen
+          defaultOpen={false}
         >
           <LibraryStatsPanel />
         </ManagementSection>
