@@ -48,7 +48,7 @@ const state: {
   mediaStatus: "downloaded",
 };
 
-mock.module("@rawkoon/api/db", () => ({
+const dbMock = () => ({
   prisma: {
     downloadHistory: {
       update: (args: {
@@ -98,7 +98,7 @@ mock.module("@rawkoon/api/db", () => ({
       },
     },
   },
-}));
+});
 
 mock.module("@rawkoon/api/workers/notificationService", () => ({
   createAndQueueNotification: () => Promise.resolve(undefined),
@@ -151,7 +151,7 @@ mock.module("@rawkoon/api/utils/activityLogs", () => ({
 // Adoption now goes through the download outcome module, so what this test
 // asserts is that a completed adoption *queues post-processing* — not that a
 // particular function was called.
-mock.module("@rawkoon/api/services/queueService", () => ({
+const queueServiceMock = () => ({
   QUEUE_NAMES: { LIBRARY_POST_PROCESS: "library-post-process" },
   POST_PROCESS_JOB_NAME: "post-process",
   addJob: (
@@ -162,7 +162,18 @@ mock.module("@rawkoon/api/services/queueService", () => ({
     enqueuedDhIds.push(data.downloadHistoryId);
     return Promise.resolve({});
   },
-}));
+});
+
+// Registered at load AND before every test: mock.module is process-global and
+// last-writer-wins, so whichever file `bun test` happens to walk last would
+// otherwise decide whether this suite sees its own db and queue stubs. That
+// ordering differs between a dev checkout and CI.
+function installMocks() {
+  mock.module("@rawkoon/api/db", dbMock);
+  mock.module("@rawkoon/api/services/queueService", queueServiceMock);
+}
+
+installMocks();
 
 // NOTE: do NOT mock @rawkoon/api/services/indexerManager,
 // @rawkoon/api/services/integrationConfigCache,
@@ -187,6 +198,7 @@ const baseCtx = {
 
 describe("tryAdoptQbDuplicate", () => {
   beforeEach(() => {
+    installMocks();
     enqueuedDhIds.length = 0;
     state.qbCategoryCalls = [];
     state.qbTagCalls = [];

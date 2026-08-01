@@ -37,9 +37,13 @@ const state: {
   enqueueThrows: false,
 };
 
-// The post-process queue is stubbed so the transition can be asserted without
-// redis. Job ids are captured because dedupe is part of the contract.
-mock.module("@rawkoon/api/services/queueService", () => ({
+// Registered at load AND before every test. Bun's mock.module registry is
+// process-global and last-writer-wins, and `bun test test/` walks files in
+// filesystem order — which differs between a dev checkout and CI. Another
+// file's `@rawkoon/api/db` mock (one without mediaSettings) winning here made
+// enqueuePostProcess return false at the settings gate and these assertions
+// fail in CI only. Re-registering per test makes the outcome order-independent.
+const queueServiceMock = () => ({
   QUEUE_NAMES: { LIBRARY_POST_PROCESS: "library-post-process" },
   POST_PROCESS_JOB_NAME: "post-process",
   addJob: (
@@ -54,9 +58,9 @@ mock.module("@rawkoon/api/services/queueService", () => ({
     state.enqueuedJobIds.push(opts?.jobId ?? "");
     return Promise.resolve({});
   },
-}));
+});
 
-mock.module("@rawkoon/api/db", () => ({
+const dbMock = () => ({
   prisma: {
     downloadHistory: {
       findFirst: ({
@@ -104,7 +108,14 @@ mock.module("@rawkoon/api/db", () => ({
       findUnique: () => Promise.resolve({ postProcessingEnabled: true }),
     },
   },
-}));
+});
+
+function installMocks() {
+  mock.module("@rawkoon/api/services/queueService", queueServiceMock);
+  mock.module("@rawkoon/api/db", dbMock);
+}
+
+installMocks();
 
 // Subscribe to the real libraryEventBus to capture emissions — don't mock
 // the module (it has a `libraryEventBus` export consumed by other modules,
@@ -120,6 +131,7 @@ const { completeDownloadByHash } = await import(
 
 describe("completeDownloadByHash", () => {
   beforeEach(() => {
+    installMocks();
     state.rows = [];
     state.markedComplete = [];
     state.emittedMediaIds = [];
