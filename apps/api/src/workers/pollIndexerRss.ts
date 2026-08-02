@@ -27,7 +27,11 @@ function normalizedTitleSet(media: {
   originalTitle: string | null;
 }): Set<string> {
   const { matchTitles } = resolveSearchTitles(media);
-  return new Set(matchTitles.map((t) => normalizeTitleForMatch(t)));
+  return new Set(
+    matchTitles
+      .map((t) => normalizeTitleForMatch(t))
+      .filter((t) => t.length > 0),
+  );
 }
 
 export async function pollIndexerRss(): Promise<RssRunStats | null> {

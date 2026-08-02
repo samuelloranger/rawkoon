@@ -141,4 +141,16 @@ describe("releaseMatchesExpectedTitles", () => {
       true,
     );
   });
+
+  it("preserves CJK titles instead of collapsing them to empty", () => {
+    expect(
+      releaseMatchesExpectedTitles("進撃の巨人 S01E01 1080p", ["進撃の巨人"]),
+    ).toBe(true);
+  });
+
+  it("does not treat empty normalized aliases as wildcards", () => {
+    expect(releaseMatchesExpectedTitles("Anything.S01E01", ["!!!"])).toBe(
+      false,
+    );
+  });
 });

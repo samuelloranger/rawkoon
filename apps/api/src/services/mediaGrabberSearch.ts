@@ -215,6 +215,8 @@ export async function searchAndGrab(opts: {
 /**
  * Try each base title (preferred → original) with the same suffix.
  * Counts as a single logical attempt for cron callers.
+ * Only continues to the next title when the previous search found no matching
+ * releases — terminal grab/infra errors stop immediately.
  */
 export async function searchAndGrabWithTitleFallback(opts: {
   mediaId: number;
@@ -239,6 +241,7 @@ export async function searchAndGrabWithTitleFallback(opts: {
     });
     if (result.grabbed) return result;
     lastReason = result.reason;
+    if (result.reason !== "No matching releases found") return result;
   }
   return { grabbed: false, reason: lastReason };
 }

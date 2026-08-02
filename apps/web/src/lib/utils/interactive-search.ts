@@ -225,7 +225,7 @@ function isClientRejected(
     .normalize("NFD")
     .replace(/\p{Mn}/gu, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]/g, " ");
+    .replace(/[^\p{L}\p{N}]+/gu, " ");
 
   // Year check: if release title contains a year and it doesn't match, reject.
   if (mediaYear) {
@@ -239,7 +239,7 @@ function isClientRejected(
     .normalize("NFD")
     .replace(/\p{Mn}/gu, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
     .split(/\s+/)
     .filter((w) => w.length >= 3 && !STOP_WORDS.has(w));
 

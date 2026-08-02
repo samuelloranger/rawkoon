@@ -209,6 +209,18 @@ export function useInteractiveSearchState({
   }, [activeQuery.data?.releases, t]);
 
   const releases = useMemo(() => {
+    // Client-side title validation must use the active search query title
+    // (language picker), not the English library title.
+    const mediaTitleForFilter =
+      searchApiQuery
+        .trim()
+        .replace(/\s+S\d{1,2}E\d{1,3}\s*$/i, "")
+        .replace(/\s+S\d{1,2}\s*$/i, "")
+        .replace(/\s+(?:19|20)\d{2}\s*$/, "")
+        .trim() ||
+      media?.title ||
+      null;
+
     let list = filterAndSortReleases(activeQuery.data?.releases ?? [], {
       filterQuery,
       hideRejected,
@@ -218,7 +230,7 @@ export function useInteractiveSearchState({
       sortBy,
       sortDir,
       isSearchMode,
-      mediaTitle: media?.title ?? defaultSearchQuery ?? null,
+      mediaTitle: mediaTitleForFilter,
       mediaYear: media?.year ?? null,
     });
     if (showPacksOnly || selectedSeason != null) {
@@ -227,7 +239,6 @@ export function useInteractiveSearchState({
     return list;
   }, [
     activeQuery.data?.releases,
-    defaultSearchQuery,
     excludedTrackers,
     filterQuery,
     hideRejected,
@@ -236,6 +247,7 @@ export function useInteractiveSearchState({
     isSearchMode,
     media?.title,
     media?.year,
+    searchApiQuery,
     selectedSeason,
     showPacksOnly,
     sortBy,

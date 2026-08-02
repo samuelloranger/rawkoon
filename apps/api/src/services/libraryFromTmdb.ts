@@ -90,6 +90,8 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
   tmdb_id: number;
   type: "movie" | "show";
   region?: string;
+  /** When set, used for search-title default and assigned on create. */
+  qualityProfileId?: number | null;
 }): Promise<NonNullable<LibraryMediaWithProfile>> {
   const key = await getLibraryTmdbApiKey();
   if (!key) throw new Error("TMDB is not configured");
@@ -97,11 +99,12 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
   const mediaSettings = await prisma.mediaSettings.findUnique({
     where: { id: 1 },
   });
-  const defaultQualityProfileId =
-    mediaSettings?.defaultQualityProfileId ?? null;
-  const preferredSearchLanguage = await loadPreferredSearchLanguage(
-    defaultQualityProfileId,
-  );
+  const qualityProfileId =
+    opts.qualityProfileId !== undefined
+      ? opts.qualityProfileId
+      : (mediaSettings?.defaultQualityProfileId ?? null);
+  const preferredSearchLanguage =
+    await loadPreferredSearchLanguage(qualityProfileId);
 
   const { tmdb_id, type } = opts;
   const region = opts.region ?? DEFAULT_TMDB_REGION;
@@ -170,9 +173,7 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
           region,
         ),
         ...searchFields,
-        ...(defaultQualityProfileId != null
-          ? { qualityProfileId: defaultQualityProfileId }
-          : {}),
+        ...(qualityProfileId != null ? { qualityProfileId } : {}),
       },
       update: {
         ...(!movieLocked("title") ? { title: details.title } : {}),
@@ -244,9 +245,7 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
       posterUrl,
       overview: details.overview || null,
       ...searchFields,
-      ...(defaultQualityProfileId != null
-        ? { qualityProfileId: defaultQualityProfileId }
-        : {}),
+      ...(qualityProfileId != null ? { qualityProfileId } : {}),
     },
     update: {
       ...(!showLocked("title") ? { title: details.name } : {}),

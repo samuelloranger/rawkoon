@@ -66,14 +66,18 @@ export function releaseMatchesExpectedTitles(
   matchTitles: string[],
 ): boolean {
   if (matchTitles.length === 0) return true;
+  const expected = matchTitles
+    .map((t) => normalizeTitleForMatch(t))
+    .filter((t) => t.length > 0);
+  // Titles were provided but none survived normalization — never treat "" as
+  // a wildcard alias that matches every release.
+  if (expected.length === 0) return false;
   const normalizedRelease = normalizeTitleForMatch(releaseTitle);
-  return matchTitles.some((t) => {
-    const expected = normalizeTitleForMatch(t);
-    return (
-      normalizedRelease === expected ||
-      normalizedRelease.startsWith(`${expected} `)
-    );
-  });
+  if (!normalizedRelease) return false;
+  return expected.some(
+    (title) =>
+      normalizedRelease === title || normalizedRelease.startsWith(`${title} `),
+  );
 }
 
 const COMMON_TITLE_LANGUAGES = [
