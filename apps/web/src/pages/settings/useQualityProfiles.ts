@@ -28,6 +28,7 @@ export type QualityProfileFormPayload = {
   preferred_sources: string[];
   preferred_codecs: string[];
   preferred_languages: string[];
+  preferred_search_language: string | null;
   prioritized_trackers: string[];
   prefer_tracker_over_quality: boolean;
   max_size_gb: number | null;
@@ -108,6 +109,7 @@ export function profileToForm(p: QualityProfile): QualityProfileFormPayload {
     preferred_sources: [...p.preferred_sources],
     preferred_codecs: [...p.preferred_codecs],
     preferred_languages: [...(p.preferred_languages ?? [])],
+    preferred_search_language: p.preferred_search_language ?? null,
     prioritized_trackers: [...(p.prioritized_trackers ?? [])],
     prefer_tracker_over_quality: p.prefer_tracker_over_quality ?? false,
     max_size_gb: p.max_size_gb,

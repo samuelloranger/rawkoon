@@ -369,15 +369,15 @@ export function parseReleaseSeasonEpisode(
 
 /**
  * Normalize a title for fuzzy equality: lowercase, strip diacritics, collapse
- * any non-alphanumeric run to a single space, trim. Used to compare an
- * indexer-returned release title against the expected media title.
+ * any non-letter/digit run to a single space, trim. Keeps letters from all
+ * scripts (Latin, CJK, Cyrillic, …) so foreign originals still match.
  */
 export function normalizeTitleForMatch(value: string): string {
   return value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 }
 

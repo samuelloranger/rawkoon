@@ -280,6 +280,10 @@ export function LibraryItemPage() {
                   setUpgradeSearchMode(true);
                   setActiveTab("search");
                 }}
+                tmdbOriginalTitle={detailsData?.original_title ?? null}
+                tmdbOriginalLanguage={detailsData?.original_language ?? null}
+                tmdbTitleTranslations={detailsData?.title_translations ?? []}
+                tmdbPending={modalPending}
               />
             </div>
           )}

@@ -7,6 +7,8 @@ export interface QualityProfile {
   preferred_sources: string[];
   preferred_codecs: string[];
   preferred_languages: string[];
+  /** ISO 639-1 title language for indexer queries; null means en at add time. */
+  preferred_search_language: string | null;
   prioritized_trackers: string[];
   prefer_tracker_over_quality: boolean;
   max_size_gb: number | null;

@@ -1,5 +1,6 @@
 import { prisma } from "@rawkoon/api/db";
-import { searchAndGrab } from "@rawkoon/api/services/mediaGrabberSearch";
+import { searchAndGrabWithTitleFallback } from "@rawkoon/api/services/mediaGrabberSearch";
+import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
 import { refreshLibraryMovieDigitalDate } from "@rawkoon/api/services/libraryTmdbRefresh";
 import { MAX_CRON_GRAB_ATTEMPTS } from "@rawkoon/api/constants/libraryGrab";
 import { notifyAdminsLibraryGrabSkipped } from "@rawkoon/api/workers/notifyLibraryGrabSkipped";
@@ -25,6 +26,8 @@ export async function checkMovieReleases(): Promise<void> {
     select: {
       id: true,
       title: true,
+      searchTitle: true,
+      originalTitle: true,
       year: true,
       qualityProfileId: true,
       searchAttempts: true,
@@ -56,11 +59,16 @@ export async function checkMovieReleases(): Promise<void> {
       // Not yet released digitally — nothing to search.
       if (digital > todayCutoff) continue;
 
-      const y = m.year ? ` ${m.year}` : "";
-      const result = await searchAndGrab({
+      const { queries } = resolveSearchTitles({
+        title: m.title,
+        searchTitle: m.searchTitle,
+        originalTitle: m.originalTitle,
+      });
+      const result = await searchAndGrabWithTitleFallback({
         mediaId: m.id,
         mediaType: "movie",
-        searchQuery: `${m.title}${y}`,
+        titleBaseQueries: queries,
+        suffix: m.year ? ` ${m.year}` : "",
         qualityProfileId: m.qualityProfileId,
       });
 

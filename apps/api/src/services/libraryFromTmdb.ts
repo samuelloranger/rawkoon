@@ -8,7 +8,10 @@ import {
   tmdbApiFetch,
   upsertLibraryShowEpisodesFromTmdb,
 } from "@rawkoon/api/utils/medias/libraryHelpers";
+import { extractTitleTranslations } from "@rawkoon/api/utils/medias/tmdbFetcherDetails";
+import { resolvePreferredSearchTitle } from "@rawkoon/api/utils/medias/resolveSearchTitles";
 import { DEFAULT_TMDB_REGION } from "@rawkoon/api/utils/medias/tmdbRegion";
+import { toStringOrNull } from "@rawkoon/api/utils/medias/mappers";
 
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342";
 
@@ -20,6 +23,65 @@ export type LibraryMediaWithProfile = Prisma.LibraryMediaGetPayload<{
   include: typeof libraryMediaInclude;
 }>;
 
+type SearchTitleFields = {
+  originalTitle: string | null;
+  originalLanguage: string | null;
+  searchTitle: string | null;
+  searchTitleLanguage: string | null;
+};
+
+async function loadPreferredSearchLanguage(
+  qualityProfileId: number | null,
+): Promise<string | null> {
+  if (qualityProfileId == null) return null;
+  const row = await prisma.qualityProfile.findUnique({
+    where: { id: qualityProfileId },
+    select: { preferredSearchLanguage: true },
+  });
+  return row?.preferredSearchLanguage ?? null;
+}
+
+/**
+ * Resolve create-only search title fields from TMDB details.
+ * On failure returns nulls so the library add still succeeds (legacy path).
+ */
+function buildSearchTitleFields(opts: {
+  englishTitle: string;
+  preferredLanguage: string | null;
+  originalTitle: string | null;
+  originalLanguage: string | null;
+  translationsRaw: unknown;
+  mediaType: "movie" | "tv";
+}): SearchTitleFields {
+  try {
+    const translations = extractTitleTranslations(
+      opts.translationsRaw,
+      opts.mediaType,
+    );
+    const preferred = resolvePreferredSearchTitle({
+      englishTitle: opts.englishTitle,
+      preferredLanguage: opts.preferredLanguage ?? "en",
+      originalTitle: opts.originalTitle,
+      originalLanguage: opts.originalLanguage,
+      translations,
+    });
+    return {
+      originalTitle: opts.originalTitle,
+      originalLanguage: opts.originalLanguage,
+      searchTitle: preferred.title,
+      searchTitleLanguage: preferred.language,
+    };
+  } catch (e) {
+    console.warn("[libraryFromTmdb] Failed to resolve search titles:", e);
+    return {
+      originalTitle: opts.originalTitle,
+      originalLanguage: opts.originalLanguage,
+      searchTitle: null,
+      searchTitleLanguage: null,
+    };
+  }
+}
+
 /**
  * Upsert library media from TMDB (shared by POST /api/library and dashboard flows).
  * Titles, overviews, and episode names are always fetched in English for stable DB storage.
@@ -28,6 +90,8 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
   tmdb_id: number;
   type: "movie" | "show";
   region?: string;
+  /** When set, used for search-title default and assigned on create. */
+  qualityProfileId?: number | null;
 }): Promise<NonNullable<LibraryMediaWithProfile>> {
   const key = await getLibraryTmdbApiKey();
   if (!key) throw new Error("TMDB is not configured");
@@ -35,12 +99,19 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
   const mediaSettings = await prisma.mediaSettings.findUnique({
     where: { id: 1 },
   });
-  const defaultQualityProfileId =
-    mediaSettings?.defaultQualityProfileId ?? null;
+  const qualityProfileId =
+    opts.qualityProfileId !== undefined
+      ? opts.qualityProfileId
+      : (mediaSettings?.defaultQualityProfileId ?? null);
+  const preferredSearchLanguage =
+    await loadPreferredSearchLanguage(qualityProfileId);
 
   const { tmdb_id, type } = opts;
   const region = opts.region ?? DEFAULT_TMDB_REGION;
-  const lang = { language: TMDB_LANGUAGE_LIBRARY_PERSISTENCE };
+  const lang = {
+    language: TMDB_LANGUAGE_LIBRARY_PERSISTENCE,
+    append_to_response: "translations",
+  };
 
   if (type === "movie") {
     const [details, releaseDatesData] = await Promise.all([
@@ -49,13 +120,18 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
         release_date: string;
         poster_path: string | null;
         overview: string;
+        original_title?: string | null;
+        original_language?: string | null;
+        translations?: unknown;
       }>(`movie/${tmdb_id}`, key, lang),
       tmdbApiFetch<{
         results: Array<{
           iso_3166_1: string;
           release_dates: Array<{ type: number; release_date: string }>;
         }>;
-      }>(`movie/${tmdb_id}/release_dates`, key, lang),
+      }>(`movie/${tmdb_id}/release_dates`, key, {
+        language: TMDB_LANGUAGE_LIBRARY_PERSISTENCE,
+      }),
     ]);
 
     const year = details.release_date
@@ -70,7 +146,16 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
       select: { overrides: true },
     });
     const movieOv = (existingMovie?.overrides ?? {}) as Record<string, unknown>;
-    const movieLocked = (key: string) => key in movieOv;
+    const movieLocked = (field: string) => field in movieOv;
+
+    const searchFields = buildSearchTitleFields({
+      englishTitle: details.title,
+      preferredLanguage: preferredSearchLanguage,
+      originalTitle: toStringOrNull(details.original_title),
+      originalLanguage: toStringOrNull(details.original_language),
+      translationsRaw: details.translations,
+      mediaType: "movie",
+    });
 
     return prisma.libraryMedia.upsert({
       where: { tmdbId: tmdb_id },
@@ -87,9 +172,8 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
           releaseDatesData.results,
           region,
         ),
-        ...(defaultQualityProfileId != null
-          ? { qualityProfileId: defaultQualityProfileId }
-          : {}),
+        ...searchFields,
+        ...(qualityProfileId != null ? { qualityProfileId } : {}),
       },
       update: {
         ...(!movieLocked("title") ? { title: details.title } : {}),
@@ -117,6 +201,10 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
     overview: string;
     status: string | null;
     seasons: Array<{ season_number: number; episode_count: number }>;
+    original_name?: string | null;
+    original_title?: string | null;
+    original_language?: string | null;
+    translations?: unknown;
   }>(`tv/${tmdb_id}`, key, lang);
 
   const year = details.first_air_date
@@ -131,7 +219,18 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
     select: { overrides: true },
   });
   const showOv = (existingShow?.overrides ?? {}) as Record<string, unknown>;
-  const showLocked = (key: string) => key in showOv;
+  const showLocked = (field: string) => field in showOv;
+
+  const searchFields = buildSearchTitleFields({
+    englishTitle: details.name,
+    preferredLanguage: preferredSearchLanguage,
+    originalTitle: toStringOrNull(
+      details.original_name ?? details.original_title,
+    ),
+    originalLanguage: toStringOrNull(details.original_language),
+    translationsRaw: details.translations,
+    mediaType: "tv",
+  });
 
   const media = await prisma.libraryMedia.upsert({
     where: { tmdbId: tmdb_id },
@@ -145,9 +244,8 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
       tmdbStatus: details.status ?? null,
       posterUrl,
       overview: details.overview || null,
-      ...(defaultQualityProfileId != null
-        ? { qualityProfileId: defaultQualityProfileId }
-        : {}),
+      ...searchFields,
+      ...(qualityProfileId != null ? { qualityProfileId } : {}),
     },
     update: {
       ...(!showLocked("title") ? { title: details.name } : {}),
@@ -175,7 +273,7 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
     mediaId: media.id,
     tmdbShowId: tmdb_id,
     apiKey: key,
-    languageParams: lang,
+    languageParams: { language: TMDB_LANGUAGE_LIBRARY_PERSISTENCE },
   });
 
   return media;

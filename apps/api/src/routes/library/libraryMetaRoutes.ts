@@ -10,6 +10,14 @@ import {
 import { filesFailProfile } from "@rawkoon/api/services/upgradeDetection";
 
 import { mapLibraryMedia, libraryMediaInclude } from "./libraryHelpers";
+import {
+  getLibraryTmdbApiKey,
+  tmdbApiFetch,
+} from "@rawkoon/api/utils/medias/libraryHelpers";
+import { extractTitleTranslations } from "@rawkoon/api/utils/medias/tmdbFetcherDetails";
+import { buildSearchTitleOptions } from "@rawkoon/api/utils/medias/resolveSearchTitles";
+import { TMDB_LANGUAGE_LIBRARY_PERSISTENCE } from "@rawkoon/api/utils/medias/tmdbFetcherTypes";
+import { toStringOrNull } from "@rawkoon/api/utils/medias/mappers";
 
 /**
  * Metadata mutations: status, monitored, quality-profile, and season/episode toggles.
@@ -183,6 +191,103 @@ export const libraryMetaRoutes = new Elysia()
     {
       body: t.Object({
         quality_profile_id: t.Union([t.Number(), t.Null()]),
+      }),
+    },
+  )
+
+  // PATCH /api/library/:id/search-title — set preferred indexer search title
+  .patch(
+    "/:id/search-title",
+    async ({ params, body, set }) => {
+      try {
+        const id = parseInt(params.id, 10);
+        if (!Number.isFinite(id)) return badRequest(set, "Invalid ID");
+
+        const language = body.search_title_language.trim().toLowerCase();
+        const title = body.search_title.trim();
+        if (!/^[a-z]{2}$/.test(language)) {
+          return badRequest(
+            set,
+            "search_title_language must be a 2-letter ISO code",
+          );
+        }
+        if (!title) return badRequest(set, "search_title is required");
+
+        const existing = await prisma.libraryMedia.findUnique({
+          where: { id },
+          select: {
+            id: true,
+            tmdbId: true,
+            type: true,
+            title: true,
+          },
+        });
+        if (!existing) return notFound(set, "Library item not found");
+
+        const apiKey = await getLibraryTmdbApiKey();
+        if (!apiKey) return badRequest(set, "TMDB is not configured");
+
+        const mediaType = existing.type === "show" ? "tv" : "movie";
+        const path =
+          mediaType === "movie"
+            ? `movie/${existing.tmdbId}`
+            : `tv/${existing.tmdbId}`;
+        const details = await tmdbApiFetch<{
+          original_title?: string | null;
+          original_name?: string | null;
+          original_language?: string | null;
+          translations?: unknown;
+        }>(path, apiKey, {
+          language: TMDB_LANGUAGE_LIBRARY_PERSISTENCE,
+          append_to_response: "translations",
+        });
+
+        const originalTitle = toStringOrNull(
+          mediaType === "movie"
+            ? details.original_title
+            : (details.original_name ?? details.original_title),
+        );
+        const originalLanguage = toStringOrNull(details.original_language);
+        const translations = extractTitleTranslations(
+          details.translations,
+          mediaType,
+        );
+        const options = buildSearchTitleOptions({
+          englishTitle: existing.title,
+          originalTitle,
+          originalLanguage,
+          translations,
+        });
+        const allowed = options.some(
+          (opt) =>
+            opt.languageCode === language &&
+            opt.title.toLocaleLowerCase() === title.toLocaleLowerCase(),
+        );
+        if (!allowed) {
+          return badRequest(
+            set,
+            "search_title must match a TMDB title for the given language",
+          );
+        }
+
+        const item = await prisma.libraryMedia.update({
+          where: { id },
+          data: {
+            searchTitle: title,
+            searchTitleLanguage: language,
+          },
+          include: libraryMediaInclude,
+        });
+        return { item: mapLibraryMedia(item) };
+      } catch (e) {
+        console.warn("[library] search-title update failed:", e);
+        return serverError(set, "Failed to update search title");
+      }
+    },
+    {
+      body: t.Object({
+        search_title_language: t.String({ minLength: 2, maxLength: 2 }),
+        search_title: t.String({ minLength: 1, maxLength: 500 }),
       }),
     },
   )

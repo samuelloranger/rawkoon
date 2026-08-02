@@ -140,6 +140,7 @@ export async function approveRequest(
     tmdb_id: req.tmdbId,
     type: req.type as "movie" | "show",
     region,
+    qualityProfileId,
   });
 
   try {

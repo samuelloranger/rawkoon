@@ -4,7 +4,11 @@ import { requireAdmin } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound, serverError } from "@rawkoon/api/errors";
 import { grabRelease } from "@rawkoon/api/services/mediaGrabberGrab";
-import { searchAndGrab } from "@rawkoon/api/services/mediaGrabberSearch";
+import {
+  searchAndGrab,
+  searchAndGrabWithTitleFallback,
+} from "@rawkoon/api/services/mediaGrabberSearch";
+import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
 import {
   episodeMapKey,
   resolveGrabEpisodeId,
@@ -137,16 +141,25 @@ export const libraryGrabRoutes = new Elysia()
           data: { searchAttempts: 0, status: "wanted" },
         });
 
-        const q =
-          body.search_query?.trim() ||
-          (media.year ? `${media.title} ${media.year}` : media.title);
-
-        const result = await searchAndGrab({
-          mediaId: id,
-          mediaType: "movie",
-          searchQuery: q,
-          qualityProfileId: media.qualityProfileId,
-        });
+        const explicit = body.search_query?.trim();
+        const result = explicit
+          ? await searchAndGrab({
+              mediaId: id,
+              mediaType: "movie",
+              searchQuery: explicit,
+              qualityProfileId: media.qualityProfileId,
+            })
+          : await searchAndGrabWithTitleFallback({
+              mediaId: id,
+              mediaType: "movie",
+              titleBaseQueries: resolveSearchTitles({
+                title: media.title,
+                searchTitle: media.searchTitle,
+                originalTitle: media.originalTitle,
+              }).queries,
+              suffix: media.year ? ` ${media.year}` : "",
+              qualityProfileId: media.qualityProfileId,
+            });
 
         if (result.grabbed) {
           return { grabbed: true, release_title: result.releaseTitle };
@@ -201,16 +214,27 @@ export const libraryGrabRoutes = new Elysia()
 
         const s = String(ep.season).padStart(2, "0");
         const e = String(ep.episode).padStart(2, "0");
-        const defaultQ = `${media.title} S${s}E${e}`;
-        const q = body.search_query?.trim() || defaultQ;
-
-        const result = await searchAndGrab({
-          mediaId,
-          episodeId,
-          mediaType: "tv",
-          searchQuery: q,
-          qualityProfileId: media.qualityProfileId,
-        });
+        const explicit = body.search_query?.trim();
+        const result = explicit
+          ? await searchAndGrab({
+              mediaId,
+              episodeId,
+              mediaType: "tv",
+              searchQuery: explicit,
+              qualityProfileId: media.qualityProfileId,
+            })
+          : await searchAndGrabWithTitleFallback({
+              mediaId,
+              episodeId,
+              mediaType: "tv",
+              titleBaseQueries: resolveSearchTitles({
+                title: media.title,
+                searchTitle: media.searchTitle,
+                originalTitle: media.originalTitle,
+              }).queries,
+              suffix: ` S${s}E${e}`,
+              qualityProfileId: media.qualityProfileId,
+            });
 
         if (result.grabbed) {
           return { grabbed: true, release_title: result.releaseTitle };
@@ -284,15 +308,25 @@ export const libraryGrabRoutes = new Elysia()
         }
 
         const s = String(season).padStart(2, "0");
-        const defaultQ = `${media.title} S${s}`;
-        const q = body.search_query?.trim() || defaultQ;
-
-        const result = await searchAndGrab({
-          mediaId,
-          mediaType: "tv",
-          searchQuery: q,
-          qualityProfileId: media.qualityProfileId,
-        });
+        const explicit = body.search_query?.trim();
+        const result = explicit
+          ? await searchAndGrab({
+              mediaId,
+              mediaType: "tv",
+              searchQuery: explicit,
+              qualityProfileId: media.qualityProfileId,
+            })
+          : await searchAndGrabWithTitleFallback({
+              mediaId,
+              mediaType: "tv",
+              titleBaseQueries: resolveSearchTitles({
+                title: media.title,
+                searchTitle: media.searchTitle,
+                originalTitle: media.originalTitle,
+              }).queries,
+              suffix: ` S${s}`,
+              qualityProfileId: media.qualityProfileId,
+            });
 
         if (result.grabbed) {
           return { grabbed: true, release_title: result.releaseTitle };

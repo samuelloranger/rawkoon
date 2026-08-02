@@ -35,6 +35,7 @@ function mapProfile(p: ProfileWithFormats) {
     preferred_sources: p.preferredSources,
     preferred_codecs: p.preferredCodecs,
     preferred_languages: p.preferredLanguages,
+    preferred_search_language: p.preferredSearchLanguage ?? null,
     prioritized_trackers: p.prioritizedTrackers,
     prefer_tracker_over_quality: p.preferTrackerOverQuality,
     max_size_gb: p.maxSizeGb,
@@ -55,6 +56,17 @@ function mapProfile(p: ProfileWithFormats) {
 }
 
 const RESOLUTIONS = new Set([480, 720, 1080, 2160]);
+
+function normalizePreferredSearchLanguage(
+  value: string | null | undefined,
+): string | null | { error: string } {
+  if (value == null || value === "") return null;
+  const trimmed = value.trim().toLowerCase();
+  if (!/^[a-z]{2}$/.test(trimmed)) {
+    return { error: "preferred_search_language must be a 2-letter ISO code" };
+  }
+  return trimmed;
+}
 
 export const qualityProfilesRoutes = new Elysia({
   prefix: "/api/quality-profiles",
@@ -91,6 +103,16 @@ export const qualityProfilesRoutes = new Elysia({
           "cutoff_resolution must be 480, 720, 1080, or 2160",
         );
       }
+      const preferredSearchLanguage = normalizePreferredSearchLanguage(
+        body.preferred_search_language,
+      );
+      if (
+        preferredSearchLanguage &&
+        typeof preferredSearchLanguage === "object" &&
+        "error" in preferredSearchLanguage
+      ) {
+        return badRequest(set, preferredSearchLanguage.error);
+      }
       try {
         const created = await prisma.$transaction(async (tx) => {
           const profile = await tx.qualityProfile.create({
@@ -100,6 +122,7 @@ export const qualityProfilesRoutes = new Elysia({
               preferredSources: body.preferred_sources,
               preferredCodecs: body.preferred_codecs,
               preferredLanguages: body.preferred_languages ?? [],
+              preferredSearchLanguage,
               prioritizedTrackers: body.prioritized_trackers ?? [],
               preferTrackerOverQuality:
                 body.prefer_tracker_over_quality ?? false,
@@ -150,6 +173,7 @@ export const qualityProfilesRoutes = new Elysia({
         preferred_sources: t.Array(t.String()),
         preferred_codecs: t.Array(t.String()),
         preferred_languages: t.Optional(t.Array(t.String())),
+        preferred_search_language: t.Optional(t.Nullable(t.String())),
         prioritized_trackers: t.Optional(t.Array(t.String())),
         prefer_tracker_over_quality: t.Optional(t.Boolean()),
         max_size_gb: t.Optional(t.Nullable(t.Number())),
@@ -191,6 +215,16 @@ export const qualityProfilesRoutes = new Elysia({
           "cutoff_resolution must be 480, 720, 1080, or 2160",
         );
       }
+      const preferredSearchLanguage = normalizePreferredSearchLanguage(
+        body.preferred_search_language,
+      );
+      if (
+        preferredSearchLanguage &&
+        typeof preferredSearchLanguage === "object" &&
+        "error" in preferredSearchLanguage
+      ) {
+        return badRequest(set, preferredSearchLanguage.error);
+      }
       try {
         const updated = await prisma.$transaction(async (tx) => {
           const existing = await tx.qualityProfile.findUnique({
@@ -205,6 +239,7 @@ export const qualityProfilesRoutes = new Elysia({
               preferredSources: body.preferred_sources,
               preferredCodecs: body.preferred_codecs,
               preferredLanguages: body.preferred_languages ?? [],
+              preferredSearchLanguage,
               prioritizedTrackers: body.prioritized_trackers ?? [],
               preferTrackerOverQuality:
                 body.prefer_tracker_over_quality ?? false,
@@ -257,6 +292,7 @@ export const qualityProfilesRoutes = new Elysia({
         preferred_sources: t.Array(t.String()),
         preferred_codecs: t.Array(t.String()),
         preferred_languages: t.Optional(t.Array(t.String())),
+        preferred_search_language: t.Optional(t.Nullable(t.String())),
         prioritized_trackers: t.Optional(t.Array(t.String())),
         prefer_tracker_over_quality: t.Optional(t.Boolean()),
         max_size_gb: t.Optional(t.Nullable(t.Number())),
