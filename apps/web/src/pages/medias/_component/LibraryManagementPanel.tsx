@@ -1,5 +1,6 @@
-import type { LibraryMedia } from "@rawkoon/shared/types";
+import type { LibraryMedia, TitleTranslation } from "@rawkoon/shared/types";
 import { LibraryQualityProfileSection } from "./LibraryQualityProfileSection";
+import { LibrarySearchTitleSection } from "./LibrarySearchTitleSection";
 import { LibraryMediaSection } from "./LibraryMediaSection";
 import { LibraryDownloadHistorySection } from "./LibraryDownloadHistorySection";
 import { LibraryActionsSection } from "./LibraryActionsSection";
@@ -19,6 +20,10 @@ interface LibraryManagementPanelProps {
   }) => void;
   onSearchSeason?: (season: number) => void;
   onUpgradeManualSearch?: () => void;
+  tmdbOriginalTitle?: string | null;
+  tmdbOriginalLanguage?: string | null;
+  tmdbTitleTranslations?: TitleTranslation[];
+  tmdbPending?: boolean;
 }
 
 export function LibraryManagementPanel({
@@ -30,6 +35,10 @@ export function LibraryManagementPanel({
   onSearchEpisode,
   onSearchSeason,
   onUpgradeManualSearch,
+  tmdbOriginalTitle = null,
+  tmdbOriginalLanguage = null,
+  tmdbTitleTranslations = [],
+  tmdbPending = false,
 }: LibraryManagementPanelProps) {
   return (
     <div className="py-4 space-y-3">
@@ -37,6 +46,14 @@ export function LibraryManagementPanel({
       <LibraryQualityProfileSection
         libraryId={libraryId}
         onUpgradeManualSearch={onUpgradeManualSearch}
+      />
+      <LibrarySearchTitleSection
+        libraryId={libraryId}
+        item={item}
+        tmdbOriginalTitle={tmdbOriginalTitle}
+        tmdbOriginalLanguage={tmdbOriginalLanguage}
+        tmdbTitleTranslations={tmdbTitleTranslations}
+        tmdbPending={tmdbPending}
       />
       <LibraryMediaSection
         libraryId={libraryId}

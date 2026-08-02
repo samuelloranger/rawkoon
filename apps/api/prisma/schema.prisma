@@ -245,6 +245,9 @@ model QualityProfile {
   preferredSources         String[] @map("preferred_sources")
   preferredCodecs          String[] @map("preferred_codecs")
   preferredLanguages       String[] @default([]) @map("preferred_languages")
+  /// ISO 639-1 title language for indexer queries; null → en at add time.
+  /// Distinct from preferredLanguages (audio flags on release names).
+  preferredSearchLanguage  String?  @map("preferred_search_language")
   prioritizedTrackers      String[] @default([]) @map("prioritized_trackers")
   preferTrackerOverQuality Boolean  @default(false) @map("prefer_tracker_over_quality")
   maxSizeGb                Float?   @map("max_size_gb")
@@ -376,6 +379,10 @@ model LibraryMedia {
   posterUrl             String?   @map("poster_url")
   overview              String?
   overrides             Json?     @map("overrides")
+  originalTitle         String?   @map("original_title")
+  originalLanguage      String?   @map("original_language")
+  searchTitle           String?   @map("search_title")
+  searchTitleLanguage   String?   @map("search_title_language")
   digitalReleaseDate    DateTime? @map("digital_release_date")
   qualityProfileId      Int?      @map("quality_profile_id")
   searchAttempts        Int       @default(0) @map("search_attempts")

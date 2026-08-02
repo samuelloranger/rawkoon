@@ -80,6 +80,10 @@ export interface LibraryMedia {
   monitored: boolean;
   poster_url: string | null;
   overview: string | null;
+  original_title: string | null;
+  original_language: string | null;
+  search_title: string | null;
+  search_title_language: string | null;
   digital_release_date: string | null;
   quality_profile_id: number | null;
   search_attempts: number;

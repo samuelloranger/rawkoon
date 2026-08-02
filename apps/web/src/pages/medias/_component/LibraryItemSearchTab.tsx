@@ -91,7 +91,7 @@ export function LibraryItemSearchTab({
 
   const ctxSuffix = epSuffix || seasonSuffix;
 
-  const localizedQuery = `${item.title}${ctxSuffix}`;
+  const localizedQuery = `${item.search_title?.trim() || item.title}${ctxSuffix}`;
 
   // Build the per-language title options for the search picker. The stored
   // library title is the default; EN/FR are pinned, then the original language,

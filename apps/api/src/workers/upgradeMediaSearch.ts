@@ -1,5 +1,6 @@
 import { prisma } from "@rawkoon/api/db";
-import { searchAndGrab } from "@rawkoon/api/services/mediaGrabberSearch";
+import { searchAndGrabWithTitleFallback } from "@rawkoon/api/services/mediaGrabberSearch";
+import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
 
 export async function upgradeMediaSearch({
   mediaId,
@@ -10,7 +11,13 @@ export async function upgradeMediaSearch({
 }): Promise<void> {
   const media = await prisma.libraryMedia.findUnique({
     where: { id: mediaId },
-    select: { title: true, type: true, qualityProfileId: true },
+    select: {
+      title: true,
+      searchTitle: true,
+      originalTitle: true,
+      type: true,
+      qualityProfileId: true,
+    },
   });
 
   if (!media) {
@@ -19,7 +26,12 @@ export async function upgradeMediaSearch({
   }
 
   const mediaType = media.type === "movie" ? "movie" : "tv";
-  let searchQuery = media.title;
+  const { queries } = resolveSearchTitles({
+    title: media.title,
+    searchTitle: media.searchTitle,
+    originalTitle: media.originalTitle,
+  });
+  let suffix = "";
 
   if (episodeId != null) {
     const ep = await prisma.libraryEpisode.findUnique({
@@ -36,14 +48,15 @@ export async function upgradeMediaSearch({
 
     const season = String(ep.season).padStart(2, "0");
     const episode = String(ep.episode).padStart(2, "0");
-    searchQuery = `${media.title} S${season}E${episode}`;
+    suffix = ` S${season}E${episode}`;
   }
 
-  const result = await searchAndGrab({
+  const result = await searchAndGrabWithTitleFallback({
     mediaId,
     episodeId: episodeId ?? undefined,
     mediaType,
-    searchQuery,
+    titleBaseQueries: queries,
+    suffix,
     qualityProfileId: media.qualityProfileId,
     isUpgrade: true,
   });
