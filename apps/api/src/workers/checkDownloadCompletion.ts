@@ -113,8 +113,17 @@ export function findPendingTorrent(
 export type ReconcileState = {
   /** Per-row progress tracking, used to detect stalls. */
   stallTracks: Map<number, StallTrack>;
-  /** Whether the last pass saw a row actually moving — drives poll cadence. */
-  lastReconcileHadProgressing: boolean;
+  /**
+   * Whether the last pass saw a row still live in the client — downloading,
+   * or stalled but expected to resume. Drives poll cadence.
+   *
+   * Deliberately not "made progress this pass": a fresh magnet sits at
+   * `stalled` with no peers for the first few passes, and a torrent that
+   * finishes during a long backoff stays unrecorded until the next tick.
+   */
+  lastReconcileHadActive: boolean;
+  /** Consecutive passes with nothing live — indexes the backoff ramp. */
+  idlePasses: number;
   /** Earliest time the next poll is allowed to do work. */
   nextPollAtMs: number;
   /** Rows seen last pass, so a newly-grabbed row can pre-empt the backoff. */
@@ -124,7 +133,8 @@ export type ReconcileState = {
 export function createReconcileState(): ReconcileState {
   return {
     stallTracks: new Map(),
-    lastReconcileHadProgressing: false,
+    lastReconcileHadActive: false,
+    idlePasses: 0,
     nextPollAtMs: 0,
     knownPendingIds: new Set(),
   };
@@ -133,12 +143,24 @@ export function createReconcileState(): ReconcileState {
 /** Production state for the scheduled job. */
 const pollState = createReconcileState();
 
+/**
+ * Multipliers on the active interval for each consecutive idle pass. With the
+ * default 20s active / 1800s idle that ramps 20s → 60s → 300s → 1800s, so a
+ * torrent that goes quiet for a while is still noticed within minutes rather
+ * than half an hour.
+ */
+const IDLE_RAMP_MULTIPLIERS = [1, 3, 15];
+
 export function computeNextPollDelaySecs(
-  hasProgressing: boolean,
+  hasActive: boolean,
   activeSecs: number,
   idleSecs: number,
+  idlePasses = 0,
 ): number {
-  return hasProgressing ? activeSecs : idleSecs;
+  if (hasActive) return activeSecs;
+  const multiplier = IDLE_RAMP_MULTIPLIERS[idlePasses];
+  if (multiplier === undefined) return idleSecs;
+  return Math.min(activeSecs * multiplier, idleSecs);
 }
 
 function getOrInitTrack(
@@ -199,7 +221,7 @@ export async function reconcilePendingDownloads(
     failed: 0,
     missing: 0,
   };
-  state.lastReconcileHadProgressing = false;
+  state.lastReconcileHadActive = false;
   if (!pending.length) return result;
 
   let listTorrents = opts.listTorrents;
@@ -264,12 +286,9 @@ export async function reconcilePendingDownloads(
       );
 
       if (verdict.outcome === "wait") {
-        if (
-          match.state === "downloading" &&
-          (verdict.progressed || match.dlSpeed > 0)
-        ) {
-          state.lastReconcileHadProgressing = true;
-        }
+        // Anything the client still intends to finish keeps the fast cadence.
+        // A paused torrent is excluded — it will not move until the user acts.
+        if (match.state !== "paused") state.lastReconcileHadActive = true;
         if (verdict.progressed) {
           track.lastProgress = match.progress;
           track.lastProgressAtMs = nowMs;
@@ -340,12 +359,14 @@ export async function checkDownloadCompletion(): Promise<void> {
       maxAgeSecs: settings?.downloadMaxAgeSecs ?? 604800,
     },
   });
-  pollState.nextPollAtMs =
-    nowMs +
-    computeNextPollDelaySecs(
-      pollState.lastReconcileHadProgressing,
-      settings?.downloadPollActiveSecs ?? 20,
-      settings?.downloadPollIdleSecs ?? 1800,
-    ) *
-      1000;
+  const delaySecs = computeNextPollDelaySecs(
+    pollState.lastReconcileHadActive,
+    settings?.downloadPollActiveSecs ?? 20,
+    settings?.downloadPollIdleSecs ?? 1800,
+    pollState.idlePasses,
+  );
+  pollState.idlePasses = pollState.lastReconcileHadActive
+    ? 0
+    : pollState.idlePasses + 1;
+  pollState.nextPollAtMs = nowMs + delaySecs * 1000;
 }

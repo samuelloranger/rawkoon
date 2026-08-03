@@ -118,8 +118,19 @@ describe("findPendingTorrent", () => {
 });
 
 describe("computeNextPollDelaySecs", () => {
-  it("uses the active tier only while a torrent is progressing", () => {
+  it("uses the active tier while a torrent is live in the client", () => {
     expect(computeNextPollDelaySecs(true, 20, 1800)).toBe(20);
-    expect(computeNextPollDelaySecs(false, 20, 1800)).toBe(1800);
+    expect(computeNextPollDelaySecs(true, 20, 1800, 5)).toBe(20);
+  });
+
+  it("ramps to idle over several quiet passes instead of jumping", () => {
+    expect(computeNextPollDelaySecs(false, 20, 1800, 0)).toBe(20);
+    expect(computeNextPollDelaySecs(false, 20, 1800, 1)).toBe(60);
+    expect(computeNextPollDelaySecs(false, 20, 1800, 2)).toBe(300);
+    expect(computeNextPollDelaySecs(false, 20, 1800, 3)).toBe(1800);
+  });
+
+  it("never ramps past the configured idle interval", () => {
+    expect(computeNextPollDelaySecs(false, 20, 30, 2)).toBe(30);
   });
 });
