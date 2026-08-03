@@ -136,9 +136,41 @@ describe("reconcilePendingDownloads", () => {
     });
 
     expect(result).toEqual({ completed: 0, failed: 0, missing: 0 });
-    expect(reconcileState.lastReconcileHadProgressing).toBe(true);
+    expect(reconcileState.lastReconcileHadActive).toBe(true);
     // The row is still in flight, so its stall track must survive the pass.
     expect(reconcileState.stallTracks.has(1)).toBe(true);
+  });
+
+  it("keeps the active cadence for a fresh magnet that has not found peers", async () => {
+    // A public magnet sits at stalled/0% for its first passes. Backing off to
+    // the idle interval here is what let a torrent finish unnoticed.
+    state.torrents = [
+      torrent({ state: "stalled", progress: 0, dlSpeed: 0, seeds: 0 }),
+    ];
+    const reconcileState = createReconcileState();
+
+    await reconcilePendingDownloads([pendingRow], {
+      settings,
+      state: reconcileState,
+      listTorrents,
+      outcome,
+    });
+
+    expect(reconcileState.lastReconcileHadActive).toBe(true);
+  });
+
+  it("does not hold the active cadence for a paused torrent", async () => {
+    state.torrents = [torrent({ state: "paused", dlSpeed: 0 })];
+    const reconcileState = createReconcileState();
+
+    await reconcilePendingDownloads([pendingRow], {
+      settings,
+      state: reconcileState,
+      listTorrents,
+      outcome,
+    });
+
+    expect(reconcileState.lastReconcileHadActive).toBe(false);
   });
 
   it("ignores a missing torrent by default, and fails it when asked", async () => {
