@@ -105,10 +105,10 @@ await file(idByTmdb.get(872585)!, "Oppenheimer.2023.2160p.BluRay.x265-GROUP.mkv"
 await file(idByTmdb.get(157336)!, "Interstellar.2014.2160p.BluRay.x265-GROUP.mkv", 2160, "x265");
 await file(idByTmdb.get(414906)!, "The.Batman.2022.1080p.BluRay.x264-GROUP.mkv", 1080, "x264");
 
-// Episodes for one show (library detail). Keep them all-downloaded with past
-// air dates: a mixed wanted/future-air-date season makes the SPA's library
-// views spin into a render loop that crashes the tab (see repo issue notes) —
-// screenshots don't need that shape anyway.
+// Episodes for one show (library detail). All-downloaded + past air dates keeps
+// the grid/detail screenshots simple and stable. Mixed wanted/future seasons
+// are fine in the live SPA (re-checked 2026-08-02); they just aren't useful
+// demo content for README shots.
 const severance = idByTmdb.get(95396)!;
 for (let e = 1; e <= 3; e++) {
   await prisma.libraryEpisode.create({
