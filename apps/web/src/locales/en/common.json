@@ -1167,7 +1167,45 @@
         "test": "Test connection",
         "testing": "Testing…",
         "testSuccess": "Download client connected successfully.",
-        "testError": "Could not connect to the download client."
+        "testError": "Could not connect to the download client.",
+        "hook": {
+          "title": "Completion notifications",
+          "help": "Your download client notifies Rawkoon when a torrent finishes, so Rawkoon does not have to poll as often to discover it.",
+          "callbackUrl": "Callback URL",
+          "callbackUrlHelp": "The address your download client can reach Rawkoon at, e.g. http://rawkoon:3000",
+          "callbackUrlPlaceholder": "http://rawkoon:3000",
+          "autoConfigure": "Auto-configure qBittorrent",
+          "autoConfigureHelp": "qBittorrent only. Writes the “run external program on torrent finished” command automatically.",
+          "activeHookedSecs": "Hooked poll interval (seconds)",
+          "activeHookedSecsHelp": "How often Rawkoon checks the client while a recent hook is keeping the slow cadence.",
+          "status": {
+            "not-configured": "Set a callback URL to enable completion notifications.",
+            "awaiting-first": "Waiting for the first notification from your download client.",
+            "active": "Hook active — the download client notified Rawkoon recently.",
+            "stale": "No hook received in over 24 hours. Check the client configuration.",
+            "foreign-program": "qBittorrent already runs a different program on torrent finish. Paste the Rawkoon command below manually, or turn off auto-configure."
+          },
+          "qbittorrentCommand": "qBittorrent command",
+          "rotate": "Rotate token",
+          "rotateConfirm": "Rotate the hook token? You must reconfigure the download client afterwards.",
+          "rotateSuccess": "Hook token rotated.",
+          "rotateError": "Could not rotate the hook token.",
+          "saveSuccess": "Hook settings saved.",
+          "saveError": "Could not save hook settings.",
+          "promptCallbackUrl": "Enter a callback URL above before the client scripts are useful.",
+          "deluge": {
+            "title": "Deluge (Execute plugin)",
+            "step1": "Save the script to a file and make it executable (chmod +x).",
+            "step2": "In Deluge → Preferences → Plugins → Execute, add a “Torrent Complete” event pointing at that file."
+          },
+          "transmission": {
+            "title": "Transmission (script-torrent-done)",
+            "step1": "Save the script to a file and make it executable (chmod +x).",
+            "step2": "Set script-torrent-done-filename to that file path in Transmission’s settings."
+          },
+          "copyScript": "Copy script",
+          "copyCommand": "Copy command"
+        }
       },
       "sso": {
         "title": "SSO / OIDC Providers",

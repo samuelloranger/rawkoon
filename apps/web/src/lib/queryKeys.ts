@@ -84,6 +84,8 @@ export const queryKeys = {
       [...queryKeys.integrations.all, "jackett", "indexers"] as const,
     downloadClient: () =>
       [...queryKeys.integrations.all, "download-client"] as const,
+    downloadClientHook: () =>
+      [...queryKeys.integrations.all, "download-client", "hook"] as const,
     tmdb: () => [...queryKeys.integrations.all, "tmdb"] as const,
     localAi: () => [...queryKeys.integrations.all, "local-ai"] as const,
   },

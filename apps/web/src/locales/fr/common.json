@@ -1167,7 +1167,45 @@
         "test": "Tester la connexion",
         "testing": "Test…",
         "testSuccess": "Connexion au client de téléchargement réussie.",
-        "testError": "Impossible de se connecter au client de téléchargement."
+        "testError": "Impossible de se connecter au client de téléchargement.",
+        "hook": {
+          "title": "Notifications de fin de téléchargement",
+          "help": "Votre client de téléchargement prévient Rawkoon dès qu’un torrent est terminé, pour que Rawkoon n’ait pas à interroger aussi souvent.",
+          "callbackUrl": "URL de rappel",
+          "callbackUrlHelp": "L’adresse à laquelle votre client de téléchargement peut joindre Rawkoon, p. ex. http://rawkoon:3000",
+          "callbackUrlPlaceholder": "http://rawkoon:3000",
+          "autoConfigure": "Configurer qBittorrent automatiquement",
+          "autoConfigureHelp": "qBittorrent uniquement. Écrit automatiquement la commande « exécuter un programme externe à la fin du torrent ».",
+          "activeHookedSecs": "Intervalle de vérification avec hook (secondes)",
+          "activeHookedSecsHelp": "Fréquence à laquelle Rawkoon interroge le client tant qu’un hook récent maintient le rythme lent.",
+          "status": {
+            "not-configured": "Définissez une URL de rappel pour activer les notifications de fin.",
+            "awaiting-first": "En attente de la première notification du client de téléchargement.",
+            "active": "Hook actif — le client a notifié Rawkoon récemment.",
+            "stale": "Aucun hook reçu depuis plus de 24 h. Vérifiez la configuration du client.",
+            "foreign-program": "qBittorrent exécute déjà un autre programme à la fin des torrents. Collez manuellement la commande Rawkoon ci-dessous, ou désactivez la configuration automatique."
+          },
+          "qbittorrentCommand": "Commande qBittorrent",
+          "rotate": "Régénérer le jeton",
+          "rotateConfirm": "Régénérer le jeton du hook ? Vous devrez reconfigurer le client de téléchargement ensuite.",
+          "rotateSuccess": "Jeton du hook régénéré.",
+          "rotateError": "Impossible de régénérer le jeton du hook.",
+          "saveSuccess": "Paramètres du hook enregistrés.",
+          "saveError": "Impossible d’enregistrer les paramètres du hook.",
+          "promptCallbackUrl": "Saisissez une URL de rappel ci-dessus : les scripts clients ne sont utiles qu’après.",
+          "deluge": {
+            "title": "Deluge (plugin Execute)",
+            "step1": "Enregistrez le script dans un fichier et rendez-le exécutable (chmod +x).",
+            "step2": "Dans Deluge → Préférences → Plugins → Execute, ajoutez un événement « Torrent Complete » pointant vers ce fichier."
+          },
+          "transmission": {
+            "title": "Transmission (script-torrent-done)",
+            "step1": "Enregistrez le script dans un fichier et rendez-le exécutable (chmod +x).",
+            "step2": "Définissez script-torrent-done-filename sur le chemin de ce fichier dans les paramètres de Transmission."
+          },
+          "copyScript": "Copier le script",
+          "copyCommand": "Copier la commande"
+        }
       },
       "sso": {
         "title": "Fournisseurs SSO / OIDC",
