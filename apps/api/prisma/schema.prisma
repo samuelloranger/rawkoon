@@ -541,6 +541,11 @@ model MediaSettings {
   downloadPollIdleSecs     Int      @default(1800) @map("download_poll_idle_secs")
   downloadStallTimeoutSecs Int      @default(2700) @map("download_stall_timeout_secs")
   downloadMaxAgeSecs       Int      @default(604800) @map("download_max_age_secs")
+  downloadHookToken            String?   @map("download_hook_token")
+  downloadHookCallbackUrl      String?   @map("download_hook_callback_url")
+  downloadHookAutoConfigure    Boolean   @default(true) @map("download_hook_auto_configure")
+  downloadHookLastSeenAt       DateTime? @map("download_hook_last_seen_at")
+  downloadPollActiveHookedSecs Int       @default(120) @map("download_poll_active_hooked_secs")
   updatedAt               DateTime @updatedAt @map("updated_at")
 
   defaultQualityProfile QualityProfile? @relation("DefaultQualityProfile", fields: [defaultQualityProfileId], references: [id], onDelete: SetNull)
