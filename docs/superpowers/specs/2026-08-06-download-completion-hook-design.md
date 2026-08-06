@@ -265,10 +265,17 @@ set, and the settings panel states why.
 - `hash` is validated as hex and used only as a Prisma `where` value. It never
   enters a path or a shell.
 - The hook performs no outbound fetch, so it adds no SSRF surface.
-- **`services/qbittorrent/requestLogs.ts` must redact the `setPreferences` body.**
-  The autorun command we write contains the token, and that request would
-  otherwise be logged verbatim into a log users read and paste. This is the one
-  place the token can leak somewhere unexpected.
+- **The token must travel in the `setPreferences` request *body*, never the query
+  string.** Corrected after reading the logging code: no log site records a
+  request body. Every call to `logQbittorrentRequest` captures method, pathname,
+  `search`, status, duration, response size, and response-derived metrics only
+  (`clientSession.ts:134,156,223,248`; `clientFetch.ts:100,117,149`). But
+  `requestPath` is `${pathname}${search}` and `meta.query` is built from
+  `url.searchParams` (`clientFetch.ts:33`), so a token in the query string *would*
+  be persisted to `qbittorrent_request_logs`. qBittorrent's `setPreferences`
+  accepts a `json=` form field, so the body is the natural place regardless.
+  No redaction work is needed — only a guard test asserting the token never
+  appears in a logged `requestPath` or `meta`.
 - Rotation action in settings. Rotating re-runs auto-configuration so qBittorrent
   stays in sync.
 - Accepted and documented: the token is visible in qBittorrent's Options →
@@ -303,13 +310,14 @@ Extending `apps/api/test/reconcilePendingDownloads.test.ts` and
 - **Cadence:** hook recent → 120; hook stale → 20; never seen → 20.
 - **Auto-configure:** empty program writes; our own program rewrites idempotently;
   a foreign program does not write and returns a warning.
-- **Redaction:** a `setPreferences` request-log entry contains no token.
+- **Token containment:** a `setPreferences` request-log entry's `requestPath` and
+  `meta` contain no token — it lives in the form body, which is never logged.
 
 ## Files touched
 
 - `apps/api/prisma/schema.prisma` plus one migration
 - `apps/api/src/services/downloadClient/qbittorrentAdapter.ts`
-- `apps/api/src/services/qbittorrent/requestLogs.ts`
+- `apps/api/src/services/qbittorrent/clientFetch.ts` (optional injected fetcher, for tests)
 - `apps/api/src/services/qbittorrent/preferences.ts` (new)
 - `apps/api/src/routes/integrations/downloadClient/hookRoutes.ts` (new)
 - `apps/api/src/routes/integrations/downloadClient/index.ts`
