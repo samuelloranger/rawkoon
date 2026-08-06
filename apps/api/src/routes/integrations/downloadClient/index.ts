@@ -26,7 +26,10 @@ import {
   rotateHookToken,
 } from "@rawkoon/api/services/downloadClient/hookToken";
 import { buildAdapter } from "@rawkoon/api/services/downloadClient/registry";
-import { applyQbittorrentAutorun } from "@rawkoon/api/services/qbittorrent/preferences";
+import {
+  applyQbittorrentAutorun,
+  isAutorunProgramForeign,
+} from "@rawkoon/api/services/qbittorrent/preferences";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import {
   isValidHttpUrl,
@@ -131,6 +134,50 @@ const readHookSettings = async () => {
     lastSeenAt: settings?.downloadHookLastSeenAt ?? null,
     activeHookedSecs: settings?.downloadPollActiveHookedSecs ?? 120,
   };
+};
+
+/**
+ * Read-only foreign-program probe for GET, so the settings page reports
+ * `foreign-program` on load and not merely in the response to a PUT.
+ *
+ * Bounded by its own timeout: qbRequest has no deadline of its own, and an
+ * unreachable-but-not-refusing client would otherwise hang the settings page.
+ * Any failure reads as "not foreign" — a probe that could not run must not
+ * invent a warning.
+ */
+const FOREIGN_PROBE_TIMEOUT_MS = 2500;
+
+const detectForeignProgram = async (input: {
+  callbackUrl: string | null;
+  autoConfigure: boolean;
+  token: string;
+}): Promise<boolean> => {
+  if (!input.callbackUrl || !input.autoConfigure) return false;
+
+  const { clientType, config } = await getDownloadClientIntegrationConfig();
+  if (clientType !== "qbittorrent" || !config) return false;
+
+  try {
+    return await Promise.race([
+      isAutorunProgramForeign(
+        {
+          website_url: config.website_url,
+          username: config.username,
+          password: config.password,
+        },
+        buildQbittorrentCommand({
+          baseUrl: input.callbackUrl,
+          token: input.token,
+        }),
+        HOOK_PATH,
+      ),
+      new Promise<boolean>((resolve) =>
+        setTimeout(() => resolve(false), FOREIGN_PROBE_TIMEOUT_MS),
+      ),
+    ]);
+  } catch {
+    return false;
+  }
 };
 
 /**
@@ -306,10 +353,15 @@ export const downloadClientIntegrationRoutes = new Elysia()
     try {
       const settings = await readHookSettings();
       const token = await getOrCreateHookToken();
+      const foreignProgram = await detectForeignProgram({
+        callbackUrl: settings.callbackUrl,
+        autoConfigure: settings.autoConfigure,
+        token,
+      });
       return await buildHookConfigResponse({
         ...settings,
         token,
-        foreignProgram: false,
+        foreignProgram,
       });
     } catch (error) {
       console.error("Error fetching download-client hook config:", error);

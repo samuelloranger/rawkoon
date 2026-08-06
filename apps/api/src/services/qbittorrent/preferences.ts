@@ -45,6 +45,29 @@ export async function getQbittorrentPreferences(
 }
 
 /**
+ * Read-only: does qBittorrent's autorun program belong to the user?
+ *
+ * Needed because a GET of the hook config must be able to report
+ * `foreign-program` too. Without this the warning would surface only in the
+ * response to a PUT and vanish on the next page load, while qBittorrent still
+ * held the user's own command — the settings page would read as healthy.
+ */
+export async function isAutorunProgramForeign(
+  config: QbittorrentIntegrationConfig,
+  desiredCommand: string,
+  hookPath: string,
+): Promise<boolean> {
+  const prefs = await getQbittorrentPreferences(config);
+  return (
+    decideAutorunUpdate({
+      current: toStringOrNull(prefs[AUTORUN_PROGRAM_KEY]),
+      desired: desiredCommand,
+      hookPath,
+    }).action === "skip-foreign"
+  );
+}
+
+/**
  * Reconcile qBittorrent's autorun command with ours.
  *
  * The payload goes in the request body, never the query string: request bodies
