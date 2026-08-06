@@ -23,6 +23,7 @@ import { mediasRoutes } from "./routes/medias";
 import { requestRoutes } from "./routes/requests";
 import { notificationsRoutes } from "./routes/notifications";
 import { integrationsRoutes } from "./routes/integrations";
+import { downloadClientHookRoutes } from "./routes/integrations/downloadClient/hookRoutes";
 import { labbyRoutes } from "./routes/labby";
 import { releasesRoutes } from "./routes/releases";
 import { searchRoutes } from "./routes/search";
@@ -114,6 +115,7 @@ export const app = new Elysia()
   .use(protectedAuthRoutes)
   .get("/api/auth/*", ({ request }) => betterAuthInstance.handler(request))
   .all("/api/auth/*", ({ request }) => betterAuthInstance.handler(request))
+  .use(downloadClientHookRoutes)
   .use(globalRateLimit) // Global rate limiting for unauthenticated requests
   .use(dashboardRoutes)
   .use(usersRoutes)
