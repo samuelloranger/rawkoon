@@ -27,6 +27,8 @@ let lastMaindataSnapshot: {
   serverState: Record<string, unknown>;
   torrents: Map<string, Record<string, unknown>>;
 } | null = null;
+/** Which client the cached projection above describes. */
+let maindataConfigKey: string | null = null;
 
 export const MAINDATA_REUSE_WINDOW_MS = 750;
 
@@ -56,6 +58,27 @@ export const setLastMaindataSnapshot = (
   snapshot: typeof lastMaindataSnapshot,
 ) => {
   lastMaindataSnapshot = snapshot;
+};
+
+/**
+ * Drop the cached projection when the client it describes is no longer the
+ * configured one.
+ *
+ * `resetSessionIfConfigChanged` only runs inside `qbRequest`, but
+ * `fetchMaindata` short-circuits on the reuse-window snapshot *before* any
+ * request happens — so for up to MAINDATA_REUSE_WINDOW_MS after the URL or
+ * credentials change, callers would be served the previous client's torrents,
+ * and a connection test against a new endpoint could pass without ever
+ * contacting it. Call this first, so the cache is keyed to a client rather than
+ * merely to a moment in time.
+ */
+export const resetMaindataStateIfConfigChanged = (
+  config: QbittorrentIntegrationConfig,
+) => {
+  const key = buildConfigKey(config);
+  if (maindataConfigKey === key) return;
+  maindataConfigKey = key;
+  resetMaindataState();
 };
 
 const textEncoder = new TextEncoder();

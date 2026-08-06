@@ -141,3 +141,42 @@ describe("qbittorrent adapter reuses the cursor", () => {
     expect(found?.hash.toLowerCase()).toBe("aaa");
   });
 });
+
+// Regression: the reuse-window snapshot is keyed by time, so without a config
+// guard a client swap serves the previous client's torrents — and a connection
+// test against a new endpoint can pass without ever contacting it.
+describe("maindata cache is keyed to a client, not just a moment", () => {
+  beforeEach(() => {
+    resetMaindataState();
+    setLastMaindataSnapshot(null);
+  });
+
+  it("does not serve one client's torrents to another inside the reuse window", async () => {
+    const a = recordingFetcher([
+      { rid: 4, full_update: true, torrents: { aaaa: { name: "from-A" } } },
+    ]);
+    const b = recordingFetcher([
+      { rid: 9, full_update: true, torrents: { bbbb: { name: "from-B" } } },
+    ]);
+
+    const first = await fetchMaindata(config, { fetchJson: a.fetchJson });
+    expect([...first.torrents.keys()]).toEqual(["aaaa"]);
+
+    // No setLastMaindataSnapshot(null): stay inside the 750ms reuse window on
+    // purpose, which is exactly when the stale read used to happen.
+    const other = { ...config, website_url: "http://localhost:9090" };
+    const second = await fetchMaindata(other, { fetchJson: b.fetchJson });
+
+    expect([...second.torrents.keys()]).toEqual(["bbbb"]);
+    expect(b.paths).toEqual(["/api/v2/sync/maindata?rid=0"]);
+  });
+
+  it("keeps reusing the snapshot while the client is unchanged", async () => {
+    const f = recordingFetcher([
+      { rid: 1, full_update: true, torrents: { cccc: {} } },
+    ]);
+    await fetchMaindata(config, { fetchJson: f.fetchJson });
+    await fetchMaindata(config, { fetchJson: f.fetchJson });
+    expect(f.paths).toHaveLength(1);
+  });
+});

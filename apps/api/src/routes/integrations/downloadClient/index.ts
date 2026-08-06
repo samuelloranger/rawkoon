@@ -301,6 +301,22 @@ export const downloadClientIntegrationRoutes = new Elysia()
           },
         });
         await invalidateDownloadClientIntegrationConfigCache();
+
+        // Re-push the autorun command to whatever client is now configured.
+        // Auto-configuration otherwise only ran from the hook-settings PUT, so
+        // swapping the client — or changing its credentials — left the new one
+        // with no hook, and the hook form is not dirty any more, so the user has
+        // no way to trigger it from the UI. Best-effort by construction: this
+        // must never fail saving the integration.
+        const hookSettings = await readHookSettings();
+        if (hookSettings.callbackUrl && hookSettings.autoConfigure) {
+          await tryApplyQbittorrentAutorun({
+            callbackUrl: hookSettings.callbackUrl,
+            autoConfigure: hookSettings.autoConfigure,
+            token: await getOrCreateHookToken(),
+          });
+        }
+
         await logActivity({
           type: "integration_updated",
           userId: user!.id,

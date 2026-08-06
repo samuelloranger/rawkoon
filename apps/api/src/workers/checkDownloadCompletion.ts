@@ -359,7 +359,45 @@ export async function reconcilePendingDownloads(
 /**
  * Poll the active client for pending downloads.
  */
+/**
+ * In-flight reconcile, so overlapping triggers coalesce instead of racing.
+ *
+ * The scheduled-tasks worker runs at concurrency 3 and there are now three ways
+ * to trigger a pass: the 20s cron tick, a hook wake, and a second hook wake from
+ * a torrent that finished moments later. Without this guard two passes can read
+ * the same pending snapshot; the first completes a row, and the second then hits
+ * `completeDownloadByHash`'s already-complete recovery branch, which enqueues
+ * post-processing with `force` — a deliberately unique job id that bypasses
+ * BullMQ's dedupe. The same download would be imported twice, which is exactly
+ * the duplicate-hook idempotency the hook design claims to have.
+ */
+let reconcileInFlight: Promise<void> | null = null;
+
+/**
+ * Run `pass`, or join the one already running.
+ *
+ * Awaiting the shared promise (rather than returning immediately) keeps each
+ * BullMQ job's lifetime honest: it stays "active" until the work it asked for
+ * has actually finished.
+ *
+ * Exported so the coalescing itself is testable — `checkDownloadCompletion`
+ * reaches Prisma, which the test preload stubs out.
+ */
+export async function runCoalescedPass(
+  pass: () => Promise<void>,
+): Promise<void> {
+  if (reconcileInFlight) return await reconcileInFlight;
+  reconcileInFlight = pass().finally(() => {
+    reconcileInFlight = null;
+  });
+  return await reconcileInFlight;
+}
+
 export async function checkDownloadCompletion(): Promise<void> {
+  return await runCoalescedPass(runDownloadCompletionPass);
+}
+
+async function runDownloadCompletionPass(): Promise<void> {
   const pending = await prisma.downloadHistory.findMany({
     where: { completedAt: null, failed: false },
     select: {

@@ -8,6 +8,7 @@ import {
   getMaindataState,
   MAINDATA_REUSE_WINDOW_MS,
   qbRequest,
+  resetMaindataStateIfConfigChanged,
   setLastMaindataSnapshot,
   setMaindataFetchPromise,
   setMaindataState,
@@ -177,6 +178,10 @@ export const fetchMaindata = async (
   serverState: Record<string, unknown>;
   torrents: Map<string, Record<string, unknown>>;
 }> => {
+  // Before the reuse-window check, not after: the snapshot below is keyed by
+  // time alone, so a client swap would otherwise be served stale torrents.
+  resetMaindataStateIfConfigChanged(config);
+
   const now = Date.now();
   const lastMaindataSnapshot = getLastMaindataSnapshot();
   if (
