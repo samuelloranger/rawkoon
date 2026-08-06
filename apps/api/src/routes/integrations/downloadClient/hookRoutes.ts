@@ -74,10 +74,23 @@ const liveDeps: HookDeps = {
     // Order is load-bearing: checkDownloadCompletion() returns early while the
     // poll gate is closed, so clearing it must happen before the job is queued.
     requestImmediatePoll();
-    await scheduledTasksQueue.add(
-      SCHEDULED_JOB_NAMES.CHECK_LIBRARY_DOWNLOAD_COMPLETION,
-      {},
-    );
+    try {
+      await scheduledTasksQueue.add(
+        SCHEDULED_JOB_NAMES.CHECK_LIBRARY_DOWNLOAD_COMPLETION,
+        {},
+      );
+    } catch (error) {
+      // A queue outage must not fail the hook. The gate is already open, so the
+      // next scheduled tick reconciles this within one cadence interval anyway —
+      // the hook only ever buys latency. Letting this throw would instead drop
+      // the client's connection, which reads as "the hook is broken" and, with
+      // curl -fsS, logs an error in the download client on every completion.
+      console.warn(
+        `[download-hook] wake enqueue failed, falling back to the timer: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   },
 };
 
