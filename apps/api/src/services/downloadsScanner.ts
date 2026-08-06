@@ -4,6 +4,12 @@ import { basename, dirname, resolve } from "node:path";
 import { prisma } from "@rawkoon/api/db";
 import { listVideoFilesUnder } from "@rawkoon/api/utils/medias/fileIdentifier";
 import {
+  fingerprintDbFields,
+  fingerprintFromStats,
+  inodeKeyFromParts,
+  mapPool,
+} from "@rawkoon/api/utils/medias/fileFingerprint";
+import {
   parseReleaseSeasonEpisode,
   parseReleaseTitle,
 } from "@rawkoon/api/utils/medias/filenameParser";
@@ -12,13 +18,20 @@ import { remapPath } from "@rawkoon/api/utils/medias/mediainfoScanner";
 export const DOWNLOADS_MIN_BYTES = 100 * 1024 * 1024;
 const MIN_BYTES = DOWNLOADS_MIN_BYTES;
 const CACHE_MS = 30_000;
+/** Bound concurrent stat() calls when building the library inode index / downloads walk. */
+const FS_STAT_CONCURRENCY = 16;
+const DB_WRITE_CONCURRENCY = 8;
 
 const RES_HINT = /\b(?:2160p|1080[pi]?|720p|480p|576p|4K|UHD)\b/i;
 
 let cachedInodeKeySet: Set<string> | null = null;
 let cachedInodeExpiresAt = 0;
 
-/** Library inode index for hardlink detection. Cached for 30s. */
+/**
+ * Library inode index for hardlink detection. Cached for 30s.
+ * Prefers persisted MediaFile.fileDev/fileIno; only stats rows missing them
+ * (and backfills the fingerprint columns).
+ */
 export async function buildLibraryInodeKeySet(
   refresh = false,
 ): Promise<Set<string>> {
@@ -27,16 +40,45 @@ export async function buildLibraryInodeKeySet(
     return cachedInodeKeySet;
   }
 
-  const rows = await prisma.mediaFile.findMany({ select: { filePath: true } });
+  const rows = await prisma.mediaFile.findMany({
+    select: {
+      id: true,
+      filePath: true,
+      fileDev: true,
+      fileIno: true,
+    },
+  });
   const keys = new Set<string>();
+  const needStat: Array<{ id: number; filePath: string }> = [];
+
   for (const row of rows) {
-    try {
-      const st = await stat(remapPath(row.filePath));
-      if (st.isFile()) keys.add(inodeKey(st.dev, st.ino));
-    } catch {
-      continue;
+    if (row.fileDev != null && row.fileIno != null) {
+      keys.add(inodeKeyFromParts(row.fileDev, row.fileIno));
+    } else {
+      needStat.push({ id: row.id, filePath: row.filePath });
     }
   }
+
+  const backfills = (
+    await mapPool(needStat, FS_STAT_CONCURRENCY, async (row) => {
+      try {
+        const st = await stat(remapPath(row.filePath));
+        if (!st.isFile()) return null;
+        const fp = fingerprintFromStats(st);
+        keys.add(inodeKeyFromParts(fp.dev, fp.ino));
+        return { id: row.id, data: fingerprintDbFields(fp) };
+      } catch {
+        return null;
+      }
+    })
+  ).filter((b): b is NonNullable<typeof b> => b != null);
+
+  if (backfills.length > 0) {
+    await mapPool(backfills, DB_WRITE_CONCURRENCY, (b) =>
+      prisma.mediaFile.update({ where: { id: b.id }, data: b.data }),
+    );
+  }
+
   cachedInodeKeySet = keys;
   cachedInodeExpiresAt = now + CACHE_MS;
   return keys;
@@ -47,7 +89,7 @@ function inodeKey(
   ino: number | bigint | undefined,
 ): string {
   if (dev === undefined || ino === undefined) return "?";
-  return `${dev}:${ino}`;
+  return inodeKeyFromParts(dev, ino);
 }
 
 export function deriveDownloadsScanRoots(media: {
@@ -253,7 +295,7 @@ async function walkDownloadsOnce(
   inodeKeySet: Set<string>,
 ): Promise<RawDownloadRow[]> {
   const seenPaths = new Set<string>();
-  const out: RawDownloadRow[] = [];
+  const candidatePaths: string[] = [];
 
   for (const rootRaw of roots) {
     let videos: string[];
@@ -271,25 +313,26 @@ async function walkDownloadsOnce(
       // Skip anything inside a configured library subtree — those are not
       // Downloads files, they're the library itself.
       if (excludeRoots.some((ex) => pathIsInsideRoot(filePath, ex))) continue;
+      candidatePaths.push(filePath);
+    }
+  }
 
+  const out = (
+    await mapPool(candidatePaths, FS_STAT_CONCURRENCY, async (filePath) => {
       let st;
       try {
         st = await stat(remapPath(filePath));
       } catch {
-        continue;
+        return null;
       }
 
-      if (!st.isFile() || BigInt(st.size) < BigInt(MIN_BYTES)) continue;
-      if (st.dev === undefined || st.ino === undefined) continue;
+      if (!st.isFile() || BigInt(st.size) < BigInt(MIN_BYTES)) return null;
+      if (st.dev === undefined || st.ino === undefined) return null;
 
       const fileName = basename(filePath);
-      const devNum = Number(st.dev);
-      const inoNum = Number(st.ino);
       const keyStr = inodeKey(st.dev, st.ino);
 
-      const parsed = buildParsed(fileName);
-
-      out.push({
+      return {
         file_path: filePath,
         file_name: fileName,
         size_bytes:
@@ -297,13 +340,13 @@ async function walkDownloadsOnce(
             ? Number(st.size)
             : Math.trunc(Number(st.size)),
         modified_at: st.mtime.toISOString(),
-        dev: devNum,
-        ino: inoNum,
+        dev: Number(st.dev),
+        ino: Number(st.ino),
         is_imported: inodeKeySet.has(keyStr),
-        parsed,
-      });
-    }
-  }
+        parsed: buildParsed(fileName),
+      } satisfies RawDownloadRow;
+    })
+  ).filter((row): row is RawDownloadRow => row != null);
 
   out.sort((a, b) => b.size_bytes - a.size_bytes);
   return out;

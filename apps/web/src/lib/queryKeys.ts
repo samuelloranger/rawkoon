@@ -250,12 +250,6 @@ export const queryKeys = {
 
   library: {
     all: ["library"] as const,
-    list: (filters?: {
-      type?: string;
-      status?: string;
-      q?: string;
-      language?: string;
-    }) => [...queryKeys.library.all, "list", filters] as const,
     infinite: (filters?: {
       type?: string;
       status?: string;

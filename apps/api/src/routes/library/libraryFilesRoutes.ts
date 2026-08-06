@@ -446,6 +446,7 @@ export const libraryFilesRoutes = new Elysia()
       if (!result) return notFound(set, "Library item not found");
       return {
         rescanned: result.rescanned,
+        skipped: result.skipped,
         failed: result.failed,
         deleted: result.deleted,
         imported: result.imported,

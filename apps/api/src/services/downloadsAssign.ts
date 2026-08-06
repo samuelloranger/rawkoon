@@ -28,6 +28,10 @@ import {
 import { resolveDownloadedStatus } from "@rawkoon/api/utils/medias/libraryHelpers";
 import { withKeyedLock } from "@rawkoon/api/utils/keyedLock";
 import {
+  fingerprintDbFields,
+  fingerprintFromStats,
+} from "@rawkoon/api/utils/medias/fileFingerprint";
+import {
   remapPath,
   scanMediaInfo,
 } from "@rawkoon/api/utils/medias/mediainfoScanner";
@@ -155,6 +159,8 @@ async function persistMediaAndStatuses(opts: {
   const destMapped = remapPath(opts.destinationPathHost);
   const destBase = basename(opts.destinationPathHost);
   const fnData = parseFilenameMetadata(destBase);
+  const destStat = await stat(destMapped);
+  const fp = fingerprintFromStats(destStat);
   const mi = await scanMediaInfo(destMapped).catch(() => null);
 
   const fileDataMi = mi
@@ -163,7 +169,7 @@ async function persistMediaAndStatuses(opts: {
         episodeId: opts.episodeId,
         filePath: opts.destinationPathHost,
         fileName: destBase,
-        sizeBytes: mi.sizeBytes,
+        ...fingerprintDbFields(fp),
         durationSecs: mi.durationSecs,
         releaseGroup: mi.releaseGroup,
         videoCodec: mi.videoCodec,
@@ -182,13 +188,14 @@ async function persistMediaAndStatuses(opts: {
           mi.audioTracks as LibraryAudioTrack[],
           opts.releaseStemForLanguages,
         ),
+        scannedAt: new Date(),
       }
     : {
         mediaId: opts.mediaId,
         episodeId: opts.episodeId,
         filePath: opts.destinationPathHost,
         fileName: destBase,
-        sizeBytes: BigInt((await stat(destMapped)).size),
+        ...fingerprintDbFields(fp),
         durationSecs: null as number | null,
         releaseGroup: null as string | null,
         resolution: fnData.resolution,

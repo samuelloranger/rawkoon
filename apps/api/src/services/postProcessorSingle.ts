@@ -12,6 +12,10 @@ import {
   scanMediaInfo,
   remapPath,
 } from "@rawkoon/api/utils/medias/mediainfoScanner";
+import {
+  fingerprintDbFields,
+  fingerprintFromStats,
+} from "@rawkoon/api/utils/medias/fileFingerprint";
 import { findVideoFile } from "@rawkoon/api/utils/medias/fileIdentifier";
 import {
   renderEpisodeTemplate,
@@ -204,6 +208,9 @@ export async function postProcess(
   try {
     const destFileName = basename(destinationPath);
     const fnData = parseFilenameMetadata(destFileName);
+    const destMapped = remapPath(destinationPath);
+    const destStat = await stat(destMapped);
+    const fp = fingerprintFromStats(destStat);
     const mi = await scanMediaInfo(destinationPath);
 
     const existingFile = await prisma.mediaFile.findFirst({
@@ -218,7 +225,7 @@ export async function postProcess(
           episodeId: dh.episode?.id ?? null,
           filePath: destinationPath,
           fileName: destFileName,
-          sizeBytes: mi.sizeBytes,
+          ...fingerprintDbFields(fp),
           durationSecs: mi.durationSecs,
           releaseGroup:
             mi.releaseGroup ?? parseReleaseGroupFromTitle(dh.releaseTitle),
@@ -240,13 +247,14 @@ export async function postProcess(
             mi.audioTracks as LibraryAudioTrack[],
             dh.releaseTitle,
           ),
+          scannedAt: new Date(),
         }
       : {
           mediaId: dh.media!.id,
           episodeId: dh.episode?.id ?? null,
           filePath: destinationPath,
           fileName: destFileName,
-          sizeBytes: BigInt(0),
+          ...fingerprintDbFields(fp),
           releaseGroup: parseReleaseGroupFromTitle(dh.releaseTitle),
           resolution: fnData.resolution,
           source: fnData.source ?? q.source,

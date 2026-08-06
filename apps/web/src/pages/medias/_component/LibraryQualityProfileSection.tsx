@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Search, SlidersHorizontal } from "lucide-react";
-import { useLibrary } from "@/features/medias/hooks/useLibrary";
+import type { LibraryMedia } from "@rawkoon/shared/types";
 import { useUpdateLibraryQualityProfile } from "@/features/medias/hooks/useUpdateLibraryQualityProfile";
 import { useSearchLibraryMovie } from "@/features/medias/hooks/useSearchLibraryMovie";
 import { useUpgradeLibraryMedia } from "@/features/medias/hooks/useUpgradeLibraryMedia";
@@ -13,15 +13,16 @@ import { LibraryUpgradeModal } from "./LibraryUpgradeModal";
 
 interface LibraryQualityProfileSectionProps {
   libraryId: number;
+  item: LibraryMedia;
   onUpgradeManualSearch?: () => void;
 }
 
 export function LibraryQualityProfileSection({
   libraryId,
+  item,
   onUpgradeManualSearch,
 }: LibraryQualityProfileSectionProps) {
   const { t } = useTranslation("common");
-  const { data: libList } = useLibrary(undefined, { staleTime: 0, gcTime: 0 });
   const { data: profilesData } = useQualityProfilesList({
     staleTime: 0,
     gcTime: 0,
@@ -32,11 +33,6 @@ export function LibraryQualityProfileSection({
 
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [upgradeEpisodes, setUpgradeEpisodes] = useState<number | undefined>();
-
-  const mediaRow = useMemo(
-    () => libList?.items.find((i) => i.id === libraryId),
-    [libList?.items, libraryId],
-  );
 
   const profiles = profilesData?.profiles ?? [];
 
@@ -57,7 +53,7 @@ export function LibraryQualityProfileSection({
   };
 
   const searchNowButton =
-    mediaRow?.type === "movie" && mediaRow.status === "wanted" ? (
+    item.type === "movie" && item.status === "wanted" ? (
       <Button
         type="button"
         size="sm"
@@ -87,7 +83,7 @@ export function LibraryQualityProfileSection({
       >
         <select
           aria-label={t("library.management.qualityProfile")}
-          value={mediaRow?.quality_profile_id ?? ""}
+          value={item.quality_profile_id ?? ""}
           onChange={(e) => {
             const v = e.target.value;
             const qid = v === "" ? null : parseInt(v, 10);
@@ -108,7 +104,7 @@ export function LibraryQualityProfileSection({
                 toast.error(t("library.management.qualityProfileUpdateFailed"));
               });
           }}
-          disabled={updateProfile.isPending || !mediaRow}
+          disabled={updateProfile.isPending}
           className="focus-ring w-full rounded-lg border border-border bg-neutral-800/80 px-2.5 py-1.5 text-xs text-neutral-100 disabled:opacity-60"
         >
           <option value="">{t("library.management.qualityProfileNone")}</option>
@@ -122,7 +118,7 @@ export function LibraryQualityProfileSection({
 
       <LibraryUpgradeModal
         open={upgradeModalOpen}
-        mediaType={mediaRow?.type ?? "movie"}
+        mediaType={item.type}
         affectedEpisodes={upgradeEpisodes}
         onAutoSearch={() => void handleAutoSearch()}
         onManualSearch={handleManualSearch}

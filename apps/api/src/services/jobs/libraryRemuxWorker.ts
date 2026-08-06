@@ -1,5 +1,10 @@
 import type { Job } from "bullmq";
+import { stat } from "node:fs/promises";
 import { prisma } from "@rawkoon/api/db";
+import {
+  fingerprintDbFields,
+  fingerprintFromStats,
+} from "@rawkoon/api/utils/medias/fileFingerprint";
 import {
   scanMediaInfo,
   remapPath,
@@ -144,9 +149,17 @@ export async function processLibraryRemuxFileJob(
       mi.audioTracks as LibraryAudioTrack[],
       null,
     );
+    let fpFields = {};
+    try {
+      const st = await stat(remapPath(file.filePath));
+      if (st.isFile()) fpFields = fingerprintDbFields(fingerprintFromStats(st));
+    } catch {
+      /* keep prior fingerprint */
+    }
     await prisma.mediaFile.update({
       where: { id: file.id },
       data: {
+        ...fpFields,
         audioTracks: mi.audioTracks as object[],
         subtitleTracks: mi.subtitleTracks as object[],
         languageTags: tags,

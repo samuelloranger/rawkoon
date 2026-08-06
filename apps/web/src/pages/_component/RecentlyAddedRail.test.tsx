@@ -7,27 +7,32 @@ vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => vi.fn(),
 }));
 
+const RECENTLY_ADDED_QS = "page=1&limit=24&sort_by=added_at&sort_dir=desc";
+
 describe("RecentlyAddedRail", () => {
-  it("renders library items newest-first", async () => {
+  it("requests a paged added_at desc slice and renders items in API order", async () => {
     const fetcher = vi.fn().mockResolvedValue({
       items: [
-        {
-          id: 1,
-          title: "Old",
-          poster_url: "/o.jpg",
-          added_at: "2026-01-01T00:00:00Z",
-        },
         {
           id: 2,
           title: "New",
           poster_url: "/n.jpg",
           added_at: "2026-06-01T00:00:00Z",
         },
+        {
+          id: 1,
+          title: "Old",
+          poster_url: "/o.jpg",
+          added_at: "2026-01-01T00:00:00Z",
+        },
       ],
     });
     renderWithProviders(<RecentlyAddedRail />, { fetcher });
     await waitFor(() => expect(screen.getByText("New")).toBeInTheDocument());
     expect(screen.getByText("Old")).toBeInTheDocument();
+    expect(fetcher).toHaveBeenCalledWith(
+      expect.stringContaining(`/api/library?${RECENTLY_ADDED_QS}`),
+    );
   });
 
   it("renders library items as client-side navigations, not new-tab links", async () => {
