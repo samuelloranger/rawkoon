@@ -2,9 +2,12 @@ import { qbFetchJson, qbFetchText } from "./clientFetch";
 import type { QbittorrentIntegrationConfig } from "./clientTypes";
 import { toStringOrNull } from "./clientNormalizers";
 
-// Preference key names are UNVERIFIED against a live qBittorrent instance —
-// expected to be autorun_enabled / autorun_program across 4.x/5.x, but naming
-// has shifted. Confirm with GET /api/v2/app/preferences before shipping.
+// Verified against live GET /api/v2/app/preferences on qBittorrent v4.6.7 and
+// v5.0.4: both expose exactly these two keys for the on-finished hook.
+//
+// Both versions also expose autorun_on_torrent_added_enabled /
+// autorun_on_torrent_added_program — a separate on-*added* hook. Do not touch
+// those: firing on add would call Rawkoon before a single byte has landed.
 const AUTORUN_ENABLED_KEY = "autorun_enabled";
 const AUTORUN_PROGRAM_KEY = "autorun_program";
 
