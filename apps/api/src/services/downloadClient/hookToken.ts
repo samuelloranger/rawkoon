@@ -43,9 +43,14 @@ const readStoredToken = async (): Promise<string | null> => {
 };
 
 const persistToken = async (plaintext: string): Promise<void> => {
-  await prisma.mediaSettings.update({
+  // upsert, not update: nothing seeds media_settings row 1 — no migration
+  // inserts it — so on a fresh install an `update` throws P2025 before the user
+  // has ever saved settings. Matches indexerManager/factory.ts:18.
+  const downloadHookToken = encrypt(plaintext);
+  await prisma.mediaSettings.upsert({
     where: { id: 1 },
-    data: { downloadHookToken: encrypt(plaintext) },
+    update: { downloadHookToken },
+    create: { id: 1, downloadHookToken },
   });
 };
 

@@ -25,6 +25,7 @@
 - **Web query keys are centralized** in `apps/web/src/lib/queryKeys.ts`.
 - **Never run `db:migrate:dev` or `db:push` against production.**
 - **Do not add `Co-Authored-By` trailers to commits.**
+- **Writing to `MediaSettings` always uses `upsert`, never `update`.** Nothing seeds row 1 — no migration inserts it — so `update({where:{id:1}})` throws `P2025` on a fresh install. Follow `indexerManager/factory.ts:18`.
 - Route prefix for the hook: `/api/download-client`. Endpoint path: `/api/download-client/hook/complete`.
 - Auth header name: `X-Rawkoon-Token`.
 - Token format: 32 random bytes, `base64url`. Encrypted at rest via `apps/api/src/services/crypto.ts` (`encrypt`/`decrypt`).
@@ -919,9 +920,13 @@ const liveDeps: HookDeps = {
     return row !== null;
   },
   stampHookSeen: async () => {
-    await prisma.mediaSettings.update({
+    // upsert, not update: nothing seeds media_settings row 1, so `update`
+    // throws P2025 on a fresh install. See indexerManager/factory.ts:18.
+    const downloadHookLastSeenAt = new Date();
+    await prisma.mediaSettings.upsert({
       where: { id: 1 },
-      data: { downloadHookLastSeenAt: new Date() },
+      update: { downloadHookLastSeenAt },
+      create: { id: 1, downloadHookLastSeenAt },
     });
   },
   wake: async () => {
