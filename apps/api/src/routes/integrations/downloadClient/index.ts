@@ -1,5 +1,7 @@
 import { Prisma } from "@prisma/client";
 import type {
+  DownloadClientHookConfig,
+  DownloadClientHookStatus,
   DownloadClientIntegration,
   DownloadClientType,
 } from "@rawkoon/shared/types/integrations";
@@ -13,13 +15,25 @@ import {
   getDownloadClientIntegrationConfig,
   invalidateDownloadClientIntegrationConfigCache,
 } from "@rawkoon/api/services/downloadClient/config";
+import {
+  buildDelugeScript,
+  buildQbittorrentCommand,
+  buildTransmissionScript,
+  HOOK_PATH,
+} from "@rawkoon/api/services/downloadClient/hookCommands";
+import {
+  getOrCreateHookToken,
+  rotateHookToken,
+} from "@rawkoon/api/services/downloadClient/hookToken";
 import { buildAdapter } from "@rawkoon/api/services/downloadClient/registry";
+import { applyQbittorrentAutorun } from "@rawkoon/api/services/qbittorrent/preferences";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import {
   isValidHttpUrl,
   normalizeUrl,
 } from "@rawkoon/api/utils/integrations/utils";
 import { nowUtc } from "@rawkoon/api/utils";
+import { HOOK_RECENT_WINDOW_MS } from "@rawkoon/api/workers/checkDownloadCompletion";
 
 interface RawView {
   enabled: boolean;
@@ -48,12 +62,115 @@ export function buildDownloadClientIntegrationView(
   };
 }
 
+/**
+ * Foreign-program wins over every other state: the user has their own autorun
+ * command, so nothing else we report about the hook is actionable until that is
+ * resolved.
+ */
+export function computeHookStatus(input: {
+  callbackUrl: string | null;
+  lastSeenAt: Date | null;
+  foreignProgram: boolean;
+  nowMs: number;
+}): DownloadClientHookStatus {
+  if (input.foreignProgram) return "foreign-program";
+  if (!input.callbackUrl) return "not-configured";
+  if (!input.lastSeenAt) return "awaiting-first";
+  const age = input.nowMs - input.lastSeenAt.getTime();
+  return age >= 0 && age < HOOK_RECENT_WINDOW_MS ? "active" : "stale";
+}
+
 const rawConfig = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
 const stringValue = (value: unknown): string =>
   typeof value === "string" ? value : "";
+
+const buildHookConfigResponse = async (input: {
+  callbackUrl: string | null;
+  autoConfigure: boolean;
+  lastSeenAt: Date | null;
+  activeHookedSecs: number;
+  token: string;
+  foreignProgram: boolean;
+}): Promise<DownloadClientHookConfig> => {
+  const baseUrl = input.callbackUrl ?? "";
+  const generators = { baseUrl, token: input.token };
+  return {
+    status: computeHookStatus({
+      callbackUrl: input.callbackUrl,
+      lastSeenAt: input.lastSeenAt,
+      foreignProgram: input.foreignProgram,
+      nowMs: Date.now(),
+    }),
+    callbackUrl: input.callbackUrl,
+    autoConfigure: input.autoConfigure,
+    lastSeenAt: input.lastSeenAt?.toISOString() ?? null,
+    activeHookedSecs: input.activeHookedSecs,
+    token: input.token,
+    qbittorrentCommand: buildQbittorrentCommand(generators),
+    delugeScript: buildDelugeScript(generators),
+    transmissionScript: buildTransmissionScript(generators),
+  };
+};
+
+const readHookSettings = async () => {
+  const settings = await prisma.mediaSettings.findUnique({
+    where: { id: 1 },
+    select: {
+      downloadHookCallbackUrl: true,
+      downloadHookAutoConfigure: true,
+      downloadHookLastSeenAt: true,
+      downloadPollActiveHookedSecs: true,
+    },
+  });
+  return {
+    callbackUrl: settings?.downloadHookCallbackUrl ?? null,
+    autoConfigure: settings?.downloadHookAutoConfigure ?? true,
+    lastSeenAt: settings?.downloadHookLastSeenAt ?? null,
+    activeHookedSecs: settings?.downloadPollActiveHookedSecs ?? 120,
+  };
+};
+
+/**
+ * Best-effort qBittorrent autorun reconcile. Failures (client unreachable) must
+ * not fail the settings write — the user's intent is to persist settings.
+ * Returns whether the existing autorun program belongs to the user.
+ */
+const tryApplyQbittorrentAutorun = async (input: {
+  callbackUrl: string | null;
+  autoConfigure: boolean;
+  token: string;
+}): Promise<boolean> => {
+  if (!input.callbackUrl || !input.autoConfigure) return false;
+
+  const { clientType, config } = await getDownloadClientIntegrationConfig();
+  if (clientType !== "qbittorrent" || !config) return false;
+
+  try {
+    const result = await applyQbittorrentAutorun(
+      {
+        website_url: config.website_url,
+        username: config.username,
+        password: config.password,
+      },
+      buildQbittorrentCommand({
+        baseUrl: input.callbackUrl,
+        token: input.token,
+      }),
+      HOOK_PATH,
+    );
+    return result.action === "skip-foreign";
+  } catch (error) {
+    console.warn(
+      `[download-hook] failed to apply qBittorrent autorun (settings still saved): ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return false;
+  }
+};
 
 export const downloadClientIntegrationRoutes = new Elysia()
   .use(auth)
@@ -184,4 +301,119 @@ export const downloadClientIntegrationRoutes = new Elysia()
     const { clientType, config } = await getDownloadClientIntegrationConfig();
     if (!clientType || !config) return { ok: false, error: "not configured" };
     return buildAdapter(clientType, config).testConnection();
+  })
+  .get("/download-client/hook", async ({ set }) => {
+    try {
+      const settings = await readHookSettings();
+      const token = await getOrCreateHookToken();
+      return await buildHookConfigResponse({
+        ...settings,
+        token,
+        foreignProgram: false,
+      });
+    } catch (error) {
+      console.error("Error fetching download-client hook config:", error);
+      return serverError(set, "Failed to fetch download-client hook config");
+    }
+  })
+  .put(
+    "/download-client/hook",
+    async ({ body, set }) => {
+      try {
+        const existing = await readHookSettings();
+
+        let callbackUrl = existing.callbackUrl;
+        if (body.callbackUrl !== undefined) {
+          if (body.callbackUrl === null || body.callbackUrl.trim() === "") {
+            callbackUrl = null;
+          } else {
+            const normalized = normalizeUrl(body.callbackUrl);
+            if (!isValidHttpUrl(normalized)) {
+              return badRequest(
+                set,
+                "Invalid callbackUrl. Must be a valid http(s) URL.",
+              );
+            }
+            callbackUrl = normalized;
+          }
+        }
+
+        const autoConfigure =
+          body.autoConfigure !== undefined
+            ? body.autoConfigure
+            : existing.autoConfigure;
+
+        let activeHookedSecs = existing.activeHookedSecs;
+        if (body.activeHookedSecs !== undefined) {
+          if (
+            !Number.isFinite(body.activeHookedSecs) ||
+            body.activeHookedSecs < 1
+          ) {
+            return badRequest(
+              set,
+              "activeHookedSecs must be a positive number",
+            );
+          }
+          activeHookedSecs = Math.trunc(body.activeHookedSecs);
+        }
+
+        // upsert, not update: nothing seeds media_settings row 1.
+        await prisma.mediaSettings.upsert({
+          where: { id: 1 },
+          update: {
+            downloadHookCallbackUrl: callbackUrl,
+            downloadHookAutoConfigure: autoConfigure,
+            downloadPollActiveHookedSecs: activeHookedSecs,
+          },
+          create: {
+            id: 1,
+            downloadHookCallbackUrl: callbackUrl,
+            downloadHookAutoConfigure: autoConfigure,
+            downloadPollActiveHookedSecs: activeHookedSecs,
+          },
+        });
+
+        const token = await getOrCreateHookToken();
+        const foreignProgram = await tryApplyQbittorrentAutorun({
+          callbackUrl,
+          autoConfigure,
+          token,
+        });
+        const settings = await readHookSettings();
+        return await buildHookConfigResponse({
+          ...settings,
+          token,
+          foreignProgram,
+        });
+      } catch (error) {
+        console.error("Error saving download-client hook config:", error);
+        return serverError(set, "Failed to save download-client hook config");
+      }
+    },
+    {
+      body: t.Object({
+        callbackUrl: t.Optional(t.Union([t.String(), t.Null()])),
+        autoConfigure: t.Optional(t.Boolean()),
+        activeHookedSecs: t.Optional(t.Number()),
+      }),
+    },
+  )
+  .post("/download-client/hook/rotate", async ({ set }) => {
+    try {
+      const token = await rotateHookToken();
+      const settings = await readHookSettings();
+      const foreignProgram = await tryApplyQbittorrentAutorun({
+        callbackUrl: settings.callbackUrl,
+        autoConfigure: settings.autoConfigure,
+        token,
+      });
+      return await buildHookConfigResponse({
+        ...settings,
+        token,
+        foreignProgram,
+      });
+    } catch (error) {
+      console.error("Error rotating download-client hook token:", error);
+      return serverError(set, "Failed to rotate download-client hook token");
+    }
   });

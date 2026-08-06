@@ -68,6 +68,25 @@ export interface DownloadClientIntegrationUpdateResponse {
   integration: DownloadClientIntegration;
 }
 
+export type DownloadClientHookStatus =
+  | "not-configured" // no callback URL set
+  | "awaiting-first" // configured, nothing received yet
+  | "active" // hook seen within 24h
+  | "stale" // seen, but not for over 24h
+  | "foreign-program"; // qBittorrent autorun belongs to the user
+
+export type DownloadClientHookConfig = {
+  status: DownloadClientHookStatus;
+  callbackUrl: string | null;
+  autoConfigure: boolean;
+  lastSeenAt: string | null;
+  activeHookedSecs: number;
+  token: string;
+  qbittorrentCommand: string;
+  delugeScript: string;
+  transmissionScript: string;
+};
+
 export interface TmdbIntegrationUpdateResponse {
   success: boolean;
   integration: TmdbIntegration;
