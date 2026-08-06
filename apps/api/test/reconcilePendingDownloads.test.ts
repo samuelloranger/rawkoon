@@ -282,3 +282,41 @@ describe("reconcilePendingDownloads", () => {
     expect(state.completed).toEqual([1, 2]);
   });
 });
+
+import { selectActiveCadenceSecs } from "@rawkoon/api/workers/checkDownloadCompletion";
+
+describe("selectActiveCadenceSecs", () => {
+  const nowMs = 1_800_000_000_000;
+  const base = { nowMs, activeSecs: 20, hookedActiveSecs: 120 };
+
+  it("uses the fast cadence when no hook has ever been received", () => {
+    expect(selectActiveCadenceSecs({ ...base, hookLastSeenAt: null })).toBe(20);
+  });
+
+  it("uses the slow cadence when a hook arrived recently", () => {
+    expect(
+      selectActiveCadenceSecs({
+        ...base,
+        hookLastSeenAt: new Date(nowMs - 60_000),
+      }),
+    ).toBe(120);
+  });
+
+  it("falls back to the fast cadence once the hook goes quiet for a day", () => {
+    expect(
+      selectActiveCadenceSecs({
+        ...base,
+        hookLastSeenAt: new Date(nowMs - 25 * 60 * 60 * 1000),
+      }),
+    ).toBe(20);
+  });
+
+  it("treats a hook exactly at the window edge as stale", () => {
+    expect(
+      selectActiveCadenceSecs({
+        ...base,
+        hookLastSeenAt: new Date(nowMs - 24 * 60 * 60 * 1000),
+      }),
+    ).toBe(20);
+  });
+});
