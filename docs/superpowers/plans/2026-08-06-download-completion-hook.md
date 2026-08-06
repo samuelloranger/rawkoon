@@ -13,6 +13,10 @@
 ## Global Constraints
 
 - **Never module-mock in tests. Inject dependencies.** `mock.module` is process-global in Bun, so a mock registered in one file leaks into every other file and whichever runs last wins. `apps/api/test/reconcilePendingDownloads.test.ts:27-31` documents this the hard way. Every seam this plan adds is an optional `deps`/`opts` parameter with a real default.
+- **Two modules in this codebase are already poisoned by existing mocks. Do not import them in a new test.**
+  - `services/downloadClient/registry` — `libraryDownloadAction`, `grabViaAdapter`, `libraryDownloadsLive`, and `rescan` all stub it with `buildAdapter: (type) => ({ type })`, an object with **no methods**. Call the concrete factory (`createQbittorrentAdapter`, …) directly instead of going through `buildAdapter`.
+  - `services/qbittorrent/clientFetch` — `qbittorrentTorrentControl.test.ts` mocks it. As of Task 1 that mock spreads the real module, so it is now non-destructive; keep it that way. If you add a `mock.module` for a module anyone else imports, **spread the real module first** (`const real = await import(...)`) and override only what you need.
+  - A new test passing in isolation but failing in the full `bun test` run is almost always this. Verify with `bun test <file>` versus `bun test`.
 - **API code imports itself as `@rawkoon/api/<path>`**, never by relative path. (Files inside `services/qbittorrent/` use relative imports among themselves — follow the local file's existing style.)
 - **Errors are returned, not thrown.** Use the helpers in `apps/api/src/errors.ts` (`badRequest`, `unauthorized`, …); they set `set.status` and return `{ error }`. The global `onError` swallows unmapped errors into a generic 500, so no error message you throw will reach the client.
 - **TS is strict:** `noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`. Both `bun run typecheck` and `bun run typecheck:native` must pass — CI gates on both, and tsgo occasionally disagrees with tsc.
@@ -72,12 +76,14 @@ Independent of every other task. Ship it alone if you like.
 **Files:**
 - Modify: `apps/api/src/services/qbittorrent/clientFetch.ts:166-266`
 - Modify: `apps/api/src/services/downloadClient/qbittorrentAdapter.ts:100-113`
-- Modify: `apps/api/src/services/downloadClient/registry.ts`
 - Test: `apps/api/test/qbittorrentMaindataSync.test.ts` (create)
+- Modify: `apps/api/test/qbittorrentTorrentControl.test.ts` (make its `clientFetch` mock non-destructive)
+
+**Status: DONE** — committed as `cf51899`. `registry.ts` was deliberately left untouched: threading `deps` through `buildAdapter` would have been dead surface, because four other test files stub the registry and no test can reach the real one.
 
 **Interfaces:**
 - Consumes: nothing from other tasks.
-- Produces: `fetchMaindata(config, deps?: MaindataDeps)` where `type MaindataDeps = { fetchJson?: <T>(config: QbittorrentIntegrationConfig, path: string) => Promise<T> }`; `buildAdapter(type, config, deps?: { maindata?: MaindataDeps })`. No later task depends on these.
+- Produces: `fetchMaindata(config, deps?: MaindataDeps)` where `type MaindataDeps = { fetchJson?: <T>(config: QbittorrentIntegrationConfig, path: string) => Promise<T> }`; `createQbittorrentAdapter(config, deps?: { maindata?: MaindataDeps })`. No later task depends on these.
 
 **Background the implementer needs:**
 
