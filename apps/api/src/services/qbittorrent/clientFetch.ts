@@ -163,8 +163,16 @@ export const qbFetchText = async (
   return result.bodyText;
 };
 
+export type MaindataDeps = {
+  fetchJson?: <T>(
+    config: QbittorrentIntegrationConfig,
+    path: string,
+  ) => Promise<T>;
+};
+
 export const fetchMaindata = async (
   config: QbittorrentIntegrationConfig,
+  deps?: MaindataDeps,
 ): Promise<{
   serverState: Record<string, unknown>;
   torrents: Map<string, Record<string, unknown>>;
@@ -187,9 +195,10 @@ export const fetchMaindata = async (
   }
 
   const fetchPromise = (async () => {
+    const fetchJson = deps?.fetchJson ?? qbFetchJson;
     const maindataState = getMaindataState();
     const rid = maindataState?.rid ?? 0;
-    const raw = await qbFetchJson<MaindataRaw>(
+    const raw = await fetchJson<MaindataRaw>(
       config,
       `/api/v2/sync/maindata?rid=${rid}`,
     );
