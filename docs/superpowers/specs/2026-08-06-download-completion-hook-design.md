@@ -6,7 +6,10 @@
 
 **Goal:** Let the download client tell Rawkoon a torrent finished, so Rawkoon stops polling to find out.
 
-**Related:** [Torrent integration possibilities](../../reports/2026-08-06-torrent-integration-possibilities.md) — the research that preceded this. This design deliberately implements only the narrow completion-notification slice of that report and none of its larger phases.
+**Related:** the "Torrent integration possibilities" research that preceded this
+(never committed to this repo, so deliberately not linked — a dead link fails
+the docs build). This design implements only the narrow completion-notification
+slice of that research and none of its larger phases.
 
 ## Problem
 
