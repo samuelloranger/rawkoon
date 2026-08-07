@@ -133,6 +133,29 @@ export function MergedEpisodeRow({
     });
   };
 
+  const handleToggleExpanded = (e: React.MouseEvent) => {
+    // The row wrapper also toggles on click; without this the two would fight
+    // and the row would collapse again immediately.
+    e.stopPropagation();
+    setExpanded((p) => !p);
+  };
+
+  // Names the episode, because an explicit aria-label replaces the button's
+  // contents: every row would otherwise expose the same "Expand", leaving
+  // screen-reader users browsing by button unable to tell them apart.
+  const epLabel = `E${String(ep.episode).padStart(2, "0")}${
+    ep.title ? ` ${ep.title}` : ""
+  }`;
+  const expandLabel = expanded
+    ? t("library.media.collapseEpisode", {
+        defaultValue: "Collapse {{episode}}",
+        episode: epLabel,
+      })
+    : t("library.media.expandEpisode", {
+        defaultValue: "Expand {{episode}}",
+        episode: epLabel,
+      });
+
   const handleToggleMonitored = (e: React.MouseEvent) => {
     e.stopPropagation();
     void toggleMonitoredMut
@@ -152,8 +175,23 @@ export function MergedEpisodeRow({
         statusBorderColor[ep.status] ?? statusBorderColor.wanted,
       )}
     >
-      <button
-        type="button"
+      {/*
+        A plain div, carrying no interactive role of its own.
+
+        It cannot be a <button>: it contains the row's search / retry / monitor
+        / delete buttons, and a button inside a button is invalid HTML — the
+        browser closes the outer one early, so those controls end up as siblings
+        and React warns on hydration.
+
+        It must not carry role="button" either: ARIA treats a button's
+        descendants as presentational, so the real controls inside would risk
+        being announced as unnamed focus stops. The accessible expansion control
+        is the chevron button further down, a sibling of the action buttons.
+
+        The click handler stays for mouse convenience; every action button calls
+        stopPropagation, and keyboard users get the chevron.
+      */}
+      <div
         onClick={() => file && setExpanded((p) => !p)}
         className={cn(
           "w-full text-left transition-colors",
@@ -251,13 +289,20 @@ export function MergedEpisodeRow({
                 </button>
               )}
               {file && (
-                <span className="p-1.5 text-neutral-500">
+                <button
+                  type="button"
+                  onClick={handleToggleExpanded}
+                  aria-expanded={expanded}
+                  title={expandLabel}
+                  aria-label={expandLabel}
+                  className="rounded-md p-1.5 text-neutral-500 hover:text-neutral-300 transition-colors"
+                >
                   {expanded ? (
                     <ChevronDown size={12} />
                   ) : (
                     <ChevronRight size={12} />
                   )}
-                </span>
+                </button>
               )}
             </div>
           </div>
@@ -344,17 +389,24 @@ export function MergedEpisodeRow({
               </button>
             )}
             {file && (
-              <span className="rounded p-1 text-neutral-500">
+              <button
+                type="button"
+                onClick={handleToggleExpanded}
+                aria-expanded={expanded}
+                title={expandLabel}
+                aria-label={expandLabel}
+                className="inline-flex size-6 items-center justify-center rounded p-1 text-neutral-500 hover:text-neutral-300 transition-colors"
+              >
                 {expanded ? (
                   <ChevronDown size={10} />
                 ) : (
                   <ChevronRight size={10} />
                 )}
-              </span>
+              </button>
             )}
           </div>
         </div>
-      </button>
+      </div>
 
       {expanded && file && (
         <div className="px-3 pb-3 pt-2 mobile-max:px-4 border-t border-border bg-neutral-900/20">

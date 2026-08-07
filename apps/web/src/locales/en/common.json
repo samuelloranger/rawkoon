@@ -1606,7 +1606,9 @@
       "filesCount_other": "{{count}} files",
       "deleteFileOnDisk": "Delete file on disk too?",
       "yesDelete": "Yes, delete",
-      "keepFile": "No, keep file"
+      "keepFile": "No, keep file",
+      "expandEpisode": "Expand {{episode}}",
+      "collapseEpisode": "Collapse {{episode}}"
     },
     "management": {
       "qualityProfile": "Quality profile",
