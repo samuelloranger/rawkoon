@@ -103,6 +103,23 @@ describe("MergedEpisodeRow interactive structure", () => {
     expect(row.getAttribute("aria-expanded")).toBe("true");
   });
 
+  it("leaves keyboard activation of the nested action buttons alone", () => {
+    const { container } = renderRow(FILE);
+    const row = container.querySelector('[role="button"]');
+    if (!row) throw new Error("expandable row not found");
+    const action = container.querySelector("button");
+    if (!action) throw new Error("no action button rendered");
+
+    // Enter/Space on a focused action button bubbles to the row. If the row
+    // handles it, preventDefault swallows the button's own activation and the
+    // row expands instead — the action becomes unreachable by keyboard.
+    fireEvent.keyDown(action, { key: "Enter", bubbles: true });
+    expect(row.getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.keyDown(action, { key: " ", bubbles: true });
+    expect(row.getAttribute("aria-expanded")).toBe("false");
+  });
+
   it("is not a focus stop when there is nothing to expand", () => {
     const { container } = renderRow(null);
 

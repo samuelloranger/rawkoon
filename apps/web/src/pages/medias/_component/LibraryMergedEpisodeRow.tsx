@@ -170,6 +170,11 @@ export function MergedEpisodeRow({
               tabIndex: 0,
               "aria-expanded": expanded,
               onKeyDown: (e: React.KeyboardEvent) => {
+                // Only when the row itself is focused. Enter/Space on a nested
+                // action button bubbles up here, and preventDefault would
+                // swallow that button's own keyboard activation — expanding the
+                // row instead of running search / monitor / delete.
+                if (e.target !== e.currentTarget) return;
                 if (e.key !== "Enter" && e.key !== " ") return;
                 e.preventDefault();
                 setExpanded((p) => !p);
