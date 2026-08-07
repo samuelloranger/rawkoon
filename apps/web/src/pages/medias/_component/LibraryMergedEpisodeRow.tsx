@@ -152,9 +152,30 @@ export function MergedEpisodeRow({
         statusBorderColor[ep.status] ?? statusBorderColor.wanted,
       )}
     >
-      <button
-        type="button"
+      {/*
+        Deliberately a div, not a button: this wrapper contains the row's
+        search / retry / monitor / delete buttons, and a button inside a button
+        is invalid HTML — the browser closes the outer one early, so the nested
+        controls end up as siblings and React warns on hydration.
+
+        Expandability is opt-in via role/tabIndex/keyboard only when there is a
+        file to expand, so a row with nothing to show stays non-interactive
+        instead of being a focus stop that does nothing.
+      */}
+      <div
         onClick={() => file && setExpanded((p) => !p)}
+        {...(file
+          ? {
+              role: "button" as const,
+              tabIndex: 0,
+              "aria-expanded": expanded,
+              onKeyDown: (e: React.KeyboardEvent) => {
+                if (e.key !== "Enter" && e.key !== " ") return;
+                e.preventDefault();
+                setExpanded((p) => !p);
+              },
+            }
+          : {})}
         className={cn(
           "w-full text-left transition-colors",
           "px-3 pr-2 py-2.5 mobile-max:px-4 mobile-max:py-2",
@@ -354,7 +375,7 @@ export function MergedEpisodeRow({
             )}
           </div>
         </div>
-      </button>
+      </div>
 
       {expanded && file && (
         <div className="px-3 pb-3 pt-2 mobile-max:px-4 border-t border-border bg-neutral-900/20">
