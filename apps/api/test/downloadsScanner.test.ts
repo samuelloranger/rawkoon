@@ -4,7 +4,12 @@ import { join } from "node:path";
 
 // ── prisma mock ─────────────────────────────────────────────────────────────
 
-type MF = { filePath: string };
+type MF = {
+  id?: number;
+  filePath: string;
+  fileDev?: bigint | null;
+  fileIno?: bigint | null;
+};
 let settingsRow: {
   moviesLibraryPath: string | null;
   showsLibraryPath: string | null;
@@ -12,6 +17,7 @@ let settingsRow: {
   fileOperation?: string;
 } | null;
 let mediaPaths: MF[] = [];
+let mediaFileUpdates: Array<{ id: number; data: Record<string, unknown> }> = [];
 
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
@@ -19,7 +25,20 @@ mock.module("@rawkoon/api/db", () => ({
       findUnique: async () => settingsRow,
     },
     mediaFile: {
-      findMany: async () => mediaPaths,
+      findMany: async () =>
+        mediaPaths.map((m, i) => ({
+          id: m.id ?? i + 1,
+          filePath: m.filePath,
+          fileDev: m.fileDev ?? null,
+          fileIno: m.fileIno ?? null,
+        })),
+      update: async (args: {
+        where: { id: number };
+        data: Record<string, unknown>;
+      }) => {
+        mediaFileUpdates.push({ id: args.where.id, data: args.data });
+        return {};
+      },
     },
   },
 }));
@@ -32,9 +51,11 @@ mock.module("@rawkoon/api/utils/medias/mediainfoScanner", () => ({
 import {
   scanDownloads,
   invalidateDownloadsScannerCache,
+  invalidateLibraryInodeKeySetCache,
   deriveDownloadsScanRoots,
   pathIsInsideRoot,
 } from "../src/services/downloadsScanner";
+import { stat } from "node:fs/promises";
 
 async function truncateBigFile(path: string, bytes: number) {
   const fh = await open(path, "w");
@@ -80,14 +101,18 @@ describe.serial("scanDownloads integration (mocked prisma)", () => {
 
   beforeEach(async () => {
     invalidateDownloadsScannerCache();
+    invalidateLibraryInodeKeySetCache();
     mediaPaths = [];
+    mediaFileUpdates = [];
     tmp = await mkdtemp(join(process.env.TMPDIR ?? "/tmp", "dlscan-"));
   });
 
   afterEach(async () => {
     invalidateDownloadsScannerCache();
+    invalidateLibraryInodeKeySetCache();
     settingsRow = null;
     mediaPaths = [];
+    mediaFileUpdates = [];
     try {
       await rm(tmp, { recursive: true });
     } catch {
@@ -146,6 +171,33 @@ describe.serial("scanDownloads integration (mocked prisma)", () => {
     );
     expect(hit).toBeTruthy();
     expect(hit!.is_imported).toBe(true);
+    // Missing fingerprint columns are backfilled after the stat pass.
+    expect(mediaFileUpdates.length).toBeGreaterThan(0);
+    expect(mediaFileUpdates[0]!.data.fileIno).toBeDefined();
+  });
+
+  it("uses persisted fileDev/fileIno without requiring the library path on disk", async () => {
+    const vidPath = join(tmp, "download.mkv");
+    await truncateBigFile(vidPath, 105 * 1024 * 1024);
+    const st = await stat(vidPath);
+
+    settingsRow = {
+      moviesLibraryPath: join(tmp, "lib_marker"),
+      showsLibraryPath: null,
+    };
+    mediaPaths = [
+      {
+        filePath: join(tmp, "missing-library-copy.mkv"),
+        fileDev: BigInt(st.dev),
+        fileIno: BigInt(st.ino),
+      },
+    ];
+
+    const { entries: rows } = await scanDownloads({ refresh: true });
+    expect(rows.some((r) => r.file_path === vidPath && r.is_imported)).toBe(
+      true,
+    );
+    expect(mediaFileUpdates).toHaveLength(0);
   });
 
   it("excludes files inside the configured library subtree", async () => {

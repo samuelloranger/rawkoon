@@ -1,4 +1,5 @@
 import { basename, extname, join } from "node:path";
+import { stat } from "node:fs/promises";
 
 import { prisma } from "@rawkoon/api/db";
 import { classifyLanguageTags, type LibraryAudioTrack } from "@rawkoon/shared";
@@ -11,6 +12,10 @@ import {
   scanMediaInfo,
   remapPath,
 } from "@rawkoon/api/utils/medias/mediainfoScanner";
+import {
+  fingerprintDbFields,
+  fingerprintFromStats,
+} from "@rawkoon/api/utils/medias/fileFingerprint";
 import { listVideoFilesUnder } from "@rawkoon/api/utils/medias/fileIdentifier";
 import {
   renderEpisodeTemplate,
@@ -148,6 +153,9 @@ export async function postProcessSeasonPack(
         }
         try {
           const fnData = parseFilenameMetadata(fn);
+          const destMapped = remapPath(destinationPath);
+          const destStat = await stat(destMapped);
+          const fp = fingerprintFromStats(destStat);
           const mi = await scanMediaInfo(destinationPath);
           const existingFile = await prisma.mediaFile.findFirst({
             where: { filePath: destinationPath },
@@ -160,7 +168,7 @@ export async function postProcessSeasonPack(
                 episodeId: ep.id,
                 filePath: destinationPath,
                 fileName: basename(destinationPath),
-                sizeBytes: mi.sizeBytes,
+                ...fingerprintDbFields(fp),
                 durationSecs: mi.durationSecs,
                 releaseGroup:
                   mi.releaseGroup ??
@@ -183,13 +191,14 @@ export async function postProcessSeasonPack(
                   mi.audioTracks as LibraryAudioTrack[],
                   dh.releaseTitle,
                 ),
+                scannedAt: new Date(),
               }
             : {
                 mediaId: dh.media.id,
                 episodeId: ep.id,
                 filePath: destinationPath,
                 fileName: basename(destinationPath),
-                sizeBytes: BigInt(0),
+                ...fingerprintDbFields(fp),
                 releaseGroup: parseReleaseGroupFromTitle(dh.releaseTitle),
                 resolution: fnData.resolution,
                 source: fnData.source ?? q.source,

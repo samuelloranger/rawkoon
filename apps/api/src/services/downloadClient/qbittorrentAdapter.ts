@@ -1,5 +1,7 @@
-import { fetchMaindata } from "@rawkoon/api/services/qbittorrent/clientFetch";
-import { resetMaindataState } from "@rawkoon/api/services/qbittorrent/clientSession";
+import {
+  fetchMaindata,
+  type MaindataDeps,
+} from "@rawkoon/api/services/qbittorrent/clientFetch";
 import type { QbittorrentIntegrationConfig } from "@rawkoon/api/services/qbittorrent/clientTypes";
 import {
   addQbittorrentMagnet,
@@ -49,6 +51,7 @@ export function qbRawToNormalized(
 
 export function createQbittorrentAdapter(
   config: QbittorrentIntegrationConfig,
+  deps?: { maindata?: MaindataDeps },
 ): DownloadClientAdapter {
   const fail = (message: string): never => {
     throw new DownloadClientError(message, "qbittorrent");
@@ -59,7 +62,7 @@ export function createQbittorrentAdapter(
 
     async testConnection() {
       try {
-        await fetchMaindata(config);
+        await fetchMaindata(config, deps?.maindata);
         return { ok: true };
       } catch (error) {
         return {
@@ -98,18 +101,17 @@ export function createQbittorrentAdapter(
     },
 
     async listTorrents() {
-      resetMaindataState();
-      const { torrents } = await fetchMaindata(config);
+      const { torrents } = await fetchMaindata(config, deps?.maindata);
       return [...torrents].map(([hash, raw]) => qbRawToNormalized(hash, raw));
     },
 
     async getTorrent(hash: string) {
-      const torrents = await this.listTorrents();
-      return (
-        torrents.find(
-          (torrent) => torrent.hash.toLowerCase() === hash.toLowerCase(),
-        ) ?? null
-      );
+      const { torrents } = await fetchMaindata(config, deps?.maindata);
+      const wanted = hash.toLowerCase();
+      for (const [key, raw] of torrents) {
+        if (key.toLowerCase() === wanted) return qbRawToNormalized(key, raw);
+      }
+      return null;
     },
 
     async pause(hash: string) {

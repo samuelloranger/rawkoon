@@ -49,6 +49,8 @@ export function mapLibraryMedia(item: {
   qualityProfileId: number | null;
   searchAttempts: number;
   qualityProfile: { id: number; name: string } | null;
+  lastGrabbedAt?: Date | null;
+  totalSizeBytes?: bigint | null;
   downloadHistories?: { grabbedAt: Date }[];
   addedAt: Date;
   updatedAt: Date;
@@ -76,6 +78,15 @@ export function mapLibraryMedia(item: {
   const seasonCount =
     episodes.length > 0 ? new Set(episodes.map((e) => e.season)).size : null;
 
+  const lastGrabbed =
+    item.lastGrabbedAt ?? item.downloadHistories?.[0]?.grabbedAt ?? null;
+  const totalSize =
+    item.totalSizeBytes !== undefined
+      ? item.totalSizeBytes != null && item.totalSizeBytes !== 0n
+        ? item.totalSizeBytes.toString()
+        : null
+      : computeTotalSizeBytes(files, episodes);
+
   return {
     id: item.id,
     tmdb_id: item.tmdbId,
@@ -102,9 +113,8 @@ export function mapLibraryMedia(item: {
       : null,
     added_at: item.addedAt.toISOString(),
     updated_at: item.updatedAt.toISOString(),
-    last_grabbed_at:
-      item.downloadHistories?.[0]?.grabbedAt.toISOString() ?? null,
-    total_size_bytes: computeTotalSizeBytes(files, episodes),
+    last_grabbed_at: lastGrabbed?.toISOString() ?? null,
+    total_size_bytes: totalSize,
     resolution: bestFile?.resolution ?? null,
     video_codec: bestFile?.videoCodec ?? null,
     hdr_format: bestFile?.hdrFormat ?? null,
@@ -119,11 +129,6 @@ export function mapLibraryMedia(item: {
 
 export const libraryMediaInclude = {
   qualityProfile: { select: { id: true, name: true } },
-  downloadHistories: {
-    orderBy: { grabbedAt: "desc" as const },
-    take: 1,
-    select: { grabbedAt: true },
-  },
   files: {
     select: {
       sizeBytes: true,

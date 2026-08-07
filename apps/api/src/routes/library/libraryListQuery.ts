@@ -20,22 +20,6 @@ const VALID_SORT_BY = new Set<LibrarySortBy>([
   "file_size",
 ]);
 
-// Sorts that cannot be a plain column ORDER BY: file_size/last_grabbed_at are
-// aggregates over related rows, and title/year are display-derived
-// (mapLibraryMedia renders overrides.title / overrides.year over the raw
-// columns). All four are ordered in memory over lightweight rows so the order
-// matches what the user actually sees.
-const AGGREGATE_SORTS = new Set<LibrarySortBy>([
-  "file_size",
-  "last_grabbed_at",
-  "title",
-  "year",
-]);
-
-export function isAggregateSort(sortBy: LibrarySortBy): boolean {
-  return AGGREGATE_SORTS.has(sortBy);
-}
-
 export function parseLibrarySort(
   sortBy?: string,
   sortDir?: string,
@@ -47,31 +31,47 @@ export function parseLibrarySort(
   return { sortBy: by, sortDir: dir };
 }
 
-// Non-null simple columns. (title/year are intentionally absent — they are
-// display-derived and ordered in memory; see AGGREGATE_SORTS.)
-const PLAIN_COLUMN: Partial<Record<LibrarySortBy, string>> = {
-  added_at: "addedAt",
-  status: "status",
-};
-// Nullable simple columns → ordered nulls-last (matches the client's
-// null-last intent for these fields).
-const NULLABLE_COLUMN: Partial<Record<LibrarySortBy, string>> = {
-  digital_release_date: "digitalReleaseDate",
-};
-
-export function buildSimpleOrderBy(
+/**
+ * Prisma ORDER BY for GET /api/library. Aggregate/display sorts use persisted
+ * summary columns on library_media (maintained by DB triggers), so list
+ * pagination is plain findMany skip/take — no $queryRaw.
+ */
+export function buildLibraryOrderBy(
   sortBy: LibrarySortBy,
   sortDir: LibrarySortDir,
 ): Prisma.LibraryMediaOrderByWithRelationInput[] {
-  const plain = PLAIN_COLUMN[sortBy];
-  if (plain) {
-    return [{ [plain]: sortDir }, { id: sortDir }];
+  switch (sortBy) {
+    case "added_at":
+      return [{ addedAt: sortDir }, { id: sortDir }];
+    case "status":
+      return [{ status: sortDir }, { id: sortDir }];
+    case "digital_release_date":
+      return [
+        { digitalReleaseDate: { sort: sortDir, nulls: "last" } },
+        { id: sortDir },
+      ];
+    case "title":
+      return [{ listTitle: sortDir }, { id: sortDir }];
+    case "year":
+      return [{ listYear: { sort: sortDir, nulls: "last" } }, { id: sortDir }];
+    case "file_size":
+      // nulls always last (no files → null total), regardless of direction.
+      return [
+        { totalSizeBytes: { sort: sortDir, nulls: "last" } },
+        { id: sortDir },
+      ];
+    case "last_grabbed_at":
+      // null treated as oldest (epoch): asc → nulls first, desc → nulls last.
+      return [
+        {
+          lastGrabbedAt: {
+            sort: sortDir,
+            nulls: sortDir === "asc" ? "first" : "last",
+          },
+        },
+        { id: sortDir },
+      ];
   }
-  const nullable = NULLABLE_COLUMN[sortBy];
-  if (nullable) {
-    return [{ [nullable]: { sort: sortDir, nulls: "last" } }, { id: sortDir }];
-  }
-  throw new Error(`buildSimpleOrderBy called with aggregate sort: ${sortBy}`);
 }
 
 export function slicePage<T>(
@@ -80,68 +80,4 @@ export function slicePage<T>(
 ): { items: T[]; has_more: boolean } {
   const has_more = rows.length > limit;
   return { items: has_more ? rows.slice(0, limit) : rows, has_more };
-}
-
-export interface AggregateSortRow {
-  id: number;
-  fileSizeTotal: bigint | null;
-  lastGrabbedAt: number | null;
-  // Mapped (display) title — overrides.title when set, else the raw title.
-  titleMapped: string;
-  // Mapped (display) year — overrides.year when set, else the raw year.
-  yearMapped: number | null;
-}
-
-export function orderAggregateIds(
-  rows: AggregateSortRow[],
-  sortBy: LibrarySortBy,
-  sortDir: LibrarySortDir,
-): number[] {
-  const sign = sortDir === "asc" ? 1 : -1;
-  const sorted = [...rows].sort((a, b) => {
-    let cmp: number;
-    if (sortBy === "file_size") {
-      // nulls always last, regardless of direction (matches client sort).
-      const aNull = a.fileSizeTotal === null;
-      const bNull = b.fileSizeTotal === null;
-      if (aNull && bNull) cmp = 0;
-      else if (aNull) return 1;
-      else if (bNull) return -1;
-      else
-        cmp =
-          a.fileSizeTotal! < b.fileSizeTotal!
-            ? -1
-            : a.fileSizeTotal! > b.fileSizeTotal!
-              ? 1
-              : 0;
-    } else if (sortBy === "title") {
-      // Match the client's localeCompare over the mapped (display) title.
-      cmp = a.titleMapped.localeCompare(b.titleMapped);
-    } else if (sortBy === "year") {
-      // nulls always last, regardless of direction (matches the nulls-last
-      // convention used for other simple-column sorts in this route).
-      const aNull = a.yearMapped === null;
-      const bNull = b.yearMapped === null;
-      if (aNull && bNull) cmp = 0;
-      else if (aNull) return 1;
-      else if (bNull) return -1;
-      else cmp = a.yearMapped! - b.yearMapped!;
-    } else {
-      // last_grabbed_at: client treats null as epoch 0 (oldest).
-      const aTime = a.lastGrabbedAt ?? 0;
-      const bTime = b.lastGrabbedAt ?? 0;
-      cmp = aTime - bTime;
-    }
-    if (cmp !== 0) return sign * cmp;
-    return sign * (a.id - b.id);
-  });
-  return sorted.map((r) => r.id);
-}
-
-export function reorderByIds<T extends { id: number }>(
-  records: T[],
-  orderedIds: number[],
-): T[] {
-  const byId = new Map(records.map((r) => [r.id, r]));
-  return orderedIds.map((id) => byId.get(id)).filter((r): r is T => r != null);
 }

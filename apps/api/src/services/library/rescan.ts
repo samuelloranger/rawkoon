@@ -10,6 +10,12 @@ import {
   remapPath,
 } from "@rawkoon/api/utils/medias/mediainfoScanner";
 import {
+  fileUnchanged,
+  fingerprintDbFields,
+  fingerprintFromStats,
+  mapPool,
+} from "@rawkoon/api/utils/medias/fileFingerprint";
+import {
   parseFilenameMetadata,
   parseReleaseSeasonEpisode,
   parseReleaseTitle,
@@ -25,6 +31,7 @@ import { withKeyedLock } from "@rawkoon/api/utils/keyedLock";
 
 export type RescanResult = {
   rescanned: number; // files whose MediaInfo was updated
+  skipped: number; // unchanged files (fingerprint match) — MediaInfo not re-run
   failed: number; // files that exist on disk but MediaInfo failed to read
   deleted: number; // stale MediaFile records removed (file gone from disk)
   imported: number; // files discovered in library dir and newly tracked
@@ -40,6 +47,8 @@ export type RescanResult = {
 };
 
 const VIDEO_EXTENSIONS = new Set([".mkv", ".mp4", ".avi", ".m4v"]);
+const SCAN_CONCURRENCY = 4;
+const DB_WRITE_CONCURRENCY = 8;
 
 function normalizeForDiscovery(str: string): string {
   return str
@@ -95,12 +104,14 @@ async function rescanLibraryItemInner(
 
   // ── Step 1: Process existing MediaFile records ────────────────────────────────
   // Update MediaInfo for valid files; delete records for files gone from disk.
+  // Skip MediaInfo when size+mtime fingerprint matches the last scan.
   const files = await prisma.mediaFile.findMany({ where: { mediaId } });
   const trackedPaths = new Set(files.map((f) => f.filePath));
 
   const toDeleteIds: number[] = [];
   const toUpdateOps: Array<() => Promise<unknown>> = [];
   let rescanned = 0;
+  let skipped = 0;
   let failed = 0;
   const validEpisodeIds = new Set<number>();
   let hasValidFile = false;
@@ -113,66 +124,97 @@ async function rescanLibraryItemInner(
   };
   const freshMeta = new Map<number, FreshFileMeta>();
 
-  const SCAN_CONCURRENCY = 4;
-  for (let i = 0; i < files.length; i += SCAN_CONCURRENCY) {
-    const chunk = files.slice(i, i + SCAN_CONCURRENCY);
-    await Promise.all(
-      chunk.map(async (file) => {
-        const mi = await scanMediaInfo(file.filePath);
-        if (!mi) {
-          try {
-            await statFile(remapPath(file.filePath));
-            // File is on disk but MediaInfo can't read it (corrupt / unsupported format)
-            failed++;
-            hasValidFile = true;
-            if (file.episodeId != null) validEpisodeIds.add(file.episodeId);
-          } catch {
-            toDeleteIds.push(file.id);
-          }
-          return;
-        }
+  await mapPool(files, SCAN_CONCURRENCY, async (file) => {
+    const mapped = remapPath(file.filePath);
+    let st;
+    try {
+      st = await statFile(mapped);
+    } catch {
+      toDeleteIds.push(file.id);
+      return;
+    }
+    if (!st.isFile()) {
+      toDeleteIds.push(file.id);
+      return;
+    }
 
-        hasValidFile = true;
-        if (file.episodeId != null) validEpisodeIds.add(file.episodeId);
+    const fp = fingerprintFromStats(st);
+    hasValidFile = true;
+    if (file.episodeId != null) validEpisodeIds.add(file.episodeId);
 
-        const fnData = parseFilenameMetadata(file.fileName);
-        freshMeta.set(file.id, {
-          resolution: mi.resolution ?? fnData.resolution,
-          source: mi.source ?? fnData.source,
-          videoCodec: mi.videoCodec,
-        });
+    if (
+      fileUnchanged(
+        {
+          sizeBytes: file.sizeBytes,
+          fileMtimeMs: file.fileMtimeMs,
+        },
+        fp,
+      )
+    ) {
+      freshMeta.set(file.id, {
+        resolution: file.resolution,
+        source: file.source,
+        videoCodec: file.videoCodec,
+      });
+      // Backfill inode columns if an older row only has mtime/size.
+      if (file.fileDev == null || file.fileIno == null) {
         toUpdateOps.push(() =>
           prisma.mediaFile.update({
             where: { id: file.id },
-            data: {
-              sizeBytes: mi.sizeBytes,
-              durationSecs: mi.durationSecs,
-              releaseGroup: file.releaseGroup ?? mi.releaseGroup,
-              videoCodec: mi.videoCodec,
-              videoProfile: mi.videoProfile,
-              width: mi.width,
-              height: mi.height,
-              frameRate: mi.frameRate,
-              bitDepth: mi.bitDepth,
-              videoBitrate: mi.videoBitrate,
-              hdrFormat: mi.hdrFormat ?? fnData.hdrFormat,
-              resolution: mi.resolution ?? fnData.resolution,
-              source: mi.source ?? fnData.source,
-              audioTracks: mi.audioTracks as object[],
-              subtitleTracks: mi.subtitleTracks as object[],
-            },
+            data: fingerprintDbFields(fp),
           }),
         );
-        rescanned++;
+      }
+      skipped++;
+      return;
+    }
+
+    const mi = await scanMediaInfo(file.filePath);
+    if (!mi) {
+      // File is on disk but MediaInfo can't read it (corrupt / unsupported format)
+      failed++;
+      // Still persist fingerprint so the next pass can skip a doomed re-scan
+      // only after a successful MediaInfo — keep failed files eligible to retry.
+      return;
+    }
+
+    const fnData = parseFilenameMetadata(file.fileName);
+    freshMeta.set(file.id, {
+      resolution: mi.resolution ?? fnData.resolution,
+      source: mi.source ?? fnData.source,
+      videoCodec: mi.videoCodec,
+    });
+    toUpdateOps.push(() =>
+      prisma.mediaFile.update({
+        where: { id: file.id },
+        data: {
+          ...fingerprintDbFields(fp),
+          durationSecs: mi.durationSecs,
+          releaseGroup: file.releaseGroup ?? mi.releaseGroup,
+          videoCodec: mi.videoCodec,
+          videoProfile: mi.videoProfile,
+          width: mi.width,
+          height: mi.height,
+          frameRate: mi.frameRate,
+          bitDepth: mi.bitDepth,
+          videoBitrate: mi.videoBitrate,
+          hdrFormat: mi.hdrFormat ?? fnData.hdrFormat,
+          resolution: mi.resolution ?? fnData.resolution,
+          source: mi.source ?? fnData.source,
+          audioTracks: mi.audioTracks as object[],
+          subtitleTracks: mi.subtitleTracks as object[],
+          scannedAt: new Date(),
+        },
       }),
     );
-  }
+    rescanned++;
+  });
 
   const deleted = toDeleteIds.length;
   if (toDeleteIds.length > 0) {
     await prisma.mediaFile.deleteMany({ where: { id: { in: toDeleteIds } } });
   }
-  await Promise.all(toUpdateOps.map((op) => op()));
+  await mapPool(toUpdateOps, DB_WRITE_CONCURRENCY, (op) => op());
 
   // ── Step 1b: Discovery — scan library dir for untracked video files ────────
   // Walk the configured movies/shows library path and insert a media_files row
@@ -187,6 +229,11 @@ async function rescanLibraryItemInner(
         const normalizedTitle = normalizeForDiscovery(media.title);
         const yearStr = media.year != null ? String(media.year) : null;
 
+        const candidates: Array<{
+          diskPath: string;
+          dbPath: string;
+          name: string;
+        }> = [];
         for (const entry of entries) {
           if (!entry.isFile()) continue;
           const ext = extname(entry.name);
@@ -200,40 +247,56 @@ async function rescanLibraryItemInner(
           const diskPath = join(remappedLibDir, entry.name);
           const dbPath = join(libraryPath, entry.name);
           if (trackedPaths.has(dbPath)) continue;
-
-          const mi = await scanMediaInfo(diskPath);
-          if (!mi) continue;
-
-          const fnData = parseFilenameMetadata(entry.name);
-          await prisma.mediaFile.create({
-            data: {
-              mediaId,
-              filePath: dbPath,
-              fileName: entry.name,
-              sizeBytes: mi.sizeBytes,
-              durationSecs: mi.durationSecs,
-              releaseGroup: mi.releaseGroup,
-              videoCodec: mi.videoCodec,
-              videoProfile: mi.videoProfile,
-              width: mi.width,
-              height: mi.height,
-              frameRate: mi.frameRate,
-              bitDepth: mi.bitDepth,
-              videoBitrate: mi.videoBitrate,
-              hdrFormat: mi.hdrFormat ?? fnData.hdrFormat,
-              resolution: mi.resolution ?? fnData.resolution,
-              source: mi.source ?? fnData.source,
-              audioTracks: mi.audioTracks as object[],
-              subtitleTracks: mi.subtitleTracks as object[],
-              languageTags: classifyLanguageTags(
-                mi.audioTracks as LibraryAudioTrack[],
-                null,
-              ),
-            },
-          });
-          imported++;
-          trackedPaths.add(dbPath);
+          candidates.push({ diskPath, dbPath, name: entry.name });
         }
+
+        const created = await mapPool(
+          candidates,
+          SCAN_CONCURRENCY,
+          async ({ diskPath, dbPath, name }) => {
+            let st;
+            try {
+              st = await statFile(diskPath);
+            } catch {
+              return false;
+            }
+            if (!st.isFile()) return false;
+            const fp = fingerprintFromStats(st);
+            const mi = await scanMediaInfo(diskPath);
+            if (!mi) return false;
+
+            const fnData = parseFilenameMetadata(name);
+            await prisma.mediaFile.create({
+              data: {
+                mediaId,
+                filePath: dbPath,
+                fileName: name,
+                ...fingerprintDbFields(fp),
+                durationSecs: mi.durationSecs,
+                releaseGroup: mi.releaseGroup,
+                videoCodec: mi.videoCodec,
+                videoProfile: mi.videoProfile,
+                width: mi.width,
+                height: mi.height,
+                frameRate: mi.frameRate,
+                bitDepth: mi.bitDepth,
+                videoBitrate: mi.videoBitrate,
+                hdrFormat: mi.hdrFormat ?? fnData.hdrFormat,
+                resolution: mi.resolution ?? fnData.resolution,
+                source: mi.source ?? fnData.source,
+                audioTracks: mi.audioTracks as object[],
+                subtitleTracks: mi.subtitleTracks as object[],
+                languageTags: classifyLanguageTags(
+                  mi.audioTracks as LibraryAudioTrack[],
+                  null,
+                ),
+              },
+            });
+            trackedPaths.add(dbPath);
+            return true;
+          },
+        );
+        imported += created.filter(Boolean).length;
       } catch {
         // Library dir unreadable — skip discovery
       }
@@ -303,6 +366,12 @@ async function rescanLibraryItemInner(
             const fileEntries = await readdir(dir.disk, {
               withFileTypes: true,
             }).catch(() => []);
+            const candidates: Array<{
+              diskPath: string;
+              dbPath: string;
+              name: string;
+              epId: number;
+            }> = [];
             for (const entry of fileEntries) {
               if (!entry.isFile()) continue;
               const ext = extname(entry.name).toLowerCase();
@@ -317,50 +386,72 @@ async function rescanLibraryItemInner(
               const ep = epByKey.get(`${se.season}x${se.episode}`);
               if (!ep) continue;
 
-              const mi = await scanMediaInfo(join(dir.disk, entry.name));
-              if (!mi) continue;
-
-              const fnData = parseFilenameMetadata(entry.name);
-              await prisma.mediaFile.create({
-                data: {
-                  mediaId,
-                  episodeId: ep.id,
-                  filePath: dbPath,
-                  fileName: entry.name,
-                  sizeBytes: mi.sizeBytes,
-                  durationSecs: mi.durationSecs,
-                  releaseGroup: mi.releaseGroup,
-                  videoCodec: mi.videoCodec,
-                  videoProfile: mi.videoProfile,
-                  width: mi.width,
-                  height: mi.height,
-                  frameRate: mi.frameRate,
-                  bitDepth: mi.bitDepth,
-                  videoBitrate: mi.videoBitrate,
-                  hdrFormat: mi.hdrFormat ?? fnData.hdrFormat,
-                  resolution: mi.resolution ?? fnData.resolution,
-                  source: mi.source ?? fnData.source,
-                  audioTracks: mi.audioTracks as object[],
-                  subtitleTracks: mi.subtitleTracks as object[],
-                  languageTags: classifyLanguageTags(
-                    mi.audioTracks as LibraryAudioTrack[],
-                    null,
-                  ),
-                },
+              candidates.push({
+                diskPath: join(dir.disk, entry.name),
+                dbPath,
+                name: entry.name,
+                epId: ep.id,
               });
-              await prisma.libraryEpisode.update({
-                where: { id: ep.id },
-                data: { status: "downloaded", downloadedAt: new Date() },
-              });
-              validEpisodeIds.add(ep.id);
-              // Intentionally do NOT set hasValidFile: it gates the requeue of
-              // null-episode (season-pack / full-series) download histories.
-              // Importing one orphaned episode must not suppress reprocessing a
-              // still-present pack that could recover the remaining episodes;
-              // per-episode histories are covered by validEpisodeIds above.
-              imported++;
-              trackedPaths.add(dbPath);
             }
+
+            const created = await mapPool(
+              candidates,
+              SCAN_CONCURRENCY,
+              async ({ diskPath, dbPath, name, epId }) => {
+                let st;
+                try {
+                  st = await statFile(diskPath);
+                } catch {
+                  return false;
+                }
+                if (!st.isFile()) return false;
+                const fp = fingerprintFromStats(st);
+                const mi = await scanMediaInfo(diskPath);
+                if (!mi) return false;
+
+                const fnData = parseFilenameMetadata(name);
+                await prisma.mediaFile.create({
+                  data: {
+                    mediaId,
+                    episodeId: epId,
+                    filePath: dbPath,
+                    fileName: name,
+                    ...fingerprintDbFields(fp),
+                    durationSecs: mi.durationSecs,
+                    releaseGroup: mi.releaseGroup,
+                    videoCodec: mi.videoCodec,
+                    videoProfile: mi.videoProfile,
+                    width: mi.width,
+                    height: mi.height,
+                    frameRate: mi.frameRate,
+                    bitDepth: mi.bitDepth,
+                    videoBitrate: mi.videoBitrate,
+                    hdrFormat: mi.hdrFormat ?? fnData.hdrFormat,
+                    resolution: mi.resolution ?? fnData.resolution,
+                    source: mi.source ?? fnData.source,
+                    audioTracks: mi.audioTracks as object[],
+                    subtitleTracks: mi.subtitleTracks as object[],
+                    languageTags: classifyLanguageTags(
+                      mi.audioTracks as LibraryAudioTrack[],
+                      null,
+                    ),
+                  },
+                });
+                await prisma.libraryEpisode.update({
+                  where: { id: epId },
+                  data: { status: "downloaded", downloadedAt: new Date() },
+                });
+                validEpisodeIds.add(epId);
+                // Intentionally do NOT set hasValidFile: it gates the requeue of
+                // null-episode (season-pack / full-series) download histories.
+                // Importing one orphaned episode must not suppress reprocessing a
+                // still-present pack that could recover the remaining episodes;
+                // per-episode histories are covered by validEpisodeIds above.
+                trackedPaths.add(dbPath);
+                return true;
+              },
+            );
+            imported += created.filter(Boolean).length;
           }
         }
       } catch {
@@ -517,6 +608,7 @@ async function rescanLibraryItemInner(
 
   return {
     rescanned,
+    skipped,
     failed,
     deleted,
     imported,

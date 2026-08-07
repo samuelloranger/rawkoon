@@ -8,6 +8,7 @@ import {
   getMaindataState,
   MAINDATA_REUSE_WINDOW_MS,
   qbRequest,
+  resetMaindataStateIfConfigChanged,
   setLastMaindataSnapshot,
   setMaindataFetchPromise,
   setMaindataState,
@@ -163,12 +164,24 @@ export const qbFetchText = async (
   return result.bodyText;
 };
 
+export type MaindataDeps = {
+  fetchJson?: <T>(
+    config: QbittorrentIntegrationConfig,
+    path: string,
+  ) => Promise<T>;
+};
+
 export const fetchMaindata = async (
   config: QbittorrentIntegrationConfig,
+  deps?: MaindataDeps,
 ): Promise<{
   serverState: Record<string, unknown>;
   torrents: Map<string, Record<string, unknown>>;
 }> => {
+  // Before the reuse-window check, not after: the snapshot below is keyed by
+  // time alone, so a client swap would otherwise be served stale torrents.
+  resetMaindataStateIfConfigChanged(config);
+
   const now = Date.now();
   const lastMaindataSnapshot = getLastMaindataSnapshot();
   if (
@@ -187,9 +200,10 @@ export const fetchMaindata = async (
   }
 
   const fetchPromise = (async () => {
+    const fetchJson = deps?.fetchJson ?? qbFetchJson;
     const maindataState = getMaindataState();
     const rid = maindataState?.rid ?? 0;
-    const raw = await qbFetchJson<MaindataRaw>(
+    const raw = await fetchJson<MaindataRaw>(
       config,
       `/api/v2/sync/maindata?rid=${rid}`,
     );
