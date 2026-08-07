@@ -27,6 +27,10 @@ type FileRecord = {
   source?: string | null;
   videoCodec?: string | null;
   resolution?: number | null;
+  sizeBytes?: bigint;
+  fileMtimeMs?: bigint | null;
+  fileDev?: bigint | null;
+  fileIno?: bigint | null;
 };
 
 type MediaSettingsRecord = {
@@ -70,8 +74,15 @@ const state: State = {
   activeDownloadCount: 0,
 };
 
-// Files that exist on disk (by filePath) — stat will succeed for these
-const statMap: Record<string, boolean> = {};
+// Files that exist on disk (by filePath) — stat will succeed for these.
+// Optional overrides supply fingerprint fields for incremental-skip tests.
+type StatOverride = {
+  size?: number;
+  mtimeMs?: number;
+  dev?: number;
+  ino?: number;
+};
+const statMap: Record<string, true | StatOverride> = {};
 
 // Path remapping function — defaults to identity (no remap configured)
 let remapFn: (path: string) => string = (p) => p;
@@ -174,8 +185,16 @@ mock.module("@rawkoon/api/db", () => ({
 
 mock.module("node:fs/promises", () => ({
   stat: (filePath: string) => {
-    if (statMap[filePath]) return Promise.resolve({});
-    return Promise.reject(new Error("ENOENT"));
+    const entry = statMap[filePath];
+    if (!entry) return Promise.reject(new Error("ENOENT"));
+    const ov = entry === true ? {} : entry;
+    return Promise.resolve({
+      size: ov.size ?? 1_000_000,
+      mtimeMs: ov.mtimeMs ?? 1_700_000_000_000,
+      dev: ov.dev ?? 1,
+      ino: ov.ino ?? 100 + (filePath.length % 50),
+      isFile: () => true,
+    });
   },
   readdir: (dirPath: string) => {
     const names = readdirMap[dirPath] ?? [];
@@ -282,6 +301,10 @@ function makeFile(overrides: Partial<FileRecord> = {}): FileRecord {
     source: null,
     videoCodec: null,
     resolution: null,
+    sizeBytes: 1_000_000n,
+    fileMtimeMs: null,
+    fileDev: null,
+    fileIno: null,
     ...overrides,
   };
 }
@@ -331,6 +354,7 @@ describe("rescanLibraryItem", () => {
     const result = await rescanLibraryItem(1);
     expect(result).toEqual({
       rescanned: 0,
+      skipped: 0,
       failed: 0,
       deleted: 0,
       imported: 0,
@@ -381,9 +405,43 @@ describe("rescanLibraryItem", () => {
 
     const result = await rescanLibraryItem(1);
     expect(result?.rescanned).toBe(1);
+    expect(result?.skipped).toBe(0);
     expect(result?.failed).toBe(0);
     expect(result?.deleted).toBe(0);
     expect(state.updatedFileIds).toContain(1);
+    expect(result?.mediaReset).toBe(false);
+  });
+
+  it("6b. Unchanged fingerprint skips MediaInfo → skipped:1, rescanned:0", async () => {
+    const file = makeFile({
+      id: 1,
+      filePath: "/media/movie.mkv",
+      sizeBytes: 1_000_000n,
+      fileMtimeMs: 1_700_000_000_000n,
+      fileDev: 1n,
+      fileIno: 42n,
+      resolution: 1080,
+      source: "BluRay",
+      videoCodec: "x264",
+    });
+    state.media = { id: 1, type: "movie", status: "downloaded" };
+    state.files = [file];
+    state.remainingFileCount = 1;
+    // MediaInfo would fail if called — skip must not invoke it.
+    scanMap[file.filePath] = null;
+    statMap[file.filePath] = {
+      size: 1_000_000,
+      mtimeMs: 1_700_000_000_000,
+      dev: 1,
+      ino: 42,
+    };
+
+    const result = await rescanLibraryItem(1);
+    expect(result?.skipped).toBe(1);
+    expect(result?.rescanned).toBe(0);
+    expect(result?.failed).toBe(0);
+    expect(result?.deleted).toBe(0);
+    expect(state.updatedFileIds).toHaveLength(0);
     expect(result?.mediaReset).toBe(false);
   });
 
@@ -731,6 +789,7 @@ describe("Discovery (Step 1b)", () => {
     };
     readdirMap["/movies"] = ["The Matrix (1999) [1080p BluRay].mkv"];
     scanMap["/movies/The Matrix (1999) [1080p BluRay].mkv"] = makeMi();
+    statMap["/movies/The Matrix (1999) [1080p BluRay].mkv"] = true;
 
     const result = await rescanLibraryItem(1);
     expect(result?.imported).toBe(1);
@@ -779,6 +838,7 @@ describe("Discovery (Step 1b)", () => {
     };
     readdirMap["/movies"] = ["The Matrix (1999) [1080p BluRay].mkv"];
     scanMap["/movies/The Matrix (1999) [1080p BluRay].mkv"] = null;
+    statMap["/movies/The Matrix (1999) [1080p BluRay].mkv"] = true;
 
     const result = await rescanLibraryItem(1);
     expect(result?.imported).toBe(0);
@@ -803,6 +863,7 @@ describe("Discovery (Step 1b)", () => {
     };
     readdirMap["/movies"] = ["The Matrix (1999) [1080p BluRay].mkv"];
     scanMap["/movies/The Matrix (1999) [1080p BluRay].mkv"] = makeMi();
+    statMap["/movies/The Matrix (1999) [1080p BluRay].mkv"] = true;
 
     await rescanLibraryItem(1);
     expect(state.allMediaUpdateArgs).toContainEqual(

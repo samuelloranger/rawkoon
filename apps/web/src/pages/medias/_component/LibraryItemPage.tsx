@@ -4,7 +4,6 @@ import { useLibraryNavigation } from "@/features/medias/context/LibraryNavigatio
 import { useTranslation } from "react-i18next";
 import { Info, Search, Settings2, Sparkles } from "lucide-react";
 import { SegmentedTabs } from "@/components/ui/segmented-tabs";
-import { useLibrary } from "@/features/medias/hooks/useLibrary";
 import { useLibraryItem } from "@/features/medias/hooks/useLibraryItem";
 import { useLibraryEvents } from "@/features/medias/hooks/useLibraryEvents";
 import { useAddToWatchlist } from "@/features/medias/hooks/useAddToWatchlist";
@@ -44,13 +43,7 @@ export function LibraryItemPage() {
 
   const id = parseInt(libraryId, 10);
   const { data: itemData, isLoading: itemLoading } = useLibraryItem(id);
-  // List cache gives an instant paint while the by-id query resolves.
-  const { data: libData } = useLibrary();
-
-  const item = useMemo(
-    () => itemData?.item ?? libData?.items.find((i) => i.id === id) ?? null,
-    [itemData, libData, id],
-  );
+  const item = itemData?.item ?? null;
 
   const mediaType = item ? (item.type === "show" ? "tv" : "movie") : "movie";
 

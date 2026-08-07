@@ -143,6 +143,39 @@ export function createReconcileState(): ReconcileState {
 /** Production state for the scheduled job. */
 const pollState = createReconcileState();
 
+/** How long a received hook keeps the slow cadence in effect. */
+export const HOOK_RECENT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Clear the poll gate so the next `checkDownloadCompletion()` runs immediately.
+ *
+ * Callers MUST invoke this *before* enqueuing the check job: the job returns
+ * early while the gate is closed, so enqueuing first makes the wake a no-op.
+ */
+export function requestImmediatePoll(): void {
+  pollState.nextPollAtMs = 0;
+}
+
+/**
+ * Pick the active poll interval.
+ *
+ * A hook that has gone quiet — never configured, broken, or pointing at a stale
+ * token — yields the unhooked interval, so a silently broken hook can never make
+ * detection slower than it was before hooks existed.
+ */
+export function selectActiveCadenceSecs(input: {
+  hookLastSeenAt: Date | null;
+  nowMs: number;
+  activeSecs: number;
+  hookedActiveSecs: number;
+}): number {
+  const { hookLastSeenAt, nowMs, activeSecs, hookedActiveSecs } = input;
+  if (!hookLastSeenAt) return activeSecs;
+  const age = nowMs - hookLastSeenAt.getTime();
+  if (age < 0 || age >= HOOK_RECENT_WINDOW_MS) return activeSecs;
+  return hookedActiveSecs;
+}
+
 /**
  * Multipliers on the active interval for each consecutive idle pass. With the
  * default 20s active / 1800s idle that ramps 20s → 60s → 300s → 1800s, so a
@@ -326,7 +359,45 @@ export async function reconcilePendingDownloads(
 /**
  * Poll the active client for pending downloads.
  */
+/**
+ * In-flight reconcile, so overlapping triggers coalesce instead of racing.
+ *
+ * The scheduled-tasks worker runs at concurrency 3 and there are now three ways
+ * to trigger a pass: the 20s cron tick, a hook wake, and a second hook wake from
+ * a torrent that finished moments later. Without this guard two passes can read
+ * the same pending snapshot; the first completes a row, and the second then hits
+ * `completeDownloadByHash`'s already-complete recovery branch, which enqueues
+ * post-processing with `force` — a deliberately unique job id that bypasses
+ * BullMQ's dedupe. The same download would be imported twice, which is exactly
+ * the duplicate-hook idempotency the hook design claims to have.
+ */
+let reconcileInFlight: Promise<void> | null = null;
+
+/**
+ * Run `pass`, or join the one already running.
+ *
+ * Awaiting the shared promise (rather than returning immediately) keeps each
+ * BullMQ job's lifetime honest: it stays "active" until the work it asked for
+ * has actually finished.
+ *
+ * Exported so the coalescing itself is testable — `checkDownloadCompletion`
+ * reaches Prisma, which the test preload stubs out.
+ */
+export async function runCoalescedPass(
+  pass: () => Promise<void>,
+): Promise<void> {
+  if (reconcileInFlight) return await reconcileInFlight;
+  reconcileInFlight = pass().finally(() => {
+    reconcileInFlight = null;
+  });
+  return await reconcileInFlight;
+}
+
 export async function checkDownloadCompletion(): Promise<void> {
+  return await runCoalescedPass(runDownloadCompletionPass);
+}
+
+async function runDownloadCompletionPass(): Promise<void> {
   const pending = await prisma.downloadHistory.findMany({
     where: { completedAt: null, failed: false },
     select: {
@@ -359,9 +430,15 @@ export async function checkDownloadCompletion(): Promise<void> {
       maxAgeSecs: settings?.downloadMaxAgeSecs ?? 604800,
     },
   });
+  const activeSecs = selectActiveCadenceSecs({
+    hookLastSeenAt: settings?.downloadHookLastSeenAt ?? null,
+    nowMs,
+    activeSecs: settings?.downloadPollActiveSecs ?? 20,
+    hookedActiveSecs: settings?.downloadPollActiveHookedSecs ?? 120,
+  });
   const delaySecs = computeNextPollDelaySecs(
     pollState.lastReconcileHadActive,
-    settings?.downloadPollActiveSecs ?? 20,
+    activeSecs,
     settings?.downloadPollIdleSecs ?? 1800,
     pollState.idlePasses,
   );

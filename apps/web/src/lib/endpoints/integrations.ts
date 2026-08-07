@@ -6,6 +6,8 @@ export const INTEGRATION_ENDPOINTS = {
   JACKETT_INDEXERS: "/api/integrations/jackett/indexers",
   DOWNLOAD_CLIENT: "/api/integrations/download-client",
   DOWNLOAD_CLIENT_TEST: "/api/integrations/download-client/test",
+  DOWNLOAD_CLIENT_HOOK: "/api/integrations/download-client/hook",
+  DOWNLOAD_CLIENT_HOOK_ROTATE: "/api/integrations/download-client/hook/rotate",
   TMDB: "/api/integrations/tmdb",
   OIDC: "/api/integrations/oidc",
   LOCAL_AI: "/api/integrations/local-ai",

@@ -45,6 +45,7 @@ export function LibraryManagementPanel({
       <LibraryInfoOverridesSection libraryId={libraryId} item={item} />
       <LibraryQualityProfileSection
         libraryId={libraryId}
+        item={item}
         onUpgradeManualSearch={onUpgradeManualSearch}
       />
       <LibrarySearchTitleSection

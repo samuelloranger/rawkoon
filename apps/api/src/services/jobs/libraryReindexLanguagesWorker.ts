@@ -1,6 +1,16 @@
 import type { Job } from "bullmq";
+import { stat } from "node:fs/promises";
 import { prisma } from "@rawkoon/api/db";
-import { scanMediaInfo } from "@rawkoon/api/utils/medias/mediainfoScanner";
+import {
+  fileUnchanged,
+  fingerprintDbFields,
+  fingerprintFromStats,
+  mapPool,
+} from "@rawkoon/api/utils/medias/fileFingerprint";
+import {
+  remapPath,
+  scanMediaInfo,
+} from "@rawkoon/api/utils/medias/mediainfoScanner";
 import { classifyLanguageTags, type LibraryAudioTrack } from "@rawkoon/shared";
 
 export type LibraryReindexLanguagesProgress = {
@@ -18,15 +28,28 @@ export type LibraryReindexLanguagesResult = {
   errors: number;
 };
 
+const SCAN_CONCURRENCY = 4;
+const DB_WRITE_CONCURRENCY = 8;
+const PROGRESS_EVERY = 25;
+
 /**
  * Re-runs mediainfo on every MediaFile and recomputes `languageTags`.
- * Idempotent: safe to re-run.
+ * Skips files whose size+mtime fingerprint is unchanged (idempotent re-runs).
  */
 export async function processLibraryReindexLanguagesJob(
   job: Job,
 ): Promise<LibraryReindexLanguagesResult> {
   const files = await prisma.mediaFile.findMany({
-    select: { id: true, filePath: true, mediaId: true, episodeId: true },
+    select: {
+      id: true,
+      filePath: true,
+      mediaId: true,
+      episodeId: true,
+      sizeBytes: true,
+      fileMtimeMs: true,
+      fileDev: true,
+      fileIno: true,
+    },
     orderBy: { id: "asc" },
   });
 
@@ -40,10 +63,59 @@ export async function processLibraryReindexLanguagesJob(
   };
   await job.updateProgress(progress as unknown as object);
 
-  for (const file of files) {
+  type PendingWrite = {
+    id: number;
+    data: Record<string, unknown>;
+  };
+  const pendingWrites: PendingWrite[] = [];
+
+  const flushWrites = async () => {
+    if (pendingWrites.length === 0) return;
+    const batch = pendingWrites.splice(0, pendingWrites.length);
+    await mapPool(batch, DB_WRITE_CONCURRENCY, (w) =>
+      prisma.mediaFile.update({ where: { id: w.id }, data: w.data }),
+    );
+  };
+
+  let sinceProgress = 0;
+  const bumpProgress = async (filePath: string | null) => {
     progress.current += 1;
-    progress.current_file = file.filePath;
+    progress.current_file = filePath;
+    sinceProgress += 1;
+    if (sinceProgress >= PROGRESS_EVERY || progress.current >= progress.total) {
+      sinceProgress = 0;
+      await job.updateProgress(progress as unknown as object);
+    }
+  };
+
+  await mapPool(files, SCAN_CONCURRENCY, async (file) => {
     try {
+      let st;
+      try {
+        st = await stat(remapPath(file.filePath));
+      } catch {
+        progress.skipped += 1;
+        await bumpProgress(file.filePath);
+        return;
+      }
+      if (!st.isFile()) {
+        progress.skipped += 1;
+        await bumpProgress(file.filePath);
+        return;
+      }
+
+      const fp = fingerprintFromStats(st);
+      if (
+        fileUnchanged(
+          { sizeBytes: file.sizeBytes, fileMtimeMs: file.fileMtimeMs },
+          fp,
+        )
+      ) {
+        progress.skipped += 1;
+        await bumpProgress(file.filePath);
+        return;
+      }
+
       const mi = await scanMediaInfo(file.filePath);
       if (!mi) {
         progress.skipped += 1;
@@ -52,9 +124,10 @@ export async function processLibraryReindexLanguagesJob(
           mi.audioTracks as LibraryAudioTrack[],
           null,
         );
-        await prisma.mediaFile.update({
-          where: { id: file.id },
+        pendingWrites.push({
+          id: file.id,
           data: {
+            ...fingerprintDbFields(fp),
             audioTracks: mi.audioTracks as object[],
             subtitleTracks: mi.subtitleTracks as object[],
             languageTags: tags,
@@ -70,9 +143,10 @@ export async function processLibraryReindexLanguagesJob(
       );
       progress.errors += 1;
     }
-    await job.updateProgress(progress as unknown as object);
-  }
+    await bumpProgress(file.filePath);
+  });
 
+  await flushWrites();
   progress.current_file = null;
   await job.updateProgress(progress as unknown as object);
 

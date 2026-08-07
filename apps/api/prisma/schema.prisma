@@ -388,6 +388,14 @@ model LibraryMedia {
   searchAttempts        Int       @default(0) @map("search_attempts")
   addedAt               DateTime  @default(now()) @map("added_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")
+  /// Persisted MAX(download_history.grabbed_at); kept in sync by DB trigger.
+  lastGrabbedAt         DateTime? @map("last_grabbed_at")
+  /// Persisted SUM of movie + episode file sizes; 0 stored as null. DB trigger.
+  totalSizeBytes        BigInt?   @map("total_size_bytes")
+  /// Display title for list ORDER BY (overrides.title when set, else title).
+  listTitle             String    @default("") @map("list_title")
+  /// Display year for list ORDER BY (overrides.year when set, else year).
+  listYear              Int?      @map("list_year")
 
   qualityProfile    QualityProfile?   @relation(fields: [qualityProfileId], references: [id], onDelete: SetNull)
   episodes          LibraryEpisode[]
@@ -400,6 +408,14 @@ model LibraryMedia {
   @@index([type], map: "ix_library_media_type")
   @@index([status], map: "ix_library_media_status")
   @@index([qualityProfileId], map: "ix_library_media_quality_profile_id")
+  /// Speeds added_at desc pagination (recently-added / default library sort)
+  @@index([addedAt], map: "ix_library_media_added_at")
+  /// GIN trigram for ILIKE '%q%' title search on GET /api/library
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "ix_library_media_title_trgm")
+  @@index([lastGrabbedAt], map: "ix_library_media_last_grabbed_at")
+  @@index([totalSizeBytes], map: "ix_library_media_total_size_bytes")
+  @@index([listTitle], map: "ix_library_media_list_title")
+  @@index([listYear], map: "ix_library_media_list_year")
   @@map("library_media")
 }
 
@@ -454,6 +470,8 @@ model DownloadHistory {
   @@index([torrentHash], map: "ix_download_history_torrent_hash")
   @@index([mediaId], map: "ix_download_history_media_id")
   @@index([episodeId], map: "ix_download_history_episode_id")
+  /// Speeds MAX(grabbed_at) / latest-grab lookups per media (library list sort)
+  @@index([mediaId, grabbedAt(sort: Desc)], map: "ix_download_history_media_id_grabbed_at")
   @@map("download_history")
 }
 
@@ -523,6 +541,11 @@ model MediaSettings {
   downloadPollIdleSecs     Int      @default(1800) @map("download_poll_idle_secs")
   downloadStallTimeoutSecs Int      @default(2700) @map("download_stall_timeout_secs")
   downloadMaxAgeSecs       Int      @default(604800) @map("download_max_age_secs")
+  downloadHookToken            String?   @map("download_hook_token")
+  downloadHookCallbackUrl      String?   @map("download_hook_callback_url")
+  downloadHookAutoConfigure    Boolean   @default(true) @map("download_hook_auto_configure")
+  downloadHookLastSeenAt       DateTime? @map("download_hook_last_seen_at")
+  downloadPollActiveHookedSecs Int       @default(120) @map("download_poll_active_hooked_secs")
   updatedAt               DateTime @updatedAt @map("updated_at")
 
   defaultQualityProfile QualityProfile? @relation("DefaultQualityProfile", fields: [defaultQualityProfileId], references: [id], onDelete: SetNull)
@@ -566,6 +589,12 @@ model MediaFile {
   subtitleTracks Json     @default("[]") @map("subtitle_tracks")
   languageTags   String[] @default([]) @map("language_tags")
   scannedAt      DateTime @default(now()) @map("scanned_at")
+  /// Filesystem device id from last successful stat (hardlink / skip-scan cache).
+  fileDev        BigInt?  @map("file_dev")
+  /// Inode from last successful stat.
+  fileIno        BigInt?  @map("file_ino")
+  /// mtimeMs from last successful stat — paired with sizeBytes to skip MediaInfo.
+  fileMtimeMs    BigInt?  @map("file_mtime_ms")
 
   media   LibraryMedia?   @relation("MediaFileMedia", fields: [mediaId], references: [id], onDelete: Cascade)
   episode LibraryEpisode? @relation("MediaFileEpisode", fields: [episodeId], references: [id], onDelete: Cascade)
@@ -574,6 +603,7 @@ model MediaFile {
   @@index([episodeId], map: "ix_media_files_episode_id")
   @@index([filePath], map: "ix_media_files_file_path")
   @@index([languageTags], map: "ix_media_files_language_tags", type: Gin)
+  @@index([fileDev, fileIno], map: "ix_media_files_file_dev_ino")
   @@map("media_files")
 }
 

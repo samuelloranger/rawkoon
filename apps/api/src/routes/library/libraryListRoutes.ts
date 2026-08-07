@@ -12,12 +12,8 @@ import { getGlobalTmdbRegion } from "@rawkoon/api/utils/medias/tmdbRegion";
 import { mapLibraryMedia, libraryMediaInclude } from "./libraryHelpers";
 import {
   parseLibrarySort,
-  isAggregateSort,
-  buildSimpleOrderBy,
+  buildLibraryOrderBy,
   slicePage,
-  orderAggregateIds,
-  reorderByIds,
-  type AggregateSortRow,
 } from "./libraryListQuery";
 
 /**
@@ -77,65 +73,18 @@ export const libraryListRoutes = new Elysia()
           const take = Math.min(Math.max(1, limit ?? 60), 100);
           const skip = (Math.max(1, page ?? 1) - 1) * take;
 
-          if (!isAggregateSort(sortBy)) {
-            const rows = await prisma.libraryMedia.findMany({
-              where: typedWhere,
-              orderBy: buildSimpleOrderBy(sortBy, sortDir),
-              include: libraryMediaInclude,
-              take: take + 1,
-              skip,
-            });
-            const sliced = slicePage(rows, take);
-            has_more = sliced.has_more;
-            mappedItems = sliced.items.map(mapLibraryMedia);
-          } else {
-            // Aggregate sort: order lightweight rows, then fetch full records
-            // only for the requested page.
-            const lightRows = await prisma.libraryMedia.findMany({
-              where: typedWhere,
-              select: {
-                id: true,
-                title: true,
-                year: true,
-                overrides: true,
-                files: { select: { sizeBytes: true } },
-                episodes: {
-                  select: { files: { select: { sizeBytes: true } } },
-                },
-                downloadHistories: {
-                  orderBy: { grabbedAt: "desc" as const },
-                  take: 1,
-                  select: { grabbedAt: true },
-                },
-              },
-            });
-            const aggRows: AggregateSortRow[] = lightRows.map((r) => {
-              let total = 0n;
-              for (const f of r.files) total += f.sizeBytes;
-              for (const ep of r.episodes)
-                for (const f of ep.files) total += f.sizeBytes;
-              const ov = (r.overrides ?? {}) as Record<string, unknown>;
-              return {
-                id: r.id,
-                fileSizeTotal: total === 0n ? null : total,
-                lastGrabbedAt:
-                  r.downloadHistories[0]?.grabbedAt.getTime() ?? null,
-                titleMapped: typeof ov.title === "string" ? ov.title : r.title,
-                yearMapped: typeof ov.year === "number" ? ov.year : r.year,
-              };
-            });
-            const orderedIds = orderAggregateIds(aggRows, sortBy, sortDir);
-            const pageIdsPlusOne = orderedIds.slice(skip, skip + take + 1);
-            const sliced = slicePage(pageIdsPlusOne, take);
-            has_more = sliced.has_more;
-            const pageRecords = await prisma.libraryMedia.findMany({
-              where: { id: { in: sliced.items } },
-              include: libraryMediaInclude,
-            });
-            mappedItems = reorderByIds(pageRecords, sliced.items).map(
-              mapLibraryMedia,
-            );
-          }
+          // All sorts (including former aggregates) use persisted columns +
+          // Prisma orderBy so pagination stays skip/take in the database.
+          const rows = await prisma.libraryMedia.findMany({
+            where: typedWhere,
+            orderBy: buildLibraryOrderBy(sortBy, sortDir),
+            include: libraryMediaInclude,
+            take: take + 1,
+            skip,
+          });
+          const sliced = slicePage(rows, take);
+          has_more = sliced.has_more;
+          mappedItems = sliced.items.map(mapLibraryMedia);
         }
 
         const counts = await countsPromise;

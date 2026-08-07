@@ -6,7 +6,16 @@ const calls: Array<{ path: string }> = [];
 // Paths the fake qB server "rejects" (simulates 5.x where /pause 404s, or 4.x where /stop 404s).
 let rejectPaths: string[] = [];
 
+// Spread the real module so this mock only *overrides* the two fetch helpers.
+// mock.module is process-global and replaces the whole module: returning a bare
+// object here silently deletes every other export (fetchMaindata among them) for
+// every test file in the run, whichever order they execute in.
+const realClientFetch = await import(
+  "@rawkoon/api/services/qbittorrent/clientFetch"
+);
+
 mock.module("@rawkoon/api/services/qbittorrent/clientFetch", () => ({
+  ...realClientFetch,
   qbFetchText: async (_cfg: unknown, path: string) => {
     calls.push({ path });
     if (rejectPaths.includes(path)) throw new Error(`404 ${path}`);
@@ -36,7 +45,6 @@ mock.module("@rawkoon/api/services/qbittorrent/clientFetch", () => ({
       },
     ];
   },
-  fetchMaindata: async () => ({ torrents: new Map() }),
 }));
 
 const { pauseQbittorrentTorrent, resumeQbittorrentTorrent } = await import(
