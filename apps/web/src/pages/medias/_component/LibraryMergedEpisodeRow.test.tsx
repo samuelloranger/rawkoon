@@ -66,65 +66,62 @@ function renderRow(file: unknown) {
 }
 
 describe("MergedEpisodeRow interactive structure", () => {
-  it("never nests a button inside another button", () => {
+  const toggleOf = (container: HTMLElement) =>
+    container.querySelector<HTMLButtonElement>("button[aria-expanded]");
+
+  it("never nests one interactive control inside another", () => {
     const { container } = renderRow(FILE);
 
-    // Invalid HTML: the browser closes the outer button early, so the row's
-    // search / retry / monitor / delete controls escape their wrapper and React
-    // warns on hydration.
+    // A button inside a button is invalid HTML; role="button" around real
+    // buttons is the ARIA equivalent, since ARIA treats a button's descendants
+    // as presentational.
     expect(container.querySelector("button button")).toBeNull();
+    expect(container.querySelector('[role="button"] button')).toBeNull();
 
-    // The action buttons must still be present — a fix that simply dropped them
-    // would also satisfy the assertion above.
+    // A fix that simply deleted the action buttons would also satisfy that.
     expect(container.querySelectorAll("button").length).toBeGreaterThan(1);
   });
 
-  it("exposes the row as an expandable control when it has a file", () => {
+  it("exposes a real, labelled toggle button when the row has a file", () => {
     const { container } = renderRow(FILE);
-    const row = container.querySelector('[role="button"]');
+    const toggle = toggleOf(container);
 
-    expect(row).not.toBeNull();
-    expect(row?.getAttribute("aria-expanded")).toBe("false");
-    expect(row?.getAttribute("tabindex")).toBe("0");
+    expect(toggle).not.toBeNull();
+    expect(toggle?.tagName).toBe("BUTTON");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle?.getAttribute("aria-label")).toBeTruthy();
   });
 
-  it("toggles on click and on keyboard, matching the old button behaviour", () => {
+  it("toggles the detail block from the toggle button", () => {
     const { container } = renderRow(FILE);
-    const row = container.querySelector('[role="button"]');
-    if (!row) throw new Error("expandable row not found");
+    const toggle = toggleOf(container);
+    if (!toggle) throw new Error("toggle not found");
 
-    fireEvent.click(row);
-    expect(row.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(toggle);
+    expect(toggleOf(container)?.getAttribute("aria-expanded")).toBe("true");
 
-    fireEvent.keyDown(row, { key: "Enter" });
-    expect(row.getAttribute("aria-expanded")).toBe("false");
-
-    fireEvent.keyDown(row, { key: " " });
-    expect(row.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(toggleOf(container)!);
+    expect(toggleOf(container)?.getAttribute("aria-expanded")).toBe("false");
   });
 
-  it("leaves keyboard activation of the nested action buttons alone", () => {
+  it("leaves keyboard activation of the action buttons alone", () => {
     const { container } = renderRow(FILE);
-    const row = container.querySelector('[role="button"]');
-    if (!row) throw new Error("expandable row not found");
     const action = container.querySelector("button");
     if (!action) throw new Error("no action button rendered");
 
-    // Enter/Space on a focused action button bubbles to the row. If the row
-    // handles it, preventDefault swallows the button's own activation and the
-    // row expands instead — the action becomes unreachable by keyboard.
+    // Nothing on the row may preventDefault on Enter/Space bubbling up from an
+    // action button — that would swallow the button's own activation.
     fireEvent.keyDown(action, { key: "Enter", bubbles: true });
-    expect(row.getAttribute("aria-expanded")).toBe("false");
-
     fireEvent.keyDown(action, { key: " ", bubbles: true });
-    expect(row.getAttribute("aria-expanded")).toBe("false");
+    expect(toggleOf(container)?.getAttribute("aria-expanded")).toBe("false");
   });
 
-  it("is not a focus stop when there is nothing to expand", () => {
+  it("offers no toggle when there is nothing to expand", () => {
     const { container } = renderRow(null);
 
-    // A file-less row has no detail block, so making it focusable would give
-    // keyboard users a stop that does nothing.
+    // A file-less row has no detail block, so a toggle would be a focus stop
+    // that does nothing.
+    expect(toggleOf(container)).toBeNull();
     expect(container.querySelector('[role="button"]')).toBeNull();
     expect(screen.getAllByText("Some episode").length).toBeGreaterThan(0);
   });

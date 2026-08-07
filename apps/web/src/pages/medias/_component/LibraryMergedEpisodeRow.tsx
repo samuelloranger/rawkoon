@@ -133,6 +133,17 @@ export function MergedEpisodeRow({
     });
   };
 
+  const handleToggleExpanded = (e: React.MouseEvent) => {
+    // The row wrapper also toggles on click; without this the two would fight
+    // and the row would collapse again immediately.
+    e.stopPropagation();
+    setExpanded((p) => !p);
+  };
+
+  const expandLabel = expanded
+    ? t("common.collapse", { defaultValue: "Collapse" })
+    : t("common.expand", { defaultValue: "Expand" });
+
   const handleToggleMonitored = (e: React.MouseEvent) => {
     e.stopPropagation();
     void toggleMonitoredMut
@@ -153,34 +164,23 @@ export function MergedEpisodeRow({
       )}
     >
       {/*
-        Deliberately a div, not a button: this wrapper contains the row's
-        search / retry / monitor / delete buttons, and a button inside a button
-        is invalid HTML — the browser closes the outer one early, so the nested
-        controls end up as siblings and React warns on hydration.
+        A plain div, carrying no interactive role of its own.
 
-        Expandability is opt-in via role/tabIndex/keyboard only when there is a
-        file to expand, so a row with nothing to show stays non-interactive
-        instead of being a focus stop that does nothing.
+        It cannot be a <button>: it contains the row's search / retry / monitor
+        / delete buttons, and a button inside a button is invalid HTML — the
+        browser closes the outer one early, so those controls end up as siblings
+        and React warns on hydration.
+
+        It must not carry role="button" either: ARIA treats a button's
+        descendants as presentational, so the real controls inside would risk
+        being announced as unnamed focus stops. The accessible expansion control
+        is the chevron button further down, a sibling of the action buttons.
+
+        The click handler stays for mouse convenience; every action button calls
+        stopPropagation, and keyboard users get the chevron.
       */}
       <div
         onClick={() => file && setExpanded((p) => !p)}
-        {...(file
-          ? {
-              role: "button" as const,
-              tabIndex: 0,
-              "aria-expanded": expanded,
-              onKeyDown: (e: React.KeyboardEvent) => {
-                // Only when the row itself is focused. Enter/Space on a nested
-                // action button bubbles up here, and preventDefault would
-                // swallow that button's own keyboard activation — expanding the
-                // row instead of running search / monitor / delete.
-                if (e.target !== e.currentTarget) return;
-                if (e.key !== "Enter" && e.key !== " ") return;
-                e.preventDefault();
-                setExpanded((p) => !p);
-              },
-            }
-          : {})}
         className={cn(
           "w-full text-left transition-colors",
           "px-3 pr-2 py-2.5 mobile-max:px-4 mobile-max:py-2",
@@ -277,13 +277,20 @@ export function MergedEpisodeRow({
                 </button>
               )}
               {file && (
-                <span className="p-1.5 text-neutral-500">
+                <button
+                  type="button"
+                  onClick={handleToggleExpanded}
+                  aria-expanded={expanded}
+                  title={expandLabel}
+                  aria-label={expandLabel}
+                  className="rounded-md p-1.5 text-neutral-500 hover:text-neutral-300 transition-colors"
+                >
                   {expanded ? (
                     <ChevronDown size={12} />
                   ) : (
                     <ChevronRight size={12} />
                   )}
-                </span>
+                </button>
               )}
             </div>
           </div>
@@ -370,13 +377,20 @@ export function MergedEpisodeRow({
               </button>
             )}
             {file && (
-              <span className="rounded p-1 text-neutral-500">
+              <button
+                type="button"
+                onClick={handleToggleExpanded}
+                aria-expanded={expanded}
+                title={expandLabel}
+                aria-label={expandLabel}
+                className="inline-flex size-6 items-center justify-center rounded p-1 text-neutral-500 hover:text-neutral-300 transition-colors"
+              >
                 {expanded ? (
                   <ChevronDown size={10} />
                 ) : (
                   <ChevronRight size={10} />
                 )}
-              </span>
+              </button>
             )}
           </div>
         </div>
