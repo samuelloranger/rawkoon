@@ -18,10 +18,9 @@ const ctx = await browser.newContext({
 });
 
 // ── Login ────────────────────────────────────────────────────────────────────
-// Sign in on a throwaway tab, then capture from fresh tabs: the tab that
-// performed the login reliably crashes the renderer right after redirect
-// (post-login bootstrap + SSE reconnect loop), a fresh tab with the session
-// cookie renders fine.
+// Sign in on a throwaway tab, then capture from fresh tabs. Headless Chromium
+// can still flake after login (service worker + version-reload + SSE); a fresh
+// tab with the session cookie is more reliable than staying on the login tab.
 const loginPage = await ctx.newPage();
 await loginPage.goto(`${BASE}/login`, { waitUntil: "load" });
 await loginPage.locator("#email").fill(DEMO_USER.email);
@@ -29,11 +28,11 @@ await loginPage.locator("#password").fill(DEMO_USER.password);
 await loginPage.locator('button[type="submit"]').click();
 await loginPage
   .waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 30_000 })
-  .catch(() => {}); // session cookie is set even if the redirected page crashes
+  .catch(() => {}); // session cookie is set even if the redirected page flakes
 await loginPage.close();
 
-// One fresh tab per capture, one retry: the SPA occasionally crashes the
-// renderer on this headless chromium; a clean tab almost always succeeds.
+// One fresh tab per capture, one retry: headless Chromium occasionally flakes;
+// a clean tab almost always succeeds.
 async function capture(path: string, name: string): Promise<boolean> {
   for (let attempt = 1; attempt <= 2; attempt++) {
     const page = await ctx.newPage();
