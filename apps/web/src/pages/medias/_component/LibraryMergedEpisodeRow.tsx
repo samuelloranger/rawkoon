@@ -140,9 +140,21 @@ export function MergedEpisodeRow({
     setExpanded((p) => !p);
   };
 
+  // Names the episode, because an explicit aria-label replaces the button's
+  // contents: every row would otherwise expose the same "Expand", leaving
+  // screen-reader users browsing by button unable to tell them apart.
+  const epLabel = `E${String(ep.episode).padStart(2, "0")}${
+    ep.title ? ` ${ep.title}` : ""
+  }`;
   const expandLabel = expanded
-    ? t("common.collapse", { defaultValue: "Collapse" })
-    : t("common.expand", { defaultValue: "Expand" });
+    ? t("library.media.collapseEpisode", {
+        defaultValue: "Collapse {{episode}}",
+        episode: epLabel,
+      })
+    : t("library.media.expandEpisode", {
+        defaultValue: "Expand {{episode}}",
+        episode: epLabel,
+      });
 
   const handleToggleMonitored = (e: React.MouseEvent) => {
     e.stopPropagation();

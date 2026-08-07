@@ -3,9 +3,14 @@ import { fireEvent, screen } from "@testing-library/react";
 import { renderWithProviders } from "@/test-utils/render";
 import { MergedEpisodeRow } from "./LibraryMergedEpisodeRow";
 
+// Interpolates, so assertions can see values passed into a label rather than
+// just the key.
+const stubT = (key: string, opts?: Record<string, unknown>) =>
+  opts?.episode ? `${key}:${String(opts.episode)}` : key;
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string, opts?: Record<string, unknown>) => stubT(key, opts),
     i18n: { language: "en" },
   }),
 }));
@@ -56,7 +61,7 @@ function renderRow(file: unknown) {
       season={2}
       file={file as never}
       libraryId={1}
-      t={((k: string) => k) as never}
+      t={stubT as never}
       searchEpMut={mutStub()}
       retryEpMut={mutStub()}
       toggleMonitoredMut={mutStub()}
@@ -89,7 +94,10 @@ describe("MergedEpisodeRow interactive structure", () => {
     expect(toggle).not.toBeNull();
     expect(toggle?.tagName).toBe("BUTTON");
     expect(toggle?.getAttribute("aria-expanded")).toBe("false");
-    expect(toggle?.getAttribute("aria-label")).toBeTruthy();
+    // Names the episode: an explicit aria-label replaces the button contents,
+    // so without this every row's toggle reads identically.
+    expect(toggle?.getAttribute("aria-label")).toContain("E01");
+    expect(toggle?.getAttribute("aria-label")).toContain("Some episode");
   });
 
   it("toggles the detail block from the toggle button", () => {
