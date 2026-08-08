@@ -62,7 +62,7 @@ export async function buildLibraryInodeKeySet(
   const backfills = (
     await mapPool(needStat, FS_STAT_CONCURRENCY, async (row) => {
       try {
-        const st = await stat(remapPath(row.filePath));
+        const st = await stat(remapPath(row.filePath), { bigint: true });
         if (!st.isFile()) return null;
         const fp = fingerprintFromStats(st);
         keys.add(inodeKeyFromParts(fp.dev, fp.ino));

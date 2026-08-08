@@ -154,7 +154,7 @@ export async function postProcessSeasonPack(
         try {
           const fnData = parseFilenameMetadata(fn);
           const destMapped = remapPath(destinationPath);
-          const destStat = await stat(destMapped);
+          const destStat = await stat(destMapped, { bigint: true });
           const fp = fingerprintFromStats(destStat);
           const mi = await scanMediaInfo(destinationPath);
           const existingFile = await prisma.mediaFile.findFirst({

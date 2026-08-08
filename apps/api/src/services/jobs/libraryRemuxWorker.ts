@@ -151,7 +151,7 @@ export async function processLibraryRemuxFileJob(
     );
     let fpFields = {};
     try {
-      const st = await stat(remapPath(file.filePath));
+      const st = await stat(remapPath(file.filePath), { bigint: true });
       if (st.isFile()) fpFields = fingerprintDbFields(fingerprintFromStats(st));
     } catch {
       /* keep prior fingerprint */

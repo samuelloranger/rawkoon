@@ -159,7 +159,7 @@ async function persistMediaAndStatuses(opts: {
   const destMapped = remapPath(opts.destinationPathHost);
   const destBase = basename(opts.destinationPathHost);
   const fnData = parseFilenameMetadata(destBase);
-  const destStat = await stat(destMapped);
+  const destStat = await stat(destMapped, { bigint: true });
   const fp = fingerprintFromStats(destStat);
   const mi = await scanMediaInfo(destMapped).catch(() => null);
 
