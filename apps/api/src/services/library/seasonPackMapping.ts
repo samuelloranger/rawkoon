@@ -121,7 +121,10 @@ export function resolveSeasonPackMapping(
       const a = ordered[i] as ParsedSourceFile;
       const b = ordered[i + 1];
       const isPair =
-        a.part === 1 && b != null && b.part === 2 && b.episode === a.episode + 1;
+        a.part === 1 &&
+        b != null &&
+        b.part === 2 &&
+        b.episode === a.episode + 1;
       if (isPair) {
         const second = b as ParsedSourceFile;
         if (

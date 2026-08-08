@@ -6,7 +6,11 @@ import {
   type ProviderEpisode,
 } from "./seasonPackMapping";
 
-function src(episode: number, fileName: string, ext = ".mkv"): ParsedSourceFile {
+function src(
+  episode: number,
+  fileName: string,
+  ext = ".mkv",
+): ParsedSourceFile {
   return {
     path: `/dl/${fileName}`,
     fileName,
