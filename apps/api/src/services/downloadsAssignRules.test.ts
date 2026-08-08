@@ -64,24 +64,47 @@ describe("classifyDestination", () => {
 
 describe("judgePlacement", () => {
   it("accepts a destination that aliases the source", () => {
-    expect(judgePlacement("same_hardlink_as_source", false)).toBe("ok");
-    expect(judgePlacement("same_hardlink_as_source", true)).toBe("ok");
+    expect(judgePlacement("same_hardlink_as_source", "found", true)).toBe("ok");
+    expect(judgePlacement("same_hardlink_as_source", "linked", true)).toBe(
+      "ok",
+    );
   });
 
   it("reports a vanished destination as missing", () => {
-    expect(judgePlacement("absent", true)).toBe("missing");
-    expect(judgePlacement("absent", false)).toBe("missing");
+    expect(judgePlacement("absent", "linked", true)).toBe("missing");
+    expect(judgePlacement("absent", "found", false)).toBe("missing");
   });
 
-  it("accepts a file this invocation placed even when it cannot be identified", () => {
-    // The regression: post-placement the file is unidentifiable, so it
-    // classifies as a collision. Rejecting it returns before persistence and
-    // leaves an untracked file behind — in move mode with the source gone.
-    expect(judgePlacement("collision_other_file", true)).toBe("ok");
+  it("accepts a file we linked whose identity cannot be checked", () => {
+    // Rejecting here returns before persistence and leaves an untracked file
+    // behind — in move mode with the source already gone.
+    expect(judgePlacement("collision_other_file", "linked", false)).toBe("ok");
+  });
+
+  it("rejects a mismatch we could actually see after linking", () => {
+    // Identity was knowable and does not match, so something replaced the
+    // file between the stat and the write. The keyed lock only serializes
+    // this process, so that is possible — do not persist the wrong file.
+    expect(judgePlacement("collision_other_file", "linked", true)).toBe(
+      "collision",
+    );
+  });
+
+  it("accepts a copied file, whose inode differs by definition", () => {
+    // The EXDEV fallback copies instead of linking, so the destination has
+    // its own inode. Treating that as a collision would reject a successful
+    // placement — and in move mode the source is already gone.
+    expect(judgePlacement("collision_other_file", "copied", true)).toBe("ok");
+    expect(judgePlacement("collision_other_file", "copied", false)).toBe("ok");
   });
 
   it("still rejects a collision we did not create", () => {
-    expect(judgePlacement("collision_other_file", false)).toBe("collision");
+    expect(judgePlacement("collision_other_file", "found", true)).toBe(
+      "collision",
+    );
+    expect(judgePlacement("collision_other_file", "found", false)).toBe(
+      "collision",
+    );
   });
 });
 

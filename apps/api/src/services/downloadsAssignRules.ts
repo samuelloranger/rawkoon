@@ -52,21 +52,44 @@ export function classifyDestination(
 export type PlacementVerdict = "ok" | "missing" | "collision";
 
 /**
+ * How the file at the destination got there.
+ *
+ * - `found`   — it already existed; this invocation did not write it.
+ * - `linked`  — hardlinked or renamed, so it shares the source's inode.
+ * - `copied`  — the EXDEV fallback copied it, so it has an inode of its own
+ *               and can never match the source. That is expected, not a
+ *               collision.
+ */
+export type PlacementMethod = "found" | "linked" | "copied";
+
+/**
  * Judge the destination after the placement step.
  *
- * `placedHere` means this invocation wrote the file, inside the per-destination
- * lock, so the file there is the one it wrote — existence is the whole
- * postcondition. Demanding identity would reject our own write whenever the
- * inode is unusable, and that rejection path returns before persistence,
- * leaving an untracked file behind (and in move mode, no source either).
+ * The tension here: identity is a real integrity check — an external process
+ * can replace the file between our stat and our write, and the per-destination
+ * lock only serializes this process — but it is not always available, and it is
+ * not always meaningful.
+ *
+ * So a mismatch is only a collision when identity was knowable AND the write
+ * should have preserved it. `identityKnown` false means we have no evidence
+ * either way; `copied` means a differing inode is the expected outcome.
+ *
+ * Getting this wrong in the rejecting direction is costly: that path returns
+ * before persistence, leaving an untracked file at the destination and, in
+ * move mode, no source to retry from.
  */
 export function judgePlacement(
   post: DestinationClass,
-  placedHere: boolean,
+  method: PlacementMethod,
+  identityKnown: boolean,
 ): PlacementVerdict {
   if (post === "absent") return "missing";
-  if (post === "collision_other_file" && !placedHere) return "collision";
-  return "ok";
+  if (post !== "collision_other_file") return "ok";
+  if (method === "found") return "collision";
+  if (method === "copied") return "ok";
+  // Linked or renamed: the destination should share the source's inode. If we
+  // can see that it does not, something replaced it — do not persist it.
+  return identityKnown ? "collision" : "ok";
 }
 
 export type TrackedFileVerdict =

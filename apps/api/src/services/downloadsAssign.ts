@@ -40,6 +40,7 @@ import {
   type DestinationClass,
   type FileIdentity,
   type InodeParts,
+  type PlacementMethod,
 } from "@rawkoon/api/services/downloadsAssignRules";
 import {
   remapPath,
@@ -84,11 +85,16 @@ async function mkdirForFile(dstMapped: string): Promise<void> {
   await mkdir(dirname(dstMapped), { recursive: true });
 }
 
+/**
+ * Returns how the file was placed. The EXDEV fallback copies rather than
+ * links, so the destination gets its own inode — the caller needs to know that
+ * to avoid reading the expected mismatch as a collision.
+ */
 async function placeSourceToDestination(
   srcMapped: string,
   dstMapped: string,
   op: "hardlink" | "move",
-): Promise<void> {
+): Promise<PlacementMethod> {
   if (op === "move") {
     await mkdirForFile(dstMapped);
     try {
@@ -98,9 +104,11 @@ async function placeSourceToDestination(
       if (code === "EXDEV") {
         await copyFile(srcMapped, dstMapped);
         await unlink(srcMapped);
-      } else throw e;
+        return "copied";
+      }
+      throw e;
     }
-    return;
+    return "linked";
   }
 
   await mkdirForFile(dstMapped);
@@ -108,9 +116,13 @@ async function placeSourceToDestination(
     await link(srcMapped, dstMapped);
   } catch (e) {
     const code = (e as NodeJS.ErrnoException).code;
-    if (code === "EXDEV") await copyFile(srcMapped, dstMapped);
-    else throw e;
+    if (code === "EXDEV") {
+      await copyFile(srcMapped, dstMapped);
+      return "copied";
+    }
+    throw e;
   }
+  return "linked";
 }
 
 /**
@@ -461,14 +473,16 @@ export async function assignDownloadFromDisk(
 
     try {
       const placedHere = destClass === "absent";
-      if (placedHere) {
-        await placeSourceToDestination(srcMapped, dstMapped, op);
-      }
       /** `same_hardlink_as_source`: destination already aliases the download file */
+      const method: PlacementMethod = placedHere
+        ? await placeSourceToDestination(srcMapped, dstMapped, op)
+        : "found";
 
+      const postIdentity = await statFileForAssign(dstMapped);
       const verdict = judgePlacement(
-        await classifyDestForAssign(dstMapped, srcIno),
-        placedHere,
+        classifyDestination(postIdentity, srcIno),
+        method,
+        srcIno !== null && postIdentity.ino !== null,
       );
       if (verdict === "missing") {
         return { status: 500, error: "Destination missing after placement" };
