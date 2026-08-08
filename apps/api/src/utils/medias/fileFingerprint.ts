@@ -4,32 +4,42 @@ import { stat } from "node:fs/promises";
 export type FileFingerprint = {
   sizeBytes: bigint;
   mtimeMs: bigint;
-  dev: bigint;
-  ino: bigint;
+  /**
+   * dev/ino are decimal strings, not bigint. They are only ever an opaque
+   * identity key (see inodeKeyFromParts), and mergerfs synthesizes unsigned
+   * 64-bit inodes that overflow a signed Postgres bigint.
+   */
+  dev: string;
+  ino: string;
 };
 
 export type StoredFileFingerprint = {
   sizeBytes: bigint;
   fileMtimeMs: bigint | null;
-  fileDev?: bigint | null;
-  fileIno?: bigint | null;
+  fileDev?: string | null;
+  fileIno?: string | null;
 };
 
 export function toBigInt(value: number | bigint): bigint {
   return typeof value === "bigint" ? value : BigInt(Math.trunc(value));
 }
 
+/**
+ * Requires bigint stat fields on purpose: a plain stat() narrows the inode
+ * through a lossy JS number before we ever see it, which is how mergerfs
+ * inodes used to arrive as exactly 2^63 and abort every write.
+ */
 export function fingerprintFromStats(st: {
-  size: number | bigint;
-  mtimeMs: number;
-  dev: number | bigint;
-  ino: number | bigint;
+  size: bigint;
+  mtimeMs: bigint;
+  dev: bigint;
+  ino: bigint;
 }): FileFingerprint {
   return {
-    sizeBytes: toBigInt(st.size),
-    mtimeMs: BigInt(Math.trunc(st.mtimeMs)),
-    dev: toBigInt(st.dev),
-    ino: toBigInt(st.ino),
+    sizeBytes: st.size,
+    mtimeMs: st.mtimeMs,
+    dev: st.dev.toString(),
+    ino: st.ino.toString(),
   };
 }
 
@@ -48,8 +58,8 @@ export function fileUnchanged(
 export function fingerprintDbFields(fp: FileFingerprint): {
   sizeBytes: bigint;
   fileMtimeMs: bigint;
-  fileDev: bigint;
-  fileIno: bigint;
+  fileDev: string;
+  fileIno: string;
 } {
   return {
     sizeBytes: fp.sizeBytes,
@@ -60,8 +70,8 @@ export function fingerprintDbFields(fp: FileFingerprint): {
 }
 
 export function inodeKeyFromParts(
-  dev: number | bigint,
-  ino: number | bigint,
+  dev: string | number | bigint,
+  ino: string | number | bigint,
 ): string {
   return `${dev}:${ino}`;
 }
@@ -70,7 +80,7 @@ export async function statFileFingerprint(
   mappedPath: string,
 ): Promise<FileFingerprint | null> {
   try {
-    const st = await stat(mappedPath);
+    const st = await stat(mappedPath, { bigint: true });
     if (!st.isFile()) return null;
     return fingerprintFromStats(st);
   } catch {
