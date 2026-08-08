@@ -26,6 +26,10 @@ export function LibraryHealthCard({
         ["missing_file_paths", latest.summary.missing_file_paths],
         ["stale_tmdb_statuses", latest.summary.stale_tmdb_statuses],
         ["episode_number_mismatches", latest.summary.episode_number_mismatches],
+        [
+          "episode_duration_mismatches",
+          latest.summary.episode_duration_mismatches,
+        ],
       ]
     : [];
 

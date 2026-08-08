@@ -882,14 +882,16 @@
           "downloaded_episodes_without_files": "Épisodes téléchargés sans fichier",
           "missing_file_paths": "Chemins de fichiers manquants",
           "stale_tmdb_statuses": "Statuts TMDB obsolètes",
-          "episode_number_mismatches": "Épisodes incohérents"
+          "episode_number_mismatches": "Épisodes incohérents",
+          "episode_duration_mismatches": "Durées incohérentes"
         },
         "kinds": {
           "downloaded_media_without_files": "Média téléchargé sans fichier",
           "downloaded_episode_without_files": "Épisode téléchargé sans fichier",
           "missing_file_path": "Chemin de fichier manquant",
           "stale_tmdb_status": "Statut TMDB obsolète",
-          "episode_number_mismatch": "Numéro d'épisode incohérent"
+          "episode_number_mismatch": "Numéro d'épisode incohérent",
+          "episode_duration_mismatch": "Durée d'épisode incohérente"
         }
       },
       "schedule": "Planification :",

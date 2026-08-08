@@ -21,6 +21,7 @@ export function libraryHealthEmptySummary(): LibraryHealthSummary {
     missing_file_paths: 0,
     stale_tmdb_statuses: 0,
     episode_number_mismatches: 0,
+    episode_duration_mismatches: 0,
     total_issues: 0,
   };
 }
@@ -40,6 +41,8 @@ export function summarizeLibraryHealthIssues(
       summary.stale_tmdb_statuses += 1;
     } else if (issue.kind === "episode_number_mismatch") {
       summary.episode_number_mismatches += 1;
+    } else if (issue.kind === "episode_duration_mismatch") {
+      summary.episode_duration_mismatches += 1;
     }
   }
   summary.total_issues = issues.length;
