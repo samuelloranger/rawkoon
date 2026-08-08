@@ -31,6 +31,7 @@ import {
   fingerprintDbFields,
   fingerprintFromStats,
   inodeKeyFromParts,
+  normalizeInode,
 } from "@rawkoon/api/utils/medias/fileFingerprint";
 import {
   remapPath,
@@ -51,23 +52,25 @@ export type AssignDownloadSuccess = {
 };
 
 /**
- * Inode identity as exact decimal strings.
- *
- * Requires bigint stats: mergerfs synthesizes inodes above 2^53, and coercing
- * those to Number both loses precision and — since buildLibraryInodeKeySet now
- * stores exact values — makes the two sides of every comparison disagree.
+ * Inode identity as exact unsigned decimal strings, normalized the same way as
+ * the library side so the two can be compared. Null when the runtime cannot
+ * report a trustworthy inode — see normalizeInode.
  */
 function asInodeParts(st: import("node:fs").BigIntStats): {
   dev: string;
   ino: string;
-} {
-  return { dev: st.dev.toString(), ino: st.ino.toString() };
+} | null {
+  const ino = normalizeInode(st.ino);
+  if (ino === null) return null;
+  return { dev: BigInt.asUintN(64, st.dev).toString(), ino };
 }
 
 function inodeMatch(
-  a: { dev: string; ino: string },
-  b: { dev: string; ino: string },
+  a: { dev: string; ino: string } | null,
+  b: { dev: string; ino: string } | null,
 ): boolean {
+  // An unusable inode must never count as a match.
+  if (a === null || b === null) return false;
   return a.dev === b.dev && a.ino === b.ino;
 }
 
@@ -130,7 +133,7 @@ async function readFileInode(mappedPath: string): Promise<{
 /** Classify what's at `destination` before we mutate it */
 async function classifyDestForAssign(
   destMapped: string,
-  srcIno: { dev: string; ino: string },
+  srcIno: { dev: string; ino: string } | null,
 ): Promise<
   | { kind: "absent" }
   | { kind: "same_hardlink_as_source" }
@@ -285,7 +288,12 @@ export async function assignDownloadFromDisk(
 
   const inodeSet = await buildLibraryInodeKeySet();
   const srcIno = asInodeParts(srcStat);
-  if (inodeSet.has(inodeKeyFromParts(srcIno.dev, srcIno.ino)))
+  // A null inode means the runtime could not identify the file. Skip the
+  // already-linked guard rather than assume either answer.
+  if (
+    srcIno !== null &&
+    inodeSet.has(inodeKeyFromParts(srcIno.dev, srcIno.ino))
+  )
     return {
       status: 409,
       error: "File is already linked in the library (inode match)",

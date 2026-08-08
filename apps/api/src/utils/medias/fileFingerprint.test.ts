@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { open, mkdtemp, rm, link, stat } from "node:fs/promises";
+import { open, mkdtemp, rm, link } from "node:fs/promises";
 import { join } from "node:path";
 import {
   fileUnchanged,
@@ -7,6 +7,7 @@ import {
   fingerprintFromStats,
   inodeKeyFromParts,
   mapPool,
+  normalizeInode,
   statFileFingerprint,
 } from "./fileFingerprint";
 
@@ -37,6 +38,50 @@ describe("fileFingerprint", () => {
     });
     expect(fp.ino).toBe("13255269450503840684");
     expect(fp.dev).toBe("39");
+  });
+
+  describe("normalizeInode", () => {
+    it("passes ordinary inodes through", () => {
+      expect(normalizeInode(42n)).toBe("42");
+      expect(normalizeInode(652474865603395072n)).toBe("652474865603395072");
+    });
+
+    it("reinterprets a wrapped negative inode as unsigned", () => {
+      // Bun 1.3.14 returns the signed two's-complement view of a mergerfs
+      // inode. These pairs were measured against `stat -c %i` on the pool.
+      expect(normalizeInode(-4420810779339849877n)).toBe(
+        "14025933294369701739",
+      );
+      expect(normalizeInode(-723977626834603555n)).toBe("17722766446874948061");
+    });
+
+    it("rejects the saturation sentinel", () => {
+      // Bun 1.3.11 clamps every inode above 2^63 to INT64_MAX, so the value
+      // is the same constant for every file on the pool. Persisting it would
+      // make every file collide on one identity key.
+      expect(normalizeInode(9223372036854775807n)).toBeNull();
+    });
+
+    it("rejects a zero inode", () => {
+      expect(normalizeInode(0n)).toBeNull();
+    });
+  });
+
+  it("leaves dev/ino unset when the inode is untrustworthy", () => {
+    const fp = fingerprintFromStats({
+      size: 100n,
+      mtimeMs: 1n,
+      dev: 39n,
+      ino: 9223372036854775807n,
+    });
+    expect(fp.ino).toBeNull();
+    expect(fp.dev).toBeNull();
+    expect(fingerprintDbFields(fp)).toEqual({
+      sizeBytes: 100n,
+      fileMtimeMs: 1n,
+      fileDev: null,
+      fileIno: null,
+    });
   });
 
   it("fileUnchanged requires persisted mtime and matching size+mtime", () => {
@@ -97,7 +142,10 @@ describe("fileFingerprint", () => {
     }
   });
 
-  it("statFileFingerprint returns an inode matching the filesystem", async () => {
+  it("statFileFingerprint agrees with the filesystem, not just with itself", async () => {
+    // Deliberately compared against coreutils rather than another Bun stat.
+    // A Bun-to-Bun assertion passes even when Bun is reporting the wrong
+    // inode, which is exactly how a saturating runtime slipped through.
     const dir = await mkdtemp(join(process.env.TMPDIR ?? "/tmp", "fp-"));
     const path = join(dir, "a.mkv");
     const fh = await open(path, "w");
@@ -105,9 +153,12 @@ describe("fileFingerprint", () => {
     await fh.close();
     try {
       const fp = await statFileFingerprint(path);
-      const st = await stat(path, { bigint: true });
-      expect(fp!.ino).toBe(st.ino.toString());
-      expect(fp!.dev).toBe(st.dev.toString());
+      const truth = (
+        await new Response(
+          Bun.spawn(["stat", "-c", "%d %i", path], { stderr: "ignore" }).stdout,
+        ).text()
+      ).trim();
+      expect(`${fp!.dev} ${fp!.ino}`).toBe(truth);
     } finally {
       await rm(dir, { recursive: true });
     }
@@ -126,15 +177,16 @@ describe("fileFingerprint", () => {
     await fhC.write(Buffer.alloc(8));
     await fhC.close();
     try {
+      const key = (fp: { dev: string | null; ino: string | null }) => {
+        expect(fp.dev).not.toBeNull();
+        expect(fp.ino).not.toBeNull();
+        return inodeKeyFromParts(fp.dev as string, fp.ino as string);
+      };
       const fpA = (await statFileFingerprint(a))!;
       const fpB = (await statFileFingerprint(b))!;
       const fpC = (await statFileFingerprint(c))!;
-      expect(inodeKeyFromParts(fpB.dev, fpB.ino)).toBe(
-        inodeKeyFromParts(fpA.dev, fpA.ino),
-      );
-      expect(inodeKeyFromParts(fpC.dev, fpC.ino)).not.toBe(
-        inodeKeyFromParts(fpA.dev, fpA.ino),
-      );
+      expect(key(fpB)).toBe(key(fpA));
+      expect(key(fpC)).not.toBe(key(fpA));
     } finally {
       await rm(dir, { recursive: true });
     }

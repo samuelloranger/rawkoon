@@ -8,9 +8,13 @@ export type FileFingerprint = {
    * dev/ino are decimal strings, not bigint. They are only ever an opaque
    * identity key (see inodeKeyFromParts), and mergerfs synthesizes unsigned
    * 64-bit inodes that overflow a signed Postgres bigint.
+   *
+   * Null when the runtime could not report a trustworthy inode — see
+   * normalizeInode. Size + mtime still work as a change fingerprint; only
+   * hardlink identity is unavailable.
    */
-  dev: string;
-  ino: string;
+  dev: string | null;
+  ino: string | null;
 };
 
 export type StoredFileFingerprint = {
@@ -20,8 +24,31 @@ export type StoredFileFingerprint = {
   fileIno?: string | null;
 };
 
+/** Bun clamps here instead of reporting an unsigned inode; see normalizeInode. */
+const INT64_MAX = 9223372036854775807n;
+
 export function toBigInt(value: number | bigint): bigint {
   return typeof value === "bigint" ? value : BigInt(Math.trunc(value));
+}
+
+/**
+ * Turn a raw bigint inode into an exact unsigned decimal string, or null when
+ * it cannot be trusted.
+ *
+ * Pooled filesystems (mergerfs) synthesize inodes above 2^63, and runtimes
+ * disagree about how to report them:
+ *
+ * - Bun >= 1.3.14 returns the signed two's-complement view (negative). That is
+ *   lossless, so `asUintN` recovers the real value — verified against
+ *   `stat -c %i`: -4420810779339849877 -> 14025933294369701739.
+ * - Bun 1.3.11 clamps to INT64_MAX. Every file on the pool then reports the
+ *   *same* number, which is worse than having no inode at all: persisting it
+ *   would collapse every file onto one identity key and make unrelated
+ *   downloads look like hardlinks of each other. Reject it.
+ */
+export function normalizeInode(raw: bigint): string | null {
+  if (raw === 0n || raw === INT64_MAX) return null;
+  return BigInt.asUintN(64, raw).toString();
 }
 
 /**
@@ -35,11 +62,13 @@ export function fingerprintFromStats(st: {
   dev: bigint;
   ino: bigint;
 }): FileFingerprint {
+  const ino = normalizeInode(st.ino);
   return {
     sizeBytes: st.size,
     mtimeMs: st.mtimeMs,
-    dev: st.dev.toString(),
-    ino: st.ino.toString(),
+    // dev alone is meaningless as an identity, so it travels with ino.
+    dev: ino === null ? null : BigInt.asUintN(64, st.dev).toString(),
+    ino,
   };
 }
 
@@ -58,8 +87,8 @@ export function fileUnchanged(
 export function fingerprintDbFields(fp: FileFingerprint): {
   sizeBytes: bigint;
   fileMtimeMs: bigint;
-  fileDev: string;
-  fileIno: string;
+  fileDev: string | null;
+  fileIno: string | null;
 } {
   return {
     sizeBytes: fp.sizeBytes,
