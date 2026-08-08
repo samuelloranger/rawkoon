@@ -31,7 +31,17 @@ import {
   fingerprintDbFields,
   fingerprintFromStats,
   inodeKeyFromParts,
+  normalizeInode,
 } from "@rawkoon/api/utils/medias/fileFingerprint";
+import {
+  classifyDestination,
+  judgePlacement,
+  judgeTrackedFile,
+  type DestinationClass,
+  type FileIdentity,
+  type InodeParts,
+  type PlacementMethod,
+} from "@rawkoon/api/services/downloadsAssignRules";
 import {
   remapPath,
   scanMediaInfo,
@@ -51,24 +61,14 @@ export type AssignDownloadSuccess = {
 };
 
 /**
- * Inode identity as exact decimal strings.
- *
- * Requires bigint stats: mergerfs synthesizes inodes above 2^53, and coercing
- * those to Number both loses precision and — since buildLibraryInodeKeySet now
- * stores exact values — makes the two sides of every comparison disagree.
+ * Inode identity as exact unsigned decimal strings, normalized the same way as
+ * the library side so the two can be compared. Null when the runtime cannot
+ * report a trustworthy inode — see normalizeInode.
  */
-function asInodeParts(st: import("node:fs").BigIntStats): {
-  dev: string;
-  ino: string;
-} {
-  return { dev: st.dev.toString(), ino: st.ino.toString() };
-}
-
-function inodeMatch(
-  a: { dev: string; ino: string },
-  b: { dev: string; ino: string },
-): boolean {
-  return a.dev === b.dev && a.ino === b.ino;
+function asInodeParts(st: import("node:fs").BigIntStats): InodeParts | null {
+  const ino = normalizeInode(st.ino);
+  if (ino === null) return null;
+  return { dev: BigInt.asUintN(64, st.dev).toString(), ino };
 }
 
 function qualityFromVideoBasename(videoBase: string) {
@@ -85,11 +85,16 @@ async function mkdirForFile(dstMapped: string): Promise<void> {
   await mkdir(dirname(dstMapped), { recursive: true });
 }
 
+/**
+ * Returns how the file was placed. The EXDEV fallback copies rather than
+ * links, so the destination gets its own inode — the caller needs to know that
+ * to avoid reading the expected mismatch as a collision.
+ */
 async function placeSourceToDestination(
   srcMapped: string,
   dstMapped: string,
   op: "hardlink" | "move",
-): Promise<void> {
+): Promise<PlacementMethod> {
   if (op === "move") {
     await mkdirForFile(dstMapped);
     try {
@@ -99,9 +104,11 @@ async function placeSourceToDestination(
       if (code === "EXDEV") {
         await copyFile(srcMapped, dstMapped);
         await unlink(srcMapped);
-      } else throw e;
+        return "copied";
+      }
+      throw e;
     }
-    return;
+    return "linked";
   }
 
   await mkdirForFile(dstMapped);
@@ -109,37 +116,37 @@ async function placeSourceToDestination(
     await link(srcMapped, dstMapped);
   } catch (e) {
     const code = (e as NodeJS.ErrnoException).code;
-    if (code === "EXDEV") await copyFile(srcMapped, dstMapped);
-    else throw e;
+    if (code === "EXDEV") {
+      await copyFile(srcMapped, dstMapped);
+      return "copied";
+    }
+    throw e;
   }
+  return "linked";
 }
 
-async function readFileInode(mappedPath: string): Promise<{
-  dev: string;
-  ino: string;
-} | null> {
+/**
+ * Existence and identity are reported separately on purpose. An unusable inode
+ * must not read as "no file here": treating an existing file as absent would
+ * let the caller place over it, and then classify the file it just wrote as
+ * missing.
+ */
+async function statFileForAssign(mappedPath: string): Promise<FileIdentity> {
   try {
     const st = await stat(mappedPath, { bigint: true });
-    if (!st.isFile()) return null;
-    return asInodeParts(st);
+    if (!st.isFile()) return { exists: false, ino: null };
+    return { exists: true, ino: asInodeParts(st) };
   } catch {
-    return null;
+    return { exists: false, ino: null };
   }
 }
 
 /** Classify what's at `destination` before we mutate it */
 async function classifyDestForAssign(
   destMapped: string,
-  srcIno: { dev: string; ino: string },
-): Promise<
-  | { kind: "absent" }
-  | { kind: "same_hardlink_as_source" }
-  | { kind: "collision_other_file" }
-> {
-  const stDest = await readFileInode(destMapped);
-  if (!stDest) return { kind: "absent" };
-  if (inodeMatch(stDest, srcIno)) return { kind: "same_hardlink_as_source" };
-  return { kind: "collision_other_file" };
+  srcIno: InodeParts | null,
+): Promise<DestinationClass> {
+  return classifyDestination(await statFileForAssign(destMapped), srcIno);
 }
 
 async function persistMediaAndStatuses(opts: {
@@ -285,7 +292,12 @@ export async function assignDownloadFromDisk(
 
   const inodeSet = await buildLibraryInodeKeySet();
   const srcIno = asInodeParts(srcStat);
-  if (inodeSet.has(inodeKeyFromParts(srcIno.dev, srcIno.ino)))
+  // A null inode means the runtime could not identify the file. Skip the
+  // already-linked guard rather than assume either answer.
+  if (
+    srcIno !== null &&
+    inodeSet.has(inodeKeyFromParts(srcIno.dev, srcIno.ino))
+  )
     return {
       status: 409,
       error: "File is already linked in the library (inode match)",
@@ -377,23 +389,19 @@ export async function assignDownloadFromDisk(
     destinationHost = join(moviesLibRoot, `${stem}${ext}`);
 
     if (existingTracked) {
-      const otherIno = await readFileInode(remapPath(existingTracked.filePath));
-      if (
-        otherIno &&
-        resolve(existingTracked.filePath) !== resolve(destinationHost) &&
-        inodeMatch(otherIno, srcIno)
-      ) {
+      const verdict = judgeTrackedFile(
+        await statFileForAssign(remapPath(existingTracked.filePath)),
+        srcIno,
+        resolve(existingTracked.filePath) === resolve(destinationHost),
+      );
+      if (verdict === "already_linked_elsewhere") {
         return {
           status: 409,
           error:
             "This download is already hardlinked elsewhere for this library movie",
         };
       }
-      if (
-        otherIno &&
-        resolve(existingTracked.filePath) !== resolve(destinationHost) &&
-        !inodeMatch(otherIno, srcIno)
-      ) {
+      if (verdict === "different_tracked_file") {
         return {
           status: 409,
           error:
@@ -428,24 +436,18 @@ export async function assignDownloadFromDisk(
     destinationHost = join(showsLibRoot, `${epStem}${ext}`);
 
     if (existingEpisodeFile) {
-      const otherIno = await readFileInode(
-        remapPath(existingEpisodeFile.filePath),
+      const verdict = judgeTrackedFile(
+        await statFileForAssign(remapPath(existingEpisodeFile.filePath)),
+        srcIno,
+        resolve(existingEpisodeFile.filePath) === resolve(destinationHost),
       );
-      if (
-        otherIno &&
-        resolve(existingEpisodeFile.filePath) !== resolve(destinationHost) &&
-        inodeMatch(otherIno, srcIno)
-      ) {
+      if (verdict === "already_linked_elsewhere") {
         return {
           status: 409,
           error: "This download is already linked for this episode",
         };
       }
-      if (
-        otherIno &&
-        resolve(existingEpisodeFile.filePath) !== resolve(destinationHost) &&
-        !inodeMatch(otherIno, srcIno)
-      ) {
+      if (verdict === "different_tracked_file") {
         return {
           status: 409,
           error:
@@ -462,7 +464,7 @@ export async function assignDownloadFromDisk(
   return withKeyedLock(`assign:${dstMapped}`, async () => {
     const destClass = await classifyDestForAssign(dstMapped, srcIno);
 
-    if (destClass.kind === "collision_other_file") {
+    if (destClass === "collision_other_file") {
       return {
         status: 409,
         error: "Destination path is occupied by a different file",
@@ -470,17 +472,23 @@ export async function assignDownloadFromDisk(
     }
 
     try {
-      if (destClass.kind === "absent") {
-        await placeSourceToDestination(srcMapped, dstMapped, op);
-      }
+      const placedHere = destClass === "absent";
       /** `same_hardlink_as_source`: destination already aliases the download file */
+      const method: PlacementMethod = placedHere
+        ? await placeSourceToDestination(srcMapped, dstMapped, op)
+        : "found";
 
-      const post = await classifyDestForAssign(dstMapped, srcIno);
-      if (post.kind === "collision_other_file") {
-        return { status: 409, error: "Destination collision during placement" };
-      }
-      if (post.kind === "absent") {
+      const postIdentity = await statFileForAssign(dstMapped);
+      const verdict = judgePlacement(
+        classifyDestination(postIdentity, srcIno),
+        method,
+        srcIno !== null && postIdentity.ino !== null,
+      );
+      if (verdict === "missing") {
         return { status: 500, error: "Destination missing after placement" };
+      }
+      if (verdict === "collision") {
+        return { status: 409, error: "Destination collision during placement" };
       }
 
       const mfRow = await persistMediaAndStatuses({
@@ -508,7 +516,7 @@ export async function assignDownloadFromDisk(
       };
     } catch (e) {
       try {
-        if (destClass.kind === "absent") await unlink(dstMapped);
+        if (destClass === "absent") await unlink(dstMapped);
       } catch {
         /* ignore */
       }
