@@ -65,6 +65,15 @@ describe("fileFingerprint", () => {
     it("rejects a zero inode", () => {
       expect(normalizeInode(0n)).toBeNull();
     });
+
+    it("normalizes a stored sentinel read back from the database", () => {
+      // buildLibraryInodeKeySet re-checks persisted values, so a row written
+      // by a saturating build is re-statted instead of poisoning the key set.
+      expect(normalizeInode(BigInt("9223372036854775807"))).toBeNull();
+      expect(normalizeInode(BigInt("14025933294369701739"))).toBe(
+        "14025933294369701739",
+      );
+    });
   });
 
   it("leaves dev/ino unset when the inode is untrustworthy", () => {

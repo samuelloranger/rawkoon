@@ -53,8 +53,14 @@ export async function buildLibraryInodeKeySet(
   const needStat: Array<{ id: number; filePath: string }> = [];
 
   for (const row of rows) {
-    if (row.fileDev != null && row.fileIno != null) {
-      keys.add(inodeKeyFromParts(row.fileDev, row.fileIno));
+    // A stored value can still be untrustworthy: builds running Bun 1.3.11
+    // persisted INT64_MAX for every file on a pooled filesystem. A migration
+    // clears those, but re-check here so a row written by an older instance
+    // mid-upgrade is re-statted instead of poisoning the whole key set.
+    const storedIno =
+      row.fileIno != null ? normalizeInode(BigInt(row.fileIno)) : null;
+    if (row.fileDev != null && storedIno != null) {
+      keys.add(inodeKeyFromParts(row.fileDev, storedIno));
     } else {
       needStat.push({ id: row.id, filePath: row.filePath });
     }

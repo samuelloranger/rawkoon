@@ -117,17 +117,30 @@ async function placeSourceToDestination(
   }
 }
 
+/**
+ * Existence and identity are reported separately on purpose. An unusable inode
+ * must not read as "no file here": treating an existing file as absent would
+ * let the caller place over it, and then classify the file it just wrote as
+ * missing.
+ */
+async function statFileForAssign(mappedPath: string): Promise<{
+  exists: boolean;
+  ino: { dev: string; ino: string } | null;
+}> {
+  try {
+    const st = await stat(mappedPath, { bigint: true });
+    if (!st.isFile()) return { exists: false, ino: null };
+    return { exists: true, ino: asInodeParts(st) };
+  } catch {
+    return { exists: false, ino: null };
+  }
+}
+
 async function readFileInode(mappedPath: string): Promise<{
   dev: string;
   ino: string;
 } | null> {
-  try {
-    const st = await stat(mappedPath, { bigint: true });
-    if (!st.isFile()) return null;
-    return asInodeParts(st);
-  } catch {
-    return null;
-  }
+  return (await statFileForAssign(mappedPath)).ino;
 }
 
 /** Classify what's at `destination` before we mutate it */
@@ -139,9 +152,11 @@ async function classifyDestForAssign(
   | { kind: "same_hardlink_as_source" }
   | { kind: "collision_other_file" }
 > {
-  const stDest = await readFileInode(destMapped);
-  if (!stDest) return { kind: "absent" };
-  if (inodeMatch(stDest, srcIno)) return { kind: "same_hardlink_as_source" };
+  const dest = await statFileForAssign(destMapped);
+  if (!dest.exists) return { kind: "absent" };
+  // A file is there but we cannot prove it is the same one, so treat it as a
+  // collision and refuse rather than risk clobbering it.
+  if (inodeMatch(dest.ino, srcIno)) return { kind: "same_hardlink_as_source" };
   return { kind: "collision_other_file" };
 }
 
