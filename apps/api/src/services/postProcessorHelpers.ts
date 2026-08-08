@@ -51,27 +51,21 @@ async function ensureDestinationDir(filePath: string): Promise<void> {
   await mkdir(dirname(filePath), { recursive: true });
 }
 
-function asInodeParts(st: import("node:fs").Stats): {
-  dev: number;
-  ino: number;
+/**
+ * Inode identity as exact decimal strings. Coercing a mergerfs inode to Number
+ * rounds it, so two distinct files could compare equal and a placement would
+ * be silently skipped as "already the same file".
+ */
+function asInodeParts(st: import("node:fs").BigIntStats): {
+  dev: string;
+  ino: string;
 } {
-  const devUnknown = st.dev as unknown;
-  const inoUnknown = st.ino as unknown;
-  return {
-    dev:
-      typeof devUnknown === "bigint"
-        ? Number(devUnknown)
-        : Number(devUnknown as number),
-    ino:
-      typeof inoUnknown === "bigint"
-        ? Number(inoUnknown)
-        : Number(inoUnknown as number),
-  };
+  return { dev: st.dev.toString(), ino: st.ino.toString() };
 }
 
 function inodeMatch(
-  a: { dev: number; ino: number },
-  b: { dev: number; ino: number },
+  a: { dev: string; ino: string },
+  b: { dev: string; ino: string },
 ): boolean {
   return a.dev === b.dev && a.ino === b.ino;
 }
@@ -82,8 +76,8 @@ export async function placeFile(
   operation: "hardlink" | "move",
 ): Promise<void> {
   try {
-    const dstStat = await stat(dst);
-    const srcStat = await stat(src);
+    const dstStat = await stat(dst, { bigint: true });
+    const srcStat = await stat(src, { bigint: true });
     const dstIno = asInodeParts(dstStat);
     const srcIno = asInodeParts(srcStat);
     if (inodeMatch(dstIno, srcIno)) {

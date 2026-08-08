@@ -321,7 +321,11 @@ async function walkDownloadsOnce(
     await mapPool(candidatePaths, FS_STAT_CONCURRENCY, async (filePath) => {
       let st;
       try {
-        st = await stat(remapPath(filePath));
+        // bigint stats, matching buildLibraryInodeKeySet above. A plain stat
+        // rounds inodes over 2^53, so the key built here would not equal the
+        // exact key stored for the library and every hardlinked download would
+        // be reported as not imported.
+        st = await stat(remapPath(filePath), { bigint: true });
       } catch {
         return null;
       }

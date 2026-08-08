@@ -30,6 +30,7 @@ import { withKeyedLock } from "@rawkoon/api/utils/keyedLock";
 import {
   fingerprintDbFields,
   fingerprintFromStats,
+  inodeKeyFromParts,
 } from "@rawkoon/api/utils/medias/fileFingerprint";
 import {
   remapPath,
@@ -49,27 +50,23 @@ export type AssignDownloadSuccess = {
   media_file_id: number;
 };
 
-function asInodeParts(st: import("node:fs").Stats): {
-  dev: number;
-  ino: number;
+/**
+ * Inode identity as exact decimal strings.
+ *
+ * Requires bigint stats: mergerfs synthesizes inodes above 2^53, and coercing
+ * those to Number both loses precision and — since buildLibraryInodeKeySet now
+ * stores exact values — makes the two sides of every comparison disagree.
+ */
+function asInodeParts(st: import("node:fs").BigIntStats): {
+  dev: string;
+  ino: string;
 } {
-  const devUnknown = st.dev as unknown;
-  const inoUnknown = st.ino as unknown;
-  return {
-    dev:
-      typeof devUnknown === "bigint"
-        ? Number(devUnknown)
-        : Number(devUnknown as number),
-    ino:
-      typeof inoUnknown === "bigint"
-        ? Number(inoUnknown)
-        : Number(inoUnknown as number),
-  };
+  return { dev: st.dev.toString(), ino: st.ino.toString() };
 }
 
 function inodeMatch(
-  a: { dev: number; ino: number },
-  b: { dev: number; ino: number },
+  a: { dev: string; ino: string },
+  b: { dev: string; ino: string },
 ): boolean {
   return a.dev === b.dev && a.ino === b.ino;
 }
@@ -118,11 +115,11 @@ async function placeSourceToDestination(
 }
 
 async function readFileInode(mappedPath: string): Promise<{
-  dev: number;
-  ino: number;
+  dev: string;
+  ino: string;
 } | null> {
   try {
-    const st = await stat(mappedPath);
+    const st = await stat(mappedPath, { bigint: true });
     if (!st.isFile()) return null;
     return asInodeParts(st);
   } catch {
@@ -133,7 +130,7 @@ async function readFileInode(mappedPath: string): Promise<{
 /** Classify what's at `destination` before we mutate it */
 async function classifyDestForAssign(
   destMapped: string,
-  srcIno: { dev: number; ino: number },
+  srcIno: { dev: string; ino: string },
 ): Promise<
   | { kind: "absent" }
   | { kind: "same_hardlink_as_source" }
@@ -264,7 +261,7 @@ export async function assignDownloadFromDisk(
   const srcMapped = remapPath(abs);
   let srcStat;
   try {
-    srcStat = await stat(srcMapped);
+    srcStat = await stat(srcMapped, { bigint: true });
   } catch {
     return { status: 404, error: "File not found" };
   }
@@ -288,7 +285,7 @@ export async function assignDownloadFromDisk(
 
   const inodeSet = await buildLibraryInodeKeySet();
   const srcIno = asInodeParts(srcStat);
-  if (inodeSet.has(`${srcIno.dev}:${srcIno.ino}`))
+  if (inodeSet.has(inodeKeyFromParts(srcIno.dev, srcIno.ino)))
     return {
       status: 409,
       error: "File is already linked in the library (inode match)",

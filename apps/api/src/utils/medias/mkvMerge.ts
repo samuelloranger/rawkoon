@@ -1,3 +1,5 @@
+import { mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
 import { scanMediaInfo } from "@rawkoon/api/utils/medias/mediainfoScanner";
 import type { MediaFileData } from "@rawkoon/api/utils/medias/mediainfoParser";
 
@@ -55,6 +57,16 @@ export async function mkvAppend(
       return false;
     }
     expected.push(mi.durationSecs);
+  }
+
+  // Unlike placeFile, nothing else creates the destination directory for a
+  // merge. A season whose only new file is the merged episode — or one placed
+  // concurrently with its siblings — would otherwise fail on a missing parent.
+  try {
+    await mkdir(dirname(outPath), { recursive: true });
+  } catch (e) {
+    console.warn(`[mkvMerge] Could not create directory for "${outPath}":`, e);
+    return false;
   }
 
   // mkvmerge's append syntax: mkvmerge -o out first + second [+ third...]
