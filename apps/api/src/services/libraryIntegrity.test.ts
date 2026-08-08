@@ -13,6 +13,7 @@ describe("summarizeLibraryHealthIssues", () => {
       missing_file_paths: 0,
       stale_tmdb_statuses: 0,
       episode_number_mismatches: 0,
+      episode_duration_mismatches: 0,
       total_issues: 0,
     });
   });
@@ -43,6 +44,10 @@ describe("summarizeLibraryHealthIssues", () => {
         kind: "episode_number_mismatch",
         detail: "f",
       },
+      {
+        kind: "episode_duration_mismatch",
+        detail: "g",
+      },
     ];
     expect(summarizeLibraryHealthIssues(issues)).toEqual({
       downloaded_media_without_files: 1,
@@ -50,7 +55,8 @@ describe("summarizeLibraryHealthIssues", () => {
       missing_file_paths: 1,
       stale_tmdb_statuses: 1,
       episode_number_mismatches: 2,
-      total_issues: 6,
+      episode_duration_mismatches: 1,
+      total_issues: 7,
     });
   });
 });

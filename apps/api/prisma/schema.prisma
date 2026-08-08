@@ -590,9 +590,10 @@ model MediaFile {
   languageTags   String[] @default([]) @map("language_tags")
   scannedAt      DateTime @default(now()) @map("scanned_at")
   /// Filesystem device id from last successful stat (hardlink / skip-scan cache).
-  fileDev        BigInt?  @map("file_dev")
+  /// Text, not BigInt: identity key only, and mergerfs inodes exceed signed bigint.
+  fileDev        String?  @map("file_dev")
   /// Inode from last successful stat.
-  fileIno        BigInt?  @map("file_ino")
+  fileIno        String?  @map("file_ino")
   /// mtimeMs from last successful stat — paired with sizeBytes to skip MediaInfo.
   fileMtimeMs    BigInt?  @map("file_mtime_ms")
 

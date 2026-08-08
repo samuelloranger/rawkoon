@@ -128,7 +128,7 @@ async function rescanLibraryItemInner(
     const mapped = remapPath(file.filePath);
     let st;
     try {
-      st = await statFile(mapped);
+      st = await statFile(mapped, { bigint: true });
     } catch {
       toDeleteIds.push(file.id);
       return;
@@ -256,7 +256,7 @@ async function rescanLibraryItemInner(
           async ({ diskPath, dbPath, name }) => {
             let st;
             try {
-              st = await statFile(diskPath);
+              st = await statFile(diskPath, { bigint: true });
             } catch {
               return false;
             }
@@ -400,7 +400,7 @@ async function rescanLibraryItemInner(
               async ({ diskPath, dbPath, name, epId }) => {
                 let st;
                 try {
-                  st = await statFile(diskPath);
+                  st = await statFile(diskPath, { bigint: true });
                 } catch {
                   return false;
                 }

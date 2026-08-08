@@ -188,11 +188,14 @@ mock.module("node:fs/promises", () => ({
     const entry = statMap[filePath];
     if (!entry) return Promise.reject(new Error("ENOENT"));
     const ov = entry === true ? {} : entry;
+    // Production always stats with { bigint: true } so unsigned 64-bit inodes
+    // survive; mirror that here or fileUnchanged compares 1_000_000n to
+    // 1_000_000 and never takes the skip path.
     return Promise.resolve({
-      size: ov.size ?? 1_000_000,
-      mtimeMs: ov.mtimeMs ?? 1_700_000_000_000,
-      dev: ov.dev ?? 1,
-      ino: ov.ino ?? 100 + (filePath.length % 50),
+      size: BigInt(ov.size ?? 1_000_000),
+      mtimeMs: BigInt(ov.mtimeMs ?? 1_700_000_000_000),
+      dev: BigInt(ov.dev ?? 1),
+      ino: BigInt(ov.ino ?? 100 + (filePath.length % 50)),
       isFile: () => true,
     });
   },
