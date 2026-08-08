@@ -493,17 +493,24 @@ export async function assignDownloadFromDisk(
     }
 
     try {
-      if (destClass.kind === "absent") {
+      const placedHere = destClass.kind === "absent";
+      if (placedHere) {
         await placeSourceToDestination(srcMapped, dstMapped, op);
       }
       /** `same_hardlink_as_source`: destination already aliases the download file */
 
       const post = await classifyDestForAssign(dstMapped, srcIno);
-      if (post.kind === "collision_other_file") {
-        return { status: 409, error: "Destination collision during placement" };
-      }
       if (post.kind === "absent") {
         return { status: 500, error: "Destination missing after placement" };
+      }
+      // When we placed the file ourselves, existence is the postcondition —
+      // we are inside the per-destination lock, so the file there is the one
+      // we just wrote. Demanding inode equality would fail whenever the
+      // runtime cannot report a usable inode, and the 409 returns from inside
+      // this try without reaching the catch cleanup: the destination would be
+      // left untracked, and in move mode the source is already gone.
+      if (post.kind === "collision_other_file" && !placedHere) {
+        return { status: 409, error: "Destination collision during placement" };
       }
 
       const mfRow = await persistMediaAndStatuses({
