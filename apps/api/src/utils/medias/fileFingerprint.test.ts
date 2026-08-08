@@ -11,6 +11,23 @@ import {
   statFileFingerprint,
 } from "./fileFingerprint";
 
+/**
+ * Device + inode straight from the system `stat`, as ground truth independent
+ * of the JS runtime. GNU spells the format flag `-c`, BSD/macOS spells it
+ * `-f`, so try both. Returns null when neither works — the caller must skip
+ * rather than read an empty string as a mismatch.
+ */
+async function filesystemIdentity(path: string): Promise<string | null> {
+  for (const flag of ["-c", "-f"]) {
+    const proc = Bun.spawn(["stat", flag, "%d %i", path], {
+      stderr: "ignore",
+    });
+    const out = (await new Response(proc.stdout).text()).trim();
+    if ((await proc.exited) === 0 && /^\d+ \d+$/.test(out)) return out;
+  }
+  return null;
+}
+
 describe("fileFingerprint", () => {
   it("fingerprintFromStats keeps size/mtime numeric and dev/ino textual", () => {
     const fp = fingerprintFromStats({
@@ -152,8 +169,8 @@ describe("fileFingerprint", () => {
   });
 
   it("statFileFingerprint agrees with the filesystem, not just with itself", async () => {
-    // Deliberately compared against coreutils rather than another Bun stat.
-    // A Bun-to-Bun assertion passes even when Bun is reporting the wrong
+    // Deliberately compared against the system `stat` rather than another Bun
+    // stat. A Bun-to-Bun assertion passes even when Bun is reporting the wrong
     // inode, which is exactly how a saturating runtime slipped through.
     const dir = await mkdtemp(join(process.env.TMPDIR ?? "/tmp", "fp-"));
     const path = join(dir, "a.mkv");
@@ -162,11 +179,10 @@ describe("fileFingerprint", () => {
     await fh.close();
     try {
       const fp = await statFileFingerprint(path);
-      const truth = (
-        await new Response(
-          Bun.spawn(["stat", "-c", "%d %i", path], { stderr: "ignore" }).stdout,
-        ).text()
-      ).trim();
+      const truth = await filesystemIdentity(path);
+      // Only assert when we actually got an answer — an unreadable `stat`
+      // must not masquerade as a mismatch.
+      if (truth === null) return;
       expect(`${fp!.dev} ${fp!.ino}`).toBe(truth);
     } finally {
       await rm(dir, { recursive: true });
