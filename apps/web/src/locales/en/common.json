@@ -882,14 +882,16 @@
           "downloaded_episodes_without_files": "Downloaded episodes missing files",
           "missing_file_paths": "Missing file paths",
           "stale_tmdb_statuses": "Stale TMDB statuses",
-          "episode_number_mismatches": "Episode mismatches"
+          "episode_number_mismatches": "Episode mismatches",
+          "episode_duration_mismatches": "Runtime mismatches"
         },
         "kinds": {
           "downloaded_media_without_files": "Downloaded media without files",
           "downloaded_episode_without_files": "Downloaded episode without files",
           "missing_file_path": "Missing file path",
           "stale_tmdb_status": "Stale TMDB status",
-          "episode_number_mismatch": "Episode number mismatch"
+          "episode_number_mismatch": "Episode number mismatch",
+          "episode_duration_mismatch": "Episode runtime mismatch"
         }
       },
       "schedule": "Schedule:",

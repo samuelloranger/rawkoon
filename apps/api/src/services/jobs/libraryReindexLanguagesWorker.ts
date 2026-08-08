@@ -92,7 +92,7 @@ export async function processLibraryReindexLanguagesJob(
     try {
       let st;
       try {
-        st = await stat(remapPath(file.filePath));
+        st = await stat(remapPath(file.filePath), { bigint: true });
       } catch {
         progress.skipped += 1;
         await bumpProgress(file.filePath);

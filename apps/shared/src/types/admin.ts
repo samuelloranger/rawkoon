@@ -35,6 +35,7 @@ export interface LibraryHealthSummary {
   missing_file_paths: number;
   stale_tmdb_statuses: number;
   episode_number_mismatches: number;
+  episode_duration_mismatches: number;
   total_issues: number;
 }
 
@@ -44,7 +45,8 @@ export interface LibraryHealthIssue {
     | "downloaded_episode_without_files"
     | "missing_file_path"
     | "stale_tmdb_status"
-    | "episode_number_mismatch";
+    | "episode_number_mismatch"
+    | "episode_duration_mismatch";
   media_id?: number;
   episode_id?: number;
   media_file_id?: number;

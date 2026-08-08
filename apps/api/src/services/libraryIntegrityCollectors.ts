@@ -18,7 +18,15 @@ const SHOW_TMDB_PAGE_SIZE = 25;
 type TmdbEpisode = {
   id: number;
   episode_number: number;
+  runtime?: number | null;
 };
+
+/**
+ * How far a file's runtime may drift from the provider's before we call it a
+ * mismatch. Generous on purpose: this is meant to catch a 44-minute file
+ * sitting on a 90-minute double episode, not ordinary encoding differences.
+ */
+const EPISODE_RUNTIME_TOLERANCE_MINS = 15;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -260,6 +268,7 @@ async function collectEpisodeNumberMismatches(
             season: true,
             episode: true,
             tmdbEpisodeId: true,
+            files: { select: { durationSecs: true } },
           },
           orderBy: [{ season: "asc" }, { episode: "asc" }],
         },
@@ -282,6 +291,7 @@ async function collectEpisodeNumberMismatches(
           { season: number; episode: number }
         >();
         const tmdbEpisodesByNumber = new Set<string>();
+        const tmdbRuntimeById = new Map<number, number>();
 
         for (const season of details.seasons.filter(
           (s) => s.season_number > 0,
@@ -301,6 +311,9 @@ async function collectEpisodeNumberMismatches(
             tmdbEpisodesByNumber.add(
               `${season.season_number}:${episode.episode_number}`,
             );
+            if (typeof episode.runtime === "number" && episode.runtime > 0) {
+              tmdbRuntimeById.set(episode.id, episode.runtime);
+            }
           }
         }
 
@@ -346,6 +359,37 @@ async function collectEpisodeNumberMismatches(
               episode: episode.episode,
               detail: `"${show.title}" S${episode.season}E${episode.episode} was not found in TMDB.`,
             });
+          }
+
+          // A file whose runtime is wildly off from the provider's is the
+          // signature of a season imported against a different numbering
+          // scheme — a 44-minute file sitting on a 90-minute double episode.
+          // The shifted 44-vs-43-minute episodes around it will not trip
+          // individually, but this anchor identifies the season.
+          const providerRuntime = episode.tmdbEpisodeId
+            ? tmdbRuntimeById.get(episode.tmdbEpisodeId)
+            : undefined;
+          const fileDuration = episode.files[0]?.durationSecs;
+
+          if (providerRuntime != null && fileDuration != null) {
+            const fileMinutes = fileDuration / 60;
+            if (
+              Math.abs(fileMinutes - providerRuntime) >
+              EPISODE_RUNTIME_TOLERANCE_MINS
+            ) {
+              issues.push({
+                kind: "episode_duration_mismatch",
+                media_id: show.id,
+                episode_id: episode.id,
+                tmdb_id: show.tmdbId,
+                tmdb_episode_id: episode.tmdbEpisodeId ?? undefined,
+                title: show.title,
+                media_type: "show",
+                season: episode.season,
+                episode: episode.episode,
+                detail: `"${show.title}" S${episode.season}E${episode.episode} runs ${Math.round(fileMinutes)} min but TMDB says ${providerRuntime} min — the season may be numbered against a different scheme.`,
+              });
+            }
           }
         }
       } catch (error) {

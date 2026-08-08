@@ -1,5 +1,5 @@
 import { basename, extname, join } from "node:path";
-import { stat } from "node:fs/promises";
+import { stat, rm } from "node:fs/promises";
 
 import { prisma } from "@rawkoon/api/db";
 import { classifyLanguageTags, type LibraryAudioTrack } from "@rawkoon/shared";
@@ -30,6 +30,14 @@ import {
   qualityStringsFromParsed,
   resolveTorrentContentPath,
 } from "@rawkoon/api/services/postProcessorHelpers";
+import {
+  parsePartMarker,
+  resolveSeasonPackMapping,
+} from "@rawkoon/api/services/library/seasonPackMapping";
+import {
+  mkvAppend,
+  tracksCompatible,
+} from "@rawkoon/api/utils/medias/mkvMerge";
 
 /**
  * Post-process a season pack / intégrale: find all video files under the torrent
@@ -85,52 +93,118 @@ export async function postProcessSeasonPack(
   const episodes = await prisma.libraryEpisode.findMany({
     where: { mediaId: dh.media.id },
   });
-  const epMap = new Map(episodes.map((e) => [`${e.season}x${e.episode}`, e]));
 
   const root = settings.showsLibraryPath!.replace(/\/+$/, "");
   const q = qualityStringsFromParsed(dh.qualityParsed, dh.releaseTitle);
 
-  // Dedupe source files that resolve to the same episode before placing them.
+  // Dedupe source files that resolve to the same episode before mapping them.
   // Multiple sources for one episode share a destinationPath, so processing
   // them concurrently would race the findFirst-then-create below and produce
-  // duplicate MediaFile rows. Keep the first source per episode; unparsable
-  // files still flow through (they warn + skip inside the worker).
+  // duplicate MediaFile rows. Keep the first source per episode.
   const seenEpisodeKeys = new Set<string>();
-  const dedupedVideos = allVideos.filter((srcVideo) => {
-    const se = parseSeasonEpisode(basename(srcVideo));
-    if (!se) return true;
+  const parsedSources = allVideos.flatMap((srcVideo) => {
+    const fileName = basename(srcVideo);
+    const se = parseSeasonEpisode(fileName);
+    if (!se) {
+      console.warn(
+        `[postProcess/pack] Could not parse SxxExx from "${fileName}", skipping`,
+      );
+      return [];
+    }
     const key = `${se.season}x${se.episode}`;
-    if (seenEpisodeKeys.has(key)) return false;
+    if (seenEpisodeKeys.has(key)) return [];
     seenEpisodeKeys.add(key);
-    return true;
+    return [
+      {
+        path: srcVideo,
+        fileName,
+        season: se.season,
+        episode: se.episode,
+        part: parsePartMarker(fileName),
+        ext: extname(srcVideo) || ".mkv",
+      },
+    ];
   });
+
+  const mapping = resolveSeasonPackMapping(parsedSources, episodes);
+
+  /**
+   * Abandon the whole pack: record why, blocklist the release, import nothing.
+   *
+   * Without the blocklist the episodes stay "wanted", auto-search finds the
+   * same highest-scoring pack, grabs it, refuses it again, and loops forever.
+   */
+  const refusePack = async (reason: string) => {
+    await prisma.downloadHistory.update({
+      where: { id: downloadHistoryId },
+      data: { postProcessError: reason },
+    });
+    await prisma.grabBlocklist.create({
+      data: {
+        torrentHash: hash,
+        releaseTitle: dh.releaseTitle,
+        mediaId: dh.media.id,
+        reason,
+      },
+    });
+    console.warn(`[postProcess/pack] ${dh.media.title}: ${reason}`);
+    return { success: false as const, reason };
+  };
+
+  if (!mapping.ok) {
+    // Import nothing. A partially-correct season is worse than none: the files
+    // that "work" get renamed to the wrong episode's title and look fine until
+    // someone watches them.
+    return refusePack(
+      `Season pack numbering does not match the provider — nothing imported. ${
+        mapping.reason
+      }${
+        mapping.unmatched.length > 0
+          ? ` Unmatched: ${mapping.unmatched.join(", ")}`
+          : ""
+      }`,
+    );
+  }
+
+  // Preflight every merge candidate BEFORE placing anything. Checking track
+  // compatibility inside the placement loop would surface the failure after
+  // sibling episodes are already hardlinked, and since `processed > 0` the
+  // run would then clear postProcessError, mark the show downloaded, and
+  // possibly remove the torrent — the opposite of all-or-nothing.
+  for (const placement of mapping.placements) {
+    if (placement.kind !== "merge") continue;
+    const [a, b] = placement.sources;
+    const [miA, miB] = await Promise.all([
+      scanMediaInfo(a.path),
+      scanMediaInfo(b.path),
+    ]);
+    if (!miA || !miB) {
+      return refusePack(
+        `Season pack contains a split episode that MediaInfo cannot read — nothing imported. Could not scan "${miA ? b.fileName : a.fileName}".`,
+      );
+    }
+    if (!tracksCompatible(miA, miB)) {
+      return refusePack(
+        `Season pack contains a split episode whose parts are not mergeable — nothing imported. "${a.fileName}" and "${b.fileName}" have different track layouts.`,
+      );
+    }
+  }
 
   type EpisodeResult =
     | { ok: true; destinationPath: string }
-    | { ok: false; error: string };
+    | { ok: false; error: string; fatal?: boolean };
 
   const PACK_CONCURRENCY = 6;
   const episodeResults: (EpisodeResult | null)[] = [];
-  for (let i = 0; i < dedupedVideos.length; i += PACK_CONCURRENCY) {
-    const chunk = dedupedVideos.slice(i, i + PACK_CONCURRENCY);
+  for (let i = 0; i < mapping.placements.length; i += PACK_CONCURRENCY) {
+    const chunk = mapping.placements.slice(i, i + PACK_CONCURRENCY);
     const chunkResults = await Promise.all(
-      chunk.map(async (srcVideo): Promise<EpisodeResult | null> => {
-        const fn = basename(srcVideo);
-        const se = parseSeasonEpisode(fn);
-        if (!se) {
-          console.warn(
-            `[postProcess/pack] Could not parse SxxExx from "${fn}", skipping`,
-          );
-          return null;
-        }
-        const ep = epMap.get(`${se.season}x${se.episode}`);
-        if (!ep) {
-          console.warn(
-            `[postProcess/pack] No LibraryEpisode for S${se.season}E${se.episode} of "${dh.media.title}", skipping`,
-          );
-          return null;
-        }
-        const ext = extname(srcVideo) || ".mkv";
+      chunk.map(async (placement): Promise<EpisodeResult | null> => {
+        const ep = placement.episode;
+        const primary = placement.sources[0];
+        const srcVideo = primary.path;
+        const fn = primary.fileName;
+        const ext = primary.ext;
         const epStem =
           renderEpisodeTemplate(settings.episodeTemplate ?? "", {
             show: dh.media.title,
@@ -145,16 +219,46 @@ export async function postProcessSeasonPack(
             `${dh.media.title}/Season ${ep.season}/${dh.media.title} - S${String(ep.season).padStart(2, "0")}E${String(ep.episode).padStart(2, "0")}`,
           );
         const destinationPath = join(root, `${epStem}${ext}`);
-        try {
-          await placeFile(srcVideo, destinationPath, op);
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          return { ok: false, error: `S${se.season}E${se.episode}: ${msg}` };
+
+        if (placement.kind === "merge") {
+          // Track compatibility was already verified in the preflight above.
+          const [a, b] = placement.sources;
+          if (!(await mkvAppend([a.path, b.path], destinationPath))) {
+            // Fatal: a season missing its double episode must not be reported
+            // as a successful import.
+            return {
+              ok: false,
+              fatal: true,
+              error: `S${ep.season}E${ep.episode}: merging "${a.fileName}" + "${b.fileName}" failed`,
+            };
+          }
+          // The merged file is new content, never a hardlink to the source
+          // parts. In move mode the parts are consumed; in hardlink mode they
+          // stay put so the torrent keeps seeding.
+          if (op === "move") {
+            await Promise.all(
+              [a.path, b.path].map((p) =>
+                rm(p).catch((e) =>
+                  console.warn(
+                    `[postProcess/pack] Could not remove part ${p}:`,
+                    e,
+                  ),
+                ),
+              ),
+            );
+          }
+        } else {
+          try {
+            await placeFile(srcVideo, destinationPath, op);
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            return { ok: false, error: `S${ep.season}E${ep.episode}: ${msg}` };
+          }
         }
         try {
           const fnData = parseFilenameMetadata(fn);
           const destMapped = remapPath(destinationPath);
-          const destStat = await stat(destMapped);
+          const destStat = await stat(destMapped, { bigint: true });
           const fp = fingerprintFromStats(destStat);
           const mi = await scanMediaInfo(destinationPath);
           const existingFile = await prisma.mediaFile.findFirst({
@@ -232,7 +336,7 @@ export async function postProcessSeasonPack(
           const msg = e instanceof Error ? e.message : String(e);
           return {
             ok: false,
-            error: `S${se.season}E${se.episode}: episode status update failed: ${msg}`,
+            error: `S${ep.season}E${ep.episode}: episode status update failed: ${msg}`,
           };
         }
         return { ok: true, destinationPath };
@@ -243,15 +347,26 @@ export async function postProcessSeasonPack(
 
   let processed = 0;
   const errors: string[] = [];
+  const fatalErrors: string[] = [];
   let firstDest: string | null = null;
   for (const result of episodeResults) {
     if (result === null) continue;
     if (!result.ok) {
       errors.push(result.error);
+      if (result.fatal) fatalErrors.push(result.error);
     } else {
       processed++;
       if (!firstDest) firstDest = result.destinationPath;
     }
+  }
+
+  // A failed merge leaves the season without its double episode. Reporting
+  // that as a success would clear postProcessError, mark the show downloaded,
+  // and let the torrent be removed — losing the only copy of the parts.
+  if (fatalErrors.length > 0) {
+    return refusePack(
+      `Season pack partially imported but a split episode could not be merged — ${fatalErrors.join("; ")}`,
+    );
   }
 
   if (processed === 0) {
