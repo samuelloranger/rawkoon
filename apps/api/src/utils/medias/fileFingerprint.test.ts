@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { open, mkdtemp, rm, link, stat } from "node:fs/promises";
+import { open, mkdtemp, rm, link } from "node:fs/promises";
 import { join } from "node:path";
 import {
   fileUnchanged,
@@ -7,8 +7,26 @@ import {
   fingerprintFromStats,
   inodeKeyFromParts,
   mapPool,
+  normalizeInode,
   statFileFingerprint,
 } from "./fileFingerprint";
+
+/**
+ * Device + inode straight from the system `stat`, as ground truth independent
+ * of the JS runtime. GNU spells the format flag `-c`, BSD/macOS spells it
+ * `-f`, so try both. Returns null when neither works — the caller must skip
+ * rather than read an empty string as a mismatch.
+ */
+async function filesystemIdentity(path: string): Promise<string | null> {
+  for (const flag of ["-c", "-f"]) {
+    const proc = Bun.spawn(["stat", flag, "%d %i", path], {
+      stderr: "ignore",
+    });
+    const out = (await new Response(proc.stdout).text()).trim();
+    if ((await proc.exited) === 0 && /^\d+ \d+$/.test(out)) return out;
+  }
+  return null;
+}
 
 describe("fileFingerprint", () => {
   it("fingerprintFromStats keeps size/mtime numeric and dev/ino textual", () => {
@@ -37,6 +55,59 @@ describe("fileFingerprint", () => {
     });
     expect(fp.ino).toBe("13255269450503840684");
     expect(fp.dev).toBe("39");
+  });
+
+  describe("normalizeInode", () => {
+    it("passes ordinary inodes through", () => {
+      expect(normalizeInode(42n)).toBe("42");
+      expect(normalizeInode(652474865603395072n)).toBe("652474865603395072");
+    });
+
+    it("reinterprets a wrapped negative inode as unsigned", () => {
+      // Bun 1.3.14 returns the signed two's-complement view of a mergerfs
+      // inode. These pairs were measured against `stat -c %i` on the pool.
+      expect(normalizeInode(-4420810779339849877n)).toBe(
+        "14025933294369701739",
+      );
+      expect(normalizeInode(-723977626834603555n)).toBe("17722766446874948061");
+    });
+
+    it("rejects the saturation sentinel", () => {
+      // Bun 1.3.11 clamps every inode above 2^63 to INT64_MAX, so the value
+      // is the same constant for every file on the pool. Persisting it would
+      // make every file collide on one identity key.
+      expect(normalizeInode(9223372036854775807n)).toBeNull();
+    });
+
+    it("rejects a zero inode", () => {
+      expect(normalizeInode(0n)).toBeNull();
+    });
+
+    it("normalizes a stored sentinel read back from the database", () => {
+      // buildLibraryInodeKeySet re-checks persisted values, so a row written
+      // by a saturating build is re-statted instead of poisoning the key set.
+      expect(normalizeInode(BigInt("9223372036854775807"))).toBeNull();
+      expect(normalizeInode(BigInt("14025933294369701739"))).toBe(
+        "14025933294369701739",
+      );
+    });
+  });
+
+  it("leaves dev/ino unset when the inode is untrustworthy", () => {
+    const fp = fingerprintFromStats({
+      size: 100n,
+      mtimeMs: 1n,
+      dev: 39n,
+      ino: 9223372036854775807n,
+    });
+    expect(fp.ino).toBeNull();
+    expect(fp.dev).toBeNull();
+    expect(fingerprintDbFields(fp)).toEqual({
+      sizeBytes: 100n,
+      fileMtimeMs: 1n,
+      fileDev: null,
+      fileIno: null,
+    });
   });
 
   it("fileUnchanged requires persisted mtime and matching size+mtime", () => {
@@ -97,7 +168,10 @@ describe("fileFingerprint", () => {
     }
   });
 
-  it("statFileFingerprint returns an inode matching the filesystem", async () => {
+  it("statFileFingerprint agrees with the filesystem, not just with itself", async () => {
+    // Deliberately compared against the system `stat` rather than another Bun
+    // stat. A Bun-to-Bun assertion passes even when Bun is reporting the wrong
+    // inode, which is exactly how a saturating runtime slipped through.
     const dir = await mkdtemp(join(process.env.TMPDIR ?? "/tmp", "fp-"));
     const path = join(dir, "a.mkv");
     const fh = await open(path, "w");
@@ -105,9 +179,11 @@ describe("fileFingerprint", () => {
     await fh.close();
     try {
       const fp = await statFileFingerprint(path);
-      const st = await stat(path, { bigint: true });
-      expect(fp!.ino).toBe(st.ino.toString());
-      expect(fp!.dev).toBe(st.dev.toString());
+      const truth = await filesystemIdentity(path);
+      // Only assert when we actually got an answer — an unreadable `stat`
+      // must not masquerade as a mismatch.
+      if (truth === null) return;
+      expect(`${fp!.dev} ${fp!.ino}`).toBe(truth);
     } finally {
       await rm(dir, { recursive: true });
     }
@@ -126,15 +202,16 @@ describe("fileFingerprint", () => {
     await fhC.write(Buffer.alloc(8));
     await fhC.close();
     try {
+      const key = (fp: { dev: string | null; ino: string | null }) => {
+        expect(fp.dev).not.toBeNull();
+        expect(fp.ino).not.toBeNull();
+        return inodeKeyFromParts(fp.dev as string, fp.ino as string);
+      };
       const fpA = (await statFileFingerprint(a))!;
       const fpB = (await statFileFingerprint(b))!;
       const fpC = (await statFileFingerprint(c))!;
-      expect(inodeKeyFromParts(fpB.dev, fpB.ino)).toBe(
-        inodeKeyFromParts(fpA.dev, fpA.ino),
-      );
-      expect(inodeKeyFromParts(fpC.dev, fpC.ino)).not.toBe(
-        inodeKeyFromParts(fpA.dev, fpA.ino),
-      );
+      expect(key(fpB)).toBe(key(fpA));
+      expect(key(fpC)).not.toBe(key(fpA));
     } finally {
       await rm(dir, { recursive: true });
     }

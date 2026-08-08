@@ -7,6 +7,7 @@ import {
   fingerprintDbFields,
   fingerprintFromStats,
   inodeKeyFromParts,
+  normalizeInode,
   mapPool,
 } from "@rawkoon/api/utils/medias/fileFingerprint";
 import {
@@ -52,8 +53,14 @@ export async function buildLibraryInodeKeySet(
   const needStat: Array<{ id: number; filePath: string }> = [];
 
   for (const row of rows) {
-    if (row.fileDev != null && row.fileIno != null) {
-      keys.add(inodeKeyFromParts(row.fileDev, row.fileIno));
+    // A stored value can still be untrustworthy: builds running Bun 1.3.11
+    // persisted INT64_MAX for every file on a pooled filesystem. A migration
+    // clears those, but re-check here so a row written by an older instance
+    // mid-upgrade is re-statted instead of poisoning the whole key set.
+    const storedIno =
+      row.fileIno != null ? normalizeInode(BigInt(row.fileIno)) : null;
+    if (row.fileDev != null && storedIno != null) {
+      keys.add(inodeKeyFromParts(row.fileDev, storedIno));
     } else {
       needStat.push({ id: row.id, filePath: row.filePath });
     }
@@ -65,7 +72,11 @@ export async function buildLibraryInodeKeySet(
         const st = await stat(remapPath(row.filePath), { bigint: true });
         if (!st.isFile()) return null;
         const fp = fingerprintFromStats(st);
-        keys.add(inodeKeyFromParts(fp.dev, fp.ino));
+        // Null when the runtime cannot report a trustworthy inode. Adding a
+        // placeholder key would make every such file match every other one.
+        if (fp.dev !== null && fp.ino !== null) {
+          keys.add(inodeKeyFromParts(fp.dev, fp.ino));
+        }
         return { id: row.id, data: fingerprintDbFields(fp) };
       } catch {
         return null;
@@ -84,12 +95,16 @@ export async function buildLibraryInodeKeySet(
   return keys;
 }
 
-function inodeKey(
-  dev: number | bigint | undefined,
-  ino: number | bigint | undefined,
-): string {
+/**
+ * Key for a live stat, normalized exactly like the library side. Returns "?"
+ * when the inode is unusable so the file simply never matches, rather than
+ * matching everything.
+ */
+function inodeKey(dev: bigint | undefined, ino: bigint | undefined): string {
   if (dev === undefined || ino === undefined) return "?";
-  return inodeKeyFromParts(dev, ino);
+  const normalized = normalizeInode(ino);
+  if (normalized === null) return "?";
+  return inodeKeyFromParts(BigInt.asUintN(64, dev).toString(), normalized);
 }
 
 export function deriveDownloadsScanRoots(media: {
