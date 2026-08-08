@@ -75,7 +75,17 @@ file aborts the entire run. This is why the rescan button appears to do nothing.
 
 ## Design
 
-### Fix 1 — lossless, in-range inode fingerprints
+### Fix 1 — store the inode as what it actually is: an opaque key
+
+Every consumer treats `fileDev`/`fileIno` as an identity key and nothing else.
+The only read path is `inodeKeyFromParts`, which builds `` `${dev}:${ino}` ``
+and puts it in a `Set<string>` (`downloadsScanner.ts:56,68,92`). There is no
+arithmetic, no ordering, and no range query anywhere. The
+`ix_media_files_file_dev_ino` index is equality-only and nothing currently
+filters on it.
+
+Migrate `file_dev` and `file_ino` from `bigint` to `text`, holding the exact
+unsigned decimal value.
 
 In `apps/api/src/utils/medias/fileFingerprint.ts`, add:
 
@@ -84,19 +94,41 @@ export async function statFingerprint(path: string): Promise<FileFingerprint>
 ```
 
 It calls `stat(path, { bigint: true })` so the inode is never narrowed through a
-JS number, then stores `BigInt.asIntN(64, st.ino)`.
+lossy JS number, and the fingerprint carries `dev`/`ino` as strings. `sizeBytes`
+and `mtimeMs` stay `bigint` — they are compared numerically in `fileUnchanged`
+and are nowhere near the 2^63 boundary.
 
-Signed wrapping is safe here because `dev`/`ino` are only ever an identity key
-(`inodeKeyFromParts`), never compared for magnitude or ordering. Wrapping is
-injective over 64 bits, so distinct inodes stay distinct.
+Call sites in `services/library/rescan.ts` switch to the helper.
 
-Call sites in `services/library/rescan.ts` switch to the helper. Columns stay
-`bigint` — no migration. Existing NULL rows backfill on the next scan through
-the already-present backfill branch.
+**Migration.** `ALTER TABLE media_files ALTER COLUMN file_dev TYPE text USING
+file_dev::text`, same for `file_ino`; drop and recreate the composite index.
 
-Rejected: migrating `file_dev`/`file_ino` to `NUMERIC(20,0)`. Semantically
-truer, but it costs a migration and Prisma type churn for a value that is only
-ever an opaque key.
+Then `UPDATE media_files SET file_dev = NULL, file_ino = NULL` — discard every
+existing value rather than carrying it across.
+
+Only 17 of 5403 rows hold a non-null inode, and none of them is trustworthy.
+They are all positive and below 2^63, so they were written without erroring, but
+they went through the same lossy `BigInt(Math.trunc(number))` path — observed
+values `652474865603395072` and `7441324737464111104` carry the trailing zeros
+of float rounding. Two distinct files whose inodes round to the same value would
+produce the same key and be treated as hardlinks to each other by
+`downloadsScanner`. Seventeen approximate keys are worth less than nothing;
+NULL them and let the next scan write exact ones through the already-present
+backfill branch.
+
+**Rejected: `NUMERIC(20,0)`.** Exact and numeric, but Prisma maps it to
+`Decimal`. This repo already shipped the "storage total showed ~8192 TB" bug
+(`adfe7a6`) from a `Decimal` meeting a `bigint` under Bun, where `+=`
+concatenated digits instead of adding. Reintroducing `Decimal` into a path that
+is currently clean `bigint` invites that same failure for a value that is never
+used as a number.
+
+**Rejected: keeping `bigint` and wrapping with `BigInt.asIntN(64, ino)`.** It
+works — wrapping is injective, so distinct inodes stay distinct — and needs no
+migration. But the stored value then matches nothing an operator can observe:
+`stat -c %i` prints `13255269450503840684` while the database shows
+`-5191474623205710932`. Since the migration is cheap and the column is a key,
+exactness wins over avoiding a schema change.
 
 ### Fix 2 — a season-pack mapping module that can refuse
 
@@ -194,9 +226,14 @@ Reporting only. No auto-repair — the operator decides.
 - part markers present but count still fails to reconcile → refusal
 - part markers on non-consecutive numbers → refusal
 
-`mkvAppend` is tested with the spawn boundary stubbed. `statFingerprint` is
-tested against a real temp file, asserting the result is within signed-64 range
-and that two distinct files produce distinct keys.
+`mkvAppend` is tested with the spawn boundary stubbed.
+
+`statFingerprint` is tested against a real temp file, asserting the returned
+`ino` string round-trips to the same value `stat` reports, that two distinct
+files produce distinct keys, and that a hardlink to the same file produces an
+identical key. A regression test writes a `MediaFile` row with an inode above
+2^63 and asserts the write succeeds — that is the exact case that used to abort
+every rescan.
 
 ## Out of scope
 
