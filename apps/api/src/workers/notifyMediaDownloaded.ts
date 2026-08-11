@@ -32,7 +32,10 @@ export async function notifyAdminsMediaDownloaded(
         imageUrl,
       );
     } catch (e) {
-      console.warn(`[notifyAdminsMediaDownloaded] Failed for user ${adminId}:`, e);
+      console.warn(
+        `[notifyAdminsMediaDownloaded] Failed for user ${adminId}:`,
+        e,
+      );
     }
   }
 }
