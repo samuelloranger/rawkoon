@@ -397,18 +397,41 @@ export async function checkDownloadCompletion(): Promise<void> {
   return await runCoalescedPass(runDownloadCompletionPass);
 }
 
+/**
+ * Above this, log that the active set is abnormally large. Deliberately a
+ * warning and not a `take`: a row whose torrent is absent from the client stays
+ * pending forever on a scheduled pass (reconcilePendingDownloads only fails
+ * those when treatMissingAsFailed is set, which just the rescan path does), so
+ * an oldest-first page could fill with orphans and starve every newer download
+ * of completion and import. The query itself no longer needs a bound — the
+ * partial index makes it 0.014ms at 47k rows.
+ */
+const PENDING_RECONCILE_WARN_AT = 500;
+
 async function runDownloadCompletionPass(): Promise<void> {
-  const pending = await prisma.downloadHistory.findMany({
-    where: { completedAt: null, failed: false },
-    select: {
-      id: true,
-      mediaId: true,
-      episodeId: true,
-      torrentHash: true,
-      grabbedAt: true,
-    },
-  });
-  const settings = await prisma.mediaSettings.findUnique({ where: { id: 1 } });
+  const [pending, settings] = await Promise.all([
+    prisma.downloadHistory.findMany({
+      // Served end-to-end by the partial index
+      // ix_download_history_active_grabbed_at, which covers this filter AND
+      // the grabbed_at sort. This runs every ~20s against a table that only
+      // grows; measured at 47k rows it is 0.014ms vs 12.6ms without it.
+      where: { completedAt: null, failed: false },
+      select: {
+        id: true,
+        mediaId: true,
+        episodeId: true,
+        torrentHash: true,
+        grabbedAt: true,
+      },
+      orderBy: { grabbedAt: "asc" },
+    }),
+    prisma.mediaSettings.findUnique({ where: { id: 1 } }),
+  ]);
+  if (pending.length >= PENDING_RECONCILE_WARN_AT) {
+    console.warn(
+      `[checkDownloadCompletion] ${pending.length} pending downloads in one pass — expected a handful. Rows whose torrent no longer exists in the client stay pending indefinitely; check for orphans.`,
+    );
+  }
   const nowMs = Date.now();
   const currentIds = new Set(pending.map((download) => download.id));
   const hasNewPending = pending.some(

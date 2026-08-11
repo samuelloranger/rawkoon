@@ -18,79 +18,76 @@ export function inferSeasonFromReleaseTitle(title: string): number | null {
   return null;
 }
 
-export async function isSeasonPackGrabScope(
-  mediaId: number,
-  season: number,
-  cache: Map<string, boolean> = new Map(),
-): Promise<boolean> {
-  const key = `wanted:${mediaId}:${season}`;
-  const hit = cache.get(key);
-  if (hit !== undefined) return hit;
+type SeasonKey = { mediaId: number; season: number };
+
+/** Extra predicate that the whole monitored season must satisfy to group as a pack. */
+function packMemberFilter(kind: "grab_skipped" | "auto_grab_stalled") {
+  if (kind === "grab_skipped") return { status: "skipped" };
 
   const nowMinusGrace = new Date(Date.now() - 60 * 60 * 1000);
   const cutoff = toUtcMidnightDate(
     localDateYmd(APP_DISPLAY_TIMEZONE, nowMinusGrace),
   );
-
-  const totalMonitored = await prisma.libraryEpisode.count({
-    where: { mediaId, season, monitored: true },
-  });
-  if (totalMonitored === 0) {
-    cache.set(key, false);
-    return false;
-  }
-
-  const inGrabSet = await prisma.libraryEpisode.count({
-    where: {
-      mediaId,
-      season,
-      monitored: true,
-      status: "wanted",
-      airDate: { lte: cutoff },
-      files: { none: {} },
-      // Match the auto_grab_stalled candidate query (this scope's only caller):
-      // stalled = attempts at/over the warn threshold with no upper bound, so a
-      // season with some cron-exhausted episodes still groups as one pack alert
-      // instead of fragmenting into per-episode alerts.
-      searchAttempts: { gte: LIBRARY_ATTENTION_WARN_ATTEMPTS },
-    },
-  });
-
-  const ok = inGrabSet === totalMonitored;
-  cache.set(key, ok);
-  return ok;
+  return {
+    status: "wanted",
+    airDate: { lte: cutoff },
+    files: { none: {} },
+    // Match the auto_grab_stalled candidate query (this scope's only caller):
+    // stalled = attempts at/over the warn threshold with no upper bound, so a
+    // season with some cron-exhausted episodes still groups as one pack alert
+    // instead of fragmenting into per-episode alerts.
+    searchAttempts: { gte: LIBRARY_ATTENTION_WARN_ATTEMPTS },
+  };
 }
 
-/** All monitored episodes in the season are skipped (typical after a failed season-pack cron). */
-export async function isSeasonPackSkippedScope(
-  mediaId: number,
-  season: number,
+/**
+ * A season is "pack scope" when every monitored episode in it matches the
+ * kind's predicate. Resolved for all seasons at once: two groupBy queries
+ * total, instead of two counts per season.
+ */
+export async function resolveSeasonPackScopes(
+  seasons: SeasonKey[],
+  kind: "grab_skipped" | "auto_grab_stalled",
   cache: Map<string, boolean> = new Map(),
-): Promise<boolean> {
-  const key = `skip:${mediaId}:${season}`;
-  const hit = cache.get(key);
-  if (hit !== undefined) return hit;
+): Promise<Map<string, boolean>> {
+  const prefix = kind === "grab_skipped" ? "skip" : "wanted";
+  const pending = seasons.filter(
+    (s) => cache.get(`${prefix}:${s.mediaId}:${s.season}`) === undefined,
+  );
+  if (pending.length === 0) return cache;
 
-  const totalMonitored = await prisma.libraryEpisode.count({
-    where: { mediaId, season, monitored: true },
-  });
-  if (totalMonitored === 0) {
-    cache.set(key, false);
-    return false;
+  const scope = {
+    OR: pending.map((s) => ({ mediaId: s.mediaId, season: s.season })),
+  };
+  const [totals, matching] = await Promise.all([
+    prisma.libraryEpisode.groupBy({
+      by: ["mediaId", "season"],
+      where: { ...scope, monitored: true },
+      _count: { _all: true },
+    }),
+    prisma.libraryEpisode.groupBy({
+      by: ["mediaId", "season"],
+      where: { ...scope, monitored: true, ...packMemberFilter(kind) },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const matchedCounts = new Map(
+    matching.map((r) => [`${r.mediaId}:${r.season}`, r._count._all]),
+  );
+  const totalCounts = new Map(
+    totals.map((r) => [`${r.mediaId}:${r.season}`, r._count._all]),
+  );
+
+  for (const s of pending) {
+    const pair = `${s.mediaId}:${s.season}`;
+    const total = totalCounts.get(pair) ?? 0;
+    // No monitored episodes → never a pack (matches the old count === 0 guard).
+    const ok = total > 0 && (matchedCounts.get(pair) ?? 0) === total;
+    cache.set(`${prefix}:${pair}`, ok);
   }
 
-  const skippedCount = await prisma.libraryEpisode.count({
-    where: {
-      mediaId,
-      season,
-      monitored: true,
-      status: "skipped",
-    },
-  });
-
-  const ok = skippedCount === totalMonitored;
-  cache.set(key, ok);
-  return ok;
+  return cache;
 }
 
 export async function pushEpisodePackOrIndividuals(
@@ -117,12 +114,21 @@ export async function pushEpisodePackOrIndividuals(
 
   const consumed = new Set<number>();
 
+  // One batched resolution for every season in play, before the loop.
+  await resolveSeasonPackScopes(
+    [...grouped.values()].map((g) => ({
+      mediaId: g[0].mediaId,
+      season: g[0].season,
+    })),
+    kind,
+    packCache,
+  );
+  const prefix = kind === "grab_skipped" ? "skip" : "wanted";
+
   for (const [, group] of grouped) {
     const first = group[0];
     const pack =
-      kind === "grab_skipped"
-        ? await isSeasonPackSkippedScope(first.mediaId, first.season, packCache)
-        : await isSeasonPackGrabScope(first.mediaId, first.season, packCache);
+      packCache.get(`${prefix}:${first.mediaId}:${first.season}`) ?? false;
     if (pack && group.length > 0) {
       const maxAttempts = Math.max(...group.map((e) => e.searchAttempts));
       out.push({

@@ -11,10 +11,10 @@ export async function processScheduledJob(job: Job) {
   try {
     switch (job.name) {
       case SCHEDULED_JOB_NAMES.CLEANUP_NOTIFICATIONS: {
-        const { cleanupOldNotifications } = await import(
-          "../../workers/cleanupNotifications"
-        );
+        const { cleanupOldNotifications, cleanupQbittorrentRequestLogs } =
+          await import("../../workers/cleanupNotifications");
         await cleanupOldNotifications();
+        await cleanupQbittorrentRequestLogs();
         break;
       }
       case SCHEDULED_JOB_NAMES.REFRESH_UPCOMING: {

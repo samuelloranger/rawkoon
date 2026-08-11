@@ -1,20 +1,18 @@
 import { prisma } from "@rawkoon/api/db";
 import { createAndQueueNotification } from "@rawkoon/api/workers/notificationService";
+import { getAdminUserIds } from "@rawkoon/api/utils/admins";
 
 export async function notifyAdminsPostProcessFailed(
   downloadHistoryId: number,
   reason: string,
   mediaId?: number | null,
 ): Promise<void> {
-  const admins = await prisma.user.findMany({
-    where: { isAdmin: true },
-    select: { id: true },
-  });
+  const adminIds = await getAdminUserIds();
   const body = `Download #${downloadHistoryId}: ${reason}`;
-  for (const u of admins) {
+  for (const adminId of adminIds) {
     try {
       await createAndQueueNotification(
-        u.id,
+        adminId,
         "Library: post-processing failed",
         body,
         "library_post_process_failed",
@@ -22,7 +20,7 @@ export async function notifyAdminsPostProcessFailed(
       );
     } catch (e) {
       console.warn(
-        `[notifyAdminsPostProcessFailed] Failed for user ${u.id}:`,
+        `[notifyAdminsPostProcessFailed] Failed for user ${adminId}:`,
         e,
       );
     }

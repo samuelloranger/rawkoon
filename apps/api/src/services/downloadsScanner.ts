@@ -22,6 +22,8 @@ const CACHE_MS = 30_000;
 /** Bound concurrent stat() calls when building the library inode index / downloads walk. */
 const FS_STAT_CONCURRENCY = 16;
 const DB_WRITE_CONCURRENCY = 8;
+/** Cursor page size for full-table media_file sweeps. */
+const DB_PAGE_SIZE = 500;
 
 const RES_HINT = /\b(?:2160p|1080[pi]?|720p|480p|576p|4K|UHD)\b/i;
 
@@ -41,29 +43,43 @@ export async function buildLibraryInodeKeySet(
     return cachedInodeKeySet;
   }
 
-  const rows = await prisma.mediaFile.findMany({
-    select: {
-      id: true,
-      filePath: true,
-      fileDev: true,
-      fileIno: true,
-    },
-  });
   const keys = new Set<string>();
   const needStat: Array<{ id: number; filePath: string }> = [];
 
-  for (const row of rows) {
-    // A stored value can still be untrustworthy: builds running Bun 1.3.11
-    // persisted INT64_MAX for every file on a pooled filesystem. A migration
-    // clears those, but re-check here so a row written by an older instance
-    // mid-upgrade is re-statted instead of poisoning the whole key set.
-    const storedIno =
-      row.fileIno != null ? normalizeInode(BigInt(row.fileIno)) : null;
-    if (row.fileDev != null && storedIno != null) {
-      keys.add(inodeKeyFromParts(row.fileDev, storedIno));
-    } else {
-      needStat.push({ id: row.id, filePath: row.filePath });
+  // Cursor batches, folded into the key set as they arrive: the result covers
+  // the whole table, but a large library never materializes every media_file
+  // row in one buffer.
+  let cursor: { id: number } | undefined;
+  for (;;) {
+    const batch = await prisma.mediaFile.findMany({
+      take: DB_PAGE_SIZE,
+      ...(cursor ? { cursor, skip: 1 } : {}),
+      select: {
+        id: true,
+        filePath: true,
+        fileDev: true,
+        fileIno: true,
+      },
+      orderBy: { id: "asc" },
+    });
+    if (batch.length === 0) break;
+
+    for (const row of batch) {
+      // A stored value can still be untrustworthy: builds running Bun 1.3.11
+      // persisted INT64_MAX for every file on a pooled filesystem. A migration
+      // clears those, but re-check here so a row written by an older instance
+      // mid-upgrade is re-statted instead of poisoning the whole key set.
+      const storedIno =
+        row.fileIno != null ? normalizeInode(BigInt(row.fileIno)) : null;
+      if (row.fileDev != null && storedIno != null) {
+        keys.add(inodeKeyFromParts(row.fileDev, storedIno));
+      } else {
+        needStat.push({ id: row.id, filePath: row.filePath });
+      }
     }
+
+    if (batch.length < DB_PAGE_SIZE) break;
+    cursor = { id: batch[batch.length - 1]!.id };
   }
 
   const backfills = (
