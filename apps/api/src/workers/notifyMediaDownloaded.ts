@@ -1,5 +1,6 @@
 import { prisma } from "@rawkoon/api/db";
 import { createAndQueueNotification } from "@rawkoon/api/workers/notificationService";
+import { getAdminUserIds } from "@rawkoon/api/utils/admins";
 
 export async function notifyAdminsMediaDownloaded(
   mediaId: number,
@@ -15,17 +16,14 @@ export async function notifyAdminsMediaDownloaded(
     media.type === "show" ? "Show episode downloaded" : "Movie downloaded";
   const body = `${label} is now in your library.`;
 
-  const admins = await prisma.user.findMany({
-    where: { isAdmin: true },
-    select: { id: true },
-  });
+  const adminIds = await getAdminUserIds();
 
   const imageUrl = media.posterUrl ?? undefined;
 
-  for (const u of admins) {
+  for (const adminId of adminIds) {
     try {
       await createAndQueueNotification(
-        u.id,
+        adminId,
         title,
         body,
         "library_media_downloaded",
@@ -34,7 +32,10 @@ export async function notifyAdminsMediaDownloaded(
         imageUrl,
       );
     } catch (e) {
-      console.warn(`[notifyAdminsMediaDownloaded] Failed for user ${u.id}:`, e);
+      console.warn(
+        `[notifyAdminsMediaDownloaded] Failed for user ${adminId}:`,
+        e,
+      );
     }
   }
 }

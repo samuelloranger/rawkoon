@@ -4,6 +4,7 @@ import { createAndQueueNotification } from "@rawkoon/api/workers/notificationSer
 import { getGlobalTmdbRegion } from "@rawkoon/api/utils/medias/tmdbRegion";
 import { deleteCache } from "@rawkoon/api/services/cache";
 import { TMDB_UPCOMING_CACHE_KEY } from "@rawkoon/api/utils/dashboard/tmdbUpcoming";
+import { getAdminUserIds } from "@rawkoon/api/utils/admins";
 
 type CreateOpts = {
   tmdbId: number;
@@ -45,14 +46,11 @@ export async function createRequest(
       },
     });
 
-    const admins = await prisma.user.findMany({
-      where: { isAdmin: true },
-      select: { id: true },
-    });
+    const adminIds = await getAdminUserIds();
     await Promise.all(
-      admins.map((a) =>
+      adminIds.map((adminId) =>
         createAndQueueNotification(
-          a.id,
+          adminId,
           "New media request",
           `${opts.title} was requested and needs approval.`,
           "request_pending",
@@ -86,14 +84,11 @@ export async function createRequest(
     throw error;
   }
 
-  const admins = await prisma.user.findMany({
-    where: { isAdmin: true },
-    select: { id: true },
-  });
+  const adminIds = await getAdminUserIds();
   await Promise.all(
-    admins.map((a) =>
+    adminIds.map((adminId) =>
       createAndQueueNotification(
-        a.id,
+        adminId,
         "New media request",
         `${opts.title} was requested and needs approval.`,
         "request_pending",

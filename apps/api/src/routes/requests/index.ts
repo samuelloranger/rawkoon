@@ -9,6 +9,9 @@ import {
   denyRequest,
 } from "@rawkoon/api/services/mediaRequests";
 
+/** Newest requests returned to the requests screen. */
+const REQUEST_LIST_LIMIT = 500;
+
 function mapRequest(r: {
   id: number;
   tmdbId: number;
@@ -55,6 +58,7 @@ export const requestRoutes = new Elysia({ prefix: "/api/requests" })
       where,
       orderBy: { createdAt: "desc" },
       include: { requestedBy: { select: { id: true, name: true } } },
+      take: REQUEST_LIST_LIMIT,
     });
     return { requests: rows.map(mapRequest) };
   })

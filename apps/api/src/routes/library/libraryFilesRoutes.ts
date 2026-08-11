@@ -9,6 +9,9 @@ import {
 } from "@rawkoon/api/services/downloadOutcome";
 import { rescanLibraryItem } from "@rawkoon/api/services/library/rescan";
 
+/** Newest grabs shown in the library detail history panel. */
+const MEDIA_HISTORY_LIMIT = 200;
+
 /**
  * File-level operations: list, rescan, delete file, delete episode files.
  * GET /api/library/:id/files
@@ -75,6 +78,9 @@ export const libraryFilesRoutes = new Elysia()
       const items = await prisma.downloadHistory.findMany({
         where: { mediaId: id },
         orderBy: { grabbedAt: "desc" },
+        // Newest-first cap: a long-running upgrade loop can accumulate hundreds
+        // of grabs for one title, and the detail panel only renders recent ones.
+        take: MEDIA_HISTORY_LIMIT,
       });
 
       // Best-effort live progress for rows still downloading.

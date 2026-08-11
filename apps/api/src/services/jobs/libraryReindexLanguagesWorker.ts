@@ -31,6 +31,8 @@ export type LibraryReindexLanguagesResult = {
 const SCAN_CONCURRENCY = 4;
 const DB_WRITE_CONCURRENCY = 8;
 const PROGRESS_EVERY = 25;
+/** Cursor page size for the full-table media_file sweep. */
+const DB_PAGE_SIZE = 500;
 
 /**
  * Re-runs mediainfo on every MediaFile and recomputes `languageTags`.
@@ -39,23 +41,11 @@ const PROGRESS_EVERY = 25;
 export async function processLibraryReindexLanguagesJob(
   job: Job,
 ): Promise<LibraryReindexLanguagesResult> {
-  const files = await prisma.mediaFile.findMany({
-    select: {
-      id: true,
-      filePath: true,
-      mediaId: true,
-      episodeId: true,
-      sizeBytes: true,
-      fileMtimeMs: true,
-      fileDev: true,
-      fileIno: true,
-    },
-    orderBy: { id: "asc" },
-  });
+  const total = await prisma.mediaFile.count();
 
   const progress: LibraryReindexLanguagesProgress = {
     current: 0,
-    total: files.length,
+    total,
     current_file: null,
     updated: 0,
     skipped: 0,
@@ -88,7 +78,12 @@ export async function processLibraryReindexLanguagesJob(
     }
   };
 
-  await mapPool(files, SCAN_CONCURRENCY, async (file) => {
+  const scanFile = async (file: {
+    id: number;
+    filePath: string;
+    sizeBytes: bigint;
+    fileMtimeMs: bigint | null;
+  }) => {
     try {
       let st;
       try {
@@ -144,9 +139,33 @@ export async function processLibraryReindexLanguagesJob(
       progress.errors += 1;
     }
     await bumpProgress(file.filePath);
-  });
+  };
 
-  await flushWrites();
+  // Cursor batches instead of one findMany over every media_file: a large
+  // library would otherwise buffer the whole table (and every pending write)
+  // for the lifetime of the job.
+  let cursor: { id: number } | undefined;
+  for (;;) {
+    const batch = await prisma.mediaFile.findMany({
+      take: DB_PAGE_SIZE,
+      ...(cursor ? { cursor, skip: 1 } : {}),
+      select: {
+        id: true,
+        filePath: true,
+        sizeBytes: true,
+        fileMtimeMs: true,
+      },
+      orderBy: { id: "asc" },
+    });
+    if (batch.length === 0) break;
+
+    await mapPool(batch, SCAN_CONCURRENCY, scanFile);
+    await flushWrites();
+
+    if (batch.length < DB_PAGE_SIZE) break;
+    cursor = { id: batch[batch.length - 1]!.id };
+  }
+
   progress.current_file = null;
   await job.updateProgress(progress as unknown as object);
 

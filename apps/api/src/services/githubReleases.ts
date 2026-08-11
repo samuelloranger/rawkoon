@@ -10,6 +10,7 @@ import type {
   GitHubReleasesResponse,
   RefreshGitHubReleasesResponse,
 } from "@rawkoon/shared/types";
+import { getAdminUserIds } from "@rawkoon/api/utils/admins";
 
 const RELEASES_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
 const SYNC_STATE_CACHE_TTL_SECONDS = 365 * 24 * 60 * 60;
@@ -133,12 +134,9 @@ async function notifyAdminsForNewReleases(
 
   if (releasesAheadOfCurrentVersion.length === 0) return;
 
-  const admins = await prisma.user.findMany({
-    where: { isAdmin: true },
-    select: { id: true },
-  });
+  const adminIds = await getAdminUserIds();
 
-  if (admins.length === 0) return;
+  if (adminIds.length === 0) return;
 
   const title =
     releasesAheadOfCurrentVersion.length === 1
@@ -153,9 +151,9 @@ async function notifyAdminsForNewReleases(
           .join(", ");
 
   await Promise.all(
-    admins.map((admin) =>
+    adminIds.map((adminId) =>
       createAndQueueNotification(
-        admin.id,
+        adminId,
         title,
         body,
         "github-release",

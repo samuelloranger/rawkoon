@@ -54,6 +54,9 @@ export function mapLibraryMedia(item: {
   downloadHistories?: { grabbedAt: Date }[];
   addedAt: Date;
   updatedAt: Date;
+  episodeCount?: number | null;
+  downloadedEpisodeCount?: number | null;
+  seasonCount?: number | null;
   files?: MappableFile[];
   episodes?: MappableEpisode[];
 }) {
@@ -70,13 +73,23 @@ export function mapLibraryMedia(item: {
       )
     : null;
 
-  const episodeCount = episodes.length || null;
-  const downloadedEpisodeCount =
-    episodes.length > 0
+  // Prefer the persisted rollups (DB trigger). Loading the episode rows just to
+  // count them made one page of shows pull tens of thousands of rows; the
+  // in-memory tally is kept only for callers that still pass `episodes`.
+  const hasRollups = item.episodeCount !== undefined;
+  const episodeCount = hasRollups
+    ? (item.episodeCount ?? null)
+    : episodes.length || null;
+  const downloadedEpisodeCount = hasRollups
+    ? (item.downloadedEpisodeCount ?? null)
+    : episodes.length > 0
       ? episodes.filter((e) => e.status === "downloaded").length
       : null;
-  const seasonCount =
-    episodes.length > 0 ? new Set(episodes.map((e) => e.season)).size : null;
+  const seasonCount = hasRollups
+    ? (item.seasonCount ?? null)
+    : episodes.length > 0
+      ? new Set(episodes.map((e) => e.season)).size
+      : null;
 
   const lastGrabbed =
     item.lastGrabbedAt ?? item.downloadHistories?.[0]?.grabbedAt ?? null;
@@ -127,6 +140,13 @@ export function mapLibraryMedia(item: {
   };
 }
 
+/**
+ * Deliberately does NOT include `episodes`. Episode/season counts come from the
+ * persisted rollup columns (library_media.episode_count / …), and the sizes come
+ * from library_media.total_size_bytes — both maintained by DB triggers. Adding
+ * `episodes` back here re-introduces a per-row fan-out over every episode and
+ * every episode file on the library list endpoint.
+ */
 export const libraryMediaInclude = {
   qualityProfile: { select: { id: true, name: true } },
   files: {
@@ -138,13 +158,6 @@ export const libraryMediaInclude = {
       audioFormat: true,
       durationSecs: true,
       languageTags: true,
-    },
-  },
-  episodes: {
-    select: {
-      status: true,
-      season: true,
-      files: { select: { sizeBytes: true } },
     },
   },
 } as const;
