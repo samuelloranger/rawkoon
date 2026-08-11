@@ -397,18 +397,38 @@ export async function checkDownloadCompletion(): Promise<void> {
   return await runCoalescedPass(runDownloadCompletionPass);
 }
 
+/**
+ * Safety bound on one reconcile pass. The active set is normally tiny, but a
+ * download client that never reports completion could otherwise grow it without
+ * limit. Oldest-first, so a saturated pass still drains the backlog.
+ */
+const PENDING_RECONCILE_LIMIT = 500;
+
 async function runDownloadCompletionPass(): Promise<void> {
-  const pending = await prisma.downloadHistory.findMany({
-    where: { completedAt: null, failed: false },
-    select: {
-      id: true,
-      mediaId: true,
-      episodeId: true,
-      torrentHash: true,
-      grabbedAt: true,
-    },
-  });
-  const settings = await prisma.mediaSettings.findUnique({ where: { id: 1 } });
+  const [pending, settings] = await Promise.all([
+    prisma.downloadHistory.findMany({
+      // Served end-to-end by the partial index
+      // ix_download_history_active_grabbed_at, which covers this filter AND
+      // the grabbed_at sort. This runs every ~20s against a table that only
+      // grows; measured at 47k rows it is 0.014ms vs 12.6ms without it.
+      where: { completedAt: null, failed: false },
+      select: {
+        id: true,
+        mediaId: true,
+        episodeId: true,
+        torrentHash: true,
+        grabbedAt: true,
+      },
+      orderBy: { grabbedAt: "asc" },
+      take: PENDING_RECONCILE_LIMIT,
+    }),
+    prisma.mediaSettings.findUnique({ where: { id: 1 } }),
+  ]);
+  if (pending.length === PENDING_RECONCILE_LIMIT) {
+    console.warn(
+      `[checkDownloadCompletion] ${PENDING_RECONCILE_LIMIT} pending downloads in one pass — reconciling the oldest batch only.`,
+    );
+  }
   const nowMs = Date.now();
   const currentIds = new Set(pending.map((download) => download.id));
   const hasNewPending = pending.some(

@@ -1,18 +1,16 @@
 import { prisma } from "@rawkoon/api/db";
 import { createAndQueueNotification } from "@rawkoon/api/workers/notificationService";
+import { getAdminUserIds } from "@rawkoon/api/utils/admins";
 
 export async function notifyAdminsLibraryGrabSkipped(
   body: string,
   mediaId: number,
 ): Promise<void> {
-  const admins = await prisma.user.findMany({
-    where: { isAdmin: true },
-    select: { id: true },
-  });
-  for (const u of admins) {
+  const adminIds = await getAdminUserIds();
+  for (const adminId of adminIds) {
     try {
       await createAndQueueNotification(
-        u.id,
+        adminId,
         "Library: automatic grab skipped",
         body,
         "library_grab_skipped",
@@ -20,7 +18,7 @@ export async function notifyAdminsLibraryGrabSkipped(
       );
     } catch (e) {
       console.warn(
-        `[notifyAdminsLibraryGrabSkipped] Failed for user ${u.id}:`,
+        `[notifyAdminsLibraryGrabSkipped] Failed for user ${adminId}:`,
         e,
       );
     }

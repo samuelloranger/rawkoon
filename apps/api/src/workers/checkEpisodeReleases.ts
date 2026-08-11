@@ -64,17 +64,27 @@ export async function checkEpisodeReleases(): Promise<void> {
   // "wanted + aired + no files" set — i.e. nothing has been grabbed yet.
   const packEligibleIds = new Set<number>();
 
-  for (const [key, groupEps] of seasonGroups) {
-    const [mediaIdStr, seasonStr] = key.split(":");
-    const mediaId = Number(mediaIdStr);
-    const season = Number(seasonStr);
-
-    const totalMonitored = await prisma.libraryEpisode.count({
-      where: { mediaId, season, monitored: true },
+  if (seasonGroups.size > 0) {
+    // One groupBy for every season in play, not one count per season.
+    const monitoredCounts = await prisma.libraryEpisode.groupBy({
+      by: ["mediaId", "season"],
+      where: {
+        OR: [...seasonGroups.values()].map((g) => ({
+          mediaId: g[0].mediaId,
+          season: g[0].season,
+        })),
+        monitored: true,
+      },
+      _count: { _all: true },
     });
+    const totalBySeason = new Map(
+      monitoredCounts.map((r) => [`${r.mediaId}:${r.season}`, r._count._all]),
+    );
 
-    if (groupEps.length === totalMonitored) {
-      for (const ep of groupEps) packEligibleIds.add(ep.id);
+    for (const [key, groupEps] of seasonGroups) {
+      if (groupEps.length === (totalBySeason.get(key) ?? 0)) {
+        for (const ep of groupEps) packEligibleIds.add(ep.id);
+      }
     }
   }
 

@@ -58,6 +58,10 @@ model Notification {
 
   @@index([createdAt], map: "ix_notifications_created_at")
   @@index([userId], map: "ix_notifications_user_id")
+  /// Unread badge count + unread-id sweep.
+  @@index([userId, read], map: "ix_notifications_user_id_read")
+  /// Paged inbox (created_at desc per user).
+  @@index([userId, createdAt(sort: Desc)], map: "ix_notifications_user_id_created_at")
   @@map("notifications")
 }
 
@@ -396,6 +400,12 @@ model LibraryMedia {
   listTitle             String    @default("") @map("list_title")
   /// Display year for list ORDER BY (overrides.year when set, else year).
   listYear              Int?      @map("list_year")
+  /// Persisted COUNT of library_episodes; null for movies. DB trigger.
+  episodeCount          Int?      @map("episode_count")
+  /// Persisted COUNT of downloaded library_episodes; null for movies. DB trigger.
+  downloadedEpisodeCount Int?     @map("downloaded_episode_count")
+  /// Persisted COUNT(DISTINCT season) of library_episodes; null for movies. DB trigger.
+  seasonCount           Int?      @map("season_count")
 
   qualityProfile    QualityProfile?   @relation(fields: [qualityProfileId], references: [id], onDelete: SetNull)
   episodes          LibraryEpisode[]
@@ -416,6 +426,15 @@ model LibraryMedia {
   @@index([totalSizeBytes], map: "ix_library_media_total_size_bytes")
   @@index([listTitle], map: "ix_library_media_list_title")
   @@index([listYear], map: "ix_library_media_list_year")
+  /// Dashboard upcoming: digital release window with no status filter, so
+  /// ix_library_media_status cannot help. Measured 2.5ms → 0.04ms at 13k rows.
+  /// NOTE: a (type, status, monitored) composite was tried and removed — the
+  /// planner always preferred ix_library_media_status (status is far more
+  /// selective than a two-value type), so it was pure write overhead.
+  @@index([digitalReleaseDate], map: "ix_library_media_digital_release_date")
+  /// GET /api/library always pairs a type filter with a sort column.
+  @@index([type, addedAt], map: "ix_library_media_type_added_at")
+  @@index([type, listTitle], map: "ix_library_media_type_list_title")
   @@map("library_media")
 }
 
@@ -440,6 +459,14 @@ model LibraryEpisode {
 
   @@unique([mediaId, season, episode])
   @@index([mediaId], map: "ix_library_episodes_media_id")
+  /// Cron sweeps: wanted+monitored episodes whose air date has passed.
+  @@index([status, monitored, airDate], map: "ix_library_episodes_status_monitored_air_date")
+  /// Dashboard upcoming: air-date window with no status filter.
+  @@index([airDate], map: "ix_library_episodes_air_date")
+  /// NOTE: a (media_id, season, status) composite was tried and removed — it
+  /// made per-season lookups SLOWER (0.03ms → 0.58ms), because the planner
+  /// chose a wide index-only scan over it instead of the better plan available
+  /// from @@unique([mediaId, season, episode]) + the status index above.
   @@map("library_episodes")
 }
 
@@ -472,6 +499,17 @@ model DownloadHistory {
   @@index([episodeId], map: "ix_download_history_episode_id")
   /// Speeds MAX(grabbed_at) / latest-grab lookups per media (library list sort)
   @@index([mediaId, grabbedAt(sort: Desc)], map: "ix_download_history_media_id_grabbed_at")
+  /// The active-download poll (every ~20s) is served by a PARTIAL index that
+  /// Prisma cannot express, created in the 20260810120000_query_performance
+  /// migration: (grabbed_at) WHERE completed_at IS NULL AND failed = false.
+  /// Do not add a plain (completed_at, failed) index here — measured at 47k
+  /// rows it was 12.6ms vs 0.014ms for the partial one, because the planner
+  /// preferred the grabbed_at sort index and filtered 44k rows away.
+  /// Prisma ignores partial indexes in drift detection, so it survives
+  /// `prisma migrate dev` (verified).
+  /// History list (grabbed_at desc pagination) + attention candidate windows.
+  @@index([grabbedAt(sort: Desc)], map: "ix_download_history_grabbed_at")
+  @@index([failed, grabbedAt(sort: Desc)], map: "ix_download_history_failed_grabbed_at")
   @@map("download_history")
 }
 
@@ -502,6 +540,8 @@ model LibraryAttentionAlert {
   @@index([mediaId], map: "ix_library_attention_alert_media_id")
   @@index([status], map: "ix_library_attention_alert_status")
   @@index([episodeId], map: "ix_library_attention_alert_episode_id")
+  /// GET /api/library/attention: open alerts, updated_at desc, take 200.
+  @@index([status, updatedAt(sort: Desc)], map: "ix_library_attention_alert_status_updated_at")
   @@map("library_attention_alerts")
 }
 
@@ -518,6 +558,7 @@ model GrabBlocklist {
   media   LibraryMedia?   @relation(fields: [mediaId], references: [id], onDelete: SetNull)
   episode LibraryEpisode? @relation(fields: [episodeId], references: [id], onDelete: SetNull)
 
+  @@index([blockedAt(sort: Desc)], map: "ix_grab_blocklist_blocked_at")
   @@index([torrentHash], map: "ix_grab_blocklist_hash")
   @@index([mediaId], map: "ix_grab_blocklist_media_id")
   @@index([episodeId], map: "ix_grab_blocklist_episode_id")
@@ -654,6 +695,7 @@ model MediaRequest {
   // Single-request behavior: only one request per TMDB item can exist at a time 
   // since this is a self-hosted shared library instance.
   @@unique([tmdbId, type])
+  @@index([status, createdAt(sort: Desc)], map: "ix_media_request_status_created_at")
   @@index([requestedById], map: "ix_media_request_requested_by_id")
   @@index([libraryMediaId], map: "ix_media_request_library_media_id")
   @@index([qualityProfileId], map: "ix_media_request_quality_profile_id")

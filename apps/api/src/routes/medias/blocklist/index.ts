@@ -5,6 +5,9 @@ import { requireAdmin } from "@rawkoon/api/middleware/auth";
 import { formatIso } from "@rawkoon/api/utils";
 import { notFound, serverError } from "@rawkoon/api/errors";
 
+/** Newest blocklist entries returned to the admin blocklist screen. */
+const BLOCKLIST_LIMIT = 500;
+
 function formatEntry(e: {
   id: number;
   torrentHash: string | null;
@@ -34,6 +37,7 @@ export const mediasBlocklistRoutes = new Elysia()
     try {
       const entries = await prisma.grabBlocklist.findMany({
         orderBy: { blockedAt: "desc" },
+        take: BLOCKLIST_LIMIT,
       });
       return { entries: entries.map(formatEntry) };
     } catch {
