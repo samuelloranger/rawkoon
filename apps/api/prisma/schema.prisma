@@ -174,7 +174,16 @@ model Invitation {
 
   inviter User? @relation("InvitationInviter", fields: [invitedBy], references: [id], onDelete: SetNull)
 
-  @@unique([email, status], map: "ix_invitations_email_status")
+  /// The real invariant — "at most one PENDING invitation per email" — is a
+  /// PARTIAL unique index Prisma cannot express, created in
+  /// 20260811000000_reconcile_prod_schema_drift:
+  ///   UNIQUE (email) WHERE status = 'pending'
+  /// It replaced @@unique([email, status]), which also forbade a second
+  /// *revoked* or *accepted* row for the same email — legitimate history that
+  /// production had already accumulated. The POST /api/admin/invitations
+  /// handler catches P2002 and reports "a pending invitation already exists",
+  /// so it was written against exactly this constraint.
+  @@index([email], map: "ix_invitations_email")
   @@map("invitations")
 }
 
@@ -514,6 +523,14 @@ model DownloadHistory {
 }
 
 /// Open alerts are created by hourly cron from library grab/download conditions; one open row per (media, scope, kind).
+///
+/// That "one open row" rule is enforced by a PARTIAL unique index Prisma cannot
+/// express, created in 20260811000000_reconcile_prod_schema_drift:
+///   UNIQUE (media_id, kind, scope_type, COALESCE(episode_id,-1), COALESCE(season,-1))
+///   WHERE status = 'open'
+/// libraryAttentionSync's upsert loop depends on it: it catches P2002 and falls
+/// back to find + update. Until that migration the index existed only on one
+/// production database and was absent from every fresh install.
 model LibraryAttentionAlert {
   id                    Int       @id @default(autoincrement())
   mediaId               Int       @map("media_id")
