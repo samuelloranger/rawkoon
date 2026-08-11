@@ -398,11 +398,15 @@ export async function checkDownloadCompletion(): Promise<void> {
 }
 
 /**
- * Safety bound on one reconcile pass. The active set is normally tiny, but a
- * download client that never reports completion could otherwise grow it without
- * limit. Oldest-first, so a saturated pass still drains the backlog.
+ * Above this, log that the active set is abnormally large. Deliberately a
+ * warning and not a `take`: a row whose torrent is absent from the client stays
+ * pending forever on a scheduled pass (reconcilePendingDownloads only fails
+ * those when treatMissingAsFailed is set, which just the rescan path does), so
+ * an oldest-first page could fill with orphans and starve every newer download
+ * of completion and import. The query itself no longer needs a bound — the
+ * partial index makes it 0.014ms at 47k rows.
  */
-const PENDING_RECONCILE_LIMIT = 500;
+const PENDING_RECONCILE_WARN_AT = 500;
 
 async function runDownloadCompletionPass(): Promise<void> {
   const [pending, settings] = await Promise.all([
@@ -420,13 +424,12 @@ async function runDownloadCompletionPass(): Promise<void> {
         grabbedAt: true,
       },
       orderBy: { grabbedAt: "asc" },
-      take: PENDING_RECONCILE_LIMIT,
     }),
     prisma.mediaSettings.findUnique({ where: { id: 1 } }),
   ]);
-  if (pending.length === PENDING_RECONCILE_LIMIT) {
+  if (pending.length >= PENDING_RECONCILE_WARN_AT) {
     console.warn(
-      `[checkDownloadCompletion] ${PENDING_RECONCILE_LIMIT} pending downloads in one pass — reconciling the oldest batch only.`,
+      `[checkDownloadCompletion] ${pending.length} pending downloads in one pass — expected a handful. Rows whose torrent no longer exists in the client stay pending indefinitely; check for orphans.`,
     );
   }
   const nowMs = Date.now();

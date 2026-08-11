@@ -18,7 +18,46 @@
 -- 1. ba_api_keys: unique key name
 -- ---------------------------------------------------------------------------
 -- Declared by 0_init and by schema.prisma (@@unique([name])), missing on
--- drifted databases. Checked for duplicates first — none existed.
+-- drifted databases.
+--
+-- Duplicates must be reconciled first. IF NOT EXISTS does not make
+-- CREATE UNIQUE INDEX tolerate duplicate data, and duplicates are reachable on
+-- exactly the databases this migration targets: POST /api/admin/api-keys checks
+-- for a name collision with findFirst and then creates, so with the index
+-- absent, two concurrent requests — or any two requests at all — can persist
+-- the same name. Leaving that unhandled would fail the migration and, because
+-- entrypoint.sh runs migrate deploy on boot, refuse to start the container.
+--
+-- Duplicates are RENAMED, never deleted: an API key is a live credential, and
+-- dropping one would silently break whatever integration holds it. The id is a
+-- uuid, so appending it is deterministic and collision-free; the loop is a
+-- belt-and-braces guard in case a suffixed name somehow collides with an
+-- existing literal name. NULL names are left alone — btree uniques treat NULLs
+-- as distinct, so any number of them coexist.
+DO $$
+DECLARE
+  renamed INT;
+  passes INT := 0;
+BEGIN
+  LOOP
+    UPDATE "ba_api_keys" a
+    SET "name" = a."name" || ' (#' || a."id" || ')'
+    WHERE a."name" IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM "ba_api_keys" b
+        WHERE b."name" = a."name" AND b."id" < a."id"
+      );
+    GET DIAGNOSTICS renamed = ROW_COUNT;
+    EXIT WHEN renamed = 0;
+    RAISE NOTICE 'Renamed % duplicate API key name(s) to satisfy ba_api_keys_name_key', renamed;
+    passes := passes + 1;
+    IF passes > 5 THEN
+      RAISE EXCEPTION
+        'Could not make ba_api_keys.name unique after % passes. Resolve the remaining duplicates by hand (SELECT name, count(*) FROM ba_api_keys WHERE name IS NOT NULL GROUP BY name HAVING count(*) > 1) and re-run the migration.', passes;
+    END IF;
+  END LOOP;
+END $$;
+
 CREATE UNIQUE INDEX IF NOT EXISTS "ba_api_keys_name_key"
   ON "ba_api_keys"("name");
 
