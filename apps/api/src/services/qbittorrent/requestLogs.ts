@@ -20,17 +20,45 @@ type QbittorrentRequestLogInput = {
 const LOGGING_ENABLED =
   (process.env.QBITTORRENT_REQUEST_LOGGING_ENABLED ?? "true").toLowerCase() !==
   "false";
-const SAMPLE_RATE = Math.min(
-  1,
-  Math.max(
-    0,
-    Number.parseFloat(process.env.QBITTORRENT_REQUEST_LOG_SAMPLE_RATE ?? "1") ||
-      1,
-  ),
-);
 
-const shouldSample = () =>
-  LOGGING_ENABLED && SAMPLE_RATE > 0 && Math.random() <= SAMPLE_RATE;
+/**
+ * Explicit override. When set, it applies uniformly to every request — no
+ * endpoint or outcome exceptions — so the knob stays predictable.
+ */
+const EXPLICIT_SAMPLE_RATE = (() => {
+  const raw = process.env.QBITTORRENT_REQUEST_LOG_SAMPLE_RATE;
+  if (raw == null || raw.trim() === "") return null;
+  const parsed = Number.parseFloat(raw);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.min(1, Math.max(0, parsed));
+})();
+
+/**
+ * The high-frequency poll. It ran at one log row per call every 20s while a
+ * download was active, and accounted for 92% of the table (302k of 327k rows on
+ * a real instance) — all of it near-identical successful polls.
+ */
+const POLL_ENDPOINT = "/api/v2/sync/maindata";
+const POLL_SAMPLE_RATE = 0.05;
+
+/**
+ * Failures are the rows with debugging value and a small fraction of volume, so
+ * they are never sampled away. Everything except the poll is still logged in
+ * full — those calls are driven by user actions, not a timer.
+ */
+function sampleRateFor(endpoint: string, ok: boolean): number {
+  if (EXPLICIT_SAMPLE_RATE !== null) return EXPLICIT_SAMPLE_RATE;
+  if (!ok) return 1;
+  return endpoint === POLL_ENDPOINT ? POLL_SAMPLE_RATE : 1;
+}
+
+const shouldSample = (endpoint: string, ok: boolean) => {
+  if (!LOGGING_ENABLED) return false;
+  const rate = sampleRateFor(endpoint, ok);
+  if (rate <= 0) return false;
+  if (rate >= 1) return true;
+  return Math.random() <= rate;
+};
 
 // Cap concurrent fire-and-forget log inserts so a slow/unavailable DB can't let
 // unawaited promises pile up unbounded. Logging is best-effort — shed on overflow.
@@ -38,7 +66,7 @@ const MAX_INFLIGHT_LOGS = 50;
 let inFlightLogs = 0;
 
 export function logQbittorrentRequest(input: QbittorrentRequestLogInput) {
-  if (!shouldSample()) return;
+  if (!shouldSample(input.endpoint, input.ok)) return;
   if (inFlightLogs >= MAX_INFLIGHT_LOGS) return;
   inFlightLogs++;
 
