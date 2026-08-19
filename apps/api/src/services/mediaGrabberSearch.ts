@@ -20,6 +20,8 @@ import {
 export async function searchAndGrab(opts: {
   mediaId: number;
   episodeId?: number;
+  /** Set for season-pack searches — part of the grab target, see grabRelease. */
+  season?: number | null;
   mediaType: "tv" | "movie";
   searchQuery: string;
   qualityProfileId: number | null;
@@ -31,6 +33,7 @@ export async function searchAndGrab(opts: {
     const {
       mediaId,
       episodeId,
+      season,
       mediaType,
       searchQuery,
       qualityProfileId,
@@ -185,6 +188,7 @@ export async function searchAndGrab(opts: {
       const result = await grabRelease({
         mediaId,
         episodeId,
+        season,
         downloadUrl,
         releaseTitle: candidate.title,
         indexer: null,
@@ -221,6 +225,8 @@ export async function searchAndGrab(opts: {
 export async function searchAndGrabWithTitleFallback(opts: {
   mediaId: number;
   episodeId?: number;
+  /** Set for season-pack searches — part of the grab target, see grabRelease. */
+  season?: number | null;
   mediaType: "tv" | "movie";
   titleBaseQueries: string[];
   suffix: string;
@@ -234,6 +240,7 @@ export async function searchAndGrabWithTitleFallback(opts: {
     const result = await searchAndGrab({
       mediaId: opts.mediaId,
       episodeId: opts.episodeId,
+      season: opts.season,
       mediaType: opts.mediaType,
       searchQuery: `${base}${opts.suffix}`,
       qualityProfileId: opts.qualityProfileId,

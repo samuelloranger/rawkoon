@@ -105,6 +105,7 @@ export async function checkEpisodeReleases(): Promise<void> {
     try {
       const result = await searchAndGrabWithTitleFallback({
         mediaId,
+        season,
         mediaType: "tv",
         titleBaseQueries: queries,
         suffix: seasonPackSuffix(season),
