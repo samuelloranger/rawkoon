@@ -495,6 +495,11 @@ model DownloadHistory {
   isUpgrade                  Boolean   @default(false) @map("is_upgrade")
   /// Local AI selected this release (RSS auto-grab or future AI grab flows)
   aiPicked                   Boolean   @default(false) @map("ai_picked")
+  /// Season targeted by a season-pack grab; null for movies and single episodes.
+  /// Part of the grab-target key enforced by ux_download_history_active_target —
+  /// without it, two packs for different seasons of one show (both
+  /// episode_id = null) would look like the same target.
+  season                     Int?
   /// Set when post-processing fails after the torrent completed
   postProcessError           String?   @map("post_process_error") @db.Text
   /// Final library path after successful post-processing
@@ -516,6 +521,14 @@ model DownloadHistory {
   /// preferred the grabbed_at sort index and filtered 44k rows away.
   /// Prisma ignores partial indexes in drift detection, so it survives
   /// `prisma migrate dev` (verified).
+  /// At most one ACTIVE grab per target is enforced by a PARTIAL UNIQUE index
+  /// Prisma cannot express, created in
+  /// 20260819000000_prevent_duplicate_active_grabs:
+  ///   UNIQUE (media_id, COALESCE(episode_id,-1), COALESCE(season,-1))
+  ///   WHERE completed_at IS NULL AND failed = false AND media_id IS NOT NULL
+  /// grabRelease depends on it: it pre-checks for an active row for a clear
+  /// rejection reason, then catches P2002 to close the check-then-insert race
+  /// (two crons firing on the same tick is what made this necessary).
   /// History list (grabbed_at desc pagination) + attention candidate windows.
   @@index([grabbedAt(sort: Desc)], map: "ix_download_history_grabbed_at")
   @@index([failed, grabbedAt(sort: Desc)], map: "ix_download_history_failed_grabbed_at")

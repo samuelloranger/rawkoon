@@ -18,6 +18,28 @@ import {
 import { tryAdoptQbDuplicate } from "@rawkoon/api/services/mediaGrabberAdopt";
 
 /**
+ * Identifies what a grab is FOR. Movies are (media, null, null), single
+ * episodes (media, episode, null), season packs (media, null, season).
+ * Mirrors the key of the ux_download_history_active_target unique index.
+ */
+type GrabTarget = {
+  mediaId: number;
+  episodeId: number | null;
+  season: number | null;
+};
+
+function duplicateGrabReason(target: GrabTarget, activeId?: number): string {
+  const scope =
+    target.episodeId != null
+      ? `episode ${target.episodeId}`
+      : target.season != null
+        ? `season ${target.season}`
+        : "this item";
+  const ref = activeId != null ? ` (download #${activeId})` : "";
+  return `A download is already active for ${scope}${ref} — cancel it before grabbing another release`;
+}
+
+/**
  * Add a known release URL to the active download client,
  * create DownloadHistory, set library status, and log activity.
  */
@@ -34,6 +56,11 @@ export async function grabRelease(opts: {
   /** True when Local AI selected this release over classic scoring. */
   aiPicked?: boolean;
   aiReasoning?: string;
+  /**
+   * Season targeted by a season-pack grab. Part of the grab target, so two
+   * packs for different seasons of one show stay independent.
+   */
+  season?: number | null;
 }): Promise<
   { grabbed: true; releaseTitle: string } | { grabbed: false; reason: string }
 > {
@@ -88,19 +115,49 @@ export async function grabRelease(opts: {
       return { grabbed: false, reason: `Blocklisted: ${blockReason}` };
     }
 
-    const dhRow = await prisma.downloadHistory.create({
-      data: {
-        mediaId,
-        episodeId: episodeId ?? null,
-        releaseTitle,
-        indexer: indexer?.trim() || null,
-        torrentHash: null,
-        downloadUrl,
-        qualityParsed: qJson,
-        isUpgrade: opts.isUpgrade ?? false,
-        aiPicked: opts.aiPicked ?? false,
-      },
+    // One active grab per target. Two scheduled jobs can fire on the same tick
+    // (RSS poll + the 6-hourly release sweep) off the same "wanted" snapshot,
+    // and a slow release pick makes that snapshot stale, so without this both
+    // hand a torrent to the client for the same item.
+    const target: GrabTarget = {
+      mediaId,
+      episodeId: episodeId ?? null,
+      season: opts.season ?? null,
+    };
+    const activeGrab = await prisma.downloadHistory.findFirst({
+      where: { ...target, completedAt: null, failed: false },
+      select: { id: true },
+      orderBy: { id: "desc" },
     });
+    if (activeGrab) {
+      return {
+        grabbed: false,
+        reason: duplicateGrabReason(target, activeGrab.id),
+      };
+    }
+
+    let dhRow: { id: number };
+    try {
+      dhRow = await prisma.downloadHistory.create({
+        data: {
+          ...target,
+          releaseTitle,
+          indexer: indexer?.trim() || null,
+          torrentHash: null,
+          downloadUrl,
+          qualityParsed: qJson,
+          isUpgrade: opts.isUpgrade ?? false,
+          aiPicked: opts.aiPicked ?? false,
+        },
+      });
+    } catch (e) {
+      // ux_download_history_active_target — the check above lost the race to a
+      // concurrent grab that inserted between our read and this write.
+      if ((e as { code?: string }).code === "P2002") {
+        return { grabbed: false, reason: duplicateGrabReason(target) };
+      }
+      throw e;
+    }
     pendingDownloadHistoryId = dhRow.id;
     const tag = `rawkoon-dh-${dhRow.id}`;
 
