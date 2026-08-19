@@ -11,6 +11,9 @@ mock.module("@rawkoon/api/db", () => ({
     },
     libraryEpisode: { update: async () => ({}) },
     downloadHistory: {
+      // No active grab for this target — see the duplicate-grab guard in
+      // grabRelease (ux_download_history_active_target).
+      findFirst: async () => null,
       create: async () => ({ id: 123 }),
       update: downloadHistoryUpdate,
     },

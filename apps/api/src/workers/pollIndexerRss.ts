@@ -380,7 +380,7 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
             match.media.qualityProfileId,
             tvMediaContext(match.media.title),
             `season pack ${match.media.title} S${match.season}`,
-            { mediaId: match.media.id },
+            { mediaId: match.media.id, season: match.season },
             `season pack ${match.mediaId} S${match.season}`,
           ),
       ),

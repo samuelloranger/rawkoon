@@ -247,7 +247,11 @@ export async function setupScheduledJobs() {
     },
     {
       name: SCHEDULED_JOB_NAMES.POLL_INDEXER_RSS,
-      pattern: "*/15 * * * *",
+      // Offset off :00 so it never shares a tick with the 6-hourly release
+      // sweeps below, which hit the same indexer for the same wanted items.
+      // The duplicate-grab guard in grabRelease is the real safety net; this
+      // just stops the two jobs racing in the first place.
+      pattern: "7-59/15 * * * *",
     },
     {
       name: SCHEDULED_JOB_NAMES.REFRESH_GITHUB_RELEASES,
