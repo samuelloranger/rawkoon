@@ -1,13 +1,12 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 
 /**
- * Regression: Toy Story 5 (media 2463) was grabbed twice on 2026-08-18 04:00Z.
+ * Regression: a wanted movie could be grabbed twice, seconds apart.
  * check-library-movie-releases (every 6 hours, on the hour) and
- * poll-indexer-rss both fired on the same tick off the same
- * "wanted + no files" snapshot; the RSS poller
- * spent 20s in its local-AI pick, so by the time it grabbed, the other job had
- * already handed a torrent to the download client. grabRelease had no in-flight
- * check, so both grabs went through.
+ * poll-indexer-rss shared the tick and the same "wanted + no files"
+ * snapshot; the RSS poller spent tens of seconds in its local-AI pick, so
+ * by the time it grabbed, the other job had already handed a torrent to the
+ * download client. grabRelease had no in-flight check, so both went through.
  */
 
 type ActiveGrab = { id: number } | null;
@@ -21,12 +20,8 @@ const addedTorrents: unknown[] = [];
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
     libraryMedia: {
-      findUnique: async () => ({
-        id: 2463,
-        type: "movie",
-        title: "Toy Story 5",
-      }),
-      update: async () => ({ id: 2463 }),
+      findUnique: async () => ({ id: 42, type: "movie", title: "Some Movie" }),
+      update: async () => ({ id: 42 }),
     },
     libraryEpisode: {
       update: async () => ({ id: 1 }),
@@ -81,9 +76,9 @@ beforeEach(() => {
 describe("grabRelease duplicate-grab guard", () => {
   it("grabs when no other download is active for the target", async () => {
     const result = await grabRelease({
-      mediaId: 2463,
+      mediaId: 42,
       downloadUrl: MAGNET,
-      releaseTitle: "Toy.Story.5.2026.MULTi.VFQ.1080p.WEBRip.x265-GL0P",
+      releaseTitle: "Some.Movie.2026.1080p.WEBRip.x265-AAA",
     });
 
     expect(result.grabbed).toBe(true);
@@ -92,19 +87,19 @@ describe("grabRelease duplicate-grab guard", () => {
   });
 
   it("refuses a second grab while one is already active for the same movie", async () => {
-    activeGrab = { id: 1168 };
+    activeGrab = { id: 555 };
 
     const result = await grabRelease({
-      mediaId: 2463,
+      mediaId: 42,
       downloadUrl: MAGNET,
-      releaseTitle: "Toy.Story.5.2026.MULTI.VF2.1080p.WEB.H264-SUPPLY",
+      releaseTitle: "Some.Movie.2026.1080p.WEB.H264-BBB",
     });
 
     expect(result.grabbed).toBe(false);
     expect(result.grabbed === false && result.reason).toContain(
       "already active",
     );
-    expect(result.grabbed === false && result.reason).toContain("1168");
+    expect(result.grabbed === false && result.reason).toContain("555");
     // Nothing was written and nothing reached the download client.
     expect(createCalls).toHaveLength(0);
     expect(addedTorrents).toHaveLength(0);
@@ -112,14 +107,14 @@ describe("grabRelease duplicate-grab guard", () => {
 
   it("keys the active-grab lookup on media + episode + season", async () => {
     await grabRelease({
-      mediaId: 2463,
+      mediaId: 42,
       episodeId: 77,
       downloadUrl: MAGNET,
       releaseTitle: "Show.S01E02.1080p.WEB-DL",
     });
 
     expect(findFirstWhere[0]).toEqual({
-      mediaId: 2463,
+      mediaId: 42,
       episodeId: 77,
       season: null,
       completedAt: null,
@@ -148,16 +143,16 @@ describe("grabRelease duplicate-grab guard", () => {
   });
 
   it("treats a P2002 on the unique index as a duplicate, not a crash", async () => {
-    // The pre-check passed but a concurrent grab inserted first — this is the
-    // exact 20s-apart race the two crons produced.
+    // The pre-check passed but a concurrent grab inserted first — the exact
+    // race the two colliding crons produced.
     createError = Object.assign(new Error("Unique constraint failed"), {
       code: "P2002",
     });
 
     const result = await grabRelease({
-      mediaId: 2463,
+      mediaId: 42,
       downloadUrl: MAGNET,
-      releaseTitle: "Toy.Story.5.2026.MULTI.VF2.1080p.WEB.H264-SUPPLY",
+      releaseTitle: "Some.Movie.2026.1080p.WEB.H264-BBB",
     });
 
     expect(result.grabbed).toBe(false);

@@ -312,12 +312,14 @@ export const libraryGrabRoutes = new Elysia()
         const result = explicit
           ? await searchAndGrab({
               mediaId,
+              season,
               mediaType: "tv",
               searchQuery: explicit,
               qualityProfileId: media.qualityProfileId,
             })
           : await searchAndGrabWithTitleFallback({
               mediaId,
+              season,
               mediaType: "tv",
               titleBaseQueries: resolveSearchTitles({
                 title: media.title,
