@@ -1,4 +1,4 @@
-import { mkdir, readdir, stat } from "node:fs/promises";
+import { mkdir, readdir, stat, unlink } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 
 import { prisma } from "@rawkoon/api/db";
@@ -93,6 +93,54 @@ async function collectFiles(root: string): Promise<string[]> {
   return found;
 }
 
+/**
+ * Delete what an upgrade replaced.
+ *
+ * An upgrade that leaves the old copy in place is not an upgrade: the edition
+ * would hold both formats, its aggregated size and duration would count both,
+ * and the library would keep growing on every improvement. Mirrors the
+ * upgrade cleanup in postProcessorSingle, with one difference — a book edition
+ * legitimately holds many files, so the paths just imported are the keep list
+ * rather than a single id.
+ *
+ * A file that cannot be deleted keeps its row: a row with no file is worse
+ * than a file with no row, because rescan can find the second and nothing can
+ * explain the first.
+ */
+async function removeSupersededFiles(
+  editionId: number,
+  keepPaths: string[],
+): Promise<void> {
+  const old = await prisma.bookFile.findMany({
+    where: { editionId, filePath: { notIn: keepPaths } },
+    select: { id: true, filePath: true },
+  });
+
+  const removable: number[] = [];
+  for (const file of old) {
+    try {
+      await unlink(file.filePath);
+      removable.push(file.id);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+        removable.push(file.id);
+      } else {
+        console.warn(
+          `[postProcessBook/upgrade] could not delete superseded file ${file.filePath}:`,
+          e,
+        );
+      }
+    }
+  }
+
+  if (removable.length > 0) {
+    await prisma.bookFile.deleteMany({ where: { id: { in: removable } } });
+    console.log(
+      `[postProcessBook/upgrade] removed ${removable.length} superseded file(s) from edition ${editionId}`,
+    );
+  }
+}
+
 export interface BookImportResult {
   imported: number;
   destinationPath: string | null;
@@ -113,6 +161,8 @@ export async function postProcessBook(opts: {
   contentPath: string;
   releaseTitle: string;
   fileOperation: "hardlink" | "move";
+  /** Replaces what the edition already holds instead of adding to it. */
+  isUpgrade?: boolean;
 }): Promise<BookImportResult> {
   const edition = await prisma.bookEdition.findUnique({
     where: { id: opts.editionId },
@@ -244,6 +294,7 @@ export async function postProcessBook(opts: {
   await mkdir(destDir, { recursive: true });
 
   let imported = 0;
+  const importedPaths: string[] = [];
   for (const keeper of keepers) {
     const targetName =
       kind === "audiobook"
@@ -324,6 +375,7 @@ export async function postProcessBook(opts: {
     });
 
     imported++;
+    importedPaths.push(dst);
   }
 
   if (imported === 0) {
@@ -333,6 +385,10 @@ export async function postProcessBook(opts: {
       skipped,
       error: "Every candidate file failed to import",
     };
+  }
+
+  if (opts.isUpgrade && importedPaths.length > 0) {
+    await removeSupersededFiles(opts.editionId, importedPaths);
   }
 
   // Narrators come from container tags, never from the metadata provider.
@@ -501,6 +557,7 @@ export async function postProcessBookDownload(
     contentPath: remapPath(contentBase),
     releaseTitle: dh.releaseTitle,
     fileOperation: settings.fileOperation === "move" ? "move" : "hardlink",
+    isUpgrade: dh.isUpgrade,
   });
 
   if (result.error || !result.destinationPath) {
