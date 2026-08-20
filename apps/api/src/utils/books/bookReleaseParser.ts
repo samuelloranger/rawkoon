@@ -13,15 +13,10 @@ import type {
  * four-digit year as a resolution. Two parsers, two test suites, no
  * cross-contamination.
  *
- * The cases handled here were taken from real releases returned by a live
- * Jackett aggregate for Freida McFadden's "La Prof" on 2026-08-20:
- *
- *   La Prof - Freida McFadden - 2025 [MP3 à 64 kb/s]
- *   La.Prof.Freida.McFadden.2025.FR.[EPUB]-NOTAG
- *   La Prof - Freida McFadden - 2025 Fr [Epub]
- *   La prof - Freida McFadden  [ePub] Fr
- *   Freida McFadden – Le professeur (The Teacher) - ePUB Fr
- *   La.Prof.Freida.McFadden.2025.FR.[MP3.192kbps]-NOTAG
+ * The cases handled below are drawn from what real book indexers return:
+ * French-locale bitrate notation, scene-style dot separators alongside spaced
+ * ones, en dashes, inconsistent format casing, and a "no group" placeholder
+ * suffix. See the test file for the concrete shapes.
  */
 
 const EBOOK_FORMATS: EbookFormat[] = ["epub", "azw3", "mobi", "pdf", "cbz"];
@@ -42,9 +37,9 @@ export interface ParsedBookRelease {
   language: string | null;
   releaseGroup: string | null;
   /**
-   * True only on a positive retail signal. Real French releases carry no
-   * marker whatsoever, which is why there is no `requireRetail` profile
-   * field — requiring it would reject every genuine result.
+   * True only on a positive retail signal. Most releases carry no marker at
+   * all, which is why there is no `requireRetail` profile field — requiring
+   * one would reject nearly every genuine result.
    */
   isRetail: boolean;
   isProper: boolean;
@@ -53,8 +48,8 @@ export interface ParsedBookRelease {
 }
 
 /**
- * Normalize separators before matching. Real titles mix `-`, en dash `–`,
- * dots, and runs of spaces; one release used a double space.
+ * Normalize separators before matching. Release names mix `-`, en dash `–`,
+ * dots, and runs of spaces, including doubled ones.
  */
 const normalize = (title: string): string =>
   title
@@ -74,8 +69,8 @@ const LANGUAGE_PATTERNS: [RegExp, string][] = [
 ];
 
 /**
- * `-NOTAG` (and friends) is a French-tracker convention meaning "no group",
- * not a group literally called NOTAG. Treating it as a group name would let it
+ * `-NOTAG` (and friends) is a tracker convention meaning "no group", not a
+ * group literally called NOTAG. Treating it as a group name would let it
  * leak into file names and custom-format matching.
  */
 const NON_GROUPS = new Set([
@@ -93,7 +88,7 @@ const PROPER_RE = /\b(?:proper|repack|corrig(?:e|é)|fixed|v2)\b/i;
 const PACK_RE =
   /\b(?:complete|int(?:e|é)grale?|collection|anthologie|anthology|omnibus|series|saga|tomes?\s*\d+\s*(?:-|to|a|à)\s*\d+|books?\s*\d+\s*-\s*\d+|pack)\b/i;
 
-/** Extract the audio bitrate. Two real forms: `à 64 kb/s` and `.192kbps`. */
+/** Extract the audio bitrate. Both `à 64 kb/s` and `.192kbps` spellings occur. */
 const parseBitrate = (normalized: string): number | null => {
   const m = normalized.match(/(\d{2,4})\s*(?:kbps|kb\/s|kbit\/s|k)\b/i);
   if (!m) return null;
@@ -129,7 +124,7 @@ const parseGroup = (rawTitle: string): string | null => {
   const candidate = m[1].replace(/[._]+$/, "");
   if (!candidate) return null;
   if (NON_GROUPS.has(candidate.toLowerCase())) return null;
-  // A bare year is not a group ("… - Freida McFadden - 2025").
+  // A bare year is not a group: release names often end "- Author - 2025".
   if (/^\d{4}$/.test(candidate)) return null;
   return candidate;
 };
@@ -164,10 +159,10 @@ export function parseBookReleaseTitle(title: string): ParsedBookRelease {
 /**
  * Derive the edition kind for a release.
  *
- * Category is NOT usable for this: a real 262 MB audiobook release for the
- * test title was filed under category 7000 (Books), not 3000 (Audio). Format
- * is authoritative when present; size is the fallback, and it separates the
- * two cleanly — ebooks measured 1-5 MB, audiobooks 262-810 MB.
+ * Category is NOT usable for this: trackers file audiobooks under 7000 (Books)
+ * as well as 3000 (Audio). Format is authoritative when present; size is the
+ * fallback, and it separates the two cleanly, since ebooks run to a few MB and
+ * audiobooks to hundreds.
  */
 export function inferEditionKind(
   parsed: ParsedBookRelease,

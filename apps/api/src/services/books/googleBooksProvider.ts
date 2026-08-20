@@ -2,6 +2,7 @@ import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationCon
 import { normalizeGoogleBooksConfig } from "@rawkoon/api/utils/integrations/normalizers";
 import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
 import { prisma } from "@rawkoon/api/db";
+import { sanitizeProviderHtml } from "@rawkoon/shared/utils";
 import {
   BookProviderUnavailableError,
   type BookMetadataProvider,
@@ -14,8 +15,8 @@ const CACHE_TTL_SEARCH = 3600; // 1h
 const CACHE_TTL_VOLUME = 86_400; // 24h
 
 /**
- * Every rule below came out of testing this API live against a real French
- * title (Freida McFadden's "La Prof") on 2026-08-20:
+ * Every rule below came out of testing this API live against a French-language
+ * title on 2026-08-20:
  *
  *  - Quoted phrase queries return HTTP 503. Unquoted ones return 200.
  *  - `isbn:` and `inauthor:` are precise; loose free text returned 300 hits
@@ -23,7 +24,7 @@ const CACHE_TTL_VOLUME = 86_400; // 24h
  *  - HTTP 503 `backendFailed` is nondeterministic — the same URL failed three
  *    times and then succeeded — so retry, and never cache the failure.
  *  - Records are sparse: pageCount 0, empty description, null categories and
- *    null seriesInfo were all seen on a real volume. Only title, authors and
+ *    null seriesInfo all occur on real volumes. Only title, authors and
  *    language can be relied on.
  */
 
@@ -129,7 +130,10 @@ const mapVolume = (raw: GoogleVolume): ProviderBook | null => {
     publishedYear: yearFrom(info.publishedDate),
     isbn13: isbn13From(info.industryIdentifiers),
     coverUrl: coverFrom(volumeId, info.imageLinks),
-    overview: str(info.description),
+    // Descriptions arrive as markup. Sanitized on ingest so the database only
+    // ever holds clean HTML; the renderer sanitizes again, which covers rows
+    // stored before this existed.
+    overview: sanitizeProviderHtml(str(info.description)) || null,
     seriesName,
     seriesPosition,
   };

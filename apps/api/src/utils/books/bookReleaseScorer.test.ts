@@ -9,43 +9,47 @@ import {
 } from "@rawkoon/api/utils/books/bookReleaseScorer";
 
 /**
- * Verbatim results from a live Jackett aggregate search for
- * "La Prof Freida McFadden" (categories 7000 and 3000) on 2026-08-20, with the
- * sizes the indexer reported.
+ * Synthetic fixtures with an invented title and author, shaped like the results
+ * a live Jackett aggregate returns for book categories. The sizes are realistic
+ * because the scorer uses them to tell an ebook from an audiobook.
+ *
+ * The set deliberately includes a decoy: a different translation of the same
+ * work, whose title shares a prefix with the wanted one. It is what proves
+ * title matching compares whole tokens rather than substrings.
  */
-const REAL_RELEASES = [
+const RELEASE_FIXTURES = [
   {
-    title: "La Prof - Freida McFadden - 2025 [MP3 à 64 kb/s]",
+    title: "La Serre - Camille Rousseau - 2025 [MP3 à 64 kb/s]",
     sizeBytes: 262 * 1_048_576,
     seeders: 5,
     indexer: "tracker-a",
   },
   {
-    title: "La.Prof.Freida.McFadden.2025.FR.[EPUB]-NOTAG",
+    title: "La.Serre.Camille.Rousseau.2025.FR.[EPUB]-NOTAG",
     sizeBytes: 1 * 1_048_576,
     seeders: 12,
     indexer: "tracker-a",
   },
   {
-    title: "La Prof - Freida McFadden - 2025 Fr [Epub]",
+    title: "La Serre - Camille Rousseau - 2025 Fr [Epub]",
     sizeBytes: 1 * 1_048_576,
     seeders: 8,
     indexer: "tracker-b",
   },
   {
-    title: "La prof - Freida McFadden  [ePub] Fr",
+    title: "La serre - Camille Rousseau  [ePub] Fr",
     sizeBytes: 5 * 1_048_576,
     seeders: 3,
     indexer: "tracker-b",
   },
   {
-    title: "Freida McFadden – Le professeur (The Teacher) - ePUB Fr",
+    title: "Camille Rousseau – Le serrurier (The Greenhouse) - ePUB Fr",
     sizeBytes: 1 * 1_048_576,
     seeders: 1,
     indexer: "tracker-c",
   },
   {
-    title: "La.Prof.Freida.McFadden.2025.FR.[MP3.192kbps]-NOTAG",
+    title: "La.Serre.Camille.Rousseau.2025.FR.[MP3.192kbps]-NOTAG",
     sizeBytes: 810 * 1_048_576,
     seeders: 6,
     indexer: "tracker-a",
@@ -76,39 +80,36 @@ const AUDIO_PROFILE: BookScoreProfile = {
   preferTrackerOverQuality: false,
 };
 
-const FR_BOOK = { bookTitle: "La prof", authors: ["Freida McFadden"] };
+const FR_BOOK = { bookTitle: "La serre", authors: ["Camille Rousseau"] };
 
 describe("title matching separates two competing translations", () => {
   test("the correct French title matches", () => {
     expect(
       releaseMatchesBookTitle(
-        "La.Prof.Freida.McFadden.2025.FR.[EPUB]-NOTAG",
-        "La prof",
+        "La.Serre.Camille.Rousseau.2025.FR.[EPUB]-NOTAG",
+        "La serre",
       ),
     ).toBe(true);
   });
 
   test("a different translation of the same work does NOT match", () => {
-    // "prof" must not match "professeur" — this is why matching is by token
-    // equality, not substring.
+    // The decoy title shares a prefix with the wanted one, so a substring
+    // comparison would wrongly accept it. Token equality rejects it.
     expect(
       releaseMatchesBookTitle(
-        "Freida McFadden – Le professeur (The Teacher) - ePUB Fr",
-        "La prof",
+        "Camille Rousseau – Le serrurier (The Greenhouse) - ePUB Fr",
+        "La serre",
       ),
     ).toBe(false);
   });
 
   test("accents and case are ignored", () => {
-    expect(releaseMatchesBookTitle("LA PROF [epub]", "La Prôf")).toBe(true);
+    expect(releaseMatchesBookTitle("LA SERRE [epub]", "La Sèrre")).toBe(true);
   });
 
   test("an unrelated book is rejected", () => {
     expect(
-      releaseMatchesBookTitle(
-        "La femme de menage - McFadden [epub]",
-        "La prof",
-      ),
+      releaseMatchesBookTitle("Le jardin clos - Rousseau [epub]", "La serre"),
     ).toBe(false);
   });
 });
@@ -116,13 +117,13 @@ describe("title matching separates two competing translations", () => {
 describe("author matching", () => {
   test("surname is enough", () => {
     expect(
-      releaseMatchesAuthor("La.Prof.McFadden.EPUB", ["Freida McFadden"]),
+      releaseMatchesAuthor("La.Serre.Rousseau.EPUB", ["Camille Rousseau"]),
     ).toBe(true);
   });
 
   test("a different author is rejected", () => {
     expect(
-      releaseMatchesAuthor("La.Prof.Grisham.EPUB", ["Freida McFadden"]),
+      releaseMatchesAuthor("La.Serre.Delacroix.EPUB", ["Camille Rousseau"]),
     ).toBe(false);
   });
 
@@ -131,8 +132,8 @@ describe("author matching", () => {
   });
 });
 
-describe("ebook edition against the real result set", () => {
-  const scored = REAL_RELEASES.map((r) => ({
+describe("ebook edition against the fixture set", () => {
+  const scored = RELEASE_FIXTURES.map((r) => ({
     release: r,
     result: scoreBookRelease(r, {
       ...FR_BOOK,
@@ -141,21 +142,19 @@ describe("ebook edition against the real result set", () => {
     }),
   }));
 
-  test("accepts exactly the three correct French ebooks", () => {
+  test("accepts exactly the three matching ebooks", () => {
     const accepted = scored
       .filter((s) => !s.result.rejected)
       .map((s) => s.release.title);
     expect(accepted).toEqual([
-      "La.Prof.Freida.McFadden.2025.FR.[EPUB]-NOTAG",
-      "La Prof - Freida McFadden - 2025 Fr [Epub]",
-      "La prof - Freida McFadden  [ePub] Fr",
+      "La.Serre.Camille.Rousseau.2025.FR.[EPUB]-NOTAG",
+      "La Serre - Camille Rousseau - 2025 Fr [Epub]",
+      "La serre - Camille Rousseau  [ePub] Fr",
     ]);
   });
 
   test("rejects the other translation on title, not on format", () => {
-    const other = scored.find((s) =>
-      s.release.title.includes("Le professeur"),
-    )!;
+    const other = scored.find((s) => s.release.title.includes("Le serrurier"))!;
     expect(other.result.rejected).toBe(true);
     expect(other.result.rejections).toContain("Title does not match");
   });
@@ -171,14 +170,14 @@ describe("ebook edition against the real result set", () => {
     }
   });
 
-  test("picks a real epub", () => {
+  test("picks an epub", () => {
     const best = pickBestBookRelease(scored);
     expect(best?.result.parsed.format).toBe("epub");
   });
 });
 
-describe("audiobook edition against the real result set", () => {
-  const scored = REAL_RELEASES.map((r) => ({
+describe("audiobook edition against the fixture set", () => {
+  const scored = RELEASE_FIXTURES.map((r) => ({
     release: r,
     result: scoreBookRelease(r, {
       ...FR_BOOK,
@@ -193,12 +192,12 @@ describe("audiobook edition against the real result set", () => {
     expect(low.result.rejections).toContain("Bitrate 64 kbps below 96");
   });
 
-  test("the 192 kbps release wins, even though it was filed under Books", () => {
-    // This release came back under category 7000, not 3000. Kind is derived
-    // from the parsed format, so the category never enters into it.
+  test("the higher-bitrate release wins regardless of indexer category", () => {
+    // Trackers file audiobooks under the Books category too, so kind is
+    // derived from the parsed format and never from the category.
     const best = pickBestBookRelease(scored);
     expect(best?.release.title).toBe(
-      "La.Prof.Freida.McFadden.2025.FR.[MP3.192kbps]-NOTAG",
+      "La.Serre.Camille.Rousseau.2025.FR.[MP3.192kbps]-NOTAG",
     );
     expect(best?.result.kind).toBe("audiobook");
   });
@@ -209,7 +208,7 @@ describe("scoring order", () => {
     const profile = { ...EBOOK_PROFILE, minSeeders: 0 };
     const epubFewSeeds = scoreBookRelease(
       {
-        title: "La Prof McFadden [EPUB]",
+        title: "La Serre Rousseau [EPUB]",
         sizeBytes: 1_048_576,
         seeders: 1,
         indexer: null,
@@ -218,7 +217,7 @@ describe("scoring order", () => {
     );
     const pdfManySeeds = scoreBookRelease(
       {
-        title: "La Prof McFadden [PDF]",
+        title: "La Serre Rousseau [PDF]",
         sizeBytes: 1_048_576,
         seeders: 999,
         indexer: null,
@@ -232,7 +231,7 @@ describe("scoring order", () => {
     const profile = { ...EBOOK_PROFILE, minSeeders: 0 };
     const plain = scoreBookRelease(
       {
-        title: "La Prof McFadden [EPUB]",
+        title: "La Serre Rousseau [EPUB]",
         sizeBytes: 1_048_576,
         seeders: 5,
         indexer: null,
@@ -241,14 +240,14 @@ describe("scoring order", () => {
     );
     const retail = scoreBookRelease(
       {
-        title: "La Prof McFadden RETAIL [EPUB]",
+        title: "La Serre Rousseau RETAIL [EPUB]",
         sizeBytes: 1_048_576,
         seeders: 5,
         indexer: null,
       },
       { ...FR_BOOK, kind: "ebook", profile },
     );
-    // Untagged releases stay viable — every real French release was untagged.
+    // Untagged releases must stay viable: most carry no retail marker at all.
     expect(plain.rejected).toBe(false);
     expect(retail.score).toBeGreaterThan(plain.score);
   });
@@ -256,7 +255,7 @@ describe("scoring order", () => {
   test("multi-book packs are rejected", () => {
     const r = scoreBookRelease(
       {
-        title: "Freida McFadden - La Prof - Intégrale [EPUB]",
+        title: "Camille Rousseau - La Serre - Intégrale [EPUB]",
         sizeBytes: 20 * 1_048_576,
         seeders: 50,
         indexer: null,
