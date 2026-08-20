@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 
 import { requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
-import { badRequest, notFound } from "@rawkoon/api/errors";
+import { badRequest, conflict, notFound } from "@rawkoon/api/errors";
 import {
   grabBookRelease,
   searchAndGrabBook,
@@ -63,10 +63,11 @@ export const bookGrabRoutes = new Elysia()
         indexer: body.indexer ?? null,
       });
 
-      if (!result.grabbed) {
-        set.status = 409;
-        return { grabbed: false, reason: result.reason };
-      }
+      // Refusals use the shared conflict() helper: the whole app returns
+      // { error } on failure, and the web client's error extractor reads
+      // exactly that field. Returning { reason } instead lost the message and
+      // surfaced a bare "HTTP error! status: 409".
+      if (!result.grabbed) return conflict(set, result.reason);
       return { grabbed: true, release_title: result.releaseTitle };
     },
     {
@@ -93,10 +94,7 @@ export const bookGrabRoutes = new Elysia()
       if (!edition) return notFound(set, "Edition not found");
 
       const result = await searchAndGrabBook(edition.id);
-      if (!result.grabbed) {
-        set.status = 409;
-        return { grabbed: false, reason: result.reason };
-      }
+      if (!result.grabbed) return conflict(set, result.reason);
       return { grabbed: true, release_title: result.releaseTitle };
     },
     {
