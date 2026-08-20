@@ -2,7 +2,10 @@ import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationCon
 import { normalizeGoogleBooksConfig } from "@rawkoon/api/utils/integrations/normalizers";
 import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
 import { prisma } from "@rawkoon/api/db";
-import { sanitizeProviderHtml } from "@rawkoon/shared/utils";
+import {
+  reconcileBookLanguage,
+  sanitizeProviderHtml,
+} from "@rawkoon/shared/utils";
 import {
   BookProviderUnavailableError,
   type BookMetadataProvider,
@@ -121,14 +124,28 @@ const mapVolume = (raw: GoogleVolume): ProviderBook | null => {
     }
   }
 
+  const isbn13 = isbn13From(info.industryIdentifiers);
+  // Google's `language` is unreliable — a French volume with a French
+  // publisher, description and ISBN came back as Arabic. Cross-check it
+  // against the ISBN registration group and prefer that when they disagree.
+  const { language, correctedFrom } = reconcileBookLanguage(
+    str(info.language),
+    isbn13,
+  );
+  if (correctedFrom) {
+    console.warn(
+      `[googleBooks] volume ${volumeId} reported language "${correctedFrom}" but its ISBN ${isbn13} is a ${language} registration group — using ${language}`,
+    );
+  }
+
   return {
     volumeId,
     title,
     subtitle: str(info.subtitle),
     authors,
-    language: str(info.language) ?? "en",
+    language,
     publishedYear: yearFrom(info.publishedDate),
-    isbn13: isbn13From(info.industryIdentifiers),
+    isbn13,
     coverUrl: coverFrom(volumeId, info.imageLinks),
     // Descriptions arrive as markup. Sanitized on ingest so the database only
     // ever holds clean HTML; the renderer sanitizes again, which covers rows
