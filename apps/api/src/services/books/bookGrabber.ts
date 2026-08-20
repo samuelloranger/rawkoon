@@ -3,16 +3,16 @@ import { getActiveIndexerManager } from "@rawkoon/api/services/indexerManager";
 import { checkBlocklist } from "@rawkoon/api/services/mediaGrabberHelpers";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import { emitBookUpdate } from "@rawkoon/api/services/libraryEvents";
-import {
-  QBIT_CATEGORY_RAWKOON_AUDIOBOOKS,
-  QBIT_CATEGORY_RAWKOON_BOOKS,
-} from "@rawkoon/api/constants/libraryGrab";
 import type { BookEditionKind, BookRelease } from "@rawkoon/shared/types";
 import {
   scoreBookRelease,
   type BookScoreProfile,
 } from "@rawkoon/api/utils/books/bookReleaseScorer";
 import { addReleaseToDownloadClient } from "./bookDownloadHandoff";
+import { qbCategoryForEditionKind } from "./bookCategories";
+import { tryAdoptQbDuplicateForBook } from "./bookAdopt";
+
+export { qbCategoryForEditionKind };
 
 /**
  * Book search and grab.
@@ -22,11 +22,6 @@ import { addReleaseToDownloadClient } from "./bookDownloadHandoff";
  * for book-search). Correctness therefore rests on the query ladder here and
  * the reject filter in bookReleaseScorer.
  */
-
-export const qbCategoryForEditionKind = (kind: BookEditionKind): string =>
-  kind === "audiobook"
-    ? QBIT_CATEGORY_RAWKOON_AUDIOBOOKS
-    : QBIT_CATEGORY_RAWKOON_BOOKS;
 
 const DEFAULT_PROFILE: Record<BookEditionKind, BookScoreProfile> = {
   ebook: {
@@ -307,6 +302,22 @@ export async function grabBookRelease(opts: {
   });
 
   if (!handoff.ok) {
+    // The client already holds this torrent. Take it over rather than fail:
+    // the alternative left an edition permanently ungrabbable whenever an
+    // earlier attempt outlived its DownloadHistory row.
+    if (handoff.duplicate) {
+      const adopted = await tryAdoptQbDuplicateForBook({
+        dhRowId: dhRow.id,
+        editionId: opts.editionId,
+        kind: ctx.kind,
+        torrentHash: handoff.torrentHash ?? null,
+        releaseTitle,
+        bookTitle: ctx.bookTitle,
+        isUpgrade: opts.isUpgrade,
+      });
+      if (adopted) return { grabbed: true, releaseTitle };
+    }
+
     await prisma.downloadHistory.update({
       where: { id: dhRow.id },
       data: { failed: true, failReason: handoff.reason },

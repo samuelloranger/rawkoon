@@ -3,13 +3,16 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { FetcherProvider, type Fetcher } from "@/lib/api/context";
+import { QUERY_DEFAULTS } from "@/lib/api/queryClient";
 import { useLibraryItem } from "@/features/medias/hooks/useLibraryItem";
 
-// Mirror the production QueryClient defaults (refetchOnMount:false + staleTime).
+// Built from the real production defaults, not a copy of them: a hand-written
+// mirror is how a wrong `refetchOnMount` once passed its own test.
 function makeClient() {
   return new QueryClient({
     defaultOptions: {
-      queries: { retry: false, refetchOnMount: false, staleTime: 30 * 1000 },
+      ...QUERY_DEFAULTS,
+      queries: { ...QUERY_DEFAULTS.queries, retry: false },
     },
   });
 }
@@ -46,7 +49,7 @@ describe("useLibraryItem", () => {
     expect(result.current.data?.item.title).toBe("Freshly Added Movie");
   });
 
-  it("fetches even with refetchOnMount:false — the by-id key has no stale cache, so a just-added item is always retrieved", async () => {
+  it("fetches when the by-id key has no cache at all, so a just-added item is always retrieved", async () => {
     const fetcher = vi.fn(async () => ({ item: ITEM })) as unknown as Fetcher;
 
     const { result } = renderHook(() => useLibraryItem(123), {

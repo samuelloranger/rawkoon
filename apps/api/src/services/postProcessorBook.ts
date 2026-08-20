@@ -401,6 +401,7 @@ export async function postProcessBookDownload(
         releaseTitle: true,
         failed: true,
         completedAt: true,
+        isUpgrade: true,
       },
     }),
     prisma.mediaSettings.findUnique({ where: { id: 1 } }),
@@ -417,6 +418,60 @@ export async function postProcessBookDownload(
   }
   if (!settings?.postProcessingEnabled) {
     return { success: false, reason: "Post-processing disabled" };
+  }
+
+  // ── Pre-scan: are the files already in the library? ─────────────────────────
+  // The counterpart of the pre-scan in postProcessorSingle, and the reason a
+  // re-grab after a deleted-and-re-added book used to dead-end: the file was
+  // already on disk, but nothing looked before asking the download client.
+  //
+  // Skipped for upgrades, where the file being replaced is still present and
+  // would short-circuit the very import that is meant to replace it.
+  if (!dh.isUpgrade) {
+    const existing = await prisma.bookFile.findMany({
+      where: { editionId: dh.bookEditionId },
+      select: { filePath: true },
+    });
+    for (const file of existing) {
+      try {
+        await stat(file.filePath);
+      } catch {
+        continue;
+      }
+      await prisma.bookEdition.update({
+        where: { id: dh.bookEditionId },
+        data: { status: "downloaded" },
+      });
+      await prisma.downloadHistory.update({
+        where: { id: downloadHistoryId },
+        data: {
+          postProcessDestinationPath: file.filePath,
+          postProcessError: null,
+        },
+      });
+      const ed = await prisma.bookEdition.findUnique({
+        where: { id: dh.bookEditionId },
+        select: { bookId: true },
+      });
+      if (ed) emitBookUpdate(ed.bookId);
+      return { success: true, destinationPath: file.filePath };
+    }
+
+    // No rows, or every row's file is gone: the files may still be on disk from
+    // an earlier import whose rows were removed with the book. Adopting them
+    // costs a couple of stat calls on a fresh grab, where the directory does
+    // not exist yet and the scan finds nothing.
+    const rescan = await rescanBookEdition(dh.bookEditionId);
+    if (rescan.registered > 0 && rescan.directory) {
+      await prisma.downloadHistory.update({
+        where: { id: downloadHistoryId },
+        data: {
+          postProcessDestinationPath: rescan.directory,
+          postProcessError: null,
+        },
+      });
+      return { success: true, destinationPath: rescan.directory };
+    }
   }
 
   const hash = dh.torrentHash?.trim();
@@ -478,7 +533,10 @@ export async function postProcessBookDownload(
  * unrelated files, and it drops rows whose file has since disappeared.
  */
 export async function rescanBookEdition(editionId: number): Promise<{
+  /** Files that had no row before this scan. */
   registered: number;
+  /** Files that already had a row, whose metadata was re-read. */
+  refreshed: number;
   removed: number;
   directory: string | null;
   error?: string;
@@ -500,6 +558,7 @@ export async function rescanBookEdition(editionId: number): Promise<{
   if (!edition) {
     return {
       registered: 0,
+      refreshed: 0,
       removed: 0,
       directory: null,
       error: "Edition not found",
@@ -519,6 +578,7 @@ export async function rescanBookEdition(editionId: number): Promise<{
   if (!libraryRoot) {
     return {
       registered: 0,
+      refreshed: 0,
       removed: 0,
       directory: null,
       error: `No ${kind} library path configured`,
@@ -607,10 +667,11 @@ export async function rescanBookEdition(editionId: number): Promise<{
       });
       emitBookUpdate(edition.bookId);
     }
-    return { registered: 0, removed, directory: null };
+    return { registered: 0, refreshed: 0, removed, directory: null };
   }
 
   let registered = 0;
+  let refreshed = 0;
   for (const keeper of keepers) {
     let st: Awaited<ReturnType<typeof stat>> | null = null;
     try {
@@ -643,7 +704,12 @@ export async function rescanBookEdition(editionId: number): Promise<{
     }
     if (languageTags.length === 0) languageTags = [edition.book.language];
 
-    await prisma.bookFile.deleteMany({ where: { filePath: keeper.path } });
+    // Rows are keyed by path, so a repeat scan replaces rather than duplicates.
+    // Counting the replacement separately keeps the report honest: a second
+    // scan of an unchanged library must not claim it registered anything.
+    const replaced = await prisma.bookFile.deleteMany({
+      where: { filePath: keeper.path },
+    });
     await prisma.bookFile.create({
       data: {
         editionId,
@@ -662,10 +728,11 @@ export async function rescanBookEdition(editionId: number): Promise<{
         fileMtimeMs: BigInt(Math.trunc(st.mtimeMs)),
       },
     });
-    registered++;
+    if (replaced.count > 0) refreshed++;
+    else registered++;
   }
 
-  if (registered > 0) {
+  if (registered + refreshed > 0) {
     await prisma.bookEdition.update({
       where: { id: editionId },
       data: { status: "downloaded" },
@@ -673,5 +740,5 @@ export async function rescanBookEdition(editionId: number): Promise<{
     emitBookUpdate(edition.bookId);
   }
 
-  return { registered, removed, directory };
+  return { registered, refreshed, removed, directory };
 }

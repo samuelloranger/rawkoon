@@ -478,7 +478,9 @@ function EditionPanel({
             <p className="mt-2 text-xs text-neutral-400">
               {rescan.data.registered > 0
                 ? `Imported ${rescan.data.registered} file(s) from ${rescan.data.directory}.`
-                : "No files found in the library for this edition."}
+                : rescan.data.refreshed > 0
+                  ? `Already up to date — re-read ${rescan.data.refreshed} file(s) in ${rescan.data.directory}.`
+                  : "No files found in the library for this edition."}
               {rescan.data.removed > 0
                 ? ` Removed ${rescan.data.removed} row(s) whose file was gone.`
                 : ""}

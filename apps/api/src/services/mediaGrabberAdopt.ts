@@ -1,12 +1,6 @@
 import { Prisma } from "@prisma/client";
 
-import { fetchQbittorrentTorrent } from "@rawkoon/api/services/qbittorrent/torrentQueries";
-import {
-  setQbittorrentTorrentCategory,
-  setQbittorrentTorrentTags,
-} from "@rawkoon/api/services/qbittorrent/torrentMutations";
-import { getQbittorrentIntegrationConfig } from "@rawkoon/api/services/qbittorrent/config";
-import { normalizeQbState } from "@rawkoon/api/services/downloadClient/stateNormalize";
+import { claimExistingQbTorrent } from "@rawkoon/api/services/qbittorrent/adoptExisting";
 import { adoptDownload } from "@rawkoon/api/services/downloadOutcome";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import { qbCategoryForLibraryType } from "@rawkoon/api/services/mediaGrabberHelpers";
@@ -15,10 +9,11 @@ import { qbCategoryForLibraryType } from "@rawkoon/api/services/mediaGrabberHelp
  * If qBittorrent rejected an add because the infohash already exists,
  * adopt the existing torrent into Rawkoon instead of marking the grab as failed.
  *
- * Flips the torrent's category to the expected Rawkoon category, adds the
- * `rawkoon` tag, finalises the DownloadHistory row, and updates the library
- * status — marking it `downloaded` immediately when the existing torrent is
- * already complete in qBittorrent.
+ * The client-side half (category, tag, completion state) lives in
+ * claimExistingQbTorrent, which the book path shares; this function owns the
+ * media-side database half: finalising the DownloadHistory row and updating the
+ * library status — marking it `downloaded` immediately when the existing
+ * torrent is already complete in qBittorrent.
  *
  * Returns null when adoption is not applicable (no hash, qB unreachable, or
  * no matching torrent). Returns a success descriptor when the torrent was
@@ -44,56 +39,20 @@ export async function tryAdoptQbDuplicate(ctx: {
     qJson,
     isUpgrade,
   } = ctx;
-  if (!torrentHash) return null;
 
-  const qb = await getQbittorrentIntegrationConfig();
-  if (!qb.enabled || !qb.config) return null;
-
-  const info = await fetchQbittorrentTorrent(
-    qb.config,
-    qb.enabled,
+  const claimed = await claimExistingQbTorrent({
     torrentHash,
-  );
-  if (!info.torrent) return null;
-
-  const expectedCategory = qbCategoryForLibraryType(mediaType);
-  const currentCategory = info.torrent.category ?? "";
-  if (currentCategory !== expectedCategory) {
-    const setCat = await setQbittorrentTorrentCategory(qb.config, qb.enabled, {
-      hash: torrentHash,
-      category: expectedCategory,
-    });
-    if (!setCat.success) {
-      console.warn(
-        `[mediaGrabber] adoption: failed to set category on ${torrentHash}: ${setCat.error ?? "unknown error"}`,
-      );
-      return null;
-    }
-  }
-
-  const currentTags = info.torrent.tags ?? [];
-  if (!currentTags.includes("rawkoon")) {
-    // Non-fatal: tag update failure shouldn't block adoption.
-    const tagRes = await setQbittorrentTorrentTags(qb.config, qb.enabled, {
-      hash: torrentHash,
-      tags: ["rawkoon"],
-      previous_tags: null,
-    });
-    if (!tagRes.success) {
-      console.warn(
-        `[mediaGrabber] adoption: failed to add 'rawkoon' tag to ${torrentHash}: ${tagRes.error ?? "unknown error"}`,
-      );
-    }
-  }
-
-  const completed =
-    normalizeQbState(info.torrent.state ?? "") === "completed" &&
-    (info.torrent.progress ?? 0) >= 1;
+    expectedCategory: qbCategoryForLibraryType(mediaType),
+    logPrefix: "[mediaGrabber]",
+  });
+  if (!claimed) return null;
+  const { completed } = claimed;
 
   try {
     await adoptDownload({
+      // Non-null: claimExistingQbTorrent returns null without a hash.
       dh: { id: dhRowId, mediaId, episodeId },
-      torrentHash,
+      torrentHash: torrentHash as string,
       completed,
       isUpgrade,
     });

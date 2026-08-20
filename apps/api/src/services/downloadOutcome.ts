@@ -264,7 +264,14 @@ export async function adoptDownload(ctx: {
   }
 
   const nextStatus = isUpgrade ? "upgrading" : "downloading";
-  if (dh.episodeId != null) {
+  if (dh.bookEditionId != null) {
+    const edition = await prisma.bookEdition.update({
+      where: { id: dh.bookEditionId },
+      data: { status: nextStatus, searchAttempts: 0 },
+      select: { bookId: true },
+    });
+    emitBookUpdate(edition.bookId);
+  } else if (dh.episodeId != null) {
     await prisma.libraryEpisode.update({
       where: { id: dh.episodeId },
       data: { status: nextStatus, searchAttempts: 0 },
