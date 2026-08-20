@@ -5,6 +5,8 @@ import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound } from "@rawkoon/api/errors";
 import type { BookEditionKind } from "@rawkoon/shared/types";
 
+import { rescanBookEdition } from "@rawkoon/api/services/postProcessorBook";
+
 import { mapBookEdition } from "./bookHelpers";
 
 const EDITION_STATUSES = [
@@ -181,6 +183,37 @@ export const bookEditionRoutes = new Elysia()
           language_tags: f.languageTags,
           scanned_at: f.scannedAt.toISOString(),
         })),
+      };
+    },
+    {
+      params: t.Object({
+        id: t.Numeric(),
+        kind: t.Union([t.Literal("ebook"), t.Literal("audiobook")]),
+      }),
+    },
+  )
+
+  /**
+   * Register files already in the library for this edition.
+   *
+   * Removing a book keeps its files on disk, so re-adding it leaves an edition
+   * that reads "wanted" while the file sits right there. This adopts them.
+   */
+  .post(
+    "/:id/editions/:kind/rescan",
+    async ({ params, set }) => {
+      const edition = await prisma.bookEdition.findUnique({
+        where: { bookId_kind: { bookId: params.id, kind: params.kind } },
+        select: { id: true },
+      });
+      if (!edition) return notFound(set, "Edition not found");
+
+      const result = await rescanBookEdition(edition.id);
+      if (result.error) return badRequest(set, result.error);
+      return {
+        registered: result.registered,
+        removed: result.removed,
+        directory: result.directory,
       };
     },
     {

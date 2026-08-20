@@ -461,3 +461,217 @@ export async function postProcessBookDownload(
   }
   return { success: true, destinationPath: result.destinationPath };
 }
+
+/**
+ * Register files already sitting in the library for an edition that has none.
+ *
+ * Two situations produce that state, and both were unreachable before this
+ * existed:
+ *
+ *  - Removing a book keeps its files on disk by design. Re-adding the book
+ *    creates a fresh edition with no file rows, so the library shows it as
+ *    wanted while the file is right there.
+ *  - A post-process that placed files but failed before writing its rows.
+ *
+ * Mirrors the pre-scan postProcessorSingle does for media. It only ever looks
+ * inside the directory the naming template points at, so it cannot sweep in
+ * unrelated files, and it drops rows whose file has since disappeared.
+ */
+export async function rescanBookEdition(editionId: number): Promise<{
+  registered: number;
+  removed: number;
+  directory: string | null;
+  error?: string;
+}> {
+  const edition = await prisma.bookEdition.findUnique({
+    where: { id: editionId },
+    include: {
+      book: {
+        select: {
+          title: true,
+          authors: true,
+          language: true,
+          publishedYear: true,
+        },
+      },
+      bookQualityProfile: { select: { allowedFormats: true } },
+    },
+  });
+  if (!edition) {
+    return {
+      registered: 0,
+      removed: 0,
+      directory: null,
+      error: "Edition not found",
+    };
+  }
+
+  const kind = edition.kind as BookEditionKind;
+  const settings = await prisma.mediaSettings.upsert({
+    where: { id: 1 },
+    update: {},
+    create: { id: 1 },
+  });
+  const libraryRoot =
+    kind === "audiobook"
+      ? settings.audiobooksLibraryPath
+      : settings.booksLibraryPath;
+  if (!libraryRoot) {
+    return {
+      registered: 0,
+      removed: 0,
+      directory: null,
+      error: `No ${kind} library path configured`,
+    };
+  }
+
+  // Drop rows whose file is gone, so a rescan also cleans up after a manual
+  // deletion on disk.
+  let removed = 0;
+  const known = await prisma.bookFile.findMany({
+    where: { editionId },
+    select: { id: true, filePath: true },
+  });
+  for (const f of known) {
+    try {
+      await stat(f.filePath);
+    } catch {
+      await prisma.bookFile.delete({ where: { id: f.id } });
+      removed++;
+    }
+  }
+
+  const allowedFormats = edition.bookQualityProfile?.allowedFormats ?? [];
+  const template =
+    kind === "audiobook" ? settings.audiobookTemplate : settings.bookTemplate;
+
+  // The template's own format token is unknown before scanning, so try each
+  // allowed format's rendering plus a format-less one. Whichever directory
+  // exists is the edition's.
+  const candidateFormats: (string | null)[] = [
+    ...(allowedFormats.length > 0 ? allowedFormats : []),
+    null,
+  ];
+  const seenDirs = new Set<string>();
+  let directory: string | null = null;
+  let keepers: { path: string; format: BookFormat }[] = [];
+
+  for (const fmt of candidateFormats) {
+    const rendered = renderBookTemplate(template, {
+      author: edition.book.authors[0] ?? null,
+      title: edition.book.title,
+      year: edition.book.publishedYear,
+      format: fmt,
+      language: edition.book.language,
+    });
+    const relParts = rendered.split("/").filter(Boolean);
+    const relDir =
+      kind === "audiobook"
+        ? relParts.join("/")
+        : relParts.slice(0, -1).join("/");
+    const dir = join(libraryRoot, relDir);
+    if (seenDirs.has(dir)) continue;
+    seenDirs.add(dir);
+
+    let isDir = false;
+    try {
+      isDir = (await stat(dir)).isDirectory();
+    } catch {
+      isDir = false;
+    }
+    if (!isDir) continue;
+
+    const found: { path: string; format: BookFormat }[] = [];
+    for (const filePath of await collectFiles(dir)) {
+      if (DISCARD_EXT.has(extname(filePath).toLowerCase())) continue;
+      if (SAMPLE_RE.test(basename(filePath))) continue;
+      const format = formatForPath(filePath);
+      if (!format) continue;
+      if (isAudiobookFormat(format) !== (kind === "audiobook")) continue;
+      found.push({ path: filePath, format });
+    }
+    if (found.length > 0) {
+      directory = dir;
+      keepers = found;
+      break;
+    }
+  }
+
+  if (keepers.length === 0) {
+    // Nothing on disk. If rows were removed the edition no longer has files,
+    // so put it back to wanted rather than leaving a lie on screen.
+    if (removed > 0) {
+      await prisma.bookEdition.update({
+        where: { id: editionId },
+        data: { status: "wanted" },
+      });
+      emitBookUpdate(edition.bookId);
+    }
+    return { registered: 0, removed, directory: null };
+  }
+
+  let registered = 0;
+  for (const keeper of keepers) {
+    let st: Awaited<ReturnType<typeof stat>> | null = null;
+    try {
+      st = await stat(keeper.path);
+    } catch {
+      continue;
+    }
+
+    let durationSecs: number | null = null;
+    let audioBitrate: number | null = null;
+    let audioCodec: string | null = null;
+    let languageTags: string[] = [];
+
+    if (isAudiobookFormat(keeper.format)) {
+      const info = await scanMediaInfo(keeper.path);
+      if (info) {
+        durationSecs = info.durationSecs;
+        const track = info.audioTracks[0];
+        if (track) {
+          audioBitrate = track.bitrate_kbps;
+          audioCodec = track.codec;
+        }
+        languageTags = info.audioTracks
+          .map((t) => t.language)
+          .filter((l): l is string => !!l);
+      }
+    } else {
+      const meta = await readEbookMetadata(keeper.path);
+      if (meta.language) languageTags = [meta.language];
+    }
+    if (languageTags.length === 0) languageTags = [edition.book.language];
+
+    await prisma.bookFile.deleteMany({ where: { filePath: keeper.path } });
+    await prisma.bookFile.create({
+      data: {
+        editionId,
+        filePath: keeper.path,
+        fileName: basename(keeper.path),
+        sizeBytes: BigInt(st.size),
+        format: keeper.format,
+        durationSecs,
+        audioBitrate,
+        audioCodec,
+        // A scan has no release title to judge, so retail stays unknown.
+        isRetail: false,
+        languageTags,
+        fileDev: String(st.dev),
+        fileIno: String(st.ino),
+        fileMtimeMs: BigInt(Math.trunc(st.mtimeMs)),
+      },
+    });
+    registered++;
+  }
+
+  if (registered > 0) {
+    await prisma.bookEdition.update({
+      where: { id: editionId },
+      data: { status: "downloaded" },
+    });
+    emitBookUpdate(edition.bookId);
+  }
+
+  return { registered, removed, directory };
+}

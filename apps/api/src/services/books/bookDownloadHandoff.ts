@@ -66,10 +66,21 @@ export async function addReleaseToDownloadClient(opts: {
       });
       return { ok: true, torrentHash: added.hash ?? fallbackHash };
     } catch (error) {
-      return {
-        ok: false,
-        reason: error instanceof Error ? error.message : "Torrent add failed",
-      };
+      const message =
+        error instanceof Error ? error.message : "Torrent add failed";
+      // qBittorrent answers 409 when the torrent is already in the client,
+      // which happens routinely after a failed or removed earlier attempt.
+      // mediaGrabberGrab adopts the existing torrent in this case
+      // (tryAdoptQbDuplicate); the book path does not yet, so at least say what
+      // actually happened instead of surfacing a bare status code.
+      if (message.includes("409")) {
+        return {
+          ok: false,
+          reason:
+            "That release is already in the download client. Remove it there, or use Rescan files once it has finished downloading.",
+        };
+      }
+      return { ok: false, reason: message };
     }
   };
 

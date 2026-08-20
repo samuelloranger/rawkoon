@@ -5,6 +5,7 @@ import {
   BookOpen,
   Check,
   Download,
+  FolderSearch,
   Headphones,
   Loader2,
   Plus,
@@ -30,6 +31,7 @@ import {
   useEditionFiles,
   useGrabRelease,
   useReleaseSearch,
+  useRescanEdition,
   useUpdateEdition,
 } from "../_hooks/useBooks";
 
@@ -336,6 +338,7 @@ function EditionPanel({
   edition: BookEdition;
 }) {
   const update = useUpdateEdition(bookId);
+  const rescan = useRescanEdition(bookId);
   const { data: profilesData } = useBookQualityProfiles();
   const [showFiles, setShowFiles] = useState(false);
   const { data: filesData } = useEditionFiles(bookId, edition.kind, showFiles);
@@ -454,7 +457,40 @@ function EditionPanel({
                 {showFiles ? "Hide files" : "Show files"}
               </Button>
             )}
+
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={rescan.isPending}
+              onClick={() => rescan.mutate(edition.kind)}
+              title="Look for files already in the library for this edition"
+            >
+              {rescan.isPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <FolderSearch className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Rescan files
+            </Button>
           </div>
+
+          {rescan.data && (
+            <p className="mt-2 text-xs text-neutral-400">
+              {rescan.data.registered > 0
+                ? `Imported ${rescan.data.registered} file(s) from ${rescan.data.directory}.`
+                : "No files found in the library for this edition."}
+              {rescan.data.removed > 0
+                ? ` Removed ${rescan.data.removed} row(s) whose file was gone.`
+                : ""}
+            </p>
+          )}
+          {rescan.isError && (
+            <p className="mt-2 text-xs text-rose-300">
+              {rescan.error instanceof ApiError
+                ? rescan.error.message
+                : "Rescan failed."}
+            </p>
+          )}
 
           {showFiles && filesData && (
             <ul className="mt-3 space-y-1.5 border-t border-neutral-800 pt-3">
