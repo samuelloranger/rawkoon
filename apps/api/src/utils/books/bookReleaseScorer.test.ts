@@ -277,3 +277,48 @@ describe("meetsBookCutoff", () => {
     expect(meetsBookCutoff(null, EBOOK_PROFILE)).toBe(false);
   });
 });
+
+/**
+ * Elision and possessives.
+ *
+ * Trackers write an apostrophe three ways: kept, replaced by a separator, or
+ * dropped so the elided article glues to the next word. All three name the same
+ * book, so all three must match — while a genuinely different title that merely
+ * shares a stem must still be rejected.
+ */
+describe("apostrophes in titles", () => {
+  const ELIDED = "L'intruse";
+
+  test.each([
+    ["apostrophe glued away", "Lintruse.Author.Name.2026.FR.[EPUB]-G11"],
+    ["apostrophe as a dot", "L.Intruse.Author.Name.2026.FR.[EPUB]-G11"],
+    ["apostrophe kept", "L'intruse - Author Name [EPUB] Fr"],
+    ["apostrophe as a space", "L Intruse Author Name [EPUB]"],
+    ["typographic apostrophe", "L’intruse - Author Name [EPUB]"],
+  ])("matches when the release writes it with the %s", (_label, release) => {
+    expect(releaseMatchesBookTitle(release, ELIDED)).toBe(true);
+  });
+
+  test.each([
+    ["a shorter stem", "L.Intrus.Other.Author.2026.fr.[EPUB]-NoTag"],
+    ["a shorter stem, glued", "Lintrus.Other.Author.2025.FR.[EPUB]-G11"],
+    ["an unrelated title", "Le.Jardin.Author.Name.2026.FR.[EPUB]"],
+  ])("still rejects %s", (_label, release) => {
+    expect(releaseMatchesBookTitle(release, ELIDED)).toBe(false);
+  });
+
+  test("works for English possessives too", () => {
+    expect(
+      releaseMatchesBookTitle("Harrys.Game.Author.EPUB", "Harry's Game"),
+    ).toBe(true);
+  });
+
+  test("author surnames with apostrophes match either spelling", () => {
+    expect(
+      releaseMatchesAuthor("Book.Title.OBrien.EPUB", ["Sean O'Brien"]),
+    ).toBe(true);
+    expect(
+      releaseMatchesAuthor("Book.Title.O.Brien.EPUB", ["Sean O'Brien"]),
+    ).toBe(true);
+  });
+});

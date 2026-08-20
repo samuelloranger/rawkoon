@@ -46,10 +46,35 @@ export interface BookScoreResult {
 /** Tokens shorter than this are articles/particles and carry no signal. */
 const MIN_TOKEN_LEN = 3;
 
-const significantTokens = (value: string): string[] =>
+const tokenize = (value: string): string[] =>
   normalizeTitleForMatch(value)
     .split(" ")
     .filter((t) => t.length >= MIN_TOKEN_LEN);
+
+/**
+ * Apostrophes appear in three spellings across trackers: kept, replaced by a
+ * separator, or dropped so an elided article glues to the next word.
+ * normalizeTitleForMatch turns punctuation into spaces, which handles the first
+ * two but splits the third apart — and the leftover one-letter article then
+ * falls under MIN_TOKEN_LEN and disappears. The same title therefore tokenized
+ * one way on the library side and another on the release side, and correct
+ * releases were rejected with "Title does not match".
+ *
+ * So tokenize both ways and let a match on either spelling count. The glued
+ * variant yields a longer, more specific token, so this does not loosen
+ * matching: a different title that merely shares a stem still fails on token
+ * equality.
+ */
+const tokenVariants = (value: string): string[][] => {
+  const spaced = tokenize(value);
+  if (!/['\u2019`]/.test(value)) return [spaced];
+  const glued = tokenize(value.replace(/['\u2019`]/g, ""));
+  return glued.join(" ") === spaced.join(" ") ? [spaced] : [spaced, glued];
+};
+
+/** Every token from every spelling, for the side being searched. */
+const tokenUniverse = (value: string): Set<string> =>
+  new Set(tokenVariants(value).flat());
 
 /**
  * Does the release title contain the book's title?
@@ -62,10 +87,11 @@ export function releaseMatchesBookTitle(
   releaseTitle: string,
   bookTitle: string,
 ): boolean {
-  const wanted = significantTokens(bookTitle);
-  if (wanted.length === 0) return false;
-  const have = new Set(significantTokens(releaseTitle));
-  return wanted.every((t) => have.has(t));
+  const variants = tokenVariants(bookTitle).filter((v) => v.length > 0);
+  if (variants.length === 0) return false;
+  const have = tokenUniverse(releaseTitle);
+  // Any one complete spelling of the title is enough.
+  return variants.some((wanted) => wanted.every((t) => have.has(t)));
 }
 
 /**
@@ -79,13 +105,16 @@ export function releaseMatchesAuthor(
   authors: string[],
 ): boolean {
   if (authors.length === 0) return true; // nothing to check against
-  const have = new Set(significantTokens(releaseTitle));
-  return authors.some((author) => {
-    const parts = significantTokens(author);
-    if (parts.length === 0) return false;
-    const surname = parts[parts.length - 1];
-    return have.has(surname);
-  });
+  const have = tokenUniverse(releaseTitle);
+  return authors.some((author) =>
+    // Same apostrophe problem as titles: a surname like O'Brien is written
+    // OBrien and O.Brien about as often as with the apostrophe.
+    tokenVariants(author).some((parts) => {
+      if (parts.length === 0) return false;
+      const surname = parts[parts.length - 1];
+      return have.has(surname);
+    }),
+  );
 }
 
 const formatRank = (format: BookFormat | null, allowed: string[]): number => {
