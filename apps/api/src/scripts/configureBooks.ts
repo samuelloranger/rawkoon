@@ -16,10 +16,15 @@
  * Inside the production container:
  *   docker compose exec rawkoon bun apps/api/src/scripts/configureBooks.ts --status
  *
+ * --fix-languages re-derives every stored book's language from its ISBN and
+ * corrects rows where the provider's value disagrees. Needed because rows added
+ * before the reconciliation existed kept whatever the provider said.
+ *
  * Flags are all optional; --status prints the current state and changes nothing.
  */
 
 import { prisma } from "@rawkoon/api/db";
+import { reconcileBookLanguage } from "@rawkoon/shared/utils";
 import { encrypt } from "@rawkoon/api/services/crypto";
 import { invalidateIntegrationConfigCache } from "@rawkoon/api/services/integrationConfigCache";
 
@@ -95,9 +100,53 @@ async function printStatus(): Promise<void> {
   }
 }
 
+/**
+ * Correct stored languages against their ISBN registration group.
+ *
+ * Google Books reports a wrong language often enough to matter, and rows added
+ * before ingest-time reconciliation kept the bad value.
+ */
+async function fixLanguages(apply: boolean): Promise<void> {
+  const books = await prisma.libraryBook.findMany({
+    select: { id: true, title: true, language: true, isbn13: true },
+    orderBy: { id: "asc" },
+  });
+
+  let changed = 0;
+  for (const b of books) {
+    const { language, correctedFrom } = reconcileBookLanguage(
+      b.language,
+      b.isbn13,
+    );
+    if (!correctedFrom) continue;
+    changed++;
+    console.log(
+      `${apply ? "fixed" : "would fix"}  #${b.id} ${b.title}: ${correctedFrom} -> ${language}`,
+    );
+    if (apply) {
+      await prisma.libraryBook.update({
+        where: { id: b.id },
+        data: { language },
+      });
+    }
+  }
+
+  console.log(
+    changed === 0
+      ? `Checked ${books.length} book(s); every language agrees with its ISBN.`
+      : `${apply ? "Corrected" : "Would correct"} ${changed} of ${books.length} book(s).`,
+  );
+}
+
 async function main() {
   if (hasFlag("status")) {
     await printStatus();
+    return;
+  }
+
+  if (hasFlag("fix-languages")) {
+    // --dry-run reports without writing.
+    await fixLanguages(!hasFlag("dry-run"));
     return;
   }
 
