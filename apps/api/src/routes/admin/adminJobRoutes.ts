@@ -86,6 +86,8 @@ const actionMap: Record<string, string> = {
   refresh_github_releases: SCHEDULED_JOB_NAMES.REFRESH_GITHUB_RELEASES,
   sync_library_attention_alerts:
     SCHEDULED_JOB_NAMES.SYNC_LIBRARY_ATTENTION_ALERTS,
+  check_book_releases: SCHEDULED_JOB_NAMES.CHECK_BOOK_RELEASES,
+  check_author_releases: SCHEDULED_JOB_NAMES.CHECK_AUTHOR_RELEASES,
 };
 
 export const adminJobRoutes = new Elysia()

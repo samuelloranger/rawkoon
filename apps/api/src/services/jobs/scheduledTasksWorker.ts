@@ -113,6 +113,20 @@ export async function processScheduledJob(job: Job) {
         await refreshGitHubReleases({ notifyAdmins: true });
         break;
       }
+      case SCHEDULED_JOB_NAMES.CHECK_BOOK_RELEASES: {
+        const { checkBookReleases } = await import(
+          "../../workers/checkBookReleases"
+        );
+        await checkBookReleases();
+        break;
+      }
+      case SCHEDULED_JOB_NAMES.CHECK_AUTHOR_RELEASES: {
+        const { checkAuthorReleases } = await import(
+          "../../workers/checkAuthorReleases"
+        );
+        await checkAuthorReleases();
+        break;
+      }
       case SCHEDULED_JOB_NAMES.SYNC_LIBRARY_ATTENTION_ALERTS: {
         const { runSyncLibraryAttentionAlerts } = await import(
           "../../workers/syncLibraryAttentionAlerts"

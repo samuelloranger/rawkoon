@@ -17,7 +17,11 @@ import { dashboardRoutes } from "./routes/dashboard";
 import { libraryMediaAdminRoutes } from "./routes/library/libraryMediaAdmin";
 import { libraryDownloadsRoutes } from "./routes/library/downloads";
 import { libraryRoutes } from "./routes/library";
-import { bookRoutes, bookQualityProfileRoutes } from "./routes/books";
+import {
+  bookRoutes,
+  bookQualityProfileRoutes,
+  authorRoutes,
+} from "./routes/books";
 import { qualityProfilesRoutes } from "./routes/quality-profiles";
 import { customFormatsRoutes } from "./routes/custom-formats";
 import { mediasRoutes } from "./routes/medias";
@@ -131,6 +135,7 @@ export const app = new Elysia()
   .use(libraryRoutes)
   .use(bookRoutes)
   .use(bookQualityProfileRoutes)
+  .use(authorRoutes)
   .use(qualityProfilesRoutes)
   .use(customFormatsRoutes)
   .use(mediasRoutes)

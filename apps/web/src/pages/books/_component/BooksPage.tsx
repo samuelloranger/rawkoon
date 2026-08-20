@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { BookOpen, Headphones, Library, Plus, Search } from "lucide-react";
+import {
+  BookOpen,
+  Headphones,
+  Library,
+  Plus,
+  Search,
+  UserRound,
+} from "lucide-react";
 import type { Book, BookEditionKind } from "@rawkoon/shared/types";
 import { useLibraryEvents } from "@/features/medias/hooks/useLibraryEvents";
 import { PageLayout } from "@/components/PageLayout";
@@ -117,10 +124,18 @@ export function BooksPage() {
         onRefresh={() => void refetch()}
         isRefreshing={isRefetching}
         actions={
-          <Button onClick={() => setShowAdd(true)}>
-            <Plus className="mr-1.5 h-4 w-4" />
-            Add book
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" asChild>
+              <Link to="/books/authors">
+                <UserRound className="mr-1.5 h-4 w-4" />
+                Authors
+              </Link>
+            </Button>
+            <Button onClick={() => setShowAdd(true)}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add book
+            </Button>
+          </div>
         }
       />
 

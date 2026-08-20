@@ -255,7 +255,9 @@ export function pickBestBookRelease<T>(
  */
 export function meetsBookCutoff(
   currentFormat: BookFormat | null,
-  profile: BookScoreProfile,
+  // Only the two fields the comparison reads, so a caller holding just a
+  // profile row does not have to fabricate scoring fields it has no use for.
+  profile: Pick<BookScoreProfile, "allowedFormats" | "cutoffFormat">,
 ): boolean {
   if (!profile.cutoffFormat || !currentFormat) return false;
   const cutoffIdx = profile.allowedFormats.indexOf(profile.cutoffFormat);

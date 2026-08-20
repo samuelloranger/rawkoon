@@ -7,6 +7,7 @@ import { bookGrabRoutes } from "./bookGrabRoutes";
 
 export { mapBook, mapBookEdition, bookInclude } from "./bookHelpers";
 export { bookQualityProfileRoutes } from "./bookQualityProfileRoutes";
+export { authorRoutes } from "./authorRoutes";
 
 /**
  * Books router — thin orchestrator, same shape as routes/library/index.ts.

@@ -33,6 +33,8 @@ export const SCHEDULED_JOB_NAMES = {
   UPGRADE_MEDIA_SEARCH: "upgrade-media-search",
   REFRESH_GITHUB_RELEASES: "refresh-github-releases",
   SYNC_LIBRARY_ATTENTION_ALERTS: "sync-library-attention-alerts",
+  CHECK_BOOK_RELEASES: "check-book-releases",
+  CHECK_AUTHOR_RELEASES: "check-author-releases",
 } as const;
 
 // Job names for Notifications queue
@@ -260,6 +262,18 @@ export async function setupScheduledJobs() {
     {
       name: SCHEDULED_JOB_NAMES.SYNC_LIBRARY_ATTENTION_ALERTS,
       pattern: "12 * * * *",
+    },
+    {
+      name: SCHEDULED_JOB_NAMES.CHECK_BOOK_RELEASES,
+      // Offset off :00 so the book sweep never shares a tick with the media
+      // release sweeps above, which hit the same indexer.
+      pattern: "40 */6 * * *",
+    },
+    {
+      name: SCHEDULED_JOB_NAMES.CHECK_AUTHOR_RELEASES,
+      // Daily: Google Books is the rate-limited, flaky dependency here, and a
+      // newly published title is not time-critical.
+      pattern: "50 4 * * *",
     },
   ];
 

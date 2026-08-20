@@ -356,12 +356,14 @@ export async function finishPostProcess(
   downloadHistoryId: number,
 ): Promise<PostProcessOutcome> {
   let mediaId: number | null | undefined;
+  let bookEditionId: number | null | undefined;
   try {
     const dh = await prisma.downloadHistory.findUnique({
       where: { id: downloadHistoryId },
       select: { mediaId: true, bookEditionId: true },
     });
     mediaId = dh?.mediaId;
+    bookEditionId = dh?.bookEditionId;
 
     // A row is either a media grab or a book grab (enforced by
     // ck_download_history_single_target), so the foreign key IS the dispatch.
@@ -376,11 +378,18 @@ export async function finishPostProcess(
         data: { postProcessError: result.reason },
       });
       if (mediaId != null) emitLibraryUpdate(mediaId);
-      await notifyAdminsPostProcessFailed(
-        downloadHistoryId,
-        result.reason,
-        mediaId,
-      );
+      if (bookEditionId != null) {
+        const { notifyAdminsBookImportFailed } = await import(
+          "@rawkoon/api/workers/notifyBookEvents"
+        );
+        await notifyAdminsBookImportFailed(bookEditionId, result.reason);
+      } else {
+        await notifyAdminsPostProcessFailed(
+          downloadHistoryId,
+          result.reason,
+          mediaId,
+        );
+      }
       return result;
     }
 
@@ -395,6 +404,12 @@ export async function finishPostProcess(
       emitLibraryUpdate(mediaId);
       await notifyAdminsMediaDownloaded(mediaId);
     }
+    if (bookEditionId != null) {
+      const { notifyAdminsBookDownloaded } = await import(
+        "@rawkoon/api/workers/notifyBookEvents"
+      );
+      await notifyAdminsBookDownloaded(bookEditionId);
+    }
     await triggerJellyfinLibraryScan();
     return result;
   } catch (e) {
@@ -408,7 +423,14 @@ export async function finishPostProcess(
         where: { id: downloadHistoryId },
         data: { postProcessError: msg },
       });
-      await notifyAdminsPostProcessFailed(downloadHistoryId, msg, mediaId);
+      if (bookEditionId != null) {
+        const { notifyAdminsBookImportFailed } = await import(
+          "@rawkoon/api/workers/notifyBookEvents"
+        );
+        await notifyAdminsBookImportFailed(bookEditionId, msg);
+      } else {
+        await notifyAdminsPostProcessFailed(downloadHistoryId, msg, mediaId);
+      }
     } catch (persistError) {
       console.warn(
         `[downloadOutcome] failed to persist postProcessError dh=${downloadHistoryId}:`,
