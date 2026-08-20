@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -74,7 +75,13 @@ const SPINE: Record<string, string> = {
   skipped: "bg-neutral-600",
 };
 
-type Step = { key: string; label: string; reached: boolean; active: boolean };
+type Step = {
+  key: string;
+  /** Translation key; the label is resolved where it is rendered. */
+  labelKey: string;
+  reached: boolean;
+  active: boolean;
+};
 
 /**
  * Derive the acquisition steps from real fields, never from a stored
@@ -86,16 +93,21 @@ function stepsFor(edition: BookEdition): Step[] {
     ["downloading", "downloaded", "upgrading"].includes(edition.status);
   const imported = edition.file_count > 0 || edition.status === "downloaded";
   return [
-    { key: "wanted", label: "Wanted", reached: true, active: !grabbed },
+    {
+      key: "wanted",
+      labelKey: "books.track.wanted",
+      reached: true,
+      active: !grabbed,
+    },
     {
       key: "grabbed",
-      label: "Grabbed",
+      labelKey: "books.track.grabbed",
       reached: grabbed,
       active: grabbed && !imported,
     },
     {
       key: "imported",
-      label: "In library",
+      labelKey: "books.track.inLibrary",
       reached: imported,
       active: imported,
     },
@@ -103,9 +115,10 @@ function stepsFor(edition: BookEdition): Step[] {
 }
 
 function AcquisitionTrack({ edition }: { edition: BookEdition }) {
+  const { t } = useTranslation("common");
   const steps = stepsFor(edition);
   return (
-    <ol className="flex items-center gap-0" aria-label="Acquisition progress">
+    <ol className="flex items-center gap-0" aria-label={t("books.track.label")}>
       {steps.map((step, i) => (
         <li key={step.key} className="flex items-center">
           {i > 0 && (
@@ -138,7 +151,7 @@ function AcquisitionTrack({ edition }: { edition: BookEdition }) {
                     : "text-neutral-500"
               }`}
             >
-              {step.label}
+              {t(step.labelKey)}
             </span>
           </span>
         </li>
@@ -154,6 +167,7 @@ function ReleaseList({
   bookId: number;
   kind: BookEditionKind;
 }) {
+  const { t } = useTranslation("common");
   const [enabled, setEnabled] = useState(false);
   const { data, isFetching, error } = useReleaseSearch(bookId, kind, enabled);
   const grab = useGrabRelease(bookId);
@@ -191,7 +205,11 @@ function ReleaseList({
   const visible: BookRelease[] = showRejected ? releases : accepted;
 
   const searchError =
-    error instanceof ApiError ? error.message : error ? "Search failed" : null;
+    error instanceof ApiError
+      ? error.message
+      : error
+        ? t("books.releases.searchFailed")
+        : null;
 
   return (
     <div className="mt-4 border-t border-neutral-800 pt-3">
@@ -211,7 +229,7 @@ function ReleaseList({
           ) : (
             <Search className="mr-1.5 h-3.5 w-3.5" />
           )}
-          Search indexers
+          {t("books.releases.searchIndexers")}
         </Button>
         {rejected.length > 0 && (
           <button
@@ -219,7 +237,9 @@ function ReleaseList({
             onClick={() => setShowRejected((v) => !v)}
             className="focus-ring rounded text-xs text-neutral-500 underline-offset-2 hover:text-neutral-300 hover:underline"
           >
-            {showRejected ? "Hide" : "Show"} {rejected.length} rejected
+            {showRejected
+              ? t("books.releases.hideRejected", { count: rejected.length })
+              : t("books.releases.showRejected", { count: rejected.length })}
           </button>
         )}
       </div>
@@ -235,14 +255,16 @@ function ReleaseList({
           key={w.id}
           className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-300"
         >
-          {w.name}: {w.error}
+          {t("books.releases.indexerWarning", {
+            name: w.name,
+            error: w.error,
+          })}
         </p>
       ))}
 
       {enabled && !isFetching && releases.length === 0 && !searchError && (
         <p className="mt-3 text-sm text-neutral-500">
-          No releases found. Try a different quality profile, or check that the
-          book title matches how trackers name it.
+          {t("books.releases.none")}
         </p>
       )}
 
@@ -273,9 +295,17 @@ function ReleaseList({
                         {r.format}
                       </span>
                     )}
-                    {r.audio_bitrate && <span>{r.audio_bitrate} kbps</span>}
+                    {r.audio_bitrate && (
+                      <span>
+                        {t("books.releases.bitrateKbps", {
+                          value: r.audio_bitrate,
+                        })}
+                      </span>
+                    )}
                     <span>{formatBytes(String(r.size_bytes ?? 0))}</span>
-                    <span>{r.seeders ?? 0} seeders</span>
+                    <span>
+                      {t("books.releases.seeders", { count: r.seeders ?? 0 })}
+                    </span>
                     {r.language && <span>{r.language.toUpperCase()}</span>}
                     {r.indexer && <span>{r.indexer}</span>}
                   </p>
@@ -296,7 +326,9 @@ function ReleaseList({
                     onClick={() => grabRelease(r)}
                   >
                     <Download className="h-3.5 w-3.5" />
-                    <span className="sr-only">Grab {r.title}</span>
+                    <span className="sr-only">
+                      {t("books.releases.grabAction", { title: r.title })}
+                    </span>
                   </Button>
                 )}
               </div>
@@ -312,13 +344,12 @@ function ReleaseList({
         <p className="mt-3 rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-300">
           {grab.error instanceof ApiError
             ? grab.error.message
-            : "Could not grab that release."}
+            : t("books.releases.grabFailed")}
         </p>
       )}
       {grab.data?.grabbed && (
         <p className="mt-3 rounded-lg bg-primary-500/10 px-3 py-2 text-sm text-primary-200">
-          Grabbed {grab.data.release_title}. It will appear in the library once
-          the download finishes and imports.
+          {t("books.releases.grabbed", { title: grab.data.release_title })}
         </p>
       )}
     </div>
@@ -337,6 +368,7 @@ function EditionPanel({
   bookId: number;
   edition: BookEdition;
 }) {
+  const { t } = useTranslation("common");
   const update = useUpdateEdition(bookId);
   const rescan = useRescanEdition(bookId);
   const { data: profilesData } = useBookQualityProfiles();
@@ -350,6 +382,11 @@ function EditionPanel({
     (p) => p.kind === "both" || p.kind === edition.kind,
   );
   const spine = SPINE[edition.status] ?? SPINE.skipped;
+  // Interpolated into prose, so it has to be the translated word rather than
+  // the server's "ebook" / "audiobook".
+  const kindLabel = t(
+    `books.kind${edition.kind === "audiobook" ? "Audiobook" : "Ebook"}`,
+  );
   const stamp = edition.best_format ?? edition.kind;
 
   return (
@@ -371,7 +408,7 @@ function EditionPanel({
           <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <Icon className="h-4 w-4 shrink-0 text-primary-400" />
             <h3 className="font-display text-lg capitalize text-neutral-50">
-              {edition.kind}
+              {kindLabel}
             </h3>
 
             <label className="focus-within:ring-primary-500/40 ml-auto flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm text-neutral-300 focus-within:ring-2">
@@ -386,7 +423,7 @@ function EditionPanel({
                 }
                 className="h-4 w-4 rounded border-neutral-600 bg-neutral-800 accent-primary-500"
               />
-              Monitored
+              {t("books.edition.monitored")}
             </label>
           </header>
 
@@ -396,26 +433,30 @@ function EditionPanel({
 
           <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs">
             <div>
-              <dt className="text-neutral-500">Size</dt>
+              <dt className="text-neutral-500">{t("books.edition.size")}</dt>
               <dd className="mt-0.5 text-neutral-200">
                 {formatBytes(edition.total_size_bytes)}
               </dd>
             </div>
             {edition.kind === "audiobook" && (
               <div>
-                <dt className="text-neutral-500">Duration</dt>
+                <dt className="text-neutral-500">
+                  {t("books.edition.duration")}
+                </dt>
                 <dd className="mt-0.5 text-neutral-200">
                   {formatDuration(edition.duration_secs)}
                 </dd>
               </div>
             )}
             <div>
-              <dt className="text-neutral-500">Files</dt>
+              <dt className="text-neutral-500">{t("books.edition.files")}</dt>
               <dd className="mt-0.5 text-neutral-200">{edition.file_count}</dd>
             </div>
             {edition.narrators.length > 0 && (
               <div className="min-w-0">
-                <dt className="text-neutral-500">Narrated by</dt>
+                <dt className="text-neutral-500">
+                  {t("books.edition.narratedBy")}
+                </dt>
                 <dd className="mt-0.5 truncate text-neutral-200">
                   {edition.narrators.join(", ")}
                 </dd>
@@ -425,7 +466,7 @@ function EditionPanel({
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <label className="sr-only" htmlFor={`profile-${edition.id}`}>
-              Quality profile for the {edition.kind}
+              {t("books.edition.profileLabel", { kind: kindLabel })}
             </label>
             <select
               id={`profile-${edition.id}`}
@@ -440,7 +481,7 @@ function EditionPanel({
               }
               className="focus-ring rounded-lg border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-sm text-neutral-100"
             >
-              <option value="">No profile</option>
+              <option value="">{t("books.edition.noProfile")}</option>
               {profiles.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -454,7 +495,9 @@ function EditionPanel({
                 variant="ghost"
                 onClick={() => setShowFiles((v) => !v)}
               >
-                {showFiles ? "Hide files" : "Show files"}
+                {showFiles
+                  ? t("books.edition.hideFiles")
+                  : t("books.edition.showFiles")}
               </Button>
             )}
 
@@ -463,26 +506,34 @@ function EditionPanel({
               variant="ghost"
               disabled={rescan.isPending}
               onClick={() => rescan.mutate(edition.kind)}
-              title="Look for files already in the library for this edition"
+              title={t("books.edition.rescanHint")}
             >
               {rescan.isPending ? (
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
               ) : (
                 <FolderSearch className="mr-1.5 h-3.5 w-3.5" />
               )}
-              Rescan files
+              {t("books.edition.rescan")}
             </Button>
           </div>
 
           {rescan.data && (
             <p className="mt-2 text-xs text-neutral-400">
               {rescan.data.registered > 0
-                ? `Imported ${rescan.data.registered} file(s) from ${rescan.data.directory}.`
+                ? t("books.edition.rescanImported", {
+                    count: rescan.data.registered,
+                    directory: rescan.data.directory,
+                  })
                 : rescan.data.refreshed > 0
-                  ? `Already up to date — re-read ${rescan.data.refreshed} file(s) in ${rescan.data.directory}.`
-                  : "No files found in the library for this edition."}
+                  ? t("books.edition.rescanUpToDate", {
+                      count: rescan.data.refreshed,
+                      directory: rescan.data.directory,
+                    })
+                  : t("books.edition.rescanNothing")}
               {rescan.data.removed > 0
-                ? ` Removed ${rescan.data.removed} row(s) whose file was gone.`
+                ? t("books.edition.rescanRemoved", {
+                    count: rescan.data.removed,
+                  })
                 : ""}
             </p>
           )}
@@ -490,7 +541,7 @@ function EditionPanel({
             <p className="mt-2 text-xs text-rose-300">
               {rescan.error instanceof ApiError
                 ? rescan.error.message
-                : "Rescan failed."}
+                : t("books.edition.rescanFailed")}
             </p>
           )}
 
@@ -508,8 +559,10 @@ function EditionPanel({
                   <span className="text-neutral-500">
                     {" · "}
                     {formatBytes(f.size_bytes)}
-                    {f.audio_bitrate ? ` · ${f.audio_bitrate} kbps` : ""}
-                    {f.is_retail ? " · retail" : ""}
+                    {f.audio_bitrate
+                      ? ` · ${t("books.edition.bitrateKbps", { value: f.audio_bitrate })}`
+                      : ""}
+                    {f.is_retail ? ` · ${t("books.edition.fileRetail")}` : ""}
                   </span>
                 </li>
               ))}
@@ -524,6 +577,7 @@ function EditionPanel({
 }
 
 export function BookDetailPage({ bookId }: { bookId: number }) {
+  const { t } = useTranslation("common");
   // Server-pushed updates, same stream the media pages use. No polling.
   useLibraryEvents();
   const { data, isLoading } = useBook(bookId);
@@ -533,7 +587,9 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
   if (isLoading) {
     return (
       <PageLayout>
-        <p className="py-16 text-center text-sm text-neutral-500">Loading…</p>
+        <p className="py-16 text-center text-sm text-neutral-500">
+          {t("books.detail.loading")}
+        </p>
       </PageLayout>
     );
   }
@@ -543,7 +599,7 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
     return (
       <PageLayout>
         <p className="py-16 text-center text-sm text-neutral-500">
-          That book is not in the library.
+          {t("books.detail.notFound")}
         </p>
       </PageLayout>
     );
@@ -565,7 +621,7 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
         className="focus-ring mb-6 inline-flex items-center gap-1.5 rounded text-sm text-neutral-400 transition-colors hover:text-neutral-100"
       >
         <ArrowLeft className="h-4 w-4" />
-        Books
+        {t("books.detail.backToBooks")}
       </Link>
 
       <div className="flex flex-col gap-7 sm:flex-row sm:gap-9">
@@ -576,7 +632,7 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
             {book.cover_url ? (
               <img
                 src={book.cover_url}
-                alt={`Cover of ${book.title}`}
+                alt={t("books.detail.coverAlt", { title: book.title })}
                 className="h-full w-full object-cover"
               />
             ) : (
@@ -606,7 +662,7 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
           )}
 
           <p className="mt-3 text-sm text-neutral-300">
-            {book.authors.join(", ") || "Unknown author"}
+            {book.authors.join(", ") || t("books.unknownAuthor")}
           </p>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-neutral-500">
             {book.published_year && <span>{book.published_year}</span>}
@@ -627,7 +683,9 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
 
           {/* Identifiers get the mono face — they are machine strings. */}
           <p className="mt-4 flex flex-wrap gap-x-4 font-mono text-[11px] text-neutral-600">
-            {book.isbn13 && <span>ISBN {book.isbn13}</span>}
+            {book.isbn13 && (
+              <span>{t("books.detail.isbn", { value: book.isbn13 })}</span>
+            )}
             <span>{book.google_volume_id}</span>
           </p>
 
@@ -641,7 +699,11 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
                 onClick={() => addEdition.mutate({ kind })}
               >
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
-                Add {kind}
+                {t("books.detail.addEdition", {
+                  kind: t(
+                    `books.kind${kind === "audiobook" ? "Audiobook" : "Ebook"}`,
+                  ),
+                })}
               </Button>
             ))}
             <Button
@@ -651,7 +713,7 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
               onClick={() => {
                 if (
                   window.confirm(
-                    `Remove "${book.title}" from the library? Files on disk are kept.`,
+                    t("books.detail.removeConfirm", { title: book.title }),
                   )
                 ) {
                   deleteBook.mutate(book.id);
@@ -659,7 +721,7 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
               }}
             >
               <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-              Remove
+              {t("books.detail.remove")}
             </Button>
           </div>
         </div>
@@ -685,7 +747,7 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
 
       <div className="mt-12">
         <h2 className="flex items-center gap-3 text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-          Editions
+          {t("books.detail.editionsHeading")}
           <span aria-hidden className="h-px flex-1 bg-neutral-800" />
         </h2>
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BookOpen, Headphones, Loader2, Plus, Search, X } from "lucide-react";
 import type { BookEditionKind } from "@rawkoon/shared/types";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import { useAddBook, useBookProviderSearch } from "../_hooks/useBooks";
  * would both waste quota and surface spurious failures.
  */
 export function AddBookDialog({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation("common");
   const [input, setInput] = useState("");
   const [submitted, setSubmitted] = useState("");
   const [kinds, setKinds] = useState<BookEditionKind[]>(["ebook"]);
@@ -31,18 +33,24 @@ export function AddBookDialog({ onClose }: { onClose: () => void }) {
   };
 
   const searchError =
-    error instanceof ApiError ? error.message : error ? "Search failed" : null;
+    error instanceof ApiError
+      ? error.message
+      : error
+        ? t("books.add.searchFailed")
+        : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 pt-16">
       <div className="w-full max-w-2xl rounded-xl border border-neutral-800 bg-neutral-900 shadow-2xl">
         <div className="flex items-center justify-between border-b border-neutral-800 px-5 py-4">
-          <h2 className="text-lg font-semibold text-neutral-100">Add a book</h2>
+          <h2 className="text-lg font-semibold text-neutral-100">
+            {t("books.add.title")}
+          </h2>
           <Button
             variant="ghost"
             size="icon"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("books.add.close")}
           >
             <X className="h-4 w-4" />
           </Button>
@@ -59,7 +67,7 @@ export function AddBookDialog({ onClose }: { onClose: () => void }) {
             autoFocus
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Title, author, or ISBN"
+            placeholder={t("books.add.queryPlaceholder")}
             className="flex-1"
           />
           <Button type="submit" disabled={input.trim().length < 2}>
@@ -72,7 +80,7 @@ export function AddBookDialog({ onClose }: { onClose: () => void }) {
         </form>
 
         <div className="flex items-center gap-2 px-5 pt-3 text-xs text-neutral-400">
-          <span>Add as:</span>
+          <span>{t("books.add.addAs")}</span>
           {(["ebook", "audiobook"] as BookEditionKind[]).map((kind) => (
             <button
               key={kind}
@@ -89,7 +97,7 @@ export function AddBookDialog({ onClose }: { onClose: () => void }) {
               ) : (
                 <BookOpen className="h-3 w-3" />
               )}
-              {kind}
+              {t(`books.kind${kind === "audiobook" ? "Audiobook" : "Ebook"}`)}
             </button>
           ))}
         </div>
@@ -106,7 +114,7 @@ export function AddBookDialog({ onClose }: { onClose: () => void }) {
             !isFetching &&
             data?.results.length === 0 && (
               <p className="py-6 text-center text-sm text-neutral-500">
-                Nothing found for “{submitted}”.
+                {t("books.add.nothingFound", { query: submitted })}
               </p>
             )}
 
@@ -136,7 +144,7 @@ export function AddBookDialog({ onClose }: { onClose: () => void }) {
                     {r.title}
                   </p>
                   <p className="truncate text-sm text-neutral-400">
-                    {r.authors.join(", ") || "Unknown author"}
+                    {r.authors.join(", ") || t("books.unknownAuthor")}
                     {r.published_year ? ` · ${r.published_year}` : ""}
                     {` · ${r.language.toUpperCase()}`}
                   </p>
@@ -149,7 +157,7 @@ export function AddBookDialog({ onClose }: { onClose: () => void }) {
 
                 {r.in_library ? (
                   <span className="shrink-0 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-400">
-                    In library
+                    {t("books.add.inLibrary")}
                   </span>
                 ) : (
                   <Button
@@ -163,7 +171,7 @@ export function AddBookDialog({ onClose }: { onClose: () => void }) {
                     }
                   >
                     <Plus className="mr-1 h-3.5 w-3.5" />
-                    Add
+                    {t("books.add.addAction")}
                   </Button>
                 )}
               </li>
