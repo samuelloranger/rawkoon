@@ -15,6 +15,7 @@ function mapSettings(row: AppSettings) {
     country_code: normalizeTmdbRegion(row.countryCode),
     upcoming_window_months: row.upcomingWindowMonths,
     upcoming_languages: row.upcomingLanguages,
+    books_enabled: row.booksEnabled,
     updated_at: row.updatedAt.toISOString(),
   };
 }
@@ -47,6 +48,7 @@ export const settingsRoutes = new Elysia({ prefix: "/api/settings" })
           countryCode?: string;
           upcomingWindowMonths?: number;
           upcomingLanguages?: string;
+          booksEnabled?: boolean;
         } = {};
 
         if (body.country_code && countryCode)
@@ -63,6 +65,9 @@ export const settingsRoutes = new Elysia({ prefix: "/api/settings" })
         }
         if (body.upcoming_languages !== undefined) {
           updateData.upcomingLanguages = body.upcoming_languages;
+        }
+        if (body.books_enabled !== undefined) {
+          updateData.booksEnabled = body.books_enabled;
         }
 
         const row = await prisma.appSettings.upsert({
@@ -83,6 +88,7 @@ export const settingsRoutes = new Elysia({ prefix: "/api/settings" })
         country_code: t.Optional(t.String({ minLength: 2, maxLength: 2 })),
         upcoming_window_months: t.Optional(t.Integer()),
         upcoming_languages: t.Optional(t.String()),
+        books_enabled: t.Optional(t.Boolean()),
       }),
     },
   );

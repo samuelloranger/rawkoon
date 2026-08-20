@@ -3,6 +3,7 @@ import { emitLibraryUpdate } from "@rawkoon/api/services/libraryEvents";
 import { triggerJellyfinLibraryScan } from "@rawkoon/api/services/jellyfinLibraryRefresh";
 import { notifyRequestAvailable } from "@rawkoon/api/services/mediaRequests";
 import { postProcess } from "@rawkoon/api/services/postProcessorSingle";
+import { postProcessBookDownload } from "@rawkoon/api/services/postProcessorBook";
 import { resolveDownloadedStatus } from "@rawkoon/api/utils/medias/libraryHelpers";
 import { notifyAdminsMediaDownloaded } from "@rawkoon/api/workers/notifyMediaDownloaded";
 import { notifyAdminsPostProcessFailed } from "@rawkoon/api/workers/notifyPostProcessFailed";
@@ -30,6 +31,8 @@ export type DownloadRef = {
   id: number;
   mediaId: number | null;
   episodeId: number | null;
+  /** Set instead of mediaId/episodeId when the grab was for a book edition. */
+  bookEditionId?: number | null;
 };
 
 /**
@@ -42,6 +45,30 @@ export type DownloadRef = {
 export async function revertToWantedIfNoActiveGrabs(
   dh: DownloadRef,
 ): Promise<void> {
+  // Books first: a book row has no mediaId, so without this a failed book
+  // download would leave its edition stuck on "downloading" forever.
+  if (dh.bookEditionId != null) {
+    const otherBookPending = await prisma.downloadHistory.count({
+      where: {
+        id: { not: dh.id },
+        failed: false,
+        completedAt: null,
+        bookEditionId: dh.bookEditionId,
+      },
+    });
+    if (otherBookPending > 0) return;
+
+    await prisma.bookEdition.updateMany({
+      where: { id: dh.bookEditionId, status: "downloading" },
+      data: { status: "wanted" },
+    });
+    await prisma.bookEdition.updateMany({
+      where: { id: dh.bookEditionId, status: "upgrading" },
+      data: { status: "downloaded" },
+    });
+    return;
+  }
+
   if (dh.episodeId == null && dh.mediaId == null) return;
 
   const otherPending = await prisma.downloadHistory.count({
@@ -318,11 +345,16 @@ export async function finishPostProcess(
   try {
     const dh = await prisma.downloadHistory.findUnique({
       where: { id: downloadHistoryId },
-      select: { mediaId: true },
+      select: { mediaId: true, bookEditionId: true },
     });
     mediaId = dh?.mediaId;
 
-    const result = await postProcess(downloadHistoryId);
+    // A row is either a media grab or a book grab (enforced by
+    // ck_download_history_single_target), so the foreign key IS the dispatch.
+    const result =
+      dh?.bookEditionId != null
+        ? await postProcessBookDownload(downloadHistoryId)
+        : await postProcess(downloadHistoryId);
 
     if (!result.success) {
       await prisma.downloadHistory.update({

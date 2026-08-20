@@ -288,7 +288,8 @@ model CustomFormat {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  profileLinks QualityProfileCustomFormat[]
+  profileLinks     QualityProfileCustomFormat[]
+  bookProfileLinks BookQualityProfileCustomFormat[]
 
   @@map("custom_formats")
 }
@@ -504,11 +505,22 @@ model DownloadHistory {
   postProcessError           String?   @map("post_process_error") @db.Text
   /// Final library path after successful post-processing
   postProcessDestinationPath String?   @map("post_process_destination_path") @db.Text
+  /// Book grab target. Exactly one of media_id / book_edition_id is set,
+  /// enforced by a CHECK constraint. The one-active-grab-per-target rule is
+  /// enforced by a SECOND partial unique index, disjoint from the media one:
+  ///   UNIQUE (book_edition_id)
+  ///     WHERE completed_at IS NULL AND failed = false
+  ///       AND book_edition_id IS NOT NULL
+  /// Disjoint predicates mean the existing media index — and grabRelease's
+  /// P2002 race-close that depends on it — keep working verbatim.
+  bookEditionId              Int?      @map("book_edition_id")
 
-  media   LibraryMedia?   @relation(fields: [mediaId], references: [id], onDelete: SetNull)
-  episode LibraryEpisode? @relation(fields: [episodeId], references: [id], onDelete: SetNull)
+  media       LibraryMedia?   @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+  episode     LibraryEpisode? @relation(fields: [episodeId], references: [id], onDelete: SetNull)
+  bookEdition BookEdition?    @relation(fields: [bookEditionId], references: [id], onDelete: SetNull)
 
   @@index([torrentHash], map: "ix_download_history_torrent_hash")
+  @@index([bookEditionId], map: "ix_download_history_book_edition_id")
   @@index([mediaId], map: "ix_download_history_media_id")
   @@index([episodeId], map: "ix_download_history_episode_id")
   /// Speeds MAX(grabbed_at) / latest-grab lookups per media (library list sort)
@@ -617,9 +629,20 @@ model MediaSettings {
   downloadHookAutoConfigure    Boolean   @default(true) @map("download_hook_auto_configure")
   downloadHookLastSeenAt       DateTime? @map("download_hook_last_seen_at")
   downloadPollActiveHookedSecs Int       @default(120) @map("download_poll_active_hooked_secs")
+
+  // ── Books ──────────────────────────────────────────
+  booksLibraryPath            String?  @map("books_library_path")
+  audiobooksLibraryPath       String?  @map("audiobooks_library_path")
+  bookTemplate                String   @default("{author}/{title} ({year})/{title} ({year}) [{format}]") @map("book_template")
+  /// Multi-track audiobooks keep their original filenames inside the rendered
+  /// directory — renaming dozens of tracks risks destroying playback order.
+  audiobookTemplate           String   @default("{author}/{title} ({year})/{title}") @map("audiobook_template")
+  defaultBookQualityProfileId Int?     @map("default_book_quality_profile_id")
+
   updatedAt               DateTime @updatedAt @map("updated_at")
 
-  defaultQualityProfile QualityProfile? @relation("DefaultQualityProfile", fields: [defaultQualityProfileId], references: [id], onDelete: SetNull)
+  defaultQualityProfile     QualityProfile?     @relation("DefaultQualityProfile", fields: [defaultQualityProfileId], references: [id], onDelete: SetNull)
+  defaultBookQualityProfile BookQualityProfile? @relation("DefaultBookQualityProfile", fields: [defaultBookQualityProfileId], references: [id], onDelete: SetNull)
 
   @@map("media_settings")
 }
@@ -630,6 +653,9 @@ model AppSettings {
   countryCode                String   @default("US") @map("country_code") @db.VarChar(2)
   upcomingWindowMonths       Int      @default(12) @map("upcoming_window_months")
   upcomingLanguages          String   @default("en,fr") @map("upcoming_languages")
+  /// Gates the books nav, the added indexer categories, and the books
+  /// settings section. A movies-only install sees no change after upgrading.
+  booksEnabled               Boolean  @default(false) @map("books_enabled")
   updatedAt                  DateTime @updatedAt @map("updated_at")
 
   @@map("app_settings")
@@ -745,4 +771,202 @@ model DiscoverDismissal {
   @@unique([userId, tmdbId, mediaType], map: "uq_discover_dismissal_user_tmdb_type")
   @@index([userId], map: "ix_discover_dismissals_user_id")
   @@map("discover_dismissals")
+}
+
+// ─── Books / Audiobooks ──────────────────────────────────────────────────────
+// A LibraryBook is exactly one Google Books volume. A translation and its
+// original are two independent rows, each carrying the title trackers use, so
+// the stored title is always the search term (no searchTitle indirection like
+// LibraryMedia needs). Publisher printings are deliberately not modeled —
+// that is what keeps (book_id, kind) a valid edition key.
+model LibraryBook {
+  id             Int     @id @default(autoincrement())
+  googleVolumeId String  @unique @map("google_volume_id")
+  isbn13         String? @map("isbn13")
+  title          String
+  sortTitle      String? @map("sort_title")
+  subtitle       String?
+  overview       String?
+  coverUrl       String? @map("cover_url")
+  /// Trigger-maintained cache of BookAuthor rows with role = 'author'.
+  /// Feeds list queries, indexer query building, and the reject filter.
+  authors        String[] @default([])
+  /// ISO 639-1. A property of the book, not the edition: "the French ebook"
+  /// and "the English ebook" are editions of two different books.
+  language       String   @default("en")
+  publishedYear  Int?     @map("published_year")
+  seriesName     String?  @map("series_name")
+  /// Float because half-books exist ("Book 4.5").
+  seriesPosition Float?   @map("series_position")
+  overrides      Json?
+  /// Display title for list ORDER BY (overrides.title when set, else title).
+  listTitle      String   @default("") @map("list_title")
+  listYear       Int?     @map("list_year")
+  addedAt        DateTime @default(now()) @map("added_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  editions    BookEdition[]
+  authorLinks BookAuthor[]
+
+  @@index([addedAt], map: "ix_library_books_added_at")
+  @@index([listTitle], map: "ix_library_books_list_title")
+  @@index([listYear], map: "ix_library_books_list_year")
+  @@index([language], map: "ix_library_books_language")
+  /// GIN trigram for ILIKE '%q%' title search on GET /api/books
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "ix_library_books_title_trgm")
+  @@index([authors], map: "ix_library_books_authors", type: Gin)
+  @@map("library_books")
+}
+
+model BookEdition {
+  id                   Int     @id @default(autoincrement())
+  bookId               Int     @map("book_id")
+  /// "ebook" | "audiobook"
+  kind                 String
+  /// wanted | downloading | downloaded | skipped | upgrading
+  status               String  @default("wanted")
+  monitored            Boolean @default(true)
+  bookQualityProfileId Int?    @map("book_quality_profile_id")
+  /// Audiobook only. Populated from container tags at import — Google Books
+  /// exposes no narrator data.
+  narrators            String[] @default([])
+  /// Audiobook only. From MediaInfo at import.
+  durationSecs         Int?     @map("duration_secs")
+  searchAttempts        Int      @default(0) @map("search_attempts")
+  /// Persisted MAX(download_history.grabbed_at); kept in sync by DB trigger.
+  lastGrabbedAt        DateTime? @map("last_grabbed_at")
+  /// Persisted SUM of book_file sizes; 0 stored as null. DB trigger.
+  totalSizeBytes       BigInt?   @map("total_size_bytes")
+  addedAt              DateTime  @default(now()) @map("added_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  book               LibraryBook         @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  bookQualityProfile BookQualityProfile? @relation(fields: [bookQualityProfileId], references: [id], onDelete: SetNull)
+  files              BookFile[]
+  downloadHistories  DownloadHistory[]
+
+  /// Exactly two possible rows per book: one ebook, one audiobook.
+  @@unique([bookId, kind], map: "uq_book_editions_book_kind")
+  @@index([status], map: "ix_book_editions_status")
+  @@index([monitored], map: "ix_book_editions_monitored")
+  @@index([bookQualityProfileId], map: "ix_book_editions_quality_profile_id")
+  @@map("book_editions")
+}
+
+model BookFile {
+  id           Int    @id @default(autoincrement())
+  editionId    Int    @map("edition_id")
+  filePath     String @map("file_path")
+  fileName     String @map("file_name")
+  sizeBytes    BigInt @map("size_bytes")
+  /// epub|mobi|azw3|pdf|cbz | m4b|mp3|flac|ogg
+  format       String
+  durationSecs Float? @map("duration_secs")
+  audioBitrate Int?   @map("audio_bitrate")
+  audioCodec   String? @map("audio_codec")
+  chapterCount Int?   @map("chapter_count")
+  /// false means "unknown or scan", never "confirmed scan" — which is why
+  /// there is no requireRetail profile field. Set from the release title at
+  /// import; scan-discovered files have no release title to judge.
+  isRetail     Boolean @default(false) @map("is_retail")
+  releaseGroup String? @map("release_group")
+  languageTags String[] @default([]) @map("language_tags")
+  /// Filesystem identity + mtime, paired with sizeBytes to skip re-probing.
+  fileDev      String? @map("file_dev")
+  fileIno      String? @map("file_ino")
+  fileMtimeMs  BigInt? @map("file_mtime_ms")
+  scannedAt    DateTime @default(now()) @map("scanned_at")
+
+  edition BookEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@index([editionId], map: "ix_book_files_edition_id")
+  @@index([filePath], map: "ix_book_files_file_path")
+  @@index([fileDev, fileIno], map: "ix_book_files_file_dev_ino")
+  @@map("book_files")
+}
+
+/// Google Books exposes no author ids, so the name is the key. Homonymous
+/// authors therefore collide; author monitoring is a convenience, not a
+/// correctness-critical path.
+model Author {
+  id                   Int      @id @default(autoincrement())
+  googleAuthorName     String   @unique @map("google_author_name")
+  sortName             String?  @map("sort_name")
+  imageUrl             String?  @map("image_url")
+  bio                  String?
+  monitored            Boolean  @default(false)
+  monitorFrom          DateTime? @map("monitor_from")
+  monitorEditionKinds  String[] @default([]) @map("monitor_edition_kinds")
+  bookQualityProfileId Int?     @map("book_quality_profile_id")
+  lastCheckedAt        DateTime? @map("last_checked_at")
+  addedAt              DateTime @default(now()) @map("added_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  bookQualityProfile BookQualityProfile? @relation(fields: [bookQualityProfileId], references: [id], onDelete: SetNull)
+  bookLinks          BookAuthor[]
+
+  @@index([monitored], map: "ix_authors_monitored")
+  @@map("authors")
+}
+
+model BookAuthor {
+  id       Int    @id @default(autoincrement())
+  authorId Int    @map("author_id")
+  bookId   Int    @map("book_id")
+  /// author | narrator | translator | illustrator.
+  /// Only role = 'author' feeds LibraryBook.authors.
+  role     String @default("author")
+
+  author Author      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  book   LibraryBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([authorId, bookId, role], map: "uq_book_authors_author_book_role")
+  @@index([bookId], map: "ix_book_authors_book_id")
+  @@map("book_authors")
+}
+
+/// Book equivalent of QualityProfile. Deliberately has no requireRetail:
+/// real releases carry no retail marker, so requiring one rejects everything.
+model BookQualityProfile {
+  id                       Int      @id @default(autoincrement())
+  name                     String   @unique
+  /// "ebook" | "audiobook" | "both"
+  kind                     String   @default("both")
+  /// Ordered preference; first entry is best.
+  allowedFormats           String[] @default([]) @map("allowed_formats")
+  /// Stop upgrading once this format is reached.
+  cutoffFormat             String?  @map("cutoff_format")
+  preferRetail             Boolean  @default(true) @map("prefer_retail")
+  maxSizeMb                Float?   @map("max_size_mb")
+  minSeeders               Int      @default(0) @map("min_seeders")
+  /// Audiobook only. Real releases of one title ranged 64 kb/s to 192 kbps.
+  minAudioBitrate          Int?     @map("min_audio_bitrate")
+  preferredLanguages       String[] @default([]) @map("preferred_languages")
+  prioritizedTrackers      String[] @default([]) @map("prioritized_trackers")
+  preferTrackerOverQuality Boolean  @default(false) @map("prefer_tracker_over_quality")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  editions      BookEdition[]
+  authors       Author[]
+  customFormats BookQualityProfileCustomFormat[]
+  defaultForSettings MediaSettings[] @relation("DefaultBookQualityProfile")
+
+  @@map("book_quality_profiles")
+}
+
+model BookQualityProfileCustomFormat {
+  id                   Int     @id @default(autoincrement())
+  bookQualityProfileId Int     @map("book_quality_profile_id")
+  customFormatId       Int     @map("custom_format_id")
+  score                Int     @default(0)
+  required             Boolean @default(false)
+  forbidden            Boolean @default(false)
+
+  bookQualityProfile BookQualityProfile @relation(fields: [bookQualityProfileId], references: [id], onDelete: Cascade)
+  customFormat       CustomFormat       @relation(fields: [customFormatId], references: [id], onDelete: Cascade)
+
+  @@unique([bookQualityProfileId, customFormatId], map: "uq_bqp_custom_format")
+  @@index([bookQualityProfileId], map: "ix_bqp_custom_format_profile")
+  @@map("book_quality_profile_custom_formats")
 }

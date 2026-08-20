@@ -1,7 +1,19 @@
+/**
+ * "book" and "audiobook" both query categories 7000 AND 3000, because the
+ * split is not reliable at the tracker: a real 262 MB audiobook release was
+ * returned under 7000 (Books). The edition kind is therefore derived from the
+ * parsed release format and size, never from the category — see
+ * utils/books/bookReleaseParser.inferEditionKind.
+ *
+ * Only 3000 and 7000 are used, not 3030/7020: a live Jackett aggregate
+ * advertises just the top-level categories, so the narrower ids match nothing.
+ */
+export type IndexerMediaType = "movie" | "tv" | "book" | "audiobook";
+
 export interface IndexerSearchParams {
   query?: string;
   type: "freetext" | "tvsearch";
-  mediaType?: "movie" | "tv";
+  mediaType?: IndexerMediaType;
   tmdbId?: number | null;
   season?: number | null;
   limit?: number;

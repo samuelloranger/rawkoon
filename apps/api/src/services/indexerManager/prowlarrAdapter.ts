@@ -154,11 +154,18 @@ export class ProwlarrAdapter implements IndexerManagerAdapter {
       url.searchParams.set("limit", limit);
     }
 
-    // Category filtering: 2000 = Movies, 5000 = TV
+    // Category filtering: 2000 = Movies, 5000 = TV, 7000 = Books, 3000 = Audio.
+    // Books and audiobooks share "7000,3000" because trackers file them
+    // interchangeably — kind comes from the parsed format, not the category.
     if (params.mediaType === "movie") {
       url.searchParams.set("categories", "2000");
     } else if (params.mediaType === "tv") {
       url.searchParams.set("categories", "5000");
+    } else if (
+      params.mediaType === "book" ||
+      params.mediaType === "audiobook"
+    ) {
+      url.searchParams.set("categories", "7000,3000");
     }
 
     const res = await fetch(url.toString(), {

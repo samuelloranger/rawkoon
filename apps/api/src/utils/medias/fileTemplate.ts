@@ -98,3 +98,38 @@ export function renderEpisodeTemplate(
   });
   return sanitizePathTemplateOutput(collapseTemplateNoise(stem));
 }
+
+/**
+ * Render a book or audiobook path template.
+ *
+ * Unlike the movie and episode renderers, this produces a PATH (the defaults
+ * contain `/`), so it sanitizes per segment rather than as one filename.
+ *
+ * Multi-track audiobooks deliberately keep their original filenames inside the
+ * rendered directory — renaming dozens of tracks risks destroying playback
+ * order for downstream players, so the directory is the unit worth controlling.
+ */
+export function renderBookTemplate(
+  template: string,
+  data: {
+    author: string | null;
+    title: string;
+    year: number | null;
+    format: string | null;
+    language: string | null;
+  },
+): string {
+  const rendered = replaceBraceTokens(template, {
+    author: data.author,
+    title: data.title,
+    year: data.year,
+    format: data.format,
+    language: data.language,
+  });
+  return sanitizePathTemplateOutput(
+    rendered
+      .split("/")
+      .map((seg) => collapseTemplateNoise(seg))
+      .join("/"),
+  );
+}

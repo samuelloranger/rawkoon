@@ -21,7 +21,8 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQuickSearch } from "@/lib/search/useSearch";
-import { navSections } from "@/lib/routing/navigation";
+import { visibleNavSections } from "@/lib/routing/navigation";
+import { useFeatures } from "@/lib/routing/useFeatures";
 import { usePrefetchAllRoutes } from "@/lib/routing/usePrefetchAllRoutes";
 import { Dialog } from "@/components/dialog";
 import { Input } from "@/components/ui/input";
@@ -65,10 +66,16 @@ export function QuickActionPalette({
   const deferredQuery = useDeferredValue(query);
   const normalizedQuery = deferredQuery.trim().toLowerCase();
   const isLoggedIn = router.location.pathname !== "/login";
+  const { data: features } = useFeatures();
+  const booksEnabled = !!features?.books_enabled;
+  const navSectionsVisible = useMemo(
+    () => visibleNavSections({ books_enabled: booksEnabled }),
+    [booksEnabled],
+  );
   const shouldSearch = isOpen && normalizedQuery.length >= 2 && isLoggedIn;
 
   const actions = useMemo<QuickAction[]>(() => {
-    const navActions = navSections.flatMap((section) =>
+    const navActions = navSectionsVisible.flatMap((section) =>
       section.items.map((item) => ({
         id: `nav-${item.path}`,
         title: t(item.translationKey),
@@ -130,7 +137,7 @@ export function QuickActionPalette({
         },
       },
     ];
-  }, [handleClose, navigate, t]);
+  }, [handleClose, navigate, navSectionsVisible, t]);
 
   const filteredActions = useMemo<QuickAction[]>(() => {
     if (!normalizedQuery) {

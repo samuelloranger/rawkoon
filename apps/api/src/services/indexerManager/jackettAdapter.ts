@@ -68,8 +68,17 @@ export class JackettAdapter implements IndexerManagerAdapter {
       url.searchParams.set("Query", params.query);
     }
 
+    // Books and audiobooks both query 7000 + 3000: trackers file them
+    // interchangeably (a real audiobook came back under 7000), so kind is
+    // derived from the parsed release format rather than the category.
     if (params.mediaType === "movie") {
       url.searchParams.append("Category[]", "2000");
+    } else if (
+      params.mediaType === "book" ||
+      params.mediaType === "audiobook"
+    ) {
+      url.searchParams.append("Category[]", "7000");
+      url.searchParams.append("Category[]", "3000");
     } else if (params.mediaType === "tv" || params.type === "tvsearch") {
       url.searchParams.append("Category[]", "5000");
     }

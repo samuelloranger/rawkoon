@@ -11,6 +11,7 @@ export * from "./search";
 export * from "./qualityProfiles";
 export * from "./customFormats";
 export * from "./library";
+export * from "./books";
 export * from "./releases";
 export * from "./settings";
 export * from "./downloads";

@@ -70,8 +70,12 @@ vi.mock("@/lib/routing/usePrefetchRoute", () => ({
 vi.mock("@/lib/app/useTheme", () => ({
   useTheme: () => ({}),
 }));
-vi.mock("@/lib/routing/navigation", () => ({
-  navSections: [
+vi.mock("@/lib/routing/useFeatures", () => ({
+  useFeatures: () => ({ data: { books_enabled: false } }),
+}));
+vi.mock("@/lib/routing/navigation", () => {
+  // Defined inside the factory: vi.mock is hoisted above module-level consts.
+  const sections = [
     {
       labelKey: "nav.section_life",
       items: [
@@ -88,8 +92,9 @@ vi.mock("@/lib/routing/navigation", () => ({
         },
       ],
     },
-  ],
-}));
+  ];
+  return { navSections: sections, visibleNavSections: () => sections };
+});
 vi.mock("@/components/NavPositionPicker", () => ({
   NavPositionPicker: ({
     value,

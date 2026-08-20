@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   Bookmark,
   CalendarIcon,
   Compass,
@@ -14,6 +15,11 @@ interface NavItem {
   path: string;
   translationKey: string;
   icon: LucideIcon;
+  /**
+   * Hide this entry unless the named feature flag is on. Books default to off
+   * so a movies-only install sees no change after upgrading.
+   */
+  featureFlag?: "books";
 }
 
 export interface NavSection {
@@ -38,6 +44,12 @@ export const navSections: NavSection[] = [
         path: "/library",
         translationKey: "nav.library",
         icon: Library,
+      },
+      {
+        path: "/books",
+        translationKey: "nav.books",
+        icon: BookOpen,
+        featureFlag: "books",
       },
       {
         path: "/requests",
@@ -67,3 +79,19 @@ export const navSections: NavSection[] = [
     ],
   },
 ];
+
+/**
+ * Nav sections with feature-flagged entries removed. Every nav consumer should
+ * use this rather than `navSections` directly, so a disabled feature cannot
+ * leak into the sidebar, the user menu, or the command palette.
+ */
+export function visibleNavSections(flags: {
+  books_enabled?: boolean;
+}): NavSection[] {
+  const enabled = (item: NavItem): boolean =>
+    item.featureFlag === "books" ? !!flags.books_enabled : true;
+
+  return navSections
+    .map((section) => ({ ...section, items: section.items.filter(enabled) }))
+    .filter((section) => section.items.length > 0);
+}
