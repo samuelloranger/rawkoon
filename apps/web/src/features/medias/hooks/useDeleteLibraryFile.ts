@@ -23,6 +23,8 @@ export function useDeleteLibraryFile(libraryId: number) {
       queryClient.invalidateQueries({
         queryKey: queryKeys.library.files(libraryId),
       });
+      // The list shows size and status derived from files, so it goes stale too.
+      queryClient.invalidateQueries({ queryKey: queryKeys.library.all });
     },
   });
 }

@@ -2,6 +2,7 @@ import { prisma } from "@rawkoon/api/db";
 import { getActiveIndexerManager } from "@rawkoon/api/services/indexerManager";
 import { checkBlocklist } from "@rawkoon/api/services/mediaGrabberHelpers";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
+import { emitBookUpdate } from "@rawkoon/api/services/libraryEvents";
 import {
   QBIT_CATEGORY_RAWKOON_AUDIOBOOKS,
   QBIT_CATEGORY_RAWKOON_BOOKS,
@@ -318,13 +319,15 @@ export async function grabBookRelease(opts: {
     data: { torrentHash: handoff.torrentHash },
   });
 
-  await prisma.bookEdition.update({
+  const updated = await prisma.bookEdition.update({
     where: { id: opts.editionId },
     data: {
       status: "downloading",
       searchAttempts: { increment: 1 },
     },
+    select: { bookId: true },
   });
+  emitBookUpdate(updated.bookId);
 
   try {
     await logActivity({

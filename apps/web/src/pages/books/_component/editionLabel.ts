@@ -1,10 +1,4 @@
-import type { BookEditionStatus, BookFormat } from "@rawkoon/shared/types";
-
-/** Statuses that are still in motion, so the UI should keep polling. */
-const TRANSIENT: BookEditionStatus[] = ["downloading", "upgrading"];
-
-export const isTransientEditionStatus = (status: string): boolean =>
-  (TRANSIENT as string[]).includes(status);
+import type { BookFormat } from "@rawkoon/shared/types";
 
 /**
  * Label for an edition chip.

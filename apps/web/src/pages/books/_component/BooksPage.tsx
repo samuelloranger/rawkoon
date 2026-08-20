@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { BookOpen, Headphones, Library, Plus, Search } from "lucide-react";
 import type { Book, BookEditionKind } from "@rawkoon/shared/types";
+import { useLibraryEvents } from "@/features/medias/hooks/useLibraryEvents";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -92,6 +93,8 @@ function BookRow({ book }: { book: Book }) {
 }
 
 export function BooksPage() {
+  // Server-pushed updates, same stream the media pages use. No polling.
+  useLibraryEvents();
   const [search, setSearch] = useState("");
   const [submitted, setSubmitted] = useState("");
   const [kind, setKind] = useState<BookEditionKind | undefined>();

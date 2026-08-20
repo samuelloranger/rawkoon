@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  editionChipLabel,
-  isTransientEditionStatus,
-} from "@/pages/books/_component/editionLabel";
+import { editionChipLabel } from "@/pages/books/_component/editionLabel";
 
 describe("editionChipLabel", () => {
   it("never hides the status behind the format", () => {
@@ -18,18 +15,5 @@ describe("editionChipLabel", () => {
   it("shows the bare status before any file exists", () => {
     expect(editionChipLabel("wanted", null)).toBe("wanted");
     expect(editionChipLabel("downloading", null)).toBe("downloading");
-  });
-});
-
-describe("isTransientEditionStatus", () => {
-  it("treats in-flight states as transient so the UI keeps polling", () => {
-    expect(isTransientEditionStatus("downloading")).toBe(true);
-    expect(isTransientEditionStatus("upgrading")).toBe(true);
-  });
-
-  it("treats settled states as final", () => {
-    expect(isTransientEditionStatus("downloaded")).toBe(false);
-    expect(isTransientEditionStatus("wanted")).toBe(false);
-    expect(isTransientEditionStatus("skipped")).toBe(false);
   });
 });

@@ -2,6 +2,7 @@ import { mkdir, readdir, stat } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 
 import { prisma } from "@rawkoon/api/db";
+import { emitBookUpdate } from "@rawkoon/api/services/libraryEvents";
 import {
   placeFile,
   resolveTorrentContentPath,
@@ -344,6 +345,10 @@ export async function postProcessBook(opts: {
       ...(narrators.length > 0 ? { narrators } : {}),
     },
   });
+
+  // Push to any open client so the list and detail both update without polling,
+  // the same way a movie import does.
+  emitBookUpdate(edition.bookId);
 
   return { imported, destinationPath: destDir, skipped };
 }
