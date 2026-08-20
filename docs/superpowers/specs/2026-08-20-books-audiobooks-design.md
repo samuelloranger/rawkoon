@@ -1,7 +1,7 @@
 # Books and Audiobooks
 
 **Date:** 2026-08-20
-**Status:** Approved design, ready for implementation planning
+**Status:** Approved design, validated against live provider and indexer data, ready for implementation planning
 
 ## Goal
 
@@ -16,9 +16,10 @@ notifications.
 |---|---|
 | Where | Inside rawkoon. Not a separate project. |
 | Data model | Own tables. `LibraryMedia` is not modified. |
-| Entity shape | One book entity; ebook and audiobook are editions under it. |
+| Metadata provider | Google Books, keyed. Sole provider. |
+| Book identity | One Google Books volume = one `LibraryBook`. No work/translation hierarchy. |
+| Editions | `ebook` and `audiobook` only. Publisher printings are not modeled. |
 | Monitoring | Per edition kind, independently. |
-| Metadata | Hardcover primary, Open Library keyless fallback, behind a provider interface. |
 | Quality | New `book_quality_profiles` table. |
 | Download history | Extend `download_history`, do not fork it. |
 | Rollout | `AppSettings.booksEnabled`, default false. |
@@ -48,30 +49,48 @@ and `lastGrabbedAt`.
 
 Generalizing to `(provider, providerId)` would touch every one of those for no
 user-visible gain over separate tables, on an application people run in
-production. Separate tables avoid that risk; shared plumbing avoids the
-duplication a separate project would incur.
+production.
+
+### Why no work/translation hierarchy
+
+A `LibraryBook` is exactly one Google Books volume. A French translation and its
+English original are two independent rows, each carrying the title that trackers
+actually use.
+
+This was validated against live data (see *Validation*). Modeling one work with
+translated editions requires the book's stored title to differ from the title
+used to search indexers, which is what the movie side solved with
+`LibraryMedia.searchTitle` and `resolveSearchTitles.ts`. For books it is
+unnecessary: the user adds the book by searching for the title they want, so the
+stored title is already the searchable one.
+
+The cost is that a bilingual library shows two rows for the same story, with no
+link between them. This matches how a Calibre library behaves and is accepted.
 
 ## Data model
 
 New tables. `LibraryMedia`, `MediaFile`, and `QualityProfile` are untouched.
 
 ```prisma
-model LibraryBook {                 // the work — provider-agnostic
+model LibraryBook {
   id             Int
-  providerSource String            // "hardcover" | "openlibrary"
-  providerId     String            // Hardcover book id | OL work key (OL…W)
-  altProviderIds Json?             // opportunistic cross-provider ids
-  title, sortTitle, subtitle?, overview?, coverUrl?
+  googleVolumeId String            // Google Books volume id — the identity
+  isbn13         String?           // for the "add by ISBN" path
+  title          String            // as trackers use it; also the search term
+  sortTitle      String?
+  subtitle       String?
+  overview       String?           // often empty from Google; may be null
+  coverUrl       String?
   authors        String[]          // trigger-maintained cache of BookAuthor
+  language       String            // ISO 639-1; a property of the book, not the edition
   publishedYear  Int?
   seriesName     String?
   seriesPosition Float?            // Float: "Book 4.5" exists
-  originalLanguage String?
   overrides      Json?
   listTitle      String            // trigger-maintained, mirrors LibraryMedia
   listYear       Int?
   addedAt, updatedAt
-  @@unique([providerSource, providerId])
+  @@unique([googleVolumeId])
   // no status/monitored — those are per-edition
 }
 
@@ -81,16 +100,12 @@ model BookEdition {
   status  String                   // wanted|downloading|downloaded|skipped|upgrading
   monitored Boolean
   bookQualityProfileId Int?
-  providerEditionId String?        // Hardcover edition id | OL OL…M
-  isbn13?, asin?                   // asin → Audnexus enrichment (future)
-  publisher?, language?
-  narrators   String[]             // audiobook
-  durationSecs Int?                // Hardcover audio_seconds / MediaInfo
-  pageCount   Int?                 // ebook
+  narrators   String[]             // audiobook; from file tags at import, not the provider
+  durationSecs Int?                // audiobook; from MediaInfo at import
   searchAttempts Int
   lastGrabbedAt DateTime?          // trigger, mirrors LibraryMedia
   totalSizeBytes BigInt?           // trigger
-  @@unique([bookId, kind])         // max 2 rows per book
+  @@unique([bookId, kind])         // exactly two possible rows per book
 }
 
 model BookFile {
@@ -98,7 +113,7 @@ model BookFile {
   filePath, fileName, sizeBytes
   format String                    // epub|mobi|azw3|pdf|cbz | m4b|mp3|flac|ogg
   durationSecs?, audioBitrate?, audioCodec?, chapterCount?
-  isRetail Boolean                 // retail vs scan/OCR
+  isRetail Boolean                 // unknown-or-scan when false; see below
   releaseGroup?, languageTags String[]
   fileDev?, fileIno?, fileMtimeMs? // skip-rescan cache, verbatim from MediaFile
   scannedAt
@@ -106,16 +121,15 @@ model BookFile {
 
 model Author {
   id
-  providerSource, providerId
-  name, sortName
+  googleAuthorName String @unique   // Google Books has no author ids; name is the key
+  sortName
   imageUrl?, bio?
   monitored   Boolean @default(false)
-  monitorFrom DateTime?            // only auto-add books published after this
-  monitorEditionKinds String[]     // which edition rows to auto-create
-  bookQualityProfileId Int?        // default profile for auto-added books
+  monitorFrom DateTime?
+  monitorEditionKinds String[]
+  bookQualityProfileId Int?
   lastCheckedAt DateTime?
   addedAt, updatedAt
-  @@unique([providerSource, providerId])
 }
 
 model BookAuthor {
@@ -128,11 +142,11 @@ model BookQualityProfile {
   id, name @unique
   kind String                      // "ebook" | "audiobook" | "both"
   allowedFormats String[]          // ordered, first = best
-  cutoffFormat String?             // stop upgrading at
-  requireRetail, preferRetail Boolean
+  cutoffFormat String?
+  preferRetail Boolean             // NOTE: no requireRetail — see Validation
   maxSizeMb Float?, minSeeders Int
   minAudioBitrate Int?
-  preferredLanguages String[], preferredSearchLanguage String?
+  preferredLanguages String[]
   prioritizedTrackers String[], preferTrackerOverQuality Boolean
   createdAt, updatedAt
 }
@@ -146,40 +160,35 @@ model BookQualityProfileCustomFormat {
 
 ### Rationale for the load-bearing choices
 
-**`@@unique([bookId, kind])` — at most two edition rows per book.** Per-edition
-monitoring means the user monitors *ebook* and *audiobook* independently. Which
-specific ISBN was grabbed is a property of the grab, not a separately monitorable
-target. Without this constraint the table degenerates into a mirror of the
-provider's edition list — hundreds of rows per book with no clear monitoring
-target.
+**`@@unique([bookId, kind])` holds because editions are not printings.** A volume
+has at most one ebook row and one audiobook row. Language lives on `LibraryBook`,
+so "the French ebook" and "the English ebook" are editions of two different
+books, not two editions of one.
+
+**`Author.googleAuthorName` is the key because Google Books has no author ids.**
+Author identity is a name string, which means homonymous authors collide. Accepted
+limitation; author monitoring is a convenience, not a correctness-critical path.
 
 **`BookFile` is a separate table, not nullable columns on `MediaFile`.**
 `MediaFile` already carries 25 video-specific columns and a GIN index on
-`languageTags`. Merging leaves both halves mostly null and pollutes every
-existing file query.
-
-**`isRetail` is a profile field, not only a custom format.** For ebooks it is the
-dominant quality axis — a retail epub versus an OCR scan matters more than every
-other signal combined.
+`languageTags`. Merging leaves both halves mostly null and pollutes every existing
+file query.
 
 **`LibraryBook.authors String[]` is kept alongside `BookAuthor`.** It is a
 trigger-maintained denormalized cache, the same pattern the schema already uses
-for `listTitle`, `totalSizeBytes`, and `episodeCount`. It keeps list queries and
-indexer query construction off a join. The trigger populates it from
-`BookAuthor` rows with `role = 'author'` only — narrators, translators, and
+for `listTitle`, `totalSizeBytes`, and `episodeCount`. The trigger populates it
+from `BookAuthor` rows with `role = 'author'` only — narrators, translators, and
 illustrators are excluded, because this column feeds indexer queries and the
 reject filter's author-surname check.
 
 **A `LibraryBook` never exists without at least one `BookEdition`.** Because
 `monitored` and `status` live only on editions, a book with no edition rows would
-be unreachable by every worker. The add flow therefore always creates at least
-one edition; the caller chooses which kinds, defaulting to `ebook` when the
-active provider lacks the `audiobookEditions` capability.
+be unreachable by every worker. The add flow always creates at least one.
 
-**`BookFile.isRetail` is set at import** from `parseBookReleaseTitle`'s
-`isRetail` for graded grabs, and defaults to `false` for files discovered by a
-library scan, where no release title exists to judge. False therefore means
-"unknown or scan", never "confirmed scan".
+**`BookFile.isRetail` is set at import** from `parseBookReleaseTitle`, and is
+`false` for scan-discovered files where no release title exists. False therefore
+means "unknown or scan", never "confirmed scan" — which is why there is no
+`requireRetail` profile field.
 
 ### `download_history` extension
 
@@ -206,120 +215,134 @@ one-active-grab-per-target guarantee without new logic.
 ### Settings
 
 `MediaSettings` gains `booksLibraryPath`, `audiobooksLibraryPath`,
-`bookTemplate`, `audiobookTemplate`, `defaultBookQualityProfileId`, and
-`activeBookProvider` (mirroring `activeIndexerManager`).
+`bookTemplate`, `audiobookTemplate`, and `defaultBookQualityProfileId`.
 
 `AppSettings` gains `booksEnabled Boolean @default(false)`.
+
+`GOOGLE_BOOKS_API_KEY` is added to the `config.ts` Zod schema as optional. Books
+require it; without it the feature stays off, the same shape as `TMDB_API_KEY`.
 
 ## Metadata provider layer
 
 ```
 apps/api/src/services/books/
-  types.ts              // interface + capability flags
-  factory.ts            // provider resolution
-  hardcoverProvider.ts  // GraphQL
-  openLibraryProvider.ts
+  types.ts               // interface
+  googleBooksProvider.ts
   providerCache.ts
 ```
 
-Mirrors the shapes of `services/discover/{types,tmdbProvider}.ts` and
-`services/indexerManager/factory.ts`.
+Mirrors the shapes of `services/discover/{types,tmdbProvider}.ts`.
 
 ```ts
 interface BookMetadataProvider {
-  readonly source: "hardcover" | "openlibrary";
-  readonly capabilities: {
-    audiobookEditions: boolean;   // hardcover: true, openlibrary: false
-    series: boolean;
-    authorBibliography: boolean;  // required for author monitoring
-    trending: boolean;            // required for the provider-backed deck
-  };
+  readonly source: "googlebooks";
   searchBooks(q, opts): Promise<ProviderBook[]>;
-  getBook(providerId): Promise<ProviderBookDetail | null>;
-  getEditions(providerId): Promise<ProviderEdition[]>;
+  getBook(volumeId): Promise<ProviderBookDetail | null>;
   searchAuthors(q): Promise<ProviderAuthor[]>;
-  getAuthorBooks(authorProviderId, since?): Promise<ProviderBook[]>;
+  getAuthorBooks(authorName, since?): Promise<ProviderBook[]>;
   resolveIsbn(isbn13): Promise<ProviderBook | null>;
 }
 ```
 
-### Provider comparison
+One implementation. The interface is kept as cheap insurance against provider
+rot — it is what makes a future swap an adapter change rather than a rewrite —
+but no capability-flag machinery is needed with a single required provider.
 
-| Provider | Model fit | Audiobook data | Key | Notes |
-|---|---|---|---|---|
-| Hardcover | Book → Editions natively; typed search over Book/Author/Series/Publisher | `audio_seconds`, `narrators`, series position | Free token from account settings | Smaller catalog |
-| Open Library | Works → Editions, ISBN lookup, covers CDN | Effectively none | None | 20–30M titles, uneven quality, weak series and author disambiguation. Terms require caching and a descriptive User-Agent. |
-| Google Books | Flat volumes | None | Key + quota | Rejected: adds nothing the other two do not cover |
-| Audnexus | ASIN-keyed enrichment, not search | Chapters, narrators, series | None (public `audnex.us`, 100 req/min, self-hostable) | Deferred; audiobook edition enrichment, not core |
+### Google Books query rules
 
-Requiring a user-supplied Hardcover token has precedent: `.env.example` already
-makes `TMDB_API_KEY` a user-supplied optional key.
+These are not style preferences; each is a measured behavior (see *Validation*).
 
-### Capabilities are declared, not thrown
+- **Structured queries only**: `isbn:`, `inauthor:`, `intitle:`. Loose free text
+  returns 300 results ranked badly.
+- **Never send quoted phrases.** They return HTTP 503.
+- **Always send `country`**, derived from `AppSettings.countryCode`.
+- **Retry with backoff on 503.** `503 backendFailed` is returned
+  nondeterministically for valid queries; the same URL failed three times and
+  then succeeded.
+- **A 503 must never be cached, and must never be treated as "not found."**
+  Caching it as a negative would permanently hide a book. In any fallback or
+  retry logic, absent and errored are distinct outcomes.
+- **Expect sparse records.** For a real French volume, Google returned title,
+  authors, language, publishedDate, ISBN-10/13, and thumbnails — with
+  `pageCount: 0`, empty `description`, null `categories`, and null `seriesInfo`.
+  Every field except title, authors, and language must be treated as optional.
 
-Open Library genuinely cannot serve audiobook editions, trending, or reliable
-author bibliography. The provider therefore advertises what it can do and
-consumers degrade: with no Hardcover token, books still work and the
-audiobook-edition and author-monitoring surfaces render as "requires a Hardcover
-token" rather than erroring. A provider going dark downgrades features; it never
-breaks the application.
+### Covers
 
-### Resolution, caching, provider switching
+Google Books returns only `smallThumbnail` and `thumbnail`, which are too small
+for a library grid. Request a larger render via
+`books.google.com/books/content?id=<volumeId>&printsec=frontcover&img=1&zoom=<n>`
+and cache the result through the existing `imageService.ts`. Books without a
+usable cover fall back to a generated placeholder.
 
-`HARDCOVER_API_TOKEN` is added to the `config.ts` Zod schema as optional.
-`factory.ts` returns the Hardcover adapter when the token is present, else Open
-Library; `MediaSettings.activeBookProvider` allows an explicit override.
+### Caching
 
-Caching is mandatory, not an optimization: Open Library's terms require caching
-and a descriptive User-Agent, and Audnexus caps at 100 requests per minute.
-`services/cache.ts` (Redis) is reused. TTLs: search 1h, book detail 24h, author
-bibliography 6h. User-Agent: `rawkoon/${APP_VERSION}
-(+https://github.com/samuelloranger/rawkoon)`.
-
-A user may start keyless on Open Library and later add a Hardcover token, leaving
-existing rows OL-keyed. Rows are never re-keyed destructively. `providerSource`
-is per-row, so a library holds mixed rows; an opportunistic
-`bookProviderReconcile` job attaches a Hardcover id by ISBN13 match into
-`altProviderIds`, adding capability to old rows without a migration that can
-silently mismatch books.
+`services/cache.ts` (Redis). TTLs: search 1h, book detail 24h, author
+bibliography 6h. Error responses are never cached.
 
 Shared types live in `apps/shared/src/types/books.ts`.
 
 ## Search, release parsing, grab
 
-**Categories.** `IndexerSearchParams.mediaType` widens to
-`"movie" | "tv" | "book" | "audiobook"`. Torznab mapping: book → `7000` (7020
-ebook, 7030 comics beneath it), audiobook → `3030`. Both the Prowlarr and Jackett
-adapters gain the case.
+**Categories.** Book and audiobook searches query `7000,3000` **together**, and
+the edition kind is derived from the **parsed format and file size**, not from the
+category. This is measured behavior: a real audiobook release for the test title
+was filed under category 7000 (Books), not 3000.
 
-`prowlarrAdapter.fetchRss` currently hardcodes `categories=2000,5000`. It becomes
-derived from the media kinds the install actually uses, so a movies-only install
-does not pull book noise into every RSS poll.
+The adapter must intersect requested categories with each indexer's advertised
+caps. The live Jackett aggregate advertises only `3000 Audio` and `7000 Books` —
+`3030` and `7020` are not present at the aggregate level, so hardcoding them
+would silently return nothing.
 
-**No id-based book search exists.** Torznab offers `tmdbid` and `tvdbid` but no
-`isbn` or `bookid`, so every book search is freetext. Query construction and
-match rejection are therefore load-bearing:
+**No id-based book search exists.** Confirmed from live Torznab caps:
 
-- Query ladder, mirroring the existing `resolveSearchTitles.ts` translated-title
-  pattern: `"{author surname} {title}"` → `"{title}"` →
+```
+<book-search  available="yes" supportedParams="q" />
+<audio-search available="yes" supportedParams="q" />
+<movie-search available="yes" supportedParams="q,imdbid,tmdbid" />
+```
+
+`q` only. Every book search is freetext, so query construction and match
+rejection are load-bearing:
+
+- Query ladder: `"{author surname} {title}"` → `"{title}"` →
   `"{title} {preferred format}"`.
-- **Mandatory reject filter**: a release must fuzzy-match the title *and* contain
-  the author surname or the ISBN. Without it, freetext book search grabs
-  unrelated content. This is the single largest correctness risk in the feature.
+- **Mandatory reject filter**: a release must fuzzy-match `LibraryBook.title`
+  and contain the author surname. Because the stored title is the title the user
+  searched for, this now matches rather than fights the real release names.
 
-**Parsing is a new function, not an extension.** `utils/books/bookReleaseParser.ts`
-exports `parseBookReleaseTitle()` returning
+**Parsing is a new function, not an extension.**
+`utils/books/bookReleaseParser.ts` exports `parseBookReleaseTitle()` returning
 `{ format, isRetail, isProper, group, language, audioBitrate, narrator }`.
 
-`filenameParser.parseReleaseTitle` is deliberately *not* extended: its regexes
+`filenameParser.parseReleaseTitle` is deliberately not extended: its regexes
 misfire on book titles, reading `M4B` as `MP4` and four-digit years as
-resolutions. Two parsers, two test suites, no cross-contamination.
+resolutions.
+
+Cases drawn from real releases, to be used directly as test fixtures:
+
+| Input fragment | Must yield |
+|---|---|
+| `[MP3 à 64 kb/s]` | `audioBitrate: 64` — French, spaced, `kb/s` |
+| `[MP3.192kbps]` | `audioBitrate: 192` |
+| `-NOTAG` | `group: null` — a "no group" convention, not a group named NOTAG |
+| `–` (en dash) as separator | normalized like `-` |
+| `[EPUB]`, `[Epub]`, `[ePub]` | `format: "epub"` |
+| `Fr`, `FR` | `language: "fr"` |
+| double spaces | collapsed before matching |
+
+**Size as a kind discriminator.** Measured: 1–5 MB for ebooks, 262–810 MB for
+audiobooks of the same title. A cheap, reliable signal where categories are
+unreliable.
 
 **Scoring.** `utils/books/bookReleaseScorer.ts` exports `scoreBookRelease` and
 `scoreBookReleaseDetailed`, paralleling `releaseScorer.ts`. Axes in priority
-order: format position within `allowedFormats`, retail versus scan, custom-format
-score, tracker priority, size sanity, seeders. `pickBookReleaseForGrab` mirrors
-`pickReleaseForGrab.ts`.
+order: format position within `allowedFormats`, `preferRetail`, custom-format
+score, tracker priority, size sanity, seeders, `minAudioBitrate`.
+`pickBookReleaseForGrab` mirrors `pickReleaseForGrab.ts`.
+
+`minAudioBitrate` is not optional polish: the same title was available at both
+64 kb/s and 192 kbps.
 
 **Custom formats reuse the existing engine.** `customFormatTypes.ts` gains book
 condition fields (`format`, `retail`, `narrator`, `audioBitrate`);
@@ -347,7 +370,9 @@ This follows the same trajectory as season packs, which received a dedicated
 
 - **Audiobooks reuse `mediainfoScanner`.** MediaInfo handles audio containers, so
   `m4b` and `mp3` yield duration, bitrate, and codec through the existing scanner
-  and its `fileDev`/`fileIno`/`fileMtimeMs` skip-rescan cache. No new tooling.
+  and its `fileDev`/`fileIno`/`fileMtimeMs` skip-rescan cache. Container tags are
+  also the only source of `narrators` and `chapterCount`, since Google Books
+  provides neither.
 - **Ebooks get `utils/books/ebookMetadata.ts`.** An epub is a zip containing OPF
   XML, so title, author, ISBN, and language are read directly; mobi and azw3 via
   header parse; pdf minimally. MediaInfo is useless here and nothing is forced
@@ -383,10 +408,10 @@ directory. Renaming dozens of tracks risks destroying playback order for
 downstream players; the directory is the unit worth controlling, the tracks are
 not.
 
-**Rescan, health, upgrades.** `rescanBookEdition` parallels
-`rescanLibraryItem`; `libraryIntegrityCollectors` gains book collectors.
-`upgradeDetection` gains a book variant keyed on `cutoffFormat` — a retail epub
-replacing an OCR scan is the book equivalent of 1080p replacing 720p.
+**Rescan, health, upgrades.** `rescanBookEdition` parallels `rescanLibraryItem`;
+`libraryIntegrityCollectors` gains book collectors. `upgradeDetection` gains a
+book variant keyed on `cutoffFormat` — a retail epub replacing an OCR scan is the
+book equivalent of 1080p replacing 720p.
 
 ## Discover, requests, notifications
 
@@ -417,12 +442,10 @@ nullable `tmdbId`, added `bookId`, disjoint partial uniques. Watchlist's
 publication dates via a parallel `checkBookReleaseReminders` worker reusing the
 existing notification plumbing.
 
-**Discover deck.** `services/discover/bookDeck.ts` emits the same card contract
-`assembleDeck` produces, so the web deck component is shared. Rows come from
-Hardcover trending and lists when that capability is available. Open Library has
-no trending, so the keyless fallback deck is "new from your monitored authors"
-plus "next in series you already own" — both computed from local data with zero
-provider calls, which is the one deck that works with no token at all.
+**Discover deck.** Google Books has no trending or popularity signal, so the book
+deck is built entirely from local data: "new from your monitored authors" and
+"next in series you already own". `services/discover/bookDeck.ts` emits the same
+card contract `assembleDeck` produces, so the web deck component is shared.
 
 **Notifications** add event types only: `book.grabbed`, `book.downloaded`,
 `book.import_failed`, `author.new_release`. `notificationEvents.ts` gains the
@@ -471,7 +494,7 @@ branch.
 |---|---|---|
 | 0 | All migrations and triggers; `services/books/*`; `shared/types/books.ts` | Nothing visible; test-verified only |
 | 1 | `/api/books` list/detail/add, `/api/books/search`, edition monitor toggle, `/api/book-quality-profiles` CRUD with seeded defaults; web list, detail, add dialog, profile admin | Browse and manually add books; no downloads |
-| 2 | Indexer categories; `bookReleaseParser`, `bookReleaseScorer`, `pickBookReleaseForGrab`, reject filter; custom-format book conditions; `bookGrabberSearch`/`bookGrabberGrab`; `download_history` migration and disjoint partial index; interactive search UI | Manual search and grab; files land but are not imported |
+| 2 | Merged 7000/3000 category search; `bookReleaseParser`, `bookReleaseScorer`, `pickBookReleaseForGrab`, reject filter; custom-format book conditions; `bookGrabberSearch`/`bookGrabberGrab`; `download_history` migration and disjoint partial index; interactive search UI | Manual search and grab; files land but are not imported |
 | 3 | `postProcessorBook`, `ebookMetadata`, audiobook scanning via `mediainfoScanner`, templates, `markEditionDownloaded`, `rescanBookEdition`, integrity collectors | End to end |
 | 4 | Auto-search worker, RSS category wiring, upgrade detection on `cutoffFormat`, `checkAuthorReleases` worker and author monitoring UI, notification events | Hands-off operation |
 | 5 | `bookDeck`; watchlist, dismissal, and request migrations plus approval flow; book release reminders | Full parity |
@@ -479,44 +502,80 @@ branch.
 Phase 4 adds entries to both `QUEUE_NAMES` and `SCHEDULED_JOB_NAMES` in
 `services/queueService.ts` alongside the handlers in `src/workers/`.
 
-## Testing
+## Validation
 
-- **Provider adapters share one contract suite** that both must pass, driven off
-  their `capabilities` flags, with recorded fixtures and no live API calls in CI.
-  This is what makes a future provider swap cheap; the insurance against
-  Readarr's failure mode is only real if it is tested.
-- **`bookReleaseParser` is table-driven**, mirroring the case-array style of
-  `releaseTitleParser.test.ts`, with adversarial cases proving the video parser's
-  mistakes do not recur: `"Title 1984 [epub]"` yields no resolution, and
-  `"Book.M4B"` does not parse as MP4.
-- **The reject filter has its own suite** — the highest-risk unit in the feature,
-  with positive and negative fixtures drawn from real tracker titles.
-- **Migration tests cover the partial uniques**: two concurrent active grabs on
-  one edition must raise P2002, and a movie grab must not collide with a book
-  grab.
-- Existing suites stay green untouched. `LibraryMedia` is not modified, so any
-  failure there is an unambiguous regression signal.
-- Gates: `bun run typecheck` and `bun run typecheck:native`, biome on
-  `apps/web` and `apps/api`, prettier on `apps/shared`.
+The design was tested end to end against live services on 2026-08-20, using
+Freida McFadden's *La Prof* (French translation of *The Teacher*) as the probe —
+chosen because a French-language title is the primary case for this install, not
+an edge case.
+
+**Providers**
+
+| Provider | Result |
+|---|---|
+| Open Library | `search.json?q=La+Prof+Freida+McFadden` → 0 results. `/isbn/9782824629094.json` → 404. Zero French coverage for this catalog. Also inconsistent about works vs editions: the Spanish translation is a separate work, the German one an edition of the English work. |
+| Google Books, no key | HTTP 429, shared anonymous quota exhausted. Unusable. |
+| Google Books, keyed | `isbn:9782824629094` → 1 result, "La prof", `fr`, 2025-04-16, City. `isbn:9782290422649` → 1 result, the 2026 J'ai lu printing. `inauthor:McFadden` returns the French bibliography. Record is sparse: `pageCount: 0`, empty description, null categories, null seriesInfo, thumbnails only. |
+| Hardcover | HTTP 401 without a token; untested. Not adopted. |
+
+Google Books returned `503 backendFailed` nondeterministically — the same
+`isbn:` URL failed three consecutive times and then succeeded, and quoted phrase
+queries failed consistently while the unquoted form returned 200. This is the
+origin of the retry and never-cache-errors rules above.
+
+**Indexer** (live Jackett aggregate)
+
+Caps confirmed `book-search`/`audio-search` accept `q` only, and advertise only
+categories `3000` and `7000`.
+
+`q="La Prof Freida McFadden"`, `cat=7000` returned 5 results:
+
+```
+   262 MB | La Prof - Freida McFadden - 2025 [MP3 à 64 kb/s]     ← audiobook in cat 7000
+     1 MB | La.Prof.Freida.McFadden.2025.FR.[EPUB]-NOTAG
+     1 MB | La Prof - Freida McFadden - 2025 Fr [Epub]
+     5 MB | La prof - Freida McFadden  [ePub] Fr
+     0 MB | Freida McFadden – Le professeur (The Teacher) - ePUB Fr
+```
+
+`cat=3000` returned one more: `La.Prof.Freida.McFadden.2025.FR.[MP3.192kbps]-NOTAG`
+at 810 MB.
+
+Findings that changed the design:
+
+1. An audiobook appeared in category 7000, so kind must come from parsed format
+   and size, not category.
+2. Under an earlier design that stored the English work title, four of the five
+   correct French releases failed the reject filter, and the only one that passed
+   was a different, unofficial translation. Storing the volume's own title fixes
+   this and is why the work/translation hierarchy was dropped.
+3. None of the five releases carried a retail or scan marker, so `requireRetail`
+   would have rejected every real result. Only `preferRetail` survives.
+4. The same title existed at 64 kb/s and 192 kbps, confirming `minAudioBitrate`
+   is necessary rather than cosmetic.
+5. Real release names supplied the parser fixture table above.
 
 ## Risks
 
 1. **Freetext match quality.** No `isbn` or `bookid` Torznab parameter exists, so
-   correctness rests entirely on the reject filter. This is the highest residual
-   risk and will need real-world tuning after phase 2; it cannot be fully
-   de-risked on paper.
-2. **Metadata provider rot** — Readarr's actual cause of death. Reduced, not
-   eliminated, by the provider interface, capability flags, contract tests, and
-   the keyless Open Library fallback.
-3. **The `media_requests` and `watchlist_items` unique-constraint migration** is
+   correctness rests entirely on the reject filter. Reduced substantially by
+   storing the volume's own title, but still the highest residual risk, and it
+   will need tuning against real results after phase 2.
+2. **Google Books is a single point of failure**, sparse in metadata and flaky in
+   availability. Mitigated by the provider interface, retry with backoff, and the
+   never-cache-errors rule. Not eliminated.
+3. **Author identity is a name string**, since Google Books exposes no author
+   ids. Homonymous authors will collide in monitoring.
+4. **The `media_requests` and `watchlist_items` unique-constraint migration** is
    the only place existing tables are structurally altered, and needs a tested
    down path.
-4. **Six phases is a large surface**, mitigated by `booksEnabled` permitting
+5. **Six phases is a large surface**, mitigated by `booksEnabled` permitting
    incremental merges.
 
 ## Deferred
 
 - Multi-book and author-collection pack handling.
-- Audnexus enrichment for audiobook chapters and ASIN-keyed metadata.
+- Linking translations of the same work.
+- Audiobook chapter metadata beyond what container tags provide.
 - Comics and manga as a distinct kind, though `cbz` appears in the format list.
 - Calibre and Audiobookshelf library integration.
