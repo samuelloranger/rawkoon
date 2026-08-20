@@ -54,10 +54,9 @@ const significantTokens = (value: string): string[] =>
 /**
  * Does the release title contain the book's title?
  *
- * Token equality, not substring: "prof" must not match "professeur". That
- * matters concretely — a real search returned both "La Prof" (the correct
- * translation) and "Le professeur" (a different, unofficial one), and only
- * token matching separates them.
+ * Token equality, not substring. Competing translations of one work often
+ * share a word stem, so a substring test accepts the wrong edition; comparing
+ * whole tokens keeps them apart.
  */
 export function releaseMatchesBookTitle(
   releaseTitle: string,
@@ -98,9 +97,8 @@ const formatRank = (format: BookFormat | null, allowed: string[]): number => {
 /**
  * Score and vet one release for one edition.
  *
- * Language is scored, never filtered. A real French audiobook release carried
- * no language tag at all — only the French unit notation "à 64 kb/s" — so
- * rejecting untagged releases would discard genuine results.
+ * Language is scored, never filtered. Plenty of releases carry no language tag
+ * at all, so rejecting untagged ones would discard genuine results.
  */
 export function scoreBookRelease(
   candidate: BookReleaseCandidate,
@@ -159,7 +157,7 @@ export function scoreBookRelease(
     parsed.audioBitrate != null &&
     parsed.audioBitrate < profile.minAudioBitrate
   ) {
-    // Real releases of one title ranged 64 kb/s to 192 kbps, so this bites.
+    // One title can be listed anywhere from 64 to 320 kb/s, so this bites.
     rejections.push(
       `Bitrate ${parsed.audioBitrate} kbps below ${profile.minAudioBitrate}`,
     );

@@ -6,15 +6,15 @@ import {
 } from "@rawkoon/api/utils/books/bookReleaseParser";
 
 /**
- * The first block is verbatim output from a live Jackett aggregate search for
- * "La Prof Freida McFadden" (categories 7000 and 3000) on 2026-08-20. These
- * are not invented fixtures — they are what the indexer actually returns, and
- * they are the reason several design decisions look the way they do.
+ * Fixtures are synthetic, using an invented title and author. Their shape —
+ * separators, bracket forms, casing, bitrate spellings, the -NOTAG convention,
+ * the en dash — mirrors what a live Jackett aggregate returns for book
+ * categories, which is the only part the parser reads.
  */
-describe("parseBookReleaseTitle — real releases", () => {
+describe("parseBookReleaseTitle — indexer release shapes", () => {
   test("French audiobook with spaced French bitrate", () => {
     const r = parseBookReleaseTitle(
-      "La Prof - Freida McFadden - 2025 [MP3 à 64 kb/s]",
+      "La Serre - Camille Rousseau - 2025 [MP3 à 64 kb/s]",
     );
     expect(r.format).toBe("mp3");
     expect(r.kind).toBe("audiobook");
@@ -29,7 +29,7 @@ describe("parseBookReleaseTitle — real releases", () => {
 
   test("scene-style French ebook, NOTAG is not a group", () => {
     const r = parseBookReleaseTitle(
-      "La.Prof.Freida.McFadden.2025.FR.[EPUB]-NOTAG",
+      "La.Serre.Camille.Rousseau.2025.FR.[EPUB]-NOTAG",
     );
     expect(r.format).toBe("epub");
     expect(r.kind).toBe("ebook");
@@ -39,7 +39,7 @@ describe("parseBookReleaseTitle — real releases", () => {
 
   test("spaced ebook with trailing year, year is not a group", () => {
     const r = parseBookReleaseTitle(
-      "La Prof - Freida McFadden - 2025 Fr [Epub]",
+      "La Serre - Camille Rousseau - 2025 Fr [Epub]",
     );
     expect(r.format).toBe("epub");
     expect(r.language).toBe("fr");
@@ -47,7 +47,7 @@ describe("parseBookReleaseTitle — real releases", () => {
   });
 
   test("double space and mixed-case ePub", () => {
-    const r = parseBookReleaseTitle("La prof - Freida McFadden  [ePub] Fr");
+    const r = parseBookReleaseTitle("La serre - Camille Rousseau  [ePub] Fr");
     expect(r.format).toBe("epub");
     expect(r.kind).toBe("ebook");
     expect(r.language).toBe("fr");
@@ -55,7 +55,7 @@ describe("parseBookReleaseTitle — real releases", () => {
 
   test("en dash separator and parenthetical original title", () => {
     const r = parseBookReleaseTitle(
-      "Freida McFadden – Le professeur (The Teacher) - ePUB Fr",
+      "Camille Rousseau – Le serrurier (The Greenhouse) - ePUB Fr",
     );
     expect(r.format).toBe("epub");
     expect(r.language).toBe("fr");
@@ -63,7 +63,7 @@ describe("parseBookReleaseTitle — real releases", () => {
 
   test("dotted kbps form", () => {
     const r = parseBookReleaseTitle(
-      "La.Prof.Freida.McFadden.2025.FR.[MP3.192kbps]-NOTAG",
+      "La.Serre.Camille.Rousseau.2025.FR.[MP3.192kbps]-NOTAG",
     );
     expect(r.format).toBe("mp3");
     expect(r.kind).toBe("audiobook");
@@ -71,14 +71,14 @@ describe("parseBookReleaseTitle — real releases", () => {
     expect(r.releaseGroup).toBeNull();
   });
 
-  test("none of the real French releases claim retail", () => {
+  test("untagged releases claim no retail marker", () => {
     const titles = [
-      "La Prof - Freida McFadden - 2025 [MP3 à 64 kb/s]",
-      "La.Prof.Freida.McFadden.2025.FR.[EPUB]-NOTAG",
-      "La Prof - Freida McFadden - 2025 Fr [Epub]",
-      "La prof - Freida McFadden  [ePub] Fr",
-      "Freida McFadden – Le professeur (The Teacher) - ePUB Fr",
-      "La.Prof.Freida.McFadden.2025.FR.[MP3.192kbps]-NOTAG",
+      "La Serre - Camille Rousseau - 2025 [MP3 à 64 kb/s]",
+      "La.Serre.Camille.Rousseau.2025.FR.[EPUB]-NOTAG",
+      "La Serre - Camille Rousseau - 2025 Fr [Epub]",
+      "La serre - Camille Rousseau  [ePub] Fr",
+      "Camille Rousseau – Le serrurier (The Greenhouse) - ePUB Fr",
+      "La.Serre.Camille.Rousseau.2025.FR.[MP3.192kbps]-NOTAG",
     ];
     for (const t of titles) {
       expect(parseBookReleaseTitle(t).isRetail).toBe(false);
@@ -124,7 +124,7 @@ describe("parseBookReleaseTitle — groups, retail, packs", () => {
   });
 
   test.each([
-    "Freida McFadden - Intégrale [EPUB]",
+    "Camille Rousseau - Intégrale [EPUB]",
     "Author Name - Complete Collection [epub]",
     "Series Name Tomes 1 - 5 [epub]",
   ])("pack is flagged: %s", (title) => {
@@ -142,7 +142,7 @@ describe("inferEditionKind", () => {
   test("size separates the two when no format is parseable", () => {
     const parsed = parseBookReleaseTitle("Some Untagged Release Fr");
     expect(parsed.format).toBeNull();
-    // Real measurements: ebooks 1-5 MB, audiobooks 262-810 MB.
+    // Ebooks land in single-digit MB; audiobooks in the hundreds.
     expect(inferEditionKind(parsed, 2 * 1_048_576)).toBe("ebook");
     expect(inferEditionKind(parsed, 810 * 1_048_576)).toBe("audiobook");
   });
