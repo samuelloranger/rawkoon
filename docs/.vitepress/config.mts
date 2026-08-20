@@ -5,7 +5,8 @@ export default defineConfig({
   lang: "en-US",
   base: process.env.GITHUB_ACTIONS === "true" ? "/rawkoon/" : "/",
   title: "Rawkoon",
-  description: "Self-hosted movie and TV library documentation",
+  description:
+    "Self-hosted movie, TV, and book library documentation",
   sitemap: { hostname: "https://samlo.cloud/rawkoon/" },
   cleanUrls: true,
   appearance: false,
@@ -26,6 +27,7 @@ export default defineConfig({
           { text: "Getting started", link: "/getting-started" },
           { text: "Quality profiles", link: "/library/quality-profiles" },
           { text: "Media metadata", link: "/library/metadata" },
+          { text: "Books and audiobooks", link: "/library/books" },
           { text: "Downloads and files", link: "/library/downloads-and-files" },
         ],
       },

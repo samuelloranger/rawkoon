@@ -9,9 +9,15 @@ service.
 | Service | Purpose |
 | --- | --- |
 | TMDB | Discovery, search, and media metadata. A TMDB API key is required for discovery. |
+| Google Books | Book and audiobook metadata. Required for the book library; see [Books and audiobooks](/library/books). |
 | qBittorrent, Transmission, or Deluge | The active download client. Rawkoon polls it for progress and completion. |
 | Prowlarr or Jackett | Indexer search. Choose one active indexer manager for the library grab pipeline. |
 | Jellyfin or Plex | Latest additions, watch activity, and supported notifications. |
+
+The Google Books key is the one credential without a settings screen. Set it
+with the <code>configureBooks</code> script, which encrypts it the same way the
+other integrations are stored — a key written straight into the database is
+treated as unconfigured.
 
 Choose one active download client. Rawkoon labels its torrents, polls the
 client automatically, and detects stalled or expired downloads without

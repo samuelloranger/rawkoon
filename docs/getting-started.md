@@ -1,8 +1,9 @@
 # Getting started
 
-Rawkoon is a self-hosted movie and TV library. It discovers titles through
-TMDB, searches releases through an indexer, sends downloads to an active client,
-and can place completed files into your library automatically.
+Rawkoon is a self-hosted movie, TV, and book library. It discovers titles
+through TMDB and Google Books, searches releases through an indexer, sends
+downloads to an active client, and can place completed files into your library
+automatically.
 
 This guide covers everyday use of an instance that is already running. If you
 still need to install Rawkoon or complete its first administrator setup, see
@@ -37,3 +38,6 @@ for the full lifecycle.
   are sourced and refreshed.
 - [Downloads and files](/library/downloads-and-files) traces a release from
   grab to a completed file in your library.
+- [Books and audiobooks](/library/books) covers the separate book library, its
+  own quality profiles, and author monitoring. It is off until an administrator
+  turns it on.
