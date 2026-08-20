@@ -9,113 +9,142 @@ import {
   Search,
   UserRound,
 } from "lucide-react";
-import type { Book, BookEditionKind } from "@rawkoon/shared/types";
+import type { Book, BookEdition, BookEditionKind } from "@rawkoon/shared/types";
 import { useLibraryEvents } from "@/features/medias/hooks/useLibraryEvents";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useBooks } from "../_hooks/useBooks";
-import { editionChipLabel } from "./editionLabel";
 import { AddBookDialog } from "./AddBookDialog";
+import { BookCover } from "./BookCover";
+import { aggregateState, byKindOrder, stateTokens } from "./bookState";
 
-const STATUS_STYLES: Record<string, string> = {
-  wanted: "bg-amber-500/15 text-amber-400",
-  downloading: "bg-sky-500/15 text-sky-400",
-  downloaded: "bg-emerald-500/15 text-emerald-400",
-  upgrading: "bg-primary-500/15 text-primary-300",
-  skipped: "bg-neutral-700/40 text-neutral-400",
+const formatBytes = (raw: string | null): string => {
+  if (!raw) return "";
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n === 0) return "";
+  const mb = n / 1_048_576;
+  if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
+  // A decimal below 10 MB: most ebooks live there, and rounding turned every
+  // one of them into "1 MB".
+  return mb >= 10 ? `${Math.round(mb)} MB` : `${mb.toFixed(1)} MB`;
 };
 
-function EditionChip({
-  kind,
-  status,
-  format,
-}: {
-  kind: BookEditionKind;
-  status: string;
-  format: string | null;
-}) {
+/**
+ * One edition as a ledger line.
+ *
+ * The list used to put two small chips under the title and leave the right two
+ * thirds of every row empty. Someone scanning their library wants to compare
+ * the same fact down a column — is the ebook here, is the audiobook here, what
+ * format, how big — so editions are set as aligned columns instead, the way a
+ * library card carries its circulation stamps.
+ */
+function EditionLedgerLine({ edition }: { edition: BookEdition }) {
   const { t } = useTranslation("common");
-  const Icon = kind === "audiobook" ? Headphones : BookOpen;
-  // An unknown status must still read as something, so the raw value is the
-  // fallback rather than an empty chip.
-  const statusLabel = t(`books.status.${status}`, { defaultValue: status });
-  const kindLabel = t(
-    `books.kind${kind === "audiobook" ? "Audiobook" : "Ebook"}`,
-  );
+  const tokens = stateTokens(edition.status);
+  const Icon = edition.kind === "audiobook" ? Headphones : BookOpen;
+
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-        STATUS_STYLES[status] ?? STATUS_STYLES.skipped
-      }`}
-      title={
-        format
-          ? t("books.editionChipTitleWithFormat", {
-              kind: kindLabel,
-              status: statusLabel,
-              format,
-            })
-          : t("books.editionChipTitle", {
-              kind: kindLabel,
-              status: statusLabel,
-            })
-      }
-    >
-      <Icon className="h-3 w-3" />
-      {editionChipLabel(statusLabel, format)}
-    </span>
+    <div className="flex items-center gap-3 text-xs">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-neutral-500" />
+      <span className="w-[84px] shrink-0 font-medium uppercase tracking-wider text-neutral-400">
+        {t(`books.kind${edition.kind === "audiobook" ? "Audiobook" : "Ebook"}`)}
+      </span>
+      {/* Format and size are machine strings: mono face, fixed columns. That
+          alignment is what makes the column scannable. */}
+      <span className="w-10 shrink-0 font-mono text-[11px] uppercase text-primary-300">
+        {edition.best_format ?? ""}
+      </span>
+      <span className="w-16 shrink-0 text-right font-mono text-[11px] text-neutral-500">
+        {edition.file_count > 0 ? formatBytes(edition.total_size_bytes) : ""}
+      </span>
+      <span className={`w-24 shrink-0 text-right ${tokens.text}`}>
+        {t(`books.status.${edition.status}`, { defaultValue: edition.status })}
+      </span>
+      <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${tokens.dot}`} />
+    </div>
+  );
+}
+
+/** Compact edition state for narrow screens, where the ledger has no room. */
+function EditionChips({ editions }: { editions: BookEdition[] }) {
+  const { t } = useTranslation("common");
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {byKindOrder(editions).map((e) => {
+        const Icon = e.kind === "audiobook" ? Headphones : BookOpen;
+        return (
+          <span
+            key={e.id}
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${stateTokens(e.status).chip}`}
+          >
+            <Icon className="h-3 w-3" />
+            {t(`books.status.${e.status}`, { defaultValue: e.status })}
+            {e.best_format && (
+              <span className="font-mono text-[10px] uppercase opacity-80">
+                {e.best_format}
+              </span>
+            )}
+          </span>
+        );
+      })}
+    </div>
   );
 }
 
 function BookRow({ book }: { book: Book }) {
   const { t } = useTranslation("common");
+  const state = aggregateState(book.editions);
+  const rail = state ? stateTokens(state).rail : "bg-neutral-700";
+
+  const meta = [
+    book.published_year,
+    book.language.toUpperCase(),
+    book.series_name
+      ? book.series_position != null
+        ? t("books.seriesPosition", {
+            series: book.series_name,
+            position: book.series_position,
+          })
+        : book.series_name
+      : null,
+  ].filter(Boolean);
+
   return (
     <Link
       to="/books/$bookId"
       params={{ bookId: String(book.id) }}
-      className="flex items-start gap-3 rounded-lg border border-neutral-800 p-3 transition-colors hover:border-neutral-700 hover:bg-neutral-900/60"
+      className="focus-ring flex overflow-hidden rounded-lg border border-neutral-800 bg-surface-raised/40 transition-colors hover:border-neutral-700 hover:bg-surface-raised"
     >
-      <div className="h-24 w-16 shrink-0 overflow-hidden rounded bg-neutral-950 ring-1 ring-primary-500/20">
-        {book.cover_url ? (
-          <img
-            src={book.cover_url}
-            alt=""
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <BookOpen className="h-5 w-5 text-neutral-700" />
-          </div>
-        )}
-      </div>
+      {/* The spine rail — the same device as the edition panels on the detail
+          page, coloured by the least-finished edition so a row never claims to
+          be complete while something is still missing. */}
+      <span aria-hidden className={`w-1 shrink-0 ${rail}`} />
 
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-medium text-neutral-100">{book.title}</p>
-        <p className="truncate text-sm text-neutral-400">
-          {book.authors.join(", ") || t("books.unknownAuthor")}
-          {book.published_year ? ` · ${book.published_year}` : ""}
-          {` · ${book.language.toUpperCase()}`}
-        </p>
-        {book.series_name && (
-          <p className="truncate text-xs text-neutral-500">
-            {book.series_position != null
-              ? t("books.seriesPosition", {
-                  series: book.series_name,
-                  position: book.series_position,
-                })
-              : book.series_name}
+      <div className="flex min-w-0 flex-1 items-center gap-3 p-3 sm:gap-4">
+        <BookCover title={book.title} coverUrl={book.cover_url} />
+
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-display text-[17px] leading-snug text-neutral-50">
+            {book.title}
           </p>
-        )}
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {book.editions.map((e) => (
-            <EditionChip
-              key={e.id}
-              kind={e.kind}
-              status={e.status}
-              format={e.best_format}
-            />
+          <p className="truncate text-sm text-neutral-300">
+            {book.authors.join(", ") || t("books.unknownAuthor")}
+          </p>
+          {meta.length > 0 && (
+            <p className="mt-0.5 truncate text-xs text-neutral-500">
+              {meta.join(" · ")}
+            </p>
+          )}
+          <div className="lg:hidden">
+            <EditionChips editions={book.editions} />
+          </div>
+        </div>
+
+        <div className="hidden shrink-0 flex-col items-end gap-1.5 lg:flex">
+          {byKindOrder(book.editions).map((e) => (
+            <EditionLedgerLine key={e.id} edition={e} />
           ))}
         </div>
       </div>
@@ -153,13 +182,17 @@ export function BooksPage() {
         onRefresh={() => void refetch()}
         isRefreshing={isRefetching}
         actions={
-          <div className="flex gap-2">
-            <Button variant="secondary" asChild>
-              <Link to="/books/authors">
-                <UserRound className="mr-1.5 h-4 w-4" />
-                {t("books.authorsLink")}
-              </Link>
-            </Button>
+          <div className="flex items-center gap-2">
+            {/* A styled Link, not <Button asChild>: Button never implemented
+                asChild, so the prop reached the DOM and the anchor's icon and
+                label stacked on top of each other. */}
+            <Link
+              to="/books/authors"
+              className="focus-ring inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-lg bg-neutral-800 px-4 text-sm font-medium text-neutral-100 transition-colors hover:bg-neutral-700"
+            >
+              <UserRound className="h-4 w-4" />
+              {t("books.authorsLink")}
+            </Link>
             <Button onClick={() => setShowAdd(true)}>
               <Plus className="mr-1.5 h-4 w-4" />
               {t("books.addBook")}
@@ -170,7 +203,7 @@ export function BooksPage() {
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <form
-          className="flex flex-1 gap-2"
+          className="flex gap-2"
           onSubmit={(e) => {
             e.preventDefault();
             setSubmitted(search.trim());
@@ -180,7 +213,7 @@ export function BooksPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("books.filterPlaceholder")}
-            className="max-w-xs"
+            className="w-56"
           />
           <Button
             type="submit"
@@ -198,9 +231,10 @@ export function BooksPage() {
               key={k ?? "all"}
               type="button"
               onClick={() => setKind(k)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              aria-pressed={kind === k}
+              className={`focus-ring rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 kind === k
-                  ? "bg-primary-500/15 text-primary-300"
+                  ? "bg-primary-500/15 text-primary-200"
                   : "bg-neutral-800 text-neutral-400 hover:text-neutral-200"
               }`}
             >

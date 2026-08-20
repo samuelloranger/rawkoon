@@ -1,10 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "@tanstack/react-router";
-import { BookOpen, Headphones, Library, UserRound } from "lucide-react";
+import { BookOpen, Check, Headphones, Library, UserRound } from "lucide-react";
 import type { Author, BookEditionKind } from "@rawkoon/shared/types";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
-import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useAuthors, useUpdateAuthor } from "../_hooks/useBooks";
 
@@ -14,8 +13,37 @@ const formatDate = (iso: string | null, fallback: string): string =>
   iso ? new Date(iso).toLocaleDateString() : fallback;
 
 /**
- * One author. Monitoring is the only thing editable here: an author row exists
- * because a book credited them, so there is nothing to create or delete.
+ * Initials, because there is never a portrait.
+ *
+ * Google Books exposes no author image, so `image_url` is null for every row
+ * this page will ever render — the generic person glyph was permanent, not a
+ * placeholder. Initials in the display serif at least identify the author.
+ */
+function AuthorMark({ name, monitored }: { name: string; monitored: boolean }) {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
+  return (
+    <span
+      aria-hidden
+      className={`grid h-10 w-10 shrink-0 place-items-center rounded-full font-display text-sm ring-1 ${
+        monitored
+          ? "bg-primary-500/15 text-primary-200 ring-primary-500/30"
+          : "bg-neutral-800 text-neutral-400 ring-neutral-700"
+      }`}
+    >
+      {initials || <UserRound className="h-4 w-4" />}
+    </span>
+  );
+}
+
+/**
+ * One author. Monitoring is the only thing editable here: a row exists because
+ * a book credited them, so there is nothing to create or delete.
  */
 function AuthorRow({ author }: { author: Author }) {
   const { t } = useTranslation("common");
@@ -30,42 +58,64 @@ function AuthorRow({ author }: { author: Author }) {
   };
 
   return (
-    <div className="rounded-lg border border-neutral-800 p-3">
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-neutral-900 ring-1 ring-neutral-800">
-          <UserRound className="h-4 w-4 text-neutral-500" />
-        </div>
+    <div className="flex overflow-hidden rounded-lg border border-neutral-800 bg-surface-raised/40">
+      {/* The same rail as a book row: copper when this author is followed,
+          inert when they are not. */}
+      <span
+        aria-hidden
+        className={`w-1 shrink-0 ${
+          author.monitored ? "bg-primary-500" : "bg-neutral-700"
+        }`}
+      />
 
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-medium text-neutral-100">{author.name}</p>
-          <p className="text-sm text-neutral-400">
-            {t("books.authors.bookCount", { count: author.book_count })}
-            {author.monitored && (
-              <>
-                {" · "}
-                <span className="font-mono text-xs">
-                  {t("books.authors.from", {
-                    date: formatDate(
-                      author.monitor_from,
-                      t("books.authors.never"),
-                    ),
-                  })}
-                </span>
-                {" · "}
-                <span className="font-mono text-xs">
-                  {t("books.authors.checked", {
-                    date: formatDate(
-                      author.last_checked_at,
-                      t("books.authors.never"),
-                    ),
-                  })}
-                </span>
-              </>
-            )}
-          </p>
+      <div className="min-w-0 flex-1 p-3">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+          <AuthorMark name={author.name} monitored={author.monitored} />
 
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-display text-base text-neutral-50">
+              {author.name}
+            </p>
+            <p className="mt-0.5 text-sm text-neutral-400">
+              {t("books.authors.bookCount", { count: author.book_count })}
+            </p>
+          </div>
+
+          {/* Dates are data: mono face, fixed columns, so rows line up whether
+              or not an author has ever been checked. */}
           {author.monitored && (
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <dl className="flex shrink-0 gap-5 text-xs sm:w-[200px]">
+              <div>
+                <dt className="text-neutral-500">
+                  {t("books.authors.fromLabel")}
+                </dt>
+                <dd className="mt-0.5 font-mono text-[11px] text-neutral-300">
+                  {formatDate(author.monitor_from, t("books.authors.never"))}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-neutral-500">
+                  {t("books.authors.checkedLabel")}
+                </dt>
+                <dd className="mt-0.5 font-mono text-[11px] text-neutral-300">
+                  {formatDate(
+                    author.last_checked_at,
+                    t("books.authors.neverChecked"),
+                  )}
+                </dd>
+              </div>
+            </dl>
+          )}
+
+          {/* Which editions new titles arrive as. Pressed toggles rather than
+              status-looking chips: they change something when clicked, and a
+              badge gives no hint of that. */}
+          {author.monitored && (
+            <div
+              className="flex shrink-0 gap-1.5"
+              role="group"
+              aria-label={t("books.authors.kindsLabel")}
+            >
               {KINDS.map((kind) => {
                 const on = author.monitor_edition_kinds.includes(kind);
                 const Icon = kind === "audiobook" ? Headphones : BookOpen;
@@ -74,60 +124,63 @@ function AuthorRow({ author }: { author: Author }) {
                     key={kind}
                     type="button"
                     disabled={busy}
+                    aria-pressed={on}
                     onClick={() => toggleKind(kind)}
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
+                    className={`focus-ring inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
                       on
-                        ? "bg-primary-500/15 text-primary-300"
-                        : "bg-neutral-800 text-neutral-400 hover:text-neutral-200"
+                        ? "border-primary-500/40 bg-primary-500/15 text-primary-200"
+                        : "border-neutral-700 bg-transparent text-neutral-400 hover:text-neutral-200"
                     }`}
                   >
-                    <Icon className="h-3 w-3" />
+                    {on ? (
+                      <Check className="h-3 w-3" />
+                    ) : (
+                      <Icon className="h-3 w-3" />
+                    )}
                     {t(
                       `books.kind${kind === "audiobook" ? "Audiobook" : "Ebook"}`,
                     )}
                   </button>
                 );
               })}
-              {author.monitor_edition_kinds.length === 0 && (
-                // Monitoring with no kind selected adds ebooks, which is what
-                // the worker falls back to. Say so rather than look broken.
-                <span className="text-xs text-amber-400">
-                  {t("books.authors.noKindSelected")}
-                </span>
-              )}
             </div>
           )}
+
+          {/* Label before the switch, in the row's flow. It used to be
+              positioned under the switch, where it hung over the card edge. */}
+          <label className="flex shrink-0 items-center gap-2 sm:w-[120px] sm:justify-end">
+            <span className="text-xs text-neutral-400">
+              {author.monitored
+                ? t("books.authors.monitored")
+                : t("books.authors.off")}
+            </span>
+            <Switch
+              checked={author.monitored}
+              disabled={busy}
+              aria-label={t("books.authors.monitorToggle", {
+                name: author.name,
+              })}
+              onCheckedChange={(checked) =>
+                update.mutate({
+                  id: author.id,
+                  monitored: checked,
+                  // Turning it on with no kinds set would silently do nothing
+                  // useful, so seed the common case.
+                  ...(checked && author.monitor_edition_kinds.length === 0
+                    ? { monitor_edition_kinds: ["ebook" as BookEditionKind] }
+                    : {}),
+                })
+              }
+            />
+          </label>
         </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <Switch
-            checked={author.monitored}
-            disabled={busy}
-            onCheckedChange={(checked) =>
-              update.mutate({
-                id: author.id,
-                monitored: checked,
-                // Turning it on with no kinds set would silently do nothing
-                // useful, so seed the common case.
-                ...(checked && author.monitor_edition_kinds.length === 0
-                  ? { monitor_edition_kinds: ["ebook" as BookEditionKind] }
-                  : {}),
-              })
-            }
-          />
-          <span className="text-xs text-neutral-500">
-            {author.monitored
-              ? t("books.authors.monitored")
-              : t("books.authors.off")}
-          </span>
-        </div>
+        {update.isError && (
+          <p className="mt-2 text-xs text-rose-300">
+            {t("books.authors.saveFailed")}
+          </p>
+        )}
       </div>
-
-      {update.isError && (
-        <p className="mt-2 text-xs text-rose-300">
-          {t("books.authors.saveFailed")}
-        </p>
-      )}
     </div>
   );
 }
@@ -154,16 +207,19 @@ export function AuthorsPage() {
         onRefresh={() => void refetch()}
         isRefreshing={isRefetching}
         actions={
-          <Button variant="secondary" asChild>
-            <Link to="/books">
-              <Library className="mr-1.5 h-4 w-4" />
-              {t("books.authors.booksLink")}
-            </Link>
-          </Button>
+          <Link
+            to="/books"
+            className="focus-ring inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-lg bg-neutral-800 px-4 text-sm font-medium text-neutral-100 transition-colors hover:bg-neutral-700"
+          >
+            <Library className="h-4 w-4" />
+            {t("books.authors.booksLink")}
+          </Link>
         }
       />
 
-      <p className="mb-4 text-sm text-neutral-400">
+      {/* Held to a reading measure. It ran the full page width before, about
+          twice as long a line as prose can be read at. */}
+      <p className="mb-5 max-w-[68ch] text-sm text-neutral-400">
         {t("books.authors.explanation")}
       </p>
 
