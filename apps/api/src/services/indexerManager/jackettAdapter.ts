@@ -212,22 +212,29 @@ export class JackettAdapter implements IndexerManagerAdapter {
     return indexers;
   }
 
-  async fetchRss(slugs: string[]): Promise<NormalizedRelease[]> {
+  async fetchRss(
+    slugs: string[],
+    categories: string[] = ["2000", "5000"],
+  ): Promise<NormalizedRelease[]> {
     const results = await Promise.all(
-      slugs.map((slug) => this.fetchOneRss(slug)),
+      slugs.map((slug) => this.fetchOneRss(slug, categories)),
     );
     return results.flat();
   }
 
-  private async fetchOneRss(slug: string): Promise<NormalizedRelease[]> {
+  private async fetchOneRss(
+    slug: string,
+    categories: string[],
+  ): Promise<NormalizedRelease[]> {
     try {
       const url = new URL(
         `/api/v2.0/indexers/${slug}/results`,
         this.config.website_url,
       );
       url.searchParams.set("apikey", this.config.api_key);
-      url.searchParams.append("Category[]", "2000");
-      url.searchParams.append("Category[]", "5000");
+      for (const category of categories) {
+        url.searchParams.append("Category[]", category);
+      }
       const res = await fetch(url.toString(), {
         headers: { Accept: "application/json" },
         signal: AbortSignal.timeout(20_000),

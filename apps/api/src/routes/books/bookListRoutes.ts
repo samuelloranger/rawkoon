@@ -8,6 +8,7 @@ import {
   getBookMetadataProvider,
   BookProviderUnavailableError,
 } from "@rawkoon/api/services/books";
+import { addBookFromVolume } from "@rawkoon/api/services/books/bookLibrary";
 import type { BookEditionKind } from "@rawkoon/shared/types";
 
 import { bookInclude, mapBook } from "./bookHelpers";
@@ -161,9 +162,6 @@ export const bookListRoutes = new Elysia()
   .post(
     "/",
     async ({ body, set }) => {
-      const volumeId = body.google_volume_id?.trim();
-      if (!volumeId) return badRequest(set, "google_volume_id is required");
-
       const kinds = (
         body.kinds && body.kinds.length > 0 ? body.kinds : ["ebook"]
       ) as BookEditionKind[];
@@ -171,124 +169,36 @@ export const bookListRoutes = new Elysia()
         return badRequest(set, "kinds must be ebook and/or audiobook");
       }
 
-      const provider = await getBookMetadataProvider();
-      if (!provider) {
-        return badRequest(
-          set,
-          "Google Books is not configured. Add an API key in Integrations.",
-        );
-      }
-
-      let meta;
+      let result;
       try {
-        meta = await provider.getBook(volumeId);
-      } catch (e) {
-        if (e instanceof BookProviderUnavailableError) {
-          set.status = 503;
-          return { error: `Google Books is unavailable: ${e.message}` };
-        }
-        throw e;
-      }
-      if (!meta) return notFound(set, "Volume not found");
-
-      const settings = await prisma.mediaSettings.upsert({
-        where: { id: 1 },
-        update: {},
-        create: { id: 1 },
-      });
-
-      // A profile is resolved per kind so an ebook edition never inherits an
-      // audiobook profile (and vice versa).
-      const profiles = await prisma.bookQualityProfile.findMany({
-        select: { id: true, kind: true },
-      });
-      const profileFor = (kind: BookEditionKind): number | null => {
-        if (body.book_quality_profile_id) return body.book_quality_profile_id;
-        const exact = profiles.find((p) => p.kind === kind);
-        if (exact) return exact.id;
-        const both = profiles.find((p) => p.kind === "both");
-        return both?.id ?? settings.defaultBookQualityProfileId ?? null;
-      };
-
-      try {
-        const book = await prisma.$transaction(async (tx) => {
-          const created = await tx.libraryBook.upsert({
-            where: { googleVolumeId: volumeId },
-            create: {
-              googleVolumeId: volumeId,
-              isbn13: meta.isbn13,
-              title: meta.title,
-              sortTitle: meta.title,
-              subtitle: meta.subtitle,
-              overview: meta.overview,
-              coverUrl: meta.coverUrl,
-              language: meta.language,
-              publishedYear: meta.publishedYear,
-              seriesName: meta.seriesName,
-              seriesPosition: meta.seriesPosition,
-            },
-            update: {
-              // Refresh metadata but never clobber the title, which is the
-              // indexer search term and may have been overridden.
-              isbn13: meta.isbn13,
-              overview: meta.overview,
-              coverUrl: meta.coverUrl,
-              seriesName: meta.seriesName,
-              seriesPosition: meta.seriesPosition,
-            },
-          });
-
-          // Authors go through the join table; the trigger refreshes
-          // LibraryBook.authors from role='author' rows.
-          for (const name of meta.authors) {
-            const author = await tx.author.upsert({
-              where: { googleAuthorName: name },
-              create: { googleAuthorName: name, sortName: name },
-              update: {},
-            });
-            await tx.bookAuthor.upsert({
-              where: {
-                authorId_bookId_role: {
-                  authorId: author.id,
-                  bookId: created.id,
-                  role: "author",
-                },
-              },
-              create: {
-                authorId: author.id,
-                bookId: created.id,
-                role: "author",
-              },
-              update: {},
-            });
-          }
-
-          // A book with no editions is invisible to every worker, so always
-          // create at least one.
-          for (const kind of kinds) {
-            await tx.bookEdition.upsert({
-              where: { bookId_kind: { bookId: created.id, kind } },
-              create: {
-                bookId: created.id,
-                kind,
-                monitored: body.monitored ?? true,
-                bookQualityProfileId: profileFor(kind),
-              },
-              update: {},
-            });
-          }
-
-          return tx.libraryBook.findUniqueOrThrow({
-            where: { id: created.id },
-            include: bookInclude,
-          });
+        result = await addBookFromVolume({
+          volumeId: body.google_volume_id ?? "",
+          kinds,
+          bookQualityProfileId: body.book_quality_profile_id,
+          monitored: body.monitored,
         });
-
-        return { item: mapBook(book) };
       } catch (e) {
         console.error("[books] add failed:", e);
         return serverError(set, "Failed to add book");
       }
+
+      if (!result.added) {
+        if (result.unavailable) {
+          set.status = 503;
+          return { error: result.reason };
+        }
+        if (result.reason === "Volume not found") {
+          return notFound(set, result.reason);
+        }
+        return badRequest(set, result.reason);
+      }
+
+      const book = await prisma.libraryBook.findUnique({
+        where: { id: result.bookId },
+        include: bookInclude,
+      });
+      if (!book) return serverError(set, "Failed to add book");
+      return { item: mapBook(book) };
     },
     {
       body: t.Object({

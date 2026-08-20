@@ -183,3 +183,34 @@ export interface BookQualityProfile {
 export interface BookQualityProfileListResponse {
   profiles: BookQualityProfile[];
 }
+
+/**
+ * A monitored author.
+ *
+ * Identity is the provider's author name — Google Books exposes no author id,
+ * so homonymous authors collide. `monitor_edition_kinds` is empty for an
+ * unmonitored author and decides which editions new titles get.
+ */
+export interface Author {
+  id: number;
+  name: string;
+  sort_name: string | null;
+  image_url: string | null;
+  bio: string | null;
+  monitored: boolean;
+  /** Only titles published in or after this year are added. */
+  monitor_from: string | null;
+  monitor_edition_kinds: BookEditionKind[];
+  book_quality_profile_id: number | null;
+  last_checked_at: string | null;
+  /** Books in the library credited to this author. */
+  book_count: number;
+}
+
+export interface AuthorListResponse {
+  authors: Author[];
+}
+
+export interface AuthorResponse {
+  author: Author;
+}

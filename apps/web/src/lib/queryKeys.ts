@@ -45,6 +45,7 @@ export const queryKeys = {
     releaseSearch: (id: number, kind: string) =>
       ["books", "release-search", id, kind] as const,
     qualityProfiles: () => ["books", "quality-profiles"] as const,
+    authors: () => ["books", "authors"] as const,
   },
 
   downloads: {

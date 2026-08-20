@@ -16,4 +16,6 @@ export const BOOKS_ENDPOINTS = {
   AUTO_GRAB: (id: number, kind: string) =>
     `/api/books/${id}/editions/${kind}/auto`,
   QUALITY_PROFILES: "/api/book-quality-profiles",
+  AUTHORS: "/api/authors",
+  AUTHOR: (id: number) => `/api/authors/${id}`,
 } as const;

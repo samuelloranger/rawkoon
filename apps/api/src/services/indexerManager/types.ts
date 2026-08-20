@@ -100,6 +100,12 @@ export interface IndexerManagerAdapter {
   /**
    * Fetch recent releases from specific indexers without a search query (RSS-style).
    * @param indexerIds - Jackett: string slugs (e.g. "my-indexer"); Prowlarr: numeric IDs as strings (e.g. "1")
+   * @param categories - Torznab category ids; defaults to movies + TV. Books
+   *   pass 7000 + 3000, because an audiobook is filed under either depending on
+   *   the tracker.
    */
-  fetchRss(indexerIds: string[]): Promise<NormalizedRelease[]>;
+  fetchRss(
+    indexerIds: string[],
+    categories?: string[],
+  ): Promise<NormalizedRelease[]>;
 }

@@ -4,6 +4,8 @@ import { BOOKS_ENDPOINTS } from "@/lib/endpoints";
 import { queryKeys } from "@/lib/queryKeys";
 import type {
   AddBookRequest,
+  AuthorListResponse,
+  AuthorResponse,
   BookEditionKind,
   BookFilesResponse,
   BookItemResponse,
@@ -235,5 +237,40 @@ export function useBookQualityProfiles() {
         BOOKS_ENDPOINTS.QUALITY_PROFILES,
       ),
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useAuthors() {
+  return useQuery({
+    queryKey: queryKeys.books.authors(),
+    queryFn: () => fetchApi<AuthorListResponse>(BOOKS_ENDPOINTS.AUTHORS),
+  });
+}
+
+/**
+ * Author monitoring. Invalidates the author list only — monitoring changes
+ * nothing about the books already in the library; new titles arrive through the
+ * scheduled author check.
+ */
+export function useUpdateAuthor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...body
+    }: {
+      id: number;
+      monitored?: boolean;
+      monitor_from?: string | null;
+      monitor_edition_kinds?: BookEditionKind[];
+      book_quality_profile_id?: number | null;
+    }) =>
+      fetchApi<AuthorResponse>(BOOKS_ENDPOINTS.AUTHOR(id), {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.books.authors() });
+    },
   });
 }

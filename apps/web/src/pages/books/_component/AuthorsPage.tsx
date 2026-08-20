@@ -1,0 +1,173 @@
+import { Link } from "@tanstack/react-router";
+import { BookOpen, Headphones, Library, UserRound } from "lucide-react";
+import type { Author, BookEditionKind } from "@rawkoon/shared/types";
+import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { useAuthors, useUpdateAuthor } from "../_hooks/useBooks";
+
+const KINDS: BookEditionKind[] = ["ebook", "audiobook"];
+
+const formatDate = (iso: string | null): string =>
+  iso ? new Date(iso).toLocaleDateString() : "—";
+
+/**
+ * One author. Monitoring is the only thing editable here: an author row exists
+ * because a book credited them, so there is nothing to create or delete.
+ */
+function AuthorRow({ author }: { author: Author }) {
+  const update = useUpdateAuthor();
+  const busy = update.isPending;
+
+  const toggleKind = (kind: BookEditionKind) => {
+    const next = author.monitor_edition_kinds.includes(kind)
+      ? author.monitor_edition_kinds.filter((k) => k !== kind)
+      : [...author.monitor_edition_kinds, kind];
+    update.mutate({ id: author.id, monitor_edition_kinds: next });
+  };
+
+  return (
+    <div className="rounded-lg border border-neutral-800 p-3">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-neutral-900 ring-1 ring-neutral-800">
+          <UserRound className="h-4 w-4 text-neutral-500" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium text-neutral-100">{author.name}</p>
+          <p className="text-sm text-neutral-400">
+            {author.book_count} {author.book_count === 1 ? "book" : "books"} in
+            library
+            {author.monitored && (
+              <>
+                {" · from "}
+                <span className="font-mono text-xs">
+                  {formatDate(author.monitor_from)}
+                </span>
+                {" · checked "}
+                <span className="font-mono text-xs">
+                  {formatDate(author.last_checked_at)}
+                </span>
+              </>
+            )}
+          </p>
+
+          {author.monitored && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {KINDS.map((kind) => {
+                const on = author.monitor_edition_kinds.includes(kind);
+                const Icon = kind === "audiobook" ? Headphones : BookOpen;
+                return (
+                  <button
+                    key={kind}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => toggleKind(kind)}
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
+                      on
+                        ? "bg-primary-500/15 text-primary-300"
+                        : "bg-neutral-800 text-neutral-400 hover:text-neutral-200"
+                    }`}
+                  >
+                    <Icon className="h-3 w-3" />
+                    {kind}
+                  </button>
+                );
+              })}
+              {author.monitor_edition_kinds.length === 0 && (
+                // Monitoring with no kind selected adds ebooks, which is what
+                // the worker falls back to. Say so rather than look broken.
+                <span className="text-xs text-amber-400">
+                  No kind selected — new titles arrive as ebooks
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <Switch
+            checked={author.monitored}
+            disabled={busy}
+            onCheckedChange={(checked) =>
+              update.mutate({
+                id: author.id,
+                monitored: checked,
+                // Turning it on with no kinds set would silently do nothing
+                // useful, so seed the common case.
+                ...(checked && author.monitor_edition_kinds.length === 0
+                  ? { monitor_edition_kinds: ["ebook" as BookEditionKind] }
+                  : {}),
+              })
+            }
+          />
+          <span className="text-xs text-neutral-500">
+            {author.monitored ? "monitored" : "off"}
+          </span>
+        </div>
+      </div>
+
+      {update.isError && (
+        <p className="mt-2 text-xs text-rose-300">
+          Could not save that change.
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function AuthorsPage() {
+  const { data, isLoading, refetch, isRefetching } = useAuthors();
+  const authors = data?.authors ?? [];
+  const monitoredCount = authors.filter((a) => a.monitored).length;
+
+  return (
+    <PageLayout>
+      <PageHeader
+        icon={UserRound}
+        title="Authors"
+        subtitle={
+          data
+            ? `${monitoredCount} of ${authors.length} monitored`
+            : "Author monitoring"
+        }
+        onRefresh={() => void refetch()}
+        isRefreshing={isRefetching}
+        actions={
+          <Button variant="secondary" asChild>
+            <Link to="/books">
+              <Library className="mr-1.5 h-4 w-4" />
+              Books
+            </Link>
+          </Button>
+        }
+      />
+
+      <p className="mb-4 text-sm text-neutral-400">
+        A monitored author&apos;s new titles are added automatically, once a
+        day. Only titles published on or after the date monitoring started are
+        added, so switching it on never pulls in a backlist.
+      </p>
+
+      {isLoading ? (
+        <p className="py-12 text-center text-sm text-neutral-500">Loading…</p>
+      ) : authors.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-neutral-800 py-16 text-center">
+          <UserRound className="mx-auto h-8 w-8 text-neutral-700" />
+          <p className="mt-3 text-sm text-neutral-400">
+            No authors yet. Add a book and its author appears here.
+          </p>
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {authors.map((a) => (
+            <li key={a.id}>
+              <AuthorRow author={a} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </PageLayout>
+  );
+}

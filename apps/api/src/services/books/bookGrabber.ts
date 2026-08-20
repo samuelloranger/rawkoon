@@ -8,6 +8,7 @@ import {
   scoreBookRelease,
   type BookScoreProfile,
 } from "@rawkoon/api/utils/books/bookReleaseScorer";
+import { notifyAdminsBookGrabbed } from "@rawkoon/api/workers/notifyBookEvents";
 import { addReleaseToDownloadClient } from "./bookDownloadHandoff";
 import { qbCategoryForEditionKind } from "./bookCategories";
 import { tryAdoptQbDuplicateForBook } from "./bookAdopt";
@@ -48,7 +49,7 @@ const DEFAULT_PROFILE: Record<BookEditionKind, BookScoreProfile> = {
   },
 };
 
-type EditionContext = {
+export type EditionContext = {
   editionId: number;
   kind: BookEditionKind;
   bookTitle: string;
@@ -57,7 +58,14 @@ type EditionContext = {
   profile: BookScoreProfile;
 };
 
-async function loadEditionContext(
+/**
+ * The edition's identity plus its effective scoring profile.
+ *
+ * Exported because the RSS pass scores releases it did not search for and needs
+ * exactly the same profile resolution — including the rule that the book's own
+ * language is always a preference.
+ */
+export async function loadEditionContext(
   editionId: number,
 ): Promise<EditionContext | null> {
   const edition = await prisma.bookEdition.findUnique({
@@ -333,12 +341,21 @@ export async function grabBookRelease(opts: {
   const updated = await prisma.bookEdition.update({
     where: { id: opts.editionId },
     data: {
-      status: "downloading",
+      // An upgrade keeps the file it is replacing, so it is not "downloading"
+      // from nothing — revertToWantedIfNoActiveGrabs relies on the distinction
+      // to put a failed upgrade back to downloaded rather than wanted.
+      status: opts.isUpgrade ? "upgrading" : "downloading",
       searchAttempts: { increment: 1 },
     },
     select: { bookId: true },
   });
   emitBookUpdate(updated.bookId);
+
+  try {
+    await notifyAdminsBookGrabbed(opts.editionId, releaseTitle);
+  } catch (e) {
+    console.warn("[bookGrabber] grab notification failed:", e);
+  }
 
   try {
     await logActivity({

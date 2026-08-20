@@ -15,6 +15,7 @@ import {
 } from "@rawkoon/api/services/mediaGrabberHelpers";
 import type { AiPickMediaContext } from "@rawkoon/api/utils/medias/buildAiPickPrompt";
 import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
+import { pollIndexerRssBooks } from "@rawkoon/api/workers/pollIndexerRssBooks";
 import {
   APP_DISPLAY_TIMEZONE,
   localDateYmd,
@@ -63,12 +64,17 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
     );
   }
 
+  // Books run their own pass over categories 7000 + 3000 (no-op unless the
+  // feature is enabled). Done before the media early-return so a feed with no
+  // movie or TV releases still gets its books swept.
+  const bookStats = await pollIndexerRssBooks(adapter, rssIndexers);
+
   const releases = await adapter.fetchRss(rssIndexers);
   if (!releases.length) {
-    console.log("[pollIndexerRss] No releases in RSS feed");
+    console.log("[pollIndexerRss] No releases in media RSS feed");
     return {
-      releases_found: 0,
-      releases_grabbed: 0,
+      releases_found: bookStats.found,
+      releases_grabbed: bookStats.grabbed,
       releases_grabbed_by_ai: 0,
       indexers: [],
     };
@@ -397,8 +403,8 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
   );
 
   return {
-    releases_found: releases.length,
-    releases_grabbed: grabbed,
+    releases_found: releases.length + bookStats.found,
+    releases_grabbed: grabbed + bookStats.grabbed,
     releases_grabbed_by_ai: grabbedByAi,
     indexers: Array.from(indexerCounts.entries()).map(
       ([name, releases_found]) => ({

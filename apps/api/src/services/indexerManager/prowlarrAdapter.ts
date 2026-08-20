@@ -246,11 +246,14 @@ export class ProwlarrAdapter implements IndexerManagerAdapter {
     return storePayload(release.rawPayload);
   }
 
-  async fetchRss(indexerIds: string[]): Promise<NormalizedRelease[]> {
+  async fetchRss(
+    indexerIds: string[],
+    categories: string[] = ["2000", "5000"],
+  ): Promise<NormalizedRelease[]> {
     const url = new URL("/api/v1/search", this.config.website_url);
     url.searchParams.set("type", "search");
     url.searchParams.set("query", "");
-    url.searchParams.set("categories", "2000,5000");
+    url.searchParams.set("categories", categories.join(","));
     url.searchParams.set("limit", "100");
     for (const id of indexerIds) {
       url.searchParams.append("indexerIds", id);
