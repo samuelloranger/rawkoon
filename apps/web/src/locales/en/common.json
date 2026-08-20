@@ -1259,6 +1259,61 @@
         "blockedAt": "Blocked",
         "actions": "Actions"
       }
+    },
+    "books": {
+      "title": "Books",
+      "description": "The book and audiobook library, its metadata provider, and where files are stored.",
+      "general": {
+        "title": "Book library",
+        "description": "Turn the library on once a provider key is stored.",
+        "toggleLabel": "Enable books and audiobooks",
+        "toggleHint": "Adds the Books section, and starts the scheduled searches for monitored editions and followed authors.",
+        "needsKey": "Add a Google Books API key first. Without one, nothing can be added to the library.",
+        "needsPaths": "Set both library paths below, or completed downloads cannot be imported.",
+        "enabled": "Books enabled",
+        "disabled": "Books disabled",
+        "saveFailed": "Could not change that setting."
+      },
+      "provider": {
+        "title": "Google Books",
+        "description": "The metadata source for every book. Required.",
+        "getKey": "Get a key",
+        "keyLabel": "API key",
+        "keyPlaceholder": "AIza…",
+        "keyStored": "A key is stored — type a new one to replace it",
+        "keyHint": "Stored encrypted. Leave empty to keep the current key.",
+        "save": "Save key",
+        "saved": "Key saved",
+        "saveFailed": "Could not save the key.",
+        "test": "Test key",
+        "testOk": "Google Books accepted the key.",
+        "testFailed": "The test could not be completed."
+      },
+      "files": {
+        "title": "Files",
+        "description": "Where imported books and audiobooks are placed.",
+        "booksPath": "Books library path",
+        "audiobooksPath": "Audiobooks library path",
+        "pathHint": "Use the same mount your download client sees, or files are copied instead of hardlinked.",
+        "bookTemplate": "Book naming",
+        "audiobookTemplate": "Audiobook naming",
+        "templateHint": "Available tokens: {author}, {title}, {year}, {format}, {language}. An audiobook's tracks keep their original filenames inside the rendered directory.",
+        "defaultProfile": "Default quality profile",
+        "noDefaultProfile": "Decide per edition kind",
+        "defaultProfileHint": "Used when a new edition has no profile of its own kind to inherit.",
+        "save": "Save files settings",
+        "saved": "Files settings saved",
+        "saveFailed": "Could not save those settings."
+      },
+      "profiles": {
+        "title": "Book quality profiles",
+        "description": "Which formats are allowed, and which one is good enough to stop upgrading.",
+        "kind": "{{kind}}",
+        "cutoff": "cutoff {{format}}",
+        "noCutoff": "no cutoff",
+        "none": "No profiles yet.",
+        "editHint": "Editing profiles is not in the interface yet; the /api/book-quality-profiles endpoints accept changes."
+      }
     }
   },
   "medias": {

@@ -1259,6 +1259,61 @@
         "blockedAt": "Bloquée le",
         "actions": "Actions"
       }
+    },
+    "books": {
+      "title": "Livres",
+      "description": "La bibliothèque de livres et de livres audio, sa source de métadonnées et l’emplacement des fichiers.",
+      "general": {
+        "title": "Bibliothèque de livres",
+        "description": "Activez la bibliothèque une fois la clé du fournisseur enregistrée.",
+        "toggleLabel": "Activer les livres et livres audio",
+        "toggleHint": "Ajoute la section Livres et lance les recherches planifiées pour les éditions surveillées et les auteurs suivis.",
+        "needsKey": "Ajoutez d’abord une clé d’API Google Books. Sans elle, rien ne peut être ajouté à la bibliothèque.",
+        "needsPaths": "Renseignez les deux chemins ci-dessous, sinon les téléchargements terminés ne peuvent pas être importés.",
+        "enabled": "Livres activés",
+        "disabled": "Livres désactivés",
+        "saveFailed": "Impossible de modifier ce réglage."
+      },
+      "provider": {
+        "title": "Google Books",
+        "description": "La source de métadonnées de tous les livres. Obligatoire.",
+        "getKey": "Obtenir une clé",
+        "keyLabel": "Clé d’API",
+        "keyPlaceholder": "AIza…",
+        "keyStored": "Une clé est enregistrée — saisissez-en une nouvelle pour la remplacer",
+        "keyHint": "Enregistrée chiffrée. Laissez vide pour conserver la clé actuelle.",
+        "save": "Enregistrer la clé",
+        "saved": "Clé enregistrée",
+        "saveFailed": "Impossible d’enregistrer la clé.",
+        "test": "Tester la clé",
+        "testOk": "Google Books a accepté la clé.",
+        "testFailed": "Le test n’a pas pu être effectué."
+      },
+      "files": {
+        "title": "Fichiers",
+        "description": "Où sont placés les livres et livres audio importés.",
+        "booksPath": "Chemin de la bibliothèque de livres",
+        "audiobooksPath": "Chemin de la bibliothèque de livres audio",
+        "pathHint": "Utilisez le même montage que votre client de téléchargement, sinon les fichiers sont copiés au lieu d’être liés physiquement.",
+        "bookTemplate": "Nommage des livres",
+        "audiobookTemplate": "Nommage des livres audio",
+        "templateHint": "Jetons disponibles : {author}, {title}, {year}, {format}, {language}. Les pistes d’un livre audio conservent leurs noms d’origine dans le dossier généré.",
+        "defaultProfile": "Profil de qualité par défaut",
+        "noDefaultProfile": "Choisir selon le type d’édition",
+        "defaultProfileHint": "Utilisé lorsqu’une nouvelle édition n’a aucun profil de son type à hériter.",
+        "save": "Enregistrer les réglages de fichiers",
+        "saved": "Réglages de fichiers enregistrés",
+        "saveFailed": "Impossible d’enregistrer ces réglages."
+      },
+      "profiles": {
+        "title": "Profils de qualité des livres",
+        "description": "Quels formats sont autorisés, et lequel suffit pour arrêter les mises à niveau.",
+        "kind": "{{kind}}",
+        "cutoff": "seuil {{format}}",
+        "noCutoff": "aucun seuil",
+        "none": "Aucun profil pour le moment.",
+        "editHint": "La modification des profils n’est pas encore dans l’interface ; les points d’accès /api/book-quality-profiles acceptent les changements."
+      }
     }
   },
   "medias": {

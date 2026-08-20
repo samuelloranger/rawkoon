@@ -9,17 +9,30 @@ The feature is off by default. Until it is enabled, a movies-and-shows instance
 behaves exactly as before: no books navigation, no book searches, and no extra
 indexer traffic.
 
-::: warning Configured from the command line
-Books have no settings screen yet. Enabling the feature, storing the Google
-Books key, and setting the library paths are done with the
-<code>configureBooks</code> script described below. Everything after that —
-adding books, monitoring, searching, grabbing — happens in the web interface.
-:::
-
 ## Turn it on
 
-Run the script inside the container. Each flag is optional, so you can set one
-thing at a time.
+Everything is in **Settings → Books**, in this order:
+
+1. **Google Books** — paste an API key and save it. Get one from the Google
+   Cloud console with the Books API enabled on the project. **Test key** checks
+   it against the live API before you rely on it.
+2. **Files** — set the books and audiobooks library paths.
+3. **Book library** — switch the feature on. The switch stays inert until a key
+   is stored, because a Books section whose every search fails on
+   authentication is worse than no Books section.
+
+The key is stored encrypted with the instance's `SECRET_KEY` and is never sent
+back to the browser: the field shows whether a key exists, and submitting it
+empty keeps the current one. A key written straight into the database is treated
+as unconfigured, so it cannot be set with SQL.
+
+Both library paths must be inside a volume the container can write to, and — as
+with movies and shows — inside the same mount your download client sees, or
+files are copied instead of hardlinked.
+
+::: details Configuring without the interface
+The same settings can be applied from a shell, which is useful for scripted
+setup. Each flag is optional.
 
 ```bash
 docker compose exec rawkoon bun apps/api/src/scripts/configureBooks.ts \
@@ -34,14 +47,10 @@ docker compose exec rawkoon bun apps/api/src/scripts/configureBooks.ts \
 docker compose exec rawkoon bun apps/api/src/scripts/configureBooks.ts --status
 ```
 
-The Google Books key must be set through the script rather than written into the
-database directly: it is encrypted with the instance's `SECRET_KEY`, and a
-plaintext value is treated as unconfigured. Get a key from the Google Cloud
-console and enable the Books API on the project.
-
-Both library paths must be inside a volume the container can write to, and — as
-with movies and shows — inside the same mount your download client sees, or
-files are copied instead of hardlinked.
+The script also has `--fix-languages`, which re-derives every stored book's
+language from its ISBN and corrects rows where the provider disagreed. There is
+no equivalent in the interface.
+:::
 
 ## Editions
 
@@ -83,10 +92,9 @@ Format order carries real meaning. In the seeded ebook profile `epub` outranks
 `pdf` because a pdf of a book is usually a scan; in the audiobook profile `m4b`
 outranks `mp3` because one chaptered file beats a directory of tracks.
 
-::: tip
-Profiles have a full API but no admin screen yet. The two seeded profiles cover
-most libraries; changing them means using `/api/book-quality-profiles`.
-:::
+**Settings → Books** lists the profiles with their format order and cutoff, and
+sets which one new editions default to. Editing a profile's rules is not in the
+interface yet; the `/api/book-quality-profiles` endpoints accept changes.
 
 ## Searching and grabbing
 
@@ -144,13 +152,16 @@ identifier. Two writers with the same name are one author to Rawkoon.
 
 ## Files and import
 
-Completed downloads are imported with the same post-processing setting as media,
-using these templates:
+Completed downloads are imported with the same post-processing setting as media.
+The naming templates are in **Settings → Books**, and default to:
 
 ```
 Books       {author}/{title} ({year})/{title} ({year}) [{format}]
 Audiobooks  {author}/{title} ({year})/{title}
 ```
+
+Available tokens are `{author}`, `{title}`, `{year}`, `{format}` and
+`{language}`.
 
 An ebook grab often ships several formats of the same book. Every format the
 profile allows is imported as a file on that one edition; the rest are dropped.

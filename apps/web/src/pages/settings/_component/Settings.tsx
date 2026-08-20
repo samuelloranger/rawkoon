@@ -13,6 +13,7 @@ import { ApiKeysTab } from "@/pages/settings/_component/ApiKeysTab";
 import { RecentActivityTab } from "@/pages/settings/_component/RecentActivityTab";
 import { OidcProvidersTab } from "@/pages/settings/_component/OidcProvidersTab";
 import { BlocklistTab } from "@/pages/settings/_component/BlocklistTab";
+import { BooksSettingsTab } from "@/pages/settings/_component/BooksSettingsTab";
 import { useCurrentUser } from "@/lib/auth/useAuth";
 import { cn } from "@/lib/utils";
 import {
@@ -28,6 +29,7 @@ import {
   Settings as SettingsIcon,
   KeyRound,
   ShieldBan,
+  BookOpen,
   type LucideIcon,
 } from "lucide-react";
 import { usePrefetchRoute } from "@/lib/routing/usePrefetchRoute";
@@ -44,6 +46,7 @@ export type Tab =
   | "sessions"
   | "api-keys"
   | "media"
+  | "books"
   | "releases"
   | "blocklist";
 
@@ -108,6 +111,11 @@ export function Settings() {
           id: "media",
           label: t("settings.media.title"),
           icon: Clapperboard,
+        },
+        {
+          id: "books",
+          label: t("settings.books.title"),
+          icon: BookOpen,
         },
         {
           id: "releases",
@@ -217,6 +225,9 @@ export function Settings() {
           {activeTab === "jobs" && currentUser?.is_admin && <JobsTab />}
           {activeTab === "media" && currentUser?.is_admin && (
             <MediaSettingsTab />
+          )}
+          {activeTab === "books" && currentUser?.is_admin && (
+            <BooksSettingsTab />
           )}
           {activeTab === "releases" && currentUser?.is_admin && <ReleasesTab />}
           {activeTab === "blocklist" && currentUser?.is_admin && (

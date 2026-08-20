@@ -239,6 +239,12 @@ export interface MediaPostProcessingSettings {
   post_processing_enabled: boolean;
   default_quality_profile_id: number | null;
   active_indexer_manager: IndexerManagerType | null;
+  /** Book fields share this row: post-processing is per instance, not per kind. */
+  books_library_path: string | null;
+  audiobooks_library_path: string | null;
+  book_template: string;
+  audiobook_template: string;
+  default_book_quality_profile_id: number | null;
   updated_at: string;
 }
 
@@ -257,6 +263,11 @@ export interface UpdateMediaPostProcessingSettingsRequest {
   post_processing_enabled?: boolean;
   default_quality_profile_id?: number | null;
   active_indexer_manager?: IndexerManagerType | null;
+  books_library_path?: string | null;
+  audiobooks_library_path?: string | null;
+  book_template?: string;
+  audiobook_template?: string;
+  default_book_quality_profile_id?: number | null;
 }
 
 export interface LibraryScanResponse {

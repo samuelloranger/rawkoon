@@ -6,6 +6,7 @@ import { prowlarrIntegrationRoutes } from "./prowlarr";
 import { jackettIntegrationRoutes } from "./jackett";
 import { oidcIntegrationRoutes } from "./oidc";
 import { localAiIntegrationRoutes } from "./local-ai";
+import { googleBooksIntegrationRoutes } from "./googlebooks";
 
 export const integrationsRoutes = new Elysia({ prefix: "/api/integrations" })
   .use(tmdbIntegrationRoutes)
@@ -14,4 +15,5 @@ export const integrationsRoutes = new Elysia({ prefix: "/api/integrations" })
   .use(prowlarrIntegrationRoutes)
   .use(jackettIntegrationRoutes)
   .use(oidcIntegrationRoutes)
-  .use(localAiIntegrationRoutes);
+  .use(localAiIntegrationRoutes)
+  .use(googleBooksIntegrationRoutes);

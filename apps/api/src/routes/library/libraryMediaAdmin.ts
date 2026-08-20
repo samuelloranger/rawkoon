@@ -44,6 +44,11 @@ function mapSettings(row: {
   postProcessingEnabled: boolean;
   defaultQualityProfileId?: number | null;
   activeIndexerManager?: string | null;
+  booksLibraryPath?: string | null;
+  audiobooksLibraryPath?: string | null;
+  bookTemplate?: string;
+  audiobookTemplate?: string;
+  defaultBookQualityProfileId?: number | null;
   updatedAt: Date;
 }) {
   return {
@@ -57,6 +62,14 @@ function mapSettings(row: {
     post_processing_enabled: row.postProcessingEnabled,
     default_quality_profile_id: row.defaultQualityProfileId ?? null,
     active_indexer_manager: row.activeIndexerManager ?? null,
+    // Book paths and templates live on the same row: post-processing settings
+    // are per-instance, not per-media-kind, and splitting them would mean two
+    // places to look for "where does my library go".
+    books_library_path: row.booksLibraryPath ?? null,
+    audiobooks_library_path: row.audiobooksLibraryPath ?? null,
+    book_template: row.bookTemplate ?? "",
+    audiobook_template: row.audiobookTemplate ?? "",
+    default_book_quality_profile_id: row.defaultBookQualityProfileId ?? null,
     updated_at: row.updatedAt.toISOString(),
   };
 }
@@ -93,6 +106,11 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
           postProcessingEnabled?: boolean;
           defaultQualityProfileId?: number | null;
           activeIndexerManager?: string | null;
+          booksLibraryPath?: string | null;
+          audiobooksLibraryPath?: string | null;
+          bookTemplate?: string;
+          audiobookTemplate?: string;
+          defaultBookQualityProfileId?: number | null;
         } = {};
         if (body.movies_library_path !== undefined)
           update.moviesLibraryPath = body.movies_library_path;
@@ -132,6 +150,17 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
           }
           update.activeIndexerManager = body.active_indexer_manager;
         }
+        if (body.books_library_path !== undefined)
+          update.booksLibraryPath = body.books_library_path;
+        if (body.audiobooks_library_path !== undefined)
+          update.audiobooksLibraryPath = body.audiobooks_library_path;
+        if (body.book_template !== undefined)
+          update.bookTemplate = body.book_template;
+        if (body.audiobook_template !== undefined)
+          update.audiobookTemplate = body.audiobook_template;
+        if (body.default_book_quality_profile_id !== undefined)
+          update.defaultBookQualityProfileId =
+            body.default_book_quality_profile_id;
 
         let row = await prisma.mediaSettings.findUnique({ where: { id: 1 } });
         if (!row) {
@@ -164,6 +193,13 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
         default_quality_profile_id: t.Optional(t.Union([t.Number(), t.Null()])),
         active_indexer_manager: t.Optional(
           t.Union([t.Literal("prowlarr"), t.Literal("jackett"), t.Null()]),
+        ),
+        books_library_path: t.Optional(t.Union([t.String(), t.Null()])),
+        audiobooks_library_path: t.Optional(t.Union([t.String(), t.Null()])),
+        book_template: t.Optional(t.String({ maxLength: 500 })),
+        audiobook_template: t.Optional(t.String({ maxLength: 500 })),
+        default_book_quality_profile_id: t.Optional(
+          t.Union([t.Number(), t.Null()]),
         ),
       }),
     },

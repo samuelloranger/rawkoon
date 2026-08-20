@@ -12,4 +12,6 @@ export const INTEGRATION_ENDPOINTS = {
   OIDC: "/api/integrations/oidc",
   LOCAL_AI: "/api/integrations/local-ai",
   LOCAL_AI_TEST: "/api/integrations/local-ai/test",
+  GOOGLE_BOOKS: "/api/integrations/googlebooks",
+  GOOGLE_BOOKS_TEST: "/api/integrations/googlebooks/test",
 } as const;
