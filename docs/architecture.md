@@ -69,6 +69,14 @@ The important distinction is:
 See [Media metadata](/library/metadata) for how those values are obtained and
 corrected.
 
+Books use their own tables rather than sharing <code>LibraryMedia</code>. A
+<code>LibraryBook</code> keeps the Google Books identity and catalog fields; a
+<code>BookEdition</code> is the ebook or audiobook of that title and owns the
+monitoring state, quality profile, and files. Download history is shared with
+media through a nullable edition reference, with a check constraint and a
+second, disjoint partial unique index so a book grab and a media grab are
+constrained independently. See [Books and audiobooks](/library/books).
+
 ## Download lifecycle
 
     Add title → choose profile → search releases → score or reject candidates
@@ -92,7 +100,9 @@ language reindexing, and remuxing.
 
 Scheduled work refreshes upcoming releases, syncs show episodes, checks
 download completion, polls indexer RSS feeds, runs weekly library integrity
-checks, and refreshes attention alerts. Library migration and file-heavy jobs
+checks, and refreshes attention alerts. When the book library is enabled, two
+more jobs run: a book release sweep that also searches for format upgrades, and
+a daily check for new titles from monitored authors. Library migration and file-heavy jobs
 run one at a time to avoid competing writes.
 
 ## Realtime and health
