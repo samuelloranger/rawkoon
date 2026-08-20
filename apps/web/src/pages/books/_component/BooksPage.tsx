@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useBooks } from "../_hooks/useBooks";
+import { editionChipLabel } from "./editionLabel";
 import { AddBookDialog } from "./AddBookDialog";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -35,7 +36,7 @@ function EditionChip({
       title={`${kind}: ${status}${format ? ` (${format})` : ""}`}
     >
       <Icon className="h-3 w-3" />
-      {format ?? status}
+      {editionChipLabel(status, format)}
     </span>
   );
 }
