@@ -14,10 +14,9 @@ service.
 | Prowlarr or Jackett | Indexer search. Choose one active indexer manager for the library grab pipeline. |
 | Jellyfin or Plex | Latest additions, watch activity, and supported notifications. |
 
-The Google Books key is the one credential without a settings screen. Set it
-with the <code>configureBooks</code> script, which encrypts it the same way the
-other integrations are stored — a key written straight into the database is
-treated as unconfigured.
+The Google Books key is set in **Settings → Books** rather than on this page,
+next to the library paths and the feature switch it depends on. It is encrypted
+the same way the other integrations are.
 
 Choose one active download client. Rawkoon labels its torrents, polls the
 client automatically, and detects stalled or expired downloads without

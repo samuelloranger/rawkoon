@@ -32,6 +32,10 @@ export function useUpdateAppSettings() {
       queryClient.invalidateQueries({ queryKey: queryKeys.medias.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.library.all });
+      // Navigation is gated on the feature flags, which are served separately
+      // from /api/settings — without this, enabling books leaves the Books
+      // entry missing until a reload.
+      queryClient.invalidateQueries({ queryKey: ["system", "features"] });
     },
   });
 }

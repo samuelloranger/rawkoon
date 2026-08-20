@@ -120,6 +120,7 @@ export const queryKeys = {
       [...queryKeys.integrations.all, "download-client", "hook"] as const,
     tmdb: () => [...queryKeys.integrations.all, "tmdb"] as const,
     localAi: () => [...queryKeys.integrations.all, "local-ai"] as const,
+    googleBooks: () => [...queryKeys.integrations.all, "googlebooks"] as const,
   },
 
   admin: {

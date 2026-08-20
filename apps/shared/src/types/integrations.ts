@@ -92,6 +92,30 @@ export interface TmdbIntegrationUpdateResponse {
   integration: TmdbIntegration;
 }
 
+export interface GoogleBooksIntegration {
+  type: "googlebooks";
+  enabled: boolean;
+  /** Always empty: the stored key is never sent back to the client. */
+  api_key: string;
+  /** Whether a key is stored, so the form can say so without revealing it. */
+  has_api_key: boolean;
+}
+
+export interface GoogleBooksIntegrationResponse {
+  integration: GoogleBooksIntegration;
+}
+
+export interface GoogleBooksIntegrationUpdateResponse {
+  success: boolean;
+  integration: GoogleBooksIntegration;
+}
+
+/** A failed test names the reason; a transient outage is not a bad key. */
+export interface GoogleBooksTestResponse {
+  success: boolean;
+  error?: string;
+}
+
 export interface OidcProvider {
   id: string;
   slug: string;
