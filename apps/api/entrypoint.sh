@@ -76,4 +76,6 @@ else
 fi
 
 echo "Starting API server..."
-exec bun src/index.ts
+# --no-env-file: configuration comes from the container environment
+# (compose env_file / -e), never from a .env inside a mounted volume.
+exec bun --no-env-file src/index.ts
