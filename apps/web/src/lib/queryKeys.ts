@@ -16,6 +16,37 @@ export const queryKeys = {
     app: () => [...queryKeys.settings.all, "app"] as const,
   },
 
+  books: {
+    all: ["books"] as const,
+    list: (params?: {
+      q?: string;
+      kind?: string;
+      status?: string;
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortDir?: string;
+    }) =>
+      [
+        "books",
+        "list",
+        params?.q,
+        params?.kind,
+        params?.status,
+        params?.page,
+        params?.limit,
+        params?.sortBy,
+        params?.sortDir,
+      ] as const,
+    detail: (id: number) => ["books", "detail", id] as const,
+    providerSearch: (q: string) => ["books", "provider-search", q] as const,
+    editionFiles: (id: number, kind: string) =>
+      ["books", "edition-files", id, kind] as const,
+    releaseSearch: (id: number, kind: string) =>
+      ["books", "release-search", id, kind] as const,
+    qualityProfiles: () => ["books", "quality-profiles"] as const,
+  },
+
   downloads: {
     all: ["downloads"] as const,
     speed: () => [...queryKeys.downloads.all, "speed"] as const,

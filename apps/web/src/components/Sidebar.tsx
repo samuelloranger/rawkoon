@@ -13,7 +13,8 @@ import { usePrefetchRoute } from "@/lib/routing/usePrefetchRoute";
 import { useAuth } from "@/lib/auth/useAuth";
 import { useTheme } from "@/lib/app/useTheme";
 import { cn } from "@/lib/utils";
-import { navSections } from "@/lib/routing/navigation";
+import { visibleNavSections } from "@/lib/routing/navigation";
+import { useFeatures } from "@/lib/routing/useFeatures";
 import type { NavPosition } from "@rawkoon/shared/types";
 import { NavPositionPicker } from "@/components/NavPositionPicker";
 import { useNavPosition } from "@/pages/settings/useNavPosition";
@@ -24,6 +25,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onOpenQuickActions, position }: SidebarProps) {
+  const { data: features } = useFeatures();
+  const sections = visibleNavSections(features ?? {});
   const { user } = useAuth();
   const { t, i18n } = useTranslation("common");
   const router = useRouterState();
@@ -160,7 +163,7 @@ export function Sidebar({ onOpenQuickActions, position }: SidebarProps) {
               : "flex-1 overflow-y-auto px-3 py-2 space-y-5",
           )}
         >
-          {navSections.map((section, sectionIndex) => (
+          {sections.map((section, sectionIndex) => (
             <div
               key={section.labelKey ?? sectionIndex}
               className={cn(!isHorizontal && "space-y-0")}

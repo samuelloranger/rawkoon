@@ -27,3 +27,9 @@ export const QBIT_CATEGORY_RAWKOON_MOVIES = "rawkoon-movies";
 
 /** qBittorrent category for library TV grabs */
 export const QBIT_CATEGORY_RAWKOON_SHOWS = "rawkoon-shows";
+
+/** qBittorrent category for ebook grabs */
+export const QBIT_CATEGORY_RAWKOON_BOOKS = "rawkoon-books";
+
+/** qBittorrent category for audiobook grabs */
+export const QBIT_CATEGORY_RAWKOON_AUDIOBOOKS = "rawkoon-audiobooks";

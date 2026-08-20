@@ -37,3 +37,7 @@ export interface LocalAiConfig {
   base_url: string;
   model: string;
 }
+
+export interface GoogleBooksIntegrationConfig {
+  api_key: string;
+}

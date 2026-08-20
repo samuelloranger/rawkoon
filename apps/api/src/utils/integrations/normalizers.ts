@@ -6,6 +6,7 @@ import type {
   SonarrIntegrationConfig,
   TmdbIntegrationConfig,
   LocalAiConfig,
+  GoogleBooksIntegrationConfig,
 } from "./types";
 import { decrypt } from "@rawkoon/api/services/crypto";
 
@@ -194,4 +195,21 @@ export const normalizeLocalAiConfig = (
   if (typeof cfg.base_url !== "string" || !cfg.base_url) return null;
   if (typeof cfg.model !== "string" || !cfg.model) return null;
   return { base_url: cfg.base_url.replace(/\/+$/, ""), model: cfg.model };
+};
+
+/**
+ * Google Books is the sole book metadata provider. A key is mandatory:
+ * keyless requests hit a shared anonymous quota that is permanently
+ * exhausted (measured HTTP 429), so an unkeyed integration is useless
+ * rather than degraded.
+ */
+export const normalizeGoogleBooksConfig = (
+  config: unknown,
+): GoogleBooksIntegrationConfig | null => {
+  if (!config || typeof config !== "object" || Array.isArray(config))
+    return null;
+  const cfg = config as Record<string, unknown>;
+  const apiKey = normalizeSecret(cfg.api_key);
+  if (!apiKey) return null;
+  return { api_key: apiKey };
 };

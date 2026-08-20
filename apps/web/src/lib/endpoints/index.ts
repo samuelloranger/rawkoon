@@ -2,6 +2,7 @@ export * from "./admin";
 export * from "./auth";
 export * from "./dashboard";
 export * from "./library";
+export * from "./books";
 export * from "./medias";
 export * from "./notifications";
 export * from "./integrations";

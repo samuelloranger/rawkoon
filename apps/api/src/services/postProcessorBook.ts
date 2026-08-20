@@ -1,0 +1,458 @@
+import { mkdir, readdir, stat } from "node:fs/promises";
+import { basename, extname, join } from "node:path";
+
+import { prisma } from "@rawkoon/api/db";
+import {
+  placeFile,
+  resolveTorrentContentPath,
+} from "@rawkoon/api/services/postProcessorHelpers";
+import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
+import { renderBookTemplate } from "@rawkoon/api/utils/medias/fileTemplate";
+import {
+  remapPath,
+  scanMediaInfo,
+} from "@rawkoon/api/utils/medias/mediainfoScanner";
+import {
+  formatForPath,
+  readEbookMetadata,
+} from "@rawkoon/api/utils/books/ebookMetadata";
+import {
+  isAudiobookFormat,
+  parseBookReleaseTitle,
+} from "@rawkoon/api/utils/books/bookReleaseParser";
+import type { BookEditionKind, BookFormat } from "@rawkoon/shared/types";
+
+/**
+ * Book and audiobook import.
+ *
+ * A third sibling to postProcessorSingle and postProcessorSeasonPack, which
+ * both assume ONE video file per grab. Books break that assumption as the norm
+ * rather than the exception:
+ *
+ *  - An ebook grab commonly ships epub + mobi + azw3 + pdf of the same book.
+ *    Every format the profile allows is imported as a sibling BookFile row
+ *    under the one edition; the rest are dropped.
+ *  - An audiobook grab is often dozens of mp3s plus a cue sheet and cover art.
+ *    Each audio file becomes a BookFile row, and edition-level duration and
+ *    size are aggregated by DB trigger.
+ */
+
+/** Junk that ships alongside real book files and must never be imported. */
+const DISCARD_EXT = new Set([
+  ".nfo",
+  ".txt",
+  ".cue",
+  ".sfv",
+  ".md5",
+  ".url",
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".webp",
+]);
+
+const SAMPLE_RE = /\bsample\b/i;
+
+const MAX_WALK_ENTRIES = 5000;
+
+/** Recursively collect candidate book files under a path. */
+async function collectFiles(root: string): Promise<string[]> {
+  const found: string[] = [];
+  const queue: string[] = [root];
+
+  let visited = 0;
+  while (queue.length > 0 && visited < MAX_WALK_ENTRIES) {
+    const current = queue.shift();
+    if (!current) break;
+    visited++;
+
+    let st: Awaited<ReturnType<typeof stat>>;
+    try {
+      st = await stat(current);
+    } catch {
+      continue;
+    }
+
+    if (st.isFile()) {
+      found.push(current);
+      continue;
+    }
+    if (!st.isDirectory()) continue;
+
+    let entries: string[];
+    try {
+      entries = await readdir(current);
+    } catch {
+      continue;
+    }
+    for (const e of entries) queue.push(join(current, e));
+  }
+
+  return found;
+}
+
+export interface BookImportResult {
+  imported: number;
+  destinationPath: string | null;
+  skipped: string[];
+  error?: string;
+}
+
+/**
+ * Import a completed book download into the library.
+ *
+ * `allowedFormats` comes from the edition's profile and is authoritative: a
+ * grab that happens to include a pdf when the profile only allows epub imports
+ * the epub and drops the pdf.
+ */
+export async function postProcessBook(opts: {
+  editionId: number;
+  /** Resolved absolute path of the completed torrent's content. */
+  contentPath: string;
+  releaseTitle: string;
+  fileOperation: "hardlink" | "move";
+}): Promise<BookImportResult> {
+  const edition = await prisma.bookEdition.findUnique({
+    where: { id: opts.editionId },
+    include: {
+      book: {
+        select: {
+          title: true,
+          authors: true,
+          language: true,
+          publishedYear: true,
+        },
+      },
+      bookQualityProfile: { select: { allowedFormats: true } },
+    },
+  });
+  if (!edition)
+    return {
+      imported: 0,
+      destinationPath: null,
+      skipped: [],
+      error: "Edition not found",
+    };
+
+  const kind = edition.kind as BookEditionKind;
+  const settings = await prisma.mediaSettings.upsert({
+    where: { id: 1 },
+    update: {},
+    create: { id: 1 },
+  });
+
+  const libraryRoot =
+    kind === "audiobook"
+      ? settings.audiobooksLibraryPath
+      : settings.booksLibraryPath;
+  if (!libraryRoot) {
+    return {
+      imported: 0,
+      destinationPath: null,
+      skipped: [],
+      error: `No ${kind} library path configured`,
+    };
+  }
+
+  const allowedFormats = edition.bookQualityProfile?.allowedFormats ?? [];
+  const candidates = await collectFiles(opts.contentPath);
+  if (candidates.length === 0) {
+    return {
+      imported: 0,
+      destinationPath: null,
+      skipped: [],
+      error: "No files found in completed download",
+    };
+  }
+
+  const parsedRelease = parseBookReleaseTitle(opts.releaseTitle);
+  const skipped: string[] = [];
+
+  type Keeper = { path: string; format: BookFormat };
+  const keepers: Keeper[] = [];
+
+  for (const filePath of candidates) {
+    const ext = extname(filePath).toLowerCase();
+    if (DISCARD_EXT.has(ext)) continue;
+    if (SAMPLE_RE.test(basename(filePath))) {
+      skipped.push(`${basename(filePath)} (sample)`);
+      continue;
+    }
+    const format = formatForPath(filePath);
+    if (!format) {
+      skipped.push(`${basename(filePath)} (unrecognized format)`);
+      continue;
+    }
+    // Keep only files matching the edition's kind: an ebook grab that also
+    // bundles an mp3 teaser must not create audio rows on an ebook edition.
+    const fileIsAudio = isAudiobookFormat(format);
+    if (fileIsAudio !== (kind === "audiobook")) {
+      skipped.push(`${basename(filePath)} (wrong kind for ${kind} edition)`);
+      continue;
+    }
+    if (allowedFormats.length > 0 && !allowedFormats.includes(format)) {
+      skipped.push(`${basename(filePath)} (${format} not allowed by profile)`);
+      continue;
+    }
+    keepers.push({ path: filePath, format });
+  }
+
+  if (keepers.length === 0) {
+    return {
+      imported: 0,
+      destinationPath: null,
+      skipped,
+      error: "No importable files in completed download",
+    };
+  }
+
+  // Best format decides the directory name for ebooks (one file per format);
+  // for audiobooks every keeper lands in the same directory anyway.
+  const bestFormat =
+    allowedFormats.length > 0
+      ? (keepers
+          .slice()
+          .sort(
+            (a, b) =>
+              allowedFormats.indexOf(a.format) -
+              allowedFormats.indexOf(b.format),
+          )[0]?.format ?? keepers[0].format)
+      : keepers[0].format;
+
+  const template =
+    kind === "audiobook" ? settings.audiobookTemplate : settings.bookTemplate;
+
+  const rendered = renderBookTemplate(template, {
+    author: edition.book.authors[0] ?? null,
+    title: edition.book.title,
+    year: edition.book.publishedYear,
+    format: bestFormat,
+    language: edition.book.language,
+  });
+
+  // The template renders a path whose last segment is the file stem for
+  // ebooks, and the containing directory for audiobooks (whose tracks keep
+  // their own names).
+  const relParts = rendered.split("/").filter(Boolean);
+  const destDirRel =
+    kind === "audiobook" ? relParts.join("/") : relParts.slice(0, -1).join("/");
+  const stem = relParts[relParts.length - 1] ?? edition.book.title;
+  const destDir = join(libraryRoot, destDirRel);
+
+  await mkdir(destDir, { recursive: true });
+
+  let imported = 0;
+  for (const keeper of keepers) {
+    const targetName =
+      kind === "audiobook"
+        ? basename(keeper.path)
+        : `${stem}${extname(keeper.path)}`;
+    const dst = join(destDir, targetName);
+
+    try {
+      await placeFile(keeper.path, dst, opts.fileOperation);
+    } catch (e) {
+      skipped.push(
+        `${basename(keeper.path)} (${e instanceof Error ? e.message : "place failed"})`,
+      );
+      continue;
+    }
+
+    let st: Awaited<ReturnType<typeof stat>> | null = null;
+    try {
+      st = await stat(dst);
+    } catch {
+      st = null;
+    }
+
+    let durationSecs: number | null = null;
+    let audioBitrate: number | null = null;
+    let audioCodec: string | null = null;
+    let languageTags: string[] = [];
+
+    if (isAudiobookFormat(keeper.format)) {
+      // Audiobooks reuse mediainfoScanner: MediaInfo handles audio containers
+      // properly, and this is the only source of duration and narrator tags,
+      // since Google Books exposes neither.
+      const info = await scanMediaInfo(dst);
+      if (info) {
+        durationSecs = info.durationSecs;
+        const track = info.audioTracks[0];
+        if (track) {
+          audioBitrate = track.bitrate_kbps;
+          audioCodec = track.codec;
+        }
+        languageTags = info.audioTracks
+          .map((t) => t.language)
+          .filter((l): l is string => !!l);
+      }
+    } else {
+      const meta = await readEbookMetadata(dst);
+      if (meta.language) languageTags = [meta.language];
+    }
+
+    if (languageTags.length === 0) {
+      const fallback = parsedRelease.language ?? edition.book.language;
+      if (fallback) languageTags = [fallback];
+    }
+
+    const fileIno = st
+      ? { fileDev: String(st.dev), fileIno: String(st.ino) }
+      : { fileDev: null, fileIno: null };
+
+    // Idempotent: re-importing the same destination replaces its row rather
+    // than accumulating duplicates, since a retried post-process is normal.
+    await prisma.bookFile.deleteMany({ where: { filePath: dst } });
+    await prisma.bookFile.create({
+      data: {
+        editionId: opts.editionId,
+        filePath: dst,
+        fileName: basename(dst),
+        sizeBytes: BigInt(st?.size ?? 0),
+        format: keeper.format,
+        durationSecs,
+        audioBitrate: audioBitrate ?? parsedRelease.audioBitrate,
+        audioCodec,
+        isRetail: parsedRelease.isRetail,
+        releaseGroup: parsedRelease.releaseGroup,
+        languageTags,
+        ...fileIno,
+        fileMtimeMs: st ? BigInt(Math.trunc(st.mtimeMs)) : null,
+      },
+    });
+
+    imported++;
+  }
+
+  if (imported === 0) {
+    return {
+      imported: 0,
+      destinationPath: null,
+      skipped,
+      error: "Every candidate file failed to import",
+    };
+  }
+
+  // Narrators come from container tags, never from the metadata provider.
+  const narrators = await collectNarrators(opts.editionId);
+
+  await prisma.bookEdition.update({
+    where: { id: opts.editionId },
+    data: {
+      status: "downloaded",
+      ...(narrators.length > 0 ? { narrators } : {}),
+    },
+  });
+
+  return { imported, destinationPath: destDir, skipped };
+}
+
+/**
+ * Audiobook narrators as recorded in the files' audio track titles. Best
+ * effort: many releases carry nothing, and that is fine — the field stays empty
+ * rather than being invented.
+ */
+async function collectNarrators(editionId: number): Promise<string[]> {
+  const files = await prisma.bookFile.findMany({
+    where: { editionId },
+    select: { filePath: true, format: true },
+    take: 1,
+  });
+  const first = files[0];
+  if (!first) return [];
+  const format = first.format as BookFormat;
+  if (!isAudiobookFormat(format)) return [];
+
+  const info = await scanMediaInfo(first.filePath);
+  if (!info) return [];
+  const titles = info.audioTracks
+    .map((t) => t.title)
+    .filter((t): t is string => !!t && t.length < 120);
+  return [...new Set(titles)];
+}
+
+/**
+ * Entry point used by the post-process job. Resolves the completed torrent's
+ * content path from the download client, then imports it.
+ *
+ * Returns the same shape as postProcessorSingle.postProcess so
+ * downloadOutcome.finishPostProcess can dispatch on the download_history row's
+ * foreign key without special-casing the result.
+ */
+export async function postProcessBookDownload(
+  downloadHistoryId: number,
+): Promise<
+  | { success: true; destinationPath: string }
+  | { success: false; reason: string }
+> {
+  const [dh, settings] = await Promise.all([
+    prisma.downloadHistory.findUnique({
+      where: { id: downloadHistoryId },
+      select: {
+        id: true,
+        bookEditionId: true,
+        torrentHash: true,
+        releaseTitle: true,
+        failed: true,
+        completedAt: true,
+      },
+    }),
+    prisma.mediaSettings.findUnique({ where: { id: 1 } }),
+  ]);
+
+  if (!dh?.bookEditionId) {
+    return {
+      success: false,
+      reason: "Download history or book edition not found",
+    };
+  }
+  if (dh.failed || !dh.completedAt) {
+    return { success: false, reason: "Download not completed" };
+  }
+  if (!settings?.postProcessingEnabled) {
+    return { success: false, reason: "Post-processing disabled" };
+  }
+
+  const hash = dh.torrentHash?.trim();
+  if (!hash) return { success: false, reason: "Torrent hash unknown" };
+
+  const active = await resolveActiveAdapter();
+  if (!active) {
+    return { success: false, reason: "Download client not configured" };
+  }
+
+  const tor = await active.adapter.getTorrent(hash);
+  if (!tor) {
+    return { success: false, reason: "Torrent not found in download client" };
+  }
+
+  const contentBase = resolveTorrentContentPath(
+    tor.contentPath,
+    tor.savePath,
+    tor.name,
+  );
+  if (!contentBase) {
+    return { success: false, reason: "Could not resolve torrent content path" };
+  }
+
+  const result = await postProcessBook({
+    editionId: dh.bookEditionId,
+    contentPath: remapPath(contentBase),
+    releaseTitle: dh.releaseTitle,
+    fileOperation: settings.fileOperation === "move" ? "move" : "hardlink",
+  });
+
+  if (result.error || !result.destinationPath) {
+    return {
+      success: false,
+      reason: result.error ?? "Import produced no files",
+    };
+  }
+  if (result.skipped.length > 0) {
+    console.warn(
+      `[postProcessBook] dh#${downloadHistoryId} skipped ${result.skipped.length} file(s): ${result.skipped.join("; ")}`,
+    );
+  }
+  return { success: true, destinationPath: result.destinationPath };
+}

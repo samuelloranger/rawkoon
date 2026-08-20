@@ -9,7 +9,8 @@ import { useTheme } from "@/lib/app/useTheme";
 import { cn } from "@/lib/utils";
 import { ChevronDown, LogOut, Settings } from "lucide-react";
 import { usePrefetchRoute } from "@/lib/routing/usePrefetchRoute";
-import { navSections } from "@/lib/routing/navigation";
+import { visibleNavSections } from "@/lib/routing/navigation";
+import { useFeatures } from "@/lib/routing/useFeatures";
 
 interface UserMenuProps {
   user: User;
@@ -17,6 +18,8 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ user, onLogout }: UserMenuProps) {
+  const { data: features } = useFeatures();
+  const sections = visibleNavSections(features ?? {});
   const { t, i18n } = useTranslation("common");
   const router = useRouterState();
   const currentPath = router.location.pathname;
@@ -98,7 +101,7 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
               "block lg:hidden",
             )}
           >
-            {navSections.map((section, sectionIndex) => (
+            {sections.map((section, sectionIndex) => (
               <div
                 key={section.labelKey ?? sectionIndex}
                 className="pb-2 last:pb-0"
