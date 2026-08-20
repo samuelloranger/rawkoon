@@ -143,6 +143,7 @@ export function useRescanEdition(bookId: number) {
     mutationFn: (kind: BookEditionKind) =>
       fetchApi<{
         registered: number;
+        refreshed: number;
         removed: number;
         directory: string | null;
       }>(BOOKS_ENDPOINTS.RESCAN(bookId, kind), { method: "POST" }),

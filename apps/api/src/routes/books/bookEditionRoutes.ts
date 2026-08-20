@@ -212,6 +212,7 @@ export const bookEditionRoutes = new Elysia()
       if (result.error) return badRequest(set, result.error);
       return {
         registered: result.registered,
+        refreshed: result.refreshed,
         removed: result.removed,
         directory: result.directory,
       };

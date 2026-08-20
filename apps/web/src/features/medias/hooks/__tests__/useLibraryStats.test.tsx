@@ -2,12 +2,16 @@ import { describe, it, expect, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { FetcherProvider, type Fetcher } from "@/lib/api/context";
+import { QUERY_DEFAULTS } from "@/lib/api/queryClient";
 import { useLibraryStats } from "@/features/medias/hooks/useLibraryStats";
 
+// Built from the real production defaults, not a copy of them: a hand-written
+// mirror is how a wrong `refetchOnMount` once passed its own test.
 function makeClient() {
   return new QueryClient({
     defaultOptions: {
-      queries: { retry: false, refetchOnMount: false, staleTime: 30 * 1000 },
+      ...QUERY_DEFAULTS,
+      queries: { ...QUERY_DEFAULTS.queries, retry: false },
     },
   });
 }
