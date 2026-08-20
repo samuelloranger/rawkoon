@@ -1931,13 +1931,16 @@
       "none": "No authors yet. Add a book and its author appears here.",
       "bookCount_one": "{{count}} book in library",
       "bookCount_other": "{{count}} books in library",
-      "from": "from {{date}}",
-      "checked": "checked {{date}}",
       "never": "—",
       "noKindSelected": "No kind selected — new titles arrive as ebooks",
       "monitored": "monitored",
       "off": "off",
-      "saveFailed": "Could not save that change."
+      "saveFailed": "Could not save that change.",
+      "fromLabel": "Monitored from",
+      "checkedLabel": "Last checked",
+      "neverChecked": "never",
+      "kindsLabel": "Editions to add",
+      "monitorToggle": "Monitor {{name}}"
     },
     "status": {
       "wanted": "Wanted",

@@ -22,6 +22,14 @@ import {
 import { useLibraryEvents } from "@/features/medias/hooks/useLibraryEvents";
 import { PageLayout } from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ApiError } from "@/lib/api/client";
 import {
   useAddEdition,
@@ -35,6 +43,8 @@ import {
   useRescanEdition,
   useUpdateEdition,
 } from "../_hooks/useBooks";
+import { BookCover } from "./BookCover";
+import { stateTokens } from "./bookState";
 
 /**
  * Book detail.
@@ -56,7 +66,9 @@ const formatBytes = (raw: string | null): string => {
   const n = Number(raw);
   if (!Number.isFinite(n) || n === 0) return "—";
   const mb = n / 1_048_576;
-  return mb >= 1024 ? `${(mb / 1024).toFixed(2)} GB` : `${mb.toFixed(1)} MB`;
+  if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
+  // Same rule as the list, so one book does not report two different sizes.
+  return mb >= 10 ? `${Math.round(mb)} MB` : `${mb.toFixed(1)} MB`;
 };
 
 const formatDuration = (secs: number | null): string => {
@@ -66,14 +78,8 @@ const formatDuration = (secs: number | null): string => {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
 
-/** Spine colour per state. Amber wants, sky moves, primary lands. */
-const SPINE: Record<string, string> = {
-  wanted: "bg-amber-500/70",
-  downloading: "bg-sky-400/80",
-  upgrading: "bg-primary-400/80",
-  downloaded: "bg-primary-500",
-  skipped: "bg-neutral-600",
-};
+/** Radix Select has no empty value, so "no profile" needs a sentinel. */
+const NO_PROFILE = "none";
 
 type Step = {
   key: string;
@@ -163,9 +169,12 @@ function AcquisitionTrack({ edition }: { edition: BookEdition }) {
 function ReleaseList({
   bookId,
   kind,
+  isPrimary,
 }: {
   bookId: number;
   kind: BookEditionKind;
+  /** True when the edition holds no files, making the search THE next step. */
+  isPrimary: boolean;
 }) {
   const { t } = useTranslation("common");
   const [enabled, setEnabled] = useState(false);
@@ -216,7 +225,9 @@ function ReleaseList({
       <div className="flex flex-wrap items-center gap-3">
         <Button
           size="sm"
-          variant="secondary"
+          // An edition with no files has exactly one useful next step, so the
+          // search reads as primary there and recedes once files exist.
+          variant={isPrimary ? "default" : "secondary"}
           onClick={() => {
             // Drop the previous grab's banner; it refers to the old list.
             grab.reset();
@@ -381,7 +392,7 @@ function EditionPanel({
   const profiles = (profilesData?.profiles ?? []).filter(
     (p) => p.kind === "both" || p.kind === edition.kind,
   );
-  const spine = SPINE[edition.status] ?? SPINE.skipped;
+  const spine = stateTokens(edition.status).rail;
   // Interpolated into prose, so it has to be the translated word rather than
   // the server's "ebook" / "audiobook".
   const kindLabel = t(
@@ -411,19 +422,17 @@ function EditionPanel({
               {kindLabel}
             </h3>
 
-            <label className="focus-within:ring-primary-500/40 ml-auto flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm text-neutral-300 focus-within:ring-2">
-              <input
-                type="checkbox"
-                checked={edition.monitored}
-                onChange={(e) =>
-                  update.mutate({
-                    kind: edition.kind,
-                    monitored: e.target.checked,
-                  })
-                }
-                className="h-4 w-4 rounded border-neutral-600 bg-neutral-800 accent-primary-500"
-              />
+            {/* A Switch, not a checkbox: the authors page already expresses
+                monitoring this way, and the same idea should not wear two
+                different controls in one feature. */}
+            <label className="ml-auto flex shrink-0 cursor-pointer items-center gap-2 text-sm text-neutral-300">
               {t("books.edition.monitored")}
+              <Switch
+                checked={edition.monitored}
+                onCheckedChange={(checked) =>
+                  update.mutate({ kind: edition.kind, monitored: checked })
+                }
+              />
             </label>
           </header>
 
@@ -431,63 +440,79 @@ function EditionPanel({
             <AcquisitionTrack edition={edition} />
           </div>
 
-          <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs">
-            <div>
-              <dt className="text-neutral-500">{t("books.edition.size")}</dt>
-              <dd className="mt-0.5 text-neutral-200">
-                {formatBytes(edition.total_size_bytes)}
-              </dd>
-            </div>
-            {edition.kind === "audiobook" && (
+          {/* Only shown once there is something to report: an edition with no
+              files rendered "Size —, Files 0", which is noise dressed as data. */}
+          {edition.file_count > 0 && (
+            <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs">
               <div>
-                <dt className="text-neutral-500">
-                  {t("books.edition.duration")}
-                </dt>
+                <dt className="text-neutral-500">{t("books.edition.size")}</dt>
                 <dd className="mt-0.5 text-neutral-200">
-                  {formatDuration(edition.duration_secs)}
+                  {formatBytes(edition.total_size_bytes)}
                 </dd>
               </div>
-            )}
-            <div>
-              <dt className="text-neutral-500">{t("books.edition.files")}</dt>
-              <dd className="mt-0.5 text-neutral-200">{edition.file_count}</dd>
-            </div>
-            {edition.narrators.length > 0 && (
-              <div className="min-w-0">
-                <dt className="text-neutral-500">
-                  {t("books.edition.narratedBy")}
-                </dt>
-                <dd className="mt-0.5 truncate text-neutral-200">
-                  {edition.narrators.join(", ")}
+              {edition.kind === "audiobook" && (
+                <div>
+                  <dt className="text-neutral-500">
+                    {t("books.edition.duration")}
+                  </dt>
+                  <dd className="mt-0.5 text-neutral-200">
+                    {formatDuration(edition.duration_secs)}
+                  </dd>
+                </div>
+              )}
+              <div>
+                <dt className="text-neutral-500">{t("books.edition.files")}</dt>
+                <dd className="mt-0.5 text-neutral-200">
+                  {edition.file_count}
                 </dd>
               </div>
-            )}
-          </dl>
+              {edition.narrators.length > 0 && (
+                <div className="min-w-0">
+                  <dt className="text-neutral-500">
+                    {t("books.edition.narratedBy")}
+                  </dt>
+                  <dd className="mt-0.5 truncate text-neutral-200">
+                    {edition.narrators.join(", ")}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          )}
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <label className="sr-only" htmlFor={`profile-${edition.id}`}>
-              {t("books.edition.profileLabel", { kind: kindLabel })}
-            </label>
-            <select
-              id={`profile-${edition.id}`}
-              value={edition.book_quality_profile_id ?? ""}
-              onChange={(e) =>
+            <Select
+              value={
+                edition.book_quality_profile_id != null
+                  ? String(edition.book_quality_profile_id)
+                  : NO_PROFILE
+              }
+              onValueChange={(value) =>
                 update.mutate({
                   kind: edition.kind,
-                  book_quality_profile_id: e.target.value
-                    ? Number(e.target.value)
-                    : null,
+                  book_quality_profile_id:
+                    value === NO_PROFILE ? null : Number(value),
                 })
               }
-              className="focus-ring rounded-lg border border-neutral-700 bg-neutral-800 px-2.5 py-1.5 text-sm text-neutral-100"
             >
-              <option value="">{t("books.edition.noProfile")}</option>
-              {profiles.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger
+                aria-label={t("books.edition.profileLabel", {
+                  kind: kindLabel,
+                })}
+                className="h-9 w-48"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_PROFILE}>
+                  {t("books.edition.noProfile")}
+                </SelectItem>
+                {profiles.map((p) => (
+                  <SelectItem key={p.id} value={String(p.id)}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             {edition.file_count > 0 && (
               <Button
@@ -569,7 +594,11 @@ function EditionPanel({
             </ul>
           )}
 
-          <ReleaseList bookId={bookId} kind={edition.kind} />
+          <ReleaseList
+            bookId={bookId}
+            kind={edition.kind}
+            isPrimary={edition.file_count === 0}
+          />
         </div>
       </div>
     </section>
@@ -625,30 +654,17 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
       </Link>
 
       <div className="flex flex-col gap-7 sm:flex-row sm:gap-9">
-        {/* The cover as an object: spine shadow on the left, page edge on the
-            right. A flat rectangle reads as a thumbnail; this reads as a book. */}
-        <div className="relative mx-auto w-40 shrink-0 sm:mx-0 sm:w-44">
-          <div className="relative aspect-[2/3] overflow-hidden rounded-sm bg-neutral-950 shadow-2xl ring-1 ring-black/50">
-            {book.cover_url ? (
-              <img
-                src={book.cover_url}
-                alt={t("books.detail.coverAlt", { title: book.title })}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center">
-                <BookOpen className="h-8 w-8 text-neutral-700" />
-              </div>
-            )}
-            <span
-              aria-hidden
-              className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/70 via-black/25 to-transparent"
-            />
-            <span
-              aria-hidden
-              className="absolute inset-y-0 right-0 w-[3px] bg-gradient-to-l from-white/20 to-transparent"
-            />
-          </div>
+        {/* One cover component for the list and the hero, so a coverless book
+            looks the same in both places — and, since Google Books often has no
+            artwork, looks deliberate rather than broken. */}
+        <div className="mx-auto shrink-0 sm:mx-0">
+          <BookCover
+            title={book.title}
+            author={book.authors[0] ?? null}
+            coverUrl={book.cover_url}
+            size="hero"
+            alt={t("books.detail.coverAlt", { title: book.title })}
+          />
         </div>
 
         <div className="min-w-0 flex-1">
@@ -681,49 +697,53 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
             )}
           </p>
 
-          {/* Identifiers get the mono face — they are machine strings. */}
-          <p className="mt-4 flex flex-wrap gap-x-4 font-mono text-[11px] text-neutral-600">
-            {book.isbn13 && (
-              <span>{t("books.detail.isbn", { value: book.isbn13 })}</span>
-            )}
-            <span>{book.google_volume_id}</span>
-          </p>
+          {/* The ISBN is a real identifier someone might look up or paste.
+              The provider's volume id was also printed here; it is an internal
+              key with no meaning outside this app, so it is gone. */}
+          {book.isbn13 && (
+            <p className="mt-4 font-mono text-[11px] text-neutral-500">
+              {t("books.detail.isbn", { value: book.isbn13 })}
+            </p>
+          )}
+        </div>
 
-          <div className="mt-6 flex flex-wrap gap-2">
-            {missingKinds.map((kind) => (
-              <Button
-                key={kind}
-                size="sm"
-                variant="secondary"
-                disabled={addEdition.isPending}
-                onClick={() => addEdition.mutate({ kind })}
-              >
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                {t("books.detail.addEdition", {
-                  kind: t(
-                    `books.kind${kind === "audiobook" ? "Audiobook" : "Ebook"}`,
-                  ),
-                })}
-              </Button>
-            ))}
+        {/* Actions sit at the top right rather than under the metadata, which
+            left the whole right half of the header empty and put a destructive
+            button in the middle of the reading path. */}
+        <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col sm:items-end">
+          {missingKinds.map((kind) => (
             <Button
+              key={kind}
               size="sm"
-              variant="ghost"
-              disabled={deleteBook.isPending}
-              onClick={() => {
-                if (
-                  window.confirm(
-                    t("books.detail.removeConfirm", { title: book.title }),
-                  )
-                ) {
-                  deleteBook.mutate(book.id);
-                }
-              }}
+              variant="secondary"
+              disabled={addEdition.isPending}
+              onClick={() => addEdition.mutate({ kind })}
             >
-              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-              {t("books.detail.remove")}
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              {t("books.detail.addEdition", {
+                kind: t(
+                  `books.kind${kind === "audiobook" ? "Audiobook" : "Ebook"}`,
+                ),
+              })}
             </Button>
-          </div>
+          ))}
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={deleteBook.isPending}
+            onClick={() => {
+              if (
+                window.confirm(
+                  t("books.detail.removeConfirm", { title: book.title }),
+                )
+              ) {
+                deleteBook.mutate(book.id);
+              }
+            }}
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+            {t("books.detail.remove")}
+          </Button>
         </div>
       </div>
 

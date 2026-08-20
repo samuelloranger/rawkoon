@@ -1931,13 +1931,16 @@
       "none": "Aucun auteur pour le moment. Ajoutez un livre et son auteur apparaîtra ici.",
       "bookCount_one": "{{count}} livre dans la bibliothèque",
       "bookCount_other": "{{count}} livres dans la bibliothèque",
-      "from": "depuis {{date}}",
-      "checked": "vérifié {{date}}",
       "never": "—",
       "noKindSelected": "Aucun type sélectionné — les nouveaux titres arriveront en numérique",
       "monitored": "surveillé",
       "off": "désactivé",
-      "saveFailed": "Impossible d’enregistrer ce changement."
+      "saveFailed": "Impossible d’enregistrer ce changement.",
+      "fromLabel": "Surveillé depuis",
+      "checkedLabel": "Dernière vérification",
+      "neverChecked": "jamais",
+      "kindsLabel": "Éditions à ajouter",
+      "monitorToggle": "Surveiller {{name}}"
     },
     "status": {
       "wanted": "Souhaité",
