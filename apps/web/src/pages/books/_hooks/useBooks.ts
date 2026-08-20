@@ -132,6 +132,26 @@ export function useAddEdition(bookId: number) {
   });
 }
 
+/**
+ * Adopt files already sitting in the library for this edition. Removing a book
+ * keeps its files on disk, so a re-added book reads "wanted" with the file
+ * right there until this runs.
+ */
+export function useRescanEdition(bookId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (kind: BookEditionKind) =>
+      fetchApi<{
+        registered: number;
+        removed: number;
+        directory: string | null;
+      }>(BOOKS_ENDPOINTS.RESCAN(bookId, kind), { method: "POST" }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.books.all });
+    },
+  });
+}
+
 export function useEditionFiles(
   bookId: number,
   kind: BookEditionKind,

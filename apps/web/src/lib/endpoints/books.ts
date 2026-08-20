@@ -8,6 +8,8 @@ export const BOOKS_ENDPOINTS = {
   ADD_EDITION: (id: number) => `/api/books/${id}/editions`,
   EDITION_FILES: (id: number, kind: string) =>
     `/api/books/${id}/editions/${kind}/files`,
+  RESCAN: (id: number, kind: string) =>
+    `/api/books/${id}/editions/${kind}/rescan`,
   RELEASE_SEARCH: (id: number, kind: string) =>
     `/api/books/${id}/editions/${kind}/search`,
   GRAB: (id: number, kind: string) => `/api/books/${id}/editions/${kind}/grab`,
