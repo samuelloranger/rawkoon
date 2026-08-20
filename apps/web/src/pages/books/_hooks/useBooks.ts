@@ -163,6 +163,22 @@ export function useReleaseSearch(
   });
 }
 
+/**
+ * Drop a cached release search.
+ *
+ * removeQueries rather than invalidateQueries: invalidating would refetch and
+ * put the same list straight back. The results are meant to be gone until the
+ * user asks for them again.
+ */
+export function useClearReleaseSearch(bookId: number, kind: BookEditionKind) {
+  const qc = useQueryClient();
+  return () => {
+    qc.removeQueries({
+      queryKey: queryKeys.books.releaseSearch(bookId, kind),
+    });
+  };
+}
+
 export function useGrabRelease(bookId: number) {
   const qc = useQueryClient();
   return useMutation({

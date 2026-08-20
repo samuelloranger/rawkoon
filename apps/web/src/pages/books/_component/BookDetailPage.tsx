@@ -25,6 +25,7 @@ import {
   useAddEdition,
   useBook,
   useBookQualityProfiles,
+  useClearReleaseSearch,
   useDeleteBook,
   useEditionFiles,
   useGrabRelease,
@@ -155,6 +156,32 @@ function ReleaseList({
   const { data, isFetching, error } = useReleaseSearch(bookId, kind, enabled);
   const grab = useGrabRelease(bookId);
   const [showRejected, setShowRejected] = useState(false);
+  const clearResults = useClearReleaseSearch(bookId, kind);
+
+  /**
+   * Once a release is grabbed the rest of the list is spent: the choice is made,
+   * the edition is downloading, and a second grab on the same edition is
+   * refused by the server anyway. Leaving the list up only invites that. So
+   * clear it and let the confirmation stand on its own.
+   */
+  const grabRelease = (release: BookRelease) =>
+    grab.mutate(
+      {
+        kind,
+        release_title: release.title,
+        download_url: release.download_url ?? undefined,
+        magnet_url: release.magnet_url ?? undefined,
+        indexer: release.indexer,
+      },
+      {
+        onSuccess: (result) => {
+          if (!result.grabbed) return; // rejected — keep the list to retry
+          setEnabled(false);
+          setShowRejected(false);
+          clearResults();
+        },
+      },
+    );
 
   const releases = data?.releases ?? [];
   const accepted = releases.filter((r) => !r.rejected);
@@ -170,7 +197,11 @@ function ReleaseList({
         <Button
           size="sm"
           variant="secondary"
-          onClick={() => setEnabled(true)}
+          onClick={() => {
+            // Drop the previous grab's banner; it refers to the old list.
+            grab.reset();
+            setEnabled(true);
+          }}
           disabled={isFetching}
         >
           {isFetching ? (
@@ -260,15 +291,7 @@ function ReleaseList({
                   <Button
                     size="sm"
                     disabled={grab.isPending}
-                    onClick={() =>
-                      grab.mutate({
-                        kind,
-                        release_title: r.title,
-                        download_url: r.download_url ?? undefined,
-                        magnet_url: r.magnet_url ?? undefined,
-                        indexer: r.indexer,
-                      })
-                    }
+                    onClick={() => grabRelease(r)}
                   >
                     <Download className="h-3.5 w-3.5" />
                     <span className="sr-only">Grab {r.title}</span>
@@ -280,15 +303,20 @@ function ReleaseList({
         </ul>
       )}
 
-      {grab.data && !grab.data.grabbed && (
+      {/* A refused grab is a 409, so it arrives as an error, not as data. The
+          old check read grab.data — which is undefined on a throw — so reasons
+          like "Already downloading" were never shown at all. */}
+      {grab.isError && (
         <p className="mt-3 rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-300">
-          {grab.data.reason}
+          {grab.error instanceof ApiError
+            ? grab.error.message
+            : "Could not grab that release."}
         </p>
       )}
       {grab.data?.grabbed && (
         <p className="mt-3 rounded-lg bg-primary-500/10 px-3 py-2 text-sm text-primary-200">
-          Grabbed. It will appear in the library once the download finishes and
-          imports.
+          Grabbed {grab.data.release_title}. It will appear in the library once
+          the download finishes and imports.
         </p>
       )}
     </div>
