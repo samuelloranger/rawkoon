@@ -183,16 +183,24 @@ export const libraryJobWorkerRoutes = new Elysia()
       }
     }
 
+    // `kind` lets one connection serve both domains. Media events keep their
+    // original shape so an older client still understands them.
     function onUpdate(payload: { mediaId: number; ts: number }) {
-      send(`data: ${JSON.stringify(payload)}\n\n`);
+      send(`data: ${JSON.stringify({ kind: "media", ...payload })}\n\n`);
+    }
+
+    function onBookUpdate(payload: { bookId: number; ts: number }) {
+      send(`data: ${JSON.stringify({ kind: "book", ...payload })}\n\n`);
     }
 
     libraryEventBus.on("update", onUpdate);
+    libraryEventBus.on("book-update", onBookUpdate);
     const heartbeat = setInterval(() => send(": ping\n\n"), 15_000);
 
     request.signal.addEventListener("abort", () => {
       closed = true;
       libraryEventBus.off("update", onUpdate);
+      libraryEventBus.off("book-update", onBookUpdate);
       clearInterval(heartbeat);
       try {
         controller.close();

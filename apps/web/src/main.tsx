@@ -14,7 +14,7 @@ import { bootstrapAuthFromWindow } from "@/lib/auth";
 import { useCloseReadNotifications } from "@/lib/notifications/useCloseReadNotifications";
 import { useIOSImprovements } from "@/lib/app/useIOSImprovements";
 import { NotificationToastContainer } from "@/components/NotificationToastContainer";
-import { setQueryClient } from "@/lib/api/queryClient";
+import { QUERY_DEFAULTS, setQueryClient } from "@/lib/api/queryClient";
 import { webFetcher } from "@/lib/api/fetcher";
 import "@fontsource/fira-code/400.css";
 import "@fontsource/fira-code/500.css";
@@ -23,18 +23,7 @@ import "@fontsource/fira-code/700.css";
 import "./lib/i18n/index";
 import "./index.css";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      refetchOnMount: false, // Only refetch if data is stale
-      refetchOnReconnect: false,
-      retry: 1,
-      staleTime: 30 * 1000, // Data stays fresh for 30 seconds - prevents flashing on navigation
-      gcTime: 5 * 60 * 1000, // Keep unused data in cache for 5 minutes - instant back navigation
-    },
-  },
-});
+const queryClient = new QueryClient({ defaultOptions: QUERY_DEFAULTS });
 
 // Export queryClient instance for use outside React components
 setQueryClient(queryClient);

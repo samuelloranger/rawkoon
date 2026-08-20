@@ -4,6 +4,7 @@ import { triggerJellyfinLibraryScan } from "@rawkoon/api/services/jellyfinLibrar
 import { notifyRequestAvailable } from "@rawkoon/api/services/mediaRequests";
 import { postProcess } from "@rawkoon/api/services/postProcessorSingle";
 import { postProcessBookDownload } from "@rawkoon/api/services/postProcessorBook";
+import { emitBookUpdate } from "@rawkoon/api/services/libraryEvents";
 import { resolveDownloadedStatus } from "@rawkoon/api/utils/medias/libraryHelpers";
 import { notifyAdminsMediaDownloaded } from "@rawkoon/api/workers/notifyMediaDownloaded";
 import { notifyAdminsPostProcessFailed } from "@rawkoon/api/workers/notifyPostProcessFailed";
@@ -66,6 +67,12 @@ export async function revertToWantedIfNoActiveGrabs(
       where: { id: dh.bookEditionId, status: "upgrading" },
       data: { status: "downloaded" },
     });
+
+    const reverted = await prisma.bookEdition.findUnique({
+      where: { id: dh.bookEditionId },
+      select: { bookId: true },
+    });
+    if (reverted) emitBookUpdate(reverted.bookId);
     return;
   }
 

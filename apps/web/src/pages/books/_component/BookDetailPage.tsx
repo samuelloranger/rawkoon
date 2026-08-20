@@ -17,6 +17,7 @@ import {
   type BookEditionKind,
   type BookRelease,
 } from "@rawkoon/shared";
+import { useLibraryEvents } from "@/features/medias/hooks/useLibraryEvents";
 import { PageLayout } from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api/client";
@@ -457,6 +458,8 @@ function EditionPanel({
 }
 
 export function BookDetailPage({ bookId }: { bookId: number }) {
+  // Server-pushed updates, same stream the media pages use. No polling.
+  useLibraryEvents();
   const { data, isLoading } = useBook(bookId);
   const addEdition = useAddEdition(bookId);
   const deleteBook = useDeleteBook();

@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api/client";
 import { BOOKS_ENDPOINTS } from "@/lib/endpoints";
 import { queryKeys } from "@/lib/queryKeys";
-import { isTransientEditionStatus } from "@/pages/books/_component/editionLabel";
 import type {
   AddBookRequest,
   BookEditionKind,
@@ -41,16 +40,6 @@ export function useBooks(params: BookListParams = {}) {
   return useQuery({
     queryKey: queryKeys.books.list(params),
     queryFn: () => fetchApi<BookListResponse>(listQuery(params)),
-    // A grab flips status server-side (downloading -> downloaded) minutes after
-    // the mutation that started it, and books emit no SSE, so without this the
-    // list keeps showing "downloading" until the user reloads by hand.
-    refetchInterval: (query) => {
-      const items = query.state.data?.items ?? [];
-      const anyInFlight = items.some((b) =>
-        b.editions.some((e) => isTransientEditionStatus(e.status)),
-      );
-      return anyInFlight ? 5000 : false;
-    },
   });
 }
 
@@ -59,14 +48,6 @@ export function useBook(id: number) {
     queryKey: queryKeys.books.detail(id),
     queryFn: () => fetchApi<BookItemResponse>(BOOKS_ENDPOINTS.DETAIL(id)),
     enabled: Number.isFinite(id) && id > 0,
-    // Same reason as useBooks: the import completes server-side well after the
-    // grab mutation resolves.
-    refetchInterval: (query) => {
-      const editions = query.state.data?.item.editions ?? [];
-      return editions.some((e) => isTransientEditionStatus(e.status))
-        ? 5000
-        : false;
-    },
   });
 }
 
