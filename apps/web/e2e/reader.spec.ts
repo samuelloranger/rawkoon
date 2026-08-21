@@ -691,3 +691,86 @@ test.describe("the reader's text settings", () => {
       .not.toBe("");
   });
 });
+
+/**
+ * The margin control did nothing: it set padding on the epub document's body,
+ * and in paginated mode epub.js owns that element's width and columns, so the
+ * padding was absorbed. The margin belongs to the container outside the iframe.
+ */
+test.describe("the reader's margins", () => {
+  const frameWidth = (page: Page) =>
+    page.evaluate(
+      () =>
+        document.querySelector("#root iframe")?.getBoundingClientRect().width ??
+        -1,
+    );
+
+  test("narrow the page when increased", async ({ page }) => {
+    await stubApi(page, await buildEpub());
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+
+    const before = await frameWidth(page);
+    expect(before).toBeGreaterThan(0);
+
+    await page
+      .getByRole("button", { name: /Text settings|Réglages du texte/ })
+      .click();
+    await page
+      .getByRole("button", { name: /Increase Margins|Augmenter Marges/i })
+      .click();
+
+    // The rendered page has to get narrower, not just the stored setting.
+    await expect
+      .poll(() => frameWidth(page), { timeout: 10_000 })
+      .toBeLessThan(before);
+  });
+
+  test("widen the page when decreased", async ({ page }) => {
+    await stubApi(page, await buildEpub());
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+
+    await page
+      .getByRole("button", { name: /Text settings|Réglages du texte/ })
+      .click();
+    await page
+      .getByRole("button", { name: /Increase Margins|Augmenter Marges/i })
+      .click();
+    const narrowed = await frameWidth(page);
+
+    await page
+      .getByRole("button", { name: /Decrease Margins|Diminuer Marges/i })
+      .click();
+
+    await expect
+      .poll(() => frameWidth(page), { timeout: 10_000 })
+      .toBeGreaterThan(narrowed);
+  });
+
+  test("keeps the text painted after a margin change", async ({ page }) => {
+    await stubApi(page, await buildEpub());
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+
+    await page
+      .getByRole("button", { name: /Text settings|Réglages du texte/ })
+      .click();
+    for (let i = 0; i < 3; i++) {
+      await page
+        .getByRole("button", { name: /Increase Margins|Augmenter Marges/i })
+        .click();
+      await page.waitForTimeout(300);
+    }
+
+    // Re-measuring must not leave the columns blank — the failure mode this
+    // whole class of bug keeps taking.
+    expect((await readerText(page)).trim().length).toBeGreaterThan(0);
+  });
+});

@@ -21,7 +21,9 @@ const applyTheme = (rendition: Rendition, typography: Typography) => {
           ? '"Literata Variable", Georgia, serif'
           : '"Hanken Grotesk Variable", system-ui, sans-serif',
       "line-height": String(typography.lineHeight),
-      padding: `0 ${typography.marginPx}px`,
+      // No padding here: in paginated mode epub.js owns the body's width and
+      // columns, and absorbs it — the margin control did nothing at all. The
+      // margin lives on the container outside the iframe instead.
     },
     p: { "line-height": String(typography.lineHeight) },
     a: { color: "#e8a06a" },
@@ -122,6 +124,8 @@ const EpubRenderer = ({
   // that saving a position reloaded the book at that position, which fought the
   // reader for control of the page.
   const openAt = useRef(initialLocator);
+  // Set once the rendition exists, so a margin change can re-measure.
+  const relayoutRef = useRef<(() => void) | null>(null);
   // Read inside the async load, which must not close over a stale value.
   const typographyRef = useRef(typography);
   typographyRef.current = typography;
@@ -202,6 +206,7 @@ const EpubRenderer = ({
           }
         };
 
+        relayoutRef.current = relayout;
         requestAnimationFrame(relayout);
         void document.fonts?.ready.then(() => {
           if (!cancelled) relayout();
@@ -295,6 +300,7 @@ const EpubRenderer = ({
       cancelled = true;
       if (idleHandle != null) window.clearTimeout(idleHandle);
       resizeObserver?.disconnect();
+      relayoutRef.current = null;
       void loading.finally(() => {
         // epub.js also reaches for `this.container` in destroy(), which is
         // undefined when the rendition never rendered.
@@ -340,14 +346,23 @@ const EpubRenderer = ({
     const rendition = renditionRef.current;
     if (!rendition) return;
     applyTheme(rendition, typography);
+    // The margin is container padding, so epub.js has to re-measure to lay its
+    // columns out for the narrower box. Harmless for the other settings.
+    relayoutRef.current?.();
   }, [typography]);
 
   return (
     <div
-      ref={containerRef}
       className="h-full w-full"
-      style={{ background: THEME_COLORS[typography.theme].background }}
-    />
+      style={{
+        background: THEME_COLORS[typography.theme].background,
+        paddingLeft: typography.marginPx,
+        paddingRight: typography.marginPx,
+      }}
+    >
+      {/* Unpadded, so the size epub.js is given is the size it renders into. */}
+      <div ref={containerRef} className="h-full w-full" />
+    </div>
   );
 };
 
