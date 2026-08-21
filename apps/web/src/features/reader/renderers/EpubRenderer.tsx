@@ -30,6 +30,32 @@ const applyTheme = (rendition: Rendition, typography: Typography) => {
   rendition.themes.fontSize(`${typography.fontSizePx}px`);
 };
 
+/**
+ * Location index cache.
+ *
+ * `locations.generate()` parses every section of the book — 11 seconds for a
+ * 97-section novel on a desktop, far worse on a phone — and it exists only to
+ * turn a CFI into a percentage. It is generated once, off the critical path, and
+ * kept, so opening a book again is immediate.
+ */
+const locationsKey = (url: string) => `rawkoon:reader:locations:${url}`;
+
+const readCachedLocations = (url: string): string | null => {
+  try {
+    return localStorage.getItem(locationsKey(url));
+  } catch {
+    return null;
+  }
+};
+
+const writeCachedLocations = (url: string, value: string) => {
+  try {
+    localStorage.setItem(locationsKey(url), value);
+  } catch {
+    // A full quota is not worth failing a read over; it just regenerates.
+  }
+};
+
 const EpubRenderer = ({
   url,
   initialLocator,
@@ -69,6 +95,10 @@ const EpubRenderer = ({
     // Whether the load ran to completion. A book torn down mid-load leaves
     // epub.js's own pending work reading fields that destroy() has cleared.
     let settled = false;
+    // Whether the location index is available; the percentage is approximate
+    // until it is.
+    let locationsReady = false;
+    let idleHandle: number | null = null;
 
     const start = async () => {
       try {
@@ -109,12 +139,38 @@ const EpubRenderer = ({
           totalPages: null,
         });
 
-        // Locations power the percentage; generating them is the one slow step,
-        // so it happens after the first page is already on screen.
-        await book.locations.generate(1024);
-        if (cancelled) return;
+        // The book is on screen and usable at this point.
         report();
         settled = true;
+
+        // The location index is the expensive part and only sharpens the
+        // percentage, so it is restored from cache when possible and otherwise
+        // built once the reader has been idle a moment. Blocking on it made the
+        // first ten seconds of every book feel broken.
+        const cached = readCachedLocations(url);
+        if (cached) {
+          try {
+            book.locations.load(cached);
+            locationsReady = true;
+            report();
+            return;
+          } catch {
+            // A stale or truncated cache just means regenerating it.
+          }
+        }
+
+        idleHandle = window.setTimeout(async () => {
+          try {
+            await book.locations.generate(1024);
+            if (cancelled) return;
+            locationsReady = true;
+            writeCachedLocations(url, book.locations.save());
+            report();
+          } catch {
+            // Without an index the percentage stays approximate, which is a
+            // better outcome than a reader that stalls.
+          }
+        }, 1200);
       } catch (err) {
         if (!cancelled) {
           callbacks.current.onError(
@@ -131,7 +187,20 @@ const EpubRenderer = ({
       };
       const cfi = location?.start?.cfi;
       if (!cfi) return;
-      const percent = book.locations.percentageFromCfi(cfi) ?? 0;
+
+      // Exact once the index exists; until then the spine position is a decent
+      // approximation and costs nothing. A saved position is the CFI either way,
+      // so reopening lands in the right place regardless.
+      // epub.js's Spine carries a length at runtime; its typings do not declare
+      // one.
+      const sections =
+        (book.spine as unknown as { length?: number } | undefined)?.length ?? 0;
+      const percent = locationsReady
+        ? (book.locations.percentageFromCfi(cfi) ?? 0)
+        : sections > 0 && location?.start?.index != null
+          ? location.start.index / sections
+          : 0;
+
       callbacks.current.onPosition({ locator: cfi, percent });
     };
 
@@ -142,6 +211,7 @@ const EpubRenderer = ({
 
     return () => {
       cancelled = true;
+      if (idleHandle != null) window.clearTimeout(idleHandle);
       void loading.finally(() => {
         // epub.js also reaches for `this.container` in destroy(), which is
         // undefined when the rendition never rendered.

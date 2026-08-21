@@ -308,3 +308,67 @@ test.describe("the reader inside an installed app", () => {
     );
   });
 });
+
+/**
+ * `locations.generate()` parses every section — measured at 10.8s for a
+ * 97-section novel on a desktop, worse on a phone — and exists only to turn a
+ * CFI into a percentage. It used to run before the reader reported itself ready,
+ * which is what made every book feel broken for its first ten seconds.
+ */
+test.describe("the reader's location index", () => {
+  const cacheKeys = (page: Page) =>
+    page.evaluate(() =>
+      Object.keys(localStorage).filter((key) =>
+        key.startsWith("rawkoon:reader:locations"),
+      ),
+    );
+
+  test("shows the book before building the index, then caches it", async ({
+    page,
+  }) => {
+    await stubApi(page, await buildEpub());
+    await page.goto(HARNESS);
+
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+
+    // Readable first: the index cannot be a precondition for text on screen.
+    expect(await cacheKeys(page)).toEqual([]);
+
+    // Then it is built off the critical path and kept.
+    await expect
+      .poll(() => cacheKeys(page).then((keys) => keys.length), {
+        timeout: 20_000,
+      })
+      .toBe(1);
+  });
+
+  test("reuses a cached index on the next open", async ({ page }) => {
+    await stubApi(page, await buildEpub());
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => cacheKeys(page).then((k) => k.length), { timeout: 20_000 })
+      .toBe(1);
+    const stored = await page.evaluate(() => {
+      const key = Object.keys(localStorage).find((k) =>
+        k.startsWith("rawkoon:reader:locations"),
+      )!;
+      return localStorage.getItem(key)!.length;
+    });
+
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+
+    // Same entry, not regenerated: a rebuilt index would replace it.
+    const after = await page.evaluate(() => {
+      const key = Object.keys(localStorage).find((k) =>
+        k.startsWith("rawkoon:reader:locations"),
+      )!;
+      return localStorage.getItem(key)!.length;
+    });
+    expect(after).toBe(stored);
+  });
+});
