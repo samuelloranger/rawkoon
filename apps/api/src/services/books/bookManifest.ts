@@ -62,8 +62,29 @@ export const buildManifest = async (
     naturalCompare(a.fileName, b.fileName),
   );
 
+  /**
+   * An audiobook file with no duration cannot be placed on the timeline.
+   *
+   * Offsets accumulate, so a null duration contributed zero and gave the file
+   * the same offset as the one after it. `locate()` resolves a boundary to the
+   * later file, which made the undated file unreachable by seek, left it
+   * without a synthetic chapter, and made every later offset a lie — playback
+   * jumped backwards on crossing into the next file. Dropping it costs one
+   * chapter; keeping it corrupted everything after it.
+   */
+  const playable = isAudiobook
+    ? sorted.filter((file) => file.durationSecs != null)
+    : sorted;
+  if (isAudiobook && playable.length !== sorted.length) {
+    console.warn(
+      `[bookManifest] edition ${edition.id}: omitting ${
+        sorted.length - playable.length
+      } audiobook file(s) with no known duration; re-scan the edition to place them on the timeline`,
+    );
+  }
+
   let offset = 0;
-  const files: BookManifestFile[] = sorted.map((file) => {
+  const files: BookManifestFile[] = playable.map((file) => {
     const duration = file.durationSecs ?? null;
     const chapters = file.chapters.length
       ? file.chapters.map((c) => ({

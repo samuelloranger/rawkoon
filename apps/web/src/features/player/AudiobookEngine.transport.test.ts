@@ -1,0 +1,433 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { AudiobookEngine } from "@/features/player/AudiobookEngine";
+import type { BookManifest } from "@rawkoon/shared/types";
+
+/**
+ * Transport behaviour under a hostile AudioContext — the iOS case.
+ *
+ * On iOS the AudioContext is suspended aggressively (backgrounding the PWA, an
+ * audio-session interruption, a route change) and `resume()` outside a user
+ * gesture returns a promise that never settles. These tests model exactly that,
+ * because it is the difference between "the element plays" and "the transport
+ * is wedged and every tap does nothing".
+ *
+ * The engine's pure timeline helpers are covered in AudiobookEngine.test.ts;
+ * this file drives the class, which had no coverage at all.
+ */
+
+class FakeAudio {
+  src = "";
+  currentTime = 0;
+  readyState = 0;
+  playbackRate = 1;
+  preservesPitch = false;
+  preload = "";
+  paused = true;
+  /** Browsers always set this before firing `error`; a seek abort sets code 1. */
+  error: { code: number } | null = null;
+  buffered = { length: 0, start: () => 0, end: () => 0 };
+  playCalls = 0;
+  private listeners = new Map<string, Set<(event?: unknown) => void>>();
+
+  addEventListener(type: string, fn: (event?: unknown) => void) {
+    const set = this.listeners.get(type) ?? new Set();
+    set.add(fn);
+    this.listeners.set(type, set);
+  }
+
+  removeEventListener(type: string, fn: (event?: unknown) => void) {
+    this.listeners.get(type)?.delete(fn);
+  }
+
+  dispatch(type: string) {
+    for (const fn of [...(this.listeners.get(type) ?? [])]) fn();
+  }
+
+  /** When the resource is unreachable, no `playing` ever arrives. */
+  broken = false;
+
+  /** Resolves like a browser that is perfectly willing to play. */
+  play = async (): Promise<void> => {
+    this.playCalls++;
+    if (this.broken) throw new Error("NotSupportedError");
+    this.paused = false;
+    this.dispatch("playing");
+  };
+
+  pause = () => {
+    this.paused = true;
+    this.dispatch("pause");
+  };
+
+  load = () => {
+    this.readyState = 0;
+  };
+
+  removeAttribute(name: string) {
+    if (name === "src") this.src = "";
+  }
+
+  /** Pretend metadata arrived, which is what unblocks a queued seek. */
+  metadataReady(duration = 600) {
+    this.readyState = 1;
+    this.duration = duration;
+    this.dispatch("loadedmetadata");
+  }
+
+  duration = 600;
+}
+
+/** An AudioContext that behaves the way iOS does when it refuses to resume. */
+class HostileAudioContext {
+  state = "suspended";
+  destination = {};
+  resumeCalls = 0;
+  sourceCalls = 0;
+
+  resume = (): Promise<void> => {
+    this.resumeCalls++;
+    // Never settles. This is the whole point.
+    return new Promise<void>(() => {});
+  };
+
+  createMediaElementSource = () => {
+    this.sourceCalls++;
+    return { connect: () => {} };
+  };
+
+  createGain = () => ({ gain: { value: 1 }, connect: () => {} });
+
+  createDynamicsCompressor = () => ({
+    threshold: { value: 0 },
+    knee: { value: 0 },
+    ratio: { value: 0 },
+    connect: () => {},
+  });
+}
+
+const manifest = (): BookManifest =>
+  ({
+    edition_id: 1,
+    book_id: 1,
+    kind: "audiobook",
+    title: "Un palais d'épines et de roses",
+    authors: ["Sarah J. Maas"],
+    narrators: [],
+    cover_url: null,
+    total_duration_secs: 1200,
+    primary_file_id: null,
+    progress: null,
+    files: [
+      {
+        id: 1,
+        file_name: "01 - Chapitre 1.mp3",
+        format: "mp3",
+        size_bytes: "1000",
+        duration_secs: 600,
+        offset_secs: 0,
+        readable: true,
+        chapters: [],
+        content_url: "/api/books/files/1/content",
+      },
+      {
+        id: 2,
+        file_name: "02 - Chapitre 2.mp3",
+        format: "mp3",
+        size_bytes: "1000",
+        duration_secs: 600,
+        offset_secs: 600,
+        readable: true,
+        chapters: [],
+        content_url: "/api/books/files/2/content",
+      },
+    ],
+  }) as unknown as BookManifest;
+
+let audios: FakeAudio[] = [];
+let contexts: HostileAudioContext[] = [];
+
+beforeEach(() => {
+  audios = [];
+  contexts = [];
+  vi.stubGlobal(
+    "Audio",
+    class {
+      constructor() {
+        const audio = new FakeAudio();
+        audios.push(audio);
+        return audio as unknown as HTMLAudioElement;
+      }
+    },
+  );
+  vi.stubGlobal(
+    "AudioContext",
+    class {
+      constructor() {
+        const context = new HostileAudioContext();
+        contexts.push(context);
+        return context as unknown as AudioContext;
+      }
+    },
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+/** Fails rather than hanging the suite when play() never resolves. */
+const settlesWithin = async (
+  promise: Promise<unknown>,
+  ms = 100,
+): Promise<boolean> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<"timeout">((resolve) => {
+    timer = setTimeout(() => resolve("timeout"), ms);
+  });
+  const result = await Promise.race([promise.then(() => "settled"), timeout]);
+  if (timer) clearTimeout(timer);
+  return result === "settled";
+};
+
+describe("AudiobookEngine transport with a suspended AudioContext", () => {
+  it("still starts playback when the context refuses to resume", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(manifest());
+
+    const settled = await settlesWithin(engine.play());
+
+    expect(settled).toBe(true);
+    expect(audios[0]?.playCalls).toBe(1);
+    expect(engine.getState().playing).toBe(true);
+  });
+
+  it("keeps responding to toggle after a refused resume", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(manifest());
+
+    await settlesWithin(engine.toggle());
+    expect(engine.getState().playing).toBe(true);
+
+    await settlesWithin(engine.toggle());
+    expect(engine.getState().playing).toBe(false);
+  });
+
+  it("does not route the element through a graph for plain playback", async () => {
+    // Routing via createMediaElementSource makes sound depend on the context.
+    // With no boost asked for, the element must own its own output, or a
+    // suspended context means silence with no way back.
+    const engine = new AudiobookEngine();
+    await engine.load(manifest());
+    await settlesWithin(engine.play());
+
+    expect(contexts[0]?.sourceCalls ?? 0).toBe(0);
+  });
+});
+
+describe("AudiobookEngine skipping", () => {
+  it("does not walk the file index forward on a transient media error", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(manifest());
+    await settlesWithin(engine.play());
+
+    // A src swap during a seek makes the element fire `error`; that must not be
+    // read as "this file is unreadable, move to the next one".
+    audios[0]?.dispatch("error");
+
+    expect(engine.getState().position).toBeLessThan(600);
+  });
+
+  it("still skips a file the browser reports as genuinely undecodable", async () => {
+    // The fix must not cost the original behaviour: one corrupt file in a
+    // 60-file audiobook should be stepped over, not end the book.
+    const engine = new AudiobookEngine();
+    await engine.load(manifest());
+    await settlesWithin(engine.play());
+
+    const audio = audios[0];
+    if (audio) {
+      audio.error = { code: 3 }; // MEDIA_ERR_DECODE
+      audio.dispatch("error");
+    }
+
+    expect(engine.getState().error).toBe("01 - Chapitre 1.mp3");
+    expect(engine.getState().position).toBe(600);
+  });
+
+  it("ignores an error fired by an aborted load during a seek", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(manifest());
+    await settlesWithin(engine.play());
+
+    const audio = audios[0];
+    if (audio) {
+      audio.error = { code: 1 }; // MEDIA_ERR_ABORTED
+      audio.dispatch("error");
+    }
+
+    expect(engine.getState().error).toBeNull();
+    expect(engine.getState().position).toBeLessThan(600);
+  });
+
+  it("survives a burst of skips and stays on a playable position", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(manifest());
+    await settlesWithin(engine.play());
+
+    for (let i = 0; i < 12; i++) engine.skip(30);
+    for (let i = 0; i < 12; i++) engine.skip(-15);
+
+    const state = engine.getState();
+    expect(state.position).toBeGreaterThanOrEqual(0);
+    expect(state.position).toBeLessThanOrEqual(state.duration);
+    expect(state.error).toBeNull();
+  });
+});
+
+describe("AudiobookEngine across file boundaries", () => {
+  it("crosses into the next file when skipping past the first one", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(manifest());
+    await settlesWithin(engine.play());
+
+    // 25 x 30s = 750s, which is inside file 2 (offset 600).
+    for (let i = 0; i < 25; i++) engine.skip(30);
+
+    expect(engine.getState().position).toBe(750);
+    expect(engine.currentFileId()).toBe(2);
+    expect(engine.getState().error).toBeNull();
+  });
+
+  it("declares completion only when the last file ends", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(manifest());
+    await settlesWithin(engine.play());
+
+    // End of file 1: move on, do not call the book finished.
+    audios[0]?.dispatch("ended");
+    expect(engine.getState().completed).toBe(false);
+    expect(engine.currentFileId()).toBe(2);
+
+    audios[0]?.dispatch("ended");
+    expect(engine.getState().completed).toBe(true);
+    expect(engine.getState().playing).toBe(false);
+  });
+
+  it("does not let a superseded metadata seek drag the new file back", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(manifest());
+    await settlesWithin(engine.play());
+
+    const audio = audios[0];
+    if (!audio) throw new Error("no element");
+
+    // Queue a seek inside file 1 while metadata is still missing...
+    audio.readyState = 0;
+    engine.seekAbsolute(300);
+    // ...then cross into file 2 before that metadata ever arrives.
+    engine.seekAbsolute(900);
+    audio.metadataReady();
+
+    // The stale listener would have pulled currentTime back to 300.
+    expect(audio.currentTime).toBe(300);
+    expect(engine.currentFileId()).toBe(2);
+  });
+});
+
+describe("AudiobookEngine network errors", () => {
+  it("retries the same file instead of skipping it", async () => {
+    vi.useFakeTimers();
+    try {
+      const engine = new AudiobookEngine();
+      await engine.load(manifest());
+      await engine.play();
+
+      const audio = audios[0];
+      if (audio) {
+        audio.error = { code: 2 }; // MEDIA_ERR_NETWORK
+        audio.dispatch("error");
+      }
+
+      // Still on file 1, and not reported as a bad file.
+      expect(engine.currentFileId()).toBe(1);
+      expect(engine.getState().error).toBeNull();
+
+      await vi.advanceTimersByTimeAsync(600);
+      expect(engine.currentFileId()).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("retries from where playback actually was, not the load offset", async () => {
+    vi.useFakeTimers();
+    try {
+      const engine = new AudiobookEngine();
+      await engine.load(manifest());
+      await engine.play();
+
+      const audio = audios[0];
+      if (!audio) throw new Error("no element");
+      audio.readyState = 1;
+      // Twenty minutes in, with no seek since the file was loaded at 0.
+      audio.currentTime = 1200;
+
+      audio.error = { code: 2 }; // MEDIA_ERR_NETWORK
+      audio.dispatch("error");
+      await vi.advanceTimersByTimeAsync(600);
+
+      // Retrying from the stale requestedOffset would have rewound to 0.
+      expect(audio.currentTime).toBe(1200);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("gives up and skips after the retry budget is spent", async () => {
+    vi.useFakeTimers();
+    try {
+      const engine = new AudiobookEngine();
+      await engine.load(manifest());
+      await engine.play();
+
+      const audio = audios[0];
+      if (!audio) throw new Error("no element");
+      // Unreachable for good: every retry fails, so `playing` never arrives to
+      // reset the budget.
+      audio.broken = true;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        audio.error = { code: 2 };
+        audio.dispatch("error");
+        await vi.advanceTimersByTimeAsync(5000);
+      }
+
+      expect(engine.currentFileId()).toBe(2);
+      expect(engine.getState().error).toBe("01 - Chapitre 1.mp3");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("AudiobookEngine unload", () => {
+  it("retires the routed element and the boost with it", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(manifest());
+    await settlesWithin(engine.play());
+
+    engine.setBoostDb(6);
+    expect(contexts[0]?.sourceCalls).toBe(1);
+    expect(engine.getState().boostDb).toBe(6);
+
+    engine.unload();
+
+    expect(engine.getState().boostDb).toBe(0);
+    expect(engine.getState().editionId).toBeNull();
+    expect(engine.currentFileId()).toBeNull();
+
+    // The next book must not inherit the previous graph.
+    await engine.load(manifest());
+    await settlesWithin(engine.play());
+    expect(contexts).toHaveLength(1);
+  });
+});

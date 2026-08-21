@@ -69,6 +69,13 @@ export function handleMessage(event: ExtendableMessageEvent): void {
         if (bookId != null && editionId != null) {
           await cacheBookMeta(bookId, editionId);
         }
+        // Only now is the edition genuinely available offline. The page used to
+        // resolve on the last file's `bookCacheDone`, so closing the app in the
+        // gap left bytes on disk that nothing could find.
+        (event.source as Client | null)?.postMessage({
+          type: "bookCacheEditionReady",
+          editionId,
+        });
       })(),
     );
   }
