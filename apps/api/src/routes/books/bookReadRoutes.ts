@@ -4,6 +4,7 @@ import { stat } from "node:fs/promises";
 import { requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound } from "@rawkoon/api/errors";
+import { parseByteRange } from "@rawkoon/shared/utils";
 import { buildManifest } from "@rawkoon/api/services/books/bookManifest";
 import { listReading } from "@rawkoon/api/services/books/bookReading";
 import {
@@ -36,44 +37,12 @@ export const clampLimit = (raw: number | undefined): number => {
   return Math.min(24, Math.max(1, Math.floor(raw)));
 };
 
-interface ParsedRange {
-  start: number;
-  end: number;
-}
-
 /**
- * Parse a single-range `Range` header against a known size.
- *
- * Returns null when there is no range to honour and "unsatisfiable" when the
- * client asked for bytes that do not exist — the caller answers 416 with a
- * `Content-Range` naming the real size, which is what lets a media element
- * recover instead of stalling. Multi-range requests are treated as no range:
- * answering the whole body is always a legal response to them.
+ * Kept as a named export because the route's tests drive it directly. The
+ * implementation lives in @rawkoon/shared so the service worker, which has to
+ * answer the same Range requests from Cache Storage, cannot drift from it.
  */
-export const parseRange = (
-  header: string | null | undefined,
-  size: number,
-): ParsedRange | null | "unsatisfiable" => {
-  if (!header) return null;
-  const match = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
-  if (!match) return null;
-  const [, rawStart, rawEnd] = match;
-  if (rawStart === "" && rawEnd === "") return null;
-
-  if (rawStart === "") {
-    // Suffix form: the last N bytes.
-    const suffix = Number(rawEnd);
-    if (suffix <= 0) return "unsatisfiable";
-    const start = Math.max(0, size - suffix);
-    return { start, end: size - 1 };
-  }
-
-  const start = Number(rawStart);
-  if (start >= size) return "unsatisfiable";
-  const end = rawEnd === "" ? size - 1 : Math.min(Number(rawEnd), size - 1);
-  if (end < start) return "unsatisfiable";
-  return { start, end };
-};
+export const parseRange = parseByteRange;
 
 /**
  * Reading and listening.
@@ -115,18 +84,25 @@ export const bookReadRoutes = new Elysia()
 
       // The stored size can lag a replaced file, and Range maths against a
       // stale size hands the client bytes that are not there.
-      const size = (await stat(file.filePath)).size;
+      const info = await stat(file.filePath);
+      const size = info.size;
 
       const contentType =
         CONTENT_TYPES[file.format] ?? "application/octet-stream";
-      const etag = `"${file.fileIno ?? "x"}-${file.fileMtimeMs ?? 0}-${size}"`;
+      // Validators come from the same stat as the size. Built from the stored
+      // row instead, a file replaced in place at the same size kept its old
+      // ETag, so a client holding the previous bytes was told 304 Not Modified
+      // and never saw the new ones.
+      const etag = `"${info.ino}-${Math.trunc(info.mtimeMs)}-${size}"`;
 
       const baseHeaders: Record<string, string> = {
         "Content-Type": contentType,
         "Accept-Ranges": "bytes",
         ETag: etag,
-        // Content at a given id never changes: a replaced file gets a new row.
-        "Cache-Control": "private, max-age=31536000, immutable",
+        // Long-lived but revalidatable. `immutable` told clients never to ask
+        // again, which is only true while nothing replaces a file in place —
+        // and an upgrade does exactly that.
+        "Cache-Control": "private, max-age=31536000",
         "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(file.fileName)}`,
       };
 
@@ -134,7 +110,14 @@ export const bookReadRoutes = new Elysia()
         return new Response(null, { status: 304, headers: baseHeaders });
       }
 
-      const range = parseRange(request.headers.get("range"), size);
+      // A conditional range is a resumed transfer: if the resource changed
+      // since the client last saw it, the only safe answer is the whole thing,
+      // not a slice of different bytes stitched onto its old buffer.
+      const ifRange = request.headers.get("if-range");
+      const rangeIsSafe = !ifRange || ifRange === etag;
+      const range = rangeIsSafe
+        ? parseRange(request.headers.get("range"), size)
+        : null;
 
       if (range === "unsatisfiable") {
         return new Response(null, {

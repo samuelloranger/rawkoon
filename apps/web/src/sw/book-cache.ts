@@ -1,3 +1,4 @@
+import { parseByteRange } from "@rawkoon/shared/utils";
 import { sw } from "./sw";
 import { CACHE_VERSION } from "./constants";
 
@@ -160,14 +161,70 @@ export const cacheBookMeta = async (
   );
 };
 
-/** Cache-first for book bytes: a downloaded book must open with no network. */
+/**
+ * Cache-first for book bytes: a downloaded book must open with no network.
+ *
+ * A media element does not fetch audio whole — it probes with `Range:
+ * bytes=0-1` and then seeks by range. Returning the stored `200` to those
+ * requests is why a downloaded audiobook could refuse to start or seek in the
+ * iOS PWA: WebKit requires a real `206` with `Content-Range` from a service
+ * worker serving media. So the worker answers ranges itself, with the same
+ * parser the origin route uses.
+ */
 export const handleBookFetch = (event: FetchEvent): void => {
-  event.respondWith(
-    caches
-      .open(BOOK_CACHE)
-      .then((cache) => cache.match(event.request, { ignoreVary: true }))
-      .then((cached) => cached ?? fetch(event.request)),
+  event.respondWith(serveBookBytes(event.request));
+};
+
+const withRangeSupport = (response: Response): Response => {
+  const headers = new Headers(response.headers);
+  // Without this the element assumes it cannot seek at all.
+  headers.set("Accept-Ranges", "bytes");
+  return new Response(response.body, {
+    status: 200,
+    statusText: "OK",
+    headers,
+  });
+};
+
+const serveBookBytes = async (request: Request): Promise<Response> => {
+  const cache = await caches.open(BOOK_CACHE);
+  const cached = await cache.match(request, { ignoreVary: true });
+  if (!cached) return fetch(request);
+
+  const header = request.headers.get("range");
+  if (!header) return withRangeSupport(cached);
+
+  // A Blob from Cache Storage is a handle to the stored bytes, and `slice` is
+  // a view on it — neither pulls the whole audiobook into memory the way
+  // buffering an ArrayBuffer would.
+  const blob = await cached.blob();
+  const range = parseByteRange(header, blob.size);
+
+  if (range === null) return withRangeSupport(cached);
+
+  if (range === "unsatisfiable") {
+    return new Response(null, {
+      status: 416,
+      statusText: "Range Not Satisfiable",
+      headers: {
+        "Content-Range": `bytes */${blob.size}`,
+        "Accept-Ranges": "bytes",
+      },
+    });
+  }
+
+  const headers = new Headers(cached.headers);
+  headers.set(
+    "Content-Range",
+    `bytes ${range.start}-${range.end}/${blob.size}`,
   );
+  headers.set("Content-Length", String(range.end - range.start + 1));
+  headers.set("Accept-Ranges", "bytes");
+  return new Response(blob.slice(range.start, range.end + 1), {
+    status: 206,
+    statusText: "Partial Content",
+    headers,
+  });
 };
 
 /**
