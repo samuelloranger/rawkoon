@@ -231,6 +231,62 @@ describe("readZipEntry", () => {
     ).toBeNull();
   });
 
+  it("refuses an entry whose declared uncompressed size is implausible", async () => {
+    const path = await write(
+      "bigdeclared.epub",
+      buildZip([{ name: "a.opf", content: OPF }]),
+    );
+    const [entry] = await listZipEntries(path);
+    expect(
+      await readZipEntry(path, {
+        ...entry,
+        uncompressedSize: 64 * 1024 * 1024,
+      }),
+    ).toBeNull();
+  });
+
+  it("refuses a zip bomb that understates its uncompressed size", async () => {
+    // 32 MiB of zeros deflates to a few KB. The central directory is rewritten
+    // to claim a harmless size, so only the capped inflate can stop this.
+    const bomb = deflateRawSync(Buffer.alloc(32 * 1024 * 1024, 0));
+    const name = Buffer.from("a.opf", "utf8");
+
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(8, 8);
+    local.writeUInt32LE(bomb.length, 18);
+    local.writeUInt32LE(1024, 22); // lie: claims 1 KiB uncompressed
+    local.writeUInt16LE(name.length, 26);
+
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(8, 10);
+    central.writeUInt32LE(bomb.length, 20);
+    central.writeUInt32LE(1024, 24); // same lie
+    central.writeUInt16LE(name.length, 28);
+    central.writeUInt32LE(0, 42);
+
+    const localBytes = Buffer.concat([local, name, bomb]);
+    const centralBytes = Buffer.concat([central, name]);
+    const eocd = Buffer.alloc(22);
+    eocd.writeUInt32LE(0x06054b50, 0);
+    eocd.writeUInt16LE(1, 8);
+    eocd.writeUInt16LE(1, 10);
+    eocd.writeUInt32LE(centralBytes.length, 12);
+    eocd.writeUInt32LE(localBytes.length, 16);
+
+    const path = await write(
+      "bomb.epub",
+      Buffer.concat([localBytes, centralBytes, eocd]),
+    );
+    const [entry] = await listZipEntries(path);
+    expect(entry.uncompressedSize).toBe(1024); // the lie passes the cheap check
+    expect(await readZipEntry(path, entry)).toBeNull(); // the capped inflate refuses it
+  });
+
   it("returns null instead of throwing on corrupt deflate data", async () => {
     const bytes = buildZip([{ name: "a.opf", content: OPF }]);
     // Overwrite the compressed payload, which starts after the 30-byte local

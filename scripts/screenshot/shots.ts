@@ -18,13 +18,15 @@ const OUT = process.env.SCREENSHOT_OUT ?? join(import.meta.dir, "../../docs/scre
 const VIEWPORT = { width: 1440, height: 900 };
 const DEVICE_SCALE_FACTOR = 2;
 /**
- * Route-agnostic readiness: at least one image has finished loading. Two
- * stricter signals were tried and rejected — requiring a TMDB poster fails on
- * the dashboard, which legitimately renders with none, and requiring *every*
- * image to be complete hangs on a single never-settling one. SETTLE_MS covers
- * the rest of the decode.
+ * Readiness must be the route's own content, not the app shell. The sidebar
+ * renders /icon-32.png on every route, so "some image has loaded" goes true the
+ * moment the shell mounts and would let a poster-less skeleton be captured and
+ * auto-committed. Requiring *every* image to be complete is no good either — a
+ * single never-settling one hangs the wait. So: at least one TMDB poster
+ * present and decoded, which is real route content on both captured routes.
  */
-const IMAGES_SETTLED = "[...document.images].some((i) => i.complete)";
+const POSTER_READY =
+  '[...document.images].some((i) => i.src.includes("image.tmdb.org") && i.complete && i.naturalWidth > 0)';
 const WAIT_TIMEOUT_MS = 30_000;
 const POLL_INTERVAL_MS = 250;
 /** Let posters decode and the layout settle before the shutter. */
@@ -96,7 +98,11 @@ async function fill(selector: string, value: string): Promise<void> {
  * Retried: the service worker's version-reload can wipe or bounce the first
  * load, and re-navigating clears it.
  */
-async function capture(path: string, name: string): Promise<boolean> {
+async function capture(
+  path: string,
+  name: string,
+  ready = POSTER_READY,
+): Promise<boolean> {
   for (let attempt = 1; attempt <= CAPTURE_ATTEMPTS; attempt++) {
     try {
       await view.navigate(`${BASE}${path}`);
@@ -106,7 +112,7 @@ async function capture(path: string, name: string): Promise<boolean> {
         `document.readyState === 'complete' && location.pathname === ${JSON.stringify(path)}`,
         `${path} to finish loading`,
       );
-      await waitFor(IMAGES_SETTLED, "the page images to finish loading");
+      await waitFor(ready, "the route content to render");
       await applyCaptureEmulation();
       // Hiding the scrollbar reflows the grid, so settle after emulation.
       await Bun.sleep(SETTLE_MS);

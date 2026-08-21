@@ -36,6 +36,21 @@ const METHOD_DEFLATE = 8;
 /** General-purpose bit 0 means the entry is encrypted. */
 const FLAG_ENCRYPTED = 0x1;
 
+/**
+ * Ceiling on any single entry, compressed or inflated. Epub files arrive from
+ * an indexer, so they are untrusted: deflate reaches roughly 1000:1, and an
+ * unbounded inflate of a hostile or corrupt entry would happily allocate
+ * gigabytes inside the API process. A package document is a few KB — 8 MiB is
+ * already far past anything legitimate.
+ */
+const MAX_ENTRY_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Ceiling on the central directory itself, which is read whole. Its declared
+ * size is a uint32, so without this a malformed header could ask for 4 GiB.
+ */
+const MAX_CENTRAL_DIRECTORY_BYTES = 16 * 1024 * 1024;
+
 export interface ZipEntry {
   name: string;
   compressionMethod: number;
@@ -87,6 +102,7 @@ async function readEocd(
       return null;
     }
     if (offset + size > fileSize) return null;
+    if (size > MAX_CENTRAL_DIRECTORY_BYTES) return null;
 
     return { offset, size, entryCount };
   }
@@ -166,6 +182,14 @@ export async function readZipEntry(
   ) {
     return null;
   }
+  // Refuse on the declared sizes before reading or allocating anything. The
+  // inflate below is capped too, since a hostile entry can understate these.
+  if (
+    entry.compressedSize > MAX_ENTRY_BYTES ||
+    entry.uncompressedSize > MAX_ENTRY_BYTES
+  ) {
+    return null;
+  }
 
   try {
     // The local header repeats the name and carries its own extra field, whose
@@ -191,7 +215,9 @@ export async function readZipEntry(
     if (compressed.length !== entry.compressedSize) return null;
 
     if (entry.compressionMethod === METHOD_STORED) return compressed;
-    return inflateRawSync(compressed);
+    // maxOutputLength throws ERR_BUFFER_TOO_LARGE rather than allocating, which
+    // is what actually stops a zip bomb that lies about its uncompressed size.
+    return inflateRawSync(compressed, { maxOutputLength: MAX_ENTRY_BYTES });
   } catch {
     return null;
   }
