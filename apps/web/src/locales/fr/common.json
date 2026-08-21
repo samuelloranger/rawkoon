@@ -2041,6 +2041,7 @@
       "download": "Télécharger le fichier",
       "back": "Retour au livre",
       "close": "Fermer la lecture",
+      "closePanel": "Fermer ce panneau",
       "contents": "Table des matières",
       "noContents": "Ce fichier n'a pas de table des matières.",
       "typography": "Réglages du texte",

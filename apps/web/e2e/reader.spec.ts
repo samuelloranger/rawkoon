@@ -774,3 +774,68 @@ test.describe("the reader's margins", () => {
     expect((await readerText(page)).trim().length).toBeGreaterThan(0);
   });
 });
+
+/**
+ * The X is the only way out of a book, so it also has to be the way out of a
+ * panel opened on top of it: closing the book from under an open drawer threw
+ * away the page the reader was on.
+ */
+test.describe("the reader's close button", () => {
+  const closes = (page: Page) =>
+    page.evaluate(() => window.__readerCloses ?? 0);
+
+  const openSettings = async (page: Page) => {
+    await stubApi(page, await buildEpub());
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+    await page
+      .getByRole("button", { name: /Text settings|Réglages du texte/ })
+      .click();
+    await expect(page.getByText(/^(Text size|Taille du texte)$/)).toBeVisible();
+  };
+
+  test("closes the settings drawer instead of the book", async ({ page }) => {
+    await openSettings(page);
+
+    await page
+      .getByRole("button", { name: /Close this panel|Fermer ce panneau/ })
+      .click();
+
+    await expect(page.getByText(/^(Text size|Taille du texte)$/)).toBeHidden();
+    expect(await closes(page)).toBe(0);
+    // Still reading, in the same place.
+    expect((await readerText(page)).trim().length).toBeGreaterThan(0);
+  });
+
+  test("closes the book once no panel is open", async ({ page }) => {
+    await openSettings(page);
+
+    await page
+      .getByRole("button", { name: /Close this panel|Fermer ce panneau/ })
+      .click();
+    await page
+      .getByRole("button", { name: /Close the reader|Fermer la lecture/ })
+      .click();
+
+    await expect.poll(() => closes(page), { timeout: 5_000 }).toBe(1);
+  });
+
+  test("closes the contents panel the same way", async ({ page }) => {
+    await stubApi(page, await buildEpub());
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+
+    await page
+      .getByRole("button", { name: /Contents|Table des matières/ })
+      .click();
+    await page
+      .getByRole("button", { name: /Close this panel|Fermer ce panneau/ })
+      .click();
+
+    expect(await closes(page)).toBe(0);
+  });
+});

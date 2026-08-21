@@ -214,11 +214,16 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
             <Type className="size-5" />
           </button>
         )}
+        {/* One step at a time, like Escape: an open panel is what the X is
+            nearest to, and closing the book out from under it loses the place
+            the reader was looking at. */}
         <button
           type="button"
-          onClick={onClose}
+          onClick={() => (panel ? setPanel(null) : onClose())}
           className="focus-ring rounded-md p-2 opacity-70 hover:opacity-100"
-          aria-label={t("books.reader.close")}
+          aria-label={t(
+            panel ? "books.reader.closePanel" : "books.reader.close",
+          )}
         >
           <X className="size-5" />
         </button>

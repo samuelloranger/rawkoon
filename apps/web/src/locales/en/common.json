@@ -2041,6 +2041,7 @@
       "download": "Download file",
       "back": "Back to the book",
       "close": "Close the reader",
+      "closePanel": "Close this panel",
       "contents": "Contents",
       "noContents": "This file has no table of contents.",
       "typography": "Text settings",

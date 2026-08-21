@@ -67,6 +67,7 @@ const queryClient = new QueryClient({
 declare global {
   interface Window {
     __READER_RENDERS__: number;
+    __readerCloses?: number;
   }
 }
 window.__READER_RENDERS__ = 0;
@@ -77,7 +78,16 @@ const Harness = () => {
   // back into the cache, and the shell has to survive that.
   const { data } = useBookManifest(manifest.edition_id);
   if (!data) return null;
-  return <ReaderShell manifest={data.manifest} onClose={() => {}} />;
+  // Counted rather than ignored, so a test can tell "closed the panel" from
+  // "closed the book" — the two the X has to keep apart.
+  return (
+    <ReaderShell
+      manifest={data.manifest}
+      onClose={() => {
+        window.__readerCloses = (window.__readerCloses ?? 0) + 1;
+      }}
+    />
+  );
 };
 
 createRoot(document.getElementById("root")!).render(
