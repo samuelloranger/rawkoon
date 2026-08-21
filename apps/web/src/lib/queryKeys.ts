@@ -49,6 +49,7 @@ export const queryKeys = {
     manifest: (editionId: number) => ["books", "manifest", editionId] as const,
     progress: (editionIds: number[]) =>
       ["books", "progress", editionIds.join(",")] as const,
+    reading: (limit: number) => ["books", "reading", limit] as const,
   },
 
   downloads: {

@@ -306,3 +306,30 @@ export interface BookProgressListResponse {
 export interface BookManifestResponse {
   manifest: BookManifest;
 }
+
+/**
+ * One started, unfinished edition, for the home "Continue reading" widget.
+ *
+ * Flat on purpose: the widget needs a title, a cover and a position, and
+ * fetching a manifest per book to get them would be one request per row.
+ */
+export interface BookReadingEntry {
+  edition_id: number;
+  book_id: number;
+  kind: BookEditionKind;
+  title: string;
+  authors: string[];
+  cover_url: string | null;
+  /** Ebook progress, 0..1. Null for an audiobook. */
+  percent: number | null;
+  /** Audiobook position in seconds on the flattened timeline. */
+  position_secs: number | null;
+  /** Audiobook total, for the remaining-time label. Null for an ebook. */
+  total_duration_secs: number | null;
+  /** When the position was last written, which is the sort order. */
+  updated_at: string;
+}
+
+export interface BookReadingResponse {
+  reading: BookReadingEntry[];
+}

@@ -2,7 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api/client";
 import { BOOKS_ENDPOINTS } from "@/lib/endpoints";
 import { queryKeys } from "@/lib/queryKeys";
+import { usePlayer } from "@/features/player/PlayerProvider";
 import type {
+  BookProgress,
   BookManifestResponse,
   BookProgressListResponse,
   BookProgressResponse,
@@ -28,6 +30,43 @@ export const useBookProgress = (editionIds: number[]) =>
       fetchApi<BookProgressListResponse>(BOOKS_ENDPOINTS.PROGRESS(editionIds)),
     enabled: editionIds.length > 0,
   });
+
+/**
+ * Reset a position, or mark an edition finished.
+ *
+ * Both are server-side actions rather than a position write, because the
+ * position must not travel. A client that fetched the row a minute ago holds a
+ * snapshot, and resending it under a fresh timestamp would win the
+ * newest-clock rule and rewind whatever another device advanced since —
+ * "finished" promising to keep your place and then losing it. The endpoints
+ * touch only the columns they mean to, stamped with the server's clock, which
+ * is also what beats writes still queued on an offline device.
+ *
+ * The running player has to be let go of first. It saves every ten seconds with
+ * `finished: false` and a clock of its own, so an edition left loaded would undo
+ * either action within the next tick.
+ */
+export const useEndReading = (editionId: number) => {
+  const queryClient = useQueryClient();
+  const { releaseEdition } = usePlayer();
+
+  return useMutation({
+    mutationFn: (mode: "reset" | "finish") => {
+      releaseEdition(editionId);
+      return fetchApi<{ progress: BookProgress }>(
+        mode === "finish"
+          ? BOOKS_ENDPOINTS.EDITION_PROGRESS_FINISH(editionId)
+          : BOOKS_ENDPOINTS.EDITION_PROGRESS_RESET(editionId),
+        { method: "POST" },
+      );
+    },
+    onSuccess: () => {
+      // Every view of a position is now wrong: the book page, the list badges,
+      // and the home widget.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
+    },
+  });
+};
 
 /**
  * Save a position. A failed write is queued for the service worker rather than

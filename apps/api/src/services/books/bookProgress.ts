@@ -152,3 +152,71 @@ export const saveProgress = async (
         accepted: false,
       };
 };
+
+/**
+ * Mark an edition finished, keeping whatever position the server holds.
+ *
+ * The position is deliberately not sent by the client. A client that fetched
+ * the row a minute ago holds a snapshot, and resending that snapshot under a
+ * fresh timestamp would make it win the newest-clock rule — rewinding a
+ * position another device had advanced in the meantime. `DO UPDATE` touching
+ * only the finished columns cannot: the stored locator and seconds stay exactly
+ * as they are.
+ *
+ * The clock is the server's, which is what makes this beat writes still queued
+ * on an offline device. A client whose clock runs ahead of the server can still
+ * out-stamp it; that is the same trade the rest of the progress path makes, and
+ * the cost is one re-finish rather than a lost position.
+ */
+export const finishProgress = async (
+  userId: string,
+  editionId: number,
+): Promise<BookProgress> => {
+  const rows = await prisma.$queryRaw<RawProgressRow[]>`
+    INSERT INTO book_progress (
+      user_id, edition_id, locator, percent, position_secs, file_id,
+      finished_at, client_updated_at, updated_at
+    )
+    VALUES (${userId}, ${editionId}, NULL, 1, NULL, NULL, NOW(), NOW(), NOW())
+    ON CONFLICT (user_id, edition_id) DO UPDATE SET
+      finished_at = NOW(),
+      client_updated_at = NOW(),
+      updated_at = NOW()
+    RETURNING
+      edition_id, locator, percent, position_secs, file_id,
+      finished_at, client_updated_at, updated_at
+  `;
+  return mapRawProgress(rows[0]);
+};
+
+/**
+ * Put an edition back at its beginning.
+ *
+ * A delete would be the obvious implementation and the wrong one: the row would
+ * be recreated by any write still queued on a device that has been offline. An
+ * update stamped with the server clock survives that flush.
+ */
+export const resetProgress = async (
+  userId: string,
+  editionId: number,
+): Promise<BookProgress> => {
+  const rows = await prisma.$queryRaw<RawProgressRow[]>`
+    INSERT INTO book_progress (
+      user_id, edition_id, locator, percent, position_secs, file_id,
+      finished_at, client_updated_at, updated_at
+    )
+    VALUES (${userId}, ${editionId}, NULL, 0, 0, NULL, NULL, NOW(), NOW())
+    ON CONFLICT (user_id, edition_id) DO UPDATE SET
+      locator = NULL,
+      percent = 0,
+      position_secs = 0,
+      file_id = NULL,
+      finished_at = NULL,
+      client_updated_at = NOW(),
+      updated_at = NOW()
+    RETURNING
+      edition_id, locator, percent, position_secs, file_id,
+      finished_at, client_updated_at, updated_at
+  `;
+  return mapRawProgress(rows[0]);
+};
