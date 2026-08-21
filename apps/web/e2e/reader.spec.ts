@@ -601,3 +601,93 @@ test.describe("the reader's first paint", () => {
     expect(await inkPixels(page)).toBeGreaterThan(1_500);
   });
 });
+
+/**
+ * The text drawer used range inputs. On a phone a slider is a poor fit: it wants
+ * a precise drag inside a narrow drawer, and it never says what value it will
+ * land on. Minus and plus do both.
+ */
+test.describe("the reader's text settings", () => {
+  const openDrawer = async (page: Page) => {
+    await page
+      .getByRole("button", { name: /Text settings|Réglages du texte/ })
+      .click();
+  };
+
+  const storedTypography = (page: Page) =>
+    page.evaluate(() =>
+      JSON.parse(localStorage.getItem("rawkoon:reader:typography") ?? "{}"),
+    );
+
+  test("steps the text size up and down", async ({ page }) => {
+    await stubApi(page, await buildEpub());
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+
+    await openDrawer(page);
+    const before = (await storedTypography(page)).fontSizePx as number;
+
+    await page
+      .getByRole("button", { name: /Increase Text size|Augmenter Taille/i })
+      .click();
+    await expect
+      .poll(() => storedTypography(page).then((t) => t.fontSizePx))
+      .toBeGreaterThan(before);
+
+    await page
+      .getByRole("button", { name: /Decrease Text size|Diminuer Taille/i })
+      .click();
+    await expect
+      .poll(() => storedTypography(page).then((t) => t.fontSizePx))
+      .toBe(before);
+  });
+
+  test("stops at the ends instead of doing nothing silently", async ({
+    page,
+  }) => {
+    await stubApi(page, await buildEpub());
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+    await openDrawer(page);
+
+    const decrease = page.getByRole("button", {
+      name: /Decrease Text size|Diminuer Taille/i,
+    });
+    // Down to the smallest, then the control disables itself.
+    for (let i = 0; i < 6; i++) {
+      if (await decrease.isDisabled()) break;
+      await decrease.click();
+    }
+    await expect(decrease).toBeDisabled();
+  });
+
+  test("applies the new size to the page", async ({ page }) => {
+    await stubApi(page, await buildEpub());
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+    await openDrawer(page);
+
+    await page
+      .getByRole("button", { name: /Increase Text size|Augmenter Taille/i })
+      .click();
+
+    // The setting has to reach the book, not just the drawer.
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const doc = document.querySelector("#root iframe")?.contentDocument;
+            const body = doc?.body;
+            return body ? getComputedStyle(body).fontSize : "";
+          }),
+        { timeout: 10_000 },
+      )
+      .not.toBe("");
+  });
+});

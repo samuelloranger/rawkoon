@@ -2057,7 +2057,9 @@
       "flow": "Layout",
       "flowPaginated": "Pages",
       "flowScrolled": "Scroll",
-      "downloading": "Downloading {{percent}}%"
+      "downloading": "Downloading {{percent}}%",
+      "decrease": "Decrease {{label}}",
+      "increase": "Increase {{label}}"
     },
     "offline": {
       "make": "Make available offline",

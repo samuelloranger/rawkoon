@@ -1,8 +1,18 @@
 import { useTranslation } from "react-i18next";
+import { Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Typography } from "./types";
 
 const FONT_SIZES = [15, 17, 19, 21, 24, 28];
+const LINE_HEIGHTS = [1.3, 1.45, 1.65, 1.85, 2.1];
+const MARGINS = [8, 16, 24, 32, 48, 64, 96];
+
+/** Moves one step through a list of allowed values. */
+const step = <T,>(values: T[], current: T, direction: -1 | 1): T => {
+  const index = values.indexOf(current);
+  const from = index === -1 ? 0 : index;
+  return values[Math.min(values.length - 1, Math.max(0, from + direction))];
+};
 
 /**
  * Typography controls. Only shown for epub — a pdf and a cbz have a fixed
@@ -31,6 +41,54 @@ export const ReaderSettings = ({
         {label}
       </span>
       <div className="flex items-center gap-1">{children}</div>
+    </div>
+  );
+
+  /**
+   * A minus/value/plus control. Replaces a range input: on a phone a slider is
+   * a poor fit — it needs a precise drag inside a narrow drawer, and it gives no
+   * indication of the value it will land on.
+   */
+  const Stepper = ({
+    label,
+    value,
+    atMin,
+    atMax,
+    onStep,
+  }: {
+    label: string;
+    value: string;
+    atMin: boolean;
+    atMax: boolean;
+    onStep: (direction: -1 | 1) => void;
+  }) => (
+    <div className="flex items-center justify-between gap-3 py-2">
+      <span className="text-xs uppercase tracking-wide opacity-60">
+        {label}
+      </span>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => onStep(-1)}
+          disabled={atMin}
+          aria-label={t("books.reader.decrease", { label })}
+          className="focus-ring flex size-8 items-center justify-center rounded-md border border-current/20 text-base disabled:opacity-30"
+        >
+          <Minus className="size-4" />
+        </button>
+        <span className="w-14 text-center font-mono text-xs tabular-nums">
+          {value}
+        </span>
+        <button
+          type="button"
+          onClick={() => onStep(1)}
+          disabled={atMax}
+          aria-label={t("books.reader.increase", { label })}
+          className="focus-ring flex size-8 items-center justify-center rounded-md border border-current/20 text-base disabled:opacity-30"
+        >
+          <Plus className="size-4" />
+        </button>
+      </div>
     </div>
   );
 
@@ -95,52 +153,44 @@ export const ReaderSettings = ({
         </Choice>
       </Row>
 
-      <Row label={t("books.reader.textSize")}>
-        <input
-          type="range"
-          min={0}
-          max={FONT_SIZES.length - 1}
-          value={Math.max(0, FONT_SIZES.indexOf(typography.fontSizePx))}
-          onChange={(event) =>
-            onChange({
-              ...typography,
-              fontSizePx: FONT_SIZES[Number(event.target.value)],
-            })
-          }
-          className="focus-ring w-32 accent-primary-600"
-          aria-label={t("books.reader.textSize")}
-        />
-      </Row>
+      <Stepper
+        label={t("books.reader.textSize")}
+        value={`${typography.fontSizePx}px`}
+        atMin={typography.fontSizePx === FONT_SIZES[0]}
+        atMax={typography.fontSizePx === FONT_SIZES[FONT_SIZES.length - 1]}
+        onStep={(direction) =>
+          onChange({
+            ...typography,
+            fontSizePx: step(FONT_SIZES, typography.fontSizePx, direction),
+          })
+        }
+      />
 
-      <Row label={t("books.reader.lineHeight")}>
-        <input
-          type="range"
-          min={1.3}
-          max={2.1}
-          step={0.05}
-          value={typography.lineHeight}
-          onChange={(event) =>
-            onChange({ ...typography, lineHeight: Number(event.target.value) })
-          }
-          className="focus-ring w-32 accent-primary-600"
-          aria-label={t("books.reader.lineHeight")}
-        />
-      </Row>
+      <Stepper
+        label={t("books.reader.lineHeight")}
+        value={typography.lineHeight.toFixed(2)}
+        atMin={typography.lineHeight <= LINE_HEIGHTS[0]}
+        atMax={typography.lineHeight >= LINE_HEIGHTS[LINE_HEIGHTS.length - 1]}
+        onStep={(direction) =>
+          onChange({
+            ...typography,
+            lineHeight: step(LINE_HEIGHTS, typography.lineHeight, direction),
+          })
+        }
+      />
 
-      <Row label={t("books.reader.margins")}>
-        <input
-          type="range"
-          min={8}
-          max={96}
-          step={8}
-          value={typography.marginPx}
-          onChange={(event) =>
-            onChange({ ...typography, marginPx: Number(event.target.value) })
-          }
-          className="focus-ring w-32 accent-primary-600"
-          aria-label={t("books.reader.margins")}
-        />
-      </Row>
+      <Stepper
+        label={t("books.reader.margins")}
+        value={`${typography.marginPx}px`}
+        atMin={typography.marginPx <= MARGINS[0]}
+        atMax={typography.marginPx >= MARGINS[MARGINS.length - 1]}
+        onStep={(direction) =>
+          onChange({
+            ...typography,
+            marginPx: step(MARGINS, typography.marginPx, direction),
+          })
+        }
+      />
 
       <Row label={t("books.reader.flow")}>
         <Choice
