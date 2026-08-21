@@ -94,6 +94,12 @@ const stubApi = async (
   epub: Buffer,
   options: {
     delayMs?: number;
+    /**
+     * Delay the first request only. That is what makes a rebuild's load finish
+     * *before* the load it replaced — the ordering the shared refs have to
+     * survive.
+     */
+    delayFirstRequestOnly?: boolean;
     /** Mirrors the server rejecting a write and returning the stored row. */
     rejectSavesWithLocator?: string;
   } = {},
@@ -106,7 +112,10 @@ const stubApi = async (
   await page.route("**/api/books/files/1/content", async (route) => {
     contentRequests++;
     // Stands in for a slow connection, so the loading state is observable.
-    if (options.delayMs) {
+    if (
+      options.delayMs &&
+      (!options.delayFirstRequestOnly || contentRequests === 1)
+    ) {
       await new Promise((resolve) => setTimeout(resolve, options.delayMs));
     }
     await route.fulfill({
@@ -837,5 +846,190 @@ test.describe("the reader's close button", () => {
       .click();
 
     expect(await closes(page)).toBe(0);
+  });
+});
+
+/**
+ * A pdf has to paint on arrival.
+ *
+ * The document was held only in a ref, so when the asynchronous load finished
+ * nothing in the render effect's dependencies had changed and the first page
+ * stayed blank until a page turn or a margin change happened to retrigger it.
+ */
+const buildPdf = (): Buffer => {
+  // A single page with one filled black rectangle — enough ink for a paint
+  // assertion. Offsets are computed rather than hardcoded so the xref is valid.
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R >>",
+    "<< /Length 44 >>\nstream\n0 0 0 rg\n20 20 160 160 re f\nendstream",
+  ];
+
+  let body = "%PDF-1.4\n";
+  const offsets: number[] = [];
+  objects.forEach((object, index) => {
+    offsets.push(body.length);
+    body += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+
+  const xrefStart = body.length;
+  body += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const offset of offsets) {
+    body += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  }
+  body +=
+    `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\n` +
+    `startxref\n${xrefStart}\n%%EOF\n`;
+
+  return Buffer.from(body, "latin1");
+};
+
+const stubPdfApi = async (page: Page, pdf: Buffer): Promise<void> => {
+  await page.route("**/api/books/editions/*/manifest", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        manifest: {
+          edition_id: 11,
+          book_id: 1,
+          kind: "ebook",
+          title: "A Scanned Harbour",
+          authors: ["Camille Rousseau"],
+          narrators: [],
+          cover_url: null,
+          total_duration_secs: null,
+          primary_file_id: 1,
+          progress: null,
+          files: [
+            {
+              id: 1,
+              file_name: "A Scanned Harbour.pdf",
+              format: "pdf",
+              size_bytes: String(pdf.length),
+              duration_secs: null,
+              offset_secs: 0,
+              readable: true,
+              chapters: [],
+              content_url: "/api/books/files/1/content",
+            },
+          ],
+        },
+      }),
+    });
+  });
+
+  await page.route("**/api/books/files/1/content", async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: {
+        "content-type": "application/pdf",
+        "accept-ranges": "bytes",
+        "content-length": String(pdf.length),
+      },
+      body: pdf,
+    });
+  });
+
+  await page.route("**/api/books/editions/*/progress", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ progress: null, accepted: true }),
+    });
+  });
+};
+
+/** Non-background pixels on the pdf canvas. */
+const canvasInk = (page: Page): Promise<number> =>
+  page.evaluate(() => {
+    const canvas = document.querySelector("canvas");
+    if (!canvas || canvas.width === 0) return 0;
+    const context = canvas.getContext("2d");
+    if (!context) return 0;
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+    let ink = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] > 0 && data[i] < 200) ink++;
+    }
+    return ink;
+  });
+
+test.describe("the pdf reader", () => {
+  test("paints the first page without being touched", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (err) => errors.push(err.message));
+
+    await stubPdfApi(page, buildPdf());
+    await page.goto(HARNESS);
+
+    // No page turn, no settings change: whatever appears here is what a reader
+    // sees when they open the file.
+    await expect
+      .poll(() => canvasInk(page), { timeout: 20_000 })
+      .toBeGreaterThan(1_000);
+    expect(errors).toEqual([]);
+  });
+
+  test("still repaints on a page turn", async ({ page }) => {
+    await stubPdfApi(page, buildPdf());
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => canvasInk(page), { timeout: 20_000 })
+      .toBeGreaterThan(1_000);
+
+    // One page only, so next() is a no-op — the point is that the canvas keeps
+    // its content instead of being cleared by a re-render.
+    await page.keyboard.press("ArrowRight");
+    await expect
+      .poll(() => canvasInk(page), { timeout: 5_000 })
+      .toBeGreaterThan(1_000);
+  });
+});
+
+/**
+ * A rebuild that overlaps a pending load must not disconnect the new rendition.
+ *
+ * Teardown waits for its own load to settle before destroying anything, so when
+ * the flow changes mid-load the old cleanup can run *after* the replacement has
+ * claimed the shared refs — and it used to clear them regardless, leaving
+ * navigation pointing at nothing while a book sat readable on screen.
+ */
+test.describe("the reader rebuilt mid-load", () => {
+  test("keeps navigation wired to the rendition on screen", async ({
+    page,
+  }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (err) => errors.push(err.message));
+
+    // The first load is slow and the rebuild's is not, so the replacement
+    // claims the refs first and the old cleanup runs afterwards.
+    await stubApi(page, await buildEpub(), {
+      delayMs: 3_000,
+      delayFirstRequestOnly: true,
+    });
+    await page.goto(HARNESS);
+
+    await page
+      .getByRole("button", { name: /Text settings|Réglages du texte/ })
+      .click();
+    await page.getByRole("button", { name: /^(Scroll|Défilement)$/ }).click();
+
+    await expect
+      .poll(() => readerText(page), { timeout: 20_000 })
+      .toContain("The tide came in");
+
+    // goTo runs through the same ref navigation does. With the stale finalizer
+    // clearing it, this click did nothing at all.
+    await page
+      .getByRole("button", { name: /Contents|Table des matières/ })
+      .click();
+    await page.getByRole("button", { name: "The Harbour Wall" }).click();
+
+    await expect
+      .poll(() => readerText(page), { timeout: 10_000 })
+      .toContain("Marguerite counted the boats");
+    expect(errors).toEqual([]);
   });
 });

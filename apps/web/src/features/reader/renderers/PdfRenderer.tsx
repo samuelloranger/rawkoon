@@ -12,6 +12,11 @@ import { THEME_COLORS, type RendererProps } from "../types";
  * pdf.js is loaded on demand — it is the largest dependency in the reader, and
  * someone reading epubs should never pay for it.
  */
+interface PdfDocument {
+  numPages: number;
+  getPage: (n: number) => Promise<unknown>;
+}
+
 const PdfRenderer = ({
   url,
   initialLocator,
@@ -32,10 +37,13 @@ const PdfRenderer = ({
   const openAt = useRef(initialLocator);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const docRef = useRef<{
-    numPages: number;
-    getPage: (n: number) => Promise<unknown>;
-  } | null>(null);
+  // The document lives in state, not only in a ref: the render effect has to
+  // run when it arrives. With a ref alone nothing in the effect's dependencies
+  // changed on load, so the first page stayed blank until a page turn or a
+  // margin change happened to retrigger it. The ref is kept beside it for the
+  // handle callbacks, which must not re-register on every load.
+  const docRef = useRef<PdfDocument | null>(null);
+  const [doc, setDoc] = useState<PdfDocument | null>(null);
   const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
   const [page, setPage] = useState(() => {
     const parsed = Number(openAt.current?.replace("page:", ""));
@@ -67,7 +75,8 @@ const PdfRenderer = ({
         const doc = await task.promise;
         callbacks.current.onProgress(null);
         if (cancelled) return;
-        docRef.current = doc as unknown as typeof docRef.current;
+        docRef.current = doc as unknown as PdfDocument;
+        setDoc(doc as unknown as PdfDocument);
         callbacks.current.onReady({
           toc: [],
           totalPages: doc.numPages,
@@ -86,13 +95,13 @@ const PdfRenderer = ({
       cancelled = true;
       renderTaskRef.current?.cancel();
       docRef.current = null;
+      setDoc(null);
     };
     // Callbacks live in a ref: a changing identity would refetch the document
     // on every parent render.
   }, [url]);
 
   useEffect(() => {
-    const doc = docRef.current;
     const canvas = canvasRef.current;
     if (!doc || !canvas) return;
     let cancelled = false;
@@ -158,7 +167,7 @@ const PdfRenderer = ({
     return () => {
       cancelled = true;
     };
-  }, [page, typography.marginPx]);
+  }, [doc, page, typography.marginPx]);
 
   useEffect(() => {
     handleRef({

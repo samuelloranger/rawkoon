@@ -300,7 +300,11 @@ const EpubRenderer = ({
       cancelled = true;
       if (idleHandle != null) window.clearTimeout(idleHandle);
       resizeObserver?.disconnect();
-      relayoutRef.current = null;
+      // Only if this effect still owns it. Teardown waits for its own load to
+      // settle, and a replacement effect can finish first — clearing the refs
+      // blindly then disconnects navigation and typography from the rendition
+      // actually on screen.
+      if (renditionRef.current === rendition) relayoutRef.current = null;
       void loading.finally(() => {
         // epub.js also reaches for `this.container` in destroy(), which is
         // undefined when the rendition never rendered.
@@ -320,8 +324,8 @@ const EpubRenderer = ({
             // Nothing to release.
           }
         }
-        renditionRef.current = null;
-        bookRef.current = null;
+        if (renditionRef.current === rendition) renditionRef.current = null;
+        if (bookRef.current === book) bookRef.current = null;
       });
     };
 
