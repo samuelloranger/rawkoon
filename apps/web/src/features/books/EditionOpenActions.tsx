@@ -1,9 +1,14 @@
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "@tanstack/react-router";
-import { BookOpen, Headphones, Play } from "lucide-react";
+import { BookOpen, Headphones, Play, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/confirm/ConfirmContext";
 import type { BookEdition } from "@rawkoon/shared/types";
-import { useBookManifest, useBookProgress } from "./useBookReading";
+import {
+  useBookManifest,
+  useBookProgress,
+  useEndReading,
+} from "./useBookReading";
 import { OfflineButton } from "./OfflineButton";
 import { usePlayer } from "@/features/player/PlayerProvider";
 import { formatClock } from "@/features/player/formatClock";
@@ -24,6 +29,8 @@ export const EditionOpenActions = ({
   const { t } = useTranslation("common");
   const navigate = useNavigate();
   const { openEdition } = usePlayer();
+  const { confirm } = useConfirm();
+  const endReading = useEndReading(edition.id);
   const hasFiles = edition.file_count > 0;
   const { data: manifestData } = useBookManifest(hasFiles ? edition.id : null);
   const { data: progressData } = useBookProgress(hasFiles ? [edition.id] : []);
@@ -81,6 +88,28 @@ export const EditionOpenActions = ({
             ? formatClock(progress.position_secs)
             : `${Math.round((progress?.percent ?? 0) * 100)}%`}
         </span>
+      )}
+
+      {started && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() =>
+            confirm({
+              variant: "destructive",
+              title: t("books.open.restartTitle"),
+              description: t("books.open.restartDescription"),
+              confirmLabel: t("books.open.restart"),
+              onConfirm: async () => {
+                await endReading.mutateAsync("reset");
+              },
+            })
+          }
+          disabled={endReading.isPending}
+        >
+          <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+          {t("books.open.restart")}
+        </Button>
       )}
 
       {offlineFileIds.length > 0 && (

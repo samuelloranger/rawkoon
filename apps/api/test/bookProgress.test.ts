@@ -72,6 +72,66 @@ const raw = (row: Row) => ({
   updated_at: row.updatedAt,
 });
 
+/**
+ * The finish/reset statements are told apart by their argument count: both take
+ * only the user and the edition, where a save carries the whole position.
+ */
+const runAction = (
+  userId: string,
+  editionId: number,
+  mode: "finish" | "reset",
+) => {
+  const existing = find(userId, editionId);
+  const now = new Date();
+  if (mode === "finish") {
+    if (!existing) {
+      const row: Row = {
+        userId,
+        editionId,
+        locator: null,
+        percent: 1,
+        positionSecs: null,
+        fileId: null,
+        finishedAt: now,
+        clientUpdatedAt: now,
+        updatedAt: now,
+      };
+      rows.push(row);
+      return [raw(row)];
+    }
+    // Only the finished columns: the stored position is untouched.
+    existing.finishedAt = now;
+    existing.clientUpdatedAt = now;
+    existing.updatedAt = now;
+    return [raw(existing)];
+  }
+  if (!existing) {
+    const row: Row = {
+      userId,
+      editionId,
+      locator: null,
+      percent: 0,
+      positionSecs: 0,
+      fileId: null,
+      finishedAt: null,
+      clientUpdatedAt: now,
+      updatedAt: now,
+    };
+    rows.push(row);
+    return [raw(row)];
+  }
+  Object.assign(existing, {
+    locator: null,
+    percent: 0,
+    positionSecs: 0,
+    fileId: null,
+    finishedAt: null,
+    clientUpdatedAt: now,
+    updatedAt: now,
+  });
+  return [raw(existing)];
+};
+
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
     $queryRaw: (
@@ -85,6 +145,12 @@ mock.module("@rawkoon/api/db", () => ({
       finishedAt: Date | null,
       clientUpdatedAt: Date,
     ) => {
+      const sql = _strings.join("?");
+      if (locator === undefined) {
+        const mode = sql.includes("finished_at = NOW()") ? "finish" : "reset";
+        statements.push(mode);
+        return Promise.resolve(runAction(userId, editionId, mode));
+      }
       statements.push("upsert");
       return Promise.resolve(
         runUpsert(userId, editionId, {
@@ -123,9 +189,13 @@ mock.module("@rawkoon/api/db", () => ({
   },
 }));
 
-const { saveProgress, listProgress, getProgress } = await import(
-  "@rawkoon/api/services/books/bookProgress"
-);
+const {
+  saveProgress,
+  listProgress,
+  getProgress,
+  finishProgress,
+  resetProgress,
+} = await import("@rawkoon/api/services/books/bookProgress");
 
 const seed = (clientUpdatedAt: string, overrides: Partial<Row> = {}) => {
   rows = [
@@ -266,5 +336,93 @@ describe("getProgress", () => {
   it("returns null when the user has never opened the edition", async () => {
     rows = [];
     expect(await getProgress("u1", 7)).toBeNull();
+  });
+});
+
+/**
+ * Finishing and restarting are server-side on purpose: the client never sends a
+ * position, so a stale snapshot cannot win the newest-clock rule and rewind a
+ * position another device advanced in the meantime.
+ */
+describe("finishProgress", () => {
+  beforeEach(() => {
+    rows = [];
+    statements.length = 0;
+  });
+
+  it("keeps the stored position and stamps finished_at", async () => {
+    seed("2026-08-20T10:00:00.000Z", { percent: 0.62, positionSecs: 4_200 });
+
+    const progress = await finishProgress("u1", 7);
+
+    expect(progress.finished_at).not.toBeNull();
+    // The promise the interface makes: your place is kept.
+    expect(progress.percent).toBe(0.62);
+    expect(progress.position_secs).toBe(4_200);
+    expect(progress.locator).toBe("epubcfi(/6/4!/2/10)");
+    expect(statements).toEqual(["finish"]);
+  });
+
+  it("finishes a book that has no stored position at all", async () => {
+    const progress = await finishProgress("u1", 9);
+
+    expect(progress.finished_at).not.toBeNull();
+    expect(progress.percent).toBe(1);
+  });
+
+  it("wins against a position the client wrote earlier", async () => {
+    seed("2026-08-20T10:00:00.000Z");
+    await finishProgress("u1", 7);
+
+    // A phone flushing a week-old queue must not un-finish the book.
+    const late = await saveProgress("u1", 7, {
+      percent: 0.5,
+      client_updated_at: "2026-08-13T09:00:00.000Z",
+    });
+
+    expect(late.accepted).toBe(false);
+    expect(rows[0].finishedAt).not.toBeNull();
+  });
+});
+
+describe("resetProgress", () => {
+  beforeEach(() => {
+    rows = [];
+    statements.length = 0;
+  });
+
+  it("clears the position without deleting the row", async () => {
+    seed("2026-08-20T10:00:00.000Z", { percent: 0.62, positionSecs: 4_200 });
+
+    const progress = await resetProgress("u1", 7);
+
+    expect(progress.locator).toBeNull();
+    expect(progress.percent).toBe(0);
+    expect(progress.position_secs).toBe(0);
+    // The row has to stay: a delete would be recreated by any write still
+    // queued on a device that has been offline.
+    expect(rows).toHaveLength(1);
+    expect(statements).toEqual(["reset"]);
+  });
+
+  it("clears a finished mark too, so the book can be read again", async () => {
+    seed("2026-08-20T10:00:00.000Z", { finishedAt: new Date() });
+
+    const progress = await resetProgress("u1", 7);
+    expect(progress.finished_at).toBeNull();
+  });
+
+  it("wins against a stale queued position", async () => {
+    seed("2026-08-20T10:00:00.000Z");
+    await resetProgress("u1", 7);
+
+    const late = await saveProgress("u1", 7, {
+      percent: 0.5,
+      locator: "phone",
+      client_updated_at: "2026-08-13T09:00:00.000Z",
+    });
+
+    expect(late.accepted).toBe(false);
+    expect(rows[0].percent).toBe(0);
   });
 });

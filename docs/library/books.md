@@ -230,6 +230,27 @@ container has none.
 Keys, in the full-screen player: `Space` plays or pauses, `←` `→` skip,
 `[` `]` change speed, `Esc` closes.
 
+### Continue reading
+
+The home dashboard carries a **Continue reading** panel: the books with a saved
+position, most recent first, each one a tap away from where you stopped —
+picking one opens the reader for an ebook or the player for an audiobook. It
+lists what you are partway through, so a book you merely opened does not clutter
+it, and it disappears when nothing is started.
+
+Two ways off the list, and they are not the same:
+
+- **Mark as finished**, on the row itself, takes the book out of the panel and
+  keeps your position, so you can go back to it from the book's page.
+- **Restart**, next to Continue on the book's page, discards the position: the
+  book opens at its first page next time.
+
+Both ask first, and both are decided by the server: it keeps the position when
+you finish, and clears it when you restart. Neither deletes the row — a device
+that has been offline still holds writes of its own, and a deleted row would
+come back the moment it reconnected. If the book is playing, the player lets go
+of it first, or its next save would undo what you asked for.
+
 ### Where you left off
 
 Each person's position is their own, and it follows them between devices. An

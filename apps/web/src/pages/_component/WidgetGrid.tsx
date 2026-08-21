@@ -1,5 +1,6 @@
 import { CardErrorBoundary } from "@/components/ErrorBoundary";
 import { NowWatchingWidget } from "@/pages/_component/NowWatchingWidget";
+import { ContinueReadingWidget } from "@/pages/_component/ContinueReadingWidget";
 import { DownloadsPanel } from "@/pages/_component/DownloadsPanel";
 import { LibraryAttentionPanel } from "@/pages/_component/LibraryAttentionPanel";
 import { RssStatusPanel } from "@/pages/_component/RssStatusPanel";
@@ -9,6 +10,9 @@ export function WidgetGrid() {
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
       <CardErrorBoundary>
         <NowWatchingWidget />
+      </CardErrorBoundary>
+      <CardErrorBoundary>
+        <ContinueReadingWidget />
       </CardErrorBoundary>
       <CardErrorBoundary>
         <DownloadsPanel />

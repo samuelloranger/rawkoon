@@ -5,8 +5,11 @@ import { requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound } from "@rawkoon/api/errors";
 import { buildManifest } from "@rawkoon/api/services/books/bookManifest";
+import { listReading } from "@rawkoon/api/services/books/bookReading";
 import {
+  finishProgress,
   listProgress,
+  resetProgress,
   saveProgress,
 } from "@rawkoon/api/services/books/bookProgress";
 
@@ -25,6 +28,12 @@ const CONTENT_TYPES: Record<string, string> = {
   mp3: "audio/mpeg",
   flac: "audio/flac",
   ogg: "audio/ogg",
+};
+
+/** Reading-list size: a whole number, at least one, never more than 24. */
+export const clampLimit = (raw: number | undefined): number => {
+  if (raw == null || !Number.isFinite(raw)) return 6;
+  return Math.min(24, Math.max(1, Math.floor(raw)));
 };
 
 interface ParsedRange {
@@ -72,7 +81,10 @@ export const parseRange = (
  *   GET /api/books/files/:fileId/content       — Range-capable byte stream
  *   GET /api/books/editions/:editionId/manifest
  *   GET /api/books/progress?editionIds=1,2
+ *   GET /api/books/reading?limit=6
  *   PUT /api/books/editions/:editionId/progress
+ *   POST /api/books/editions/:editionId/progress/finish
+ *   POST /api/books/editions/:editionId/progress/reset
  *
  * The only client input to the byte route is a file id: the path comes from the
  * BookFile row, so there is no traversal surface to validate.
@@ -174,6 +186,43 @@ export const bookReadRoutes = new Elysia()
       return { progress: await listProgress(user!.id, ids) };
     },
     { query: t.Object({ editionIds: t.Optional(t.String()) }) },
+  )
+
+  .get(
+    "/reading",
+    async ({ query, user }) => ({
+      // Clamped both ways, and to a whole number: a negative take paginates
+      // backwards past the cap, and a fractional one is a Prisma error rather
+      // than a 400.
+      reading: await listReading(user!.id, clampLimit(query.limit)),
+    }),
+    { query: t.Object({ limit: t.Optional(t.Numeric()) }) },
+  )
+
+  .post(
+    "/editions/:editionId/progress/finish",
+    async ({ params, user, set }) => {
+      const edition = await prisma.bookEdition.findUnique({
+        where: { id: params.editionId },
+        select: { id: true },
+      });
+      if (!edition) return notFound(set, "Edition not found");
+      return { progress: await finishProgress(user!.id, params.editionId) };
+    },
+    { params: t.Object({ editionId: t.Numeric() }) },
+  )
+
+  .post(
+    "/editions/:editionId/progress/reset",
+    async ({ params, user, set }) => {
+      const edition = await prisma.bookEdition.findUnique({
+        where: { id: params.editionId },
+        select: { id: true },
+      });
+      if (!edition) return notFound(set, "Edition not found");
+      return { progress: await resetProgress(user!.id, params.editionId) };
+    },
+    { params: t.Object({ editionId: t.Numeric() }) },
   )
 
   .put(
