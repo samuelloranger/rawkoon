@@ -46,7 +46,9 @@ mock.module("@rawkoon/api/db", () => ({
 
 mock.module("@rawkoon/api/lib/auth", () => ({
   auth: {
-    api: { getSession: async () => (authenticated ? { user: { id: "u1" } } : null) },
+    api: {
+      getSession: async () => (authenticated ? { user: { id: "u1" } } : null),
+    },
     handler: async () => new Response("", { status: 404 }),
   },
   refreshOidcProviders: () => {},
@@ -87,7 +89,10 @@ describe("parseRange", () => {
   });
 
   it("clamps an end past the file", () => {
-    expect(parseRange("bytes=900-5000", 1000)).toEqual({ start: 900, end: 999 });
+    expect(parseRange("bytes=900-5000", 1000)).toEqual({
+      start: 900,
+      end: 999,
+    });
   });
 
   it("reads a suffix range", () => {

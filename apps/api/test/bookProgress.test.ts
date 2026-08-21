@@ -30,7 +30,8 @@ mock.module("@rawkoon/api/db", () => ({
         where,
       }: {
         where: { userId_editionId: { userId: string; editionId: number } };
-      }) => find(where.userId_editionId.userId, where.userId_editionId.editionId),
+      }) =>
+        find(where.userId_editionId.userId, where.userId_editionId.editionId),
       findMany: async ({
         where,
       }: {
@@ -38,7 +39,8 @@ mock.module("@rawkoon/api/db", () => ({
       }) =>
         rows.filter(
           (r) =>
-            r.userId === where.userId && where.editionId.in.includes(r.editionId),
+            r.userId === where.userId &&
+            where.editionId.in.includes(r.editionId),
         ),
       upsert: async ({
         where,

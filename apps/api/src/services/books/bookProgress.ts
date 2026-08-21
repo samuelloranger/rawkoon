@@ -1,8 +1,5 @@
 import { prisma } from "@rawkoon/api/db";
-import type {
-  BookProgress,
-  BookProgressWrite,
-} from "@rawkoon/shared/types";
+import type { BookProgress, BookProgressWrite } from "@rawkoon/shared/types";
 
 type ProgressRow = {
   editionId: number;
@@ -81,7 +78,10 @@ export const saveProgress = async (
     select: progressSelect,
   });
 
-  if (existing && existing.clientUpdatedAt.getTime() >= clientUpdatedAt.getTime()) {
+  if (
+    existing &&
+    existing.clientUpdatedAt.getTime() >= clientUpdatedAt.getTime()
+  ) {
     return { progress: mapProgress(existing), accepted: false };
   }
 

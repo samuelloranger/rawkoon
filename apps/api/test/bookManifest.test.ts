@@ -132,7 +132,12 @@ describe("buildManifest", () => {
   it("reports no duration for an ebook edition", async () => {
     edition = {
       ...audiobook([
-        file({ id: 1, fileName: "book.epub", format: "epub", durationSecs: null }),
+        file({
+          id: 1,
+          fileName: "book.epub",
+          format: "epub",
+          durationSecs: null,
+        }),
       ]),
       kind: "ebook",
     };
@@ -146,8 +151,18 @@ describe("buildManifest", () => {
   it("opens the epub when an ebook edition also holds a pdf", async () => {
     edition = {
       ...audiobook([
-        file({ id: 5, fileName: "book.pdf", format: "pdf", durationSecs: null }),
-        file({ id: 6, fileName: "book.epub", format: "epub", durationSecs: null }),
+        file({
+          id: 5,
+          fileName: "book.pdf",
+          format: "pdf",
+          durationSecs: null,
+        }),
+        file({
+          id: 6,
+          fileName: "book.epub",
+          format: "epub",
+          durationSecs: null,
+        }),
       ]),
       kind: "ebook",
     };
@@ -160,7 +175,12 @@ describe("buildManifest", () => {
   it("marks mobi and azw3 unreadable but still serves a content url", async () => {
     edition = {
       ...audiobook([
-        file({ id: 7, fileName: "book.azw3", format: "azw3", durationSecs: null }),
+        file({
+          id: 7,
+          fileName: "book.azw3",
+          format: "azw3",
+          durationSecs: null,
+        }),
       ]),
       kind: "ebook",
     };

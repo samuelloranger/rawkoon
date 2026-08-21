@@ -19,9 +19,7 @@ export const parseMenuTimecode = (key: string): number | null => {
   const m = /^_(\d{2})_(\d{2})_(\d{2})_(\d{1,3})$/.exec(key);
   if (!m) return null;
   const [, h, min, s, ms] = m;
-  return (
-    Number(h) * 3600 + Number(min) * 60 + Number(s) + Number(ms) / 1000
-  );
+  return Number(h) * 3600 + Number(min) * 60 + Number(s) + Number(ms) / 1000;
 };
 
 /** Strips MediaInfo's `en:` language prefix from a chapter title. */
@@ -41,9 +39,8 @@ export const parseMenuChapters = (
     return [];
   }
 
-  const tracks = (
-    parsed as { media?: { track?: Record<string, unknown>[] } }
-  )?.media?.track;
+  const tracks = (parsed as { media?: { track?: Record<string, unknown>[] } })
+    ?.media?.track;
   if (!Array.isArray(tracks)) return [];
 
   const menu = tracks.find((t) => t["@type"] === "Menu");
