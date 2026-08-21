@@ -1,60 +1,158 @@
 // Captures README screenshots against a running, seeded Rawkoon instance.
 // Assumes the API is serving the built SPA on one origin (auto-detected
 // ./public). Usage: SCREENSHOT_URL=http://localhost:3000 bun scripts/screenshot/shots.ts
+//
+// Driven by Bun.WebView (Bun >= 1.4) rather than Playwright, so CI does not
+// need `playwright install --with-deps chromium` — WebView drives the Chrome
+// already present on the runner. Three things Playwright gave us for free are
+// rebuilt here: the 2x device scale factor and the hidden scrollbar (raw CDP
+// calls, WebView has no options for either) and waiting for a selector (a
+// polled evaluate).
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { chromium } from "playwright";
 import { DEMO_USER } from "./demoUser";
 
 const BASE = process.env.SCREENSHOT_URL ?? "http://localhost:3000";
-const OUT = join(import.meta.dir, "../../docs/screenshots");
+const OUT = process.env.SCREENSHOT_OUT ?? join(import.meta.dir, "../../docs/screenshots");
+
+const VIEWPORT = { width: 1440, height: 900 };
+const DEVICE_SCALE_FACTOR = 2;
+/**
+ * Readiness must be the route's own content, not the app shell. The sidebar
+ * renders /icon-32.png on every route, so "some image has loaded" goes true the
+ * moment the shell mounts and would let a poster-less skeleton be captured and
+ * auto-committed. Requiring *every* image to be complete is no good either — a
+ * single never-settling one hangs the wait. So: at least one TMDB poster
+ * present and decoded, which is real route content on both captured routes.
+ */
+const POSTER_READY =
+  '[...document.images].some((i) => i.src.includes("image.tmdb.org") && i.complete && i.naturalWidth > 0)';
+const WAIT_TIMEOUT_MS = 30_000;
+const POLL_INTERVAL_MS = 250;
+/** Let posters decode and the layout settle before the shutter. */
+const SETTLE_MS = 2000;
+const CAPTURE_ATTEMPTS = 3;
 
 await mkdir(OUT, { recursive: true });
 
-const browser = await chromium.launch();
-const ctx = await browser.newContext({
-  viewport: { width: 1440, height: 900 },
-  deviceScaleFactor: 2,
+// Ephemeral: a persisted data store carries the service worker across runs,
+// and a stale worker serves a shell that never mounts React.
+const view = new Bun.WebView({
+  width: VIEWPORT.width,
+  height: VIEWPORT.height,
+  headless: true,
+  dataStore: "ephemeral",
 });
 
-// ── Login ────────────────────────────────────────────────────────────────────
-// Sign in on a throwaway tab, then capture from fresh tabs. Headless Chromium
-// can still flake after login (service worker + version-reload + SSE); a fresh
-// tab with the session cookie is more reliable than staying on the login tab.
-const loginPage = await ctx.newPage();
-await loginPage.goto(`${BASE}/login`, { waitUntil: "load" });
-await loginPage.locator("#email").fill(DEMO_USER.email);
-await loginPage.locator("#password").fill(DEMO_USER.password);
-await loginPage.locator('button[type="submit"]').click();
-await loginPage
-  .waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 30_000 })
-  .catch(() => {}); // session cookie is set even if the redirected page flakes
-await loginPage.close();
+/**
+ * The page's visible text, trimmed — used to explain a timeout. The API answers
+ * its own rate limit with a bare text body, so without this a throttled run
+ * looks indistinguishable from a hung one.
+ */
+async function pageText(): Promise<string> {
+  const text = await view
+    .evaluate<string>("document.body.innerText.trim().slice(0, 200)")
+    .catch(() => "");
+  return text ? ` Page said: ${JSON.stringify(text)}` : "";
+}
 
-// One fresh tab per capture, one retry: headless Chromium occasionally flakes;
-// a clean tab almost always succeeds.
-async function capture(path: string, name: string): Promise<boolean> {
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    const page = await ctx.newPage();
+/** Poll a JS expression in the page until it is truthy, or throw on timeout. */
+async function waitFor(expression: string, what: string): Promise<void> {
+  const deadline = Date.now() + WAIT_TIMEOUT_MS;
+  for (;;) {
+    // A navigation mid-poll makes evaluate throw; that is not a failure yet.
+    const ok = await view.evaluate<boolean>(`!!(${expression})`).catch(() => false);
+    if (ok) return;
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `timed out after ${WAIT_TIMEOUT_MS}ms waiting for ${what}.${await pageText()}`,
+      );
+    }
+    await Bun.sleep(POLL_INTERVAL_MS);
+  }
+}
+
+/**
+ * Re-assert the capture emulation. WebView exposes no deviceScaleFactor option
+ * and always paints its scrollbar, and neither override reliably survives a
+ * navigation, so both run again before every capture. Hiding the scrollbar
+ * keeps these shots pixel-comparable with the Playwright-era baselines.
+ */
+async function applyCaptureEmulation(): Promise<void> {
+  await view.cdp("Emulation.setDeviceMetricsOverride", {
+    width: VIEWPORT.width,
+    height: VIEWPORT.height,
+    deviceScaleFactor: DEVICE_SCALE_FACTOR,
+    mobile: false,
+  });
+  await view.cdp("Emulation.setScrollbarsHidden", { hidden: true });
+}
+
+/** Click an input and type into it — WebView types into whatever has focus. */
+async function fill(selector: string, value: string): Promise<void> {
+  await view.click(selector, { timeout: WAIT_TIMEOUT_MS });
+  await view.type(value);
+}
+
+/**
+ * Retried: the service worker's version-reload can wipe or bounce the first
+ * load, and re-navigating clears it.
+ */
+async function capture(
+  path: string,
+  name: string,
+  ready = POSTER_READY,
+): Promise<boolean> {
+  for (let attempt = 1; attempt <= CAPTURE_ATTEMPTS; attempt++) {
     try {
-      await page.goto(`${BASE}${path}`, { waitUntil: "load" });
-      await page.locator('img[src*="image.tmdb.org"]').first().waitFor({ timeout: 30_000 });
-      await page.waitForTimeout(2000); // posters + layout settle
-      await page.screenshot({ path: join(OUT, `${name}.png`) });
-      await page.close();
-      console.log(`[shots] ${name}.png`);
+      await view.navigate(`${BASE}${path}`);
+      // A version-reload can land us somewhere else; confirm where we are
+      // before waiting on content that only exists on the target route.
+      await waitFor(
+        `document.readyState === 'complete' && location.pathname === ${JSON.stringify(path)}`,
+        `${path} to finish loading`,
+      );
+      await waitFor(ready, "the route content to render");
+      await applyCaptureEmulation();
+      // Hiding the scrollbar reflows the grid, so settle after emulation.
+      await Bun.sleep(SETTLE_MS);
+
+      const png = await view.screenshot({ encoding: "buffer", format: "png" });
+      await Bun.write(join(OUT, `${name}.png`), png);
+      console.log(`[shots] ${name}.png (${png.length} bytes)`);
       return true;
     } catch (err) {
-      console.warn(`[shots] ${name} attempt ${attempt} failed: ${String(err).slice(0, 120)}`);
-      await page.close().catch(() => {});
+      console.warn(`[shots] ${name} attempt ${attempt} failed: ${String(err).slice(0, 240)}`);
     }
   }
   return false;
 }
 
-const okLibrary = await capture("/library", "library");
-const okDashboard = await capture("/", "dashboard");
+let okLibrary = false;
+let okDashboard = false;
 
-await browser.close();
+try {
+  // ── Login ──────────────────────────────────────────────────────────────────
+  // Public sign-up is disabled; seed.ts created this credential account.
+  await view.navigate(`${BASE}/login`);
+  await waitFor("document.querySelector('#email')", "the login form");
+  await fill("#email", DEMO_USER.email);
+  await fill("#password", DEMO_USER.password);
+  await view.click('button[type="submit"]', { timeout: WAIT_TIMEOUT_MS });
+
+  // The session cookie is set even if the redirected page flakes (service
+  // worker + version-reload + SSE all land at once), so a timeout is not fatal.
+  await waitFor(
+    "!location.pathname.startsWith('/login')",
+    "the post-login redirect",
+  ).catch((err: Error) => console.warn(`[shots] login redirect: ${err.message}`));
+
+  okLibrary = await capture("/library", "library");
+  okDashboard = await capture("/", "dashboard");
+} finally {
+  // Always close, or a failed run leaves a headless Chrome behind.
+  view.close();
+}
+
 if (!okLibrary) throw new Error("library screenshot failed"); // README hero — hard-fail
 if (!okDashboard) console.warn("[shots] dashboard skipped after retries");
