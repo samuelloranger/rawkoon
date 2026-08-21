@@ -2,7 +2,7 @@
   "name": "rawkoon-monorepo",
   "private": true,
   "license": "GPL-3.0-or-later",
-  "packageManager": "bun@1.3.14",
+  "packageManager": "bun@1.4.0",
   "scripts": {
     "install:all": "bun install",
     "build": "bun run build:web",
@@ -25,6 +25,7 @@
     "typecheck:native:build": "tsgo -b tsconfig.build.json --pretty false",
     "lint": "biome lint apps/web apps/api",
     "knip": "knip",
+    "licenses": "bun pm licenses",
     "duplicates": "bunx jscpd apps/web/src apps/api/src apps/shared/src --min-lines 20 --min-tokens 100 --gitignore --ignore \"**/*.test.*,**/*.spec.*,**/__tests__/**,**/__fixtures__/**,**/*.d.ts,**/generated/**,**/emails/rendered/**\" --reporters console",
     "clean": "rm -rf apps/web/dist node_modules apps/*/node_modules && docker compose down -v",
     "db:migrate:dev": "bun run --filter @rawkoon/api db:migrate:dev",

@@ -67,4 +67,4 @@ jobs:
       - name: Test
         run: |
           cd apps/web && bun run test --run
-          cd ../api && bun test test/ && bun test src/
+          cd ../api && bun run test

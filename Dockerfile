@@ -1,5 +1,5 @@
 # Build stage (using Bun)
-FROM oven/bun:1.3.14 AS builder
+FROM oven/bun:1.4.0 AS builder
 
 WORKDIR /app
 
@@ -22,7 +22,7 @@ COPY apps/web/ ./apps/web/
 RUN cd apps/web && bun run build
 
 # Final production stage (using a slim Bun image)
-FROM oven/bun:1.3.14-slim
+FROM oven/bun:1.4.0-slim
 
 # Baked in at build time by the CI pipeline.
 # Falls back to local development values when build args are not provided.
@@ -37,9 +37,9 @@ WORKDIR /app
 ENV LANG=C.UTF-8
 
 # Prisma runtime requires OpenSSL; curl for outbound HTTP; mediainfo for file
-# scanning (video and audiobook containers alike); unzip to read the OPF
-# package document out of an epub during book import.
-RUN apt-get update -y && apt-get install -y openssl curl mediainfo mkvtoolnix unzip \
+# scanning (video and audiobook containers alike). Epub OPF reading needs no
+# binary: the zip container is parsed in-process by utils/books/zipReader.
+RUN apt-get update -y && apt-get install -y openssl curl mediainfo mkvtoolnix \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy only what's needed for the runtime

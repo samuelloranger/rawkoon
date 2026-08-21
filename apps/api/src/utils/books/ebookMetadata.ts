@@ -1,5 +1,6 @@
 import { basename, extname } from "node:path";
 import type { BookFormat } from "@rawkoon/shared/types";
+import { readZipEntryText } from "@rawkoon/api/utils/books/zipReader";
 
 /**
  * Lightweight ebook metadata extraction.
@@ -79,35 +80,15 @@ const isbn13From = (xml: string): string | null => {
 /**
  * Read the OPF package document out of an epub.
  *
- * Bun's zip support is not exposed as an API, so this shells out to `unzip -p`
- * when available and degrades to filename-only metadata otherwise. Import must
- * never fail because metadata could not be read — the file is still the file.
+ * An epub is a zip, and Bun still has no zip API — Bun.Archive (1.4) only
+ * handles tar/tar.gz — so the container is parsed in-process by zipReader
+ * rather than shelled out to `unzip`. Import must never fail because metadata
+ * could not be read — the file is still the file.
  */
 async function readEpubOpf(filePath: string): Promise<string | null> {
-  try {
-    const list = Bun.spawn(["unzip", "-Z1", filePath], {
-      stdout: "pipe",
-      stderr: "ignore",
-    });
-    const listing = await new Response(list.stdout).text();
-    if ((await list.exited) !== 0) return null;
-
-    const opfPath = listing
-      .split("\n")
-      .map((l) => l.trim())
-      .find((l) => l.toLowerCase().endsWith(".opf"));
-    if (!opfPath) return null;
-
-    const cat = Bun.spawn(["unzip", "-p", filePath, opfPath], {
-      stdout: "pipe",
-      stderr: "ignore",
-    });
-    const xml = await new Response(cat.stdout).text();
-    if ((await cat.exited) !== 0) return null;
-    return xml;
-  } catch {
-    return null;
-  }
+  return readZipEntryText(filePath, (name) =>
+    name.toLowerCase().endsWith(".opf"),
+  );
 }
 
 /**
