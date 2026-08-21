@@ -8,6 +8,7 @@ export interface CachedFile {
   sizeBytes: number;
 }
 
+/** Overall percent across every file in the edition. */
 type Progress = (percent: number) => void;
 
 const controller = async (): Promise<ServiceWorker | null> => {
@@ -20,18 +21,31 @@ export const isOfflineSupported = (): boolean =>
   "serviceWorker" in navigator && "caches" in window;
 
 /**
- * Downloads a file for offline reading, resolving when it is stored. Rejects
- * with "quota" when there is no room, which the interface states plainly rather
- * than retrying.
+ * Downloads an edition for offline reading — every file, plus the metadata
+ * needed to reopen it — and resolves once it is all stored. Rejects with
+ * "quota" when there is no room, which the interface states plainly rather than
+ * retrying.
+ *
+ * Progress is reported across the whole set: a two-track audiobook halfway
+ * through its second file reads 75%, not 50% twice.
  */
 export const downloadForOffline = async (
-  fileId: number,
+  target: { fileIds: number[]; bookId: number; editionId: number },
   onProgress?: Progress,
 ): Promise<void> => {
   const worker = await controller();
   if (!worker) throw new Error("unsupported");
 
+  const { fileIds } = target;
+  const done = new Set<number>();
+
   return new Promise<void>((resolve, reject) => {
+    const finish = (err?: Error) => {
+      navigator.serviceWorker.removeEventListener("message", onMessage);
+      if (err) reject(err);
+      else resolve();
+    };
+
     const onMessage = (event: MessageEvent) => {
       const data = event.data as {
         type: string;
@@ -39,28 +53,39 @@ export const downloadForOffline = async (
         percent?: number;
         reason?: string;
       } | null;
-      if (!data || data.fileId !== fileId) return;
-      if (data.type === "bookCacheProgress") onProgress?.(data.percent ?? 0);
-      if (data.type === "bookCacheDone") {
-        navigator.serviceWorker.removeEventListener("message", onMessage);
-        resolve();
+      if (!data || !fileIds.includes(data.fileId)) return;
+
+      if (data.type === "bookCacheProgress") {
+        const share = 100 / fileIds.length;
+        onProgress?.(
+          Math.min(
+            99,
+            Math.floor(done.size * share + ((data.percent ?? 0) / 100) * share),
+          ),
+        );
       }
+
+      if (data.type === "bookCacheDone") {
+        done.add(data.fileId);
+        onProgress?.(Math.floor((done.size / fileIds.length) * 100));
+        if (done.size === fileIds.length) finish();
+      }
+
       if (data.type === "bookCacheFailed") {
-        navigator.serviceWorker.removeEventListener("message", onMessage);
-        reject(new Error(data.reason ?? "network"));
+        finish(new Error(data.reason ?? "network"));
       }
     };
+
     navigator.serviceWorker.addEventListener("message", onMessage);
-    worker.postMessage({ type: "cacheBookFile", fileId });
+    worker.postMessage({ type: "cacheBookFile", ...target });
   });
 };
 
-export const removeOffline = async (fileId: number): Promise<void> => {
+export const removeOffline = async (fileIds: number[]): Promise<void> => {
   const worker = await controller();
-  worker?.postMessage({ type: "evictBookFile", fileId });
+  worker?.postMessage({ type: "evictBookFile", fileIds });
 };
 
-/** What is stored, for the Downloads list in settings. */
 export const listOffline = async (): Promise<CachedFile[]> => {
   const worker = await controller();
   if (!worker) return [];

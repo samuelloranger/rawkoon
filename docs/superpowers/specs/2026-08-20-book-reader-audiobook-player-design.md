@@ -116,10 +116,11 @@ matched as an `:id`.
 | GET | `/files/:fileId/content` | `requireUser`. Path comes only from the `BookFile` row. `Bun.file`, `Accept-Ranges: bytes`, 206 on Range, 416 with `Content-Range: bytes */size` on unsatisfiable, `ETag` from `fileIno`+`fileMtimeMs`+`sizeBytes`, `Cache-Control: private, max-age=31536000, immutable`. |
 | GET | `/editions/:editionId/manifest` | Ordered files with format, size, duration, chapters, and cumulative offsets so the client has one flat audio timeline. Marks each file `readable`. Reader picks its file here (epub > pdf > cbz). |
 | GET | `/progress?editionIds=1,2,3` | Batch fetch for list badges. |
-| PUT | `/editions/:editionId/progress` | Body carries `clientUpdatedAt`. Upserts only when it beats the stored value. Returns the winning row either way. |
+| PUT | `/editions/:editionId/progress` | Body carries `clientUpdatedAt`. One `INSERT ... ON CONFLICT ... DO UPDATE ... WHERE stored.client_updated_at < EXCLUDED.client_updated_at`, so the predicate is evaluated while Postgres holds the row. Returns the winning row either way. A read-then-write pair would let two devices saving at once both observe the same old row and the older write land last. |
 
-Business logic lives in `services/books/bookProgress.ts` (upsert + conflict
-rule) and `services/books/bookManifest.ts`, so both are unit-testable without
+Business logic lives in `services/books/bookProgress.ts` (the conditional upsert,
+issued through `$queryRaw` because Prisma's `upsert` cannot carry a `WHERE` on the
+conflict branch) and `services/books/bookManifest.ts`, so both are unit-testable without
 HTTP. All error paths return `src/errors.ts` helpers; nothing throws, because
 the global `onError` collapses thrown errors into a generic 500.
 
@@ -155,8 +156,14 @@ a gap. `preservesPitch = true` is set explicitly so narration stays natural at
 `ConfirmProvider`, holding the engine for the app's lifetime so playback
 survives every route change. Reads engine state through `useSyncExternalStore`,
 not `useState` on `timeupdate`, which would re-render the tree four times a
-second. Owns the debounced progress PUT and the Media Session metadata and
-action handlers.
+second. Owns the periodic progress PUT and the Media Session metadata and action
+handlers.
+
+The ten-second save interval depends on playback state alone and reads the
+position from the engine inside the tick. Depending on `state.position` would
+tear the interval down and rebuild it several times a second, so it would never
+fire and a crash would cost the whole session rather than ten seconds. Pausing
+saves separately, on its own effect.
 
 **UI** — `PlayerBar` (compact, global, mounted only when something is loaded)
 and `PlayerExpanded` (route `/books/$bookId/listen`, deep-linkable). Both read
@@ -284,6 +291,14 @@ Quality floor, unannounced: responsive to mobile, visible keyboard focus via
 the existing `.focus-ring`, reduced motion respected, all strings through
 i18next in `en` and `fr`.
 
+## Revisions
+
+Six findings from the review of the first implementation are folded into the
+sections above: the atomic conflict predicate, caching an edition's whole file
+set, storing metadata and a shell so a book can be reopened offline, streaming
+downloads instead of buffering them, the progress interval's dependencies, and
+teaching cache activation to keep `book_cache`.
+
 ## Failure modes
 
 | What breaks | Server | Interface |
@@ -295,6 +310,8 @@ i18next in `en` and `fr`.
 | Cache quota exceeded mid-download | - | "Not enough space to store this book." Partial entry deleted; nothing half-cached. |
 | Progress PUT loses the conflict | 200 with the winning row | client adopts the server position silently. A prompt over 30 seconds of drift is noise. |
 | Audio decode error mid-file | - | engine advances to the next file; a toast names what it skipped |
+| Offline with nothing cached | manifest request has no stored copy | the metadata route answers 503 and the reader reports it could not open the book, rather than hanging |
+| Download interrupted midway | - | the partial entry is deleted, so the reader never opens a truncated file |
 
 ## Testing
 
@@ -313,6 +330,12 @@ i18next in `en` and `fr`.
   React.
 - `ChapterRail.test.tsx` — segment widths proportional to durations, click maps
   to the right absolute time, arrow keys move focus and seek.
+- `bookCache.test.ts` — a download resolves only once every file is stored,
+  progress is aggregated across the set rather than reported per file, and a
+  worker failure surfaces its reason.
+- `book-cache.test.ts` and `activate-handler.test.ts` — which requests the
+  worker claims, and that activation keeps `book_cache` while dropping stale
+  caches. Both are regression guards for review findings.
 - One smoke test per renderer against a tiny fixture (TOC plus first position).
   The libraries are already tested; the integration is what breaks.
 

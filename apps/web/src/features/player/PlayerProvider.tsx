@@ -94,23 +94,30 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     setExpanded(false);
   }, [engine, save]);
 
-  // Periodic save while playing, plus one on pause: a crash costs at most ten
-  // seconds of position, and pausing is the moment a listener expects it kept.
+  // Periodic save while playing, so a crash costs at most ten seconds of
+  // position. The effect depends on playback state only and reads the position
+  // from the engine: `state.position` changes on every `timeupdate`, so having
+  // it here would tear the interval down and rebuild it several times a second
+  // and it would never actually fire.
   useEffect(() => {
-    if (!state.playing) {
-      if (state.position > 0 && state.position !== lastSaved.current) {
-        lastSaved.current = state.position;
-        void save(state.position);
-      }
-      return;
-    }
+    if (!state.playing) return;
     const id = window.setInterval(() => {
       const position = engine.getState().position;
       lastSaved.current = position;
       void save(position);
     }, PROGRESS_INTERVAL_MS);
     return () => window.clearInterval(id);
-  }, [state.playing, state.position, engine, save]);
+  }, [state.playing, engine, save]);
+
+  // Pausing is the moment a listener expects the position kept, and it is the
+  // one time reading `state.position` per change costs nothing.
+  useEffect(() => {
+    if (state.playing) return;
+    if (state.position > 0 && state.position !== lastSaved.current) {
+      lastSaved.current = state.position;
+      void save(state.position);
+    }
+  }, [state.playing, state.position, save]);
 
   // Finishing the last chapter marks the edition read.
   useEffect(() => {

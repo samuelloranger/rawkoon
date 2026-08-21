@@ -12,25 +12,40 @@ import {
 /**
  * "Make available offline", then "Available offline". Removal is explicit and
  * lives here too: nothing evicts a stored book on its own.
+ *
+ * The whole edition is the unit, not one file. An audiobook split across tracks
+ * that stored only the first would stop playing at the first boundary while the
+ * button still claimed it was available.
  */
-export const OfflineButton = ({ fileId }: { fileId: number }) => {
+export const OfflineButton = ({
+  fileIds,
+  bookId,
+  editionId,
+}: {
+  fileIds: number[];
+  bookId: number;
+  editionId: number;
+}) => {
   const { t } = useTranslation("common");
   const [stored, setStored] = useState(false);
   const [percent, setPercent] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!isOfflineSupported()) return;
-    void listOffline().then((entries) =>
-      setStored(entries.some((entry) => entry.fileId === fileId)),
-    );
-  }, [fileId]);
+    if (!isOfflineSupported() || fileIds.length === 0) return;
+    void listOffline().then((entries) => {
+      const cached = new Set(entries.map((entry) => entry.fileId));
+      // Partly-stored counts as not stored: the offer has to mean the whole
+      // book plays, and re-downloading a cached file is cheap.
+      setStored(fileIds.every((id) => cached.has(id)));
+    });
+  }, [fileIds]);
 
-  if (!isOfflineSupported()) return null;
+  if (!isOfflineSupported() || fileIds.length === 0) return null;
 
   const start = async () => {
     setPercent(0);
     try {
-      await downloadForOffline(fileId, setPercent);
+      await downloadForOffline({ fileIds, bookId, editionId }, setPercent);
       setStored(true);
       toast.success(t("books.offline.stored"));
     } catch (err) {
@@ -45,7 +60,7 @@ export const OfflineButton = ({ fileId }: { fileId: number }) => {
   };
 
   const remove = async () => {
-    await removeOffline(fileId);
+    await removeOffline(fileIds);
     setStored(false);
     toast.success(t("books.offline.removed"));
   };

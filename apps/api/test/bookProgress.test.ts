@@ -18,53 +18,107 @@ type Row = {
 };
 
 let rows: Row[] = [];
-const upserts: Array<Record<string, unknown>> = [];
+/** Every statement the service issued, so a rejected write can be shown to write nothing. */
+const statements: string[] = [];
 
 const find = (userId: string, editionId: number) =>
   rows.find((r) => r.userId === userId && r.editionId === editionId) ?? null;
 
+/**
+ * Stands in for the single INSERT ... ON CONFLICT ... WHERE statement, including
+ * its refusal to update when the incoming clock does not beat the stored one.
+ * Returns raw snake_case columns, as `$queryRaw` does.
+ */
+const runUpsert = (
+  userId: string,
+  editionId: number,
+  incoming: {
+    locator: string | null;
+    percent: number | null;
+    positionSecs: number | null;
+    fileId: number | null;
+    finishedAt: Date | null;
+    clientUpdatedAt: Date;
+  },
+) => {
+  const existing = find(userId, editionId);
+  if (existing) {
+    if (
+      existing.clientUpdatedAt.getTime() >= incoming.clientUpdatedAt.getTime()
+    ) {
+      return [];
+    }
+    Object.assign(existing, incoming, { updatedAt: new Date() });
+    return [raw(existing)];
+  }
+  const row: Row = {
+    userId,
+    editionId,
+    ...incoming,
+    updatedAt: new Date(),
+  };
+  rows.push(row);
+  return [raw(row)];
+};
+
+const raw = (row: Row) => ({
+  edition_id: row.editionId,
+  locator: row.locator,
+  percent: row.percent,
+  position_secs: row.positionSecs,
+  file_id: row.fileId,
+  finished_at: row.finishedAt,
+  client_updated_at: row.clientUpdatedAt,
+  updated_at: row.updatedAt,
+});
+
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
+    $queryRaw: (
+      _strings: TemplateStringsArray,
+      userId: string,
+      editionId: number,
+      locator: string | null,
+      percent: number | null,
+      positionSecs: number | null,
+      fileId: number | null,
+      finishedAt: Date | null,
+      clientUpdatedAt: Date,
+    ) => {
+      statements.push("upsert");
+      return Promise.resolve(
+        runUpsert(userId, editionId, {
+          locator,
+          percent,
+          positionSecs,
+          fileId,
+          finishedAt,
+          clientUpdatedAt,
+        }),
+      );
+    },
     bookProgress: {
-      findUnique: async ({
+      findUnique: ({
         where,
       }: {
         where: { userId_editionId: { userId: string; editionId: number } };
-      }) =>
-        find(where.userId_editionId.userId, where.userId_editionId.editionId),
-      findMany: async ({
+      }) => {
+        const key = where.userId_editionId;
+        const row = find(key.userId, key.editionId);
+        return Promise.resolve(row);
+      },
+      findMany: ({
         where,
       }: {
         where: { userId: string; editionId: { in: number[] } };
       }) =>
-        rows.filter(
-          (r) =>
-            r.userId === where.userId &&
-            where.editionId.in.includes(r.editionId),
+        Promise.resolve(
+          rows.filter(
+            (r) =>
+              r.userId === where.userId &&
+              where.editionId.in.includes(r.editionId),
+          ),
         ),
-      upsert: async ({
-        where,
-        create,
-        update,
-      }: {
-        where: { userId_editionId: { userId: string; editionId: number } };
-        create: Record<string, unknown>;
-        update: Record<string, unknown>;
-      }) => {
-        const key = where.userId_editionId;
-        const existing = find(key.userId, key.editionId);
-        upserts.push(existing ? update : create);
-        if (existing) {
-          Object.assign(existing, update, { updatedAt: new Date() });
-          return existing;
-        }
-        const row = {
-          ...(create as unknown as Row),
-          updatedAt: new Date(),
-        } as Row;
-        rows.push(row);
-        return row;
-      },
     },
   },
 }));
@@ -93,7 +147,7 @@ const seed = (clientUpdatedAt: string, overrides: Partial<Row> = {}) => {
 describe("saveProgress", () => {
   beforeEach(() => {
     rows = [];
-    upserts.length = 0;
+    statements.length = 0;
   });
 
   it("creates a row on the first write", async () => {
@@ -133,7 +187,10 @@ describe("saveProgress", () => {
 
     expect(res.accepted).toBe(false);
     expect(res.progress.percent).toBe(0.4);
-    expect(upserts).toHaveLength(0);
+    // The statement ran; it simply updated nothing, which is the point of
+    // putting the predicate in the database rather than in a prior read.
+    expect(statements).toEqual(["upsert"]);
+    expect(rows[0].locator).toBe("epubcfi(/6/4!/2/10)");
   });
 
   it("keeps the stored row when the clocks tie", async () => {
@@ -156,6 +213,29 @@ describe("saveProgress", () => {
     });
 
     expect(res.progress.finished_at).not.toBeNull();
+  });
+
+  it("keeps the newer position when two devices save at once", async () => {
+    // Both calls start before either resolves, which is the shape of the race:
+    // with a read-then-write pair both would observe the same state and the
+    // older write could land last.
+    const [newer, older] = await Promise.all([
+      saveProgress("u1", 7, {
+        percent: 0.8,
+        locator: "desktop",
+        client_updated_at: "2026-08-20T12:00:00.000Z",
+      }),
+      saveProgress("u1", 7, {
+        percent: 0.1,
+        locator: "phone",
+        client_updated_at: "2026-08-13T09:00:00.000Z",
+      }),
+    ]);
+
+    const loser = newer.accepted ? older : newer;
+    expect(loser.accepted).toBe(false);
+    expect(loser.progress.locator).toBe("desktop");
+    expect(rows[0].locator).toBe("desktop");
   });
 
   it("keeps positions for different editions independent", async () => {

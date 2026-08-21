@@ -32,8 +32,11 @@ export interface MessageData {
     | "evictBookFile"
     | "bookCacheStatus";
   notificationId?: number | null;
-  /** Books: which BookFile a cache message is about. */
-  fileId?: number | null;
+  /** Books: every BookFile a cache message covers — an audiobook has several. */
+  fileIds?: number[];
+  /** Books: identifies the metadata to store alongside the bytes. */
+  bookId?: number | null;
+  editionId?: number | null;
   notificationData?: PushNotificationData;
 }
 

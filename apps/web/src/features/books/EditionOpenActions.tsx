@@ -43,6 +43,13 @@ export const EditionOpenActions = ({
     : (manifest?.primary_file_id ?? null);
   if (manifest && openableFileId == null) return null;
 
+  // An audiobook is every track; an ebook is the one file the reader opens.
+  const offlineFileIds = isAudiobook
+    ? (manifest?.files.map((file) => file.id) ?? [])
+    : openableFileId != null
+      ? [openableFileId]
+      : [];
+
   const label = started
     ? t("books.open.continue")
     : isAudiobook
@@ -76,7 +83,13 @@ export const EditionOpenActions = ({
         </span>
       )}
 
-      {openableFileId != null && <OfflineButton fileId={openableFileId} />}
+      {offlineFileIds.length > 0 && (
+        <OfflineButton
+          fileIds={offlineFileIds}
+          bookId={bookId}
+          editionId={edition.id}
+        />
+      )}
     </div>
   );
 };
