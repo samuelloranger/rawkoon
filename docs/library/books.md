@@ -240,6 +240,18 @@ picking one opens the reader for an ebook or the player for an audiobook. It
 lists what you are partway through, so a book you merely opened does not clutter
 it, and it disappears when nothing is started.
 
+Two ways off the list, and they are not the same:
+
+- **Mark as finished**, on the row itself, takes the book out of the panel and
+  keeps your position, so you can go back to it from the book's page.
+- **Restart**, next to Continue on the book's page, discards the position: the
+  book opens at its first page next time.
+
+Both ask first. Neither deletes the position outright — a stored position is
+overwritten rather than removed, because a device that has been offline still
+holds writes of its own, and a deleted row would come back the moment it
+reconnected.
+
 ### Where you left off
 
 Each person's position is their own, and it follows them between devices. An

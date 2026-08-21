@@ -30,6 +30,71 @@ export const useBookProgress = (editionIds: number[]) =>
   });
 
 /**
+ * Reset a position, or mark an edition finished.
+ *
+ * Both go through the same PUT the reader uses, on purpose. Deleting the row
+ * would be the obvious move and the wrong one: the conflict rule is "newest
+ * client clock wins", so a write still queued on a phone would recreate the
+ * position the moment that phone came back online. A write stamped now beats
+ * the queue instead.
+ *
+ * Reset clears the locator and zeroes the position, which is what puts the book
+ * back at its first page. Finishing keeps the position and stamps `finished_at`,
+ * because "I am done with this" is not "I never read it".
+ */
+export const useEndReading = (editionId: number) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: EndReadingInput) =>
+      fetchApi<BookProgressResponse>(
+        BOOKS_ENDPOINTS.EDITION_PROGRESS(editionId),
+        {
+          method: "PUT",
+          // Every field is sent every time: the write replaces the row, so an
+          // omitted one is stored as null. Finishing therefore has to carry the
+          // position forward rather than leave it out.
+          body: JSON.stringify(
+            input.mode === "finish"
+              ? {
+                  locator: input.locator ?? null,
+                  percent: 1,
+                  position_secs: input.position_secs ?? null,
+                  file_id: input.file_id ?? null,
+                  finished: true,
+                  client_updated_at: nowIso(),
+                }
+              : {
+                  locator: null,
+                  percent: 0,
+                  position_secs: 0,
+                  file_id: null,
+                  client_updated_at: nowIso(),
+                },
+          ),
+        },
+      ),
+    onSuccess: () => {
+      // Every view of a position is now wrong: the book page, the list badges,
+      // and the home widget.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
+    },
+  });
+};
+
+const nowIso = () => new Date().toISOString();
+
+/** Finishing keeps the position it is given; resetting needs nothing. */
+export type EndReadingInput =
+  | { mode: "reset" }
+  | {
+      mode: "finish";
+      locator?: string | null;
+      position_secs?: number | null;
+      file_id?: number | null;
+    };
+
+/**
  * Save a position. A failed write is queued for the service worker rather than
  * surfaced: losing a scroll position is not worth a toast, and the queue is
  * what makes offline reading work.

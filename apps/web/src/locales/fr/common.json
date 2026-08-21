@@ -2008,7 +2008,13 @@
     "open": {
       "read": "Lire",
       "listen": "Écouter",
-      "continue": "Continuer"
+      "continue": "Continuer",
+      "restart": "Recommencer",
+      "restartTitle": "Recommencer ce livre ?",
+      "restartDescription": "La position enregistrée est effacée : le livre s'ouvrira à la première page.",
+      "finish": "Marquer comme terminé",
+      "finishTitle": "Terminé, {{title}} ?",
+      "finishDescription": "Le livre quitte Reprendre la lecture. La position est conservée : tu peux le reprendre depuis sa page."
     },
     "player": {
       "play": "Lire",

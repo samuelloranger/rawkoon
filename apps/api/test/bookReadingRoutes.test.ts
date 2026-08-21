@@ -70,6 +70,8 @@ const get = (path: string) =>
 const progressRow = () => ({
   editionId: 5,
   percent: 0.37,
+  locator: "epubcfi(/6/4!/2/10)",
+  fileId: null,
   positionSecs: null,
   updatedAt: new Date("2026-08-21T10:00:00.000Z"),
   edition: {

@@ -8,6 +8,8 @@ import { describe, it, expect, mock } from "bun:test";
 type Row = {
   editionId: number;
   percent: number | null;
+  locator: string | null;
+  fileId: number | null;
   positionSecs: number | null;
   updatedAt: Date;
   edition: {
@@ -51,6 +53,8 @@ const { listReading } = await import("@rawkoon/api/services/books/bookReading");
 const row = (overrides: Partial<Row> = {}): Row => ({
   editionId: 1,
   percent: 0.4,
+  locator: "epubcfi(/6/4!/2/10)",
+  fileId: null,
   positionSecs: null,
   updatedAt: new Date("2026-08-21T10:00:00.000Z"),
   ...overrides,
@@ -78,6 +82,8 @@ describe("listReading", () => {
     expect(entry.book_id).toBe(11);
     expect(entry.title).toBe("A Quiet Harbour");
     expect(entry.percent).toBe(0.4);
+    // Carried so the client can mark the book finished without losing the page.
+    expect(entry.locator).toBe("epubcfi(/6/4!/2/10)");
     // An ebook has no clock, and a null here is what tells the widget so.
     expect(entry.position_secs).toBeNull();
     expect(entry.total_duration_secs).toBeNull();
@@ -130,6 +136,8 @@ describe("listReading", () => {
     rows = [
       row({
         percent: null,
+        locator: null,
+        fileId: 3,
         positionSecs: 4_200,
         edition: {
           kind: "audiobook",
@@ -142,6 +150,7 @@ describe("listReading", () => {
 
     const [entry] = await listReading("u1", 6);
     expect(entry.kind).toBe("audiobook");
+    expect(entry.file_id).toBe(3);
     expect(entry.position_secs).toBe(4_200);
     expect(entry.total_duration_secs).toBe(36_000);
     expect(entry.percent).toBeNull();

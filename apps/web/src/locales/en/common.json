@@ -2008,7 +2008,13 @@
     "open": {
       "read": "Read",
       "listen": "Listen",
-      "continue": "Continue"
+      "continue": "Continue",
+      "restart": "Restart",
+      "restartTitle": "Restart this book?",
+      "restartDescription": "Your saved position is cleared, and the book opens at the first page next time.",
+      "finish": "Mark as finished",
+      "finishTitle": "Finished with {{title}}?",
+      "finishDescription": "It leaves Continue reading. Your position is kept, so you can pick it up again from the book's page."
     },
     "player": {
       "play": "Play",

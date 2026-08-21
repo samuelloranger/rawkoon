@@ -44,6 +44,8 @@ export const listReading = async (
     select: {
       editionId: true,
       percent: true,
+      locator: true,
+      fileId: true,
       positionSecs: true,
       updatedAt: true,
       edition: {
@@ -88,6 +90,8 @@ export const listReading = async (
       authors: edition.book.authors,
       cover_url: edition.book.coverUrl,
       percent: isAudiobook ? null : row.percent,
+      locator: row.locator,
+      file_id: row.fileId,
       position_secs: isAudiobook ? row.positionSecs : null,
       total_duration_secs: isAudiobook ? duration : null,
       updated_at: row.updatedAt.toISOString(),

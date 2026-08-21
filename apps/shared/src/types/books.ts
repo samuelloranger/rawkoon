@@ -322,6 +322,9 @@ export interface BookReadingEntry {
   cover_url: string | null;
   /** Ebook progress, 0..1. Null for an audiobook. */
   percent: number | null;
+  /** The stored position, carried so marking the book finished can keep it. */
+  locator: string | null;
+  file_id: number | null;
   /** Audiobook position in seconds on the flattened timeline. */
   position_secs: number | null;
   /** Audiobook total, for the remaining-time label. Null for an ebook. */
