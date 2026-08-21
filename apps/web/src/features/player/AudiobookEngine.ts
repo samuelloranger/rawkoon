@@ -41,6 +41,14 @@ export interface EngineState {
   chapterIndex: number;
   buffered: Array<{ start: number; end: number }>;
   error: string | null;
+  /**
+   * Set once, when the last file reports `ended`.
+   *
+   * Completion is an event, not a position: inferring it from
+   * `position >= duration - 1` marked a book finished whenever a listener
+   * paused in the final second, or when the last file failed to decode.
+   */
+  completed: boolean;
 }
 
 const EMPTY_STATE: EngineState = {
@@ -60,6 +68,7 @@ const EMPTY_STATE: EngineState = {
   chapterIndex: 0,
   buffered: [],
   error: null,
+  completed: false,
 };
 
 export const MIN_RATE = 0.5;
@@ -137,6 +146,30 @@ export const chapterIndexAt = (
   return 0;
 };
 
+/** MediaError codes; the constants are absent in some test DOMs. */
+const ERR_ABORTED = 1;
+const ERR_NETWORK = 2;
+
+/** A dropped mobile connection is worth retrying; a corrupt file is not. */
+const MAX_NETWORK_RETRIES = 3;
+const RETRY_BASE_MS = 500;
+
+/**
+ * iOS ignores `preload` and gives a second media element the power to take the
+ * audio session from the one that is playing, so preloading there costs the
+ * transport and buys nothing.
+ */
+const prefersNoPreload = (): boolean => {
+  try {
+    const nav = navigator as Navigator & { maxTouchPoints?: number };
+    if (/iPad|iPhone|iPod/.test(nav.userAgent)) return true;
+    // iPadOS reports itself as a Mac; touch points are what separate them.
+    return /Mac/.test(nav.userAgent) && (nav.maxTouchPoints ?? 0) > 1;
+  } catch {
+    return false;
+  }
+};
+
 type Listener = () => void;
 
 export class AudiobookEngine {
@@ -144,10 +177,32 @@ export class AudiobookEngine {
   private context: AudioContext | null = null;
   private gain: GainNode | null = null;
   private preload: HTMLAudioElement | null = null;
+  private preloadUrl: string | null = null;
   private timeline: TimelineFile[] = [];
   private fileIndex = 0;
   private listeners = new Set<Listener>();
   private state: EngineState = EMPTY_STATE;
+
+  /**
+   * Bumped on every source change and on unload.
+   *
+   * The element is one shared resource driven by overlapping async work: a
+   * `play()` promise, a `loadedmetadata` seek, an `error`. Without an owner
+   * stamp, a superseded operation still lands — an aborted play() rejecting
+   * after a newer one succeeded reported `playing: false` while audio was
+   * running, and a stale metadata listener seeked the new file to the old
+   * file's offset.
+   */
+  private generation = 0;
+
+  /** What the listener asked for, as opposed to what the element reports. */
+  private desiredPlaying = false;
+  private currentUrl: string | null = null;
+  /** Where in the current file playback was meant to be, for a retry. */
+  private requestedOffset = 0;
+  private networkRetries = 0;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly noPreload = prefersNoPreload();
 
   /** `useSyncExternalStore` reads this; it is replaced, never mutated. */
   getState = (): EngineState => this.state;
@@ -162,7 +217,16 @@ export class AudiobookEngine {
     for (const listener of this.listeners) listener();
   }
 
-  /** Created lazily: an AudioContext before a user gesture starts suspended. */
+  /**
+   * Built only when boost is actually asked for.
+   *
+   * `createMediaElementSource` permanently reroutes the element's output into
+   * the context, so from then on sound exists only while that context runs.
+   * iOS suspends it on backgrounding, on an audio-session interruption and on
+   * a route change, which turned plain playback silent with no way back. Plain
+   * playback therefore keeps the element's own output and never comes here,
+   * and `unload` throws the routed element away so the next book starts clean.
+   */
   private ensureGraph(audio: HTMLAudioElement) {
     if (this.context) return;
     const Ctor =
@@ -183,6 +247,13 @@ export class AudiobookEngine {
       source.connect(gain);
       gain.connect(compressor);
       compressor.connect(context.destination);
+      // Once the element is routed through the context, a suspended context is
+      // silence — so try to recover from every suspension, not just at play().
+      context.addEventListener?.("statechange", () => {
+        if (context.state !== "running" && this.desiredPlaying) {
+          void context.resume().catch(() => {});
+        }
+      });
       this.context = context;
       this.gain = gain;
     } catch {
@@ -202,6 +273,16 @@ export class AudiobookEngine {
     return file.offset + this.audio.currentTime;
   }
 
+  private ensureAudio(): HTMLAudioElement {
+    const existing = this.audio;
+    if (existing) return existing;
+    const audio = new Audio();
+    audio.preload = "metadata";
+    this.attach(audio);
+    this.audio = audio;
+    return audio;
+  }
+
   private attach(audio: HTMLAudioElement) {
     audio.addEventListener("timeupdate", this.onTimeUpdate);
     audio.addEventListener("progress", this.onProgress);
@@ -210,6 +291,13 @@ export class AudiobookEngine {
     audio.addEventListener("waiting", this.onWaiting);
     audio.addEventListener("playing", this.onPlaying);
     audio.addEventListener("pause", this.onPause);
+  }
+
+  private clearRetry() {
+    if (this.retryTimer != null) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
   }
 
   private onTimeUpdate = () => {
@@ -235,25 +323,63 @@ export class AudiobookEngine {
   };
 
   private onWaiting = () => this.emit({ loading: true });
-  private onPlaying = () => this.emit({ playing: true, loading: false });
+
+  private onPlaying = () => {
+    // Sound is coming out, so whatever the last failure was, it is over.
+    this.networkRetries = 0;
+    this.emit({ playing: true, loading: false });
+  };
+
   private onPause = () => this.emit({ playing: false });
 
   private onEnded = () => {
     if (this.fileIndex < this.timeline.length - 1) {
       void this.loadFile(this.fileIndex + 1, 0, true);
     } else {
-      this.emit({ playing: false });
+      this.desiredPlaying = false;
+      // The only place completion is declared. PlayerProvider turns this into
+      // exactly one "finished" write.
+      this.emit({ playing: false, completed: true });
     }
   };
 
   private onError = () => {
+    const code = this.audio?.error?.code;
+    // Swapping `src` mid-seek makes the element fire `error` with
+    // MEDIA_ERR_ABORTED, and an unload fires one with no MediaError at all.
+    // Neither means the file is bad, and advancing on them walked the index
+    // forward one file per skip until the book ran out.
+    if (code == null || code === ERR_ABORTED) return;
+
     const name = this.file?.name ?? "";
+
+    // A connection that dropped for a moment is not an unreadable file. Left
+    // to skip, one tunnel could walk an 83-file book to its last chapter.
+    if (code === ERR_NETWORK && this.networkRetries < MAX_NETWORK_RETRIES) {
+      const attempt = ++this.networkRetries;
+      const index = this.fileIndex;
+      const offset = this.requestedOffset;
+      const play = this.desiredPlaying;
+      this.emit({ loading: true });
+      this.clearRetry();
+      this.retryTimer = setTimeout(
+        () => {
+          this.retryTimer = null;
+          void this.loadFile(index, offset, play);
+        },
+        RETRY_BASE_MS * 2 ** (attempt - 1),
+      );
+      return;
+    }
+
+    this.networkRetries = 0;
     // A single unreadable file should not end the book: advance and say which
     // one was skipped.
     if (this.fileIndex < this.timeline.length - 1) {
       this.emit({ error: name });
-      void this.loadFile(this.fileIndex + 1, 0, this.state.playing);
+      void this.loadFile(this.fileIndex + 1, 0, this.desiredPlaying);
     } else {
+      this.desiredPlaying = false;
       this.emit({ error: name, playing: false, loading: false });
     }
   };
@@ -261,18 +387,18 @@ export class AudiobookEngine {
   private async loadFile(index: number, offset: number, play: boolean) {
     const file = this.timeline[index];
     if (!file) return;
+
+    const generation = ++this.generation;
+    this.clearRetry();
     this.fileIndex = index;
+    this.requestedOffset = offset;
+    this.desiredPlaying = play;
 
-    let audio = this.audio;
-    if (!audio) {
-      audio = new Audio();
-      audio.preload = "metadata";
-      this.attach(audio);
-      this.audio = audio;
-    }
+    const audio = this.ensureAudio();
 
-    if (!audio.src.endsWith(file.url)) {
+    if (this.currentUrl !== file.url) {
       audio.src = file.url;
+      this.currentUrl = file.url;
     }
     audio.playbackRate = this.state.rate;
     // Rate alone pitch-shifts past ~1.5x in some engines; narration must stay
@@ -280,8 +406,11 @@ export class AudiobookEngine {
     audio.preservesPitch = true;
 
     const seek = () => {
-      if (Math.abs(audio!.currentTime - offset) > 0.5) {
-        audio!.currentTime = offset;
+      // A newer load owns the element now; seeking here would drag the new
+      // file back to this one's offset.
+      if (generation !== this.generation) return;
+      if (Math.abs(audio.currentTime - offset) > 0.5) {
+        audio.currentTime = offset;
       }
     };
     if (audio.readyState >= 1) seek();
@@ -294,27 +423,46 @@ export class AudiobookEngine {
     });
 
     this.primeNext();
-    if (play) await this.play();
+    if (play) await this.play(generation);
     else this.emit({ loading: false });
   }
 
   /** Warms the next file's connection so a boundary crossing has no gap. */
   private primeNext() {
+    if (this.noPreload) return;
     const next = this.timeline[this.fileIndex + 1];
     if (!next) {
-      this.preload = null;
+      this.releasePreload();
       return;
     }
-    if (this.preload?.src.endsWith(next.url)) return;
+    if (this.preloadUrl === next.url) return;
+    // One reusable element, explicitly released: a fresh Audio() per boundary
+    // left its request in flight, and a rail drag across 83 files piled up
+    // dozens of them.
+    this.releasePreload();
     const audio = new Audio();
     audio.preload = "metadata";
     audio.src = next.url;
     this.preload = audio;
+    this.preloadUrl = next.url;
+  }
+
+  private releasePreload() {
+    const preload = this.preload;
+    if (preload) {
+      preload.pause();
+      preload.removeAttribute("src");
+      preload.load();
+    }
+    this.preload = null;
+    this.preloadUrl = null;
   }
 
   load = async (manifest: BookManifest, startAt?: number) => {
     const { timeline, chapters, duration } = buildTimeline(manifest.files);
     this.timeline = timeline;
+    this.networkRetries = 0;
+    this.clearRetry();
 
     this.emit({
       editionId: manifest.edition_id,
@@ -327,6 +475,7 @@ export class AudiobookEngine {
       chapters,
       error: null,
       buffered: [],
+      completed: false,
     });
 
     const resume = startAt ?? manifest.progress?.position_secs ?? 0;
@@ -334,21 +483,35 @@ export class AudiobookEngine {
     if (at) await this.loadFile(at.index, at.offset, false);
   };
 
-  play = async () => {
+  play = async (generation: number = this.generation) => {
     const audio = this.audio;
     if (!audio) return;
-    this.ensureGraph(audio);
-    if (this.context?.state === "suspended") await this.context.resume();
+    this.desiredPlaying = true;
+    // The AudioContext must never gate the transport. iOS returns a resume()
+    // promise that never settles outside a user gesture, so awaiting it left
+    // play() pending forever: `playing` was never emitted, every later tap
+    // started another pending play(), and the transport looked dead. Kick the
+    // resume off and let the element start regardless — a graph that is still
+    // suspended is a boost problem, not a playback problem.
+    if (this.context && this.context.state !== "running") {
+      void this.context.resume().catch(() => {});
+    }
     try {
       await audio.play();
+      // A newer load already took over; its own play() reports the truth.
+      if (generation !== this.generation) return;
       this.emit({ playing: true, loading: false });
     } catch {
+      if (generation !== this.generation) return;
       // Autoplay refusal: the UI stays paused rather than lying about state.
+      this.desiredPlaying = false;
       this.emit({ playing: false });
     }
   };
 
   pause = () => {
+    this.desiredPlaying = false;
+    this.clearRetry();
     this.audio?.pause();
     this.emit({ playing: false });
   };
@@ -365,10 +528,13 @@ export class AudiobookEngine {
     );
     const at = locate(this.timeline, clamped);
     if (!at) return;
+    // A deliberate seek is a fresh start for retry accounting.
+    this.networkRetries = 0;
     if (at.index !== this.fileIndex) {
-      void this.loadFile(at.index, at.offset, this.state.playing);
+      void this.loadFile(at.index, at.offset, this.desiredPlaying);
       return;
     }
+    this.requestedOffset = at.offset;
     if (this.audio) this.audio.currentTime = at.offset;
     this.emit({
       position: clamped,
@@ -405,10 +571,18 @@ export class AudiobookEngine {
     this.emit({ rate: clamped });
   };
 
-  /** Gain above 0dB is why the Web Audio graph exists. */
+  /**
+   * Gain above 0dB is the only reason the Web Audio graph exists, so the graph
+   * is built here and nowhere else. At 0dB an untouched element is both louder
+   * and far more robust than a routed one.
+   *
+   * Routing cannot be undone on a live element, so returning to 0dB restores
+   * unity gain rather than pretending the graph is gone; `unload` is what
+   * actually retires the routed element.
+   */
   setBoostDb = (db: number) => {
     const clamped = Math.min(12, Math.max(0, db));
-    if (this.audio) this.ensureGraph(this.audio);
+    if (clamped > 0 && this.audio) this.ensureGraph(this.audio);
     if (this.gain) this.gain.gain.value = 10 ** (clamped / 20);
     this.emit({ boostDb: clamped });
   };
@@ -418,11 +592,32 @@ export class AudiobookEngine {
   currentFileId = (): number | null => this.file?.id ?? null;
 
   unload = () => {
-    this.audio?.pause();
-    if (this.audio) this.audio.src = "";
-    this.preload = null;
+    // Orphan every in-flight operation before tearing the element down.
+    this.generation++;
+    this.desiredPlaying = false;
+    this.networkRetries = 0;
+    this.clearRetry();
+    this.releasePreload();
+
+    const audio = this.audio;
+    if (audio) {
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+    }
+
+    // A boosted session routed this element through the context for good, and
+    // a closed context is silence. Retire both, so the next book gets a fresh
+    // unrouted element and the reset boostDb in the state is the truth.
+    if (this.context) void this.context.close?.();
+    this.context = null;
+    this.gain = null;
+    this.audio = null;
+    this.currentUrl = null;
+
     this.timeline = [];
     this.fileIndex = 0;
+    this.requestedOffset = 0;
     this.emit({ ...EMPTY_STATE, rate: this.state.rate });
   };
 }
