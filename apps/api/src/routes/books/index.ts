@@ -4,6 +4,7 @@ import { auth } from "@rawkoon/api/auth";
 import { bookListRoutes } from "./bookListRoutes";
 import { bookEditionRoutes } from "./bookEditionRoutes";
 import { bookGrabRoutes } from "./bookGrabRoutes";
+import { bookReadRoutes } from "./bookReadRoutes";
 
 export { mapBook, mapBookEdition, bookInclude } from "./bookHelpers";
 export { bookQualityProfileRoutes } from "./bookQualityProfileRoutes";
@@ -14,6 +15,7 @@ export { authorRoutes } from "./authorRoutes";
  *   bookListRoutes    — GET /, GET /search, GET /:id, POST /, DELETE /:id
  *   bookEditionRoutes — PATCH /:id/editions/:kind, POST /:id/editions, files
  *   bookGrabRoutes    — search / grab / auto per edition
+ *   bookReadRoutes    — file bytes, manifest, reading progress
  *
  * bookListRoutes must come first: its literal /search route has to be matched
  * before anything that could treat "search" as an :id.
@@ -22,4 +24,5 @@ export const bookRoutes = new Elysia({ prefix: "/api/books" })
   .use(auth)
   .use(bookListRoutes)
   .use(bookEditionRoutes)
-  .use(bookGrabRoutes);
+  .use(bookGrabRoutes)
+  .use(bookReadRoutes);

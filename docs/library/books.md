@@ -187,6 +187,75 @@ disappeared.
 It only ever looks inside the directory the naming template points at, so it
 cannot pull in an unrelated book.
 
+## Reading and listening
+
+Imported books are read and played in Rawkoon itself, from the book's page:
+**Read** for an ebook, **Listen** for an audiobook. Once there is a position
+either button reads **Continue**, and the same word appears on the books list.
+
+### The reader
+
+The reader takes the whole window — no sidebar — and its chrome fades once you
+start reading, returning on any pointer move or key. The rail down the right
+edge is the table of contents: each segment is one chapter, sized to that
+chapter's real length, and clicking or dragging it moves you.
+
+| Format | Reader |
+|---|---|
+| `epub` | Full reader — chapter navigation, typography, page or scroll layout |
+| `pdf` | Page-per-view, with selectable text |
+| `cbz` | Page-per-view images |
+| `mobi`, `azw3` | **Not readable in the browser** — the file offers a download instead |
+
+Text settings (Aa) apply to epub only, since a pdf and a cbz have a fixed
+layout: reading face (Literata or Hanken Grotesk), size, line height, margins,
+Pages or Scroll, and a Night or Paper theme. They are remembered per browser,
+not per book.
+
+Keys: `←` `→` or `PageUp` `PageDown` turn pages, `Esc` closes.
+
+### The player
+
+The player keeps playing while you move around the rest of Rawkoon — it lives
+in a bar at the bottom of the window, and opens full-screen when you click it.
+A book split across many tracks is presented as one timeline: chapters come
+from the audio container's own marks, or one chapter per file when the
+container has none.
+
+- Speed from 0.5x to 3x, without the pitch rising
+- Skip back 15 seconds, forward 30
+- A chapter list, and a volume boost up to +12 dB for quiet narration
+- Lock-screen, headset and media-key controls, on platforms that offer them
+
+Keys, in the full-screen player: `Space` plays or pauses, `←` `→` skip,
+`[` `]` change speed, `Esc` closes.
+
+### Where you left off
+
+Each person's position is their own, and it follows them between devices. An
+ebook and an audiobook of the same title are tracked separately — finishing
+chapter four in the ebook does not move the audiobook, because there is no
+reliable way to line up an epub's chapters with an audiobook's.
+
+Positions save while you read or listen, and on pause. If two devices disagree,
+the most recently set position wins; a device that was offline for a week
+cannot rewind a position set since.
+
+### Reading offline
+
+**Make available offline** on a book stores its files in the browser, along with
+the details needed to open the book again with no network. An audiobook stores
+every track, so playback does not stop at the first boundary.
+
+Downloads are only ever removed when you remove them — an app update never
+clears them. Positions recorded offline are queued and sent when the connection
+returns.
+
+Offline reading needs a browser that supports service workers and the Cache
+API; where it does not, the button is not shown. A book is only reachable
+offline in the browser that downloaded it, and only after that browser has
+loaded Rawkoon at least once while online.
+
 ## Notifications
 
 Administrators are notified when a book is grabbed, when it finishes importing,
@@ -206,3 +275,9 @@ monitored author has new titles.
   a whole series is never grabbed for a single edition.
 - **Requests and the discover deck do not cover books yet.** Books are added
   from the books page, not requested.
+- **`mobi` and `azw3` cannot be read in the browser.** They import and download
+  normally, but no reader renders them; quality profiles prefer `epub` for this
+  reason.
+- **Bookmarks, highlights and notes do not exist yet.** The reader tracks one
+  position per book, nothing more.
+- **There is no sleep timer, and no search inside a book.**

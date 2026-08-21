@@ -27,8 +27,16 @@ export interface MessageData {
     | "showUpdateNotification"
     | "notification-sync"
     | "notification-received"
-    | "clearCache";
+    | "clearCache"
+    | "cacheBookFile"
+    | "evictBookFile"
+    | "bookCacheStatus";
   notificationId?: number | null;
+  /** Books: every BookFile a cache message covers — an audiobook has several. */
+  fileIds?: number[];
+  /** Books: identifies the metadata to store alongside the bytes. */
+  bookId?: number | null;
+  editionId?: number | null;
   notificationData?: PushNotificationData;
 }
 

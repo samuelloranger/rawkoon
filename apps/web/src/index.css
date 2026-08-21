@@ -63,6 +63,8 @@
   --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Fraunces Variable", ui-serif, Georgia, serif;
   --font-mono: "Fira Code", ui-monospace, monospace;
+  /* Long-form reading only. Fraunces is a display face and tires at 400 words. */
+  --font-reading: "Literata Variable", ui-serif, Georgia, serif;
 }
 
 /* Dark mode variant */
