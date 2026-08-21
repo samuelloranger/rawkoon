@@ -67,6 +67,11 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
   const saveTimer = useRef<number | null>(null);
 
   const save = useSaveProgress(manifest.edition_id);
+  // The mutation object's identity changes on every render. Callbacks handed to
+  // a renderer must be stable — a renderer that remounts mid-initialisation
+  // leaves epub.js destroying a rendition it never rendered, which throws.
+  const saveRef = useRef(save);
+  saveRef.current = save;
   const file = useMemo(
     () =>
       manifest.files.find((f) => f.id === manifest.primary_file_id) ??
@@ -95,22 +100,19 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
     };
   }, [showChrome]);
 
-  const onPosition = useCallback(
-    (next: ReaderPosition) => {
-      setPosition(next);
-      // Debounced: paging quickly must not queue a write per page turn.
-      if (saveTimer.current) window.clearTimeout(saveTimer.current);
-      saveTimer.current = window.setTimeout(() => {
-        save.mutate({
-          locator: next.locator,
-          percent: next.percent,
-          finished: next.percent >= 0.995,
-          client_updated_at: new Date().toISOString(),
-        });
-      }, SAVE_DEBOUNCE_MS);
-    },
-    [save],
-  );
+  const onPosition = useCallback((next: ReaderPosition) => {
+    setPosition(next);
+    // Debounced: paging quickly must not queue a write per page turn.
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => {
+      saveRef.current.mutate({
+        locator: next.locator,
+        percent: next.percent,
+        finished: next.percent >= 0.995,
+        client_updated_at: new Date().toISOString(),
+      });
+    }, SAVE_DEBOUNCE_MS);
+  }, []);
 
   const onReady = useCallback((ready: ReaderDoc) => setDoc(ready), []);
   const onError = useCallback((message: string) => setError(message), []);

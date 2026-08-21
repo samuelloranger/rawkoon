@@ -21,6 +21,11 @@ const PdfRenderer = ({
   onError,
   handleRef,
 }: RendererProps) => {
+  // Held in refs so the loading effect depends on the file, not on callback
+  // identity. A parent re-render must never tear down a renderer mid-load.
+  const callbacks = useRef({ onReady, onPosition, onError });
+  callbacks.current = { onReady, onPosition, onError };
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const docRef = useRef<{
     numPages: number;
@@ -48,13 +53,15 @@ const PdfRenderer = ({
           .promise;
         if (cancelled) return;
         docRef.current = doc as unknown as typeof docRef.current;
-        onReady({
+        callbacks.current.onReady({
           toc: [],
           totalPages: doc.numPages,
         });
       } catch (err) {
         if (!cancelled) {
-          onError(err instanceof Error ? err.message : "unreadable");
+          callbacks.current.onError(
+            err instanceof Error ? err.message : "unreadable",
+          );
         }
       }
     };
@@ -65,7 +72,9 @@ const PdfRenderer = ({
       renderTaskRef.current?.cancel();
       docRef.current = null;
     };
-  }, [url, onReady, onError]);
+    // Callbacks live in a ref: a changing identity would refetch the document
+    // on every parent render.
+  }, [url]);
 
   useEffect(() => {
     const doc = docRef.current;
@@ -112,7 +121,7 @@ const PdfRenderer = ({
         renderTaskRef.current = task;
         await task.promise;
 
-        onPosition({
+        callbacks.current.onPosition({
           locator: `page:${page}`,
           percent: doc.numPages > 0 ? page / doc.numPages : 0,
           label: `${page} / ${doc.numPages}`,
@@ -123,7 +132,9 @@ const PdfRenderer = ({
           !cancelled &&
           !(err instanceof Error && err.name === "RenderingCancelledException")
         ) {
-          onError(err instanceof Error ? err.message : "unreadable");
+          callbacks.current.onError(
+            err instanceof Error ? err.message : "unreadable",
+          );
         }
       }
     };
@@ -132,7 +143,7 @@ const PdfRenderer = ({
     return () => {
       cancelled = true;
     };
-  }, [page, typography.marginPx, onPosition, onError]);
+  }, [page, typography.marginPx]);
 
   useEffect(() => {
     handleRef({

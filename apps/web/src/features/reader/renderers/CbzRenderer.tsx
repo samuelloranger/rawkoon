@@ -20,6 +20,11 @@ const CbzRenderer = ({
   onError,
   handleRef,
 }: RendererProps) => {
+  // Held in refs so the loading effect depends on the file, not on callback
+  // identity. A parent re-render must never tear down a renderer mid-load.
+  const callbacks = useRef({ onReady, onPosition, onError });
+  callbacks.current = { onReady, onPosition, onError };
+
   const entriesRef = useRef<Array<{ name: string; blob: () => Promise<Blob> }>>(
     [],
   );
@@ -57,10 +62,12 @@ const CbzRenderer = ({
 
         entriesRef.current = entries;
         setTotal(entries.length);
-        onReady({ toc: [], totalPages: entries.length });
+        callbacks.current.onReady({ toc: [], totalPages: entries.length });
       } catch (err) {
         if (!cancelled) {
-          onError(err instanceof Error ? err.message : "unreadable");
+          callbacks.current.onError(
+            err instanceof Error ? err.message : "unreadable",
+          );
         }
       }
     };
@@ -74,7 +81,9 @@ const CbzRenderer = ({
       urlsRef.current.clear();
       entriesRef.current = [];
     };
-  }, [url, onReady, onError]);
+    // Callbacks live in a ref: a changing identity would re-download and
+    // re-unzip the archive on every parent render.
+  }, [url]);
 
   useEffect(() => {
     if (total === 0) return;
@@ -105,7 +114,7 @@ const CbzRenderer = ({
       }
 
       setSrc(urls.get(page) ?? null);
-      onPosition({
+      callbacks.current.onPosition({
         locator: `page:${page}`,
         percent: page / total,
         label: `${page} / ${total}`,
@@ -116,7 +125,7 @@ const CbzRenderer = ({
     return () => {
       cancelled = true;
     };
-  }, [page, total, onPosition]);
+  }, [page, total]);
 
   useEffect(() => {
     handleRef({
