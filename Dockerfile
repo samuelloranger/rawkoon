@@ -19,6 +19,12 @@ COPY apps/shared/ ./apps/shared/
 COPY apps/web/ ./apps/web/
 
 # Build the React frontend
+# The web build stamps this into the service worker's cache name, so a release
+# invalidates the previous build's cached assets. Declared here as well as in the
+# runtime stage, which is where the API reads it.
+ARG APP_VERSION=0.0.0-dev
+ENV APP_VERSION=$APP_VERSION
+
 RUN cd apps/web && bun run build
 
 # Final production stage (using a slim Bun image)

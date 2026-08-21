@@ -9,7 +9,6 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, Download, List, Type, X } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { BOOKS_ENDPOINTS } from "@/lib/endpoints";
 import { ChapterRail } from "@/features/books/ChapterRail";
 import { useSaveProgress } from "@/features/books/useBookReading";
@@ -30,7 +29,6 @@ const PdfRenderer = lazy(() => import("./renderers/PdfRenderer"));
 const CbzRenderer = lazy(() => import("./renderers/CbzRenderer"));
 
 const TYPOGRAPHY_KEY = "rawkoon:reader:typography";
-const IDLE_MS = 3000;
 const SAVE_DEBOUNCE_MS = 1500;
 
 const loadTypography = (): Typography => {
@@ -60,13 +58,19 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
   const [doc, setDoc] = useState<ReaderDoc | null>(null);
   const [position, setPosition] = useState<ReaderPosition | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [chromeVisible, setChromeVisible] = useState(true);
+  // null before anything is known, a fraction while bytes arrive, then null
+  // again for the indeterminate unzip-and-parse stretch.
+  const [progress, setProgress] = useState<number | null>(null);
   const [panel, setPanel] = useState<"toc" | "type" | null>(null);
   const handleRef = useRef<ReaderHandle | null>(null);
-  const idleTimer = useRef<number | null>(null);
   const saveTimer = useRef<number | null>(null);
 
   const save = useSaveProgress(manifest.edition_id);
+  // The mutation object's identity changes on every render. Callbacks handed to
+  // a renderer must be stable — a renderer that remounts mid-initialisation
+  // leaves epub.js destroying a rendition it never rendered, which throws.
+  const saveRef = useRef(save);
+  saveRef.current = save;
   const file = useMemo(
     () =>
       manifest.files.find((f) => f.id === manifest.primary_file_id) ??
@@ -78,41 +82,25 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
     localStorage.setItem(TYPOGRAPHY_KEY, JSON.stringify(typography));
   }, [typography]);
 
-  const showChrome = useCallback(() => {
-    setChromeVisible(true);
-    if (idleTimer.current) window.clearTimeout(idleTimer.current);
-    idleTimer.current = window.setTimeout(
-      () => setChromeVisible(false),
-      IDLE_MS,
-    );
+  const onPosition = useCallback((next: ReaderPosition) => {
+    setPosition(next);
+    // Debounced: paging quickly must not queue a write per page turn.
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => {
+      saveRef.current.mutate({
+        locator: next.locator,
+        percent: next.percent,
+        finished: next.percent >= 0.995,
+        client_updated_at: new Date().toISOString(),
+      });
+    }, SAVE_DEBOUNCE_MS);
   }, []);
 
-  useEffect(() => {
-    showChrome();
-    return () => {
-      if (idleTimer.current) window.clearTimeout(idleTimer.current);
-      if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    };
-  }, [showChrome]);
-
-  const onPosition = useCallback(
-    (next: ReaderPosition) => {
-      setPosition(next);
-      // Debounced: paging quickly must not queue a write per page turn.
-      if (saveTimer.current) window.clearTimeout(saveTimer.current);
-      saveTimer.current = window.setTimeout(() => {
-        save.mutate({
-          locator: next.locator,
-          percent: next.percent,
-          finished: next.percent >= 0.995,
-          client_updated_at: new Date().toISOString(),
-        });
-      }, SAVE_DEBOUNCE_MS);
-    },
-    [save],
-  );
-
   const onReady = useCallback((ready: ReaderDoc) => setDoc(ready), []);
+  const onProgress = useCallback(
+    (percent: number | null) => setProgress(percent),
+    [],
+  );
   const onError = useCallback((message: string) => setError(message), []);
   const setHandle = useCallback((handle: ReaderHandle | null) => {
     handleRef.current = handle;
@@ -123,10 +111,8 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
       if (event.target instanceof HTMLInputElement) return;
       if (event.key === "ArrowRight" || event.key === "PageDown") {
         handleRef.current?.next();
-        showChrome();
       } else if (event.key === "ArrowLeft" || event.key === "PageUp") {
         handleRef.current?.prev();
-        showChrome();
       } else if (event.key === "Escape") {
         if (panel) setPanel(null);
         else onClose();
@@ -134,7 +120,7 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, panel, showChrome]);
+  }, [onClose, panel]);
 
   const colors = THEME_COLORS[typography.theme];
   const reflowable = file?.format === "epub";
@@ -147,6 +133,7 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
         onReady,
         onPosition,
         onError,
+        onProgress,
         handleRef: setHandle,
       }
     : null;
@@ -184,17 +171,25 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
   return (
     <div
       className="fixed inset-0 z-[var(--z-modal)] flex flex-col"
-      style={{ background: colors.background, color: colors.foreground }}
-      onPointerMove={showChrome}
+      style={{
+        background: colors.background,
+        color: colors.foreground,
+        // Installed as a PWA the reader covers the whole screen, so the text ran
+        // under the status bar and the last line was cut by the home indicator.
+        // The background stays edge to edge; only the content is inset.
+        paddingTop: "var(--safe-top)",
+        paddingBottom: "var(--safe-bottom)",
+      }}
     >
+      {/*
+        Part of the layout rather than an overlay that fades. The chrome used to
+        hide itself after three seconds, which on a phone left no way to turn a
+        page or leave the book, and the text ran underneath it either way. The
+        book now gets exactly the space between the two bars.
+      */}
       <header
-        className={cn(
-          "absolute inset-x-0 top-0 z-10 flex items-center gap-2 px-3 py-2 motion-safe:transition-opacity motion-safe:duration-200",
-          chromeVisible || panel
-            ? "opacity-100"
-            : "pointer-events-none opacity-0",
-        )}
-        style={{ background: `${colors.background}f2` }}
+        className="z-20 flex shrink-0 items-center gap-2 px-3 py-2"
+        style={{ background: colors.background }}
       >
         <button
           type="button"
@@ -219,18 +214,25 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
             <Type className="size-5" />
           </button>
         )}
+        {/* One step at a time, like Escape: an open panel is what the X is
+            nearest to, and closing the book out from under it loses the place
+            the reader was looking at. */}
         <button
           type="button"
-          onClick={onClose}
+          onClick={() => (panel ? setPanel(null) : onClose())}
           className="focus-ring rounded-md p-2 opacity-70 hover:opacity-100"
-          aria-label={t("books.reader.close")}
+          aria-label={t(
+            panel ? "books.reader.closePanel" : "books.reader.close",
+          )}
         >
           <X className="size-5" />
         </button>
       </header>
 
       <div className="relative flex flex-1 overflow-hidden">
-        <div className="min-w-0 flex-1">
+        {/* A little breathing room under the header; the system inset and the
+            header itself already provide most of the clearance. */}
+        <div className="relative min-w-0 flex-1 pt-3">
           {error ? (
             <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
               <AlertTriangle className="size-8 text-primary-400" />
@@ -252,6 +254,31 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
                 {file.format === "cbz" && <CbzRenderer {...rendererProps} />}
               </Suspense>
             )
+          )}
+
+          {/*
+            The epub iframe swallows pointer events, so page turns need their own
+            surface above it. Only in paginated flow — a scrolled book has to
+            keep scrolling. The footer buttons remain the accessible controls, so
+            these are hidden from assistive technology.
+          */}
+          {!error && !panel && typography.flow === "paginated" && (
+            <div className="absolute inset-0 z-[5] flex" aria-hidden="true">
+              <button
+                type="button"
+                tabIndex={-1}
+                className="h-full w-[28%]"
+                onClick={() => handleRef.current?.prev()}
+              />
+              {/* Free middle: nothing to toggle, and selection stays possible. */}
+              <div className="h-full flex-1" />
+              <button
+                type="button"
+                tabIndex={-1}
+                className="h-full w-[28%]"
+                onClick={() => handleRef.current?.next()}
+              />
+            </div>
           )}
         </div>
 
@@ -324,14 +351,39 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
         )}
       </div>
 
+      {!doc && !error && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 px-10">
+          <p
+            className="font-display text-lg"
+            style={{ color: colors.foreground }}
+          >
+            {manifest.title}
+          </p>
+          <div className="h-1 w-48 overflow-hidden rounded-full bg-neutral-700/60">
+            {progress == null ? (
+              // Unzipping and parsing report nothing, so the bar paces itself
+              // rather than claiming a number it does not have.
+              <div className="h-full w-1/3 animate-pulse rounded-full bg-primary-600" />
+            ) : (
+              <div
+                className="h-full rounded-full bg-primary-600 motion-safe:transition-[width] motion-safe:duration-150"
+                style={{ width: `${Math.round(progress * 100)}%` }}
+              />
+            )}
+          </div>
+          <p className="text-xs opacity-70">
+            {progress == null
+              ? t("books.reader.opening")
+              : t("books.reader.downloading", {
+                  percent: Math.round(progress * 100),
+                })}
+          </p>
+        </div>
+      )}
+
       <footer
-        className={cn(
-          "absolute inset-x-0 bottom-0 z-10 flex items-center justify-between px-4 py-2 text-xs motion-safe:transition-opacity motion-safe:duration-200",
-          chromeVisible || panel
-            ? "opacity-100"
-            : "pointer-events-none opacity-0",
-        )}
-        style={{ background: `${colors.background}f2` }}
+        className="z-20 flex shrink-0 items-center justify-between px-4 py-1 text-xs"
+        style={{ background: colors.background }}
       >
         <button
           type="button"

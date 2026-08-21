@@ -12,6 +12,11 @@ import { THEME_COLORS, type RendererProps } from "../types";
  * pdf.js is loaded on demand — it is the largest dependency in the reader, and
  * someone reading epubs should never pay for it.
  */
+interface PdfDocument {
+  numPages: number;
+  getPage: (n: number) => Promise<unknown>;
+}
+
 const PdfRenderer = ({
   url,
   initialLocator,
@@ -19,16 +24,29 @@ const PdfRenderer = ({
   onReady,
   onPosition,
   onError,
+  onProgress,
   handleRef,
 }: RendererProps) => {
+  // Held in refs so the loading effect depends on the file, not on callback
+  // identity. A parent re-render must never tear down a renderer mid-load.
+  const callbacks = useRef({ onReady, onPosition, onError, onProgress });
+  callbacks.current = { onReady, onPosition, onError, onProgress };
+  // Where to open is an initial value, not a live input. Reacting to it meant
+  // that saving a position reloaded the book at that position, which fought the
+  // reader for control of the page.
+  const openAt = useRef(initialLocator);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const docRef = useRef<{
-    numPages: number;
-    getPage: (n: number) => Promise<unknown>;
-  } | null>(null);
+  // The document lives in state, not only in a ref: the render effect has to
+  // run when it arrives. With a ref alone nothing in the effect's dependencies
+  // changed on load, so the first page stayed blank until a page turn or a
+  // margin change happened to retrigger it. The ref is kept beside it for the
+  // handle callbacks, which must not re-register on every load.
+  const docRef = useRef<PdfDocument | null>(null);
+  const [doc, setDoc] = useState<PdfDocument | null>(null);
   const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
   const [page, setPage] = useState(() => {
-    const parsed = Number(initialLocator?.replace("page:", ""));
+    const parsed = Number(openAt.current?.replace("page:", ""));
     return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
   });
 
@@ -44,17 +62,30 @@ const PdfRenderer = ({
         ).default;
         pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
-        const doc = await pdfjs.getDocument({ url, withCredentials: true })
-          .promise;
+        const task = pdfjs.getDocument({ url, withCredentials: true });
+        task.onProgress = ({
+          loaded,
+          total,
+        }: {
+          loaded: number;
+          total: number;
+        }) => {
+          callbacks.current.onProgress(total > 0 ? loaded / total : null);
+        };
+        const doc = await task.promise;
+        callbacks.current.onProgress(null);
         if (cancelled) return;
-        docRef.current = doc as unknown as typeof docRef.current;
-        onReady({
+        docRef.current = doc as unknown as PdfDocument;
+        setDoc(doc as unknown as PdfDocument);
+        callbacks.current.onReady({
           toc: [],
           totalPages: doc.numPages,
         });
       } catch (err) {
         if (!cancelled) {
-          onError(err instanceof Error ? err.message : "unreadable");
+          callbacks.current.onError(
+            err instanceof Error ? err.message : "unreadable",
+          );
         }
       }
     };
@@ -64,11 +95,13 @@ const PdfRenderer = ({
       cancelled = true;
       renderTaskRef.current?.cancel();
       docRef.current = null;
+      setDoc(null);
     };
-  }, [url, onReady, onError]);
+    // Callbacks live in a ref: a changing identity would refetch the document
+    // on every parent render.
+  }, [url]);
 
   useEffect(() => {
-    const doc = docRef.current;
     const canvas = canvasRef.current;
     if (!doc || !canvas) return;
     let cancelled = false;
@@ -112,7 +145,7 @@ const PdfRenderer = ({
         renderTaskRef.current = task;
         await task.promise;
 
-        onPosition({
+        callbacks.current.onPosition({
           locator: `page:${page}`,
           percent: doc.numPages > 0 ? page / doc.numPages : 0,
           label: `${page} / ${doc.numPages}`,
@@ -123,7 +156,9 @@ const PdfRenderer = ({
           !cancelled &&
           !(err instanceof Error && err.name === "RenderingCancelledException")
         ) {
-          onError(err instanceof Error ? err.message : "unreadable");
+          callbacks.current.onError(
+            err instanceof Error ? err.message : "unreadable",
+          );
         }
       }
     };
@@ -132,7 +167,7 @@ const PdfRenderer = ({
     return () => {
       cancelled = true;
     };
-  }, [page, typography.marginPx, onPosition, onError]);
+  }, [doc, page, typography.marginPx]);
 
   useEffect(() => {
     handleRef({

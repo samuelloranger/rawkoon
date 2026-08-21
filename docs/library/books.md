@@ -195,9 +195,9 @@ either button reads **Continue**, and the same word appears on the books list.
 
 ### The reader
 
-The reader takes the whole window — no sidebar — and its chrome fades once you
-start reading, returning on any pointer move or key. The rail down the right
-edge is the table of contents: each segment is one chapter, sized to that
+The reader takes the whole window — no sidebar. The title bar and the progress
+footer stay put and the book takes the space between them. The rail down the
+right edge is the table of contents: each segment is one chapter, sized to that
 chapter's real length, and clicking or dragging it moves you.
 
 | Format | Reader |
@@ -212,7 +212,9 @@ layout: reading face (Literata or Hanken Grotesk), size, line height, margins,
 Pages or Scroll, and a Night or Paper theme. They are remembered per browser,
 not per book.
 
-Keys: `←` `→` or `PageUp` `PageDown` turn pages, `Esc` closes.
+Keys: `←` `→` or `PageUp` `PageDown` turn pages, `Esc` closes. The X and `Esc`
+both close an open panel first and the book second, so leaving the text settings
+does not lose your page.
 
 ### The player
 

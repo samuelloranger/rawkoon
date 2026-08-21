@@ -48,7 +48,15 @@ export const PlayerExpanded = () => {
   const chapter = state.chapters[state.chapterIndex];
 
   return (
-    <div className="fixed inset-0 z-[var(--z-modal)] flex flex-col bg-surface-base">
+    <div
+      className="fixed inset-0 z-[var(--z-modal)] flex flex-col bg-surface-base"
+      // Same reason as the reader: a full-screen surface in a PWA has to inset
+      // itself past the status bar and the home indicator.
+      style={{
+        paddingTop: "var(--safe-top)",
+        paddingBottom: "var(--safe-bottom)",
+      }}
+    >
       <div className="flex items-center justify-between px-4 py-3">
         <button
           type="button"

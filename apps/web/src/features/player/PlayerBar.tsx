@@ -18,7 +18,11 @@ export const PlayerBar = () => {
   const chapter = state.chapters[state.chapterIndex];
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[var(--z-sticky)] border-t border-border bg-surface-raised/95 backdrop-blur lg:left-60">
+    <div
+      className="fixed inset-x-0 bottom-0 z-[var(--z-sticky)] border-t border-border bg-surface-raised/95 backdrop-blur lg:left-60"
+      // Clear of the home indicator when installed to the home screen.
+      style={{ paddingBottom: "var(--safe-bottom)" }}
+    >
       <div className="mx-auto flex max-w-5xl flex-col gap-1 px-3 py-2">
         <div className="flex items-center gap-3">
           <button
