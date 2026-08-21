@@ -255,3 +255,56 @@ test.describe("the reader on a touch screen", () => {
     expect(await readerText(page)).not.toBe(first);
   });
 });
+
+/**
+ * Installed to the home screen the app runs edge to edge (viewport-fit=cover),
+ * so a full-screen surface has to inset itself past the status bar and the home
+ * indicator. It did not: the first line of text sat under the clock and the last
+ * line was cut off. Reported from an installed PWA on iOS.
+ *
+ * Headless browsers report zero insets, so the test drives the variables the
+ * layout reads.
+ */
+test.describe("the reader inside an installed app", () => {
+  const SAFE_TOP = 47;
+  const SAFE_BOTTOM = 34;
+
+  test("keeps its chrome and its text clear of the system insets", async ({
+    page,
+  }) => {
+    await stubApi(page, await buildEpub());
+    await page.goto(HARNESS);
+    await page.addStyleTag({
+      content: `:root { --safe-top: ${SAFE_TOP}px; --safe-bottom: ${SAFE_BOTTOM}px; }`,
+    });
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+
+    const viewport = page.viewportSize()!;
+    const boxes = await page.evaluate(() => {
+      const rect = (el: Element | null) =>
+        el ? el.getBoundingClientRect() : null;
+      const header = rect(document.querySelector("header"));
+      const footer = rect(document.querySelector("footer"));
+      const frame = rect(document.querySelector("#root iframe"));
+      return {
+        headerTop: header?.top ?? -1,
+        footerBottom: footer?.bottom ?? -1,
+        frameTop: frame?.top ?? -1,
+        frameBottom: frame?.bottom ?? -1,
+      };
+    });
+
+    // Nothing may sit under the status bar or the home indicator.
+    expect(boxes.headerTop).toBeGreaterThanOrEqual(SAFE_TOP);
+    expect(boxes.frameTop).toBeGreaterThanOrEqual(SAFE_TOP);
+    expect(boxes.footerBottom).toBeLessThanOrEqual(
+      viewport.height - SAFE_BOTTOM,
+    );
+    // The cut last line: the page area has to end above the indicator.
+    expect(boxes.frameBottom).toBeLessThanOrEqual(
+      viewport.height - SAFE_BOTTOM,
+    );
+  });
+});

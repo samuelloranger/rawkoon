@@ -199,7 +199,15 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
   return (
     <div
       className="fixed inset-0 z-[var(--z-modal)] flex flex-col"
-      style={{ background: colors.background, color: colors.foreground }}
+      style={{
+        background: colors.background,
+        color: colors.foreground,
+        // Installed as a PWA the reader covers the whole screen, so the text ran
+        // under the status bar and the last line was cut by the home indicator.
+        // The background stays edge to edge; only the content is inset.
+        paddingTop: "var(--safe-top)",
+        paddingBottom: "var(--safe-bottom)",
+      }}
       // Mice only: a touch tap must not both reveal the chrome here and toggle
       // it in the tap zone, which cancelled out and left it hidden.
       onPointerMove={(event) => {
@@ -213,7 +221,11 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
             ? "opacity-100"
             : "pointer-events-none opacity-0",
         )}
-        style={{ background: `${colors.background}f2` }}
+        style={{
+          background: `${colors.background}f2`,
+          // Absolutely positioned: the container's padding does not offset it.
+          top: "var(--safe-top)",
+        }}
       >
         <button
           type="button"
@@ -380,7 +392,10 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
             ? "opacity-100"
             : "pointer-events-none opacity-0",
         )}
-        style={{ background: `${colors.background}f2` }}
+        style={{
+          background: `${colors.background}f2`,
+          bottom: "var(--safe-bottom)",
+        }}
       >
         <button
           type="button"
