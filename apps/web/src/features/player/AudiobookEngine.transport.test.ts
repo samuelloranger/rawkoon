@@ -359,6 +359,30 @@ describe("AudiobookEngine network errors", () => {
     }
   });
 
+  it("retries from where playback actually was, not the load offset", async () => {
+    vi.useFakeTimers();
+    try {
+      const engine = new AudiobookEngine();
+      await engine.load(manifest());
+      await engine.play();
+
+      const audio = audios[0];
+      if (!audio) throw new Error("no element");
+      audio.readyState = 1;
+      // Twenty minutes in, with no seek since the file was loaded at 0.
+      audio.currentTime = 1200;
+
+      audio.error = { code: 2 }; // MEDIA_ERR_NETWORK
+      audio.dispatch("error");
+      await vi.advanceTimersByTimeAsync(600);
+
+      // Retrying from the stale requestedOffset would have rewound to 0.
+      expect(audio.currentTime).toBe(1200);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("gives up and skips after the retry budget is spent", async () => {
     vi.useFakeTimers();
     try {

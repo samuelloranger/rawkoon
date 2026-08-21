@@ -90,6 +90,32 @@ describe("downloadForOffline", () => {
     expect(settled).toBe(true);
   });
 
+  it("ignores an edition-ready reply meant for another download", async () => {
+    let settled = false;
+    const promise = downloadForOffline({
+      fileIds: [4],
+      bookId: 9,
+      editionId: 3,
+    }).then(() => {
+      settled = true;
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    emit({ type: "bookCacheDone", fileId: 4 });
+    await Promise.resolve();
+
+    // A second, unrelated download finishing must not resolve this one.
+    emit({ type: "bookCacheEditionReady", editionId: 77 });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    emit({ type: "bookCacheEditionReady", editionId: 3 });
+    await promise;
+    expect(settled).toBe(true);
+  });
+
   it("reports progress across the whole set, not per file", async () => {
     const seen: number[] = [];
     const promise = downloadForOffline(

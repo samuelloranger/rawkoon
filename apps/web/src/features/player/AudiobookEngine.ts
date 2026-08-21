@@ -293,6 +293,26 @@ export class AudiobookEngine {
     audio.addEventListener("pause", this.onPause);
   }
 
+  /**
+   * Where a retry should resume.
+   *
+   * `requestedOffset` is only where the last load or seek aimed, so after
+   * twenty minutes of uninterrupted playback it is twenty minutes stale — a
+   * transient network error that retried from it threw away everything since.
+   * The element's own clock is the truth whenever it has one.
+   */
+  private liveOffset(): number {
+    const current = this.audio?.currentTime;
+    if (
+      typeof current === "number" &&
+      Number.isFinite(current) &&
+      current > 0
+    ) {
+      return current;
+    }
+    return this.requestedOffset;
+  }
+
   private clearRetry() {
     if (this.retryTimer != null) {
       clearTimeout(this.retryTimer);
@@ -358,7 +378,7 @@ export class AudiobookEngine {
     if (code === ERR_NETWORK && this.networkRetries < MAX_NETWORK_RETRIES) {
       const attempt = ++this.networkRetries;
       const index = this.fileIndex;
-      const offset = this.requestedOffset;
+      const offset = this.liveOffset();
       const play = this.desiredPlaying;
       this.emit({ loading: true });
       this.clearRetry();

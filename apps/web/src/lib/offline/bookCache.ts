@@ -66,7 +66,14 @@ export const downloadForOffline = async (
       } | null;
       if (!data) return;
 
-      if (data.type === "bookCacheEditionReady") {
+      if (
+        data.type === "bookCacheEditionReady" &&
+        // Two editions downloading at once would otherwise each resolve on the
+        // other's completion, reporting a book as stored while its files were
+        // still being written.
+        (data as unknown as { editionId?: number }).editionId ===
+          target.editionId
+      ) {
         if (metaTimeout) window.clearTimeout(metaTimeout);
         onProgress?.(100);
         finish();

@@ -20,6 +20,7 @@ import {
 import type {
   BookManifest,
   BookManifestResponse,
+  BookProgressListResponse,
   BookProgressResponse,
 } from "@rawkoon/shared/types";
 import { AudiobookEngine, type EngineState } from "./AudiobookEngine";
@@ -80,20 +81,41 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
     [engine],
   );
 
+  /**
+   * True while the position playback started from is not yet known to be the
+   * server's. Writing during that window would push a stale position back with
+   * a fresh timestamp, and newest-wins would accept the rewind.
+   */
+  const reconciling = useRef(false);
+
   const save = useCallback(
     async (position: number, finished = false) => {
+      if (reconciling.current && !finished) return;
       const write = buildWrite(position, finished);
       if (!write) return;
       try {
-        await fetchApi<BookProgressResponse>(
+        const result = await fetchApi<BookProgressResponse>(
           BOOKS_ENDPOINTS.EDITION_PROGRESS(write.editionId),
           { method: "PUT", body: JSON.stringify(write.body) },
+        );
+        // Keep the cached manifest's progress in step with what was just
+        // written. Without this the manifest query holds the position from
+        // whenever it was fetched, and reopening from cache resumes there.
+        queryClient.setQueryData<BookManifestResponse>(
+          queryKeys.books.manifest(write.editionId),
+          (previous) =>
+            previous && result.progress
+              ? {
+                  ...previous,
+                  manifest: { ...previous.manifest, progress: result.progress },
+                }
+              : previous,
         );
       } catch {
         await queueProgress(write.editionId, write.body);
       }
     },
-    [buildWrite],
+    [buildWrite, queryClient],
   );
 
   /**
@@ -106,14 +128,51 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
    */
   const journal = useCallback(
     (position: number) => {
+      // A journal entry always carries a fresh timestamp, so writing
+      // `finished: false` here after the book ended would win on newest-wins
+      // and unmark it the moment the listener backgrounds the app.
+      const completed = engine.getState().completed;
+      if (completed) return;
       const write = buildWrite(position, false);
       if (!write) return;
       void queueProgress(write.editionId, write.body);
     },
-    [buildWrite],
+    [buildWrite, engine],
   );
 
   const openRequest = useRef(0);
+
+  /**
+   * Confirms the position a cached manifest started from.
+   *
+   * `setQueryData` on every save keeps the cached manifest honest for this
+   * device, but another device can have moved on since. Playback still starts
+   * immediately from the cached position — that is what keeps play() inside
+   * the click's task — and this corrects it a moment later if the server has
+   * something newer, with saves held off until it resolves.
+   */
+  const reconcileProgress = useCallback(
+    async (editionId: number, request: number, startedFrom: string | null) => {
+      try {
+        const { progress } = await fetchApi<BookProgressListResponse>(
+          BOOKS_ENDPOINTS.PROGRESS([editionId]),
+        );
+        if (request !== openRequest.current) return;
+        const fresh = progress.find((row) => row.edition_id === editionId);
+        const freshAt = Date.parse(fresh?.client_updated_at ?? "") || 0;
+        const startedAt = Date.parse(startedFrom ?? "") || 0;
+        if (fresh?.position_secs != null && freshAt > startedAt) {
+          engine.seekAbsolute(fresh.position_secs);
+        }
+      } catch {
+        // Offline or a failed request: the cached position stands, and the
+        // queue's newest-wins rule still protects the server copy.
+      } finally {
+        if (request === openRequest.current) reconciling.current = false;
+      }
+    },
+    [engine],
+  );
 
   const openEdition = useCallback(
     async (editionId: number, autoplay = true) => {
@@ -163,11 +222,22 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
 
+      // Only a cached manifest can be behind the server; a fresh one cannot.
+      reconciling.current = cached != null && navigator.onLine;
+
       await engine.load(manifest as BookManifest, startAt);
       setExpanded(true);
       if (autoplay) await engine.play();
+
+      if (reconciling.current) {
+        void reconcileProgress(
+          editionId,
+          request,
+          manifest.progress?.client_updated_at ?? null,
+        );
+      }
     },
-    [engine, queryClient, save],
+    [engine, queryClient, save, reconcileProgress],
   );
 
   const releaseEdition = useCallback(
@@ -176,6 +246,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
       // No save on the way out, and the periodic one stops with the unload:
       // `unload()` empties the state, so neither the interval nor the
       // pause-effect has a position left to write.
+      reconciling.current = false;
       engine.unload();
       setExpanded(false);
     },
@@ -184,6 +255,7 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
 
   const close = useCallback(() => {
     void save(engine.getState().position);
+    reconciling.current = false;
     engine.unload();
     setExpanded(false);
   }, [engine, save]);
