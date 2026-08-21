@@ -2003,6 +2003,63 @@
       "downloaded": "Downloaded",
       "upgrading": "Upgrading",
       "skipped": "Skipped"
+    },
+    "open": {
+      "read": "Read",
+      "listen": "Listen",
+      "continue": "Continue"
+    },
+    "player": {
+      "play": "Play",
+      "pause": "Pause",
+      "back15": "Back 15 seconds",
+      "forward30": "Forward 30 seconds",
+      "position": "Position in the book",
+      "expand": "Open the player",
+      "collapse": "Close the player",
+      "close": "Stop listening",
+      "chapters": "Chapters",
+      "chapterN": "Chapter {{n}}",
+      "listening": "Listening",
+      "readBy": "read by {{names}}",
+      "speed": "Speed",
+      "boost": "Volume boost",
+      "openBook": "Open this book",
+      "opening": "Opening the player…"
+    },
+    "reader": {
+      "opening": "Opening…",
+      "openFailed": "This file couldn't be opened.",
+      "unreadableFormat": "{{format}} files can't be read in the browser. Download the file to read it in another app.",
+      "download": "Download file",
+      "back": "Back to the book",
+      "close": "Close the reader",
+      "contents": "Contents",
+      "noContents": "This file has no table of contents.",
+      "typography": "Text settings",
+      "position": "Position in the book",
+      "previous": "Previous",
+      "next": "Next",
+      "theme": "Theme",
+      "themeNight": "Night",
+      "themePaper": "Paper",
+      "typeface": "Typeface",
+      "textSize": "Text size",
+      "lineHeight": "Line height",
+      "margins": "Margins",
+      "flow": "Layout",
+      "flowPaginated": "Pages",
+      "flowScrolled": "Scroll"
+    },
+    "offline": {
+      "make": "Make available offline",
+      "available": "Available offline",
+      "remove": "Remove download",
+      "downloading": "Downloading {{percent}}%",
+      "stored": "Available offline",
+      "removed": "Download removed",
+      "noSpace": "Not enough space to store this book.",
+      "failed": "Couldn't download this book."
     }
   }
 }

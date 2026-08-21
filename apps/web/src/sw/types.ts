@@ -27,8 +27,13 @@ export interface MessageData {
     | "showUpdateNotification"
     | "notification-sync"
     | "notification-received"
-    | "clearCache";
+    | "clearCache"
+    | "cacheBookFile"
+    | "evictBookFile"
+    | "bookCacheStatus";
   notificationId?: number | null;
+  /** Books: which BookFile a cache message is about. */
+  fileId?: number | null;
   notificationData?: PushNotificationData;
 }
 

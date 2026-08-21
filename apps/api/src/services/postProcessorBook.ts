@@ -13,6 +13,7 @@ import {
   remapPath,
   scanMediaInfo,
 } from "@rawkoon/api/utils/medias/mediainfoScanner";
+import { syncFileChapters } from "@rawkoon/api/services/books/bookFileChapters";
 import {
   formatForPath,
   readEbookMetadata,
@@ -356,7 +357,7 @@ export async function postProcessBook(opts: {
     // Idempotent: re-importing the same destination replaces its row rather
     // than accumulating duplicates, since a retried post-process is normal.
     await prisma.bookFile.deleteMany({ where: { filePath: dst } });
-    await prisma.bookFile.create({
+    const created = await prisma.bookFile.create({
       data: {
         editionId: opts.editionId,
         filePath: dst,
@@ -373,6 +374,12 @@ export async function postProcessBook(opts: {
         fileMtimeMs: st ? BigInt(Math.trunc(st.mtimeMs)) : null,
       },
     });
+
+    if (isAudiobookFormat(keeper.format)) {
+      // Chapter marks power the player's chapter list and the rail's segment
+      // widths; a file without them is fine, the client synthesises one.
+      await syncFileChapters(created.id, dst, durationSecs);
+    }
 
     imported++;
     importedPaths.push(dst);
@@ -767,7 +774,7 @@ export async function rescanBookEdition(editionId: number): Promise<{
     const replaced = await prisma.bookFile.deleteMany({
       where: { filePath: keeper.path },
     });
-    await prisma.bookFile.create({
+    const created = await prisma.bookFile.create({
       data: {
         editionId,
         filePath: keeper.path,
@@ -785,6 +792,10 @@ export async function rescanBookEdition(editionId: number): Promise<{
         fileMtimeMs: BigInt(Math.trunc(st.mtimeMs)),
       },
     });
+    if (isAudiobookFormat(keeper.format)) {
+      await syncFileChapters(created.id, keeper.path, durationSecs);
+    }
+
     if (replaced.count > 0) refreshed++;
     else registered++;
   }

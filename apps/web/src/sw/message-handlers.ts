@@ -1,5 +1,6 @@
 import { sw } from "./sw";
 import { syncBadgeCount } from "./badge";
+import { bookCacheStatus, cacheBookFile, evictBookFile } from "./book-cache";
 import type { MessageData } from "./types";
 
 // Handle messages from clients (e.g., when app opens)
@@ -43,6 +44,20 @@ export function handleMessage(event: ExtendableMessageEvent): void {
         },
       ],
     });
+  }
+
+  // Offline books: download, evict, and report what is stored. The page needs
+  // real progress, so the reply goes back to the requesting client.
+  if (data && data.type === "cacheBookFile" && data.fileId != null) {
+    event.waitUntil(cacheBookFile(data.fileId, event.source as Client | null));
+  }
+
+  if (data && data.type === "evictBookFile" && data.fileId != null) {
+    event.waitUntil(evictBookFile(data.fileId, event.source as Client | null));
+  }
+
+  if (data && data.type === "bookCacheStatus") {
+    event.waitUntil(bookCacheStatus(event.source as Client | null));
   }
 
   // Clear all caches (preserves service worker registration and push subscriptions)

@@ -91,7 +91,15 @@ mock.module("@rawkoon/api/db", () => ({
         state.files.push(row);
         return Promise.resolve(row);
       },
+      update: () => Promise.resolve({}),
     },
+    // An audiobook import probes for chapter marks; this stub only has to make
+    // the transaction resolve, since the chapter parser has its own tests.
+    bookFileChapter: {
+      deleteMany: () => Promise.resolve({ count: 0 }),
+      createMany: () => Promise.resolve({ count: 0 }),
+    },
+    $transaction: (operations: Promise<unknown>[]) => Promise.all(operations),
   },
 }));
 

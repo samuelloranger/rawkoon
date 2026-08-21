@@ -22,6 +22,7 @@ import {
 import { useLibraryEvents } from "@/features/medias/hooks/useLibraryEvents";
 import { PageLayout } from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
+import { EditionOpenActions } from "@/features/books/EditionOpenActions";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -439,6 +440,8 @@ function EditionPanel({
           <div className="mt-4">
             <AcquisitionTrack edition={edition} />
           </div>
+
+          <EditionOpenActions bookId={bookId} edition={edition} />
 
           {/* Only shown once there is something to report: an edition with no
               files rendered "Size —, Files 0", which is noise dressed as data. */}

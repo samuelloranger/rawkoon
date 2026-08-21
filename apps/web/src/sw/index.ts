@@ -8,6 +8,8 @@ import { handlePush } from "./push-handler";
 import { handleNotificationClick } from "./notification-click-handler";
 import { handleNotificationClose } from "./notification-close-handler";
 
+import { handleBookFetch, isBookContentRequest } from "./book-cache";
+
 import { sw } from "./sw";
 
 // Install event - minimal setup
@@ -30,3 +32,14 @@ sw.addEventListener("notificationclick", handleNotificationClick);
 
 // Notification close event - track when notifications are dismissed
 sw.addEventListener("notificationclose", handleNotificationClose);
+
+// Fetch event - serve downloaded books from the cache so they open offline.
+// Every other request goes to the network untouched.
+sw.addEventListener("fetch", (event) => {
+  if (
+    event.request.method === "GET" &&
+    isBookContentRequest(event.request.url)
+  ) {
+    handleBookFetch(event);
+  }
+});

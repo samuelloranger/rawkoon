@@ -214,3 +214,95 @@ export interface AuthorListResponse {
 export interface AuthorResponse {
   author: Author;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Reading and listening                                                      */
+/* -------------------------------------------------------------------------- */
+
+/** Formats a browser can render. mobi and azw3 are downloadable only. */
+export const READABLE_EBOOK_FORMATS = ["epub", "pdf", "cbz"] as const;
+export type ReadableEbookFormat = (typeof READABLE_EBOOK_FORMATS)[number];
+
+export const isReadableFormat = (
+  format: string,
+): format is ReadableEbookFormat =>
+  (READABLE_EBOOK_FORMATS as readonly string[]).includes(format);
+
+export interface BookChapter {
+  index: number;
+  title: string | null;
+  /** Seconds, relative to the file. */
+  start_secs: number;
+  end_secs: number;
+}
+
+/**
+ * One file as the reader and player see it. `offset_secs` is where this file
+ * starts on the edition's flattened timeline, so the client never has to sum
+ * durations itself.
+ */
+export interface BookManifestFile {
+  id: number;
+  file_name: string;
+  format: BookFormat;
+  size_bytes: string;
+  duration_secs: number | null;
+  offset_secs: number;
+  /** False for mobi and azw3: no browser renderer, download instead. */
+  readable: boolean;
+  chapters: BookChapter[];
+  content_url: string;
+}
+
+export interface BookManifest {
+  edition_id: number;
+  book_id: number;
+  kind: BookEditionKind;
+  title: string;
+  authors: string[];
+  narrators: string[];
+  cover_url: string | null;
+  /** Sum of file durations; null for an ebook edition. */
+  total_duration_secs: number | null;
+  files: BookManifestFile[];
+  /** The file the reader should open: epub > pdf > cbz. Null for audiobooks. */
+  primary_file_id: number | null;
+  progress: BookProgress | null;
+}
+
+export interface BookProgress {
+  edition_id: number;
+  /** Ebook: an EPUB CFI, or "page:N" for pdf and cbz. */
+  locator: string | null;
+  percent: number | null;
+  /** Audiobook: seconds into the edition's flattened timeline. */
+  position_secs: number | null;
+  file_id: number | null;
+  finished_at: string | null;
+  client_updated_at: string;
+  updated_at: string;
+}
+
+export interface BookProgressWrite {
+  locator?: string | null;
+  percent?: number | null;
+  position_secs?: number | null;
+  file_id?: number | null;
+  finished?: boolean;
+  /** Client clock, ISO 8601. The highest value wins on conflict. */
+  client_updated_at: string;
+}
+
+export interface BookProgressResponse {
+  progress: BookProgress;
+  /** False when the write lost to a newer stored position. */
+  accepted: boolean;
+}
+
+export interface BookProgressListResponse {
+  progress: BookProgress[];
+}
+
+export interface BookManifestResponse {
+  manifest: BookManifest;
+}
