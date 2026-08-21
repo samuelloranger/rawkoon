@@ -31,7 +31,11 @@ beforeEach(() => {
       },
     },
   });
-  vi.stubGlobal("window", { caches: {} });
+  vi.stubGlobal("window", {
+    caches: {},
+    setTimeout: (fn: () => void, ms?: number) => setTimeout(fn, ms),
+    clearTimeout: (id: ReturnType<typeof setTimeout>) => clearTimeout(id),
+  });
 });
 
 const { downloadForOffline, removeOffline } = await import("./bookCache");
@@ -54,6 +58,7 @@ describe("downloadForOffline", () => {
 
     emit({ type: "bookCacheDone", fileId: 4 });
     emit({ type: "bookCacheDone", fileId: 5 });
+    emit({ type: "bookCacheEditionReady", editionId: 3 });
     await expect(promise).resolves.toBeUndefined();
   });
 
@@ -75,6 +80,12 @@ describe("downloadForOffline", () => {
     expect(settled).toBe(false);
 
     emit({ type: "bookCacheDone", fileId: 5 });
+    await Promise.resolve();
+    // Every file is stored, but the book and manifest are not: a book that
+    // cannot be found again is not available offline.
+    expect(settled).toBe(false);
+
+    emit({ type: "bookCacheEditionReady", editionId: 3 });
     await promise;
     expect(settled).toBe(true);
   });
@@ -93,11 +104,14 @@ describe("downloadForOffline", () => {
     emit({ type: "bookCacheDone", fileId: 4 });
     emit({ type: "bookCacheProgress", fileId: 5, percent: 50 });
     emit({ type: "bookCacheDone", fileId: 5 });
+    emit({ type: "bookCacheEditionReady", editionId: 3 });
     await promise;
 
     // Half of the first track is a quarter of the book, and the second track's
-    // halfway point is three quarters — never 50% twice.
-    expect(seen).toEqual([25, 50, 75, 100]);
+    // halfway point is three quarters — never 50% twice. The bytes finishing
+    // is 99: 100 belongs to the edition being genuinely reopenable offline,
+    // which is one metadata fetch later.
+    expect(seen).toEqual([25, 50, 75, 99, 100]);
   });
 
   it("rejects with the reason the worker gave", async () => {
@@ -132,6 +146,7 @@ describe("downloadForOffline", () => {
     expect(settled).toBe(false);
 
     emit({ type: "bookCacheDone", fileId: 4 });
+    emit({ type: "bookCacheEditionReady", editionId: 3 });
     await promise;
     expect(settled).toBe(true);
   });

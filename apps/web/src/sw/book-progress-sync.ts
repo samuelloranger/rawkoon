@@ -5,6 +5,11 @@
  * rejects the rest, so a week-old queue cannot rewind a position set since. A
  * 4xx is dropped rather than replayed forever; only network and server failures
  * keep their place.
+ *
+ * Deletes are conditional on the entry still being the one that was sent: the
+ * page can queue a newer position for the same edition while a request is in
+ * flight, and an unconditional delete by edition threw that newer position
+ * away.
  */
 const DB_NAME = "rawkoon-books";
 const STORE = "bookProgressQueue";
@@ -13,6 +18,13 @@ interface QueuedProgress {
   editionId: number;
   body: Record<string, unknown>;
 }
+
+const stamp = (body: Record<string, unknown> | undefined): number => {
+  const value = body?.client_updated_at;
+  if (typeof value !== "string") return 0;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
 
 const openDb = (): Promise<IDBDatabase> =>
   new Promise((resolve, reject) => {
@@ -56,13 +68,22 @@ export const flushBookProgress = async (): Promise<void> => {
         },
       );
       if (!response.ok && response.status >= 500) break;
+
+      const sentAt = stamp(entry.body);
       await new Promise<void>((resolve) => {
-        const request = db
-          .transaction(STORE, "readwrite")
-          .objectStore(STORE)
-          .delete(entry.editionId);
-        request.onsuccess = () => resolve();
-        request.onerror = () => resolve();
+        const transaction = db.transaction(STORE, "readwrite");
+        const store = transaction.objectStore(STORE);
+        const read = store.get(entry.editionId);
+        read.onsuccess = () => {
+          const current = read.result as QueuedProgress | undefined;
+          // Keep a position that was queued while this request was running.
+          if (current && stamp(current.body) <= sentAt) {
+            store.delete(entry.editionId);
+          }
+        };
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => resolve();
+        transaction.onabort = () => resolve();
       });
     }
   } catch {

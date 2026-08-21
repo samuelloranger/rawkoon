@@ -40,11 +40,22 @@ export const downloadForOffline = async (
   const done = new Set<number>();
 
   return new Promise<void>((resolve, reject) => {
+    let settled = false;
     const finish = (err?: Error) => {
+      if (settled) return;
+      settled = true;
+      if (metaTimeout) window.clearTimeout(metaTimeout);
       navigator.serviceWorker.removeEventListener("message", onMessage);
       if (err) reject(err);
       else resolve();
     };
+
+    /**
+     * Set once every file is stored, while the worker is still caching the
+     * book and manifest. Resolving here would report a book as available
+     * offline before it could be found again.
+     */
+    let metaTimeout: number | undefined;
 
     const onMessage = (event: MessageEvent) => {
       const data = event.data as {
@@ -53,7 +64,16 @@ export const downloadForOffline = async (
         percent?: number;
         reason?: string;
       } | null;
-      if (!data || !fileIds.includes(data.fileId)) return;
+      if (!data) return;
+
+      if (data.type === "bookCacheEditionReady") {
+        if (metaTimeout) window.clearTimeout(metaTimeout);
+        onProgress?.(100);
+        finish();
+        return;
+      }
+
+      if (!fileIds.includes(data.fileId)) return;
 
       if (data.type === "bookCacheProgress") {
         const share = 100 / fileIds.length;
@@ -67,8 +87,14 @@ export const downloadForOffline = async (
 
       if (data.type === "bookCacheDone") {
         done.add(data.fileId);
-        onProgress?.(Math.floor((done.size / fileIds.length) * 100));
-        if (done.size === fileIds.length) finish();
+        onProgress?.(
+          Math.min(99, Math.floor((done.size / fileIds.length) * 100)),
+        );
+        if (done.size === fileIds.length) {
+          // Metadata is next. Resolve anyway if the worker is an older build
+          // that never sends the edition-level message, rather than hang.
+          metaTimeout = window.setTimeout(() => finish(), 15_000);
+        }
       }
 
       if (data.type === "bookCacheFailed") {

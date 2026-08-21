@@ -12,7 +12,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api/client";
 import { BOOKS_ENDPOINTS } from "@/lib/endpoints";
 import { queryKeys } from "@/lib/queryKeys";
-import { queueProgress } from "@/lib/offline/progressQueue";
+import {
+  peekQueuedProgress,
+  queueProgress,
+  startProgressQueueFlusher,
+} from "@/lib/offline/progressQueue";
 import type {
   BookManifest,
   BookManifestResponse,
@@ -57,42 +61,113 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
 
   const state = useSyncExternalStore(engine.subscribe, engine.getState);
 
-  const save = useCallback(
-    async (position: number, finished = false) => {
+  const buildWrite = useCallback(
+    (position: number, finished: boolean) => {
       const editionId = engine.getState().editionId;
-      if (editionId == null) return;
+      if (editionId == null) return null;
       const duration = engine.getState().duration;
-      const body = {
-        position_secs: position,
-        file_id: engine.currentFileId(),
-        percent: duration > 0 ? Math.min(1, position / duration) : null,
-        finished,
-        client_updated_at: new Date().toISOString(),
+      return {
+        editionId,
+        body: {
+          position_secs: position,
+          file_id: engine.currentFileId(),
+          percent: duration > 0 ? Math.min(1, position / duration) : null,
+          finished,
+          client_updated_at: new Date().toISOString(),
+        },
       };
-      try {
-        await fetchApi<BookProgressResponse>(
-          BOOKS_ENDPOINTS.EDITION_PROGRESS(editionId),
-          { method: "PUT", body: JSON.stringify(body) },
-        );
-      } catch {
-        await queueProgress(editionId, body);
-      }
     },
     [engine],
   );
 
+  const save = useCallback(
+    async (position: number, finished = false) => {
+      const write = buildWrite(position, finished);
+      if (!write) return;
+      try {
+        await fetchApi<BookProgressResponse>(
+          BOOKS_ENDPOINTS.EDITION_PROGRESS(write.editionId),
+          { method: "PUT", body: JSON.stringify(write.body) },
+        );
+      } catch {
+        await queueProgress(write.editionId, write.body);
+      }
+    },
+    [buildWrite],
+  );
+
+  /**
+   * Durable save for the moment the page is going away.
+   *
+   * A plain fetch from `pagehide` is not durable: iOS can freeze or evict the
+   * process before the request — or its catch, which is what would have queued
+   * it — ever runs. Writing to IndexedDB first means the position survives, and
+   * the queue flusher sends it on the next launch.
+   */
+  const journal = useCallback(
+    (position: number) => {
+      const write = buildWrite(position, false);
+      if (!write) return;
+      void queueProgress(write.editionId, write.body);
+    },
+    [buildWrite],
+  );
+
+  const openRequest = useRef(0);
+
   const openEdition = useCallback(
     async (editionId: number, autoplay = true) => {
-      const { manifest } = await queryClient.fetchQuery({
-        queryKey: queryKeys.books.manifest(editionId),
-        queryFn: () =>
-          fetchApi<BookManifestResponse>(BOOKS_ENDPOINTS.MANIFEST(editionId)),
-      });
-      await engine.load(manifest as BookManifest);
+      const request = ++openRequest.current;
+
+      // Switching books threw away up to ten seconds of the outgoing one: the
+      // periodic save only runs on an interval, and load() replaces the state
+      // it would have read. Not awaited, so it cannot delay playback.
+      const outgoing = engine.getState();
+      if (outgoing.editionId != null && outgoing.editionId !== editionId) {
+        void save(outgoing.position);
+      }
+
+      const queryKey = queryKeys.books.manifest(editionId);
+      // A manifest already in cache keeps play() inside the click's task, which
+      // is what WebKit requires to allow audible playback. Going through
+      // fetchQuery unconditionally put a network round-trip in front of every
+      // play and iOS refused it.
+      const cached = queryClient.getQueryData<BookManifestResponse>(queryKey);
+      const response: BookManifestResponse =
+        cached ??
+        (await queryClient.fetchQuery<BookManifestResponse>({
+          queryKey,
+          queryFn: () =>
+            fetchApi<BookManifestResponse>(BOOKS_ENDPOINTS.MANIFEST(editionId)),
+        }));
+      const { manifest } = response;
+
+      // A slower first request must not overwrite a book opened after it.
+      if (request !== openRequest.current) return;
+
+      // Offline, the manifest came from Cache Storage and carries whatever
+      // progress was current when the book was downloaded. Anything listened
+      // since is sitting in the queue, so resuming from the manifest alone
+      // rewound the listener — and the next save wrote that rewind back.
+      // Online the flusher has already drained the queue, so the manifest wins
+      // and play() stays inside the click's task.
+      let startAt: number | undefined;
+      if (!navigator.onLine) {
+        const queued = await peekQueuedProgress(editionId);
+        if (request !== openRequest.current) return;
+        const queuedAt = Date.parse(queued?.client_updated_at ?? "") || 0;
+        const manifestAt =
+          Date.parse(manifest.progress?.client_updated_at ?? "") || 0;
+        if (queued?.position_secs != null && queuedAt >= manifestAt) {
+          startAt = queued.position_secs;
+        }
+      }
+
+      await engine.load(manifest as BookManifest, startAt);
       setExpanded(true);
       if (autoplay) await engine.play();
     },
-    [engine, queryClient],
+    [engine, queryClient, save],
   );
 
   const releaseEdition = useCallback(
@@ -132,34 +207,64 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   // one time reading `state.position` per change costs nothing.
   useEffect(() => {
     if (state.playing) return;
+    // The completion effect owns the final write; a `finished: false` save for
+    // the same position would race it.
+    if (state.completed) return;
     if (state.position > 0 && state.position !== lastSaved.current) {
       lastSaved.current = state.position;
       void save(state.position);
     }
-  }, [state.playing, state.position, save]);
+  }, [state.playing, state.position, state.completed, save]);
 
   // Finishing the last chapter marks the edition read.
+  //
+  // Driven by the engine's explicit `completed`, which is set only when the
+  // final file reports `ended`. The old test — not playing and within a second
+  // of the end — also fired when a listener paused in the last second or the
+  // final file failed to decode, and it raced the pause-effect's
+  // `finished: false` write for the same millisecond, so the server's
+  // newest-wins rule could keep the wrong one and leave the book unfinished.
+  const savedCompletion = useRef(false);
   useEffect(() => {
-    if (
-      state.duration > 0 &&
-      !state.playing &&
-      state.position >= state.duration - 1
-    ) {
-      void save(state.position, true);
+    if (!state.completed) {
+      savedCompletion.current = false;
+      return;
     }
-  }, [state.playing, state.position, state.duration, save]);
+    if (savedCompletion.current) return;
+    savedCompletion.current = true;
+    lastSaved.current = state.position;
+    void save(state.position, true);
+  }, [state.completed, state.position, save]);
 
   useEffect(() => {
     const handler = () => {
-      void save(engine.getState().position);
+      journal(engine.getState().position);
+    };
+    const onHidden = () => {
+      // iOS often freezes a backgrounded PWA without ever firing pagehide.
+      if (document.visibilityState === "hidden") handler();
     };
     window.addEventListener("pagehide", handler);
-    return () => window.removeEventListener("pagehide", handler);
-  }, [engine, save]);
+    document.addEventListener("visibilitychange", onHidden);
+    return () => {
+      window.removeEventListener("pagehide", handler);
+      document.removeEventListener("visibilitychange", onHidden);
+    };
+  }, [engine, journal]);
+
+  // Nothing replayed the offline queue on Safari, which has no Background Sync.
+  useEffect(() => startProgressQueueFlusher(), []);
 
   // OS-level controls: lock screen, headset buttons, media keys.
   useEffect(() => {
-    if (!("mediaSession" in navigator) || state.editionId == null) return;
+    if (!("mediaSession" in navigator)) return;
+    // Closing the player used to leave the finished book on the lock screen,
+    // with handlers still wired to an unloaded engine.
+    if (state.editionId == null) {
+      navigator.mediaSession.metadata = null;
+      navigator.mediaSession.playbackState = "none";
+      return;
+    }
     navigator.mediaSession.metadata = new MediaMetadata({
       title: state.title,
       artist: state.narrators[0] ?? state.authors[0] ?? "",
@@ -185,6 +290,16 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
         // Not every action is supported on every platform.
       }
     }
+
+    return () => {
+      for (const [action] of actions) {
+        try {
+          navigator.mediaSession.setActionHandler(action, null);
+        } catch {
+          // Not every action is supported on every platform.
+        }
+      }
+    };
   }, [
     engine,
     state.editionId,
