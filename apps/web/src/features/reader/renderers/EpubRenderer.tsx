@@ -27,7 +27,14 @@ const EpubRenderer = ({
     if (!container) return;
     let cancelled = false;
 
-    const book = ePub(url);
+    // The file is fetched here and handed to epub.js as a Blob rather than by
+    // URL. epub.js decides how to open a string url from its file extension,
+    // and `/api/books/files/1/content` has none — so it treated the endpoint as
+    // an unpacked epub *directory* and went looking for
+    // `/api/books/files/1/META-INF/container.xml`. Fetching it ourselves also
+    // means an HTTP failure surfaces as an error instead of silently rendering
+    // nothing.
+    const book = ePub();
     bookRef.current = book;
 
     const rendition = book.renderTo(container, {
@@ -41,6 +48,18 @@ const EpubRenderer = ({
 
     const start = async () => {
       try {
+        const response = await fetch(url, { credentials: "include" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const type = response.headers.get("content-type") ?? "";
+        // The API answers with the epub's own content type; anything else means
+        // a route fell through to something that is not the file.
+        if (type.includes("text/html")) {
+          throw new Error("unexpected html response");
+        }
+
+        await book.open(await response.arrayBuffer(), "binary");
+        if (cancelled) return;
+
         await rendition.display(initialLocator ?? undefined);
         if (cancelled) return;
 

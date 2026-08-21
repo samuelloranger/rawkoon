@@ -3,6 +3,8 @@ import * as nodePath from "node:path";
 import { Elysia } from "elysia";
 import { swagger } from "@elysiajs/swagger";
 import { staticPlugin } from "@elysiajs/static";
+import { notFound } from "@rawkoon/api/errors";
+import { isApiPath } from "@rawkoon/api/utils/isApiPath";
 
 import { cors } from "@elysiajs/cors";
 import { checkAndNotifyVersionChange } from "./services/versionService";
@@ -157,7 +159,15 @@ export const app = new Elysia()
             ignorePatterns: [/\.html$/],
           }),
         )
-        .get("*", async ({ request }) => {
+        .get("*", async ({ request, set }) => {
+          // An unmatched /api path is a bug, not a client-side route. Falling
+          // through to the SPA answered 200 with HTML, which hid a real failure:
+          // epub.js probed `/api/books/files/1/META-INF/container.xml`, got the
+          // shell with a success status, and silently failed to parse it.
+          if (isApiPath(new URL(request.url).pathname)) {
+            return notFound(set, "Not found");
+          }
+
           const [indexHtml, user] = await Promise.all([
             spaIndexHtmlPromise,
             resolveUser(request).catch(() => null),
