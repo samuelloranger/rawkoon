@@ -99,6 +99,10 @@ body {
 
 :root {
   --safe-top: env(safe-area-inset-top, 0px);
+  /* Installed to the home screen, the page runs under the status bar and the
+     home indicator (viewport-fit=cover). Full-screen surfaces have to inset
+     themselves or their content is cut at both ends. */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 
   /* Z-index scale */
   --z-base: 0;

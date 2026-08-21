@@ -2041,6 +2041,7 @@
       "download": "Download file",
       "back": "Back to the book",
       "close": "Close the reader",
+      "closePanel": "Close this panel",
       "contents": "Contents",
       "noContents": "This file has no table of contents.",
       "typography": "Text settings",
@@ -2056,7 +2057,10 @@
       "margins": "Margins",
       "flow": "Layout",
       "flowPaginated": "Pages",
-      "flowScrolled": "Scroll"
+      "flowScrolled": "Scroll",
+      "downloading": "Downloading {{percent}}%",
+      "decrease": "Decrease {{label}}",
+      "increase": "Increase {{label}}"
     },
     "offline": {
       "make": "Make available offline",

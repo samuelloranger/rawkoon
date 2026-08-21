@@ -89,6 +89,10 @@ export const useSaveProgress = (editionId: number) => {
       }
     },
     onSuccess: (res) => {
+      // Only a write that won. A rejected one comes back carrying the *stored*
+      // position, and feeding that into the manifest dragged the reader back to
+      // it a second after every page turn.
+      if (!res.accepted) return;
       queryClient.setQueryData(
         queryKeys.books.manifest(editionId),
         (prev: BookManifestResponse | undefined) =>

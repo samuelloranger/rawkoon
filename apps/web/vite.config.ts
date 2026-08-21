@@ -53,6 +53,16 @@ export default defineConfig(({ mode }) => {
   // Load env from root directory (parent of apps/web)
   const env = loadEnv(mode, path.resolve(__dirname, "../.."), "");
 
+  /**
+   * Identifies this build, and names the service worker's runtime caches.
+   *
+   * It has to change per build: the worker serves hashed assets cache-first, so
+   * a fixed cache name pinned devices to whichever build populated it — one
+   * phone kept running a superseded bundle across three releases. CI passes
+   * APP_VERSION; a local build gets a timestamp.
+   */
+  const buildId = process.env.APP_VERSION || `dev-${Date.now()}`;
+
   // Use the config() hook so manualChunks merges through mergeConfig's rollupOptions path,
   // which correctly propagates to each environment in Vite 8. Direct rolldownOptions.output
   // assignment is lost during environment config resolution (Vite 8.0.x bug).
@@ -106,7 +116,7 @@ export default defineConfig(({ mode }) => {
     react({ babel: { plugins: ["babel-plugin-react-compiler"] } }),
     chunkSplittingPlugin,
     excludeTestFiles(),
-    serviceWorkerPlugin(),
+    serviceWorkerPlugin(buildId),
     compression({
       algorithm: "gzip",
       exclude: [/\.(png|jpe?g|gif|webp|ico|woff2?|ttf|eot|map)$/i],
@@ -117,6 +127,10 @@ export default defineConfig(({ mode }) => {
   console.log(`Using API host: ${apiHost}`);
 
   return {
+    define: {
+      // Available to the app and, via serviceWorkerPlugin, to the worker.
+      __BUILD_ID__: JSON.stringify(buildId),
+    },
     plugins,
     resolve: {
       alias: {

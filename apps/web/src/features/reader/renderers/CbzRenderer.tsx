@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { THEME_COLORS, type RendererProps } from "../types";
+import { downloadWithProgress } from "./EpubRenderer";
 
 /**
  * Cbz: a zip of images, one per page.
@@ -18,14 +19,24 @@ const CbzRenderer = ({
   onReady,
   onPosition,
   onError,
+  onProgress,
   handleRef,
 }: RendererProps) => {
+  // Held in refs so the loading effect depends on the file, not on callback
+  // identity. A parent re-render must never tear down a renderer mid-load.
+  const callbacks = useRef({ onReady, onPosition, onError, onProgress });
+  callbacks.current = { onReady, onPosition, onError, onProgress };
+  // Where to open is an initial value, not a live input. Reacting to it meant
+  // that saving a position reloaded the book at that position, which fought the
+  // reader for control of the page.
+  const openAt = useRef(initialLocator);
+
   const entriesRef = useRef<Array<{ name: string; blob: () => Promise<Blob> }>>(
     [],
   );
   const urlsRef = useRef(new Map<number, string>());
   const [page, setPage] = useState(() => {
-    const parsed = Number(initialLocator?.replace("page:", ""));
+    const parsed = Number(openAt.current?.replace("page:", ""));
     return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
   });
   const [src, setSrc] = useState<string | null>(null);
@@ -37,9 +48,13 @@ const CbzRenderer = ({
     const load = async () => {
       try {
         const { default: JSZip } = await import("jszip");
-        const response = await fetch(url, { credentials: "include" });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const zip = await JSZip.loadAsync(await response.blob());
+        const bytes = await downloadWithProgress(url, (percent) =>
+          callbacks.current.onProgress(percent),
+        );
+        if (cancelled) return;
+        // Unzipping reports nothing useful, so the bar goes indeterminate.
+        callbacks.current.onProgress(null);
+        const zip = await JSZip.loadAsync(bytes);
         if (cancelled) return;
 
         const entries = Object.values(zip.files)
@@ -57,10 +72,12 @@ const CbzRenderer = ({
 
         entriesRef.current = entries;
         setTotal(entries.length);
-        onReady({ toc: [], totalPages: entries.length });
+        callbacks.current.onReady({ toc: [], totalPages: entries.length });
       } catch (err) {
         if (!cancelled) {
-          onError(err instanceof Error ? err.message : "unreadable");
+          callbacks.current.onError(
+            err instanceof Error ? err.message : "unreadable",
+          );
         }
       }
     };
@@ -74,7 +91,9 @@ const CbzRenderer = ({
       urlsRef.current.clear();
       entriesRef.current = [];
     };
-  }, [url, onReady, onError]);
+    // Callbacks live in a ref: a changing identity would re-download and
+    // re-unzip the archive on every parent render.
+  }, [url]);
 
   useEffect(() => {
     if (total === 0) return;
@@ -105,7 +124,7 @@ const CbzRenderer = ({
       }
 
       setSrc(urls.get(page) ?? null);
-      onPosition({
+      callbacks.current.onPosition({
         locator: `page:${page}`,
         percent: page / total,
         label: `${page} / ${total}`,
@@ -116,7 +135,7 @@ const CbzRenderer = ({
     return () => {
       cancelled = true;
     };
-  }, [page, total, onPosition]);
+  }, [page, total]);
 
   useEffect(() => {
     handleRef({
