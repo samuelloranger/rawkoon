@@ -5,6 +5,7 @@ import { requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound } from "@rawkoon/api/errors";
 import { buildManifest } from "@rawkoon/api/services/books/bookManifest";
+import { listReading } from "@rawkoon/api/services/books/bookReading";
 import {
   listProgress,
   saveProgress,
@@ -72,6 +73,7 @@ export const parseRange = (
  *   GET /api/books/files/:fileId/content       — Range-capable byte stream
  *   GET /api/books/editions/:editionId/manifest
  *   GET /api/books/progress?editionIds=1,2
+ *   GET /api/books/reading?limit=6
  *   PUT /api/books/editions/:editionId/progress
  *
  * The only client input to the byte route is a file id: the path comes from the
@@ -174,6 +176,14 @@ export const bookReadRoutes = new Elysia()
       return { progress: await listProgress(user!.id, ids) };
     },
     { query: t.Object({ editionIds: t.Optional(t.String()) }) },
+  )
+
+  .get(
+    "/reading",
+    async ({ query, user }) => ({
+      reading: await listReading(user!.id, Math.min(query.limit ?? 6, 24)),
+    }),
+    { query: t.Object({ limit: t.Optional(t.Numeric()) }) },
   )
 
   .put(

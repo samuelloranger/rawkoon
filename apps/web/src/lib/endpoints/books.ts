@@ -19,6 +19,7 @@ export const BOOKS_ENDPOINTS = {
   MANIFEST: (editionId: number) => `/api/books/editions/${editionId}/manifest`,
   PROGRESS: (editionIds: number[]) =>
     `/api/books/progress?editionIds=${editionIds.join(",")}`,
+  READING: (limit: number) => `/api/books/reading?limit=${limit}`,
   EDITION_PROGRESS: (editionId: number) =>
     `/api/books/editions/${editionId}/progress`,
   QUALITY_PROFILES: "/api/book-quality-profiles",
