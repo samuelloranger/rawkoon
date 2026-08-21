@@ -1,5 +1,11 @@
 import { sw } from "./sw";
 import { syncBadgeCount } from "./badge";
+import {
+  bookCacheStatus,
+  cacheBookFile,
+  cacheBookMeta,
+  evictBookFile,
+} from "./book-cache";
 import type { MessageData } from "./types";
 
 // Handle messages from clients (e.g., when app opens)
@@ -43,6 +49,44 @@ export function handleMessage(event: ExtendableMessageEvent): void {
         },
       ],
     });
+  }
+
+  // Offline books: download, evict, and report what is stored. The page needs
+  // real progress, so replies go back to the requesting client.
+  if (data && data.type === "cacheBookFile" && data.fileIds?.length) {
+    const client = event.source as Client | null;
+    const { fileIds, bookId, editionId } = data;
+    event.waitUntil(
+      (async () => {
+        // Every file, not just the first: a multi-file audiobook that stored
+        // only track one would stop playing at the first boundary while still
+        // claiming to be available offline.
+        for (const fileId of fileIds) {
+          await cacheBookFile(fileId, client);
+        }
+        // Then the metadata, without which the stored bytes cannot be found
+        // again after a reload with no network.
+        if (bookId != null && editionId != null) {
+          await cacheBookMeta(bookId, editionId);
+        }
+      })(),
+    );
+  }
+
+  if (data && data.type === "evictBookFile" && data.fileIds?.length) {
+    const client = event.source as Client | null;
+    const { fileIds } = data;
+    event.waitUntil(
+      (async () => {
+        for (const fileId of fileIds) {
+          await evictBookFile(fileId, client);
+        }
+      })(),
+    );
+  }
+
+  if (data && data.type === "bookCacheStatus") {
+    event.waitUntil(bookCacheStatus(event.source as Client | null));
   }
 
   // Clear all caches (preserves service worker registration and push subscriptions)

@@ -15,6 +15,12 @@ export const BOOKS_ENDPOINTS = {
   GRAB: (id: number, kind: string) => `/api/books/${id}/editions/${kind}/grab`,
   AUTO_GRAB: (id: number, kind: string) =>
     `/api/books/${id}/editions/${kind}/auto`,
+  FILE_CONTENT: (fileId: number) => `/api/books/files/${fileId}/content`,
+  MANIFEST: (editionId: number) => `/api/books/editions/${editionId}/manifest`,
+  PROGRESS: (editionIds: number[]) =>
+    `/api/books/progress?editionIds=${editionIds.join(",")}`,
+  EDITION_PROGRESS: (editionId: number) =>
+    `/api/books/editions/${editionId}/progress`,
   QUALITY_PROFILES: "/api/book-quality-profiles",
   AUTHORS: "/api/authors",
   AUTHOR: (id: number) => `/api/authors/${id}`,
