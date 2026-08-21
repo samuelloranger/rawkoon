@@ -152,6 +152,7 @@ const EpubRenderer = ({
     // until it is.
     let locationsReady = false;
     let idleHandle: number | null = null;
+    let resizeObserver: ResizeObserver | null = null;
 
     const start = async () => {
       try {
@@ -179,6 +180,36 @@ const EpubRenderer = ({
         applyTheme(rendition, typographyRef.current);
 
         await rendition.display(openAt.current ?? undefined);
+
+        /**
+         * Force a relayout after the first paint.
+         *
+         * epub.js measures the container and lays out its columns once. If
+         * anything changes the metrics afterwards — most often a webfont
+         * arriving inside the iframe — the columns are wrong and nothing
+         * repaints until an interaction forces it, which is why the page could
+         * be blank until you turned it. A resize on the next frame, again when
+         * fonts settle, and on any container change covers all three.
+         */
+        const relayout = () => {
+          try {
+            const { width, height } = container.getBoundingClientRect();
+            if (width > 0 && height > 0) {
+              rendition?.resize(Math.floor(width), Math.floor(height));
+            }
+          } catch {
+            // A rendition that is going away does not need resizing.
+          }
+        };
+
+        requestAnimationFrame(relayout);
+        void document.fonts?.ready.then(() => {
+          if (!cancelled) relayout();
+        });
+        if (typeof ResizeObserver !== "undefined") {
+          resizeObserver = new ResizeObserver(relayout);
+          resizeObserver.observe(container);
+        }
         if (cancelled) return;
 
         const nav = await book.loaded.navigation;
@@ -263,6 +294,7 @@ const EpubRenderer = ({
     return () => {
       cancelled = true;
       if (idleHandle != null) window.clearTimeout(idleHandle);
+      resizeObserver?.disconnect();
       void loading.finally(() => {
         // epub.js also reaches for `this.container` in destroy(), which is
         // undefined when the rendition never rendered.

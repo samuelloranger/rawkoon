@@ -537,3 +537,67 @@ test.describe("the reader's page position", () => {
     expect(stubs.contentRequests()).toBeLessThanOrEqual(2);
   });
 });
+
+/**
+ * "It's blank until I click." epub.js measures the container and lays out its
+ * columns once; anything that changes the metrics afterwards — a webfont
+ * arriving inside the iframe is the usual culprit — leaves the columns wrong
+ * with nothing to repaint them until an interaction does.
+ *
+ * Text in the DOM was never enough to catch this, which is why the earlier tests
+ * missed it: these assert the page is actually painted, and that it is still
+ * painted without anyone touching it.
+ */
+test.describe("the reader's first paint", () => {
+  /** Lit pixels in the rendered page. Absolute, because the ratio depends on
+   *  how much of a large viewport a short fixture fills. */
+  const inkPixels = async (page: Page): Promise<number> => {
+    const shot = await page.locator("#root iframe").screenshot();
+    return page.evaluate(async (base64) => {
+      const image = new Image();
+      image.src = `data:image/png;base64,${base64}`;
+      await image.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const context = canvas.getContext("2d")!;
+      context.drawImage(image, 0, 0);
+      const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+
+      // The page is dark; ink is anything appreciably lighter than the ground.
+      let ink = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i] > 90 || data[i + 1] > 90 || data[i + 2] > 90) ink++;
+      }
+      return ink;
+    }, shot.toString("base64"));
+  };
+
+  test("paints the page without an interaction", async ({ page }) => {
+    await stubApi(page, await buildEpub());
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+
+    // Never touched: no clicks, no taps, no keys.
+    await expect
+      .poll(() => inkPixels(page), { timeout: 10_000 })
+      .toBeGreaterThan(1_500);
+  });
+
+  test("stays painted while it sits there", async ({ page }) => {
+    await stubApi(page, await buildEpub());
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+    await expect
+      .poll(() => inkPixels(page), { timeout: 10_000 })
+      .toBeGreaterThan(1_500);
+
+    // Through the font settling, the deferred index and a save landing.
+    await page.waitForTimeout(6_000);
+    expect(await inkPixels(page)).toBeGreaterThan(1_500);
+  });
+});

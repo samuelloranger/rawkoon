@@ -225,9 +225,9 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
       </header>
 
       <div className="relative flex flex-1 overflow-hidden">
-        {/* pt-6 is reading comfort: text pinned to the top edge under the
-            status bar reads badly even once the safe inset is respected. */}
-        <div className="relative min-w-0 flex-1 pt-6">
+        {/* A little breathing room under the header; the system inset and the
+            header itself already provide most of the clearance. */}
+        <div className="relative min-w-0 flex-1 pt-3">
           {error ? (
             <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
               <AlertTriangle className="size-8 text-primary-400" />
@@ -377,7 +377,7 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
       )}
 
       <footer
-        className="z-20 flex shrink-0 items-center justify-between px-4 py-2 text-xs"
+        className="z-20 flex shrink-0 items-center justify-between px-4 py-1 text-xs"
         style={{ background: colors.background }}
       >
         <button
