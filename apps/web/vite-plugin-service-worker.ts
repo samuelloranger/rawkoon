@@ -6,7 +6,7 @@ import { readFile, writeFile, rm } from "fs/promises";
  * Vite plugin to compile TypeScript service worker files into a single sw.js file.
  * Uses Vite's own build API (Rolldown in Vite 8) instead of esbuild directly.
  */
-export function serviceWorkerPlugin(): Plugin {
+export function serviceWorkerPlugin(buildId: string): Plugin {
   let root: string;
   let outDir: string;
 
@@ -27,6 +27,9 @@ export function serviceWorkerPlugin(): Plugin {
         await viteBuild({
           configFile: false,
           root,
+          // The worker names its caches after the build, so a new release
+          // cannot keep serving the previous build's assets.
+          define: { __BUILD_ID__: JSON.stringify(buildId) },
           logLevel: "silent",
           build: {
             lib: {

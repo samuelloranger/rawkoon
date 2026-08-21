@@ -33,6 +33,13 @@ export default defineConfig({
       testMatch: "**/reader.spec.ts",
       use: { ...devices["Desktop Chrome"], storageState: undefined },
     },
+    // iOS Safari is WebKit, and the reader is read on a phone. Chromium accepts
+    // layout WebKit refuses, so this project is not optional.
+    {
+      name: "reader-harness-webkit",
+      testMatch: "**/reader.spec.ts",
+      use: { ...devices["iPhone 14"], storageState: undefined },
+    },
     // The phone is where the reader is actually used, and where the crash was
     // reported.
     {

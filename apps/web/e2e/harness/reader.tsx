@@ -15,6 +15,11 @@ import type { BookManifest } from "@rawkoon/shared/types";
 import "@/lib/i18n/index";
 import "@/index.css";
 
+// The test drives these: a saved locator is the one input the app supplies that
+// a fixture would otherwise never exercise.
+const params = new URLSearchParams(window.location.search);
+const locator = params.get("locator");
+
 const manifest: BookManifest = {
   edition_id: 11,
   book_id: 1,
@@ -25,7 +30,18 @@ const manifest: BookManifest = {
   cover_url: null,
   total_duration_secs: null,
   primary_file_id: 1,
-  progress: null,
+  progress: locator
+    ? {
+        edition_id: 11,
+        locator,
+        percent: 0,
+        position_secs: null,
+        file_id: null,
+        finished_at: null,
+        client_updated_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      }
+    : null,
   files: [
     {
       id: 1,

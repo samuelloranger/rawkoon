@@ -184,3 +184,74 @@ test.describe("the reader", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 });
+
+/**
+ * On a phone the chrome fades and there is no pointer to move, so a tap has to
+ * bring it back — otherwise the reader becomes a dead end: no page turns, no way
+ * out. Reported from an iPhone after the chrome hid itself on the first page
+ * turn.
+ */
+test.describe("the reader on a touch screen", () => {
+  // Touch-specific by nature: with a mouse the chrome follows the pointer, so
+  // there is nothing to bring back.
+  test.beforeEach(({}, testInfo) => {
+    test.skip(
+      !testInfo.project.use.hasTouch,
+      "describes behaviour that only exists on a touch screen",
+    );
+  });
+
+  const footerOpacity = (page: Page) =>
+    page.evaluate(() => {
+      const footer = document.querySelector("footer");
+      return footer ? Number(getComputedStyle(footer).opacity) : -1;
+    });
+
+  test("a tap in the middle brings the chrome back after it fades", async ({
+    page,
+  }) => {
+    await stubApi(page, await buildEpub());
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+
+    // The chrome hides itself three seconds after the last interaction.
+    await expect.poll(() => footerOpacity(page), { timeout: 8_000 }).toBe(0);
+
+    const box = page.viewportSize()!;
+    // A real tap where the project has touch: a synthesized mouse click also
+    // fires pointermove, which is a different code path entirely.
+    if (page.context().browser()) {
+      try {
+        await page.touchscreen.tap(box.width / 2, box.height / 2);
+      } catch {
+        await page.mouse.click(box.width / 2, box.height / 2);
+      }
+    }
+
+    await expect.poll(() => footerOpacity(page), { timeout: 5_000 }).toBe(1);
+  });
+
+  test("tapping the right side turns the page", async ({ page }) => {
+    await stubApi(page, await buildEpub());
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+
+    const first = await readerText(page);
+    const box = page.viewportSize()!;
+
+    // Several taps: a short chapter can need more than one to change section.
+    for (let i = 0; i < 4; i++) {
+      await page.touchscreen
+        .tap(box.width * 0.9, box.height / 2)
+        .catch(() => page.mouse.click(box.width * 0.9, box.height / 2));
+      await page.waitForTimeout(600);
+      if ((await readerText(page)) !== first) break;
+    }
+
+    expect(await readerText(page)).not.toBe(first);
+  });
+});

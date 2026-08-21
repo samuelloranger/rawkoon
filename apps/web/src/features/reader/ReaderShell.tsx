@@ -83,6 +83,19 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
     localStorage.setItem(TYPOGRAPHY_KEY, JSON.stringify(typography));
   }, [typography]);
 
+  const toggleChrome = useCallback(() => {
+    setChromeVisible((visible) => {
+      if (idleTimer.current) window.clearTimeout(idleTimer.current);
+      if (!visible) {
+        idleTimer.current = window.setTimeout(
+          () => setChromeVisible(false),
+          IDLE_MS,
+        );
+      }
+      return !visible;
+    });
+  }, []);
+
   const showChrome = useCallback(() => {
     setChromeVisible(true);
     if (idleTimer.current) window.clearTimeout(idleTimer.current);
@@ -187,11 +200,15 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
     <div
       className="fixed inset-0 z-[var(--z-modal)] flex flex-col"
       style={{ background: colors.background, color: colors.foreground }}
-      onPointerMove={showChrome}
+      // Mice only: a touch tap must not both reveal the chrome here and toggle
+      // it in the tap zone, which cancelled out and left it hidden.
+      onPointerMove={(event) => {
+        if (event.pointerType === "mouse") showChrome();
+      }}
     >
       <header
         className={cn(
-          "absolute inset-x-0 top-0 z-10 flex items-center gap-2 px-3 py-2 motion-safe:transition-opacity motion-safe:duration-200",
+          "absolute inset-x-0 top-0 z-20 flex items-center gap-2 px-3 py-2 motion-safe:transition-opacity motion-safe:duration-200",
           chromeVisible || panel
             ? "opacity-100"
             : "pointer-events-none opacity-0",
@@ -232,7 +249,7 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
       </header>
 
       <div className="relative flex flex-1 overflow-hidden">
-        <div className="min-w-0 flex-1">
+        <div className="relative min-w-0 flex-1">
           {error ? (
             <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
               <AlertTriangle className="size-8 text-primary-400" />
@@ -254,6 +271,36 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
                 {file.format === "cbz" && <CbzRenderer {...rendererProps} />}
               </Suspense>
             )
+          )}
+
+          {/*
+            The epub iframe swallows pointer events, so page turns and bringing
+            the chrome back need their own surface above it: sides turn pages,
+            the middle toggles the chrome. Only in paginated flow — a scrolled
+            book has to keep scrolling. The footer buttons remain the accessible
+            controls, so these are hidden from assistive technology.
+          */}
+          {!error && !panel && typography.flow === "paginated" && (
+            <div className="absolute inset-0 z-[5] flex" aria-hidden="true">
+              <button
+                type="button"
+                tabIndex={-1}
+                className="h-full w-[28%]"
+                onClick={() => handleRef.current?.prev()}
+              />
+              <button
+                type="button"
+                tabIndex={-1}
+                className="h-full flex-1"
+                onClick={toggleChrome}
+              />
+              <button
+                type="button"
+                tabIndex={-1}
+                className="h-full w-[28%]"
+                onClick={() => handleRef.current?.next()}
+              />
+            </div>
           )}
         </div>
 
@@ -328,7 +375,7 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
 
       <footer
         className={cn(
-          "absolute inset-x-0 bottom-0 z-10 flex items-center justify-between px-4 py-2 text-xs motion-safe:transition-opacity motion-safe:duration-200",
+          "absolute inset-x-0 bottom-0 z-20 flex items-center justify-between px-4 py-2 text-xs motion-safe:transition-opacity motion-safe:duration-200",
           chromeVisible || panel
             ? "opacity-100"
             : "pointer-events-none opacity-0",
