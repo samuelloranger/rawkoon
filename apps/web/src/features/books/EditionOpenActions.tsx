@@ -101,7 +101,7 @@ export const EditionOpenActions = ({
               description: t("books.open.restartDescription"),
               confirmLabel: t("books.open.restart"),
               onConfirm: async () => {
-                await endReading.mutateAsync({ mode: "reset" });
+                await endReading.mutateAsync("reset");
               },
             })
           }

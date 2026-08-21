@@ -25,10 +25,29 @@ const dbUser = {
 
 let progressRows: unknown[] = [];
 let lastTake = 0;
+/** The SQL the finish/reset endpoints ran, so the two can be told apart. */
+let lastSql = "";
+let edition: { id: number } | null = { id: 5 };
 
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
     user: { findUnique: async () => dbUser },
+    bookEdition: { findUnique: async () => edition },
+    $queryRaw: async (strings: TemplateStringsArray) => {
+      lastSql = strings.join("?");
+      return [
+        {
+          edition_id: 5,
+          locator: null,
+          percent: 0,
+          position_secs: 0,
+          file_id: null,
+          finished_at: null,
+          client_updated_at: new Date(),
+          updated_at: new Date(),
+        },
+      ];
+    },
     libraryBook: {
       findUnique: async () => null,
       findMany: async () => [],
@@ -67,11 +86,12 @@ const app = new Elysia({ prefix: "/api/books" })
 const get = (path: string) =>
   app.handle(new Request(`http://localhost${path}`));
 
+const post = (path: string) =>
+  app.handle(new Request(`http://localhost${path}`, { method: "POST" }));
+
 const progressRow = () => ({
   editionId: 5,
   percent: 0.37,
-  locator: "epubcfi(/6/4!/2/10)",
-  fileId: null,
   positionSecs: null,
   updatedAt: new Date("2026-08-21T10:00:00.000Z"),
   edition: {
@@ -116,12 +136,57 @@ describe("GET /api/books/reading", () => {
 
   it("caps the limit, so a client cannot ask for the whole table", async () => {
     await get("/api/books/reading?limit=5000");
-    const capped = lastTake;
+    expect(lastTake).toBe(24);
 
     await get("/api/books/reading?limit=2");
-    // Both are overfetched by a constant factor; what matters is that a huge
-    // limit is clamped and a small one is honoured.
-    expect(capped).toBeLessThan(200);
-    expect(lastTake).toBeLessThan(capped);
+    expect(lastTake).toBe(2);
+  });
+
+  it("refuses to turn a negative limit into a backwards page", async () => {
+    // Prisma reads a negative `take` as pagination in the other direction,
+    // which walked straight past the cap.
+    const res = await get("/api/books/reading?limit=-1000000");
+
+    expect(res.status).toBe(200);
+    expect(lastTake).toBe(1);
+  });
+
+  it("floors a fractional limit instead of handing Prisma a decimal", async () => {
+    // A non-integer take is a Prisma validation error, which surfaces as a 500.
+    const res = await get("/api/books/reading?limit=3.7");
+
+    expect(res.status).toBe(200);
+    expect(lastTake).toBe(3);
+  });
+});
+
+describe("ending a read", () => {
+  beforeEach(() => {
+    edition = { id: 5 };
+    lastSql = "";
+  });
+
+  it("finishes an edition without being told a position", async () => {
+    const res = await post("/api/books/editions/5/progress/finish");
+
+    expect(res.status).toBe(200);
+    // Only the finished columns are written, so the stored position survives.
+    expect(lastSql).toContain("finished_at = NOW()");
+    expect(lastSql).not.toContain("position_secs = ");
+  });
+
+  it("resets an edition to its beginning", async () => {
+    const res = await post("/api/books/editions/5/progress/reset");
+
+    expect(res.status).toBe(200);
+    expect(lastSql).toContain("position_secs = 0");
+    expect(lastSql).toContain("finished_at = NULL");
+  });
+
+  it("404s on an edition that does not exist", async () => {
+    edition = null;
+
+    const res = await post("/api/books/editions/999/progress/finish");
+    expect(res.status).toBe(404);
   });
 });

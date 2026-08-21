@@ -2,7 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api/client";
 import { BOOKS_ENDPOINTS } from "@/lib/endpoints";
 import { queryKeys } from "@/lib/queryKeys";
+import { usePlayer } from "@/features/player/PlayerProvider";
 import type {
+  BookProgress,
   BookManifestResponse,
   BookProgressListResponse,
   BookProgressResponse,
@@ -32,48 +34,32 @@ export const useBookProgress = (editionIds: number[]) =>
 /**
  * Reset a position, or mark an edition finished.
  *
- * Both go through the same PUT the reader uses, on purpose. Deleting the row
- * would be the obvious move and the wrong one: the conflict rule is "newest
- * client clock wins", so a write still queued on a phone would recreate the
- * position the moment that phone came back online. A write stamped now beats
- * the queue instead.
+ * Both are server-side actions rather than a position write, because the
+ * position must not travel. A client that fetched the row a minute ago holds a
+ * snapshot, and resending it under a fresh timestamp would win the
+ * newest-clock rule and rewind whatever another device advanced since —
+ * "finished" promising to keep your place and then losing it. The endpoints
+ * touch only the columns they mean to, stamped with the server's clock, which
+ * is also what beats writes still queued on an offline device.
  *
- * Reset clears the locator and zeroes the position, which is what puts the book
- * back at its first page. Finishing keeps the position and stamps `finished_at`,
- * because "I am done with this" is not "I never read it".
+ * The running player has to be let go of first. It saves every ten seconds with
+ * `finished: false` and a clock of its own, so an edition left loaded would undo
+ * either action within the next tick.
  */
 export const useEndReading = (editionId: number) => {
   const queryClient = useQueryClient();
+  const { releaseEdition } = usePlayer();
 
   return useMutation({
-    mutationFn: (input: EndReadingInput) =>
-      fetchApi<BookProgressResponse>(
-        BOOKS_ENDPOINTS.EDITION_PROGRESS(editionId),
-        {
-          method: "PUT",
-          // Every field is sent every time: the write replaces the row, so an
-          // omitted one is stored as null. Finishing therefore has to carry the
-          // position forward rather than leave it out.
-          body: JSON.stringify(
-            input.mode === "finish"
-              ? {
-                  locator: input.locator ?? null,
-                  percent: 1,
-                  position_secs: input.position_secs ?? null,
-                  file_id: input.file_id ?? null,
-                  finished: true,
-                  client_updated_at: nowIso(),
-                }
-              : {
-                  locator: null,
-                  percent: 0,
-                  position_secs: 0,
-                  file_id: null,
-                  client_updated_at: nowIso(),
-                },
-          ),
-        },
-      ),
+    mutationFn: (mode: "reset" | "finish") => {
+      releaseEdition(editionId);
+      return fetchApi<{ progress: BookProgress }>(
+        mode === "finish"
+          ? BOOKS_ENDPOINTS.EDITION_PROGRESS_FINISH(editionId)
+          : BOOKS_ENDPOINTS.EDITION_PROGRESS_RESET(editionId),
+        { method: "POST" },
+      );
+    },
     onSuccess: () => {
       // Every view of a position is now wrong: the book page, the list badges,
       // and the home widget.
@@ -81,18 +67,6 @@ export const useEndReading = (editionId: number) => {
     },
   });
 };
-
-const nowIso = () => new Date().toISOString();
-
-/** Finishing keeps the position it is given; resetting needs nothing. */
-export type EndReadingInput =
-  | { mode: "reset" }
-  | {
-      mode: "finish";
-      locator?: string | null;
-      position_secs?: number | null;
-      file_id?: number | null;
-    };
 
 /**
  * Save a position. A failed write is queued for the service worker rather than

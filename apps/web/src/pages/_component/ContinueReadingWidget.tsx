@@ -134,12 +134,7 @@ function Row({
             description: t("books.open.finishDescription"),
             confirmLabel: t("books.open.finish"),
             onConfirm: async () => {
-              await endReading.mutateAsync({
-                mode: "finish",
-                locator: entry.locator,
-                position_secs: entry.position_secs,
-                file_id: entry.file_id,
-              });
+              await endReading.mutateAsync("finish");
             },
           })
         }

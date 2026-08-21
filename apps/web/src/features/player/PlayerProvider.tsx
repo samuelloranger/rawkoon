@@ -36,6 +36,13 @@ interface PlayerContextValue {
   expanded: boolean;
   setExpanded: (expanded: boolean) => void;
   close: () => void;
+  /**
+   * Drop an edition without saving its position — for "restart" and "mark as
+   * finished", which are about to rewrite that position server-side. Closing
+   * normally saves; this deliberately does not, because the save would land
+   * after the action and undo it.
+   */
+  releaseEdition: (editionId: number) => void;
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -86,6 +93,18 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
       if (autoplay) await engine.play();
     },
     [engine, queryClient],
+  );
+
+  const releaseEdition = useCallback(
+    (editionId: number) => {
+      if (engine.getState().editionId !== editionId) return;
+      // No save on the way out, and the periodic one stops with the unload:
+      // `unload()` empties the state, so neither the interval nor the
+      // pause-effect has a position left to write.
+      engine.unload();
+      setExpanded(false);
+    },
+    [engine],
   );
 
   const close = useCallback(() => {
@@ -177,8 +196,16 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   ]);
 
   const value = useMemo(
-    () => ({ engine, state, openEdition, expanded, setExpanded, close }),
-    [engine, state, openEdition, expanded, close],
+    () => ({
+      engine,
+      state,
+      openEdition,
+      expanded,
+      setExpanded,
+      close,
+      releaseEdition,
+    }),
+    [engine, state, openEdition, expanded, close, releaseEdition],
   );
 
   return (

@@ -8,8 +8,9 @@ vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => vi.fn(),
 }));
 
+const releaseEdition = vi.fn();
 vi.mock("@/features/player/PlayerProvider", () => ({
-  usePlayer: () => ({ openEdition: vi.fn() }),
+  usePlayer: () => ({ openEdition: vi.fn(), releaseEdition }),
 }));
 
 vi.mock("@/features/books/OfflineButton", () => ({
@@ -40,7 +41,7 @@ const manifest = {
 /** Answers whichever of the three endpoints is being called. */
 const respondWith = (percent: number) =>
   fetchApi.mockImplementation((url: string, init?: { method?: string }) => {
-    if (init?.method === "PUT") return Promise.resolve({ accepted: true });
+    if (init?.method === "POST") return Promise.resolve({ progress: {} });
     if (url.includes("/progress")) {
       return Promise.resolve({
         progress: [{ edition_id: 5, percent, position_secs: null }],
@@ -82,17 +83,15 @@ describe("EditionOpenActions", () => {
     await waitFor(() => expect(fetchApi).toHaveBeenCalled());
     const [url, init] = fetchApi.mock.calls[0] as [
       string,
-      { method: string; body: string },
+      { method: string; body?: string },
     ];
-    expect(url).toBe("/api/books/editions/5/progress");
-    expect(init.method).toBe("PUT");
-    const body = JSON.parse(init.body) as Record<string, unknown>;
-    // A cleared position, not a deleted row: a delete would be recreated by a
-    // write still queued on another device.
-    expect(body.locator).toBeNull();
-    expect(body.percent).toBe(0);
-    expect(body.position_secs).toBe(0);
-    expect(body.finished).toBeUndefined();
-    expect(typeof body.client_updated_at).toBe("string");
+    expect(url).toBe("/api/books/editions/5/progress/reset");
+    expect(init.method).toBe("POST");
+    // The server clears the row's position itself. Sending one from here would
+    // be a snapshot, and a snapshot under a fresh clock wins the conflict rule.
+    expect(init.body).toBeUndefined();
+    // And the player lets go first, or its next save would restore the
+    // position ten seconds later.
+    expect(releaseEdition).toHaveBeenCalledWith(5);
   });
 });

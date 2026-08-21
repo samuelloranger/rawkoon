@@ -22,6 +22,10 @@ export const BOOKS_ENDPOINTS = {
   READING: (limit: number) => `/api/books/reading?limit=${limit}`,
   EDITION_PROGRESS: (editionId: number) =>
     `/api/books/editions/${editionId}/progress`,
+  EDITION_PROGRESS_FINISH: (editionId: number) =>
+    `/api/books/editions/${editionId}/progress/finish`,
+  EDITION_PROGRESS_RESET: (editionId: number) =>
+    `/api/books/editions/${editionId}/progress/reset`,
   QUALITY_PROFILES: "/api/book-quality-profiles",
   AUTHORS: "/api/authors",
   AUTHOR: (id: number) => `/api/authors/${id}`,

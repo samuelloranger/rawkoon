@@ -8,8 +8,6 @@ import { describe, it, expect, mock } from "bun:test";
 type Row = {
   editionId: number;
   percent: number | null;
-  locator: string | null;
-  fileId: number | null;
   positionSecs: number | null;
   updatedAt: Date;
   edition: {
@@ -32,6 +30,7 @@ let lastArgs: {
     userId: string;
     finishedAt: null;
     OR: Array<Record<string, { gt: number }>>;
+    edition?: { OR: unknown[] };
   };
   orderBy: { updatedAt: string };
   take: number;
@@ -53,8 +52,6 @@ const { listReading } = await import("@rawkoon/api/services/books/bookReading");
 const row = (overrides: Partial<Row> = {}): Row => ({
   editionId: 1,
   percent: 0.4,
-  locator: "epubcfi(/6/4!/2/10)",
-  fileId: null,
   positionSecs: null,
   updatedAt: new Date("2026-08-21T10:00:00.000Z"),
   ...overrides,
@@ -82,8 +79,6 @@ describe("listReading", () => {
     expect(entry.book_id).toBe(11);
     expect(entry.title).toBe("A Quiet Harbour");
     expect(entry.percent).toBe(0.4);
-    // Carried so the client can mark the book finished without losing the page.
-    expect(entry.locator).toBe("epubcfi(/6/4!/2/10)");
     // An ebook has no clock, and a null here is what tells the widget so.
     expect(entry.position_secs).toBeNull();
     expect(entry.total_duration_secs).toBeNull();
@@ -102,42 +97,34 @@ describe("listReading", () => {
     expect(thresholds[1].positionSecs.gt).toBeGreaterThan(0);
   });
 
-  it("skips an ebook edition holding nothing a browser can render", async () => {
-    rows = [
-      row({
-        edition: {
-          kind: "ebook",
-          durationSecs: null,
-          book: { id: 12, title: "Kindle Only", authors: [], coverUrl: null },
-          files: [{ format: "azw3", durationSecs: null }],
-        },
-      }),
-    ];
+  it("lets the database drop the editions nothing can open", async () => {
+    rows = [];
+    await listReading("u1", 6);
 
-    expect(await listReading("u1", 6)).toEqual([]);
+    // The alternative — filtering in JS after a take — meant a run of
+    // mobi-only rows could hide every readable book behind them.
+    const editionFilter = lastArgs?.where.edition?.OR;
+    expect(editionFilter).toHaveLength(2);
+    expect(editionFilter?.[0]).toEqual({
+      kind: "audiobook",
+      files: { some: {} },
+    });
+    expect(editionFilter?.[1]).toEqual({
+      kind: { not: "audiobook" },
+      files: { some: { format: { in: ["epub", "pdf", "cbz"] } } },
+    });
   });
 
-  it("skips an edition whose files are gone", async () => {
-    rows = [
-      row({
-        edition: {
-          kind: "ebook",
-          durationSecs: null,
-          book: { id: 13, title: "Deleted", authors: [], coverUrl: null },
-          files: [],
-        },
-      }),
-    ];
-
-    expect(await listReading("u1", 6)).toEqual([]);
+  it("takes exactly the limit, with no overfetch to trim", async () => {
+    rows = [];
+    await listReading("u1", 6);
+    expect(lastArgs?.take).toBe(6);
   });
 
   it("keeps an audiobook whose formats no reader could open", async () => {
     rows = [
       row({
         percent: null,
-        locator: null,
-        fileId: 3,
         positionSecs: 4_200,
         edition: {
           kind: "audiobook",
@@ -150,7 +137,6 @@ describe("listReading", () => {
 
     const [entry] = await listReading("u1", 6);
     expect(entry.kind).toBe("audiobook");
-    expect(entry.file_id).toBe(3);
     expect(entry.position_secs).toBe(4_200);
     expect(entry.total_duration_secs).toBe(36_000);
     expect(entry.percent).toBeNull();
@@ -177,32 +163,8 @@ describe("listReading", () => {
     expect(entry.total_duration_secs).toBe(3_000);
   });
 
-  it("stops at the limit after the unopenable rows are dropped", async () => {
-    // Two unreadable rows ahead of three readable ones: a limit applied in the
-    // query alone would have returned one entry for a limit of two.
-    rows = [
-      row({
-        editionId: 90,
-        edition: {
-          kind: "ebook",
-          durationSecs: null,
-          book: { id: 90, title: "Mobi", authors: [], coverUrl: null },
-          files: [{ format: "mobi", durationSecs: null }],
-        },
-      }),
-      row({
-        editionId: 91,
-        edition: {
-          kind: "ebook",
-          durationSecs: null,
-          book: { id: 91, title: "Azw3", authors: [], coverUrl: null },
-          files: [{ format: "azw3", durationSecs: null }],
-        },
-      }),
-      row({ editionId: 1 }),
-      row({ editionId: 2 }),
-      row({ editionId: 3 }),
-    ];
+  it("returns the rows the query gave it, newest first", async () => {
+    rows = [row({ editionId: 1 }), row({ editionId: 2 })];
 
     const entries = await listReading("u1", 2);
     expect(entries.map((e) => e.edition_id)).toEqual([1, 2]);

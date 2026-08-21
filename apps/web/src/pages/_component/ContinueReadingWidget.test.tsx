@@ -8,10 +8,15 @@ vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => navigate,
 }));
 
-// The "finished" write goes through fetchApi, not the injected fetcher.
-const fetchApi = vi.fn().mockResolvedValue({ progress: {}, accepted: true });
+// The "finished" call goes through fetchApi, not the injected fetcher.
+const fetchApi = vi.fn().mockResolvedValue({ progress: {} });
 vi.mock("@/lib/api/client", () => ({
   fetchApi: (...args: unknown[]) => fetchApi(...args),
+}));
+
+const releaseEdition = vi.fn();
+vi.mock("@/features/player/PlayerProvider", () => ({
+  usePlayer: () => ({ releaseEdition }),
 }));
 
 const ebook = {
@@ -22,8 +27,6 @@ const ebook = {
   authors: ["M. Roy"],
   cover_url: null,
   percent: 0.37,
-  locator: "epubcfi(/6/4!/2/10)",
-  file_id: null,
   position_secs: null,
   total_duration_secs: null,
   updated_at: "2026-08-21T10:00:00.000Z",
@@ -37,8 +40,6 @@ const audiobook = {
   authors: [],
   cover_url: null,
   percent: null,
-  locator: null,
-  file_id: 9,
   position_secs: 3_720,
   total_duration_secs: 36_000,
   updated_at: "2026-08-21T09:00:00.000Z",
@@ -121,7 +122,7 @@ describe("ContinueReadingWidget", () => {
     );
   });
 
-  it("marks a book finished from the row, keeping its position", async () => {
+  it("marks a book finished without sending a position of its own", async () => {
     const fetcher = vi.fn().mockResolvedValue({ reading: [audiobook] });
     renderWithProviders(<ContinueReadingWidget />, { fetcher });
     await waitFor(() =>
@@ -129,6 +130,7 @@ describe("ContinueReadingWidget", () => {
     );
 
     fetchApi.mockClear();
+    releaseEdition.mockClear();
     fireEvent.click(screen.getByRole("button", { name: "books.open.finish" }));
 
     // Confirmation first: this one takes the book off the list for good.
@@ -141,16 +143,31 @@ describe("ContinueReadingWidget", () => {
     await waitFor(() => expect(fetchApi).toHaveBeenCalled());
     const [url, init] = fetchApi.mock.calls[0] as [
       string,
-      { method: string; body: string },
+      { method: string; body?: string },
     ];
-    expect(url).toBe("/api/books/editions/6/progress");
-    expect(init.method).toBe("PUT");
-    const body = JSON.parse(init.body) as Record<string, unknown>;
-    expect(body.finished).toBe(true);
-    // The position survives: finishing a book is not forgetting where you were.
-    expect(body.position_secs).toBe(3_720);
-    expect(body.file_id).toBe(9);
-    // A clock, so a queued offline write cannot resurrect the old row.
-    expect(typeof body.client_updated_at).toBe("string");
+    expect(url).toBe("/api/books/editions/6/progress/finish");
+    expect(init.method).toBe("POST");
+    // No body at all: a cached position resent under a fresh clock would win
+    // the newest-clock rule and rewind whatever another device advanced.
+    expect(init.body).toBeUndefined();
+  });
+
+  it("lets go of the running player before finishing it", async () => {
+    const fetcher = vi.fn().mockResolvedValue({ reading: [audiobook] });
+    renderWithProviders(<ContinueReadingWidget />, { fetcher });
+    await waitFor(() =>
+      expect(screen.getByText("The Long Drive")).toBeInTheDocument(),
+    );
+
+    releaseEdition.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "books.open.finish" }));
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "books.open.finish" }),
+    );
+
+    // The player saves every ten seconds with finished:false and a clock of its
+    // own, so an edition left loaded would un-finish itself within the tick.
+    await waitFor(() => expect(releaseEdition).toHaveBeenCalledWith(6));
   });
 });

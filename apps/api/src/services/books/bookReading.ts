@@ -1,6 +1,6 @@
 import { prisma } from "@rawkoon/api/db";
 import {
-  isReadableFormat,
+  READABLE_EBOOK_FORMATS,
   type BookEditionKind,
   type BookReadingEntry,
 } from "@rawkoon/shared/types";
@@ -13,18 +13,17 @@ import {
  * read is worse than no shelf. "Unfinished" is `finished_at IS NULL`: percent
  * alone cannot say it, because an epub's last page rarely reports 1.0.
  *
- * An edition with nothing openable is skipped rather than shown and then
- * refused: an ebook edition holding only mobi has no browser renderer, and a
- * row that cannot be resumed does not belong in a "continue" list.
+ * "Openable" is part of the same predicate rather than a pass afterwards. An
+ * ebook edition holding only mobi has no browser renderer, and a row that
+ * cannot be resumed does not belong in a "continue" list — but filtering those
+ * out after a `take` meant a run of them could hide every readable book behind
+ * them. The database decides, so the limit is exact.
  */
 
 /** A position below this is the act of opening the book, not reading it. */
 const STARTED_PERCENT = 0.005;
 /** Seconds. Same idea for an audiobook. */
 const STARTED_SECS = 30;
-
-/** Read more rows than asked for, because unopenable ones are dropped after. */
-const OVERFETCH = 4;
 
 export const listReading = async (
   userId: string,
@@ -38,14 +37,23 @@ export const listReading = async (
         { percent: { gt: STARTED_PERCENT } },
         { positionSecs: { gt: STARTED_SECS } },
       ],
+      edition: {
+        OR: [
+          // Any file will do for a listener; a reader needs one a browser can
+          // render.
+          { kind: "audiobook", files: { some: {} } },
+          {
+            kind: { not: "audiobook" },
+            files: { some: { format: { in: [...READABLE_EBOOK_FORMATS] } } },
+          },
+        ],
+      },
     },
     orderBy: { updatedAt: "desc" },
-    take: limit * OVERFETCH,
+    take: limit,
     select: {
       editionId: true,
       percent: true,
-      locator: true,
-      fileId: true,
       positionSecs: true,
       updatedAt: true,
       edition: {
@@ -64,15 +72,7 @@ export const listReading = async (
   const entries: BookReadingEntry[] = [];
   for (const row of rows) {
     const edition = row.edition;
-    if (edition.files.length === 0) continue;
-
     const isAudiobook = edition.kind === "audiobook";
-    if (
-      !isAudiobook &&
-      !edition.files.some((file) => isReadableFormat(file.format))
-    ) {
-      continue;
-    }
 
     // The edition's own duration is the trustworthy total when the probe set
     // it; summing files is the fallback, and null when neither is known.
@@ -90,14 +90,10 @@ export const listReading = async (
       authors: edition.book.authors,
       cover_url: edition.book.coverUrl,
       percent: isAudiobook ? null : row.percent,
-      locator: row.locator,
-      file_id: row.fileId,
       position_secs: isAudiobook ? row.positionSecs : null,
       total_duration_secs: isAudiobook ? duration : null,
       updated_at: row.updatedAt.toISOString(),
     });
-
-    if (entries.length === limit) break;
   }
 
   return entries;

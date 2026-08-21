@@ -245,10 +245,11 @@ Two ways off the list, and they are not the same:
 - **Restart**, next to Continue on the book's page, discards the position: the
   book opens at its first page next time.
 
-Both ask first. Neither deletes the position outright — a stored position is
-overwritten rather than removed, because a device that has been offline still
-holds writes of its own, and a deleted row would come back the moment it
-reconnected.
+Both ask first, and both are decided by the server: it keeps the position when
+you finish, and clears it when you restart. Neither deletes the row — a device
+that has been offline still holds writes of its own, and a deleted row would
+come back the moment it reconnected. If the book is playing, the player lets go
+of it first, or its next save would undo what you asked for.
 
 ### Where you left off
 
