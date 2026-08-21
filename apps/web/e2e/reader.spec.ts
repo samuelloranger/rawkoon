@@ -196,51 +196,61 @@ test.describe("the reader", () => {
 });
 
 /**
- * On a phone the chrome fades and there is no pointer to move, so a tap has to
- * bring it back — otherwise the reader becomes a dead end: no page turns, no way
- * out. Reported from an iPhone after the chrome hid itself on the first page
- * turn.
+ * The chrome used to fade after three seconds of idling. On a phone that left no
+ * way to turn a page or leave the book — a tap produces no pointermove, so
+ * nothing brought it back. It is now part of the layout, and the book takes the
+ * space between the bars.
  */
 test.describe("the reader on a touch screen", () => {
-  // Touch-specific by nature: with a mouse the chrome follows the pointer, so
-  // there is nothing to bring back.
-  test.beforeEach(({}, testInfo) => {
-    test.skip(
-      !testInfo.project.use.hasTouch,
-      "describes behaviour that only exists on a touch screen",
-    );
-  });
-
-  const footerOpacity = (page: Page) =>
-    page.evaluate(() => {
-      const footer = document.querySelector("footer");
-      return footer ? Number(getComputedStyle(footer).opacity) : -1;
-    });
-
-  test("a tap in the middle brings the chrome back after it fades", async ({
-    page,
-  }) => {
+  test("keeps its controls on screen", async ({ page }) => {
     await stubApi(page, await buildEpub());
     await page.goto(HARNESS);
     await expect
       .poll(() => readerText(page), { timeout: 15_000 })
       .toContain("The tide came in");
 
-    // The chrome hides itself three seconds after the last interaction.
-    await expect.poll(() => footerOpacity(page), { timeout: 8_000 }).toBe(0);
+    // Well past the old idle timeout.
+    await page.waitForTimeout(5_000);
 
-    const box = page.viewportSize()!;
-    // A real tap where the project has touch: a synthesized mouse click also
-    // fires pointermove, which is a different code path entirely.
-    if (page.context().browser()) {
-      try {
-        await page.touchscreen.tap(box.width / 2, box.height / 2);
-      } catch {
-        await page.mouse.click(box.width / 2, box.height / 2);
-      }
-    }
+    const opacity = await page.evaluate(() => ({
+      header: Number(
+        getComputedStyle(document.querySelector("header")!).opacity,
+      ),
+      footer: Number(
+        getComputedStyle(document.querySelector("footer")!).opacity,
+      ),
+    }));
+    expect(opacity).toEqual({ header: 1, footer: 1 });
 
-    await expect.poll(() => footerOpacity(page), { timeout: 5_000 }).toBe(1);
+    // And they are still operable, not just visible.
+    await page.getByRole("button", { name: /Next|Suivant/ }).click();
+  });
+
+  test("the book does not run under the chrome", async ({ page }) => {
+    await stubApi(page, await buildEpub());
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+
+    const boxes = await page.evaluate(() => {
+      const rect = (selector: string) =>
+        document.querySelector(selector)?.getBoundingClientRect() ?? null;
+      const header = rect("header");
+      const footer = rect("footer");
+      const frame = rect("#root iframe");
+      return {
+        headerBottom: header?.bottom ?? -1,
+        footerTop: footer?.top ?? -1,
+        frameTop: frame?.top ?? -1,
+        frameBottom: frame?.bottom ?? -1,
+      };
+    });
+
+    // The page area lives strictly between the two bars — this is what kept
+    // cutting the last line of text.
+    expect(boxes.frameTop).toBeGreaterThanOrEqual(boxes.headerBottom);
+    expect(boxes.frameBottom).toBeLessThanOrEqual(boxes.footerTop + 1);
   });
 
   test("tapping the right side turns the page", async ({ page }) => {
@@ -405,17 +415,12 @@ test.describe("the reader's shell", () => {
     ).toBeVisible({ timeout: 5_000 });
   });
 
-  test("can always be closed, even with the chrome hidden", async ({
-    page,
-  }) => {
+  test("can always be closed", async ({ page }) => {
     await stubApi(page, await buildEpub());
     await page.goto(HARNESS);
     await expect
       .poll(() => readerText(page), { timeout: 15_000 })
       .toContain("The tide came in");
-
-    // Wait past the idle fade: the close control must not depend on the chrome.
-    await page.waitForTimeout(4_000);
 
     const close = page.getByRole("button", {
       name: /Close the reader|Fermer la lecture/,

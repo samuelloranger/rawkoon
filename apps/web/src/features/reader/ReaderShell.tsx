@@ -9,7 +9,6 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, Download, List, Type, X } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { BOOKS_ENDPOINTS } from "@/lib/endpoints";
 import { ChapterRail } from "@/features/books/ChapterRail";
 import { useSaveProgress } from "@/features/books/useBookReading";
@@ -30,7 +29,6 @@ const PdfRenderer = lazy(() => import("./renderers/PdfRenderer"));
 const CbzRenderer = lazy(() => import("./renderers/CbzRenderer"));
 
 const TYPOGRAPHY_KEY = "rawkoon:reader:typography";
-const IDLE_MS = 3000;
 const SAVE_DEBOUNCE_MS = 1500;
 
 const loadTypography = (): Typography => {
@@ -63,10 +61,8 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
   // null before anything is known, a fraction while bytes arrive, then null
   // again for the indeterminate unzip-and-parse stretch.
   const [progress, setProgress] = useState<number | null>(null);
-  const [chromeVisible, setChromeVisible] = useState(true);
   const [panel, setPanel] = useState<"toc" | "type" | null>(null);
   const handleRef = useRef<ReaderHandle | null>(null);
-  const idleTimer = useRef<number | null>(null);
   const saveTimer = useRef<number | null>(null);
 
   const save = useSaveProgress(manifest.edition_id);
@@ -85,36 +81,6 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
   useEffect(() => {
     localStorage.setItem(TYPOGRAPHY_KEY, JSON.stringify(typography));
   }, [typography]);
-
-  const toggleChrome = useCallback(() => {
-    setChromeVisible((visible) => {
-      if (idleTimer.current) window.clearTimeout(idleTimer.current);
-      if (!visible) {
-        idleTimer.current = window.setTimeout(
-          () => setChromeVisible(false),
-          IDLE_MS,
-        );
-      }
-      return !visible;
-    });
-  }, []);
-
-  const showChrome = useCallback(() => {
-    setChromeVisible(true);
-    if (idleTimer.current) window.clearTimeout(idleTimer.current);
-    idleTimer.current = window.setTimeout(
-      () => setChromeVisible(false),
-      IDLE_MS,
-    );
-  }, []);
-
-  useEffect(() => {
-    showChrome();
-    return () => {
-      if (idleTimer.current) window.clearTimeout(idleTimer.current);
-      if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    };
-  }, [showChrome]);
 
   const onPosition = useCallback((next: ReaderPosition) => {
     setPosition(next);
@@ -145,10 +111,8 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
       if (event.target instanceof HTMLInputElement) return;
       if (event.key === "ArrowRight" || event.key === "PageDown") {
         handleRef.current?.next();
-        showChrome();
       } else if (event.key === "ArrowLeft" || event.key === "PageUp") {
         handleRef.current?.prev();
-        showChrome();
       } else if (event.key === "Escape") {
         if (panel) setPanel(null);
         else onClose();
@@ -156,7 +120,7 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, panel, showChrome]);
+  }, [onClose, panel]);
 
   const colors = THEME_COLORS[typography.theme];
   const reflowable = file?.format === "epub";
@@ -216,26 +180,16 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
         paddingTop: "var(--safe-top)",
         paddingBottom: "var(--safe-bottom)",
       }}
-      // Mice only: a touch tap must not both reveal the chrome here and toggle
-      // it in the tap zone, which cancelled out and left it hidden.
-      onPointerMove={(event) => {
-        if (event.pointerType === "mouse") showChrome();
-      }}
     >
+      {/*
+        Part of the layout rather than an overlay that fades. The chrome used to
+        hide itself after three seconds, which on a phone left no way to turn a
+        page or leave the book, and the text ran underneath it either way. The
+        book now gets exactly the space between the two bars.
+      */}
       <header
-        className={cn(
-          // pr-14 keeps the header's controls clear of the always-visible close
-          // button, which is pinned to the same corner.
-          "absolute inset-x-0 top-0 z-20 flex items-center gap-2 py-2 pl-3 pr-14 motion-safe:transition-opacity motion-safe:duration-200",
-          chromeVisible || panel
-            ? "opacity-100"
-            : "pointer-events-none opacity-0",
-        )}
-        style={{
-          background: `${colors.background}f2`,
-          // Absolutely positioned: the container's padding does not offset it.
-          top: "var(--safe-top)",
-        }}
+        className="z-20 flex shrink-0 items-center gap-2 px-3 py-2"
+        style={{ background: colors.background }}
       >
         <button
           type="button"
@@ -260,6 +214,14 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
             <Type className="size-5" />
           </button>
         )}
+        <button
+          type="button"
+          onClick={onClose}
+          className="focus-ring rounded-md p-2 opacity-70 hover:opacity-100"
+          aria-label={t("books.reader.close")}
+        >
+          <X className="size-5" />
+        </button>
       </header>
 
       <div className="relative flex flex-1 overflow-hidden">
@@ -290,11 +252,10 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
           )}
 
           {/*
-            The epub iframe swallows pointer events, so page turns and bringing
-            the chrome back need their own surface above it: sides turn pages,
-            the middle toggles the chrome. Only in paginated flow — a scrolled
-            book has to keep scrolling. The footer buttons remain the accessible
-            controls, so these are hidden from assistive technology.
+            The epub iframe swallows pointer events, so page turns need their own
+            surface above it. Only in paginated flow — a scrolled book has to
+            keep scrolling. The footer buttons remain the accessible controls, so
+            these are hidden from assistive technology.
           */}
           {!error && !panel && typography.flow === "paginated" && (
             <div className="absolute inset-0 z-[5] flex" aria-hidden="true">
@@ -304,12 +265,8 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
                 className="h-full w-[28%]"
                 onClick={() => handleRef.current?.prev()}
               />
-              <button
-                type="button"
-                tabIndex={-1}
-                className="h-full flex-1"
-                onClick={toggleChrome}
-              />
+              {/* Free middle: nothing to toggle, and selection stays possible. */}
+              <div className="h-full flex-1" />
               <button
                 type="button"
                 tabIndex={-1}
@@ -419,31 +376,9 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
         </div>
       )}
 
-      {/*
-        Always reachable, whatever the chrome is doing: closing a book must not
-        depend on discovering that the middle of the screen toggles a header.
-      */}
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label={t("books.reader.close")}
-        className="focus-ring absolute right-3 z-30 rounded-full p-2 opacity-45 hover:opacity-100"
-        style={{ top: "var(--safe-top)", background: `${colors.background}cc` }}
-      >
-        <X className="size-5" />
-      </button>
-
       <footer
-        className={cn(
-          "absolute inset-x-0 bottom-0 z-20 flex items-center justify-between px-4 py-2 text-xs motion-safe:transition-opacity motion-safe:duration-200",
-          chromeVisible || panel
-            ? "opacity-100"
-            : "pointer-events-none opacity-0",
-        )}
-        style={{
-          background: `${colors.background}f2`,
-          bottom: "var(--safe-bottom)",
-        }}
+        className="z-20 flex shrink-0 items-center justify-between px-4 py-2 text-xs"
+        style={{ background: colors.background }}
       >
         <button
           type="button"
