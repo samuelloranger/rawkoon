@@ -101,6 +101,14 @@ export const downloadClientHookRoutes = new Elysia({
     rateLimit({
       duration: 60 * 1000,
       max: 120,
+      // elysia-rate-limit scopes its hook globally, so without this the hook
+      // limiter policed every route in the application: 120 requests a minute
+      // per IP, with no authenticated bypass. Opening a book fires a burst of
+      // document, asset and API requests, and everything past the 120th came
+      // back 429 — the SPA and its JavaScript included. Same shape as
+      // strictAuthRateLimit: count only the paths this limiter is for.
+      skip: (req) =>
+        !new URL(req.url).pathname.startsWith("/api/download-client/hook"),
       generator: (req) =>
         `hook:${req.headers.get("x-forwarded-for")?.split(",")[0].trim() || req.headers.get("x-real-ip") || "unknown"}`,
       errorResponse: "Too many requests. Please try again later.",
