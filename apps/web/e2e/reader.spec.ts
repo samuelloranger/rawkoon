@@ -47,6 +47,43 @@ const buildEpub = async (): Promise<Buffer> => {
   return zip.generateAsync({ type: "nodebuffer" });
 };
 
+/** The manifest the shell reads before it can render anything. */
+const stubManifest = async (page: Page): Promise<void> => {
+  await page.route("**/api/books/editions/*/manifest", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        manifest: {
+          edition_id: 11,
+          book_id: 1,
+          kind: "ebook",
+          title: "A Quiet Harbour",
+          authors: ["Camille Rousseau"],
+          narrators: [],
+          cover_url: null,
+          total_duration_secs: null,
+          primary_file_id: 1,
+          progress: null,
+          files: [
+            {
+              id: 1,
+              file_name: "A Quiet Harbour.epub",
+              format: "epub",
+              size_bytes: "4096",
+              duration_secs: null,
+              offset_secs: 0,
+              readable: true,
+              chapters: [],
+              content_url: "/api/books/files/1/content",
+            },
+          ],
+        },
+      }),
+    });
+  });
+};
+
 interface Stubs {
   contentRequests: () => number;
   progressWrites: () => number;
@@ -55,10 +92,16 @@ interface Stubs {
 const stubApi = async (
   page: Page,
   epub: Buffer,
-  options: { delayMs?: number } = {},
+  options: {
+    delayMs?: number;
+    /** Mirrors the server rejecting a write and returning the stored row. */
+    rejectSavesWithLocator?: string;
+  } = {},
 ): Promise<Stubs> => {
   let contentRequests = 0;
   let progressWrites = 0;
+
+  await stubManifest(page);
 
   await page.route("**/api/books/files/1/content", async (route) => {
     contentRequests++;
@@ -86,7 +129,7 @@ const stubApi = async (
       body: JSON.stringify({
         progress: {
           edition_id: 11,
-          locator: null,
+          locator: options.rejectSavesWithLocator ?? null,
           percent: 0,
           position_secs: null,
           file_id: null,
@@ -94,7 +137,7 @@ const stubApi = async (
           client_updated_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
-        accepted: true,
+        accepted: options.rejectSavesWithLocator == null,
       }),
     });
   });
@@ -179,6 +222,7 @@ test.describe("the reader", () => {
   test("reports a failure instead of showing an empty page", async ({
     page,
   }) => {
+    await stubManifest(page);
     await page.route("**/api/books/files/1/content", (route) =>
       route.fulfill({
         status: 404,
@@ -447,5 +491,49 @@ test.describe("the reader's shell", () => {
 
     // Reading comfort, on top of whatever the system inset is.
     expect(gap).toBeGreaterThanOrEqual(20);
+  });
+});
+
+/**
+ * Reported from a phone: "I click next and it goes back to the last page after
+ * 1-2 seconds". That is the save debounce. Turning a page reports a position,
+ * the debounced write lands, its response is written into the manifest cache,
+ * the shell re-renders with a new manifest, and the renderer — which took the
+ * saved locator as an effect dependency — reloaded the book and displayed that
+ * position again.
+ */
+test.describe("the reader's page position", () => {
+  test("stays where you turned to, after the save lands", async ({ page }) => {
+    // The server rejects the write and answers with the stored position — what
+    // happens when another device is ahead, or the phone's clock is behind.
+    // Feeding that back into the reader is what dragged the page backwards.
+    const stubs = await stubApi(page, await buildEpub(), {
+      rejectSavesWithLocator: "epubcfi(/6/4!/4/2/1:0)",
+    });
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+
+    const first = await readerText(page);
+
+    // Turn until the text actually changes, so this is a real page move.
+    for (let i = 0; i < 6; i++) {
+      await page.getByRole("button", { name: /Next|Suivant/ }).click();
+      await page.waitForTimeout(500);
+      if ((await readerText(page)) !== first) break;
+    }
+    const turned = await readerText(page);
+    expect(turned).not.toBe(first);
+
+    // Past the debounce, the write, and the cache update it triggers.
+    await expect
+      .poll(() => stubs.progressWrites(), { timeout: 10_000 })
+      .toBeGreaterThan(0);
+    await page.waitForTimeout(2_500);
+
+    // Still on the page you turned to, and the book was not reloaded.
+    expect(await readerText(page)).toBe(turned);
+    expect(stubs.contentRequests()).toBeLessThanOrEqual(2);
   });
 });

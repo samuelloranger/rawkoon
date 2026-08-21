@@ -26,6 +26,10 @@ const PdfRenderer = ({
   // identity. A parent re-render must never tear down a renderer mid-load.
   const callbacks = useRef({ onReady, onPosition, onError, onProgress });
   callbacks.current = { onReady, onPosition, onError, onProgress };
+  // Where to open is an initial value, not a live input. Reacting to it meant
+  // that saving a position reloaded the book at that position, which fought the
+  // reader for control of the page.
+  const openAt = useRef(initialLocator);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const docRef = useRef<{
@@ -34,7 +38,7 @@ const PdfRenderer = ({
   } | null>(null);
   const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
   const [page, setPage] = useState(() => {
-    const parsed = Number(initialLocator?.replace("page:", ""));
+    const parsed = Number(openAt.current?.replace("page:", ""));
     return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
   });
 

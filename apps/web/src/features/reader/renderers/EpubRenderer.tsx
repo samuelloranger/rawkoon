@@ -118,6 +118,10 @@ const EpubRenderer = ({
   // identity. A parent re-render must never tear down a renderer mid-load.
   const callbacks = useRef({ onReady, onPosition, onError, onProgress });
   callbacks.current = { onReady, onPosition, onError, onProgress };
+  // Where to open is an initial value, not a live input. Reacting to it meant
+  // that saving a position reloaded the book at that position, which fought the
+  // reader for control of the page.
+  const openAt = useRef(initialLocator);
   // Read inside the async load, which must not close over a stale value.
   const typographyRef = useRef(typography);
   typographyRef.current = typography;
@@ -174,7 +178,7 @@ const EpubRenderer = ({
         rendition.on("relocated", report);
         applyTheme(rendition, typographyRef.current);
 
-        await rendition.display(initialLocator ?? undefined);
+        await rendition.display(openAt.current ?? undefined);
         if (cancelled) return;
 
         const nav = await book.loaded.navigation;
@@ -285,9 +289,10 @@ const EpubRenderer = ({
 
     // Flow is a structural option in epub.js: changing it rebuilds the
     // rendition, which is why it belongs in this dependency list. The callbacks
-    // deliberately do not: they live in a ref, because a changing callback
-    // identity would rebuild the book on every parent render.
-  }, [url, typography.flow, initialLocator]);
+    // and the opening position deliberately do not: they live in refs, because a
+    // changing identity — or a saved position flowing back in — would rebuild
+    // the book underneath the reader.
+  }, [url, typography.flow]);
 
   useEffect(() => {
     handleRef({

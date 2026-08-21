@@ -11,6 +11,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReaderShell } from "@/features/reader/ReaderShell";
+import { useBookManifest } from "@/features/books/useBookReading";
 import type { BookManifest } from "@rawkoon/shared/types";
 import "@/lib/i18n/index";
 import "@/index.css";
@@ -72,7 +73,11 @@ window.__READER_RENDERS__ = 0;
 
 const Harness = () => {
   window.__READER_RENDERS__ += 1;
-  return <ReaderShell manifest={manifest} onClose={() => {}} />;
+  // Through the query, like the route does: saving progress writes the manifest
+  // back into the cache, and the shell has to survive that.
+  const { data } = useBookManifest(manifest.edition_id);
+  if (!data) return null;
+  return <ReaderShell manifest={data.manifest} onClose={() => {}} />;
 };
 
 createRoot(document.getElementById("root")!).render(
