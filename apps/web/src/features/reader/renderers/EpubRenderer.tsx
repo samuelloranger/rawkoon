@@ -56,6 +56,54 @@ const writeCachedLocations = (url: string, value: string) => {
   }
 };
 
+/**
+ * Fetches a file, reporting how much has arrived. `Content-Length` is present
+ * because the API sets it, so this is a real fraction rather than a guess; a
+ * response without one reports indeterminate progress.
+ */
+export const downloadWithProgress = async (
+  url: string,
+  onProgress: (percent: number | null) => void,
+): Promise<ArrayBuffer> => {
+  const response = await fetch(url, { credentials: "include" });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const type = response.headers.get("content-type") ?? "";
+  // The API answers with the file's own content type; anything else means a
+  // route fell through to something that is not the file.
+  if (type.includes("text/html")) throw new Error("unexpected html response");
+
+  const total = Number(response.headers.get("content-length") ?? 0);
+  if (!response.body || total <= 0) {
+    onProgress(null);
+    return response.arrayBuffer();
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  let reported = -1;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.byteLength;
+    const percent = Math.min(1, received / total);
+    // Whole percents only: this drives a bar, not a log.
+    if (Math.floor(percent * 100) > reported) {
+      reported = Math.floor(percent * 100);
+      onProgress(percent);
+    }
+  }
+
+  const merged = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return merged.buffer;
+};
+
 const EpubRenderer = ({
   url,
   initialLocator,
@@ -63,12 +111,13 @@ const EpubRenderer = ({
   onReady,
   onPosition,
   onError,
+  onProgress,
   handleRef,
 }: RendererProps) => {
   // Held in refs so the loading effect depends on the file, not on callback
   // identity. A parent re-render must never tear down a renderer mid-load.
-  const callbacks = useRef({ onReady, onPosition, onError });
-  callbacks.current = { onReady, onPosition, onError };
+  const callbacks = useRef({ onReady, onPosition, onError, onProgress });
+  callbacks.current = { onReady, onPosition, onError, onProgress };
   // Read inside the async load, which must not close over a stale value.
   const typographyRef = useRef(typography);
   typographyRef.current = typography;
@@ -102,16 +151,14 @@ const EpubRenderer = ({
 
     const start = async () => {
       try {
-        const response = await fetch(url, { credentials: "include" });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const type = response.headers.get("content-type") ?? "";
-        // The API answers with the epub's own content type; anything else means
-        // a route fell through to something that is not the file.
-        if (type.includes("text/html")) {
-          throw new Error("unexpected html response");
-        }
+        const bytes = await downloadWithProgress(url, (percent) =>
+          callbacks.current.onProgress(percent),
+        );
+        if (cancelled) return;
 
-        await book.open(await response.arrayBuffer(), "binary");
+        // Indeterminate from here: unzipping and parsing report nothing useful.
+        callbacks.current.onProgress(null);
+        await book.open(bytes, "binary");
         if (cancelled) return;
 
         // Rendered only once the book is open: a rendition attached to an

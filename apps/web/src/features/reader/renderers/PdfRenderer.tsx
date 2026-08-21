@@ -19,12 +19,13 @@ const PdfRenderer = ({
   onReady,
   onPosition,
   onError,
+  onProgress,
   handleRef,
 }: RendererProps) => {
   // Held in refs so the loading effect depends on the file, not on callback
   // identity. A parent re-render must never tear down a renderer mid-load.
-  const callbacks = useRef({ onReady, onPosition, onError });
-  callbacks.current = { onReady, onPosition, onError };
+  const callbacks = useRef({ onReady, onPosition, onError, onProgress });
+  callbacks.current = { onReady, onPosition, onError, onProgress };
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const docRef = useRef<{
@@ -49,8 +50,18 @@ const PdfRenderer = ({
         ).default;
         pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
-        const doc = await pdfjs.getDocument({ url, withCredentials: true })
-          .promise;
+        const task = pdfjs.getDocument({ url, withCredentials: true });
+        task.onProgress = ({
+          loaded,
+          total,
+        }: {
+          loaded: number;
+          total: number;
+        }) => {
+          callbacks.current.onProgress(total > 0 ? loaded / total : null);
+        };
+        const doc = await task.promise;
+        callbacks.current.onProgress(null);
         if (cancelled) return;
         docRef.current = doc as unknown as typeof docRef.current;
         callbacks.current.onReady({

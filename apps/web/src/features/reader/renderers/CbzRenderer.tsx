@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { THEME_COLORS, type RendererProps } from "../types";
+import { downloadWithProgress } from "./EpubRenderer";
 
 /**
  * Cbz: a zip of images, one per page.
@@ -18,12 +19,13 @@ const CbzRenderer = ({
   onReady,
   onPosition,
   onError,
+  onProgress,
   handleRef,
 }: RendererProps) => {
   // Held in refs so the loading effect depends on the file, not on callback
   // identity. A parent re-render must never tear down a renderer mid-load.
-  const callbacks = useRef({ onReady, onPosition, onError });
-  callbacks.current = { onReady, onPosition, onError };
+  const callbacks = useRef({ onReady, onPosition, onError, onProgress });
+  callbacks.current = { onReady, onPosition, onError, onProgress };
 
   const entriesRef = useRef<Array<{ name: string; blob: () => Promise<Blob> }>>(
     [],
@@ -42,9 +44,13 @@ const CbzRenderer = ({
     const load = async () => {
       try {
         const { default: JSZip } = await import("jszip");
-        const response = await fetch(url, { credentials: "include" });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const zip = await JSZip.loadAsync(await response.blob());
+        const bytes = await downloadWithProgress(url, (percent) =>
+          callbacks.current.onProgress(percent),
+        );
+        if (cancelled) return;
+        // Unzipping reports nothing useful, so the bar goes indeterminate.
+        callbacks.current.onProgress(null);
+        const zip = await JSZip.loadAsync(bytes);
         if (cancelled) return;
 
         const entries = Object.values(zip.files)

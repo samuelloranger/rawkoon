@@ -60,6 +60,9 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
   const [doc, setDoc] = useState<ReaderDoc | null>(null);
   const [position, setPosition] = useState<ReaderPosition | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // null before anything is known, a fraction while bytes arrive, then null
+  // again for the indeterminate unzip-and-parse stretch.
+  const [progress, setProgress] = useState<number | null>(null);
   const [chromeVisible, setChromeVisible] = useState(true);
   const [panel, setPanel] = useState<"toc" | "type" | null>(null);
   const handleRef = useRef<ReaderHandle | null>(null);
@@ -128,6 +131,10 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
   }, []);
 
   const onReady = useCallback((ready: ReaderDoc) => setDoc(ready), []);
+  const onProgress = useCallback(
+    (percent: number | null) => setProgress(percent),
+    [],
+  );
   const onError = useCallback((message: string) => setError(message), []);
   const setHandle = useCallback((handle: ReaderHandle | null) => {
     handleRef.current = handle;
@@ -162,6 +169,7 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
         onReady,
         onPosition,
         onError,
+        onProgress,
         handleRef: setHandle,
       }
     : null;
@@ -216,7 +224,9 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
     >
       <header
         className={cn(
-          "absolute inset-x-0 top-0 z-20 flex items-center gap-2 px-3 py-2 motion-safe:transition-opacity motion-safe:duration-200",
+          // pr-14 keeps the header's controls clear of the always-visible close
+          // button, which is pinned to the same corner.
+          "absolute inset-x-0 top-0 z-20 flex items-center gap-2 py-2 pl-3 pr-14 motion-safe:transition-opacity motion-safe:duration-200",
           chromeVisible || panel
             ? "opacity-100"
             : "pointer-events-none opacity-0",
@@ -250,18 +260,12 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
             <Type className="size-5" />
           </button>
         )}
-        <button
-          type="button"
-          onClick={onClose}
-          className="focus-ring rounded-md p-2 opacity-70 hover:opacity-100"
-          aria-label={t("books.reader.close")}
-        >
-          <X className="size-5" />
-        </button>
       </header>
 
       <div className="relative flex flex-1 overflow-hidden">
-        <div className="relative min-w-0 flex-1">
+        {/* pt-6 is reading comfort: text pinned to the top edge under the
+            status bar reads badly even once the safe inset is respected. */}
+        <div className="relative min-w-0 flex-1 pt-6">
           {error ? (
             <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
               <AlertTriangle className="size-8 text-primary-400" />
@@ -384,6 +388,50 @@ export const ReaderShell = ({ manifest, onClose }: ReaderShellProps) => {
           />
         )}
       </div>
+
+      {!doc && !error && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 px-10">
+          <p
+            className="font-display text-lg"
+            style={{ color: colors.foreground }}
+          >
+            {manifest.title}
+          </p>
+          <div className="h-1 w-48 overflow-hidden rounded-full bg-neutral-700/60">
+            {progress == null ? (
+              // Unzipping and parsing report nothing, so the bar paces itself
+              // rather than claiming a number it does not have.
+              <div className="h-full w-1/3 animate-pulse rounded-full bg-primary-600" />
+            ) : (
+              <div
+                className="h-full rounded-full bg-primary-600 motion-safe:transition-[width] motion-safe:duration-150"
+                style={{ width: `${Math.round(progress * 100)}%` }}
+              />
+            )}
+          </div>
+          <p className="text-xs opacity-70">
+            {progress == null
+              ? t("books.reader.opening")
+              : t("books.reader.downloading", {
+                  percent: Math.round(progress * 100),
+                })}
+          </p>
+        </div>
+      )}
+
+      {/*
+        Always reachable, whatever the chrome is doing: closing a book must not
+        depend on discovering that the middle of the screen toggles a header.
+      */}
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label={t("books.reader.close")}
+        className="focus-ring absolute right-3 z-30 rounded-full p-2 opacity-45 hover:opacity-100"
+        style={{ top: "var(--safe-top)", background: `${colors.background}cc` }}
+      >
+        <X className="size-5" />
+      </button>
 
       <footer
         className={cn(

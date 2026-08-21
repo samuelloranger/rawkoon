@@ -2056,7 +2056,8 @@
       "margins": "Marges",
       "flow": "Affichage",
       "flowPaginated": "Pages",
-      "flowScrolled": "Défilement"
+      "flowScrolled": "Défilement",
+      "downloading": "Téléchargement {{percent}} %"
     },
     "offline": {
       "make": "Rendre disponible hors ligne",

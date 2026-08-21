@@ -40,6 +40,12 @@ export interface ReaderHandle {
 }
 
 export interface RendererProps {
+  /**
+   * Download and open progress, 0..1, or null once it is out of the way. A
+   * 1.8MB book over a phone connection is a real wait, and a spinner that
+   * cannot say how long is worse than a bar that can.
+   */
+  onProgress: (percent: number | null) => void;
   url: string;
   initialLocator: string | null;
   typography: Typography;

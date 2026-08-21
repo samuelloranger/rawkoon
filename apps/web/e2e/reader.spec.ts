@@ -52,17 +52,27 @@ interface Stubs {
   progressWrites: () => number;
 }
 
-const stubApi = async (page: Page, epub: Buffer): Promise<Stubs> => {
+const stubApi = async (
+  page: Page,
+  epub: Buffer,
+  options: { delayMs?: number } = {},
+): Promise<Stubs> => {
   let contentRequests = 0;
   let progressWrites = 0;
 
   await page.route("**/api/books/files/1/content", async (route) => {
     contentRequests++;
+    // Stands in for a slow connection, so the loading state is observable.
+    if (options.delayMs) {
+      await new Promise((resolve) => setTimeout(resolve, options.delayMs));
+    }
     await route.fulfill({
       status: 200,
       headers: {
         "content-type": "application/epub+zip",
         "accept-ranges": "bytes",
+        // Honest length: the progress bar is driven by this.
+        "content-length": String(epub.length),
       },
       body: epub,
     });
@@ -370,5 +380,67 @@ test.describe("the reader's location index", () => {
       return localStorage.getItem(key)!.length;
     });
     expect(after).toBe(stored);
+  });
+});
+
+/**
+ * Three things reported from the phone: the first load gave no feedback at all,
+ * there was no obvious way out of a book, and the text sat too close to the top.
+ */
+test.describe("the reader's shell", () => {
+  test("shows the title and a progress bar while the book downloads", async ({
+    page,
+  }) => {
+    // A slow response, which is what makes the loading state observable.
+    await stubApi(page, await buildEpub(), { delayMs: 2_500 });
+    await page.goto(HARNESS);
+
+    // Something to look at immediately, naming the book being opened. The
+    // title is also in the header, hence first().
+    await expect(page.getByText("A Quiet Harbour").first()).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(
+      page.getByText(/Downloading|Téléchargement|Opening|Ouverture/),
+    ).toBeVisible({ timeout: 5_000 });
+  });
+
+  test("can always be closed, even with the chrome hidden", async ({
+    page,
+  }) => {
+    await stubApi(page, await buildEpub());
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+
+    // Wait past the idle fade: the close control must not depend on the chrome.
+    await page.waitForTimeout(4_000);
+
+    const close = page.getByRole("button", {
+      name: /Close the reader|Fermer la lecture/,
+    });
+    await expect(close).toBeVisible();
+    await close.click();
+  });
+
+  test("leaves room above the text", async ({ page }) => {
+    await stubApi(page, await buildEpub());
+    await page.goto(HARNESS);
+    await expect
+      .poll(() => readerText(page), { timeout: 15_000 })
+      .toContain("The tide came in");
+
+    const gap = await page.evaluate(() => {
+      const frame = document.querySelector("#root iframe");
+      const shell = document.querySelector("#root > div");
+      if (!frame || !shell) return -1;
+      return (
+        frame.getBoundingClientRect().top - shell.getBoundingClientRect().top
+      );
+    });
+
+    // Reading comfort, on top of whatever the system inset is.
+    expect(gap).toBeGreaterThanOrEqual(20);
   });
 });
