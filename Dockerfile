@@ -58,6 +58,12 @@ COPY --from=builder /app/bun.lock ./bun.lock
 COPY apps/api ./apps/api
 COPY apps/shared ./apps/shared
 
+# The isolated linker (bunfig.toml) keeps each workspace's dependencies in a
+# per-package node_modules of symlinks into /app/node_modules/.bun, so copying
+# the root node_modules alone leaves the API without any of its own deps.
+COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=builder /app/apps/shared/node_modules ./apps/shared/node_modules
+
 # Set working directory to the api application
 WORKDIR /app/apps/api
 
