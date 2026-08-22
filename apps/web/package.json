@@ -22,7 +22,7 @@
     "formatCheck": "biome format ."
   },
   "dependencies": {
-    "@better-auth/passkey": "^1.6.19",
+    "@better-auth/passkey": "1.6.19",
     "@fontsource-variable/fraunces": "^5.2.9",
     "@fontsource-variable/hanken-grotesk": "^5.2.8",
     "@fontsource-variable/literata": "^5.3.0",
@@ -37,7 +37,7 @@
     "@tanstack/react-router": "^1.170.16",
     "@tanstack/react-virtual": "^3.14.3",
     "@tanstack/router-plugin": "^1.168.18",
-    "better-auth": "^1.6.19",
+    "better-auth": "1.6.19",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "epubjs": "^0.3.93",

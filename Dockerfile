@@ -6,6 +6,7 @@ WORKDIR /app
 # Copy workspace manifests first for better cache use.
 COPY bun.lock ./
 COPY package.json ./
+COPY bunfig.toml ./
 COPY tsconfig.json ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/shared/package.json ./apps/shared/
