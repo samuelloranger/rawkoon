@@ -2,7 +2,7 @@
 
 ## Local environment
 
-Requirements: Bun 1.3 or newer and Docker with Docker Compose.
+Requirements: Bun 1.4 or newer and Docker with Docker Compose.
 
     git clone https://github.com/samuelloranger/rawkoon.git
     cd rawkoon

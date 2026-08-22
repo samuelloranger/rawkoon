@@ -15,7 +15,7 @@
     "./constants": "./src/constants/index.ts"
   },
   "scripts": {
-    "test": "bun test",
+    "test": "bun test --parallel",
     "typecheck": "tsc --noEmit",
     "typecheck:native": "tsgo --noEmit",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,json,md}\" \"*.{ts,js,json,md}\"",
