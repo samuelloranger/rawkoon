@@ -56,6 +56,9 @@
     "apps/shared": {
       "name": "@rawkoon/shared",
       "version": "1.0.0",
+      "devDependencies": {
+        "prettier": "3.8.4",
+      },
       "peerDependencies": {
         "@tanstack/react-query": "^5.100.9",
         "react": "^19.2.0",
