@@ -215,7 +215,7 @@ straight to the item. An unreachable server costs nothing but a dead link.
 ### What was removed
 
 Rawkoon used to ship its own ebook reader and audiobook player, with offline
-downloads and its own progress tracking. All of it was removed in 1.9.0:
+downloads and its own progress tracking. All of it was removed in 1.8.0:
 
 - **Reading progress is not migrated.** Audiobookshelf tracks its own from
   scratch; there was no shared key to map the old positions onto.
