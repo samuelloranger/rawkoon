@@ -262,3 +262,74 @@ export const readSlices = async (
 
   return written === total ? out : out.subarray(0, written);
 };
+
+/** Read granularity for a whole-resource response. */
+const STREAM_CHUNK = 256 * 1024;
+
+/**
+ * Streams every slice in order, for a request that asked for no range.
+ *
+ * A 206 may only answer a Range request — an unsolicited one is a protocol
+ * violation, and a media element refuses to start on it. So a bare GET has to
+ * be answered with the whole resource, which for a 9h30m audiobook is 821MB
+ * and cannot be buffered. Read in bounded chunks with explicit offsets, for the
+ * same reason readSlices does: a sliced BunFile does not keep its bounds.
+ *
+ * In practice both Chromium and WebKit open a media resource with
+ * `Range: bytes=0-`, so this path serves curl and the unusual client.
+ */
+export const streamSlices = (
+  slices: StreamSlice[],
+): ReadableStream<Uint8Array> => {
+  let index = 0;
+  let handle: Awaited<ReturnType<typeof open>> | null = null;
+  let position = 0;
+
+  const closeHandle = async () => {
+    if (handle) {
+      await handle.close();
+      handle = null;
+    }
+  };
+
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      for (;;) {
+        if (index >= slices.length) {
+          await closeHandle();
+          controller.close();
+          return;
+        }
+        const slice = slices[index];
+        if (!handle) {
+          handle = await open(slice.path, "r");
+          position = slice.start;
+        }
+        const remaining = slice.end - position;
+        if (remaining <= 0) {
+          await closeHandle();
+          index++;
+          continue;
+        }
+        const size = Math.min(STREAM_CHUNK, remaining);
+        const buffer = new Uint8Array(size);
+        const { bytesRead } = await handle.read(buffer, 0, size, position);
+        if (bytesRead === 0) {
+          // Short file: move on rather than spin.
+          await closeHandle();
+          index++;
+          continue;
+        }
+        position += bytesRead;
+        controller.enqueue(
+          bytesRead === size ? buffer : buffer.subarray(0, bytesRead),
+        );
+        return;
+      }
+    },
+    async cancel() {
+      // A client that seeks away abandons the response; release the handle.
+      await closeHandle();
+    },
+  });
+};

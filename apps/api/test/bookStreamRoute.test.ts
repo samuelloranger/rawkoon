@@ -119,21 +119,22 @@ const bytesOf = async (res: Response): Promise<Uint8Array> =>
   new Uint8Array(await res.arrayBuffer());
 
 describe("GET /api/books/editions/:id/stream", () => {
-  // Always 206: the body is a window onto the resource, and calling a window
-  // 200 would tell the client it already had the whole thing.
-  it("advertises the concatenated size and range support", async () => {
+  // A 206 nobody asked for is a protocol violation, and a media element
+  // refuses to start on one — which is exactly how this route first shipped.
+  it("answers a bare GET with 200 and the whole resource", async () => {
     const res = (await get()) as Response;
 
-    expect(res.status).toBe(206);
+    expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("audio/mpeg");
     expect(res.headers.get("accept-ranges")).toBe("bytes");
-    expect(res.headers.get("content-range")).toBe(
-      `bytes 0-${3 * PAYLOAD - 1}/${3 * PAYLOAD}`,
-    );
+    expect(res.headers.get("content-range")).toBeNull();
+    expect((await bytesOf(res)).length).toBe(3 * PAYLOAD);
   });
 
   it("serves the payloads back to back with no tag bytes between them", async () => {
-    const body = await bytesOf((await get()) as Response);
+    const body = await bytesOf(
+      (await get({ Range: "bytes=0-2999" })) as Response,
+    );
 
     expect(body.length).toBe(3 * PAYLOAD);
     // A tag byte anywhere in the body means an offset is wrong.
@@ -196,11 +197,8 @@ describe("GET /api/books/editions/:id/stream", () => {
       "If-Range": '"concat-stale"',
     })) as Response;
 
-    expect(res.status).toBe(206);
-    // The whole resource, as a window over it.
-    expect(res.headers.get("content-range")).toBe(
-      `bytes 0-${3 * PAYLOAD - 1}/${3 * PAYLOAD}`,
-    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-range")).toBeNull();
     expect((await bytesOf(res)).length).toBe(3 * PAYLOAD);
   });
 

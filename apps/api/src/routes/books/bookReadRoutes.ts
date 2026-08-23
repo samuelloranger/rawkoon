@@ -15,6 +15,7 @@ import {
   MAX_RANGE_BYTES,
   readSlices,
   sliceLayout,
+  streamSlices,
   type StreamLayout,
 } from "@rawkoon/api/services/books/bookStreamLayout";
 import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
@@ -244,17 +245,24 @@ export const bookReadRoutes = new Elysia()
         });
       }
 
+      // No range asked for means the whole resource, and it has to be a 200: a
+      // 206 nobody requested is a protocol violation and a media element
+      // refuses to start on one. Streamed, because 821MB cannot be buffered.
+      if (!range) {
+        return new Response(streamSlices(sliceLayout(layout, 0, size - 1)), {
+          status: 200,
+          headers: baseHeaders,
+        });
+      }
+
       // A media element opens with `bytes=0-`, i.e. all 821MB of a 9h30m book.
       // Serving fewer bytes than asked for is allowed — the client reads
       // Content-Range and comes back for the next window.
-      const start = range ? range.start : 0;
-      const wantedEnd = range ? range.end : size - 1;
-      const end = Math.min(wantedEnd, start + MAX_RANGE_BYTES - 1);
+      const start = range.start;
+      const end = Math.min(range.end, start + MAX_RANGE_BYTES - 1);
       const body = await readSlices(sliceLayout(layout, start, end));
       const last = start + body.length - 1;
 
-      // Always 206: the body is a window, and calling a window 200 would tell
-      // the client it had the whole resource.
       return new Response(body, {
         status: 206,
         headers: {
