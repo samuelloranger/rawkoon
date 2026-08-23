@@ -1310,6 +1310,14 @@
         "save": "Enregistrer les réglages de fichiers",
         "saved": "Réglages de fichiers enregistrés",
         "saveFailed": "Impossible d’enregistrer ces réglages."
+      },
+      "audiobookshelf": {
+        "title": "Audiobookshelf",
+        "description": "Rawkoon télécharge et importe; Audiobookshelf fait la lecture.",
+        "url": "URL du serveur",
+        "audiobookLibrary": "ID de la bibliothèque de livres audio",
+        "ebookLibrary": "ID de la bibliothèque de livres",
+        "hint": "Pointez Audiobookshelf vers les mêmes dossiers que les chemins ci-dessus. L'ID d'une bibliothèque apparaît dans son URL : /library/<id>. Laissez vide pour masquer le bouton."
       }
     },
     "bookQualityProfiles": {
