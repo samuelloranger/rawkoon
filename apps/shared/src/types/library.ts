@@ -245,6 +245,10 @@ export interface MediaPostProcessingSettings {
   book_template: string;
   audiobook_template: string;
   default_book_quality_profile_id: number | null;
+  /** Deep-link target for playback/reading. Null when unconfigured. */
+  audiobookshelf_url: string | null;
+  audiobookshelf_audiobook_library_id: string | null;
+  audiobookshelf_ebook_library_id: string | null;
   updated_at: string;
 }
 
@@ -268,6 +272,9 @@ export interface UpdateMediaPostProcessingSettingsRequest {
   book_template?: string;
   audiobook_template?: string;
   default_book_quality_profile_id?: number | null;
+  audiobookshelf_url?: string | null;
+  audiobookshelf_audiobook_library_id?: string | null;
+  audiobookshelf_ebook_library_id?: string | null;
 }
 
 export interface LibraryScanResponse {

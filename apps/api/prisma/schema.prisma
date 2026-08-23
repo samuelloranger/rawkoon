@@ -639,6 +639,12 @@ model MediaSettings {
   /// directory — renaming dozens of tracks risks destroying playback order.
   audiobookTemplate           String   @default("{author}/{title} ({year})/{title}") @map("audiobook_template")
   defaultBookQualityProfileId Int?     @map("default_book_quality_profile_id")
+  /// Deep-link target for playback and reading. Rawkoon does not talk to the
+  /// Audiobookshelf API — it only builds a URL, so an unreachable instance
+  /// costs nothing but a dead link. Null means the button is not rendered.
+  audiobookshelfUrl                String? @map("audiobookshelf_url")
+  audiobookshelfAudiobookLibraryId String? @map("audiobookshelf_audiobook_library_id")
+  audiobookshelfEbookLibraryId     String? @map("audiobookshelf_ebook_library_id")
 
   updatedAt               DateTime @updatedAt @map("updated_at")
 
