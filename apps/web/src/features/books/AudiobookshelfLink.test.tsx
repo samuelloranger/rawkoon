@@ -61,6 +61,23 @@ describe("AudiobookshelfLink", () => {
     expect(link.getAttribute("rel")).toContain("noopener");
   });
 
+  // The first version wrapped an <a> in <Button asChild>, but Button never
+  // implemented Slot: the anchor rendered inside a <button>, unstyled, with its
+  // icon and label stacked. Every href/target assertion still passed, so this
+  // checks the markup itself.
+  it("renders a single standalone anchor, not one nested in a button", () => {
+    settings.mockReturnValue(configured);
+    const { container } = renderWithProviders(
+      <AudiobookshelfLink edition={edition()} title="Dune" />,
+    );
+    expect(container.querySelectorAll("button")).toHaveLength(0);
+    const link = screen.getByRole("link");
+    expect(link.closest("button")).toBeNull();
+    // The button styling has to live on the anchor itself.
+    expect(link.className).toContain("inline-flex");
+    expect(link.className).toContain("items-center");
+  });
+
   it("renders nothing when Audiobookshelf is not configured", () => {
     settings.mockReturnValue({
       data: { settings: { audiobookshelf_url: null } },
