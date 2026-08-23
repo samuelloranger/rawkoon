@@ -15,18 +15,6 @@ export const BOOKS_ENDPOINTS = {
   GRAB: (id: number, kind: string) => `/api/books/${id}/editions/${kind}/grab`,
   AUTO_GRAB: (id: number, kind: string) =>
     `/api/books/${id}/editions/${kind}/auto`,
-  FILE_CONTENT: (fileId: number) => `/api/books/files/${fileId}/content`,
-  MANIFEST: (editionId: number) => `/api/books/editions/${editionId}/manifest`,
-  PROGRESS: (editionIds: number[]) =>
-    `/api/books/progress?editionIds=${editionIds.join(",")}`,
-  READING: (limit: number) => `/api/books/reading?limit=${limit}`,
-  EDITION_PROGRESS: (editionId: number) =>
-    `/api/books/editions/${editionId}/progress`,
-  EDITION_PROGRESS_FINISH: (editionId: number) =>
-    `/api/books/editions/${editionId}/progress/finish`,
-  EDITION_PROGRESS_RESET: (editionId: number) =>
-    `/api/books/editions/${editionId}/progress/reset`,
-  PLAYBACK_DIAGNOSTIC: "/api/books/playback-diagnostic",
   QUALITY_PROFILES: "/api/book-quality-profiles",
   QUALITY_PROFILE: (id: number) => `/api/book-quality-profiles/${id}`,
   AUTHORS: "/api/authors",
