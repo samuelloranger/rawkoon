@@ -33,7 +33,7 @@ function parseFilenameForScan(nameWithoutExt: string): {
   return { title: nameWithoutExt.replace(/\./g, " ").trim(), year: null };
 }
 
-function mapSettings(row: {
+export function mapSettings(row: {
   moviesLibraryPath: string | null;
   showsLibraryPath: string | null;
   downloadsPath: string | null;
@@ -49,6 +49,9 @@ function mapSettings(row: {
   bookTemplate?: string;
   audiobookTemplate?: string;
   defaultBookQualityProfileId?: number | null;
+  audiobookshelfUrl?: string | null;
+  audiobookshelfAudiobookLibraryId?: string | null;
+  audiobookshelfEbookLibraryId?: string | null;
   updatedAt: Date;
 }) {
   return {
@@ -70,6 +73,10 @@ function mapSettings(row: {
     book_template: row.bookTemplate ?? "",
     audiobook_template: row.audiobookTemplate ?? "",
     default_book_quality_profile_id: row.defaultBookQualityProfileId ?? null,
+    audiobookshelf_url: row.audiobookshelfUrl ?? null,
+    audiobookshelf_audiobook_library_id:
+      row.audiobookshelfAudiobookLibraryId ?? null,
+    audiobookshelf_ebook_library_id: row.audiobookshelfEbookLibraryId ?? null,
     updated_at: row.updatedAt.toISOString(),
   };
 }
@@ -111,6 +118,9 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
           bookTemplate?: string;
           audiobookTemplate?: string;
           defaultBookQualityProfileId?: number | null;
+          audiobookshelfUrl?: string | null;
+          audiobookshelfAudiobookLibraryId?: string | null;
+          audiobookshelfEbookLibraryId?: string | null;
         } = {};
         if (body.movies_library_path !== undefined)
           update.moviesLibraryPath = body.movies_library_path;
@@ -161,6 +171,14 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
         if (body.default_book_quality_profile_id !== undefined)
           update.defaultBookQualityProfileId =
             body.default_book_quality_profile_id;
+        if (body.audiobookshelf_url !== undefined)
+          update.audiobookshelfUrl = body.audiobookshelf_url;
+        if (body.audiobookshelf_audiobook_library_id !== undefined)
+          update.audiobookshelfAudiobookLibraryId =
+            body.audiobookshelf_audiobook_library_id;
+        if (body.audiobookshelf_ebook_library_id !== undefined)
+          update.audiobookshelfEbookLibraryId =
+            body.audiobookshelf_ebook_library_id;
 
         let row = await prisma.mediaSettings.findUnique({ where: { id: 1 } });
         if (!row) {
@@ -200,6 +218,15 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
         audiobook_template: t.Optional(t.String({ maxLength: 500 })),
         default_book_quality_profile_id: t.Optional(
           t.Union([t.Number(), t.Null()]),
+        ),
+        audiobookshelf_url: t.Optional(
+          t.Union([t.String({ maxLength: 500 }), t.Null()]),
+        ),
+        audiobookshelf_audiobook_library_id: t.Optional(
+          t.Union([t.String({ maxLength: 100 }), t.Null()]),
+        ),
+        audiobookshelf_ebook_library_id: t.Optional(
+          t.Union([t.String({ maxLength: 100 }), t.Null()]),
         ),
       }),
     },
