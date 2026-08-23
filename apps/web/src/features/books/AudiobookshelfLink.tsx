@@ -2,7 +2,6 @@ import { useTranslation } from "react-i18next";
 import { ExternalLink } from "lucide-react";
 import { audiobookshelfSearchUrl } from "@rawkoon/shared/utils";
 import type { BookEdition } from "@rawkoon/shared/types";
-import { Button } from "@/components/ui/button";
 import { useMediaPostProcessingSettings } from "@/features/medias/hooks/useMediaPostProcessingSettings";
 
 /**
@@ -35,12 +34,18 @@ export const AudiobookshelfLink = ({
 
   if (!href) return null;
 
+  // A styled anchor, not <Button asChild>: Button never implemented asChild,
+  // so the prop reached the DOM, the anchor kept none of the button styling,
+  // and its icon and label stacked on top of each other.
   return (
-    <Button asChild variant="secondary">
-      <a href={href} target="_blank" rel="noopener noreferrer">
-        <ExternalLink className="size-4" />
-        {t("books.audiobookshelf.open")}
-      </a>
-    </Button>
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="focus-ring inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-lg bg-neutral-800 px-4 text-sm font-medium text-neutral-100 transition-colors hover:bg-neutral-700"
+    >
+      <ExternalLink className="h-4 w-4" />
+      {t("books.audiobookshelf.open")}
+    </a>
   );
 };

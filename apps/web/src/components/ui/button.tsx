@@ -29,11 +29,14 @@ const buttonVariants = cva(
   },
 );
 
-interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
-  asChild?: boolean;
-}
+/**
+ * No `asChild`. This component renders a real <button> and nothing else —
+ * an earlier version advertised the prop without implementing Radix Slot, so
+ * it silently reached the DOM and any <a> passed as a child lost every style.
+ * For a link that looks like a button, style the anchor or Link directly.
+ */
+type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> &
+  VariantProps<typeof buttonVariants>;
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, ...props }, ref) => {
