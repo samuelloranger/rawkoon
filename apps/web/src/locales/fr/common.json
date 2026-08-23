@@ -2116,6 +2116,9 @@
       "removed": "Téléchargement supprimé",
       "noSpace": "Espace insuffisant pour stocker ce livre.",
       "failed": "Le téléchargement de ce livre a échoué."
+    },
+    "audiobookshelf": {
+      "open": "Ouvrir dans Audiobookshelf"
     }
   }
 }
