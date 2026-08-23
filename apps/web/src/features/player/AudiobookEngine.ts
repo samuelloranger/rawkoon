@@ -172,6 +172,55 @@ const prefersNoPreload = (): boolean => {
 
 type Listener = () => void;
 
+/**
+ * One transport transition, for the playback journal.
+ *
+ * Errors alone were not enough. The mid-listen rewind reported none, and an
+ * error is only one of the ways the element can lose its place: iOS throws the
+ * resource away under memory pressure (`emptied`, readyState back to 0), a
+ * truncated stream can end a file early (`ended`, which advances a file), and
+ * an unload or a seek-abort fires `error` with a code the engine deliberately
+ * ignores. Every one of those is recorded, so the evidence can name the path
+ * instead of leaving it to be guessed.
+ */
+export interface PlaybackDiagnostic {
+  /** The transition: see EngineEvent. */
+  event: EngineEvent;
+  editionId: number | null;
+  fileId: number | null;
+  fileIndex: number;
+  /** MediaError.code: 1 aborted, 2 network, 3 decode, 4 unsupported. */
+  errorCode: number | null;
+  /** The element's own clock — 0 or null mid-file is the smoking gun. */
+  currentTime: number | null;
+  /** HTMLMediaElement.readyState; 0 means the resource is gone. */
+  readyState: number | null;
+  /** Where a load or retry aimed, when the event was one. */
+  resumeOffset: number | null;
+  /** Absolute position on the timeline, as the UI would show it. */
+  position: number | null;
+  retryAttempt: number | null;
+  /** Why a load ran. Null for events that are not loads. */
+  reason: LoadReason | null;
+}
+
+/** Why `loadFile` was called — the discriminator that names a rewind's path. */
+export type LoadReason =
+  | "open"
+  | "seek"
+  | "boundary"
+  | "network-retry"
+  | "skip-unreadable";
+
+export type EngineEvent =
+  | "load"
+  | "ended"
+  | "emptied"
+  | "stalled"
+  | "abort"
+  | "error"
+  | "error-ignored";
+
 export class AudiobookEngine {
   private audio: HTMLAudioElement | null = null;
   private context: AudioContext | null = null;
@@ -193,6 +242,16 @@ export class AudiobookEngine {
    * running, and a stale metadata listener seeked the new file to the old
    * file's offset.
    */
+  /**
+   * Where a media error is reported, if anyone is listening.
+   *
+   * The engine does no I/O of its own; the provider owns the request. Reported
+   * for every real error, retried or not, because the pair worth having is the
+   * element's clock and the offset the engine decided to resume from — that is
+   * what says whether a listener was rewound.
+   */
+  onDiagnostic: ((diagnostic: PlaybackDiagnostic) => void) | null = null;
+
   private generation = 0;
 
   /** What the listener asked for, as opposed to what the element reports. */
@@ -200,6 +259,14 @@ export class AudiobookEngine {
   private currentUrl: string | null = null;
   /** Where in the current file playback was meant to be, for a retry. */
   private requestedOffset = 0;
+  /**
+   * The last offset the element actually reported while it was healthy.
+   *
+   * An errored element can report `currentTime` 0, and `requestedOffset` is 0
+   * for the whole of any file entered by a boundary crossing — so with only
+   * those two, a dropped connection restarted the chapter from its beginning.
+   */
+  private lastSeenOffset = 0;
   private networkRetries = 0;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly noPreload = prefersNoPreload();
@@ -289,6 +356,9 @@ export class AudiobookEngine {
     audio.addEventListener("ended", this.onEnded);
     audio.addEventListener("error", this.onError);
     audio.addEventListener("waiting", this.onWaiting);
+    audio.addEventListener("emptied", this.onEmptied);
+    audio.addEventListener("stalled", this.onStalled);
+    audio.addEventListener("abort", this.onAbort);
     audio.addEventListener("playing", this.onPlaying);
     audio.addEventListener("pause", this.onPause);
   }
@@ -299,7 +369,11 @@ export class AudiobookEngine {
    * `requestedOffset` is only where the last load or seek aimed, so after
    * twenty minutes of uninterrupted playback it is twenty minutes stale — a
    * transient network error that retried from it threw away everything since.
-   * The element's own clock is the truth whenever it has one.
+   * The element's own clock is the truth whenever it has one, and the last
+   * position it reported while healthy is the truth when it does not: an
+   * errored element can report 0, and for a file entered by a boundary
+   * crossing `requestedOffset` is 0 too, so the pair of them silently
+   * restarted the chapter.
    */
   private liveOffset(): number {
     const current = this.audio?.currentTime;
@@ -310,6 +384,7 @@ export class AudiobookEngine {
     ) {
       return current;
     }
+    if (this.lastSeenOffset > 0) return this.lastSeenOffset;
     return this.requestedOffset;
   }
 
@@ -321,6 +396,14 @@ export class AudiobookEngine {
   }
 
   private onTimeUpdate = () => {
+    const current = this.audio?.currentTime;
+    if (
+      typeof current === "number" &&
+      Number.isFinite(current) &&
+      current > 0
+    ) {
+      this.lastSeenOffset = current;
+    }
     const position = this.absolute();
     this.emit({
       position,
@@ -344,6 +427,19 @@ export class AudiobookEngine {
 
   private onWaiting = () => this.emit({ loading: true });
 
+  /**
+   * The element threw its resource away — iOS does this under memory pressure
+   * and when a PWA is backgrounded long enough. `currentTime` is 0 afterwards,
+   * which is exactly what a rewind looks like from the outside. Report-only:
+   * whether to restore the position from here is a fix, and a fix needs the
+   * evidence first.
+   */
+  private onEmptied = () => this.report("emptied", null, null, null);
+
+  private onStalled = () => this.report("stalled", null, null, null);
+
+  private onAbort = () => this.report("abort", null, null, null);
+
   private onPlaying = () => {
     // Sound is coming out, so whatever the last failure was, it is over.
     this.networkRetries = 0;
@@ -353,8 +449,11 @@ export class AudiobookEngine {
   private onPause = () => this.emit({ playing: false });
 
   private onEnded = () => {
+    // A truncated stream can end a file early, which advances to the next one
+    // at offset 0 — indistinguishable from a real boundary without this.
+    this.report("ended", null, null, null);
     if (this.fileIndex < this.timeline.length - 1) {
-      void this.loadFile(this.fileIndex + 1, 0, true);
+      void this.loadFile(this.fileIndex + 1, 0, true, "boundary");
     } else {
       this.desiredPlaying = false;
       // The only place completion is declared. PlayerProvider turns this into
@@ -363,13 +462,51 @@ export class AudiobookEngine {
     }
   };
 
+  /** Never lets a reporting failure escape into the error path it describes. */
+  private report(
+    event: EngineEvent,
+    errorCode: number | null,
+    resumeOffset: number | null,
+    retryAttempt: number | null,
+    reason: LoadReason | null = null,
+  ) {
+    const current = this.audio?.currentTime;
+    const ready = this.audio?.readyState;
+    try {
+      this.onDiagnostic?.({
+        event,
+        editionId: this.state.editionId,
+        fileId: this.file?.id ?? null,
+        fileIndex: this.fileIndex,
+        errorCode,
+        currentTime:
+          typeof current === "number" && Number.isFinite(current)
+            ? current
+            : null,
+        readyState: typeof ready === "number" ? ready : null,
+        resumeOffset,
+        position: this.state.position,
+        retryAttempt,
+        reason,
+      });
+    } catch {
+      // A diagnostic must never make the failure it reports worse.
+    }
+  }
+
   private onError = () => {
     const code = this.audio?.error?.code;
     // Swapping `src` mid-seek makes the element fire `error` with
     // MEDIA_ERR_ABORTED, and an unload fires one with no MediaError at all.
     // Neither means the file is bad, and advancing on them walked the index
     // forward one file per skip until the book ran out.
-    if (code == null || code === ERR_ABORTED) return;
+    if (code == null || code === ERR_ABORTED) {
+      // Not acted on — an unload and a seek-abort both land here and neither
+      // means the file is bad. Recorded all the same: if one of these is what
+      // precedes a rewind, the journal is the only place that would show it.
+      this.report("error-ignored", code ?? null, null, null);
+      return;
+    }
 
     const name = this.file?.name ?? "";
 
@@ -380,12 +517,13 @@ export class AudiobookEngine {
       const index = this.fileIndex;
       const offset = this.liveOffset();
       const play = this.desiredPlaying;
+      this.report("error", code, offset, attempt, "network-retry");
       this.emit({ loading: true });
       this.clearRetry();
       this.retryTimer = setTimeout(
         () => {
           this.retryTimer = null;
-          void this.loadFile(index, offset, play);
+          void this.loadFile(index, offset, play, "network-retry");
         },
         RETRY_BASE_MS * 2 ** (attempt - 1),
       );
@@ -393,18 +531,29 @@ export class AudiobookEngine {
     }
 
     this.networkRetries = 0;
+    this.report("error", code, null, null, "skip-unreadable");
     // A single unreadable file should not end the book: advance and say which
     // one was skipped.
     if (this.fileIndex < this.timeline.length - 1) {
       this.emit({ error: name });
-      void this.loadFile(this.fileIndex + 1, 0, this.desiredPlaying);
+      void this.loadFile(
+        this.fileIndex + 1,
+        0,
+        this.desiredPlaying,
+        "skip-unreadable",
+      );
     } else {
       this.desiredPlaying = false;
       this.emit({ error: name, playing: false, loading: false });
     }
   };
 
-  private async loadFile(index: number, offset: number, play: boolean) {
+  private async loadFile(
+    index: number,
+    offset: number,
+    play: boolean,
+    reason: LoadReason,
+  ) {
     const file = this.timeline[index];
     if (!file) return;
 
@@ -412,7 +561,15 @@ export class AudiobookEngine {
     this.clearRetry();
     this.fileIndex = index;
     this.requestedOffset = offset;
+    // Belongs to the file being left behind, or to the position seeked away
+    // from; either way it must not outlive this load.
+    this.lastSeenOffset = offset;
     this.desiredPlaying = play;
+
+    // Reported before the position is emitted, so the entry carries both where
+    // the listener was and where this load is aiming — which is the whole
+    // question when a position moves on its own.
+    this.report("load", null, offset, null, reason);
 
     const audio = this.ensureAudio();
 
@@ -500,7 +657,7 @@ export class AudiobookEngine {
 
     const resume = startAt ?? manifest.progress?.position_secs ?? 0;
     const at = locate(timeline, resume);
-    if (at) await this.loadFile(at.index, at.offset, false);
+    if (at) await this.loadFile(at.index, at.offset, false, "open");
   };
 
   play = async (generation: number = this.generation) => {
@@ -551,10 +708,11 @@ export class AudiobookEngine {
     // A deliberate seek is a fresh start for retry accounting.
     this.networkRetries = 0;
     if (at.index !== this.fileIndex) {
-      void this.loadFile(at.index, at.offset, this.desiredPlaying);
+      void this.loadFile(at.index, at.offset, this.desiredPlaying, "seek");
       return;
     }
     this.requestedOffset = at.offset;
+    this.lastSeenOffset = at.offset;
     if (this.audio) this.audio.currentTime = at.offset;
     this.emit({
       position: clamped,
@@ -638,6 +796,7 @@ export class AudiobookEngine {
     this.timeline = [];
     this.fileIndex = 0;
     this.requestedOffset = 0;
+    this.lastSeenOffset = 0;
     this.emit({ ...EMPTY_STATE, rate: this.state.rate });
   };
 }

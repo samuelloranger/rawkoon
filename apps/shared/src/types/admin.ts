@@ -33,6 +33,8 @@ export interface LibraryHealthSummary {
   downloaded_media_without_files: number;
   downloaded_episodes_without_files: number;
   missing_file_paths: number;
+  downloaded_book_editions_without_files: number;
+  missing_book_file_paths: number;
   stale_tmdb_statuses: number;
   episode_number_mismatches: number;
   episode_duration_mismatches: number;
@@ -46,10 +48,17 @@ export interface LibraryHealthIssue {
     | "missing_file_path"
     | "stale_tmdb_status"
     | "episode_number_mismatch"
-    | "episode_duration_mismatch";
+    | "episode_duration_mismatch"
+    | "downloaded_book_edition_without_files"
+    | "missing_book_file_path";
   media_id?: number;
   episode_id?: number;
   media_file_id?: number;
+  book_id?: number;
+  book_edition_id?: number;
+  book_file_id?: number;
+  /// "ebook" | "audiobook" — the book analogue of media_type.
+  edition_kind?: string;
   tmdb_id?: number;
   tmdb_episode_id?: number;
   title?: string;

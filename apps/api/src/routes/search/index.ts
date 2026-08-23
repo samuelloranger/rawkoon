@@ -17,6 +17,7 @@ export const searchRoutes = new Elysia({ prefix: "/api/search" })
 
         const empty = {
           medias: [],
+          books: [],
           users: [],
         };
 
@@ -71,8 +72,45 @@ export const searchRoutes = new Elysia({ prefix: "/api/search" })
           // library table not yet available — return empty
         }
 
+        // Books are gated: a movies-only install must not pay for the query
+        // and must not see a section it has no pages for.
+        let books: {
+          id: number;
+          title: string;
+          authors: string[];
+          year: number | null;
+        }[] = [];
+        try {
+          const settings = await prisma.appSettings.findUnique({
+            where: { id: 1 },
+            select: { booksEnabled: true },
+          });
+          if (settings?.booksEnabled === true) {
+            const rows = await prisma.libraryBook.findMany({
+              where: { title: { contains: q, mode: "insensitive" } },
+              take: limit,
+              orderBy: { listTitle: "asc" },
+              select: {
+                id: true,
+                title: true,
+                authors: true,
+                listYear: true,
+              },
+            });
+            books = rows.map((b) => ({
+              id: b.id,
+              title: b.title,
+              authors: b.authors,
+              year: b.listYear,
+            }));
+          }
+        } catch {
+          // book tables not yet migrated — return empty
+        }
+
         return {
           medias,
+          books,
           users: users.map((u) => ({
             id: u.id,
             name: u.firstName

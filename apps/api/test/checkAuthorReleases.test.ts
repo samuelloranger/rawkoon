@@ -9,6 +9,7 @@ type Volume = {
   volumeId: string;
   title: string;
   publishedYear: number | null;
+  language?: string;
 };
 
 const state: {
@@ -19,6 +20,7 @@ const state: {
   knownVolumeIds: string[];
   addCalls: Array<Record<string, unknown>>;
   addResult: Record<string, unknown>;
+  authorBooksOpts: Array<Record<string, unknown> | undefined>;
   authorUpdates: Array<{
     where: { id: number };
     data: Record<string, unknown>;
@@ -32,6 +34,7 @@ const state: {
   knownVolumeIds: [],
   addCalls: [],
   addResult: { added: true, bookId: 1, created: true },
+  authorBooksOpts: [],
   authorUpdates: [],
   notices: [],
 };
@@ -69,7 +72,8 @@ mock.module("@rawkoon/api/services/books", () => ({
       searchBooks: () => Promise.resolve([]),
       getBook: () => Promise.resolve(null),
       resolveIsbn: () => Promise.resolve(null),
-      getAuthorBooks: () => {
+      getAuthorBooks: (_name: string, opts?: Record<string, unknown>) => {
+        state.authorBooksOpts.push(opts);
         if (state.providerThrows) return Promise.reject(state.providerThrows);
         return Promise.resolve(state.volumes);
       },
@@ -104,6 +108,7 @@ const author = (over: Record<string, unknown> = {}) => ({
   googleAuthorName: "Camille Rousseau",
   monitorFrom: new Date("2026-01-01T00:00:00Z"),
   monitorEditionKinds: ["ebook"],
+  monitorLanguages: [] as string[],
   bookQualityProfileId: 3,
   updatedAt: new Date("2020-01-01T00:00:00Z"),
   ...over,
@@ -118,6 +123,7 @@ describe("checkAuthorReleases", () => {
     state.knownVolumeIds = [];
     state.addCalls = [];
     state.addResult = { added: true, bookId: 1, created: true };
+    state.authorBooksOpts = [];
     state.authorUpdates = [];
     state.notices = [];
   });
@@ -183,6 +189,44 @@ describe("checkAuthorReleases", () => {
     await checkAuthorReleases();
 
     expect(state.addCalls[0]?.kinds).toEqual(["ebook"]);
+  });
+
+  // The translation guard: a book is one language, so an unfiltered follow
+  // collected the English, French and German edition of the same title.
+  it("only adds titles in a monitored language", async () => {
+    state.authors = [author({ monitorLanguages: ["fr"] })];
+    state.volumes = [
+      { volumeId: "en", title: "The One", publishedYear: 2026, language: "en" },
+      {
+        volumeId: "fr",
+        title: "L\u2019Unique",
+        publishedYear: 2026,
+        language: "fr",
+      },
+    ];
+
+    await checkAuthorReleases();
+
+    expect(state.addCalls.map((c) => c.volumeId)).toEqual(["fr"]);
+    // The codes also narrow the provider query — inauthor: alone ranks the
+    // English editions into the whole result window.
+    expect(state.authorBooksOpts[0]?.languages).toEqual(["fr"]);
+  });
+
+  it("adds every language when none is configured", async () => {
+    state.volumes = [
+      { volumeId: "en", title: "The One", publishedYear: 2026, language: "en" },
+      {
+        volumeId: "fr",
+        title: "L\u2019Unique",
+        publishedYear: 2026,
+        language: "fr",
+      },
+    ];
+
+    await checkAuthorReleases();
+
+    expect(state.addCalls.map((c) => c.volumeId)).toEqual(["en", "fr"]);
   });
 
   // Without monitorFrom, the year monitoring was switched on is the boundary.

@@ -186,11 +186,13 @@ async function fetchVolumes(
   apiKey: string,
   country: string,
   limit: number,
+  langRestrict?: string,
 ): Promise<GoogleVolume[]> {
   const url = new URL(API_BASE);
   url.searchParams.set("q", query);
   url.searchParams.set("country", country);
   url.searchParams.set("maxResults", String(Math.min(40, Math.max(1, limit))));
+  if (langRestrict) url.searchParams.set("langRestrict", langRestrict);
   url.searchParams.set("key", apiKey);
 
   let lastStatus: number | undefined;
@@ -255,8 +257,18 @@ class GoogleBooksProvider implements BookMetadataProvider {
     private readonly country: string,
   ) {}
 
-  private async run(query: string, limit: number): Promise<ProviderBook[]> {
-    const raw = await fetchVolumes(query, this.apiKey, this.country, limit);
+  private async run(
+    query: string,
+    limit: number,
+    langRestrict?: string,
+  ): Promise<ProviderBook[]> {
+    const raw = await fetchVolumes(
+      query,
+      this.apiKey,
+      this.country,
+      limit,
+      langRestrict,
+    );
     return raw.map(mapVolume).filter((b): b is ProviderBook => b !== null);
   }
 
@@ -336,16 +348,37 @@ class GoogleBooksProvider implements BookMetadataProvider {
 
   async getAuthorBooks(
     authorName: string,
-    opts?: { limit?: number },
+    opts?: { limit?: number; languages?: string[] },
   ): Promise<ProviderBook[]> {
     const name = sanitizeTerm(authorName);
     if (!name) return [];
     const limit = opts?.limit ?? 40;
-    return cachedVolumes(
-      `books:gb:author:${this.country}:${name.toLowerCase()}:${limit}`,
-      CACHE_TTL_SEARCH,
-      () => this.run(`inauthor:${name}`, limit),
-    );
+    const languages = [
+      ...new Set(
+        (opts?.languages ?? [])
+          .map((l) => l.trim().toLowerCase())
+          .filter((l) => /^[a-z]{2}$/.test(l)),
+      ),
+    ].sort();
+
+    // langRestrict is part of the cache key: the unrestricted result and the
+    // fr-only result are different answers to different questions.
+    const cacheKey = `books:gb:author:${this.country}:${name.toLowerCase()}:${limit}:${
+      languages.join(",") || "any"
+    }`;
+
+    return cachedVolumes(cacheKey, CACHE_TTL_SEARCH, async () => {
+      if (languages.length === 0) return this.run(`inauthor:${name}`, limit);
+
+      const byVolume = new Map<string, ProviderBook>();
+      for (const lang of languages) {
+        const found = await this.run(`inauthor:${name}`, limit, lang);
+        for (const book of found) {
+          if (!byVolume.has(book.volumeId)) byVolume.set(book.volumeId, book);
+        }
+      }
+      return [...byVolume.values()];
+    });
   }
 }
 

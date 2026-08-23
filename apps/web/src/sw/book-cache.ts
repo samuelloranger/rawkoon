@@ -30,6 +30,61 @@ const BOOK_META = [
 const pathOf = (url: string): string =>
   new URL(url, sw.location.origin).pathname;
 
+const fileIdOf = (url: string): number | null => {
+  const match = BOOK_CONTENT.exec(pathOf(url));
+  return match?.[1] ? Number(match[1]) : null;
+};
+
+/**
+ * Which book files are stored, answerable synchronously.
+ *
+ * `event.respondWith` has to be called synchronously, so the fetch handler
+ * cannot await a cache lookup before deciding whether to take the request. The
+ * stakes are asymmetric. Claiming a file the worker has no copy of puts a
+ * stream the browser would have fetched natively — resumably, and surviving
+ * the worker being killed — behind JS in a worker iOS terminates aggressively
+ * while the screen is locked; when that happens mid-chapter the element sees
+ * MEDIA_ERR_NETWORK. Declining a file it did have costs one network trip.
+ */
+const cachedFileIds = new Set<number>();
+let seeded = false;
+
+/**
+ * Populates the set from Cache Storage.
+ *
+ * Started at worker startup rather than only on `activate`, because a worker
+ * that was killed restarts without firing `activate` at all — and a cold
+ * worker that has forgotten what it stored would send a downloaded book to a
+ * network that may not be there.
+ */
+export const seedCachedBookFiles = async (): Promise<void> => {
+  try {
+    const cache = await caches.open(BOOK_CACHE);
+    for (const request of await cache.keys()) {
+      const fileId = fileIdOf(request.url);
+      if (fileId != null) cachedFileIds.add(fileId);
+    }
+  } catch {
+    // Cache Storage unavailable: stay unseeded, which keeps the safe
+    // claim-everything behaviour below.
+    return;
+  }
+  seeded = true;
+};
+
+/**
+ * Whether the worker should answer this byte request itself.
+ *
+ * Until the seed lands, everything is claimed: serveBookBytes falls back to
+ * the network on a miss, so an unseeded worker is merely slower, whereas
+ * declining would break offline playback outright.
+ */
+export const hasCachedBookFile = (url: string): boolean => {
+  if (!seeded) return true;
+  const fileId = fileIdOf(url);
+  return fileId != null && cachedFileIds.has(fileId);
+};
+
 export const isBookContentRequest = (url: string): boolean =>
   BOOK_CONTENT.test(pathOf(url));
 
@@ -97,11 +152,13 @@ export const cacheBookFile = async (
         headers: response.headers,
       }),
     );
+    cachedFileIds.add(fileId);
     post(client, { type: "bookCacheDone", fileId });
   } catch (error) {
     // A quota failure or an interrupted stream must leave nothing behind, or the
     // reader would open a truncated file.
     await (await caches.open(BOOK_CACHE)).delete(url);
+    cachedFileIds.delete(fileId);
     post(client, {
       type: "bookCacheFailed",
       fileId,
@@ -119,6 +176,7 @@ export const evictBookFile = async (
 ): Promise<void> => {
   const cache = await caches.open(BOOK_CACHE);
   await cache.delete(`/api/books/files/${fileId}/content`);
+  cachedFileIds.delete(fileId);
   post(client, { type: "bookCacheEvicted", fileId });
 };
 

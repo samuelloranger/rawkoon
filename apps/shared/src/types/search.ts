@@ -14,6 +14,13 @@ interface QuickSearchMedia {
   status: string; // "wanted" | "downloading" | "downloaded" | "skipped"
 }
 
+interface QuickSearchBook {
+  id: number;
+  title: string;
+  authors: string[];
+  year: number | null;
+}
+
 interface QuickSearchUser {
   id: number;
   name: string;
@@ -23,5 +30,6 @@ interface QuickSearchUser {
 export interface QuickSearchResponse {
   torrents: QuickSearchTorrent[];
   medias: QuickSearchMedia[];
+  books: QuickSearchBook[];
   users: QuickSearchUser[];
 }
