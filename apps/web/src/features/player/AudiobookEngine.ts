@@ -725,7 +725,12 @@ export class AudiobookEngine {
     });
 
     const resume = startAt ?? manifest.progress?.position_secs ?? 0;
-    const at = locate(timeline, resume);
+    // `this.timeline`, not the local one buildTimeline returned. For a
+    // single-stream edition those differ: the local one has an entry per file,
+    // so resuming mid-book resolved to an index that does not exist in the
+    // one-entry timeline, loadFile bailed on the missing entry, and the player
+    // silently never loaded anything. It only ever worked from position 0.
+    const at = locate(this.timeline, resume);
     if (at) await this.loadFile(at.index, at.offset, false, "open");
   };
 
