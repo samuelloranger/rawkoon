@@ -12,6 +12,8 @@ import {
 import {
   buildStreamLayout,
   isConcatEligible,
+  MAX_RANGE_BYTES,
+  readSlices,
   sliceLayout,
   type StreamLayout,
 } from "@rawkoon/api/services/books/bookStreamLayout";
@@ -138,13 +140,20 @@ export const bookReadRoutes = new Elysia()
       }
 
       if (range) {
-        const length = range.end - range.start + 1;
-        return new Response(handle.slice(range.start, range.end + 1), {
+        // Clamped, then read through node:fs. `Bun.file().slice()` loses its
+        // bounds on Bun 1.4.0 — Bun.serve's sendfile path ignored the offset
+        // and sent the whole file while the headers promised a slice, so a
+        // player seeking into a chapter was handed its opening bytes instead.
+        // That is what made seeking rewind and scrubbing do nothing.
+        const end = Math.min(range.end, range.start + MAX_RANGE_BYTES - 1);
+        const body = await readSlices([
+          { path: file.filePath, start: range.start, end: end + 1 },
+        ]);
+        return new Response(body, {
           status: 206,
           headers: {
             ...baseHeaders,
-            "Content-Range": `bytes ${range.start}-${range.end}/${size}`,
-            "Content-Length": String(length),
+            "Content-Range": `bytes ${range.start}-${range.start + body.length - 1}/${size}`,
           },
         });
       }
@@ -235,39 +244,22 @@ export const bookReadRoutes = new Elysia()
         });
       }
 
+      // A media element opens with `bytes=0-`, i.e. all 821MB of a 9h30m book.
+      // Serving fewer bytes than asked for is allowed — the client reads
+      // Content-Range and comes back for the next window.
       const start = range ? range.start : 0;
-      const end = range ? range.end : size - 1;
-      const slices = sliceLayout(layout, start, end);
+      const wantedEnd = range ? range.end : size - 1;
+      const end = Math.min(wantedEnd, start + MAX_RANGE_BYTES - 1);
+      const body = await readSlices(sliceLayout(layout, start, end));
+      const last = start + body.length - 1;
 
-      const body = new ReadableStream<Uint8Array>({
-        async start(controller) {
-          try {
-            for (const slice of slices) {
-              const chunk = Bun.file(slice.path).slice(slice.start, slice.end);
-              const reader = chunk.stream().getReader();
-              for (;;) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                controller.enqueue(value);
-              }
-            }
-            controller.close();
-          } catch (e) {
-            // A client that seeks away mid-response aborts the stream; that is
-            // normal and must not be logged as a failure.
-            controller.error(e);
-          }
-        },
-      });
-
+      // Always 206: the body is a window, and calling a window 200 would tell
+      // the client it had the whole resource.
       return new Response(body, {
-        status: range ? 206 : 200,
+        status: 206,
         headers: {
           ...baseHeaders,
-          "Content-Length": String(end - start + 1),
-          ...(range
-            ? { "Content-Range": `bytes ${start}-${end}/${size}` }
-            : {}),
+          "Content-Range": `bytes ${start}-${last}/${size}`,
         },
       });
     },
