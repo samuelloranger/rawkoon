@@ -17,6 +17,10 @@ import {
   queueProgress,
   startProgressQueueFlusher,
 } from "@/lib/offline/progressQueue";
+import {
+  journalPlaybackEvent,
+  startPlaybackJournalFlusher,
+} from "@/lib/offline/playbackJournal";
 import type {
   BookManifest,
   BookManifestResponse,
@@ -325,7 +329,39 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   }, [engine, journal]);
 
   // Nothing replayed the offline queue on Safari, which has no Background Sync.
+  // Transport events go to IndexedDB, not straight to the network. The first
+  // attempt posted them with a `keepalive` fetch and recorded nothing at all,
+  // which proved nothing: the event worth seeing happens exactly when the
+  // connection is dead and iOS is freezing the page, so the report is the first
+  // casualty. Journalled now, shipped on a later launch.
+  useEffect(() => {
+    engine.onDiagnostic = (diagnostic) => {
+      if (diagnostic.editionId == null) return;
+      void journalPlaybackEvent({
+        event: diagnostic.event,
+        editionId: diagnostic.editionId,
+        fileId: diagnostic.fileId,
+        fileIndex: diagnostic.fileIndex,
+        errorCode: diagnostic.errorCode,
+        currentTime: diagnostic.currentTime,
+        readyState: diagnostic.readyState,
+        resumeOffset: diagnostic.resumeOffset,
+        position: diagnostic.position,
+        retryAttempt: diagnostic.retryAttempt,
+        reason: diagnostic.reason,
+        online: navigator.onLine,
+        visibility:
+          typeof document === "undefined" ? null : document.visibilityState,
+        at: new Date().toISOString(),
+      });
+    };
+    return () => {
+      engine.onDiagnostic = null;
+    };
+  }, [engine]);
+
   useEffect(() => startProgressQueueFlusher(), []);
+  useEffect(() => startPlaybackJournalFlusher(), []);
 
   // OS-level controls: lock screen, headset buttons, media keys.
   useEffect(() => {

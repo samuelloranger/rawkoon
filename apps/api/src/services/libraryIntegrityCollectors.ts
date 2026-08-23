@@ -408,6 +408,126 @@ async function collectEpisodeNumberMismatches(
   return issues;
 }
 
+/**
+ * Books are gated on the feature flag rather than on row counts: a movies-only
+ * install should neither pay for these scans nor be shown book rows it has no
+ * pages for.
+ */
+async function booksEnabled(): Promise<boolean> {
+  const settings = await prisma.appSettings.findUnique({
+    where: { id: 1 },
+    select: { booksEnabled: true },
+  });
+  return settings?.booksEnabled === true;
+}
+
+/**
+ * An edition marked downloaded with no BookFile rows — the book analogue of
+ * collectDownloadedMediaWithoutFiles. Usually means an import reported success
+ * but wrote nothing, which the library UI cannot show on its own.
+ */
+export async function collectDownloadedBookEditionsWithoutFiles(): Promise<
+  LibraryHealthIssue[]
+> {
+  if (!(await booksEnabled())) return [];
+
+  const issues: LibraryHealthIssue[] = [];
+  let cursor: { id: number } | undefined;
+
+  for (;;) {
+    const rows = await prisma.bookEdition.findMany({
+      take: DB_PAGE_SIZE,
+      ...(cursor ? { cursor, skip: 1 } : {}),
+      where: { status: "downloaded" },
+      select: {
+        id: true,
+        kind: true,
+        book: { select: { id: true, title: true } },
+        _count: { select: { files: true } },
+      },
+      orderBy: { id: "asc" },
+    });
+
+    if (rows.length === 0) break;
+
+    for (const row of rows) {
+      if (row._count.files === 0) {
+        issues.push({
+          kind: "downloaded_book_edition_without_files",
+          book_id: row.book.id,
+          book_edition_id: row.id,
+          edition_kind: row.kind,
+          title: row.book.title,
+          detail: `${row.kind} "${row.book.title}" is downloaded but has no BookFile records.`,
+        });
+      }
+    }
+
+    cursor = { id: rows[rows.length - 1]!.id };
+  }
+
+  return issues;
+}
+
+/** BookFile rows whose path has vanished from disk. */
+export async function collectMissingBookFilePaths(): Promise<
+  LibraryHealthIssue[]
+> {
+  if (!(await booksEnabled())) return [];
+
+  const missing: LibraryHealthIssue[] = [];
+  let cursor: { id: number } | undefined;
+
+  for (;;) {
+    const files = await prisma.bookFile.findMany({
+      take: DB_PAGE_SIZE,
+      ...(cursor ? { cursor, skip: 1 } : {}),
+      select: {
+        id: true,
+        filePath: true,
+        edition: {
+          select: {
+            id: true,
+            kind: true,
+            book: { select: { id: true, title: true } },
+          },
+        },
+      },
+      orderBy: { id: "asc" },
+    });
+
+    if (files.length === 0) break;
+
+    for (let i = 0; i < files.length; i += FILE_CHECK_BATCH) {
+      const batch = files.slice(i, i + FILE_CHECK_BATCH);
+      const results = await Promise.all(
+        batch.map(async (file) => ({
+          file,
+          exists: await fileExists(file.filePath),
+        })),
+      );
+      for (const { file, exists } of results) {
+        if (!exists) {
+          missing.push({
+            kind: "missing_book_file_path",
+            book_id: file.edition.book.id,
+            book_edition_id: file.edition.id,
+            book_file_id: file.id,
+            edition_kind: file.edition.kind,
+            title: file.edition.book.title,
+            path: file.filePath,
+            detail: `BookFile ${file.id} points to a missing path: ${file.filePath}`,
+          });
+        }
+      }
+    }
+
+    cursor = { id: files[files.length - 1]!.id };
+  }
+
+  return missing;
+}
+
 export async function collectLibraryIntegrityIssues(): Promise<{
   issues: LibraryHealthIssue[];
   warnings: string[];
@@ -419,12 +539,16 @@ export async function collectLibraryIntegrityIssues(): Promise<{
     missingFilePaths,
     staleTmdbStatuses,
     episodeNumberMismatches,
+    downloadedBookEditionsWithoutFiles,
+    missingBookFilePaths,
   ] = await Promise.all([
     collectDownloadedMediaWithoutFiles(),
     collectDownloadedEpisodesWithoutFiles(),
     collectMissingFilePaths(),
     collectStaleTmdbStatuses(),
     collectEpisodeNumberMismatches(warnings),
+    collectDownloadedBookEditionsWithoutFiles(),
+    collectMissingBookFilePaths(),
   ]);
 
   return {
@@ -434,6 +558,8 @@ export async function collectLibraryIntegrityIssues(): Promise<{
       ...missingFilePaths,
       ...staleTmdbStatuses,
       ...episodeNumberMismatches,
+      ...downloadedBookEditionsWithoutFiles,
+      ...missingBookFilePaths,
     ],
     warnings,
   };

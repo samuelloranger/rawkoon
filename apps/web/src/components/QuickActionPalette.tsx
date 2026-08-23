@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Clapperboard,
   Tv,
+  BookOpen,
   User,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -39,7 +40,7 @@ interface QuickAction {
   title: string;
   description: string;
   icon: ReactNode;
-  section: "actions" | "medias" | "users";
+  section: "actions" | "medias" | "books" | "users";
   keywords?: string[];
   shortcut?: string;
   action: () => void;
@@ -164,7 +165,7 @@ export function QuickActionPalette({
   const collectionResults = useMemo<QuickAction[]>(() => {
     if (!shouldSearch || !searchQuery.data) return [];
 
-    const { medias = [], users = [] } = searchQuery.data;
+    const { medias = [], books = [], users = [] } = searchQuery.data;
 
     const libraryStatusLabel = (status: string) =>
       t(`medias.library.itemStatus.${status}`, { defaultValue: status });
@@ -193,6 +194,23 @@ export function QuickActionPalette({
       },
     }));
 
+    const bookActions: QuickAction[] = books.map((item) => ({
+      id: `book-${item.id}`,
+      title: item.title,
+      description: [item.authors.join(", "), item.year ?? ""]
+        .filter(Boolean)
+        .join(" • "),
+      icon: <BookOpen size={20} />,
+      section: "books" as const,
+      action: () => {
+        navigate({
+          to: "/books/$bookId",
+          params: { bookId: String(item.id) },
+        });
+        handleClose();
+      },
+    }));
+
     const userActions: QuickAction[] = users.map((user) => ({
       id: `user-${user.id}`,
       title: user.name,
@@ -205,12 +223,13 @@ export function QuickActionPalette({
       },
     }));
 
-    return [...mediaActions, ...userActions];
+    return [...mediaActions, ...bookActions, ...userActions];
   }, [handleClose, navigate, searchQuery.data, shouldSearch, t]);
 
   const sectionLabels: Record<QuickAction["section"], string> = useMemo(
     () => ({
       medias: t("common.quickActionsSectionMedias"),
+      books: t("common.quickActionsSectionBooks"),
       users: t("common.quickActionsSectionUsers"),
       actions: t("common.quickActionsSectionActions"),
     }),

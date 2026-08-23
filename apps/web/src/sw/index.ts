@@ -12,13 +12,20 @@ import {
   handleBookFetch,
   handleBookMetaFetch,
   handleShellFetch,
+  hasCachedBookFile,
   isBookContentRequest,
   isBookMetaRequest,
   isBuildAsset,
   precacheShell,
+  seedCachedBookFiles,
 } from "./book-cache";
 
 import { sw } from "./sw";
+
+// Learn which books are stored as soon as the worker starts, not just on
+// activation: a killed worker restarts without firing `activate`, and one that
+// has forgotten its cache would send a downloaded book to the network.
+void seedCachedBookFiles();
 
 // Install event - minimal setup
 sw.addEventListener("install", handleInstall);
@@ -54,7 +61,11 @@ sw.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
   const url = event.request.url;
-  if (isBookContentRequest(url)) {
+  // Only claim bytes this worker actually holds. Answering a stream it has no
+  // copy of replaces the browser's native, resumable range fetching with JS in
+  // a worker iOS kills aggressively while the screen is locked — which is how a
+  // dropped request became a mid-chapter MEDIA_ERR_NETWORK.
+  if (isBookContentRequest(url) && hasCachedBookFile(url)) {
     handleBookFetch(event);
   } else if (isBookMetaRequest(url)) {
     handleBookMetaFetch(event);

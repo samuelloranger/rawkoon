@@ -201,6 +201,12 @@ export interface Author {
   /** Only titles published in or after this year are added. */
   monitor_from: string | null;
   monitor_edition_kinds: BookEditionKind[];
+  /**
+   * ISO 639-1 codes a new title must be in to be added. Empty means any
+   * language. Language is a property of the book, not of the edition, so this
+   * is the only way to follow an author without collecting every translation.
+   */
+  monitor_languages: string[];
   book_quality_profile_id: number | null;
   last_checked_at: string | null;
   /** Books in the library credited to this author. */

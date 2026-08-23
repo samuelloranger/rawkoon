@@ -4,9 +4,7 @@ import { requireUser, ensureAdmin } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
 import { badRequest, conflict, notFound } from "@rawkoon/api/errors";
 import type { BookQualityProfile } from "@rawkoon/shared/types";
-
-const EBOOK_FORMATS = ["epub", "azw3", "mobi", "pdf", "cbz"];
-const AUDIO_FORMATS = ["m4b", "mp3", "flac", "ogg"];
+import { validateBookProfileFormats } from "@rawkoon/shared/utils";
 
 type ProfileRow = {
   id: number;
@@ -41,33 +39,6 @@ const mapProfile = (p: ProfileRow): BookQualityProfile => ({
   created_at: p.createdAt.toISOString(),
   updated_at: p.updatedAt.toISOString(),
 });
-
-/**
- * Validate that the formats listed match the profile's kind. Mixing an epub
- * into an audiobook profile would make the reject filter behave incoherently,
- * so it is refused rather than silently ignored.
- */
-function validateFormats(
-  kind: string,
-  formats: string[],
-  cutoff: string | null,
-): string | null {
-  const valid =
-    kind === "ebook"
-      ? EBOOK_FORMATS
-      : kind === "audiobook"
-        ? AUDIO_FORMATS
-        : [...EBOOK_FORMATS, ...AUDIO_FORMATS];
-
-  const bad = formats.filter((f) => !valid.includes(f));
-  if (bad.length > 0) {
-    return `Formats not valid for a ${kind} profile: ${bad.join(", ")}`;
-  }
-  if (cutoff && !formats.includes(cutoff)) {
-    return "cutoff_format must be one of allowed_formats";
-  }
-  return null;
-}
 
 /**
  * Book quality profiles. Reads are open to any user (the library UI needs the
@@ -108,7 +79,7 @@ export const bookQualityProfileRoutes = new Elysia({
       if (body.allowed_formats.length === 0) {
         return badRequest(set, "allowed_formats must not be empty");
       }
-      const formatError = validateFormats(
+      const formatError = validateBookProfileFormats(
         body.kind,
         body.allowed_formats,
         body.cutoff_format ?? null,
@@ -181,7 +152,11 @@ export const bookQualityProfileRoutes = new Elysia({
       if (formats.length === 0) {
         return badRequest(set, "allowed_formats must not be empty");
       }
-      const formatError = validateFormats(kind, formats, cutoff ?? null);
+      const formatError = validateBookProfileFormats(
+        kind,
+        formats,
+        cutoff ?? null,
+      );
       if (formatError) return badRequest(set, formatError);
 
       const updated = await prisma.bookQualityProfile.update({

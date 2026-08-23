@@ -7,6 +7,7 @@ import { badRequest, notFound } from "@rawkoon/api/errors";
 import { parseByteRange } from "@rawkoon/shared/utils";
 import { buildManifest } from "@rawkoon/api/services/books/bookManifest";
 import { listReading } from "@rawkoon/api/services/books/bookReading";
+import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import {
   finishProgress,
   listProgress,
@@ -236,6 +237,106 @@ export const bookReadRoutes = new Elysia()
         file_id: t.Optional(t.Nullable(t.Number())),
         finished: t.Optional(t.Boolean()),
         client_updated_at: t.String(),
+      }),
+    },
+  )
+
+  /**
+   * Playback diagnostics.
+   *
+   * A media error on a locked phone is invisible: the byte route cannot tell a
+   * dropped socket from a finished response, and nobody reads a console on a
+   * device with the screen off. Recording the element's clock alongside the
+   * offset the engine chose to resume from is what separates "the connection
+   * dropped and we resumed correctly" from "we rewound the listener", which is
+   * otherwise indistinguishable after the fact.
+   *
+   * Deliberately tolerant: every field but the edition is optional, and it
+   * answers `recorded: true` regardless, because this is called from the
+   * player's own error handler and must never add a failure there.
+   */
+  .post(
+    "/playback-diagnostic",
+    async ({ body, user }) => {
+      await logActivity({
+        type: "book_playback_error",
+        userId: user!.id,
+        payload: {
+          edition_id: body.edition_id,
+          file_id: body.file_id ?? null,
+          file_index: body.file_index ?? null,
+          error_code: body.error_code ?? null,
+          current_time: body.current_time ?? null,
+          resume_offset: body.resume_offset ?? null,
+          retry_attempt: body.retry_attempt ?? null,
+          online: body.online ?? null,
+        },
+      });
+      return { recorded: true };
+    },
+    {
+      body: t.Object({
+        edition_id: t.Numeric(),
+        file_id: t.Optional(t.Nullable(t.Numeric())),
+        file_index: t.Optional(t.Nullable(t.Numeric())),
+        /** MediaError.code: 1 aborted, 2 network, 3 decode, 4 unsupported. */
+        error_code: t.Optional(t.Nullable(t.Numeric())),
+        current_time: t.Optional(t.Nullable(t.Number())),
+        resume_offset: t.Optional(t.Nullable(t.Number())),
+        retry_attempt: t.Optional(t.Nullable(t.Numeric())),
+        online: t.Optional(t.Nullable(t.Boolean())),
+      }),
+    },
+  )
+
+  /**
+   * Batched playback journal.
+   *
+   * Supersedes the single-event diagnostic above, which recorded nothing
+   * useful: it posted from the player's error handler with `keepalive`, at the
+   * one moment the connection is dead and iOS is freezing the page, so the
+   * report was the first thing dropped. Its silence was indistinguishable from
+   * "no error happened", which is why the rewind is still unexplained.
+   *
+   * The client now journals to IndexedDB and ships batches on a later launch,
+   * so entries arrive late and out of order — `at` is the client's own clock
+   * and is the only usable ordering. One activity row per batch keeps this to
+   * a single queue job however chatty a session was.
+   */
+  .post(
+    "/playback-journal",
+    async ({ body, user }) => {
+      if (body.events.length === 0) return { recorded: 0 };
+      await logActivity({
+        type: "book_playback_trace",
+        userId: user!.id,
+        payload: { events: body.events },
+      });
+      return { recorded: body.events.length };
+    },
+    {
+      body: t.Object({
+        // Capped so one request cannot enqueue an unbounded payload; the client
+        // batches to the same size.
+        events: t.Array(
+          t.Object({
+            event: t.String(),
+            edition_id: t.Numeric(),
+            file_id: t.Optional(t.Nullable(t.Numeric())),
+            file_index: t.Optional(t.Nullable(t.Numeric())),
+            error_code: t.Optional(t.Nullable(t.Numeric())),
+            current_time: t.Optional(t.Nullable(t.Number())),
+            ready_state: t.Optional(t.Nullable(t.Numeric())),
+            resume_offset: t.Optional(t.Nullable(t.Number())),
+            position: t.Optional(t.Nullable(t.Number())),
+            retry_attempt: t.Optional(t.Nullable(t.Numeric())),
+            reason: t.Optional(t.Nullable(t.String())),
+            online: t.Optional(t.Nullable(t.Boolean())),
+            visibility: t.Optional(t.Nullable(t.String())),
+            at: t.Optional(t.Nullable(t.String())),
+          }),
+          { maxItems: 50 },
+        ),
       }),
     },
   );

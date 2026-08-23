@@ -8,8 +8,10 @@ import type {
   AuthorResponse,
   BookEditionKind,
   BookFilesResponse,
+  BookFormat,
   BookItemResponse,
   BookListResponse,
+  BookQualityProfile,
   BookQualityProfileListResponse,
   BookReleaseSearchResponse,
   BookSearchResponse,
@@ -91,7 +93,11 @@ export function useDeleteBook() {
       fetchApi<{ deleted: boolean }>(BOOKS_ENDPOINTS.DELETE(id), {
         method: "DELETE",
       }),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      // Drop the detail entry rather than invalidating it: invalidating would
+      // refetch a book that no longer exists and paint the "not in the library"
+      // state for a frame on the way out.
+      qc.removeQueries({ queryKey: queryKeys.books.detail(id) });
       void qc.invalidateQueries({ queryKey: queryKeys.books.all });
     },
   });
@@ -240,6 +246,75 @@ export function useBookQualityProfiles() {
   });
 }
 
+/**
+ * Book quality profile writes. Editions read their profile at search time, so
+ * only the profile list needs invalidating — nothing about a book's stored
+ * state changes when a profile does.
+ */
+export type BookQualityProfileBody = {
+  name: string;
+  kind: BookQualityProfile["kind"];
+  allowed_formats: BookFormat[];
+  cutoff_format: BookFormat | null;
+  prefer_retail: boolean;
+  max_size_mb: number | null;
+  min_seeders: number;
+  min_audio_bitrate: number | null;
+  preferred_languages: string[];
+  prioritized_trackers: string[];
+  prefer_tracker_over_quality: boolean;
+};
+
+export function useCreateBookQualityProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: BookQualityProfileBody) =>
+      fetchApi<{ profile: BookQualityProfile }>(
+        BOOKS_ENDPOINTS.QUALITY_PROFILES,
+        { method: "POST", body: JSON.stringify(body) },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({
+        queryKey: queryKeys.books.qualityProfiles(),
+      });
+    },
+  });
+}
+
+export function useUpdateBookQualityProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: BookQualityProfileBody & { id: number }) =>
+      fetchApi<{ profile: BookQualityProfile }>(
+        BOOKS_ENDPOINTS.QUALITY_PROFILE(id),
+        { method: "PATCH", body: JSON.stringify(body) },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({
+        queryKey: queryKeys.books.qualityProfiles(),
+      });
+    },
+  });
+}
+
+export function useDeleteBookQualityProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      fetchApi<{ deleted: boolean }>(BOOKS_ENDPOINTS.QUALITY_PROFILE(id), {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({
+        queryKey: queryKeys.books.qualityProfiles(),
+      });
+      // An edition pointing at the deleted profile is set to null server side,
+      // so its detail payload is now stale.
+      void qc.invalidateQueries({ queryKey: queryKeys.books.all });
+    },
+  });
+}
+
 export function useAuthors() {
   return useQuery({
     queryKey: queryKeys.books.authors(),
@@ -263,6 +338,7 @@ export function useUpdateAuthor() {
       monitored?: boolean;
       monitor_from?: string | null;
       monitor_edition_kinds?: BookEditionKind[];
+      monitor_languages?: string[];
       book_quality_profile_id?: number | null;
     }) =>
       fetchApi<AuthorResponse>(BOOKS_ENDPOINTS.AUTHOR(id), {

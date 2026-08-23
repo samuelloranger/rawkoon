@@ -181,3 +181,73 @@ describe("handleBookFetch range handling", () => {
     vi.unstubAllGlobals();
   });
 });
+
+/**
+ * Which byte requests the worker takes responsibility for.
+ *
+ * `respondWith` cannot await, so the fetch handler needs a synchronous answer.
+ * The stakes are asymmetric: claiming a request the worker cannot serve puts a
+ * stream that iOS would have fetched natively — resumably, and surviving the
+ * worker being killed — behind JS in a worker iOS terminates aggressively with
+ * the screen locked, which is what surfaced as MEDIA_ERR_NETWORK mid-chapter.
+ * Declining one it could have served only costs a network round trip.
+ */
+describe("hasCachedBookFile", () => {
+  const load = async (keys: string[]) => {
+    vi.resetModules();
+    vi.stubGlobal("caches", {
+      open: async () => ({
+        keys: async () =>
+          keys.map(
+            (key) => new Request(`https://rawkoon.test${key}`),
+          ) as Request[],
+      }),
+    });
+    const module = await import("./book-cache");
+    await module.seedCachedBookFiles();
+    return module;
+  };
+
+  it("claims a file that is in the cache and declines one that is not", async () => {
+    const { hasCachedBookFile } = await load([
+      "/api/books/files/7/content",
+      "/api/books/files/9/content",
+    ]);
+
+    expect(hasCachedBookFile("/api/books/files/7/content")).toBe(true);
+    expect(
+      hasCachedBookFile("https://rawkoon.test/api/books/files/9/content"),
+    ).toBe(true);
+    expect(hasCachedBookFile("/api/books/files/8/content")).toBe(false);
+    vi.unstubAllGlobals();
+  });
+
+  // A killed worker restarts without re-firing `activate`, so the set is empty
+  // on a cold start. Declining then would make a downloaded book unplayable
+  // with no network, which is the one thing the cache exists to prevent — so
+  // until the seed lands the worker claims the request and serveBookBytes
+  // falls back to the network on a miss.
+  it("claims everything until the seed has landed", async () => {
+    vi.resetModules();
+    vi.stubGlobal("caches", {
+      open: async () => ({ keys: async () => [] }),
+    });
+    const { hasCachedBookFile } = await import("./book-cache");
+
+    expect(hasCachedBookFile("/api/books/files/8/content")).toBe(true);
+    vi.unstubAllGlobals();
+  });
+
+  it("stops claiming a file once it is evicted", async () => {
+    const module = await load(["/api/books/files/7/content"]);
+    expect(module.hasCachedBookFile("/api/books/files/7/content")).toBe(true);
+
+    vi.stubGlobal("caches", {
+      open: async () => ({ delete: async () => true }),
+    });
+    await module.evictBookFile(7, null);
+
+    expect(module.hasCachedBookFile("/api/books/files/7/content")).toBe(false);
+    vi.unstubAllGlobals();
+  });
+});

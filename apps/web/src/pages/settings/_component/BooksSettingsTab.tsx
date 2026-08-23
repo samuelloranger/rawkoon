@@ -25,6 +25,7 @@ import { useMediaPostProcessingSettings } from "@/features/medias/hooks/useMedia
 import { useUpdateMediaPostProcessingSettings } from "@/features/medias/hooks/useUpdateMediaPostProcessingSettings";
 import { useBookQualityProfiles } from "@/pages/books/_hooks/useBooks";
 import { SettingsPageHeader } from "@/pages/settings/_component/SettingsPageHeader";
+import { BookQualityProfilesSection } from "@/pages/settings/_component/BookQualityProfilesSection";
 import { ApiError } from "@/lib/api/client";
 
 /** Radix Select has no empty value, so "no default" needs a sentinel. */
@@ -367,46 +368,7 @@ export function BooksSettingsTab() {
         </Button>
       </CardSection>
 
-      <CardSection
-        title={t("settings.books.profiles.title")}
-        description={t("settings.books.profiles.description")}
-      >
-        {profiles.length === 0 ? (
-          <p className="text-sm text-neutral-400">
-            {t("settings.books.profiles.none")}
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {profiles.map((p) => (
-              // Fixed columns rather than justify-between: with a flexible
-              // gap the same field lands at a different x on every row, which
-              // is the one thing a list of profiles has to make comparable.
-              <li
-                key={p.id}
-                className="grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-1 rounded-lg border border-neutral-700/60 px-3 py-2 sm:grid-cols-[minmax(0,1fr)_88px_1fr_92px]"
-              >
-                <span className="text-sm text-neutral-100">{p.name}</span>
-                <span className="text-xs text-neutral-400">
-                  {t("settings.books.profiles.kind", { kind: p.kind })}
-                </span>
-                {/* Format order is preference, and the arrow says so. */}
-                <span className="font-mono text-[11px] uppercase text-primary-300">
-                  {p.allowed_formats.join(" › ")}
-                </span>
-                <span className="font-mono text-[11px] text-neutral-500 sm:text-right">
-                  {p.cutoff_format
-                    ? t("settings.books.profiles.cutoff", {
-                        format: p.cutoff_format,
-                      })
-                    : t("settings.books.profiles.noCutoff")}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {/* Honest about the gap rather than shipping a half-editor. */}
-        <p className={HINT}>{t("settings.books.profiles.editHint")}</p>
-      </CardSection>
+      <BookQualityProfilesSection />
     </div>
   );
 }

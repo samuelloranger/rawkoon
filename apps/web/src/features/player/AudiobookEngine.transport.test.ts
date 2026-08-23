@@ -383,6 +383,88 @@ describe("AudiobookEngine network errors", () => {
     }
   });
 
+  it("reports the element clock alongside the offset it resumed from", async () => {
+    vi.useFakeTimers();
+    try {
+      const engine = new AudiobookEngine();
+      const reports: Array<Record<string, unknown>> = [];
+      engine.onDiagnostic = (d) =>
+        reports.push(d as unknown as Record<string, unknown>);
+      await engine.load(manifest());
+      await engine.play();
+
+      const audio = audios[0];
+      if (!audio) throw new Error("no element");
+      audio.readyState = 1;
+      audio.currentTime = 112;
+      audio.dispatch("timeupdate");
+
+      audio.currentTime = 0;
+      audio.error = { code: 2 };
+      audio.dispatch("error");
+      await vi.advanceTimersByTimeAsync(600);
+
+      // Loads are journalled too now, so narrow to the error itself.
+      const errors = reports.filter((r) => r.event === "error");
+      // This pair is the whole point: a clock of 0 with a resume offset that
+      // is not 0 proves the fallback held, and the reverse proves a rewind.
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toMatchObject({
+        event: "error",
+        errorCode: 2,
+        currentTime: 0,
+        resumeOffset: 112,
+        retryAttempt: 1,
+        reason: "network-retry",
+        fileId: 1,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // The reported iOS case: locked screen, a chapter entered by natural
+  // boundary crossing (so requestedOffset is 0 for its whole length), and an
+  // element that reports currentTime 0 once it enters the error state — which
+  // is what WebKit does when the connection drops or the service worker
+  // serving the bytes is killed mid-request. Falling back to requestedOffset
+  // then restarts the chapter from its beginning.
+  it("retries from the last position seen, even if the clock reads zero on error", async () => {
+    vi.useFakeTimers();
+    try {
+      const engine = new AudiobookEngine();
+      await engine.load(manifest());
+      await engine.play();
+
+      const audio = audios[0];
+      if (!audio) throw new Error("no element");
+      audio.readyState = 1;
+
+      // Cross into the second file the way playback does, leaving
+      // requestedOffset at 0 for the rest of the chapter.
+      audio.currentTime = 600;
+      audio.dispatch("ended");
+      await vi.advanceTimersByTimeAsync(0);
+      expect(engine.currentFileId()).toBe(2);
+
+      // A minute fifty into the new chapter.
+      audio.currentTime = 112;
+      audio.dispatch("timeupdate");
+
+      // The connection drops and the element forgets where it was.
+      audio.currentTime = 0;
+      audio.error = { code: 2 }; // MEDIA_ERR_NETWORK
+      audio.dispatch("error");
+      await vi.advanceTimersByTimeAsync(600);
+
+      expect(engine.currentFileId()).toBe(2);
+      expect(audio.currentTime).toBe(112);
+      expect(engine.getState().position).toBe(712);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("gives up and skips after the retry budget is spent", async () => {
     vi.useFakeTimers();
     try {
@@ -429,5 +511,91 @@ describe("AudiobookEngine unload", () => {
     await engine.load(manifest());
     await settlesWithin(engine.play());
     expect(contexts).toHaveLength(1);
+  });
+});
+
+// The rewind is still unexplained, and the first round of instrumentation
+// reported nothing because it only fired on errors the engine acts on. These
+// cover the transitions that were invisible: an element that throws its
+// resource away (iOS memory pressure), a stream that ends a file early, and the
+// error codes the engine deliberately ignores.
+describe("AudiobookEngine journal coverage", () => {
+  const collect = async () => {
+    const engine = new AudiobookEngine();
+    const reports: Array<Record<string, unknown>> = [];
+    engine.onDiagnostic = (d) =>
+      reports.push(d as unknown as Record<string, unknown>);
+    await engine.load(manifest());
+    await settlesWithin(engine.play());
+    return { engine, reports };
+  };
+
+  it("names why every load ran", async () => {
+    const { engine, reports } = await collect();
+    engine.seekAbsolute(700); // crosses into the second file
+
+    expect(
+      reports.filter((r) => r.event === "load").map((r) => r.reason),
+    ).toEqual(["open", "seek"]);
+  });
+
+  it("records an emptied element with the readyState that proves it", async () => {
+    const { reports } = await collect();
+    const audio = audios[0];
+    if (!audio) throw new Error("no element");
+    audio.readyState = 1;
+    audio.currentTime = 240;
+    audio.dispatch("timeupdate");
+
+    // What iOS does when it reclaims the resource: clock and readyState to 0.
+    audio.currentTime = 0;
+    audio.readyState = 0;
+    audio.dispatch("emptied");
+
+    const emptied = reports.filter((r) => r.event === "emptied");
+    expect(emptied).toHaveLength(1);
+    expect(emptied[0]).toMatchObject({
+      currentTime: 0,
+      readyState: 0,
+      fileId: 1,
+    });
+    // The position it had before the element forgot is what makes the entry
+    // readable: 0 here would mean the state had already been rewound.
+    expect(emptied[0]?.position).toBe(240);
+  });
+
+  it("records an early end before it advances a file", async () => {
+    const { reports } = await collect();
+    const audio = audios[0];
+    if (!audio) throw new Error("no element");
+    audio.readyState = 1;
+    audio.currentTime = 120; // nowhere near the file's 600s duration
+    audio.dispatch("timeupdate");
+    audio.dispatch("ended");
+
+    const ended = reports.filter((r) => r.event === "ended");
+    expect(ended).toHaveLength(1);
+    // A truncated stream is exactly this: `ended` with the clock far short of
+    // the file's duration, followed by a boundary load into the next file.
+    expect(ended[0]).toMatchObject({ currentTime: 120, fileIndex: 0 });
+    expect(
+      reports.filter((r) => r.event === "load").map((r) => r.reason),
+    ).toEqual(["open", "boundary"]);
+  });
+
+  it("records the errors it deliberately does not act on", async () => {
+    const { engine, reports } = await collect();
+    const audio = audios[0];
+    if (!audio) throw new Error("no element");
+
+    // A src swap mid-seek: code 1, ignored on purpose.
+    audio.error = { code: 1 };
+    audio.dispatch("error");
+
+    const ignored = reports.filter((r) => r.event === "error-ignored");
+    expect(ignored).toHaveLength(1);
+    expect(ignored[0]).toMatchObject({ errorCode: 1 });
+    // Still ignored: the index must not have moved.
+    expect(engine.getState().position).toBeLessThan(600);
   });
 });
