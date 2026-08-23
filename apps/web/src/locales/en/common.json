@@ -2116,6 +2116,9 @@
       "removed": "Download removed",
       "noSpace": "Not enough space to store this book.",
       "failed": "Couldn't download this book."
+    },
+    "audiobookshelf": {
+      "open": "Open in Audiobookshelf"
     }
   }
 }

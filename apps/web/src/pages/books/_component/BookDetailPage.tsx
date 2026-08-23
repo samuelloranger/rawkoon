@@ -22,7 +22,7 @@ import {
 import { useLibraryEvents } from "@/features/medias/hooks/useLibraryEvents";
 import { PageLayout } from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
-import { EditionOpenActions } from "@/features/books/EditionOpenActions";
+import { AudiobookshelfLink } from "@/features/books/AudiobookshelfLink";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -377,9 +377,12 @@ function ReleaseList({
 function EditionPanel({
   bookId,
   edition,
+  title,
 }: {
   bookId: number;
   edition: BookEdition;
+  /** The book's title — the only handle the Audiobookshelf search link has. */
+  title: string;
 }) {
   const { t } = useTranslation("common");
   const update = useUpdateEdition(bookId);
@@ -442,7 +445,7 @@ function EditionPanel({
             <AcquisitionTrack edition={edition} />
           </div>
 
-          <EditionOpenActions bookId={bookId} edition={edition} />
+          <AudiobookshelfLink edition={edition} title={title} />
 
           {/* Only shown once there is something to report: an edition with no
               files rendered "Size —, Files 0", which is noise dressed as data. */}
@@ -833,7 +836,12 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
 
         <div className="mt-4 space-y-4">
           {book.editions.map((e) => (
-            <EditionPanel key={e.id} bookId={book.id} edition={e} />
+            <EditionPanel
+              key={e.id}
+              bookId={book.id}
+              edition={e}
+              title={book.title}
+            />
           ))}
         </div>
       </div>
