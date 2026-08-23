@@ -28,16 +28,27 @@ function ListenRoute() {
     (candidate) => candidate.kind === "audiobook",
   );
 
+  const editionId = edition?.id;
+
+  // Depends on the id, not the edition object.
+  //
+  // `edition` is rebuilt by `.find()` on every render, so the effect re-ran on
+  // every render — and `openEdition` invalidates its own in-flight work through
+  // a request counter, so each re-run made the previous call bail after its
+  // manifest await. Any background re-render (a query refetch, an SSE
+  // reconnect) therefore starved the open indefinitely: the manifest was
+  // fetched, no player ever appeared, and the route sat on "Opening the
+  // player…" forever.
   useEffect(() => {
-    if (!edition) return;
-    if (state.editionId === edition.id) {
+    if (editionId == null) return;
+    if (state.editionId === editionId) {
       setExpanded(true);
       return;
     }
     // Autoplay is refused without a gesture on most platforms; the expanded
     // view opens paused and its play button is the gesture.
-    void openEdition(edition.id, false);
-  }, [edition, openEdition, setExpanded, state.editionId]);
+    void openEdition(editionId, false);
+  }, [editionId, openEdition, setExpanded, state.editionId]);
 
   return (
     <div className="flex min-h-dvh items-center justify-center text-sm text-text-muted">

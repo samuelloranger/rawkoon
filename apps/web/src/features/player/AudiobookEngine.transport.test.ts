@@ -771,3 +771,55 @@ describe("AudiobookEngine single stream while offline", () => {
     }
   });
 });
+
+// Resuming mid-book on a single-stream edition. `locate` was run against the
+// per-file timeline while `loadFile` indexed the one-entry stream timeline, so
+// any saved position past the first file resolved to an index that did not
+// exist, loadFile bailed, and no element was ever created — the player just sat
+// there. Position 0 was the only case that worked, which is why it passed a
+// first test run and failed every one after it.
+describe("AudiobookEngine resuming a single-stream edition", () => {
+  const streamedAt = (position: number): BookManifest =>
+    ({
+      ...manifest(),
+      stream_url: "/api/books/editions/1/stream",
+      progress: { position_secs: position },
+    }) as unknown as BookManifest;
+
+  it("loads when the saved position is past the first file", async () => {
+    const engine = new AudiobookEngine();
+    // 900s lands in the second file of the per-file timeline — the index that
+    // does not exist once the timeline is a single entry.
+    await engine.load(streamedAt(900));
+
+    expect(audios).toHaveLength(1);
+    expect(audios[0]?.src).toBe("/api/books/editions/1/stream");
+    expect(engine.getState().position).toBe(900);
+  });
+
+  it("still loads from the very start", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(streamedAt(0));
+
+    expect(audios).toHaveLength(1);
+    expect(engine.getState().position).toBe(0);
+  });
+
+  it("seeks the element to the resumed position once metadata lands", async () => {
+    const engine = new AudiobookEngine();
+    // Inside the fixture's 1200s duration and past its first 600s file.
+    await engine.load(streamedAt(1100));
+
+    const audio = audios[0];
+    if (!audio) throw new Error("no element");
+    audio.metadataReady(1200);
+    expect(audio.currentTime).toBe(1100);
+  });
+
+  it("clamps a saved position past the end of the book", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(streamedAt(99999));
+
+    expect(engine.getState().position).toBe(1200);
+  });
+});
