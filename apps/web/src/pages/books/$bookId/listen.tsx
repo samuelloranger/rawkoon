@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { getCurrentUser } from "@/lib/auth";
@@ -29,6 +29,15 @@ function ListenRoute() {
   );
 
   const editionId = edition?.id;
+  /**
+   * Which edition this mount has already opened.
+   *
+   * Without it, closing the player here reopened it instantly: `close()` clears
+   * the engine's editionId, this effect saw the change, found it no longer
+   * matched, and opened the edition again — so "Stop listening" could never
+   * take effect while sitting on this route.
+   */
+  const openedFor = useRef<number | null>(null);
 
   // Depends on the id, not the edition object.
   //
@@ -45,6 +54,10 @@ function ListenRoute() {
       setExpanded(true);
       return;
     }
+    // Already opened once on this mount, so the player being gone is a
+    // deliberate close, not a route that has yet to load anything.
+    if (openedFor.current === editionId) return;
+    openedFor.current = editionId;
     // Autoplay is refused without a gesture on most platforms; the expanded
     // view opens paused and its play button is the gesture.
     void openEdition(editionId, false);
