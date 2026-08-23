@@ -273,6 +273,16 @@ export interface BookManifest {
   files: BookManifestFile[];
   /** The file the reader should open: epub > pdf > cbz. Null for audiobooks. */
   primary_file_id: number | null;
+  /**
+   * The whole audiobook as one seekable resource, when it can be served that
+   * way — a single-file edition's own URL, or the concatenating stream route.
+   *
+   * When set, the player treats the edition as one resource and lets the
+   * browser do the seeking and range resumption. Null means the files have to
+   * be stitched into a timeline client-side, which is where scrubbing, the
+   * clock and resume-after-error all used to break.
+   */
+  stream_url: string | null;
   progress: BookProgress | null;
 }
 

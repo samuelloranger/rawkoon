@@ -8,6 +8,7 @@ import {
 } from "@rawkoon/shared/types";
 
 import { getProgress } from "./bookProgress";
+import { isConcatEligible } from "./bookStreamLayout";
 
 /**
  * Reader preference among an ebook edition's files. An edition holding both an
@@ -42,6 +43,9 @@ export const buildManifest = async (
           format: true,
           sizeBytes: true,
           durationSecs: true,
+          // Only used to decide whether the edition can be served as one
+          // concatenated stream; uniform CBR is what makes that valid.
+          audioBitrate: true,
           chapters: {
             select: {
               index: true,
@@ -123,6 +127,21 @@ export const buildManifest = async (
 
   const totalDuration = isAudiobook ? offset : null;
 
+  /**
+   * One seekable resource for the whole edition, when there is one.
+   *
+   * A single-file audiobook already is one — no concatenation needed, and
+   * pointing at the file directly keeps the byte route's caching. Several
+   * uniform CBR mp3s become one through the stream route. Anything else is
+   * null, and the player falls back to stitching a timeline itself.
+   */
+  let streamUrl: string | null = null;
+  if (isAudiobook && files.length === 1) {
+    streamUrl = files[0].content_url;
+  } else if (isAudiobook && isConcatEligible(playable)) {
+    streamUrl = `/api/books/editions/${edition.id}/stream`;
+  }
+
   let primaryFileId: number | null = null;
   if (!isAudiobook) {
     let bestRank = Number.POSITIVE_INFINITY;
@@ -146,6 +165,7 @@ export const buildManifest = async (
     total_duration_secs: totalDuration === 0 ? null : totalDuration,
     files,
     primary_file_id: primaryFileId,
+    stream_url: streamUrl,
     progress: await getProgress(userId, edition.id),
   };
 };
