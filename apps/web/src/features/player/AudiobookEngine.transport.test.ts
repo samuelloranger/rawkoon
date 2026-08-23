@@ -599,3 +599,61 @@ describe("AudiobookEngine journal coverage", () => {
     expect(engine.getState().position).toBeLessThan(600);
   });
 });
+
+// "The back and next buttons do not always work." Assigning currentTime while
+// readyState is HAVE_NOTHING does not seek — the spec makes it set the default
+// playback start position, which only applies to the next load. The state had
+// already been emitted at the new position, so the next timeupdate snapped it
+// back and the press looked ignored. On iOS the element loses its resource
+// often enough for that to be the common case, not the rare one.
+describe("AudiobookEngine seeking an element with no metadata", () => {
+  it("applies a same-file seek once metadata arrives", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(manifest());
+    await settlesWithin(engine.play());
+
+    const audio = audios[0];
+    if (!audio) throw new Error("no element");
+    audio.readyState = 0; // resource reclaimed
+    audio.currentTime = 0;
+
+    engine.seekAbsolute(120);
+    // Nothing can have moved yet — there is no media to seek.
+    expect(audio.currentTime).toBe(0);
+
+    audio.metadataReady();
+    expect(audio.currentTime).toBe(120);
+  });
+
+  it("seeks immediately when the element already has metadata", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(manifest());
+    await settlesWithin(engine.play());
+
+    const audio = audios[0];
+    if (!audio) throw new Error("no element");
+    audio.readyState = 1;
+
+    engine.seekAbsolute(200);
+    expect(audio.currentTime).toBe(200);
+  });
+
+  it("drops a queued seek that a later load has overtaken", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(manifest());
+    await settlesWithin(engine.play());
+
+    const audio = audios[0];
+    if (!audio) throw new Error("no element");
+    audio.readyState = 0;
+
+    engine.seekAbsolute(120); // queued against the first file
+    engine.seekAbsolute(900); // crosses into the second file, so a real load
+
+    // One element does the transport — a later entry in `audios` is the
+    // preload, not the thing playing.
+    // The queued 120 must not drag the new file back to the old file's offset.
+    audio.metadataReady();
+    expect(audio.currentTime).toBe(300); // 900 - the second file's 600 offset
+  });
+});

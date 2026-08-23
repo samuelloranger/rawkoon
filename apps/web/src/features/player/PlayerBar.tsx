@@ -109,6 +109,9 @@ export const PlayerBar = () => {
           </button>
         </div>
 
+        {/* Scoped to the chapter being listened to. Across the whole book a
+            pixel of this rail was about a minute and a half, so a 15s skip did
+            not move the indicator at all and the transport looked dead. */}
         <ChapterRail
           segments={state.chapters.map((c) => ({
             start: c.start,
@@ -117,6 +120,9 @@ export const PlayerBar = () => {
           }))}
           position={state.position}
           total={state.duration}
+          window={
+            chapter ? { start: chapter.start, end: chapter.end } : undefined
+          }
           buffered={state.buffered}
           onSeek={engine.seekAbsolute}
           formatPosition={formatClock}

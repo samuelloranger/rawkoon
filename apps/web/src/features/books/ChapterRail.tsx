@@ -11,6 +11,12 @@ import { cn } from "@/lib/utils";
  *
  * Segments with no known duration fall back to equal widths, so a rail is
  * never blank for a file that was imported without a probe.
+ *
+ * `window` narrows the rail to a sub-range of the timeline. A 9h30m audiobook
+ * across a phone-width rail puts roughly 100 seconds in every pixel, so a 15s
+ * skip moved the indicator by a sixth of a pixel and the button looked broken;
+ * dragging could not land closer than a minute and a half either. Scoped to the
+ * current chapter, a pixel is about a second.
  */
 
 interface RailSegment {
@@ -25,6 +31,11 @@ interface ChapterRailProps {
   /** Current absolute position, in the same unit as the segments. */
   position: number;
   total: number;
+  /**
+   * Restricts the rail to this absolute range. Positions passed to `onSeek` are
+   * still absolute — only what the rail draws and how it maps a pointer change.
+   */
+  window?: { start: number; end: number };
   /** Buffered ranges, absolute. Drawn under the played fill. */
   buffered?: Array<{ start: number; end: number }>;
   orientation?: "horizontal" | "vertical";
@@ -41,6 +52,7 @@ export const ChapterRail = ({
   segments,
   position,
   total,
+  window: viewport,
   buffered = [],
   orientation = "horizontal",
   onSeek,
@@ -55,16 +67,22 @@ export const ChapterRail = ({
 
   const safeTotal = total > 0 ? total : 1;
 
+  // What the rail actually spans. Without a window that is the whole timeline,
+  // which is what every caller but the player wants.
+  const viewStart = viewport ? Math.max(0, viewport.start) : 0;
+  const viewEnd = viewport ? Math.max(viewport.end, viewStart + 1) : safeTotal;
+  const viewSpan = viewEnd - viewStart;
+
   const positionFromEvent = useCallback(
     (clientX: number, clientY: number): number => {
       const rect = trackRef.current?.getBoundingClientRect();
-      if (!rect) return 0;
+      if (!rect) return viewStart;
       const ratio = isVertical
         ? clamp01((clientY - rect.top) / rect.height)
         : clamp01((clientX - rect.left) / rect.width);
-      return ratio * safeTotal;
+      return viewStart + ratio * viewSpan;
     },
-    [isVertical, safeTotal],
+    [isVertical, viewStart, viewSpan],
   );
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -88,31 +106,37 @@ export const ChapterRail = ({
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const step = safeTotal / 100;
+    const step = viewSpan / 100;
     const back = isVertical ? "ArrowUp" : "ArrowLeft";
     const forward = isVertical ? "ArrowDown" : "ArrowRight";
     if (event.key === back) {
       event.preventDefault();
-      onSeek(Math.max(0, position - step));
+      onSeek(Math.max(viewStart, position - step));
     } else if (event.key === forward) {
       event.preventDefault();
-      onSeek(Math.min(safeTotal, position + step));
+      onSeek(Math.min(viewEnd, position + step));
     } else if (event.key === "Home") {
       event.preventDefault();
-      onSeek(0);
+      onSeek(viewStart);
     } else if (event.key === "End") {
       event.preventDefault();
-      onSeek(safeTotal);
+      onSeek(viewEnd);
     }
   };
 
+  const ratioOf = (value: number) => clamp01((value - viewStart) / viewSpan);
+  /** Clipped to the window, so a range that starts before it cannot overhang. */
   const sizeOf = (start: number, end: number) =>
-    `${(clamp01((end - start) / safeTotal) * 100).toFixed(4)}%`;
-  const startOf = (value: number) =>
-    `${(clamp01(value / safeTotal) * 100).toFixed(4)}%`;
+    `${((ratioOf(end) - ratioOf(start)) * 100).toFixed(4)}%`;
+  const startOf = (value: number) => `${(ratioOf(value) * 100).toFixed(4)}%`;
 
   const activeIndex = segments.findIndex(
     (s) => position >= s.start && position < s.end,
+  );
+
+  // Divisions and the hover label only make sense for segments the rail shows.
+  const visibleSegments = segments.filter(
+    (s) => s.end > viewStart && s.start < viewEnd,
   );
 
   return (
@@ -128,8 +152,8 @@ export const ChapterRail = ({
         role="slider"
         tabIndex={0}
         aria-label={ariaLabel}
-        aria-valuemin={0}
-        aria-valuemax={safeTotal}
+        aria-valuemin={viewStart}
+        aria-valuemax={viewEnd}
         aria-valuenow={position}
         aria-valuetext={formatPosition?.(position)}
         aria-orientation={orientation}
@@ -175,11 +199,13 @@ export const ChapterRail = ({
             isVertical
               ? { top: 0, height: startOf(position), left: 0, right: 0 }
               : { left: 0, width: startOf(position), top: 0, bottom: 0 }
+            // startOf is already window-relative, so the fill measures from the
+            // window's own start.
           }
         />
 
         {/* Chapter divisions sit above the fill: the widths are the information. */}
-        {segments.slice(1).map((segment, i) => (
+        {visibleSegments.slice(1).map((segment, i) => (
           <div
             key={`div-${segment.start}-${i}`}
             className="absolute bg-surface-base"
