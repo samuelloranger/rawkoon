@@ -26,37 +26,14 @@ export default defineConfig({
       testMatch: "**/auth.setup.ts",
       use: { storageState: undefined },
     },
-    // The reader harness mounts the component directly and stubs the API, so it
-    // needs no session and must not depend on auth-setup.
-    {
-      name: "reader-harness",
-      testMatch: "**/reader.spec.ts",
-      use: { ...devices["Desktop Chrome"], storageState: undefined },
-    },
-    // iOS Safari is WebKit, and the reader is read on a phone. Chromium accepts
-    // layout WebKit refuses, so this project is not optional.
-    {
-      name: "reader-harness-webkit",
-      testMatch: "**/reader.spec.ts",
-      use: { ...devices["iPhone 14"], storageState: undefined },
-    },
-    // The phone is where the reader is actually used, and where the crash was
-    // reported.
-    {
-      name: "reader-harness-mobile",
-      testMatch: "**/reader.spec.ts",
-      use: { ...devices["Pixel 7"], storageState: undefined },
-    },
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-      testIgnore: "**/reader.spec.ts",
       dependencies: ["auth-setup"],
     },
     {
       name: "mobile-chrome",
       use: { ...devices["Pixel 7"] },
-      testIgnore: "**/reader.spec.ts",
       dependencies: ["auth-setup"],
     },
   ],

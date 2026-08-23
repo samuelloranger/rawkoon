@@ -37,7 +37,6 @@ model User {
   baApiKeys            BaApiKey[]
   mediaRequests        MediaRequest[] @relation("MediaRequestRequester")
   decidedMediaRequests MediaRequest[] @relation("MediaRequestDecider")
-  bookProgress         BookProgress[]
 
   @@map("users")
 }
@@ -851,7 +850,6 @@ model BookEdition {
   bookQualityProfile BookQualityProfile? @relation(fields: [bookQualityProfileId], references: [id], onDelete: SetNull)
   files              BookFile[]
   downloadHistories  DownloadHistory[]
-  progress           BookProgress[]
 
   /// Exactly two possible rows per book: one ebook, one audiobook.
   @@unique([bookId, kind], map: "uq_book_editions_book_kind")
@@ -872,7 +870,6 @@ model BookFile {
   durationSecs Float? @map("duration_secs")
   audioBitrate Int?   @map("audio_bitrate")
   audioCodec   String? @map("audio_codec")
-  chapterCount Int?   @map("chapter_count")
   /// false means "unknown or scan", never "confirmed scan" — which is why
   /// there is no requireRetail profile field. Set from the release title at
   /// import; scan-discovered files have no release title to judge.
@@ -886,60 +883,11 @@ model BookFile {
   scannedAt    DateTime @default(now()) @map("scanned_at")
 
   edition  BookEdition       @relation(fields: [editionId], references: [id], onDelete: Cascade)
-  chapters BookFileChapter[]
 
   @@index([editionId], map: "ix_book_files_edition_id")
   @@index([filePath], map: "ix_book_files_file_path")
   @@index([fileDev, fileIno], map: "ix_book_files_file_dev_ino")
   @@map("book_files")
-}
-
-/// Chapter marks for an audiobook file. `BookFile.chapterCount` is a count with
-/// no offsets, so the player's chapter list cannot be built from it. Filled by
-/// the same probe pass that sets durationSecs; a file with no internal chapters
-/// gets one synthetic chapter spanning it.
-model BookFileChapter {
-  id        Int     @id @default(autoincrement())
-  fileId    Int     @map("file_id")
-  index     Int
-  title     String?
-  startSecs Float   @map("start_secs")
-  endSecs   Float   @map("end_secs")
-
-  file BookFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
-
-  @@unique([fileId, index], map: "uq_book_file_chapters_file_index")
-  @@map("book_file_chapters")
-}
-
-/// One reading/listening position per user per edition. Ebook and audiobook
-/// positions are independent by design — there is no reliable key to map an
-/// epub TOC onto m4b chapter marks.
-model BookProgress {
-  id        Int    @id @default(autoincrement())
-  userId    String @map("user_id")
-  editionId Int    @map("edition_id")
-  /// Ebook: opaque locator — an EPUB CFI, or "page:N" for pdf and cbz.
-  locator   String?
-  /// 0..1. Drives progress bars and finished detection.
-  percent   Float?
-  /// Audiobook: seconds into the edition's flattened timeline.
-  positionSecs Float? @map("position_secs")
-  /// Multi-file audiobook: which BookFile the position lands in.
-  fileId       Int?   @map("file_id")
-  finishedAt   DateTime? @map("finished_at")
-  /// Client clock at write time. Conflict rule: the highest value wins, which
-  /// is what lets an offline client flush a queue without rewinding a position
-  /// set later on another device.
-  clientUpdatedAt DateTime @map("client_updated_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-
-  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  edition BookEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, editionId], map: "uq_book_progress_user_edition")
-  @@index([editionId], map: "ix_book_progress_edition_id")
-  @@map("book_progress")
 }
 
 /// Google Books exposes no author ids, so the name is the key. Homonymous
