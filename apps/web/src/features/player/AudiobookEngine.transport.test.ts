@@ -657,3 +657,117 @@ describe("AudiobookEngine seeking an element with no metadata", () => {
     expect(audio.currentTime).toBe(300); // 900 - the second file's 600 offset
   });
 });
+
+// The architectural fix: served as one seekable resource, the transport stops
+// stitching files and the browser does the seeking. These hold the collapse —
+// if any of them starts failing, the boundary machinery has crept back.
+describe("AudiobookEngine on a single-stream edition", () => {
+  const streamed = (): BookManifest =>
+    ({
+      ...manifest(),
+      stream_url: "/api/books/editions/1/stream",
+    }) as unknown as BookManifest;
+
+  it("loads one source for the whole book", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(streamed());
+
+    expect(audios[0]?.src).toBe("/api/books/editions/1/stream");
+    expect(engine.getState().duration).toBe(1200);
+  });
+
+  it("seeks past what used to be a file boundary without swapping src", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(streamed());
+    await settlesWithin(engine.play());
+
+    const audio = audios[0];
+    if (!audio) throw new Error("no element");
+    audio.readyState = 1;
+    const srcBefore = audio.src;
+
+    // 900 lands in what was the second file. On one resource it is just a
+    // position: no load, no metadata wait, no offset arithmetic.
+    engine.seekAbsolute(900);
+
+    expect(audio.src).toBe(srcBefore);
+    expect(audio.currentTime).toBe(900);
+    expect(engine.getState().position).toBe(900);
+  });
+
+  it("reports positions absolutely, straight from the element", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(streamed());
+    await settlesWithin(engine.play());
+
+    const audio = audios[0];
+    if (!audio) throw new Error("no element");
+    audio.currentTime = 754;
+    audio.dispatch("timeupdate");
+
+    // Previously this was file.offset + currentTime, and the offset was only
+    // right if the correct file happened to be loaded.
+    expect(engine.getState().position).toBe(754);
+  });
+
+  it("preloads nothing, because there is no next file", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(streamed());
+    await settlesWithin(engine.play());
+
+    // One element total: the transport. The multi-file path builds a second
+    // one to warm the next file's connection.
+    expect(audios).toHaveLength(1);
+  });
+
+  it("treats ended as the end of the book, not a boundary", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(streamed());
+    await settlesWithin(engine.play());
+
+    audios[0]?.dispatch("ended");
+
+    // The truncated-stream trap: on the multi-file path an early `ended`
+    // silently advanced a chapter. Here it can only mean completion.
+    expect(engine.getState().completed).toBe(true);
+    expect(engine.getState().playing).toBe(false);
+    expect(audios).toHaveLength(1);
+  });
+
+  it("stops claiming a file for the position", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(streamed());
+
+    // Absolute across one resource, so no single BookFile describes it.
+    expect(engine.currentFileId()).toBeNull();
+  });
+
+  it("still stitches a timeline when no stream is offered", async () => {
+    const engine = new AudiobookEngine();
+    await engine.load(manifest());
+    await settlesWithin(engine.play());
+
+    expect(audios[0]?.src).toBe("/api/books/files/1/content");
+    expect(engine.currentFileId()).toBe(1);
+  });
+});
+
+describe("AudiobookEngine single stream while offline", () => {
+  it("keeps the per-file timeline, which is what the cache holds", async () => {
+    const onLine = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    try {
+      const engine = new AudiobookEngine();
+      await engine.load({
+        ...manifest(),
+        stream_url: "/api/books/editions/1/stream",
+      } as unknown as BookManifest);
+
+      // The worker stores downloaded books by file id, so requesting the
+      // stream offline would miss a cache that has every byte of the book.
+      expect(audios[0]?.src).toBe("/api/books/files/1/content");
+      expect(engine.currentFileId()).toBe(1);
+    } finally {
+      onLine.mockRestore();
+    }
+  });
+});

@@ -5,7 +5,17 @@ import { requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound } from "@rawkoon/api/errors";
 import { parseByteRange } from "@rawkoon/shared/utils";
-import { buildManifest } from "@rawkoon/api/services/books/bookManifest";
+import {
+  buildManifest,
+  naturalCompare,
+} from "@rawkoon/api/services/books/bookManifest";
+import {
+  buildStreamLayout,
+  isConcatEligible,
+  sliceLayout,
+  type StreamLayout,
+} from "@rawkoon/api/services/books/bookStreamLayout";
+import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
 import { listReading } from "@rawkoon/api/services/books/bookReading";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import {
@@ -145,6 +155,123 @@ export const bookReadRoutes = new Elysia()
       });
     },
     { params: t.Object({ fileId: t.Numeric() }) },
+  )
+
+  /**
+   * A multi-file audiobook as one seekable resource.
+   *
+   * The player used to flatten N files into a virtual timeline in JavaScript,
+   * swapping `src` at every boundary and queueing seeks on `loadedmetadata`.
+   * Scrubbing, the clock and resume-after-error all broke in that seam. Served
+   * as one stream, the browser does the seeking and the range resumption
+   * itself, natively, and gets none of it wrong.
+   *
+   * Only for editions whose files concatenate into a valid stream — uniform CBR
+   * mp3. Everything else 404s here and keeps the per-file path.
+   */
+  .get(
+    "/editions/:editionId/stream",
+    async ({ params, request, set }) => {
+      const rows = await prisma.bookFile.findMany({
+        where: { editionId: params.editionId },
+        select: {
+          id: true,
+          filePath: true,
+          fileName: true,
+          format: true,
+          audioBitrate: true,
+        },
+      });
+      if (rows.length === 0) return notFound(set, "Edition has no files");
+
+      // Name order IS the timeline, exactly as the manifest builds it. Reusing
+      // naturalCompare is load-bearing: a different order here would serve
+      // chapters in one sequence and place them at another's offsets.
+      const files = [...rows].sort((a, b) =>
+        naturalCompare(a.fileName, b.fileName),
+      );
+      if (!isConcatEligible(files)) {
+        return notFound(set, "This edition is not served as a single stream");
+      }
+
+      // 83 stat+open calls is far too much to repeat per range request, and a
+      // player issues many. Short TTL rather than none, so a re-import is
+      // picked up without an explicit invalidation.
+      const cacheKey = `books:stream:layout:${params.editionId}`;
+      let layout = await getJsonCache<StreamLayout>(cacheKey);
+      if (!layout) {
+        layout = await buildStreamLayout(files);
+        if (layout.parts.length === 0) {
+          return notFound(set, "Edition has no readable audio");
+        }
+        await setJsonCache(cacheKey, layout, 300);
+      }
+
+      const size = layout.totalBytes;
+      const baseHeaders: Record<string, string> = {
+        "Content-Type": "audio/mpeg",
+        "Accept-Ranges": "bytes",
+        ETag: layout.etag,
+        "Cache-Control": "private, max-age=31536000",
+      };
+
+      if (request.headers.get("if-none-match") === layout.etag) {
+        return new Response(null, { status: 304, headers: baseHeaders });
+      }
+
+      // A conditional range is a resumed transfer: if the files changed since
+      // the client last saw them, stitching new bytes onto its old buffer would
+      // hand the decoder a corrupt stream.
+      const ifRange = request.headers.get("if-range");
+      const rangeIsSafe = !ifRange || ifRange === layout.etag;
+      const range = rangeIsSafe
+        ? parseRange(request.headers.get("range"), size)
+        : null;
+
+      if (range === "unsatisfiable") {
+        return new Response(null, {
+          status: 416,
+          headers: { ...baseHeaders, "Content-Range": `bytes */${size}` },
+        });
+      }
+
+      const start = range ? range.start : 0;
+      const end = range ? range.end : size - 1;
+      const slices = sliceLayout(layout, start, end);
+
+      const body = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          try {
+            for (const slice of slices) {
+              const chunk = Bun.file(slice.path).slice(slice.start, slice.end);
+              const reader = chunk.stream().getReader();
+              for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                controller.enqueue(value);
+              }
+            }
+            controller.close();
+          } catch (e) {
+            // A client that seeks away mid-response aborts the stream; that is
+            // normal and must not be logged as a failure.
+            controller.error(e);
+          }
+        },
+      });
+
+      return new Response(body, {
+        status: range ? 206 : 200,
+        headers: {
+          ...baseHeaders,
+          "Content-Length": String(end - start + 1),
+          ...(range
+            ? { "Content-Range": `bytes ${start}-${end}/${size}` }
+            : {}),
+        },
+      });
+    },
+    { params: t.Object({ editionId: t.Numeric() }) },
   )
 
   .get(

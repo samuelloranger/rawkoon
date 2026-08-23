@@ -170,6 +170,15 @@ const prefersNoPreload = (): boolean => {
   }
 };
 
+/** Absent in some test DOMs, and a missing navigator must not mean "offline". */
+const isOnline = (): boolean => {
+  try {
+    return navigator.onLine !== false;
+  } catch {
+    return true;
+  }
+};
+
 type Listener = () => void;
 
 /**
@@ -267,6 +276,17 @@ export class AudiobookEngine {
    * those two, a dropped connection restarted the chapter from its beginning.
    */
   private lastSeenOffset = 0;
+  /**
+   * True when the edition is served as one seekable resource.
+   *
+   * The timeline then holds a single entry spanning the whole book, so every
+   * path that used to handle boundaries degenerates on its own: `locate` always
+   * resolves to entry zero, nothing preloads, `ended` can only mean the book
+   * ended, and a seek is a plain `currentTime` write the browser resolves with
+   * its own range request. That collapse is the point — scrubbing, the clock
+   * and resume-after-error all used to break in the stitching.
+   */
+  private singleStream = false;
   private networkRetries = 0;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly noPreload = prefersNoPreload();
@@ -665,7 +685,28 @@ export class AudiobookEngine {
 
   load = async (manifest: BookManifest, startAt?: number) => {
     const { timeline, chapters, duration } = buildTimeline(manifest.files);
-    this.timeline = timeline;
+    const total = manifest.total_duration_secs ?? duration;
+
+    // Chapters still come from the files — they are already absolute marks on
+    // the edition's timeline — but the transport gets one entry, not N.
+    //
+    // Offline is the exception, and deliberately so: the service worker stores
+    // downloaded books keyed by file id, so the stream URL is not in its cache
+    // and asking for it offline would fail where the per-file path succeeds.
+    // Until the worker caches the stream as one resource, a downloaded book
+    // keeps the timeline it was downloaded as.
+    this.singleStream = manifest.stream_url != null && isOnline();
+    this.timeline = this.singleStream
+      ? [
+          {
+            id: manifest.files[0]?.id ?? 0,
+            url: manifest.stream_url as string,
+            offset: 0,
+            duration: total,
+            name: manifest.title,
+          },
+        ]
+      : timeline;
     this.networkRetries = 0;
     this.clearRetry();
 
@@ -676,7 +717,7 @@ export class AudiobookEngine {
       authors: manifest.authors,
       narrators: manifest.narrators,
       coverUrl: manifest.cover_url,
-      duration: manifest.total_duration_secs ?? duration,
+      duration: total,
       chapters,
       error: null,
       buffered: [],
@@ -795,7 +836,13 @@ export class AudiobookEngine {
 
   clearError = () => this.emit({ error: null });
 
-  currentFileId = (): number | null => this.file?.id ?? null;
+  /**
+   * Null for a single-stream edition: the position is absolute across the whole
+   * book, so naming one BookFile for it would be a lie. Progress keeps the
+   * column nullable for exactly this.
+   */
+  currentFileId = (): number | null =>
+    this.singleStream ? null : (this.file?.id ?? null);
 
   unload = () => {
     // Orphan every in-flight operation before tearing the element down.
@@ -825,6 +872,7 @@ export class AudiobookEngine {
     this.fileIndex = 0;
     this.requestedOffset = 0;
     this.lastSeenOffset = 0;
+    this.singleStream = false;
     this.emit({ ...EMPTY_STATE, rate: this.state.rate });
   };
 }
