@@ -77,12 +77,10 @@ media through a nullable edition reference, with a check constraint and a
 second, disjoint partial unique index so a book grab and a media grab are
 constrained independently. See [Books and audiobooks](/library/books).
 
-Books are also read and played in the browser. A single Range-capable endpoint
-serves file bytes to the reader, the player, and the service worker cache alike,
-so an offline download is one stored response rather than a second delivery
-path. <code>BookProgress</code> holds one position per user and edition, written
-by a conditional upsert that keeps the newest client clock — the rule that lets
-a device flush positions queued offline without rewinding one set since.
+Playback and reading belong to Audiobookshelf, which is pointed at the same
+library folders Rawkoon imports into. Rawkoon stores only a base URL and two
+library IDs and renders a deep link per edition; it holds no reading state and
+never calls the Audiobookshelf API.
 
 ## Download lifecycle
 
