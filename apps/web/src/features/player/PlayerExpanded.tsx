@@ -140,6 +140,9 @@ export const PlayerExpanded = () => {
           </div>
 
           <div>
+            {/* Chapter-scoped, same reason as the bar: the whole-book rail
+                could not resolve a 15s skip, and dragging could not land
+                closer than a minute and a half. */}
             <ChapterRail
               segments={state.chapters.map((c) => ({
                 start: c.start,
@@ -148,6 +151,9 @@ export const PlayerExpanded = () => {
               }))}
               position={state.position}
               total={state.duration}
+              window={
+                chapter ? { start: chapter.start, end: chapter.end } : undefined
+              }
               buffered={state.buffered}
               onSeek={engine.seekAbsolute}
               formatPosition={formatClock}

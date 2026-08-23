@@ -388,6 +388,34 @@ export class AudiobookEngine {
     return this.requestedOffset;
   }
 
+  /**
+   * Moves the element's clock, waiting for metadata if it has none yet.
+   *
+   * Assigning `currentTime` while readyState is HAVE_NOTHING does not seek —
+   * the spec makes it set the default playback start position instead, which
+   * only takes effect on the next load. The state had already been emitted at
+   * the new position, so the next `timeupdate` snapped it back and the skip
+   * buttons looked like they had done nothing. Which is exactly what happens
+   * on iOS once the element's resource has been reclaimed.
+   */
+  private applySeek(audio: HTMLAudioElement, offset: number) {
+    if (audio.readyState >= 1) {
+      audio.currentTime = offset;
+      return;
+    }
+    const generation = this.generation;
+    audio.addEventListener(
+      "loadedmetadata",
+      () => {
+        // A newer load or seek owns the element now; honouring this one would
+        // drag it back to a position the listener has already left.
+        if (generation !== this.generation) return;
+        audio.currentTime = offset;
+      },
+      { once: true },
+    );
+  }
+
   private clearRetry() {
     if (this.retryTimer != null) {
       clearTimeout(this.retryTimer);
@@ -713,7 +741,7 @@ export class AudiobookEngine {
     }
     this.requestedOffset = at.offset;
     this.lastSeenOffset = at.offset;
-    if (this.audio) this.audio.currentTime = at.offset;
+    if (this.audio) this.applySeek(this.audio, at.offset);
     this.emit({
       position: clamped,
       chapterIndex: chapterIndexAt(this.state.chapters, clamped),

@@ -146,3 +146,126 @@ describe("ChapterRail", () => {
     ).toBeInTheDocument();
   });
 });
+
+// A 9h30m audiobook across a phone-width rail puts about 100 seconds in every
+// pixel: a 15s skip moved the indicator by a sixth of a pixel, so the transport
+// looked broken, and a drag could not land closer than a minute and a half.
+// Windowing the rail to the chapter is what makes those controls legible.
+describe("ChapterRail windowed to a chapter", () => {
+  const chapter = { start: 600, end: 1800 };
+
+  it("measures the fill from the window's start, not the book's", () => {
+    const { container } = render(
+      <ChapterRail
+        segments={segments}
+        position={900}
+        total={1800}
+        window={chapter}
+        onSeek={() => {}}
+        ariaLabel="Position"
+      />,
+    );
+
+    // 900 is halfway through the book but a quarter of the way into a chapter
+    // running 600..1800. The whole point is that it reads as the latter.
+    const fill = container.querySelector(".bg-primary-600") as HTMLElement;
+    expect(fill.style.width).toBe("25.0000%");
+  });
+
+  it("reports the window as its range to assistive technology", () => {
+    render(
+      <ChapterRail
+        segments={segments}
+        position={900}
+        total={1800}
+        window={chapter}
+        onSeek={() => {}}
+        ariaLabel="Position"
+      />,
+    );
+
+    const slider = screen.getByRole("slider", { name: "Position" });
+    expect(slider).toHaveAttribute("aria-valuemin", "600");
+    expect(slider).toHaveAttribute("aria-valuemax", "1800");
+  });
+
+  // The step is what makes an arrow key worth pressing: 1% of the book is
+  // several minutes, 1% of a chapter is a few seconds.
+  it("steps by a percent of the chapter and stays inside it", () => {
+    const onSeek = vi.fn();
+    render(
+      <ChapterRail
+        segments={segments}
+        position={900}
+        total={1800}
+        window={chapter}
+        onSeek={onSeek}
+        ariaLabel="Position"
+      />,
+    );
+
+    const slider = screen.getByRole("slider", { name: "Position" });
+    fireEvent.keyDown(slider, { key: "ArrowRight" });
+    expect(onSeek).toHaveBeenCalledWith(912); // 900 + 1200/100
+
+    fireEvent.keyDown(slider, { key: "Home" });
+    expect(onSeek).toHaveBeenLastCalledWith(600);
+
+    fireEvent.keyDown(slider, { key: "End" });
+    expect(onSeek).toHaveBeenLastCalledWith(1800);
+  });
+
+  it("clips a buffered range that starts before the window", () => {
+    const { container } = render(
+      <ChapterRail
+        segments={segments}
+        position={900}
+        total={1800}
+        window={chapter}
+        buffered={[{ start: 0, end: 1200 }]}
+        onSeek={() => {}}
+        ariaLabel="Position"
+      />,
+    );
+
+    // Buffered 0..1200 overlaps the window by 600..1200, which is half of it.
+    // Unclipped this overhung the rail.
+    const range = container.querySelector(".bg-neutral-700") as HTMLElement;
+    expect(range.style.left).toBe("0.0000%");
+    expect(range.style.width).toBe("50.0000%");
+  });
+
+  it("draws no division for a chapter the window does not show", () => {
+    const { container } = render(
+      <ChapterRail
+        segments={segments}
+        position={900}
+        total={1800}
+        window={chapter}
+        onSeek={() => {}}
+        ariaLabel="Position"
+      />,
+    );
+
+    // Only the second segment is visible, so there is no boundary to draw
+    // inside the rail.
+    expect(container.querySelector(".bg-surface-base")).toBeNull();
+  });
+
+  // Every other caller — the reader's vertical rail included — must be
+  // untouched by this.
+  it("spans the whole timeline with no window", () => {
+    const { container } = render(
+      <ChapterRail
+        segments={segments}
+        position={900}
+        total={1800}
+        onSeek={() => {}}
+        ariaLabel="Position"
+      />,
+    );
+
+    const fill = container.querySelector(".bg-primary-600") as HTMLElement;
+    expect(fill.style.width).toBe("50.0000%");
+  });
+});
