@@ -15,9 +15,6 @@ import { RouteDataRefetcher } from "@/components/RouteDataRefetcher";
 import { useAutoSubscribeNotifications } from "@/lib/notifications/useAutoSubscribeNotifications";
 import { LibraryNavigationProvider } from "@/features/medias/context/LibraryNavigationContext";
 import { ConfirmProvider } from "@/components/confirm/ConfirmContext";
-import { PlayerProvider } from "@/features/player/PlayerProvider";
-import { PlayerBar } from "@/features/player/PlayerBar";
-import { PlayerExpanded } from "@/features/player/PlayerExpanded";
 import { useNavPosition } from "@/pages/settings/useNavPosition";
 
 interface RouterContext {
@@ -45,51 +42,46 @@ function RootLayout() {
   return (
     <ConfirmProvider>
       <LibraryNavigationProvider>
-        <PlayerProvider>
-          <ScrollRestoration />
-          {shouldShowNav && (
-            <>
-              {/*
+        <ScrollRestoration />
+        {shouldShowNav && (
+          <>
+            {/*
               Visible only once focused, so keyboard users can jump the sidebar
               instead of tabbing every nav item on every route change.
             */}
-              <a
-                href="#main-content"
-                className="focus-ring sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[var(--z-tooltip)] focus:rounded-lg focus:bg-neutral-800 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-neutral-50"
-              >
-                {t("a11y.skipToContent")}
-              </a>
-              <Sidebar
-                position={position}
-                onOpenQuickActions={() => setIsQuickActionsOpen(true)}
-              />
-            </>
-          )}
-          <div className={shouldShowNav ? contentPadding[position] : ""}>
-            <main
-              id="main-content"
-              tabIndex={-1}
-              className={`user min-h-full flex-1 flex flex-col ${isSettings ? "pb-0 min-h-screen" : "pb-10"}`}
+            <a
+              href="#main-content"
+              className="focus-ring sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[var(--z-tooltip)] focus:rounded-lg focus:bg-neutral-800 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-neutral-50"
             >
-              <RouteDataRefetcher />
-              <PageTransition />
-            </main>
-          </div>
-          <QuickActionPalette
-            isOpen={isQuickActionsOpen}
-            onOpen={() => setIsQuickActionsOpen(true)}
-            onClose={() => setIsQuickActionsOpen(false)}
-          />
-          <NotificationPermissionModal
-            isOpen={showModal}
-            onAllow={handleAllow}
-            onDismiss={handleDismiss}
-          />
-          <Toaster position="bottom-center" richColors />
-          {/* Outside the routed content so playback survives every navigation. */}
-          <PlayerBar />
-          <PlayerExpanded />
-        </PlayerProvider>
+              {t("a11y.skipToContent")}
+            </a>
+            <Sidebar
+              position={position}
+              onOpenQuickActions={() => setIsQuickActionsOpen(true)}
+            />
+          </>
+        )}
+        <div className={shouldShowNav ? contentPadding[position] : ""}>
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className={`user min-h-full flex-1 flex flex-col ${isSettings ? "pb-0 min-h-screen" : "pb-10"}`}
+          >
+            <RouteDataRefetcher />
+            <PageTransition />
+          </main>
+        </div>
+        <QuickActionPalette
+          isOpen={isQuickActionsOpen}
+          onOpen={() => setIsQuickActionsOpen(true)}
+          onClose={() => setIsQuickActionsOpen(false)}
+        />
+        <NotificationPermissionModal
+          isOpen={showModal}
+          onAllow={handleAllow}
+          onDismiss={handleDismiss}
+        />
+        <Toaster position="bottom-center" richColors />
       </LibraryNavigationProvider>
     </ConfirmProvider>
   );

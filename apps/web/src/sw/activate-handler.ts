@@ -1,6 +1,5 @@
 import { sw } from "./sw";
 import { CACHE_VERSION } from "./constants";
-import { BOOK_CACHE } from "./book-cache";
 
 // Activate event handler - clean up old caches
 export function handleActivate(event: ExtendableEvent): void {
@@ -12,11 +11,11 @@ export function handleActivate(event: ExtendableEvent): void {
       caches.keys().then((cacheNames) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
-            // Keep the current CACHE_VERSION cache, and the book cache, which
-            // holds files a user explicitly downloaded: eviction there is the
-            // user's decision, so an app release must not wipe it.
-            // Delete old API caches since we don't use them anymore
-            if (cacheName !== CACHE_VERSION && cacheName !== BOOK_CACHE) {
+            // Keep only the current CACHE_VERSION cache. Everything else is
+            // stale — including "rawkoon-books", the offline store of the
+            // removed in-app player, which this drops on the first activation
+            // after the upgrade.
+            if (cacheName !== CACHE_VERSION) {
               console.log(`Deleting old cache: ${cacheName}`);
               return caches.delete(cacheName);
             }
