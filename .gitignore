@@ -89,3 +89,6 @@ apps/api/public/
 # VitePress generated files
 docs/.vitepress/cache/
 docs/.vitepress/dist/
+
+# Playwright run artifacts
+e2e-results/
