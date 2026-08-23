@@ -8,7 +8,7 @@
  * functions the web add flow and the post-processor use:
  *
  *   addBookFromVolume()  -> library_books + authors + book_authors + editions
- *   postProcessBook()    -> template layout, probe, book_files + chapters
+ *   postProcessBook()    -> template layout, probe, book_files
  *
  * so a backfilled row is indistinguishable from a downloaded one.
  *
@@ -64,7 +64,7 @@ interface Source {
    * runs as uid 1000, and an author directory owned by root makes the template
    * mkdir fail with EACCES. Registering in place keeps the book usable — only
    * its path is off-template — and moves nothing on disk. Ebook only: an
-   * audiobook needs the MediaInfo pass for duration, narrators and chapters,
+   * audiobook needs the MediaInfo pass for duration and narrators,
    * which is postProcessBook's job.
    */
   inPlace?: boolean;
@@ -713,7 +713,7 @@ async function describeDestinations(entries: Entry[]): Promise<void> {
  * Populates the same columns postProcessBook fills for an ebook — size,
  * format, language tags, and the dev/ino/mtime identity that lets a later
  * rescan skip re-probing — and nothing more: duration, bitrate, codec,
- * chapters and narrators are audio-only concerns. Idempotent by path, the
+ * narrators are an audio-only concern. Idempotent by path, the
  * same way postProcessBook is.
  */
 async function registerInPlace(
