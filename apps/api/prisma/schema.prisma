@@ -948,6 +948,10 @@ model Author {
   monitored            Boolean  @default(false)
   monitorFrom          DateTime? @map("monitor_from")
   monitorEditionKinds  String[] @default([]) @map("monitor_edition_kinds")
+  /// ISO 639-1. Which languages a new title has to be in to be added. Empty
+  /// means any language — a book is one language (see LibraryBook.language),
+  /// so following an author without this pulled every translation of a title.
+  monitorLanguages     String[] @default([]) @map("monitor_languages")
   bookQualityProfileId Int?     @map("book_quality_profile_id")
   lastCheckedAt        DateTime? @map("last_checked_at")
   addedAt              DateTime @default(now()) @map("added_at")

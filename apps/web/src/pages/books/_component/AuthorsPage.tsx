@@ -5,6 +5,8 @@ import type { Author, BookEditionKind } from "@rawkoon/shared/types";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { Switch } from "@/components/ui/switch";
+import { MultiSelect } from "@/pages/settings/_component/QualityProfileMultiSelect";
+import { SEARCH_TITLE_LANGUAGE_OPTIONS } from "@/pages/settings/_component/QualityProfileForm";
 import { useAuthors, useUpdateAuthor } from "../_hooks/useBooks";
 
 const KINDS: BookEditionKind[] = ["ebook", "audiobook"];
@@ -143,6 +145,23 @@ function AuthorRow({ author }: { author: Author }) {
                   </button>
                 );
               })}
+            </div>
+          )}
+
+          {/* Which language a new title has to be in. A book is one language,
+              not one edition per language, so following an author without this
+              collected every translation of every title. Empty means any. */}
+          {author.monitored && (
+            <div className="shrink-0 sm:w-[190px]">
+              <MultiSelect
+                label={t("books.authors.languagesLabel")}
+                placeholder={t("books.authors.anyLanguage")}
+                options={SEARCH_TITLE_LANGUAGE_OPTIONS}
+                selected={author.monitor_languages}
+                onChange={(next) =>
+                  update.mutate({ id: author.id, monitor_languages: next })
+                }
+              />
             </div>
           )}
 

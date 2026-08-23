@@ -499,6 +499,7 @@
     "quickActionsSearchCollections": "Rechercher dans les médias, tâches et chores",
     "quickActionsLoadingResults": "Recherche dans votre contenu...",
     "quickActionsSectionActions": "Pages et actions",
+    "quickActionsSectionBooks": "Livres",
     "quickActionsSectionMedias": "Médias",
     "quickActionsSectionUsers": "Utilisateurs",
     "create": "Créer",
@@ -885,7 +886,9 @@
           "missing_file_paths": "Chemins de fichiers manquants",
           "stale_tmdb_statuses": "Statuts TMDB obsolètes",
           "episode_number_mismatches": "Épisodes incohérents",
-          "episode_duration_mismatches": "Durées incohérentes"
+          "episode_duration_mismatches": "Durées incohérentes",
+          "downloaded_book_editions_without_files": "Livres téléchargés sans fichier",
+          "missing_book_file_paths": "Chemins de fichiers de livres manquants"
         },
         "kinds": {
           "downloaded_media_without_files": "Média téléchargé sans fichier",
@@ -893,7 +896,9 @@
           "missing_file_path": "Chemin de fichier manquant",
           "stale_tmdb_status": "Statut TMDB obsolète",
           "episode_number_mismatch": "Numéro d'épisode incohérent",
-          "episode_duration_mismatch": "Durée d'épisode incohérente"
+          "episode_duration_mismatch": "Durée d'épisode incohérente",
+          "downloaded_book_edition_without_files": "Livre téléchargé sans fichier",
+          "missing_book_file_path": "Chemin de fichier de livre manquant"
         }
       },
       "schedule": "Planification :",
@@ -1305,16 +1310,50 @@
         "save": "Enregistrer les réglages de fichiers",
         "saved": "Réglages de fichiers enregistrés",
         "saveFailed": "Impossible d’enregistrer ces réglages."
-      },
-      "profiles": {
-        "title": "Profils de qualité des livres",
-        "description": "Quels formats sont autorisés, et lequel suffit pour arrêter les mises à niveau.",
-        "kind": "{{kind}}",
-        "cutoff": "seuil {{format}}",
-        "noCutoff": "aucun seuil",
-        "none": "Aucun profil pour le moment.",
-        "editHint": "La modification des profils n’est pas encore dans l’interface ; les points d’accès /api/book-quality-profiles acceptent les changements."
       }
+    },
+    "bookQualityProfiles": {
+      "title": "Profils de qualité des livres",
+      "description": "Quels formats sont permis, par ordre de préférence, et lequel est assez bon pour arrêter les améliorations.",
+      "create": "Nouveau profil",
+      "createTitle": "Nouveau profil de qualité",
+      "editTitle": "Modifier le profil de qualité",
+      "edit": "Modifier",
+      "formDescription": "Les formats sont classés : le premier est le meilleur. Le format de coupure est celui qui met fin aux améliorations.",
+      "empty": "Aucun profil pour le moment.",
+      "loadError": "Impossible de charger les profils de qualité des livres.",
+      "name": "Nom",
+      "namePlaceholder": "Livre numérique standard",
+      "kind": "S'applique à",
+      "kinds": {
+        "ebook": "Livres numériques",
+        "audiobook": "Livres audio",
+        "both": "Livres numériques et audio"
+      },
+      "allowedFormats": "Formats permis, meilleur en premier",
+      "formatsHint": "Une version dans aucun de ces formats est rejetée.",
+      "noFormats": "Aucun format sélectionné — ajoutez-en au moins un.",
+      "moveUp": "Monter",
+      "moveDown": "Descendre",
+      "cutoff": "Format de coupure",
+      "noCutoff": "Aucune coupure",
+      "cutoffHint": "Atteindre ce format arrête les recherches d'amélioration.",
+      "preferRetail": "Préférer les versions retail",
+      "preferRetailHint": "Un bonus, jamais une exigence : la plupart des versions réelles n'ont aucun marqueur retail.",
+      "minSeeders": "Sources minimales",
+      "maxSizeMb": "Taille maximale (Mo)",
+      "minAudioBitrate": "Débit minimal (kb/s)",
+      "noLimit": "Aucune limite",
+      "preferredLanguages": "Langues préférées",
+      "anyLanguage": "Toutes les langues",
+      "retailPreferred": "Retail préféré",
+      "name_required": "Un nom est requis.",
+      "formats_required": "Sélectionnez au moins un format.",
+      "saveSuccess": "Profil enregistré.",
+      "saveError": "Impossible d'enregistrer le profil.",
+      "deleteConfirm": "Supprimer le profil « {{name}} » ? Les éditions qui l'utilisent reviennent aux valeurs par défaut.",
+      "deleteSuccess": "Profil supprimé.",
+      "deleteError": "Impossible de supprimer le profil."
     }
   },
   "medias": {
@@ -1931,6 +1970,10 @@
       "addEdition": "Ajouter l’édition {{kind}}",
       "remove": "Retirer",
       "removeConfirm": "Retirer « {{title}} » de la bibliothèque ? Les fichiers sur le disque sont conservés.",
+      "removeConfirmAction": "Retirer le livre",
+      "removing": "Retrait…",
+      "removed": "« {{title}} » a été retiré de la bibliothèque.",
+      "removeFailed": "Impossible de retirer ce livre.",
       "editionsHeading": "Éditions"
     },
     "track": {
@@ -1996,6 +2039,8 @@
       "checkedLabel": "Dernière vérification",
       "neverChecked": "jamais",
       "kindsLabel": "Éditions à ajouter",
+      "languagesLabel": "Langues",
+      "anyLanguage": "Toutes les langues",
       "monitorToggle": "Surveiller {{name}}"
     },
     "status": {

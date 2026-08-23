@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { LibraryHealthLog } from "@rawkoon/shared/types";
+import { useFeatures } from "@/lib/routing/useFeatures";
 import { getLibraryHealthRunStatusColor } from "./jobsUtils";
 
 export function LibraryHealthCard({
@@ -12,6 +13,7 @@ export function LibraryHealthCard({
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const { data: features } = useFeatures();
   const issueCount = latest?.summary.total_issues ?? 0;
   const metrics: Array<[string, number]> = latest
     ? [
@@ -24,6 +26,20 @@ export function LibraryHealthCard({
           latest.summary.downloaded_episodes_without_files,
         ],
         ["missing_file_paths", latest.summary.missing_file_paths],
+        // Book rows would read as broken counters on a movies-only install,
+        // where the collectors deliberately never run.
+        ...(features?.books_enabled
+          ? ([
+              [
+                "downloaded_book_editions_without_files",
+                latest.summary.downloaded_book_editions_without_files,
+              ],
+              [
+                "missing_book_file_paths",
+                latest.summary.missing_book_file_paths,
+              ],
+            ] as Array<[string, number]>)
+          : []),
         ["stale_tmdb_statuses", latest.summary.stale_tmdb_statuses],
         ["episode_number_mismatches", latest.summary.episode_number_mismatches],
         [
@@ -122,7 +138,7 @@ export function LibraryHealthCard({
                   <div className="mt-2 space-y-1.5 max-h-72 overflow-y-auto">
                     {latest.issues.slice(0, 100).map((issue, index) => (
                       <div
-                        key={`${issue.kind}-${issue.media_id ?? ""}-${issue.episode_id ?? ""}-${issue.media_file_id ?? ""}-${index}`}
+                        key={`${issue.kind}-${issue.media_id ?? ""}-${issue.episode_id ?? ""}-${issue.media_file_id ?? ""}-${issue.book_edition_id ?? ""}-${issue.book_file_id ?? ""}-${index}`}
                         className="rounded-md bg-neutral-800 border border-neutral-700 px-3 py-2 text-xs"
                       >
                         <div className="font-medium text-neutral-100">

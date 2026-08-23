@@ -19,6 +19,8 @@ export function libraryHealthEmptySummary(): LibraryHealthSummary {
     downloaded_media_without_files: 0,
     downloaded_episodes_without_files: 0,
     missing_file_paths: 0,
+    downloaded_book_editions_without_files: 0,
+    missing_book_file_paths: 0,
     stale_tmdb_statuses: 0,
     episode_number_mismatches: 0,
     episode_duration_mismatches: 0,
@@ -37,6 +39,10 @@ export function summarizeLibraryHealthIssues(
       summary.downloaded_episodes_without_files += 1;
     } else if (issue.kind === "missing_file_path") {
       summary.missing_file_paths += 1;
+    } else if (issue.kind === "downloaded_book_edition_without_files") {
+      summary.downloaded_book_editions_without_files += 1;
+    } else if (issue.kind === "missing_book_file_path") {
+      summary.missing_book_file_paths += 1;
     } else if (issue.kind === "stale_tmdb_status") {
       summary.stale_tmdb_statuses += 1;
     } else if (issue.kind === "episode_number_mismatch") {

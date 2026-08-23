@@ -16,6 +16,7 @@ type AuthorRow = {
   monitored: boolean;
   monitorFrom: Date | null;
   monitorEditionKinds: string[];
+  monitorLanguages: string[];
   bookQualityProfileId: number | null;
   lastCheckedAt: Date | null;
   _count?: { bookLinks: number };
@@ -32,6 +33,7 @@ const mapAuthor = (row: AuthorRow): Author => ({
   monitor_edition_kinds: row.monitorEditionKinds.filter(
     (k): k is BookEditionKind => KINDS.includes(k as BookEditionKind),
   ),
+  monitor_languages: row.monitorLanguages,
   book_quality_profile_id: row.bookQualityProfileId,
   last_checked_at: row.lastCheckedAt?.toISOString() ?? null,
   book_count: row._count?.bookLinks ?? 0,
@@ -46,6 +48,7 @@ const authorSelect = {
   monitored: true,
   monitorFrom: true,
   monitorEditionKinds: true,
+  monitorLanguages: true,
   bookQualityProfileId: true,
   lastCheckedAt: true,
   _count: { select: { bookLinks: true } },
@@ -112,6 +115,22 @@ export const authorRoutes = new Elysia({ prefix: "/api/authors" })
         }
       }
 
+      // ISO 639-1 only: the codes are compared against the provider's own
+      // two-letter language field, so anything else can never match.
+      let monitorLanguages: string[] | undefined;
+      if (body.monitor_languages !== undefined) {
+        const normalized = body.monitor_languages.map((l) =>
+          l.trim().toLowerCase(),
+        );
+        if (normalized.some((l) => !/^[a-z]{2}$/.test(l))) {
+          return badRequest(
+            set,
+            "monitor_languages must contain ISO 639-1 codes",
+          );
+        }
+        monitorLanguages = [...new Set(normalized)];
+      }
+
       if (body.book_quality_profile_id != null) {
         const profile = await prisma.bookQualityProfile.findUnique({
           where: { id: body.book_quality_profile_id },
@@ -147,6 +166,7 @@ export const authorRoutes = new Elysia({ prefix: "/api/authors" })
           ...(body.monitor_edition_kinds !== undefined
             ? { monitorEditionKinds: body.monitor_edition_kinds }
             : {}),
+          ...(monitorLanguages !== undefined ? { monitorLanguages } : {}),
           ...(body.book_quality_profile_id !== undefined
             ? { bookQualityProfileId: body.book_quality_profile_id }
             : {}),
@@ -162,6 +182,7 @@ export const authorRoutes = new Elysia({ prefix: "/api/authors" })
         monitored: t.Optional(t.Boolean()),
         monitor_from: t.Optional(t.Nullable(t.String())),
         monitor_edition_kinds: t.Optional(t.Array(t.String())),
+        monitor_languages: t.Optional(t.Array(t.String())),
         book_quality_profile_id: t.Optional(t.Nullable(t.Numeric())),
       }),
     },

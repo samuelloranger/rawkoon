@@ -54,15 +54,19 @@ export const PlayerBar = () => {
             <button
               type="button"
               onClick={() => engine.skip(-15)}
-              className="focus-ring rounded-md p-2 text-text-muted hover:text-text-strong"
+              className="focus-ring inline-flex size-9 items-center justify-center rounded-md text-text-muted hover:text-text-strong"
               aria-label={t("books.player.back15")}
             >
               <RotateCcw className="size-4" />
             </button>
+            {/* A square box with the glyph centred in it. `p-2` around an
+                inline SVG made the circle taller than it was wide — the icon
+                sat on the text baseline with the line-box's descender space
+                below it, which is what pushed the pause bars off centre. */}
             <button
               type="button"
               onClick={() => void engine.toggle()}
-              className="focus-ring rounded-full bg-primary-600 p-2 text-neutral-50 hover:bg-primary-500"
+              className="focus-ring inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-600 text-neutral-50 hover:bg-primary-500"
               aria-label={
                 state.playing ? t("books.player.pause") : t("books.player.play")
               }
@@ -76,7 +80,7 @@ export const PlayerBar = () => {
             <button
               type="button"
               onClick={() => engine.skip(30)}
-              className="focus-ring rounded-md p-2 text-text-muted hover:text-text-strong"
+              className="focus-ring inline-flex size-9 items-center justify-center rounded-md text-text-muted hover:text-text-strong"
               aria-label={t("books.player.forward30")}
             >
               <RotateCw className="size-4" />
@@ -90,7 +94,7 @@ export const PlayerBar = () => {
           <button
             type="button"
             onClick={() => setExpanded(true)}
-            className="focus-ring rounded-md p-2 text-text-muted hover:text-text-strong"
+            className="focus-ring inline-flex size-9 items-center justify-center rounded-md text-text-muted hover:text-text-strong"
             aria-label={t("books.player.expand")}
           >
             <ChevronUp className="size-4" />
@@ -98,7 +102,7 @@ export const PlayerBar = () => {
           <button
             type="button"
             onClick={close}
-            className="focus-ring rounded-md p-2 text-text-muted hover:text-text-strong"
+            className="focus-ring inline-flex size-9 items-center justify-center rounded-md text-text-muted hover:text-text-strong"
             aria-label={t("books.player.close")}
           >
             <X className="size-4" />

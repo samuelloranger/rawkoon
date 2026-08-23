@@ -52,7 +52,9 @@ export function PageHeader({
             </button>
           )}
         </div>
-        {actions && <div className="flex items-center gap-2">{actions}</div>}
+        {actions && (
+          <div className="flex w-full items-center gap-2">{actions}</div>
+        )}
       </div>
 
       {/* Desktop layout: title | actions */}

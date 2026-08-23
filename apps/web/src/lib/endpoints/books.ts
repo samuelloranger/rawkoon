@@ -26,7 +26,9 @@ export const BOOKS_ENDPOINTS = {
     `/api/books/editions/${editionId}/progress/finish`,
   EDITION_PROGRESS_RESET: (editionId: number) =>
     `/api/books/editions/${editionId}/progress/reset`,
+  PLAYBACK_DIAGNOSTIC: "/api/books/playback-diagnostic",
   QUALITY_PROFILES: "/api/book-quality-profiles",
+  QUALITY_PROFILE: (id: number) => `/api/book-quality-profiles/${id}`,
   AUTHORS: "/api/authors",
   AUTHOR: (id: number) => `/api/authors/${id}`,
 } as const;

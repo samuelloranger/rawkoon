@@ -11,7 +11,9 @@ export type ActivityLogType =
   | "notification_welcome_sent"
   | "notification_unsubscribed"
   | "media_grab"
-  | "book_grab";
+  | "book_grab"
+  | "book_playback_error"
+  | "book_playback_trace";
 
 /**
  * Enqueue an activity log to be processed in the background

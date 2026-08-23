@@ -31,9 +31,15 @@ export interface BookMetadataProvider {
   ): Promise<ProviderBook[]>;
   getBook(volumeId: string): Promise<ProviderBook | null>;
   resolveIsbn(isbn13: string): Promise<ProviderBook | null>;
+  /**
+   * `languages` are ISO 639-1 codes. Google only accepts one `langRestrict` per
+   * request, so several codes mean several requests merged by volume id —
+   * without it a French-only follow returns nothing, because `inauthor:` ranks
+   * the English editions into the whole result window.
+   */
   getAuthorBooks(
     authorName: string,
-    opts?: { limit?: number },
+    opts?: { limit?: number; languages?: string[] },
   ): Promise<ProviderBook[]>;
 }
 

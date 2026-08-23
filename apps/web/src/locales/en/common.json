@@ -485,6 +485,7 @@
     "quickActionsSearchCollections": "Search media, chores, tasks",
     "quickActionsLoadingResults": "Searching your content...",
     "quickActionsSectionActions": "Pages & actions",
+    "quickActionsSectionBooks": "Books",
     "quickActionsSectionMedias": "Media",
     "quickActionsSectionUsers": "Users",
     "error": "Error",
@@ -885,7 +886,9 @@
           "missing_file_paths": "Missing file paths",
           "stale_tmdb_statuses": "Stale TMDB statuses",
           "episode_number_mismatches": "Episode mismatches",
-          "episode_duration_mismatches": "Runtime mismatches"
+          "episode_duration_mismatches": "Runtime mismatches",
+          "downloaded_book_editions_without_files": "Downloaded books missing files",
+          "missing_book_file_paths": "Missing book file paths"
         },
         "kinds": {
           "downloaded_media_without_files": "Downloaded media without files",
@@ -893,7 +896,9 @@
           "missing_file_path": "Missing file path",
           "stale_tmdb_status": "Stale TMDB status",
           "episode_number_mismatch": "Episode number mismatch",
-          "episode_duration_mismatch": "Episode runtime mismatch"
+          "episode_duration_mismatch": "Episode runtime mismatch",
+          "downloaded_book_edition_without_files": "Downloaded book without files",
+          "missing_book_file_path": "Missing book file path"
         }
       },
       "schedule": "Schedule:",
@@ -1305,16 +1310,50 @@
         "save": "Save files settings",
         "saved": "Files settings saved",
         "saveFailed": "Could not save those settings."
-      },
-      "profiles": {
-        "title": "Book quality profiles",
-        "description": "Which formats are allowed, and which one is good enough to stop upgrading.",
-        "kind": "{{kind}}",
-        "cutoff": "cutoff {{format}}",
-        "noCutoff": "no cutoff",
-        "none": "No profiles yet.",
-        "editHint": "Editing profiles is not in the interface yet; the /api/book-quality-profiles endpoints accept changes."
       }
+    },
+    "bookQualityProfiles": {
+      "title": "Book quality profiles",
+      "description": "Which formats are allowed, in preference order, and which one is good enough to stop upgrading.",
+      "create": "New profile",
+      "createTitle": "New book quality profile",
+      "editTitle": "Edit book quality profile",
+      "edit": "Edit",
+      "formDescription": "Formats are ranked: the first entry is the best. The cutoff is the format good enough that upgrades stop.",
+      "empty": "No profiles yet.",
+      "loadError": "Could not load book quality profiles.",
+      "name": "Name",
+      "namePlaceholder": "Standard ebook",
+      "kind": "Applies to",
+      "kinds": {
+        "ebook": "Ebooks",
+        "audiobook": "Audiobooks",
+        "both": "Ebooks and audiobooks"
+      },
+      "allowedFormats": "Allowed formats, best first",
+      "formatsHint": "A release in none of these formats is rejected.",
+      "noFormats": "No format selected — add at least one.",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "cutoff": "Cutoff format",
+      "noCutoff": "No cutoff",
+      "cutoffHint": "Reaching this format stops further upgrade searches.",
+      "preferRetail": "Prefer retail releases",
+      "preferRetailHint": "A bonus, never a requirement: most real releases carry no retail marker.",
+      "minSeeders": "Minimum seeders",
+      "maxSizeMb": "Maximum size (MB)",
+      "minAudioBitrate": "Minimum bitrate (kb/s)",
+      "noLimit": "No limit",
+      "preferredLanguages": "Preferred languages",
+      "anyLanguage": "Any language",
+      "retailPreferred": "Retail preferred",
+      "name_required": "A name is required.",
+      "formats_required": "Select at least one format.",
+      "saveSuccess": "Profile saved.",
+      "saveError": "Could not save the profile.",
+      "deleteConfirm": "Delete the profile \"{{name}}\"? Editions using it fall back to the defaults.",
+      "deleteSuccess": "Profile deleted.",
+      "deleteError": "Could not delete the profile."
     }
   },
   "medias": {
@@ -1931,6 +1970,10 @@
       "addEdition": "Add {{kind}}",
       "remove": "Remove",
       "removeConfirm": "Remove “{{title}}” from the library? Files on disk are kept.",
+      "removeConfirmAction": "Remove book",
+      "removing": "Removing…",
+      "removed": "“{{title}}” was removed from the library.",
+      "removeFailed": "Could not remove that book.",
       "editionsHeading": "Editions"
     },
     "track": {
@@ -1996,6 +2039,8 @@
       "checkedLabel": "Last checked",
       "neverChecked": "never",
       "kindsLabel": "Editions to add",
+      "languagesLabel": "Languages",
+      "anyLanguage": "Any language",
       "monitorToggle": "Monitor {{name}}"
     },
     "status": {

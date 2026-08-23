@@ -182,7 +182,7 @@ export function BooksPage() {
         onRefresh={() => void refetch()}
         isRefreshing={isRefetching}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
             {/* A styled Link, not <Button asChild>: Button never implemented
                 asChild, so the prop reached the DOM and the anchor's icon and
                 label stacked on top of each other. */}
@@ -203,7 +203,7 @@ export function BooksPage() {
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <form
-          className="flex gap-2"
+          className="flex w-full gap-2 sm:w-auto"
           onSubmit={(e) => {
             e.preventDefault();
             setSubmitted(search.trim());
@@ -213,7 +213,7 @@ export function BooksPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("books.filterPlaceholder")}
-            className="w-56"
+            className="w-full sm:w-56"
           />
           <Button
             type="submit"
@@ -232,7 +232,7 @@ export function BooksPage() {
               type="button"
               onClick={() => setKind(k)}
               aria-pressed={kind === k}
-              className={`focus-ring rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              className={`focus-ring rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors ${
                 kind === k
                   ? "bg-primary-500/15 text-primary-200"
                   : "bg-neutral-800 text-neutral-400 hover:text-neutral-200"
