@@ -177,7 +177,6 @@ export const bookEditionRoutes = new Elysia()
           duration_secs: f.durationSecs,
           audio_bitrate: f.audioBitrate,
           audio_codec: f.audioCodec,
-          chapter_count: f.chapterCount,
           is_retail: f.isRetail,
           release_group: f.releaseGroup,
           language_tags: f.languageTags,
