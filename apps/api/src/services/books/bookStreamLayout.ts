@@ -204,3 +204,61 @@ export const isConcatEligible = (
     (f) => f.format === first.format && f.audioBitrate === first.audioBitrate,
   );
 };
+
+/**
+ * Largest body served for one range request.
+ *
+ * A media element opens with `Range: bytes=0-`, which means "the rest of the
+ * resource" — 821MB for a 9h30m audiobook. Answering fewer bytes than asked
+ * for is explicitly allowed: the client reads Content-Range and asks again.
+ * About two and a half minutes of 192kbps audio.
+ */
+export const MAX_RANGE_BYTES = 4 * 1024 * 1024;
+
+/**
+ * Reads the bytes for a set of slices.
+ *
+ * Deliberately node:fs with explicit offsets rather than `Bun.file().slice()`.
+ * On Bun 1.4.0 a sliced BunFile loses its bounds on the way out: `.stream()`
+ * yields the whole file, and `Bun.serve`'s sendfile path ignores the offset
+ * too — so a 206 promising `bytes 5000-5999` delivered the file from byte zero.
+ * A media element asking for the middle of a chapter received its beginning,
+ * which is what made seeking rewind and scrubbing do nothing at all.
+ *
+ * Returning a buffer rather than a stream also restores Content-Length: Bun
+ * drops a manually set one when the body is a ReadableStream and falls back to
+ * chunked encoding, which media elements handle far less well.
+ */
+export const readSlices = async (
+  slices: StreamSlice[],
+): Promise<Uint8Array> => {
+  const total = slices.reduce((n, s) => n + (s.end - s.start), 0);
+  const out = new Uint8Array(total);
+  let written = 0;
+
+  for (const slice of slices) {
+    const handle = await open(slice.path, "r");
+    try {
+      const want = slice.end - slice.start;
+      let read = 0;
+      while (read < want) {
+        const { bytesRead } = await handle.read(
+          out,
+          written + read,
+          want - read,
+          slice.start + read,
+        );
+        // A file shorter than the layout claims — truncated or replaced under
+        // us. Serve what exists rather than a buffer padded with zeros, which
+        // would decode as silence.
+        if (bytesRead === 0) break;
+        read += bytesRead;
+      }
+      written += read;
+    } finally {
+      await handle.close();
+    }
+  }
+
+  return written === total ? out : out.subarray(0, written);
+};

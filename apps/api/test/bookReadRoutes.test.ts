@@ -77,6 +77,36 @@ afterAll(async () => {
   await rm(root, { recursive: true, force: true });
 });
 
+// The one shape of test that could have caught the bug this route shipped with.
+//
+// `app.handle()` reads the body in-process, where `new Response(file.slice())`
+// is correct. On Bun 1.4.0 the bug lives in the *serve* path: sendfile ignores
+// a sliced BunFile's offset and length, so a 206 promising `bytes 100-199`
+// delivered the whole file from byte zero. A media element asking for the
+// middle of a chapter received its beginning, which is what made seeking
+// rewind and scrubbing do nothing. Only a real HTTP round trip sees it.
+describe("byte route over a real server", () => {
+  it("sends exactly the bytes the content-range promises", async () => {
+    fileRow = epubRow();
+    authenticated = true;
+    const server = Bun.serve({ port: 0, fetch: app.fetch });
+    try {
+      const res = await fetch(
+        `http://localhost:${server.port}/api/books/files/1/content`,
+        { headers: { range: "bytes=100-199" } },
+      );
+      expect(res.status).toBe(206);
+      expect(res.headers.get("content-range")).toBe("bytes 100-199/1000");
+
+      const received = new Uint8Array(await res.arrayBuffer());
+      expect(received.length).toBe(100);
+      expect(res.headers.get("content-length")).toBe("100");
+    } finally {
+      await server.stop(true);
+    }
+  });
+});
+
 describe("parseRange", () => {
   it("ignores a missing or unparseable header", () => {
     expect(parseRange(null, 1000)).toBeNull();

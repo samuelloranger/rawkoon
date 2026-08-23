@@ -3,6 +3,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { MAX_RANGE_BYTES } from "@rawkoon/api/services/books/bookStreamLayout";
+
 // The layout arithmetic is covered in bookStreamLayout.test.ts. This drives the
 // route itself: the headers a media element depends on, and the actual bytes it
 // receives. Synthetic files rather than a real library, so it runs anywhere —
@@ -117,14 +119,17 @@ const bytesOf = async (res: Response): Promise<Uint8Array> =>
   new Uint8Array(await res.arrayBuffer());
 
 describe("GET /api/books/editions/:id/stream", () => {
-  it("advertises the concatenated length and range support", async () => {
+  // Always 206: the body is a window onto the resource, and calling a window
+  // 200 would tell the client it already had the whole thing.
+  it("advertises the concatenated size and range support", async () => {
     const res = (await get()) as Response;
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(206);
     expect(res.headers.get("content-type")).toBe("audio/mpeg");
     expect(res.headers.get("accept-ranges")).toBe("bytes");
-    // Three payloads, no tag bytes.
-    expect(res.headers.get("content-length")).toBe(String(3 * PAYLOAD));
+    expect(res.headers.get("content-range")).toBe(
+      `bytes 0-${3 * PAYLOAD - 1}/${3 * PAYLOAD}`,
+    );
   });
 
   it("serves the payloads back to back with no tag bytes between them", async () => {
@@ -147,9 +152,11 @@ describe("GET /api/books/editions/:id/stream", () => {
     expect(res.headers.get("content-range")).toBe(
       `bytes 990-1009/${3 * PAYLOAD}`,
     );
-    expect(res.headers.get("content-length")).toBe("20");
 
+    // Byte count off the body, not the header: Bun fills Content-Length in at
+    // serve time, so it is null on the Response object here.
     const body = await bytesOf(res);
+    expect(body.length).toBe(20);
     // Ten bytes of file one, then ten of file two — the join, byte-exact.
     expect([...body]).toEqual([
       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
@@ -189,8 +196,23 @@ describe("GET /api/books/editions/:id/stream", () => {
       "If-Range": '"concat-stale"',
     })) as Response;
 
-    expect(res.status).toBe(200);
-    expect(res.headers.get("content-length")).toBe(String(3 * PAYLOAD));
+    expect(res.status).toBe(206);
+    // The whole resource, as a window over it.
+    expect(res.headers.get("content-range")).toBe(
+      `bytes 0-${3 * PAYLOAD - 1}/${3 * PAYLOAD}`,
+    );
+    expect((await bytesOf(res)).length).toBe(3 * PAYLOAD);
+  });
+
+  // A media element opens with `bytes=0-`. Unclamped that is the entire book —
+  // 821MB for the reported title — buffered per request.
+  it("clamps a response to the maximum window", async () => {
+    expect(MAX_RANGE_BYTES).toBeGreaterThan(0);
+    // The fixtures are far below the cap, so the clamp cannot bite here; this
+    // pins the contract that the route applies one at all.
+    const res = (await get({ Range: "bytes=0-" })) as Response;
+    const body = await bytesOf(res);
+    expect(body.length).toBe(Math.min(3 * PAYLOAD, MAX_RANGE_BYTES));
   });
 
   it("declines an edition whose files cannot be concatenated", async () => {
