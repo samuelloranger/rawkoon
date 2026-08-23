@@ -189,95 +189,41 @@ cannot pull in an unrelated book.
 
 ## Reading and listening
 
-Imported books are read and played in Rawkoon itself, from the book's page:
-**Read** for an ebook, **Listen** for an audiobook. Once there is a position
-either button reads **Continue**, and the same word appears on the books list.
+Rawkoon downloads and imports; **Audiobookshelf plays and reads**. Once an
+edition has files, its page shows **Open in Audiobookshelf**, which opens a
+search for the title in the matching Audiobookshelf library.
 
-### The reader
+### Setting it up
 
-The reader takes the whole window — no sidebar. The title bar and the progress
-footer stay put and the book takes the space between them. The rail down the
-right edge is the table of contents: each segment is one chapter, sized to that
-chapter's real length, and clicking or dragging it moves you.
+Point Audiobookshelf at the same folders Rawkoon imports into — the books and
+audiobooks paths from **Settings → Books** — and it will pick up everything
+Rawkoon imports on its next scan. Then fill in, in the same settings section:
 
-| Format | Reader |
-|---|---|
-| `epub` | Full reader — chapter navigation, typography, page or scroll layout |
-| `pdf` | Page-per-view, with selectable text |
-| `cbz` | Page-per-view images |
-| `mobi`, `azw3` | **Not readable in the browser** — the file offers a download instead |
+| Field | Where to find it |
+| --- | --- |
+| Server URL | The address you open Audiobookshelf at, e.g. `https://audiobookshelf.example.com` |
+| Audiobook library ID | Open the library in Audiobookshelf; the ID is in the URL, `/library/<id>` |
+| Ebook library ID | Same, for the library holding ebooks |
 
-Text settings (Aa) apply to epub only, since a pdf and a cbz have a fixed
-layout: reading face (Literata or Hanken Grotesk), size, line height, margins,
-Pages or Scroll, and a Night or Paper theme. They are remembered per browser,
-not per book.
+Leave the URL empty and no button is rendered — an install without
+Audiobookshelf sees no change.
 
-Keys: `←` `→` or `PageUp` `PageDown` turn pages, `Esc` closes. The X and `Esc`
-both close an open panel first and the book second, so leaving the text settings
-does not lose your page.
+Rawkoon never calls the Audiobookshelf API. It has no key and stores no
+Audiobookshelf item IDs, so the link is a title search rather than a link
+straight to the item. An unreachable server costs nothing but a dead link.
 
-### The player
+### What was removed
 
-The player keeps playing while you move around the rest of Rawkoon — it lives
-in a bar at the bottom of the window, and opens full-screen when you click it.
-A book split across many tracks is presented as one timeline: chapters come
-from the audio container's own marks, or one chapter per file when the
-container has none.
+Rawkoon used to ship its own ebook reader and audiobook player, with offline
+downloads and its own progress tracking. All of it was removed in 1.9.0:
 
-- Speed from 0.5x to 3x, without the pitch rising
-- Skip back 15 seconds, forward 30
-- A chapter list, and a volume boost up to +12 dB for quiet narration
-- Lock-screen, headset and media-key controls, on platforms that offer them
-
-Keys, in the full-screen player: `Space` plays or pauses, `←` `→` skip,
-`[` `]` change speed, `Esc` closes.
-
-### Continue reading
-
-The home dashboard carries a **Continue reading** panel: the books with a saved
-position, most recent first, each one a tap away from where you stopped —
-picking one opens the reader for an ebook or the player for an audiobook. It
-lists what you are partway through, so a book you merely opened does not clutter
-it, and it disappears when nothing is started.
-
-Two ways off the list, and they are not the same:
-
-- **Mark as finished**, on the row itself, takes the book out of the panel and
-  keeps your position, so you can go back to it from the book's page.
-- **Restart**, next to Continue on the book's page, discards the position: the
-  book opens at its first page next time.
-
-Both ask first, and both are decided by the server: it keeps the position when
-you finish, and clears it when you restart. Neither deletes the row — a device
-that has been offline still holds writes of its own, and a deleted row would
-come back the moment it reconnected. If the book is playing, the player lets go
-of it first, or its next save would undo what you asked for.
-
-### Where you left off
-
-Each person's position is their own, and it follows them between devices. An
-ebook and an audiobook of the same title are tracked separately — finishing
-chapter four in the ebook does not move the audiobook, because there is no
-reliable way to line up an epub's chapters with an audiobook's.
-
-Positions save while you read or listen, and on pause. If two devices disagree,
-the most recently set position wins; a device that was offline for a week
-cannot rewind a position set since.
-
-### Reading offline
-
-**Make available offline** on a book stores its files in the browser, along with
-the details needed to open the book again with no network. An audiobook stores
-every track, so playback does not stop at the first boundary.
-
-Downloads are only ever removed when you remove them — an app update never
-clears them. Positions recorded offline are queued and sent when the connection
-returns.
-
-Offline reading needs a browser that supports service workers and the Cache
-API; where it does not, the button is not shown. A book is only reachable
-offline in the browser that downloaded it, and only after that browser has
-loaded Rawkoon at least once while online.
+- **Reading progress is not migrated.** Audiobookshelf tracks its own from
+  scratch; there was no shared key to map the old positions onto.
+- **Offline downloads are gone.** The Audiobookshelf mobile apps do this
+  better. Any book previously stored in the browser is dropped on the first
+  load after upgrading.
+- **The "Continue reading" dashboard widget is gone.** Rawkoon no longer knows
+  where you are in a book.
 
 ## Notifications
 
@@ -298,9 +244,5 @@ monitored author has new titles.
   a whole series is never grabbed for a single edition.
 - **Requests and the discover deck do not cover books yet.** Books are added
   from the books page, not requested.
-- **`mobi` and `azw3` cannot be read in the browser.** They import and download
-  normally, but no reader renders them; quality profiles prefer `epub` for this
-  reason.
-- **Bookmarks, highlights and notes do not exist yet.** The reader tracks one
-  position per book, nothing more.
-- **There is no sleep timer, and no search inside a book.**
+- **Rawkoon shows no reading state.** A book is either in the library or not;
+  progress, bookmarks and playback all live in Audiobookshelf.

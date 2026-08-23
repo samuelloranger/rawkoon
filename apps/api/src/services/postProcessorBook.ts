@@ -356,7 +356,7 @@ export async function postProcessBook(opts: {
     // Idempotent: re-importing the same destination replaces its row rather
     // than accumulating duplicates, since a retried post-process is normal.
     await prisma.bookFile.deleteMany({ where: { filePath: dst } });
-    const created = await prisma.bookFile.create({
+    await prisma.bookFile.create({
       data: {
         editionId: opts.editionId,
         filePath: dst,
@@ -767,7 +767,7 @@ export async function rescanBookEdition(editionId: number): Promise<{
     const replaced = await prisma.bookFile.deleteMany({
       where: { filePath: keeper.path },
     });
-    const created = await prisma.bookFile.create({
+    await prisma.bookFile.create({
       data: {
         editionId,
         filePath: keeper.path,
