@@ -41,3 +41,14 @@ export interface LocalAiConfig {
 export interface GoogleBooksIntegrationConfig {
   api_key: string;
 }
+
+/**
+ * Audnexus needs no API key: the public instance at api.audnex.us is keyless
+ * (verified 2026-08-24 — x-ratelimit-limit 300 per 60s per IP). base_url exists
+ * so a self-hosted instance can be pointed at instead; the project publishes no
+ * prebuilt image, so self-hosting means building from source.
+ */
+export interface AudnexusIntegrationConfig {
+  base_url: string;
+  region: string;
+}
