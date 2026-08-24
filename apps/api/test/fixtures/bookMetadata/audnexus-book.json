@@ -1,0 +1,29 @@
+{
+  "_comment": "Structure captured live from Audnexus on 2026-08-24; strings scrubbed. Hazards preserved: rating is a STRING, language is a word not ISO 639-1, genres mixes type 'genre' with type 'tag', summary is HTML while description is plain, and releaseDate is a full ISO timestamp.",
+  "asin": "B0SCRUB001",
+  "title": "Le Jardin de Verre",
+  "subtitle": "Le Jardin de Verre - Tome 1",
+  "authors": [{ "asin": "B0SCRUBA01", "name": "Camille Rousseau" }],
+  "narrators": [{ "name": "Laure Vidal" }, { "name": "Audrey Meunier" }],
+  "seriesPrimary": {
+    "asin": "B0SCRUBS01",
+    "name": "Le Jardin de Verre",
+    "position": "1"
+  },
+  "genres": [
+    { "asin": "21228876031", "name": "Policier et suspense", "type": "genre" },
+    { "asin": "21228884031", "name": "Littérature et fiction", "type": "genre" },
+    { "asin": "21228906031", "name": "Thrillers", "type": "tag" }
+  ],
+  "language": "french",
+  "publisherName": "Éditions Lisière",
+  "releaseDate": "2024-06-27T00:00:00.000Z",
+  "runtimeLengthMin": 578,
+  "isbn": "9791036631573",
+  "rating": "4.6",
+  "region": "fr",
+  "formatType": "unabridged",
+  "image": "https://example.invalid/cover-large.jpg",
+  "summary": "<p>Chaque jour, elle nettoie la grande maison.</p>",
+  "description": "Chaque jour, elle nettoie la grande maison."
+}

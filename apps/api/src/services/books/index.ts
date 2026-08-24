@@ -8,3 +8,4 @@ export type {
 } from "./types";
 export { BookProviderUnavailableError } from "./types";
 export { getBookMetadataProvider } from "./googleBooksProvider";
+export { getAudnexusProvider } from "./audnexusProvider";
