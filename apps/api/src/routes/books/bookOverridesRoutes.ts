@@ -66,6 +66,35 @@ const nullableStr = (max: number) =>
 const nullableInt = (min: number, max: number) =>
   t.Optional(t.Union([t.Integer({ minimum: min, maximum: max }), t.Null()]));
 
+/**
+ * One in-flight override update per book.
+ *
+ * Making the JSON merge a single statement stops two saves losing each other's
+ * keys, but the refresh that follows is a separate read/compute/write. Two
+ * overlapping requests could still finish in the opposite order and leave the
+ * columns disagreeing with the stored overrides. Chaining per book id keeps the
+ * write and its refresh together.
+ *
+ * This serializes within a process, which is what rawkoon runs — a single API
+ * container. It is not a distributed lock, and does not claim to be.
+ */
+const inFlight = new Map<number, Promise<unknown>>();
+
+function serializePerBook<T>(id: number, work: () => Promise<T>): Promise<T> {
+  const prior = inFlight.get(id) ?? Promise.resolve();
+  const next = prior.then(work, work);
+  // Keep the chain from growing without bound, and never let one failure
+  // poison later requests.
+  inFlight.set(
+    id,
+    next.catch(() => undefined),
+  );
+  void next.finally(() => {
+    if (inFlight.get(id) === next) inFlight.delete(id);
+  });
+  return next;
+}
+
 export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
   "/:id/overrides",
   async ({ params, body, set }) => {
@@ -134,32 +163,35 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
     }
 
     try {
-      /**
-       * Merged in the database, not read-modify-written in the handler.
-       *
-       * Each field has its own Save button, so two saves can overlap. Reading
-       * the JSON, merging in memory and writing it back would let the second
-       * write drop the first field, since both started from the same snapshot.
-       * `||` adds and replaces keys, `-` removes them, and both happen inside
-       * the single statement.
-       */
-      await prisma.$executeRaw`
-        UPDATE library_books
-        SET overrides =
-          (COALESCE(overrides, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb)
-          - ${removed}::text[]
-        WHERE id = ${id}
-      `;
+      const item = await serializePerBook(id, async () => {
+        /**
+         * Merged in the database, not read-modify-written in the handler.
+         *
+         * Each field has its own Save button, so two saves can overlap.
+         * Reading the JSON, merging in memory and writing it back would let
+         * the second write drop the first field, since both started from the
+         * same snapshot. `||` adds and replaces keys, `-` removes them, both
+         * inside the one statement.
+         */
+        await prisma.$executeRaw`
+          UPDATE library_books
+          SET overrides =
+            (COALESCE(overrides, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb)
+            - ${removed}::text[]
+          WHERE id = ${id}
+        `;
 
-      // Recompute so the columns reflect the change: an override has to win,
-      // a cleared field has to fall back to the sources, and a cleared field
-      // no source supplies has to be emptied rather than left frozen.
-      await refreshBookMetadata(id, { clearedOverrides: removed });
+        // Recompute so the columns reflect the change: an override has to win,
+        // a cleared field has to fall back to the sources, and a cleared field
+        // no source supplies has to be emptied rather than left frozen.
+        await refreshBookMetadata(id, { clearedOverrides: removed });
 
-      const item = await prisma.libraryBook.findUnique({
-        where: { id },
-        include: bookInclude,
+        return prisma.libraryBook.findUnique({
+          where: { id },
+          include: bookInclude,
+        });
       });
+
       if (!item) return notFound(set, "Book not found");
       return { item: mapBook(item) };
     } catch (error) {

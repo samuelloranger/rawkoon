@@ -176,12 +176,20 @@ export function BookInfoOverridesSection({ book }: { book: Book }) {
   const isOverridden = (key: string) =>
     Object.prototype.hasOwnProperty.call(overrides, STORED_KEY[key] ?? key);
 
-  const toPayload = (f: FieldDef, raw: string): BookOverridesRequest => {
+  /**
+   * Returns null when the input is not valid for its field.
+   *
+   * Coercing unparseable text to a null payload would read as a deliberate
+   * revert on the server, silently destroying an existing override and
+   * reporting success — so a bad number is refused here instead.
+   */
+  const toPayload = (f: FieldDef, raw: string): BookOverridesRequest | null => {
     const value = raw.trim();
     if (!value) return { [f.key]: null } as BookOverridesRequest;
     if (f.kind === "number") {
       const n = Number(value);
-      return { [f.key]: Number.isFinite(n) ? n : null } as BookOverridesRequest;
+      if (!Number.isFinite(n)) return null;
+      return { [f.key]: n } as BookOverridesRequest;
     }
     if (f.kind === "list") {
       return {
@@ -195,9 +203,14 @@ export function BookInfoOverridesSection({ book }: { book: Book }) {
   };
 
   const save = async (f: FieldDef) => {
+    const payload = toPayload(f, form[f.key] ?? "");
+    if (!payload) {
+      toast.error(t("books.detail.overrides.invalidNumber"));
+      return;
+    }
     setPending(f.key);
     try {
-      await update.mutateAsync(toPayload(f, form[f.key] ?? ""));
+      await update.mutateAsync(payload);
       toast.success(t("books.detail.overrides.saved"));
     } catch (e) {
       toast.error(

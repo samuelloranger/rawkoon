@@ -52,6 +52,24 @@ export type RefreshMetadataOutcome =
  */
 const OVERRIDE_ONLY_COLUMNS = new Set<string>(["title", "language"]);
 
+/**
+ * Columns that can never be emptied.
+ *
+ * A book must have a title, and language is NOT NULL with a default. Clearing
+ * an override on either falls back to the source value when there is one, and
+ * otherwise keeps what is there — an empty title is not a state this app has.
+ */
+const NEVER_EMPTIED_COLUMNS = new Set<string>(["title", "language"]);
+
+/**
+ * What "empty" means per column. List columns are required by the Prisma
+ * client even though Postgres would accept null, so they empty to [].
+ */
+const EMPTY_VALUE: Record<string, unknown> = {
+  narrators: [],
+  genres: [],
+};
+
 const BOOK_COLUMNS = new Set<string>([
   "subtitle",
   "narrators",
@@ -289,8 +307,14 @@ export async function refreshBookMetadata(
     if (field in merged) continue;
     if (!BOOK_COLUMNS.has(field) && !OVERRIDE_ONLY_COLUMNS.has(field)) continue;
     if (lockedFields.has(field)) continue;
-    if (current[field] == null) continue;
-    data[field] = null;
+    // A column that cannot hold null needs its own empty value, or the write
+    // fails *after* the override has already been deleted — leaving a manual
+    // value the book no longer records as manual and a 500 in the operator's
+    // face.
+    if (NEVER_EMPTIED_COLUMNS.has(field)) continue;
+    const empty = EMPTY_VALUE[field] ?? null;
+    if (sameValue(current[field], empty)) continue;
+    data[field] = empty;
   }
 
   /**

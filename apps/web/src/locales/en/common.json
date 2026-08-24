@@ -2028,7 +2028,8 @@
         "saved": "Saved",
         "reverted": "Reverted to the metadata sources",
         "failed": "Could not save that change",
-        "authorsNote": "Authors are managed from the author pages, not here."
+        "authorsNote": "Authors are managed from the author pages, not here.",
+        "invalidNumber": "That needs to be a number"
       }
     },
     "track": {

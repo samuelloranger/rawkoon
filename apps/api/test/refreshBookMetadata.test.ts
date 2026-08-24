@@ -455,6 +455,44 @@ describe("refreshBookMetadata", () => {
     expect(state.updates.at(-1)?.publisher).toBe("Éditions Lisière");
   });
 
+  /**
+   * The clearing path must respect what each column can actually hold. Writing
+   * null into a list or a NOT NULL column fails *after* the route has already
+   * deleted the override, which both 500s and strands the value.
+   */
+  test("clearing a list field empties it to [] rather than null", async () => {
+    state.book = {
+      ...bookFixture(),
+      narrators: ["Manually Added"],
+      genres: ["Manual Genre"],
+      overrides: null,
+    };
+    await refreshBookMetadata(1, {
+      providers: [audnexus({ publisher: "Éditions Lisière" })],
+      clearedOverrides: ["narrators", "genres"],
+    });
+    const data = state.updates.at(-1) ?? {};
+    expect(data.narrators).toEqual([]);
+    expect(data.genres).toEqual([]);
+  });
+
+  test("never empties title or language, which cannot be null", async () => {
+    state.book = {
+      ...bookFixture(),
+      title: "Only Title There Is",
+      language: "fr",
+      overrides: null,
+    };
+    await refreshBookMetadata(1, {
+      // No provider supplies a title or a language.
+      providers: [audnexus({ publisher: "Éditions Lisière" })],
+      clearedOverrides: ["title", "language"],
+    });
+    const data = state.updates.at(-1) ?? {};
+    expect(data).not.toHaveProperty("title");
+    expect(data).not.toHaveProperty("language");
+  });
+
   test("clearing a field that is already empty writes nothing", async () => {
     state.book = { ...bookFixture(), publisher: null, overrides: null };
     await refreshBookMetadata(1, {

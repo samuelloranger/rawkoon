@@ -2028,7 +2028,8 @@
         "saved": "Enregistré",
         "reverted": "Rétabli depuis les sources",
         "failed": "Impossible d'enregistrer cette modification",
-        "authorsNote": "Les auteurs se gèrent depuis les pages d'auteur, pas ici."
+        "authorsNote": "Les auteurs se gèrent depuis les pages d'auteur, pas ici.",
+        "invalidNumber": "Ce champ doit être un nombre"
       }
     },
     "track": {
