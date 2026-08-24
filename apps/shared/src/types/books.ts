@@ -257,3 +257,25 @@ export interface BookRefreshMetadataResponse {
 export interface BookMetadataSourceOrderResponse {
   order: BookMetadataSource[];
 }
+
+export interface AudnexusIntegration {
+  type: "audnexus";
+  enabled: boolean;
+  /** Defaults to the public instance; a self-hosted one can be used instead. */
+  base_url: string;
+  region: string;
+}
+
+export interface AudnexusIntegrationResponse {
+  integration: AudnexusIntegration;
+}
+
+export interface AudnexusIntegrationUpdateResponse {
+  success: true;
+  integration: AudnexusIntegration;
+}
+
+export interface AudnexusTestResponse {
+  success: boolean;
+  error?: string;
+}

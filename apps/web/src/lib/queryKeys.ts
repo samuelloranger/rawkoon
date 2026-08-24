@@ -46,6 +46,7 @@ export const queryKeys = {
       ["books", "release-search", id, kind] as const,
     qualityProfiles: () => ["books", "quality-profiles"] as const,
     authors: () => ["books", "authors"] as const,
+    metadataSources: () => ["books", "metadata-sources"] as const,
   },
 
   downloads: {
@@ -121,6 +122,7 @@ export const queryKeys = {
     tmdb: () => [...queryKeys.integrations.all, "tmdb"] as const,
     localAi: () => [...queryKeys.integrations.all, "local-ai"] as const,
     googleBooks: () => [...queryKeys.integrations.all, "googlebooks"] as const,
+    audnexus: () => [...queryKeys.integrations.all, "audnexus"] as const,
   },
 
   admin: {
