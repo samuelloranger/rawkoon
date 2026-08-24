@@ -137,3 +137,37 @@ export class BookProviderUnavailableError extends Error {
     this.name = "BookProviderUnavailableError";
   }
 }
+
+/**
+ * One Audible catalog product, mapped. Audnexus is ASIN-keyed and exposes no
+ * book title search, so every ASIN starts life as one of these.
+ */
+export interface AsinCandidate {
+  asin: string;
+  title: string;
+  subtitle: string | null;
+  authors: string[];
+  narrators: string[];
+  seriesName: string | null;
+  seriesPosition: number | null;
+  /** As the provider spells it: "french", "english". Not ISO 639-1. */
+  language: string | null;
+  runtimeMin: number | null;
+  publisher: string | null;
+  releaseDate: string | null;
+  coverUrl: string | null;
+  genres: string[];
+}
+
+/** The library-side book an ASIN is being resolved for. */
+export interface AsinWant {
+  title: string;
+  authors: string[];
+  /** ISO 639-1. */
+  language: string;
+}
+
+export interface AsinMatch {
+  candidate: AsinCandidate;
+  score: number;
+}
