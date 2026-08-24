@@ -7,6 +7,7 @@ import type {
   TmdbIntegrationConfig,
   LocalAiConfig,
   GoogleBooksIntegrationConfig,
+  AudnexusIntegrationConfig,
 } from "./types";
 import { decrypt } from "@rawkoon/api/services/crypto";
 
@@ -212,4 +213,62 @@ export const normalizeGoogleBooksConfig = (
   const apiKey = normalizeSecret(cfg.api_key);
   if (!apiKey) return null;
   return { api_key: apiKey };
+};
+
+export const AUDNEXUS_DEFAULT_BASE_URL = "https://api.audnex.us";
+export const AUDNEXUS_DEFAULT_REGION = "us";
+
+/**
+ * Regions Audnexus accepts. Kept local rather than imported from
+ * services/books/audibleCatalog: this is a util, and pointing it at a service
+ * would invert the dependency direction for a ten-entry constant.
+ */
+const AUDNEXUS_REGIONS = new Set([
+  "au",
+  "br",
+  "ca",
+  "de",
+  "es",
+  "fr",
+  "in",
+  "it",
+  "jp",
+  "uk",
+  "us",
+]);
+
+/**
+ * Unlike Google Books there is no key to validate, so an empty config is
+ * legitimate and normalizes to the public instance. Only a malformed or
+ * non-http base URL yields null, because that is the one thing that would make
+ * every request fail in a way the operator cannot see.
+ */
+export const normalizeAudnexusConfig = (
+  config: unknown,
+): AudnexusIntegrationConfig | null => {
+  if (!config || typeof config !== "object" || Array.isArray(config))
+    return null;
+  const cfg = config as Record<string, unknown>;
+
+  let baseUrl = AUDNEXUS_DEFAULT_BASE_URL;
+  const rawUrl = typeof cfg.base_url === "string" ? cfg.base_url.trim() : "";
+  if (rawUrl) {
+    let parsed: URL;
+    try {
+      parsed = new URL(rawUrl);
+    } catch {
+      return null;
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+      return null;
+    baseUrl = rawUrl.replace(/\/+$/u, "");
+  }
+
+  const rawRegion =
+    typeof cfg.region === "string" ? cfg.region.trim().toLowerCase() : "";
+  const region = AUDNEXUS_REGIONS.has(rawRegion)
+    ? rawRegion
+    : AUDNEXUS_DEFAULT_REGION;
+
+  return { base_url: baseUrl, region };
 };

@@ -225,6 +225,76 @@ downloads and its own progress tracking. All of it was removed in 1.8.0:
 - **The "Continue reading" dashboard widget is gone.** Rawkoon no longer knows
   where you are in a book.
 
+## Metadata sources
+
+Google Books alone leaves most of a book blank. Measured against a real
+French-language library it supplied no series name for a single title, and no
+narrator for any audiobook. So metadata is merged from four sources instead,
+and each field is taken from the highest-priority source that has it.
+
+The default order, highest first:
+
+| Source | Supplies | Needs |
+|---|---|---|
+| Files on disk | Narrator tags, publisher, Calibre series | Nothing — reads your files |
+| Audnexus / Audible | Narrators, series and position, genres, publisher, ratings, cover art, description | Nothing; the public instance is keyless |
+| Google Books | Identity, description, ISBN | An API key |
+| Open Library | Page counts, ratings | Nothing |
+
+Reorder them under **Settings → Books → Metadata sources**. The list doubles as
+the on/off switch: a source you turn off is removed from the order. Turning
+everything off is not honoured — that would silently stop all enrichment — so
+saving an empty list restores the default.
+
+**Files on disk rank highest on purpose.** Fix a file with a tagger, rescan, and
+your correction survives every later refresh. If a remote source outranked the
+file, the next refresh would quietly undo the fix.
+
+**Anything you edit by hand beats every source.** Overridden fields are never
+touched by a refresh and show as set by hand rather than naming a provider.
+
+### Audnexus
+
+Audnexus is the audiobook data API Audiobookshelf uses. It needs no account.
+Set the **region** to match where your editions were published — a French
+audiobook is only listed in the French catalogue, so the wrong region finds
+nothing.
+
+The public instance at `https://api.audnex.us` is rate-limited to 300 requests
+a minute, which no library of ordinary size will approach. If you would rather
+not depend on it, point **Server URL** at your own instance; the project ships
+no prebuilt image, so that means building it from source.
+
+Audnexus is keyed by Audible ASIN and has no title search, so rawkoon resolves
+an ASIN from the Audible catalogue first and scores the candidates. A candidate
+whose volume number disagrees is rejected outright rather than accepted with a
+lower score: attaching tome 1's data to tome 2 is worse than attaching nothing,
+because the result looks complete.
+
+### Refreshing
+
+Metadata is merged when a book is added, and otherwise only when you ask.
+There is no background sweep. Use **Refresh metadata** on a book's page; it
+reports how many fields changed, and names any source that was unavailable, so
+an outage is never mistaken for "this book has no narrators".
+
+To re-run the whole library at once:
+
+```bash
+# inside apps/api
+bun run src/scripts/backfillBookMetadata.ts --dry-run      # list what would run
+bun run src/scripts/backfillBookMetadata.ts --book=13       # one book
+bun run src/scripts/backfillBookMetadata.ts --only-missing  # books nothing has enriched yet
+bun run src/scripts/backfillBookMetadata.ts                # everything
+```
+
+Each book is caught independently, so one unreachable provider or one odd file
+cannot cost the rest of the library its metadata. Books that gain no fields are
+counted and reported — normal for a title no source carries.
+
+Where each field came from is recorded, and hovering it on the book page names
+the source.
+
 ## Notifications
 
 Administrators are notified when a book is grabbed, when it finishes importing,

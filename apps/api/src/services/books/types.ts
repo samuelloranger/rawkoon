@@ -1,9 +1,15 @@
+import type { BookMetadataSource } from "@rawkoon/shared/types";
+
 /**
  * Book metadata provider contract.
  *
- * There is one implementation (Google Books). The interface exists as cheap
- * insurance against provider rot — the failure mode that killed Readarr — so a
- * future swap is an adapter change rather than a rewrite.
+ * The interface exists as cheap insurance against provider rot — the failure
+ * mode that killed Readarr — so a swap is an adapter change, not a rewrite.
+ *
+ * It splits along a seam the original single-provider version conflated:
+ * searching for identity and filling fields for an already-known book are
+ * different operations with different callers. Only Google Books implements the
+ * identity half; every provider implements `enrich`.
  */
 
 export interface ProviderBook {
@@ -22,8 +28,76 @@ export interface ProviderBook {
   seriesPosition: number | null;
 }
 
+/**
+ * A sparse contribution from one source.
+ *
+ * Absent key vs null is load-bearing: absent means "this source has nothing to
+ * say", null means "this source asserts empty". Without the distinction a
+ * high-priority source that simply lacks a field would blank a value a
+ * lower-priority source knows.
+ */
+export interface ProviderFields {
+  title?: string | null;
+  subtitle?: string | null;
+  authors?: string[];
+  narrators?: string[];
+  genres?: string[];
+  publisher?: string | null;
+  pageCount?: number | null;
+  /** ISO-8601 date string. Stored to LibraryBook.publishedDate. */
+  publishedDate?: string | null;
+  publishedYear?: number | null;
+  isbn13?: string | null;
+  coverUrl?: string | null;
+  overview?: string | null;
+  seriesName?: string | null;
+  seriesPosition?: number | null;
+  /** ISO 639-1. */
+  language?: string | null;
+  rating?: number | null;
+  ratingCount?: number | null;
+  authorBio?: string | null;
+  authorImageUrl?: string | null;
+  /** Internal: the id this source resolved. Stripped before storage. */
+  __asin?: string;
+}
+
+/** Every key resolved. Same shape; a distinct name so intent reads clearly. */
+export type MergedBookFields = ProviderFields;
+
+/** What a provider needs in order to enrich a book it did not find itself. */
+export interface BookMatchInput {
+  bookId: number;
+  title: string;
+  authors: string[];
+  /** ISO 639-1. */
+  language: string;
+  isbn13: string | null;
+  googleVolumeId: string;
+  /** Already-resolved ids, keyed by source. Lets enrich skip re-resolution. */
+  externalIds: Partial<Record<BookMetadataSource, string>>;
+}
+
+/**
+ * What every source can do: contribute fields for a book already in the
+ * library. This is all the merge needs.
+ */
 export interface BookMetadataProvider {
-  readonly source: "googlebooks";
+  readonly source: BookMetadataSource;
+  enrich(book: BookMatchInput): Promise<ProviderFields>;
+}
+
+/**
+ * A provider that can also establish identity — find a book that is not in the
+ * library yet. Only Google Books does this, and the add flow, the import script
+ * and author monitoring all require it.
+ *
+ * Kept as a separate interface rather than optional methods on
+ * BookMetadataProvider: those callers cannot proceed without a search, so
+ * making the methods optional would push a meaningless `?.` onto every one of
+ * them and lose the guarantee at the type level.
+ */
+export interface BookIdentityProvider extends BookMetadataProvider {
   /** Free-text-ish search for the add flow. Uses structured operators. */
   searchBooks(
     query: string,
@@ -62,4 +136,38 @@ export class BookProviderUnavailableError extends Error {
     super(message);
     this.name = "BookProviderUnavailableError";
   }
+}
+
+/**
+ * One Audible catalog product, mapped. Audnexus is ASIN-keyed and exposes no
+ * book title search, so every ASIN starts life as one of these.
+ */
+export interface AsinCandidate {
+  asin: string;
+  title: string;
+  subtitle: string | null;
+  authors: string[];
+  narrators: string[];
+  seriesName: string | null;
+  seriesPosition: number | null;
+  /** As the provider spells it: "french", "english". Not ISO 639-1. */
+  language: string | null;
+  runtimeMin: number | null;
+  publisher: string | null;
+  releaseDate: string | null;
+  coverUrl: string | null;
+  genres: string[];
+}
+
+/** The library-side book an ASIN is being resolved for. */
+export interface AsinWant {
+  title: string;
+  authors: string[];
+  /** ISO 639-1. */
+  language: string;
+}
+
+export interface AsinMatch {
+  candidate: AsinCandidate;
+  score: number;
 }

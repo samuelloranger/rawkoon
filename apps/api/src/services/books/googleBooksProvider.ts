@@ -8,8 +8,10 @@ import {
 } from "@rawkoon/shared/utils";
 import {
   BookProviderUnavailableError,
-  type BookMetadataProvider,
+  type BookMatchInput,
+  type BookIdentityProvider,
   type ProviderBook,
+  type ProviderFields,
 } from "./types";
 
 const API_BASE = "https://www.googleapis.com/books/v1/volumes";
@@ -249,7 +251,7 @@ async function cachedVolumes(
   return fresh;
 }
 
-class GoogleBooksProvider implements BookMetadataProvider {
+class GoogleBooksProvider implements BookIdentityProvider {
   readonly source = "googlebooks" as const;
 
   constructor(
@@ -380,6 +382,27 @@ class GoogleBooksProvider implements BookMetadataProvider {
       return [...byVolume.values()];
     });
   }
+
+  async enrich(book: BookMatchInput): Promise<ProviderFields> {
+    const volumeId = book.externalIds.googlebooks ?? book.googleVolumeId;
+    if (!volumeId) return {};
+    const meta = await this.getBook(volumeId);
+    if (!meta) return {};
+    // Only the fields Google actually supplies. Everything it does not know is
+    // absent rather than null, so a lower-priority source can still fill it.
+    return {
+      title: meta.title,
+      subtitle: meta.subtitle,
+      authors: meta.authors,
+      language: meta.language,
+      publishedYear: meta.publishedYear,
+      isbn13: meta.isbn13,
+      coverUrl: meta.coverUrl,
+      overview: meta.overview,
+      seriesName: meta.seriesName,
+      seriesPosition: meta.seriesPosition,
+    };
+  }
 }
 
 /**
@@ -387,7 +410,7 @@ class GoogleBooksProvider implements BookMetadataProvider {
  * Books require a key: keyless Google Books is quota-exhausted in practice, so
  * there is no useful degraded mode.
  */
-export async function getBookMetadataProvider(): Promise<BookMetadataProvider | null> {
+export async function getBookMetadataProvider(): Promise<BookIdentityProvider | null> {
   const cfg = await loadConfig();
   if (!cfg) return null;
   const country = await loadCountry();

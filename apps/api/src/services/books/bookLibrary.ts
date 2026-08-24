@@ -3,6 +3,7 @@ import {
   getBookMetadataProvider,
   BookProviderUnavailableError,
 } from "@rawkoon/api/services/books";
+import { refreshBookMetadata } from "@rawkoon/api/services/books/refreshBookMetadata";
 import type { BookEditionKind } from "@rawkoon/shared/types";
 
 /**
@@ -156,6 +157,19 @@ export async function addBookFromVolume(opts: {
 
     return created.id;
   });
+
+  // Enrich on add so an unattended add — author monitoring — gets the same
+  // metadata a hand-added book does. A failure here must not fail the add: the
+  // book exists and can be refreshed later.
+  try {
+    await refreshBookMetadata(bookId);
+  } catch (e) {
+    console.warn(
+      `[books] metadata enrichment failed for book ${bookId}: ${
+        e instanceof Error ? e.message : String(e)
+      }`,
+    );
+  }
 
   return { added: true, bookId, created: !existing };
 }

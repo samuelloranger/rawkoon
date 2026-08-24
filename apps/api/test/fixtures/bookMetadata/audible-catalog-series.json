@@ -1,0 +1,50 @@
+{
+  "_comment": "Structure captured live from a regional Audible catalog on 2026-08-24; title/author/series/ASIN strings scrubbed. Hazards preserved: sequential series positions, two narrators per product, an empty series sequence on the novella, and a role-annotated contributor inside `authors`.",
+  "products": [
+    {
+      "asin": "B0SCRUB001",
+      "title": "Le Jardin de Verre",
+      "subtitle": "Le Jardin de Verre - Tome 1",
+      "authors": [{ "name": "Camille Rousseau" }],
+      "narrators": [{ "name": "Laure Vidal" }, { "name": "Audrey Meunier" }],
+      "series": [{ "title": "Le Jardin de Verre", "sequence": "1" }],
+      "language": "french",
+      "runtime_length_min": 578,
+      "publisher_name": "Éditions Lisière",
+      "release_date": "2024-06-27",
+      "product_images": { "500": "https://example.invalid/cover-1.jpg" }
+    },
+    {
+      "asin": "B0SCRUB002",
+      "title": "Les Secrets du Jardin de Verre",
+      "subtitle": "Le Jardin de Verre - Tome 2",
+      "authors": [{ "name": "Camille Rousseau" }],
+      "narrators": [{ "name": "Laure Vidal" }, { "name": "Marie Bouchard" }],
+      "series": [{ "title": "Le Jardin de Verre", "sequence": "2" }],
+      "language": "french",
+      "runtime_length_min": 499,
+      "publisher_name": "Éditions Lisière",
+      "release_date": "2024-07-11",
+      "product_images": {
+        "180": "https://example.invalid/cover-2-small.jpg",
+        "500": "https://example.invalid/cover-2.jpg"
+      }
+    },
+    {
+      "asin": "B0SCRUB003",
+      "title": "Le Jardin de Verre se referme",
+      "subtitle": "Une nouvelle de Camille Rousseau",
+      "authors": [
+        { "name": "Camille Rousseau" },
+        { "name": "Karine Forestier - traducteur" }
+      ],
+      "narrators": [{ "name": "Jérémy Bardin" }],
+      "series": [{ "title": "Le Jardin de Verre", "sequence": "" }],
+      "language": "french",
+      "runtime_length_min": 93,
+      "publisher_name": "Éditions Lisière",
+      "release_date": "2025-05-21",
+      "product_images": { "500": "https://example.invalid/cover-3.jpg" }
+    }
+  ]
+}
