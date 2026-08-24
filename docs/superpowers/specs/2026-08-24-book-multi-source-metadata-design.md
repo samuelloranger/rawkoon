@@ -286,11 +286,18 @@ Migration is additive throughout. Nothing is dropped or renamed, so the existing
 
 ## UI
 
-**Settings → Books → Metadata.** A drag-ordered list of sources with a per-source
-enable toggle, plus an Audnexus base URL field and a region field. This also
-closes a standing gap: there is currently no settings UI for the Google Books
-integration at all, and its `Integration` row can only be created by running
-`apps/api/src/scripts/configureBooks.ts`.
+**Settings → Books.** A new Metadata section inside the existing
+`BooksSettingsTab.tsx`, which already renders the Google Books integration card
+(key, enable, test) through `useGoogleBooksIntegration.ts` and
+`INTEGRATION_ENDPOINTS.GOOGLE_BOOKS`. The section holds a drag-ordered source
+list plus an Audnexus card with base URL, region, enable, and a test button.
+
+Audnexus is therefore not a new UI pattern: it is a second integration card
+copying the Google Books route, endpoint, hook, and test-button shape exactly.
+
+**Source order doubles as the enable list.** A source absent from the ordered
+array is disabled. One array, no parallel set of booleans that could contradict
+it.
 
 **Book detail.** Narrators, series and position, genres, publisher, page count,
 and rating rendered as fields; each carries a provenance tooltip naming its
@@ -312,22 +319,40 @@ failed, so an Audnexus outage is legible rather than silent.
 
 ## Testing
 
-Provider responses captured during the 2026-08-24 probe are committed as fixtures
-under `apps/api/test/fixtures/bookMetadata/`. Every fixture is a real response for
-a book the operator actually owns, chosen because it encodes a specific hazard:
+Fixtures live under `apps/api/test/fixtures/bookMetadata/`. They keep the exact
+**response structure** captured during the 2026-08-24 probe — field names,
+nesting, types, and every quirk — but their title, author, series, and ASIN
+strings are rewritten to invented equivalents that preserve the hazard.
+
+This follows the convention `utils/books/bookReleaseScorer.test.ts` already
+established ("synthetic fixtures with an invented title and author … the set
+deliberately includes a decoy"). Rawkoon is a public GPL repository, and
+committing captures of the operator's own library would publish their reading
+list in git history for no test benefit — the hazards are structural, so they
+survive renaming.
+
+Scrubbing must preserve the property under test, which is the easy thing to get
+wrong. A renamed series whose volume 1 title is *not* a substring of its volume 2
+title silently stops testing the collision, and the test would pass for the wrong
+reason. Each fixture therefore carries a comment naming its hazard, and each
+test asserts the hazard directly rather than asserting a whole merged object.
 
 | Fixture | Hazard it pins |
 |---|---|
-| Freida McFadden, *La femme de ménage* 1–3 | Series name and position; multiple narrators per book |
-| *Hunger Games - tome 2 L'embrasement* | The tome-1 substring mismatch. Asserts **no** match rather than a wrong one |
-| *Fourth Wing - Version française* | `language: english` on a French edition |
-| ACOTAR volumes | Leading-colon and parenthesized series names |
-| Harry Potter FR 1 and 4 | One series split across two names |
-| *Icebreaker* | `[French Edition]` bracket stripping |
-| *Mises en scène* | No Audible match at all; Google Books floor |
-| Audnexus `/authors/B00ELQLN2I?region=fr` | Empty author description; region fallback |
-| Audnexus `/authors?name=…` | Ten duplicate rows for one ASIN |
-| Open Library FR ISBN lookups | HTML 404 body on a 200-shaped route |
+| A 3-volume series, multi-narrator | Series name and position; several narrators per book |
+| A series whose vol-1 title is a strict prefix of vol-2's | The substring collision. Asserts **no** match rather than a wrong one |
+| A translated edition reporting `language: "english"` | Language must score, never gate |
+| A series name with a leading colon and a parenthesized acronym | Series-name normalization |
+| One series arriving under two different names across volumes | Split series is preserved, not invented away |
+| A series name carrying `[French Edition]` | Bracketed edition-marker stripping |
+| A title absent from Audible entirely | Google Books floor; below-threshold means no ASIN |
+| Audnexus author with an empty `description` | Region fallback for author bio |
+| Audnexus `/authors?name=…` with ten duplicate rows for one ASIN | Deduplication by ASIN |
+| Open Library ISBN route returning an HTML body | HTML 404 on a 200-shaped route |
+
+The uncommitted `test:live` script re-probes the real APIs against the operator's
+actual library, so provider rot stays detectable without the fixtures carrying
+personal data.
 
 `mergeBookMetadata` and the ASIN resolver are tested as pure functions over these
 fixtures, with no network. The API tests mock `@rawkoon/api/db` as the existing
