@@ -4,6 +4,7 @@ import {
   BookProviderUnavailableError,
 } from "@rawkoon/api/services/books";
 import { refreshBookMetadata } from "@rawkoon/api/services/books/refreshBookMetadata";
+import { serializePerBook } from "@rawkoon/api/services/books/refreshQueue";
 import type { BookEditionKind } from "@rawkoon/shared/types";
 
 /**
@@ -162,7 +163,10 @@ export async function addBookFromVolume(opts: {
   // metadata a hand-added book does. A failure here must not fail the add: the
   // book exists and can be refreshed later.
   try {
-    await refreshBookMetadata(bookId);
+    // Queued like every other refresh: adding a volume that already exists
+    // re-runs this, and an unqueued run racing an override save could finish
+    // last and overwrite the columns with a stale snapshot.
+    await serializePerBook(bookId, () => refreshBookMetadata(bookId));
   } catch (e) {
     console.warn(
       `[books] metadata enrichment failed for book ${bookId}: ${

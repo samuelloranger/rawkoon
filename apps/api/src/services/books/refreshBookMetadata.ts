@@ -28,6 +28,14 @@ export type RefreshMetadataOutcome =
       changedFields: string[];
       failedSources: BookMetadataSource[];
       usedSources: BookMetadataSource[];
+      /**
+       * Cleared overrides on columns that cannot be emptied, where no source
+       * supplied a replacement. The caller must put the override back: the
+       * column still holds the manual value, and leaving it with no override
+       * marker would strand it, with no Revert action and no later refresh
+       * able to repair it.
+       */
+      unrestoredFields: string[];
     }
   | { ok: false; reason: string };
 
@@ -41,6 +49,35 @@ export type RefreshMetadataOutcome =
  *  - authors: owned by the book_authors join table and its trigger.
  *  - authorBio / authorImageUrl: they belong to Author, not to a book.
  */
+/**
+ * Columns no *provider* may write, but an operator override may.
+ *
+ * The reasons they are protected are all about untrusted provider data: the
+ * title is the indexer search term, and language re-points every indexer
+ * search. A person editing the field deliberately is the case those rules
+ * exist to protect, not the case they are meant to block — fixing a title or a
+ * language a provider got wrong is precisely why overrides exist.
+ */
+const OVERRIDE_ONLY_COLUMNS = new Set<string>(["title", "language"]);
+
+/**
+ * Columns that can never be emptied.
+ *
+ * A book must have a title, and language is NOT NULL with a default. Clearing
+ * an override on either falls back to the source value when there is one, and
+ * otherwise keeps what is there — an empty title is not a state this app has.
+ */
+const NEVER_EMPTIED_COLUMNS = new Set<string>(["title", "language"]);
+
+/**
+ * What "empty" means per column. List columns are required by the Prisma
+ * client even though Postgres would accept null, so they empty to [].
+ */
+const EMPTY_VALUE: Record<string, unknown> = {
+  narrators: [],
+  genres: [],
+};
+
 const BOOK_COLUMNS = new Set<string>([
   "subtitle",
   "narrators",
@@ -100,7 +137,20 @@ async function collectProviders(
 
 export async function refreshBookMetadata(
   bookId: number,
-  opts?: { providers?: BookMetadataProvider[] },
+  opts?: {
+    providers?: BookMetadataProvider[];
+    /**
+     * Override keys removed by this request.
+     *
+     * Two things depend on knowing them. An override-only column (title,
+     * language) has to be re-authorised for one run, or the reverted value
+     * would stay frozen at whatever the operator typed — no provider may write
+     * that column. And a cleared field that no source supplies has to be
+     * emptied outright; leaving it would show a manual value the book no longer
+     * records as manual, with no way left to remove it.
+     */
+    clearedOverrides?: string[];
+  },
 ): Promise<RefreshMetadataOutcome> {
   const book = await prisma.libraryBook.findUnique({
     where: { id: bookId },
@@ -221,17 +271,27 @@ export async function refreshBookMetadata(
   const currentProvenance = new Map<string, string>(
     book.metadataFields.map((f) => [f.field, f.source]),
   );
+  // An operator override outranks everything, including the protection given
+  // to a source that is currently down — otherwise editing a field while that
+  // source is unreachable would silently do nothing.
+  const overridden = new Set<string>(overrides ? Object.keys(overrides) : []);
+  const cleared = new Set<string>(opts?.clearedOverrides ?? []);
   const lockedFields = new Set<string>(
     [...currentProvenance.entries()]
-      .filter(([, source]) => failed.has(source))
+      .filter(([field, source]) => failed.has(source) && !overridden.has(field))
       .map(([field]) => field),
   );
 
   const current = book as unknown as Record<string, unknown>;
 
+  const unrestoredFields: string[] = [];
   const data: Record<string, unknown> = {};
   for (const field of MERGEABLE_FIELDS) {
-    if (!BOOK_COLUMNS.has(field)) continue;
+    const writable =
+      BOOK_COLUMNS.has(field) ||
+      (OVERRIDE_ONLY_COLUMNS.has(field) &&
+        (overridden.has(field) || cleared.has(field)));
+    if (!writable) continue;
     if (lockedFields.has(field)) continue;
     if (!(field in merged)) continue;
     const value = merged[field];
@@ -242,6 +302,31 @@ export async function refreshBookMetadata(
     // Only write what actually differs. An unconditional write reports every
     // merged column as "changed" on every refresh and churns updatedAt.
     if (!sameValue(current[field], next)) data[field] = next;
+  }
+
+  /**
+   * A cleared override the source chain cannot replace.
+   *
+   * The loop above only writes fields present in `merged`, so a manually added
+   * value that no provider supplies would survive its own removal: the column
+   * would keep showing it while `overrides` no longer marked it as edited,
+   * leaving the UI nothing to revert and no way to clear it.
+   */
+  for (const field of cleared) {
+    if (field in merged) continue;
+    if (!BOOK_COLUMNS.has(field) && !OVERRIDE_ONLY_COLUMNS.has(field)) continue;
+    if (lockedFields.has(field)) continue;
+    // A column that cannot hold null needs its own empty value, or the write
+    // fails *after* the override has already been deleted — leaving a manual
+    // value the book no longer records as manual and a 500 in the operator's
+    // face.
+    if (NEVER_EMPTIED_COLUMNS.has(field)) {
+      unrestoredFields.push(field);
+      continue;
+    }
+    const empty = EMPTY_VALUE[field] ?? null;
+    if (sameValue(current[field], empty)) continue;
+    data[field] = empty;
   }
 
   /**
@@ -284,6 +369,7 @@ export async function refreshBookMetadata(
     ok: true,
     bookId: book.id,
     changedFields: Object.keys(data),
+    unrestoredFields,
     failedSources,
     usedSources: [...new Set(candidates.map((c) => c.source))],
   };

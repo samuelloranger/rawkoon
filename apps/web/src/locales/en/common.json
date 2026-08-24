@@ -2004,7 +2004,32 @@
         "refreshed": "Updated {{count}} field(s)",
         "refreshedNoChange": "Metadata is already up to date",
         "refreshedWithFailures": "Updated {{count}} field(s); unavailable: {{sources}}",
-        "refreshFailed": "Could not refresh metadata"
+        "refreshFailed": "Could not refresh metadata",
+        "title": "Title",
+        "subtitle": "Subtitle",
+        "seriesName": "Series",
+        "seriesPosition": "Series #",
+        "publishedDate": "Published",
+        "publishedYear": "Year",
+        "language": "Language",
+        "isbn": "ISBN",
+        "coverUrl": "Cover URL",
+        "overview": "Description",
+        "ratingCountLabel": "Ratings"
+      },
+      "overrides": {
+        "heading": "Edit metadata",
+        "hint": "Your edits always win over every source. Clearing a field hands it back to the sources.",
+        "listHint": "Separate with commas",
+        "edited": "edited",
+        "save": "Save",
+        "revert": "Revert",
+        "revertHint": "Clear your edit and use the metadata sources again",
+        "saved": "Saved",
+        "reverted": "Reverted to the metadata sources",
+        "failed": "Could not save that change",
+        "authorsNote": "Authors are managed from the author pages, not here.",
+        "invalidNumber": "That needs to be a number"
       }
     },
     "track": {
