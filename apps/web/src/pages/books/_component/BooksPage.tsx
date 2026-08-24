@@ -4,7 +4,9 @@ import { Link } from "@tanstack/react-router";
 import {
   BookOpen,
   Headphones,
+  LayoutGrid,
   Library,
+  List,
   Plus,
   Search,
   UserRound,
@@ -18,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { useBooks } from "../_hooks/useBooks";
 import { AddBookDialog } from "./AddBookDialog";
 import { BookCover } from "./BookCover";
+import { BookGrid } from "./BookGrid";
 import { aggregateState, byKindOrder, stateTokens } from "./bookState";
 
 const formatBytes = (raw: string | null): string => {
@@ -152,6 +155,26 @@ function BookRow({ book }: { book: Book }) {
   );
 }
 
+type BooksViewMode = "grid" | "list";
+
+const VIEW_STORAGE_KEY = "rawkoon.books.viewMode";
+
+/**
+ * The choice outlives the visit.
+ *
+ * Books has no URL state of its own, unlike the media library, so the view
+ * lives in localStorage: picking the shelf and finding the ledger again on the
+ * next visit would read as the app forgetting.
+ */
+const readStoredView = (): BooksViewMode => {
+  try {
+    return localStorage.getItem(VIEW_STORAGE_KEY) === "list" ? "list" : "grid";
+  } catch {
+    // Private mode, or storage disabled — the default is still a valid view.
+    return "grid";
+  }
+};
+
 export function BooksPage() {
   const { t } = useTranslation("common");
   // Server-pushed updates, same stream the media pages use. No polling.
@@ -160,6 +183,16 @@ export function BooksPage() {
   const [submitted, setSubmitted] = useState("");
   const [kind, setKind] = useState<BookEditionKind | undefined>();
   const [showAdd, setShowAdd] = useState(false);
+  const [view, setView] = useState<BooksViewMode>(readStoredView);
+
+  const changeView = (next: BooksViewMode) => {
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, next);
+    } catch {
+      // Not being able to remember the choice must not break making it.
+    }
+  };
 
   const { data, isLoading, refetch, isRefetching } = useBooks({
     q: submitted || undefined,
@@ -244,6 +277,31 @@ export function BooksPage() {
             </button>
           ))}
         </div>
+
+        <div className="ms-auto flex overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900">
+          {(
+            [
+              { mode: "grid" as const, Icon: LayoutGrid },
+              { mode: "list" as const, Icon: List },
+            ] as const
+          ).map(({ mode, Icon }) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => changeView(mode)}
+              aria-pressed={view === mode}
+              title={t(`books.view.${mode}`)}
+              aria-label={t(`books.view.${mode}`)}
+              className={`focus-ring flex h-9 w-9 items-center justify-center transition-colors ${
+                view === mode
+                  ? "bg-neutral-800 text-neutral-200"
+                  : "text-neutral-400 hover:text-neutral-300"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+            </button>
+          ))}
+        </div>
       </div>
 
       {isLoading ? (
@@ -263,6 +321,8 @@ export function BooksPage() {
             </Button>
           )}
         </div>
+      ) : view === "grid" ? (
+        <BookGrid books={books} />
       ) : (
         <ul className="space-y-2">
           {books.map((b) => (
