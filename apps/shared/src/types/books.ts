@@ -245,3 +245,15 @@ export type BookMetadataSource =
   | "audnexus"
   | "googlebooks"
   | "openlibrary";
+
+export interface BookRefreshMetadataResponse {
+  book_id: number;
+  changed_fields: string[];
+  /** Sources that were unavailable. Reported so an outage is legible. */
+  failed_sources: BookMetadataSource[];
+  used_sources: BookMetadataSource[];
+}
+
+export interface BookMetadataSourceOrderResponse {
+  order: BookMetadataSource[];
+}

@@ -4,6 +4,10 @@ import { auth } from "@rawkoon/api/auth";
 import { bookListRoutes } from "./bookListRoutes";
 import { bookEditionRoutes } from "./bookEditionRoutes";
 import { bookGrabRoutes } from "./bookGrabRoutes";
+import {
+  bookMetadataAdminRoutes,
+  bookMetadataRoutes,
+} from "./bookMetadataRoutes";
 
 export { mapBook, mapBookEdition, bookInclude } from "./bookHelpers";
 export { bookQualityProfileRoutes } from "./bookQualityProfileRoutes";
@@ -12,6 +16,7 @@ export { authorRoutes } from "./authorRoutes";
 /**
  * Books router — thin orchestrator, same shape as routes/library/index.ts.
  *   bookListRoutes    — GET /, GET /search, GET /:id, POST /, DELETE /:id
+ *   bookMetadata*     — refresh a book's metadata, read/reorder the sources
  *   bookEditionRoutes — PATCH /:id/editions/:kind, POST /:id/editions, files
  *   bookGrabRoutes    — search / grab / auto per edition
  *
@@ -21,5 +26,7 @@ export { authorRoutes } from "./authorRoutes";
 export const bookRoutes = new Elysia({ prefix: "/api/books" })
   .use(auth)
   .use(bookListRoutes)
+  .use(bookMetadataRoutes)
+  .use(bookMetadataAdminRoutes)
   .use(bookEditionRoutes)
   .use(bookGrabRoutes);
