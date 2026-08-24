@@ -146,11 +146,18 @@ This addresses a known gap: `syncFileChapters` reads only internal m4b/mka "Menu
 marks, so per-file mp3 and opus audiobooks legitimately end up with zero
 `book_file_chapters` rows.
 
-**But the offsets describe Audible's single-file edition.** Library audiobooks are
-per-file rips whose file boundaries need not align. Importing these offsets
-blindly would desynchronize the player. Hence a separate phase, applied only when
-the summed local runtime agrees with `runtimeLengthMs` within a tolerance, and
-only when the edition has no chapters of its own.
+**But the offsets describe Audible's single-file edition**, and library
+audiobooks are per-file rips whose boundaries need not align.
+
+**Dropped during implementation.** The premise was wrong: migration
+`20260824001000_drop_book_reading_state` removed `book_file_chapters` and
+`book_progress` the day before this spec was written, because the in-app player
+and reader are gone and Audiobookshelf owns playback and progress. There is no
+table to import chapters into and no consumer for them. Adding one back would
+re-create what the project had just deliberately deleted.
+
+If chapters are ever wanted again, they belong to whatever owns playback — not
+to this metadata chain.
 
 ## Architecture
 
@@ -376,9 +383,8 @@ rot is detectable on purpose rather than discovered through a silent regression.
 7. **Backfill.** A script over the existing 32 books, following the
    `importExistingBooks.ts` pattern: per-book error catching so one failure does
    not abort the batch.
-8. **Chapters (optional).** Audnexus chapters into `book_file_chapters`, gated on
-   summed local runtime matching `runtimeLengthMs` within tolerance, and only for
-   editions with no chapters of their own.
+8. ~~**Chapters (optional).**~~ Dropped — see [Chapters](#chapters).
+   `book_file_chapters` no longer exists.
 
 ## Out of scope
 

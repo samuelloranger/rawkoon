@@ -3189,9 +3189,19 @@ git commit -m "feat(books): add a metadata backfill script"
 
 ---
 
-### Task 15: Audnexus chapters (optional)
+### Task 15: Audnexus chapters — DROPPED, do not implement
 
-Gated by design. Do not start this task until Tasks 1–14 are merged and the backfill has run.
+Cancelled during implementation, not deferred.
+
+`book_file_chapters` and `book_progress` were dropped by migration
+`20260824001000_drop_book_reading_state`, one day before this plan was written:
+the in-app player and reader are gone and Audiobookshelf owns playback and
+progress. There is no table to write chapters into and nothing that would read
+them. Implementing the task below would re-create a table the project had just
+deliberately removed.
+
+The steps are left in place only as a record of what was investigated. **Do not
+execute them.**
 
 **Files:**
 - Create: `apps/api/src/services/books/audnexusChapters.ts`
