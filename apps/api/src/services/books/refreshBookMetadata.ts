@@ -3,6 +3,7 @@ import type { BookMetadataSource } from "@rawkoon/shared/types";
 import { normalizeSourceOrder } from "@rawkoon/shared/utils";
 import { getAudnexusProvider } from "./audnexusProvider";
 import { getBookMetadataProvider } from "./googleBooksProvider";
+import { getLocalFileProvider } from "./localFileProvider";
 import { mergeBookMetadata, MERGEABLE_FIELDS } from "./mergeBookMetadata";
 import {
   BookProviderUnavailableError,
@@ -67,8 +68,11 @@ async function collectProviders(
     } else if (source === "googlebooks") {
       const p = await getBookMetadataProvider();
       if (p) out.push(p);
+    } else if (source === "local") {
+      // Always available: it needs no configuration, only files on disk.
+      out.push(getLocalFileProvider());
     }
-    // "local" and "openlibrary" are registered by their own providers.
+    // "openlibrary" is registered by its own task.
   }
   return out;
 }
