@@ -73,9 +73,23 @@ export interface Book {
   published_year: number | null;
   series_name: string | null;
   series_position: number | null;
+  /** Merged from the source chain. Book-level, unlike BookEdition.narrators. */
+  narrators: string[];
+  genres: string[];
+  publisher: string | null;
+  page_count: number | null;
+  /** ISO-8601. published_year is kept; list sorting depends on it. */
+  published_date: string | null;
+  rating: number | null;
+  rating_count: number | null;
   added_at: string;
   updated_at: string;
   overrides?: Record<string, unknown>;
+  /**
+   * Field name -> the source that supplied it. A field absent from this map was
+   * never enriched, or was set by an override (the operator is the source).
+   */
+  metadata_sources: Record<string, BookMetadataSource>;
   editions: BookEdition[];
 }
 

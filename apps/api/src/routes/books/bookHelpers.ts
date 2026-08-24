@@ -3,6 +3,7 @@ import type {
   BookEdition,
   BookEditionKind,
   BookFormat,
+  BookMetadataSource,
 } from "@rawkoon/shared/types";
 
 /** Prisma include shape used by every route that returns a full book. */
@@ -16,6 +17,7 @@ export const bookInclude = {
     },
     orderBy: { kind: "asc" as const },
   },
+  metadataFields: { select: { field: true, source: true } },
 } as const;
 
 type MappableEdition = {
@@ -47,10 +49,19 @@ type MappableBook = {
   publishedYear: number | null;
   seriesName: string | null;
   seriesPosition: number | null;
+  narrators: string[];
+  genres: string[];
+  publisher: string | null;
+  pageCount: number | null;
+  publishedDate: Date | null;
+  rating: number | null;
+  ratingCount: number | null;
   overrides?: unknown;
   addedAt: Date;
   updatedAt: Date;
   editions: MappableEdition[];
+  /// Optional: routes that predate provenance may not select it.
+  metadataFields?: { field: string; source: string }[];
 };
 
 /**
@@ -122,9 +133,19 @@ export function mapBook(b: MappableBook): Book {
     published_year: b.publishedYear,
     series_name: b.seriesName,
     series_position: b.seriesPosition,
+    narrators: b.narrators,
+    genres: b.genres,
+    publisher: b.publisher,
+    page_count: b.pageCount,
+    published_date: b.publishedDate?.toISOString() ?? null,
+    rating: b.rating,
+    rating_count: b.ratingCount,
     added_at: b.addedAt.toISOString(),
     updated_at: b.updatedAt.toISOString(),
     ...(overrides ? { overrides } : {}),
+    metadata_sources: Object.fromEntries(
+      (b.metadataFields ?? []).map((f) => [f.field, f.source]),
+    ) as Record<string, BookMetadataSource>,
     editions: b.editions.map(mapBookEdition),
   };
 }
