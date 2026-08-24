@@ -5,6 +5,8 @@ import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound, serverError } from "@rawkoon/api/errors";
 import { sanitizeProviderHtml } from "@rawkoon/shared/utils";
 import { refreshBookMetadata } from "@rawkoon/api/services/books/refreshBookMetadata";
+import { serializePerBook } from "@rawkoon/api/services/books/refreshQueue";
+import { parseIsoDate } from "@rawkoon/api/utils/books/isoDate";
 
 import { bookInclude, mapBook } from "./bookHelpers";
 
@@ -66,35 +68,6 @@ const nullableStr = (max: number) =>
 const nullableInt = (min: number, max: number) =>
   t.Optional(t.Union([t.Integer({ minimum: min, maximum: max }), t.Null()]));
 
-/**
- * One in-flight override update per book.
- *
- * Making the JSON merge a single statement stops two saves losing each other's
- * keys, but the refresh that follows is a separate read/compute/write. Two
- * overlapping requests could still finish in the opposite order and leave the
- * columns disagreeing with the stored overrides. Chaining per book id keeps the
- * write and its refresh together.
- *
- * This serializes within a process, which is what rawkoon runs — a single API
- * container. It is not a distributed lock, and does not claim to be.
- */
-const inFlight = new Map<number, Promise<unknown>>();
-
-function serializePerBook<T>(id: number, work: () => Promise<T>): Promise<T> {
-  const prior = inFlight.get(id) ?? Promise.resolve();
-  const next = prior.then(work, work);
-  // Keep the chain from growing without bound, and never let one failure
-  // poison later requests.
-  inFlight.set(
-    id,
-    next.catch(() => undefined),
-  );
-  void next.finally(() => {
-    if (inFlight.get(id) === next) inFlight.delete(id);
-  });
-  return next;
-}
-
 export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
   "/:id/overrides",
   async ({ params, body, set }) => {
@@ -125,11 +98,33 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
       if (stored === "publishedDate" && typeof value === "string") {
         // Validated here rather than at write time: an unparseable date stored
         // in the JSON would make every subsequent refresh throw.
-        const parsed = new Date(value);
-        if (Number.isNaN(parsed.getTime())) {
-          return badRequest(set, "published_date is not a valid date");
+        const parsed = parseIsoDate(value);
+        if (!parsed) {
+          return badRequest(
+            set,
+            "published_date must be an ISO date (YYYY-MM-DD)",
+          );
         }
         patch[stored] = parsed.toISOString();
+        continue;
+      }
+
+      if (stored === "language" && typeof value === "string") {
+        /**
+         * ISO 639-1, lowercase.
+         *
+         * bookGrabber appends this to preferredLanguages and compares it with
+         * two-letter codes parsed from release titles, so "French" or "FR"
+         * would quietly cost the book its own language preference in scoring.
+         */
+        const code = value.trim().toLowerCase();
+        if (!/^[a-z]{2}$/.test(code)) {
+          return badRequest(
+            set,
+            "language must be a two-letter ISO 639-1 code",
+          );
+        }
+        patch[stored] = code;
         continue;
       }
 
@@ -219,7 +214,7 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
         t.Union([t.Number({ minimum: 0, maximum: 5 }), t.Null()]),
       ),
       rating_count: nullableInt(0, 1_000_000_000),
-      language: nullableStr(10),
+      language: nullableStr(20),
       overview: nullableStr(20_000),
       cover_url: nullableStr(2000),
       isbn13: nullableStr(20),

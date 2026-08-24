@@ -5,6 +5,7 @@ import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound } from "@rawkoon/api/errors";
 import { normalizeSourceOrder } from "@rawkoon/shared/utils";
 import { refreshBookMetadata } from "@rawkoon/api/services/books/refreshBookMetadata";
+import { serializePerBook } from "@rawkoon/api/services/books/refreshQueue";
 
 /**
  * Metadata routes.
@@ -41,7 +42,10 @@ export const bookMetadataRoutes = new Elysia()
       if (!Number.isInteger(id) || id <= 0)
         return badRequest(set, "Invalid book id");
 
-      const outcome = await refreshBookMetadata(id);
+      // Queued alongside override saves: an unqueued refresh could read the
+      // old overrides, finish last, and overwrite the columns with a stale
+      // snapshot — the disagreement the queue exists to prevent.
+      const outcome = await serializePerBook(id, () => refreshBookMetadata(id));
       if (!outcome.ok) return notFound(set, outcome.reason);
 
       return {
