@@ -39,10 +39,23 @@ describe("parseIsoDate", () => {
   test("rejects garbage after a valid date", () => {
     expect(parseIsoDate("2024-06-27Tnot-a-date")).toBeNull();
     expect(parseIsoDate("2024-06-27 garbage")).toBeNull();
-    expect(parseIsoDate("2024-06-27T25:00:00Z")?.toISOString()).toBe(
+    expect(parseIsoDate("2024-06-27T")).toBeNull();
+  });
+
+  /**
+   * Matching a timestamp's shape without its ranges is the same
+   * silent-acceptance bug again: an impossible clock time parses, the time is
+   * discarded, and the date is stored as if the input had been valid. An
+   * earlier version of this suite asserted hour 25 was acceptable.
+   */
+  test("rejects impossible clock and offset values", () => {
+    expect(parseIsoDate("2024-06-27T25:00:00Z")).toBeNull();
+    expect(parseIsoDate("2024-06-27T12:99:00Z")).toBeNull();
+    expect(parseIsoDate("2024-06-27T12:00:99Z")).toBeNull();
+    expect(parseIsoDate("2024-06-27T12:00:00+99:99")).toBeNull();
+    expect(parseIsoDate("2024-06-27T23:59:59Z")?.toISOString()).toBe(
       "2024-06-27T00:00:00.000Z",
     );
-    expect(parseIsoDate("2024-06-27T")).toBeNull();
   });
 
   test("accepts the ISO time forms providers actually send", () => {

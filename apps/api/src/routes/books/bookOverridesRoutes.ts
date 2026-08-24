@@ -77,16 +77,9 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
 
     const existing = await prisma.libraryBook.findUnique({
       where: { id },
-      select: { id: true, overrides: true },
+      select: { id: true },
     });
     if (!existing) return notFound(set, "Book not found");
-
-    const priorOverrides =
-      existing.overrides &&
-      typeof existing.overrides === "object" &&
-      !Array.isArray(existing.overrides)
-        ? (existing.overrides as Record<string, unknown>)
-        : {};
 
     const patch: Record<string, unknown> = {};
     const removed: string[] = [];
@@ -167,6 +160,24 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
     try {
       const { item, unrestored } = await serializePerBook(id, async () => {
         /**
+         * Read inside the job, not before it.
+         *
+         * Captured outside the queue, this snapshot could predate another
+         * request that has already been applied — a revert would then restore a
+         * value that is no longer the one it is reverting.
+         */
+        const before = await prisma.libraryBook.findUnique({
+          where: { id },
+          select: { overrides: true },
+        });
+        const priorOverrides =
+          before?.overrides &&
+          typeof before.overrides === "object" &&
+          !Array.isArray(before.overrides)
+            ? (before.overrides as Record<string, unknown>)
+            : {};
+
+        /**
          * Merged in the database, not read-modify-written in the handler.
          *
          * Each field has its own Save button, so two saves can overlap.
@@ -186,9 +197,24 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
         // Recompute so the columns reflect the change: an override has to win,
         // a cleared field has to fall back to the sources, and a cleared field
         // no source supplies has to be emptied rather than left frozen.
-        const outcome = await refreshBookMetadata(id, {
-          clearedOverrides: removed,
-        });
+        let outcome;
+        try {
+          outcome = await refreshBookMetadata(id, {
+            clearedOverrides: removed,
+          });
+        } catch (error) {
+          /**
+           * The JSON is already committed at this point, so a failed refresh
+           * would otherwise leave the override stored while the column still
+           * shows the old value — a request reported as failed that changed
+           * something anyway. Put the previous state back before rethrowing.
+           */
+          await prisma.libraryBook.update({
+            where: { id },
+            data: { overrides: priorOverrides as object },
+          });
+          throw error;
+        }
 
         /**
          * A revert the sources cannot honour is undone rather than half-applied.
