@@ -31,6 +31,32 @@ describe("parseIsoDate", () => {
     );
   });
 
+  /**
+   * A permissive suffix is the same silent-acceptance bug in a new place: the
+   * date parses, the trailing garbage is ignored, and the value is stored as
+   * if it had been valid.
+   */
+  test("rejects garbage after a valid date", () => {
+    expect(parseIsoDate("2024-06-27Tnot-a-date")).toBeNull();
+    expect(parseIsoDate("2024-06-27 garbage")).toBeNull();
+    expect(parseIsoDate("2024-06-27T25:00:00Z")?.toISOString()).toBe(
+      "2024-06-27T00:00:00.000Z",
+    );
+    expect(parseIsoDate("2024-06-27T")).toBeNull();
+  });
+
+  test("accepts the ISO time forms providers actually send", () => {
+    for (const v of [
+      "2024-06-27T00:00:00.000Z",
+      "2024-06-27T11:22:33Z",
+      "2024-06-27T11:22Z",
+      "2024-06-27T11:22:33+02:00",
+      "2024-06-27 11:22:33",
+    ]) {
+      expect(parseIsoDate(v)?.toISOString()).toBe("2024-06-27T00:00:00.000Z");
+    }
+  });
+
   test("rejects the loose forms new Date would have taken", () => {
     expect(parseIsoDate("0")).toBeNull();
     expect(parseIsoDate("03/04/2024")).toBeNull();

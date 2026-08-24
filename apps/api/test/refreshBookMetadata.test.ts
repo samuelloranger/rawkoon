@@ -476,6 +476,31 @@ describe("refreshBookMetadata", () => {
     expect(data.genres).toEqual([]);
   });
 
+  test("reports title as unrestored so the caller can put the override back", async () => {
+    state.book = {
+      ...bookFixture(),
+      title: "Only Title There Is",
+      overrides: null,
+    };
+    const outcome = await refreshBookMetadata(1, {
+      providers: [audnexus({ publisher: "Éditions Lisière" })],
+      clearedOverrides: ["title"],
+    });
+    // Skipping the write alone would strand the value: displayed as if a source
+    // supplied it, with no Revert action and no later refresh able to fix it.
+    expect(outcome.ok && outcome.unrestoredFields).toEqual(["title"]);
+  });
+
+  test("reports nothing unrestored when a source does supply the field", async () => {
+    state.book = { ...bookFixture(), title: "Old Title", overrides: null };
+    const outcome = await refreshBookMetadata(1, {
+      providers: [audnexus({ title: "Provider Title" })],
+      clearedOverrides: ["title"],
+    });
+    expect(outcome.ok && outcome.unrestoredFields).toEqual([]);
+    expect(state.updates.at(-1)?.title).toBe("Provider Title");
+  });
+
   test("never empties title or language, which cannot be null", async () => {
     state.book = {
       ...bookFixture(),

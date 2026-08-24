@@ -77,9 +77,16 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
 
     const existing = await prisma.libraryBook.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, overrides: true },
     });
     if (!existing) return notFound(set, "Book not found");
+
+    const priorOverrides =
+      existing.overrides &&
+      typeof existing.overrides === "object" &&
+      !Array.isArray(existing.overrides)
+        ? (existing.overrides as Record<string, unknown>)
+        : {};
 
     const patch: Record<string, unknown> = {};
     const removed: string[] = [];
@@ -158,7 +165,7 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
     }
 
     try {
-      const item = await serializePerBook(id, async () => {
+      const { item, unrestored } = await serializePerBook(id, async () => {
         /**
          * Merged in the database, not read-modify-written in the handler.
          *
@@ -179,15 +186,51 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
         // Recompute so the columns reflect the change: an override has to win,
         // a cleared field has to fall back to the sources, and a cleared field
         // no source supplies has to be emptied rather than left frozen.
-        await refreshBookMetadata(id, { clearedOverrides: removed });
+        const outcome = await refreshBookMetadata(id, {
+          clearedOverrides: removed,
+        });
 
-        return prisma.libraryBook.findUnique({
+        /**
+         * A revert the sources cannot honour is undone rather than half-applied.
+         *
+         * title and language cannot be emptied, so if nothing replaced them the
+         * column still holds the operator's value. Leaving the override deleted
+         * would strand it: displayed as if it came from a source, with no Revert
+         * action and no later refresh able to repair it. Putting the override
+         * back keeps the JSON and the column agreeing, and the caller is told.
+         */
+        const unrestored = outcome.ok ? outcome.unrestoredFields : [];
+        if (unrestored.length > 0) {
+          const restore: Record<string, unknown> = {};
+          for (const field of unrestored) {
+            if (Object.hasOwn(priorOverrides, field)) {
+              restore[field] = priorOverrides[field];
+            }
+          }
+          if (Object.keys(restore).length > 0) {
+            await prisma.$executeRaw`
+              UPDATE library_books
+              SET overrides =
+                COALESCE(overrides, '{}'::jsonb) || ${JSON.stringify(restore)}::jsonb
+              WHERE id = ${id}
+            `;
+          }
+        }
+
+        const item = await prisma.libraryBook.findUnique({
           where: { id },
           include: bookInclude,
         });
+        return { item, unrestored };
       });
 
       if (!item) return notFound(set, "Book not found");
+      if (unrestored.length > 0) {
+        return badRequest(
+          set,
+          `No metadata source supplies ${unrestored.join(", ")}, so it cannot be reverted. Your value was kept.`,
+        );
+      }
       return { item: mapBook(item) };
     } catch (error) {
       console.error("Failed to update book overrides:", error);

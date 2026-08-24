@@ -28,6 +28,14 @@ export type RefreshMetadataOutcome =
       changedFields: string[];
       failedSources: BookMetadataSource[];
       usedSources: BookMetadataSource[];
+      /**
+       * Cleared overrides on columns that cannot be emptied, where no source
+       * supplied a replacement. The caller must put the override back: the
+       * column still holds the manual value, and leaving it with no override
+       * marker would strand it, with no Revert action and no later refresh
+       * able to repair it.
+       */
+      unrestoredFields: string[];
     }
   | { ok: false; reason: string };
 
@@ -276,6 +284,7 @@ export async function refreshBookMetadata(
 
   const current = book as unknown as Record<string, unknown>;
 
+  const unrestoredFields: string[] = [];
   const data: Record<string, unknown> = {};
   for (const field of MERGEABLE_FIELDS) {
     const writable =
@@ -311,7 +320,10 @@ export async function refreshBookMetadata(
     // fails *after* the override has already been deleted — leaving a manual
     // value the book no longer records as manual and a 500 in the operator's
     // face.
-    if (NEVER_EMPTIED_COLUMNS.has(field)) continue;
+    if (NEVER_EMPTIED_COLUMNS.has(field)) {
+      unrestoredFields.push(field);
+      continue;
+    }
     const empty = EMPTY_VALUE[field] ?? null;
     if (sameValue(current[field], empty)) continue;
     data[field] = empty;
@@ -357,6 +369,7 @@ export async function refreshBookMetadata(
     ok: true,
     bookId: book.id,
     changedFields: Object.keys(data),
+    unrestoredFields,
     failedSources,
     usedSources: [...new Set(candidates.map((c) => c.source))],
   };
