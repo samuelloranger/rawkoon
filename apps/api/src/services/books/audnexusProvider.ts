@@ -194,22 +194,46 @@ export class AudnexusProvider implements BookMetadataProvider {
     return match?.candidate.asin ?? null;
   }
 
-  async enrich(book: BookMatchInput): Promise<ProviderFields> {
-    const asin = book.externalIds.audnexus ?? (await this.resolveAsin(book));
-    if (!asin) return {};
-
+  /** Fetch one ASIN's record, or null when this region does not carry it. */
+  private async fetchBook(asin: string): Promise<ProviderFields | null> {
     const cacheKey = `books:audnexus:book:${this.region}:${asin}`;
     const cached = await getJsonCache<ProviderFields>(cacheKey);
-    if (cached) return { ...cached, __asin: asin };
+    if (cached) return cached;
 
     const raw = await fetchJson(
       `${this.baseUrl}/books/${encodeURIComponent(asin)}?region=${encodeURIComponent(this.region)}`,
     );
-    if (!raw) return {};
+    if (!raw) return null;
     const fields = mapAudnexusBook(raw);
-    if (Object.keys(fields).length > 0) {
-      await setJsonCache(cacheKey, fields, CACHE_TTL_BOOK);
+    if (Object.keys(fields).length === 0) return null;
+    await setJsonCache(cacheKey, fields, CACHE_TTL_BOOK);
+    return fields;
+  }
+
+  async enrich(book: BookMatchInput): Promise<ProviderFields> {
+    const stored = book.externalIds.audnexus;
+
+    if (stored) {
+      const fields = await this.fetchBook(stored);
+      if (fields) return { ...fields, __asin: stored };
+      /**
+       * The stored ASIN is not in this region's catalogue.
+       *
+       * ASINs are regional and the stored id carries no region, so changing
+       * the configured region strands every book that had already resolved:
+       * the old id 404s here forever and resolution is never retried. Falling
+       * through re-resolves against the current region, and the newly found id
+       * replaces the stale one via __asin.
+       */
+      console.warn(
+        `[audnexus] stored ASIN ${stored} is unknown in region ${this.region} — re-resolving`,
+      );
     }
+
+    const asin = await this.resolveAsin(book);
+    if (!asin || asin === stored) return {};
+    const fields = await this.fetchBook(asin);
+    if (!fields) return {};
     // The resolved ASIN travels back so the caller can persist it.
     return { ...fields, __asin: asin };
   }

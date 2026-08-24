@@ -28,9 +28,24 @@ const bookFixture = () => ({
   title: "Le Jardin de Verre",
   authors: ["Camille Rousseau"],
   language: "fr",
-  isbn13: null,
   overrides: null,
   externalIds: [] as { source: string; externalId: string }[],
+  metadataFields: [] as { field: string; source: string }[],
+  // Current column values, so the orchestrator can diff before writing.
+  subtitle: null,
+  narrators: [] as string[],
+  genres: [] as string[],
+  publisher: null as string | null,
+  pageCount: null as number | null,
+  publishedDate: null as Date | null,
+  publishedYear: null as number | null,
+  isbn13: null as string | null,
+  coverUrl: null as string | null,
+  overview: null as string | null,
+  seriesName: null as string | null,
+  seriesPosition: null as number | null,
+  rating: null as number | null,
+  ratingCount: null as number | null,
 });
 
 const tx = {
@@ -219,5 +234,118 @@ describe("refreshBookMetadata", () => {
     const outcome = await refreshBookMetadata(999, { providers: [] });
     expect(outcome.ok).toBe(false);
     expect(state.updates).toHaveLength(0);
+  });
+
+  /**
+   * An outage must not be destructive. Deleting the failing source's
+   * provenance would leave its value in place while making the UI render it as
+   * "set by hand", and letting a lower-priority source win the field during the
+   * outage would overwrite the better value with a worse one.
+   */
+  test("an outage preserves the failing source's value and provenance", async () => {
+    state.book = {
+      ...bookFixture(),
+      narrators: ["Laure Vidal"],
+      overview: "audnexus blurb",
+      metadataFields: [
+        { field: "narrators", source: "audnexus" },
+        { field: "overview", source: "audnexus" },
+      ],
+    };
+
+    const outcome = await refreshBookMetadata(1, {
+      providers: [
+        {
+          source: "audnexus" as const,
+          enrich: () =>
+            Promise.reject(new BookProviderUnavailableError("down", 503)),
+        },
+        // Google Books would otherwise win `overview` while Audnexus is down.
+        googlebooks({ overview: "google blurb" }),
+      ],
+    });
+
+    expect(outcome.ok && outcome.failedSources).toContain("audnexus");
+    const data = state.updates.at(-1) ?? {};
+    expect(data).not.toHaveProperty("overview");
+    expect(data).not.toHaveProperty("narrators");
+    // Both rows survive, still credited to the source that is merely offline.
+    expect(state.provenanceRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "narrators", source: "audnexus" }),
+        expect.objectContaining({ field: "overview", source: "audnexus" }),
+      ]),
+    );
+  });
+
+  test("a healthy source still takes over a field the outage did not own", async () => {
+    state.book = {
+      ...bookFixture(),
+      narrators: ["Laure Vidal"],
+      metadataFields: [{ field: "narrators", source: "audnexus" }],
+    };
+    await refreshBookMetadata(1, {
+      providers: [
+        {
+          source: "audnexus" as const,
+          enrich: () =>
+            Promise.reject(new BookProviderUnavailableError("down", 503)),
+        },
+        googlebooks({ publisher: "Éditions Lisière" }),
+      ],
+    });
+    expect(state.updates.at(-1)?.publisher).toBe("Éditions Lisière");
+    expect(state.provenanceRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "publisher", source: "googlebooks" }),
+      ]),
+    );
+  });
+
+  /**
+   * Reporting every merged column as changed makes "Updated N fields" a
+   * constant, hides which books actually gained something, and churns
+   * updatedAt on every refresh.
+   */
+  test("reports only fields whose stored value actually changed", async () => {
+    state.book = {
+      ...bookFixture(),
+      publisher: "Éditions Lisière",
+      narrators: ["Laure Vidal"],
+      seriesPosition: 1,
+    };
+    const outcome = await refreshBookMetadata(1, {
+      providers: [
+        audnexus({
+          publisher: "Éditions Lisière",
+          narrators: ["Laure Vidal"],
+          seriesPosition: 1,
+          rating: 4.6,
+        }),
+      ],
+    });
+    expect(outcome.ok && outcome.changedFields).toEqual(["rating"]);
+    expect(Object.keys(state.updates.at(-1) ?? {})).toEqual(["rating"]);
+  });
+
+  test("writes nothing at all when every value already matches", async () => {
+    state.book = { ...bookFixture(), publisher: "Éditions Lisière" };
+    const outcome = await refreshBookMetadata(1, {
+      providers: [audnexus({ publisher: "Éditions Lisière" })],
+    });
+    expect(outcome.ok && outcome.changedFields).toEqual([]);
+    // No update call means updatedAt does not advance.
+    expect(state.updates).toHaveLength(0);
+  });
+
+  test("compares dates by instant, not identity", async () => {
+    state.book = {
+      ...bookFixture(),
+      publishedDate: new Date("2024-06-27T00:00:00.000Z"),
+    };
+    const outcome = await refreshBookMetadata(1, {
+      providers: [audnexus({ publishedDate: "2024-06-27T00:00:00.000Z" })],
+    });
+    expect(outcome.ok && outcome.changedFields).toEqual([]);
   });
 });

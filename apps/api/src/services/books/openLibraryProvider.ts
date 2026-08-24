@@ -27,12 +27,64 @@ const FIELDS =
   "key,title,author_name,first_publish_year,number_of_pages_median,ratings_average,ratings_count";
 const CACHE_TTL = 86_400; // 24h
 
+/**
+ * Author-name tokens for overlap comparison. Mirrors the ASIN resolver: two
+ * letters or fewer is an initial or a particle and matches everything.
+ */
+const authorTokens = (names: string[]): Set<string> => {
+  const out = new Set<string>();
+  for (const name of names) {
+    for (const tok of normalizeTitleForMatch(name).split(" ")) {
+      if (tok.length > 2) out.add(tok);
+    }
+  }
+  return out;
+};
+
 const num = (v: unknown): number | null =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
 
 /** A JSON route that answers with HTML is a 404 in disguise, not an outage. */
 export function isHtmlBody(text: string): boolean {
   return /^\s*<(?:!doctype|html)/iu.test(text);
+}
+
+/**
+ * Choose the doc that is really this book, or nothing.
+ *
+ * Requires BOTH an exact normalized title and an overlapping author token.
+ * Open Library's relevance ranking is loose, and a title alone is not an
+ * identifier — different authors publish under the same title, and this
+ * provider has no volume-number defences of its own to catch the mistake
+ * afterwards. Attaching another author's page count and rating is worse than
+ * contributing nothing.
+ */
+export function pickOpenLibraryDoc(
+  docs: unknown[],
+  title: string,
+  authors: string[],
+): unknown | null {
+  const wantedTitle = normalizeTitleForMatch(title);
+  if (!wantedTitle) return null;
+  const wantedAuthors = authorTokens(authors);
+
+  for (const d of docs) {
+    if (!d || typeof d !== "object") continue;
+    const row = d as Record<string, unknown>;
+    const t = row.title;
+    if (typeof t !== "string" || normalizeTitleForMatch(t) !== wantedTitle) {
+      continue;
+    }
+    // With no author on our side there is nothing to verify against, so the
+    // title match has to stand on its own.
+    if (wantedAuthors.size === 0) return d;
+    const names = Array.isArray(row.author_name)
+      ? row.author_name.filter((n): n is string => typeof n === "string")
+      : [];
+    const found = authorTokens(names);
+    for (const tok of wantedAuthors) if (found.has(tok)) return d;
+  }
+  return null;
 }
 
 export function mapOpenLibraryDoc(raw: unknown): ProviderFields {
@@ -99,14 +151,7 @@ class OpenLibraryProvider implements BookMetadataProvider {
     const docs = Array.isArray(body?.docs) ? body.docs : [];
     if (docs.length === 0) return {};
 
-    // Only accept a doc whose normalized title matches exactly. Open Library's
-    // relevance ranking is loose enough to return an unrelated first hit, and
-    // this provider has no volume-number defences of its own.
-    const wanted = normalizeTitleForMatch(book.title);
-    const doc = docs.find((d) => {
-      const t = (d as Record<string, unknown>).title;
-      return typeof t === "string" && normalizeTitleForMatch(t) === wanted;
-    });
+    const doc = pickOpenLibraryDoc(docs, book.title, book.authors);
     if (!doc) return {};
 
     const fields = mapOpenLibraryDoc(doc);
