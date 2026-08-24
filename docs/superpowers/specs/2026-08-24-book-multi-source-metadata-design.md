@@ -25,7 +25,7 @@ mechanism — see [Why auto-merge and not ABS's flow](#why-auto-merge-and-not-ab
 | Overrides | Existing `LibraryBook.overrides` JSON always wins over every source. |
 | Narrators | Promoted to `LibraryBook`. `BookEdition.narrators` stays as the local-file value. |
 | Audnexus endpoint | Config field, defaulting to the public instance. |
-| Chapters | Separate optional phase, gated on a runtime match. |
+| Chapters | Dropped. `book_file_chapters` no longer exists — see [Chapters](#chapters). |
 
 ### Why auto-merge and not ABS's flow
 
