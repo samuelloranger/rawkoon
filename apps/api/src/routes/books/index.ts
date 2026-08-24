@@ -8,6 +8,7 @@ import {
   bookMetadataAdminRoutes,
   bookMetadataRoutes,
 } from "./bookMetadataRoutes";
+import { bookOverridesRoutes } from "./bookOverridesRoutes";
 
 export { mapBook, mapBookEdition, bookInclude } from "./bookHelpers";
 export { bookQualityProfileRoutes } from "./bookQualityProfileRoutes";
@@ -17,6 +18,7 @@ export { authorRoutes } from "./authorRoutes";
  * Books router — thin orchestrator, same shape as routes/library/index.ts.
  *   bookListRoutes    — GET /, GET /search, GET /:id, POST /, DELETE /:id
  *   bookMetadata*     — refresh a book's metadata, read/reorder the sources
+ *   bookOverrides     — PATCH /:id/overrides, manual field edits
  *   bookEditionRoutes — PATCH /:id/editions/:kind, POST /:id/editions, files
  *   bookGrabRoutes    — search / grab / auto per edition
  *
@@ -28,5 +30,6 @@ export const bookRoutes = new Elysia({ prefix: "/api/books" })
   .use(bookListRoutes)
   .use(bookMetadataRoutes)
   .use(bookMetadataAdminRoutes)
+  .use(bookOverridesRoutes)
   .use(bookEditionRoutes)
   .use(bookGrabRoutes);

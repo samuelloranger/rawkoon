@@ -279,3 +279,29 @@ export interface AudnexusTestResponse {
   success: boolean;
   error?: string;
 }
+
+/**
+ * Manual metadata overrides. Every field optional; null clears it and hands the
+ * field back to the source chain.
+ *
+ * `authors` is absent by design: LibraryBook.authors is maintained by a trigger
+ * over the book_authors join table, not written directly.
+ */
+export interface BookOverridesRequest {
+  title?: string | null;
+  subtitle?: string | null;
+  series_name?: string | null;
+  series_position?: number | null;
+  narrators?: string[] | null;
+  genres?: string[] | null;
+  publisher?: string | null;
+  page_count?: number | null;
+  published_date?: string | null;
+  published_year?: number | null;
+  rating?: number | null;
+  rating_count?: number | null;
+  language?: string | null;
+  overview?: string | null;
+  cover_url?: string | null;
+  isbn13?: string | null;
+}

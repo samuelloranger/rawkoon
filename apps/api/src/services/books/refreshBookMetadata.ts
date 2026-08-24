@@ -41,6 +41,17 @@ export type RefreshMetadataOutcome =
  *  - authors: owned by the book_authors join table and its trigger.
  *  - authorBio / authorImageUrl: they belong to Author, not to a book.
  */
+/**
+ * Columns no *provider* may write, but an operator override may.
+ *
+ * The reasons they are protected are all about untrusted provider data: the
+ * title is the indexer search term, and language re-points every indexer
+ * search. A person editing the field deliberately is the case those rules
+ * exist to protect, not the case they are meant to block — fixing a title or a
+ * language a provider got wrong is precisely why overrides exist.
+ */
+const OVERRIDE_ONLY_COLUMNS = new Set<string>(["title", "language"]);
+
 const BOOK_COLUMNS = new Set<string>([
   "subtitle",
   "narrators",
@@ -100,7 +111,18 @@ async function collectProviders(
 
 export async function refreshBookMetadata(
   bookId: number,
-  opts?: { providers?: BookMetadataProvider[] },
+  opts?: {
+    providers?: BookMetadataProvider[];
+    /**
+     * Override-only columns this run may write from the merge.
+     *
+     * Needed when an override on such a column is *removed*: the field is no
+     * longer overridden, and no provider is allowed to write it, so without
+     * this the reverted value would stay frozen at whatever the operator had
+     * typed. The caller clearing the override names the columns it cleared.
+     */
+    restoreColumns?: string[];
+  },
 ): Promise<RefreshMetadataOutcome> {
   const book = await prisma.libraryBook.findUnique({
     where: { id: bookId },
@@ -221,9 +243,14 @@ export async function refreshBookMetadata(
   const currentProvenance = new Map<string, string>(
     book.metadataFields.map((f) => [f.field, f.source]),
   );
+  // An operator override outranks everything, including the protection given
+  // to a source that is currently down — otherwise editing a field while that
+  // source is unreachable would silently do nothing.
+  const overridden = new Set<string>(overrides ? Object.keys(overrides) : []);
+  const restorable = new Set<string>(opts?.restoreColumns ?? []);
   const lockedFields = new Set<string>(
     [...currentProvenance.entries()]
-      .filter(([, source]) => failed.has(source))
+      .filter(([field, source]) => failed.has(source) && !overridden.has(field))
       .map(([field]) => field),
   );
 
@@ -231,7 +258,11 @@ export async function refreshBookMetadata(
 
   const data: Record<string, unknown> = {};
   for (const field of MERGEABLE_FIELDS) {
-    if (!BOOK_COLUMNS.has(field)) continue;
+    const writable =
+      BOOK_COLUMNS.has(field) ||
+      (OVERRIDE_ONLY_COLUMNS.has(field) &&
+        (overridden.has(field) || restorable.has(field)));
+    if (!writable) continue;
     if (lockedFields.has(field)) continue;
     if (!(field in merged)) continue;
     const value = merged[field];

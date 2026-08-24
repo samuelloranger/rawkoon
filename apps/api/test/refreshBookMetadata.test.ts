@@ -338,6 +338,90 @@ describe("refreshBookMetadata", () => {
     expect(state.updates).toHaveLength(0);
   });
 
+  /**
+   * An override must reach the column even though no provider is allowed to
+   * write title or language. Those two are protected against untrusted
+   * provider data, not against the operator — fixing a wrong title or a
+   * misdetected language is exactly what overrides are for.
+   */
+  test("an override reaches title and language, which providers cannot write", async () => {
+    // The stored language is deliberately wrong here — a real case, since the
+    // provider's language is unreliable and the operator is correcting it.
+    state.book = {
+      ...bookFixture(),
+      language: "en",
+      overrides: { title: "Corrected Title", language: "fr" },
+    };
+    await refreshBookMetadata(1, {
+      providers: [audnexus({ title: "Provider Title", language: "en" })],
+    });
+    const data = state.updates.at(-1) ?? {};
+    expect(data.title).toBe("Corrected Title");
+    expect(data.language).toBe("fr");
+  });
+
+  test("a provider still cannot write title or language without an override", async () => {
+    await refreshBookMetadata(1, {
+      providers: [audnexus({ title: "Provider Title", language: "en" })],
+    });
+    const data = state.updates.at(-1) ?? {};
+    expect(data).not.toHaveProperty("title");
+    expect(data).not.toHaveProperty("language");
+  });
+
+  /**
+   * Editing a field while the source that owns it is unreachable must still
+   * work. The outage protection exists to stop a lower-priority source
+   * overwriting a better value — it was never meant to outrank the operator.
+   */
+  test("an override wins even over a field locked by a failing source", async () => {
+    state.book = {
+      ...bookFixture(),
+      publisher: "Stale Publisher",
+      overrides: { publisher: "Hand-fixed" },
+      metadataFields: [{ field: "publisher", source: "audnexus" }],
+    };
+    await refreshBookMetadata(1, {
+      providers: [
+        {
+          source: "audnexus" as const,
+          enrich: () =>
+            Promise.reject(new BookProviderUnavailableError("down", 503)),
+        },
+      ],
+    });
+    expect(state.updates.at(-1)?.publisher).toBe("Hand-fixed");
+  });
+
+  /**
+   * Removing an override on a provider-protected column has to restore the
+   * source value. Without an explicit re-authorisation the field would stay
+   * frozen at whatever the operator typed, because the override is gone and no
+   * provider is allowed to write that column — reverting would be a one-way
+   * door.
+   */
+  test("a cleared override on title is restored from the sources", async () => {
+    state.book = {
+      ...bookFixture(),
+      title: "Hand-fixed Title",
+      overrides: null,
+    };
+    await refreshBookMetadata(1, {
+      providers: [audnexus({ title: "Provider Title" })],
+      restoreColumns: ["title"],
+    });
+    expect(state.updates.at(-1)?.title).toBe("Provider Title");
+  });
+
+  test("restoreColumns does not open the column to providers generally", async () => {
+    state.book = { ...bookFixture(), title: "Current Title", overrides: null };
+    await refreshBookMetadata(1, {
+      providers: [audnexus({ title: "Provider Title" })],
+      restoreColumns: ["language"],
+    });
+    expect(state.updates.at(-1) ?? {}).not.toHaveProperty("title");
+  });
+
   test("compares dates by instant, not identity", async () => {
     state.book = {
       ...bookFixture(),
