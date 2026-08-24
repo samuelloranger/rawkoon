@@ -9,3 +9,6 @@ export type {
 export { BookProviderUnavailableError } from "./types";
 export { getBookMetadataProvider } from "./googleBooksProvider";
 export { getAudnexusProvider } from "./audnexusProvider";
+export { getLocalFileProvider } from "./localFileProvider";
+export { getOpenLibraryProvider } from "./openLibraryProvider";
+export { refreshBookMetadata } from "./refreshBookMetadata";
