@@ -61,12 +61,13 @@ function BookTile({ book }: { book: Book }) {
       className="focus-ring group flex flex-col gap-2"
     >
       <div className="relative">
+        {/* No alt: the tile's visible title is inside the same link, so an
+            alt here would have every book announced twice. */}
         <BookCover
           title={book.title}
           author={book.authors[0] ?? null}
           coverUrl={book.cover_url}
           size="grid"
-          alt={book.title}
         />
 
         {/* The same spine rail the row and the detail panels use, so a book's
