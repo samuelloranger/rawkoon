@@ -46,6 +46,7 @@ import {
   useUpdateEdition,
 } from "../_hooks/useBooks";
 import { useRefreshBookMetadata } from "../_hooks/useRefreshBookMetadata";
+import { BookInfoOverridesSection } from "./BookInfoOverridesSection";
 import { BookCover } from "./BookCover";
 import { stateTokens } from "./bookState";
 
@@ -794,7 +795,31 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
             {book.authors.join(", ") || t("books.unknownAuthor")}
           </p>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-neutral-500">
-            {book.published_year && <span>{book.published_year}</span>}
+            {(book.published_date || book.published_year) && (
+              <span
+                title={
+                  book.metadata_sources.publishedDate ??
+                  book.metadata_sources.publishedYear
+                }
+              >
+                {/* The full date when a source supplied one; the year is all
+                    most records carry. */}
+                {/* Formatted from the UTC components: providers store a
+                    publication date as midnight UTC, and converting that to a
+                    local timezone shows the previous day west of UTC. */}
+                {book.published_date
+                  ? new Date(book.published_date).toLocaleDateString(
+                      undefined,
+                      {
+                        timeZone: "UTC",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      },
+                    )
+                  : book.published_year}
+              </span>
+            )}
             <span aria-hidden>·</span>
             <span>{book.language.toUpperCase()}</span>
             {book.series_name && (
@@ -956,6 +981,15 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
           ))}
         </div>
       )}
+
+      <details className="mt-10 rounded-xl border border-neutral-800 bg-neutral-900/40">
+        <summary className="cursor-pointer px-4 py-3 text-xs font-medium uppercase tracking-[0.2em] text-neutral-400 hover:text-neutral-200">
+          {t("books.detail.overrides.heading")}
+        </summary>
+        <div className="border-t border-neutral-800 p-4">
+          <BookInfoOverridesSection book={book} />
+        </div>
+      </details>
 
       <div className="mt-12">
         <h2 className="flex items-center gap-3 text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">

@@ -2004,7 +2004,32 @@
         "refreshed": "{{count}} champ(s) mis à jour",
         "refreshedNoChange": "Les métadonnées sont déjà à jour",
         "refreshedWithFailures": "{{count}} champ(s) mis à jour ; indisponible : {{sources}}",
-        "refreshFailed": "Impossible d'actualiser les métadonnées"
+        "refreshFailed": "Impossible d'actualiser les métadonnées",
+        "title": "Titre",
+        "subtitle": "Sous-titre",
+        "seriesName": "Série",
+        "seriesPosition": "N° dans la série",
+        "publishedDate": "Publié le",
+        "publishedYear": "Année",
+        "language": "Langue",
+        "isbn": "ISBN",
+        "coverUrl": "URL de couverture",
+        "overview": "Description",
+        "ratingCountLabel": "Nombre de notes"
+      },
+      "overrides": {
+        "heading": "Modifier les métadonnées",
+        "hint": "Vos modifications l'emportent sur toutes les sources. Vider un champ le redonne aux sources.",
+        "listHint": "Séparer par des virgules",
+        "edited": "modifié",
+        "save": "Enregistrer",
+        "revert": "Rétablir",
+        "revertHint": "Effacer votre modification et réutiliser les sources",
+        "saved": "Enregistré",
+        "reverted": "Rétabli depuis les sources",
+        "failed": "Impossible d'enregistrer cette modification",
+        "authorsNote": "Les auteurs se gèrent depuis les pages d'auteur, pas ici.",
+        "invalidNumber": "Ce champ doit être un nombre"
       }
     },
     "track": {
