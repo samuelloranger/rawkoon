@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   isHtmlBody,
   mapOpenLibraryDoc,
+  pickOpenLibraryDoc,
 } from "@rawkoon/api/services/books/openLibraryProvider";
 import search from "../../../test/fixtures/bookMetadata/openlibrary-search.json";
 
@@ -58,5 +59,66 @@ describe("isHtmlBody", () => {
     expect(isHtmlBody("<html>")).toBe(true);
     expect(isHtmlBody('{"key":"/works/OL1W"}')).toBe(false);
     expect(isHtmlBody("")).toBe(false);
+  });
+});
+
+describe("pickOpenLibraryDoc", () => {
+  const wanted = {
+    title: "Le Jardin de Verre",
+    authors: ["Camille Rousseau"],
+  };
+
+  test("accepts an exact title by the same author", () => {
+    const doc = {
+      title: "Le Jardin De Verre",
+      author_name: ["Camille Rousseau"],
+    };
+    expect(pickOpenLibraryDoc([doc], wanted.title, wanted.authors)).toBe(doc);
+  });
+
+  /**
+   * A title is not an identifier. Different authors publish under the same
+   * one, and accepting on title alone attaches a stranger's page count and
+   * rating to the book — with no volume-number defence downstream to catch it.
+   */
+  test("rejects an identical title by a different author", () => {
+    const doc = { title: "Le Jardin de Verre", author_name: ["Nenad Savic"] };
+    expect(pickOpenLibraryDoc([doc], wanted.title, wanted.authors)).toBeNull();
+  });
+
+  test("skips a same-title decoy and takes the right author further down", () => {
+    const decoy = { title: "Le Jardin de Verre", author_name: ["Nenad Savic"] };
+    const real = {
+      title: "Le Jardin de Verre",
+      author_name: ["Camille Rousseau"],
+    };
+    expect(
+      pickOpenLibraryDoc([decoy, real], wanted.title, wanted.authors),
+    ).toBe(real);
+  });
+
+  test("rejects a doc carrying no author at all", () => {
+    const doc = { title: "Le Jardin de Verre" };
+    expect(pickOpenLibraryDoc([doc], wanted.title, wanted.authors)).toBeNull();
+  });
+
+  // Nothing to verify against on our side, so the title has to stand alone.
+  test("accepts on title alone when the library book has no author", () => {
+    const doc = { title: "Le Jardin de Verre", author_name: ["Anyone"] };
+    expect(pickOpenLibraryDoc([doc], wanted.title, [])).toBe(doc);
+  });
+
+  test("still requires the title to match exactly", () => {
+    const doc = {
+      title: "Le Jardin de Verre - Tome 2",
+      author_name: ["Camille Rousseau"],
+    };
+    expect(pickOpenLibraryDoc([doc], wanted.title, wanted.authors)).toBeNull();
+  });
+
+  test("ignores junk entries", () => {
+    expect(
+      pickOpenLibraryDoc([null, 42, {}], wanted.title, wanted.authors),
+    ).toBeNull();
   });
 });

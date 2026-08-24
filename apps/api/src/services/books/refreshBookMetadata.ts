@@ -58,6 +58,24 @@ const BOOK_COLUMNS = new Set<string>([
   "ratingCount",
 ]);
 
+/**
+ * Whether a stored column value and a freshly merged one are the same.
+ *
+ * Arrays are compared element-wise and dates by instant: `!==` on either would
+ * report a change on every single refresh.
+ */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a instanceof Date && b instanceof Date)
+    return a.getTime() === b.getTime();
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((v, i) => v === b[i]);
+  }
+  // Prisma returns null for an empty column; a provider may offer undefined.
+  if (a == null && b == null) return true;
+  return false;
+}
+
 async function collectProviders(
   order: BookMetadataSource[],
 ): Promise<BookMetadataProvider[]> {
@@ -92,9 +110,27 @@ export async function refreshBookMetadata(
       title: true,
       authors: true,
       language: true,
-      isbn13: true,
       overrides: true,
       externalIds: { select: { source: true, externalId: true } },
+      // Which source owns each field today. Needed to protect the provenance
+      // of a source that is failing right now.
+      metadataFields: { select: { field: true, source: true } },
+      // Current values of every writable column, so a refresh can report and
+      // write only what actually differs.
+      subtitle: true,
+      narrators: true,
+      genres: true,
+      publisher: true,
+      pageCount: true,
+      publishedDate: true,
+      publishedYear: true,
+      isbn13: true,
+      coverUrl: true,
+      overview: true,
+      seriesName: true,
+      seriesPosition: true,
+      rating: true,
+      ratingCount: true,
     },
   });
   if (!book) return { ok: false, reason: "Book not found" };
@@ -171,22 +207,59 @@ export async function refreshBookMetadata(
     overrides,
   );
 
+  /**
+   * Fields owned by a source that is failing right now are left completely
+   * alone — value and provenance both.
+   *
+   * Without this, an outage is destructive in two ways: the wholesale
+   * provenance delete would strip the failing source's rows, so a value it had
+   * supplied would start rendering as "set by hand"; and a lower-priority
+   * source would win the field for this run and overwrite the better value.
+   * Neither is acceptable for a transient 503.
+   */
+  const failed = new Set<string>(failedSources);
+  const currentProvenance = new Map<string, string>(
+    book.metadataFields.map((f) => [f.field, f.source]),
+  );
+  const lockedFields = new Set<string>(
+    [...currentProvenance.entries()]
+      .filter(([, source]) => failed.has(source))
+      .map(([field]) => field),
+  );
+
+  const current = book as unknown as Record<string, unknown>;
+
   const data: Record<string, unknown> = {};
   for (const field of MERGEABLE_FIELDS) {
     if (!BOOK_COLUMNS.has(field)) continue;
+    if (lockedFields.has(field)) continue;
     if (!(field in merged)) continue;
     const value = merged[field];
-    data[field] =
+    const next =
       field === "publishedDate" && typeof value === "string"
         ? new Date(value)
         : value;
+    // Only write what actually differs. An unconditional write reports every
+    // merged column as "changed" on every refresh and churns updatedAt.
+    if (!sameValue(current[field], next)) data[field] = next;
   }
 
-  // Provenance is only recorded for fields that actually reached a column, so
-  // the tooltip cannot claim a source for something the book does not show.
-  const provenanceRows = Object.entries(provenance)
-    .filter(([field]) => BOOK_COLUMNS.has(field))
-    .map(([field, source]) => ({ bookId: book.id, field, source }));
+  /**
+   * Provenance for this run: what the merge resolved, plus the untouched rows
+   * of any failing source. Recorded only for fields that map to a column, so
+   * the tooltip cannot claim a source for something the book does not show.
+   */
+  const nextProvenance = new Map<string, string>();
+  for (const [field, source] of currentProvenance) {
+    if (lockedFields.has(field)) nextProvenance.set(field, source);
+  }
+  for (const [field, source] of Object.entries(provenance)) {
+    if (!BOOK_COLUMNS.has(field) || lockedFields.has(field)) continue;
+    nextProvenance.set(field, source);
+  }
+  const provenanceRows = [...nextProvenance.entries()].map(
+    ([field, source]) => ({ bookId: book.id, field, source }),
+  );
 
   await prisma.$transaction(async (tx) => {
     if (Object.keys(data).length > 0) {
