@@ -12,25 +12,31 @@
  * cover and a blank sit at the same visual weight in a list.
  */
 
-type Size = "row" | "hero";
+type Size = "row" | "grid" | "hero";
 
 const FRAME: Record<Size, string> = {
   row: "w-[52px] sm:w-16",
+  // The grid card sizes the cover from its column, so the frame takes the
+  // width it is given instead of setting one.
+  grid: "w-full",
   hero: "w-40 sm:w-44",
 };
 
 const TITLE: Record<Size, string> = {
   row: "text-[9px] leading-[1.2] line-clamp-3",
+  grid: "text-sm leading-tight line-clamp-4",
   hero: "text-lg leading-tight line-clamp-6",
 };
 
 const AUTHOR: Record<Size, string> = {
   row: "text-[8px] leading-tight line-clamp-1",
+  grid: "text-[10px] leading-tight line-clamp-2",
   hero: "text-xs leading-snug line-clamp-2",
 };
 
 const PADDING: Record<Size, string> = {
   row: "px-2 pb-2 pt-2.5",
+  grid: "px-3 pb-3 pt-3.5",
   hero: "px-4 pb-4 pt-5",
 };
 
