@@ -1317,6 +1317,15 @@
         "audiobookLibrary": "Audiobook library ID",
         "ebookLibrary": "Ebook library ID",
         "hint": "Point Audiobookshelf at the same folders as the paths above. Find a library ID in its URL: /library/<id>. Leave empty to hide the button."
+      },
+      "audnexus": {
+        "title": "Audnexus",
+        "description": "Narrators, series, genres and cover art. No account needed.",
+        "docs": "Project"
+      },
+      "metadataSources": {
+        "title": "Metadata sources",
+        "description": "Which source wins for each field, highest first."
       }
     },
     "bookQualityProfiles": {
@@ -1981,7 +1990,22 @@
       "removing": "Removing…",
       "removed": "“{{title}}” was removed from the library.",
       "removeFailed": "Could not remove that book.",
-      "editionsHeading": "Editions"
+      "editionsHeading": "Editions",
+      "metadata": {
+        "narrators": "Narrators",
+        "publisher": "Publisher",
+        "pages": "Pages",
+        "rating": "Rating",
+        "ratingWithCount": "{{rating}} ({{count}} ratings)",
+        "genres": "Genres",
+        "from": "From {{source}}",
+        "manual": "Set by hand",
+        "refresh": "Refresh metadata",
+        "refreshed": "Updated {{count}} field(s)",
+        "refreshedNoChange": "Metadata is already up to date",
+        "refreshedWithFailures": "Updated {{count}} field(s); unavailable: {{sources}}",
+        "refreshFailed": "Could not refresh metadata"
+      }
     },
     "track": {
       "label": "Acquisition progress",

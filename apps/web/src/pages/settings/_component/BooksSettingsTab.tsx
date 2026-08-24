@@ -26,6 +26,8 @@ import { useUpdateMediaPostProcessingSettings } from "@/features/medias/hooks/us
 import { useBookQualityProfiles } from "@/pages/books/_hooks/useBooks";
 import { SettingsPageHeader } from "@/pages/settings/_component/SettingsPageHeader";
 import { BookQualityProfilesSection } from "@/pages/settings/_component/BookQualityProfilesSection";
+import { AudnexusIntegrationSection } from "@/pages/settings/_component/AudnexusIntegrationSection";
+import { BookMetadataSourcesSection } from "@/pages/settings/_component/BookMetadataSourcesSection";
 import { ApiError } from "@/lib/api/client";
 
 /** Radix Select has no empty value, so "no default" needs a sentinel. */
@@ -284,6 +286,31 @@ export function BooksSettingsTab() {
             {t("settings.books.provider.test")}
           </Button>
         </div>
+      </CardSection>
+
+      <CardSection
+        title={t("settings.books.audnexus.title")}
+        description={t("settings.books.audnexus.description")}
+        actions={
+          <a
+            href="https://github.com/laxamentumtech/audnexus"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-neutral-200"
+          >
+            {t("settings.books.audnexus.docs")}
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        }
+      >
+        <AudnexusIntegrationSection />
+      </CardSection>
+
+      <CardSection
+        title={t("settings.books.metadataSources.title")}
+        description={t("settings.books.metadataSources.description")}
+      >
+        <BookMetadataSourcesSection />
       </CardSection>
 
       <CardSection

@@ -1,6 +1,7 @@
 import { basename, extname } from "node:path";
 import type { BookFormat } from "@rawkoon/shared/types";
 import { readZipEntryText } from "@rawkoon/api/utils/books/zipReader";
+import { normalizeSeriesName } from "@rawkoon/api/utils/books/seriesName";
 
 /**
  * Lightweight ebook metadata extraction.
@@ -17,6 +18,11 @@ export interface EbookMetadata {
   authors: string[];
   language: string | null;
   isbn13: string | null;
+  publisher: string | null;
+  /** From Calibre's calibre:series meta, normalized. */
+  seriesName: string | null;
+  /** Float: Calibre writes half-volumes as fractional indices. */
+  seriesPosition: number | null;
 }
 
 const EMPTY: EbookMetadata = {
@@ -24,6 +30,9 @@ const EMPTY: EbookMetadata = {
   authors: [],
   language: null,
   isbn13: null,
+  publisher: null,
+  seriesName: null,
+  seriesPosition: null,
 };
 
 const FORMAT_BY_EXT: Record<string, BookFormat> = {
@@ -78,6 +87,57 @@ const isbn13From = (xml: string): string | null => {
 };
 
 /**
+ * Calibre stores series as <meta name=... content=.../> attributes rather than
+ * as an element with text, so tagText cannot see them. Attribute order and
+ * quote style both vary, hence two passes rather than one rigid pattern.
+ */
+const metaAttr = (xml: string, name: string): string | null => {
+  const patterns = [
+    new RegExp(
+      `<meta\\b[^>]*\\bname\\s*=\\s*["']${name}["'][^>]*\\bcontent\\s*=\\s*["']([^"']*)["']`,
+      "i",
+    ),
+    new RegExp(
+      `<meta\\b[^>]*\\bcontent\\s*=\\s*["']([^"']*)["'][^>]*\\bname\\s*=\\s*["']${name}["']`,
+      "i",
+    ),
+  ];
+  for (const re of patterns) {
+    const m = re.exec(xml);
+    if (m) {
+      const text = decodeXmlEntities(m[1]).trim();
+      if (text) return text;
+    }
+  }
+  return null;
+};
+
+/**
+ * Parse an OPF package document. Exported so it can be tested without building
+ * a real epub, and so a caller holding OPF text from elsewhere can reuse it.
+ */
+export function parseOpfMetadata(xml: string): EbookMetadata {
+  const titles = tagText(xml, "title");
+  const creators = tagText(xml, "creator");
+  const languages = tagText(xml, "language");
+  const publishers = tagText(xml, "publisher");
+  const seriesIndex = metaAttr(xml, "calibre:series_index");
+  const parsedIndex = seriesIndex === null ? null : Number(seriesIndex);
+  return {
+    title: titles[0] ?? null,
+    authors: creators,
+    language: languages[0]?.slice(0, 2).toLowerCase() ?? null,
+    isbn13: isbn13From(xml),
+    publisher: publishers[0] ?? null,
+    // Normalized with the same helper the providers use, so a Calibre field
+    // carrying an edition marker is cleaned identically.
+    seriesName: normalizeSeriesName(metaAttr(xml, "calibre:series")),
+    seriesPosition:
+      parsedIndex !== null && Number.isFinite(parsedIndex) ? parsedIndex : null,
+  };
+}
+
+/**
  * Read the OPF package document out of an epub.
  *
  * An epub is a zip, and Bun still has no zip API — Bun.Archive (1.4) only
@@ -104,15 +164,7 @@ export async function readEbookMetadata(
   if (format === "epub") {
     const xml = await readEpubOpf(filePath);
     if (!xml) return EMPTY;
-    const titles = tagText(xml, "title");
-    const creators = tagText(xml, "creator");
-    const languages = tagText(xml, "language");
-    return {
-      title: titles[0] ?? null,
-      authors: creators,
-      language: languages[0]?.slice(0, 2).toLowerCase() ?? null,
-      isbn13: isbn13From(xml),
-    };
+    return parseOpfMetadata(xml);
   }
 
   if (format === "mobi" || format === "azw3") {

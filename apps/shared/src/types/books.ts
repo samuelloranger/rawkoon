@@ -73,9 +73,23 @@ export interface Book {
   published_year: number | null;
   series_name: string | null;
   series_position: number | null;
+  /** Merged from the source chain. Book-level, unlike BookEdition.narrators. */
+  narrators: string[];
+  genres: string[];
+  publisher: string | null;
+  page_count: number | null;
+  /** ISO-8601. published_year is kept; list sorting depends on it. */
+  published_date: string | null;
+  rating: number | null;
+  rating_count: number | null;
   added_at: string;
   updated_at: string;
   overrides?: Record<string, unknown>;
+  /**
+   * Field name -> the source that supplied it. A field absent from this map was
+   * never enriched, or was set by an override (the operator is the source).
+   */
+  metadata_sources: Record<string, BookMetadataSource>;
   editions: BookEdition[];
 }
 
@@ -218,4 +232,50 @@ export interface AuthorListResponse {
 
 export interface AuthorResponse {
   author: Author;
+}
+
+/**
+ * A metadata source, in the order the merge considers them by default.
+ * "local" is on-disk file metadata: the operator can fix a file with a tagger
+ * and rescan, so it must outrank every remote source or that repair would be
+ * silently reverted on the next refresh.
+ */
+export type BookMetadataSource =
+  | "local"
+  | "audnexus"
+  | "googlebooks"
+  | "openlibrary";
+
+export interface BookRefreshMetadataResponse {
+  book_id: number;
+  changed_fields: string[];
+  /** Sources that were unavailable. Reported so an outage is legible. */
+  failed_sources: BookMetadataSource[];
+  used_sources: BookMetadataSource[];
+}
+
+export interface BookMetadataSourceOrderResponse {
+  order: BookMetadataSource[];
+}
+
+export interface AudnexusIntegration {
+  type: "audnexus";
+  enabled: boolean;
+  /** Defaults to the public instance; a self-hosted one can be used instead. */
+  base_url: string;
+  region: string;
+}
+
+export interface AudnexusIntegrationResponse {
+  integration: AudnexusIntegration;
+}
+
+export interface AudnexusIntegrationUpdateResponse {
+  success: true;
+  integration: AudnexusIntegration;
+}
+
+export interface AudnexusTestResponse {
+  success: boolean;
+  error?: string;
 }
