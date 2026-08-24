@@ -7,6 +7,7 @@ import { jackettIntegrationRoutes } from "./jackett";
 import { oidcIntegrationRoutes } from "./oidc";
 import { localAiIntegrationRoutes } from "./local-ai";
 import { googleBooksIntegrationRoutes } from "./googlebooks";
+import { audnexusIntegrationRoutes } from "./audnexus";
 
 export const integrationsRoutes = new Elysia({ prefix: "/api/integrations" })
   .use(tmdbIntegrationRoutes)
@@ -16,4 +17,5 @@ export const integrationsRoutes = new Elysia({ prefix: "/api/integrations" })
   .use(jackettIntegrationRoutes)
   .use(oidcIntegrationRoutes)
   .use(localAiIntegrationRoutes)
-  .use(googleBooksIntegrationRoutes);
+  .use(googleBooksIntegrationRoutes)
+  .use(audnexusIntegrationRoutes);

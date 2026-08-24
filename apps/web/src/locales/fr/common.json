@@ -1317,6 +1317,15 @@
         "audiobookLibrary": "ID de la bibliothèque de livres audio",
         "ebookLibrary": "ID de la bibliothèque de livres",
         "hint": "Pointez Audiobookshelf vers les mêmes dossiers que les chemins ci-dessus. L'ID d'une bibliothèque apparaît dans son URL : /library/<id>. Laissez vide pour masquer le bouton."
+      },
+      "audnexus": {
+        "title": "Audnexus",
+        "description": "Narrateurs, séries, genres et couvertures. Aucun compte requis.",
+        "docs": "Projet"
+      },
+      "metadataSources": {
+        "title": "Sources de métadonnées",
+        "description": "Quelle source gagne pour chaque champ, la plus haute d'abord."
       }
     },
     "bookQualityProfiles": {
