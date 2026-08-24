@@ -1,0 +1,18 @@
+{
+  "_comment": "Structure captured live from openlibrary.org/search.json on 2026-08-24; strings scrubbed. Hazards preserved: NO series field, NO language field, and an `isbn` list holding a different printing than the library's copy.",
+  "numFound": 1,
+  "start": 0,
+  "docs": [
+    {
+      "key": "/works/OL00000000W",
+      "title": "Le Jardin De Verre",
+      "author_name": ["Camille Rousseau"],
+      "cover_i": 15168394,
+      "first_publish_year": 2023,
+      "isbn": ["9782824621456", "2824621451"],
+      "number_of_pages_median": 304,
+      "ratings_average": 3.8947368,
+      "ratings_count": 133
+    }
+  ]
+}
