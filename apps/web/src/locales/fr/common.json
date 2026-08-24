@@ -2014,7 +2014,8 @@
         "language": "Langue",
         "isbn": "ISBN",
         "coverUrl": "URL de couverture",
-        "overview": "Description"
+        "overview": "Description",
+        "ratingCountLabel": "Nombre de notes"
       },
       "overrides": {
         "heading": "Modifier les métadonnées",

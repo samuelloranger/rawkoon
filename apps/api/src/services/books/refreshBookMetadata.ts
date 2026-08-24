@@ -114,14 +114,16 @@ export async function refreshBookMetadata(
   opts?: {
     providers?: BookMetadataProvider[];
     /**
-     * Override-only columns this run may write from the merge.
+     * Override keys removed by this request.
      *
-     * Needed when an override on such a column is *removed*: the field is no
-     * longer overridden, and no provider is allowed to write it, so without
-     * this the reverted value would stay frozen at whatever the operator had
-     * typed. The caller clearing the override names the columns it cleared.
+     * Two things depend on knowing them. An override-only column (title,
+     * language) has to be re-authorised for one run, or the reverted value
+     * would stay frozen at whatever the operator typed — no provider may write
+     * that column. And a cleared field that no source supplies has to be
+     * emptied outright; leaving it would show a manual value the book no longer
+     * records as manual, with no way left to remove it.
      */
-    restoreColumns?: string[];
+    clearedOverrides?: string[];
   },
 ): Promise<RefreshMetadataOutcome> {
   const book = await prisma.libraryBook.findUnique({
@@ -247,7 +249,7 @@ export async function refreshBookMetadata(
   // to a source that is currently down — otherwise editing a field while that
   // source is unreachable would silently do nothing.
   const overridden = new Set<string>(overrides ? Object.keys(overrides) : []);
-  const restorable = new Set<string>(opts?.restoreColumns ?? []);
+  const cleared = new Set<string>(opts?.clearedOverrides ?? []);
   const lockedFields = new Set<string>(
     [...currentProvenance.entries()]
       .filter(([field, source]) => failed.has(source) && !overridden.has(field))
@@ -261,7 +263,7 @@ export async function refreshBookMetadata(
     const writable =
       BOOK_COLUMNS.has(field) ||
       (OVERRIDE_ONLY_COLUMNS.has(field) &&
-        (overridden.has(field) || restorable.has(field)));
+        (overridden.has(field) || cleared.has(field)));
     if (!writable) continue;
     if (lockedFields.has(field)) continue;
     if (!(field in merged)) continue;
@@ -273,6 +275,22 @@ export async function refreshBookMetadata(
     // Only write what actually differs. An unconditional write reports every
     // merged column as "changed" on every refresh and churns updatedAt.
     if (!sameValue(current[field], next)) data[field] = next;
+  }
+
+  /**
+   * A cleared override the source chain cannot replace.
+   *
+   * The loop above only writes fields present in `merged`, so a manually added
+   * value that no provider supplies would survive its own removal: the column
+   * would keep showing it while `overrides` no longer marked it as edited,
+   * leaving the UI nothing to revert and no way to clear it.
+   */
+  for (const field of cleared) {
+    if (field in merged) continue;
+    if (!BOOK_COLUMNS.has(field) && !OVERRIDE_ONLY_COLUMNS.has(field)) continue;
+    if (lockedFields.has(field)) continue;
+    if (current[field] == null) continue;
+    data[field] = null;
   }
 
   /**

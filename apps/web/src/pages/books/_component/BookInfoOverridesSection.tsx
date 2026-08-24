@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Loader2, RotateCcw } from "lucide-react";
@@ -94,6 +94,12 @@ const FIELDS: FieldDef[] = [
     current: (b) => (b.rating == null ? "" : String(b.rating)),
   },
   {
+    key: "rating_count",
+    labelKey: "ratingCountLabel",
+    kind: "number",
+    current: (b) => (b.rating_count == null ? "" : String(b.rating_count)),
+  },
+  {
     key: "language",
     labelKey: "language",
     kind: "text",
@@ -128,13 +134,31 @@ export function BookInfoOverridesSection({ book }: { book: Book }) {
 
   const [form, setForm] = useState<Record<string, string>>({});
   const [pending, setPending] = useState<string | null>(null);
+  /** Last values seen from the server, to tell a dirty field from a stale one. */
+  const lastServer = useRef<Record<string, string>>({});
 
-  // Seed from the effective values so the form shows what the book displays,
-  // whatever produced it.
+  /**
+   * Seed from the effective values so the form shows what the book displays,
+   * whatever produced it.
+   *
+   * Saving one field refetches the book, which would otherwise reset every
+   * input — losing edits typed into other fields before their own Save was
+   * pressed. So a field is only reseeded when it is not dirty: untouched
+   * fields follow the server, edited ones are left alone.
+   */
   useEffect(() => {
-    const next: Record<string, string> = {};
-    for (const f of FIELDS) next[f.key] = f.current(book);
-    setForm(next);
+    setForm((prev) => {
+      const next: Record<string, string> = { ...prev };
+      for (const f of FIELDS) {
+        const server = f.current(book);
+        const local = prev[f.key];
+        if (local === undefined || local === lastServer.current[f.key]) {
+          next[f.key] = server;
+        }
+        lastServer.current[f.key] = server;
+      }
+      return next;
+    });
   }, [book]);
 
   const overrides = (book.overrides ?? {}) as Record<string, unknown>;
@@ -212,6 +236,7 @@ export function BookInfoOverridesSection({ book }: { book: Book }) {
         {FIELDS.map((f) => {
           const busy = pending === f.key;
           const dirty = (form[f.key] ?? "") !== f.current(book);
+          // (f.current(book) is the effective value the server last returned)
           return (
             <div
               key={f.key}

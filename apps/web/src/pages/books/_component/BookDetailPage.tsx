@@ -804,8 +804,19 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
               >
                 {/* The full date when a source supplied one; the year is all
                     most records carry. */}
+                {/* Formatted from the UTC components: providers store a
+                    publication date as midnight UTC, and converting that to a
+                    local timezone shows the previous day west of UTC. */}
                 {book.published_date
-                  ? new Date(book.published_date).toLocaleDateString()
+                  ? new Date(book.published_date).toLocaleDateString(
+                      undefined,
+                      {
+                        timeZone: "UTC",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      },
+                    )
                   : book.published_year}
               </span>
             )}

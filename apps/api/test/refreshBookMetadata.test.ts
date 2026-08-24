@@ -408,18 +408,60 @@ describe("refreshBookMetadata", () => {
     };
     await refreshBookMetadata(1, {
       providers: [audnexus({ title: "Provider Title" })],
-      restoreColumns: ["title"],
+      clearedOverrides: ["title"],
     });
     expect(state.updates.at(-1)?.title).toBe("Provider Title");
   });
 
-  test("restoreColumns does not open the column to providers generally", async () => {
+  test("clearedOverrides does not open another column to providers", async () => {
     state.book = { ...bookFixture(), title: "Current Title", overrides: null };
     await refreshBookMetadata(1, {
       providers: [audnexus({ title: "Provider Title" })],
-      restoreColumns: ["language"],
+      clearedOverrides: ["language"],
     });
     expect(state.updates.at(-1) ?? {}).not.toHaveProperty("title");
+  });
+
+  /**
+   * Reverting a manually added value that no source supplies must empty the
+   * column. Otherwise the value survives its own removal: it keeps showing
+   * while `overrides` no longer marks it as edited, so the UI offers no revert
+   * and it can never be cleared.
+   */
+  test("clearing an override no source supplies empties the column", async () => {
+    state.book = {
+      ...bookFixture(),
+      publisher: "Manually Added",
+      overrides: null,
+    };
+    await refreshBookMetadata(1, {
+      // No provider supplies a publisher.
+      providers: [audnexus({ narrators: ["Laure Vidal"] })],
+      clearedOverrides: ["publisher"],
+    });
+    expect(state.updates.at(-1)).toHaveProperty("publisher", null);
+  });
+
+  test("clearing does not blank a field the sources still supply", async () => {
+    state.book = {
+      ...bookFixture(),
+      publisher: "Manually Added",
+      overrides: null,
+    };
+    await refreshBookMetadata(1, {
+      providers: [audnexus({ publisher: "Éditions Lisière" })],
+      clearedOverrides: ["publisher"],
+    });
+    expect(state.updates.at(-1)?.publisher).toBe("Éditions Lisière");
+  });
+
+  test("clearing a field that is already empty writes nothing", async () => {
+    state.book = { ...bookFixture(), publisher: null, overrides: null };
+    await refreshBookMetadata(1, {
+      providers: [audnexus({ narrators: ["Laure Vidal"] })],
+      clearedOverrides: ["publisher"],
+    });
+    expect(state.updates.at(-1) ?? {}).not.toHaveProperty("publisher");
   });
 
   test("compares dates by instant, not identity", async () => {

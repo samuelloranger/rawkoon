@@ -20,8 +20,9 @@ import { bookInclude, mapBook } from "./bookHelpers";
  * display time, but a book's columns hold the *merged* result of the source
  * chain, so an override only reaches the column through a merge. Clearing a
  * field therefore cannot simply write null — the field has to fall back to
- * whatever the sources say. Both paths are handled by re-running the refresh,
- * whose provider responses are cached, so this is normally a local operation.
+ * whatever the sources say, or be emptied when they say nothing. Both paths go
+ * through the refresh, whose provider responses are cached, so this is normally
+ * a local operation.
  *
  * `authors` is deliberately absent: LibraryBook.authors is maintained by a
  * trigger over the book_authors join table, so it is not a column this
@@ -51,8 +52,19 @@ const OVERRIDE_FIELDS = {
   isbn13: "isbn13",
 } as const;
 
-const nullable = <T extends ReturnType<typeof t.String>>(schema: T) =>
-  t.Optional(t.Union([schema, t.Null()]));
+const nullableStr = (max: number) =>
+  t.Optional(t.Union([t.String({ maxLength: max }), t.Null()]));
+
+/**
+ * Integer columns must reject fractions at the edge.
+ *
+ * The override JSON is written before the merge converts it into a column, so
+ * a value Postgres cannot store would persist in the JSON and make every later
+ * refresh of that book fail — the bad value would outlive the request that
+ * introduced it.
+ */
+const nullableInt = (min: number, max: number) =>
+  t.Optional(t.Union([t.Integer({ minimum: min, maximum: max }), t.Null()]));
 
 export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
   "/:id/overrides",
@@ -63,62 +75,86 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
 
     const existing = await prisma.libraryBook.findUnique({
       where: { id },
-      select: { overrides: true },
+      select: { id: true },
     });
     if (!existing) return notFound(set, "Book not found");
 
-    const current =
-      existing.overrides &&
-      typeof existing.overrides === "object" &&
-      !Array.isArray(existing.overrides)
-        ? { ...(existing.overrides as Record<string, unknown>) }
-        : {};
-
-    // Columns no provider may write. Clearing an override on one of these has
-    // to explicitly re-authorise the column, or the reverted field would stay
-    // frozen at the operator's value forever.
-    const OVERRIDE_ONLY = new Set(["title", "language"]);
-    const cleared: string[] = [];
+    const patch: Record<string, unknown> = {};
+    const removed: string[] = [];
 
     for (const [wire, stored] of Object.entries(OVERRIDE_FIELDS)) {
       if (!Object.hasOwn(body, wire)) continue;
       const value = (body as Record<string, unknown>)[wire];
 
-      // null clears the override, handing the field back to the source chain.
-      if (value === null) {
-        if (Object.hasOwn(current, stored) && OVERRIDE_ONLY.has(stored)) {
-          cleared.push(stored);
-        }
-        delete current[stored];
+      // null, or an empty text box, clears the override. An empty input means
+      // "I do not want to set this", never "the value is the empty string".
+      if (value === null || (typeof value === "string" && !value.trim())) {
+        removed.push(stored);
         continue;
       }
-      // An empty string is a cleared text input, not an assertion of "".
-      if (typeof value === "string" && !value.trim()) {
-        if (Object.hasOwn(current, stored) && OVERRIDE_ONLY.has(stored)) {
-          cleared.push(stored);
+
+      if (stored === "publishedDate" && typeof value === "string") {
+        // Validated here rather than at write time: an unparseable date stored
+        // in the JSON would make every subsequent refresh throw.
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) {
+          return badRequest(set, "published_date is not a valid date");
         }
-        delete current[stored];
+        patch[stored] = parsed.toISOString();
         continue;
       }
 
       if (stored === "overview" && typeof value === "string") {
-        // The database only ever holds sanitized HTML, and this is operator
-        // input reaching the same column a provider writes.
-        current[stored] = sanitizeProviderHtml(value) || null;
+        // Operator input reaching the same column a provider writes, so it is
+        // sanitized identically.
+        const clean = sanitizeProviderHtml(value);
+        if (!clean) {
+          removed.push(stored);
+          continue;
+        }
+        patch[stored] = clean;
         continue;
       }
-      current[stored] = typeof value === "string" ? value.trim() : value;
+
+      if (Array.isArray(value)) {
+        const list = value.map((v) => String(v).trim()).filter(Boolean);
+        if (list.length === 0) {
+          removed.push(stored);
+          continue;
+        }
+        patch[stored] = list;
+        continue;
+      }
+
+      patch[stored] = typeof value === "string" ? value.trim() : value;
+    }
+
+    if (Object.keys(patch).length === 0 && removed.length === 0) {
+      return badRequest(set, "No override fields supplied");
     }
 
     try {
-      await prisma.libraryBook.update({
-        where: { id },
-        data: { overrides: current as object },
-      });
+      /**
+       * Merged in the database, not read-modify-written in the handler.
+       *
+       * Each field has its own Save button, so two saves can overlap. Reading
+       * the JSON, merging in memory and writing it back would let the second
+       * write drop the first field, since both started from the same snapshot.
+       * `||` adds and replaces keys, `-` removes them, and both happen inside
+       * the single statement.
+       */
+      await prisma.$executeRaw`
+        UPDATE library_books
+        SET overrides =
+          (COALESCE(overrides, '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb)
+          - ${removed}::text[]
+        WHERE id = ${id}
+      `;
 
       // Recompute so the columns reflect the change: an override has to win,
-      // and a cleared field has to fall back to what the sources supply.
-      await refreshBookMetadata(id, { restoreColumns: cleared });
+      // a cleared field has to fall back to the sources, and a cleared field
+      // no source supplies has to be emptied rather than left frozen.
+      await refreshBookMetadata(id, { clearedOverrides: removed });
 
       const item = await prisma.libraryBook.findUnique({
         where: { id },
@@ -134,22 +170,27 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
   {
     params: t.Object({ id: t.String() }),
     body: t.Object({
-      title: nullable(t.String({ maxLength: 500 })),
-      subtitle: nullable(t.String({ maxLength: 500 })),
-      series_name: nullable(t.String({ maxLength: 300 })),
-      series_position: t.Optional(t.Union([t.Number(), t.Null()])),
+      title: nullableStr(500),
+      subtitle: nullableStr(500),
+      series_name: nullableStr(300),
+      // Float: half-books exist ("Book 4.5"), matching the column.
+      series_position: t.Optional(
+        t.Union([t.Number({ minimum: 0, maximum: 10_000 }), t.Null()]),
+      ),
       narrators: t.Optional(t.Union([t.Array(t.String()), t.Null()])),
       genres: t.Optional(t.Union([t.Array(t.String()), t.Null()])),
-      publisher: nullable(t.String({ maxLength: 300 })),
-      page_count: t.Optional(t.Union([t.Number(), t.Null()])),
-      published_date: nullable(t.String({ maxLength: 40 })),
-      published_year: t.Optional(t.Union([t.Number(), t.Null()])),
-      rating: t.Optional(t.Union([t.Number(), t.Null()])),
-      rating_count: t.Optional(t.Union([t.Number(), t.Null()])),
-      language: nullable(t.String({ maxLength: 10 })),
-      overview: nullable(t.String({ maxLength: 20_000 })),
-      cover_url: nullable(t.String({ maxLength: 2000 })),
-      isbn13: nullable(t.String({ maxLength: 20 })),
+      publisher: nullableStr(300),
+      page_count: nullableInt(0, 100_000),
+      published_date: nullableStr(40),
+      published_year: nullableInt(0, 9999),
+      rating: t.Optional(
+        t.Union([t.Number({ minimum: 0, maximum: 5 }), t.Null()]),
+      ),
+      rating_count: nullableInt(0, 1_000_000_000),
+      language: nullableStr(10),
+      overview: nullableStr(20_000),
+      cover_url: nullableStr(2000),
+      isbn13: nullableStr(20),
     }),
   },
 );
