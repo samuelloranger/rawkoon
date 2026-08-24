@@ -219,3 +219,15 @@ export interface AuthorListResponse {
 export interface AuthorResponse {
   author: Author;
 }
+
+/**
+ * A metadata source, in the order the merge considers them by default.
+ * "local" is on-disk file metadata: the operator can fix a file with a tagger
+ * and rescan, so it must outrank every remote source or that repair would be
+ * silently reverted on the next refresh.
+ */
+export type BookMetadataSource =
+  | "local"
+  | "audnexus"
+  | "googlebooks"
+  | "openlibrary";

@@ -1,3 +1,10 @@
-export type { BookMetadataProvider, ProviderBook } from "./types";
+export type {
+  BookIdentityProvider,
+  BookMatchInput,
+  BookMetadataProvider,
+  MergedBookFields,
+  ProviderBook,
+  ProviderFields,
+} from "./types";
 export { BookProviderUnavailableError } from "./types";
 export { getBookMetadataProvider } from "./googleBooksProvider";
