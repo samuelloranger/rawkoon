@@ -61,5 +61,5 @@
   "overrides": {
     "@better-auth/core": "1.6.19"
   },
-  "version": "1.8.1"
+  "version": "1.9.0"
 }
