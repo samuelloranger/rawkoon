@@ -1959,6 +1959,10 @@
     "kindAll": "all",
     "kindEbook": "ebook",
     "kindAudiobook": "audiobook",
+    "view": {
+      "grid": "Grid",
+      "list": "List"
+    },
     "loading": "Loading…",
     "noneMatch": "No books match that filter.",
     "noneYet": "No books yet.",

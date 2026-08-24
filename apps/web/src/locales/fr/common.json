@@ -1959,6 +1959,10 @@
     "kindAll": "tous",
     "kindEbook": "numérique",
     "kindAudiobook": "audio",
+    "view": {
+      "grid": "Grille",
+      "list": "Liste"
+    },
     "loading": "Chargement…",
     "noneMatch": "Aucun livre ne correspond à ce filtre.",
     "noneYet": "Aucun livre pour le moment.",
