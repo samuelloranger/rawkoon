@@ -1990,7 +1990,22 @@
       "removing": "Removing…",
       "removed": "“{{title}}” was removed from the library.",
       "removeFailed": "Could not remove that book.",
-      "editionsHeading": "Editions"
+      "editionsHeading": "Editions",
+      "metadata": {
+        "narrators": "Narrators",
+        "publisher": "Publisher",
+        "pages": "Pages",
+        "rating": "Rating",
+        "ratingWithCount": "{{rating}} ({{count}} ratings)",
+        "genres": "Genres",
+        "from": "From {{source}}",
+        "manual": "Set by hand",
+        "refresh": "Refresh metadata",
+        "refreshed": "Updated {{count}} field(s)",
+        "refreshedNoChange": "Metadata is already up to date",
+        "refreshedWithFailures": "Updated {{count}} field(s); unavailable: {{sources}}",
+        "refreshFailed": "Could not refresh metadata"
+      }
     },
     "track": {
       "label": "Acquisition progress",
