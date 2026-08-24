@@ -1,0 +1,12 @@
+{
+  "_comment": "Captured live 2026-08-24 from the FR region: a good image but an EMPTY description. Author bio therefore needs a region fallback.",
+  "asin": "B0SCRUBA01",
+  "name": "Camille Rousseau",
+  "description": "",
+  "image": "https://example.invalid/author.jpg",
+  "genres": [
+    { "asin": "21228876031", "name": "Policier et suspense", "type": "genre" }
+  ],
+  "region": "fr",
+  "similar": []
+}
