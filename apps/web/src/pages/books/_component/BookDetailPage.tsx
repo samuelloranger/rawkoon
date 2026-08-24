@@ -45,6 +45,7 @@ import {
   useRescanEdition,
   useUpdateEdition,
 } from "../_hooks/useBooks";
+import { useRefreshBookMetadata } from "../_hooks/useRefreshBookMetadata";
 import { BookCover } from "./BookCover";
 import { stateTokens } from "./bookState";
 
@@ -685,11 +686,44 @@ function RemoveBookAction({
   );
 }
 
+/**
+ * One merged metadata field.
+ *
+ * The `title` attribute names the source the value came from, so provenance is
+ * visible on hover without a dedicated component. A field with no entry in
+ * metadata_sources was either never enriched or was set by hand — in which case
+ * the operator is the source and naming one would be a lie.
+ */
+function MetaField({
+  label,
+  value,
+  source,
+}: {
+  label: string;
+  value: string;
+  source?: string;
+}) {
+  const { t } = useTranslation("common");
+  return (
+    <div
+      title={
+        source
+          ? t("books.detail.metadata.from", { source })
+          : t("books.detail.metadata.manual")
+      }
+    >
+      <dt className="text-xs text-neutral-500">{label}</dt>
+      <dd className="mt-0.5 text-sm text-neutral-200">{value}</dd>
+    </div>
+  );
+}
+
 export function BookDetailPage({ bookId }: { bookId: number }) {
   const { t } = useTranslation("common");
   // Server-pushed updates, same stream the media pages use. No polling.
   useLibraryEvents();
   const { data, isLoading } = useBook(bookId);
+  const refreshMetadata = useRefreshBookMetadata(bookId);
   const addEdition = useAddEdition(bookId);
 
   if (isLoading) {
@@ -784,6 +818,62 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
               {t("books.detail.isbn", { value: book.isbn13 })}
             </p>
           )}
+
+          {/* Merged from the metadata source chain. Each renders only when a
+              source supplied it, so a thin record stays visually quiet rather
+              than showing a column of dashes. */}
+          {(book.narrators.length > 0 ||
+            book.genres.length > 0 ||
+            book.publisher ||
+            book.page_count != null ||
+            book.rating != null) && (
+            <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+              {book.narrators.length > 0 && (
+                <MetaField
+                  label={t("books.detail.metadata.narrators")}
+                  value={book.narrators.join(", ")}
+                  source={book.metadata_sources.narrators}
+                />
+              )}
+              {book.publisher && (
+                <MetaField
+                  label={t("books.detail.metadata.publisher")}
+                  value={book.publisher}
+                  source={book.metadata_sources.publisher}
+                />
+              )}
+              {book.page_count != null && (
+                <MetaField
+                  label={t("books.detail.metadata.pages")}
+                  value={String(book.page_count)}
+                  source={book.metadata_sources.pageCount}
+                />
+              )}
+              {book.rating != null && (
+                <MetaField
+                  label={t("books.detail.metadata.rating")}
+                  value={
+                    book.rating_count != null
+                      ? t("books.detail.metadata.ratingWithCount", {
+                          rating: book.rating.toFixed(1),
+                          count: book.rating_count,
+                        })
+                      : book.rating.toFixed(1)
+                  }
+                  source={book.metadata_sources.rating}
+                />
+              )}
+              {book.genres.length > 0 && (
+                <div className="col-span-2 sm:col-span-3">
+                  <MetaField
+                    label={t("books.detail.metadata.genres")}
+                    value={book.genres.join(" · ")}
+                    source={book.metadata_sources.genres}
+                  />
+                </div>
+              )}
+            </dl>
+          )}
         </div>
 
         {/* Actions sit at the top right rather than under the metadata, which
@@ -806,6 +896,45 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
               })}
             </Button>
           ))}
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={refreshMetadata.isPending}
+            onClick={() => {
+              refreshMetadata.mutate(undefined, {
+                onSuccess: (res) => {
+                  // Naming a failed source matters: an Audnexus outage would
+                  // otherwise be indistinguishable from "this book has no
+                  // narrators".
+                  if (res.failed_sources.length > 0) {
+                    toast.warning(
+                      t("books.detail.metadata.refreshedWithFailures", {
+                        count: res.changed_fields.length,
+                        sources: res.failed_sources.join(", "),
+                      }),
+                    );
+                    return;
+                  }
+                  if (res.changed_fields.length === 0) {
+                    toast.info(t("books.detail.metadata.refreshedNoChange"));
+                    return;
+                  }
+                  toast.success(
+                    t("books.detail.metadata.refreshed", {
+                      count: res.changed_fields.length,
+                    }),
+                  );
+                },
+                onError: () =>
+                  toast.error(t("books.detail.metadata.refreshFailed")),
+              });
+            }}
+          >
+            {refreshMetadata.isPending && (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            )}
+            {t("books.detail.metadata.refresh")}
+          </Button>
           <RemoveBookAction bookId={book.id} title={book.title} />
         </div>
       </div>
