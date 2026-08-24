@@ -638,6 +638,9 @@ model MediaSettings {
   /// directory — renaming dozens of tracks risks destroying playback order.
   audiobookTemplate           String   @default("{author}/{title} ({year})/{title}") @map("audiobook_template")
   defaultBookQualityProfileId Int?     @map("default_book_quality_profile_id")
+  /// Metadata source priority, highest first. Absence from this array is the
+  /// disable switch — see normalizeSourceOrder in @rawkoon/shared/utils.
+  bookMetadataSourceOrder String[] @default(["local", "audnexus", "googlebooks", "openlibrary"]) @map("book_metadata_source_order")
   /// Deep-link target for playback and reading. Rawkoon does not talk to the
   /// Audiobookshelf API — it only builds a URL, so an unreachable instance
   /// costs nothing but a dead link. Null means the button is not rendered.
@@ -804,6 +807,20 @@ model LibraryBook {
   seriesName     String?  @map("series_name")
   /// Float because half-books exist ("Book 4.5").
   seriesPosition Float?   @map("series_position")
+  /// Merged from the source chain. Book-level; BookEdition.narrators stays as
+  /// the local-file value, which is what the "local" source contributes.
+  narrators      String[] @default([])
+  /// The winning source's taxonomy, untranslated. Audible's French genres and
+  /// Open Library's English subjects are never unioned — that yields a
+  /// bilingual mess — so this is one source's array, whole.
+  genres         String[] @default([])
+  publisher      String?
+  pageCount      Int?     @map("page_count")
+  /// Full date when a source supplies one. publishedYear is kept: list
+  /// sorting (listYear) already depends on it.
+  publishedDate  DateTime? @map("published_date")
+  rating         Float?
+  ratingCount    Int?     @map("rating_count")
   overrides      Json?
   /// Display title for list ORDER BY (overrides.title when set, else title).
   listTitle      String   @default("") @map("list_title")
@@ -813,6 +830,8 @@ model LibraryBook {
 
   editions    BookEdition[]
   authorLinks BookAuthor[]
+  externalIds    BookExternalId[]
+  metadataFields BookMetadataField[]
 
   @@index([addedAt], map: "ix_library_books_added_at")
   @@index([listTitle], map: "ix_library_books_list_title")
@@ -896,6 +915,7 @@ model BookFile {
 model Author {
   id                   Int      @id @default(autoincrement())
   googleAuthorName     String   @unique @map("google_author_name")
+  audibleAsin          String?  @unique @map("audible_asin")
   sortName             String?  @map("sort_name")
   imageUrl             String?  @map("image_url")
   bio                  String?
@@ -932,6 +952,41 @@ model BookAuthor {
   @@unique([authorId, bookId, role], map: "uq_book_authors_author_book_role")
   @@index([bookId], map: "ix_book_authors_book_id")
   @@map("book_authors")
+}
+
+/// Per-source identity. googleVolumeId stays on LibraryBook untouched, so no
+/// existing query, trigger or unique constraint changes.
+model BookExternalId {
+  id         Int      @id @default(autoincrement())
+  bookId     Int      @map("book_id")
+  /// local | audnexus | googlebooks | openlibrary
+  source     String
+  externalId String   @map("external_id")
+  fetchedAt  DateTime @default(now()) @map("fetched_at")
+
+  book LibraryBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([bookId, source], map: "uq_book_external_ids_book_source")
+  @@index([source, externalId], map: "ix_book_external_ids_source_external")
+  @@map("book_external_ids")
+}
+
+/// Which source won each field. Powers the provenance tooltip and tells a
+/// refresh what is stale. A provider that raised
+/// BookProviderUnavailableError writes NO row here — otherwise a transient 503
+/// would read as "that source has no narrators for this book" forever.
+model BookMetadataField {
+  id        Int      @id @default(autoincrement())
+  bookId    Int      @map("book_id")
+  field     String
+  source    String
+  fetchedAt DateTime @default(now()) @map("fetched_at")
+
+  book LibraryBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([bookId, field], map: "uq_book_metadata_fields_book_field")
+  @@index([bookId], map: "ix_book_metadata_fields_book_id")
+  @@map("book_metadata_fields")
 }
 
 /// Book equivalent of QualityProfile. Deliberately has no requireRetail:
