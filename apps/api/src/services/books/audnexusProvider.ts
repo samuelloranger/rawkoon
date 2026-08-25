@@ -10,7 +10,7 @@ import {
   parseSeriesPosition,
 } from "@rawkoon/api/utils/books/seriesName";
 import { searchAudibleProducts } from "./audibleCatalog";
-import { pickBestAsin } from "./asinResolver";
+import { languagesDisagree, pickBestAsin } from "./asinResolver";
 import {
   BookProviderUnavailableError,
   type BookMatchInput,
@@ -215,25 +215,55 @@ export class AudnexusProvider implements BookMetadataProvider {
 
     if (stored) {
       const fields = await this.fetchBook(stored);
-      if (fields) return this.withAsin(book, fields, stored);
       /**
-       * The stored ASIN is not in this region's catalogue.
-       *
-       * ASINs are regional and the stored id carries no region, so changing
-       * the configured region strands every book that had already resolved:
-       * the old id 404s here forever and resolution is never retried. Falling
-       * through re-resolves against the current region, and the newly found id
-       * replaces the stale one via __asin.
+       * A stored id skips resolveAsin, so it also skips the scorer that would
+       * reject it today. Re-check the one thing that makes a complete record
+       * wrong rather than merely thin — it is a different language edition —
+       * and fall through to a fresh search when it is.
        */
-      console.warn(
-        `[audnexus] stored ASIN ${stored} is unknown in region ${this.region} — re-resolving`,
-      );
+      if (
+        fields &&
+        languagesDisagree(book, {
+          title: fields.title ?? book.title,
+          subtitle: fields.subtitle,
+          language: fields.language,
+        })
+      ) {
+        console.warn(
+          `[audnexus] stored ASIN ${stored} is a ${fields.language} edition of a ${book.language} book — re-resolving`,
+        );
+      } else if (fields) {
+        return this.withAsin(book, fields, stored);
+      } else {
+        /**
+         * The stored ASIN is not in this region's catalogue.
+         *
+         * ASINs are regional and the stored id carries no region, so changing
+         * the configured region strands every book that had already resolved:
+         * the old id 404s here forever and resolution is never retried. Falling
+         * through re-resolves against the current region, and the newly found id
+         * replaces the stale one via __asin.
+         */
+        console.warn(
+          `[audnexus] stored ASIN ${stored} is unknown in region ${this.region} — re-resolving`,
+        );
+      }
     }
 
     const asin = await this.resolveAsin(book);
     if (!asin || asin === stored) return {};
     const fields = await this.fetchBook(asin);
     if (!fields) return {};
+    // The replacement must not repeat the mistake the stored id just made.
+    if (
+      languagesDisagree(book, {
+        title: fields.title ?? book.title,
+        subtitle: fields.subtitle,
+        language: fields.language,
+      })
+    ) {
+      return {};
+    }
     // The resolved ASIN travels back so the caller can persist it.
     return this.withAsin(book, fields, asin);
   }
