@@ -299,3 +299,61 @@ describe("scoreAsinCandidate language mismatch", () => {
     ).toBeNull();
   });
 });
+
+/**
+ * The retailer spells the edition suffix in both orders. Measured live
+ * 2026-08-25: the genuine French audiobook of a French library title is
+ * "<name> (French Edition)", by the same author, reported `french` — and it
+ * scored 55 against a floor of 60, because only the "Édition française" order
+ * was stripped before comparison. The exact title never matched, so the correct
+ * product lost to the English one it was meant to displace.
+ */
+describe("scoreAsinCandidate edition suffix ordering", () => {
+  const want: AsinWant = {
+    title: "Le Jardin de Verre",
+    authors: ["Camille Rousseau"],
+    language: "fr",
+  };
+
+  test("strips a trailing '(French Edition)' before comparing", () => {
+    const score = scoreAsinCandidate(
+      want,
+      candidate({
+        title: "Le Jardin de Verre (French Edition)",
+        language: "french",
+      }),
+    );
+    expect(score).toBeGreaterThanOrEqual(ASIN_MIN_SCORE);
+  });
+
+  test("prefers the French edition over the English product", () => {
+    const best = pickBestAsin(want, [
+      candidate({
+        asin: "B0ENGLISH",
+        title: "Le Jardin de Verre",
+        language: "english",
+      }),
+      candidate({
+        asin: "B0FRENCH",
+        title: "Le Jardin de Verre (French Edition)",
+        language: "french",
+      }),
+    ]);
+    expect(best?.candidate.asin).toBe("B0FRENCH");
+  });
+
+  test("still disqualifies a same-title book by another author", () => {
+    // Observed live: the French "Vicious" in the catalogue is L.J. Shen's
+    // romance, not V. E. Schwab's novel. No ASIN is the right answer.
+    expect(
+      pickBestAsin(want, [
+        candidate({
+          asin: "B0OTHER",
+          title: "Le Jardin de Verre",
+          language: "french",
+          authors: ["Sonia Eska"],
+        }),
+      ]),
+    ).toBeNull();
+  });
+});
