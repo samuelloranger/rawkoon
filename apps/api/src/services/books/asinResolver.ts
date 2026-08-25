@@ -17,6 +17,18 @@ export type { AsinCandidate, AsinMatch, AsinWant } from "./types";
 /** Below this, no ASIN is recorded and the book keeps its Google Books data. */
 export const ASIN_MIN_SCORE = 60;
 
+/**
+ * What a language disagreement costs.
+ *
+ * Sized to sink the strongest possible match: an exact title plus a full author
+ * overlap scores 80, so anything less than 21 leaves the language signal
+ * decorative — which is exactly how an English audiobook of a French book
+ * passed at 80, then displaced the French blurb, cover and publisher. 30 also
+ * leaves a cross-language candidate corroborated by an exact volume match
+ * (90) at the floor rather than below it.
+ */
+const LANGUAGE_MISMATCH_PENALTY = 30;
+
 const DISQUALIFIED = -1;
 
 /**
@@ -61,6 +73,55 @@ const toIso639 = (raw: string | null): string | null => {
   if (LANG_ALIASES[key]) return LANG_ALIASES[key];
   return /^[a-z]{2}$/.test(key) ? key : null;
 };
+
+/**
+ * The language an explicit edition marker claims, which outranks any language
+ * field: the marker is the one place a translated edition states itself
+ * unambiguously, and the retailer's own tag is demonstrably unreliable.
+ */
+const EDITION_LANGUAGE: Array<[RegExp, string]> = [
+  [/\b(?:version|[ée]dition)\s+fran[çc]aise?\b/iu, "fr"],
+  [/\bfrench\s+edition\b/iu, "fr"],
+  [/\b(?:version|[ée]dition)\s+anglaise?\b/iu, "en"],
+  [/\benglish\s+edition\b/iu, "en"],
+];
+
+const editionLanguage = (raw: string | null | undefined): string | null => {
+  if (!raw) return null;
+  for (const [re, lang] of EDITION_LANGUAGE) {
+    if (re.test(raw)) return lang;
+  }
+  return null;
+};
+
+/**
+ * Whether a product is a different language edition than the book wants.
+ *
+ * Shared with the stored-ASIN path in audnexusProvider: an id already on a book
+ * skips this scorer entirely, so without the same check there, tightening the
+ * scorer would leave every already-resolved book showing the wrong edition.
+ *
+ * An edition marker on either side outranks the reported language, and a marker
+ * on the *library* title suppresses the verdict altogether: it says the row is
+ * itself a translated edition, and the retailer's tag for that same product was
+ * observed to be wrong.
+ */
+export function languagesDisagree(
+  want: { title: string; language: string },
+  candidate: {
+    title: string;
+    subtitle?: string | null;
+    language?: string | null;
+  },
+): boolean {
+  const wantLang = want.language.toLowerCase();
+  if (editionLanguage(want.title) === wantLang) return false;
+  const candLang =
+    editionLanguage(candidate.title) ??
+    editionLanguage(candidate.subtitle) ??
+    toIso639(candidate.language ?? null);
+  return candLang !== null && candLang !== wantLang;
+}
 
 /**
  * Edition suffixes a retailer bolts onto a title. They are noise for matching:
@@ -129,11 +190,30 @@ export function scoreAsinCandidate(
   }
   if (titleScore === 0) return DISQUALIFIED;
 
-  // 4. Language. A signal only: a French edition was observed reporting
-  // "english", so gating on this loses correct matches.
-  const candLang = toIso639(candidate.language);
-  const langScore =
-    candLang && candLang === want.language.toLowerCase() ? 10 : 0;
+  /**
+   * 4. Language. A bonus when it agrees, a heavy penalty when it disagrees, and
+   * nothing at all when the disagreement cannot be trusted.
+   *
+   * Not disqualifying, and not merely a bonus either. A French edition was
+   * observed reporting "english", so an outright gate loses correct matches —
+   * but leaving it a 10-point bonus made it powerless, because an exact title
+   * plus a matching author already clears the floor on its own. That is how the
+   * English audiobook of a French-only print title got attached.
+   *
+   * The one disagreement to ignore is the mislabelled-edition case: when the
+   * library title announces its own translated edition, that same edition is
+   * the product being scored, and the retailer's tag for it is known wrong.
+   */
+  const wantLang = want.language.toLowerCase();
+  const candLang =
+    editionLanguage(candidate.title) ??
+    editionLanguage(candidate.subtitle) ??
+    toIso639(candidate.language);
+  let langScore = 0;
+  if (candLang === wantLang) langScore = 10;
+  else if (languagesDisagree(want, candidate)) {
+    langScore = -LANGUAGE_MISMATCH_PENALTY;
+  }
 
   const volScore = wantVol !== null && candVol === wantVol ? 10 : 0;
 

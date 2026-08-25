@@ -160,3 +160,70 @@ describe("AudnexusProvider.enrich with a stored ASIN", () => {
     expect(await new AudnexusProvider(BASE, "fr").enrich(book)).toEqual({});
   });
 });
+
+/**
+ * A stored ASIN skips the scorer entirely, so a wrong-language product already
+ * on a book kept winning the blurb, cover and publisher no matter how the
+ * scorer was tightened. Observed on the French print edition of a title whose
+ * only Audible product is the English audiobook.
+ */
+describe("AudnexusProvider.enrich with a wrong-language stored ASIN", () => {
+  const englishRecord = (asin: string) => ({
+    ...audnexusBook(asin),
+    language: "english",
+    narrators: [{ name: "Jeremy Arthur" }],
+    publisherName: "Macmillan Audio",
+  });
+
+  test("discards the stored record and re-resolves", async () => {
+    const seen = stubFetch((url) => {
+      if (url.includes("/books/B0STALE001"))
+        return json(englishRecord("B0STALE001"));
+      if (url.includes("api.audible."))
+        return json(audibleProduct("B0FRENCH003"));
+      if (url.includes("/books/B0FRENCH003"))
+        return json(audnexusBook("B0FRENCH003"));
+      return json({}, 500);
+    });
+
+    const fields = await new AudnexusProvider(BASE, "fr").enrich(book);
+
+    expect(fields.__asin).toBe("B0FRENCH003");
+    expect(fields.narrators).toEqual(["Laure Vidal"]);
+    expect(seen.some((u) => u.includes("api.audible."))).toBe(true);
+  });
+
+  test("contributes nothing when the only product is the wrong language", async () => {
+    stubFetch((url) => {
+      if (url.includes("/books/B0STALE001"))
+        return json(englishRecord("B0STALE001"));
+      if (url.includes("api.audible."))
+        return json({
+          products: [
+            {
+              ...audibleProduct("B0ENGLISH004").products[0],
+              asin: "B0ENGLISH004",
+              language: "english",
+            },
+          ],
+        });
+      if (url.includes("/books/B0ENGLISH004"))
+        return json(englishRecord("B0ENGLISH004"));
+      return json({}, 500);
+    });
+
+    // Nothing at all, so the French Google Books blurb and cover stand.
+    expect(await new AudnexusProvider(BASE, "fr").enrich(book)).toEqual({});
+  });
+
+  test("keeps a stored record whose language agrees", async () => {
+    stubFetch((url) => {
+      if (url.includes("/books/B0STALE001"))
+        return json(audnexusBook("B0STALE001"));
+      return json({}, 500);
+    });
+
+    const fields = await new AudnexusProvider(BASE, "fr").enrich(book);
+    expect(fields.__asin).toBe("B0STALE001");
+  });
+});
