@@ -26,7 +26,8 @@ export async function migrateFromSonarr(
   sonarrApiKey: string,
   ctx: LibraryMigrateContext,
 ): Promise<void> {
-  const { tmdbConfig, defaultQualityProfileId, progress, result, push } = ctx;
+  const { tmdbConfig, defaultShowQualityProfileId, progress, result, push } =
+    ctx;
   const sonarrErrors: string[] = [];
   result.sonarr = {
     imported_shows: 0,
@@ -107,8 +108,8 @@ export async function migrateFromSonarr(
             posterUrl: poster,
             overview: series.overview || null,
             ...(series.added ? { addedAt: new Date(series.added) } : {}),
-            ...(defaultQualityProfileId != null
-              ? { qualityProfileId: defaultQualityProfileId }
+            ...(defaultShowQualityProfileId != null
+              ? { qualityProfileId: defaultShowQualityProfileId }
               : {}),
           },
           update: {

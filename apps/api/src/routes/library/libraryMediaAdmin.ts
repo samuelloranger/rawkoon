@@ -42,7 +42,8 @@ export function mapSettings(row: {
   episodeTemplate: string;
   minSeedRatio: number;
   postProcessingEnabled: boolean;
-  defaultQualityProfileId?: number | null;
+  defaultMovieQualityProfileId?: number | null;
+  defaultShowQualityProfileId?: number | null;
   activeIndexerManager?: string | null;
   booksLibraryPath?: string | null;
   audiobooksLibraryPath?: string | null;
@@ -63,7 +64,8 @@ export function mapSettings(row: {
     episode_template: row.episodeTemplate,
     min_seed_ratio: row.minSeedRatio,
     post_processing_enabled: row.postProcessingEnabled,
-    default_quality_profile_id: row.defaultQualityProfileId ?? null,
+    default_movie_quality_profile_id: row.defaultMovieQualityProfileId ?? null,
+    default_show_quality_profile_id: row.defaultShowQualityProfileId ?? null,
     active_indexer_manager: row.activeIndexerManager ?? null,
     // Book paths and templates live on the same row: post-processing settings
     // are per-instance, not per-media-kind, and splitting them would mean two
@@ -111,7 +113,8 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
           episodeTemplate?: string;
           minSeedRatio?: number;
           postProcessingEnabled?: boolean;
-          defaultQualityProfileId?: number | null;
+          defaultMovieQualityProfileId?: number | null;
+          defaultShowQualityProfileId?: number | null;
           activeIndexerManager?: string | null;
           booksLibraryPath?: string | null;
           audiobooksLibraryPath?: string | null;
@@ -145,8 +148,12 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
           update.minSeedRatio = body.min_seed_ratio;
         if (body.post_processing_enabled !== undefined)
           update.postProcessingEnabled = body.post_processing_enabled;
-        if (body.default_quality_profile_id !== undefined)
-          update.defaultQualityProfileId = body.default_quality_profile_id;
+        if (body.default_movie_quality_profile_id !== undefined)
+          update.defaultMovieQualityProfileId =
+            body.default_movie_quality_profile_id;
+        if (body.default_show_quality_profile_id !== undefined)
+          update.defaultShowQualityProfileId =
+            body.default_show_quality_profile_id;
         if (body.active_indexer_manager !== undefined) {
           if (
             body.active_indexer_manager !== null &&
@@ -208,7 +215,12 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
         episode_template: t.Optional(t.String({ maxLength: 500 })),
         min_seed_ratio: t.Optional(t.Number({ minimum: 0, maximum: 100 })),
         post_processing_enabled: t.Optional(t.Boolean()),
-        default_quality_profile_id: t.Optional(t.Union([t.Number(), t.Null()])),
+        default_movie_quality_profile_id: t.Optional(
+          t.Union([t.Number(), t.Null()]),
+        ),
+        default_show_quality_profile_id: t.Optional(
+          t.Union([t.Number(), t.Null()]),
+        ),
         active_indexer_manager: t.Optional(
           t.Union([t.Literal("prowlarr"), t.Literal("jackett"), t.Null()]),
         ),

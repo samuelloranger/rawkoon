@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@rawkoon/api/db";
+import { resolveDefaultQualityProfileId } from "@rawkoon/api/lib/defaultQualityProfile";
 import { TMDB_LANGUAGE_LIBRARY_PERSISTENCE } from "@rawkoon/api/utils/medias/tmdbFetcherTypes";
 import {
   getLibraryTmdbApiKey,
@@ -102,7 +103,7 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
   const qualityProfileId =
     opts.qualityProfileId !== undefined
       ? opts.qualityProfileId
-      : (mediaSettings?.defaultQualityProfileId ?? null);
+      : resolveDefaultQualityProfileId(opts.type, mediaSettings);
   const preferredSearchLanguage =
     await loadPreferredSearchLanguage(qualityProfileId);
 

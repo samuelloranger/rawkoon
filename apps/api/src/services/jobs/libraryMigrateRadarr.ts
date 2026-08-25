@@ -27,7 +27,7 @@ export async function migrateFromRadarr(
 ): Promise<void> {
   const {
     tmdbConfig,
-    defaultQualityProfileId,
+    defaultMovieQualityProfileId,
     region,
     progress,
     result,
@@ -107,8 +107,8 @@ export async function migrateFromRadarr(
             overview: movie.overview || null,
             digitalReleaseDate,
             ...(movie.added ? { addedAt: new Date(movie.added) } : {}),
-            ...(defaultQualityProfileId != null
-              ? { qualityProfileId: defaultQualityProfileId }
+            ...(defaultMovieQualityProfileId != null
+              ? { qualityProfileId: defaultMovieQualityProfileId }
               : {}),
           },
           update: {

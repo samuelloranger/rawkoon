@@ -237,7 +237,8 @@ export interface MediaPostProcessingSettings {
   episode_template: string;
   min_seed_ratio: number;
   post_processing_enabled: boolean;
-  default_quality_profile_id: number | null;
+  default_movie_quality_profile_id: number | null;
+  default_show_quality_profile_id: number | null;
   active_indexer_manager: IndexerManagerType | null;
   /** Book fields share this row: post-processing is per instance, not per kind. */
   books_library_path: string | null;
@@ -265,7 +266,8 @@ export interface UpdateMediaPostProcessingSettingsRequest {
   episode_template?: string;
   min_seed_ratio?: number;
   post_processing_enabled?: boolean;
-  default_quality_profile_id?: number | null;
+  default_movie_quality_profile_id?: number | null;
+  default_show_quality_profile_id?: number | null;
   active_indexer_manager?: IndexerManagerType | null;
   books_library_path?: string | null;
   audiobooks_library_path?: string | null;
