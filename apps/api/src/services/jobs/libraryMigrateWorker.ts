@@ -25,8 +25,10 @@ export async function processLibraryMigrateJob(
   const mediaSettings = await prisma.mediaSettings.findUnique({
     where: { id: 1 },
   });
-  const defaultQualityProfileId =
-    mediaSettings?.defaultQualityProfileId ?? null;
+  const defaultMovieQualityProfileId =
+    mediaSettings?.defaultMovieQualityProfileId ?? null;
+  const defaultShowQualityProfileId =
+    mediaSettings?.defaultShowQualityProfileId ?? null;
   const region = await getGlobalTmdbRegion();
 
   const progress: LibraryMigrateProgress = {
@@ -55,7 +57,8 @@ export async function processLibraryMigrateJob(
 
   const ctx = {
     tmdbConfig,
-    defaultQualityProfileId,
+    defaultMovieQualityProfileId,
+    defaultShowQualityProfileId,
     region,
     progress,
     result,

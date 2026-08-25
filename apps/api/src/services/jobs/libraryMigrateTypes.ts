@@ -127,7 +127,8 @@ export type TmdbConfig = { api_key: string } | null;
 
 export type LibraryMigrateContext = {
   tmdbConfig: TmdbConfig;
-  defaultQualityProfileId: number | null;
+  defaultMovieQualityProfileId: number | null;
+  defaultShowQualityProfileId: number | null;
   region: string;
   progress: LibraryMigrateProgress;
   result: LibraryMigrateResult;
