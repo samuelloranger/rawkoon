@@ -272,7 +272,8 @@ model QualityProfile {
   updatedAt                DateTime @updatedAt @map("updated_at")
 
   media              LibraryMedia[]
-  defaultForSettings MediaSettings[] @relation("DefaultQualityProfile")
+  defaultForMovieSettings MediaSettings[] @relation("DefaultMovieQualityProfile")
+  defaultForShowSettings  MediaSettings[] @relation("DefaultShowQualityProfile")
   customFormats      QualityProfileCustomFormat[]
   mediaRequests      MediaRequest[]
 
@@ -618,7 +619,8 @@ model MediaSettings {
   episodeTemplate         String   @default("{show}/Season {season}/{show} - S{season:02}E{episode:02} - {title} [{resolution} {source}]") @map("episode_template")
   minSeedRatio            Float    @default(1) @map("min_seed_ratio")
   postProcessingEnabled   Boolean  @default(false) @map("post_processing_enabled")
-  defaultQualityProfileId Int?     @map("default_quality_profile_id")
+  defaultMovieQualityProfileId Int? @map("default_movie_quality_profile_id")
+  defaultShowQualityProfileId  Int? @map("default_show_quality_profile_id")
   activeIndexerManager    String?  @map("active_indexer_manager")
   downloadPollActiveSecs   Int      @default(20) @map("download_poll_active_secs")
   downloadPollIdleSecs     Int      @default(1800) @map("download_poll_idle_secs")
@@ -650,7 +652,8 @@ model MediaSettings {
 
   updatedAt               DateTime @updatedAt @map("updated_at")
 
-  defaultQualityProfile     QualityProfile?     @relation("DefaultQualityProfile", fields: [defaultQualityProfileId], references: [id], onDelete: SetNull)
+  defaultMovieQualityProfile QualityProfile?    @relation("DefaultMovieQualityProfile", fields: [defaultMovieQualityProfileId], references: [id], onDelete: SetNull)
+  defaultShowQualityProfile  QualityProfile?    @relation("DefaultShowQualityProfile", fields: [defaultShowQualityProfileId], references: [id], onDelete: SetNull)
   defaultBookQualityProfile BookQualityProfile? @relation("DefaultBookQualityProfile", fields: [defaultBookQualityProfileId], references: [id], onDelete: SetNull)
 
   @@map("media_settings")

@@ -73,7 +73,8 @@ export function MediaPostProcessingSettingsBody({
         movieTemplate: z.string(),
         episodeTemplate: z.string(),
         minSeedRatio: z.number(),
-        defaultQualityProfileId: z.string(),
+        defaultMovieQualityProfileId: z.string(),
+        defaultShowQualityProfileId: z.string(),
         activeIndexerManager: z.string(),
       }),
     [],
@@ -96,8 +97,10 @@ export function MediaPostProcessingSettingsBody({
       movieTemplate: settings.movie_template,
       episodeTemplate: settings.episode_template,
       minSeedRatio: settings.min_seed_ratio,
-      defaultQualityProfileId:
-        settings.default_quality_profile_id?.toString() ?? "",
+      defaultMovieQualityProfileId:
+        settings.default_movie_quality_profile_id?.toString() ?? "",
+      defaultShowQualityProfileId:
+        settings.default_show_quality_profile_id?.toString() ?? "",
       activeIndexerManager: settings.active_indexer_manager ?? "",
     },
   });
@@ -129,10 +132,14 @@ export function MediaPostProcessingSettingsBody({
         movie_template: data.movieTemplate,
         episode_template: data.episodeTemplate,
         min_seed_ratio: data.minSeedRatio,
-        default_quality_profile_id:
-          data.defaultQualityProfileId === ""
+        default_movie_quality_profile_id:
+          data.defaultMovieQualityProfileId === ""
             ? null
-            : parseInt(data.defaultQualityProfileId, 10),
+            : parseInt(data.defaultMovieQualityProfileId, 10),
+        default_show_quality_profile_id:
+          data.defaultShowQualityProfileId === ""
+            ? null
+            : parseInt(data.defaultShowQualityProfileId, 10),
         active_indexer_manager:
           data.activeIndexerManager === "prowlarr" ||
           data.activeIndexerManager === "jackett"
@@ -313,18 +320,18 @@ export function MediaPostProcessingSettingsBody({
 
           <div>
             <label
-              htmlFor="media-post-processing-settings-body-default-quality-profile-id"
+              htmlFor="media-post-processing-settings-body-default-movie-quality-profile-id"
               className={LABEL_CLASS}
             >
-              {t("settings.mediaLibrary.defaultQualityProfile")}
+              {t("settings.mediaLibrary.defaultMovieQualityProfile")}
             </label>
             <select
-              id="media-post-processing-settings-body-default-quality-profile-id"
-              {...register("defaultQualityProfileId")}
+              id="media-post-processing-settings-body-default-movie-quality-profile-id"
+              {...register("defaultMovieQualityProfileId")}
               className={SELECT_CLASS}
             >
               <option value="">
-                {t("settings.mediaLibrary.defaultQualityProfileNone")}
+                {t("settings.mediaLibrary.defaultMovieQualityProfileNone")}
               </option>
               {(profilesData?.profiles ?? []).map((p) => (
                 <option key={p.id} value={p.id}>
@@ -332,13 +339,44 @@ export function MediaPostProcessingSettingsBody({
                 </option>
               ))}
             </select>
-            {errors.defaultQualityProfileId && (
+            {errors.defaultMovieQualityProfileId && (
               <p className="mt-1 text-sm text-red-400">
-                {errors.defaultQualityProfileId.message}
+                {errors.defaultMovieQualityProfileId.message}
               </p>
             )}
             <p className="mt-1.5 text-xs text-neutral-400">
-              {t("settings.mediaLibrary.defaultQualityProfileHint")}
+              {t("settings.mediaLibrary.defaultMovieQualityProfileHint")}
+            </p>
+          </div>
+
+          <div>
+            <label
+              htmlFor="media-post-processing-settings-body-default-show-quality-profile-id"
+              className={LABEL_CLASS}
+            >
+              {t("settings.mediaLibrary.defaultShowQualityProfile")}
+            </label>
+            <select
+              id="media-post-processing-settings-body-default-show-quality-profile-id"
+              {...register("defaultShowQualityProfileId")}
+              className={SELECT_CLASS}
+            >
+              <option value="">
+                {t("settings.mediaLibrary.defaultShowQualityProfileNone")}
+              </option>
+              {(profilesData?.profiles ?? []).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            {errors.defaultShowQualityProfileId && (
+              <p className="mt-1 text-sm text-red-400">
+                {errors.defaultShowQualityProfileId.message}
+              </p>
+            )}
+            <p className="mt-1.5 text-xs text-neutral-400">
+              {t("settings.mediaLibrary.defaultShowQualityProfileHint")}
             </p>
           </div>
 
