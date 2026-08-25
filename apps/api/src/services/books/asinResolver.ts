@@ -128,9 +128,14 @@ export function languagesDisagree(
  * the library title "<name> - Version française" and the catalog title "<name>"
  * are the same book, and without stripping these the pair only reaches
  * containment scoring, which is not enough to clear the floor on its own.
+ *
+ * Both word orders occur, and covering only one is not a cosmetic gap: the
+ * genuine French audiobook is listed as "<name> (French Edition)", so with the
+ * suffix left in place it scored 55 against a floor of 60 and lost to the
+ * English product it was there to displace.
  */
 const EDITION_NOISE =
-  /\b(?:version|edition|édition)\s+(?:fran[çc]aise?|originale?|english|french|integrale|intégrale)\b/giu;
+  /\b(?:(?:version|edition|édition)\s+(?:fran[çc]aise?|originale?|english|french|integrale|intégrale)|(?:fran[çc]aise?|english|french|original)\s+(?:version|edition|édition))\b/giu;
 
 /** Normalize for comparison: strip edition noise, then the shared normalizer. */
 const compareTitle = (raw: string): string =>

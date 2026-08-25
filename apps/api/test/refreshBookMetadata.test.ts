@@ -869,3 +869,82 @@ describe("refreshBookMetadata ISBN rebind guards", () => {
     expect(data.overview).toBe("Blurb française");
   });
 });
+
+/**
+ * A column whose only supplier stops claiming it.
+ *
+ * Observed live: a wrong-language Audnexus record was dropped from a French
+ * book, and `publisher` and `narrators` — fields no other source supplies —
+ * kept the English audiobook's values forever. The loop only writes fields
+ * present in `merged`, so an absent field left the stale value in place, and
+ * the wholesale provenance delete stripped its row, so the UI then rendered it
+ * as hand-set with nothing left to revert.
+ */
+describe("refreshBookMetadata orphaned columns", () => {
+  test("clears a column its former source no longer claims", async () => {
+    state.book = {
+      ...bookFixture(),
+      publisher: "Macmillan Audio",
+      narrators: ["Jeremy Arthur"],
+      metadataFields: [
+        { field: "publisher", source: "audnexus" },
+        { field: "narrators", source: "audnexus" },
+      ],
+    };
+
+    // Audnexus answers, but says nothing about either field any more.
+    const outcome = await refreshBookMetadata(1, {
+      providers: [audnexus({ overview: "blurb" })],
+    });
+
+    expect(outcome.ok).toBe(true);
+    const data = state.updates.at(-1) ?? {};
+    expect(data.publisher).toBeNull();
+    // A list column empties to [], which is what the Prisma client requires.
+    expect(data.narrators).toEqual([]);
+  });
+
+  test("keeps the value when the owning source is failing", async () => {
+    state.book = {
+      ...bookFixture(),
+      publisher: "Éditions Lisière",
+      metadataFields: [{ field: "publisher", source: "audnexus" }],
+    };
+
+    const failing = {
+      source: "audnexus" as const,
+      enrich: () =>
+        Promise.reject(new BookProviderUnavailableError("503 backendFailed")),
+    };
+
+    await refreshBookMetadata(1, { providers: [failing] });
+
+    // A transient outage must never be read as "this field has no source".
+    expect(state.updates.at(-1) ?? {}).not.toHaveProperty("publisher");
+  });
+
+  test("keeps an operator override the sources cannot supply", async () => {
+    state.book = {
+      ...bookFixture(),
+      publisher: "Éditions Lisière",
+      overrides: { publisher: "Éditions Lisière" },
+      metadataFields: [{ field: "publisher", source: "audnexus" }],
+    };
+
+    await refreshBookMetadata(1, { providers: [audnexus({})] });
+
+    expect(state.updates.at(-1) ?? {}).not.toHaveProperty("publisher");
+  });
+
+  test("leaves a column no source ever claimed alone", async () => {
+    state.book = {
+      ...bookFixture(),
+      publisher: "Set by hand long ago",
+      metadataFields: [],
+    };
+
+    await refreshBookMetadata(1, { providers: [audnexus({})] });
+
+    expect(state.updates.at(-1) ?? {}).not.toHaveProperty("publisher");
+  });
+});
