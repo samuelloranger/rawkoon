@@ -3,6 +3,7 @@ import {
   getBookMetadataProvider,
   BookProviderUnavailableError,
 } from "@rawkoon/api/services/books";
+import { pinQueriedIsbn } from "@rawkoon/api/services/books/googleBooksProvider";
 import { refreshBookMetadata } from "@rawkoon/api/services/books/refreshBookMetadata";
 import { serializePerBook } from "@rawkoon/api/services/books/refreshQueue";
 import type { BookEditionKind } from "@rawkoon/shared/types";
@@ -49,6 +50,8 @@ export async function addBookFromVolume(opts: {
   kinds: BookEditionKind[];
   bookQualityProfileId?: number | null;
   monitored?: boolean;
+  /** Prefer this ISBN over the provider volume's primary identifier. */
+  isbn13?: string | null;
 }): Promise<AddBookOutcome> {
   const volumeId = opts.volumeId.trim();
   if (!volumeId) return { added: false, reason: "volumeId is required" };
@@ -79,6 +82,13 @@ export async function addBookFromVolume(opts: {
     throw e;
   }
   if (!meta) return { added: false, reason: "Volume not found" };
+
+  // An ISBN search pins the operator's identifier on the search hit. getBook
+  // reloads the volume and can replace it with a sibling edition's ISBN_13;
+  // keep the typed one when the caller still has it.
+  if (opts.isbn13) {
+    meta = pinQueriedIsbn(meta, opts.isbn13);
+  }
 
   const profileByKind = new Map<BookEditionKind, number | null>();
   for (const kind of kinds) {
@@ -112,7 +122,12 @@ export async function addBookFromVolume(opts: {
       update: {
         // Refresh metadata but never clobber the title, which is the indexer
         // search term and may have been overridden.
-        isbn13: meta.isbn13,
+        //
+        // isbn13 only when this add carried one: re-adding a volume without an
+        // ISBN must not replace the operator's identifier with the volume
+        // record's primary one, which is regularly a sibling printing's. An
+        // empty column is filled by the enrich below.
+        ...(opts.isbn13 ? { isbn13: meta.isbn13 } : {}),
         overview: meta.overview,
         coverUrl: meta.coverUrl,
         seriesName: meta.seriesName,
