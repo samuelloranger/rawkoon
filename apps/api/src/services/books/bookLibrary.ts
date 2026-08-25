@@ -122,7 +122,12 @@ export async function addBookFromVolume(opts: {
       update: {
         // Refresh metadata but never clobber the title, which is the indexer
         // search term and may have been overridden.
-        isbn13: meta.isbn13,
+        //
+        // isbn13 only when this add carried one: re-adding a volume without an
+        // ISBN must not replace the operator's identifier with the volume
+        // record's primary one, which is regularly a sibling printing's. An
+        // empty column is filled by the enrich below.
+        ...(opts.isbn13 ? { isbn13: meta.isbn13 } : {}),
         overview: meta.overview,
         coverUrl: meta.coverUrl,
         seriesName: meta.seriesName,

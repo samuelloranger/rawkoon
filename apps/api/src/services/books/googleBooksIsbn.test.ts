@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   pickBookForIsbn,
   pinQueriedIsbn,
+  toIsbn13,
 } from "@rawkoon/api/services/books/googleBooksProvider";
 import type { ProviderBook } from "@rawkoon/api/services/books/types";
 
@@ -111,6 +112,92 @@ describe("pinQueriedIsbn", () => {
     const pinned = pinQueriedIsbn(english, "9782371022508");
     expect(pinned.isbn13).toBe("9782371022508");
     // Language must follow the ISBN the operator actually asked for.
+    expect(pinned.language).toBe("fr");
+  });
+});
+
+describe("pickBookForIsbn strict", () => {
+  const frenchIsbn = "9782371022508";
+
+  /**
+   * A rebind rewrites volumeId, title and language, and pinQueriedIsbn then
+   * stamps the queried ISBN on whatever was picked — so a language guess or a
+   * first-hit fallback would silently re-point the book at a sibling edition
+   * with no visible mismatch left to notice.
+   */
+  test("refuses a language match", () => {
+    const french = book({
+      volumeId: "fr-other",
+      title: "Vengeful",
+      language: "fr",
+      isbn13: "9782371022515",
+    });
+    expect(pickBookForIsbn([french], frenchIsbn, { strict: true })).toBeNull();
+    expect(pickBookForIsbn([french], frenchIsbn)?.volumeId).toBe("fr-other");
+  });
+
+  test("still accepts the volume that carries the ISBN", () => {
+    const french = book({
+      volumeId: "fr-lumen",
+      title: "Vengeful",
+      language: "fr",
+      isbn13: frenchIsbn,
+    });
+    expect(
+      pickBookForIsbn([french], frenchIsbn, { strict: true })?.volumeId,
+    ).toBe("fr-lumen");
+  });
+});
+
+/**
+ * Only an ISBN-13 has a registration group to read a language from, and volume
+ * records only list ISBN_13 — so a 10-digit identifier used to match nothing
+ * and resolve no language, falling through to whatever Google ranked first.
+ */
+describe("toIsbn13", () => {
+  test("converts an ISBN-10, hyphens and all", () => {
+    expect(toIsbn13("2-37102-250-6")).toBe("9782371022508");
+  });
+
+  test("passes an ISBN-13 through", () => {
+    expect(toIsbn13("978-2-37102-250-8")).toBe("9782371022508");
+  });
+
+  test("rejects anything else", () => {
+    expect(toIsbn13("not-an-isbn")).toBeNull();
+    expect(toIsbn13("12345")).toBeNull();
+  });
+});
+
+describe("ISBN-10 selection", () => {
+  test("matches the volume carrying the equivalent ISBN-13", () => {
+    const french = book({
+      volumeId: "fr-lumen",
+      title: "Vengeful",
+      language: "fr",
+      isbn13: "9782371022508",
+    });
+    const english = book({
+      volumeId: "en-first",
+      title: "Vengeful",
+      language: "en",
+      isbn13: "9781250303554",
+    });
+    expect(
+      pickBookForIsbn([english, french], "2-37102-250-6", { strict: true })
+        ?.volumeId,
+    ).toBe("fr-lumen");
+  });
+
+  test("pins the ISBN-13 form of an ISBN-10", () => {
+    const english = book({
+      volumeId: "en-first",
+      title: "Vengeful",
+      language: "en",
+      isbn13: "9781250303554",
+    });
+    const pinned = pinQueriedIsbn(english, "2-37102-250-6");
+    expect(pinned.isbn13).toBe("9782371022508");
     expect(pinned.language).toBe("fr");
   });
 });

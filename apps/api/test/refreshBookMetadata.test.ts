@@ -16,6 +16,8 @@ const state: {
   provenanceDeletes: number;
   /** When set, findFirst treats this volume id as already owned by another book. */
   volumeConflictId: string | null;
+  /** When set, the first update carrying googleVolumeId raises P2002. */
+  raceVolumeConflict: boolean;
 } = {
   book: null,
   sourceOrder: ["audnexus", "googlebooks"],
@@ -25,6 +27,7 @@ const state: {
   provenanceRows: [],
   provenanceDeletes: 0,
   volumeConflictId: null,
+  raceVolumeConflict: false,
 };
 
 const bookFixture = () => ({
@@ -56,6 +59,14 @@ const bookFixture = () => ({
 const tx = {
   libraryBook: {
     update: (args: { data: Record<string, unknown> }) => {
+      if (state.raceVolumeConflict && "googleVolumeId" in args.data) {
+        state.raceVolumeConflict = false;
+        return Promise.reject(
+          Object.assign(new Error("Unique constraint failed"), {
+            code: "P2002",
+          }),
+        );
+      }
       state.updates.push(args.data);
       return Promise.resolve({ id: 1 });
     },
@@ -123,6 +134,7 @@ beforeEach(() => {
   state.provenanceRows = [];
   state.provenanceDeletes = 0;
   state.volumeConflictId = null;
+  state.raceVolumeConflict = false;
 });
 
 const audnexus = (fields: Record<string, unknown>) => ({
@@ -133,6 +145,50 @@ const googlebooks = (fields: Record<string, unknown>) => ({
   source: "googlebooks" as const,
   enrich: () => Promise.resolve(fields),
 });
+
+/**
+ * A Google Books stand-in for the rebind path. `resolveIsbn` records the
+ * arguments it was called with, so a test can assert that identity resolution
+ * was skipped entirely rather than merely fruitless.
+ */
+const identityFor = (
+  volumeId: string,
+  fields?: Record<string, unknown>,
+): {
+  source: "googlebooks";
+  calls: Array<{ isbn: string; strict: boolean }>;
+  resolveIsbn: (isbn: string, opts?: { strict?: boolean }) => Promise<unknown>;
+  getBook: () => Promise<null>;
+  searchBooks: () => Promise<never[]>;
+  getAuthorBooks: () => Promise<never[]>;
+  enrich: () => Promise<Record<string, unknown>>;
+} => {
+  const calls: Array<{ isbn: string; strict: boolean }> = [];
+  return {
+    source: "googlebooks",
+    calls,
+    resolveIsbn: (isbn: string, opts?: { strict?: boolean }) => {
+      calls.push({ isbn, strict: opts?.strict === true });
+      return Promise.resolve({
+        volumeId,
+        title: "Vengeful",
+        subtitle: null,
+        authors: ["V. E. Schwab"],
+        language: "fr",
+        publishedYear: 2019,
+        isbn13: "9782371022508",
+        coverUrl: "https://example.invalid/fr.jpg",
+        overview: "Blurb française",
+        seriesName: null,
+        seriesPosition: null,
+      });
+    },
+    getBook: () => Promise.resolve(null),
+    searchBooks: () => Promise.resolve([]),
+    getAuthorBooks: () => Promise.resolve([]),
+    enrich: () => Promise.resolve(fields ?? { overview: "Blurb française" }),
+  };
+};
 
 describe("refreshBookMetadata", () => {
   test("writes merged fields and their provenance", async () => {
@@ -655,6 +711,7 @@ describe("refreshBookMetadata", () => {
       ...bookFixture(),
       googleVolumeId: "FR-VOLUME",
       isbn13: "9782371022508",
+      overrides: { isbn13: "9782371022508" },
     };
 
     const identity = {
@@ -686,5 +743,129 @@ describe("refreshBookMetadata", () => {
 
     expect(state.updates.at(-1) ?? {}).not.toHaveProperty("googleVolumeId");
     expect(state.externalIdDeletes).toHaveLength(0);
+  });
+});
+
+/**
+ * Rebind re-points a book's identity — volume id, title, language, cover — so
+ * what is allowed to trigger it matters as much as what it does. Only an ISBN a
+ * person asserted qualifies.
+ */
+describe("refreshBookMetadata ISBN rebind guards", () => {
+  test("ignores the isbn13 column when no override asserts it", async () => {
+    state.book = {
+      ...bookFixture(),
+      googleVolumeId: "EN-VOLUME",
+      // Filled by a provider, not by a person: Audnexus contributes an Audible
+      // product code for another language's edition of the same title.
+      isbn13: "9782371022508",
+    };
+    const identity = identityFor("FR-VOLUME");
+
+    await refreshBookMetadata(1, {
+      providers: [identity],
+      identityProvider: identity,
+    });
+
+    expect(identity.calls).toHaveLength(0);
+    expect(state.updates.at(-1) ?? {}).not.toHaveProperty("googleVolumeId");
+  });
+
+  test("ignores an isbn13 override that this request is reverting", async () => {
+    state.book = {
+      ...bookFixture(),
+      googleVolumeId: "EN-VOLUME",
+      // The JSON key is already gone; the column still holds the typed value.
+      isbn13: "9782371022508",
+      overrides: null,
+    };
+    const identity = identityFor("FR-VOLUME");
+
+    await refreshBookMetadata(1, {
+      providers: [identity],
+      identityProvider: identity,
+      clearedOverrides: ["isbn13"],
+    });
+
+    expect(identity.calls).toHaveLength(0);
+    expect(state.updates.at(-1) ?? {}).not.toHaveProperty("googleVolumeId");
+  });
+
+  test("does not rebind when googlebooks is not in the source order", async () => {
+    state.sourceOrder = ["audnexus"];
+    state.book = {
+      ...bookFixture(),
+      googleVolumeId: "EN-VOLUME",
+      overrides: { isbn13: "9782371022508" },
+    };
+    const identity = identityFor("FR-VOLUME");
+
+    await refreshBookMetadata(1, {
+      providers: [audnexus({ overview: "vo" })],
+      identityProvider: identity,
+    });
+
+    expect(identity.calls).toHaveLength(0);
+    expect(state.updates.at(-1) ?? {}).not.toHaveProperty("googleVolumeId");
+  });
+
+  test("resolves the ISBN strictly", async () => {
+    state.book = {
+      ...bookFixture(),
+      googleVolumeId: "EN-VOLUME",
+      overrides: { isbn13: "9782371022508" },
+    };
+    const identity = identityFor("FR-VOLUME");
+
+    await refreshBookMetadata(1, {
+      providers: [identity],
+      identityProvider: identity,
+    });
+
+    expect(identity.calls).toEqual([{ isbn: "9782371022508", strict: true }]);
+  });
+
+  test("converts an ISBN-10 override before resolving", async () => {
+    state.book = {
+      ...bookFixture(),
+      googleVolumeId: "EN-VOLUME",
+      overrides: { isbn13: "2-37102-250-6" },
+    };
+    const identity = identityFor("FR-VOLUME");
+
+    await refreshBookMetadata(1, {
+      providers: [identity],
+      identityProvider: identity,
+    });
+
+    // 978 + the first 9 digits + a recomputed check digit.
+    expect(identity.calls[0]?.isbn).toBe("9782371022508");
+  });
+
+  test("keeps the current identity when the volume is claimed mid-write", async () => {
+    state.book = {
+      ...bookFixture(),
+      googleVolumeId: "EN-VOLUME",
+      title: "Vengeful",
+      language: "en",
+      overrides: { isbn13: "9782371022508" },
+    };
+    // Passes the advisory check, loses the unique constraint.
+    state.raceVolumeConflict = true;
+    const identity = identityFor("FR-VOLUME", {
+      overview: "Blurb française",
+    });
+
+    const outcome = await refreshBookMetadata(1, {
+      providers: [identity],
+      identityProvider: identity,
+    });
+
+    expect(outcome.ok).toBe(true);
+    expect(outcome.ok && outcome.changedFields).not.toContain("googleVolumeId");
+    const data = state.updates.at(-1) ?? {};
+    expect(data).not.toHaveProperty("googleVolumeId");
+    expect(data).not.toHaveProperty("language");
+    expect(data.overview).toBe("Blurb française");
   });
 });

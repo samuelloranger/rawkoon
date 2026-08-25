@@ -100,6 +100,28 @@ const isbn13From = (v: unknown): string | null => {
 export const isbnDigits = (raw: string): string => raw.replace(/[\s-]/g, "");
 
 /**
+ * Canonical ISBN-13 for an ISBN of either length, or null when the input is
+ * not an ISBN at all.
+ *
+ * Everything downstream compares and stores 13 digits: `industryIdentifiers`
+ * exposes ISBN_13, and only an ISBN-13 has a registration group to read a
+ * language from. Without this conversion a 10-digit identifier can never match
+ * a volume exactly and never resolves a language, so it silently fell through
+ * to whatever Google ranked first.
+ */
+export function toIsbn13(raw: string): string | null {
+  const digits = isbnDigits(raw);
+  if (/^\d{13}$/.test(digits)) return digits;
+  if (!/^\d{9}[\dXx]$/.test(digits)) return null;
+  const core = `978${digits.slice(0, 9)}`;
+  let sum = 0;
+  for (let i = 0; i < 12; i++) {
+    sum += Number(core[i]) * (i % 2 === 0 ? 1 : 3);
+  }
+  return `${core}${(10 - (sum % 10)) % 10}`;
+}
+
+/**
  * Pick the Google Books hit that actually is the edition the operator asked
  * for.
  *
@@ -107,21 +129,29 @@ export const isbnDigits = (raw: string): string => raw.replace(/[\s-]/g, "");
  *  1. Exact isbn13 match (the operator's identifier is on that volume).
  *  2. Language matching the ISBN registration group (978-2 → fr, …).
  *  3. First mapped hit — last resort when Google returns nothing usable.
+ *
+ * `strict` stops at tier 1. Tiers 2 and 3 are guesses, which is acceptable
+ * when the answer is one search result among many but not when it decides a
+ * book's identity: a rebind rewrites volumeId, title and language, and
+ * pinQueriedIsbn then stamps the queried ISBN on the guess, hiding the
+ * mismatch that would otherwise be visible.
  */
 export function pickBookForIsbn(
   books: ProviderBook[],
   queriedIsbn: string,
+  opts?: { strict?: boolean },
 ): ProviderBook | null {
   if (books.length === 0) return null;
-  const digits = isbnDigits(queriedIsbn);
-  if (!/^\d{10}(\d{3})?$/.test(digits)) return null;
+  const digits = toIsbn13(queriedIsbn);
+  if (!digits) return null;
 
   const exact = books.find(
-    (b) => b.isbn13 != null && isbnDigits(b.isbn13) === digits,
+    (b) => b.isbn13 != null && toIsbn13(b.isbn13) === digits,
   );
   if (exact) return exact;
+  if (opts?.strict) return null;
 
-  const wantedLang = languageFromIsbn13(digits.length === 13 ? digits : null);
+  const wantedLang = languageFromIsbn13(digits);
   if (wantedLang) {
     const byLang = books.find((b) => b.language === wantedLang);
     if (byLang) return byLang;
@@ -141,8 +171,8 @@ export function pinQueriedIsbn(
   book: ProviderBook,
   queriedIsbn: string,
 ): ProviderBook {
-  const digits = isbnDigits(queriedIsbn);
-  if (!/^97[89]\d{10}$/.test(digits)) return book;
+  const digits = toIsbn13(queriedIsbn);
+  if (!digits) return book;
   const { language } = reconcileBookLanguage(book.language, digits);
   return { ...book, isbn13: digits, language };
 }
@@ -316,7 +346,8 @@ async function cachedVolumes(
   return fresh;
 }
 
-class GoogleBooksProvider implements BookIdentityProvider {
+/** Exported for tests; production code goes through getBookMetadataProvider. */
+export class GoogleBooksProvider implements BookIdentityProvider {
   readonly source = "googlebooks" as const;
 
   constructor(
@@ -402,9 +433,13 @@ class GoogleBooksProvider implements BookIdentityProvider {
     );
   }
 
-  async resolveIsbn(isbn13: string): Promise<ProviderBook | null> {
+  async resolveIsbn(
+    isbn13: string,
+    opts?: { strict?: boolean },
+  ): Promise<ProviderBook | null> {
     const digits = isbnDigits(isbn13);
-    if (!/^\d{10}(\d{3})?$/.test(digits)) return null;
+    const canonical = toIsbn13(digits);
+    if (!canonical) return null;
     // Cache key bumped to v2: v1 stored the first Google hit regardless of
     // whether it carried the queried ISBN, and those wrong answers live for
     // 24h. Busting the key is cheaper than teaching the picker to un-poison
@@ -414,8 +449,10 @@ class GoogleBooksProvider implements BookIdentityProvider {
       CACHE_TTL_VOLUME,
       () => this.run(`isbn:${digits}`, ISBN_LOOKUP_LIMIT),
     );
-    const picked = pickBookForIsbn(results, digits);
-    return picked ? pinQueriedIsbn(picked, digits) : null;
+    // Queried as typed — Google indexes both lengths — but matched against the
+    // canonical 13-digit form, which is the only one a volume record carries.
+    const picked = pickBookForIsbn(results, canonical, opts);
+    return picked ? pinQueriedIsbn(picked, canonical) : null;
   }
 
   async getAuthorBooks(
@@ -460,7 +497,7 @@ class GoogleBooksProvider implements BookIdentityProvider {
     if (!meta) return {};
     // Only the fields Google actually supplies. Everything it does not know is
     // absent rather than null, so a lower-priority source can still fill it.
-    return {
+    const fields: ProviderFields = {
       title: meta.title,
       subtitle: meta.subtitle,
       authors: meta.authors,
@@ -472,6 +509,17 @@ class GoogleBooksProvider implements BookIdentityProvider {
       seriesName: meta.seriesName,
       seriesPosition: meta.seriesPosition,
     };
+    /**
+     * Never overwrite an ISBN the book already has — the same rule Audnexus
+     * follows.
+     *
+     * A volume record lists one ISBN_13 as primary and it is regularly a
+     * sibling printing's, so contributing it walks the operator's typed
+     * identifier away on the very next refresh. Filling an empty isbn13 is
+     * still useful.
+     */
+    if (book.isbn13) delete fields.isbn13;
+    return fields;
   }
 }
 
