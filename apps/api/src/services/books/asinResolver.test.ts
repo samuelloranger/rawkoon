@@ -211,3 +211,91 @@ describe("pickBestAsin", () => {
     ).toBeNull();
   });
 });
+
+/**
+ * A wrong-language product is the failure this scorer exists to prevent, and
+ * for a long while it could not: an exact title plus a full author match scores
+ * 80 on its own, so the 10-point language signal could never change a verdict.
+ *
+ * Measured live 2026-08-25 on `api.audible.fr` for "Vengeful Schwab": the only
+ * non-German hit is the English Macmillan Audio product. There is no French
+ * audiobook, so the correct answer is no ASIN — instead the English record was
+ * attached and its blurb, cover, narrator and publisher displaced the French
+ * ones from Google Books.
+ */
+describe("scoreAsinCandidate language mismatch", () => {
+  const want: AsinWant = {
+    title: "Le Jardin de Verre",
+    authors: ["Camille Rousseau"],
+    language: "fr",
+  };
+
+  test("rejects an exact title and author in the wrong language", () => {
+    const score = scoreAsinCandidate(
+      want,
+      candidate({ title: "Le Jardin de Verre", language: "english" }),
+    );
+    expect(score).toBeLessThan(ASIN_MIN_SCORE);
+  });
+
+  test("still prefers the same-language product over the floor", () => {
+    const score = scoreAsinCandidate(
+      want,
+      candidate({ title: "Le Jardin de Verre", language: "french" }),
+    );
+    expect(score).toBeGreaterThanOrEqual(ASIN_MIN_SCORE);
+  });
+
+  /**
+   * The penalty must not sink the mislabelled-edition case above: the library
+   * title announcing its own translated edition is evidence that the retailer's
+   * language tag for that product cannot be trusted.
+   */
+  test("does not penalise when the library title announces the edition", () => {
+    const score = scoreAsinCandidate(
+      {
+        title: "Le Jardin de Verre - Version française",
+        authors: ["Camille Rousseau"],
+        language: "fr",
+      },
+      candidate({ title: "Le Jardin de Verre", language: "english" }),
+    );
+    expect(score).toBeGreaterThanOrEqual(ASIN_MIN_SCORE);
+  });
+
+  /** An edition marker on the candidate outranks its own reported language. */
+  test("reads the candidate's edition marker over its reported language", () => {
+    const score = scoreAsinCandidate(
+      want,
+      candidate({
+        title: "Le Jardin de Verre - Version française",
+        language: "english",
+      }),
+    );
+    expect(score).toBeGreaterThanOrEqual(ASIN_MIN_SCORE);
+  });
+
+  test("keeps rejecting a wrong-language sibling volume", () => {
+    const score = scoreAsinCandidate(
+      want,
+      candidate({
+        title: "Le Jardin de Verre - Die Rache",
+        language: "german",
+      }),
+    );
+    expect(score).toBeLessThan(ASIN_MIN_SCORE);
+  });
+
+  test("no ASIN is picked when every candidate is the wrong language", () => {
+    expect(
+      pickBestAsin(want, [
+        candidate({ title: "Le Jardin de Verre", language: "english" }),
+        candidate({
+          asin: "B000000002",
+          title: "Le Jardin de Verre - Die Rache",
+          language: "german",
+        }),
+      ]),
+    ).toBeNull();
+  });
+});
