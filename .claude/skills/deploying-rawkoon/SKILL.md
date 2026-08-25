@@ -45,6 +45,8 @@ gh run watch $(gh run list --workflow 'Build and Push Docker Image' --limit 1 --
 
 `gh release create` creates the tag if it doesn't exist. Do **not** create a draft release: only `published` triggers the workflows, and a draft publishes nothing.
 
+`--generate-notes` is a placeholder, not the description. Every release then gets a hand-written title and body — **invoke the `writing-rawkoon-release-notes` skill** and replace the auto-generated notes before calling the release done. Migrations that rename or drop anything, dropped env vars, and externally-reported issues all have mandatory content there.
+
 ## Verify
 
 ```bash
