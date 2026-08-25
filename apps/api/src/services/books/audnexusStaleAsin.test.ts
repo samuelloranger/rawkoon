@@ -94,6 +94,28 @@ describe("AudnexusProvider.enrich with a stored ASIN", () => {
   });
 
   /**
+   * An ISBN typed at add time must survive enrich. Audnexus ranks above Google
+   * Books and often returns a different edition's product ISBN for the same
+   * title — contributing it would overwrite the operator's identifier.
+   */
+  test("does not contribute isbn13 when the book already has one", async () => {
+    stubFetch((url) => {
+      if (url.includes("/books/B0STALE001"))
+        return json(audnexusBook("B0STALE001"));
+      return json({}, 500);
+    });
+
+    const fields = await new AudnexusProvider(BASE, "fr").enrich({
+      ...book,
+      isbn13: "9782371022508",
+    });
+
+    expect("isbn13" in fields).toBe(false);
+    expect(fields.narrators).toEqual(["Laure Vidal"]);
+    expect(fields.__asin).toBe("B0STALE001");
+  });
+
+  /**
    * The regression: the stored id is unknown in this region, so the provider
    * must fall through to a fresh catalogue search instead of giving up.
    */

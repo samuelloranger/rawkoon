@@ -176,6 +176,7 @@ export const bookListRoutes = new Elysia()
           kinds,
           bookQualityProfileId: body.book_quality_profile_id,
           monitored: body.monitored,
+          isbn13: body.isbn13,
         });
       } catch (e) {
         console.error("[books] add failed:", e);
@@ -203,6 +204,11 @@ export const bookListRoutes = new Elysia()
     {
       body: t.Object({
         google_volume_id: t.String(),
+        // Pinned onto the volume and used to derive the stored language, so a
+        // free-form string has no business reaching that far.
+        isbn13: t.Optional(
+          t.Nullable(t.String({ pattern: "^[0-9Xx][0-9Xx -]{8,20}$" })),
+        ),
         kinds: t.Optional(
           t.Array(t.Union([t.Literal("ebook"), t.Literal("audiobook")])),
         ),

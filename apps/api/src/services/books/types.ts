@@ -104,7 +104,15 @@ export interface BookIdentityProvider extends BookMetadataProvider {
     opts?: { limit?: number },
   ): Promise<ProviderBook[]>;
   getBook(volumeId: string): Promise<ProviderBook | null>;
-  resolveIsbn(isbn13: string): Promise<ProviderBook | null>;
+  /**
+   * `strict` requires a volume that actually carries the ISBN, with no
+   * language or first-hit fallback. Identity changes must pass it; a search
+   * box is better served by a near miss than by nothing.
+   */
+  resolveIsbn(
+    isbn13: string,
+    opts?: { strict?: boolean },
+  ): Promise<ProviderBook | null>;
   /**
    * `languages` are ISO 639-1 codes. Google only accepts one `langRestrict` per
    * request, so several codes mean several requests merged by volume id —

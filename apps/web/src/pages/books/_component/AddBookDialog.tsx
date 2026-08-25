@@ -165,7 +165,11 @@ export function AddBookDialog({ onClose }: { onClose: () => void }) {
                     disabled={kinds.length === 0 || addBook.isPending}
                     onClick={() =>
                       addBook.mutate(
-                        { google_volume_id: r.google_volume_id, kinds },
+                        {
+                          google_volume_id: r.google_volume_id,
+                          isbn13: r.isbn13,
+                          kinds,
+                        },
                         { onSuccess: onClose },
                       )
                     }
