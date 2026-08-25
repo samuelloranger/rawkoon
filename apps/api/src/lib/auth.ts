@@ -146,13 +146,20 @@ export const auth = betterAuth({
       // never set by any flow that would earn it. better-auth's default gates
       // OIDC account linking on it, which locks the first user out of SSO
       // entirely: OIDC providers run with `disableSignUp`, so a refused link
-      // leaves no way in at all. Both halves of that gate are relaxed here —
-      // the local column, and the provider's `email_verified` claim, which
-      // several self-hosted IdPs simply omit. Admin-configured providers are
-      // trusted because the admin supplied their client secret; the list is a
-      // function so it follows `refreshOidcProviders()` without a restart.
+      // leaves no way in at all.
+      //
+      // Only the local half of that gate is relaxed. Rawkoon has no public
+      // registration — accounts come from the first sign-up, an admin invite,
+      // or the admin panel — so nobody can squat an email they don't own and
+      // wait to capture its owner's first SSO sign-in.
+      //
+      // The provider half stays enforced: `trustedProviders` is deliberately
+      // NOT set. An IdP's `email_verified` claim is what proves the principal
+      // owns the address that linking matches on, and holding the OAuth client
+      // secret says nothing about that. Trusting providers wholesale would let
+      // an IdP with open self-registration link an attacker onto an existing
+      // administrator by claiming their email.
       requireLocalEmailVerified: false,
-      trustedProviders: () => oidcProviderConfigs.map((c) => c.providerId),
     },
   },
   verification: {
