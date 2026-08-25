@@ -7,7 +7,12 @@ describe("resolveFirstSignup", () => {
   it("promotes the first account (zero existing users) to admin", () => {
     const result = resolveFirstSignup(user, 0);
     expect(result).toEqual({
-      data: { email: "first@example.com", name: "First", isAdmin: true },
+      data: {
+        email: "first@example.com",
+        name: "First",
+        isAdmin: true,
+        emailVerified: true,
+      },
     });
   });
 
@@ -16,6 +21,12 @@ describe("resolveFirstSignup", () => {
     expect(result.data.email).toBe("a@b.co");
     expect(result.data.locale).toBe("fr");
     expect(result.data.isAdmin).toBe(true);
+  });
+
+  it("marks the first account verified so OIDC account linking is allowed", () => {
+    // Rawkoon has no email verification transport, so a false emailVerified
+    // would permanently block linking an OIDC provider to this account.
+    expect(resolveFirstSignup(user, 0).data.emailVerified).toBe(true);
   });
 
   it("rejects sign-up once any user already exists", () => {

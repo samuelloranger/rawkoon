@@ -141,6 +141,13 @@ export const auth = betterAuth({
   },
   account: {
     modelName: "BaAccount",
+    accountLinking: {
+      // No email verification transport exists, so User.emailVerified never
+      // becomes true and would block OIDC linking forever. Safe to ignore
+      // here: there is no public registration to squat an email through.
+      // `trustedProviders` stays unset on purpose — see PR #44.
+      requireLocalEmailVerified: false,
+    },
   },
   verification: {
     modelName: "BaVerification",
