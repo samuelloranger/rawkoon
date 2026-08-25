@@ -8,10 +8,13 @@ import { getOpenLibraryProvider } from "./openLibraryProvider";
 import { mergeBookMetadata, MERGEABLE_FIELDS } from "./mergeBookMetadata";
 import {
   BookProviderUnavailableError,
+  type BookIdentityProvider,
   type BookMatchInput,
   type BookMetadataProvider,
+  type ProviderBook,
   type ProviderFields,
 } from "./types";
+import { isbnDigits } from "./googleBooksProvider";
 
 /**
  * Re-runs the source chain for one book and writes the merged result.
@@ -19,6 +22,11 @@ import {
  * There is no scheduled sweep by design: metadata changes only when someone
  * asks, so a source that failed is reported back to the caller rather than
  * silently retried later.
+ *
+ * An ISBN that no longer matches the stored googleVolumeId rebinds identity
+ * first: resolveIsbn picks the edition, googleVolumeId and language follow it,
+ * and a stale Audnexus ASIN is dropped so narrators/series re-resolve for the
+ * new edition rather than keeping the previous one's record.
  */
 
 export type RefreshMetadataOutcome =
@@ -38,6 +46,56 @@ export type RefreshMetadataOutcome =
       unrestoredFields: string[];
     }
   | { ok: false; reason: string };
+
+/** Effective ISBN for identity: override wins, then the stored column. */
+function effectiveIsbn(
+  bookIsbn: string | null,
+  overrides: Record<string, unknown> | null,
+): string | null {
+  const fromOverride = overrides?.isbn13;
+  if (typeof fromOverride === "string" && fromOverride.trim()) {
+    const digits = isbnDigits(fromOverride);
+    return /^\d{10}(\d{3})?$/.test(digits) ? digits : null;
+  }
+  if (!bookIsbn) return null;
+  const digits = isbnDigits(bookIsbn);
+  return /^\d{10}(\d{3})?$/.test(digits) ? digits : null;
+}
+
+/**
+ * When the book's ISBN points at a different Google volume than the one we
+ * store, rebind. Returns null when there is nothing to do, no provider, no
+ * match, or the target volume already belongs to another library book.
+ */
+async function rebindIdentityFromIsbn(
+  book: { id: number; googleVolumeId: string },
+  isbn: string,
+  identity: BookIdentityProvider,
+): Promise<ProviderBook | null> {
+  let resolved: ProviderBook | null;
+  try {
+    resolved = await identity.resolveIsbn(isbn);
+  } catch (e) {
+    if (e instanceof BookProviderUnavailableError) return null;
+    throw e;
+  }
+  if (!resolved || resolved.volumeId === book.googleVolumeId) return null;
+
+  const clash = await prisma.libraryBook.findFirst({
+    where: {
+      googleVolumeId: resolved.volumeId,
+      NOT: { id: book.id },
+    },
+    select: { id: true },
+  });
+  if (clash) {
+    console.warn(
+      `[books] ISBN ${isbn} resolves to volume ${resolved.volumeId}, already used by book ${clash.id} — keeping current identity`,
+    );
+    return null;
+  }
+  return resolved;
+}
 
 /**
  * Merged fields that map to a LibraryBook column.
@@ -140,6 +198,11 @@ export async function refreshBookMetadata(
   opts?: {
     providers?: BookMetadataProvider[];
     /**
+     * Optional identity provider for ISBN rebind. Tests inject it; production
+     * falls back to the configured Google Books provider.
+     */
+    identityProvider?: BookIdentityProvider | null;
+    /**
      * Override keys removed by this request.
      *
      * Two things depend on knowing them. An override-only column (title,
@@ -191,6 +254,13 @@ export async function refreshBookMetadata(
   });
   const order = normalizeSourceOrder(settings?.bookMetadataSourceOrder);
 
+  const overrides =
+    book.overrides &&
+    typeof book.overrides === "object" &&
+    !Array.isArray(book.overrides)
+      ? (book.overrides as Record<string, unknown>)
+      : null;
+
   const externalIds: BookMatchInput["externalIds"] = {};
   for (const row of book.externalIds) {
     externalIds[row.source as BookMetadataSource] = row.externalId;
@@ -205,6 +275,35 @@ export async function refreshBookMetadata(
     googleVolumeId: book.googleVolumeId,
     externalIds,
   };
+
+  // ISBN rebind happens before enrich so every provider sees the new identity.
+  // Skip loading Google Books when there is no ISBN — tests inject providers
+  // without a DB-backed identity provider, and a no-ISBN refresh has nothing
+  // to rebind anyway.
+  const isbn = effectiveIsbn(book.isbn13, overrides);
+  let rebound: ProviderBook | null = null;
+  if (isbn) {
+    const identity =
+      opts?.identityProvider !== undefined
+        ? opts.identityProvider
+        : await getBookMetadataProvider();
+    if (identity) {
+      rebound = await rebindIdentityFromIsbn(book, isbn, identity);
+      if (rebound) {
+        input.googleVolumeId = rebound.volumeId;
+        input.externalIds = {
+          ...input.externalIds,
+          googlebooks: rebound.volumeId,
+        };
+        // Drop the stale ASIN: it belongs to the previous edition/language.
+        delete input.externalIds.audnexus;
+        input.isbn13 = rebound.isbn13 ?? isbn;
+        input.language = rebound.language;
+        input.title = rebound.title;
+        if (rebound.authors.length > 0) input.authors = rebound.authors;
+      }
+    }
+  }
 
   // A provider outside the configured order is dropped here, so an injected
   // provider cannot smuggle itself past the operator's source list.
@@ -243,13 +342,6 @@ export async function refreshBookMetadata(
     (c): c is { source: BookMetadataSource; fields: ProviderFields } =>
       c !== null,
   );
-
-  const overrides =
-    book.overrides &&
-    typeof book.overrides === "object" &&
-    !Array.isArray(book.overrides)
-      ? (book.overrides as Record<string, unknown>)
-      : null;
 
   const { merged, provenance } = mergeBookMetadata(
     candidates,
@@ -305,6 +397,25 @@ export async function refreshBookMetadata(
   }
 
   /**
+   * ISBN rebind is an intentional identity change, so title and language — which
+   * a normal refresh must never flip — follow the new edition unless the
+   * operator has overridden them.
+   */
+  if (rebound) {
+    data.googleVolumeId = rebound.volumeId;
+    if (!overridden.has("title") && !sameValue(book.title, rebound.title)) {
+      data.title = rebound.title;
+      data.sortTitle = rebound.title;
+    }
+    if (
+      !overridden.has("language") &&
+      !sameValue(book.language, rebound.language)
+    ) {
+      data.language = rebound.language;
+    }
+  }
+
+  /**
    * A cleared override the source chain cannot replace.
    *
    * The loop above only writes fields present in `merged`, so a manually added
@@ -349,6 +460,23 @@ export async function refreshBookMetadata(
   await prisma.$transaction(async (tx) => {
     if (Object.keys(data).length > 0) {
       await tx.libraryBook.update({ where: { id: book.id }, data });
+    }
+    if (rebound) {
+      // The previous edition's ASIN must not keep winning narrators/series.
+      await tx.bookExternalId.deleteMany({
+        where: { bookId: book.id, source: "audnexus" },
+      });
+      await tx.bookExternalId.upsert({
+        where: {
+          bookId_source: { bookId: book.id, source: "googlebooks" },
+        },
+        create: {
+          bookId: book.id,
+          source: "googlebooks",
+          externalId: rebound.volumeId,
+        },
+        update: { externalId: rebound.volumeId, fetchedAt: new Date() },
+      });
     }
     for (const { source, externalId } of resolvedIds) {
       await tx.bookExternalId.upsert({

@@ -3,6 +3,7 @@ import { normalizeGoogleBooksConfig } from "@rawkoon/api/utils/integrations/norm
 import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
 import { prisma } from "@rawkoon/api/db";
 import {
+  languageFromIsbn13,
   reconcileBookLanguage,
   sanitizeProviderHtml,
 } from "@rawkoon/shared/utils";
@@ -20,6 +21,16 @@ const CACHE_TTL_SEARCH = 3600; // 1h
 const CACHE_TTL_VOLUME = 86_400; // 24h
 
 /**
+ * How many sibling editions to pull for an ISBN lookup.
+ *
+ * Google's `isbn:` query returns related printings of the same work, not a
+ * strict identifier match. Taking the first hit with maxResults=1 is what
+ * mapped a French Lumen ISBN onto the English Tor volume. Ten is enough to
+ * cover the usual English + translation cluster without wasting quota.
+ */
+const ISBN_LOOKUP_LIMIT = 10;
+
+/**
  * Every rule below came out of testing this API live against a French-language
  * title on 2026-08-20:
  *
@@ -31,6 +42,9 @@ const CACHE_TTL_VOLUME = 86_400; // 24h
  *  - Records are sparse: pageCount 0, empty description, null categories and
  *    null seriesInfo all occur on real volumes. Only title, authors and
  *    language can be relied on.
+ *  - An `isbn:` query for a French edition still ranks the English original
+ *    first. Prefer the volume that carries the queried ISBN; fall back to the
+ *    registration-group language when no exact identifier match exists.
  */
 
 const MAX_ATTEMPTS = 4;
@@ -81,6 +95,57 @@ const isbn13From = (v: unknown): string | null => {
   }
   return null;
 };
+
+/** Digits only; drops hyphens and spaces. */
+export const isbnDigits = (raw: string): string => raw.replace(/[\s-]/g, "");
+
+/**
+ * Pick the Google Books hit that actually is the edition the operator asked
+ * for.
+ *
+ * Order of preference:
+ *  1. Exact isbn13 match (the operator's identifier is on that volume).
+ *  2. Language matching the ISBN registration group (978-2 → fr, …).
+ *  3. First mapped hit — last resort when Google returns nothing usable.
+ */
+export function pickBookForIsbn(
+  books: ProviderBook[],
+  queriedIsbn: string,
+): ProviderBook | null {
+  if (books.length === 0) return null;
+  const digits = isbnDigits(queriedIsbn);
+  if (!/^\d{10}(\d{3})?$/.test(digits)) return null;
+
+  const exact = books.find(
+    (b) => b.isbn13 != null && isbnDigits(b.isbn13) === digits,
+  );
+  if (exact) return exact;
+
+  const wantedLang = languageFromIsbn13(digits.length === 13 ? digits : null);
+  if (wantedLang) {
+    const byLang = books.find((b) => b.language === wantedLang);
+    if (byLang) return byLang;
+  }
+
+  return books[0] ?? null;
+}
+
+/**
+ * Force the operator's ISBN onto the chosen volume.
+ *
+ * Google may attach a sibling edition's ISBN_13 as the "primary" identifier,
+ * or the language field may disagree with the registration group. After an
+ * ISBN search the typed identifier is the source of truth for both.
+ */
+export function pinQueriedIsbn(
+  book: ProviderBook,
+  queriedIsbn: string,
+): ProviderBook {
+  const digits = isbnDigits(queriedIsbn);
+  if (!/^97[89]\d{10}$/.test(digits)) return book;
+  const { language } = reconcileBookLanguage(book.language, digits);
+  return { ...book, isbn13: digits, language };
+}
 
 /**
  * Google returns only `smallThumbnail` and `thumbnail`, both far too small for
@@ -283,7 +348,7 @@ class GoogleBooksProvider implements BookIdentityProvider {
     const limit = opts?.limit ?? 20;
 
     // A bare ISBN is by far the most precise signal, so route it accordingly.
-    const digits = term.replace(/[\s-]/g, "");
+    const digits = isbnDigits(term);
     if (/^\d{10}(\d{3})?$/.test(digits)) {
       const byIsbn = await this.resolveIsbn(digits);
       return byIsbn ? [byIsbn] : [];
@@ -338,14 +403,19 @@ class GoogleBooksProvider implements BookIdentityProvider {
   }
 
   async resolveIsbn(isbn13: string): Promise<ProviderBook | null> {
-    const digits = isbn13.replace(/[\s-]/g, "");
+    const digits = isbnDigits(isbn13);
     if (!/^\d{10}(\d{3})?$/.test(digits)) return null;
+    // Cache key bumped to v2: v1 stored the first Google hit regardless of
+    // whether it carried the queried ISBN, and those wrong answers live for
+    // 24h. Busting the key is cheaper than teaching the picker to un-poison
+    // a stale singleton list.
     const results = await cachedVolumes(
-      `books:gb:isbn:${digits}`,
+      `books:gb:isbn:v2:${digits}`,
       CACHE_TTL_VOLUME,
-      () => this.run(`isbn:${digits}`, 1),
+      () => this.run(`isbn:${digits}`, ISBN_LOOKUP_LIMIT),
     );
-    return results[0] ?? null;
+    const picked = pickBookForIsbn(results, digits);
+    return picked ? pinQueriedIsbn(picked, digits) : null;
   }
 
   async getAuthorBooks(

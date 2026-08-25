@@ -215,7 +215,7 @@ export class AudnexusProvider implements BookMetadataProvider {
 
     if (stored) {
       const fields = await this.fetchBook(stored);
-      if (fields) return { ...fields, __asin: stored };
+      if (fields) return this.withAsin(book, fields, stored);
       /**
        * The stored ASIN is not in this region's catalogue.
        *
@@ -235,7 +235,26 @@ export class AudnexusProvider implements BookMetadataProvider {
     const fields = await this.fetchBook(asin);
     if (!fields) return {};
     // The resolved ASIN travels back so the caller can persist it.
-    return { ...fields, __asin: asin };
+    return this.withAsin(book, fields, asin);
+  }
+
+  /**
+   * Attach the ASIN id, and drop isbn13 when the book already has one.
+   *
+   * Audnexus ranks above Google Books. Its ISBN is often an Audible-region
+   * product code for a different language edition of the same title, so
+   * contributing it would overwrite the ISBN the operator typed at add time.
+   * Filling an empty isbn13 is still useful.
+   */
+  private withAsin(
+    book: BookMatchInput,
+    fields: ProviderFields,
+    asin: string,
+  ): ProviderFields {
+    if (!book.isbn13) return { ...fields, __asin: asin };
+    const rest = { ...fields };
+    delete rest.isbn13;
+    return { ...rest, __asin: asin };
   }
 
   /**

@@ -11,15 +11,20 @@ const state: {
   sourceOrder: string[];
   updates: Record<string, unknown>[];
   externalIdUpserts: Record<string, unknown>[];
+  externalIdDeletes: Record<string, unknown>[];
   provenanceRows: Record<string, unknown>[];
   provenanceDeletes: number;
+  /** When set, findFirst treats this volume id as already owned by another book. */
+  volumeConflictId: string | null;
 } = {
   book: null,
   sourceOrder: ["audnexus", "googlebooks"],
   updates: [],
   externalIdUpserts: [],
+  externalIdDeletes: [],
   provenanceRows: [],
   provenanceDeletes: 0,
+  volumeConflictId: null,
 };
 
 const bookFixture = () => ({
@@ -60,6 +65,10 @@ const tx = {
       state.externalIdUpserts.push(args);
       return Promise.resolve({});
     },
+    deleteMany: (args: Record<string, unknown>) => {
+      state.externalIdDeletes.push(args);
+      return Promise.resolve({ count: 1 });
+    },
   },
   bookMetadataField: {
     deleteMany: () => {
@@ -75,7 +84,21 @@ const tx = {
 
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
-    libraryBook: { findUnique: () => Promise.resolve(state.book) },
+    libraryBook: {
+      findUnique: () => Promise.resolve(state.book),
+      findFirst: (args: {
+        where: { googleVolumeId: string; NOT?: { id: number } };
+      }) => {
+        // Conflict check for ISBN rebind: another book already owns the volume.
+        if (
+          state.volumeConflictId &&
+          args.where.googleVolumeId === state.volumeConflictId
+        ) {
+          return Promise.resolve({ id: 99 });
+        }
+        return Promise.resolve(null);
+      },
+    },
     mediaSettings: {
       findUnique: () =>
         Promise.resolve({ bookMetadataSourceOrder: state.sourceOrder }),
@@ -96,8 +119,10 @@ beforeEach(() => {
   state.sourceOrder = ["audnexus", "googlebooks"];
   state.updates = [];
   state.externalIdUpserts = [];
+  state.externalIdDeletes = [];
   state.provenanceRows = [];
   state.provenanceDeletes = 0;
+  state.volumeConflictId = null;
 });
 
 const audnexus = (fields: Record<string, unknown>) => ({
@@ -536,5 +561,130 @@ describe("refreshBookMetadata", () => {
       providers: [audnexus({ publishedDate: "2024-06-27T00:00:00.000Z" })],
     });
     expect(outcome.ok && outcome.changedFields).toEqual([]);
+  });
+
+  /**
+   * Changing the ISBN must re-point identity. Enrich alone keeps fetching the
+   * old googleVolumeId, so a French ISBN override left the English volume's
+   * cover, overview and language in place. Rebind resolves the ISBN, swaps
+   * the volume id, drops the stale Audnexus ASIN, and allows title/language
+   * to follow the new edition.
+   */
+  test("rebinding via ISBN overwrites identity and clears a stale Audnexus ASIN", async () => {
+    state.book = {
+      ...bookFixture(),
+      googleVolumeId: "EN-VOLUME",
+      title: "Vengeful",
+      language: "en",
+      isbn13: "9781250303554",
+      overview: "English blurb",
+      coverUrl: "https://example.invalid/en.jpg",
+      overrides: { isbn13: "9782371022508" },
+      externalIds: [{ source: "audnexus", externalId: "B0ENGLISH" }],
+      metadataFields: [
+        { field: "overview", source: "googlebooks" },
+        { field: "coverUrl", source: "googlebooks" },
+      ],
+    };
+
+    let enrichIsbn: string | null = null;
+    let enrichVolume: string | null = null;
+    let enrichHasAudnexus = true;
+
+    const identity = {
+      source: "googlebooks" as const,
+      resolveIsbn: (isbn: string) =>
+        Promise.resolve({
+          volumeId: "FR-VOLUME",
+          title: "Vengeful",
+          subtitle: null,
+          authors: ["V. E. Schwab"],
+          language: "fr",
+          publishedYear: 2019,
+          isbn13: isbn.replace(/[\s-]/g, ""),
+          coverUrl: "https://example.invalid/fr.jpg",
+          overview: "Blurb française",
+          seriesName: null,
+          seriesPosition: null,
+        }),
+      getBook: () => Promise.resolve(null),
+      searchBooks: () => Promise.resolve([]),
+      getAuthorBooks: () => Promise.resolve([]),
+      enrich: (book: {
+        isbn13: string | null;
+        googleVolumeId: string;
+        externalIds: Record<string, string>;
+      }) => {
+        enrichIsbn = book.isbn13;
+        enrichVolume = book.googleVolumeId;
+        enrichHasAudnexus = "audnexus" in book.externalIds;
+        return Promise.resolve({
+          overview: "Blurb française",
+          coverUrl: "https://example.invalid/fr.jpg",
+          isbn13: "9782371022508",
+          language: "fr",
+          title: "Vengeful",
+        });
+      },
+    };
+
+    const outcome = await refreshBookMetadata(1, {
+      providers: [identity],
+      identityProvider: identity,
+    });
+
+    expect(outcome.ok).toBe(true);
+    expect(enrichVolume).toBe("FR-VOLUME");
+    expect(enrichIsbn).toBe("9782371022508");
+    expect(enrichHasAudnexus).toBe(false);
+
+    const data = state.updates.at(-1) ?? {};
+    expect(data.googleVolumeId).toBe("FR-VOLUME");
+    expect(data.language).toBe("fr");
+    expect(data.overview).toBe("Blurb française");
+    expect(data.coverUrl).toBe("https://example.invalid/fr.jpg");
+    expect(
+      state.externalIdDeletes.some((d) =>
+        JSON.stringify(d).includes("audnexus"),
+      ),
+    ).toBe(true);
+  });
+
+  test("does not rebind when resolveIsbn returns the same volume", async () => {
+    state.book = {
+      ...bookFixture(),
+      googleVolumeId: "FR-VOLUME",
+      isbn13: "9782371022508",
+    };
+
+    const identity = {
+      source: "googlebooks" as const,
+      resolveIsbn: () =>
+        Promise.resolve({
+          volumeId: "FR-VOLUME",
+          title: "Vengeful",
+          subtitle: null,
+          authors: ["V. E. Schwab"],
+          language: "fr",
+          publishedYear: 2019,
+          isbn13: "9782371022508",
+          coverUrl: null,
+          overview: null,
+          seriesName: null,
+          seriesPosition: null,
+        }),
+      getBook: () => Promise.resolve(null),
+      searchBooks: () => Promise.resolve([]),
+      getAuthorBooks: () => Promise.resolve([]),
+      enrich: () => Promise.resolve({ overview: "same" }),
+    };
+
+    await refreshBookMetadata(1, {
+      providers: [identity],
+      identityProvider: identity,
+    });
+
+    expect(state.updates.at(-1) ?? {}).not.toHaveProperty("googleVolumeId");
+    expect(state.externalIdDeletes).toHaveLength(0);
   });
 });

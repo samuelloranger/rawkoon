@@ -131,6 +131,14 @@ export interface BookSearchResponse {
 
 export interface AddBookRequest {
   google_volume_id: string;
+  /**
+   * Prefer this ISBN-13 when storing the book.
+   *
+   * Set by the add dialog after an ISBN search: Google's volume record may
+   * list a sibling edition's identifier, and a subsequent getBook would
+   * otherwise discard the one the operator typed.
+   */
+  isbn13?: string | null;
   /** Which editions to create and monitor. Defaults to ["ebook"]. */
   kinds?: BookEditionKind[];
   book_quality_profile_id?: number | null;
