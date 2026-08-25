@@ -79,8 +79,7 @@ export const publicAuthRoutes = new Elysia({ name: "auth/public" })
           data: {
             name: displayName || invitation.email,
             email: invitation.email,
-            // No email verification transport exists, so nothing would ever
-            // flip this; false would block OIDC linking for the user.
+            // See `accountLinking` in lib/auth.ts.
             emailVerified: true,
             passwordHash,
             firstName: first_name || null,
