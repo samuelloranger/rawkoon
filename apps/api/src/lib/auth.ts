@@ -141,6 +141,19 @@ export const auth = betterAuth({
   },
   account: {
     modelName: "BaAccount",
+    accountLinking: {
+      // Rawkoon ships no email verification transport, so User.emailVerified is
+      // never set by any flow that would earn it. better-auth's default gates
+      // OIDC account linking on it, which locks the first user out of SSO
+      // entirely: OIDC providers run with `disableSignUp`, so a refused link
+      // leaves no way in at all. Both halves of that gate are relaxed here —
+      // the local column, and the provider's `email_verified` claim, which
+      // several self-hosted IdPs simply omit. Admin-configured providers are
+      // trusted because the admin supplied their client secret; the list is a
+      // function so it follows `refreshOidcProviders()` without a restart.
+      requireLocalEmailVerified: false,
+      trustedProviders: () => oidcProviderConfigs.map((c) => c.providerId),
+    },
   },
   verification: {
     modelName: "BaVerification",

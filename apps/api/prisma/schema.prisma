@@ -10,7 +10,7 @@ model User {
   id                      String    @id @default(uuid())
   name                    String    @default("")
   email                   String    @unique(map: "ix_users_email")
-  emailVerified           Boolean   @default(false) @map("email_verified")
+  emailVerified           Boolean   @default(true) @map("email_verified")
   passwordHash            String?   @map("password_hash")
   isAdmin                 Boolean?  @map("is_admin")
   lastLogin               DateTime? @map("last_login")
