@@ -427,6 +427,31 @@ export async function refreshBookMetadata(
   }
 
   /**
+   * A column whose only supplier has stopped claiming it.
+   *
+   * The loop above writes what `merged` holds, so a field no source mentions
+   * any more keeps its old value forever — and the wholesale provenance delete
+   * below strips its row, so it starts rendering as hand-set with nothing to
+   * revert. That is how an English audiobook's publisher and narrator survived
+   * on a French book long after its record was rejected.
+   *
+   * Only cleared when the source that owned the field actually answered this
+   * run. A source that is failing keeps its value through `lockedFields`, and
+   * one the operator has disabled never answers at all — turning a source off
+   * must not wipe what it had already contributed.
+   */
+  const answered = new Set<BookMetadataSource>(candidates.map((c) => c.source));
+  for (const [field, source] of currentProvenance) {
+    if (!answered.has(source as BookMetadataSource)) continue;
+    if (!BOOK_COLUMNS.has(field)) continue;
+    if (overridden.has(field) || lockedFields.has(field)) continue;
+    if (field in merged) continue;
+    const empty = EMPTY_VALUE[field] ?? null;
+    if (sameValue(current[field], empty)) continue;
+    data[field] = empty;
+  }
+
+  /**
    * Provenance for this run: what the merge resolved, plus the untouched rows
    * of any failing source. Recorded only for fields that map to a column, so
    * the tooltip cannot claim a source for something the book does not show.
