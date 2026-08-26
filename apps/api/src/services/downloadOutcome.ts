@@ -360,10 +360,11 @@ export async function finishPostProcess(
   try {
     const dh = await prisma.downloadHistory.findUnique({
       where: { id: downloadHistoryId },
-      select: { mediaId: true, bookEditionId: true },
+      select: { mediaId: true, episodeId: true, bookEditionId: true },
     });
     mediaId = dh?.mediaId;
     bookEditionId = dh?.bookEditionId;
+    const episodeId = dh?.episodeId;
 
     // A row is either a media grab or a book grab (enforced by
     // ck_download_history_single_target), so the foreign key IS the dispatch.
@@ -402,7 +403,7 @@ export async function finishPostProcess(
     });
     if (mediaId != null) {
       emitLibraryUpdate(mediaId);
-      await notifyAdminsMediaDownloaded(mediaId);
+      await notifyAdminsMediaDownloaded(mediaId, episodeId);
     }
     if (bookEditionId != null) {
       const { notifyAdminsBookDownloaded } = await import(
