@@ -391,7 +391,7 @@ export async function finishPostProcess(
 
     // A row is either a media grab or a book grab (enforced by
     // ck_download_history_single_target), so the foreign key IS the dispatch.
-    const result =
+    const result: PostProcessOutcome =
       dh?.bookEditionId != null
         ? await postProcessBookDownload(downloadHistoryId)
         : await postProcess(downloadHistoryId);
@@ -427,11 +427,7 @@ export async function finishPostProcess(
     });
     if (mediaId != null) {
       emitLibraryUpdate(mediaId);
-      const packEpisodeCount =
-        result.success &&
-        typeof (result as { episodeCount?: unknown }).episodeCount === "number"
-          ? (result as { episodeCount: number }).episodeCount
-          : undefined;
+      const packEpisodeCount = result.success ? result.episodeCount : undefined;
       await notifyAdminsMediaDownloaded({
         mediaId,
         episodeId,
