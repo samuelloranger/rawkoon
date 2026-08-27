@@ -617,6 +617,10 @@
       "testNotificationDescription": "Cliquez pour envoyer une notification test et vérifier que tout fonctionne.",
       "testNotificationSuccess": "Notification test envoyée ! Vérifiez vos notifications.",
       "testNotificationError": "Échec de l’envoi de la notification test",
+      "preferencesTitle": "Types de notifications",
+      "preferencesDescription": "Choisissez quels événements peuvent vous envoyer des notifications.",
+      "preferencesSaved": "Préférences de notifications enregistrées",
+      "preferencesError": "Échec de l’enregistrement des préférences",
       "permission": "Permission",
       "status": {
         "granted": "Autorisée",

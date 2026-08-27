@@ -169,6 +169,7 @@ export function MergedEpisodeRow({
 
   return (
     <div
+      id={`library-episode-${season}-${ep.episode}`}
       className={cn(
         "border-b last:border-b-0 border-border",
         "border-l-2",

@@ -85,10 +85,11 @@ export async function checkMovieReleases(): Promise<void> {
       });
 
       if (reachedCap) {
-        await notifyAdminsLibraryGrabSkipped(
-          `Movie "${m.title}" (${m.id}) exceeded ${MAX_CRON_GRAB_ATTEMPTS} failed cron grab attempts (${result.reason}). Status set to skipped.`,
-          m.id,
-        );
+        await notifyAdminsLibraryGrabSkipped({
+          mediaId: m.id,
+          reason: `No matching release after ${MAX_CRON_GRAB_ATTEMPTS} attempts (${result.reason})`,
+          scope: "movie",
+        });
       }
     } catch (e) {
       console.warn(`[checkMovieReleases] Failed for movie ${m.id}:`, e);

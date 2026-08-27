@@ -13,6 +13,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import { getDeviceInfo } from "@/lib/device";
 import { useAuth } from "@/lib/auth/useAuth";
 import { NotificationChannelsSection } from "@/pages/settings/_component/NotificationChannelsSection";
+import { NotificationPreferencesSection } from "@/pages/settings/_component/NotificationPreferencesSection";
 import { SettingsPageHeader } from "@/pages/settings/_component/SettingsPageHeader";
 import { useConfirm } from "@/components/confirm/ConfirmContext";
 
@@ -216,6 +217,7 @@ export function NotificationsTab() {
           </div>
         ) : (
           <div className="space-y-6">
+            <NotificationPreferencesSection />
             {/* Test Notification Button */}
             {user?.is_admin && (
               <div>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useLibraryFiles } from "@/features/medias/hooks/useLibraryFiles";
@@ -42,12 +42,16 @@ interface LibraryMediaSectionProps {
     title: string | null;
   }) => void;
   onSearchSeason?: (season: number) => void;
+  focusSeason?: number | null;
+  focusEpisode?: number | null;
 }
 
 export function LibraryMediaSection({
   libraryId,
   onSearchEpisode,
   onSearchSeason,
+  focusSeason = null,
+  focusEpisode = null,
 }: LibraryMediaSectionProps) {
   const { t } = useTranslation("common");
   const { data, isLoading } = useLibraryFiles(libraryId);
@@ -68,6 +72,16 @@ export function LibraryMediaSection({
   const files = useMemo(() => data?.files ?? [], [data?.files]);
   const isShow = data?.media_type === "show";
   const episodesQuery = useLibraryEpisodes(isShow ? libraryId : null);
+
+  useEffect(() => {
+    if (focusSeason == null) return;
+    setExpandedSeasons((prev) => new Set(prev).add(focusSeason));
+    if (focusEpisode == null) return;
+    const id = `library-episode-${focusSeason}-${focusEpisode}`;
+    requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ block: "nearest" });
+    });
+  }, [focusSeason, focusEpisode, episodesQuery.data]);
 
   const fileByEp = useMemo(() => {
     const m = new Map<string, LibraryFileInfo>();

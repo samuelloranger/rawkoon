@@ -16,6 +16,14 @@ export const Route = createFileRoute("/library/$libraryId")({
       ).includes(search.tab)
         ? (search.tab as LibraryItemSearchParams["tab"])
         : undefined,
+    season:
+      typeof search.season === "string" || typeof search.season === "number"
+        ? Number(search.season)
+        : undefined,
+    episode:
+      typeof search.episode === "string" || typeof search.episode === "number"
+        ? Number(search.episode)
+        : undefined,
   }),
   beforeLoad: async () => {
     try {
