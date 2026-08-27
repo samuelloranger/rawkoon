@@ -9,6 +9,8 @@ import { loadTmdbConfig } from "@rawkoon/api/utils/medias/tmdbFetcherCore";
 import { fetchMediaDetails } from "@rawkoon/api/utils/medias/tmdbFetcherDetails";
 import { formatDateInTimezone } from "@rawkoon/api/utils";
 import { createAndQueueNotification } from "./notificationService";
+import { notificationCopy } from "@rawkoon/api/services/notificationCopy";
+import { getNotificationTarget } from "@rawkoon/api/services/notificationPreferences";
 
 function dbDateToYmd(d: Date | null): string | null {
   if (!d) return null;
@@ -81,15 +83,14 @@ export async function checkMovieReleaseReminders(): Promise<void> {
       continue;
     }
 
-    const locale = item.user.locale || "en";
-    const title =
-      locale === "fr"
-        ? `Sort demain : ${item.title}`
-        : `Out tomorrow: ${item.title}`;
-    const body =
-      locale === "fr"
-        ? `${item.title} sort au cinéma demain (date TMDB).`
-        : `${item.title} releases tomorrow (TMDB date).`;
+    const target = await getNotificationTarget(item.userId);
+    const locale = target?.locale ?? item.user.locale ?? "en";
+    const title = notificationCopy(locale, "movie_release_reminder_title", {
+      title: item.title,
+    });
+    const body = notificationCopy(locale, "movie_release_reminder_body", {
+      title: item.title,
+    });
 
     const ok = await createAndQueueNotification(
       item.userId,
@@ -99,6 +100,7 @@ export async function checkMovieReleaseReminders(): Promise<void> {
       buildNotificationUrl("/watchlist"),
       { tmdb_id: item.tmdbId, watchlist_item_id: item.id },
       item.posterUrl ?? undefined,
+      { preferenceKey: "movie_release_reminder" },
     );
 
     if (ok) {

@@ -38,7 +38,7 @@ import { postProcessSeasonPack } from "@rawkoon/api/services/postProcessorSeason
 export async function postProcess(
   downloadHistoryId: number,
 ): Promise<
-  | { success: true; destinationPath: string }
+  | { success: true; destinationPath: string; episodeCount?: number }
   | { success: false; reason: string }
 > {
   const [dh, settings] = await Promise.all([

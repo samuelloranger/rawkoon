@@ -23,6 +23,7 @@ model User {
   avatarUrl               String?   @map("avatar_url")
   navPosition             String?   @map("nav_position")
   dashboardConfig         Json?     @map("dashboard_config")
+  notificationPreferences Json?     @map("notification_preferences")
 
   notifications        Notification[]
   userSubscriptions    UserSubscription[]

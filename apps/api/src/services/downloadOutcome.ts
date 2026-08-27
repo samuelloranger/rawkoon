@@ -7,7 +7,10 @@ import { postProcessBookDownload } from "@rawkoon/api/services/postProcessorBook
 import { emitBookUpdate } from "@rawkoon/api/services/libraryEvents";
 import { resolveDownloadedStatus } from "@rawkoon/api/utils/medias/libraryHelpers";
 import { notifyAdminsMediaDownloaded } from "@rawkoon/api/workers/notifyMediaDownloaded";
-import { notifyAdminsPostProcessFailed } from "@rawkoon/api/workers/notifyPostProcessFailed";
+import {
+  notifyAdminsPostProcessFailed,
+  notifyAdminsLibraryDownloadFailed,
+} from "@rawkoon/api/workers/notifyLibraryEvents";
 
 /**
  * Download outcome — the terminal transition of a DownloadHistory row.
@@ -235,7 +238,18 @@ export async function failDownload(
     data: { failed: true, failReason: reason },
   });
   await revertToWantedIfNoActiveGrabs(dh);
-  if (dh.mediaId != null) emitLibraryUpdate(dh.mediaId);
+  if (dh.mediaId != null) {
+    emitLibraryUpdate(dh.mediaId);
+    try {
+      await notifyAdminsLibraryDownloadFailed({
+        mediaId: dh.mediaId,
+        episodeId: dh.episodeId,
+        reason,
+      });
+    } catch (e) {
+      console.warn("[downloadOutcome] download-failed notification failed:", e);
+    }
+  }
 }
 
 /**
@@ -341,7 +355,7 @@ export async function enqueuePostProcess(
 }
 
 export type PostProcessOutcome =
-  | { success: true; destinationPath: string }
+  | { success: true; destinationPath: string; episodeCount?: number }
   | { success: false; reason: string };
 
 /**
@@ -357,17 +371,27 @@ export async function finishPostProcess(
 ): Promise<PostProcessOutcome> {
   let mediaId: number | null | undefined;
   let bookEditionId: number | null | undefined;
+  let episodeId: number | null | undefined;
   try {
     const dh = await prisma.downloadHistory.findUnique({
       where: { id: downloadHistoryId },
-      select: { mediaId: true, bookEditionId: true },
+      select: {
+        mediaId: true,
+        episodeId: true,
+        season: true,
+        bookEditionId: true,
+        isUpgrade: true,
+      },
     });
     mediaId = dh?.mediaId;
     bookEditionId = dh?.bookEditionId;
+    episodeId = dh?.episodeId;
+    const season = dh?.season;
+    const isUpgrade = dh?.isUpgrade ?? false;
 
     // A row is either a media grab or a book grab (enforced by
     // ck_download_history_single_target), so the foreign key IS the dispatch.
-    const result =
+    const result: PostProcessOutcome =
       dh?.bookEditionId != null
         ? await postProcessBookDownload(downloadHistoryId)
         : await postProcess(downloadHistoryId);
@@ -388,6 +412,7 @@ export async function finishPostProcess(
           downloadHistoryId,
           result.reason,
           mediaId,
+          episodeId,
         );
       }
       return result;
@@ -402,7 +427,14 @@ export async function finishPostProcess(
     });
     if (mediaId != null) {
       emitLibraryUpdate(mediaId);
-      await notifyAdminsMediaDownloaded(mediaId);
+      const packEpisodeCount = result.success ? result.episodeCount : undefined;
+      await notifyAdminsMediaDownloaded({
+        mediaId,
+        episodeId,
+        season,
+        episodeCount: packEpisodeCount,
+        isUpgrade,
+      });
     }
     if (bookEditionId != null) {
       const { notifyAdminsBookDownloaded } = await import(
@@ -429,7 +461,12 @@ export async function finishPostProcess(
         );
         await notifyAdminsBookImportFailed(bookEditionId, msg);
       } else {
-        await notifyAdminsPostProcessFailed(downloadHistoryId, msg, mediaId);
+        await notifyAdminsPostProcessFailed(
+          downloadHistoryId,
+          msg,
+          mediaId,
+          episodeId,
+        );
       }
     } catch (persistError) {
       console.warn(

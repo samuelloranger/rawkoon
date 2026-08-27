@@ -61,6 +61,31 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
       }),
     },
   )
+  // PUT /api/users/me/notification-preferences
+  .put(
+    "/me/notification-preferences",
+    async ({ user, body, set }) => {
+      if (!user) return unauthorized(set, "Unauthorized");
+      try {
+        const { updateUserNotificationPreferences } = await import(
+          "@rawkoon/api/services/notificationPreferences"
+        );
+        const prefs = await updateUserNotificationPreferences(
+          user.id,
+          body.notification_preferences,
+        );
+        return { notification_preferences: prefs };
+      } catch (error) {
+        console.error("Error updating notification preferences:", error);
+        return serverError(set, "Failed to update notification preferences");
+      }
+    },
+    {
+      body: t.Object({
+        notification_preferences: t.Record(t.String(), t.Boolean()),
+      }),
+    },
+  )
   // POST /api/users/me/password - Change password
   .post(
     "/me/password",

@@ -4,7 +4,10 @@ import { createAndQueueNotification } from "@rawkoon/api/workers/notificationSer
 import { getGlobalTmdbRegion } from "@rawkoon/api/utils/medias/tmdbRegion";
 import { deleteCache } from "@rawkoon/api/services/cache";
 import { TMDB_UPCOMING_CACHE_KEY } from "@rawkoon/api/utils/dashboard/tmdbUpcoming";
-import { getAdminUserIds } from "@rawkoon/api/utils/admins";
+import { getAdminNotificationTargets } from "@rawkoon/api/services/notificationPreferences";
+import { notificationCopy } from "@rawkoon/api/services/notificationCopy";
+import { getNotificationTarget } from "@rawkoon/api/services/notificationPreferences";
+import { buildLibraryNotificationUrl } from "@rawkoon/shared/utils";
 
 type CreateOpts = {
   tmdbId: number;
@@ -14,6 +17,47 @@ type CreateOpts = {
   year: number | null;
   userId: string;
 };
+
+function requestKindLabel(
+  locale: string | null | undefined,
+  type: "movie" | "show",
+): string {
+  return notificationCopy(
+    locale,
+    type === "movie" ? "mediaKindMovie" : "mediaKindShow",
+  );
+}
+
+function requestTitleLabel(title: string, year: number | null): string {
+  return year ? `${title} (${year})` : title;
+}
+
+async function notifyAdminsRequestPending(
+  requestId: number,
+  type: "movie" | "show",
+  title: string,
+  year: number | null,
+  posterUrl: string | null,
+): Promise<void> {
+  const admins = await getAdminNotificationTargets();
+  const label = requestTitleLabel(title, year);
+  await Promise.all(
+    admins.map((admin) =>
+      createAndQueueNotification(
+        admin.id,
+        notificationCopy(admin.locale, "requestPendingTitle", {
+          kind: requestKindLabel(admin.locale, type),
+        }),
+        notificationCopy(admin.locale, "requestPendingBody", { title: label }),
+        "request_pending",
+        "/requests",
+        { requestId },
+        posterUrl ?? undefined,
+        { preferenceKey: "request_pending" },
+      ),
+    ),
+  );
+}
 
 export async function createRequest(
   opts: CreateOpts,
@@ -46,19 +90,12 @@ export async function createRequest(
       },
     });
 
-    const adminIds = await getAdminUserIds();
-    await Promise.all(
-      adminIds.map((adminId) =>
-        createAndQueueNotification(
-          adminId,
-          "New media request",
-          `${opts.title} was requested and needs approval.`,
-          "request_pending",
-          "/requests",
-          { requestId: reopened.id },
-          opts.posterUrl ?? undefined,
-        ),
-      ),
+    await notifyAdminsRequestPending(
+      reopened.id,
+      opts.type,
+      opts.title,
+      opts.year,
+      opts.posterUrl,
     );
 
     return { ok: true, id: reopened.id };
@@ -84,19 +121,12 @@ export async function createRequest(
     throw error;
   }
 
-  const adminIds = await getAdminUserIds();
-  await Promise.all(
-    adminIds.map((adminId) =>
-      createAndQueueNotification(
-        adminId,
-        "New media request",
-        `${opts.title} was requested and needs approval.`,
-        "request_pending",
-        "/requests",
-        { requestId: created.id },
-        opts.posterUrl ?? undefined,
-      ),
-    ),
+  await notifyAdminsRequestPending(
+    created.id,
+    opts.type,
+    opts.title,
+    opts.year,
+    opts.posterUrl,
   );
 
   return { ok: true, id: created.id };
@@ -165,14 +195,19 @@ export async function approveRequest(
   }
   await deleteCache(`${TMDB_UPCOMING_CACHE_KEY}:${region}`);
 
+  const requester = await getNotificationTarget(req.requestedById);
+  const locale = requester?.locale ?? null;
+  const label = requestTitleLabel(req.title, req.year);
+
   await createAndQueueNotification(
     req.requestedById,
-    "Request approved",
-    `Your request for ${req.title} was approved.`,
+    notificationCopy(locale, "requestApprovedTitle"),
+    notificationCopy(locale, "requestDecidedBodyApproved", { title: label }),
     "request_decided",
     "/requests",
     { requestId: id },
     req.posterUrl ?? undefined,
+    { preferenceKey: "request_decided" },
   );
 
   return { ok: true };
@@ -197,16 +232,26 @@ export async function denyRequest(
     },
   });
 
+  const requester = await getNotificationTarget(req.requestedById);
+  const locale = requester?.locale ?? null;
+  const label = requestTitleLabel(req.title, req.year);
+
   await createAndQueueNotification(
     req.requestedById,
-    "Request denied",
+    notificationCopy(locale, "requestDeniedTitle"),
     denyReason
-      ? `Your request for ${req.title} was denied: ${denyReason}`
-      : `Your request for ${req.title} was denied.`,
+      ? notificationCopy(locale, "requestDecidedBodyDenied", {
+          title: label,
+          reason: denyReason,
+        })
+      : notificationCopy(locale, "requestDecidedBodyDeniedNoReason", {
+          title: label,
+        }),
     "request_decided",
     "/requests",
     { requestId: id },
     req.posterUrl ?? undefined,
+    { preferenceKey: "request_decided" },
   );
 
   return { ok: true };
@@ -236,13 +281,22 @@ export async function notifyRequestAvailable(
     data: { status: "available" },
   });
 
+  const requester = await getNotificationTarget(req.requestedById);
+  const locale = requester?.locale ?? null;
+  const label = requestTitleLabel(req.title, req.year);
+  const url =
+    req.libraryMediaId != null
+      ? buildLibraryNotificationUrl(req.libraryMediaId)
+      : "/requests";
+
   await createAndQueueNotification(
     req.requestedById,
-    "Request available",
-    `${req.title} finished downloading and is ready to watch.`,
+    notificationCopy(locale, "requestAvailableTitle"),
+    notificationCopy(locale, "requestAvailableBody", { title: label }),
     "request_available",
-    "/requests",
-    { requestId: req.id },
+    url,
+    { requestId: req.id, libraryMediaId: req.libraryMediaId },
     req.posterUrl ?? undefined,
+    { preferenceKey: "request_available" },
   );
 }

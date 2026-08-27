@@ -6,6 +6,7 @@ import { prisma } from "@rawkoon/api/db";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import { getJsonCache, setJsonCache } from "./cache";
 import { createAndQueueNotification } from "@rawkoon/api/workers/notificationService";
+import { notificationCopy } from "@rawkoon/api/services/notificationCopy";
 
 const APP_VERSION_KEY = "rawkoon:app_version";
 
@@ -50,14 +51,14 @@ async function sendAppUpdateNotifications(newVersion?: string): Promise<void> {
 
     // Standard internal notifications (Web Push, Expo Push)
     // Get all users who have at least one delivery channel
-    const userIds = await prisma.user.findMany({
+    const users = await prisma.user.findMany({
       where: {
         OR: [{ userSubscriptions: { some: {} } }],
       },
-      select: { id: true },
+      select: { id: true, locale: true },
     });
 
-    if (userIds.length === 0) {
+    if (users.length === 0) {
       console.log(
         "No users with subscriptions found for app update notification",
       );
@@ -65,22 +66,24 @@ async function sendAppUpdateNotifications(newVersion?: string): Promise<void> {
     }
 
     console.log(
-      `[VersionService] Enqueuing app update notifications for version ${version} to ${userIds.length} users`,
+      `[VersionService] Enqueuing app update notifications for version ${version} to ${users.length} users`,
     );
 
-    for (const { id: userId } of userIds) {
+    for (const user of users) {
       await createAndQueueNotification(
-        userId,
-        "App Updated",
-        `Rawkoon has been updated to version ${version}`,
+        user.id,
+        notificationCopy(user.locale, "appUpdateTitle"),
+        notificationCopy(user.locale, "appUpdateBody", { version }),
         "app-update",
         "/",
         { version, silent: true },
+        undefined,
+        { preferenceKey: "app_update" },
       );
     }
 
     console.log(
-      `[VersionService] App update notifications enqueued for ${userIds.length} users`,
+      `[VersionService] App update notifications enqueued for ${users.length} users`,
     );
   } catch (error) {
     console.error(

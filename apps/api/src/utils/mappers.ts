@@ -32,6 +32,7 @@ export const mapUser = (
     lastActivity: Date | null;
     avatarUrl: string | null;
     navPosition: string | null;
+    notificationPreferences?: unknown;
   },
   options?: { hasPasskey?: boolean },
 ) => ({
@@ -46,6 +47,12 @@ export const mapUser = (
   last_activity: user.lastActivity?.toISOString() ?? null,
   avatar_url: user.avatarUrl || null,
   nav_position: user.navPosition ?? null,
+  notification_preferences:
+    user.notificationPreferences &&
+    typeof user.notificationPreferences === "object" &&
+    !Array.isArray(user.notificationPreferences)
+      ? (user.notificationPreferences as Record<string, boolean>)
+      : null,
   has_passkey:
     typeof options === "object" && options
       ? (options.hasPasskey ?? false)

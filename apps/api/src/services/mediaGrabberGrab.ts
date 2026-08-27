@@ -367,6 +367,21 @@ export async function grabRelease(opts: {
       },
     });
 
+    try {
+      const { notifyAdminsLibraryGrabbed } = await import(
+        "@rawkoon/api/workers/notifyLibraryEvents"
+      );
+      await notifyAdminsLibraryGrabbed({
+        mediaId,
+        episodeId: episodeId ?? null,
+        season: opts.season ?? null,
+        releaseTitle,
+        isUpgrade: opts.isUpgrade,
+      });
+    } catch (e) {
+      console.warn("[mediaGrabber] grab notification failed:", e);
+    }
+
     return { grabbed: true, releaseTitle };
   } catch (e) {
     console.warn("[mediaGrabber] grabRelease failed:", e);

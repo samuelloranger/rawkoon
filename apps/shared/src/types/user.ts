@@ -1,3 +1,5 @@
+import type { NotificationPreferences } from "./notificationPreferences";
+
 export type NavPosition = "left" | "right" | "top" | "bottom";
 
 export interface User {
@@ -13,6 +15,7 @@ export interface User {
   avatar_url?: string | null;
   has_passkey?: boolean;
   nav_position?: NavPosition | null;
+  notification_preferences?: NotificationPreferences | null;
 }
 
 export interface UserResponse {
@@ -24,6 +27,10 @@ export interface UpdateProfileRequest {
   last_name?: string | null;
   locale?: string | null;
   nav_position?: NavPosition | null;
+}
+
+export interface UpdateNotificationPreferencesRequest {
+  notification_preferences: NotificationPreferences;
 }
 
 export interface ChangePasswordRequest {
