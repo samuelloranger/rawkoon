@@ -68,7 +68,7 @@ export async function postProcessSeasonPack(
   op: "hardlink" | "move",
   adapter: DownloadClientAdapter,
 ): Promise<
-  | { success: true; destinationPath: string }
+  | { success: true; destinationPath: string; episodeCount: number }
   | { success: false; reason: string }
 > {
   const hash = dh.torrentHash?.trim();
@@ -410,5 +410,9 @@ export async function postProcessSeasonPack(
       );
   }
 
-  return { success: true, destinationPath: firstDest! };
+  return {
+    success: true,
+    destinationPath: firstDest!,
+    episodeCount: processed,
+  };
 }

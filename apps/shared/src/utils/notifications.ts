@@ -44,6 +44,22 @@ export function normalizeNotificationUrl(
   }
 }
 
+/** Deep-link into a library item, optionally focusing a TV season/episode. */
+export function buildLibraryNotificationUrl(
+  mediaId: number,
+  opts?: {
+    season?: number | null;
+    episode?: number | null;
+    tab?: "management";
+  },
+): string {
+  return buildNotificationUrl(`/library/${mediaId}`, {
+    tab: opts?.tab ?? "management",
+    season: opts?.season ?? undefined,
+    episode: opts?.episode ?? undefined,
+  });
+}
+
 export function buildNotificationUrl(
   pathname: string,
   search?: Record<string, string | number | boolean | null | undefined>,

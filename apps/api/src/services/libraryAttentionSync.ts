@@ -91,6 +91,19 @@ export async function syncLibraryAttentionAlerts(): Promise<{
           },
         });
         created++;
+        try {
+          const { notifyAdminsLibraryAttentionAlert } = await import(
+            "@rawkoon/api/workers/notifyLibraryEvents"
+          );
+          await notifyAdminsLibraryAttentionAlert({
+            mediaId: c.media_id,
+            episodeId: c.episode_id,
+            season: c.season,
+            detail: c.detail ?? "Library attention required",
+          });
+        } catch (e) {
+          console.warn("[libraryAttention] notification failed:", e);
+        }
       } catch (e) {
         const isUniqueViolation =
           e instanceof Prisma.PrismaClientKnownRequestError &&

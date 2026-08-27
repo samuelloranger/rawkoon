@@ -6,7 +6,21 @@ export type NotificationType =
   | "system"
   | "request_pending"
   | "request_decided"
-  | "request_available";
+  | "request_available"
+  | "library_media_downloaded"
+  | "library_media_grabbed"
+  | "library_download_failed"
+  | "library_post_process_failed"
+  | "library_grab_skipped"
+  | "library_attention"
+  | "book_grabbed"
+  | "book_downloaded"
+  | "book_import_failed"
+  | "book_search_skipped"
+  | "author_new_release"
+  | "movie_release_reminder"
+  | "github-release"
+  | "test";
 
 export interface Notification {
   id: number;

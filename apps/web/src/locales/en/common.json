@@ -617,6 +617,10 @@
       "testNotificationDescription": "Click to send a test notification to verify everything is working.",
       "testNotificationSuccess": "Test notification sent! Check your notifications.",
       "testNotificationError": "Failed to send test notification",
+      "preferencesTitle": "Notification types",
+      "preferencesDescription": "Choose which events can send you push and in-app notifications.",
+      "preferencesSaved": "Notification preferences saved",
+      "preferencesError": "Failed to save notification preferences",
       "permission": "Permission",
       "status": {
         "granted": "Granted",

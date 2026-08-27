@@ -3,6 +3,7 @@ export * from "./user";
 export * from "./dashboard";
 export * from "./notification";
 export * from "./notificationChannel";
+export * from "./notificationPreferences";
 export * from "./admin";
 export * from "./integrations";
 export * from "./media";
