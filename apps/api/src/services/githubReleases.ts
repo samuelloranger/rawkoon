@@ -10,7 +10,8 @@ import type {
   GitHubReleasesResponse,
   RefreshGitHubReleasesResponse,
 } from "@rawkoon/shared/types";
-import { getAdminUserIds } from "@rawkoon/api/utils/admins";
+import { getAdminNotificationTargets } from "@rawkoon/api/services/notificationPreferences";
+import { notificationCopy } from "@rawkoon/api/services/notificationCopy";
 
 const RELEASES_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
 const SYNC_STATE_CACHE_TTL_SECONDS = 365 * 24 * 60 * 60;
@@ -134,26 +135,33 @@ async function notifyAdminsForNewReleases(
 
   if (releasesAheadOfCurrentVersion.length === 0) return;
 
-  const adminIds = await getAdminUserIds();
-
-  if (adminIds.length === 0) return;
-
-  const title =
-    releasesAheadOfCurrentVersion.length === 1
-      ? `New Rawkoon release: ${releasesAheadOfCurrentVersion[0].tag_name}`
-      : `${releasesAheadOfCurrentVersion.length} new Rawkoon releases`;
-  const body =
-    releasesAheadOfCurrentVersion.length === 1
-      ? releasesAheadOfCurrentVersion[0].name ||
-        releasesAheadOfCurrentVersion[0].tag_name
-      : releasesAheadOfCurrentVersion
-          .map((release) => release.tag_name)
-          .join(", ");
+  const admins = await getAdminNotificationTargets();
+  if (admins.length === 0) return;
 
   await Promise.all(
-    adminIds.map((adminId) =>
-      createAndQueueNotification(
-        adminId,
+    admins.map((admin) => {
+      const title =
+        releasesAheadOfCurrentVersion.length === 1
+          ? notificationCopy(admin.locale, "githubReleaseTitleSingle", {
+              tag: releasesAheadOfCurrentVersion[0].tag_name,
+            })
+          : notificationCopy(admin.locale, "githubReleaseTitleMany", {
+              count: releasesAheadOfCurrentVersion.length,
+            });
+      const body =
+        releasesAheadOfCurrentVersion.length === 1
+          ? notificationCopy(admin.locale, "githubReleaseBodySingle", {
+              name:
+                releasesAheadOfCurrentVersion[0].name ||
+                releasesAheadOfCurrentVersion[0].tag_name,
+            })
+          : notificationCopy(admin.locale, "githubReleaseBodyMany", {
+              tags: releasesAheadOfCurrentVersion
+                .map((release) => release.tag_name)
+                .join(", "),
+            });
+      return createAndQueueNotification(
+        admin.id,
         title,
         body,
         "github-release",
@@ -166,8 +174,10 @@ async function notifyAdminsForNewReleases(
             html_url: release.html_url,
           })),
         },
-      ),
-    ),
+        undefined,
+        { preferenceKey: "github_release" },
+      );
+    }),
   );
 }
 

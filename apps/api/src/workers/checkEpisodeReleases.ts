@@ -130,10 +130,12 @@ export async function checkEpisodeReleases(): Promise<void> {
       }
 
       if (skippedEpisodes.length > 0) {
-        await notifyAdminsLibraryGrabSkipped(
-          `Season pack "${media.title}" S${season} — ${skippedEpisodes.length} episode(s) exceeded ${MAX_CRON_GRAB_ATTEMPTS} failed cron grab attempts (${result.reason}). Status set to skipped.`,
+        await notifyAdminsLibraryGrabSkipped({
           mediaId,
-        );
+          season,
+          reason: `No matching release after ${MAX_CRON_GRAB_ATTEMPTS} attempts (${result.reason})`,
+          scope: "season_pack",
+        });
       }
     } catch (e) {
       console.warn(
@@ -177,10 +179,12 @@ export async function checkEpisodeReleases(): Promise<void> {
       });
 
       if (reachedCap) {
-        await notifyAdminsLibraryGrabSkipped(
-          `Episode "${ep.media.title}" S${ep.season}E${ep.episode} (${ep.id}) exceeded ${MAX_CRON_GRAB_ATTEMPTS} failed cron grab attempts (${result.reason}). Status set to skipped.`,
-          ep.media.id,
-        );
+        await notifyAdminsLibraryGrabSkipped({
+          mediaId: ep.media.id,
+          episodeId: ep.id,
+          reason: `No matching release after ${MAX_CRON_GRAB_ATTEMPTS} attempts (${result.reason})`,
+          scope: "episode",
+        });
       }
     } catch (e) {
       console.warn(`[checkEpisodeReleases] Failed for episode ${ep.id}:`, e);

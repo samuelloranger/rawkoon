@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useLibraryNavigation } from "@/features/medias/context/LibraryNavigationContext";
 import { useTranslation } from "react-i18next";
@@ -21,6 +21,8 @@ import {
 
 export type LibraryItemSearchParams = {
   tab?: "info" | "similar" | "search" | "management";
+  season?: number;
+  episode?: number;
 };
 
 type PageTab = "info" | "similar" | "search" | "management";
@@ -101,6 +103,7 @@ export function LibraryItemPage() {
   const activeTab = useMemo((): PageTab => {
     if (search.tab && tabs.some((tab) => tab.key === search.tab))
       return search.tab as PageTab;
+    if (search.season != null || search.episode != null) return "management";
     if (!item) return "info";
     if (
       isAdmin &&
@@ -108,7 +111,19 @@ export function LibraryItemPage() {
     )
       return "management";
     return "info";
-  }, [search.tab, item, tabs, isAdmin]);
+  }, [search.tab, search.season, search.episode, item, tabs, isAdmin]);
+
+  useEffect(() => {
+    if (search.season == null && search.episode == null) return;
+    if (activeTab !== "management") {
+      navigate({
+        search: (prev: LibraryItemSearchParams) => ({
+          ...prev,
+          tab: "management",
+        }),
+      });
+    }
+  }, [search.season, search.episode, activeTab, navigate]);
 
   const setActiveTab = (tab: PageTab) =>
     navigate({ search: (prev: LibraryItemSearchParams) => ({ ...prev, tab }) });
@@ -258,6 +273,8 @@ export function LibraryItemPage() {
                 item={item}
                 itemStatus={item.status}
                 itemMonitored={item.monitored}
+                focusSeason={search.season ?? null}
+                focusEpisode={search.episode ?? null}
                 onDeleted={() => goBack()}
                 onSearchEpisode={(ep) => {
                   setEpisodeSearchCtx(ep);
