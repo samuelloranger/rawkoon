@@ -15,7 +15,11 @@ const state: {
   requests: Req[];
   created: unknown[];
   notifications: Array<{ userId: string; type: string }>;
-  admins: Array<{ id: string }>;
+  admins: Array<{
+    id: string;
+    locale?: string | null;
+    notificationPreferences?: null;
+  }>;
   profiles: number[];
   mediaStatusById: Record<number, string>;
 } = {
@@ -98,7 +102,24 @@ mock.module("@rawkoon/api/db", () => ({
       },
     },
     user: {
-      findMany: () => Promise.resolve(state.admins),
+      findMany: ({ where }: { where?: { isAdmin?: boolean } } = {}) => {
+        if (where?.isAdmin) {
+          return Promise.resolve(
+            state.admins.map((a) => ({
+              id: a.id,
+              locale: a.locale ?? null,
+              notificationPreferences: a.notificationPreferences ?? null,
+            })),
+          );
+        }
+        return Promise.resolve(state.admins);
+      },
+      findUnique: ({ where }: { where: { id: string } }) =>
+        Promise.resolve({
+          id: where.id,
+          locale: null,
+          notificationPreferences: null,
+        }),
     },
     $transaction: (promises: Promise<any>[]) => Promise.all(promises),
   },
