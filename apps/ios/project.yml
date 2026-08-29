@@ -1,0 +1,19 @@
+name: Rawkoon
+options:
+  bundleIdPrefix: cloud.samlo
+  deploymentTarget:
+    iOS: "18.0"
+targets:
+  Rawkoon:
+    type: application
+    platform: iOS
+    sources: [Rawkoon]
+    info:
+      path: Rawkoon/Info.plist
+      properties:
+        UIBackgroundModes: [audio, fetch]
+        CFBundleDisplayName: Rawkoon
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: cloud.samlo.rawkoon
+      MARKETING_VERSION: "0.1.0"
+      CURRENT_PROJECT_VERSION: "1"
