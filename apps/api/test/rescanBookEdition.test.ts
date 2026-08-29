@@ -69,6 +69,10 @@ mock.module("@rawkoon/api/db", () => ({
     },
     bookFile: {
       findMany: () => Promise.resolve(state.files),
+      findFirst: (args: { where: { filePath: string } }) =>
+        Promise.resolve(
+          state.files.find((f) => f.filePath === args.where.filePath) ?? null,
+        ),
       delete: (args: { where: { id: number } }) => {
         state.deletedIds.push(args.where.id);
         state.files = state.files.filter((f) => f.id !== args.where.id);
