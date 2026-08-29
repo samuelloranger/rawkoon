@@ -9,23 +9,29 @@
 export const probeAudioDuration = async (
   path: string,
 ): Promise<number | null> => {
-  const proc = Bun.spawn(
-    [
-      "ffprobe",
-      "-v",
-      "error",
-      "-show_entries",
-      "format=duration",
-      "-of",
-      "default=noprint_wrappers=1:nokey=1",
-      path,
-    ],
-    { stdout: "pipe", stderr: "ignore" },
-  );
-  const out = (await new Response(proc.stdout).text()).trim();
-  if ((await proc.exited) !== 0) {
+  try {
+    const proc = Bun.spawn(
+      [
+        "ffprobe",
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        path,
+      ],
+      { stdout: "pipe", stderr: "ignore" },
+    );
+    const out = (await new Response(proc.stdout).text()).trim();
+    if ((await proc.exited) !== 0) {
+      return null;
+    }
+    const seconds = Number(out);
+    return Number.isFinite(seconds) ? seconds : null;
+  } catch {
+    // Bun.spawn throws synchronously if ffprobe is missing from PATH, so this
+    // catch is required to preserve the Promise<number | null> contract.
     return null;
   }
-  const seconds = Number(out);
-  return Number.isFinite(seconds) ? seconds : null;
 };
