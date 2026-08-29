@@ -596,19 +596,10 @@ export interface BookFileUpsert {
 export async function upsertBookFile(
   data: BookFileUpsert,
 ): Promise<{ id: number; existed: boolean }> {
-  const existing =
-    typeof prisma.bookFile.findFirst === "function"
-      ? await prisma.bookFile.findFirst({
-          where: { filePath: data.filePath },
-          select: { id: true },
-        })
-      : ((
-          await prisma.bookFile.findMany({
-            where: { filePath: data.filePath },
-            select: { id: true, filePath: true },
-            take: 1,
-          })
-        ).find((row) => row.filePath === data.filePath) ?? null);
+  const existing = await prisma.bookFile.findFirst({
+    where: { filePath: data.filePath },
+    select: { id: true },
+  });
 
   if (existing) {
     await prisma.bookFile.update({
