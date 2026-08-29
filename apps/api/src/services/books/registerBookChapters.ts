@@ -5,6 +5,14 @@ import { buildTimeline } from "@rawkoon/api/services/books/bookTimeline";
 import { probeAudioDuration } from "@rawkoon/api/services/books/probeAudioDuration";
 
 const ORDINAL = /^(\d+)\s*-\s*/;
+const ordinalOf = (name: string): number =>
+  Number(ORDINAL.exec(name)?.[1] ?? Number.NaN);
+const compareChapterFileNames = (a: string, b: string): number => {
+  const na = ordinalOf(a);
+  const nb = ordinalOf(b);
+  if (Number.isNaN(na) || Number.isNaN(nb)) return a.localeCompare(b);
+  return na - nb;
+};
 
 /** "01 - Chapter 1.mp3" -> "Chapter 1". */
 export const chapterTitleFromFileName = (name: string): string => {
@@ -14,12 +22,7 @@ export const chapterTitleFromFileName = (name: string): string => {
 
 /** Numeric order by leading ordinal, so 10 follows 2 rather than preceding it. */
 export const sortChapterFiles = (names: string[]): string[] =>
-  [...names].sort((a, b) => {
-    const na = Number(ORDINAL.exec(a)?.[1] ?? Number.NaN);
-    const nb = Number(ORDINAL.exec(b)?.[1] ?? Number.NaN);
-    if (Number.isNaN(na) || Number.isNaN(nb)) return a.localeCompare(b);
-    return na - nb;
-  });
+  [...names].sort(compareChapterFileNames);
 
 export interface RegisterResult {
   chapters: number;
@@ -28,14 +31,43 @@ export interface RegisterResult {
   reason?: string;
 }
 
+const sortBookFiles = (
+  files: Array<{ id: number; filePath: string; fileName: string }>,
+) =>
+  // Sort file objects directly so duplicate basenames map to distinct rows.
+  [...files].sort((a, b) => compareChapterFileNames(a.fileName, b.fileName));
+
+const refuseChapterRegistration = async (
+  editionId: number,
+  reason: string,
+): Promise<RegisterResult> => {
+  await prisma.$transaction(async (tx) => {
+    // Stale chapters are worse than no chapters: a cached manifest cannot
+    // infer that old offsets no longer match files on disk.
+    await tx.bookChapter.deleteMany({ where: { editionId } });
+    await tx.bookEdition.update({
+      where: { id: editionId },
+      data: { offlineReady: false },
+    });
+  });
+
+  return {
+    chapters: 0,
+    totalDurationSecs: 0,
+    offlineReady: false,
+    reason,
+  };
+};
+
 /**
- * Probe, hash and register the audio files of an edition that is already one
- * file per chapter.
+ * Probe and register the audio files of an edition that is already one file
+ * per chapter.
  *
  * Idempotent by database state: re-running over an unchanged edition rewrites
- * the same rows against the same BookFile ids, because upsertBookFile keeps
- * them stable. An edition with fewer than two audio files is not chapterized
- * and is refused rather than guessed at.
+ * equivalent chapter rows against the same BookFile ids. Chapter row ids are
+ * not stable across runs because the refresh is delete-then-create.
+ * An edition with fewer than two audio files is not chapterized and is refused
+ * rather than guessed at.
  */
 export async function registerBookChapters(
   editionId: number,
@@ -46,52 +78,41 @@ export async function registerBookChapters(
   });
 
   if (files.length < 2) {
-    await prisma.bookEdition.update({
-      where: { id: editionId },
-      data: { offlineReady: false },
-    });
-    return {
-      chapters: 0,
-      totalDurationSecs: 0,
-      offlineReady: false,
-      reason: "Edition is not split into chapters",
-    };
+    return refuseChapterRegistration(
+      editionId,
+      "Edition is not split into chapters",
+    );
   }
 
-  const byName = new Map(files.map((f) => [f.fileName, f]));
-  const ordered = sortChapterFiles(files.map((f) => f.fileName));
+  const ordered = sortBookFiles(files);
 
-  const inputs: { title: string; durationSecs: number }[] = [];
-  const fileIds: number[] = [];
-  for (const name of ordered) {
-    const file = byName.get(name);
-    if (!file) continue;
+  const chapterInputs: Array<{
+    title: string;
+    durationSecs: number;
+    bookFileId: number;
+  }> = [];
+  for (const file of ordered) {
+    const title = chapterTitleFromFileName(file.fileName);
 
     const durationSecs = await probeAudioDuration(file.filePath);
     if (durationSecs === null) {
-      await prisma.bookEdition.update({
-        where: { id: editionId },
-        data: { offlineReady: false },
-      });
-      return {
-        chapters: 0,
-        totalDurationSecs: 0,
-        offlineReady: false,
-        reason: `Could not probe ${basename(file.filePath)}`,
-      };
+      return refuseChapterRegistration(
+        editionId,
+        `Could not probe ${basename(file.filePath)}`,
+      );
     }
 
-    inputs.push({ title: chapterTitleFromFileName(name), durationSecs });
-    fileIds.push(file.id);
+    chapterInputs.push({ title, durationSecs, bookFileId: file.id });
   }
 
-  const timeline = buildTimeline(inputs);
+  const timeline = buildTimeline(
+    chapterInputs.map(({ title, durationSecs }) => ({ title, durationSecs })),
+  );
 
   await prisma.$transaction(async (tx) => {
     await tx.bookChapter.deleteMany({ where: { editionId } });
     for (const chapter of timeline) {
-      const bookFileId = fileIds[chapter.index];
-      if (bookFileId === undefined) continue;
+      const { bookFileId } = chapterInputs[chapter.index]!;
 
       await tx.bookChapter.create({
         data: {
