@@ -38,6 +38,7 @@ model User {
   baApiKeys            BaApiKey[]
   mediaRequests        MediaRequest[] @relation("MediaRequestRequester")
   decidedMediaRequests MediaRequest[] @relation("MediaRequestDecider")
+  bookProgress         BookListeningProgress[]
 
   @@map("users")
 }
@@ -866,12 +867,15 @@ model BookEdition {
   lastGrabbedAt        DateTime? @map("last_grabbed_at")
   /// Persisted SUM of book_file sizes; 0 stored as null. DB trigger.
   totalSizeBytes       BigInt?   @map("total_size_bytes")
+  offlineReady         Boolean   @default(false) @map("offline_ready")
   addedAt              DateTime  @default(now()) @map("added_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
   book               LibraryBook         @relation(fields: [bookId], references: [id], onDelete: Cascade)
   bookQualityProfile BookQualityProfile? @relation(fields: [bookQualityProfileId], references: [id], onDelete: SetNull)
   files              BookFile[]
+  chapters           BookChapter[]
+  progress           BookListeningProgress[]
   downloadHistories  DownloadHistory[]
 
   /// Exactly two possible rows per book: one ebook, one audiobook.
@@ -904,13 +908,61 @@ model BookFile {
   fileIno      String? @map("file_ino")
   fileMtimeMs  BigInt? @map("file_mtime_ms")
   scannedAt    DateTime @default(now()) @map("scanned_at")
+  sha256       String?
+  chapterIndex Int?    @map("chapter_index")
 
   edition  BookEdition       @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  chapters BookChapter[]
 
   @@index([editionId], map: "ix_book_files_edition_id")
   @@index([filePath], map: "ix_book_files_file_path")
   @@index([fileDev, fileIno], map: "ix_book_files_file_dev_ino")
   @@map("book_files")
+}
+
+model BookChapter {
+  id         Int    @id @default(autoincrement())
+  editionId  Int    @map("edition_id")
+  bookFileId Int    @map("book_file_id")
+  index      Int
+  title      String
+  /// Offsets on the WHOLE-BOOK timeline, produced by accumulating the ffprobe'd
+  /// durations of the files on disk. Never copied from source chapter atoms:
+  /// `-c copy` rounds every cut up to a frame boundary, which on the reference
+  /// book drifts +1.567s across 61 files.
+  startSecs  Float  @map("start_secs")
+  endSecs    Float  @map("end_secs")
+
+  edition  BookEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  bookFile BookFile    @relation(fields: [bookFileId], references: [id], onDelete: Cascade)
+
+  @@unique([editionId, index], map: "uq_book_chapters_edition_index")
+  @@map("book_chapters")
+}
+
+model BookListeningProgress {
+  id                Int      @id @default(autoincrement())
+  userId            String   @map("user_id")
+  editionId         Int      @map("edition_id")
+  /// Whole-book seconds. Never a per-file offset: the removed player stored a
+  /// file index plus an in-file offset and could resolve to an index that did
+  /// not exist, which is why it "only ever worked from position 0".
+  positionSecs      Float    @map("position_secs")
+  /// The book length this position was recorded against. A quality upgrade
+  /// changes the length and makes the position approximate.
+  totalDurationSecs Float    @map("total_duration_secs")
+  finished          Boolean  @default(false)
+  /// Client-supplied, clamped to server time on receipt.
+  updatedAt         DateTime @map("updated_at")
+  /// Server receipt time. Breaks ties deterministically.
+  receivedAt        DateTime @default(now()) @map("received_at")
+  deviceId          String?  @map("device_id")
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  edition BookEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, editionId], map: "uq_book_progress_user_edition")
+  @@map("book_listening_progress")
 }
 
 /// Google Books exposes no author ids, so the name is the key. Homonymous
