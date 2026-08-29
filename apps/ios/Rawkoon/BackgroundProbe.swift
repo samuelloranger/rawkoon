@@ -44,5 +44,7 @@ final class BackgroundProbe: NSObject, URLSessionDownloadDelegate {
         var lines = log
         lines.append(line)
         log = lines
+        // Flush immediately so the wake-event line survives abrupt SIGKILLs.
+        defaults.synchronize()
     }
 }
