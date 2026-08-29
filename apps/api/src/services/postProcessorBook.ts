@@ -574,6 +574,65 @@ export async function postProcessBookDownload(
   return { success: true, destinationPath: result.destinationPath };
 }
 
+export interface BookFileUpsert {
+  editionId: number;
+  filePath: string;
+  fileName: string;
+  sizeBytes: bigint;
+  format: BookFormat;
+  durationSecs: number | null;
+  audioBitrate: number | null;
+  audioCodec: string | null;
+  languageTags: string[];
+  fileDev: string;
+  fileIno: string;
+  fileMtimeMs: bigint;
+}
+
+/**
+ * Keep BookFile ids stable on repeated scans keyed by path.
+ * Chapters and clients reference the id, so rescan must update in place.
+ */
+export async function upsertBookFile(
+  data: BookFileUpsert,
+): Promise<{ id: number; existed: boolean }> {
+  const existing =
+    typeof prisma.bookFile.findFirst === "function"
+      ? await prisma.bookFile.findFirst({
+          where: { filePath: data.filePath },
+          select: { id: true },
+        })
+      : ((
+          await prisma.bookFile.findMany({
+            where: { filePath: data.filePath },
+            select: { id: true, filePath: true },
+            take: 1,
+          })
+        ).find((row) => row.filePath === data.filePath) ?? null);
+
+  if (existing) {
+    await prisma.bookFile.update({
+      where: { id: existing.id },
+      data: {
+        ...data,
+        // A scan has no release title to judge, so retail stays unknown.
+        isRetail: false,
+      },
+    });
+    return { id: existing.id, existed: true };
+  }
+
+  const created = await prisma.bookFile.create({
+    data: {
+      ...data,
+      // A scan has no release title to judge, so retail stays unknown.
+      isRetail: false,
+    },
+    select: { id: true },
+  });
+  return { id: created.id, existed: false };
+}
+
 /**
  * Register files already sitting in the library for an edition that has none.
  *
@@ -761,32 +820,22 @@ export async function rescanBookEdition(editionId: number): Promise<{
     }
     if (languageTags.length === 0) languageTags = [edition.book.language];
 
-    // Rows are keyed by path, so a repeat scan replaces rather than duplicates.
-    // Counting the replacement separately keeps the report honest: a second
-    // scan of an unchanged library must not claim it registered anything.
-    const replaced = await prisma.bookFile.deleteMany({
-      where: { filePath: keeper.path },
-    });
-    await prisma.bookFile.create({
-      data: {
-        editionId,
-        filePath: keeper.path,
-        fileName: basename(keeper.path),
-        sizeBytes: BigInt(st.size),
-        format: keeper.format,
-        durationSecs,
-        audioBitrate,
-        audioCodec,
-        // A scan has no release title to judge, so retail stays unknown.
-        isRetail: false,
-        languageTags,
-        fileDev: String(st.dev),
-        fileIno: String(st.ino),
-        fileMtimeMs: BigInt(Math.trunc(st.mtimeMs)),
-      },
+    const { existed } = await upsertBookFile({
+      editionId,
+      filePath: keeper.path,
+      fileName: basename(keeper.path),
+      sizeBytes: BigInt(st.size),
+      format: keeper.format,
+      durationSecs,
+      audioBitrate,
+      audioCodec,
+      languageTags,
+      fileDev: String(st.dev),
+      fileIno: String(st.ino),
+      fileMtimeMs: BigInt(Math.trunc(st.mtimeMs)),
     });
 
-    if (replaced.count > 0) refreshed++;
+    if (existed) refreshed++;
     else registered++;
   }
 
