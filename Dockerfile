@@ -46,7 +46,8 @@ ENV LANG=C.UTF-8
 # Prisma runtime requires OpenSSL; curl for outbound HTTP; mediainfo for file
 # scanning (video and audiobook containers alike). Epub OPF reading needs no
 # binary: the zip container is parsed in-process by utils/books/zipReader.
-RUN apt-get update -y && apt-get install -y openssl curl mediainfo mkvtoolnix \
+# Keep ffmpeg installed: audiobook chapter probing/splitting shells out to it.
+RUN apt-get update -y && apt-get install -y openssl curl mediainfo mkvtoolnix ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy only what's needed for the runtime
