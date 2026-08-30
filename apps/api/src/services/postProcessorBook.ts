@@ -606,6 +606,7 @@ export async function upsertBookFile(
       where: { id: existing.id },
       data: {
         ...data,
+        scannedAt: new Date(),
         // A scan has no release title to judge, so retail stays unknown.
         isRetail: false,
       },
@@ -708,6 +709,18 @@ export async function rescanBookEdition(editionId: number): Promise<{
     }
   }
 
+  const invalidateChapterTimeline = async () => {
+    await prisma.$transaction(async (tx) => {
+      // A changed file set invalidates the whole chapter timeline because each
+      // chapter's start/end offsets are cumulative from all prior chapters.
+      await tx.bookChapter.deleteMany({ where: { editionId } });
+      await tx.bookEdition.update({
+        where: { id: editionId },
+        data: { offlineReady: false },
+      });
+    });
+  };
+
   const allowedFormats = edition.bookQualityProfile?.allowedFormats ?? [];
   const template =
     kind === "audiobook" ? settings.audiobookTemplate : settings.bookTemplate;
@@ -768,6 +781,7 @@ export async function rescanBookEdition(editionId: number): Promise<{
     // Nothing on disk. If rows were removed the edition no longer has files,
     // so put it back to wanted rather than leaving a lie on screen.
     if (removed > 0) {
+      await invalidateChapterTimeline();
       await prisma.bookEdition.update({
         where: { id: editionId },
         data: { status: "wanted" },
@@ -830,11 +844,22 @@ export async function rescanBookEdition(editionId: number): Promise<{
     else registered++;
   }
 
+  let shouldEmitBookUpdate = false;
+
   if (registered + refreshed > 0) {
     await prisma.bookEdition.update({
       where: { id: editionId },
       data: { status: "downloaded" },
     });
+    shouldEmitBookUpdate = true;
+  }
+
+  if (removed > 0 || registered > 0) {
+    await invalidateChapterTimeline();
+    shouldEmitBookUpdate = true;
+  }
+
+  if (shouldEmitBookUpdate) {
     emitBookUpdate(edition.bookId);
   }
 

@@ -51,6 +51,7 @@ describe("upsertBookFile", () => {
       where: { id: 42 },
       data: {
         ...payload,
+        scannedAt: expect.any(Date),
         isRetail: false,
       },
     });
