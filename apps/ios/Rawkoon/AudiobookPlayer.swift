@@ -10,6 +10,20 @@ final class AudiobookPlayer: ObservableObject {
     @Published private(set) var rate: Float = 1.0
     @Published private(set) var duration: Double = 0
 
+    // Sleep timer. Countdown advances on playback ticks, so it naturally pauses
+    // when playback pauses. `.endOfChapter` stops when the current chapter ends.
+    enum SleepMode: Equatable {
+        case off
+        case minutes(Int)
+        case endOfChapter
+    }
+    @Published private(set) var sleepMode: SleepMode = .off
+    @Published private(set) var sleepRemainingSecs: Double?
+
+    private var sleepEndChapterIndex: Int?
+    private var lastSleepTick: Date?
+    private static let sleepFadeWindow: Double = 8
+
     private var player: AVQueuePlayer?
     private var timeline: BookTimeline?
     private var manifest: BookManifest?
@@ -71,6 +85,7 @@ final class AudiobookPlayer: ObservableObject {
         player.play()
         player.rate = rate
         isPlaying = true
+        if case .minutes = sleepMode { lastSleepTick = Date() }
         updateNowPlayingInfo()
     }
 
@@ -117,6 +132,67 @@ final class AudiobookPlayer: ObservableObject {
         } else {
             seek(to: 0)
         }
+    }
+
+    // MARK: Sleep timer
+
+    func setSleep(_ mode: SleepMode) {
+        sleepMode = mode
+        sleepEndChapterIndex = nil
+        lastSleepTick = nil
+        resetSleepVolume()
+
+        switch mode {
+        case .off:
+            sleepRemainingSecs = nil
+        case let .minutes(m):
+            sleepRemainingSecs = Double(m * 60)
+            lastSleepTick = Date()
+        case .endOfChapter:
+            sleepRemainingSecs = nil
+            sleepEndChapterIndex = currentChapterIndex
+        }
+    }
+
+    /// Called from the playback tick. Advances the countdown by real elapsed
+    /// time while playing, fades the last few seconds, then pauses.
+    private func advanceSleep() {
+        guard isPlaying else { lastSleepTick = Date(); return }
+
+        switch sleepMode {
+        case .off:
+            return
+        case .endOfChapter:
+            if let target = sleepEndChapterIndex, let current = currentChapterIndex, current > target {
+                fireSleep()
+            }
+        case .minutes:
+            guard var remaining = sleepRemainingSecs else { return }
+            let now = Date()
+            let delta = min(2, max(0, now.timeIntervalSince(lastSleepTick ?? now)))
+            lastSleepTick = now
+            remaining -= delta
+            sleepRemainingSecs = max(0, remaining)
+
+            if remaining <= 0 {
+                fireSleep()
+            } else if remaining <= Self.sleepFadeWindow {
+                player?.volume = Float(max(0, remaining / Self.sleepFadeWindow))
+            }
+        }
+    }
+
+    private func fireSleep() {
+        pause()
+        resetSleepVolume()
+        sleepMode = .off
+        sleepRemainingSecs = nil
+        sleepEndChapterIndex = nil
+        lastSleepTick = nil
+    }
+
+    private func resetSleepVolume() {
+        player?.volume = 1
     }
 
     private func buildQueue(at wholeBookPosition: Double, autoplay: Bool) {
@@ -235,6 +311,7 @@ final class AudiobookPlayer: ObservableObject {
         guard rawSeconds.isFinite else { return }
         let clamped = timeline?.clamp(wholeBookPosition(fromCurrentItemTime: rawSeconds)) ?? max(rawSeconds, 0)
         positionSecs = clamped
+        advanceSleep()
         if let chapter = chapter(for: player?.currentItem) {
             currentChapterIndex = chapter.index
         } else {

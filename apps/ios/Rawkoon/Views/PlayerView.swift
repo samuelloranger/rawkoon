@@ -49,8 +49,11 @@ struct PlayerView: View {
                 scrubber
                 transport
 
-                rateMenu
-                    .padding(.top, 2)
+                HStack(spacing: 12) {
+                    rateMenu
+                    sleepMenu
+                }
+                .padding(.top, 2)
 
                 Spacer(minLength: 0)
             }
@@ -141,6 +144,44 @@ struct PlayerView: View {
                 .padding(.vertical, 9)
                 .background(Theme.raised.opacity(0.8), in: Capsule())
                 .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
+        }
+    }
+
+    private var sleepMenu: some View {
+        Menu {
+            Button("Off") { model.player.setSleep(.off) }
+            Button("End of chapter") { model.player.setSleep(.endOfChapter) }
+            ForEach([10, 15, 30, 45, 60], id: \.self) { m in
+                Button("\(m) min") { model.player.setSleep(.minutes(m)) }
+            }
+        } label: {
+            Label(sleepLabel, systemImage: "moon.zzz.fill")
+                .font(.system(.subheadline, design: .monospaced).weight(.medium))
+                .foregroundStyle(sleepActive ? Theme.apricot : Theme.textStrong)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .background(Theme.raised.opacity(0.8), in: Capsule())
+                .overlay(Capsule().strokeBorder(sleepActive ? Theme.apricot.opacity(0.5) : Theme.borderStrong, lineWidth: 1))
+        }
+    }
+
+    private var sleepActive: Bool {
+        model.player.sleepMode != .off
+    }
+
+    private var sleepLabel: String {
+        switch model.player.sleepMode {
+        case .off:
+            return "Sleep"
+        case .endOfChapter:
+            return "Chapter"
+        case .minutes:
+            if let remaining = model.player.sleepRemainingSecs {
+                let m = Int(remaining) / 60
+                let s = Int(remaining) % 60
+                return String(format: "%d:%02d", m, s)
+            }
+            return "Sleep"
         }
     }
 
