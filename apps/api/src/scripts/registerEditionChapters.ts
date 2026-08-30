@@ -5,7 +5,7 @@ import { rescanBookEdition } from "@rawkoon/api/services/postProcessorBook";
 function parseEditionId(arg: string | undefined): number | null {
   if (!arg) return null;
   const editionId = Number(arg);
-  if (!Number.isInteger(editionId)) return null;
+  if (!Number.isInteger(editionId) || editionId <= 0) return null;
   return editionId;
 }
 
@@ -25,6 +25,10 @@ async function main(): Promise<void> {
     "[register-edition-chapters] rescan:",
     JSON.stringify(rescan, null, 2),
   );
+  if (rescan.error) {
+    console.error(`[register-edition-chapters] ${rescan.error}`);
+    process.exit(1);
+  }
 
   const registration = await registerBookChapters(editionId);
   console.log(
