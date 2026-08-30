@@ -14,6 +14,16 @@ targets:
         UIBackgroundModes: [audio, fetch]
         CFBundleDisplayName: Rawkoon
         ITSAppUsesNonExemptEncryption: false
+        # App Store validation rejects a bundle with no declared orientations
+        # (it assumes iPad multitasking). The player is portrait-first; landscape
+        # is allowed so it is not rejected and reads fine on iPad.
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # An empty UILaunchScreen dict satisfies the launch-screen requirement
+        # for MinimumOSVersion >= 14 without a storyboard.
+        UILaunchScreen: {}
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: cloud.samlo.rawkoon
       MARKETING_VERSION: "0.1.0"
