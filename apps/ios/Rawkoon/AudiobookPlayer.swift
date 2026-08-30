@@ -10,14 +10,15 @@ final class AudiobookPlayer: ObservableObject {
     @Published private(set) var rate: Float = 1.0
     @Published private(set) var duration: Double = 0
 
-    private var player: AVPlayer?
+    private var player: AVQueuePlayer?
     private var timeline: BookTimeline?
     private var manifest: BookManifest?
-    private var missingChapterIndices: Set<Int> = []
-    private var missingChapterStarts: [Double] = []
+    private var baseURL: URL?
+    private var chapters: [ManifestChapter] = []
+    private var itemChapters: [ObjectIdentifier: ManifestChapter] = [:]
     private var timeObserver: Any?
     private var endObserver: NSObjectProtocol?
-    private var lastObservedPositionSecs: Double?
+    private var currentItemObserver: NSKeyValueObservation?
 
     init() {
         configureRemoteCommands()
@@ -32,73 +33,32 @@ final class AudiobookPlayer: ObservableObject {
         }
     }
 
-    func load(manifest: BookManifest, resumeAt: Double) {
-        tearDownObservers()
-
+    func load(manifest: BookManifest, baseURL: URL, resumeAt: Double) {
         self.manifest = manifest
-        let chapters = manifest.chapters.sorted { $0.index < $1.index }
+        self.baseURL = baseURL
+        self.chapters = manifest.chapters.sorted { $0.index < $1.index }
         let timeline = BookTimeline(chapters: chapters)
         self.timeline = timeline
-        duration = timeline.totalDurationSecs
-        missingChapterIndices = Set(
-            chapters.filter { isChapterMissing($0, editionId: manifest.editionId) }.map(\.index)
-        )
-        missingChapterStarts = chapters.filter { missingChapterIndices.contains($0.index) }.map(\.startSecs)
-
-        let composition = AVMutableComposition()
-        let destinationTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
-
-        var insertionPoint = CMTime.zero
-        for chapter in chapters {
-            let chapterDuration = CMTime(seconds: max(chapter.durationSecs, 0), preferredTimescale: 600)
-            guard chapterDuration.seconds > 0 else { continue }
-
-            if let destinationTrack, let sourceTrack = sourceTrack(for: chapter) {
-                do {
-                    try destinationTrack.insertTimeRange(
-                        CMTimeRange(start: .zero, duration: chapterDuration),
-                        of: sourceTrack,
-                        at: insertionPoint
-                    )
-                } catch {
-                    composition.insertEmptyTimeRange(CMTimeRange(start: insertionPoint, duration: chapterDuration))
-                }
-            } else {
-                composition.insertEmptyTimeRange(CMTimeRange(start: insertionPoint, duration: chapterDuration))
-            }
-
-            insertionPoint = insertionPoint + chapterDuration
-        }
-
-        let item = AVPlayerItem(asset: composition)
-        item.audioTimePitchAlgorithm = .spectral
-
-        let player = AVPlayer(playerItem: item)
-        self.player = player
-        isPlaying = false
-
+        duration = chapters.last?.endSecs ?? manifest.totalDurationSecs
         let clamped = timeline.clamp(resumeAt)
-        let seekTime = CMTime(seconds: clamped, preferredTimescale: 600)
-        player.seek(to: seekTime, toleranceBefore: .zero, toleranceAfter: .zero)
-        positionSecs = clamped
-        lastObservedPositionSecs = clamped
-        currentChapterIndex = timeline.chapterIndex(at: clamped)
-
-        installObservers(player: player, item: item)
+        buildQueue(at: clamped, autoplay: false)
         updateNowPlayingInfo()
     }
 
     func rebuild() {
-        guard let manifest else { return }
+        guard let manifest, let baseURL else { return }
         let resumeAt = positionSecs
         let resumePlaying = isPlaying
-        load(manifest: manifest, resumeAt: resumeAt)
+        load(manifest: manifest, baseURL: baseURL, resumeAt: resumeAt)
         if resumePlaying {
             play()
         }
     }
 
     func play() {
+        if player?.currentItem == nil, duration > 0 {
+            seek(to: 0)
+        }
         guard let player else { return }
         do {
             let audioSession = AVAudioSession.sharedInstance()
@@ -121,16 +81,10 @@ final class AudiobookPlayer: ObservableObject {
     }
 
     func seek(to seconds: Double) {
-        guard let player, let timeline else { return }
+        guard let timeline else { return }
         let clamped = timeline.clamp(seconds)
-        player.seek(
-            to: CMTime(seconds: clamped, preferredTimescale: 600),
-            toleranceBefore: .zero,
-            toleranceAfter: .zero
-        )
-        positionSecs = clamped
-        lastObservedPositionSecs = clamped
-        currentChapterIndex = timeline.chapterIndex(at: clamped)
+        let autoplay = isPlaying
+        buildQueue(at: clamped, autoplay: autoplay)
         updateNowPlayingInfo()
     }
 
@@ -144,7 +98,7 @@ final class AudiobookPlayer: ObservableObject {
 
     func setRate(_ value: Float) {
         rate = value
-        player?.currentItem?.audioTimePitchAlgorithm = .spectral
+        applyPitchAlgorithm()
         if isPlaying {
             player?.rate = value
         }
@@ -165,7 +119,77 @@ final class AudiobookPlayer: ObservableObject {
         }
     }
 
-    private func installObservers(player: AVPlayer, item: AVPlayerItem) {
+    private func buildQueue(at wholeBookPosition: Double, autoplay: Bool) {
+        guard let timeline, let manifest else { return }
+        guard !chapters.isEmpty else {
+            tearDownObservers()
+            player = nil
+            positionSecs = 0
+            currentChapterIndex = nil
+            isPlaying = false
+            return
+        }
+
+        let clamped = timeline.clamp(wholeBookPosition)
+        guard let chapter = chapter(forWholeBookPosition: clamped) else {
+            tearDownObservers()
+            player = nil
+            positionSecs = clamped
+            currentChapterIndex = nil
+            isPlaying = false
+            return
+        }
+
+        guard let startArrayIndex = chapters.firstIndex(where: { $0.index == chapter.index }) else {
+            return
+        }
+
+        let queueChapters = Array(chapters[startArrayIndex...])
+        var items: [AVPlayerItem] = []
+        var mapping: [ObjectIdentifier: ManifestChapter] = [:]
+        for queueChapter in queueChapters {
+            guard let mediaURL = playbackURL(for: queueChapter, editionId: manifest.editionId) else {
+                continue
+            }
+            let item = AVPlayerItem(url: mediaURL)
+            item.audioTimePitchAlgorithm = .spectral
+            items.append(item)
+            mapping[ObjectIdentifier(item)] = queueChapter
+        }
+
+        guard !items.isEmpty else {
+            tearDownObservers()
+            player = nil
+            positionSecs = clamped
+            currentChapterIndex = nil
+            isPlaying = false
+            return
+        }
+
+        tearDownObservers()
+        let queuePlayer = AVQueuePlayer(items: items)
+        queuePlayer.actionAtItemEnd = .advance
+        player = queuePlayer
+        itemChapters = mapping
+
+        let offset = max(0, min(clamped - chapter.startSecs, max(chapter.durationSecs, 0)))
+        queuePlayer.seek(
+            to: CMTime(seconds: offset, preferredTimescale: 600),
+            toleranceBefore: .zero,
+            toleranceAfter: .zero
+        )
+        positionSecs = clamped
+        currentChapterIndex = chapter.index
+        isPlaying = false
+        installObservers(player: queuePlayer)
+        applyPitchAlgorithm()
+
+        if autoplay {
+            play()
+        }
+    }
+
+    private func installObservers(player: AVQueuePlayer) {
         timeObserver = player.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: 0.5, preferredTimescale: 600),
             queue: .main
@@ -173,16 +197,23 @@ final class AudiobookPlayer: ObservableObject {
             self?.handleTick(time.seconds)
         }
 
+        currentItemObserver = player.observe(\.currentItem, options: [.initial, .new]) { [weak self] _, _ in
+            self?.handleCurrentItemChanged()
+        }
+
         endObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
-            object: item,
+            object: nil,
             queue: .main
-        ) { [weak self] _ in
-            guard let self else { return }
-            self.isPlaying = false
-            self.positionSecs = self.duration
-            self.currentChapterIndex = self.timeline?.chapterIndex(at: self.duration)
-            self.updateNowPlayingInfo()
+        ) { [weak self] notification in
+            guard
+                let self,
+                let item = notification.object as? AVPlayerItem,
+                self.itemChapters[ObjectIdentifier(item)] != nil
+            else {
+                return
+            }
+            self.handleCurrentItemChanged()
         }
     }
 
@@ -196,58 +227,98 @@ final class AudiobookPlayer: ObservableObject {
             NotificationCenter.default.removeObserver(endObserver)
         }
         endObserver = nil
+
+        currentItemObserver = nil
     }
 
     private func handleTick(_ rawSeconds: Double) {
         guard rawSeconds.isFinite else { return }
-        let previous = lastObservedPositionSecs ?? rawSeconds
-        let clamped = timeline?.clamp(rawSeconds) ?? max(rawSeconds, 0)
-
+        let clamped = timeline?.clamp(wholeBookPosition(fromCurrentItemTime: rawSeconds)) ?? max(rawSeconds, 0)
         positionSecs = clamped
-        lastObservedPositionSecs = clamped
-        currentChapterIndex = timeline?.chapterIndex(at: clamped)
-
-        if isPlaying {
-            if let missingBoundary = crossedMissingBoundary(from: previous, to: clamped) {
-                pause()
-                seek(to: missingBoundary)
-                return
-            }
-            if let currentChapterIndex, missingChapterIndices.contains(currentChapterIndex) {
-                pause()
-                return
-            }
+        if let chapter = chapter(for: player?.currentItem) {
+            currentChapterIndex = chapter.index
+        } else {
+            currentChapterIndex = timeline?.chapterIndex(at: clamped) ?? chapters.last?.index
         }
-
+        if isPlaying, player?.currentItem == nil {
+            isPlaying = false
+            positionSecs = duration
+            currentChapterIndex = chapters.last?.index
+        }
         updateNowPlayingInfo()
     }
 
-    private func crossedMissingBoundary(from previous: Double, to current: Double) -> Double? {
-        for boundary in missingChapterStarts where previous < boundary && current >= boundary {
-            return boundary
+    private func handleCurrentItemChanged() {
+        guard let player else { return }
+        if let chapter = chapter(for: player.currentItem) {
+            currentChapterIndex = chapter.index
+            if let currentTime = player.currentItem?.currentTime().seconds, currentTime.isFinite {
+                let clamped = timeline?.clamp(chapter.startSecs + max(currentTime, 0)) ?? max(currentTime, 0)
+                positionSecs = clamped
+            }
+        } else if player.currentItem == nil {
+            isPlaying = false
+            positionSecs = duration
+            currentChapterIndex = chapters.last?.index
+        }
+        updateNowPlayingInfo()
+    }
+
+    private func playbackURL(for chapter: ManifestChapter, editionId: Int) -> URL? {
+        let ext = fileExtension(for: chapter)
+        if FileStore.exists(editionId: editionId, fileId: chapter.fileId, ext: ext) {
+            return FileStore.chapterURL(editionId: editionId, fileId: chapter.fileId, ext: ext)
+        }
+        return resolvedRemoteURL(for: chapter)
+    }
+
+    private func fileExtension(for chapter: ManifestChapter) -> String {
+        let pathExt = URL(string: chapter.url, relativeTo: baseURL)?.pathExtension
+            ?? URL(string: chapter.url)?.pathExtension
+            ?? ""
+        return pathExt.isEmpty ? "bin" : pathExt
+    }
+
+    private func resolvedRemoteURL(for chapter: ManifestChapter) -> URL? {
+        if let resolved = URL(string: chapter.url, relativeTo: baseURL)?.absoluteURL {
+            return resolved
+        }
+        if let absolute = URL(string: chapter.url), absolute.scheme != nil {
+            return absolute
         }
         return nil
     }
 
-    private func isChapterMissing(_ chapter: ManifestChapter, editionId: Int) -> Bool {
-        let ext = fileExtension(for: chapter)
-        return !FileStore.exists(editionId: editionId, fileId: chapter.fileId, ext: ext)
+    private func chapter(for item: AVPlayerItem?) -> ManifestChapter? {
+        guard let item else { return nil }
+        return itemChapters[ObjectIdentifier(item)]
     }
 
-    private func sourceTrack(for chapter: ManifestChapter) -> AVAssetTrack? {
-        guard let manifest else { return nil }
-        let ext = fileExtension(for: chapter)
-        guard FileStore.exists(editionId: manifest.editionId, fileId: chapter.fileId, ext: ext) else {
-            return nil
+    private func chapter(forWholeBookPosition position: Double) -> ManifestChapter? {
+        if let chapterIndex = timeline?.chapterIndex(at: position) {
+            return chapters.first(where: { $0.index == chapterIndex })
         }
-        let url = FileStore.chapterURL(editionId: manifest.editionId, fileId: chapter.fileId, ext: ext)
-        let asset = AVURLAsset(url: url)
-        return asset.tracks(withMediaType: .audio).first
+        if position >= duration {
+            return chapters.last
+        }
+        return chapters.first
     }
 
-    private func fileExtension(for chapter: ManifestChapter) -> String {
-        let pathExt = URL(string: chapter.url)?.pathExtension ?? ""
-        return pathExt.isEmpty ? "bin" : pathExt
+    private func wholeBookPosition(fromCurrentItemTime currentItemTime: Double) -> Double {
+        guard
+            let chapter = chapter(for: player?.currentItem),
+            currentItemTime.isFinite
+        else {
+            return currentItemTime
+        }
+        return chapter.startSecs + max(currentItemTime, 0)
+    }
+
+    private func applyPitchAlgorithm() {
+        player?.currentItem?.audioTimePitchAlgorithm = .spectral
+        for item in player?.items() ?? [] {
+            item.audioTimePitchAlgorithm = .spectral
+        }
     }
 
     private func updateNowPlayingInfo() {

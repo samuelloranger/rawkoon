@@ -138,19 +138,8 @@ struct BookView: View {
     }
 
     private var canPlay: Bool {
-        guard let manifest, let firstChapter = manifest.chapters.first(where: { $0.index == 0 }) else {
-            return false
-        }
-
-        if model.downloadPlans[summary.editionId]?.states[firstChapter.fileId] == .verified {
-            return true
-        }
-
-        return FileStore.exists(
-            editionId: summary.editionId,
-            fileId: firstChapter.fileId,
-            ext: chapterExtension(firstChapter)
-        )
+        guard let manifest else { return false }
+        return !manifest.chapters.isEmpty
     }
 
     private func fetchManifest() async {

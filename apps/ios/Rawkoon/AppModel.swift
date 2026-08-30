@@ -103,12 +103,16 @@ final class AppModel: ObservableObject {
 
         do {
             let manifest = try await manifest(editionId)
+            guard let baseURL = URL(string: serverURL) else {
+                errorMessage = "Enter a valid server URL."
+                return
+            }
             if let existing = downloaders[editionId] {
                 existing.start()
                 return
             }
 
-            let downloader = ChapterDownloader(editionId: editionId, manifest: manifest) { [weak self] plan in
+            let downloader = ChapterDownloader(editionId: editionId, baseURL: baseURL, manifest: manifest) { [weak self] plan in
                 Task { @MainActor in
                     self?.applyDownloadPlan(plan, editionId: editionId)
                 }
@@ -130,10 +134,14 @@ final class AppModel: ObservableObject {
 
         do {
             let manifest = try await manifest(editionId)
+            guard let baseURL = URL(string: serverURL) else {
+                errorMessage = "Enter a valid server URL."
+                return
+            }
             activeEditionId = editionId
 
             let resumeAt = await resolveResumePosition(editionId: editionId, manifest: manifest)
-            player.load(manifest: manifest, resumeAt: resumeAt)
+            player.load(manifest: manifest, baseURL: baseURL, resumeAt: resumeAt)
         } catch {
             errorMessage = message(for: error)
         }
@@ -198,15 +206,10 @@ final class AppModel: ObservableObject {
     }
 
     private func applyDownloadPlan(_ plan: DownloadPlan, editionId: Int) {
-        let oldCount = verifiedCounts[editionId] ?? 0
         let newCount = verifiedChapterCount(in: plan)
 
         downloadPlans[editionId] = plan
         verifiedCounts[editionId] = newCount
-
-        if newCount > oldCount, activeEditionId == editionId {
-            player.rebuild()
-        }
     }
 
     private func resolveResumePosition(editionId: Int, manifest: BookManifest) async -> Double {
