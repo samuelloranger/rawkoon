@@ -37,6 +37,10 @@ public enum PositionJournal {
     }
 
     public static func latest(in text: String, editionId: Int) -> PositionEntry? {
-        parse(text).filter { $0.editionId == editionId }.max { $0.atMillis < $1.atMillis }
+        parse(text).reduce(nil) { latest, entry in
+            guard entry.editionId == editionId else { return latest }
+            guard let latest else { return entry }
+            return latest.atMillis <= entry.atMillis ? entry : latest
+        }
     }
 }

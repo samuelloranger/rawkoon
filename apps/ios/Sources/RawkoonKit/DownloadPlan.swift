@@ -9,6 +9,7 @@ public enum ChapterState: Equatable, Sendable {
 }
 
 public enum DownloadEvent: Equatable, Sendable {
+    case requested(fileId: Int)
     case started(fileId: Int)
     /// A background task reports completion for any response the server sent,
     /// including an error body. `status` is what separates audio from a 401 page.
@@ -36,6 +37,11 @@ public struct DownloadPlan: Sendable {
 
     public mutating func apply(_ event: DownloadEvent) {
         switch event {
+        case let .requested(fileId):
+            guard chapterByFileId[fileId] != nil else { return }
+            states[fileId] = .pending
+            attempts[fileId] = 0
+
         case let .started(fileId):
             guard chapterByFileId[fileId] != nil else { return }
             states[fileId] = .inFlight
@@ -62,7 +68,6 @@ public struct DownloadPlan: Sendable {
         case let .evicted(fileId):
             guard chapterByFileId[fileId] != nil else { return }
             states[fileId] = .evicted
-            attempts[fileId] = 0
         }
     }
 

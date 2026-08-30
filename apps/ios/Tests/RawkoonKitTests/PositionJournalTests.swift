@@ -35,4 +35,11 @@ final class PositionJournalTests: XCTestCase {
         XCTAssertEqual(PositionJournal.parse("not json\n\n"), [])
         XCTAssertNil(PositionJournal.latest(in: "", editionId: 14))
     }
+
+    func testLatestPrefersLaterEntryOnSameMillisTie() {
+        let text = PositionJournal.encode(PositionEntry(editionId: 14, positionSecs: 100, atMillis: 7))
+            + PositionJournal.encode(PositionEntry(editionId: 14, positionSecs: 200, atMillis: 7))
+
+        XCTAssertEqual(PositionJournal.latest(in: text, editionId: 14)?.positionSecs, 200)
+    }
 }

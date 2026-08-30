@@ -21,6 +21,9 @@ public enum SyncOutcome: Equatable, Sendable {
 }
 
 /// Decides which of two progress records wins, mirroring the server's rule.
+///
+/// Callers that adopt a `.takeRemote` or `.push` outcome must apply
+/// `adjust(_:toTotal:)` before trusting or persisting the chosen record.
 public enum SyncReconciler {
     public static func reconcile(local: ProgressRecord?, remote: ProgressRecord?) -> SyncOutcome {
         switch (local, remote) {

@@ -7,6 +7,9 @@ import Foundation
 /// records the result: a resume could resolve to an index that did not exist,
 /// so it "only ever worked from position 0". One number cannot desynchronise
 /// from a file list.
+///
+/// This API always speaks in DOMAIN chapter indices (`ManifestChapter.index`),
+/// which are not assumed contiguous or 0-based.
 public struct BookTimeline: Sendable {
     public let chapters: [ManifestChapter]
 
@@ -22,18 +25,17 @@ public struct BookTimeline: Sendable {
     /// half-open interval is what makes "skip to next chapter" land in the next
     /// chapter rather than at the last instant of the current one.
     public func chapterIndex(at positionSecs: Double) -> Int? {
-        guard positionSecs >= 0, positionSecs < totalDurationSecs else { return nil }
-        return chapters.firstIndex { positionSecs >= $0.startSecs && positionSecs < $0.endSecs }
+        chapter(at: positionSecs)?.index
     }
 
     public func offsetWithinChapter(at positionSecs: Double) -> (index: Int, offsetSecs: Double)? {
-        guard let i = chapterIndex(at: positionSecs) else { return nil }
-        return (i, positionSecs - chapters[i].startSecs)
+        guard let chapter = chapter(at: positionSecs) else { return nil }
+        return (chapter.index, positionSecs - chapter.startSecs)
     }
 
     public func position(chapterIndex index: Int, offsetSecs: Double) -> Double? {
-        guard chapters.indices.contains(index) else { return nil }
-        return chapters[index].startSecs + offsetSecs
+        guard let chapter = chapters.first(where: { $0.index == index }) else { return nil }
+        return chapter.startSecs + offsetSecs
     }
 
     public func clamp(_ positionSecs: Double) -> Double {
@@ -46,5 +48,10 @@ public struct BookTimeline: Sendable {
 
     public func boundary(before positionSecs: Double) -> Double? {
         chapters.last { $0.startSecs < positionSecs }?.startSecs
+    }
+
+    private func chapter(at positionSecs: Double) -> ManifestChapter? {
+        guard positionSecs >= 0, positionSecs < totalDurationSecs else { return nil }
+        return chapters.first { positionSecs >= $0.startSecs && positionSecs < $0.endSecs }
     }
 }
