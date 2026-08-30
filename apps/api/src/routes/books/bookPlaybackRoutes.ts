@@ -77,7 +77,7 @@ export const bookPlaybackRoutes = new Elysia().use(requireUser).get(
       book_id: edition.book.id,
       title: edition.book.title,
       authors: edition.book.authors,
-      total_duration_secs: edition.chapters.at(-1)?.endSecs ?? 0,
+      total_duration_secs: edition.chapters.at(-1)!.endSecs,
       chapters: edition.chapters.map((chapter) => ({
         index: chapter.index,
         title: chapter.title,
