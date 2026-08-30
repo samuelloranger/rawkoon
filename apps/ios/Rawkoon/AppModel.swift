@@ -1,0 +1,394 @@
+import Combine
+import Foundation
+import RawkoonKit
+
+@MainActor
+final class AppModel: ObservableObject {
+    @Published var isLoggedIn = false
+    @Published var serverURL: String
+    @Published var library: [LibrarySummary] = []
+    @Published var loading = false
+    @Published var errorMessage: String?
+    @Published var downloadPlans: [Int: DownloadPlan] = [:]
+    @Published var activeEditionId: Int?
+
+    let player = AudiobookPlayer()
+
+    private static let defaultServer = "https://samlo.cloud/rawkoon"
+    private static let serverURLKey = "server_url"
+    private static let authTokenKey = "auth_token"
+    private static let deviceIDKey = "device_id"
+
+    private var apiClient: APIClient?
+    private var manifests: [Int: BookManifest] = [:]
+    private var downloaders: [Int: ChapterDownloader] = [:]
+    private var pendingBackgroundCompletions: [String: () -> Void] = [:]
+    private var cancellables = Set<AnyCancellable>()
+    private var verifiedCounts: [Int: Int] = [:]
+    private var lastProgressWriteMillis: [Int: Int64] = [:]
+    private var lastProgressPosition: [Int: Double] = [:]
+
+    private let journalURL: URL
+    private let deviceID: String
+
+    init() {
+        serverURL = Keychain.get(Self.serverURLKey) ?? Self.defaultServer
+        journalURL = Self.positionLogURL()
+        deviceID = Self.resolveDeviceID()
+
+        if
+            let token = Keychain.get(Self.authTokenKey),
+            let baseURL = URL(string: serverURL)
+        {
+            apiClient = APIClient(baseURL: baseURL, token: token)
+            isLoggedIn = true
+        }
+
+        bindPlayer()
+    }
+
+    func login(server: String, email: String, password: String) async {
+        let normalizedServer = server.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let baseURL = URL(string: normalizedServer) else {
+            errorMessage = "Enter a valid server URL."
+            return
+        }
+
+        loading = true
+        errorMessage = nil
+        defer { loading = false }
+
+        do {
+            let client = APIClient(baseURL: baseURL, token: nil)
+            let token = try await client.login(email: email, password: password)
+
+            Keychain.set(normalizedServer, for: Self.serverURLKey)
+            Keychain.set(token, for: Self.authTokenKey)
+
+            serverURL = normalizedServer
+            apiClient = client
+            isLoggedIn = true
+            try await reloadLibrary()
+        } catch {
+            errorMessage = message(for: error)
+        }
+    }
+
+    func loadLibrary() async {
+        loading = true
+        errorMessage = nil
+        defer { loading = false }
+
+        do {
+            try await reloadLibrary()
+        } catch {
+            errorMessage = message(for: error)
+        }
+    }
+
+    func manifest(_ editionId: Int) async throws -> BookManifest {
+        if let cached = manifests[editionId] {
+            return cached
+        }
+        guard let apiClient else {
+            throw APIError.unauthorized
+        }
+
+        let fetched = try await apiClient.manifest(editionId: editionId)
+        manifests[editionId] = fetched
+        return fetched
+    }
+
+    func startDownload(editionId: Int) async {
+        errorMessage = nil
+
+        do {
+            let manifest = try await manifest(editionId)
+            if let existing = downloaders[editionId] {
+                existing.start()
+                return
+            }
+
+            let downloader = ChapterDownloader(editionId: editionId, manifest: manifest) { [weak self] plan in
+                Task { @MainActor in
+                    self?.applyDownloadPlan(plan, editionId: editionId)
+                }
+            }
+            if let pending = pendingBackgroundCompletions.first(where: { downloader.hasBackgroundSession(identifier: $0.key) }) {
+                downloader.setBackgroundSessionCompletion(pending.value)
+                pendingBackgroundCompletions.removeValue(forKey: pending.key)
+            }
+
+            downloaders[editionId] = downloader
+            downloader.start()
+        } catch {
+            errorMessage = message(for: error)
+        }
+    }
+
+    func openPlayer(editionId: Int) async {
+        errorMessage = nil
+
+        do {
+            let manifest = try await manifest(editionId)
+            activeEditionId = editionId
+
+            let resumeAt = await resolveResumePosition(editionId: editionId, manifest: manifest)
+            player.load(manifest: manifest, resumeAt: resumeAt)
+        } catch {
+            errorMessage = message(for: error)
+        }
+    }
+
+    func handleBackgroundEvents(identifier: String, completionHandler: @escaping () -> Void) {
+        if let downloader = downloaders.values.first(where: { $0.hasBackgroundSession(identifier: identifier) }) {
+            downloader.setBackgroundSessionCompletion(completionHandler)
+            downloader.start()
+            return
+        }
+        pendingBackgroundCompletions[identifier] = completionHandler
+    }
+
+    func logout() {
+        Keychain.delete(Self.serverURLKey)
+        Keychain.delete(Self.authTokenKey)
+
+        apiClient = nil
+        isLoggedIn = false
+        library = []
+        manifests = [:]
+        downloaders = [:]
+        downloadPlans = [:]
+        verifiedCounts = [:]
+        activeEditionId = nil
+        player.pause()
+        errorMessage = nil
+    }
+
+    func deleteDownloads() {
+        let editionIDs = Set(library.map(\.editionId))
+            .union(manifests.keys)
+            .union(downloadPlans.keys)
+
+        for editionId in editionIDs {
+            FileStore.deleteEdition(editionId)
+        }
+
+        downloadPlans = [:]
+        verifiedCounts = [:]
+        if activeEditionId != nil {
+            player.rebuild()
+        }
+    }
+
+    private func bindPlayer() {
+        player.$positionSecs
+            .sink { [weak self] _ in
+                self?.persistPlaybackProgress(force: false)
+            }
+            .store(in: &cancellables)
+
+        player.$isPlaying
+            .dropFirst()
+            .removeDuplicates()
+            .sink { [weak self] isPlaying in
+                guard !isPlaying else { return }
+                self?.persistPlaybackProgress(force: true)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func applyDownloadPlan(_ plan: DownloadPlan, editionId: Int) {
+        let oldCount = verifiedCounts[editionId] ?? 0
+        let newCount = verifiedChapterCount(in: plan)
+
+        downloadPlans[editionId] = plan
+        verifiedCounts[editionId] = newCount
+
+        if newCount > oldCount, activeEditionId == editionId {
+            player.rebuild()
+        }
+    }
+
+    private func resolveResumePosition(editionId: Int, manifest: BookManifest) async -> Double {
+        let localEntry = PositionJournal.latest(in: readJournal(), editionId: editionId)
+        let localRecord = localEntry.map {
+            ProgressRecord(
+                positionSecs: $0.positionSecs,
+                totalDurationSecs: manifest.totalDurationSecs,
+                finished: $0.positionSecs >= manifest.totalDurationSecs,
+                updatedAtMillis: $0.atMillis
+            )
+        }
+
+        var remoteRecord: ProgressRecord?
+        if let apiClient,
+           let remote = (try? await apiClient.getProgress())?.first(where: { $0.editionId == editionId }) {
+            remoteRecord = ProgressRecord(
+                positionSecs: remote.positionSecs,
+                totalDurationSecs: remote.totalDurationSecs,
+                finished: remote.finished,
+                updatedAtMillis: Int64(remote.updatedAt.timeIntervalSince1970 * 1000)
+            )
+        }
+
+        switch SyncReconciler.reconcile(local: localRecord, remote: remoteRecord) {
+        case .keepLocal:
+            return localRecord?.positionSecs ?? 0
+        case .takeRemote:
+            guard let remoteRecord else { return localRecord?.positionSecs ?? 0 }
+            let adjusted = SyncReconciler.adjust(remoteRecord, toTotal: manifest.totalDurationSecs)
+            let entry = PositionEntry(
+                editionId: editionId,
+                positionSecs: adjusted.positionSecs,
+                atMillis: adjusted.updatedAtMillis
+            )
+            appendJournal(entry)
+            return adjusted.positionSecs
+        case .push:
+            guard let localRecord else { return 0 }
+            sendProgress(
+                editionId: editionId,
+                positionSecs: localRecord.positionSecs,
+                totalDurationSecs: manifest.totalDurationSecs,
+                updatedAtMillis: localRecord.updatedAtMillis
+            )
+            return localRecord.positionSecs
+        }
+    }
+
+    private func persistPlaybackProgress(force: Bool) {
+        guard let editionId = activeEditionId, let manifest = manifests[editionId] else {
+            return
+        }
+
+        let nowMillis = Self.nowMillis()
+        if !force {
+            let elapsed = nowMillis - (lastProgressWriteMillis[editionId] ?? 0)
+            if elapsed < 5_000 {
+                return
+            }
+            if let last = lastProgressPosition[editionId], abs(last - player.positionSecs) < 1 {
+                return
+            }
+        }
+
+        let timeline = BookTimeline(chapters: manifest.chapters)
+        let clamped = timeline.clamp(player.positionSecs)
+        let entry = PositionEntry(editionId: editionId, positionSecs: clamped, atMillis: nowMillis)
+        appendJournal(entry)
+
+        lastProgressWriteMillis[editionId] = nowMillis
+        lastProgressPosition[editionId] = clamped
+
+        sendProgress(
+            editionId: editionId,
+            positionSecs: clamped,
+            totalDurationSecs: manifest.totalDurationSecs,
+            updatedAtMillis: nowMillis
+        )
+    }
+
+    private func sendProgress(
+        editionId: Int,
+        positionSecs: Double,
+        totalDurationSecs: Double,
+        updatedAtMillis: Int64
+    ) {
+        guard let apiClient else { return }
+        let finished = positionSecs >= max(totalDurationSecs - 1, 0)
+        let updatedAt = Date(timeIntervalSince1970: Double(updatedAtMillis) / 1000)
+
+        Task {
+            try? await apiClient.putProgress(
+                editionId: editionId,
+                positionSecs: positionSecs,
+                totalDurationSecs: totalDurationSecs,
+                finished: finished,
+                updatedAt: updatedAt,
+                deviceId: deviceID
+            )
+        }
+    }
+
+    private func reloadLibrary() async throws {
+        guard let apiClient else { throw APIError.unauthorized }
+        let fetched = try await apiClient.libraryAudiobooks()
+        library = fetched.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+
+    private func readJournal() -> String {
+        (try? String(contentsOf: journalURL, encoding: .utf8)) ?? ""
+    }
+
+    private func appendJournal(_ entry: PositionEntry) {
+        let line = PositionJournal.encode(entry)
+        guard !line.isEmpty, let data = line.data(using: .utf8) else {
+            return
+        }
+
+        if !FileManager.default.fileExists(atPath: journalURL.path) {
+            FileManager.default.createFile(atPath: journalURL.path, contents: nil)
+        }
+
+        guard let handle = try? FileHandle(forWritingTo: journalURL) else {
+            return
+        }
+
+        do {
+            try handle.seekToEnd()
+            try handle.write(contentsOf: data)
+            try handle.close()
+        } catch {
+            try? handle.close()
+        }
+    }
+
+    private func verifiedChapterCount(in plan: DownloadPlan) -> Int {
+        plan.chapters.reduce(into: 0) { count, chapter in
+            if plan.states[chapter.fileId] == .verified {
+                count += 1
+            }
+        }
+    }
+
+    private func message(for error: Error) -> String {
+        guard let apiError = error as? APIError else {
+            return "Unexpected error. Please try again."
+        }
+        switch apiError {
+        case .unauthorized:
+            return "Unauthorized. Check your credentials."
+        case let .http(status):
+            return "Server error (\(status))."
+        case .decode:
+            return "Could not parse server response."
+        case .transport:
+            return "Network error. Check your connection."
+        }
+    }
+
+    private static func resolveDeviceID() -> String {
+        if let existing = Keychain.get(deviceIDKey), !existing.isEmpty {
+            return existing
+        }
+        let newValue = UUID().uuidString
+        Keychain.set(newValue, for: deviceIDKey)
+        return newValue
+    }
+
+    private static func positionLogURL() -> URL {
+        let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        var url = root.appendingPathComponent("positions.log", isDirectory: false)
+        FileStore.excludeFromBackup(&url)
+        if !FileManager.default.fileExists(atPath: url.path) {
+            FileManager.default.createFile(atPath: url.path, contents: nil)
+        }
+        return url
+    }
+
+    private static func nowMillis() -> Int64 {
+        Int64(Date().timeIntervalSince1970 * 1000)
+    }
+}
