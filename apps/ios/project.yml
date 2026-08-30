@@ -3,11 +3,16 @@ options:
   bundleIdPrefix: cloud.samlo
   deploymentTarget:
     iOS: "18.0"
+packages:
+  RawkoonKit:
+    path: .
 targets:
   Rawkoon:
     type: application
     platform: iOS
     sources: [Rawkoon]
+    dependencies:
+      - package: RawkoonKit
     info:
       path: Rawkoon/Info.plist
       properties:
