@@ -157,8 +157,28 @@ export const bookContentRoutes = new Elysia().get(
       });
     }
 
+    if (range.start === 0 && range.end === size - 1) {
+      return new Response(handle.stream(), {
+        status: 206,
+        headers: {
+          "Content-Type": "audio/mpeg",
+          "Content-Range": `bytes ${range.start}-${range.end}/${size}`,
+          "Content-Length": String(range.end - range.start + 1),
+          "Accept-Ranges": "bytes",
+          "Cache-Control": CONTENT_CACHE_CONTROL,
+        },
+      });
+    }
+
     const { start, endExclusive } = sliceForRange(range);
-    return new Response(handle.slice(start, endExclusive), {
+    // @elysiajs/cors re-serves sliced BunFile handles from byte 0, so
+    // `handle.slice(...)` or `handle.slice(...).stream()` can silently send the
+    // whole file with status 206. This was measured on real requests, so keep a
+    // materialized body here unless cors no longer rewrites sliced handles.
+    const chunk = new Uint8Array(
+      await handle.slice(start, endExclusive).arrayBuffer(),
+    );
+    return new Response(chunk, {
       status: 206,
       headers: {
         "Content-Type": "audio/mpeg",
