@@ -9,7 +9,7 @@ struct LoginView: View {
         NavigationStack {
             Form {
                 Section("Server") {
-                    TextField("Server URL", text: $model.serverURL)
+                    TextField("https://your-rawkoon-server", text: $model.serverURL)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
