@@ -85,6 +85,19 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// The configured API client, or nil when logged out. Manage-lane screens
+    /// call this directly (e.g. `try await model.api()?.explore()`).
+    func api() -> APIClient? { apiClient }
+
+    /// Resolves a possibly-relative image path against the server base URL.
+    /// TMDB poster URLs are already absolute; library posters may be relative.
+    func absoluteURL(_ raw: String?) -> URL? {
+        guard let raw, !raw.isEmpty else { return nil }
+        if let absolute = URL(string: raw), absolute.scheme != nil { return absolute }
+        guard let base = URL(string: serverURL) else { return nil }
+        return URL(string: raw, relativeTo: base)?.absoluteURL
+    }
+
     func manifest(_ editionId: Int) async throws -> BookManifest {
         if let cached = manifests[editionId] {
             return cached

@@ -51,10 +51,24 @@ private struct RootTabsView: View {
     var body: some View {
         TabView {
             NavigationStack {
+                DiscoverView()
+            }
+            .tabItem {
+                Label("Discover", systemImage: "sparkles.rectangle.stack")
+            }
+
+            NavigationStack {
                 LibraryView()
             }
             .tabItem {
-                Label("Library", systemImage: "books.vertical")
+                Label("Library", systemImage: "square.stack")
+            }
+
+            NavigationStack {
+                ActivityView()
+            }
+            .tabItem {
+                Label("Activity", systemImage: "arrow.down.circle")
             }
 
             NavigationStack {
