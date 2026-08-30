@@ -17,6 +17,7 @@ const state: {
   edition: Record<string, unknown> | null;
   files: Row[];
   nextFileId: number;
+  chapterDeleteCalls: number;
   editionUpdates: Array<{
     where: { id: number };
     data: Record<string, unknown>;
@@ -27,9 +28,18 @@ const state: {
   edition: null,
   files: [],
   nextFileId: 1,
+  chapterDeleteCalls: 0,
   editionUpdates: [],
   deletedIds: [],
   created: [],
+};
+
+const pushEditionUpdate = (args: {
+  where: { id: number };
+  data: Record<string, unknown>;
+}) => {
+  state.editionUpdates.push(args);
+  return Promise.resolve({ bookId: 9 });
 };
 
 const editionFixture = (overrides: Record<string, unknown> = {}) => ({
@@ -50,13 +60,7 @@ mock.module("@rawkoon/api/db", () => ({
   prisma: {
     bookEdition: {
       findUnique: () => Promise.resolve(state.edition),
-      update: (args: {
-        where: { id: number };
-        data: Record<string, unknown>;
-      }) => {
-        state.editionUpdates.push(args);
-        return Promise.resolve({ bookId: 9 });
-      },
+      update: pushEditionUpdate,
     },
     mediaSettings: {
       upsert: () =>
@@ -97,13 +101,32 @@ mock.module("@rawkoon/api/db", () => ({
       },
       update: () => Promise.resolve({}),
     },
-    // An audiobook import probes for chapter marks; this stub only has to make
-    // the transaction resolve, since the chapter parser has its own tests.
-    bookFileChapter: {
-      deleteMany: () => Promise.resolve({ count: 0 }),
-      createMany: () => Promise.resolve({ count: 0 }),
+    $transaction: async (
+      arg:
+        | Promise<unknown>[]
+        | ((tx: {
+            bookChapter: { deleteMany: (args: unknown) => Promise<unknown> };
+            bookEdition: {
+              update: (args: {
+                where: { id: number };
+                data: Record<string, unknown>;
+              }) => Promise<unknown>;
+            };
+          }) => Promise<unknown>),
+    ) => {
+      if (typeof arg === "function") {
+        return arg({
+          bookChapter: {
+            deleteMany: async () => {
+              state.chapterDeleteCalls += 1;
+              return { count: 0 };
+            },
+          },
+          bookEdition: { update: pushEditionUpdate },
+        });
+      }
+      return Promise.all(arg);
     },
-    $transaction: (operations: Promise<unknown>[]) => Promise.all(operations),
   },
 }));
 
@@ -151,6 +174,7 @@ describe("rescanBookEdition", () => {
     state.edition = editionFixture();
     state.files = [];
     state.nextFileId = 1;
+    state.chapterDeleteCalls = 0;
     state.editionUpdates = [];
     state.deletedIds = [];
     state.created = [];
@@ -170,7 +194,13 @@ describe("rescanBookEdition", () => {
     expect(result.directory).toBe(ebookDir);
     expect(state.created[0]?.filePath).toBe(file);
     expect(state.created[0]?.format).toBe("epub");
-    expect(state.editionUpdates.at(-1)?.data.status).toBe("downloaded");
+    expect(state.editionUpdates.map((u) => u.data)).toContainEqual({
+      status: "downloaded",
+    });
+    expect(state.editionUpdates.map((u) => u.data)).toContainEqual({
+      offlineReady: false,
+    });
+    expect(state.chapterDeleteCalls).toBe(1);
   });
 
   // Repeat scans used to report registered: 1 forever, because rows are
@@ -185,6 +215,7 @@ describe("rescanBookEdition", () => {
     expect(second.registered).toBe(0);
     expect(second.refreshed).toBe(1);
     expect(state.files).toHaveLength(1);
+    expect(state.chapterDeleteCalls).toBe(1);
   });
 
   it("drops rows whose file has disappeared and reverts the edition to wanted", async () => {
@@ -198,6 +229,10 @@ describe("rescanBookEdition", () => {
     expect(state.deletedIds).toEqual([5]);
     expect(result.registered).toBe(0);
     expect(state.editionUpdates.at(-1)?.data.status).toBe("wanted");
+    expect(state.editionUpdates.map((u) => u.data)).toContainEqual({
+      offlineReady: false,
+    });
+    expect(state.chapterDeleteCalls).toBe(1);
   });
 
   // Only the templated directory is walked, so an unrelated book next door in
