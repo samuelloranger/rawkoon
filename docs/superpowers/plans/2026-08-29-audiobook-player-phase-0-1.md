@@ -12,7 +12,7 @@ rows carrying a whole-book timeline derived from the real files, a Range-capable
 authenticated by a signed grant rather than a session, and per-user progress.
 
 **Tech Stack:** Bun, Elysia, Prisma 7 + Postgres 17, `bun test`. Swift 6.3 / SwiftPM and XcodeGen for
-the iOS skeleton. GitHub Actions `macos-15` runners producing an unsigned `.ipa`, sideloaded.
+the iOS skeleton. GitHub Actions `macos-15` runners for simulator builds and a gated TestFlight lane.
 
 **Spec:** `docs/superpowers/specs/2026-08-29-audiobook-player-design.md`
 
@@ -50,7 +50,7 @@ the iOS skeleton. GitHub Actions `macos-15` runners producing an unsigned `.ipa`
 | `apps/api/src/services/books/downloadGrant.ts` | Mint and verify signed content URLs. |
 | `apps/api/src/routes/books/bookPlaybackRoutes.ts` | `manifest`, `content`, and the progress endpoints. |
 | `apps/ios/project.yml` | XcodeGen project definition, so no `.pbxproj` is ever hand-edited. |
-| `.github/workflows/ios.yml` | Simulator build plus an unsigned `.ipa` artifact, on macOS runners. |
+| `.github/workflows/ios.yml` | Simulator build plus gated TestFlight upload, on macOS runners. |
 
 ---
 
@@ -71,22 +71,20 @@ application code on purpose: its deliverable is evidence, not features.
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: an unsigned `.ipa` artifact from CI, and a confirmed answer to "does
+- Produces: a TestFlight build from CI, and a confirmed answer to "does
   `handleEventsForBackgroundURLSession` fire on this phone".
 
 - [ ] **Step 1: Operator prerequisites**
 
-The app is **sideloaded**, not distributed through TestFlight, so CI never signs anything and no
-App Store Connect API key is needed. CI produces an unsigned `.ipa`; the operator's Mac signs it at
-install time with their own Apple ID.
+> Superseded on 2026-08-30: this step originally targeted sideloading and is kept for plan history.
+
+The app is now distributed through **TestFlight**. CI signs and uploads using:
+`APP_STORE_CONNECT_KEY_P8_BASE64`, `APP_STORE_CONNECT_KEY_ID`,
+`APP_STORE_CONNECT_ISSUER_ID`, and `APPLE_TEAM_ID`.
 
 The operator needs, once:
-1. A Mac with Xcode installed, and a signing tool — Sideloadly, AltStore, or Xcode's own
-   Devices window.
-2. A paid Apple Developer account, so the install lasts a year rather than seven days. Free
-   provisioning expires weekly, which would make the phase 2 soak test impossible to repeat.
-
-Nothing is stored in repository secrets. That is the point of this route.
+1. A paid Apple Developer account and an App Store Connect app record for `cloud.samlo.rawkoon`.
+2. TestFlight installed on the phone for over-the-air install updates.
 
 - [ ] **Step 2: Write the XcodeGen project definition**
 
@@ -193,9 +191,9 @@ struct ProbeView: View {
 
 - [ ] **Step 5: Write the CI workflow**
 
-Two jobs. The simulator build is the fast feedback loop; the unsigned `.ipa` is the artifact the
-operator actually installs. Signing is deliberately disabled in both — a sideloading flow re-signs
-locally, so a signing identity in CI would be dead weight and a secret to leak.
+The simulator build remains the fast feedback loop. Distribution is now a dedicated `testflight`
+job that runs only on `workflow_dispatch` or `ios-v*` tags, then archives, exports, uploads, and
+always keeps `.ipa` + `.xcarchive` artifacts even when upload fails.
 
 ```yaml
 # .github/workflows/ios.yml
@@ -203,51 +201,36 @@ name: iOS
 on:
   push:
     paths: ["apps/ios/**", ".github/workflows/ios.yml"]
+    tags: ["ios-v*"]
   pull_request:
     paths: ["apps/ios/**"]
   workflow_dispatch:
+    inputs:
+      version:
+        required: false
+        default: "0.1.0"
 jobs:
+  kit:
+    runs-on: ubuntu-latest
+    # unchanged: RawkoonKit swift test
+
   build:
     runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v4
-      - run: brew install xcodegen
-      - run: xcodegen generate
-        working-directory: apps/ios
-      - name: Build for simulator
-        working-directory: apps/ios
-        run: |
-          xcodebuild build \
-            -project Rawkoon.xcodeproj -scheme Rawkoon \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
-            CODE_SIGNING_ALLOWED=NO
+    needs: kit
+    # unchanged: simulator build
 
-  ipa:
+  testflight:
     runs-on: macos-15
     needs: build
-    steps:
-      - uses: actions/checkout@v4
-      - run: brew install xcodegen
-      - run: xcodegen generate
-        working-directory: apps/ios
-      - name: Build unsigned device binary
-        working-directory: apps/ios
-        run: |
-          xcodebuild build \
-            -project Rawkoon.xcodeproj -scheme Rawkoon \
-            -destination 'generic/platform=iOS' \
-            -derivedDataPath build/dd \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
-      - name: Wrap the .app into an .ipa
-        working-directory: apps/ios
-        run: |
-          mkdir -p build/Payload
-          cp -R build/dd/Build/Products/Debug-iphoneos/Rawkoon.app build/Payload/
-          cd build && zip -qry Rawkoon-unsigned.ipa Payload
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Rawkoon-unsigned-ipa
-          path: apps/ios/build/Rawkoon-unsigned.ipa
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/ios-v')
+    # resolve MARKETING_VERSION from input/tag
+    # set CURRENT_PROJECT_VERSION from github.run_number (single publishing lane)
+    # decode APP_STORE_CONNECT_KEY_P8_BASE64 into ~/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8
+    # xcodegen generate
+    # xcodebuild archive ... -allowProvisioningUpdates -authenticationKey*
+    # xcodebuild -exportArchive ... -exportOptionsPlist ExportOptions.plist
+    # xcrun altool --upload-app ...
+    # upload ipa + xcarchive artifacts with if: always()
 ```
 
 - [ ] **Step 6: Push and confirm the simulator build is green**
@@ -256,18 +239,13 @@ Run: `gh run watch`
 Expected: the `build` job passes. If `xcodegen` reports an unknown key, fix `project.yml` — do not
 create an `.xcodeproj` by hand, because nothing on this Linux machine can maintain one.
 
-- [ ] **Step 7: Download and sideload the build**
+- [ ] **Step 7: Dispatch and install through TestFlight (supersedes sideload)**
 
-The artifact is a few megabytes, which matters on a 30 KB/s link — this is the only thing that has
-to cross it.
+Run `ios.yml` via `workflow_dispatch` (optional `version`, default `0.1.0`) or with an `ios-v*`
+tag push. CI uploads the build to TestFlight, and install/update happens over the air from the
+TestFlight app.
 
-```bash
-gh run download --name Rawkoon-unsigned-ipa
-```
-
-On the Mac, open `Rawkoon-unsigned.ipa` in Sideloadly (or AltStore), sign it with the Apple ID
-attached to the paid developer account, and install to the phone. Trust the developer certificate
-under Settings → General → VPN & Device Management if prompted.
+This supersedes the old `gh run download` + Sideloadly/AltStore flow.
 
 - [ ] **Step 8: Run the experiment on the phone**
 
@@ -280,10 +258,10 @@ iOS half of this design is viable. If it never appears, stop and re-plan phases 
 writing any more Swift — that is what this phase is for.
 
 One thing to confirm while you are here, because it is cheap now and expensive to discover in phase
-2: a sideloaded app carries the same `UIBackgroundModes` as any other, but if the background wake
-never fires, re-check that `sessionSendsLaunchEvents` survived signing and that the app was not
-force-quit from the app switcher — a force-quit cancels background transfers by design, and would
-look identical to the feature being unavailable.
+2: a TestFlight-signed app carries the same `UIBackgroundModes` as any other, but if the
+background wake never fires, re-check that `sessionSendsLaunchEvents` survived signing and that the
+app was not force-quit from the app switcher — a force-quit cancels background transfers by design,
+and would look identical to the feature being unavailable.
 
 - [ ] **Step 9: Commit**
 

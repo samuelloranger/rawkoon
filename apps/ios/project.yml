@@ -13,8 +13,12 @@ targets:
       properties:
         UIBackgroundModes: [audio, fetch]
         CFBundleDisplayName: Rawkoon
+        ITSAppUsesNonExemptEncryption: false
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: cloud.samlo.rawkoon
       MARKETING_VERSION: "0.1.0"
       CURRENT_PROJECT_VERSION: "1"
       SWIFT_VERSION: "5.0"
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      DEVELOPMENT_TEAM: SSU33B2E5B
+      CODE_SIGN_STYLE: Automatic

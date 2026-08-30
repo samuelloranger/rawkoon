@@ -2,9 +2,15 @@ name: iOS
 on:
   push:
     paths: ["apps/ios/**", ".github/workflows/ios.yml"]
+    tags: ["ios-v*"]
   pull_request:
     paths: ["apps/ios/**"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: Marketing version for TestFlight upload
+        required: false
+        default: "0.1.0"
 jobs:
   kit:
     runs-on: ubuntu-latest
@@ -32,29 +38,91 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 16' \
             CODE_SIGNING_ALLOWED=NO
 
-  ipa:
+  testflight:
     runs-on: macos-15
     needs: build
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/ios-v')
+    env:
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v4
       - run: brew install xcodegen
+      - name: Resolve release version
+        working-directory: apps/ios
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            MARKETING_VERSION="${{ inputs.version }}"
+          else
+            MARKETING_VERSION="${GITHUB_REF_NAME#ios-v}"
+          fi
+          echo "MARKETING_VERSION=${MARKETING_VERSION}" >> "$GITHUB_ENV"
+          # Rawkoon has one publishing lane; github.run_number is already monotonic.
+          echo "CURRENT_PROJECT_VERSION=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+      - name: Install App Store Connect key
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
+          echo "${{ secrets.APP_STORE_CONNECT_KEY_P8_BASE64 }}" | base64 --decode > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+          echo "APP_STORE_CONNECT_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
       - run: xcodegen generate
         working-directory: apps/ios
-      - name: Build unsigned device binary
+      - name: Archive signed app
         working-directory: apps/ios
         run: |
-          xcodebuild build \
-            -project Rawkoon.xcodeproj -scheme Rawkoon \
+          xcodebuild archive \
+            -project Rawkoon.xcodeproj \
+            -scheme Rawkoon \
             -destination 'generic/platform=iOS' \
-            -derivedDataPath build/dd \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
-      - name: Wrap the .app into an .ipa
+            -archivePath build/Rawkoon.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$APP_STORE_CONNECT_KEY_PATH" \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
+            MARKETING_VERSION="$MARKETING_VERSION" \
+            CURRENT_PROJECT_VERSION="$CURRENT_PROJECT_VERSION" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
+      - name: Export IPA
         working-directory: apps/ios
         run: |
-          mkdir -p build/Payload
-          cp -R build/dd/Build/Products/Debug-iphoneos/Rawkoon.app build/Payload/
-          cd build && zip -qry Rawkoon-unsigned.ipa Payload
-      - uses: actions/upload-artifact@v4
+          xcodebuild -exportArchive \
+            -archivePath build/Rawkoon.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist ExportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$APP_STORE_CONNECT_KEY_PATH" \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
+      - name: Upload to TestFlight
+        working-directory: apps/ios
+        run: |
+          IPA_PATH=""
+          for candidate in build/export/*.ipa; do
+            IPA_PATH="$candidate"
+            break
+          done
+          if [ -z "$IPA_PATH" ]; then
+            echo "No IPA produced by export step" >&2
+            exit 1
+          fi
+          xcrun altool --upload-app \
+            -f "$IPA_PATH" \
+            -t ios \
+            --apiKey "$APP_STORE_CONNECT_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+      - name: Upload IPA artifact
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: Rawkoon-unsigned-ipa
-          path: apps/ios/build/Rawkoon-unsigned.ipa
+          name: Rawkoon-testflight-ipa-${{ github.sha }}
+          path: apps/ios/build/export/*.ipa
+          if-no-files-found: warn
+      - name: Upload archive artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rawkoon-testflight-xcarchive-${{ github.sha }}
+          path: apps/ios/build/Rawkoon.xcarchive
+          if-no-files-found: warn

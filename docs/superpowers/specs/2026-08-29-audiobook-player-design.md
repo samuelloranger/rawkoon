@@ -29,6 +29,7 @@ eight-hour file.
 | Speed | `AVPlayer.rate` + `audioTimePitchAlgorithm`. No `AVAudioEngine`, no DSP. |
 | Eviction | Manual download, automatic eviction once a book is finished. |
 | Download auth | Short-lived signed URLs. No `Authorization` header on background transfers. |
+| Distribution | TestFlight, signed in CI and uploaded to the existing App Store Connect record. |
 | Build | GitHub Actions macOS runners. XcodeGen generates the project from `project.yml`. |
 | CarPlay | Out of scope. It needs an entitlement and a template scene. |
 
@@ -458,13 +459,15 @@ is hand-edited, which is what makes it possible to add Swift files from Linux at
 - `.github/workflows/ios.yml`: on Ubuntu, install the Swift 6.3 toolchain, then `swift test`
   for RawkoonKit; on `macos-15`,
   `xcodegen generate` then `xcodebuild test` on a simulator.
-- An unsigned `.ipa` as a workflow artifact. The app is **sideloaded**: the operator's Mac signs
-  it at install time with their own Apple ID, so CI holds no signing identity and no App Store
-  Connect key. A paid developer account makes the install last a year instead of seven days,
-  which is what allows a soak test to be repeated.
+- A signed TestFlight archive from CI. The release lane is deliberately gated to
+  `workflow_dispatch` and `ios-v*` tags so an accidental upload does not consume a permanent
+  `(version, build)` pair on the live App Store Connect record.
+- Build numbers use `github.run_number` directly (single publishing lane), and CI authenticates
+  with `APP_STORE_CONNECT_KEY_P8_BASE64`, `APP_STORE_CONNECT_KEY_ID`,
+  `APP_STORE_CONNECT_ISSUER_ID`, and `APPLE_TEAM_ID`.
 
-Operator setup, once: a Mac with Xcode and a sideloading tool (Sideloadly, AltStore, or Xcode's
-Devices window), and a paid developer account. Nothing is stored in repository secrets.
+Operator-visible consequence: builds arrive over the air through TestFlight, there is no weekly
+re-signing loop, and push entitlements work because Apple issues them only to properly signed apps.
 
 ## Testing
 
@@ -497,7 +500,7 @@ RawkoonKit, with `swift test` on Linux:
   mid-download.
 - `PositionJournal` recovers the last valid position from a log truncated mid-write.
 
-On device, once a build can be sideloaded — the things no test here can prove:
+On device, once a TestFlight build is installed — the things no test here can prove:
 
 - Download all 61 chapters, play across several boundaries, confirm no audible gap.
 - Begin playback while chapters are still downloading, and confirm the whole-book position is
@@ -508,7 +511,7 @@ On device, once a build can be sideloaded — the things no test here can prove:
 
 ## Phases
 
-0. **Delivery and wake-up.** An empty app built by GitHub Actions, sideloaded onto the
+0. **Delivery and wake-up.** An empty app built by GitHub Actions and delivered through TestFlight,
    phone, plus a probe that starts a background download, force-backgrounds the app, and
    confirms the `handleEventsForBackgroundURLSession` wake fires. Device time and a working
    delivery path are the scarce resources here, and nothing else is worth building until both
