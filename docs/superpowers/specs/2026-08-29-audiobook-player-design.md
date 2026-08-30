@@ -154,6 +154,20 @@ position is clamped into range, treated as approximate and surfaced as such, and
 finished, and since finished books are evicted automatically, an upgrade could silently delete
 a download mid-listen.
 
+### A new runtime dependency: ffmpeg
+
+The production image does **not** ship ffmpeg. `Dockerfile` installs `openssl curl mediainfo
+mkvtoolnix` and nothing else, and no code in rawkoon shells out to ffmpeg today — file scanning goes
+through mediainfo, remuxing through mkvtoolnix. This design adds the dependency, and the addition is
+not optional: mkvtoolnix cannot split an MP3, so the one-pass segment muxer below exists only in
+ffmpeg. Chapter probing could in principle use mediainfo, which is already present, but it reports
+whole milliseconds (504188 ms where ffprobe reports 504.189388 s), and the timeline has to match
+what AVFoundation reads from the same files.
+
+So `ffmpeg` joins that apt line, carrying both `ffmpeg` and `ffprobe`. It costs roughly 200MB of
+image on a single-user self-hosted deployment. The line carries a comment saying why, because
+nothing else in the repo references it and it would otherwise look like a stray package.
+
 ### Chapterize worker
 
 `services/jobs/bookChapterizeWorker.ts`, modelled on `libraryRemuxWorker.ts` — `Bun.spawn`,
