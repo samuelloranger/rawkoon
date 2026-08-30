@@ -49,6 +49,21 @@ final class BookTimelineTests: XCTestCase {
                        p, accuracy: 1e-9)
     }
 
+    func testUsesDomainChapterIndicesInsteadOfArrayPositions() {
+        let timeline = BookTimeline(chapters: [
+            chapter(5, 0, 10),
+            chapter(6, 10, 20),
+            chapter(7, 20, 30),
+        ])
+
+        XCTAssertEqual(timeline.chapterIndex(at: 0), 5)
+        XCTAssertEqual(timeline.chapterIndex(at: 10), 6)
+        XCTAssertEqual(timeline.chapterIndex(at: 25), 7)
+
+        XCTAssertEqual(timeline.position(chapterIndex: 6, offsetSecs: 2.5), 12.5)
+        XCTAssertEqual(timeline.offsetWithinChapter(at: 12.5)?.index, 6)
+    }
+
     func testOutOfRangePositions() {
         XCTAssertNil(timeline.chapterIndex(at: -1))
         XCTAssertNil(timeline.chapterIndex(at: 1995.049796))

@@ -94,4 +94,33 @@ final class DownloadPlanTests: XCTestCase {
         XCTAssertEqual(plan.states[100], .evicted)
         XCTAssertFalse(plan.isComplete)
     }
+
+    func testRequestedResetsFailedChapterBackToPending() {
+        var plan = DownloadPlan(chapters: chapters(1))
+        for _ in 0..<DownloadPlan.maxAttempts {
+            plan.apply(.started(fileId: 100))
+            plan.apply(.transportFailed(fileId: 100))
+        }
+
+        XCTAssertEqual(plan.states[100], .failed(attempts: DownloadPlan.maxAttempts))
+        XCTAssertTrue(plan.nextToStart(limit: 5).isEmpty)
+
+        plan.apply(.requested(fileId: 100))
+        XCTAssertEqual(plan.states[100], .pending)
+        XCTAssertEqual(plan.nextToStart(limit: 5), [100])
+
+        plan.apply(.started(fileId: 100))
+        plan.apply(.transportFailed(fileId: 100))
+        XCTAssertEqual(plan.states[100], .failed(attempts: 1))
+    }
+
+    func testRequestedResetsEvictedChapterBackToPending() {
+        var plan = DownloadPlan(chapters: chapters(1))
+        plan.apply(.evicted(fileId: 100))
+        XCTAssertEqual(plan.states[100], .evicted)
+
+        plan.apply(.requested(fileId: 100))
+        XCTAssertEqual(plan.states[100], .pending)
+        XCTAssertEqual(plan.nextToStart(limit: 5), [100])
+    }
 }
