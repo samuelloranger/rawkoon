@@ -6,6 +6,10 @@ struct RawkoonApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @StateObject private var model = AppModel()
 
+    init() {
+        Appearance.apply()
+    }
+
     var body: some Scene {
         WindowGroup {
             Group {
@@ -16,6 +20,8 @@ struct RawkoonApp: App {
                 }
             }
             .environmentObject(model)
+            .tint(Theme.apricot)
+            .preferredColorScheme(.dark)
             .onAppear {
                 delegate.appModel = model
             }
@@ -58,6 +64,7 @@ private struct RootTabsView: View {
                 Label("Settings", systemImage: "gearshape")
             }
         }
+        .tint(Theme.apricot)
         .task {
             if model.library.isEmpty {
                 await model.loadLibrary()

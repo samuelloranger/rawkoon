@@ -19,6 +19,14 @@ targets:
         UIBackgroundModes: [audio, fetch]
         CFBundleDisplayName: Rawkoon
         ITSAppUsesNonExemptEncryption: false
+        # Cozy Dusk display face. Fraunces ships as one variable TTF; iOS reads it
+        # under the family name "Fraunces". Theme.display() falls back to the
+        # system serif if this ever fails to register.
+        UIAppFonts:
+          - Fraunces.ttf
+        # Dark-only by design — audiobooks and late-night queue-watching live at
+        # night, and the whole palette is built for a dim room.
+        UIUserInterfaceStyle: Dark
         # iPhone-only (TARGETED_DEVICE_FAMILY = 1 below), so the iPad-multitasking
         # rule that demands all four orientations does not apply and the player
         # can stay portrait-only.

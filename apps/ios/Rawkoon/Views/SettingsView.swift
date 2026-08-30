@@ -10,7 +10,9 @@ struct SettingsView: View {
                 TextField("Server URL", text: $model.serverURL)
                     .disabled(true)
                     .textSelection(.enabled)
+                    .foregroundStyle(Theme.muted)
             }
+            .listRowBackground(Theme.raised)
 
             Section("Downloads") {
                 Picker("Download over", selection: $downloadOver) {
@@ -23,13 +25,18 @@ struct SettingsView: View {
                     model.deleteDownloads()
                 }
             }
+            .listRowBackground(Theme.raised)
 
             Section {
                 Button("Log Out", role: .destructive) {
                     model.logout()
                 }
             }
+            .listRowBackground(Theme.raised)
         }
+        .scrollContentBackground(.hidden)
+        .background(Theme.base)
+        .tint(Theme.apricot)
         .navigationTitle("Settings")
     }
 }
