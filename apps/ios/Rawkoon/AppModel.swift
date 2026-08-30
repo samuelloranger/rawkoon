@@ -73,6 +73,22 @@ final class AppModel: ObservableObject {
         }
     }
 
+    #if DEBUG
+    /// Simulator/screenshot convenience: log in from launch environment when
+    /// present. Compiled only in Debug, so it never ships in a Release/TestFlight
+    /// build. Pass via `SIMCTL_CHILD_RAWKOON_SERVER` etc. to `simctl launch`.
+    func debugAutologinIfNeeded() async {
+        guard !isLoggedIn else { return }
+        let env = ProcessInfo.processInfo.environment
+        guard
+            let server = env["RAWKOON_SERVER"],
+            let email = env["RAWKOON_EMAIL"],
+            let password = env["RAWKOON_PASSWORD"]
+        else { return }
+        await login(server: server, email: email, password: password)
+    }
+    #endif
+
     func loadLibrary() async {
         loading = true
         errorMessage = nil

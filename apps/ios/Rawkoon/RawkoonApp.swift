@@ -25,6 +25,11 @@ struct RawkoonApp: App {
             .onAppear {
                 delegate.appModel = model
             }
+            .task {
+                #if DEBUG
+                await model.debugAutologinIfNeeded()
+                #endif
+            }
         }
     }
 }
@@ -48,15 +53,27 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 private struct RootTabsView: View {
     @EnvironmentObject private var model: AppModel
     @State private var showFullPlayer = false
+    @State private var selection: Int
+
+    init() {
+        var initial = 0
+        #if DEBUG
+        if let raw = ProcessInfo.processInfo.environment["RAWKOON_TAB"], let value = Int(raw) {
+            initial = value
+        }
+        #endif
+        _selection = State(initialValue: initial)
+    }
 
     var body: some View {
-        TabView {
+        TabView(selection: $selection) {
             NavigationStack {
                 DiscoverView()
             }
             .tabItem {
                 Label("Discover", systemImage: "sparkles.rectangle.stack")
             }
+            .tag(0)
 
             NavigationStack {
                 LibraryView()
@@ -64,6 +81,7 @@ private struct RootTabsView: View {
             .tabItem {
                 Label("Library", systemImage: "square.stack")
             }
+            .tag(1)
 
             NavigationStack {
                 ActivityView()
@@ -71,6 +89,7 @@ private struct RootTabsView: View {
             .tabItem {
                 Label("Activity", systemImage: "arrow.down.circle")
             }
+            .tag(2)
 
             NavigationStack {
                 SettingsView()
@@ -78,6 +97,7 @@ private struct RootTabsView: View {
             .tabItem {
                 Label("Settings", systemImage: "gearshape")
             }
+            .tag(3)
         }
         .tint(Theme.apricot)
         .safeAreaInset(edge: .bottom) {

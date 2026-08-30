@@ -30,19 +30,22 @@ struct LoginView: View {
                     }
 
                     Section("Server") {
-                        TextField("https://your-rawkoon-server", text: $model.serverURL)
+                        TextField("", text: $model.serverURL, prompt: prompt("https://your-rawkoon-server"))
                             .keyboardType(.URL)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
+                            .foregroundStyle(Theme.text)
                     }
                     .listRowBackground(Theme.raised)
 
                     Section("Credentials") {
-                        TextField("Email", text: $email)
+                        TextField("", text: $email, prompt: prompt("Email"))
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                             .keyboardType(.emailAddress)
-                        SecureField("Password", text: $password)
+                            .foregroundStyle(Theme.text)
+                        SecureField("", text: $password, prompt: prompt("Password"))
+                            .foregroundStyle(Theme.text)
                     }
                     .listRowBackground(Theme.raised)
 
@@ -79,5 +82,9 @@ struct LoginView: View {
                 .tint(Theme.apricot)
             }
         }
+    }
+
+    private func prompt(_ text: String) -> Text {
+        Text(text).foregroundStyle(Theme.muted)
     }
 }
