@@ -47,6 +47,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
 private struct RootTabsView: View {
     @EnvironmentObject private var model: AppModel
+    @State private var showFullPlayer = false
 
     var body: some View {
         TabView {
@@ -79,6 +80,15 @@ private struct RootTabsView: View {
             }
         }
         .tint(Theme.apricot)
+        .safeAreaInset(edge: .bottom) {
+            MiniPlayerView { showFullPlayer = true }
+        }
+        .sheet(isPresented: $showFullPlayer) {
+            if let active = model.activeBook() {
+                PlayerView(summary: active.summary, manifest: active.manifest)
+                    .environmentObject(model)
+            }
+        }
         .task {
             if model.library.isEmpty {
                 await model.loadLibrary()

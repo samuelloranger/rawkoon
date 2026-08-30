@@ -89,6 +89,21 @@ final class AppModel: ObservableObject {
     /// call this directly (e.g. `try await model.api()?.explore()`).
     func api() -> APIClient? { apiClient }
 
+    /// The book currently loaded in the player, if any — drives the persistent
+    /// mini-player and its expand-to-full-player sheet. Non-nil once
+    /// `openPlayer(editionId:)` has run (it caches the manifest and sets
+    /// `activeEditionId`).
+    func activeBook() -> (summary: LibrarySummary, manifest: BookManifest)? {
+        guard
+            let id = activeEditionId,
+            let summary = library.first(where: { $0.editionId == id }),
+            let manifest = manifests[id]
+        else {
+            return nil
+        }
+        return (summary, manifest)
+    }
+
     /// Resolves a possibly-relative image path against the server base URL.
     /// TMDB poster URLs are already absolute; library posters may be relative.
     func absoluteURL(_ raw: String?) -> URL? {
