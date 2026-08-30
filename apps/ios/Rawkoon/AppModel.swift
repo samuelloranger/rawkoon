@@ -14,7 +14,6 @@ final class AppModel: ObservableObject {
 
     let player = AudiobookPlayer()
 
-    private static let defaultServer = "https://samlo.cloud/rawkoon"
     private static let serverURLKey = "server_url"
     private static let authTokenKey = "auth_token"
     private static let deviceIDKey = "device_id"
@@ -32,7 +31,7 @@ final class AppModel: ObservableObject {
     private let deviceID: String
 
     init() {
-        serverURL = Keychain.get(Self.serverURLKey) ?? Self.defaultServer
+        serverURL = Keychain.get(Self.serverURLKey) ?? ""
         journalURL = Self.positionLogURL()
         deviceID = Self.resolveDeviceID()
 
