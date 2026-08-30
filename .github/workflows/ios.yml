@@ -39,7 +39,7 @@ jobs:
         run: |
           xcodebuild build \
             -project Rawkoon.xcodeproj -scheme Rawkoon \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO
 
   testflight:
