@@ -4,48 +4,31 @@ struct LibraryView: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        List(model.library) { item in
-            NavigationLink {
-                BookView(summary: item)
-            } label: {
-                HStack(spacing: 12) {
-                    AsyncImage(url: item.coverURL) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
-                        Color.gray.opacity(0.15)
+        ScrollView {
+            LazyVStack(spacing: 8) {
+                ForEach(model.library) { item in
+                    NavigationLink {
+                        BookView(summary: item)
+                    } label: {
+                        LibraryRow(item: item, downloaded: isDownloaded(item))
                     }
-                    .frame(width: 56, height: 56)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(item.title)
-                            .font(.headline)
-                            .lineLimit(2)
-                        if let author = item.author, !author.isEmpty {
-                            Text(author)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                    }
-
-                    Spacer(minLength: 12)
-                    if model.downloadPlans[item.editionId]?.isComplete == true {
-                        Text("Downloaded")
-                            .font(.caption2)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Capsule().fill(.green.opacity(0.2)))
-                            .foregroundStyle(.green)
-                    }
+                    .buttonStyle(.plain)
                 }
-                .padding(.vertical, 4)
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
         }
+        .background(Theme.base)
         .navigationTitle("Library")
         .overlay {
             if model.loading && model.library.isEmpty {
-                ProgressView()
+                ProgressView().tint(Theme.apricot)
+            } else if !model.loading && model.library.isEmpty {
+                ContentUnavailableView(
+                    "No books yet",
+                    systemImage: "books.vertical",
+                    description: Text("Books added on your Rawkoon server show up here.")
+                )
             }
         }
         .task {
@@ -56,5 +39,44 @@ struct LibraryView: View {
         .refreshable {
             await model.loadLibrary()
         }
+    }
+
+    private func isDownloaded(_ item: LibrarySummary) -> Bool {
+        model.downloadPlans[item.editionId]?.isComplete == true
+    }
+}
+
+private struct LibraryRow: View {
+    let item: LibrarySummary
+    let downloaded: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            BookCover(url: item.coverURL, size: 56, corner: 10)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.title)
+                    .font(.display(16))
+                    .foregroundStyle(Theme.textStrong)
+                    .lineLimit(2)
+                if let author = item.author, !author.isEmpty {
+                    Text(author)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.muted)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 12)
+
+            if downloaded {
+                StatusBadge(text: "Offline", tint: Theme.seed)
+            }
+        }
+        .padding(12)
+        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1)
+        )
     }
 }
