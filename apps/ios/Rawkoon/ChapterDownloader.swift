@@ -8,15 +8,17 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     private let stateQueue = DispatchQueue(label: "cloud.samlo.rawkoon.chapter-downloader")
     private let chapterByFileId: [Int: ManifestChapter]
     private let maxConcurrentDownloads = 3
+    private let sessionIdentifier: String
 
     private var plan: DownloadPlan
     private var isRunning = false
     private var hasLoadedExistingTasks = false
     private var activeFileIds: Set<Int> = []
+    private var backgroundSessionCompletion: (() -> Void)?
 
     private lazy var session: URLSession = {
         let config = URLSessionConfiguration.background(
-            withIdentifier: "cloud.samlo.rawkoon.dl.\(editionId)"
+            withIdentifier: sessionIdentifier
         )
         config.sessionSendsLaunchEvents = true
         config.isDiscretionary = false
@@ -27,6 +29,7 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         self.editionId = editionId
         self.manifest = manifest
         self.onState = onState
+        self.sessionIdentifier = "cloud.samlo.rawkoon.dl.\(editionId)"
         self.plan = DownloadPlan(chapters: manifest.chapters)
         self.chapterByFileId = Dictionary(uniqueKeysWithValues: manifest.chapters.map { ($0.fileId, $0) })
         super.init()
@@ -46,6 +49,16 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
             self.plan.apply(.requested(fileId: fileId))
             self.emitState()
             self.pumpIfNeeded()
+        }
+    }
+
+    func hasBackgroundSession(identifier: String) -> Bool {
+        identifier == sessionIdentifier
+    }
+
+    func setBackgroundSessionCompletion(_ completion: @escaping () -> Void) {
+        stateQueue.async {
+            self.backgroundSessionCompletion = completion
         }
     }
 
@@ -159,6 +172,16 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         guard nsError.code != NSURLErrorCancelled else { return }
         guard let fileId = fileId(from: task.taskDescription) else { return }
         applyEventAndContinue(.transportFailed(fileId: fileId), fileId: fileId)
+    }
+
+    func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
+        stateQueue.async {
+            let completion = self.backgroundSessionCompletion
+            self.backgroundSessionCompletion = nil
+            DispatchQueue.main.async {
+                completion?()
+            }
+        }
     }
 
     private func applyEventAndContinue(_ event: DownloadEvent, fileId: Int) {
