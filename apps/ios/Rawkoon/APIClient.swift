@@ -269,6 +269,143 @@ actor APIClient {
         }
         return iso8601.date(from: value)
     }
+
+    // MARK: - Media lane (movies / TV / requests / downloads)
+
+    /// Shared decoder for the media endpoints. snake_case → camelCase; dates
+    /// stay as strings (the media DTOs decode them as `String`).
+    private static let mediaDecoder: JSONDecoder = {
+        let d = JSONDecoder()
+        d.keyDecodingStrategy = .convertFromSnakeCase
+        return d
+    }()
+
+    private static let mediaEncoder: JSONEncoder = {
+        let e = JSONEncoder()
+        e.keyEncodingStrategy = .convertToSnakeCase
+        return e
+    }()
+
+    /// Authenticated GET returning a decoded `T`. `query` values that are nil are
+    /// dropped, so callers can pass optionals directly.
+    private func get<T: Decodable>(_ path: String, query: [String: String?] = [:]) async throws -> T {
+        let request = try makeRequest(path: pathWithQuery(path, query), method: "GET", requiresAuth: true)
+        let (data, response) = try await perform(request)
+        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        do { return try Self.mediaDecoder.decode(T.self, from: data) }
+        catch { throw APIError.decode }
+    }
+
+    /// Authenticated POST with a JSON body returning a decoded `T`.
+    private func post<B: Encodable, T: Decodable>(_ path: String, body: B) async throws -> T {
+        let (data, response) = try await sendPost(path, body: body)
+        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        do { return try Self.mediaDecoder.decode(T.self, from: data) }
+        catch { throw APIError.decode }
+    }
+
+    /// Authenticated POST that only cares whether the server accepted it (2xx).
+    /// Used for grab endpoints whose bodies mix strings and bools.
+    private func postExpectOK<B: Encodable>(_ path: String, body: B) async throws {
+        let (_, response) = try await sendPost(path, body: body)
+        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+    }
+
+    private func sendPost<B: Encodable>(_ path: String, body: B) async throws -> (Data, HTTPURLResponse) {
+        var request = try makeRequest(path: path, method: "POST", requiresAuth: true)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try Self.mediaEncoder.encode(body)
+        return try await perform(request)
+    }
+
+    private func pathWithQuery(_ path: String, _ query: [String: String?]) -> String {
+        let items = query.compactMap { key, value -> URLQueryItem? in
+            guard let value, !value.isEmpty else { return nil }
+            return URLQueryItem(name: key, value: value)
+        }
+        guard !items.isEmpty else { return path }
+        var comps = URLComponents()
+        comps.queryItems = items.sorted { $0.name < $1.name }
+        let q = comps.percentEncodedQuery ?? ""
+        return q.isEmpty ? path : "\(path)?\(q)"
+    }
+
+    // Discover
+    func explore() async throws -> ExploreFeed {
+        try await get("/api/medias/explore")
+    }
+
+    func tmdbSearch(q: String, kind: String? = nil) async throws -> TmdbSearchResponse {
+        try await get("/api/medias/tmdb-search", query: ["q": q, "kind": kind])
+    }
+
+    // Detail
+    func mediaModal(mediaType: String, tmdbId: Int) async throws -> MediaModalResponse {
+        try await get("/api/medias/modal/\(mediaType)/\(tmdbId)")
+    }
+
+    // Library (movies / shows)
+    func libraryList(type: String? = nil, status: String? = nil, q: String? = nil, limit: Int? = nil) async throws -> LibraryListResponse {
+        try await get("/api/library", query: [
+            "type": type, "status": status, "q": q,
+            "limit": limit.map(String.init),
+        ])
+    }
+
+    func libraryEpisodes(id: Int) async throws -> EpisodesResponse {
+        try await get("/api/library/\(id)/episodes")
+    }
+
+    // Requests
+    func requestsList() async throws -> RequestsResponse {
+        try await get("/api/requests")
+    }
+
+    func createRequest(_ body: CreateRequestBody) async throws -> [String: Int] {
+        try await post("/api/requests", body: body)
+    }
+
+    // Interactive release search + grab
+    func interactiveSearch(
+        q: String,
+        libraryMediaId: Int? = nil,
+        season: Int? = nil,
+        tmdbId: Int? = nil,
+        mediaType: String? = nil
+    ) async throws -> InteractiveSearchResponse {
+        try await get("/api/medias/interactive-search", query: [
+            "q": q,
+            "library_media_id": libraryMediaId.map(String.init),
+            "season": season.map(String.init),
+            "tmdb_id": tmdbId.map(String.init),
+            "media_type": mediaType,
+        ])
+    }
+
+    func grabByToken(_ token: String) async throws {
+        try await postExpectOK("/api/medias/interactive-search/download", body: GrabTokenBody(token: token))
+    }
+
+    func grabByUrl(libraryId: Int, body: GrabUrlBody) async throws {
+        try await postExpectOK("/api/library/\(libraryId)/grab", body: body)
+    }
+
+    // Downloads / activity / calendar
+    func downloads(libraryId: Int) async throws -> DownloadsResponse {
+        try await get("/api/library/\(libraryId)/downloads")
+    }
+
+    func speed() async throws -> SpeedResponse {
+        try await get("/api/dashboard/downloads/speed")
+    }
+
+    func activityFeed(limit: Int = 50) async throws -> ActivityFeedResponse {
+        try await get("/api/dashboard/activities/feed", query: ["limit": String(limit)])
+    }
+
+    func upcoming() async throws -> UpcomingResponse {
+        try await get("/api/dashboard/upcoming")
+    }
 }
 
 private struct LoginTokenResponse: Decodable {
