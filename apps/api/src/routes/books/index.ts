@@ -5,6 +5,11 @@ import { bookListRoutes } from "./bookListRoutes";
 import { bookEditionRoutes } from "./bookEditionRoutes";
 import { bookGrabRoutes } from "./bookGrabRoutes";
 import {
+  bookContentRoutes,
+  bookPlaybackRoutes,
+  bookProgressRoutes,
+} from "./bookPlaybackRoutes";
+import {
   bookMetadataAdminRoutes,
   bookMetadataRoutes,
 } from "./bookMetadataRoutes";
@@ -28,6 +33,9 @@ export { authorRoutes } from "./authorRoutes";
 export const bookRoutes = new Elysia({ prefix: "/api/books" })
   .use(auth)
   .use(bookListRoutes)
+  .use(bookPlaybackRoutes)
+  .use(bookContentRoutes)
+  .use(bookProgressRoutes)
   .use(bookMetadataRoutes)
   .use(bookMetadataAdminRoutes)
   .use(bookOverridesRoutes)
