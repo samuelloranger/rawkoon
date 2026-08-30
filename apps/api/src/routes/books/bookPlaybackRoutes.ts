@@ -1,3 +1,5 @@
+import { stat } from "node:fs/promises";
+import { extname } from "node:path";
 import { Elysia, t } from "elysia";
 
 import { loadConfig } from "@rawkoon/api/config";
@@ -12,6 +14,22 @@ import { parseByteRange, type ParsedByteRange } from "@rawkoon/shared/utils";
 
 const GRANT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const CONTENT_CACHE_CONTROL = "private, immutable, max-age=31536000";
+const contentTypeForPath = (filePath: string): string => {
+  switch (extname(filePath).toLowerCase()) {
+    case ".mp3":
+      return "audio/mpeg";
+    case ".m4b":
+    case ".m4a":
+      return "audio/mp4";
+    case ".flac":
+      return "audio/flac";
+    case ".ogg":
+    case ".opus":
+      return "audio/ogg";
+    default:
+      return "audio/mpeg";
+  }
+};
 
 /**
  * A client timestamp is trusted backwards but not forwards.
@@ -121,18 +139,31 @@ export const bookContentRoutes = new Elysia().get(
     if (!grant || grant.fileId !== params.fileId) {
       return unauthorized(set, "Invalid or expired download grant");
     }
+    // Datasaver files are not generated yet, so only "original" is serveable.
+    if (grant.variant !== "original") return notFound(set, "File not found");
 
     const file = await prisma.bookFile.findUnique({
       where: { id: params.fileId },
       select: {
         filePath: true,
-        sizeBytes: true,
       },
     });
     if (!file) return notFound(set, "File not found");
 
-    const size = Number(file.sizeBytes);
     const handle = Bun.file(file.filePath);
+    const size = handle.size;
+    if (size === 0 && !(await handle.exists()))
+      return notFound(set, "File not found");
+
+    let mtimeMs = 0;
+    try {
+      mtimeMs = Math.trunc((await stat(file.filePath)).mtimeMs);
+    } catch {
+      return notFound(set, "File not found");
+    }
+
+    const etag = `"${size}-${mtimeMs}"`;
+    const contentType = contentTypeForPath(file.filePath);
     const range = parseByteRange(request.headers.get("range"), size);
 
     if (range === "unsatisfiable") {
@@ -141,6 +172,7 @@ export const bookContentRoutes = new Elysia().get(
         headers: {
           "Content-Range": `bytes */${size}`,
           "Accept-Ranges": "bytes",
+          ETag: etag,
         },
       });
     }
@@ -149,10 +181,11 @@ export const bookContentRoutes = new Elysia().get(
       return new Response(handle.stream(), {
         status: 200,
         headers: {
-          "Content-Type": "audio/mpeg",
+          "Content-Type": contentType,
           "Content-Length": String(size),
           "Accept-Ranges": "bytes",
           "Cache-Control": CONTENT_CACHE_CONTROL,
+          ETag: etag,
         },
       });
     }
@@ -161,11 +194,12 @@ export const bookContentRoutes = new Elysia().get(
       return new Response(handle.stream(), {
         status: 206,
         headers: {
-          "Content-Type": "audio/mpeg",
+          "Content-Type": contentType,
           "Content-Range": `bytes ${range.start}-${range.end}/${size}`,
           "Content-Length": String(range.end - range.start + 1),
           "Accept-Ranges": "bytes",
           "Cache-Control": CONTENT_CACHE_CONTROL,
+          ETag: etag,
         },
       });
     }
@@ -181,11 +215,12 @@ export const bookContentRoutes = new Elysia().get(
     return new Response(chunk, {
       status: 206,
       headers: {
-        "Content-Type": "audio/mpeg",
+        "Content-Type": contentType,
         "Content-Range": `bytes ${range.start}-${range.end}/${size}`,
         "Content-Length": String(range.end - range.start + 1),
         "Accept-Ranges": "bytes",
         "Cache-Control": CONTENT_CACHE_CONTROL,
+        ETag: etag,
       },
     });
   },
@@ -247,13 +282,17 @@ export const bookProgressRoutes = new Elysia()
       });
       if (existing && existing.updatedAt > updatedAt) return { applied: false };
 
-      const data = {
+      const baseData = {
         positionSecs: body.position_secs,
         totalDurationSecs: body.total_duration_secs,
-        finished: body.finished ?? false,
         updatedAt,
         receivedAt: now,
         deviceId: body.device_id ?? null,
+      };
+
+      const updateData = {
+        ...baseData,
+        ...(body.finished === undefined ? {} : { finished: body.finished }),
       };
 
       await prisma.bookListeningProgress.upsert({
@@ -263,9 +302,10 @@ export const bookProgressRoutes = new Elysia()
             editionId: params.id,
           },
         },
-        update: data,
+        update: updateData,
         create: {
-          ...data,
+          ...baseData,
+          finished: body.finished ?? false,
           userId: user!.id,
           editionId: params.id,
         },
