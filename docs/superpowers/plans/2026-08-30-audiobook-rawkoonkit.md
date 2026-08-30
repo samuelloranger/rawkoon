@@ -931,7 +931,9 @@ Expected: PASS, 10 tests.
 
 ```bash
 swift test 2>&1 | tail -5
-grep -rn "import AVFoundation\|import UIKit\|import SwiftData\|URLSession" apps/ios/Sources/RawkoonKit/ && echo "FORBIDDEN IMPORT" || echo "Foundation-only: OK"
+# Match import STATEMENTS only. A plain grep also hits the doc comment that
+# names the forbidden imports, and reports a false positive.
+grep -rE "^\s*import (AVFoundation|UIKit|SwiftData|FoundationNetworking)" apps/ios/Sources/RawkoonKit/ && echo "FORBIDDEN IMPORT" || echo "Foundation-only: OK"
 ```
 Expected: all tests pass; the grep prints "Foundation-only: OK".
 
