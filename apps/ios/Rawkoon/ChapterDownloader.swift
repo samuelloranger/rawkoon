@@ -3,6 +3,7 @@ import RawkoonKit
 
 final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     private let editionId: Int
+    private let baseURL: URL
     private let manifest: BookManifest
     private let onState: (DownloadPlan) -> Void
     private let stateQueue = DispatchQueue(label: "cloud.samlo.rawkoon.chapter-downloader")
@@ -25,8 +26,9 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         return URLSession(configuration: config, delegate: self, delegateQueue: nil)
     }()
 
-    init(editionId: Int, manifest: BookManifest, onState: @escaping (DownloadPlan) -> Void) {
+    init(editionId: Int, baseURL: URL, manifest: BookManifest, onState: @escaping (DownloadPlan) -> Void) {
         self.editionId = editionId
+        self.baseURL = baseURL
         self.manifest = manifest
         self.onState = onState
         self.sessionIdentifier = "cloud.samlo.rawkoon.dl.\(editionId)"
@@ -102,7 +104,7 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
             guard started < availableSlots else { break }
             guard !activeFileIds.contains(fileId) else { continue }
             guard let chapter = chapterByFileId[fileId],
-                  let url = URL(string: chapter.url) else {
+                  let url = resolvedChapterURL(for: chapter) else {
                 plan.apply(.transportFailed(fileId: fileId))
                 emitState()
                 continue
@@ -213,8 +215,20 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     }
 
     private func fileExtension(for chapter: ManifestChapter) -> String {
-        guard let url = URL(string: chapter.url) else { return "bin" }
+        guard let url = resolvedChapterURL(for: chapter) ?? URL(string: chapter.url) else {
+            return "bin"
+        }
         let ext = url.pathExtension
         return ext.isEmpty ? "bin" : ext
+    }
+
+    private func resolvedChapterURL(for chapter: ManifestChapter) -> URL? {
+        if let resolved = URL(string: chapter.url, relativeTo: baseURL)?.absoluteURL {
+            return resolved
+        }
+        if let absolute = URL(string: chapter.url), absolute.scheme != nil {
+            return absolute
+        }
+        return nil
     }
 }
