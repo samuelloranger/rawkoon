@@ -1,8 +1,12 @@
 name: iOS
 on:
+  # NOTE: do not add `tags:` here. GitHub treats a push trigger carrying `tags`
+  # but no `branches` as tag-only, which silently stops branch pushes from
+  # building at all. TestFlight uploads are workflow_dispatch only, which is
+  # also what keeps an irreversible (version, build) upload a deliberate act.
   push:
+    branches: ["**"]
     paths: ["apps/ios/**", ".github/workflows/ios.yml"]
-    tags: ["ios-v*"]
   pull_request:
     paths: ["apps/ios/**"]
   workflow_dispatch:
@@ -41,7 +45,10 @@ jobs:
   testflight:
     runs-on: macos-15
     needs: build
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/ios-v')
+    # Dispatch only. A successful upload permanently consumes a (version, build)
+    # pair on the live App Store Connect record and cannot be undone, so it is
+    # never something a push should be able to cause by accident.
+    if: github.event_name == 'workflow_dispatch'
     env:
       APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
