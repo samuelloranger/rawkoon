@@ -12,10 +12,9 @@ function parseEditionId(arg: string | undefined): number | null {
 async function main(): Promise<void> {
   const editionId = parseEditionId(process.argv[2]);
   if (editionId === null) {
-    console.error(
+    throw new Error(
       "Usage: bun src/scripts/registerEditionChapters.ts <editionId>",
     );
-    process.exit(1);
   }
 
   console.log(`[register-edition-chapters] edition ${editionId}`);
@@ -26,8 +25,7 @@ async function main(): Promise<void> {
     JSON.stringify(rescan, null, 2),
   );
   if (rescan.error) {
-    console.error(`[register-edition-chapters] ${rescan.error}`);
-    process.exit(1);
+    throw new Error(`[register-edition-chapters] ${rescan.error}`);
   }
 
   const registration = await registerBookChapters(editionId);
