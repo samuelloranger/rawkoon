@@ -94,4 +94,5 @@ docs/.vitepress/dist/
 e2e-results/
 apps/ios/*.xcodeproj
 apps/ios/build/
+apps/ios/.build/
 apps/ios/Rawkoon/Info.plist
