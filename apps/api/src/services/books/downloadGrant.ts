@@ -3,7 +3,11 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 export interface GrantInput {
   fileId: number;
   variant: "original" | "datasaver";
-  /** Opaque per-user id. Never the userId: these tokens end up in logs. */
+  /**
+   * Per-request entropy only.
+   * No server-side grant record exists, so issued grants cannot be revoked
+   * before they expire.
+   */
   grantId: string;
   expiresAt: number;
 }
