@@ -353,7 +353,11 @@ this target defines.
   so nothing is saved on quit; positions are appended as they happen.
 - `SyncReconciler` — decides, for a local and a remote progress record, which wins.
 
-`BookTimeline`'s fixture is the real chapter offsets from L'intruse's `metadata.json`.
+`BookTimeline`'s fixture is the 61 chapter offsets rawkoon actually registered for L'intruse —
+the running sum of the probed file durations, ending at 29383.445s. Explicitly NOT the offsets in
+that book's `metadata.json`, which end at 29381.830s: those are the source chapter atoms, and the
+1.567s between the two numbers is the frame-quantisation drift this design exists to respect. A
+fixture taken from the wrong one would encode the bug into the client.
 
 ### Adapters
 
