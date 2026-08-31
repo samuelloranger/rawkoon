@@ -27,6 +27,8 @@ struct BookListItem: Identifiable, Sendable {
     let coverURL: URL?
     let audiobookEditionId: Int?
     let audiobookDurationSecs: Double?
+    let audiobookStatus: String?
+    let audiobookFileCount: Int
     let hasEbook: Bool
     var id: Int { bookId }
 
@@ -195,6 +197,8 @@ actor APIClient {
                     coverURL: resolveURL(book.coverUrl),
                     audiobookEditionId: audiobook?.id,
                     audiobookDurationSecs: audiobook?.durationSecs,
+                    audiobookStatus: audiobook?.status,
+                    audiobookFileCount: audiobook?.fileCount ?? 0,
                     hasEbook: hasEbook
                 )
             }
@@ -227,6 +231,10 @@ actor APIClient {
 
     func bookGrab(bookId: Int, kind: String, body: BookGrabBody) async throws {
         try await postExpectOK("/api/books/\(bookId)/editions/\(kind)/grab", body: body)
+    }
+
+    func rescanBookEdition(bookId: Int, kind: String) async throws -> BookEditionRescanResponse {
+        try await post("/api/books/\(bookId)/editions/\(kind)/rescan", body: EmptyBody())
     }
 
     func manifest(editionId: Int) async throws -> BookManifest {
@@ -635,6 +643,10 @@ actor APIClient {
         try await get("/api/library/\(id)/episodes")
     }
 
+    func libraryFiles(id: Int) async throws -> LibraryFilesResponse {
+        try await get("/api/library/\(id)/files")
+    }
+
     // Requests
     func requestsList() async throws -> RequestsResponse {
         try await get("/api/requests")
@@ -649,6 +661,7 @@ actor APIClient {
         q: String,
         libraryMediaId: Int? = nil,
         season: Int? = nil,
+        complete: Bool = false,
         tmdbId: Int? = nil,
         mediaType: String? = nil
     ) async throws -> InteractiveSearchResponse {
@@ -656,6 +669,7 @@ actor APIClient {
             "q": q,
             "library_media_id": libraryMediaId.map(String.init),
             "season": season.map(String.init),
+            "complete": complete ? "true" : nil,
             "tmdb_id": tmdbId.map(String.init),
             "media_type": mediaType,
         ])
@@ -791,6 +805,13 @@ private struct LibraryEdition: Decodable {
 
 private struct ProgressResponse: Decodable {
     let progress: [ProgressPayload]
+}
+
+struct BookEditionRescanResponse: Decodable, Sendable {
+    let registered: Int
+    let refreshed: Int
+    let removed: Int
+    let directory: String?
 }
 
 private struct ProgressPayload: Decodable {

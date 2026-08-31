@@ -214,8 +214,8 @@ final class AppModel: ObservableObject {
         return URL(string: raw, relativeTo: base)?.absoluteURL
     }
 
-    func manifest(_ editionId: Int) async throws -> BookManifest {
-        if let cached = manifests[editionId] {
+    func manifest(_ editionId: Int, forceRefresh: Bool = false) async throws -> BookManifest {
+        if !forceRefresh, let cached = manifests[editionId] {
             return cached
         }
         guard let apiClient else {
