@@ -257,6 +257,16 @@ actor APIClient {
         }
     }
 
+    func bookDetail(bookId: Int) async throws -> BookDetailItem {
+        let response: BookDetailResponse = try await get("/api/books/\(bookId)")
+        return response.item
+    }
+
+    func bookEditionFiles(bookId: Int, kind: String) async throws -> [BookEditionFile] {
+        let response: BookEditionFilesPayload = try await get("/api/books/\(bookId)/editions/\(kind)/files")
+        return response.files
+    }
+
     func getProgress() async throws -> [RemoteProgress] {
         let request = try makeRequest(path: "/api/books/progress", method: "GET", requiresAuth: true)
         let (data, response) = try await perform(request)
