@@ -18,6 +18,30 @@ struct LibrarySummary: Identifiable, Sendable {
     var id: Int { editionId }
 }
 
+/// One book in the merged library list — may have an audiobook edition, an
+/// ebook edition, or both (mirrors the web app's merged books view).
+struct BookListItem: Identifiable, Sendable {
+    let bookId: Int
+    let title: String
+    let author: String?
+    let coverURL: URL?
+    let audiobookEditionId: Int?
+    let audiobookDurationSecs: Double?
+    let hasEbook: Bool
+    var id: Int { bookId }
+
+    var hasAudiobook: Bool { audiobookEditionId != nil }
+
+    /// A playable summary for the audiobook edition, when present.
+    var audiobookSummary: LibrarySummary? {
+        guard let editionId = audiobookEditionId else { return nil }
+        return LibrarySummary(
+            editionId: editionId, bookId: bookId, title: title,
+            author: author, coverURL: coverURL, durationSecs: audiobookDurationSecs
+        )
+    }
+}
+
 struct RemoteProgress: Sendable {
     let editionId: Int
     let positionSecs: Double
@@ -115,6 +139,40 @@ actor APIClient {
             }
         }
         return out
+    }
+
+    /// All books, merged: audiobooks and ebooks in one list (like the web app).
+    func libraryBooks() async throws -> [BookListItem] {
+        let request = try makeRequest(path: "/api/books", method: "GET")
+        let (data, response) = try await perform(request)
+        guard (200...299).contains(response.statusCode) else {
+            throw mapStatus(response.statusCode)
+        }
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let payload: LibraryResponse
+        do { payload = try decoder.decode(LibraryResponse.self, from: data) }
+        catch { throw APIError.decode }
+
+        return payload.items.map { book in
+            let audiobook = book.editions.first { $0.kind == "audiobook" }
+            let hasEbook = book.editions.contains { $0.kind == "ebook" }
+            return BookListItem(
+                bookId: book.id,
+                title: book.title,
+                author: book.authors.first,
+                coverURL: resolveURL(book.coverUrl),
+                audiobookEditionId: audiobook?.id,
+                audiobookDurationSecs: audiobook?.durationSecs,
+                hasEbook: hasEbook
+            )
+        }
+    }
+
+    /// Admin: add a movie/show to the library directly from TMDB.
+    func addToLibrary(tmdbId: Int, type: String) async throws {
+        struct Body: Encodable { let tmdbId: Int; let type: String }
+        try await postExpectOK("/api/library", body: Body(tmdbId: tmdbId, type: type))
     }
 
     func manifest(editionId: Int) async throws -> BookManifest {
@@ -345,10 +403,14 @@ actor APIClient {
     }
 
     // Library (movies / shows)
-    func libraryList(type: String? = nil, status: String? = nil, q: String? = nil, limit: Int? = nil) async throws -> LibraryListResponse {
+    func libraryList(
+        type: String? = nil, status: String? = nil, q: String? = nil, limit: Int? = nil,
+        sortBy: String? = nil, sortDir: String? = nil
+    ) async throws -> LibraryListResponse {
         try await get("/api/library", query: [
             "type": type, "status": status, "q": q,
             "limit": limit.map(String.init),
+            "sort_by": sortBy, "sort_dir": sortDir,
         ])
     }
 

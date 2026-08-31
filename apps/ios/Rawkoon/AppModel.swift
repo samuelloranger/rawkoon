@@ -6,7 +6,8 @@ import RawkoonKit
 final class AppModel: ObservableObject {
     @Published var isLoggedIn = false
     @Published var serverURL: String
-    @Published var library: [LibrarySummary] = []
+    @Published var library: [BookListItem] = []
+    @Published var isAdmin = false
     @Published var loading = false
     @Published var errorMessage: String?
     @Published var downloadPlans: [Int: DownloadPlan] = [:]
@@ -112,7 +113,7 @@ final class AppModel: ObservableObject {
     func activeBook() -> (summary: LibrarySummary, manifest: BookManifest)? {
         guard
             let id = activeEditionId,
-            let summary = library.first(where: { $0.editionId == id }),
+            let summary = library.first(where: { $0.audiobookEditionId == id })?.audiobookSummary,
             let manifest = manifests[id]
         else {
             return nil
@@ -206,6 +207,7 @@ final class AppModel: ObservableObject {
 
         apiClient = nil
         isLoggedIn = false
+        isAdmin = false
         library = []
         manifests = [:]
         downloaders = [:]
@@ -217,7 +219,7 @@ final class AppModel: ObservableObject {
     }
 
     func deleteDownloads() {
-        let editionIDs = Set(library.map(\.editionId))
+        let editionIDs = Set(library.compactMap(\.audiobookEditionId))
             .union(manifests.keys)
             .union(downloadPlans.keys)
 
@@ -359,8 +361,18 @@ final class AppModel: ObservableObject {
 
     private func reloadLibrary() async throws {
         guard let apiClient else { throw APIError.unauthorized }
-        let fetched = try await apiClient.libraryAudiobooks()
+        let fetched = try await apiClient.libraryBooks()
         library = fetched.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        await refreshAdmin()
+    }
+
+    /// Best-effort: learn whether the signed-in user is an admin, so the UI can
+    /// offer "Add to library" (admin) vs "Request" (non-admin).
+    private func refreshAdmin() async {
+        guard let apiClient else { return }
+        if let user = (try? await apiClient.currentUser())?.user {
+            isAdmin = user.isAdmin ?? false
+        }
     }
 
     private func readJournal() -> String {

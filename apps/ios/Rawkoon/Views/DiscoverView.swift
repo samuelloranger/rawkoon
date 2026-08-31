@@ -247,6 +247,7 @@ struct DiscoverView: View {
                 .foregroundStyle(Theme.textStrong)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
+                .frame(height: 34, alignment: .top)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(width: fixedWidth)
