@@ -97,6 +97,23 @@ final class AppModel: ObservableObject {
     func debugAutologinIfNeeded() async {
         guard !isLoggedIn else { return }
         let env = ProcessInfo.processInfo.environment
+
+        // A simulator build carries no keychain entitlement, so nothing the app
+        // stores survives a relaunch and every launch starts logged out. Taking
+        // a bearer token straight from the environment sidesteps the keychain
+        // entirely, and avoids putting a real password on a command line.
+        if
+            let server = env["RAWKOON_SERVER"],
+            let token = env["RAWKOON_TOKEN"],
+            let baseURL = URL(string: server)
+        {
+            serverURL = server
+            apiClient = APIClient(baseURL: baseURL, token: token)
+            isLoggedIn = true
+            try? await reloadLibrary()
+            return
+        }
+
         guard
             let server = env["RAWKOON_SERVER"],
             let email = env["RAWKOON_EMAIL"],

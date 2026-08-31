@@ -13,11 +13,21 @@ struct RawkoonApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
+                #if DEBUG
+                if let screen = DebugScreen.requested, DebugScreen.isOffline(screen) {
+                    DebugScreen.offlineView(for: screen)
+                } else if model.isLoggedIn {
+                    RootTabsView()
+                } else {
+                    LoginView()
+                }
+                #else
                 if model.isLoggedIn {
                     RootTabsView()
                 } else {
                     LoginView()
                 }
+                #endif
             }
             .environmentObject(model)
             .tint(Theme.apricot)
@@ -101,6 +111,7 @@ private struct RootTabsView: View {
         case "releaseSearch": DebugFirstReleaseSearch()
         case "home": NavigationStack { HomeView() }
         case "book": DebugFirstBook()
+        case "playerReal": DebugRealPlayer()
         case "settings": NavigationStack { SettingsView() }
         case "requests": NavigationStack { RequestsView() }
         case "qualityProfiles": NavigationStack { QualityProfilesView() }
