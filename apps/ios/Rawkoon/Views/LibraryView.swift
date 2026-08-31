@@ -84,11 +84,15 @@ struct LibraryView: View {
         .background(Theme.base)
         .navigationTitle("Library")
         .navigationBarTitleDisplayMode(.inline)
-        .task(id: mediaFilterKey) {
-            if section == .media { await loadMedia() }
-        }
         .task {
+            if section == .media { await loadMedia() }
             if model.library.isEmpty { await model.loadLibrary() }
+        }
+        .onChange(of: mediaFilterKey) { _, _ in
+            Task { await loadMedia() }
+        }
+        .onChange(of: section) { _, newSection in
+            if newSection == .media { Task { await loadMedia() } }
         }
     }
 

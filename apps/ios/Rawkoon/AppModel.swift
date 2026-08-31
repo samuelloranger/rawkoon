@@ -8,6 +8,7 @@ final class AppModel: ObservableObject {
     @Published var serverURL: String
     @Published var library: [BookListItem] = []
     @Published var isAdmin = false
+    @Published var userFirstName: String?
     @Published var loading = false
     @Published var errorMessage: String?
     @Published var downloadPlans: [Int: DownloadPlan] = [:]
@@ -372,6 +373,8 @@ final class AppModel: ObservableObject {
         guard let apiClient else { return }
         if let user = (try? await apiClient.currentUser())?.user {
             isAdmin = user.isAdmin ?? false
+            let full = [user.firstName, user.lastName].compactMap { $0 }.joined(separator: " ")
+            userFirstName = user.firstName ?? (full.isEmpty ? user.name : full)
         }
     }
 
