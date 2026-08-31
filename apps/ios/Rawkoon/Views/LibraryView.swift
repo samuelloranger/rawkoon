@@ -1,3 +1,4 @@
+import RawkoonKit
 import SwiftUI
 
 private enum LibrarySection: String, CaseIterable, Identifiable {
@@ -78,6 +79,12 @@ struct LibraryView: View {
     @State private var loadingMedia = false
     @State private var loadingMoreMedia = false
     @State private var mediaError: String?
+    @State private var releaseSearch: ReleaseSearchPresentation?
+    @State private var removeCandidate: LibraryMedia?
+    @State private var showingRemoveConfirm = false
+    @State private var menuDetailMedia: LibraryMedia?
+    @State private var showingPlayer = false
+    @State private var readingBook: BookListItem?
 
     @State private var bookKind: BookKindFilter = .all
     @State private var bookSearch = ""
@@ -110,6 +117,52 @@ struct LibraryView: View {
         }
         .onChange(of: section) { _, newSection in
             if newSection == .media { Task { await loadMedia(reset: true) } }
+        }
+        .sheet(item: $releaseSearch) { target in
+            ReleaseSearchView(
+                query: target.query,
+                libraryMediaId: target.libraryMediaId,
+                tmdbId: target.tmdbId,
+                mediaType: target.mediaType,
+                availableSeasons: []
+            )
+            .environmentObject(model)
+        }
+        .sheet(isPresented: $showingPlayer) {
+            if let active = model.activeBook() {
+                PlayerView(summary: active.summary, manifest: active.manifest)
+                    .environmentObject(model)
+            }
+        }
+        .navigationDestination(isPresented: Binding(
+            get: { menuDetailMedia != nil },
+            set: { if !$0 { menuDetailMedia = nil } }
+        )) {
+            if let m = menuDetailMedia {
+                MediaDetailView(
+                    tmdbId: m.tmdbId,
+                    mediaType: m.type == "show" ? "tv" : "movie",
+                    title: m.title,
+                    posterPath: m.posterUrl,
+                    libraryId: m.id
+                )
+            }
+        }
+        .navigationDestination(isPresented: Binding(
+            get: { readingBook != nil },
+            set: { if !$0 { readingBook = nil } }
+        )) {
+            if let book = readingBook {
+                BookView(book: book, preferEbook: true)
+            }
+        }
+        .libraryRemoveConfirmation(
+            isPresented: $showingRemoveConfirm,
+            title: removeCandidate?.title ?? ""
+        ) { deleteFiles in
+            if let media = removeCandidate {
+                Task { await removeFromLibrary(media, deleteFiles: deleteFiles) }
+            }
         }
     }
 
@@ -191,31 +244,6 @@ struct LibraryView: View {
         }
     }
 
-    private func searchField(_ placeholder: String, text: Binding<String>) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .font(.caption)
-                .foregroundStyle(Theme.muted)
-            TextField(placeholder, text: text)
-                .foregroundStyle(Theme.textStrong)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-            if !text.wrappedValue.isEmpty {
-                Button {
-                    text.wrappedValue = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(Theme.faint)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(Theme.inset, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border, lineWidth: 1))
-    }
-
     // MARK: Content
 
     @ViewBuilder
@@ -237,7 +265,12 @@ struct LibraryView: View {
                                 libraryId: m.id
                             )
                         } label: {
-                            MediaPosterCard(title: m.title, posterURL: model.absoluteURL(m.posterUrl)) {
+                            MediaPosterCard(
+                                title: m.title,
+                                posterURL: model.absoluteURL(m.posterUrl),
+                                menuItems: mediaPosterMenuItems(inLibrary: true, isAdmin: model.isAdmin),
+                                onMenuAction: { handleMediaMenu($0, media: m) }
+                            ) {
                                 mediaBadge(for: m)
                             }
                         }
@@ -297,7 +330,16 @@ struct LibraryView: View {
                     NavigationLink {
                         BookView(book: book)
                     } label: {
-                        BookRow(book: book, downloaded: isDownloaded(book))
+                        BookRow(
+                            book: book,
+                            downloaded: isDownloaded(book),
+                            menuItems: bookCardMenuItems(
+                                hasAudiobook: book.hasAudiobook,
+                                hasEbook: book.hasEbook,
+                                isAdmin: model.isAdmin
+                            ),
+                            onMenuAction: { handleBookMenu($0, book: book) }
+                        )
                     }
                     .buttonStyle(.plain)
                 }
@@ -400,45 +442,92 @@ struct LibraryView: View {
         case .transport: return "Network error."
         }
     }
-}
 
-/// A merged book row: cover, title/author, and format chips (Audiobook / EPUB).
-private struct BookRow: View {
-    let book: BookListItem
-    let downloaded: Bool
-
-    var body: some View {
-        HStack(spacing: 12) {
-            BookCover(url: book.coverURL, size: 56, corner: 10)
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text(book.title)
-                    .font(.display(16))
-                    .foregroundStyle(Theme.textStrong)
-                    .lineLimit(2)
-                if let author = book.author, !author.isEmpty {
-                    Text(author).font(.subheadline).foregroundStyle(Theme.muted).lineLimit(1)
-                }
-                HStack(spacing: 6) {
-                    if book.hasAudiobook { formatChip("Audiobook", tint: Theme.apricot) }
-                    if book.hasEbook { formatChip("EPUB", tint: Theme.importing) }
-                }
-            }
-
-            Spacer(minLength: 8)
-            if downloaded { StatusBadge(text: "Offline", tint: Theme.seed) }
+    private func handleMediaMenu(_ action: MediaPosterMenuAction, media: LibraryMedia) {
+        switch action {
+        case .toggleMonitored:
+            Task { await toggleMonitored(media) }
+        case .searchReleases:
+            releaseSearch = ReleaseSearchPresentation(
+                query: media.title,
+                libraryMediaId: media.id,
+                tmdbId: media.tmdbId,
+                mediaType: media.type == "show" ? "tv" : "movie"
+            )
+        case .openDetails:
+            menuDetailMedia = media
+        case .removeFromLibrary:
+            removeCandidate = media
+            showingRemoveConfirm = true
         }
-        .padding(12)
-        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
     }
 
-    private func formatChip(_ text: String, tint: Color) -> some View {
-        Text(text)
-            .font(.system(.caption2, design: .monospaced))
-            .foregroundStyle(tint)
-            .padding(.horizontal, 7).padding(.vertical, 3)
-            .background(tint.opacity(0.12), in: Capsule())
-            .overlay(Capsule().strokeBorder(tint.opacity(0.3), lineWidth: 1))
+    private func handleBookMenu(_ action: BookCardMenuAction, book: BookListItem) {
+        switch action {
+        case .read:
+            readingBook = book
+        case .play:
+            Task { await playAudiobook(book) }
+        case .addAudiobook:
+            Task { await addEdition(book: book, kind: "audiobook") }
+        case .addEPUB:
+            Task { await addEdition(book: book, kind: "ebook") }
+        case .rescan:
+            Task { await rescanBook(book) }
+        }
+    }
+
+    private func toggleMonitored(_ media: LibraryMedia) async {
+        guard let client = model.api() else { return }
+        do {
+            _ = try await client.updateLibraryMonitored(id: media.id, monitored: !media.monitored)
+            await loadMedia(reset: true)
+        } catch {
+            mediaError = errorMessage(for: error)
+        }
+    }
+
+    private func removeFromLibrary(_ media: LibraryMedia, deleteFiles: Bool) async {
+        guard let client = model.api() else { return }
+        do {
+            try await client.removeFromLibrary(id: media.id, deleteFiles: deleteFiles)
+            removeCandidate = nil
+            await loadMedia(reset: true)
+        } catch {
+            mediaError = errorMessage(for: error)
+        }
+    }
+
+    private func playAudiobook(_ book: BookListItem) async {
+        guard let editionId = book.audiobookEditionId else { return }
+        await model.openPlayer(editionId: editionId)
+        if model.errorMessage == nil {
+            showingPlayer = true
+        }
+    }
+
+    private func addEdition(book: BookListItem, kind: String) async {
+        guard let client = model.api() else { return }
+        do {
+            try await client.addBookEdition(bookId: book.bookId, kind: kind)
+            await model.loadLibrary()
+        } catch {
+            mediaError = errorMessage(for: error)
+        }
+    }
+
+    private func rescanBook(_ book: BookListItem) async {
+        guard let client = model.api() else { return }
+        do {
+            if book.hasAudiobook {
+                _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "audiobook")
+            }
+            if book.hasEbook {
+                _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "ebook")
+            }
+            await model.loadLibrary()
+        } catch {
+            mediaError = errorMessage(for: error)
+        }
     }
 }

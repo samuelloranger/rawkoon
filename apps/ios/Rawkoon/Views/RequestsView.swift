@@ -22,6 +22,7 @@ struct RequestsView: View {
     @State private var approvingRequest: MediaRequest?
     @State private var showApproveDialog = false
     @State private var busyRequestId: Int?
+    @State private var denyTarget: MediaRequest?
 
     private var visibleRequests: [MediaRequest] {
         switch filter {
@@ -67,6 +68,24 @@ struct RequestsView: View {
             }
             Button("Cancel", role: .cancel) {
                 approvingRequest = nil
+            }
+        }
+        .confirmationDialog(
+            "Deny this request?",
+            isPresented: Binding(
+                get: { denyTarget != nil },
+                set: { if !$0 { denyTarget = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Deny", role: .destructive) {
+                if let req = denyTarget {
+                    Task { await deny(request: req) }
+                }
+                denyTarget = nil
+            }
+            Button("Cancel", role: .cancel) {
+                denyTarget = nil
             }
         }
     }
@@ -131,7 +150,7 @@ struct RequestsView: View {
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if model.isAdmin && req.status == "pending" {
                 Button("Deny", role: .destructive) {
-                    Task { await deny(request: req) }
+                    denyTarget = req
                 }
                 Button("Approve") {
                     Task { await beginApprove(request: req) }
