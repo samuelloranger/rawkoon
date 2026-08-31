@@ -335,6 +335,8 @@ export interface BookReadingProgress {
   spine_count: number;
   /** 0–1 scroll offset within the spine document. */
   scroll_fraction: number;
+  /** Optional EPUB CFI (Canonical Fragment Identifier) precise reader position. */
+  cfi: string | null;
   finished: boolean;
   updated_at: string;
 }
@@ -349,6 +351,8 @@ export interface BookReadingProgressRequest {
   spine_path: string;
   spine_count: number;
   scroll_fraction: number;
+  /** Optional EPUB CFI (Canonical Fragment Identifier) precise reader position. */
+  cfi?: string | null;
   finished?: boolean;
   updated_at: string;
   device_id?: string;

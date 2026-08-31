@@ -1011,6 +1011,9 @@ model BookReadingProgress {
   spineCount Int   @map("spine_count")
   /// 0–1 scroll offset within the spine document.
   scrollFraction Float @default(0) @map("scroll_fraction")
+  /// Precise EPUB position from the reader engine; spine fields stay as the
+  /// coarse fallback when this CFI no longer resolves in a changed book.
+  cfi            String? @map("cfi")
   finished       Boolean @default(false)
   /// Client-supplied, clamped to server time on receipt.
   updatedAt  DateTime @map("updated_at")
