@@ -60,7 +60,7 @@ targets:
         UILaunchScreen: {}
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: cloud.samlo.rawkoon
-      MARKETING_VERSION: "1.11.0"
+      MARKETING_VERSION: "1.12.0"
       CURRENT_PROJECT_VERSION: "1"
       SWIFT_VERSION: "5.0"
       TARGETED_DEVICE_FAMILY: "1"
