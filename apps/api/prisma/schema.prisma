@@ -40,6 +40,7 @@ model User {
   mediaRequests        MediaRequest[] @relation("MediaRequestRequester")
   decidedMediaRequests MediaRequest[] @relation("MediaRequestDecider")
   bookProgress         BookListeningProgress[]
+  bookReadingProgress  BookReadingProgress[]
 
   @@map("users")
 }
@@ -895,6 +896,7 @@ model BookEdition {
   files              BookFile[]
   chapters           BookChapter[]
   progress           BookListeningProgress[]
+  readingProgress    BookReadingProgress[]
   downloadHistories  DownloadHistory[]
 
   /// Exactly two possible rows per book: one ebook, one audiobook.
@@ -982,6 +984,45 @@ model BookListeningProgress {
 
   @@unique([userId, editionId], map: "uq_book_progress_user_edition")
   @@map("book_listening_progress")
+}
+
+/// Where a reader left off in an ebook edition.
+///
+/// Separate from BookListeningProgress rather than a nullable extension of it:
+/// an audiobook position is one number on a whole-book seconds timeline, while a
+/// reading position is a spine document plus an offset inside it, and the two
+/// share no columns beyond the key.
+model BookReadingProgress {
+  id        Int    @id @default(autoincrement())
+  userId    String @map("user_id")
+  editionId Int    @map("edition_id")
+  /// Which file the position refers to — an edition can hold several formats.
+  /// Deliberately not a foreign key: a rescan deletes and recreates file rows,
+  /// and a cascade would throw away the reader's place.
+  fileId    Int?   @map("file_id")
+  /// Index into the EPUB spine.
+  spineIndex Int   @map("spine_index")
+  /// The spine document's path inside the archive. A re-download can reorder
+  /// the spine, and the index alone would then resolve to a different chapter,
+  /// so the path is what a client verifies against before trusting the index.
+  spinePath String @map("spine_path")
+  /// Spine length this was recorded against: lets a client show a percentage
+  /// and notice that the book changed underneath it.
+  spineCount Int   @map("spine_count")
+  /// 0–1 scroll offset within the spine document.
+  scrollFraction Float @default(0) @map("scroll_fraction")
+  finished       Boolean @default(false)
+  /// Client-supplied, clamped to server time on receipt.
+  updatedAt  DateTime @map("updated_at")
+  /// Server receipt time. Breaks ties deterministically.
+  receivedAt DateTime @default(now()) @map("received_at")
+  deviceId   String?  @map("device_id")
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  edition BookEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, editionId], map: "uq_book_reading_progress_user_edition")
+  @@map("book_reading_progress")
 }
 
 /// Google Books exposes no author ids, so the name is the key. Homonymous
