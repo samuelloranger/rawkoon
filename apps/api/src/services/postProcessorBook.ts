@@ -821,6 +821,11 @@ export async function rescanBookEdition(editionId: number): Promise<{
 
   let registered = 0;
   let refreshed = 0;
+  // Files whose bytes actually changed, as opposed to the ones the fast path
+  // below left alone. A chapter replaced or re-encoded in place keeps its row,
+  // so it counts as neither registered nor removed — but its duration moved,
+  // which shifts every cumulative offset after it in the timeline.
+  let reprobed = 0;
   for (const keeper of keepers) {
     let st: Awaited<ReturnType<typeof stat>> | null = null;
     try {
@@ -849,6 +854,8 @@ export async function rescanBookEdition(editionId: number): Promise<{
       refreshed++;
       continue;
     }
+
+    reprobed++;
 
     let durationSecs: number | null = null;
     let audioBitrate: number | null = null;
@@ -903,7 +910,7 @@ export async function rescanBookEdition(editionId: number): Promise<{
     shouldEmitBookUpdate = true;
   }
 
-  if (removed > 0 || registered > 0) {
+  if (removed > 0 || registered > 0 || reprobed > 0) {
     await invalidateChapterTimeline();
     shouldEmitBookUpdate = true;
   }
@@ -915,7 +922,7 @@ export async function rescanBookEdition(editionId: number): Promise<{
   // rebuilds rather than races it.
   if (
     kind === "audiobook" &&
-    (registered > 0 || removed > 0 || !edition.offlineReady)
+    (registered > 0 || removed > 0 || reprobed > 0 || !edition.offlineReady)
   ) {
     const registration = await registerBookChapters(editionId);
     if (registration.offlineReady) shouldEmitBookUpdate = true;

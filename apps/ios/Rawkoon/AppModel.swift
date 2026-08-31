@@ -6,6 +6,14 @@ import UserNotifications
 
 @MainActor
 final class AppModel: ObservableObject {
+    /// One instance for the process.
+    ///
+    /// A background launch to deliver `handleEventsForBackgroundURLSession` may
+    /// never render a view, so the AppDelegate cannot wait for `onAppear` to be
+    /// handed the model — by then the completion handler is long overdue and the
+    /// finished downloads are discarded.
+    static let shared = AppModel()
+
     @Published var isLoggedIn = false
     @Published var serverURL: String
     @Published var library: [BookListItem] = []
@@ -161,6 +169,12 @@ final class AppModel: ObservableObject {
     // MARK: Push notifications (APNs)
 
     private var pendingApnsToken: String?
+    /// Retained after registration so sign-out can unregister it.
+    private var registeredApnsToken: String?
+    /// Editions whose grants are being refetched, and how often — a server whose
+    /// secret rotated would otherwise refetch forever.
+    private var grantRefreshAttempts: [Int: Int] = [:]
+    private var grantRefreshInFlight: Set<Int> = []
 
     /// Ask for notification permission, then register for remote notifications.
     /// Safe to call repeatedly — the system won't re-prompt once decided.
@@ -190,6 +204,7 @@ final class AppModel: ObservableObject {
             appVersion: appVersion,
             bundleId: Bundle.main.bundleIdentifier
         )
+        registeredApnsToken = token
         pendingApnsToken = nil
     }
 
@@ -296,10 +311,32 @@ final class AppModel: ObservableObject {
             downloader.start()
             return
         }
+
         pendingBackgroundCompletions[identifier] = completionHandler
+
+        // The `downloaders` map is in-memory, so after the app was terminated it
+        // is empty and nothing is attached to the session. iOS delivers
+        // `didFinishDownloadingTo` only to a delegate, and discards the
+        // temporary file if none exists — so the downloader has to be rebuilt
+        // here rather than waiting for the user to tap download again.
+        // `startDownload` picks the pending completion up by identifier.
+        guard let editionId = ChapterDownloader.editionId(fromSessionIdentifier: identifier) else {
+            pendingBackgroundCompletions.removeValue(forKey: identifier)
+            completionHandler()
+            return
+        }
+        Task { await startDownload(editionId: editionId) }
     }
 
     func logout() {
+        // Before apiClient is torn down: an APNs token identifies the phone, not
+        // the account, so leaving it registered would deliver this user's
+        // notifications to whoever signs in next.
+        if let token = registeredApnsToken, let client = apiClient {
+            Task { try? await client.unregisterApns(deviceToken: token) }
+        }
+        registeredApnsToken = nil
+
         Keychain.delete(Self.serverURLKey)
         Keychain.delete(Self.authTokenKey)
 
@@ -355,7 +392,33 @@ final class AppModel: ObservableObject {
             .store(in: &cancellables)
     }
 
+    /// Replaces the downloader's signed URLs after a grant expired.
+    ///
+    /// The plan requeues a 401/403 chapter without spending an attempt, so
+    /// without this the same dead URL is pumped forever. Capped, because a
+    /// rotated server secret makes every refetch land on the same wall.
+    private func refreshGrants(editionId: Int) async {
+        guard !grantRefreshInFlight.contains(editionId) else { return }
+        let attempts = grantRefreshAttempts[editionId] ?? 0
+        guard attempts < Self.maxGrantRefreshAttempts else {
+            errorMessage = "Downloads for this book need a fresh sign-in."
+            return
+        }
+        grantRefreshInFlight.insert(editionId)
+        grantRefreshAttempts[editionId] = attempts + 1
+        defer { grantRefreshInFlight.remove(editionId) }
+
+        guard let refreshed = try? await manifest(editionId, forceRefresh: true) else { return }
+        downloaders[editionId]?.refreshChapterURLs(from: refreshed)
+    }
+
+    private static let maxGrantRefreshAttempts = 3
+
     private func applyDownloadPlan(_ plan: DownloadPlan, editionId: Int) {
+        if plan.needsFreshGrants {
+            Task { await refreshGrants(editionId: editionId) }
+        }
+
         let newCount = verifiedChapterCount(in: plan)
 
         downloadPlans[editionId] = plan

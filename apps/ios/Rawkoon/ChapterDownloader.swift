@@ -4,14 +4,17 @@ import RawkoonKit
 final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     private let editionId: Int
     private let baseURL: URL
-    private let manifest: BookManifest
     private let onState: (DownloadPlan) -> Void
     private let stateQueue = DispatchQueue(label: "cloud.samlo.rawkoon.chapter-downloader")
-    private let chapterByFileId: [Int: ManifestChapter]
     private let maxConcurrentDownloads = 3
     private let sessionIdentifier: String
     private let allowCellular: Bool
 
+    /// Not `let`: an expired grant is replaced in place rather than by tearing
+    /// the background session down, because the session identifier has to stay
+    /// stable for `handleEventsForBackgroundURLSession` to map back to it.
+    private var manifest: BookManifest
+    private var chapterByFileId: [Int: ManifestChapter]
     private var plan: DownloadPlan
     private var isRunning = false
     private var hasLoadedExistingTasks = false
@@ -42,7 +45,7 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         self.manifest = manifest
         self.allowCellular = allowCellular
         self.onState = onState
-        self.sessionIdentifier = "cloud.samlo.rawkoon.dl.\(editionId)"
+        self.sessionIdentifier = Self.sessionIdentifier(editionId: editionId)
         self.plan = DownloadPlan(chapters: manifest.chapters)
         self.chapterByFileId = Dictionary(uniqueKeysWithValues: manifest.chapters.map { ($0.fileId, $0) })
         super.init()
@@ -67,6 +70,36 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
 
     func hasBackgroundSession(identifier: String) -> Bool {
         identifier == sessionIdentifier
+    }
+
+    /// Built and parsed in one place so a background launch can recover the
+    /// edition from nothing but the session identifier iOS hands back.
+    private static let sessionIdentifierPrefix = "cloud.samlo.rawkoon.dl."
+
+    static func sessionIdentifier(editionId: Int) -> String {
+        "\(sessionIdentifierPrefix)\(editionId)"
+    }
+
+    static func editionId(fromSessionIdentifier identifier: String) -> Int? {
+        guard identifier.hasPrefix(sessionIdentifierPrefix) else { return nil }
+        return Int(identifier.dropFirst(sessionIdentifierPrefix.count))
+    }
+
+    /// Swaps in freshly signed chapter URLs and lets the queue run again.
+    ///
+    /// A grant lasts seven days; a download paused past that, or a server whose
+    /// secret rotated, gets 401/403 forever otherwise, because the plan requeues
+    /// those without spending an attempt.
+    func refreshChapterURLs(from manifest: BookManifest) {
+        stateQueue.async {
+            self.manifest = manifest
+            self.chapterByFileId = Dictionary(
+                uniqueKeysWithValues: manifest.chapters.map { ($0.fileId, $0) }
+            )
+            self.plan.acknowledgeFreshGrants()
+            self.emitState()
+            self.pumpIfNeeded()
+        }
     }
 
     func setBackgroundSessionCompletion(_ completion: @escaping () -> Void) {

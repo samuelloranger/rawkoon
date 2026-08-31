@@ -123,4 +123,18 @@ final class DownloadPlanTests: XCTestCase {
         XCTAssertEqual(plan.states[100], .pending)
         XCTAssertEqual(plan.nextToStart(limit: 5), [100])
     }
+
+    /// The flag has to clear, or every later emission re-triggers a refetch.
+    func testAcknowledgingFreshGrantsClearsTheFlag() {
+        var plan = DownloadPlan(chapters: chapters(1))
+        plan.apply(.started(fileId: 100))
+        plan.apply(.completed(fileId: 100, status: 401, bytes: 0, sha256: nil))
+        XCTAssertTrue(plan.needsFreshGrants)
+
+        plan.acknowledgeFreshGrants()
+
+        XCTAssertFalse(plan.needsFreshGrants)
+        // The chapter is still queued, not failed.
+        XCTAssertEqual(plan.states[100], .pending)
+    }
 }

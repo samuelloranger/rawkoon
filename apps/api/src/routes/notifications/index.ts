@@ -645,13 +645,26 @@ export const notificationsRoutes = new Elysia({ prefix: "/api/notifications" })
           bundleId: device_info?.bundle_id ?? null,
           updatedAt: new Date(),
         };
-        await prisma.apnsDevice.upsert({
-          where: {
-            userId_deviceToken: { userId: user.id, deviceToken: device_token },
-          },
-          update: data,
-          create: data,
-        });
+        // An APNs token identifies an app installation, not an account, so it
+        // must belong to exactly one user. Without the delete, signing out and
+        // signing in as someone else leaves the previous user's row in place
+        // and their notifications keep arriving on a device that now belongs to
+        // somebody else.
+        await prisma.$transaction([
+          prisma.apnsDevice.deleteMany({
+            where: { deviceToken: device_token, userId: { not: user.id } },
+          }),
+          prisma.apnsDevice.upsert({
+            where: {
+              userId_deviceToken: {
+                userId: user.id,
+                deviceToken: device_token,
+              },
+            },
+            update: data,
+            create: data,
+          }),
+        ]);
         return { success: true };
       } catch {
         return serverError(set, "Failed to register device");
@@ -670,6 +683,27 @@ export const notificationsRoutes = new Elysia({ prefix: "/api/notifications" })
         ),
       }),
     },
+  )
+  // POST /api/notifications/apns/unregister - drop a token on sign-out
+  //
+  // By token rather than by row id: the app knows its own token and has no
+  // reason to have listed the devices first.
+  .post(
+    "/apns/unregister",
+    async ({ user, body, set }) => {
+      if (!user) return unauthorized(set, "Unauthorized");
+      const { device_token } = body;
+      if (!device_token) return badRequest(set, "device_token is required");
+      try {
+        await prisma.apnsDevice.deleteMany({
+          where: { userId: user.id, deviceToken: device_token },
+        });
+        return { success: true };
+      } catch {
+        return serverError(set, "Failed to unregister device");
+      }
+    },
+    { body: t.Object({ device_token: t.String() }) },
   )
   // GET /api/notifications/apns/devices - this user's registered iOS devices
   .get("/apns/devices", async ({ user, set }) => {

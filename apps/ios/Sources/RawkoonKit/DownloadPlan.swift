@@ -35,6 +35,13 @@ public struct DownloadPlan: Sendable {
         self.chapterByFileId = Dictionary(uniqueKeysWithValues: chapters.map { ($0.fileId, $0) })
     }
 
+    /// Cleared once the caller has swapped in freshly signed URLs. Without
+    /// this the flag latches and every later state emission looks like a new
+    /// request for grants.
+    public mutating func acknowledgeFreshGrants() {
+        needsFreshGrants = false
+    }
+
     public mutating func apply(_ event: DownloadEvent) {
         switch event {
         case let .requested(fileId):

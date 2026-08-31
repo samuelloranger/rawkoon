@@ -16,6 +16,12 @@ type Row = {
   editionId: number;
   filePath: string;
   fileName: string;
+  // The identity fields a real row carries. Without them on a created row, a
+  // second scan cannot recognise the file as unchanged and re-probes it.
+  sizeBytes?: bigint;
+  fileDev?: string | null;
+  fileIno?: string | null;
+  fileMtimeMs?: bigint | null;
 };
 
 const state: {
@@ -98,11 +104,15 @@ mock.module("@rawkoon/api/db", () => ({
       },
       create: (args: { data: Record<string, unknown> }) => {
         state.created.push(args.data);
-        const row = {
+        const row: Row = {
           id: state.nextFileId++,
           editionId: args.data.editionId as number,
           filePath: args.data.filePath as string,
           fileName: args.data.fileName as string,
+          sizeBytes: args.data.sizeBytes as bigint,
+          fileDev: args.data.fileDev as string | null,
+          fileIno: args.data.fileIno as string | null,
+          fileMtimeMs: args.data.fileMtimeMs as bigint | null,
         };
         state.files.push(row);
         return Promise.resolve(row);
@@ -359,6 +369,75 @@ describe("rescanBookEdition", () => {
 
     expect(result.registered).toBe(1);
     expect(state.created[0]?.format).toBe("epub");
+  });
+
+  /**
+   * A chapter replaced or re-encoded in place keeps its row, so it is neither
+   * registered nor removed — but its duration moved, and every cumulative
+   * offset after it in the timeline is now wrong. Leaving offlineReady true
+   * would serve a manifest whose seeks land in the wrong place.
+   */
+  it("invalidates the chapter timeline when an existing file's bytes changed", async () => {
+    const { stat } = await import("node:fs/promises");
+    state.edition = editionFixture({
+      kind: "audiobook",
+      offlineReady: true,
+      bookQualityProfile: { allowedFormats: ["mp3"] },
+    });
+    await mkdir(audiobookDir, { recursive: true });
+    const track = join(audiobookDir, "01.mp3");
+    await writeFile(track, "x");
+    const st = await stat(track);
+    state.files = [
+      {
+        id: 42,
+        editionId: 1,
+        filePath: track,
+        fileName: "01.mp3",
+        // A size that disagrees with disk is the "changed in place" signal.
+        sizeBytes: BigInt(st.size + 1024),
+        fileDev: String(st.dev),
+        fileIno: String(st.ino),
+        fileMtimeMs: BigInt(Math.trunc(st.mtimeMs)),
+      } as unknown as Row,
+    ];
+
+    await rescanBookEdition(1);
+
+    expect(state.chapterDeleteCalls).toBeGreaterThan(0);
+    expect(
+      state.editionUpdates.some((u) => u.data.offlineReady === false),
+    ).toBe(true);
+  });
+
+  // The unchanged-file fast path must not drag the timeline down with it.
+  it("leaves the chapter timeline alone when nothing changed", async () => {
+    const { stat } = await import("node:fs/promises");
+    state.edition = editionFixture({
+      kind: "audiobook",
+      offlineReady: true,
+      bookQualityProfile: { allowedFormats: ["mp3"] },
+    });
+    await mkdir(audiobookDir, { recursive: true });
+    const track = join(audiobookDir, "01.mp3");
+    await writeFile(track, "x");
+    const st = await stat(track);
+    state.files = [
+      {
+        id: 42,
+        editionId: 1,
+        filePath: track,
+        fileName: "01.mp3",
+        sizeBytes: BigInt(st.size),
+        fileDev: String(st.dev),
+        fileIno: String(st.ino),
+        fileMtimeMs: BigInt(Math.trunc(st.mtimeMs)),
+      } as unknown as Row,
+    ];
+
+    await rescanBookEdition(1);
+
+    expect(state.chapterDeleteCalls).toBe(0);
   });
 
   // The expensive part of a rescan is the per-file probe. An unchanged file
