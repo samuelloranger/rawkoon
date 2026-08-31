@@ -1,3 +1,4 @@
+import RawkoonKit
 import SwiftUI
 
 /// Cover art with the rawkoon "book spine" edge — a dark strip down the left,
@@ -75,15 +76,38 @@ struct DuskProgress: View {
 struct MediaPosterCard<Overlay: View>: View {
     let title: String
     let posterURL: URL?
+    var menuItems: [MediaPosterMenuAction] = []
+    var onMenuAction: (MediaPosterMenuAction) -> Void = { _ in }
     @ViewBuilder var overlay: Overlay
 
-    init(title: String, posterURL: URL?, @ViewBuilder overlay: () -> Overlay = { EmptyView() }) {
+    init(
+        title: String,
+        posterURL: URL?,
+        menuItems: [MediaPosterMenuAction] = [],
+        onMenuAction: @escaping (MediaPosterMenuAction) -> Void = { _ in },
+        @ViewBuilder overlay: () -> Overlay = { EmptyView() }
+    ) {
         self.title = title
         self.posterURL = posterURL
+        self.menuItems = menuItems
+        self.onMenuAction = onMenuAction
         self.overlay = overlay()
     }
 
+    @ViewBuilder
     var body: some View {
+        if menuItems.isEmpty {
+            posterStack
+        } else {
+            posterStack.contextMenu {
+                ForEach(menuItems, id: \.self) { action in
+                    mediaPosterMenuButton(action, perform: onMenuAction)
+                }
+            }
+        }
+    }
+
+    private var posterStack: some View {
         VStack(alignment: .leading, spacing: 6) {
             Rectangle()
                 .fill(Theme.raised)
@@ -189,6 +213,150 @@ struct SpineRow: View {
                 Capsule().fill(downloaded ? Theme.faint : Theme.borderStrong)
                     .frame(width: 4, height: 22)
             }
+        }
+    }
+}
+
+/// A merged book row: cover, title/author, and format chips (Audiobook / EPUB).
+struct BookRow: View {
+    let book: BookListItem
+    let downloaded: Bool
+    var menuItems: [BookCardMenuAction] = []
+    var onMenuAction: (BookCardMenuAction) -> Void = { _ in }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            BookCover(url: book.coverURL, size: 56, corner: 10)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(book.title)
+                    .font(.display(16))
+                    .foregroundStyle(Theme.textStrong)
+                    .lineLimit(2)
+                if let author = book.author, !author.isEmpty {
+                    Text(author).font(.subheadline).foregroundStyle(Theme.muted).lineLimit(1)
+                }
+                HStack(spacing: 6) {
+                    if book.hasAudiobook { formatChip("Audiobook", tint: Theme.apricot) }
+                    if book.hasEbook { formatChip("EPUB", tint: Theme.importing) }
+                }
+            }
+
+            Spacer(minLength: 8)
+            if downloaded { StatusBadge(text: "Offline", tint: Theme.seed) }
+        }
+        .padding(12)
+        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
+        .bookCardContextMenu(items: menuItems, onAction: onMenuAction)
+    }
+
+    private func formatChip(_ text: String, tint: Color) -> some View {
+        Text(text)
+            .font(.system(.caption2, design: .monospaced))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 7).padding(.vertical, 3)
+            .background(tint.opacity(0.12), in: Capsule())
+            .overlay(Capsule().strokeBorder(tint.opacity(0.3), lineWidth: 1))
+    }
+}
+
+struct ReleaseSearchPresentation: Identifiable {
+    let query: String
+    let libraryMediaId: Int?
+    let tmdbId: Int
+    let mediaType: String
+
+    var id: String { "\(mediaType)-\(tmdbId)-\(libraryMediaId ?? 0)" }
+}
+
+extension View {
+    @ViewBuilder
+    func bookCardContextMenu(
+        items: [BookCardMenuAction],
+        onAction: @escaping (BookCardMenuAction) -> Void
+    ) -> some View {
+        if items.isEmpty {
+            self
+        } else {
+            contextMenu {
+                ForEach(items, id: \.self) { action in
+                    bookCardMenuButton(action, perform: onAction)
+                }
+            }
+        }
+    }
+
+    /// Same keep-files / delete-files choice MediaDetailView's remove flow uses.
+    func libraryRemoveConfirmation(
+        isPresented: Binding<Bool>,
+        title: String,
+        onConfirm: @escaping (_ deleteFiles: Bool) -> Void
+    ) -> some View {
+        confirmationDialog(
+            "Remove from library?",
+            isPresented: isPresented,
+            titleVisibility: .visible
+        ) {
+            Button("Remove, keep files") { onConfirm(false) }
+            Button("Remove and delete files", role: .destructive) { onConfirm(true) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("“\(title)” will leave your library. Deleting files also removes them from disk.")
+        }
+    }
+}
+
+@ViewBuilder
+private func mediaPosterMenuButton(
+    _ action: MediaPosterMenuAction,
+    perform: @escaping (MediaPosterMenuAction) -> Void
+) -> some View {
+    switch action {
+    case .toggleMonitored:
+        Button { perform(action) } label: {
+            Label("Toggle monitored", systemImage: "antenna.radiowaves.left.and.right")
+        }
+    case .searchReleases:
+        Button { perform(action) } label: {
+            Label("Search releases", systemImage: "magnifyingglass")
+        }
+    case .openDetails:
+        Button { perform(action) } label: {
+            Label("Open details", systemImage: "info.circle")
+        }
+    case .removeFromLibrary:
+        Button(role: .destructive) { perform(action) } label: {
+            Label("Remove from library", systemImage: "trash")
+        }
+    }
+}
+
+@ViewBuilder
+private func bookCardMenuButton(
+    _ action: BookCardMenuAction,
+    perform: @escaping (BookCardMenuAction) -> Void
+) -> some View {
+    switch action {
+    case .read:
+        Button { perform(action) } label: {
+            Label("Read", systemImage: "book.pages")
+        }
+    case .play:
+        Button { perform(action) } label: {
+            Label("Play", systemImage: "play.fill")
+        }
+    case .addAudiobook:
+        Button { perform(action) } label: {
+            Label("Add audiobook", systemImage: "plus.circle")
+        }
+    case .addEPUB:
+        Button { perform(action) } label: {
+            Label("Add EPUB", systemImage: "plus.circle")
+        }
+    case .rescan:
+        Button { perform(action) } label: {
+            Label("Rescan", systemImage: "arrow.clockwise")
         }
     }
 }
