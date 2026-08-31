@@ -5,7 +5,7 @@ import {
   type PushSubscription,
 } from "@rawkoon/api/utils/webpush";
 import { dispatchToChannel } from "@rawkoon/api/utils/notifications/channelDispatchers";
-import { sendApnsNotification } from "@rawkoon/api/utils/apns";
+import { sendPushViaRelay } from "@rawkoon/api/utils/apns";
 import { isNightTime } from "@rawkoon/api/utils";
 import { getBaseUrl } from "@rawkoon/api/config";
 
@@ -103,7 +103,7 @@ async function processRegularNotificationJob(job: Job<NotificationJobData>) {
     : await prisma.apnsDevice.findMany({ where: { userId }, take: 50 });
   for (const device of apnsDevices) {
     try {
-      const result = await sendApnsNotification(device.deviceToken, {
+      const result = await sendPushViaRelay(device.deviceToken, {
         title,
         body,
         tag: notificationType,
