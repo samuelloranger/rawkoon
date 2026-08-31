@@ -274,3 +274,96 @@ struct UpcomingItem: Decodable, Identifiable, Sendable {
     let seasonNumber: Int?
     let episodeNumber: Int?
 }
+
+// MARK: - Management (settings hub)
+
+struct QualityProfile: Decodable, Identifiable, Sendable {
+    let id: Int
+    let name: String
+    let minResolution: Int?
+    let cutoffResolution: Int?
+    let maxSizeGb: Double?
+    let minSeeders: Int?
+    let requireHdr: Bool?
+    let preferHdr: Bool?
+}
+
+struct QualityProfilesResponse: Decodable, Sendable {
+    let profiles: [QualityProfile]
+}
+
+struct Indexer: Decodable, Identifiable, Sendable {
+    let id: Int
+    let slug: String
+    let name: String
+    let protocolType: String?
+    let enabled: Bool
+    let privacy: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, slug, name, enabled, privacy
+        case protocolType = "protocol"
+    }
+}
+
+struct IndexersResponse: Decodable, Sendable {
+    let indexers: [Indexer]
+}
+
+struct DownloadClientIntegration: Decodable, Sendable {
+    let enabled: Bool
+    let clientType: String?
+    let websiteUrl: String?
+    let username: String?
+    let passwordSet: Bool?
+    let label: String?
+    let savePath: String?
+}
+
+struct DownloadClientResponse: Decodable, Sendable {
+    let integration: DownloadClientIntegration
+}
+
+struct AdminUser: Decodable, Identifiable, Sendable {
+    let id: String
+    let email: String
+    let firstName: String?
+    let lastName: String?
+    let isAdmin: Bool
+    let locale: String?
+    let createdAt: String?
+    let lastLogin: String?
+}
+
+struct AdminUsersResponse: Decodable, Sendable {
+    let success: Bool?
+    let users: [AdminUser]
+}
+
+struct SystemVersion: Decodable, Sendable {
+    let version: String
+}
+
+struct SessionUser: Decodable, Sendable {
+    let email: String?
+    let name: String?
+    let firstName: String?
+    let lastName: String?
+    let isAdmin: Bool?
+}
+
+struct SessionResponse: Decodable, Sendable {
+    let user: SessionUser?
+}
+
+struct ApproveRequestBody: Encodable, Sendable {
+    let qualityProfileId: Int
+}
+
+struct DenyRequestBody: Encodable, Sendable {
+    let denyReason: String?
+}
+
+struct NotificationPrefsBody: Encodable, Sendable {
+    let notificationPreferences: [String: Bool]
+}

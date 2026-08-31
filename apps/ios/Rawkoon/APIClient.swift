@@ -406,6 +406,54 @@ actor APIClient {
     func upcoming() async throws -> UpcomingResponse {
         try await get("/api/dashboard/upcoming")
     }
+
+    // MARK: - Management / settings
+
+    func qualityProfiles() async throws -> QualityProfilesResponse {
+        try await get("/api/quality-profiles")
+    }
+
+    func indexers() async throws -> IndexersResponse {
+        try await get("/api/medias/indexers")
+    }
+
+    func downloadClient() async throws -> DownloadClientResponse {
+        try await get("/api/integrations/download-client")
+    }
+
+    func adminUsers() async throws -> AdminUsersResponse {
+        try await get("/api/admin/users")
+    }
+
+    func systemVersion() async throws -> SystemVersion {
+        try await get("/api/system/version")
+    }
+
+    /// Current session user (better-auth). Best-effort: used to show name/email
+    /// and gate admin-only settings rows.
+    func currentUser() async throws -> SessionResponse {
+        try await get("/api/auth/get-session")
+    }
+
+    func approveRequest(id: Int, qualityProfileId: Int) async throws {
+        try await postExpectOK("/api/requests/\(id)/approve", body: ApproveRequestBody(qualityProfileId: qualityProfileId))
+    }
+
+    func denyRequest(id: Int, reason: String?) async throws {
+        try await postExpectOK("/api/requests/\(id)/deny", body: DenyRequestBody(denyReason: reason))
+    }
+
+    func updateNotificationPrefs(_ prefs: [String: Bool]) async throws {
+        try await putExpectOK("/api/users/me/notification-preferences", body: NotificationPrefsBody(notificationPreferences: prefs))
+    }
+
+    private func putExpectOK<B: Encodable>(_ path: String, body: B) async throws {
+        var request = try makeRequest(path: path, method: "PUT", requiresAuth: true)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try Self.mediaEncoder.encode(body)
+        let (_, response) = try await perform(request)
+        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+    }
 }
 
 private struct LoginTokenResponse: Decodable {
