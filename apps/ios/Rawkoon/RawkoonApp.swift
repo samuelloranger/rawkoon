@@ -66,6 +66,33 @@ private struct RootTabsView: View {
     }
 
     var body: some View {
+        content
+    }
+
+    @ViewBuilder private var content: some View {
+        #if DEBUG
+        if let screen = DebugScreen.requested {
+            debugRoot(screen)
+        } else {
+            mainTabs
+        }
+        #else
+        mainTabs
+        #endif
+    }
+
+    #if DEBUG
+    @ViewBuilder private func debugRoot(_ screen: String) -> some View {
+        switch screen {
+        case "movieDetail": DebugFirstDetail(libraryType: "movie")
+        case "showDetail": DebugFirstDetail(libraryType: "show")
+        case "releaseSearch": DebugFirstReleaseSearch()
+        default: mainTabs
+        }
+    }
+    #endif
+
+    private var mainTabs: some View {
         TabView(selection: $selection) {
             NavigationStack {
                 DiscoverView()
