@@ -1,5 +1,11 @@
 import Foundation
 
+// XMLParser is in Foundation on Apple platforms but in FoundationXML on Linux,
+// where RawkoonKit's tests run in CI.
+#if canImport(FoundationXML)
+    import FoundationXML
+#endif
+
 /// The reading order of an EPUB, resolved from its container and OPF package.
 public struct EpubPackage: Equatable, Sendable {
     public struct Document: Equatable, Sendable {
