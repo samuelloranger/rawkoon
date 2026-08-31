@@ -123,6 +123,13 @@ jobs:
             -t ios \
             --apiKey "$APP_STORE_CONNECT_KEY_ID" \
             --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+      - name: Distribute to internal testers
+        working-directory: apps/ios
+        env:
+          BUNDLE_ID: cloud.samlo.rawkoon
+          BUILD_NUMBER: ${{ env.CURRENT_PROJECT_VERSION }}
+          WHATS_NEW: "Internal build from ${{ github.ref_name }} (${{ github.sha }})"
+        run: node scripts/asc-distribute.mjs
       - name: Upload IPA artifact
         if: always()
         uses: actions/upload-artifact@v4
