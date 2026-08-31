@@ -285,15 +285,19 @@ struct HomeView: View {
         )
     }
 
-    @ViewBuilder
-    private func continuePoster(_ item: ContinueItem) -> some View {
-        let coverURL: URL?
+    private func continueCoverURL(_ item: ContinueItem) -> URL? {
         switch item {
-        case .audiobook(let audiobook): coverURL = audiobook.coverURL
-        case .ebook(let ebook): coverURL = ebook.coverURL
+        case let .audiobook(audiobook): return audiobook.coverURL
+        case let .ebook(ebook): return ebook.coverURL
         }
+    }
 
-        Rectangle()
+    // Not a `let` + `switch` inside the @ViewBuilder body: the builder reads a
+    // switch as a view expression, and one that assigns produces `()`.
+    private func continuePoster(_ item: ContinueItem) -> some View {
+        let coverURL = continueCoverURL(item)
+
+        return Rectangle()
             .fill(Theme.base.opacity(0.7))
             .frame(width: 36, height: 54)
             .overlay {
