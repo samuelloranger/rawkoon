@@ -57,6 +57,7 @@ struct BookView: View {
 
     private var audiobookEditionId: Int? { audiobookEdition?.id ?? book.audiobookEditionId }
     private var ebookEditionId: Int? { ebookEdition?.id }
+    private var ebookStorageEditionId: Int { ebookEditionId ?? (1_000_000_000 + book.bookId) }
     private var hasAudiobookEdition: Bool { audiobookEditionId != nil }
     private var hasEbookEdition: Bool { ebookEdition != nil || book.hasEbook }
 
@@ -219,7 +220,7 @@ struct BookView: View {
                     Text("Overview")
                         .font(.display(16))
                         .foregroundStyle(Theme.textStrong)
-                    Text(overview)
+                    Text(renderedOverviewText(overview))
                         .font(.subheadline)
                         .foregroundStyle(Theme.text)
                 }
@@ -549,6 +550,11 @@ struct BookView: View {
 
     private var ebookActions: some View {
         VStack(alignment: .leading, spacing: 10) {
+            let preferred = preferredEbookFile
+            let preferredIsDownloaded = preferred.map(isEbookDownloaded) ?? false
+            let preferredCanFetchRemote = preferred.flatMap { remoteEbookURL(for: $0) } != nil
+            let preferredCanRead = preferredIsDownloaded || preferredCanFetchRemote
+
             Button {
                 Task {
                     guard let file = preferredEbookFile else { return }
@@ -561,14 +567,14 @@ struct BookView: View {
             .buttonStyle(.borderedProminent)
             .tint(Theme.importing)
             .foregroundStyle(Theme.onAccent)
-            .disabled(preferredEbookFile == nil || loadingEbookFiles || openingEbookFileId != nil)
+            .disabled(!preferredCanRead || loadingEbookFiles || openingEbookFileId != nil)
 
             if let preferred = preferredEbookFile {
-                if isEbookDownloaded(preferred) {
+                if preferredIsDownloaded {
                     Label("Saved for offline reading", systemImage: "checkmark.circle.fill")
                         .font(.caption)
                         .foregroundStyle(Theme.seed)
-                } else {
+                } else if preferredCanFetchRemote {
                     Button {
                         Task { await downloadEbook(preferred) }
                     } label: {
@@ -578,6 +584,10 @@ struct BookView: View {
                     .buttonStyle(.bordered)
                     .tint(Theme.importing)
                     .disabled(downloadingEbookFileIDs.contains(preferred.id) || loadingEbookFiles)
+                } else {
+                    Text("This server does not expose secure ebook file downloads yet. Update Rawkoon on the server, then retry.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.terracotta)
                 }
             }
 
@@ -900,6 +910,8 @@ struct BookView: View {
         do {
             let localURL = try await ensureLocalEbookFile(file)
             previewDocument = EbookPreviewDocument(id: file.id, title: file.fileName, localURL: localURL)
+        } catch EbookStorageError.missingRemoteURL {
+            ebookFilesError = "This server version cannot provide ebook download links yet."
         } catch {
             ebookFilesError = "Read failed. Try refreshing or rescanning this edition."
         }
@@ -912,21 +924,21 @@ struct BookView: View {
         defer { downloadingEbookFileIDs.remove(file.id) }
         do {
             _ = try await ensureLocalEbookFile(file)
+        } catch EbookStorageError.missingRemoteURL {
+            ebookFilesError = "This server version cannot provide ebook download links yet."
         } catch {
             ebookFilesError = "Download failed. Check your connection and try again."
         }
     }
 
     private func ensureLocalEbookFile(_ file: BookEditionFile) async throws -> URL {
-        guard let localURL = localEbookURL(for: file) else {
-            throw APIError.transport
-        }
+        let localURL = localEbookURL(for: file)
         if FileManager.default.fileExists(atPath: localURL.path) {
             return localURL
         }
 
         guard let remoteURL = remoteEbookURL(for: file) else {
-            throw APIError.transport
+            throw EbookStorageError.missingRemoteURL
         }
 
         let (temporaryURL, response) = try await URLSession.shared.download(from: remoteURL)
@@ -950,19 +962,17 @@ struct BookView: View {
         return model.absoluteURL(contentURL)
     }
 
-    private func localEbookURL(for file: BookEditionFile) -> URL? {
-        guard let editionId = ebookEditionId else { return nil }
+    private func localEbookURL(for file: BookEditionFile) -> URL {
         return FileStore.chapterURL(
-            editionId: editionId,
+            editionId: ebookStorageEditionId,
             fileId: file.id,
             ext: ebookExtension(for: file)
         )
     }
 
     private func isEbookDownloaded(_ file: BookEditionFile) -> Bool {
-        guard let editionId = ebookEditionId else { return false }
         return FileStore.exists(
-            editionId: editionId,
+            editionId: ebookStorageEditionId,
             fileId: file.id,
             ext: ebookExtension(for: file)
         )
@@ -1005,6 +1015,26 @@ struct BookView: View {
     private func formatBytes(_ raw: String?) -> String? {
         guard let raw, let bytes = Int64(raw), bytes > 0 else { return nil }
         return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+
+    private func renderedOverviewText(_ rawOverview: String) -> String {
+        let trimmed = rawOverview.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.contains("<"), let data = trimmed.data(using: .utf8) else {
+            return trimmed
+        }
+        if let parsed = try? NSAttributedString(
+            data: data,
+            options: [
+                .documentType: NSAttributedString.DocumentType.html,
+                .characterEncoding: String.Encoding.utf8.rawValue,
+            ],
+            documentAttributes: nil
+        ) {
+            return parsed.string
+                .replacingOccurrences(of: "\u{00A0}", with: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return trimmed
     }
 
     private func isChapterDownloaded(_ chapter: ManifestChapter) -> Bool {
@@ -1085,4 +1115,8 @@ struct BookView: View {
         formatter.locale = .autoupdatingCurrent
         return formatter
     }()
+
+    private enum EbookStorageError: Error {
+        case missingRemoteURL
+    }
 }
