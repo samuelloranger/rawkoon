@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import { prisma } from "@rawkoon/api/db";
 import { auth as betterAuth } from "@rawkoon/api/lib/auth";
+import { getBaseUrl } from "@rawkoon/api/config";
 import { requireUser, resolveUser } from "@rawkoon/api/middleware/auth";
 import { hashPassword } from "@rawkoon/api/utils/password";
 import { mapUser } from "@rawkoon/api/utils/mappers";
@@ -158,6 +159,69 @@ export const ssoProvidersRoute = new Elysia({ name: "auth/sso-providers" }).get(
     };
   },
 );
+
+// Native app OAuth bridge.
+//
+// A native app can't share a browser cookie jar with a URLSession POST, so it
+// can't drive better-auth's POST-based OAuth start directly (the PKCE `state`
+// cookie would be set in the wrong context). Instead the app opens
+// `/api/mobile/oauth-start` in an ASWebAuthenticationSession: this endpoint
+// makes the POST server-side, forwards better-auth's state cookie to the
+// browser, and 302s to the provider. After the provider round-trip better-auth
+// lands on `/api/mobile/auth-callback`, which reads the freshly-established
+// session and hands the app a bearer token via the `rawkoon://` scheme.
+export const mobileAuthRoutes = new Elysia({ name: "auth/mobile" })
+  .get("/api/mobile/oauth-start", async ({ query, request }) => {
+    const provider = String((query as Record<string, unknown>).provider ?? "");
+    if (!provider) {
+      return new Response(JSON.stringify({ error: "provider required" }), {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    const base = getBaseUrl();
+    const initRes = await betterAuth.handler(
+      new Request(`${base}/api/auth/sign-in/oauth2`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: request.headers.get("cookie") ?? "",
+        },
+        body: JSON.stringify({
+          providerId: provider,
+          callbackURL: `${base}/api/mobile/auth-callback`,
+        }),
+      }),
+    );
+    const data = (await initRes.json().catch(() => ({}))) as { url?: string };
+    if (!data.url) {
+      return new Response(JSON.stringify({ error: "oauth_init_failed" }), {
+        status: 502,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    const headers = new Headers({ location: data.url });
+    for (const cookie of initRes.headers.getSetCookie())
+      headers.append("set-cookie", cookie);
+    return new Response(null, { status: 302, headers });
+  })
+  .get("/api/mobile/auth-callback", async ({ request }) => {
+    let token: string | null = null;
+    try {
+      const session = (await betterAuth.api.getSession({
+        headers: request.headers,
+      })) as {
+        session?: { token?: string };
+      } | null;
+      token = session?.session?.token ?? null;
+    } catch {
+      token = null;
+    }
+    const location = token
+      ? `rawkoon://auth?token=${encodeURIComponent(token)}`
+      : `rawkoon://auth?error=nosession`;
+    return new Response(null, { status: 302, headers: { location } });
+  });
 
 export const protectedAuthRoutes = new Elysia({ name: "auth/protected" })
   .use(requireUser)

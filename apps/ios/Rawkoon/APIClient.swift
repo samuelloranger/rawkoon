@@ -73,6 +73,17 @@ actor APIClient {
         self.token = token
     }
 
+    /// Public: the enabled OAuth/SSO providers to offer on the login screen.
+    func ssoProviders() async throws -> SsoProvidersResponse {
+        let request = try makeRequest(path: "/api/auth/sso-providers", method: "GET", requiresAuth: false)
+        let (data, response) = try await perform(request)
+        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        do { return try decoder.decode(SsoProvidersResponse.self, from: data) }
+        catch { throw APIError.decode }
+    }
+
     func login(email: String, password: String) async throws -> String {
         let payload = ["email": email, "password": password]
         let body: Data
