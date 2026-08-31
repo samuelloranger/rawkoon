@@ -11,6 +11,7 @@ struct BookView: View {
     @State private var loadingManifest = false
     @State private var loadingPlayer = false
     @State private var showingPlayer = false
+    @State private var showingAddAudiobook = false
 
     private var editionId: Int? { book.audiobookEditionId }
 
@@ -24,6 +25,9 @@ struct BookView: View {
                 }
                 if book.hasEbook {
                     ebookCard
+                }
+                if !book.hasAudiobook {
+                    addAudiobookButton
                 }
             }
             .padding(16)
@@ -40,6 +44,21 @@ struct BookView: View {
                     .environmentObject(model)
             }
         }
+        .sheet(isPresented: $showingAddAudiobook) {
+            BookReleaseSearchView(bookId: book.bookId, kind: "audiobook", title: book.title)
+                .environmentObject(model)
+        }
+    }
+
+    private var addAudiobookButton: some View {
+        Button {
+            showingAddAudiobook = true
+        } label: {
+            Label("Add audiobook", systemImage: "plus.circle")
+                .frame(maxWidth: .infinity).frame(height: 22)
+        }
+        .buttonStyle(.bordered)
+        .tint(Theme.apricot)
     }
 
     // MARK: Header

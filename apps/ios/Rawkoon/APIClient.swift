@@ -175,6 +175,20 @@ actor APIClient {
         try await postExpectOK("/api/library", body: Body(tmdbId: tmdbId, type: type))
     }
 
+    // MARK: Book editions (add an audiobook edition onto an existing book)
+
+    func addBookEdition(bookId: Int, kind: String) async throws {
+        try await postExpectOK("/api/books/\(bookId)/editions", body: CreateBookEditionBody(kind: kind, monitored: true))
+    }
+
+    func bookReleaseSearch(bookId: Int, kind: String) async throws -> BookReleasesResponse {
+        try await get("/api/books/\(bookId)/editions/\(kind)/search")
+    }
+
+    func bookGrab(bookId: Int, kind: String, body: BookGrabBody) async throws {
+        try await postExpectOK("/api/books/\(bookId)/editions/\(kind)/grab", body: body)
+    }
+
     func manifest(editionId: Int) async throws -> BookManifest {
         let request = try makeRequest(
             path: "/api/books/editions/\(editionId)/manifest",
