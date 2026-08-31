@@ -9,6 +9,11 @@ export default defineConfig({
     "Self-hosted movie, TV, and book library documentation",
   sitemap: { hostname: "https://samlo.cloud/rawkoon/" },
   cleanUrls: true,
+  // docs/superpowers holds internal plans and specs. Nothing links to them, and
+  // VitePress runs every page through the Vue compiler — a plain-prose `<id>`
+  // placeholder in a plan reads as an unclosed HTML tag and fails the whole
+  // build, which only shows up when a release tries to publish the docs.
+  srcExclude: ["superpowers/**"],
   appearance: false,
   vite: {
     publicDir: fileURLToPath(new URL("../../apps/web/public", import.meta.url)),
