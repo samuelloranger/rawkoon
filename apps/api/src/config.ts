@@ -68,6 +68,12 @@ const envSchema = z.object({
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_CONTACT_EMAIL: z.string().optional().default("mailto:admin@localhost"),
 
+  // ── Apple Push (APNs) via relay ───────────────────────
+  // The API posts pushes to a relay that holds the APNs signing key (a
+  // self-hosted server can't sign for the published app). Defaults to the
+  // official relay; override to run your own.
+  PUSH_RELAY_URL: z.string().optional(),
+
   // ── GitHub Releases ───────────────────────────────────
   GITHUB_RELEASES_REPO: githubRepoFullName,
 });

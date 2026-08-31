@@ -1,0 +1,58 @@
+name: Rawkoon
+options:
+  bundleIdPrefix: cloud.samlo
+  deploymentTarget:
+    iOS: "18.0"
+packages:
+  RawkoonKit:
+    path: .
+targets:
+  Rawkoon:
+    type: application
+    platform: iOS
+    sources: [Rawkoon]
+    dependencies:
+      - package: RawkoonKit
+    entitlements:
+      path: Rawkoon/Rawkoon.entitlements
+      properties:
+        # TestFlight/App Store builds use the production APNs environment, so
+        # the server must talk to api.push.apple.com (APNS_PRODUCTION=true).
+        aps-environment: production
+    info:
+      path: Rawkoon/Info.plist
+      properties:
+        UIBackgroundModes: [audio, fetch, remote-notification]
+        CFBundleDisplayName: Rawkoon
+        ITSAppUsesNonExemptEncryption: false
+        # Wire the version/build strings to the build settings so CI's
+        # MARKETING_VERSION / CURRENT_PROJECT_VERSION overrides actually reach
+        # the binary (XcodeGen otherwise bakes literal "1.0"/"1", which made
+        # every TestFlight upload look like a duplicate build).
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        # Cozy Dusk display face. Fraunces ships as one variable TTF; iOS reads it
+        # under the family name "Fraunces". Theme.display() falls back to the
+        # system serif if this ever fails to register.
+        UIAppFonts:
+          - Fraunces.ttf
+        # Dark-only by design — audiobooks and late-night queue-watching live at
+        # night, and the whole palette is built for a dim room.
+        UIUserInterfaceStyle: Dark
+        # iPhone-only (TARGETED_DEVICE_FAMILY = 1 below), so the iPad-multitasking
+        # rule that demands all four orientations does not apply and the player
+        # can stay portrait-only.
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        # An empty UILaunchScreen dict satisfies the launch-screen requirement
+        # for MinimumOSVersion >= 14 without a storyboard.
+        UILaunchScreen: {}
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: cloud.samlo.rawkoon
+      MARKETING_VERSION: "1.11.0"
+      CURRENT_PROJECT_VERSION: "1"
+      SWIFT_VERSION: "5.0"
+      TARGETED_DEVICE_FAMILY: "1"
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      DEVELOPMENT_TEAM: SSU33B2E5B
+      CODE_SIGN_STYLE: Automatic

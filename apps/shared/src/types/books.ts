@@ -28,6 +28,8 @@ export interface BookFileInfo {
   id: number;
   file_name: string;
   file_path: string;
+  /** Signed URL for temporary direct content access. */
+  content_url?: string;
   size_bytes: string;
   format: BookFormat;
   duration_secs: number | null;
@@ -312,4 +314,42 @@ export interface BookOverridesRequest {
   overview?: string | null;
   cover_url?: string | null;
   isbn13?: string | null;
+}
+
+/**
+ * Where a reader left off in an ebook edition.
+ *
+ * A reading position is a spine document plus an offset inside it, so it shares
+ * nothing with the whole-book seconds an audiobook position uses.
+ */
+export interface BookReadingProgress {
+  edition_id: number;
+  /** Which file the position was recorded against; an edition can hold several. */
+  file_id: number | null;
+  spine_index: number;
+  /**
+   * The spine document's path inside the archive. A re-download can reorder the
+   * spine, so a client verifies this before trusting `spine_index`.
+   */
+  spine_path: string;
+  spine_count: number;
+  /** 0–1 scroll offset within the spine document. */
+  scroll_fraction: number;
+  finished: boolean;
+  updated_at: string;
+}
+
+export interface BookReadingProgressResponse {
+  progress: BookReadingProgress[];
+}
+
+export interface BookReadingProgressRequest {
+  file_id?: number | null;
+  spine_index: number;
+  spine_path: string;
+  spine_count: number;
+  scroll_fraction: number;
+  finished?: boolean;
+  updated_at: string;
+  device_id?: string;
 }

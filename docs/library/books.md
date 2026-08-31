@@ -189,9 +189,13 @@ cannot pull in an unrelated book.
 
 ## Reading and listening
 
-Rawkoon downloads and imports; **Audiobookshelf plays and reads**. Once an
-edition has files, its page shows **Open in Audiobookshelf**, which opens a
-search for the title in the matching Audiobookshelf library.
+**In the web app, Rawkoon downloads and imports; Audiobookshelf plays and
+reads.** Once an edition has files, its page shows **Open in Audiobookshelf**,
+which opens a search for the title in the matching Audiobookshelf library.
+
+**The iOS app reads and plays books itself.** It has an in-app EPUB reader and
+an audiobook player, both with offline downloads, and it remembers where you
+are. Nothing there depends on Audiobookshelf.
 
 ### Setting it up
 
@@ -212,18 +216,47 @@ Rawkoon never calls the Audiobookshelf API. It has no key and stores no
 Audiobookshelf item IDs, so the link is a title search rather than a link
 straight to the item. An unreachable server costs nothing but a dead link.
 
-### What was removed
+### What the web app dropped in 1.8.0
 
-Rawkoon used to ship its own ebook reader and audiobook player, with offline
-downloads and its own progress tracking. All of it was removed in 1.8.0:
+The web app used to ship its own ebook reader and audiobook player, with
+offline downloads and progress tracking. All of it was removed in 1.8.0 and has
+not come back on the web:
 
-- **Reading progress is not migrated.** Audiobookshelf tracks its own from
-  scratch; there was no shared key to map the old positions onto.
-- **Offline downloads are gone.** The Audiobookshelf mobile apps do this
-  better. Any book previously stored in the browser is dropped on the first
-  load after upgrading.
-- **The "Continue reading" dashboard widget is gone.** Rawkoon no longer knows
-  where you are in a book.
+- **Reading progress from before 1.8.0 was not migrated.** There was no shared
+  key to map the old positions onto, so both Audiobookshelf and the iOS app
+  start from scratch.
+- **Browser offline downloads are gone.** Any book stored in the browser was
+  dropped on the first load after upgrading.
+- **The web "Continue reading" widget is gone.** The iOS app has its own,
+  driven by the progress API below.
+
+## Progress on iOS
+
+The iOS app tracks two positions per user, and both sync through the server so
+they follow you across devices:
+
+| | Audiobook | Ebook |
+| --- | --- | --- |
+| Stored in | `book_listening_progress` | `book_reading_progress` |
+| Position is | Seconds on the whole-book timeline | Spine document + a 0–1 offset inside it |
+| Read with | `GET /api/books/progress` | `GET /api/books/reading-progress` |
+| Written with | `PUT /api/books/editions/:id/progress` | `PUT /api/books/editions/:id/reading-progress` |
+
+Both are keyed on `(user, edition)` and both resolve conflicts the same way:
+newest write wins, the client clock is clamped to server time on receipt, and an
+older write is rejected rather than allowed to walk a reader backwards from
+another device. Each device also keeps its own copy on disk, so a position
+survives a crash or an offline session and is pushed on the next sync.
+
+A reading position stores the spine document's **path** as well as its index,
+because re-downloading a book can reorder its spine — the index alone would then
+open a different chapter. On open the path is what the app trusts: if it moved,
+the index follows it; if it is gone entirely, the app lands at the top of the
+nearest chapter rather than mid-way through an unrelated one.
+
+The in-app reader unpacks **EPUB only**. Other formats in the library — the
+`.mobi` files that ship beside some editions, pdf, azw3 — can be downloaded but
+show *EPUB only* where the Read button would be.
 
 ## Metadata sources
 
@@ -314,5 +347,8 @@ monitored author has new titles.
   a whole series is never grabbed for a single edition.
 - **Requests and the discover deck do not cover books yet.** Books are added
   from the books page, not requested.
-- **Rawkoon shows no reading state.** A book is either in the library or not;
-  progress, bookmarks and playback all live in Audiobookshelf.
+- **The web app shows no reading state.** In the browser a book is either in
+  the library or not; reading and listening happen in the iOS app or in
+  Audiobookshelf. Progress recorded by the iOS app is not surfaced on the web.
+- **Bookmarks and notes are not tracked anywhere.** Only a single current
+  position per edition is stored.

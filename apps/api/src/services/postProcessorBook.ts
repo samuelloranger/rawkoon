@@ -1,7 +1,8 @@
 import { mkdir, readdir, stat, unlink } from "node:fs/promises";
-import { basename, extname, join } from "node:path";
+import { basename, dirname, extname, join } from "node:path";
 
 import { prisma } from "@rawkoon/api/db";
+import { registerBookChapters } from "@rawkoon/api/services/books/registerBookChapters";
 import { emitBookUpdate } from "@rawkoon/api/services/libraryEvents";
 import {
   placeFile,
@@ -574,6 +575,62 @@ export async function postProcessBookDownload(
   return { success: true, destinationPath: result.destinationPath };
 }
 
+export interface BookFileUpsert {
+  editionId: number;
+  filePath: string;
+  fileName: string;
+  sizeBytes: bigint;
+  format: BookFormat;
+  durationSecs: number | null;
+  audioBitrate: number | null;
+  audioCodec: string | null;
+  languageTags: string[];
+  fileDev: string;
+  fileIno: string;
+  fileMtimeMs: bigint;
+}
+
+/**
+ * Keep BookFile ids stable on repeated scans keyed by path.
+ * Chapters and clients reference the id, so rescan must update in place.
+ */
+export async function upsertBookFile(
+  data: BookFileUpsert,
+): Promise<{ id: number; existed: boolean }> {
+  // Scoped to the edition, not the path alone. The update below writes
+  // `editionId`, so a path-only lookup let two editions that point at the same
+  // file steal the row from each other: rescanning the duplicate "Le boyfriend"
+  // edition moved the row off the real one, and rescanning the real one moved
+  // it back. Whichever ran last owned the file and the other looked empty.
+  const existing = await prisma.bookFile.findFirst({
+    where: { editionId: data.editionId, filePath: data.filePath },
+    select: { id: true },
+  });
+
+  if (existing) {
+    await prisma.bookFile.update({
+      where: { id: existing.id },
+      data: {
+        ...data,
+        scannedAt: new Date(),
+        // A scan has no release title to judge, so retail stays unknown.
+        isRetail: false,
+      },
+    });
+    return { id: existing.id, existed: true };
+  }
+
+  const created = await prisma.bookFile.create({
+    data: {
+      ...data,
+      // A scan has no release title to judge, so retail stays unknown.
+      isRetail: false,
+    },
+    select: { id: true },
+  });
+  return { id: created.id, existed: false };
+}
+
 /**
  * Register files already sitting in the library for an edition that has none.
  *
@@ -647,16 +704,37 @@ export async function rescanBookEdition(editionId: number): Promise<{
   let removed = 0;
   const known = await prisma.bookFile.findMany({
     where: { editionId },
-    select: { id: true, filePath: true },
+    select: {
+      id: true,
+      filePath: true,
+      sizeBytes: true,
+      fileDev: true,
+      fileIno: true,
+      fileMtimeMs: true,
+    },
   });
+  const survivors = new Map<string, (typeof known)[number]>();
   for (const f of known) {
     try {
       await stat(f.filePath);
+      survivors.set(f.filePath, f);
     } catch {
       await prisma.bookFile.delete({ where: { id: f.id } });
       removed++;
     }
   }
+
+  const invalidateChapterTimeline = async () => {
+    await prisma.$transaction(async (tx) => {
+      // A changed file set invalidates the whole chapter timeline because each
+      // chapter's start/end offsets are cumulative from all prior chapters.
+      await tx.bookChapter.deleteMany({ where: { editionId } });
+      await tx.bookEdition.update({
+        where: { id: editionId },
+        data: { offlineReady: false },
+      });
+    });
+  };
 
   const allowedFormats = edition.bookQualityProfile?.allowedFormats ?? [];
   const template =
@@ -669,11 +747,7 @@ export async function rescanBookEdition(editionId: number): Promise<{
     ...(allowedFormats.length > 0 ? allowedFormats : []),
     null,
   ];
-  const seenDirs = new Set<string>();
-  let directory: string | null = null;
-  let keepers: { path: string; format: BookFormat }[] = [];
-
-  for (const fmt of candidateFormats) {
+  const renderedDirs = candidateFormats.map((fmt) => {
     const rendered = renderBookTemplate(template, {
       author: edition.book.authors[0] ?? null,
       title: edition.book.title,
@@ -686,7 +760,24 @@ export async function rescanBookEdition(editionId: number): Promise<{
       kind === "audiobook"
         ? relParts.join("/")
         : relParts.slice(0, -1).join("/");
-    const dir = join(libraryRoot, relDir);
+    return join(libraryRoot, relDir);
+  });
+
+  // A metadata refresh can change {title} or {year} after the import that
+  // created the directory: "La femme de ménage (2023)" on disk, publishedYear
+  // now 2024. Re-rendering the template then names a directory that never
+  // existed, and the rescan answered "no files found in the library for this
+  // edition" about files sitting right there. The parent directories of the
+  // rows already on the edition are the fallback — that is where the files
+  // actually are. Rendered names come first, so a library that really was
+  // renamed to match new metadata still wins.
+  const rowDirs = [...new Set([...survivors.keys()].map((p) => dirname(p)))];
+
+  const seenDirs = new Set<string>();
+  let directory: string | null = null;
+  let keepers: { path: string; format: BookFormat }[] = [];
+
+  for (const dir of [...renderedDirs, ...rowDirs]) {
     if (seenDirs.has(dir)) continue;
     seenDirs.add(dir);
 
@@ -718,6 +809,7 @@ export async function rescanBookEdition(editionId: number): Promise<{
     // Nothing on disk. If rows were removed the edition no longer has files,
     // so put it back to wanted rather than leaving a lie on screen.
     if (removed > 0) {
+      await invalidateChapterTimeline();
       await prisma.bookEdition.update({
         where: { id: editionId },
         data: { status: "wanted" },
@@ -729,6 +821,11 @@ export async function rescanBookEdition(editionId: number): Promise<{
 
   let registered = 0;
   let refreshed = 0;
+  // Files whose bytes actually changed, as opposed to the ones the fast path
+  // below left alone. A chapter replaced or re-encoded in place keeps its row,
+  // so it counts as neither registered nor removed — but its duration moved,
+  // which shifts every cumulative offset after it in the timeline.
+  let reprobed = 0;
   for (const keeper of keepers) {
     let st: Awaited<ReturnType<typeof stat>> | null = null;
     try {
@@ -736,6 +833,29 @@ export async function rescanBookEdition(editionId: number): Promise<{
     } catch {
       continue;
     }
+
+    // A byte-identical file cannot yield new metadata, and probing it costs an
+    // ffprobe spawn each time. On a 60+ chapter audiobook that made every
+    // rescan take tens of seconds — a cost the iOS client paid on every open of
+    // a book whose manifest was not ready yet.
+    const prior = survivors.get(keeper.path);
+    if (
+      prior &&
+      prior.fileDev === String(st.dev) &&
+      prior.fileIno === String(st.ino) &&
+      prior.fileMtimeMs !== null &&
+      prior.fileMtimeMs === BigInt(Math.trunc(st.mtimeMs)) &&
+      prior.sizeBytes === BigInt(st.size)
+    ) {
+      await prisma.bookFile.update({
+        where: { id: prior.id },
+        data: { scannedAt: new Date() },
+      });
+      refreshed++;
+      continue;
+    }
+
+    reprobed++;
 
     let durationSecs: number | null = null;
     let audioBitrate: number | null = null;
@@ -761,40 +881,54 @@ export async function rescanBookEdition(editionId: number): Promise<{
     }
     if (languageTags.length === 0) languageTags = [edition.book.language];
 
-    // Rows are keyed by path, so a repeat scan replaces rather than duplicates.
-    // Counting the replacement separately keeps the report honest: a second
-    // scan of an unchanged library must not claim it registered anything.
-    const replaced = await prisma.bookFile.deleteMany({
-      where: { filePath: keeper.path },
-    });
-    await prisma.bookFile.create({
-      data: {
-        editionId,
-        filePath: keeper.path,
-        fileName: basename(keeper.path),
-        sizeBytes: BigInt(st.size),
-        format: keeper.format,
-        durationSecs,
-        audioBitrate,
-        audioCodec,
-        // A scan has no release title to judge, so retail stays unknown.
-        isRetail: false,
-        languageTags,
-        fileDev: String(st.dev),
-        fileIno: String(st.ino),
-        fileMtimeMs: BigInt(Math.trunc(st.mtimeMs)),
-      },
+    const { existed } = await upsertBookFile({
+      editionId,
+      filePath: keeper.path,
+      fileName: basename(keeper.path),
+      sizeBytes: BigInt(st.size),
+      format: keeper.format,
+      durationSecs,
+      audioBitrate,
+      audioCodec,
+      languageTags,
+      fileDev: String(st.dev),
+      fileIno: String(st.ino),
+      fileMtimeMs: BigInt(Math.trunc(st.mtimeMs)),
     });
 
-    if (replaced.count > 0) refreshed++;
+    if (existed) refreshed++;
     else registered++;
   }
+
+  let shouldEmitBookUpdate = false;
 
   if (registered + refreshed > 0) {
     await prisma.bookEdition.update({
       where: { id: editionId },
       data: { status: "downloaded" },
     });
+    shouldEmitBookUpdate = true;
+  }
+
+  if (removed > 0 || registered > 0 || reprobed > 0) {
+    await invalidateChapterTimeline();
+    shouldEmitBookUpdate = true;
+  }
+
+  // Registering the chapter timeline is what flips `offlineReady`, and nothing
+  // in the import path was doing it — so a chapterized audiobook stayed "not
+  // offline-ready" forever, every manifest request 400'd, and every client that
+  // asked triggered yet another rescan. Runs after the invalidation above so it
+  // rebuilds rather than races it.
+  if (
+    kind === "audiobook" &&
+    (registered > 0 || removed > 0 || reprobed > 0 || !edition.offlineReady)
+  ) {
+    const registration = await registerBookChapters(editionId);
+    if (registration.offlineReady) shouldEmitBookUpdate = true;
+  }
+
+  if (shouldEmitBookUpdate) {
     emitBookUpdate(edition.bookId);
   }
 

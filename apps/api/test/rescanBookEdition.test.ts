@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll, mock } from "bun:test";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 // rescanBookEdition adopts files already sitting in the library. It walks real
 // directories, so these tests use a real tmpdir and mock only the database and
@@ -11,12 +11,25 @@ const root = await mkdtemp(join(tmpdir(), "rawkoon-rescan-"));
 const booksRoot = join(root, "Books");
 const audiobooksRoot = join(root, "Audiobooks");
 
-type Row = { id: number; editionId: number; filePath: string };
+type Row = {
+  id: number;
+  editionId: number;
+  filePath: string;
+  fileName: string;
+  // The identity fields a real row carries. Without them on a created row, a
+  // second scan cannot recognise the file as unchanged and re-probes it.
+  sizeBytes?: bigint;
+  fileDev?: string | null;
+  fileIno?: string | null;
+  fileMtimeMs?: bigint | null;
+};
 
 const state: {
   edition: Record<string, unknown> | null;
   files: Row[];
   nextFileId: number;
+  chapterDeleteCalls: number;
+  chaptersCreated: Array<Record<string, unknown>>;
   editionUpdates: Array<{
     where: { id: number };
     data: Record<string, unknown>;
@@ -27,9 +40,19 @@ const state: {
   edition: null,
   files: [],
   nextFileId: 1,
+  chapterDeleteCalls: 0,
+  chaptersCreated: [],
   editionUpdates: [],
   deletedIds: [],
   created: [],
+};
+
+const pushEditionUpdate = (args: {
+  where: { id: number };
+  data: Record<string, unknown>;
+}) => {
+  state.editionUpdates.push(args);
+  return Promise.resolve({ bookId: 9 });
 };
 
 const editionFixture = (overrides: Record<string, unknown> = {}) => ({
@@ -50,13 +73,7 @@ mock.module("@rawkoon/api/db", () => ({
   prisma: {
     bookEdition: {
       findUnique: () => Promise.resolve(state.edition),
-      update: (args: {
-        where: { id: number };
-        data: Record<string, unknown>;
-      }) => {
-        state.editionUpdates.push(args);
-        return Promise.resolve({ bookId: 9 });
-      },
+      update: pushEditionUpdate,
     },
     mediaSettings: {
       upsert: () =>
@@ -69,6 +86,10 @@ mock.module("@rawkoon/api/db", () => ({
     },
     bookFile: {
       findMany: () => Promise.resolve(state.files),
+      findFirst: (args: { where: { filePath: string } }) =>
+        Promise.resolve(
+          state.files.find((f) => f.filePath === args.where.filePath) ?? null,
+        ),
       delete: (args: { where: { id: number } }) => {
         state.deletedIds.push(args.where.id);
         state.files = state.files.filter((f) => f.id !== args.where.id);
@@ -83,23 +104,58 @@ mock.module("@rawkoon/api/db", () => ({
       },
       create: (args: { data: Record<string, unknown> }) => {
         state.created.push(args.data);
-        const row = {
+        const row: Row = {
           id: state.nextFileId++,
           editionId: args.data.editionId as number,
           filePath: args.data.filePath as string,
+          fileName: args.data.fileName as string,
+          sizeBytes: args.data.sizeBytes as bigint,
+          fileDev: args.data.fileDev as string | null,
+          fileIno: args.data.fileIno as string | null,
+          fileMtimeMs: args.data.fileMtimeMs as bigint | null,
         };
         state.files.push(row);
         return Promise.resolve(row);
       },
       update: () => Promise.resolve({}),
     },
-    // An audiobook import probes for chapter marks; this stub only has to make
-    // the transaction resolve, since the chapter parser has its own tests.
-    bookFileChapter: {
-      deleteMany: () => Promise.resolve({ count: 0 }),
-      createMany: () => Promise.resolve({ count: 0 }),
+    $transaction: async (
+      arg:
+        | Promise<unknown>[]
+        | ((tx: {
+            bookChapter: {
+              deleteMany: (args: unknown) => Promise<unknown>;
+              create: (args: {
+                data: Record<string, unknown>;
+              }) => Promise<unknown>;
+            };
+            bookFile: { update: (args: unknown) => Promise<unknown> };
+            bookEdition: {
+              update: (args: {
+                where: { id: number };
+                data: Record<string, unknown>;
+              }) => Promise<unknown>;
+            };
+          }) => Promise<unknown>),
+    ) => {
+      if (typeof arg === "function") {
+        return arg({
+          bookChapter: {
+            deleteMany: async () => {
+              state.chapterDeleteCalls += 1;
+              return { count: 0 };
+            },
+            create: async (args: { data: Record<string, unknown> }) => {
+              state.chaptersCreated.push(args.data);
+              return args.data;
+            },
+          },
+          bookFile: { update: async () => ({}) },
+          bookEdition: { update: pushEditionUpdate },
+        });
+      }
+      return Promise.all(arg);
     },
-    $transaction: (operations: Promise<unknown>[]) => Promise.all(operations),
   },
 }));
 
@@ -147,6 +203,8 @@ describe("rescanBookEdition", () => {
     state.edition = editionFixture();
     state.files = [];
     state.nextFileId = 1;
+    state.chapterDeleteCalls = 0;
+    state.chaptersCreated = [];
     state.editionUpdates = [];
     state.deletedIds = [];
     state.created = [];
@@ -166,7 +224,13 @@ describe("rescanBookEdition", () => {
     expect(result.directory).toBe(ebookDir);
     expect(state.created[0]?.filePath).toBe(file);
     expect(state.created[0]?.format).toBe("epub");
-    expect(state.editionUpdates.at(-1)?.data.status).toBe("downloaded");
+    expect(state.editionUpdates.map((u) => u.data)).toContainEqual({
+      status: "downloaded",
+    });
+    expect(state.editionUpdates.map((u) => u.data)).toContainEqual({
+      offlineReady: false,
+    });
+    expect(state.chapterDeleteCalls).toBe(1);
   });
 
   // Repeat scans used to report registered: 1 forever, because rows are
@@ -181,6 +245,7 @@ describe("rescanBookEdition", () => {
     expect(second.registered).toBe(0);
     expect(second.refreshed).toBe(1);
     expect(state.files).toHaveLength(1);
+    expect(state.chapterDeleteCalls).toBe(1);
   });
 
   it("drops rows whose file has disappeared and reverts the edition to wanted", async () => {
@@ -194,6 +259,10 @@ describe("rescanBookEdition", () => {
     expect(state.deletedIds).toEqual([5]);
     expect(result.registered).toBe(0);
     expect(state.editionUpdates.at(-1)?.data.status).toBe("wanted");
+    expect(state.editionUpdates.map((u) => u.data)).toContainEqual({
+      offlineReady: false,
+    });
+    expect(state.chapterDeleteCalls).toBe(1);
   });
 
   // Only the templated directory is walked, so an unrelated book next door in
@@ -260,6 +329,149 @@ describe("rescanBookEdition", () => {
       "02.mp3",
       "03.mp3",
     ]);
+  });
+
+  // An audiobook rescan now also registers the chapter timeline, which is what
+  // flips `offlineReady`. That path probes each track through ffprobe, so it is
+  // covered by the registerBookChapters suite rather than mocked here —
+  // `mock.module` is process-wide in bun and would break that suite.
+  /**
+   * The directory was created at import time from the metadata of the day. A
+   * later refresh bumped publishedYear, so re-rendering the template names a
+   * directory that never existed — and the rescan used to answer "no files
+   * found in the library for this edition" about a file sitting right there.
+   */
+  it("finds files through the rows' own directory when metadata drifted since import", async () => {
+    // On disk under (2019); the book now says 2024.
+    await mkdir(ebookDir, { recursive: true });
+    const file = join(ebookDir, "A Quiet Harbour (2019) [epub].epub");
+    await writeFile(file, "x");
+    state.edition = editionFixture({
+      book: { ...editionFixture().book, publishedYear: 2024 },
+    });
+    state.files = [
+      { id: 7, editionId: 1, filePath: file, fileName: basename(file) } as Row,
+    ];
+
+    const result = await rescanBookEdition(1);
+
+    expect(result.directory).toBe(ebookDir);
+    expect(result.refreshed).toBe(1);
+    expect(state.deletedIds).toEqual([]);
+  });
+
+  // Uppercase extensions are real: the library holds both ".epub" and ".EPUB".
+  it("adopts a file whose extension is uppercased", async () => {
+    await mkdir(ebookDir, { recursive: true });
+    await writeFile(join(ebookDir, "A Quiet Harbour (2019) [epub].EPUB"), "x");
+
+    const result = await rescanBookEdition(1);
+
+    expect(result.registered).toBe(1);
+    expect(state.created[0]?.format).toBe("epub");
+  });
+
+  /**
+   * A chapter replaced or re-encoded in place keeps its row, so it is neither
+   * registered nor removed — but its duration moved, and every cumulative
+   * offset after it in the timeline is now wrong. Leaving offlineReady true
+   * would serve a manifest whose seeks land in the wrong place.
+   */
+  it("invalidates the chapter timeline when an existing file's bytes changed", async () => {
+    const { stat } = await import("node:fs/promises");
+    state.edition = editionFixture({
+      kind: "audiobook",
+      offlineReady: true,
+      bookQualityProfile: { allowedFormats: ["mp3"] },
+    });
+    await mkdir(audiobookDir, { recursive: true });
+    const track = join(audiobookDir, "01.mp3");
+    await writeFile(track, "x");
+    const st = await stat(track);
+    state.files = [
+      {
+        id: 42,
+        editionId: 1,
+        filePath: track,
+        fileName: "01.mp3",
+        // A size that disagrees with disk is the "changed in place" signal.
+        sizeBytes: BigInt(st.size + 1024),
+        fileDev: String(st.dev),
+        fileIno: String(st.ino),
+        fileMtimeMs: BigInt(Math.trunc(st.mtimeMs)),
+      } as unknown as Row,
+    ];
+
+    await rescanBookEdition(1);
+
+    expect(state.chapterDeleteCalls).toBeGreaterThan(0);
+    expect(
+      state.editionUpdates.some((u) => u.data.offlineReady === false),
+    ).toBe(true);
+  });
+
+  // The unchanged-file fast path must not drag the timeline down with it.
+  it("leaves the chapter timeline alone when nothing changed", async () => {
+    const { stat } = await import("node:fs/promises");
+    state.edition = editionFixture({
+      kind: "audiobook",
+      offlineReady: true,
+      bookQualityProfile: { allowedFormats: ["mp3"] },
+    });
+    await mkdir(audiobookDir, { recursive: true });
+    const track = join(audiobookDir, "01.mp3");
+    await writeFile(track, "x");
+    const st = await stat(track);
+    state.files = [
+      {
+        id: 42,
+        editionId: 1,
+        filePath: track,
+        fileName: "01.mp3",
+        sizeBytes: BigInt(st.size),
+        fileDev: String(st.dev),
+        fileIno: String(st.ino),
+        fileMtimeMs: BigInt(Math.trunc(st.mtimeMs)),
+      } as unknown as Row,
+    ];
+
+    await rescanBookEdition(1);
+
+    expect(state.chapterDeleteCalls).toBe(0);
+  });
+
+  // The expensive part of a rescan is the per-file probe. An unchanged file
+  // keeps its row untouched rather than paying for it again.
+  it("skips re-probing a file whose size, inode and mtime are unchanged", async () => {
+    const { stat } = await import("node:fs/promises");
+    state.edition = editionFixture({
+      kind: "audiobook",
+      offlineReady: true,
+      bookQualityProfile: { allowedFormats: ["mp3"] },
+    });
+    await mkdir(audiobookDir, { recursive: true });
+    const track = join(audiobookDir, "01.mp3");
+    await writeFile(track, "x");
+    const st = await stat(track);
+    state.files = [
+      {
+        id: 42,
+        editionId: 1,
+        filePath: track,
+        fileName: "01.mp3",
+        sizeBytes: BigInt(st.size),
+        fileDev: String(st.dev),
+        fileIno: String(st.ino),
+        fileMtimeMs: BigInt(Math.trunc(st.mtimeMs)),
+      } as unknown as Row,
+    ];
+
+    const result = await rescanBookEdition(1);
+
+    expect(result.refreshed).toBe(1);
+    expect(result.registered).toBe(0);
+    // No upsert ran, so nothing was re-probed.
+    expect(state.created).toEqual([]);
   });
 
   it("reports an error instead of guessing when no library path is set", async () => {

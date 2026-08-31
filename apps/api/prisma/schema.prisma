@@ -27,6 +27,7 @@ model User {
 
   notifications        Notification[]
   userSubscriptions    UserSubscription[]
+  apnsDevices          ApnsDevice[]
   activityLogs         ActivityLog[]
   notificationChannels NotificationChannel[]
   invitationsSent      Invitation[]          @relation("InvitationInviter")
@@ -38,6 +39,8 @@ model User {
   baApiKeys            BaApiKey[]
   mediaRequests        MediaRequest[] @relation("MediaRequestRequester")
   decidedMediaRequests MediaRequest[] @relation("MediaRequestDecider")
+  bookProgress         BookListeningProgress[]
+  bookReadingProgress  BookReadingProgress[]
 
   @@map("users")
 }
@@ -144,6 +147,24 @@ model UserSubscription {
   @@index([endpoint], map: "ix_user_subscriptions_endpoint")
   @@index([userId], map: "ix_user_subscriptions_user_id")
   @@map("user_subscriptions")
+}
+
+model ApnsDevice {
+  id          Int       @id @default(autoincrement())
+  userId      String    @map("user_id")
+  deviceToken String    @map("device_token")
+  deviceName  String?   @map("device_name")
+  osVersion   String?   @map("os_version")
+  appVersion  String?   @map("app_version")
+  bundleId    String?   @map("bundle_id")
+  createdAt   DateTime? @default(now()) @map("created_at")
+  updatedAt   DateTime? @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceToken], map: "uq_apns_devices_user_token")
+  @@index([userId], map: "ix_apns_devices_user_id")
+  @@map("apns_devices")
 }
 
 model ActivityLog {
@@ -866,12 +887,16 @@ model BookEdition {
   lastGrabbedAt        DateTime? @map("last_grabbed_at")
   /// Persisted SUM of book_file sizes; 0 stored as null. DB trigger.
   totalSizeBytes       BigInt?   @map("total_size_bytes")
+  offlineReady         Boolean   @default(false) @map("offline_ready")
   addedAt              DateTime  @default(now()) @map("added_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
   book               LibraryBook         @relation(fields: [bookId], references: [id], onDelete: Cascade)
   bookQualityProfile BookQualityProfile? @relation(fields: [bookQualityProfileId], references: [id], onDelete: SetNull)
   files              BookFile[]
+  chapters           BookChapter[]
+  progress           BookListeningProgress[]
+  readingProgress    BookReadingProgress[]
   downloadHistories  DownloadHistory[]
 
   /// Exactly two possible rows per book: one ebook, one audiobook.
@@ -904,13 +929,100 @@ model BookFile {
   fileIno      String? @map("file_ino")
   fileMtimeMs  BigInt? @map("file_mtime_ms")
   scannedAt    DateTime @default(now()) @map("scanned_at")
+  sha256       String?
+  chapterIndex Int?    @map("chapter_index")
 
   edition  BookEdition       @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  chapters BookChapter[]
 
   @@index([editionId], map: "ix_book_files_edition_id")
   @@index([filePath], map: "ix_book_files_file_path")
   @@index([fileDev, fileIno], map: "ix_book_files_file_dev_ino")
   @@map("book_files")
+}
+
+model BookChapter {
+  id         Int    @id @default(autoincrement())
+  editionId  Int    @map("edition_id")
+  bookFileId Int    @map("book_file_id")
+  index      Int
+  title      String
+  /// Offsets on the WHOLE-BOOK timeline, produced by accumulating the ffprobe'd
+  /// durations of the files on disk. Never copied from source chapter atoms:
+  /// `-c copy` rounds every cut up to a frame boundary, which on the reference
+  /// book drifts +1.567s across 61 files.
+  startSecs  Float  @map("start_secs")
+  endSecs    Float  @map("end_secs")
+
+  edition  BookEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  bookFile BookFile    @relation(fields: [bookFileId], references: [id], onDelete: Cascade)
+
+  @@unique([editionId, index], map: "uq_book_chapters_edition_index")
+  @@map("book_chapters")
+}
+
+model BookListeningProgress {
+  id                Int      @id @default(autoincrement())
+  userId            String   @map("user_id")
+  editionId         Int      @map("edition_id")
+  /// Whole-book seconds. Never a per-file offset: the removed player stored a
+  /// file index plus an in-file offset and could resolve to an index that did
+  /// not exist, which is why it "only ever worked from position 0".
+  positionSecs      Float    @map("position_secs")
+  /// The book length this position was recorded against. A quality upgrade
+  /// changes the length and makes the position approximate.
+  totalDurationSecs Float    @map("total_duration_secs")
+  finished          Boolean  @default(false)
+  /// Client-supplied, clamped to server time on receipt.
+  updatedAt         DateTime @map("updated_at")
+  /// Server receipt time. Breaks ties deterministically.
+  receivedAt        DateTime @default(now()) @map("received_at")
+  deviceId          String?  @map("device_id")
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  edition BookEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, editionId], map: "uq_book_progress_user_edition")
+  @@map("book_listening_progress")
+}
+
+/// Where a reader left off in an ebook edition.
+///
+/// Separate from BookListeningProgress rather than a nullable extension of it:
+/// an audiobook position is one number on a whole-book seconds timeline, while a
+/// reading position is a spine document plus an offset inside it, and the two
+/// share no columns beyond the key.
+model BookReadingProgress {
+  id        Int    @id @default(autoincrement())
+  userId    String @map("user_id")
+  editionId Int    @map("edition_id")
+  /// Which file the position refers to — an edition can hold several formats.
+  /// Deliberately not a foreign key: a rescan deletes and recreates file rows,
+  /// and a cascade would throw away the reader's place.
+  fileId    Int?   @map("file_id")
+  /// Index into the EPUB spine.
+  spineIndex Int   @map("spine_index")
+  /// The spine document's path inside the archive. A re-download can reorder
+  /// the spine, and the index alone would then resolve to a different chapter,
+  /// so the path is what a client verifies against before trusting the index.
+  spinePath String @map("spine_path")
+  /// Spine length this was recorded against: lets a client show a percentage
+  /// and notice that the book changed underneath it.
+  spineCount Int   @map("spine_count")
+  /// 0–1 scroll offset within the spine document.
+  scrollFraction Float @default(0) @map("scroll_fraction")
+  finished       Boolean @default(false)
+  /// Client-supplied, clamped to server time on receipt.
+  updatedAt  DateTime @map("updated_at")
+  /// Server receipt time. Breaks ties deterministically.
+  receivedAt DateTime @default(now()) @map("received_at")
+  deviceId   String?  @map("device_id")
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  edition BookEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, editionId], map: "uq_book_reading_progress_user_edition")
+  @@map("book_reading_progress")
 }
 
 /// Google Books exposes no author ids, so the name is the key. Homonymous

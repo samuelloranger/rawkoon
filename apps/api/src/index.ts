@@ -13,6 +13,7 @@ import {
   protectedAuthRoutes,
   publicAuthRoutes,
   ssoProvidersRoute,
+  mobileAuthRoutes,
 } from "./auth";
 import { adminRoutes } from "./routes/admin";
 import { dashboardRoutes } from "./routes/dashboard";
@@ -119,6 +120,7 @@ export const app = new Elysia()
   .use(strictAuthRateLimit)
   .use(publicAuthRoutes)
   .use(ssoProvidersRoute)
+  .use(mobileAuthRoutes)
   .use(protectedAuthRoutes)
   .get("/api/auth/*", ({ request }) => betterAuthInstance.handler(request))
   .all("/api/auth/*", ({ request }) => betterAuthInstance.handler(request))

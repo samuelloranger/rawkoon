@@ -5,6 +5,7 @@ import {
   type PushSubscription,
 } from "@rawkoon/api/utils/webpush";
 import { dispatchToChannel } from "@rawkoon/api/utils/notifications/channelDispatchers";
+import { sendPushViaRelay } from "@rawkoon/api/utils/apns";
 import { isNightTime } from "@rawkoon/api/utils";
 import { getBaseUrl } from "@rawkoon/api/config";
 
@@ -92,6 +93,35 @@ async function processRegularNotificationJob(job: Job<NotificationJobData>) {
       }
     } catch (error) {
       console.error(`Error sending push to subscription ${sub.id}:`, error);
+    }
+  }
+
+  // Send APNs pushes to native iOS devices. Same quiet-hours suppression as
+  // web push; self-heals dead tokens on a 410 / BadDeviceToken / Unregistered.
+  const apnsDevices = isNightTime()
+    ? []
+    : await prisma.apnsDevice.findMany({ where: { userId }, take: 50 });
+  for (const device of apnsDevices) {
+    try {
+      const result = await sendPushViaRelay(device.deviceToken, {
+        title,
+        body,
+        tag: notificationType,
+        data: {
+          url,
+          notification_type: notificationType,
+          notification_id: notificationId,
+          ...metadata,
+        },
+      });
+      if (result.expired) {
+        await prisma.apnsDevice.delete({ where: { id: device.id } });
+        console.log(
+          `Deleted expired APNs device ${device.id} for user ${userId}`,
+        );
+      }
+    } catch (error) {
+      console.error(`Error sending APNs to device ${device.id}:`, error);
     }
   }
 

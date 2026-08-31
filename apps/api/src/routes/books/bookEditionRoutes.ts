@@ -3,7 +3,9 @@ import { Elysia, t } from "elysia";
 import { requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound } from "@rawkoon/api/errors";
+import { loadConfig } from "@rawkoon/api/config";
 import type { BookEditionKind } from "@rawkoon/shared/types";
+import { signGrant } from "@rawkoon/api/services/books/downloadGrant";
 
 import { rescanBookEdition } from "@rawkoon/api/services/postProcessorBook";
 
@@ -16,6 +18,7 @@ const EDITION_STATUSES = [
   "skipped",
   "upgrading",
 ];
+const EDITION_FILE_GRANT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 const editionSelect = {
   id: true,
@@ -164,6 +167,8 @@ export const bookEditionRoutes = new Elysia()
         include: { files: { orderBy: { fileName: "asc" } } },
       });
       if (!edition) return notFound(set, "Edition not found");
+      const secret = loadConfig().SECRET_KEY;
+      const expiresAt = Date.now() + EDITION_FILE_GRANT_TTL_MS;
 
       return {
         edition_id: edition.id,
@@ -172,6 +177,15 @@ export const bookEditionRoutes = new Elysia()
           id: f.id,
           file_name: f.fileName,
           file_path: f.filePath,
+          content_url: `/api/books/files/${f.id}/content?grant=${signGrant(
+            {
+              fileId: f.id,
+              variant: "original",
+              grantId: crypto.randomUUID(),
+              expiresAt,
+            },
+            secret,
+          )}`,
           size_bytes: f.sizeBytes.toString(),
           format: f.format,
           duration_secs: f.durationSecs,
