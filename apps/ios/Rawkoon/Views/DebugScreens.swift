@@ -322,6 +322,30 @@ struct DebugEbookReader: View {
 
     private func load() async {
         guard document == nil, failure == nil else { return }
+
+        // Offline path: with RAWKOON_LOCAL_EDITION and RAWKOON_LOCAL_FILE set,
+        // the document is built straight from disk with no API call at all, so a
+        // run against an unreachable server proves the reader needs no network.
+        let env = ProcessInfo.processInfo.environment
+        if
+            let editionId = Int(env["RAWKOON_LOCAL_EDITION"] ?? ""),
+            let fileId = Int(env["RAWKOON_LOCAL_FILE"] ?? "")
+        {
+            let localURL = FileStore.chapterURL(editionId: editionId, fileId: fileId, ext: "epub")
+            guard FileManager.default.fileExists(atPath: localURL.path) else {
+                failure = "Not downloaded: \(localURL.lastPathComponent)"
+                return
+            }
+            document = EbookPreviewDocument(
+                id: fileId,
+                editionId: editionId,
+                language: env["RAWKOON_LOCAL_LANGUAGE"],
+                title: "Offline",
+                localURL: localURL
+            )
+            return
+        }
+
         guard let client = model.api() else { failure = "No API client"; return }
 
         if model.library.isEmpty { await model.loadLibrary() }
