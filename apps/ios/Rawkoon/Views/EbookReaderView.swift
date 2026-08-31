@@ -14,6 +14,13 @@ struct EbookPreviewDocument: Identifiable, Sendable {
     /// The ebook edition this file belongs to, when the server told us.
     /// Reading progress is keyed by edition, so it is off without one.
     let editionId: Int?
+    /// Rawkoon's own language for the book, used to override the EPUB's.
+    ///
+    /// An EPUB can declare several `dc:language` values and the reader takes the
+    /// first. "La femme de ménage" lists `ar, en, fr`, so Readium picked Arabic
+    /// and laid a French novel out right-to-left. Rawkoon knows the real
+    /// language, so it wins.
+    let language: String?
     let title: String
     let localURL: URL
 }
@@ -57,9 +64,10 @@ private struct ReaderPreferences: Codable, Equatable {
         UserDefaults.standard.set(data, forKey: Self.defaultsKey)
     }
 
-    func asEPUBPreferences() -> EPUBPreferences {
+    func asEPUBPreferences(language: String?) -> EPUBPreferences {
         EPUBPreferences(
             fontSize: fontSize,
+            language: language.map { Language(code: .bcp47($0)) },
             lineHeight: lineHeight,
             pageMargins: pageMargins,
             publisherStyles: false,
@@ -178,67 +186,45 @@ struct EbookReaderSheet: View {
     @State private var preferences = ReaderPreferences.load()
     @State private var showTOC = false
     @State private var showSettings = false
+    @State private var controlsVisible = false
+    /// Cancelled and restarted on every reveal, so the controls always fade a
+    /// fixed time after the last interaction rather than the first.
+    @State private var hideTask: Task<Void, Never>?
 
     var body: some View {
-        NavigationStack {
+        // No navigation bar and no title: a reader's job is to disappear, and a
+        // bar costs about a tenth of the screen on every page. The controls are
+        // summoned by a tap in the middle third instead.
+        ZStack {
+            Theme.base.ignoresSafeArea()
             content
-                .background(Theme.base)
-                .navigationTitle(navigationTitle)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("Done") {
-                            persistAndDismiss()
-                        }
+                .ignoresSafeArea()
+            percentReadout
+            floatingControls
+        }
+        .statusBarHidden(!controlsVisible)
+        .persistentSystemOverlays(controlsVisible ? .automatic : .hidden)
+        .animation(.easeInOut(duration: 0.2), value: controlsVisible)
+        .sheet(isPresented: $showTOC) {
+            if case let .ready(session) = state {
+                TableOfContentsSheet(
+                    links: session.tableOfContents,
+                    currentLocator: chrome.currentLocator,
+                    onSelect: { link in
+                        showTOC = false
+                        Task { await session.navigator.go(to: link, options: .animated) }
                     }
-                    if case .ready = state {
-                        ToolbarItemGroup(placement: .topBarTrailing) {
-                            Button {
-                                showTOC = true
-                            } label: {
-                                Label("Contents", systemImage: "list.bullet")
-                            }
-                            .tint(Theme.importing)
-                            Button {
-                                showSettings = true
-                            } label: {
-                                Label("Settings", systemImage: "textformat.size")
-                            }
-                            .tint(Theme.importing)
-                        }
-                    }
-                }
-                .safeAreaInset(edge: .bottom) {
-                    if case .ready = state, let percent = chrome.percent {
-                        Text("\(Int((percent * 100).rounded()))%")
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(Theme.muted)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(.ultraThinMaterial)
-                    }
-                }
-                .sheet(isPresented: $showTOC) {
-                    if case let .ready(session) = state {
-                        TableOfContentsSheet(
-                            links: session.tableOfContents,
-                            currentLocator: chrome.currentLocator,
-                            onSelect: { link in
-                                showTOC = false
-                                Task { await session.navigator.go(to: link, options: .animated) }
-                            }
-                        )
-                    }
-                }
-                .sheet(isPresented: $showSettings) {
-                    ReaderSettingsSheet(preferences: $preferences)
-                }
+                )
+            }
+        }
+        .sheet(isPresented: $showSettings) {
+            ReaderSettingsSheet(preferences: $preferences)
         }
         .task { await open() }
         .onChange(of: preferences) { _, new in
             new.save()
             if case let .ready(session) = state {
-                session.navigator.submitPreferences(new.asEPUBPreferences())
+                session.navigator.submitPreferences(new.asEPUBPreferences(language: document.language))
             }
         }
         // Backgrounding or a swipe-to-dismiss never runs the Done button.
@@ -292,6 +278,76 @@ struct EbookReaderSheet: View {
         }
     }
 
+    /// The only permanent mark on screen. Without a bar it is the sole
+    /// orientation the reader keeps, so it stays visible and stays quiet.
+    @ViewBuilder private var percentReadout: some View {
+        if case .ready = state, let percent = chrome.percent {
+            VStack {
+                Spacer()
+                Text("\(Int((percent * 100).rounded()))%")
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(Theme.faint)
+                    .padding(.bottom, 6)
+            }
+            .allowsHitTesting(false)
+        }
+    }
+
+    @ViewBuilder private var floatingControls: some View {
+        if case .ready = state, controlsVisible {
+            VStack {
+                Spacer()
+                HStack(spacing: 22) {
+                    controlButton("chevron.down", "Close the book") { persistAndDismiss() }
+                    controlButton("list.bullet", "Contents") {
+                        revealControls()
+                        showTOC = true
+                    }
+                    controlButton("textformat.size", "Text options") {
+                        revealControls()
+                        showSettings = true
+                    }
+                }
+                .padding(.horizontal, 22)
+                .padding(.vertical, 13)
+                .background(.ultraThinMaterial, in: Capsule())
+                .overlay(Capsule().strokeBorder(Theme.border, lineWidth: 1))
+                .padding(.bottom, 26)
+            }
+            .transition(.opacity)
+        }
+    }
+
+    private func controlButton(
+        _ systemImage: String,
+        _ label: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(Theme.textStrong)
+                .frame(width: 34, height: 34)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+
+    private func revealControls() {
+        controlsVisible = true
+        hideTask?.cancel()
+        hideTask = Task {
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            controlsVisible = false
+        }
+    }
+
+    private func hideControls() {
+        hideTask?.cancel()
+        controlsVisible = false
+    }
+
     private func persistAndDismiss() {
         if case let .ready(session) = state {
             session.persist(force: true)
@@ -317,7 +373,7 @@ struct EbookReaderSheet: View {
                 publication: publication,
                 initialLocation: initialLocation.map { publication.normalizeLocator($0) },
                 config: EPUBNavigatorViewController.Configuration(
-                    preferences: preferences.asEPUBPreferences(),
+                    preferences: preferences.asEPUBPreferences(language: document.language),
                     defaults: EPUBDefaults(
                         fontSize: 1.0,
                         lineHeight: 1.5,
@@ -327,6 +383,33 @@ struct EbookReaderSheet: View {
                     )
                 )
             )
+            // Edge taps turn pages, a tap in the middle third summons the
+            // controls. Returning true consumes the event so Readium does not
+            // also page on a centre tap. This is the Apple Books / Kindle
+            // idiom, so it needs no explaining in the UI.
+            _ = navigator.addObserver(.tap { [weak navigator] event in
+                guard let navigator else { return false }
+                let width = navigator.view.bounds.width
+                guard width > 0 else { return false }
+                let x = event.location.x
+                if x < width / 3 {
+                    await navigator.goBackward(options: NavigatorGoOptions())
+                    hideControls()
+                    return true
+                }
+                if x > width * 2 / 3 {
+                    await navigator.goForward(options: NavigatorGoOptions())
+                    hideControls()
+                    return true
+                }
+                if controlsVisible {
+                    hideControls()
+                } else {
+                    revealControls()
+                }
+                return true
+            })
+
             let host = ReaderViewController(navigator: navigator)
             let toc = await Self.loadTableOfContents(publication)
             let session = ReaderSession(
