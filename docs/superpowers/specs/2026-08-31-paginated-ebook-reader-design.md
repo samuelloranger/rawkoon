@@ -68,11 +68,23 @@ fight the XcodeGen-generated project; SPM is also what Readium recommends.
 | Licence | BSD-3-Clause |
 | Products needed | `ReadiumShared`, `ReadiumStreamer`, `ReadiumNavigator` |
 | Products **not** needed | `ReadiumOPDS`, `ReadiumLCP` |
-| Transitive packages | `Zip`, `Fuzi`, `ZIPFoundation`, `SwiftSoup` |
+| Transitive packages | **9 resolved** — see below |
 
 Pin an exact released version in `project.yml` under `packages:` — not a branch —
-so a build is reproducible. This is the honest downside versus vendoring: the app
-gains four transitive dependencies and stops being resolvable without network.
+so a build is reproducible.
+
+**Measured, not estimated.** Resolving 3.11.0 on macbuild fetches nine packages,
+because SPM resolves the whole package graph even for products we do not link:
+`SQLite.swift`, `Zip`, `GCDWebServer`, `ReadiumFuzi`, `DifferenceKit`,
+`ReadiumZIPFoundation`, `SwiftSoup`, `CryptoSwift` — plus the toolkit itself.
+Several of those belong to `ReadiumLCP` and `ReadiumOPDS`, which we do not take,
+so the linked binary is narrower than the resolved graph; but CI pays for all
+nine fetches. This is the honest downside versus vendoring: nine network fetches
+at resolve time, and an app that no longer builds offline.
+
+Verified on macbuild at commit `f3aea27`: the package resolves and
+`xcodebuild` reports **BUILD SUCCEEDED** with the three products linked, so the
+new CI failure surface is real but working.
 
 **Delete the vendored foliate-js.** `apps/ios/Rawkoon/Reader/foliate-js/` and its
 `VENDORED.md` were added for the previous revision (commit `e213d98`) and become
@@ -222,8 +234,8 @@ State that limit plainly in the PR rather than implying the feature is verified.
 
 | Risk | Mitigation |
 |---|---|
-| Four new transitive dependencies; upstream tags can move | Pin an exact version, never a branch |
-| CI must now resolve SPM packages | Verify the `kit` and `build` jobs early, before the reader work is finished |
+| Nine resolved transitive packages; upstream tags can move | Pin an exact version, never a branch |
+| CI must now resolve nine SPM packages | Confirmed working on macbuild before any reader code; watch the `kit` and `build` job times |
 | Wrapping three `UIViewController` navigators in SwiftUI | Follow Readium's documented SwiftUI integration; do not invent one |
 | `mobi`/`azw3` no longer openable | Honest unsupported-format state; every affected edition has an epub |
 | Reader quality unverifiable in CI | Device pass, and say so in the PR |
