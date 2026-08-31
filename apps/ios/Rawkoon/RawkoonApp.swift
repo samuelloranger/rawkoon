@@ -13,11 +13,21 @@ struct RawkoonApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
+                #if DEBUG
+                if let screen = DebugScreen.requested, DebugScreen.isOffline(screen) {
+                    DebugScreen.offlineView(for: screen)
+                } else if model.isLoggedIn {
+                    RootTabsView()
+                } else {
+                    LoginView()
+                }
+                #else
                 if model.isLoggedIn {
                     RootTabsView()
                 } else {
                     LoginView()
                 }
+                #endif
             }
             .environmentObject(model)
             .tint(Theme.apricot)
