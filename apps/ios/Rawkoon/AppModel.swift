@@ -11,6 +11,7 @@ final class AppModel: ObservableObject {
     @Published var library: [BookListItem] = []
     @Published var isAdmin = false
     @Published var userFirstName: String?
+    @Published var ssoProviders: [SsoProvider] = []
     @Published var loading = false
     @Published var errorMessage: String?
     @Published var downloadPlans: [Int: DownloadPlan] = [:]
@@ -93,6 +94,50 @@ final class AppModel: ObservableObject {
         await login(server: server, email: email, password: password)
     }
     #endif
+
+    /// Load the enabled OAuth providers for the login screen (public endpoint).
+    func loadSsoProviders() async {
+        let raw = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty, let base = URL(string: raw) else { ssoProviders = []; return }
+        let client = apiClient ?? APIClient(baseURL: base, token: nil)
+        ssoProviders = (try? await client.ssoProviders().providers) ?? []
+    }
+
+    /// Sign in through a provider using the native browser OAuth flow.
+    func signInWithProvider(_ slug: String) async {
+        let raw = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard
+            let base = URL(string: raw),
+            let startURL = URL(string: "/api/mobile/oauth-start?provider=\(slug)", relativeTo: base)?.absoluteURL
+        else {
+            errorMessage = "Enter a valid server URL."
+            return
+        }
+        errorMessage = nil
+        guard let callback = await WebAuthCoordinator.shared.start(url: startURL, scheme: "rawkoon") else {
+            return // cancelled
+        }
+        let comps = URLComponents(url: callback, resolvingAgainstBaseURL: false)
+        if let token = comps?.queryItems?.first(where: { $0.name == "token" })?.value, !token.isEmpty {
+            await applyOAuthToken(server: raw, token: token)
+        } else {
+            errorMessage = "Sign-in failed. Please try again."
+        }
+    }
+
+    private func applyOAuthToken(server: String, token: String) async {
+        guard let base = URL(string: server) else {
+            errorMessage = "Enter a valid server URL."
+            return
+        }
+        Keychain.set(server, for: Self.serverURLKey)
+        Keychain.set(token, for: Self.authTokenKey)
+        serverURL = server
+        apiClient = APIClient(baseURL: base, token: token)
+        isLoggedIn = true
+        do { try await reloadLibrary() } catch { errorMessage = message(for: error) }
+        requestPushAuthorization()
+    }
 
     func loadLibrary() async {
         loading = true

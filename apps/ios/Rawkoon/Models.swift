@@ -470,3 +470,16 @@ struct ApnsRegisterBody: Encodable, Sendable {
     let deviceToken: String
     let deviceInfo: ApnsDeviceInfo
 }
+
+// MARK: - SSO / OAuth providers
+
+struct SsoProvider: Decodable, Identifiable, Sendable {
+    let slug: String
+    let name: String
+    let iconUrl: String?
+    var id: String { slug }
+}
+
+struct SsoProvidersResponse: Decodable, Sendable {
+    let providers: [SsoProvider]
+}
