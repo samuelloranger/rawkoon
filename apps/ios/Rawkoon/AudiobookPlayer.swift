@@ -7,6 +7,7 @@ final class AudiobookPlayer: ObservableObject {
     @Published private(set) var positionSecs: Double = 0
     @Published private(set) var isPlaying = false
     @Published private(set) var currentChapterIndex: Int?
+    @Published private(set) var currentChapter: ManifestChapter?
     @Published private(set) var rate: Float = 1.0
     @Published private(set) var duration: Double = 0
 
@@ -201,7 +202,7 @@ final class AudiobookPlayer: ObservableObject {
             tearDownObservers()
             player = nil
             positionSecs = 0
-            currentChapterIndex = nil
+            setCurrentChapter(index: nil)
             isPlaying = false
             return
         }
@@ -211,7 +212,7 @@ final class AudiobookPlayer: ObservableObject {
             tearDownObservers()
             player = nil
             positionSecs = clamped
-            currentChapterIndex = nil
+            setCurrentChapter(index: nil)
             isPlaying = false
             return
         }
@@ -237,7 +238,7 @@ final class AudiobookPlayer: ObservableObject {
             tearDownObservers()
             player = nil
             positionSecs = clamped
-            currentChapterIndex = nil
+            setCurrentChapter(index: nil)
             isPlaying = false
             return
         }
@@ -255,7 +256,7 @@ final class AudiobookPlayer: ObservableObject {
             toleranceAfter: .zero
         )
         positionSecs = clamped
-        currentChapterIndex = chapter.index
+        setCurrentChapter(chapter)
         isPlaying = false
         installObservers(player: queuePlayer)
         applyPitchAlgorithm()
@@ -313,14 +314,14 @@ final class AudiobookPlayer: ObservableObject {
         positionSecs = clamped
         advanceSleep()
         if let chapter = chapter(for: player?.currentItem) {
-            currentChapterIndex = chapter.index
+            setCurrentChapter(chapter)
         } else {
-            currentChapterIndex = timeline?.chapterIndex(at: clamped) ?? chapters.last?.index
+            setCurrentChapter(index: timeline?.chapterIndex(at: clamped) ?? chapters.last?.index)
         }
         if isPlaying, player?.currentItem == nil {
             isPlaying = false
             positionSecs = duration
-            currentChapterIndex = chapters.last?.index
+            setCurrentChapter(index: chapters.last?.index)
         }
         updateNowPlayingInfo()
     }
@@ -328,7 +329,7 @@ final class AudiobookPlayer: ObservableObject {
     private func handleCurrentItemChanged() {
         guard let player else { return }
         if let chapter = chapter(for: player.currentItem) {
-            currentChapterIndex = chapter.index
+            setCurrentChapter(chapter)
             if let currentTime = player.currentItem?.currentTime().seconds, currentTime.isFinite {
                 let clamped = timeline?.clamp(chapter.startSecs + max(currentTime, 0)) ?? max(currentTime, 0)
                 positionSecs = clamped
@@ -336,9 +337,24 @@ final class AudiobookPlayer: ObservableObject {
         } else if player.currentItem == nil {
             isPlaying = false
             positionSecs = duration
-            currentChapterIndex = chapters.last?.index
+            setCurrentChapter(index: chapters.last?.index)
         }
         updateNowPlayingInfo()
+    }
+
+    private func setCurrentChapter(_ chapter: ManifestChapter?) {
+        currentChapter = chapter
+        currentChapterIndex = chapter?.index
+    }
+
+    private func setCurrentChapter(index: Int?) {
+        currentChapterIndex = index
+        currentChapter = chapter(forIndex: index)
+    }
+
+    private func chapter(forIndex index: Int?) -> ManifestChapter? {
+        guard let index else { return nil }
+        return chapters.first(where: { $0.index == index })
     }
 
     private func playbackURL(for chapter: ManifestChapter, editionId: Int) -> URL? {
