@@ -33,13 +33,23 @@ struct SettingsView: View {
             }
             .listRowBackground(Theme.raised)
 
-            Section("Management") {
+            Section("Requests & Alerts") {
                 NavigationLink {
                     RequestsView()
                 } label: {
                     Label("Requests", systemImage: "tray.and.arrow.down")
                 }
 
+                NavigationLink {
+                    NotificationsSettingsView()
+                } label: {
+                    Label("Notifications", systemImage: "bell")
+                }
+            }
+            .listRowBackground(Theme.raised)
+
+            if model.isAdmin {
+                Section("Admin") {
                 NavigationLink {
                     QualityProfilesView()
                 } label: {
@@ -63,14 +73,9 @@ struct SettingsView: View {
                 } label: {
                     Label("Users", systemImage: "person.2")
                 }
-
-                NavigationLink {
-                    NotificationsSettingsView()
-                } label: {
-                    Label("Notifications", systemImage: "bell")
                 }
+                .listRowBackground(Theme.raised)
             }
-            .listRowBackground(Theme.raised)
 
             Section("Downloads") {
                 Picker("Download over", selection: $downloadOver) {

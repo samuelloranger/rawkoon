@@ -228,7 +228,10 @@ struct DownloadHistoryItem: Decodable, Identifiable, Sendable {
     let completedAt: String?
     let failed: Bool
     let episodeId: Int?
+    let failReason: String?
+    let postProcessError: String?
     let live: LiveDownload?
+    let aiPicked: Bool?
 }
 
 struct LiveDownload: Decodable, Sendable {
@@ -357,6 +360,7 @@ struct SessionUser: Decodable, Sendable {
     let firstName: String?
     let lastName: String?
     let isAdmin: Bool?
+    let notificationPreferences: [String: Bool]?
 }
 
 struct SessionResponse: Decodable, Sendable {

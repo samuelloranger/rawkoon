@@ -129,7 +129,7 @@ struct RequestsView: View {
         }
         .padding(.vertical, 4)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            if req.status == "pending" {
+            if model.isAdmin && req.status == "pending" {
                 Button("Deny", role: .destructive) {
                     Task { await deny(request: req) }
                 }
@@ -160,7 +160,7 @@ struct RequestsView: View {
             let response = try await client.requestsList()
             requests = response.requests
         } catch APIError.unauthorized {
-            errorMessage = "Admin only."
+            errorMessage = "Sign in required."
         } catch {
             errorMessage = "Something went wrong. Pull to retry."
         }
