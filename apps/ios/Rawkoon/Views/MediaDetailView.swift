@@ -54,7 +54,6 @@ struct MediaDetailView: View {
     @State private var downloads: [DownloadHistoryItem] = []
     @State private var pendingDownloadActionId: Int?
     @State private var applyingManagementChange = false
-    @State private var removeFilesOnDelete = false
     @State private var expandedFileIDs: Set<Int> = []
     @State private var expandedFileSeasons: Set<Int> = []
 
@@ -122,7 +121,6 @@ struct MediaDetailView: View {
                 let targetId = pendingRemoveLibraryId ?? libraryId
                 pendingRemoveLibraryId = nil
                 pendingRemoveTitle = ""
-                removeFilesOnDelete = deleteFiles
                 if let targetId {
                     Task { await removeLibraryItem(id: targetId, deleteFiles: deleteFiles) }
                 }
@@ -575,15 +573,11 @@ struct MediaDetailView: View {
                 .tint(Theme.apricot)
             }
 
-            Toggle("Delete files on remove", isOn: $removeFilesOnDelete)
-                .font(.footnote)
-                .tint(Theme.apricot)
-
-                Button(role: .destructive) {
-                    pendingRemoveLibraryId = libraryId
-                    pendingRemoveTitle = title
-                    showingRemoveConfirm = true
-                } label: {
+            Button(role: .destructive) {
+                pendingRemoveLibraryId = libraryId
+                pendingRemoveTitle = title
+                showingRemoveConfirm = true
+            } label: {
                 Label("Remove from library", systemImage: "trash")
                     .frame(maxWidth: .infinity)
                     .frame(height: 22)
