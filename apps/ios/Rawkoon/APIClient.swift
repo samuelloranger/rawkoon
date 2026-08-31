@@ -780,6 +780,15 @@ actor APIClient {
         ))
     }
 
+    /// Drops this device's token on sign-out, so the next account on the phone
+    /// does not receive the previous one's notifications.
+    func unregisterApns(deviceToken: String) async throws {
+        try await postExpectOK(
+            "/api/notifications/apns/unregister",
+            body: ApnsUnregisterBody(deviceToken: deviceToken)
+        )
+    }
+
     // MARK: - Management / settings
 
     func qualityProfiles() async throws -> QualityProfilesResponse {
@@ -875,6 +884,10 @@ private struct ProgressPayload: Decodable {
     let totalDurationSecs: Double
     let finished: Bool
     let updatedAt: Date
+}
+
+private struct ApnsUnregisterBody: Encodable {
+    let deviceToken: String
 }
 
 private struct ReadingProgressResponse: Decodable {

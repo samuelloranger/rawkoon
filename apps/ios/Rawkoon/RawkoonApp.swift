@@ -4,7 +4,7 @@ import UIKit
 @main
 struct RawkoonApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
-    @StateObject private var model = AppModel()
+    @StateObject private var model = AppModel.shared
 
     init() {
         Appearance.apply()
@@ -22,9 +22,6 @@ struct RawkoonApp: App {
             .environmentObject(model)
             .tint(Theme.apricot)
             .preferredColorScheme(.dark)
-            .onAppear {
-                delegate.appModel = model
-            }
             .task {
                 #if DEBUG
                 await model.debugAutologinIfNeeded()
@@ -38,13 +35,15 @@ struct RawkoonApp: App {
 }
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
-    weak var appModel: AppModel?
+    // Resolved at launch rather than from a view's onAppear: a background launch
+    // for finished downloads may never render anything.
+    @MainActor private var appModel: AppModel { AppModel.shared }
 
     func application(_ application: UIApplication,
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()
         Task { @MainActor in
-            appModel?.handleApnsToken(token)
+            appModel.handleApnsToken(token)
         }
     }
 
@@ -58,10 +57,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
                      handleEventsForBackgroundURLSession identifier: String,
                      completionHandler: @escaping () -> Void) {
         Task { @MainActor in
-            guard let appModel else {
-                completionHandler()
-                return
-            }
             appModel.handleBackgroundEvents(identifier: identifier, completionHandler: completionHandler)
         }
     }
