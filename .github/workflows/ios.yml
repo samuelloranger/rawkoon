@@ -80,6 +80,30 @@ jobs:
           echo "APP_STORE_CONNECT_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
       - run: xcodegen generate
         working-directory: apps/ios
+      # Pinned signing: import a fixed distribution cert + App Store profile from
+      # secrets into a temporary keychain and sign manually. This replaces
+      # -allowProvisioningUpdates, which minted a fresh cert on every run and
+      # kept hitting Apple's certificate cap (and spamming revocation emails).
+      - name: Install signing certificate and profile
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+          PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERT_PATH"
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PROFILE_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/"
       - name: Archive signed app
         working-directory: apps/ios
         run: |
@@ -88,24 +112,19 @@ jobs:
             -scheme Rawkoon \
             -destination 'generic/platform=iOS' \
             -archivePath build/Rawkoon.xcarchive \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$APP_STORE_CONNECT_KEY_PATH" \
-            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="Rawkoon AppStore CI" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             MARKETING_VERSION="$MARKETING_VERSION" \
-            CURRENT_PROJECT_VERSION="$CURRENT_PROJECT_VERSION" \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
+            CURRENT_PROJECT_VERSION="$CURRENT_PROJECT_VERSION"
       - name: Export IPA
         working-directory: apps/ios
         run: |
           xcodebuild -exportArchive \
             -archivePath build/Rawkoon.xcarchive \
             -exportPath build/export \
-            -exportOptionsPlist ExportOptions.plist \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$APP_STORE_CONNECT_KEY_PATH" \
-            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
+            -exportOptionsPlist ExportOptions.plist
       - name: Upload to TestFlight
         working-directory: apps/ios
         run: |
