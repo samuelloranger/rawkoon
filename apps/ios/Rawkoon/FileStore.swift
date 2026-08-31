@@ -10,18 +10,6 @@ enum FileStore {
         return directory.appendingPathComponent(filename, isDirectory: false)
     }
 
-    /// Where an EPUB is unpacked for reading.
-    ///
-    /// Keyed by file id, not edition id: the extracted tree is derived data for
-    /// one archive, and deleting an edition's downloads must not strand it.
-    static func epubExtractionURL(fileId: Int) -> URL {
-        let directory = applicationSupportDirectory()
-            .appendingPathComponent("EpubExtracted", isDirectory: true)
-            .appendingPathComponent(String(fileId), isDirectory: true)
-        createDirectoryIfNeeded(directory)
-        return directory
-    }
-
     static func exists(editionId: Int, fileId: Int, ext: String) -> Bool {
         let url = chapterURL(editionId: editionId, fileId: fileId, ext: ext)
         return FileManager.default.fileExists(atPath: url.path)
@@ -47,8 +35,8 @@ enum FileStore {
         try? url.setResourceValues(values)
     }
 
-    /// The root of the app's book storage — downloads, extracted EPUBs and the
-    /// reading-progress file all live under it.
+    /// The root of the app's book storage — downloads and the reading-progress
+    /// file live under it.
     static func booksDirectory() -> URL {
         applicationSupportDirectory()
     }

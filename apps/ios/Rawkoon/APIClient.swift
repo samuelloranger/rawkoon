@@ -281,7 +281,8 @@ actor APIClient {
                 spineCount: row.spineCount,
                 scrollFraction: row.scrollFraction,
                 finished: row.finished,
-                updatedAtMillis: Int64((updatedAt.timeIntervalSince1970 * 1000).rounded())
+                updatedAtMillis: Int64((updatedAt.timeIntervalSince1970 * 1000).rounded()),
+                locator: row.locator
             )
         }
     }
@@ -298,7 +299,8 @@ actor APIClient {
                 scrollFraction: position.scrollFraction,
                 finished: position.finished,
                 updatedAt: Self.iso8601WithFractionalSeconds.string(from: updatedAt),
-                deviceId: deviceId
+                deviceId: deviceId,
+                locator: position.locator
             ),
             method: "PUT"
         )
@@ -905,6 +907,7 @@ private struct ReadingProgressPayload: Decodable {
     let scrollFraction: Double
     let finished: Bool
     let updatedAt: String
+    let locator: String?
 }
 
 private struct PutReadingProgressRequest: Encodable {
@@ -916,6 +919,7 @@ private struct PutReadingProgressRequest: Encodable {
     let finished: Bool
     let updatedAt: String
     let deviceId: String
+    let locator: String?
 }
 
 private struct PutProgressRequest: Encodable {

@@ -18,6 +18,9 @@ public struct ReadingPosition: Codable, Equatable, Sendable {
     public let scrollFraction: Double
     public let finished: Bool
     public let updatedAtMillis: Int64
+    /// Serialised Readium Locator JSON. Stored as a string so this package
+    /// never imports Readium (Linux CI cannot see that toolkit).
+    public let locator: String?
 
     public init(
         editionId: Int,
@@ -27,7 +30,8 @@ public struct ReadingPosition: Codable, Equatable, Sendable {
         spineCount: Int,
         scrollFraction: Double,
         finished: Bool = false,
-        updatedAtMillis: Int64
+        updatedAtMillis: Int64,
+        locator: String? = nil
     ) {
         self.editionId = editionId
         self.fileId = fileId
@@ -37,6 +41,7 @@ public struct ReadingPosition: Codable, Equatable, Sendable {
         self.scrollFraction = min(max(scrollFraction, 0), 1)
         self.finished = finished
         self.updatedAtMillis = updatedAtMillis
+        self.locator = locator
     }
 }
 

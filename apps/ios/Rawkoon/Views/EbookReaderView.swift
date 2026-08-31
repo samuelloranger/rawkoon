@@ -1,81 +1,252 @@
+import Combine
 import RawkoonKit
+import ReadiumNavigator
+import ReadiumShared
+import ReadiumStreamer
 import SwiftUI
 import UIKit
-import WebKit
+
+private typealias EPUBLink = ReadiumShared.Link
 
 struct EbookPreviewDocument: Identifiable, Sendable {
-    /// The book file's id — also what names the extracted directory.
+    /// The book file's id on disk.
     let id: Int
     /// The ebook edition this file belongs to, when the server told us.
     /// Reading progress is keyed by edition, so it is off without one.
     let editionId: Int?
+    /// Rawkoon's own language for the book, used to override the EPUB's.
+    ///
+    /// An EPUB can declare several `dc:language` values and the reader takes the
+    /// first. "La femme de ménage" lists `ar, en, fr`, so Readium picked Arabic
+    /// and laid a French novel out right-to-left. Rawkoon knows the real
+    /// language, so it wins.
+    let language: String?
     let title: String
     let localURL: URL
 }
 
-/// What the reader needs once the archive is on disk: where it was unpacked and
-/// the spine order to page through.
-private struct OpenedEpub: Sendable {
-    let root: URL
-    let package: EpubPackage
-}
-
 private enum ReaderState {
     case opening
-    case ready(OpenedEpub)
+    case ready(ReaderSession)
     case failed(String)
 }
 
-/// In-app EPUB reading.
-///
-/// QuickLook was the first attempt and it has no EPUB previewer on iOS — it
-/// renders the generic "here is a file" card with the name and size, which is
-/// not reading. So the archive is unpacked and its spine documents are rendered
-/// in a `WKWebView` one at a time.
+/// Global (not per-book) typography, persisted in UserDefaults and submitted
+/// to the navigator as `EPUBPreferences`. `lineHeight` only takes effect when
+/// publisher styles are off, so that flag is always included in the mapping.
+private struct ReaderPreferences: Codable, Equatable {
+    var fontSize: Double
+    var lineHeight: Double
+    var pageMargins: Double
+    var theme: ReaderTheme
+
+    static let `default` = ReaderPreferences(
+        fontSize: 1.0,
+        lineHeight: 1.5,
+        pageMargins: 1.0,
+        theme: .dark
+    )
+
+    private static let defaultsKey = "rawkoon.reader.epub.preferences"
+
+    static func load() -> ReaderPreferences {
+        guard
+            let data = UserDefaults.standard.data(forKey: defaultsKey),
+            let decoded = try? JSONDecoder().decode(ReaderPreferences.self, from: data)
+        else {
+            return .default
+        }
+        return decoded
+    }
+
+    func save() {
+        guard let data = try? JSONEncoder().encode(self) else { return }
+        UserDefaults.standard.set(data, forKey: Self.defaultsKey)
+    }
+
+    func asEPUBPreferences(language: String?) -> EPUBPreferences {
+        EPUBPreferences(
+            fontSize: fontSize,
+            language: language.map { Language(code: .bcp47($0)) },
+            lineHeight: lineHeight,
+            pageMargins: pageMargins,
+            publisherStyles: false,
+            scroll: false,
+            theme: theme.readiumTheme
+        )
+    }
+}
+
+private enum ReaderTheme: String, Codable, CaseIterable, Identifiable {
+    case light
+    case sepia
+    case dark
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .light: return "Light"
+        case .sepia: return "Sepia"
+        case .dark: return "Dark"
+        }
+    }
+
+    var readiumTheme: ReadiumNavigator.Theme {
+        switch self {
+        case .light: return .light
+        case .sepia: return .sepia
+        case .dark: return .dark
+        }
+    }
+}
+
+/// Observable chrome so the footer and TOC highlight refresh when the
+/// navigator reports a new locator. The session itself is not observed.
+@MainActor
+private final class ReaderChrome: ObservableObject {
+    @Published var currentLocator: Locator?
+    @Published var percent: Double?
+}
+
+@MainActor
+private final class ReaderSession {
+    let publication: Publication
+    let host: ReaderViewController
+    let tableOfContents: [EPUBLink]
+    private var lastPersistMillis: Int64 = 0
+    private var currentLocator: Locator?
+    private let editionId: Int?
+    private let fileId: Int
+    private let save: (ReadingPosition) -> Void
+
+    var navigator: EPUBNavigatorViewController { host.navigator }
+
+    init(
+        publication: Publication,
+        host: ReaderViewController,
+        tableOfContents: [EPUBLink],
+        editionId: Int?,
+        fileId: Int,
+        save: @escaping (ReadingPosition) -> Void
+    ) {
+        self.publication = publication
+        self.host = host
+        self.tableOfContents = tableOfContents
+        self.editionId = editionId
+        self.fileId = fileId
+        self.save = save
+    }
+
+    func handleLocationChange(_ locator: Locator) {
+        currentLocator = locator
+        persist(force: false)
+    }
+
+    func persist(force: Bool) {
+        guard let editionId else { return }
+        guard let locator = currentLocator ?? navigator.currentLocation else { return }
+        let now = Int64(Date().timeIntervalSince1970 * 1000)
+        if !force, now - lastPersistMillis < 3_000 { return }
+        lastPersistMillis = now
+        save(position(from: locator, editionId: editionId, now: now))
+    }
+
+    private func position(from locator: Locator, editionId: Int, now: Int64) -> ReadingPosition {
+        let index = publication.readingOrder.firstIndexWithHREF(locator.href) ?? 0
+        let spinePath: String
+        if publication.readingOrder.indices.contains(index) {
+            spinePath = publication.readingOrder[index].href
+        } else {
+            spinePath = locator.href.string
+        }
+        return ReadingPosition(
+            editionId: editionId,
+            fileId: fileId,
+            spineIndex: index,
+            spinePath: spinePath,
+            spineCount: publication.readingOrder.count,
+            scrollFraction: locator.locations.progression ?? 0,
+            finished: (locator.locations.totalProgression ?? 0) >= 0.99,
+            updatedAtMillis: now,
+            locator: try? locator.jsonString()
+        )
+    }
+}
+
+/// In-app EPUB reading via Readium's navigator. Readium owns the WKWebView,
+/// its injected JS and the scheme handler that serves publication resources.
 struct EbookReaderSheet: View {
     let document: EbookPreviewDocument
 
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var chrome = ReaderChrome()
     @State private var state: ReaderState = .opening
-    @State private var spineIndex = 0
-    /// Offset to apply once the next document has loaded, then cleared — a
-    /// restore must not fight the reader's own scrolling afterwards.
-    @State private var pendingScrollFraction: Double?
-    @State private var scrollFraction: Double = 0
-    @State private var lastPersistMillis: Int64 = 0
-
-    /// A scroll inside one chapter is not worth a write per frame; a chapter
-    /// change always is.
-    private static let scrollPersistIntervalMillis: Int64 = 3_000
+    @State private var preferences = ReaderPreferences.load()
+    @State private var showTOC = false
+    @State private var showSettings = false
+    // DEBUG only: RAWKOON_CONTROLS=1 starts with the capsule shown, so the
+    // controls can be screenshotted on the simulator without tap injection.
+    #if DEBUG
+    @State private var controlsVisible =
+        ProcessInfo.processInfo.environment["RAWKOON_CONTROLS"] == "1"
+    #else
+    @State private var controlsVisible = false
+    #endif
+    /// Cancelled and restarted on every reveal, so the controls always fade a
+    /// fixed time after the last interaction rather than the first.
+    @State private var hideTask: Task<Void, Never>?
 
     var body: some View {
-        NavigationStack {
+        // No navigation bar and no title: a reader's job is to disappear, and a
+        // bar costs about a tenth of the screen on every page. The controls are
+        // summoned by a tap in the middle third instead.
+        ZStack {
+            Theme.base.ignoresSafeArea()
             content
-                .background(Theme.base)
-                .navigationTitle(navigationTitle)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("Done") {
-                            persist(force: true)
-                            dismiss()
-                        }
+                .ignoresSafeArea()
+            percentReadout
+            floatingControls
+        }
+        .statusBarHidden(!controlsVisible)
+        .persistentSystemOverlays(controlsVisible ? .automatic : .hidden)
+        .animation(.easeInOut(duration: 0.2), value: controlsVisible)
+        .sheet(isPresented: $showTOC) {
+            if case let .ready(session) = state {
+                TableOfContentsSheet(
+                    links: session.tableOfContents,
+                    currentLocator: chrome.currentLocator,
+                    onSelect: { link in
+                        showTOC = false
+                        Task { await session.navigator.go(to: link, options: .animated) }
                     }
-                }
-                .safeAreaInset(edge: .bottom) {
-                    if case let .ready(epub) = state {
-                        pager(epub)
-                    }
-                }
+                )
+            }
+        }
+        .sheet(isPresented: $showSettings) {
+            ReaderSettingsSheet(preferences: $preferences)
         }
         .task { await open() }
+        .onChange(of: preferences) { _, new in
+            new.save()
+            if case let .ready(session) = state {
+                session.navigator.submitPreferences(new.asEPUBPreferences(language: document.language))
+            }
+        }
         // Backgrounding or a swipe-to-dismiss never runs the Done button.
-        .onDisappear { persist(force: true) }
+        .onDisappear {
+            if case let .ready(session) = state {
+                session.persist(force: true)
+            }
+        }
     }
 
     private var navigationTitle: String {
-        if case let .ready(epub) = state, let title = epub.package.title, !title.isEmpty {
+        if case let .ready(session) = state,
+           let title = session.publication.metadata.title,
+           !title.isEmpty
+        {
             return title
         }
         return document.title
@@ -108,290 +279,448 @@ struct EbookReaderSheet: View {
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-        case let .ready(epub):
-            let clamped = min(max(spineIndex, 0), epub.package.documents.count - 1)
-            EpubWebView(
-                fileURL: epub.root.appendingPathComponent(
-                    epub.package.documents[clamped].path
-                ),
-                readAccessRoot: epub.root,
-                restoreScrollFraction: pendingScrollFraction,
-                onRestored: { pendingScrollFraction = nil },
-                onScroll: { fraction in
-                    scrollFraction = fraction
-                    persist(force: false)
+        case let .ready(session):
+            ReaderViewControllerWrapper(viewController: session.host)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    /// The only permanent mark on screen. Without a bar it is the sole
+    /// orientation the reader keeps, so it stays visible and stays quiet.
+    @ViewBuilder private var percentReadout: some View {
+        if case .ready = state, let percent = chrome.percent {
+            VStack {
+                Spacer()
+                Text("\(Int((percent * 100).rounded()))%")
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(Theme.faint)
+                    .padding(.bottom, 6)
+            }
+            .allowsHitTesting(false)
+        }
+    }
+
+    @ViewBuilder private var floatingControls: some View {
+        if case .ready = state, controlsVisible {
+            VStack {
+                Spacer()
+                HStack(spacing: 22) {
+                    controlButton("chevron.down", "Close the book") { persistAndDismiss() }
+                    controlButton("list.bullet", "Contents") {
+                        revealControls()
+                        showTOC = true
+                    }
+                    controlButton("textformat.size", "Text options") {
+                        revealControls()
+                        showSettings = true
+                    }
                 }
-            )
-            .id(clamped)
+                .padding(.horizontal, 22)
+                .padding(.vertical, 13)
+                // Opaque rather than ultraThin: the capsule floats over body
+                // text, and letting the page bleed through it turned two lines
+                // into noise instead of reading as a layer above them.
+                .background(Theme.raised, in: Capsule())
+                .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
+                .shadow(color: .black.opacity(0.5), radius: 14, y: 6)
+                .padding(.bottom, 26)
+            }
+            .transition(.opacity)
         }
     }
 
-    private func pager(_ epub: OpenedEpub) -> some View {
-        let total = epub.package.documents.count
-        return HStack(spacing: 12) {
-            Button {
-                move(to: spineIndex - 1, in: epub)
-            } label: {
-                Label("Previous", systemImage: "chevron.left")
-                    .labelStyle(.iconOnly)
-                    .frame(width: 40, height: 32)
-            }
-            .buttonStyle(.bordered)
-            .tint(Theme.importing)
-            .disabled(spineIndex <= 0)
-
-            Text("\(spineIndex + 1) / \(total)")
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(Theme.muted)
-                .frame(maxWidth: .infinity)
-
-            Button {
-                move(to: spineIndex + 1, in: epub)
-            } label: {
-                Label("Next", systemImage: "chevron.right")
-                    .labelStyle(.iconOnly)
-                    .frame(width: 40, height: 32)
-            }
-            .buttonStyle(.bordered)
-            .tint(Theme.importing)
-            .disabled(spineIndex >= total - 1)
+    private func controlButton(
+        _ systemImage: String,
+        _ label: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(Theme.textStrong)
+                .frame(width: 34, height: 34)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 
-    private func move(to index: Int, in epub: OpenedEpub) {
-        let total = epub.package.documents.count
-        let target = min(max(index, 0), total - 1)
-        guard target != spineIndex else { return }
-        spineIndex = target
-        // A new chapter starts at the top, and the offset from the old one must
-        // not be carried over or reported for it.
-        scrollFraction = 0
-        pendingScrollFraction = nil
-        persist(force: true)
+    private func revealControls() {
+        controlsVisible = true
+        hideTask?.cancel()
+        hideTask = Task {
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            controlsVisible = false
+        }
+    }
+
+    private func hideControls() {
+        hideTask?.cancel()
+        controlsVisible = false
+    }
+
+    private func persistAndDismiss() {
+        if case let .ready(session) = state {
+            session.persist(force: true)
+        }
+        dismiss()
     }
 
     private func open() async {
         guard case .opening = state else { return }
-        let source = document.localURL
-        let destination = FileStore.epubExtractionURL(fileId: document.id)
-
-        let result = await Task.detached(priority: .userInitiated) { () -> Result<OpenedEpub, Error> in
-            do {
-                let archive = try ZipArchive(data: try Data(contentsOf: source, options: .mappedIfSafe))
-                let package = try EpubParser.parse(archive: archive)
-
-                // Re-extract when the spine's first document is missing: a
-                // half-written extraction from a previous crash is worse than
-                // paying the unzip again.
-                let probe = destination.appendingPathComponent(package.documents[0].path)
-                if !FileManager.default.fileExists(atPath: probe.path) {
-                    try? FileManager.default.removeItem(at: destination)
-                    try archive.extract(to: destination)
-                }
-                return .success(OpenedEpub(root: destination, package: package))
-            } catch {
-                return .failure(error)
-            }
-        }.value
-
-        switch result {
-        case let .success(epub):
+        do {
+            let publication = try await Self.openPublication(at: document.localURL)
+            let stored: ReadingPosition?
             if let editionId = document.editionId {
-                let resumed = await model.readingPosition(
-                    editionId: editionId,
-                    spine: epub.package.documents.map(\.path)
-                )
-                spineIndex = resumed.index
-                scrollFraction = resumed.scrollFraction
-                pendingScrollFraction = resumed.scrollFraction > 0 ? resumed.scrollFraction : nil
+                stored = await model.readingPosition(editionId: editionId)
             } else {
-                spineIndex = 0
-                scrollFraction = 0
+                stored = nil
             }
-            state = .ready(epub)
-        case let .failure(error):
+            let initialLocation = await Self.resumeLocator(
+                publication: publication,
+                stored: stored
+            )
+            let navigator = try EPUBNavigatorViewController(
+                publication: publication,
+                initialLocation: initialLocation.map { publication.normalizeLocator($0) },
+                config: EPUBNavigatorViewController.Configuration(
+                    preferences: preferences.asEPUBPreferences(language: document.language),
+                    defaults: EPUBDefaults(
+                        fontSize: 1.0,
+                        lineHeight: 1.5,
+                        pageMargins: 1.0,
+                        publisherStyles: false,
+                        scroll: false
+                    )
+                )
+            )
+            // Edge taps turn pages, a tap in the middle third summons the
+            // controls. Returning true consumes the event so Readium does not
+            // also page on a centre tap. This is the Apple Books / Kindle
+            // idiom, so it needs no explaining in the UI.
+            _ = navigator.addObserver(.tap { [weak navigator] event in
+                guard let navigator else { return false }
+                let width = navigator.view.bounds.width
+                guard width > 0 else { return false }
+                let x = event.location.x
+                if x < width / 3 {
+                    await navigator.goBackward(options: NavigatorGoOptions())
+                    hideControls()
+                    return true
+                }
+                if x > width * 2 / 3 {
+                    await navigator.goForward(options: NavigatorGoOptions())
+                    hideControls()
+                    return true
+                }
+                if controlsVisible {
+                    hideControls()
+                } else {
+                    revealControls()
+                }
+                return true
+            })
+
+            let host = ReaderViewController(navigator: navigator)
+            let toc = await Self.loadTableOfContents(publication)
+            let session = ReaderSession(
+                publication: publication,
+                host: host,
+                tableOfContents: toc,
+                editionId: document.editionId,
+                fileId: document.id,
+                save: { model.saveReadingPosition($0) }
+            )
+            let chrome = self.chrome
+            host.onLocationChange = { [weak session] locator in
+                session?.handleLocationChange(locator)
+                chrome.currentLocator = locator
+                chrome.percent = locator.locations.totalProgression
+            }
+            if let initialLocation {
+                chrome.currentLocator = initialLocation
+                chrome.percent = initialLocation.locations.totalProgression
+            }
+            state = .ready(session)
+        } catch {
             state = .failed(Self.describe(error))
         }
     }
 
-    private func persist(force: Bool) {
-        guard case let .ready(epub) = state, let editionId = document.editionId else { return }
-        let now = Int64(Date().timeIntervalSince1970 * 1000)
-        if !force, now - lastPersistMillis < Self.scrollPersistIntervalMillis { return }
-        lastPersistMillis = now
+    /// Asset → Publication through the streamer. EPUB-only in this slice.
+    private static func openPublication(at url: URL) async throws -> Publication {
+        guard let fileURL = FileURL(url: url) else {
+            throw OpenError.notAFile
+        }
+        let httpClient = DefaultHTTPClient()
+        let assetRetriever = AssetRetriever(httpClient: httpClient)
+        let opener = PublicationOpener(parser: EPUBParser())
+        let asset = try await assetRetriever.retrieve(url: fileURL).get()
+        return try await opener.open(asset: asset, allowUserInteraction: false).get()
+    }
 
-        let total = epub.package.documents.count
-        let index = min(max(spineIndex, 0), total - 1)
-        model.saveReadingPosition(
-            ReadingPosition(
-                editionId: editionId,
-                fileId: document.id,
-                spineIndex: index,
-                spinePath: epub.package.documents[index].path,
-                spineCount: total,
-                scrollFraction: scrollFraction,
-                // Only the last document scrolled to the end counts as read.
-                finished: index == total - 1 && scrollFraction >= 0.99,
-                updatedAtMillis: now
-            )
+    /// Prefer a stored Locator JSON if it still parses; otherwise the coarse
+    /// spine path/index via `ReadingProgressReconciler.resolve`.
+    private static func resumeLocator(
+        publication: Publication,
+        stored: ReadingPosition?
+    ) async -> Locator? {
+        if let json = stored?.locator, let locator = try? Locator(jsonString: json) {
+            return publication.normalizeLocator(locator)
+        }
+        guard let stored else { return nil }
+        let spine = publication.readingOrder.map(\.href)
+        let resolved = ReadingProgressReconciler.resolve(stored, spine: spine)
+        return await locator(at: resolved.index, progression: resolved.scrollFraction, in: publication)
+    }
+
+    private static func locator(
+        at index: Int,
+        progression: Double,
+        in publication: Publication
+    ) async -> Locator? {
+        guard publication.readingOrder.indices.contains(index) else { return nil }
+        let link = publication.readingOrder[index]
+        if let located = await publication.locate(link) {
+            return located.copy(locations: { $0.progression = progression })
+        }
+        return Locator(
+            href: link.url(),
+            mediaType: link.mediaType ?? .xhtml,
+            title: link.title,
+            locations: Locator.Locations(progression: progression)
         )
     }
 
+    private static func loadTableOfContents(_ publication: Publication) async -> [EPUBLink] {
+        let loaded = (try? await publication.tableOfContents().get()) ?? []
+        return loaded.isEmpty ? publication.readingOrder : loaded
+    }
+
     private static func describe(_ error: Error) -> String {
-        switch error {
-        case ZipError.notAZipArchive:
-            return "The file is not a valid EPUB container."
-        case ZipError.zip64Unsupported:
-            return "This EPUB uses ZIP64, which Rawkoon cannot read yet."
-        case let ZipError.unsupportedCompression(method):
-            return "Unsupported compression in the archive (method \(method))."
-        case EpubError.missingContainer, EpubError.missingRootfile:
-            return "The EPUB is missing its container manifest."
-        case let EpubError.missingPackage(path):
-            return "The EPUB package file is missing (\(path))."
-        case EpubError.emptySpine:
-            return "The EPUB declares no reading order."
-        default:
-            return error.localizedDescription
+        if error is OpenError {
+            return "The book file is missing from disk."
+        }
+        if let open = error as? PublicationOpenError {
+            switch open {
+            case .formatNotSupported:
+                return "This file is not a supported EPUB."
+            case .reading(_):
+                return error.localizedDescription
+            }
+        }
+        if let retrieve = error as? AssetRetrieveURLError {
+            switch retrieve {
+            case .formatNotSupported:
+                return "This file is not a supported EPUB."
+            case .schemeNotSupported(_):
+                return "Could not open the file from this location."
+            case .reading(_):
+                return error.localizedDescription
+            }
+        }
+        if let epubError = error as? EPUBNavigatorViewController.EPUBError,
+           case .publicationRestricted = epubError
+        {
+            return "This publication is locked and cannot be opened."
+        }
+        return error.localizedDescription
+    }
+
+    private enum OpenError: Error {
+        case notAFile
+    }
+}
+
+// MARK: - SwiftUI wrapper (Readium Navigator / SwiftUI guide)
+
+/// SwiftUI wrapper for the host view controller.
+private struct ReaderViewControllerWrapper: UIViewControllerRepresentable {
+    let viewController: ReaderViewController
+
+    func makeUIViewController(context: Context) -> ReaderViewController {
+        viewController
+    }
+
+    func updateUIViewController(_ uiViewController: ReaderViewController, context: Context) {}
+}
+
+/// Host view controller for a Readium Navigator.
+private final class ReaderViewController: UIViewController, EPUBNavigatorDelegate {
+    let navigator: EPUBNavigatorViewController
+    var onLocationChange: ((Locator) -> Void)?
+
+    init(navigator: EPUBNavigatorViewController) {
+        self.navigator = navigator
+        super.init(nibName: nil, bundle: nil)
+        navigator.delegate = self
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init?(coder: NSCoder) not implemented")
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        addChild(navigator)
+        navigator.view.frame = view.bounds
+        navigator.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.addSubview(navigator.view)
+        navigator.didMove(toParent: self)
+    }
+
+    func navigator(_ navigator: Navigator, locationDidChange locator: Locator) {
+        onLocationChange?(locator)
+    }
+
+    func navigator(_ navigator: Navigator, presentError _: NavigatorError) {}
+}
+
+// MARK: - Table of contents
+
+private struct TableOfContentsSheet: View {
+    let links: [EPUBLink]
+    let currentLocator: Locator?
+    let onSelect: (EPUBLink) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if links.isEmpty {
+                    Text("This book has no table of contents.")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.muted)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List {
+                        TOCSection(links: links, currentLocator: currentLocator, onSelect: onSelect)
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                }
+            }
+            .background(Theme.base)
+            .navigationTitle("Contents")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
         }
     }
 }
 
-/// One spine document, rendered from the extracted directory.
-///
-/// `loadFileURL(_:allowingReadAccessTo:)` must be granted the archive root, not
-/// the document's own directory, or every relative stylesheet and image in a
-/// sibling folder fails to load and the page renders unstyled.
-private struct EpubWebView: UIViewRepresentable {
-    let fileURL: URL
-    let readAccessRoot: URL
-    let restoreScrollFraction: Double?
-    let onRestored: () -> Void
-    let onScroll: (Double) -> Void
+private struct TOCSection: View {
+    let links: [EPUBLink]
+    let currentLocator: Locator?
+    let onSelect: (EPUBLink) -> Void
 
-    private static let scrollHandlerName = "rawkoonScroll"
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onScroll: onScroll, onRestored: onRestored)
-    }
-
-    func makeUIView(context: Context) -> WKWebView {
-        let configuration = WKWebViewConfiguration()
-        configuration.userContentController.addUserScript(
-            WKUserScript(
-                source: Self.readingStyle,
-                injectionTime: .atDocumentEnd,
-                forMainFrameOnly: true
-            )
-        )
-        configuration.userContentController.addUserScript(
-            WKUserScript(
-                source: Self.scrollReporter,
-                injectionTime: .atDocumentEnd,
-                forMainFrameOnly: true
-            )
-        )
-        configuration.userContentController.add(
-            context.coordinator,
-            name: Self.scrollHandlerName
-        )
-
-        let webView = WKWebView(frame: .zero, configuration: configuration)
-        webView.navigationDelegate = context.coordinator
-        webView.isOpaque = false
-        webView.backgroundColor = .clear
-        webView.scrollView.backgroundColor = .clear
-        webView.allowsBackForwardNavigationGestures = true
-        context.coordinator.restoreFraction = restoreScrollFraction
-        webView.loadFileURL(fileURL, allowingReadAccessTo: readAccessRoot)
-        return webView
-    }
-
-    func updateUIView(_ webView: WKWebView, context: Context) {
-        context.coordinator.onScroll = onScroll
-        context.coordinator.onRestored = onRestored
-        guard webView.url?.standardizedFileURL != fileURL.standardizedFileURL else { return }
-        context.coordinator.restoreFraction = restoreScrollFraction
-        webView.loadFileURL(fileURL, allowingReadAccessTo: readAccessRoot)
-    }
-
-    final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
-        var onScroll: (Double) -> Void
-        var onRestored: () -> Void
-        var restoreFraction: Double?
-
-        init(onScroll: @escaping (Double) -> Void, onRestored: @escaping () -> Void) {
-            self.onScroll = onScroll
-            self.onRestored = onRestored
-        }
-
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            guard let fraction = restoreFraction, fraction > 0 else {
-                onRestored()
-                return
+    var body: some View {
+        ForEach(Array(links.enumerated()), id: \.offset) { _, link in
+            if link.children.isEmpty {
+                TOCRow(link: link, currentLocator: currentLocator, onSelect: onSelect)
+            } else {
+                DisclosureGroup {
+                    TOCSection(links: link.children, currentLocator: currentLocator, onSelect: onSelect)
+                } label: {
+                    TOCRow(link: link, currentLocator: currentLocator, onSelect: onSelect)
+                }
             }
-            restoreFraction = nil
-            // Layout is not final at didFinish for a document that is still
-            // loading images, so the offset is applied on the next frame.
-            let script = """
-            requestAnimationFrame(function () {
-              var target = document.documentElement.scrollHeight - window.innerHeight;
-              window.scrollTo(0, Math.max(target, 0) * \(fraction));
-            });
-            """
-            webView.evaluateJavaScript(script) { _, _ in }
-            onRestored()
         }
+        .listRowBackground(Theme.raised)
+    }
+}
 
-        func userContentController(
-            _ controller: WKUserContentController,
-            didReceive message: WKScriptMessage
-        ) {
-            guard let fraction = message.body as? Double else { return }
-            onScroll(min(max(fraction, 0), 1))
-        }
+private struct TOCRow: View {
+    let link: EPUBLink
+    let currentLocator: Locator?
+    let onSelect: (EPUBLink) -> Void
+
+    private var isCurrent: Bool {
+        guard let currentLocator else { return false }
+        return link.url().isEquivalentTo(currentLocator.href)
     }
 
-    /// The app is dark-only, and publisher CSS assumes paper. Force a readable
-    /// dark page with `!important` because most EPUB stylesheets set colors on
-    /// body and on individual paragraphs.
-    private static let readingStyle = """
-    (function () {
-      var css = "html,body{background:#14100e!important;color:#ece3d8!important;" +
-        "font-size:19px!important;line-height:1.62!important;" +
-        "padding:6px 18px 24px!important;margin:0!important;" +
-        "-webkit-text-size-adjust:100%;}" +
-        "p,div,span,li,td,h1,h2,h3,h4,h5,h6,blockquote{color:#ece3d8!important;" +
-        "background:transparent!important;}" +
-        "a{color:#e79b6b!important;}" +
-        "img,svg,image{max-width:100%!important;height:auto!important;}" +
-        "hr{border-color:#3a2f28!important;}";
-      var style = document.createElement("style");
-      style.appendChild(document.createTextNode(css));
-      document.head ? document.head.appendChild(style)
-                    : document.documentElement.appendChild(style);
-    })();
-    """
+    private var title: String {
+        if let title = link.title, !title.isEmpty { return title }
+        return link.href
+    }
 
-    /// Reports the scroll offset as a 0–1 fraction, coalesced to one message per
-    /// frame — a raw scroll listener fires often enough to saturate the bridge.
-    private static let scrollReporter = """
-    (function () {
-      var queued = false;
-      function report() {
-        queued = false;
-        var target = document.documentElement.scrollHeight - window.innerHeight;
-        var fraction = target > 0 ? window.scrollY / target : 0;
-        window.webkit.messageHandlers.rawkoonScroll.postMessage(fraction);
-      }
-      window.addEventListener("scroll", function () {
-        if (queued) return;
-        queued = true;
-        requestAnimationFrame(report);
-      }, { passive: true });
-    })();
-    """
+    var body: some View {
+        Button {
+            onSelect(link)
+        } label: {
+            Text(title)
+                .font(.body)
+                .foregroundStyle(isCurrent ? Theme.apricot : Theme.textStrong)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+// MARK: - Settings
+
+private struct ReaderSettingsSheet: View {
+    @Binding var preferences: ReaderPreferences
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Typography") {
+                    Stepper(value: $preferences.fontSize, in: 0.7 ... 2.0, step: 0.1) {
+                        HStack {
+                            Text("Font size")
+                                .foregroundStyle(Theme.text)
+                            Spacer()
+                            Text("\(Int((preferences.fontSize * 100).rounded()))%")
+                                .foregroundStyle(Theme.muted)
+                        }
+                    }
+                    Stepper(value: $preferences.lineHeight, in: 1.0 ... 2.0, step: 0.1) {
+                        HStack {
+                            Text("Line height")
+                                .foregroundStyle(Theme.text)
+                            Spacer()
+                            Text(String(format: "%.1f", preferences.lineHeight))
+                                .foregroundStyle(Theme.muted)
+                        }
+                    }
+                    Stepper(value: $preferences.pageMargins, in: 0.0 ... 4.0, step: 0.3) {
+                        HStack {
+                            Text("Page margins")
+                                .foregroundStyle(Theme.text)
+                            Spacer()
+                            Text(String(format: "%.1f", preferences.pageMargins))
+                                .foregroundStyle(Theme.muted)
+                        }
+                    }
+                }
+                .listRowBackground(Theme.raised)
+
+                Section("Theme") {
+                    Picker("Theme", selection: $preferences.theme) {
+                        ForEach(ReaderTheme.allCases) { theme in
+                            Text(theme.label).tag(theme)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                .listRowBackground(Theme.raised)
+            }
+            .scrollContentBackground(.hidden)
+            .background(Theme.base)
+            .navigationTitle("Reader")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
 }
