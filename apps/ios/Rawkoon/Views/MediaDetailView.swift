@@ -43,10 +43,14 @@ struct MediaDetailView: View {
     @State private var managementError: String?
     @State private var managementNotice: String?
     @State private var qualityProfiles: [QualityProfile] = []
+    @State private var mediaFiles: [LibraryFileInfo] = []
+    @State private var mediaFilesType: String = "movie"
     @State private var downloads: [DownloadHistoryItem] = []
     @State private var pendingDownloadActionId: Int?
     @State private var applyingManagementChange = false
     @State private var removeFilesOnDelete = false
+    @State private var expandedFileIDs: Set<Int> = []
+    @State private var expandedFileSeasons: Set<Int> = []
 
     @State private var activeTab: DetailTab = .info
 
@@ -59,71 +63,71 @@ struct MediaDetailView: View {
         var id: String { rawValue }
     }
 
-    private enum MutableLibraryStatus: String, CaseIterable, Identifiable {
-        case wanted, downloading, downloaded, skipped
-
-        var id: String { rawValue }
-
-        var label: String {
-            switch self {
-            case .wanted: return "Missing"
-            case .downloading: return "Downloading"
-            case .downloaded: return "Downloaded"
-            case .skipped: return "Skipped"
-            }
-        }
-    }
-
     private let similarColumns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
     private let managementColumns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
     var body: some View {
+        rootScroll
+            .background(Theme.base)
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .task {
+                if details == nil {
+                    await fetchDetails()
+                }
+            }
+            .onChange(of: activeTab) { tab in
+                guard tab == .similar, similarItems.isEmpty, !loadingSimilar else { return }
+                Task { await fetchSimilar() }
+            }
+            .onChange(of: activeTab) { tab in
+                guard tab == .management, managementItem == nil else { return }
+                Task { await refreshManagementData() }
+            }
+            .onChange(of: availableTabKey) { _ in
+                if !availableTabs.contains(activeTab) {
+                    activeTab = availableTabs.first ?? .info
+                }
+            }
+            .sheet(isPresented: $showingReleaseSearch) {
+                ReleaseSearchView(
+                    query: title,
+                    libraryMediaId: libraryId,
+                    tmdbId: tmdbId,
+                    mediaType: mediaType,
+                    availableSeasons: details?.seasons?.map(\.seasonNumber) ?? []
+                )
+                .environmentObject(model)
+            }
+    }
+
+    private var rootScroll: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                if loading && details == nil {
-                    ProgressView().tint(Theme.apricot)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 16)
-                } else if let errorMessage, details == nil {
-                    ContentUnavailableView(
-                        "Couldn't load details",
-                        systemImage: "exclamationmark.triangle",
-                        description: Text(errorMessage)
-                    )
-                    .padding(.top, 28)
-                } else {
-                    hero
-                    statusRow
-                    tabs
-                    tabContent
-                }
+                mainContent
             }
             .padding(.bottom, 24)
         }
-        .background(Theme.base)
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
-        .task {
-            if details == nil {
-                await fetchDetails()
-            }
-        }
-        .onChange(of: activeTab) { _, tab in
-            guard tab == .similar, similarItems.isEmpty, !loadingSimilar else { return }
-            Task { await fetchSimilar() }
-        }
-        .onChange(of: activeTab) { _, tab in
-            guard tab == .management, managementItem == nil else { return }
-            Task { await refreshManagementData() }
-        }
-        .onChange(of: availableTabKey) { _, _ in
-            if !availableTabs.contains(activeTab) {
-                activeTab = availableTabs.first ?? .info
-            }
-        }
-        .sheet(isPresented: $showingReleaseSearch) {
-            ReleaseSearchView(query: title, libraryMediaId: libraryId, tmdbId: tmdbId, mediaType: mediaType)
-                .environmentObject(model)
+    }
+
+    @ViewBuilder
+    private var mainContent: some View {
+        if loading && details == nil {
+            ProgressView().tint(Theme.apricot)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 16)
+        } else if let errorMessage, details == nil {
+            ContentUnavailableView(
+                "Couldn't load details",
+                systemImage: "exclamationmark.triangle",
+                description: Text(errorMessage)
+            )
+            .padding(.top, 28)
+        } else {
+            hero
+            statusRow
+            tabs
+            tabContent
         }
     }
 
@@ -415,6 +419,7 @@ struct MediaDetailView: View {
             VStack(alignment: .leading, spacing: 12) {
                 managementSummaryCard(managementItem)
                 managementControlsCard(managementItem)
+                managementFilesCard
                 managementDownloadsCard
                 if let managementNotice {
                     Text(managementNotice)
@@ -475,28 +480,17 @@ struct MediaDetailView: View {
             .tint(Theme.apricot)
             .disabled(applyingManagementChange)
 
-            if let currentStatus = MutableLibraryStatus(rawValue: item.status) {
-                Picker("Status", selection: Binding(
-                    get: { currentStatus },
-                    set: { newValue in
-                        Task { await applyStatusChange(newValue.rawValue) }
-                    }
-                )) {
-                    ForEach(MutableLibraryStatus.allCases) { status in
-                        Text(status.label).tag(status)
-                    }
-                }
-                .pickerStyle(.menu)
-                .disabled(applyingManagementChange)
-            } else {
-                HStack {
-                    Text("Status")
-                    Spacer()
-                    Text(item.status.capitalized)
-                        .foregroundStyle(Theme.muted)
-                }
-                .font(.subheadline)
+            HStack {
+                Text("Status")
+                Spacer()
+                Text(item.status.capitalized)
+                    .foregroundStyle(Theme.muted)
             }
+            .font(.subheadline)
+
+            Text("Status is controlled by grabs and scans, not edited manually.")
+                .font(.caption2)
+                .foregroundStyle(Theme.faint)
 
             Picker("Quality profile", selection: Binding(
                 get: { item.qualityProfileId ?? 0 },
@@ -550,6 +544,268 @@ struct MediaDetailView: View {
         .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
         .padding(.horizontal, 16)
+    }
+
+    private var managementFilesCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Files")
+                    .font(.display(16))
+                    .foregroundStyle(Theme.textStrong)
+                Spacer()
+                Text("\(mediaFiles.count)")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.faint)
+            }
+
+            if mediaFiles.isEmpty {
+                Text("No file metadata yet.")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.muted)
+            } else if mediaFilesType == "show" {
+                VStack(spacing: 8) {
+                    ForEach(groupedSeasonFiles, id: \.season) { group in
+                        VStack(spacing: 0) {
+                            Button {
+                                toggleFileSeason(group.season)
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: expandedFileSeasons.contains(group.season) ? "chevron.down" : "chevron.right")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(Theme.faint)
+                                    Text(group.season == 0 ? "Specials" : "Season \(group.season)")
+                                        .font(.subheadline.weight(.medium))
+                                        .foregroundStyle(Theme.textStrong)
+                                    Spacer()
+                                    Text("\(group.files.count) files")
+                                        .font(.system(.caption2, design: .monospaced))
+                                        .foregroundStyle(Theme.muted)
+                                }
+                                .padding(10)
+                                .background(Theme.well, in: RoundedRectangle(cornerRadius: 10))
+                            }
+                            .buttonStyle(.plain)
+
+                            if expandedFileSeasons.contains(group.season) {
+                                VStack(spacing: 8) {
+                                    ForEach(group.files) { file in
+                                        seasonFileRow(file)
+                                    }
+                                }
+                                .padding(.top, 8)
+                            }
+                        }
+                    }
+                }
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(mediaFiles) { file in
+                        movieFileRow(file)
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
+        .padding(.horizontal, 16)
+    }
+
+    private var groupedSeasonFiles: [(season: Int, files: [LibraryFileInfo])] {
+        let grouped = Dictionary(grouping: mediaFiles) { $0.season ?? 0 }
+        return grouped
+            .map { season, files in
+                (
+                    season: season,
+                    files: files.sorted { lhs, rhs in
+                        if lhs.episode != rhs.episode {
+                            return (lhs.episode ?? 0) < (rhs.episode ?? 0)
+                        }
+                        return lhs.fileName.localizedCaseInsensitiveCompare(rhs.fileName) == .orderedAscending
+                    }
+                )
+            }
+            .sorted { $0.season < $1.season }
+    }
+
+    private func seasonFileRow(_ file: LibraryFileInfo) -> some View {
+        VStack(spacing: 0) {
+            Button {
+                toggleFileDetails(file.id)
+            } label: {
+                HStack(alignment: .top, spacing: 8) {
+                    Text(file.episode.map { "E\(String(format: "%02d", $0))" } ?? "--")
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(Theme.faint)
+                        .frame(width: 30, alignment: .leading)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(file.episodeTitle ?? file.fileName)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(Theme.textStrong)
+                            .lineLimit(2)
+                        HStack(spacing: 6) {
+                            Text(formatBytes(file.sizeBytes))
+                            if let duration = formatDuration(file.durationSecs) {
+                                Text(duration)
+                            }
+                            if let res = resolutionText(for: file) {
+                                Text(res)
+                            }
+                        }
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(Theme.muted)
+                    }
+                    Spacer()
+                    Image(systemName: expandedFileIDs.contains(file.id) ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Theme.faint)
+                }
+                .padding(10)
+                .background(Theme.base.opacity(0.25), in: RoundedRectangle(cornerRadius: 10))
+            }
+            .buttonStyle(.plain)
+
+            if expandedFileIDs.contains(file.id) {
+                fileDetailBlock(file)
+                    .padding(.top, 8)
+            }
+        }
+    }
+
+    private func movieFileRow(_ file: LibraryFileInfo) -> some View {
+        VStack(spacing: 0) {
+            Button {
+                toggleFileDetails(file.id)
+            } label: {
+                HStack(alignment: .top, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(file.fileName)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(Theme.textStrong)
+                            .lineLimit(2)
+                        HStack(spacing: 6) {
+                            Text(formatBytes(file.sizeBytes))
+                            if let duration = formatDuration(file.durationSecs) {
+                                Text(duration)
+                            }
+                            if let res = resolutionText(for: file) {
+                                Text(res)
+                            }
+                        }
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(Theme.muted)
+                    }
+                    Spacer()
+                    Image(systemName: expandedFileIDs.contains(file.id) ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Theme.faint)
+                }
+                .padding(10)
+                .background(Theme.base.opacity(0.25), in: RoundedRectangle(cornerRadius: 10))
+            }
+            .buttonStyle(.plain)
+
+            if expandedFileIDs.contains(file.id) {
+                fileDetailBlock(file)
+                    .padding(.top, 8)
+            }
+        }
+    }
+
+    private func fileDetailBlock(_ file: LibraryFileInfo) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            lineItem("Path", file.filePath)
+            lineItem("Release group", file.releaseGroup ?? "Unknown")
+            lineItem("Codec", [file.videoCodec, file.videoProfile].compactMap { $0 }.joined(separator: " · "))
+            lineItem("Source", file.source ?? "Unknown")
+            lineItem("HDR", file.hdrFormat ?? "None")
+            lineItem("Bit depth", file.bitDepth.map { "\($0)-bit" } ?? "Unknown")
+            lineItem("Frame rate", file.frameRate.map { String(format: "%.2f fps", $0) } ?? "Unknown")
+            lineItem("Video bitrate", file.videoBitrate.map { "\($0) kbps" } ?? "Unknown")
+            lineItem("Audio tracks", trackSummary(file.audioTracks))
+            lineItem("Subtitle tracks", subtitleSummary(file.subtitleTracks))
+            if let scanned = scannedDate(file.scannedAt) {
+                lineItem("Scanned", scanned)
+            }
+        }
+        .padding(10)
+        .background(Theme.well, in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func lineItem(_ label: String, _ value: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(label)
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(Theme.faint)
+                .frame(width: 90, alignment: .leading)
+            Text(value.isEmpty ? "Unknown" : value)
+                .font(.caption2)
+                .foregroundStyle(Theme.muted)
+                .multilineTextAlignment(.leading)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func trackSummary(_ tracks: [LibraryAudioTrack]) -> String {
+        guard !tracks.isEmpty else { return "None" }
+        let names = tracks.compactMap { $0.languageName ?? $0.language }.filter { !$0.isEmpty }
+        if names.isEmpty { return "\(tracks.count)" }
+        return "\(tracks.count) (\(names.joined(separator: ", ")))"
+    }
+
+    private func subtitleSummary(_ tracks: [LibrarySubtitleTrack]) -> String {
+        guard !tracks.isEmpty else { return "None" }
+        let names = tracks.compactMap { $0.languageName ?? $0.language }.filter { !$0.isEmpty }
+        if names.isEmpty { return "\(tracks.count)" }
+        return "\(tracks.count) (\(names.joined(separator: ", ")))"
+    }
+
+    private func resolutionText(for file: LibraryFileInfo) -> String? {
+        if let res = file.resolution {
+            return "\(res)p"
+        }
+        if let width = file.width, let height = file.height {
+            return "\(width)x\(height)"
+        }
+        return nil
+    }
+
+    private func scannedDate(_ isoDate: String) -> String? {
+        guard let date = ISO8601DateFormatter().date(from: isoDate) else { return nil }
+        return DateFormatter.localizedString(from: date, dateStyle: .medium, timeStyle: .short)
+    }
+
+    private func formatBytes(_ raw: String) -> String {
+        guard let value = Int64(raw) else { return raw }
+        return ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
+    }
+
+    private func formatDuration(_ seconds: Double?) -> String? {
+        guard let seconds else { return nil }
+        let minutes = Int(seconds / 60)
+        let hours = minutes / 60
+        let remaining = minutes % 60
+        if hours > 0 {
+            return "\(hours)h \(remaining)m"
+        }
+        return "\(remaining)m"
+    }
+
+    private func toggleFileDetails(_ fileId: Int) {
+        if expandedFileIDs.contains(fileId) {
+            expandedFileIDs.remove(fileId)
+        } else {
+            expandedFileIDs.insert(fileId)
+        }
+    }
+
+    private func toggleFileSeason(_ season: Int) {
+        if expandedFileSeasons.contains(season) {
+            expandedFileSeasons.remove(season)
+        } else {
+            expandedFileSeasons.insert(season)
+        }
     }
 
     private var managementDownloadsCard: some View {
@@ -892,14 +1148,18 @@ struct MediaDetailView: View {
         do {
             async let itemRequest = client.libraryItem(id: libraryId)
             async let profileRequest = client.qualityProfiles()
+            async let filesRequest = client.libraryFiles(id: libraryId)
             async let downloadsRequest = client.downloads(libraryId: libraryId)
 
             let item = try await itemRequest
             let profileResponse = try await profileRequest
+            let filesResponse = try await filesRequest
             let downloadsResponse = try await downloadsRequest
 
             managementItem = item
             qualityProfiles = profileResponse.profiles
+            mediaFilesType = filesResponse.mediaType
+            mediaFiles = filesResponse.files
             downloads = downloadsResponse.items
         } catch APIError.unauthorized {
             managementError = "Admin only."
@@ -919,20 +1179,6 @@ struct MediaDetailView: View {
             managementError = nil
         } catch {
             managementError = "Could not update monitoring."
-        }
-    }
-
-    private func applyStatusChange(_ status: String) async {
-        guard let libraryId else { return }
-        guard let client = model.api() else { return }
-        applyingManagementChange = true
-        defer { applyingManagementChange = false }
-        do {
-            managementItem = try await client.updateLibraryStatus(id: libraryId, status: status)
-            managementNotice = "Status updated."
-            managementError = nil
-        } catch {
-            managementError = "Could not update status."
         }
     }
 

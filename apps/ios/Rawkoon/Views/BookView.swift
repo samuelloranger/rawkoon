@@ -9,9 +9,12 @@ struct BookView: View {
 
     @State private var manifest: BookManifest?
     @State private var loadingManifest = false
+    @State private var rescanningManifest = false
     @State private var loadingPlayer = false
     @State private var showingPlayer = false
     @State private var showingAddAudiobook = false
+    @State private var manifestError: String?
+    @State private var attemptedAutomaticRecovery = false
 
     private var editionId: Int? { book.audiobookEditionId }
 
@@ -37,6 +40,11 @@ struct BookView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             if book.hasAudiobook && manifest == nil { await fetchManifest() }
+        }
+        .refreshable {
+            if book.hasAudiobook {
+                await fetchManifest(forceRefresh: true)
+            }
         }
         .sheet(isPresented: $showingPlayer) {
             if let manifest, let summary = book.audiobookSummary {
@@ -102,9 +110,15 @@ struct BookView: View {
 
     private var durationLine: String {
         let secs = manifest?.totalDurationSecs ?? book.audiobookDurationSecs ?? 0
-        let count = manifest?.chapters.count
         var parts = [formatDuration(secs)]
-        if let count { parts.append("\(count) chapters") }
+        if let count = manifest?.chapters.count {
+            parts.append("\(count) chapters")
+        } else if book.audiobookFileCount > 0 {
+            parts.append("\(book.audiobookFileCount) files")
+        }
+        if let status = book.audiobookStatus {
+            parts.append(formattedStatus(status))
+        }
         return parts.joined(separator: " · ")
     }
 
@@ -154,6 +168,39 @@ struct BookView: View {
             .disabled(!canPlay || loadingManifest)
 
             downloadButton
+
+            if model.isAdmin {
+                HStack(spacing: 10) {
+                    Button {
+                        showingAddAudiobook = true
+                    } label: {
+                        Label("Search releases", systemImage: "magnifyingglass")
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 22)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(Theme.apricot)
+
+                    if manifest == nil {
+                        Button {
+                            Task { await recoverManifestAfterRescan() }
+                        } label: {
+                            Group {
+                                if rescanningManifest {
+                                    ProgressView().tint(Theme.apricot)
+                                } else {
+                                    Label("Rescan", systemImage: "arrow.clockwise")
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 22)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(Theme.raised)
+                        .disabled(rescanningManifest || loadingManifest)
+                    }
+                }
+            }
         }
     }
 
@@ -220,8 +267,19 @@ struct BookView: View {
                     }
                 }
             } else {
-                Text("Chapters couldn't load. Pull to refresh, or check the server.")
-                    .font(.subheadline).foregroundStyle(Theme.muted)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(manifestError ?? "Chapters couldn't load.")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.muted)
+                    Text("Pull to refresh, run rescan, or check the server.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.faint)
+                    if let status = book.audiobookStatus {
+                        Text("Edition status: \(formattedStatus(status))")
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(Theme.faint)
+                    }
+                }
             }
         }
     }
@@ -231,12 +289,49 @@ struct BookView: View {
         return !manifest.chapters.isEmpty
     }
 
-    private func fetchManifest() async {
+    private func fetchManifest(forceRefresh: Bool = false) async {
         guard let editionId else { return }
         loadingManifest = true
+        manifestError = nil
         defer { loadingManifest = false }
-        do { manifest = try await model.manifest(editionId) }
-        catch { model.errorMessage = "Could not load manifest." }
+        do {
+            manifest = try await model.manifest(editionId, forceRefresh: forceRefresh)
+            attemptedAutomaticRecovery = false
+        } catch let apiError as APIError {
+            manifest = nil
+            manifestError = message(for: apiError)
+            if
+                case .http(400) = apiError,
+                model.isAdmin,
+                !attemptedAutomaticRecovery,
+                !forceRefresh
+            {
+                attemptedAutomaticRecovery = true
+                await recoverManifestAfterRescan()
+            }
+        } catch {
+            manifest = nil
+            manifestError = "Could not load manifest."
+        }
+    }
+
+    private func recoverManifestAfterRescan() async {
+        guard let editionId, let client = model.api() else { return }
+        rescanningManifest = true
+        defer { rescanningManifest = false }
+
+        do {
+            _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "audiobook")
+            manifest = try await model.manifest(editionId, forceRefresh: true)
+            manifestError = nil
+            await model.loadLibrary()
+        } catch let apiError as APIError {
+            manifest = nil
+            manifestError = message(for: apiError)
+        } catch {
+            manifest = nil
+            manifestError = "Rescan completed, but chapters are still unavailable."
+        }
     }
 
     private func isChapterDownloaded(_ chapter: ManifestChapter) -> Bool {
@@ -262,5 +357,27 @@ struct BookView: View {
         let minutes = (total % 3600) / 60
         if hours > 0 { return "\(hours)h \(String(format: "%02dm", minutes))" }
         return "\(minutes)m"
+    }
+
+    private func formattedStatus(_ status: String) -> String {
+        status
+            .split(separator: "_")
+            .map { $0.capitalized }
+            .joined(separator: " ")
+    }
+
+    private func message(for error: APIError) -> String {
+        switch error {
+        case .unauthorized:
+            return "Sign in required."
+        case .http(400):
+            return "This audiobook is not chapter-ready yet. Run a rescan or grab a chapterized release."
+        case let .http(status):
+            return "Server error (\(status))."
+        case .decode:
+            return "Could not parse manifest response."
+        case .transport:
+            return "Network error. Check your connection."
+        }
     }
 }

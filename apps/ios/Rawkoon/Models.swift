@@ -111,6 +111,102 @@ struct Episode: Decodable, Identifiable, Sendable {
     let downloadedAt: String?
 }
 
+// MARK: - Library file metadata
+
+struct LibraryAudioTrack: Decodable, Identifiable, Sendable {
+    let index: Int
+    let language: String?
+    let languageName: String?
+    let title: String?
+    let codec: String?
+    let channels: Int?
+    let channelLayout: String?
+    let bitrateKbps: Int?
+    let isDefault: Bool
+    let forced: Bool
+
+    var id: Int { index }
+
+    enum CodingKeys: String, CodingKey {
+        case index, language, languageName, title, codec, channels, channelLayout, bitrateKbps, forced
+        case isDefault = "default"
+    }
+}
+
+struct LibrarySubtitleTrack: Decodable, Identifiable, Sendable {
+    let index: Int
+    let language: String?
+    let languageName: String?
+    let title: String?
+    let format: String?
+    let forced: Bool
+    let hearingImpaired: Bool
+
+    var id: Int { index }
+}
+
+struct LibraryFileInfo: Decodable, Identifiable, Sendable {
+    let id: Int
+    let fileName: String
+    let filePath: String
+    let sizeBytes: String
+    let durationSecs: Double?
+    let releaseGroup: String?
+    let videoCodec: String?
+    let videoProfile: String?
+    let width: Int?
+    let height: Int?
+    let frameRate: Double?
+    let bitDepth: Int?
+    let videoBitrate: Int?
+    let hdrFormat: String?
+    let resolution: Int?
+    let source: String?
+    let audioTracks: [LibraryAudioTrack]
+    let subtitleTracks: [LibrarySubtitleTrack]
+    let scannedAt: String
+    let season: Int?
+    let episode: Int?
+    let episodeTitle: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, fileName, filePath, sizeBytes, durationSecs, releaseGroup, videoCodec, videoProfile, width, height
+        case frameRate, bitDepth, videoBitrate, hdrFormat, resolution, source
+        case audioTracks, subtitleTracks, scannedAt, season, episode, episodeTitle
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        fileName = try c.decode(String.self, forKey: .fileName)
+        filePath = try c.decode(String.self, forKey: .filePath)
+        sizeBytes = try c.decode(String.self, forKey: .sizeBytes)
+        durationSecs = try c.decodeIfPresent(Double.self, forKey: .durationSecs)
+        releaseGroup = try c.decodeIfPresent(String.self, forKey: .releaseGroup)
+        videoCodec = try c.decodeIfPresent(String.self, forKey: .videoCodec)
+        videoProfile = try c.decodeIfPresent(String.self, forKey: .videoProfile)
+        width = try c.decodeIfPresent(Int.self, forKey: .width)
+        height = try c.decodeIfPresent(Int.self, forKey: .height)
+        frameRate = try c.decodeIfPresent(Double.self, forKey: .frameRate)
+        bitDepth = try c.decodeIfPresent(Int.self, forKey: .bitDepth)
+        videoBitrate = try c.decodeIfPresent(Int.self, forKey: .videoBitrate)
+        hdrFormat = try c.decodeIfPresent(String.self, forKey: .hdrFormat)
+        resolution = try c.decodeIfPresent(Int.self, forKey: .resolution)
+        source = try c.decodeIfPresent(String.self, forKey: .source)
+        audioTracks = (try? c.decode([LibraryAudioTrack].self, forKey: .audioTracks)) ?? []
+        subtitleTracks = (try? c.decode([LibrarySubtitleTrack].self, forKey: .subtitleTracks)) ?? []
+        scannedAt = try c.decode(String.self, forKey: .scannedAt)
+        season = try c.decodeIfPresent(Int.self, forKey: .season)
+        episode = try c.decodeIfPresent(Int.self, forKey: .episode)
+        episodeTitle = try c.decodeIfPresent(String.self, forKey: .episodeTitle)
+    }
+}
+
+struct LibraryFilesResponse: Decodable, Sendable {
+    let mediaType: String
+    let files: [LibraryFileInfo]
+}
+
 // MARK: - Library media (movies / shows)
 
 struct LibraryMedia: Decodable, Identifiable, Sendable {
@@ -176,31 +272,44 @@ struct InteractiveSearchResponse: Decodable, Sendable {
     let success: Bool
     let service: String?
     let releases: [ReleaseItem]
+    let indexerWarnings: [IndexerWarning]?
+}
+
+struct IndexerWarning: Decodable, Identifiable, Sendable {
+    let id: String
+    let name: String
+    let error: String
 }
 
 struct ReleaseItem: Decodable, Identifiable, Sendable {
     let guid: String
     let title: String
     let indexer: String?
+    let indexerId: Int?
+    let languages: [String]
     let protocolType: String?
     let sizeBytes: Int?
     let age: Int?
     let seeders: Int?
     let leechers: Int?
     let rejected: Bool?
+    let rejectionReason: String?
+    let infoURL: String?
     let downloadToken: String?
     let downloadUrl: String?
     let isSeasonPack: Bool?
+    let isCompleteSeries: Bool?
     let freeleech: Bool?
+    let qualityScore: Double?
 
     var id: String { guid }
 
     // `.convertFromSnakeCase` maps most keys; only `protocol` (a Swift keyword)
     // needs an explicit key. Raw values are the POST-conversion camelCase forms.
     enum CodingKeys: String, CodingKey {
-        case guid, title, indexer, age, seeders, leechers, rejected, freeleech
+        case guid, title, indexer, indexerId, languages, age, seeders, leechers, rejected, rejectionReason, freeleech, qualityScore
         case protocolType = "protocol"
-        case sizeBytes, downloadToken, downloadUrl, isSeasonPack
+        case sizeBytes, infoURL = "infoUrl", downloadToken, downloadUrl, isSeasonPack, isCompleteSeries
     }
 }
 
