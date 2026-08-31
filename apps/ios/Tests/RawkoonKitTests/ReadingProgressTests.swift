@@ -147,4 +147,37 @@ final class ReadingProgressStoreTests: XCTestCase {
             0
         )
     }
+
+    func testLocatorRoundTripsAndDefaultsToNil() throws {
+        let store = ReadingProgressStore(directory: directory)
+        XCTAssertNil(position(spineIndex: 0, spinePath: "a.xhtml").locator)
+
+        let json = "{\"href\":\"/ch1.xhtml\",\"type\":\"application/xhtml+xml\"}"
+        try store.save(
+            ReadingPosition(
+                editionId: 10,
+                fileId: 64,
+                spineIndex: 0,
+                spinePath: "a.xhtml",
+                spineCount: 3,
+                scrollFraction: 0.2,
+                updatedAtMillis: 1_000,
+                locator: json
+            )
+        )
+        XCTAssertEqual(store.position(editionId: 10)?.locator, json)
+    }
+
+    /// Positions written before the locator field must still load.
+    func testMissingLocatorDecodesAsNil() throws {
+        let payload = Data(
+            """
+            {"10":{"editionId":10,"fileId":64,"spineIndex":1,"spinePath":"b.xhtml","spineCount":3,"scrollFraction":0.5,"finished":false,"updatedAtMillis":1000}}
+            """.utf8
+        )
+        try payload.write(to: directory.appendingPathComponent("reading-progress.json"))
+        let store = ReadingProgressStore(directory: directory)
+        XCTAssertNil(store.position(editionId: 10)?.locator)
+        XCTAssertEqual(store.position(editionId: 10)?.spinePath, "b.xhtml")
+    }
 }

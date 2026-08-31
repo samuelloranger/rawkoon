@@ -507,11 +507,10 @@ final class AppModel: ObservableObject {
     // MARK: Reading progress (ebooks)
 
     /// Where to open an ebook edition, reconciled across this device and the
-    /// server. Same last-write-wins rule as the audiobook position.
-    func readingPosition(
-        editionId: Int,
-        spine: [String]
-    ) async -> (index: Int, scrollFraction: Double) {
+    /// server. Same last-write-wins rule as the audiobook position. The caller
+    /// prefers `winner.locator` when it parses; otherwise it runs
+    /// `ReadingProgressReconciler.resolve` against the publication spine.
+    func readingPosition(editionId: Int) async -> ReadingPosition? {
         let local = readingProgressStore.position(editionId: editionId)
         var remote: ReadingPosition?
         if let apiClient {
@@ -528,9 +527,7 @@ final class AppModel: ObservableObject {
         case .keepLocal, .push:
             winner = local
         }
-
-        guard let winner else { return (0, 0) }
-        return ReadingProgressReconciler.resolve(winner, spine: spine)
+        return winner
     }
 
     /// Persists locally first, then pushes. The local write is what makes the
