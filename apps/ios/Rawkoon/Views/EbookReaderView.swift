@@ -186,7 +186,14 @@ struct EbookReaderSheet: View {
     @State private var preferences = ReaderPreferences.load()
     @State private var showTOC = false
     @State private var showSettings = false
+    // DEBUG only: RAWKOON_CONTROLS=1 starts with the capsule shown, so the
+    // controls can be screenshotted on the simulator without tap injection.
+    #if DEBUG
+    @State private var controlsVisible =
+        ProcessInfo.processInfo.environment["RAWKOON_CONTROLS"] == "1"
+    #else
     @State private var controlsVisible = false
+    #endif
     /// Cancelled and restarted on every reveal, so the controls always fade a
     /// fixed time after the last interaction rather than the first.
     @State private var hideTask: Task<Void, Never>?
