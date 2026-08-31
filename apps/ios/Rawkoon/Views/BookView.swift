@@ -37,6 +37,7 @@ struct BookView: View {
     @State private var loadingEbookFiles = false
     @State private var rescanningEbook = false
     @State private var openingEbookFileId: Int?
+    @State private var downloadingEbookFileIDs = Set<Int>()
     @State private var ebookFilesError: String?
     @State private var previewDocument: EbookPreviewDocument?
     @State private var addingEditionKind: String?
@@ -55,6 +56,7 @@ struct BookView: View {
     }
 
     private var audiobookEditionId: Int? { audiobookEdition?.id ?? book.audiobookEditionId }
+    private var ebookEditionId: Int? { ebookEdition?.id }
     private var hasAudiobookEdition: Bool { audiobookEditionId != nil }
     private var hasEbookEdition: Bool { ebookEdition != nil || book.hasEbook }
 
@@ -538,6 +540,10 @@ struct BookView: View {
         if let size = formatBytes(ebookEdition?.totalSizeBytes) {
             parts.append(size)
         }
+        let offlineCount = ebookFiles.filter { isEbookDownloaded($0) }.count
+        if offlineCount > 0 {
+            parts.append("\(offlineCount) offline")
+        }
         return parts
     }
 
@@ -556,6 +562,24 @@ struct BookView: View {
             .tint(Theme.importing)
             .foregroundStyle(Theme.onAccent)
             .disabled(preferredEbookFile == nil || loadingEbookFiles || openingEbookFileId != nil)
+
+            if let preferred = preferredEbookFile {
+                if isEbookDownloaded(preferred) {
+                    Label("Saved for offline reading", systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(Theme.seed)
+                } else {
+                    Button {
+                        Task { await downloadEbook(preferred) }
+                    } label: {
+                        Label("Download primary file", systemImage: "arrow.down.circle")
+                            .frame(maxWidth: .infinity).frame(height: 22)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(Theme.importing)
+                    .disabled(downloadingEbookFileIDs.contains(preferred.id) || loadingEbookFiles)
+                }
+            }
 
             if model.isAdmin {
                 HStack(spacing: 10) {
@@ -608,6 +632,11 @@ struct BookView: View {
             } else {
                 ForEach(ebookFiles) { file in
                     HStack(alignment: .top, spacing: 10) {
+                        let downloaded = isEbookDownloaded(file)
+                        let downloading = downloadingEbookFileIDs.contains(file.id)
+                        let loadingState = openingEbookFileId == file.id || downloading
+                        let canFetchRemote = remoteEbookURL(for: file) != nil
+
                         VStack(alignment: .leading, spacing: 3) {
                             Text(file.fileName)
                                 .font(.subheadline)
@@ -618,14 +647,28 @@ struct BookView: View {
                                 .foregroundStyle(Theme.muted)
                         }
                         Spacer(minLength: 8)
-                        if openingEbookFileId == file.id {
+                        if loadingState {
                             ProgressView().tint(Theme.importing)
                         } else {
-                            Button("Read") {
-                                Task { await openEbook(file) }
+                            HStack(spacing: 7) {
+                                if downloaded {
+                                    StatusBadge(text: "Offline", tint: Theme.seed)
+                                } else {
+                                    Button("Download") {
+                                        Task { await downloadEbook(file) }
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(Theme.importing)
+                                    .disabled(!canFetchRemote)
+                                }
+
+                                Button("Read") {
+                                    Task { await openEbook(file) }
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(Theme.importing)
+                                .disabled(!downloaded && !canFetchRemote)
                             }
-                            .buttonStyle(.bordered)
-                            .tint(Theme.importing)
                         }
                     }
                     .padding(11)
@@ -851,49 +894,87 @@ struct BookView: View {
     }
 
     private func openEbook(_ file: BookEditionFile) async {
-        guard let remoteURL = model.absoluteURL(file.contentUrl) else {
-            ebookFilesError = "Could not open this file."
-            return
-        }
         openingEbookFileId = file.id
         ebookFilesError = nil
         defer { openingEbookFileId = nil }
         do {
-            let localURL = try await cacheEbookFile(remoteURL, originalName: file.fileName, fileId: file.id)
+            let localURL = try await ensureLocalEbookFile(file)
             previewDocument = EbookPreviewDocument(id: file.id, title: file.fileName, localURL: localURL)
         } catch {
             ebookFilesError = "Read failed. Try refreshing or rescanning this edition."
         }
     }
 
-    private func cacheEbookFile(_ remoteURL: URL, originalName: String, fileId: Int) async throws -> URL {
+    private func downloadEbook(_ file: BookEditionFile) async {
+        guard !downloadingEbookFileIDs.contains(file.id) else { return }
+        downloadingEbookFileIDs.insert(file.id)
+        ebookFilesError = nil
+        defer { downloadingEbookFileIDs.remove(file.id) }
+        do {
+            _ = try await ensureLocalEbookFile(file)
+        } catch {
+            ebookFilesError = "Download failed. Check your connection and try again."
+        }
+    }
+
+    private func ensureLocalEbookFile(_ file: BookEditionFile) async throws -> URL {
+        guard let localURL = localEbookURL(for: file) else {
+            throw APIError.transport
+        }
+        if FileManager.default.fileExists(atPath: localURL.path) {
+            return localURL
+        }
+
+        guard let remoteURL = remoteEbookURL(for: file) else {
+            throw APIError.transport
+        }
+
         let (temporaryURL, response) = try await URLSession.shared.download(from: remoteURL)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw APIError.transport
         }
 
-        let cachesRoot = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        let booksRoot = cachesRoot.appendingPathComponent("RawkoonEbooks", isDirectory: true)
-        try FileManager.default.createDirectory(at: booksRoot, withIntermediateDirectories: true)
+        let parent = localURL.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
 
-        let safeName = sanitizeFileName(originalName)
-        let destination = booksRoot.appendingPathComponent("\(book.bookId)-\(fileId)-\(safeName)", isDirectory: false)
-        if FileManager.default.fileExists(atPath: destination.path) {
-            try FileManager.default.removeItem(at: destination)
+        if FileManager.default.fileExists(atPath: localURL.path) {
+            try FileManager.default.removeItem(at: localURL)
         }
-        try FileManager.default.moveItem(at: temporaryURL, to: destination)
-        return destination
+
+        try FileManager.default.moveItem(at: temporaryURL, to: localURL)
+        return localURL
     }
 
-    private func sanitizeFileName(_ value: String) -> String {
-        let mapped = value.map { char -> Character in
-            if char.isLetter || char.isNumber || char == "." || char == "-" || char == "_" {
-                return char
-            }
-            return "_"
+    private func remoteEbookURL(for file: BookEditionFile) -> URL? {
+        guard let contentURL = file.contentUrl else { return nil }
+        return model.absoluteURL(contentURL)
+    }
+
+    private func localEbookURL(for file: BookEditionFile) -> URL? {
+        guard let editionId = ebookEditionId else { return nil }
+        return FileStore.chapterURL(
+            editionId: editionId,
+            fileId: file.id,
+            ext: ebookExtension(for: file)
+        )
+    }
+
+    private func isEbookDownloaded(_ file: BookEditionFile) -> Bool {
+        guard let editionId = ebookEditionId else { return false }
+        return FileStore.exists(
+            editionId: editionId,
+            fileId: file.id,
+            ext: ebookExtension(for: file)
+        )
+    }
+
+    private func ebookExtension(for file: BookEditionFile) -> String {
+        let ext = URL(fileURLWithPath: file.fileName).pathExtension
+        if !ext.isEmpty {
+            return ext
         }
-        let result = String(mapped)
-        return result.isEmpty ? "book.epub" : result
+        let normalized = file.format.trimmingCharacters(in: CharacterSet(charactersIn: ".")).lowercased()
+        return normalized.isEmpty ? "epub" : normalized
     }
 
     private func ebookFormatRank(_ format: String) -> Int {
