@@ -10,6 +10,7 @@ struct PlayerView: View {
 
     @State private var sliderPosition: Double = 0
     @State private var isDraggingSlider = false
+    @State private var draggingChapterSnapshot: ManifestChapter?
 
     private let rates: [Double] = [0.8, 1.0, 1.25, 1.5, 2.0]
 
@@ -71,26 +72,74 @@ struct PlayerView: View {
 
     private var scrubber: some View {
         VStack(spacing: 8) {
-            Slider(
-                value: Binding(
-                    get: { isDraggingSlider ? sliderPosition : model.player.positionSecs },
-                    set: { sliderPosition = $0 }
-                ),
-                in: 0...max(model.player.duration, 0.1),
-                onEditingChanged: { editing in
-                    isDraggingSlider = editing
-                    if !editing { model.player.seek(to: sliderPosition) }
-                }
-            )
-            .tint(Theme.apricot)
+            if let chapter = scrubberChapterScope {
+                let displayPosition = clampedToChapter(
+                    isDraggingSlider ? sliderPosition : model.player.positionSecs,
+                    chapter: chapter
+                )
 
-            HStack {
-                Text(formatTime(model.player.positionSecs))
-                Spacer()
-                Text("-\(formatTime(max(model.player.duration - model.player.positionSecs, 0)))")
+                Text(chapter.title)
+                    .font(.caption)
+                    .foregroundStyle(Theme.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Slider(
+                    value: Binding(
+                        get: { displayPosition },
+                        set: { sliderPosition = clampedToChapter($0, chapter: chapter) }
+                    ),
+                    in: chapter.startSecs...chapter.endSecs,
+                    onEditingChanged: { editing in
+                        isDraggingSlider = editing
+                        if editing {
+                            // Freeze the chapter while dragging so the slider range
+                            // cannot jump to another chapter under the user's finger.
+                            draggingChapterSnapshot = chapter
+                            sliderPosition = clampedToChapter(model.player.positionSecs, chapter: chapter)
+                        } else {
+                            let target = clampedToChapter(sliderPosition, chapter: chapter)
+                            sliderPosition = target
+                            model.player.seek(to: target)
+                            draggingChapterSnapshot = nil
+                        }
+                    }
+                )
+                .tint(Theme.apricot)
+
+                HStack {
+                    Text(formatTime(max(displayPosition - chapter.startSecs, 0)))
+                    Spacer()
+                    Text("-\(formatTime(max(chapter.endSecs - displayPosition, 0)))")
+                }
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(Theme.muted)
+
+                Text("\(formatTime(displayPosition)) in / \(formatTime(model.player.duration))")
+                    .font(.caption)
+                    .foregroundStyle(Theme.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Slider(
+                    value: Binding(
+                        get: { isDraggingSlider ? sliderPosition : model.player.positionSecs },
+                        set: { sliderPosition = $0 }
+                    ),
+                    in: 0...max(model.player.duration, 0.1),
+                    onEditingChanged: { editing in
+                        isDraggingSlider = editing
+                        if !editing { model.player.seek(to: sliderPosition) }
+                    }
+                )
+                .tint(Theme.apricot)
+
+                HStack {
+                    Text(formatTime(model.player.positionSecs))
+                    Spacer()
+                    Text("-\(formatTime(max(model.player.duration - model.player.positionSecs, 0)))")
+                }
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(Theme.muted)
             }
-            .font(.system(.caption, design: .monospaced))
-            .foregroundStyle(Theme.muted)
         }
         .padding(.top, 6)
     }
@@ -195,6 +244,21 @@ struct PlayerView: View {
             return "No chapter loaded"
         }
         return chapter.title
+    }
+
+    /// The chapter the scrubber is scoped to, or nil to fall back to a
+    /// whole-book slider.
+    ///
+    /// A zero-length chapter is rejected: `Slider(in:)` divides by the span, so a
+    /// degenerate range produces NaN rather than a disabled control.
+    private var scrubberChapterScope: ManifestChapter? {
+        let chapter = isDraggingSlider ? draggingChapterSnapshot : model.player.currentChapter
+        guard let chapter, chapter.endSecs > chapter.startSecs else { return nil }
+        return chapter
+    }
+
+    private func clampedToChapter(_ value: Double, chapter: ManifestChapter) -> Double {
+        min(max(value, chapter.startSecs), chapter.endSecs)
     }
 
     private func rateLabel(_ value: Double) -> String {
