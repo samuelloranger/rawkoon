@@ -127,3 +127,41 @@ struct PosterFlag: View {
         }
     }
 }
+
+/// One chapter as a "spine": a lit bar for the current chapter, filled for a
+/// downloaded one, hollow for not-yet. Order is the sequence — honest structure.
+struct SpineRow: View {
+    let index: Int
+    let title: String
+    let downloaded: Bool
+    let current: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            spine
+            Text(String(format: "%02d", index + 1))
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(Theme.faint)
+                .frame(width: 22, alignment: .leading)
+            Text(title)
+                .font(.subheadline)
+                .fontWeight(current ? .semibold : .regular)
+                .foregroundStyle(current ? Theme.textStrong : Theme.muted)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 2)
+    }
+
+    private var spine: some View {
+        Group {
+            if current {
+                Capsule().fill(Theme.progress).frame(width: 4, height: 30)
+                    .shadow(color: Theme.apricot.opacity(0.55), radius: 6)
+            } else {
+                Capsule().fill(downloaded ? Theme.faint : Theme.borderStrong)
+                    .frame(width: 4, height: 22)
+            }
+        }
+    }
+}
