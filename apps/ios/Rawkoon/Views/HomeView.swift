@@ -191,10 +191,11 @@ struct HomeView: View {
     }
 
     private func speedLabel(_ dir: String, _ bytes: Double, _ tint: Color) -> some View {
-        HStack(spacing: 5) {
+        let text = bytes <= 0 ? "0 KB/s"
+            : "\(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file))/s"
+        return HStack(spacing: 5) {
             Image(systemName: dir == "down" ? "arrow.down" : "arrow.up").font(.caption2).foregroundStyle(tint)
-            Text("\(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file))/s")
-                .font(.system(.subheadline, design: .monospaced)).foregroundStyle(Theme.text)
+            Text(text).font(.system(.subheadline, design: .monospaced)).foregroundStyle(Theme.text)
         }
     }
 
