@@ -6,6 +6,11 @@ options:
 packages:
   RawkoonKit:
     path: .
+  # Pinned to an exact release so builds stay reproducible. OPDS and LCP
+  # products are excluded; we do not use them.
+  Readium:
+    url: https://github.com/readium/swift-toolkit
+    exactVersion: 3.11.0
 targets:
   Rawkoon:
     type: application
@@ -13,6 +18,12 @@ targets:
     sources: [Rawkoon]
     dependencies:
       - package: RawkoonKit
+      - package: Readium
+        product: ReadiumShared
+      - package: Readium
+        product: ReadiumStreamer
+      - package: Readium
+        product: ReadiumNavigator
     entitlements:
       path: Rawkoon/Rawkoon.entitlements
       properties:

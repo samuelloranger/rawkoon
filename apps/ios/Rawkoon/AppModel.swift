@@ -1,8 +1,30 @@
 import Combine
 import Foundation
+import Network
 import RawkoonKit
 import UIKit
 import UserNotifications
+
+/// Runs `operation`, giving up and returning nil after `seconds`.
+///
+/// The losing child is cancelled, but a URLSession call already in flight keeps
+/// running to its own timeout in the background; the point is only that the
+/// caller stops waiting on it.
+private func withDeadline<T: Sendable>(
+    seconds: Double,
+    _ operation: @escaping @Sendable () async -> T?
+) async -> T? {
+    await withTaskGroup(of: T?.self) { group in
+        group.addTask { await operation() }
+        group.addTask {
+            try? await Task.sleep(for: .seconds(seconds))
+            return nil
+        }
+        let first = await group.next() ?? nil
+        group.cancelAll()
+        return first
+    }
+}
 
 @MainActor
 final class AppModel: ObservableObject {
@@ -38,6 +60,15 @@ final class AppModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var verifiedCounts: [Int: Int] = [:]
     private var lastProgressWriteMillis: [Int: Int64] = [:]
+    /// Whether the device currently has a usable network path.
+    ///
+    /// Starts `true` so a launch never assumes offline before the monitor has
+    /// reported. It says an interface exists, not that the server answers — a
+    /// captive portal or a down server still has to be handled by whatever
+    /// waits on the request.
+    @Published private(set) var isOnline = true
+    private let pathMonitor = NWPathMonitor()
+
     private let readingProgressStore = ReadingProgressStore(
         directory: FileStore.booksDirectory()
     )
@@ -60,6 +91,17 @@ final class AppModel: ObservableObject {
         }
 
         bindPlayer()
+        startPathMonitor()
+    }
+
+    private func startPathMonitor() {
+        pathMonitor.pathUpdateHandler = { path in
+            let online = path.status == .satisfied
+            Task { @MainActor [weak self] in
+                self?.isOnline = online
+            }
+        }
+        pathMonitor.start(queue: DispatchQueue(label: "cloud.samlo.rawkoon.path"))
     }
 
     func login(server: String, email: String, password: String) async {
@@ -524,16 +566,27 @@ final class AppModel: ObservableObject {
     // MARK: Reading progress (ebooks)
 
     /// Where to open an ebook edition, reconciled across this device and the
-    /// server. Same last-write-wins rule as the audiobook position.
-    func readingPosition(
-        editionId: Int,
-        spine: [String]
-    ) async -> (index: Int, scrollFraction: Double) {
+    /// server. Same last-write-wins rule as the audiobook position. The caller
+    /// prefers `winner.locator` when it parses; otherwise it runs
+    /// `ReadingProgressReconciler.resolve` against the publication spine.
+    func readingPosition(editionId: Int) async -> ReadingPosition? {
         let local = readingProgressStore.position(editionId: editionId)
         var remote: ReadingPosition?
-        if let apiClient {
-            remote = (try? await apiClient.readingProgress())?
-                .first { $0.editionId == editionId }
+        // Two separate reasons this must not block the reader.
+        //
+        // With no network path at all the request cannot succeed, so it is not
+        // even attempted. But a path monitor reports "satisfied" whenever an
+        // interface exists, and for a self-hosted server the common case is
+        // having internet while the server itself is unreachable — away from
+        // home, a captive portal, the box rebooting. There the request runs into
+        // URLSession's full 60-second timeout, and the reader sat on
+        // "Opening book…" that whole time for a book already on disk. So it is
+        // also given a short deadline, after which the local position wins.
+        if isOnline, let apiClient {
+            remote = await withDeadline(seconds: 5) {
+                (try? await apiClient.readingProgress())?
+                    .first { $0.editionId == editionId }
+            }
         }
 
         let winner: ReadingPosition?
@@ -545,9 +598,7 @@ final class AppModel: ObservableObject {
         case .keepLocal, .push:
             winner = local
         }
-
-        guard let winner else { return (0, 0) }
-        return ReadingProgressReconciler.resolve(winner, spine: spine)
+        return winner
     }
 
     /// Persists locally first, then pushes. The local write is what makes the

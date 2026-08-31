@@ -1006,6 +1006,10 @@ struct BookView: View {
                 // progress is stored server-side per edition, and the synthetic
                 // fallback id does not exist there.
                 editionId: ebookEditionId,
+                // Rawkoon's language, not the EPUB's: an EPUB can list several
+                // and the reader takes the first, which laid a French novel out
+                // right-to-left.
+                language: detail?.language,
                 title: file.fileName,
                 localURL: localURL
             )
