@@ -415,7 +415,7 @@ struct ActivityView: View {
     private func message(for error: APIError) -> String {
         switch error {
         case .unauthorized:
-            return "Admin only."
+            return "Sign in required."
         case let .http(status):
             return "Server error (\(status))."
         case .decode:

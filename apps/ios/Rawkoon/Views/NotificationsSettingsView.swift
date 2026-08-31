@@ -122,9 +122,14 @@ struct NotificationsSettingsView: View {
     private func loadPrefs() async {
         defer { isLoading = false }
         guard let client = model.api() else { return }
-        // SessionUser has no notification-preferences field; this is best-effort
-        // only to confirm session validity. If it fails, keep the all-true defaults.
-        _ = try? await client.currentUser()
+        let session = try? await client.currentUser()
+        guard let user = session?.user else { return }
+        guard let serverPrefs = user.notificationPreferences else { return }
+        for key in NotificationsSettingsView.allKeys {
+            if let value = serverPrefs[key] {
+                prefs[key] = value
+            }
+        }
     }
 
     private func savePrefs(key: String, previousValue: Bool) async {

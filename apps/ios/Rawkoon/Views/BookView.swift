@@ -200,12 +200,23 @@ struct BookView: View {
             } else if let manifest {
                 VStack(spacing: 4) {
                     ForEach(manifest.chapters.sorted(by: { $0.index < $1.index }), id: \.fileId) { chapter in
-                        SpineRow(
-                            index: chapter.index,
-                            title: chapter.title,
-                            downloaded: isChapterDownloaded(chapter),
-                            current: false
-                        )
+                        Button {
+                            Task {
+                                guard let editionId else { return }
+                                loadingPlayer = true
+                                await model.openPlayer(editionId: editionId, resumeAt: chapter.startSecs)
+                                loadingPlayer = false
+                                if model.errorMessage == nil { showingPlayer = true }
+                            }
+                        } label: {
+                            SpineRow(
+                                index: chapter.index,
+                                title: chapter.title,
+                                downloaded: isChapterDownloaded(chapter),
+                                current: isCurrentChapter(chapter)
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             } else {
@@ -237,6 +248,11 @@ struct BookView: View {
     private func chapterExtension(_ chapter: ManifestChapter) -> String {
         let ext = URL(string: chapter.url)?.pathExtension ?? ""
         return ext.isEmpty ? "bin" : ext
+    }
+
+    private func isCurrentChapter(_ chapter: ManifestChapter) -> Bool {
+        guard let editionId else { return false }
+        return model.activeEditionId == editionId && model.player.currentChapterIndex == chapter.index
     }
 
     private func formatDuration(_ seconds: Double) -> String {

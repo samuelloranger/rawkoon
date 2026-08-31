@@ -241,7 +241,13 @@ final class AppModel: ObservableObject {
                 return
             }
 
-            let downloader = ChapterDownloader(editionId: editionId, baseURL: baseURL, manifest: manifest) { [weak self] plan in
+            let allowCellularDownloads = UserDefaults.standard.string(forKey: "download_over") != "wifi"
+            let downloader = ChapterDownloader(
+                editionId: editionId,
+                baseURL: baseURL,
+                manifest: manifest,
+                allowCellular: allowCellularDownloads
+            ) { [weak self] plan in
                 Task { @MainActor in
                     self?.applyDownloadPlan(plan, editionId: editionId)
                 }
@@ -258,7 +264,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func openPlayer(editionId: Int) async {
+    func openPlayer(editionId: Int, resumeAt overridePosition: Double? = nil) async {
         errorMessage = nil
 
         do {
@@ -269,7 +275,12 @@ final class AppModel: ObservableObject {
             }
             activeEditionId = editionId
 
-            let resumeAt = await resolveResumePosition(editionId: editionId, manifest: manifest)
+            let resumeAt: Double
+            if let overridePosition {
+                resumeAt = max(0, min(overridePosition, manifest.totalDurationSecs))
+            } else {
+                resumeAt = await resolveResumePosition(editionId: editionId, manifest: manifest)
+            }
             player.load(manifest: manifest, baseURL: baseURL, resumeAt: resumeAt)
         } catch {
             errorMessage = message(for: error)
@@ -319,6 +330,12 @@ final class AppModel: ObservableObject {
     }
 
     private func bindPlayer() {
+        player.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
         player.$positionSecs
             .sink { [weak self] _ in
                 self?.persistPlaybackProgress(force: false)

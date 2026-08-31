@@ -10,6 +10,7 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     private let chapterByFileId: [Int: ManifestChapter]
     private let maxConcurrentDownloads = 3
     private let sessionIdentifier: String
+    private let allowCellular: Bool
 
     private var plan: DownloadPlan
     private var isRunning = false
@@ -23,13 +24,23 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         )
         config.sessionSendsLaunchEvents = true
         config.isDiscretionary = false
+        config.allowsCellularAccess = allowCellular
+        config.allowsExpensiveNetworkAccess = allowCellular
+        config.allowsConstrainedNetworkAccess = allowCellular
         return URLSession(configuration: config, delegate: self, delegateQueue: nil)
     }()
 
-    init(editionId: Int, baseURL: URL, manifest: BookManifest, onState: @escaping (DownloadPlan) -> Void) {
+    init(
+        editionId: Int,
+        baseURL: URL,
+        manifest: BookManifest,
+        allowCellular: Bool,
+        onState: @escaping (DownloadPlan) -> Void
+    ) {
         self.editionId = editionId
         self.baseURL = baseURL
         self.manifest = manifest
+        self.allowCellular = allowCellular
         self.onState = onState
         self.sessionIdentifier = "cloud.samlo.rawkoon.dl.\(editionId)"
         self.plan = DownloadPlan(chapters: manifest.chapters)

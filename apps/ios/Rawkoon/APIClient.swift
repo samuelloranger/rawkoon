@@ -126,7 +126,7 @@ actor APIClient {
     }
 
     func libraryAudiobooks() async throws -> [LibrarySummary] {
-        let request = try makeRequest(path: "/api/books", method: "GET")
+        let request = try makeRequest(path: "/api/books", method: "GET", requiresAuth: true)
         let (data, response) = try await perform(request)
         guard (200...299).contains(response.statusCode) else {
             throw mapStatus(response.statusCode)
@@ -162,30 +162,51 @@ actor APIClient {
 
     /// All books, merged: audiobooks and ebooks in one list (like the web app).
     func libraryBooks() async throws -> [BookListItem] {
-        let request = try makeRequest(path: "/api/books", method: "GET")
-        let (data, response) = try await perform(request)
-        guard (200...299).contains(response.statusCode) else {
-            throw mapStatus(response.statusCode)
-        }
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        let payload: LibraryResponse
-        do { payload = try decoder.decode(LibraryResponse.self, from: data) }
-        catch { throw APIError.decode }
+        var page = 1
+        let limit = 100
+        var allItems: [BookListItem] = []
 
-        return payload.items.map { book in
-            let audiobook = book.editions.first { $0.kind == "audiobook" }
-            let hasEbook = book.editions.contains { $0.kind == "ebook" }
-            return BookListItem(
-                bookId: book.id,
-                title: book.title,
-                author: book.authors.first,
-                coverURL: resolveURL(book.coverUrl),
-                audiobookEditionId: audiobook?.id,
-                audiobookDurationSecs: audiobook?.durationSecs,
-                hasEbook: hasEbook
+        while true {
+            let request = try makeRequest(
+                path: pathWithQuery("/api/books", [
+                    "page": String(page),
+                    "limit": String(limit),
+                ]),
+                method: "GET",
+                requiresAuth: true
             )
+            let (data, response) = try await perform(request)
+            guard (200...299).contains(response.statusCode) else {
+                throw mapStatus(response.statusCode)
+            }
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            let payload: LibraryResponse
+            do { payload = try decoder.decode(LibraryResponse.self, from: data) }
+            catch { throw APIError.decode }
+
+            let pageItems = payload.items.map { book in
+                let audiobook = book.editions.first { $0.kind == "audiobook" }
+                let hasEbook = book.editions.contains { $0.kind == "ebook" }
+                return BookListItem(
+                    bookId: book.id,
+                    title: book.title,
+                    author: book.authors.first,
+                    coverURL: resolveURL(book.coverUrl),
+                    audiobookEditionId: audiobook?.id,
+                    audiobookDurationSecs: audiobook?.durationSecs,
+                    hasEbook: hasEbook
+                )
+            }
+            allItems.append(contentsOf: pageItems)
+
+            if payload.hasMore != true || pageItems.isEmpty {
+                break
+            }
+            page += 1
         }
+
+        return allItems
     }
 
     /// Admin: add a movie/show to the library directly from TMDB.
@@ -409,6 +430,31 @@ actor APIClient {
         return try await perform(request)
     }
 
+    private func patch<B: Encodable, T: Decodable>(_ path: String, body: B) async throws -> T {
+        let (data, response) = try await sendPatch(path, body: body)
+        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        do { return try Self.mediaDecoder.decode(T.self, from: data) }
+        catch { throw APIError.decode }
+    }
+
+    private func sendPatch<B: Encodable>(_ path: String, body: B) async throws -> (Data, HTTPURLResponse) {
+        var request = try makeRequest(path: path, method: "PATCH", requiresAuth: true)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try Self.mediaEncoder.encode(body)
+        return try await perform(request)
+    }
+
+    private func postRaw(_ path: String, body: [String: Any]) async throws -> (Data, HTTPURLResponse) {
+        var request = try makeRequest(path: path, method: "POST", requiresAuth: true)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        } catch {
+            throw APIError.transport
+        }
+        return try await perform(request)
+    }
+
     private func pathWithQuery(_ path: String, _ query: [String: String?]) -> String {
         let items = query.compactMap { key, value -> URLQueryItem? in
             guard let value, !value.isEmpty else { return nil }
@@ -437,14 +483,152 @@ actor APIClient {
 
     // Library (movies / shows)
     func libraryList(
-        type: String? = nil, status: String? = nil, q: String? = nil, limit: Int? = nil,
+        type: String? = nil, status: String? = nil, q: String? = nil, page: Int? = nil, limit: Int? = nil,
         sortBy: String? = nil, sortDir: String? = nil
     ) async throws -> LibraryListResponse {
         try await get("/api/library", query: [
             "type": type, "status": status, "q": q,
+            "page": page.map(String.init),
             "limit": limit.map(String.init),
             "sort_by": sortBy, "sort_dir": sortDir,
         ])
+    }
+
+    func libraryItem(id: Int) async throws -> LibraryMedia {
+        let response: LibraryItemResponse = try await get("/api/library/item/\(id)")
+        return response.item
+    }
+
+    func updateLibraryMonitored(id: Int, monitored: Bool) async throws -> LibraryMedia {
+        let response: LibraryItemResponse = try await patch(
+            "/api/library/\(id)/monitored",
+            body: UpdateLibraryMonitoredBody(monitored: monitored)
+        )
+        return response.item
+    }
+
+    func updateLibraryStatus(id: Int, status: String) async throws -> LibraryMedia {
+        let response: LibraryItemResponse = try await patch(
+            "/api/library/\(id)/status",
+            body: UpdateLibraryStatusBody(status: status)
+        )
+        return response.item
+    }
+
+    func updateLibraryQualityProfile(id: Int, qualityProfileId: Int?) async throws -> LibraryMedia {
+        let response: LibraryItemResponse = try await patch(
+            "/api/library/\(id)/quality-profile",
+            body: UpdateLibraryQualityProfileBody(qualityProfileId: qualityProfileId)
+        )
+        return response.item
+    }
+
+    func rescanLibraryItem(id: Int) async throws -> (
+        rescanned: Int,
+        skipped: Int,
+        failed: Int,
+        deleted: Int,
+        imported: Int,
+        requeued: Int
+    ) {
+        let response: RescanResponse = try await post("/api/library/\(id)/rescan", body: EmptyBody())
+        return (
+            rescanned: response.rescanned,
+            skipped: response.skipped,
+            failed: response.failed,
+            deleted: response.deleted,
+            imported: response.imported,
+            requeued: response.requeued
+        )
+    }
+
+    func removeFromLibrary(id: Int, deleteFiles: Bool) async throws {
+        let query = deleteFiles ? "?delete_files=true" : ""
+        let request = try makeRequest(
+            path: "/api/library/\(id)\(query)",
+            method: "DELETE",
+            requiresAuth: true
+        )
+        let (_, response) = try await perform(request)
+        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+    }
+
+    func clearFailedDownloads(libraryId: Int) async throws -> Int {
+        let request = try makeRequest(
+            path: "/api/library/\(libraryId)/downloads/failed",
+            method: "DELETE",
+            requiresAuth: true
+        )
+        let (data, response) = try await perform(request)
+        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        let payload: DeleteCountResponse
+        do { payload = try Self.mediaDecoder.decode(DeleteCountResponse.self, from: data) }
+        catch { throw APIError.decode }
+        return payload.deleted
+    }
+
+    func deleteDownloadEntry(libraryId: Int, downloadHistoryId: Int) async throws {
+        let request = try makeRequest(
+            path: "/api/library/\(libraryId)/downloads/\(downloadHistoryId)",
+            method: "DELETE",
+            requiresAuth: true
+        )
+        let (_, response) = try await perform(request)
+        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+    }
+
+    func downloadAction(
+        libraryId: Int,
+        downloadHistoryId: Int,
+        action: String,
+        deleteFiles: Bool = false
+    ) async throws {
+        let body: [String: Any] = [
+            "action": action,
+            "delete_files": deleteFiles,
+        ]
+        let (_, response) = try await postRaw("/api/library/\(libraryId)/downloads/\(downloadHistoryId)/action", body: body)
+        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+    }
+
+    func similar(tmdbId: Int, mediaType: String, language: String? = nil) async throws -> [TmdbSearchItem] {
+        let response: SimilarResponse = try await get("/api/medias/similar/\(tmdbId)", query: [
+            "type": mediaType == "tv" ? "tv" : "movie",
+            "language": language,
+        ])
+        return response.items
+    }
+
+    func addToWatchlist(
+        tmdbId: Int,
+        mediaType: String,
+        title: String,
+        posterURL: String?,
+        overview: String?,
+        releaseYear: Int?,
+        voteAverage: Double?,
+        releaseDate: String?
+    ) async throws {
+        try await postExpectOK("/api/medias/watchlist", body: WatchlistAddBody(
+            tmdbId: tmdbId,
+            mediaType: mediaType == "tv" ? "tv" : "movie",
+            title: title,
+            posterUrl: posterURL,
+            overview: overview,
+            releaseYear: releaseYear,
+            voteAverage: voteAverage,
+            releaseDate: releaseDate
+        ))
+    }
+
+    func removeFromWatchlist(tmdbId: Int, mediaType: String) async throws {
+        let request = try makeRequest(
+            path: "/api/medias/watchlist/\(tmdbId)?type=\(mediaType == "tv" ? "tv" : "movie")",
+            method: "DELETE",
+            requiresAuth: true
+        )
+        let (_, response) = try await perform(request)
+        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
     }
 
     func libraryEpisodes(id: Int) async throws -> EpisodesResponse {
@@ -552,7 +736,7 @@ actor APIClient {
     /// Current session user (better-auth). Best-effort: used to show name/email
     /// and gate admin-only settings rows.
     func currentUser() async throws -> SessionResponse {
-        try await get("/api/auth/get-session")
+        try await get("/api/auth/me")
     }
 
     func approveRequest(id: Int, qualityProfileId: Int) async throws {
@@ -582,6 +766,11 @@ private struct LoginTokenResponse: Decodable {
 
 private struct LibraryResponse: Decodable {
     let items: [LibraryBook]
+    let hasMore: Bool?
+}
+
+private struct LibraryItemResponse: Decodable {
+    let item: LibraryMedia
 }
 
 private struct LibraryBook: Decodable {
@@ -618,4 +807,46 @@ private struct PutProgressRequest: Encodable {
     let finished: Bool
     let updatedAt: Date
     let deviceId: String
+}
+
+private struct SimilarResponse: Decodable {
+    let items: [TmdbSearchItem]
+}
+
+private struct UpdateLibraryMonitoredBody: Encodable {
+    let monitored: Bool
+}
+
+private struct UpdateLibraryStatusBody: Encodable {
+    let status: String
+}
+
+private struct UpdateLibraryQualityProfileBody: Encodable {
+    let qualityProfileId: Int?
+}
+
+private struct DeleteCountResponse: Decodable {
+    let deleted: Int
+}
+
+private struct RescanResponse: Decodable {
+    let rescanned: Int
+    let skipped: Int
+    let failed: Int
+    let deleted: Int
+    let imported: Int
+    let requeued: Int
+}
+
+private struct EmptyBody: Encodable {}
+
+private struct WatchlistAddBody: Encodable {
+    let tmdbId: Int
+    let mediaType: String
+    let title: String
+    let posterUrl: String?
+    let overview: String?
+    let releaseYear: Int?
+    let voteAverage: Double?
+    let releaseDate: String?
 }
