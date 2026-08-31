@@ -77,10 +77,17 @@ media through a nullable edition reference, with a check constraint and a
 second, disjoint partial unique index so a book grab and a media grab are
 constrained independently. See [Books and audiobooks](/library/books).
 
-Playback and reading belong to Audiobookshelf, which is pointed at the same
-library folders Rawkoon imports into. Rawkoon stores only a base URL and two
-library IDs and renders a deep link per edition; it holds no reading state and
-never calls the Audiobookshelf API.
+In the browser, playback and reading belong to Audiobookshelf, which is pointed
+at the same library folders Rawkoon imports into. Rawkoon stores only a base URL
+and two library IDs and renders a deep link per edition, and never calls the
+Audiobookshelf API.
+
+The iOS app reads and plays books itself, so the server does hold reading state
+for it: <code>BookListeningProgress</code> for an audiobook (seconds on the
+whole-book timeline) and <code>BookReadingProgress</code> for an ebook (spine
+document plus an offset inside it). Both are keyed on <code>(user,
+edition)</code>, both are last-write-wins with the client clock clamped to
+server time, and neither is surfaced in the web UI.
 
 ## Download lifecycle
 

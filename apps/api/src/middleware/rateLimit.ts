@@ -11,6 +11,11 @@ export const globalRateLimit = rateLimit({
   max: 1000,
   // Skip authenticated requests by validating Better Auth's session cookie.
   skip: async (req) => {
+    const path = new URL(req.url).pathname;
+    // Chapter content uses an HMAC grant as auth, so it should not consume the
+    // anonymous IP bucket that protects truly unauthenticated traffic.
+    if (/^\/api\/books\/files\/\d+\/content$/.test(path)) return true;
+
     const cookie = req.headers.get("cookie") ?? "";
     if (!cookie.includes("better-auth.session_token")) {
       return false;
