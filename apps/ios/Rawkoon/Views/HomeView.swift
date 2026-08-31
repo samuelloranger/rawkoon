@@ -20,6 +20,7 @@ struct HomeView: View {
     @State private var showingPlayer = false
     @State private var previewDocument: EbookPreviewDocument?
     @State private var loading = true
+    @State private var readingBook: BookListItem?
 
     var body: some View {
         ScrollView {
@@ -69,6 +70,14 @@ struct HomeView: View {
         }) { document in
             EbookReaderSheet(document: document)
                 .environmentObject(model)
+        }
+        .navigationDestination(isPresented: Binding(
+            get: { readingBook != nil },
+            set: { if !$0 { readingBook = nil } }
+        )) {
+            if let book = readingBook {
+                BookView(book: book, preferEbook: true)
+            }
         }
     }
 
@@ -243,6 +252,10 @@ struct HomeView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(openingContinueID != nil)
+                        .bookCardContextMenu(
+                            items: continueMenuItems(for: item),
+                            onAction: { handleContinueMenu($0, item: item) }
+                        )
                     }
                 }
             }
@@ -669,6 +682,86 @@ struct HomeView: View {
             return "Could not parse server response."
         case .transport:
             return "Network error. Check your connection."
+        }
+    }
+
+    private func libraryBook(for item: ContinueItem) -> BookListItem? {
+        switch item {
+        case .audiobook(let audiobook):
+            return model.library.first { $0.audiobookEditionId == audiobook.editionId }
+        case .ebook(let ebook):
+            return model.library.first { $0.bookId == ebook.bookId }
+        }
+    }
+
+    private func continueMenuItems(for item: ContinueItem) -> [BookCardMenuAction] {
+        guard let book = libraryBook(for: item) else { return [] }
+        return bookCardMenuItems(
+            hasAudiobook: book.hasAudiobook,
+            hasEbook: book.hasEbook,
+            isAdmin: model.isAdmin
+        )
+    }
+
+    private func handleContinueMenu(_ action: BookCardMenuAction, item: ContinueItem) {
+        guard let book = libraryBook(for: item) else { return }
+        switch action {
+        case .read:
+            if case .ebook = item {
+                Task { await openContinue(item) }
+            } else {
+                readingBook = book
+            }
+        case .play:
+            if case .audiobook = item {
+                Task { await openContinue(item) }
+            } else if let editionId = book.audiobookEditionId {
+                Task {
+                    await model.openPlayer(editionId: editionId)
+                    if model.errorMessage == nil {
+                        showingPlayer = true
+                    } else {
+                        continueError = model.errorMessage
+                    }
+                }
+            }
+        case .addAudiobook:
+            Task { await addEdition(book: book, kind: "audiobook") }
+        case .addEPUB:
+            Task { await addEdition(book: book, kind: "ebook") }
+        case .rescan:
+            Task { await rescanBook(book) }
+        }
+    }
+
+    private func addEdition(book: BookListItem, kind: String) async {
+        guard let client = model.api() else { return }
+        do {
+            try await client.addBookEdition(bookId: book.bookId, kind: kind)
+            await model.loadLibrary()
+            await load()
+        } catch let error as APIError {
+            continueError = message(for: error)
+        } catch {
+            continueError = "Could not add that edition."
+        }
+    }
+
+    private func rescanBook(_ book: BookListItem) async {
+        guard let client = model.api() else { return }
+        do {
+            if book.hasAudiobook {
+                _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "audiobook")
+            }
+            if book.hasEbook {
+                _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "ebook")
+            }
+            await model.loadLibrary()
+            await load()
+        } catch let error as APIError {
+            continueError = message(for: error)
+        } catch {
+            continueError = "Could not rescan this book."
         }
     }
 
