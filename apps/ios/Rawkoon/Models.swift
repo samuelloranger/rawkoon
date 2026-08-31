@@ -265,7 +265,7 @@ struct UpcomingResponse: Decodable, Sendable {
 }
 
 struct UpcomingItem: Decodable, Identifiable, Sendable {
-    let id: String
+    let id: String            // "${media_type}-${tmdb_id}…"
     let title: String
     let mediaType: String
     let releaseDate: String?
@@ -273,6 +273,13 @@ struct UpcomingItem: Decodable, Identifiable, Sendable {
     let overview: String?
     let seasonNumber: Int?
     let episodeNumber: Int?
+    let libraryId: Int?
+
+    /// TMDB id parsed from the composite `id` (first run of digits).
+    var tmdbId: Int? {
+        let digits = id.drop { !$0.isNumber }.prefix { $0.isNumber }
+        return Int(digits)
+    }
 }
 
 // MARK: - Management (settings hub)
@@ -403,4 +410,49 @@ struct BookGrabBody: Encodable, Sendable {
     let downloadUrl: String?
     let magnetUrl: String?
     let indexer: String?
+}
+
+// MARK: - Home / dashboard widgets
+
+struct NowPlayingResponse: Decodable, Sendable {
+    let enabled: Bool
+    let sessions: [NowPlayingSession]?
+}
+
+struct NowPlayingSession: Decodable, Identifiable, Sendable {
+    let sessionId: String
+    let user: String?
+    let device: String?
+    let title: String?
+    let posterUrl: String?
+    let progressPct: Double?
+    let paused: Bool?
+    var id: String { sessionId }
+}
+
+struct LibraryAttentionResponse: Decodable, Sendable {
+    let items: [AttentionItem]
+}
+
+struct AttentionItem: Decodable, Identifiable, Sendable {
+    let id: Int
+    let kind: String?
+    let mediaId: Int?
+    let mediaTitle: String?
+    let mediaType: String?
+    let detail: String?
+}
+
+struct RssStatusResponse: Decodable, Sendable {
+    let lastRun: RssRun?
+    let nextRunAt: String?
+}
+
+struct RssRun: Decodable, Sendable {
+    let status: String?
+    let completedAt: String?
+    let releasesFound: Int?
+    let releasesGrabbed: Int?
+    let releasesGrabbedByAi: Int?
+    let error: String?
 }

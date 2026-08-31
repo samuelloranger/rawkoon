@@ -87,6 +87,7 @@ private struct RootTabsView: View {
         case "movieDetail": DebugFirstDetail(libraryType: "movie")
         case "showDetail": DebugFirstDetail(libraryType: "show")
         case "releaseSearch": DebugFirstReleaseSearch()
+        case "home": NavigationStack { HomeView() }
         case "book": DebugFirstBook()
         case "settings": NavigationStack { SettingsView() }
         case "requests": NavigationStack { RequestsView() }
@@ -103,12 +104,20 @@ private struct RootTabsView: View {
     private var mainTabs: some View {
         TabView(selection: $selection) {
             NavigationStack {
+                HomeView()
+            }
+            .tabItem {
+                Label("Home", systemImage: "house")
+            }
+            .tag(0)
+
+            NavigationStack {
                 DiscoverView()
             }
             .tabItem {
                 Label("Discover", systemImage: "sparkles.rectangle.stack")
             }
-            .tag(0)
+            .tag(1)
 
             NavigationStack {
                 LibraryView()
@@ -116,7 +125,7 @@ private struct RootTabsView: View {
             .tabItem {
                 Label("Library", systemImage: "square.stack")
             }
-            .tag(1)
+            .tag(2)
 
             NavigationStack {
                 ActivityView()
@@ -124,7 +133,7 @@ private struct RootTabsView: View {
             .tabItem {
                 Label("Activity", systemImage: "arrow.down.circle")
             }
-            .tag(2)
+            .tag(3)
 
             NavigationStack {
                 SettingsView()
@@ -132,7 +141,7 @@ private struct RootTabsView: View {
             .tabItem {
                 Label("Settings", systemImage: "gearshape")
             }
-            .tag(3)
+            .tag(4)
         }
         .tint(Theme.apricot)
         .safeAreaInset(edge: .bottom) {

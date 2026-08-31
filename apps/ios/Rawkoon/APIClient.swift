@@ -483,6 +483,23 @@ actor APIClient {
         try await get("/api/dashboard/upcoming")
     }
 
+    // Home widgets
+    func recentlyAdded(limit: Int = 24) async throws -> LibraryListResponse {
+        try await libraryList(limit: limit, sortBy: "added_at", sortDir: "desc")
+    }
+
+    func nowPlaying() async throws -> NowPlayingResponse {
+        try await get("/api/dashboard/jellyfin/now-playing")
+    }
+
+    func libraryAttention() async throws -> LibraryAttentionResponse {
+        try await get("/api/library/attention")
+    }
+
+    func rssStatus() async throws -> RssStatusResponse {
+        try await get("/api/library/rss-status")
+    }
+
     // MARK: - Management / settings
 
     func qualityProfiles() async throws -> QualityProfilesResponse {
