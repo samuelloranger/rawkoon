@@ -346,6 +346,7 @@ export const bookReadingProgressRoutes = new Elysia()
         spinePath: true,
         spineCount: true,
         scrollFraction: true,
+        cfi: true,
         finished: true,
         updatedAt: true,
       },
@@ -360,6 +361,7 @@ export const bookReadingProgressRoutes = new Elysia()
         spine_path: row.spinePath,
         spine_count: row.spineCount,
         scroll_fraction: row.scrollFraction,
+        cfi: row.cfi,
         finished: row.finished,
         updated_at: row.updatedAt.toISOString(),
       })),
@@ -397,6 +399,7 @@ export const bookReadingProgressRoutes = new Elysia()
         // Clamped rather than rejected: a client that reports 1.0000001 after a
         // bounce-scroll should not lose its position over it.
         scrollFraction: Math.min(Math.max(body.scroll_fraction, 0), 1),
+        cfi: body.cfi ?? null,
         updatedAt,
         receivedAt: now,
         deviceId: body.device_id ?? null,
@@ -428,6 +431,7 @@ export const bookReadingProgressRoutes = new Elysia()
         spine_path: t.String({ minLength: 1 }),
         spine_count: t.Numeric({ minimum: 1 }),
         scroll_fraction: t.Number(),
+        cfi: t.Optional(t.Nullable(t.String())),
         finished: t.Optional(t.Boolean()),
         updated_at: t.String(),
         device_id: t.Optional(t.String()),
