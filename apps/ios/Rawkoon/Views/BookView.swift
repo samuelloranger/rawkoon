@@ -27,10 +27,12 @@ struct BookView: View {
     @State private var manifest: BookManifest?
     @State private var loadingManifest = false
     @State private var rescanningManifest = false
+    @State private var preparingAudiobookDownload = false
     @State private var loadingPlayer = false
     @State private var showingPlayer = false
     @State private var releaseSearchLane: ReleaseSearchLane?
     @State private var manifestError: String?
+    @State private var audiobookActionError: String?
     @State private var attemptedAutomaticRecovery = false
 
     @State private var ebookFiles: [BookEditionFile] = []
@@ -357,10 +359,15 @@ struct BookView: View {
             Button {
                 Task {
                     guard let editionId = audiobookEditionId else { return }
+                    audiobookActionError = nil
                     loadingPlayer = true
                     await model.openPlayer(editionId: editionId)
                     loadingPlayer = false
-                    if model.errorMessage == nil { showingPlayer = true }
+                    if let error = model.errorMessage {
+                        audiobookActionError = error
+                    } else {
+                        showingPlayer = true
+                    }
                 }
             } label: {
                 Group {
@@ -412,13 +419,31 @@ struct BookView: View {
                     }
                 }
             }
+
+            if let audiobookActionError {
+                Text(audiobookActionError)
+                    .font(.caption)
+                    .foregroundStyle(Theme.terracotta)
+            }
         }
     }
 
     @ViewBuilder
     private var audiobookDownloadButton: some View {
         let plan = audiobookEditionId.flatMap { model.downloadPlans[$0] }
-        if let plan, !plan.isComplete {
+        if preparingAudiobookDownload, plan == nil {
+            HStack {
+                ProgressView().tint(Theme.apricot)
+                Text("Preparing download...")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Theme.muted)
+                Spacer(minLength: 0)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity)
+            .background(Theme.raised, in: RoundedRectangle(cornerRadius: 13))
+            .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Theme.borderStrong, lineWidth: 1))
+        } else if let plan, !plan.isComplete {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("Downloading")
@@ -447,7 +472,13 @@ struct BookView: View {
             Button {
                 Task {
                     if let editionId = audiobookEditionId {
+                        audiobookActionError = nil
+                        preparingAudiobookDownload = true
                         await model.startDownload(editionId: editionId)
+                        preparingAudiobookDownload = false
+                        if let error = model.errorMessage {
+                            audiobookActionError = error
+                        }
                     }
                 }
             } label: {
@@ -578,8 +609,17 @@ struct BookView: View {
                     Button {
                         Task { await downloadEbook(preferred) }
                     } label: {
-                        Label("Download primary file", systemImage: "arrow.down.circle")
-                            .frame(maxWidth: .infinity).frame(height: 22)
+                        Group {
+                            if downloadingEbookFileIDs.contains(preferred.id) {
+                                HStack(spacing: 8) {
+                                    ProgressView().tint(Theme.importing)
+                                    Text("Downloading...")
+                                }
+                            } else {
+                                Label("Download primary file", systemImage: "arrow.down.circle")
+                            }
+                        }
+                        .frame(maxWidth: .infinity).frame(height: 22)
                     }
                     .buttonStyle(.bordered)
                     .tint(Theme.importing)
