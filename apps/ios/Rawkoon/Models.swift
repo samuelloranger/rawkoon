@@ -367,3 +367,40 @@ struct DenyRequestBody: Encodable, Sendable {
 struct NotificationPrefsBody: Encodable, Sendable {
     let notificationPreferences: [String: Bool]
 }
+
+// MARK: - Book editions: add + release search + grab (audiobook onto an ebook)
+
+struct BookRelease: Decodable, Identifiable, Sendable {
+    let guid: String
+    let title: String
+    let indexer: String?
+    let sizeBytes: Int?
+    let seeders: Int?
+    let age: Int?
+    let downloadUrl: String?
+    let magnetUrl: String?
+    let format: String?
+    let audioBitrate: Int?
+    let language: String?
+    let isRetail: Bool?
+    let score: Double?
+    let rejected: Bool?
+    let rejections: [String]?
+    var id: String { guid }
+}
+
+struct BookReleasesResponse: Decodable, Sendable {
+    let releases: [BookRelease]
+}
+
+struct CreateBookEditionBody: Encodable, Sendable {
+    let kind: String            // "audiobook" | "ebook"
+    let monitored: Bool
+}
+
+struct BookGrabBody: Encodable, Sendable {
+    let releaseTitle: String
+    let downloadUrl: String?
+    let magnetUrl: String?
+    let indexer: String?
+}
