@@ -74,33 +74,21 @@ struct RequestsView: View {
     @ViewBuilder
     private var content: some View {
         if loading && requests.isEmpty {
-            VStack {
-                Spacer()
-                ProgressView().tint(Theme.apricot)
-                Spacer()
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            ProgressView().tint(Theme.apricot)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let errorMessage, requests.isEmpty {
-            VStack {
-                Spacer()
-                ContentUnavailableView(
-                    "Couldn't load requests",
-                    systemImage: "exclamationmark.triangle",
-                    description: Text(errorMessage)
-                )
-                Spacer()
-            }
+            ContentUnavailableView(
+                "Couldn't load requests",
+                systemImage: "exclamationmark.triangle",
+                description: Text(errorMessage)
+            )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if visibleRequests.isEmpty {
-            VStack {
-                Spacer()
-                ContentUnavailableView(
-                    "No requests",
-                    systemImage: "tray",
-                    description: Text(filter == .pending ? "No pending requests." : "No requests yet.")
-                )
-                Spacer()
-            }
+            ContentUnavailableView(
+                "No requests",
+                systemImage: "tray",
+                description: Text(filter == .pending ? "No pending requests." : "No requests yet.")
+            )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             List {

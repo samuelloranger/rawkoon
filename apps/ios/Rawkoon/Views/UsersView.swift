@@ -37,15 +37,23 @@ struct UsersView: View {
                 )
                 .background(Theme.base)
             } else {
-                List {
-                    ForEach(users) { user in
-                        userRow(user)
-                            .listRowBackground(Theme.raised)
+                VStack(spacing: 0) {
+                    List {
+                        ForEach(users) { user in
+                            userRow(user)
+                                .listRowBackground(Theme.raised)
+                        }
                     }
+                    .scrollContentBackground(.hidden)
+                    .listStyle(.plain)
+
+                    Text("\(users.count) users")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.faint)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
                 }
-                .scrollContentBackground(.hidden)
                 .background(Theme.base)
-                .listStyle(.plain)
             }
         }
         .navigationTitle("Users")

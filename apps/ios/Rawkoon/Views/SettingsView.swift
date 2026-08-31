@@ -33,16 +33,13 @@ struct SettingsView: View {
             }
             .listRowBackground(Theme.raised)
 
-            Section("Requests") {
+            Section("Management") {
                 NavigationLink {
                     RequestsView()
                 } label: {
                     Label("Requests", systemImage: "tray.and.arrow.down")
                 }
-            }
-            .listRowBackground(Theme.raised)
 
-            Section("Management") {
                 NavigationLink {
                     QualityProfilesView()
                 } label: {

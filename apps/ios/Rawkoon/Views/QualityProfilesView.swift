@@ -20,15 +20,23 @@ struct QualityProfilesView: View {
                     description: Text("No quality profiles are configured on this server.")
                 )
             } else {
-                List {
-                    ForEach(profiles) { profile in
-                        profileRow(profile)
-                            .listRowBackground(Theme.raised)
+                VStack(spacing: 0) {
+                    List {
+                        ForEach(profiles) { profile in
+                            profileRow(profile)
+                                .listRowBackground(Theme.raised)
+                        }
                     }
+                    .scrollContentBackground(.hidden)
+                    .background(Theme.base)
+                    .listStyle(.plain)
+
+                    Text("\(profiles.count) profiles")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.faint)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, 12)
                 }
-                .scrollContentBackground(.hidden)
-                .background(Theme.base)
-                .listStyle(.plain)
             }
         }
         .background(Theme.base)

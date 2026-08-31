@@ -51,7 +51,7 @@ struct DiscoverView: View {
                 }
             }
             .padding(.top, 12)
-            .padding(.bottom, 24)
+            .padding(.bottom, 96)
         }
         .background(Theme.base)
         .navigationTitle("Discover")
@@ -214,33 +214,17 @@ struct DiscoverView: View {
 
     // MARK: Poster card
 
-    /// A 2:3 poster with a title scrim and a status chip. Pass `fixedWidth` for
-    /// the horizontal rails (a known point size); pass nil inside the search
-    /// grid, where the LazyVGrid column already constrains the width and the
-    /// view simply fills it while keeping the 2:3 ratio.
+    /// A 2:3 poster with a status chip, plus a title caption below the image.
+    /// Pass `fixedWidth` for the horizontal rails (a known point size); pass
+    /// nil inside the search grid, where the LazyVGrid column already
+    /// constrains the width and the view simply fills it while keeping the
+    /// 2:3 ratio.
     @ViewBuilder
     private func posterCard(_ item: TmdbSearchItem, fixedWidth: CGFloat?) -> some View {
-        let poster = ZStack(alignment: .bottom) {
-            AsyncImage(url: model.absoluteURL(item.posterUrl)) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                Theme.raised
-            }
-
-            LinearGradient(
-                colors: [.black.opacity(0.75), .clear],
-                startPoint: .bottom, endPoint: .center
-            )
-            .frame(height: 44)
-
-            Text(item.title)
-                .font(.display(12))
-                .foregroundStyle(.white)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 6)
-                .padding(.bottom, 6)
+        let image = AsyncImage(url: model.absoluteURL(item.posterUrl)) { image in
+            image.resizable().scaledToFill()
+        } placeholder: {
+            Theme.raised
         }
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(alignment: .topTrailing) {
@@ -251,11 +235,21 @@ struct DiscoverView: View {
             RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.06), lineWidth: 1)
         )
 
-        if let fixedWidth {
-            poster.frame(width: fixedWidth, height: fixedWidth * 1.5)
-        } else {
-            poster.aspectRatio(2.0 / 3.0, contentMode: .fit)
+        VStack(alignment: .leading, spacing: 6) {
+            if let fixedWidth {
+                image.frame(width: fixedWidth, height: fixedWidth * 1.5)
+            } else {
+                image.aspectRatio(2.0 / 3.0, contentMode: .fit)
+            }
+
+            Text(item.title)
+                .font(.display(13))
+                .foregroundStyle(Theme.textStrong)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(width: fixedWidth)
     }
 
     @ViewBuilder

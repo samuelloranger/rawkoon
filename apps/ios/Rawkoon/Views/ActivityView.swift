@@ -42,7 +42,7 @@ struct ActivityView: View {
             .padding(.horizontal, 16)
             .padding(.top, 8)
 
-            if let speed, speed.connected {
+            if let speed, speed.connected, speed.dlSpeed > 0 || speed.ulSpeed > 0 {
                 speedHeader(speed)
             }
 
@@ -95,7 +95,8 @@ struct ActivityView: View {
     @ViewBuilder
     private var queueContent: some View {
         if loadingQueue {
-            ProgressView().tint(Theme.apricot).padding(.top, 28)
+            ProgressView().tint(Theme.apricot)
+                .frame(maxWidth: .infinity, minHeight: 420)
         } else if let queueError {
             errorView(queueError)
         } else if queueRows.isEmpty {
@@ -104,7 +105,8 @@ struct ActivityView: View {
                 systemImage: "arrow.down.circle",
                 description: Text("The queue is empty right now.")
             )
-            .padding(.top, 28)
+            .foregroundStyle(Theme.faint)
+            .frame(maxWidth: .infinity, minHeight: 420)
         } else {
             LazyVStack(spacing: 10) {
                 ForEach(queueRows) { row in
@@ -219,7 +221,8 @@ struct ActivityView: View {
     @ViewBuilder
     private var historyContent: some View {
         if loadingHistory {
-            ProgressView().tint(Theme.apricot).padding(.top, 28)
+            ProgressView().tint(Theme.apricot)
+                .frame(maxWidth: .infinity, minHeight: 420)
         } else if let historyError {
             errorView(historyError)
         } else if activities.isEmpty {
@@ -228,7 +231,8 @@ struct ActivityView: View {
                 systemImage: "clock.arrow.circlepath",
                 description: Text("Nothing has happened yet.")
             )
-            .padding(.top, 28)
+            .foregroundStyle(Theme.faint)
+            .frame(maxWidth: .infinity, minHeight: 420)
         } else {
             LazyVStack(spacing: 8) {
                 ForEach(Array(activities.enumerated()), id: \.offset) { _, activity in
@@ -296,7 +300,8 @@ struct ActivityView: View {
     @ViewBuilder
     private var calendarContent: some View {
         if loadingCalendar {
-            ProgressView().tint(Theme.apricot).padding(.top, 28)
+            ProgressView().tint(Theme.apricot)
+                .frame(maxWidth: .infinity, minHeight: 420)
         } else if let calendarError {
             errorView(calendarError)
         } else if upcomingItems.isEmpty {
@@ -305,7 +310,8 @@ struct ActivityView: View {
                 systemImage: "calendar",
                 description: Text("No known releases on the horizon.")
             )
-            .padding(.top, 28)
+            .foregroundStyle(Theme.faint)
+            .frame(maxWidth: .infinity, minHeight: 420)
         } else {
             LazyVStack(spacing: 8) {
                 ForEach(upcomingItems) { item in
@@ -387,7 +393,8 @@ struct ActivityView: View {
             systemImage: "exclamationmark.triangle",
             description: Text(text)
         )
-        .padding(.top, 28)
+        .foregroundStyle(Theme.faint)
+        .frame(maxWidth: .infinity, minHeight: 420)
     }
 
     private func relativeTime(_ isoString: String) -> String? {
