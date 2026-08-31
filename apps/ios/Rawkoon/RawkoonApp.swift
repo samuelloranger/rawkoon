@@ -111,6 +111,7 @@ private struct RootTabsView: View {
         case "releaseSearch": DebugFirstReleaseSearch()
         case "home": NavigationStack { HomeView() }
         case "book": DebugFirstBook()
+        case "playerReal": DebugRealPlayer()
         case "settings": NavigationStack { SettingsView() }
         case "requests": NavigationStack { RequestsView() }
         case "qualityProfiles": NavigationStack { QualityProfilesView() }

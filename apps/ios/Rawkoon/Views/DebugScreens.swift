@@ -198,7 +198,7 @@ struct DebugPlayer: View {
             {"index":\(index),"title":"\(title)","start_secs":\(start),\
             "end_secs":\(start + chapterSecs),"file_id":\(1000 + index),\
             "size_bytes":5000000,"sha256":null,\
-            "url":"/api/books/files/\(1000 + index)/content?grant=debug"}
+            "url":"/api/books/files/\(1000 + index)/content.mp3?grant=debug"}
             """)
         }
         let total = chapterCount > 0 ? Double(chapterCount) * chapterSecs : 34_748
@@ -210,6 +210,76 @@ struct DebugPlayer: View {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return try? decoder.decode(BookManifest.self, from: Data(json.utf8))
+    }
+}
+
+
+/// Opens `PlayerView` on a REAL edition fetched from the signed-in server, so
+/// the scrubber can be reviewed against a real chapter timeline and real
+/// streaming audio rather than synthetic data.
+///
+/// `RAWKOON_EDITION` picks the audiobook edition id; without it the first
+/// audiobook in the library is used. `RAWKOON_RESUME` is the whole-book position
+/// in seconds to resume at, so a screenshot can be taken mid-chapter rather than
+/// at a chapter boundary.
+struct DebugRealPlayer: View {
+    @EnvironmentObject private var model: AppModel
+
+    @State private var loaded: (summary: LibrarySummary, manifest: BookManifest)?
+    @State private var failure: String?
+
+    var body: some View {
+        Group {
+            if let loaded {
+                PlayerView(summary: loaded.summary, manifest: loaded.manifest)
+            } else if let failure {
+                Text(failure)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.terracotta)
+                    .multilineTextAlignment(.center)
+                    .padding(24)
+            } else {
+                ProgressView().tint(Theme.apricot)
+            }
+        }
+        .background(Theme.base)
+        .task { await load() }
+    }
+
+    private func load() async {
+        guard loaded == nil, failure == nil else { return }
+        let env = ProcessInfo.processInfo.environment
+        let resumeAt = Double(env["RAWKOON_RESUME"] ?? "") ?? 15_120
+
+        if model.library.isEmpty {
+            await model.loadLibrary()
+        }
+
+        let requested = Int(env["RAWKOON_EDITION"] ?? "")
+        let book: BookListItem?
+        if let requested {
+            book = model.library.first { $0.audiobookEditionId == requested }
+        } else {
+            book = model.library.first { $0.hasAudiobook }
+        }
+
+        guard let book, let summary = book.audiobookSummary else {
+            failure = "No audiobook edition \(requested.map(String.init) ?? "") in the library"
+            return
+        }
+
+        guard let manifest = try? await model.manifest(summary.editionId) else {
+            failure = "Edition \(summary.editionId) has no manifest — it is not offline-ready"
+            return
+        }
+
+        guard let baseURL = URL(string: model.serverURL) else {
+            failure = "Server URL is not usable"
+            return
+        }
+
+        model.player.load(manifest: manifest, baseURL: baseURL, resumeAt: resumeAt)
+        loaded = (summary, manifest)
     }
 }
 
