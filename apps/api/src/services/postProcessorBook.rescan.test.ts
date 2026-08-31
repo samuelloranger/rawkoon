@@ -4,8 +4,12 @@ type FindFirstResult = { id: number } | null;
 
 let findFirstResult: FindFirstResult = null;
 let createdId = 0;
+let findFirstArgs: unknown = null;
 
-const findFirst = mock(async () => findFirstResult);
+const findFirst = mock(async (args: unknown) => {
+  findFirstArgs = args;
+  return findFirstResult;
+});
 const update = mock(async ({ where }: { where: { id: number } }) => ({
   id: where.id,
 }));
@@ -57,6 +61,22 @@ describe("upsertBookFile", () => {
     });
     expect(create).not.toHaveBeenCalled();
     expect(result).toEqual({ id: 42, existed: true });
+  });
+
+  /**
+   * The update writes `editionId`, so matching on the path alone let two
+   * editions pointing at one file take the row off each other — the loser then
+   * showed as having no files at all.
+   */
+  test("matches an existing row within the edition, not across the library", async () => {
+    findFirstResult = { id: 42 };
+
+    await upsertBookFile(payload);
+
+    expect(findFirstArgs).toEqual({
+      where: { editionId: payload.editionId, filePath: payload.filePath },
+      select: { id: true },
+    });
   });
 
   test("creates a row when none exists and avoids update", async () => {

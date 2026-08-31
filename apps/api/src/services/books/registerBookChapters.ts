@@ -4,7 +4,14 @@ import { prisma } from "@rawkoon/api/db";
 import { buildTimeline } from "@rawkoon/api/services/books/bookTimeline";
 import { probeAudioDuration } from "@rawkoon/api/services/books/probeAudioDuration";
 
-const ORDINAL = /^(\d+)\s*-\s*/;
+// The separator after the leading number varies by release: "01 - Chapter 1",
+// "01. Chapter 1", "62 Epilogue". Requiring a dash meant the whole "NN Title"
+// family matched nothing, so chapter titles kept their number prefix and the
+// sort fell through to localeCompare — which is right only while every name is
+// zero-padded to the same width, and puts 10 before 2 as soon as one is not.
+// A separator is still required, so a title that merely starts with digits
+// ("1984.mp3") is not mistaken for an ordinal.
+const ORDINAL = /^(\d+)(?:\s*[-–—._]\s*|\s+)/;
 const ordinalOf = (name: string): number =>
   Number(ORDINAL.exec(name)?.[1] ?? Number.NaN);
 const compareChapterFileNames = (a: string, b: string): number => {
@@ -14,7 +21,7 @@ const compareChapterFileNames = (a: string, b: string): number => {
   return na - nb;
 };
 
-/** "01 - Chapter 1.mp3" -> "Chapter 1". */
+/** "01 - Chapter 1.mp3" and "62 Epilogue.mp3" -> "Chapter 1" / "Epilogue". */
 export const chapterTitleFromFileName = (name: string): string => {
   const stem = name.replace(/\.[^.]+$/, "");
   return stem.replace(ORDINAL, "").trim() || stem;
