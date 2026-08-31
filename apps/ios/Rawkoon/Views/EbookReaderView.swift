@@ -317,8 +317,12 @@ struct EbookReaderSheet: View {
                 }
                 .padding(.horizontal, 22)
                 .padding(.vertical, 13)
-                .background(.ultraThinMaterial, in: Capsule())
-                .overlay(Capsule().strokeBorder(Theme.border, lineWidth: 1))
+                // Opaque rather than ultraThin: the capsule floats over body
+                // text, and letting the page bleed through it turned two lines
+                // into noise instead of reading as a layer above them.
+                .background(Theme.raised, in: Capsule())
+                .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
+                .shadow(color: .black.opacity(0.5), radius: 14, y: 6)
                 .padding(.bottom, 26)
             }
             .transition(.opacity)
