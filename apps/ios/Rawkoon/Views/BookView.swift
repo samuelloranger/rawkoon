@@ -58,7 +58,9 @@ struct BookView: View {
     }
 
     private var audiobookEditionId: Int? { audiobookEdition?.id ?? book.audiobookEditionId }
-    private var ebookEditionId: Int? { ebookEdition?.id }
+    /// Falls back to the list item so reading progress still resolves when the
+    /// detail request failed but the library already knew the edition.
+    private var ebookEditionId: Int? { ebookEdition?.id ?? book.ebookEditionId }
     private var ebookStorageEditionId: Int { ebookEditionId ?? (1_000_000_000 + book.bookId) }
     private var hasAudiobookEdition: Bool { audiobookEditionId != nil }
     private var hasEbookEdition: Bool { ebookEdition != nil || book.hasEbook }
@@ -116,11 +118,11 @@ struct BookView: View {
             Task {
                 await model.loadLibrary()
                 await loadBookDetail()
-                if hasAudiobookEdition {
-                    await fetchManifest(forceRefresh: true)
-                }
                 if hasEbookEdition {
                     await loadEbookFiles()
+                }
+                if hasAudiobookEdition {
+                    await fetchManifest(forceRefresh: true)
                 }
             }
         }) { lane in
@@ -129,6 +131,7 @@ struct BookView: View {
         }
         .sheet(item: $previewDocument) { document in
             EbookReaderSheet(document: document)
+                .environmentObject(model)
         }
     }
 
@@ -712,12 +715,16 @@ struct BookView: View {
                                     .disabled(!canFetchRemote)
                                 }
 
-                                Button("Read") {
-                                    Task { await openEbook(file) }
+                                if isReadableEbook(file) {
+                                    Button("Read") {
+                                        Task { await openEbook(file) }
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(Theme.importing)
+                                    .disabled(!downloaded && !canFetchRemote)
+                                } else {
+                                    StatusBadge(text: "EPUB only", tint: Theme.muted)
                                 }
-                                .buttonStyle(.bordered)
-                                .tint(Theme.importing)
-                                .disabled(!downloaded && !canFetchRemote)
                             }
                         }
                     }
@@ -729,10 +736,20 @@ struct BookView: View {
         }
     }
 
+    /// The in-app reader unpacks EPUB only. Other formats in the library (the
+    /// Harry Potter editions ship a .mobi beside each .epub) are downloadable
+    /// but not readable here, and offering Read on them just produces a "not a
+    /// valid EPUB container" error.
+    private func isReadableEbook(_ file: BookEditionFile) -> Bool {
+        ebookExtension(for: file) == "epub" || file.format.lowercased() == "epub"
+    }
+
     private var preferredEbookFile: BookEditionFile? {
-        ebookFiles.sorted { left, right in
-            ebookFormatRank(left.format) < ebookFormatRank(right.format)
-        }.first
+        ebookFiles
+            .sorted { left, right in
+                ebookFormatRank(left.format) < ebookFormatRank(right.format)
+            }
+            .first(where: isReadableEbook)
     }
 
     private var canPlayAudiobook: Bool {
@@ -796,19 +813,26 @@ struct BookView: View {
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
     }
 
+    /// The ebook lane loads before the audiobook manifest on purpose.
+    ///
+    /// A manifest 400 kicks off `recoverManifestAfterRescan()`, and a
+    /// server-side rescan of a many-chapter edition re-reads every file's
+    /// metadata — tens of seconds on a 60+ file audiobook. With the ebook load
+    /// queued behind it, `ebookFiles` stayed empty for that whole window, which
+    /// left "Read" disabled and the Files card spinning.
     private func refreshAll(forceManifestRefresh: Bool) async {
         await loadBookDetail()
-        if hasAudiobookEdition {
-            await fetchManifest(forceRefresh: forceManifestRefresh)
-        } else {
-            manifest = nil
-            manifestError = nil
-        }
         if hasEbookEdition {
             await loadEbookFiles()
         } else {
             ebookFiles = []
             ebookFilesError = nil
+        }
+        if hasAudiobookEdition {
+            await fetchManifest(forceRefresh: forceManifestRefresh)
+        } else {
+            manifest = nil
+            manifestError = nil
         }
     }
 
@@ -949,7 +973,15 @@ struct BookView: View {
         defer { openingEbookFileId = nil }
         do {
             let localURL = try await ensureLocalEbookFile(file)
-            previewDocument = EbookPreviewDocument(id: file.id, title: file.fileName, localURL: localURL)
+            previewDocument = EbookPreviewDocument(
+                id: file.id,
+                // The real edition id, not ebookStorageEditionId: reading
+                // progress is stored server-side per edition, and the synthetic
+                // fallback id does not exist there.
+                editionId: ebookEditionId,
+                title: file.fileName,
+                localURL: localURL
+            )
         } catch EbookStorageError.missingRemoteURL {
             ebookFilesError = "This server version cannot provide ebook download links yet."
         } catch {
@@ -1019,7 +1051,9 @@ struct BookView: View {
     }
 
     private func ebookExtension(for file: BookEditionFile) -> String {
-        let ext = URL(fileURLWithPath: file.fileName).pathExtension
+        // Lowercased on purpose: the library holds both ".epub" and ".EPUB",
+        // and the cached copy must land on one name either way.
+        let ext = URL(fileURLWithPath: file.fileName).pathExtension.lowercased()
         if !ext.isEmpty {
             return ext
         }
