@@ -68,6 +68,15 @@ const envSchema = z.object({
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_CONTACT_EMAIL: z.string().optional().default("mailto:admin@localhost"),
 
+  // ── Apple Push (APNs) ─────────────────────────────────
+  // All four required to enable the APNs channel; otherwise it is a no-op.
+  // APNS_AUTH_KEY is the .p8 auth key as PEM or base64-encoded PEM.
+  APNS_KEY_ID: z.string().optional(),
+  APNS_TEAM_ID: z.string().optional(),
+  APNS_BUNDLE_ID: z.string().optional(),
+  APNS_AUTH_KEY: z.string().optional(),
+  APNS_PRODUCTION: z.string().optional(),
+
   // ── GitHub Releases ───────────────────────────────────
   GITHUB_RELEASES_REPO: githubRepoFullName,
 });

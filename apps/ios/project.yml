@@ -13,12 +13,24 @@ targets:
     sources: [Rawkoon]
     dependencies:
       - package: RawkoonKit
+    entitlements:
+      path: Rawkoon/Rawkoon.entitlements
+      properties:
+        # TestFlight/App Store builds use the production APNs environment, so
+        # the server must talk to api.push.apple.com (APNS_PRODUCTION=true).
+        aps-environment: production
     info:
       path: Rawkoon/Info.plist
       properties:
-        UIBackgroundModes: [audio, fetch]
+        UIBackgroundModes: [audio, fetch, remote-notification]
         CFBundleDisplayName: Rawkoon
         ITSAppUsesNonExemptEncryption: false
+        # Wire the version/build strings to the build settings so CI's
+        # MARKETING_VERSION / CURRENT_PROJECT_VERSION overrides actually reach
+        # the binary (XcodeGen otherwise bakes literal "1.0"/"1", which made
+        # every TestFlight upload look like a duplicate build).
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         # Cozy Dusk display face. Fraunces ships as one variable TTF; iOS reads it
         # under the family name "Fraunces". Theme.display() falls back to the
         # system serif if this ever fails to register.

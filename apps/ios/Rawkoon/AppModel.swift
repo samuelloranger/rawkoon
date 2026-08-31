@@ -1,6 +1,8 @@
 import Combine
 import Foundation
 import RawkoonKit
+import UIKit
+import UserNotifications
 
 @MainActor
 final class AppModel: ObservableObject {
@@ -70,6 +72,7 @@ final class AppModel: ObservableObject {
             apiClient = client
             isLoggedIn = true
             try await reloadLibrary()
+            requestPushAuthorization()
         } catch {
             errorMessage = message(for: error)
         }
@@ -106,6 +109,41 @@ final class AppModel: ObservableObject {
     /// The configured API client, or nil when logged out. Manage-lane screens
     /// call this directly (e.g. `try await model.api()?.explore()`).
     func api() -> APIClient? { apiClient }
+
+    // MARK: Push notifications (APNs)
+
+    private var pendingApnsToken: String?
+
+    /// Ask for notification permission, then register for remote notifications.
+    /// Safe to call repeatedly — the system won't re-prompt once decided.
+    func requestPushAuthorization() {
+        Task {
+            let center = UNUserNotificationCenter.current()
+            let granted = (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+            if granted {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
+        }
+    }
+
+    /// Called from the app delegate with the hex device token.
+    func handleApnsToken(_ token: String) {
+        pendingApnsToken = token
+        Task { await registerApnsIfPossible() }
+    }
+
+    private func registerApnsIfPossible() async {
+        guard let token = pendingApnsToken, let apiClient else { return }
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+        try? await apiClient.registerApns(
+            deviceToken: token,
+            deviceName: UIDevice.current.name,
+            osVersion: UIDevice.current.systemVersion,
+            appVersion: appVersion,
+            bundleId: Bundle.main.bundleIdentifier
+        )
+        pendingApnsToken = nil
+    }
 
     /// The book currently loaded in the player, if any — drives the persistent
     /// mini-player and its expand-to-full-player sheet. Non-nil once

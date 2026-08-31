@@ -29,6 +29,9 @@ struct RawkoonApp: App {
                 #if DEBUG
                 await model.debugAutologinIfNeeded()
                 #endif
+                if model.isLoggedIn {
+                    model.requestPushAuthorization()
+                }
             }
         }
     }
@@ -36,6 +39,20 @@ struct RawkoonApp: App {
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
     weak var appModel: AppModel?
+
+    func application(_ application: UIApplication,
+                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        let token = deviceToken.map { String(format: "%02x", $0) }.joined()
+        Task { @MainActor in
+            appModel?.handleApnsToken(token)
+        }
+    }
+
+    func application(_ application: UIApplication,
+                     didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        // Registration can fail in the simulator or without a provisioning
+        // profile that includes the push entitlement — non-fatal.
+    }
 
     func application(_ application: UIApplication,
                      handleEventsForBackgroundURLSession identifier: String,
