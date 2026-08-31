@@ -28,6 +28,8 @@ export interface BookFileInfo {
   id: number;
   file_name: string;
   file_path: string;
+  /** Signed URL for temporary direct content access. */
+  content_url?: string;
   size_bytes: string;
   format: BookFormat;
   duration_secs: number | null;
