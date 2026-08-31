@@ -104,6 +104,9 @@ jobs:
           security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/"
+      # Signing settings live on the app target in project.yml, not here: an
+      # xcodebuild command-line setting applies to every target in the project,
+      # and SPM package targets reject a provisioning profile.
       - name: Archive signed app
         working-directory: apps/ios
         run: |
@@ -112,10 +115,6 @@ jobs:
             -scheme Rawkoon \
             -destination 'generic/platform=iOS' \
             -archivePath build/Rawkoon.xcarchive \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="Rawkoon AppStore CI" \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             MARKETING_VERSION="$MARKETING_VERSION" \
             CURRENT_PROJECT_VERSION="$CURRENT_PROJECT_VERSION"
       - name: Export IPA
