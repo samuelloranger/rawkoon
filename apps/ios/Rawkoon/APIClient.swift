@@ -69,7 +69,15 @@ actor APIClient {
 
     init(baseURL: URL, token: String?) {
         self.baseURL = baseURL
-        self.session = .shared
+        // The app authenticates with a bearer token, never cookies. A stale
+        // better-auth cookie left in the shared store makes the sign-in POST
+        // arrive "already in a session", which better-auth rejects with 403 —
+        // so use a cookie-less session that neither stores nor sends cookies.
+        let config = URLSessionConfiguration.ephemeral
+        config.httpCookieStorage = nil
+        config.httpShouldSetCookies = false
+        config.httpCookieAcceptPolicy = .never
+        self.session = URLSession(configuration: config)
         self.token = token
     }
 
