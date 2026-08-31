@@ -326,3 +326,111 @@ export const bookProgressRoutes = new Elysia()
       }),
     },
   );
+
+/**
+ * Reading position for ebook editions.
+ *
+ * Same last-write-wins rule as bookProgressRoutes — the client clock is
+ * clamped to server time on receipt, and an older write is dropped rather than
+ * allowed to walk a reader backwards from another device.
+ */
+export const bookReadingProgressRoutes = new Elysia()
+  .use(requireUser)
+  .get("/reading-progress", async ({ user }) => {
+    const rows = await prisma.bookReadingProgress.findMany({
+      where: { userId: user!.id },
+      select: {
+        editionId: true,
+        fileId: true,
+        spineIndex: true,
+        spinePath: true,
+        spineCount: true,
+        scrollFraction: true,
+        finished: true,
+        updatedAt: true,
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    return {
+      progress: rows.map((row) => ({
+        edition_id: row.editionId,
+        file_id: row.fileId,
+        spine_index: row.spineIndex,
+        spine_path: row.spinePath,
+        spine_count: row.spineCount,
+        scroll_fraction: row.scrollFraction,
+        finished: row.finished,
+        updated_at: row.updatedAt.toISOString(),
+      })),
+    };
+  })
+  .put(
+    "/editions/:id/reading-progress",
+    async ({ params, body, user, set }) => {
+      const edition = await prisma.bookEdition.findUnique({
+        where: { id: params.id },
+        select: { id: true },
+      });
+      if (!edition) return notFound(set, "Edition not found");
+
+      if (body.spine_index < 0 || body.spine_index >= body.spine_count) {
+        return badRequest(set, "spine_index is outside the spine");
+      }
+
+      const now = new Date();
+      const updatedAt = clampClientTimestamp(body.updated_at, now);
+
+      const existing = await prisma.bookReadingProgress.findUnique({
+        where: {
+          userId_editionId: { userId: user!.id, editionId: params.id },
+        },
+        select: { updatedAt: true },
+      });
+      if (existing && existing.updatedAt > updatedAt) return { applied: false };
+
+      const baseData = {
+        fileId: body.file_id ?? null,
+        spineIndex: body.spine_index,
+        spinePath: body.spine_path,
+        spineCount: body.spine_count,
+        // Clamped rather than rejected: a client that reports 1.0000001 after a
+        // bounce-scroll should not lose its position over it.
+        scrollFraction: Math.min(Math.max(body.scroll_fraction, 0), 1),
+        updatedAt,
+        receivedAt: now,
+        deviceId: body.device_id ?? null,
+      };
+
+      await prisma.bookReadingProgress.upsert({
+        where: {
+          userId_editionId: { userId: user!.id, editionId: params.id },
+        },
+        update: {
+          ...baseData,
+          ...(body.finished === undefined ? {} : { finished: body.finished }),
+        },
+        create: {
+          ...baseData,
+          finished: body.finished ?? false,
+          userId: user!.id,
+          editionId: params.id,
+        },
+      });
+
+      return { applied: true };
+    },
+    {
+      params: t.Object({ id: t.Numeric() }),
+      body: t.Object({
+        file_id: t.Optional(t.Nullable(t.Numeric())),
+        spine_index: t.Numeric(),
+        spine_path: t.String({ minLength: 1 }),
+        spine_count: t.Numeric({ minimum: 1 }),
+        scroll_fraction: t.Number(),
+        finished: t.Optional(t.Boolean()),
+        updated_at: t.String(),
+        device_id: t.Optional(t.String()),
+      }),
+    },
+  );
