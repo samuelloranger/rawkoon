@@ -26,6 +26,7 @@ struct BookListItem: Identifiable, Sendable {
     let author: String?
     let coverURL: URL?
     let audiobookEditionId: Int?
+    let ebookEditionId: Int?
     let audiobookDurationSecs: Double?
     let audiobookStatus: String?
     let audiobookFileCount: Int
@@ -189,17 +190,18 @@ actor APIClient {
 
             let pageItems = payload.items.map { book in
                 let audiobook = book.editions.first { $0.kind == "audiobook" }
-                let hasEbook = book.editions.contains { $0.kind == "ebook" }
+                let ebook = book.editions.first { $0.kind == "ebook" }
                 return BookListItem(
                     bookId: book.id,
                     title: book.title,
                     author: book.authors.first,
                     coverURL: resolveURL(book.coverUrl),
                     audiobookEditionId: audiobook?.id,
+                    ebookEditionId: ebook?.id,
                     audiobookDurationSecs: audiobook?.durationSecs,
                     audiobookStatus: audiobook?.status,
                     audiobookFileCount: audiobook?.fileCount ?? 0,
-                    hasEbook: hasEbook
+                    hasEbook: ebook != nil
                 )
             }
             allItems.append(contentsOf: pageItems)
@@ -265,6 +267,41 @@ actor APIClient {
     func bookEditionFiles(bookId: Int, kind: String) async throws -> [BookEditionFile] {
         let response: BookEditionFilesPayload = try await get("/api/books/\(bookId)/editions/\(kind)/files")
         return response.files
+    }
+
+    func readingProgress() async throws -> [ReadingPosition] {
+        let payload: ReadingProgressResponse = try await get("/api/books/reading-progress")
+        return payload.progress.compactMap { row in
+            guard let updatedAt = Self.parseISO8601(row.updatedAt) else { return nil }
+            return ReadingPosition(
+                editionId: row.editionId,
+                fileId: row.fileId,
+                spineIndex: row.spineIndex,
+                spinePath: row.spinePath,
+                spineCount: row.spineCount,
+                scrollFraction: row.scrollFraction,
+                finished: row.finished,
+                updatedAtMillis: Int64((updatedAt.timeIntervalSince1970 * 1000).rounded())
+            )
+        }
+    }
+
+    func putReadingProgress(_ position: ReadingPosition, deviceId: String) async throws {
+        let updatedAt = Date(timeIntervalSince1970: Double(position.updatedAtMillis) / 1000)
+        try await postExpectOK(
+            "/api/books/editions/\(position.editionId)/reading-progress",
+            body: PutReadingProgressRequest(
+                fileId: position.fileId,
+                spineIndex: position.spineIndex,
+                spinePath: position.spinePath,
+                spineCount: position.spineCount,
+                scrollFraction: position.scrollFraction,
+                finished: position.finished,
+                updatedAt: Self.iso8601WithFractionalSeconds.string(from: updatedAt),
+                deviceId: deviceId
+            ),
+            method: "PUT"
+        )
     }
 
     func getProgress() async throws -> [RemoteProgress] {
@@ -436,13 +473,21 @@ actor APIClient {
 
     /// Authenticated POST that only cares whether the server accepted it (2xx).
     /// Used for grab endpoints whose bodies mix strings and bools.
-    private func postExpectOK<B: Encodable>(_ path: String, body: B) async throws {
-        let (_, response) = try await sendPost(path, body: body)
+    private func postExpectOK<B: Encodable>(
+        _ path: String,
+        body: B,
+        method: String = "POST"
+    ) async throws {
+        let (_, response) = try await sendPost(path, body: body, method: method)
         guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
     }
 
-    private func sendPost<B: Encodable>(_ path: String, body: B) async throws -> (Data, HTTPURLResponse) {
-        var request = try makeRequest(path: path, method: "POST", requiresAuth: true)
+    private func sendPost<B: Encodable>(
+        _ path: String,
+        body: B,
+        method: String = "POST"
+    ) async throws -> (Data, HTTPURLResponse) {
+        var request = try makeRequest(path: path, method: method, requiresAuth: true)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try Self.mediaEncoder.encode(body)
         return try await perform(request)
@@ -830,6 +875,34 @@ private struct ProgressPayload: Decodable {
     let totalDurationSecs: Double
     let finished: Bool
     let updatedAt: Date
+}
+
+private struct ReadingProgressResponse: Decodable {
+    let progress: [ReadingProgressPayload]
+}
+
+/// `updatedAt` stays a String here: the shared media decoder does not install a
+/// date strategy, so it is parsed explicitly.
+private struct ReadingProgressPayload: Decodable {
+    let editionId: Int
+    let fileId: Int?
+    let spineIndex: Int
+    let spinePath: String
+    let spineCount: Int
+    let scrollFraction: Double
+    let finished: Bool
+    let updatedAt: String
+}
+
+private struct PutReadingProgressRequest: Encodable {
+    let fileId: Int?
+    let spineIndex: Int
+    let spinePath: String
+    let spineCount: Int
+    let scrollFraction: Double
+    let finished: Bool
+    let updatedAt: String
+    let deviceId: String
 }
 
 private struct PutProgressRequest: Encodable {

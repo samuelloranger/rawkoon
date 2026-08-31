@@ -30,6 +30,9 @@ final class AppModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var verifiedCounts: [Int: Int] = [:]
     private var lastProgressWriteMillis: [Int: Int64] = [:]
+    private let readingProgressStore = ReadingProgressStore(
+        directory: FileStore.booksDirectory()
+    )
     private var lastProgressPosition: [Int: Double] = [:]
 
     private let journalURL: URL
@@ -436,6 +439,43 @@ final class AppModel: ObservableObject {
             totalDurationSecs: manifest.totalDurationSecs,
             updatedAtMillis: nowMillis
         )
+    }
+
+    // MARK: Reading progress (ebooks)
+
+    /// Where to open an ebook edition, reconciled across this device and the
+    /// server. Same last-write-wins rule as the audiobook position.
+    func readingPosition(
+        editionId: Int,
+        spine: [String]
+    ) async -> (index: Int, scrollFraction: Double) {
+        let local = readingProgressStore.position(editionId: editionId)
+        var remote: ReadingPosition?
+        if let apiClient {
+            remote = (try? await apiClient.readingProgress())?
+                .first { $0.editionId == editionId }
+        }
+
+        let winner: ReadingPosition?
+        switch ReadingProgressReconciler.reconcile(local: local, remote: remote) {
+        case .takeRemote:
+            winner = remote
+            // Mirror it locally so the next open resumes offline too.
+            if let remote { try? readingProgressStore.save(remote) }
+        case .keepLocal, .push:
+            winner = local
+        }
+
+        guard let winner else { return (0, 0) }
+        return ReadingProgressReconciler.resolve(winner, spine: spine)
+    }
+
+    /// Persists locally first, then pushes. The local write is what makes the
+    /// position survive a crash or an offline session; the push is best-effort.
+    func saveReadingPosition(_ position: ReadingPosition) {
+        try? readingProgressStore.save(position)
+        guard let apiClient else { return }
+        Task { try? await apiClient.putReadingProgress(position, deviceId: deviceID) }
     }
 
     private func sendProgress(

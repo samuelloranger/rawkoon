@@ -123,6 +123,7 @@ private struct RootTabsView: View {
             NavigationStack {
                 HomeView()
             }
+            .modifier(MiniPlayerInset { showFullPlayer = true })
             .tabItem {
                 Label("Home", systemImage: "house")
             }
@@ -131,6 +132,7 @@ private struct RootTabsView: View {
             NavigationStack {
                 DiscoverView()
             }
+            .modifier(MiniPlayerInset { showFullPlayer = true })
             .tabItem {
                 Label("Discover", systemImage: "sparkles.rectangle.stack")
             }
@@ -139,6 +141,7 @@ private struct RootTabsView: View {
             NavigationStack {
                 LibraryView()
             }
+            .modifier(MiniPlayerInset { showFullPlayer = true })
             .tabItem {
                 Label("Library", systemImage: "square.stack")
             }
@@ -147,6 +150,7 @@ private struct RootTabsView: View {
             NavigationStack {
                 ActivityView()
             }
+            .modifier(MiniPlayerInset { showFullPlayer = true })
             .tabItem {
                 Label("Activity", systemImage: "arrow.down.circle")
             }
@@ -155,15 +159,13 @@ private struct RootTabsView: View {
             NavigationStack {
                 SettingsView()
             }
+            .modifier(MiniPlayerInset { showFullPlayer = true })
             .tabItem {
                 Label("Settings", systemImage: "gearshape")
             }
             .tag(4)
         }
         .tint(Theme.apricot)
-        .safeAreaInset(edge: .bottom) {
-            MiniPlayerView { showFullPlayer = true }
-        }
         .sheet(isPresented: $showFullPlayer) {
             if let active = model.activeBook() {
                 PlayerView(summary: active.summary, manifest: active.manifest)
@@ -174,6 +176,22 @@ private struct RootTabsView: View {
             if model.library.isEmpty {
                 await model.loadLibrary()
             }
+        }
+    }
+}
+
+/// Insets the mini player above each tab's content.
+///
+/// A `.safeAreaInset(edge: .bottom)` applied to the `TabView` itself lays the
+/// bar out against the bottom of the whole tab view, so it sat on top of the
+/// tab bar. Insetting each tab's content keeps it just above the tab bar and
+/// leaves the tab items tappable.
+private struct MiniPlayerInset: ViewModifier {
+    let onExpand: () -> Void
+
+    func body(content: Content) -> some View {
+        content.safeAreaInset(edge: .bottom) {
+            MiniPlayerView(onExpand: onExpand)
         }
     }
 }
