@@ -14,7 +14,7 @@ on:
       version:
         description: Marketing version for TestFlight upload
         required: false
-        default: "0.1.0"
+        default: "1.11.0"
 jobs:
   kit:
     runs-on: ubuntu-latest
