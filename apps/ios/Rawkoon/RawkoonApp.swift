@@ -87,6 +87,13 @@ private struct RootTabsView: View {
         case "movieDetail": DebugFirstDetail(libraryType: "movie")
         case "showDetail": DebugFirstDetail(libraryType: "show")
         case "releaseSearch": DebugFirstReleaseSearch()
+        case "settings": NavigationStack { SettingsView() }
+        case "requests": NavigationStack { RequestsView() }
+        case "qualityProfiles": NavigationStack { QualityProfilesView() }
+        case "notifications": NavigationStack { NotificationsSettingsView() }
+        case "indexers": NavigationStack { IndexersView() }
+        case "users": NavigationStack { UsersView() }
+        case "downloadClient": NavigationStack { DownloadClientView() }
         default: mainTabs
         }
     }
