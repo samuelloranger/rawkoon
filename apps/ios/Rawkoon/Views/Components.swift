@@ -128,6 +128,33 @@ struct PosterFlag: View {
     }
 }
 
+/// Shared by LibraryView and BookView. A second copy would drift; `.searchable`
+/// would change a screen that currently works.
+func searchField(_ placeholder: String, text: Binding<String>) -> some View {
+    HStack(spacing: 8) {
+        Image(systemName: "magnifyingglass")
+            .font(.caption)
+            .foregroundStyle(Theme.muted)
+        TextField(placeholder, text: text)
+            .foregroundStyle(Theme.textStrong)
+            .autocorrectionDisabled()
+            .textInputAutocapitalization(.never)
+        if !text.wrappedValue.isEmpty {
+            Button {
+                text.wrappedValue = ""
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(Theme.faint)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+    .padding(.horizontal, 12)
+    .padding(.vertical, 10)
+    .background(Theme.inset, in: RoundedRectangle(cornerRadius: 12))
+    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border, lineWidth: 1))
+}
+
 /// One chapter as a "spine": a lit bar for the current chapter, filled for a
 /// downloaded one, hollow for not-yet. Order is the sequence — honest structure.
 struct SpineRow: View {
