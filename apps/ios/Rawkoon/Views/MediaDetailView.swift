@@ -25,6 +25,7 @@ struct MediaDetailView: View {
 
     @State private var requesting = false
     @State private var requested = false
+    @State private var added = false
     @State private var requestError: String?
 
     @State private var showingReleaseSearch = false
@@ -171,7 +172,7 @@ struct MediaDetailView: View {
 
     private var statusRow: some View {
         HStack {
-            if libraryId != nil {
+            if libraryId != nil || added {
                 StatusBadge(text: "In library", tint: Theme.seed)
             } else if requested {
                 StatusBadge(text: "Requested", tint: Theme.seed)
@@ -187,15 +188,17 @@ struct MediaDetailView: View {
     private var primaryAction: some View {
         VStack(alignment: .leading, spacing: 8) {
             if libraryId == nil {
-                if !requested {
+                if !requested && !added {
                     Button {
-                        Task { await submitRequest() }
+                        Task { model.isAdmin ? await submitAdd() : await submitRequest() }
                     } label: {
                         Group {
                             if requesting {
                                 ProgressView().tint(Theme.onAccent)
                             } else {
-                                Label("Request", systemImage: "plus.circle")
+                                // Admins add straight to the library; everyone else requests.
+                                Label(model.isAdmin ? "Add to library" : "Request",
+                                      systemImage: model.isAdmin ? "plus.circle.fill" : "plus.circle")
                             }
                         }
                         .frame(maxWidth: .infinity)
@@ -396,6 +399,27 @@ struct MediaDetailView: View {
             requestError = "Already requested."
         } catch {
             requestError = "Could not submit request."
+        }
+    }
+
+    // Admin: add straight to the library from TMDB.
+    private func submitAdd() async {
+        guard let client = model.api() else {
+            requestError = "Not logged in."
+            return
+        }
+        requesting = true
+        requestError = nil
+        defer { requesting = false }
+        do {
+            try await client.addToLibrary(tmdbId: tmdbId, type: mediaType == "tv" ? "show" : "movie")
+            added = true
+        } catch APIError.unauthorized {
+            requestError = "Admin only."
+        } catch APIError.http(let status) where status == 409 {
+            added = true
+        } catch {
+            requestError = "Could not add to library."
         }
     }
 }

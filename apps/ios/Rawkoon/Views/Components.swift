@@ -67,3 +67,63 @@ struct DuskProgress: View {
         .frame(height: 5)
     }
 }
+
+/// A normalized media poster card for grids: a fixed 2:3 poster with a
+/// top-trailing overlay (flag/badge) and a 2-line title caption below. The
+/// reserved title height keeps every card the same height regardless of how
+/// long the title is.
+struct MediaPosterCard<Overlay: View>: View {
+    let title: String
+    let posterURL: URL?
+    @ViewBuilder var overlay: Overlay
+
+    init(title: String, posterURL: URL?, @ViewBuilder overlay: () -> Overlay = { EmptyView() }) {
+        self.title = title
+        self.posterURL = posterURL
+        self.overlay = overlay()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Rectangle()
+                .fill(Theme.raised)
+                .aspectRatio(2.0 / 3.0, contentMode: .fit)
+                .overlay {
+                    AsyncImage(url: posterURL) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Image(systemName: "photo")
+                            .font(.title3)
+                            .foregroundStyle(Theme.faint)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(alignment: .topTrailing) { overlay.padding(6) }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.05), lineWidth: 1)
+                )
+
+            Text(title)
+                .font(.display(13))
+                .foregroundStyle(Theme.textStrong)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .frame(height: 34, alignment: .top)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+/// The in-library / add flag used on discover posters.
+struct PosterFlag: View {
+    let inLibrary: Bool
+    var body: some View {
+        ZStack {
+            Circle().fill(inLibrary ? Theme.seed : Theme.apricot)
+                .frame(width: 22, height: 22)
+            Image(systemName: inLibrary ? "checkmark" : "plus")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(inLibrary ? Color(hex: 0x10231a) : Theme.onAccent)
+        }
+    }
+}

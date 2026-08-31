@@ -5,32 +5,37 @@ import SwiftUI
 struct BookView: View {
     @EnvironmentObject private var model: AppModel
 
-    let summary: LibrarySummary
+    let book: BookListItem
 
     @State private var manifest: BookManifest?
     @State private var loadingManifest = false
     @State private var loadingPlayer = false
     @State private var showingPlayer = false
 
+    private var editionId: Int? { book.audiobookEditionId }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 header
-                actionButtons
-                chaptersList
+                if book.hasAudiobook {
+                    actionButtons
+                    chaptersList
+                }
+                if book.hasEbook {
+                    ebookCard
+                }
             }
             .padding(16)
         }
         .background(Theme.base)
-        .navigationTitle(summary.title)
+        .navigationTitle(book.title)
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            if manifest == nil {
-                await fetchManifest()
-            }
+            if book.hasAudiobook && manifest == nil { await fetchManifest() }
         }
         .sheet(isPresented: $showingPlayer) {
-            if let manifest {
+            if let manifest, let summary = book.audiobookSummary {
                 PlayerView(summary: summary, manifest: manifest)
                     .environmentObject(model)
             }
@@ -41,59 +46,87 @@ struct BookView: View {
 
     private var header: some View {
         HStack(alignment: .top, spacing: 14) {
-            BookCover(url: summary.coverURL, size: 96, corner: 12)
+            BookCover(url: book.coverURL, size: 96, corner: 12)
                 .shadow(color: .black.opacity(0.5), radius: 12, y: 8)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(summary.title)
+                Text(book.title)
                     .font(.display(20))
                     .foregroundStyle(Theme.textStrong)
                     .lineLimit(3)
-                if let author = summary.author, !author.isEmpty {
-                    Text(author)
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.muted)
+                if let author = book.author, !author.isEmpty {
+                    Text(author).font(.subheadline).foregroundStyle(Theme.muted)
                 }
-                Text(durationLine)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.faint)
-                    .padding(.top, 2)
+                HStack(spacing: 6) {
+                    if book.hasAudiobook { chip("Audiobook", tint: Theme.apricot) }
+                    if book.hasEbook { chip("EPUB", tint: Theme.importing) }
+                }
+                .padding(.top, 2)
+                if book.hasAudiobook {
+                    Text(durationLine)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.faint)
+                }
             }
             Spacer(minLength: 0)
         }
     }
 
+    private func chip(_ text: String, tint: Color) -> some View {
+        Text(text)
+            .font(.system(.caption2, design: .monospaced))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 7).padding(.vertical, 3)
+            .background(tint.opacity(0.12), in: Capsule())
+            .overlay(Capsule().strokeBorder(tint.opacity(0.3), lineWidth: 1))
+    }
+
     private var durationLine: String {
-        let secs = manifest?.totalDurationSecs ?? summary.durationSecs ?? 0
+        let secs = manifest?.totalDurationSecs ?? book.audiobookDurationSecs ?? 0
         let count = manifest?.chapters.count
         var parts = [formatDuration(secs)]
         if let count { parts.append("\(count) chapters") }
         return parts.joined(separator: " · ")
     }
 
-    // MARK: Actions
+    // MARK: Ebook-only
+
+    private var ebookCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("EPUB", systemImage: "book.closed")
+                .font(.display(16))
+                .foregroundStyle(Theme.textStrong)
+            Text("This book is available as an ebook. Read it from the Rawkoon web app or your desktop — the phone app plays audiobooks offline.")
+                .font(.subheadline)
+                .foregroundStyle(Theme.muted)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
+    }
+
+    // MARK: Audiobook actions
 
     private var actionButtons: some View {
         VStack(spacing: 10) {
             Button {
                 Task {
+                    guard let editionId else { return }
                     loadingPlayer = true
-                    await model.openPlayer(editionId: summary.editionId)
+                    await model.openPlayer(editionId: editionId)
                     loadingPlayer = false
-                    if model.errorMessage == nil {
-                        showingPlayer = true
-                    }
+                    if model.errorMessage == nil { showingPlayer = true }
                 }
             } label: {
                 Group {
                     if loadingPlayer {
                         ProgressView().tint(Theme.onAccent)
                     } else {
-                        Label(playLabel, systemImage: "play.fill")
+                        Label("Play", systemImage: "play.fill")
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 26)
+                .frame(maxWidth: .infinity).frame(height: 26)
             }
             .buttonStyle(.borderedProminent)
             .tint(Theme.apricot)
@@ -107,56 +140,42 @@ struct BookView: View {
 
     @ViewBuilder
     private var downloadButton: some View {
-        let plan = model.downloadPlans[summary.editionId]
+        let plan = editionId.flatMap { model.downloadPlans[$0] }
         if let plan, !plan.isComplete {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("Downloading")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.textStrong)
+                    Text("Downloading").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.textStrong)
                     Spacer()
                     Text("\(Int(plan.progressFraction() * 100))%")
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(Theme.apricot)
+                        .font(.system(.caption, design: .monospaced)).foregroundStyle(Theme.apricot)
                 }
                 DuskProgress(value: plan.progressFraction())
             }
-            .padding(12)
-            .frame(maxWidth: .infinity)
+            .padding(12).frame(maxWidth: .infinity)
             .background(Theme.raised, in: RoundedRectangle(cornerRadius: 13))
             .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Theme.borderStrong, lineWidth: 1))
         } else if plan?.isComplete == true {
-            Button { } label: {
+            Button {} label: {
                 Label("Downloaded", systemImage: "checkmark.circle.fill")
                     .frame(maxWidth: .infinity).frame(height: 22)
             }
-            .buttonStyle(.bordered)
-            .tint(Theme.seed)
-            .disabled(true)
+            .buttonStyle(.bordered).tint(Theme.seed).disabled(true)
         } else {
             Button {
-                Task { await model.startDownload(editionId: summary.editionId) }
+                Task { if let editionId { await model.startDownload(editionId: editionId) } }
             } label: {
                 Label("Download", systemImage: "arrow.down.circle")
                     .frame(maxWidth: .infinity).frame(height: 22)
             }
-            .buttonStyle(.bordered)
-            .tint(Theme.apricot)
+            .buttonStyle(.bordered).tint(Theme.apricot)
         }
     }
 
-    private var playLabel: String {
-        canPlay ? "Play" : "Play"
-    }
-
-    // MARK: Chapters — the spine rail
+    // MARK: Chapters — spine rail
 
     private var chaptersList: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Chapters")
-                .font(.display(17))
-                .foregroundStyle(Theme.textStrong)
-
+            Text("Chapters").font(.display(17)).foregroundStyle(Theme.textStrong)
             if loadingManifest {
                 ProgressView().tint(Theme.apricot)
             } else if let manifest {
@@ -172,8 +191,7 @@ struct BookView: View {
                 }
             } else {
                 Text("Chapters couldn't load. Pull to refresh, or check the server.")
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.muted)
+                    .font(.subheadline).foregroundStyle(Theme.muted)
             }
         }
     }
@@ -184,24 +202,17 @@ struct BookView: View {
     }
 
     private func fetchManifest() async {
+        guard let editionId else { return }
         loadingManifest = true
         defer { loadingManifest = false }
-        do {
-            manifest = try await model.manifest(summary.editionId)
-        } catch {
-            model.errorMessage = "Could not load manifest."
-        }
+        do { manifest = try await model.manifest(editionId) }
+        catch { model.errorMessage = "Could not load manifest." }
     }
 
     private func isChapterDownloaded(_ chapter: ManifestChapter) -> Bool {
-        if model.downloadPlans[summary.editionId]?.states[chapter.fileId] == .verified {
-            return true
-        }
-        return FileStore.exists(
-            editionId: summary.editionId,
-            fileId: chapter.fileId,
-            ext: chapterExtension(chapter)
-        )
+        guard let editionId else { return false }
+        if model.downloadPlans[editionId]?.states[chapter.fileId] == .verified { return true }
+        return FileStore.exists(editionId: editionId, fileId: chapter.fileId, ext: chapterExtension(chapter))
     }
 
     private func chapterExtension(_ chapter: ManifestChapter) -> String {
@@ -216,44 +227,5 @@ struct BookView: View {
         let minutes = (total % 3600) / 60
         if hours > 0 { return "\(hours)h \(String(format: "%02dm", minutes))" }
         return "\(minutes)m"
-    }
-}
-
-/// One chapter as a "spine": a lit bar for the current chapter, filled for a
-/// downloaded one, hollow for not-yet. Order is the sequence, so this is honest
-/// structure — not decoration.
-struct SpineRow: View {
-    let index: Int
-    let title: String
-    let downloaded: Bool
-    let current: Bool
-
-    var body: some View {
-        HStack(spacing: 10) {
-            spine
-            Text(String(format: "%02d", index + 1))
-                .font(.system(.caption2, design: .monospaced))
-                .foregroundStyle(Theme.faint)
-                .frame(width: 22, alignment: .leading)
-            Text(title)
-                .font(.subheadline)
-                .fontWeight(current ? .semibold : .regular)
-                .foregroundStyle(current ? Theme.textStrong : Theme.muted)
-                .lineLimit(1)
-            Spacer(minLength: 0)
-        }
-        .padding(.vertical, 2)
-    }
-
-    private var spine: some View {
-        Group {
-            if current {
-                Capsule().fill(Theme.progress).frame(width: 4, height: 30)
-                    .shadow(color: Theme.apricot.opacity(0.55), radius: 6)
-            } else {
-                Capsule().fill(downloaded ? Theme.faint : Theme.borderStrong)
-                    .frame(width: 4, height: 22)
-            }
-        }
     }
 }
