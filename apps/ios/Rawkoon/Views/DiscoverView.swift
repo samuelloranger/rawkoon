@@ -55,6 +55,7 @@ struct DiscoverView: View {
         }
         .background(Theme.base)
         .navigationTitle("Discover")
+        .navigationBarTitleDisplayMode(.inline)
         .task {
             if feed == nil {
                 await loadFeed()
@@ -111,14 +112,14 @@ struct DiscoverView: View {
         if loadingFeed {
             ProgressView().tint(Theme.apricot)
                 .frame(maxWidth: .infinity)
-                .padding(.top, 60)
+                .padding(.top, 28)
         } else if let feedError {
             ContentUnavailableView(
                 "Couldn't load Discover",
                 systemImage: "wifi.slash",
                 description: Text(feedError)
             )
-            .padding(.top, 40)
+            .padding(.top, 16)
         } else if let feed, !feed.sections.isEmpty {
             VStack(alignment: .leading, spacing: 24) {
                 ForEach(feed.sections, id: \.title) { section in
@@ -131,7 +132,7 @@ struct DiscoverView: View {
                 systemImage: "sparkles.rectangle.stack",
                 description: Text("Check back soon for new releases.")
             )
-            .padding(.top, 60)
+            .padding(.top, 28)
         }
     }
 
@@ -175,21 +176,21 @@ struct DiscoverView: View {
         if loadingSearch {
             ProgressView().tint(Theme.apricot)
                 .frame(maxWidth: .infinity)
-                .padding(.top, 60)
+                .padding(.top, 28)
         } else if let searchError {
             ContentUnavailableView(
                 "Search failed",
                 systemImage: "wifi.slash",
                 description: Text(searchError)
             )
-            .padding(.top, 40)
+            .padding(.top, 16)
         } else if searchResults.isEmpty {
             ContentUnavailableView(
                 "Nothing to show yet",
                 systemImage: "magnifyingglass",
                 description: Text("Try a different title.")
             )
-            .padding(.top, 60)
+            .padding(.top, 28)
         } else {
             LazyVGrid(columns: searchGridColumns, spacing: 14) {
                 ForEach(searchResults) { item in

@@ -38,6 +38,7 @@ struct LibraryView: View {
         }
         .background(Theme.base)
         .navigationTitle("Library")
+        .navigationBarTitleDisplayMode(.inline)
         .task(id: tab) {
             switch tab {
             case .movies:
