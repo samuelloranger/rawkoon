@@ -150,16 +150,16 @@ Readium reports a `Locator` — `href`, `mediaType`, `title`, `text`, and
 `locations` carrying `progression`, `totalProgression`, `position` and
 `fragments`. It has a `jsonObject` representation, so it round-trips as JSON.
 
-**Schema:** the column added on this branch is named `cfi`, which is now wrong —
-a Locator is not a CFI. **Amend that migration in place** rather than layering a
-rename on top: it is committed on this branch but has never been deployed, and
-`book_reading_progress` has 0 rows in production. Final shape is a nullable
-`locator TEXT` holding the Locator JSON. `spine_index` / `spine_path` /
-`spine_count` / `scroll_fraction` stay as the coarse fallback.
+**Schema — done.** A nullable `locator TEXT` column holds the Locator JSON;
+`spine_index` / `spine_path` / `spine_count` / `scroll_fraction` remain the
+coarse fallback. The migration first landed on this branch named `cfi` and was
+amended in place rather than renamed by a second migration, which was safe only
+because it had never been deployed and the table has 0 rows in production. The
+Prisma field, both shared types and the four route keys moved with it.
 
-Rename accordingly in `apps/shared/src/types/books.ts`, the GET and PUT handlers
-in `bookPlaybackRoutes.ts`, and `ReadingPosition` in RawkoonKit plus the two
-`APIClient` DTOs.
+**Still to do on the client:** `ReadingPosition` in RawkoonKit needs the
+`locator` field, added as the last init parameter with a `nil` default so
+existing call sites and tests keep compiling, plus the two `APIClient` DTOs.
 
 **Resolution order on open:** stored Locator if it parses → else spine
 path/index plus fraction through the existing
