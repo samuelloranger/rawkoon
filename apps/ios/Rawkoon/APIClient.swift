@@ -500,6 +500,14 @@ actor APIClient {
         try await get("/api/library/rss-status")
     }
 
+    // APNs device registration
+    func registerApns(deviceToken: String, deviceName: String?, osVersion: String?, appVersion: String?, bundleId: String?) async throws {
+        try await postExpectOK("/api/notifications/apns/register", body: ApnsRegisterBody(
+            deviceToken: deviceToken,
+            deviceInfo: ApnsDeviceInfo(deviceName: deviceName, osVersion: osVersion, appVersion: appVersion, bundleId: bundleId)
+        ))
+    }
+
     // MARK: - Management / settings
 
     func qualityProfiles() async throws -> QualityProfilesResponse {

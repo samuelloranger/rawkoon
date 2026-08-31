@@ -628,4 +628,84 @@ export const notificationsRoutes = new Elysia({ prefix: "/api/notifications" })
       ),
     },
   )
+  // POST /api/notifications/apns/register - register a native iOS device token
+  .post(
+    "/apns/register",
+    async ({ user, body, set }) => {
+      if (!user) return unauthorized(set, "Unauthorized");
+      const { device_token, device_info } = body;
+      if (!device_token) return badRequest(set, "device_token is required");
+      try {
+        const data = {
+          userId: user.id,
+          deviceToken: device_token,
+          deviceName: device_info?.device_name ?? null,
+          osVersion: device_info?.os_version ?? null,
+          appVersion: device_info?.app_version ?? null,
+          bundleId: device_info?.bundle_id ?? null,
+          updatedAt: new Date(),
+        };
+        await prisma.apnsDevice.upsert({
+          where: {
+            userId_deviceToken: { userId: user.id, deviceToken: device_token },
+          },
+          update: data,
+          create: data,
+        });
+        return { success: true };
+      } catch {
+        return serverError(set, "Failed to register device");
+      }
+    },
+    {
+      body: t.Object({
+        device_token: t.String(),
+        device_info: t.Optional(
+          t.Object({
+            device_name: t.Optional(t.String()),
+            os_version: t.Optional(t.String()),
+            app_version: t.Optional(t.String()),
+            bundle_id: t.Optional(t.String()),
+          }),
+        ),
+      }),
+    },
+  )
+  // GET /api/notifications/apns/devices - this user's registered iOS devices
+  .get("/apns/devices", async ({ user, set }) => {
+    if (!user) return unauthorized(set, "Unauthorized");
+    try {
+      const devices = await prisma.apnsDevice.findMany({
+        where: { userId: user.id },
+        orderBy: { updatedAt: "desc" },
+      });
+      return {
+        devices: devices.map((d) => ({
+          id: d.id,
+          device_name: d.deviceName,
+          os_version: d.osVersion,
+          app_version: d.appVersion,
+          created_at: d.createdAt,
+        })),
+      };
+    } catch {
+      return serverError(set, "Failed to load devices");
+    }
+  })
+  // DELETE /api/notifications/apns/devices/:id - remove one iOS device token
+  .delete("/apns/devices/:id", async ({ user, params, set }) => {
+    if (!user) return unauthorized(set, "Unauthorized");
+    const id = parseInt(params.id, 10);
+    if (Number.isNaN(id)) return badRequest(set, "Invalid device ID");
+    try {
+      const device = await prisma.apnsDevice.findFirst({
+        where: { id, userId: user.id },
+      });
+      if (!device) return badRequest(set, "Device not found");
+      await prisma.apnsDevice.delete({ where: { id } });
+      return { success: true };
+    } catch {
+      return serverError(set, "Failed to delete device");
+    }
+  })
   .use(notificationChannelsRoutes);

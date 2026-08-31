@@ -27,6 +27,7 @@ model User {
 
   notifications        Notification[]
   userSubscriptions    UserSubscription[]
+  apnsDevices          ApnsDevice[]
   activityLogs         ActivityLog[]
   notificationChannels NotificationChannel[]
   invitationsSent      Invitation[]          @relation("InvitationInviter")
@@ -145,6 +146,24 @@ model UserSubscription {
   @@index([endpoint], map: "ix_user_subscriptions_endpoint")
   @@index([userId], map: "ix_user_subscriptions_user_id")
   @@map("user_subscriptions")
+}
+
+model ApnsDevice {
+  id          Int       @id @default(autoincrement())
+  userId      String    @map("user_id")
+  deviceToken String    @map("device_token")
+  deviceName  String?   @map("device_name")
+  osVersion   String?   @map("os_version")
+  appVersion  String?   @map("app_version")
+  bundleId    String?   @map("bundle_id")
+  createdAt   DateTime? @default(now()) @map("created_at")
+  updatedAt   DateTime? @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceToken], map: "uq_apns_devices_user_token")
+  @@index([userId], map: "ix_apns_devices_user_id")
+  @@map("apns_devices")
 }
 
 model ActivityLog {

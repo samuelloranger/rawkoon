@@ -456,3 +456,17 @@ struct RssRun: Decodable, Sendable {
     let releasesGrabbedByAi: Int?
     let error: String?
 }
+
+// MARK: - APNs device registration
+
+struct ApnsDeviceInfo: Encodable, Sendable {
+    let deviceName: String?
+    let osVersion: String?
+    let appVersion: String?
+    let bundleId: String?
+}
+
+struct ApnsRegisterBody: Encodable, Sendable {
+    let deviceToken: String
+    let deviceInfo: ApnsDeviceInfo
+}
