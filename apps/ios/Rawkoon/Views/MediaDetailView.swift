@@ -1,3 +1,4 @@
+import RawkoonKit
 import SwiftUI
 
 // Pushed from Discover and Library. `mediaType` is TMDB-style ("movie"/"tv").
@@ -32,6 +33,11 @@ struct MediaDetailView: View {
     @State private var inWatchlist = false
 
     @State private var showingReleaseSearch = false
+    @State private var showingRemoveConfirm = false
+    @State private var menuReleaseSearch: ReleaseSearchPresentation?
+    @State private var pendingRemoveLibraryId: Int?
+    @State private var pendingRemoveTitle = ""
+    @State private var similarMenuDetail: TmdbSearchItem?
 
     @State private var episodesBySeason: [Int: [Episode]] = [:]
     @State private var similarItems: [TmdbSearchItem] = []
@@ -98,6 +104,42 @@ struct MediaDetailView: View {
                     availableSeasons: details?.seasons?.map(\.seasonNumber) ?? []
                 )
                 .environmentObject(model)
+            }
+            .sheet(item: $menuReleaseSearch) { target in
+                ReleaseSearchView(
+                    query: target.query,
+                    libraryMediaId: target.libraryMediaId,
+                    tmdbId: target.tmdbId,
+                    mediaType: target.mediaType,
+                    availableSeasons: []
+                )
+                .environmentObject(model)
+            }
+            .libraryRemoveConfirmation(
+                isPresented: $showingRemoveConfirm,
+                title: pendingRemoveTitle.isEmpty ? title : pendingRemoveTitle
+            ) { deleteFiles in
+                let targetId = pendingRemoveLibraryId ?? libraryId
+                pendingRemoveLibraryId = nil
+                pendingRemoveTitle = ""
+                removeFilesOnDelete = deleteFiles
+                if let targetId {
+                    Task { await removeLibraryItem(id: targetId, deleteFiles: deleteFiles) }
+                }
+            }
+            .navigationDestination(isPresented: Binding(
+                get: { similarMenuDetail != nil },
+                set: { if !$0 { similarMenuDetail = nil } }
+            )) {
+                if let item = similarMenuDetail {
+                    MediaDetailView(
+                        tmdbId: item.tmdbId,
+                        mediaType: item.mediaType,
+                        title: item.title,
+                        posterPath: item.posterUrl,
+                        libraryId: item.libraryId
+                    )
+                }
             }
     }
 
@@ -378,7 +420,15 @@ struct MediaDetailView: View {
                             libraryId: item.libraryId
                         )
                     } label: {
-                        MediaPosterCard(title: item.title, posterURL: model.absoluteURL(item.posterUrl)) {
+                        MediaPosterCard(
+                            title: item.title,
+                            posterURL: model.absoluteURL(item.posterUrl),
+                            menuItems: mediaPosterMenuItems(
+                                inLibrary: item.libraryId != nil,
+                                isAdmin: model.isAdmin
+                            ),
+                            onMenuAction: { handleSimilarMenu($0, item: item) }
+                        ) {
                             if item.alreadyExists == true {
                                 Circle().fill(Theme.seed).frame(width: 22, height: 22)
                                     .overlay(Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Color(hex: 0x10231a)))
@@ -529,9 +579,11 @@ struct MediaDetailView: View {
                 .font(.footnote)
                 .tint(Theme.apricot)
 
-            Button(role: .destructive) {
-                Task { await removeFromLibraryAction() }
-            } label: {
+                Button(role: .destructive) {
+                    pendingRemoveLibraryId = libraryId
+                    pendingRemoveTitle = title
+                    showingRemoveConfirm = true
+                } label: {
                 Label("Remove from library", systemImage: "trash")
                     .frame(maxWidth: .infinity)
                     .frame(height: 22)
@@ -1260,16 +1312,56 @@ struct MediaDetailView: View {
         }
     }
 
-    private func removeFromLibraryAction() async {
-        guard let libraryId else { return }
+    private func removeLibraryItem(id: Int, deleteFiles: Bool) async {
         guard let client = model.api() else { return }
         applyingManagementChange = true
         defer { applyingManagementChange = false }
         do {
-            try await client.removeFromLibrary(id: libraryId, deleteFiles: removeFilesOnDelete)
-            dismiss()
+            try await client.removeFromLibrary(id: id, deleteFiles: deleteFiles)
+            if id == libraryId {
+                dismiss()
+            } else {
+                await fetchSimilar()
+            }
         } catch {
-            managementError = "Could not remove from library."
+            if id == libraryId {
+                managementError = "Could not remove from library."
+            } else {
+                similarError = "Could not remove from library."
+            }
+        }
+    }
+
+    private func handleSimilarMenu(_ action: MediaPosterMenuAction, item: TmdbSearchItem) {
+        switch action {
+        case .toggleMonitored:
+            guard let libraryId = item.libraryId else { return }
+            Task { await toggleSimilarMonitored(libraryId: libraryId) }
+        case .searchReleases:
+            menuReleaseSearch = ReleaseSearchPresentation(
+                query: item.title,
+                libraryMediaId: item.libraryId,
+                tmdbId: item.tmdbId,
+                mediaType: item.mediaType
+            )
+        case .openDetails:
+            similarMenuDetail = item
+        case .removeFromLibrary:
+            guard let libraryId = item.libraryId else { return }
+            pendingRemoveTitle = item.title
+            pendingRemoveLibraryId = libraryId
+            showingRemoveConfirm = true
+        }
+    }
+
+    private func toggleSimilarMonitored(libraryId: Int) async {
+        guard let client = model.api() else { return }
+        do {
+            let item = try await client.libraryItem(id: libraryId)
+            _ = try await client.updateLibraryMonitored(id: libraryId, monitored: !item.monitored)
+            await fetchSimilar()
+        } catch {
+            similarError = "Could not update monitoring."
         }
     }
 

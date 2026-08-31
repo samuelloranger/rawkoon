@@ -48,9 +48,13 @@ struct BookView: View {
     /// Longer than one screen of spine rows; a 3-chapter book does not need a field.
     private let chapterFilterThreshold = 12
 
-    init(book: BookListItem) {
+    init(book: BookListItem, preferEbook: Bool = false) {
         self.book = book
-        _activeLane = State(initialValue: book.hasAudiobook ? .audiobook : .ebook)
+        if preferEbook, book.hasEbook {
+            _activeLane = State(initialValue: .ebook)
+        } else {
+            _activeLane = State(initialValue: book.hasAudiobook ? .audiobook : .ebook)
+        }
     }
 
     private var audiobookEdition: BookEditionDetail? {
