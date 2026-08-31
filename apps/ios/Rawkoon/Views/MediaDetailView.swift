@@ -37,14 +37,14 @@ struct MediaDetailView: View {
                 if loading && details == nil {
                     ProgressView().tint(Theme.apricot)
                         .frame(maxWidth: .infinity)
-                        .padding(.top, 80)
+                        .padding(.top, 16)
                 } else if let errorMessage, details == nil {
                     ContentUnavailableView(
                         "Couldn't load details",
                         systemImage: "exclamationmark.triangle",
                         description: Text(errorMessage)
                     )
-                    .padding(.top, 60)
+                    .padding(.top, 28)
                 } else {
                     hero
                     statusRow

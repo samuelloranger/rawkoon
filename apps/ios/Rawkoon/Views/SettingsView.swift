@@ -38,5 +38,6 @@ struct SettingsView: View {
         .background(Theme.base)
         .tint(Theme.apricot)
         .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
