@@ -43,6 +43,10 @@ struct BookView: View {
     @State private var ebookFilesError: String?
     @State private var previewDocument: EbookPreviewDocument?
     @State private var addingEditionKind: String?
+    @State private var chapterFilter = ""
+
+    /// Longer than one screen of spine rows; a 3-chapter book does not need a field.
+    private let chapterFilterThreshold = 12
 
     init(book: BookListItem) {
         self.book = book
@@ -493,6 +497,14 @@ struct BookView: View {
         }
     }
 
+    private var sortedChapters: [ManifestChapter] {
+        (manifest?.chapters ?? []).sorted(by: { $0.index < $1.index })
+    }
+
+    private var filteredChapters: [ManifestChapter] {
+        filterChapters(sortedChapters, query: chapterFilter)
+    }
+
     private var chaptersList: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Chapters")
@@ -500,26 +512,37 @@ struct BookView: View {
                 .foregroundStyle(Theme.textStrong)
             if loadingManifest {
                 ProgressView().tint(Theme.apricot)
-            } else if let manifest {
-                VStack(spacing: 4) {
-                    ForEach(manifest.chapters.sorted(by: { $0.index < $1.index }), id: \.fileId) { chapter in
-                        Button {
-                            Task {
-                                guard let editionId = audiobookEditionId else { return }
-                                loadingPlayer = true
-                                await model.openPlayer(editionId: editionId, resumeAt: chapter.startSecs)
-                                loadingPlayer = false
-                                if model.errorMessage == nil { showingPlayer = true }
+            } else if manifest != nil {
+                if sortedChapters.count > chapterFilterThreshold {
+                    searchField("Filter chapters", text: $chapterFilter)
+                }
+                if filteredChapters.isEmpty {
+                    if !chapterFilter.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text("No chapters match.")
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.muted)
+                    }
+                } else {
+                    VStack(spacing: 4) {
+                        ForEach(filteredChapters, id: \.fileId) { chapter in
+                            Button {
+                                Task {
+                                    guard let editionId = audiobookEditionId else { return }
+                                    loadingPlayer = true
+                                    await model.openPlayer(editionId: editionId, resumeAt: chapter.startSecs)
+                                    loadingPlayer = false
+                                    if model.errorMessage == nil { showingPlayer = true }
+                                }
+                            } label: {
+                                SpineRow(
+                                    index: chapter.index,
+                                    title: chapter.title,
+                                    downloaded: isChapterDownloaded(chapter),
+                                    current: isCurrentChapter(chapter)
+                                )
                             }
-                        } label: {
-                            SpineRow(
-                                index: chapter.index,
-                                title: chapter.title,
-                                downloaded: isChapterDownloaded(chapter),
-                                current: isCurrentChapter(chapter)
-                            )
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
             } else {
