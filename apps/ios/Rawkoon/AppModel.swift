@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import Network
 import RawkoonKit
 import UIKit
 import UserNotifications
@@ -38,6 +39,15 @@ final class AppModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var verifiedCounts: [Int: Int] = [:]
     private var lastProgressWriteMillis: [Int: Int64] = [:]
+    /// Whether the device currently has a usable network path.
+    ///
+    /// Starts `true` so a launch never assumes offline before the monitor has
+    /// reported. It says an interface exists, not that the server answers — a
+    /// captive portal or a down server still has to be handled by whatever
+    /// waits on the request.
+    @Published private(set) var isOnline = true
+    private let pathMonitor = NWPathMonitor()
+
     private let readingProgressStore = ReadingProgressStore(
         directory: FileStore.booksDirectory()
     )
@@ -60,6 +70,17 @@ final class AppModel: ObservableObject {
         }
 
         bindPlayer()
+        startPathMonitor()
+    }
+
+    private func startPathMonitor() {
+        pathMonitor.pathUpdateHandler = { path in
+            let online = path.status == .satisfied
+            Task { @MainActor [weak self] in
+                self?.isOnline = online
+            }
+        }
+        pathMonitor.start(queue: DispatchQueue(label: "cloud.samlo.rawkoon.path"))
     }
 
     func login(server: String, email: String, password: String) async {
@@ -530,7 +551,10 @@ final class AppModel: ObservableObject {
     func readingPosition(editionId: Int) async -> ReadingPosition? {
         let local = readingProgressStore.position(editionId: editionId)
         var remote: ReadingPosition?
-        if let apiClient {
+        // Offline, this request cannot succeed and URLSession would spend its
+        // full 60-second timeout finding that out — with the reader stuck on
+        // "Opening book…" the whole time, for a book that is already on disk.
+        if isOnline, let apiClient {
             remote = (try? await apiClient.readingProgress())?
                 .first { $0.editionId == editionId }
         }
