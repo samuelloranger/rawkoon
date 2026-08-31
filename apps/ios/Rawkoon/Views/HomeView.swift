@@ -605,9 +605,12 @@ struct HomeView: View {
             ?? files[0]
 
         let localURL = try await ensureLocalEbookFile(selected, editionId: item.editionId)
+        // Rawkoon's language rather than the EPUB's; see EbookPreviewDocument.
+        let language = try? await client.bookDetail(bookId: item.bookId).language
         return EbookPreviewDocument(
             id: selected.id,
             editionId: item.editionId,
+            language: language,
             title: item.title,
             localURL: localURL
         )

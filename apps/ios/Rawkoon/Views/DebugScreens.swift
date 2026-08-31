@@ -376,9 +376,11 @@ struct DebugEbookReader: View {
             }
         }
 
+        let language = try? await client.bookDetail(bookId: book.bookId).language
         document = EbookPreviewDocument(
             id: file.id,
             editionId: book.ebookEditionId,
+            language: language,
             title: book.title,
             localURL: localURL
         )
