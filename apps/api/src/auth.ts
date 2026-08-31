@@ -185,6 +185,8 @@ export const mobileAuthRoutes = new Elysia({ name: "auth/mobile" })
         method: "POST",
         headers: {
           "content-type": "application/json",
+          // better-auth requires an Origin it trusts for OAuth start.
+          origin: base,
           cookie: request.headers.get("cookie") ?? "",
         },
         body: JSON.stringify({
@@ -193,12 +195,22 @@ export const mobileAuthRoutes = new Elysia({ name: "auth/mobile" })
         }),
       }),
     );
-    const data = (await initRes.json().catch(() => ({}))) as { url?: string };
+    const rawBody = await initRes.text().catch(() => "");
+    let data: { url?: string } = {};
+    try {
+      data = JSON.parse(rawBody) as { url?: string };
+    } catch {
+      data = {};
+    }
     if (!data.url) {
-      return new Response(JSON.stringify({ error: "oauth_init_failed" }), {
-        status: 502,
-        headers: { "content-type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          error: "oauth_init_failed",
+          upstream_status: initRes.status,
+          upstream_body: rawBody.slice(0, 300),
+        }),
+        { status: 502, headers: { "content-type": "application/json" } },
+      );
     }
     const headers = new Headers({ location: data.url });
     for (const cookie of initRes.headers.getSetCookie())
