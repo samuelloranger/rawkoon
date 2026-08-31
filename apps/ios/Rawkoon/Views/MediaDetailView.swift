@@ -56,12 +56,15 @@ struct MediaDetailView: View {
                     primaryAction
                     if mediaType == "tv" {
                         seasonsSection
+                    } else {
+                        detailsSection
                     }
                 }
             }
             .padding(.bottom, 24)
         }
         .background(Theme.base)
+        .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .task {
             if details == nil {
@@ -103,6 +106,12 @@ struct MediaDetailView: View {
                         Text(metaLine)
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(Theme.faint)
+                        if let tagline = details?.tagline, !tagline.isEmpty {
+                            Text(tagline)
+                                .font(.caption.italic())
+                                .foregroundStyle(Theme.muted)
+                                .lineLimit(2)
+                        }
                     }
                     Spacer(minLength: 0)
                 }
@@ -215,6 +224,60 @@ struct MediaDetailView: View {
             }
         }
         .padding(.horizontal, 16)
+    }
+
+    // MARK: Details (movies)
+
+    @ViewBuilder
+    private var detailsSection: some View {
+        if hasDetailsToShow {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Details")
+                    .font(.display(17))
+                    .foregroundStyle(Theme.textStrong)
+
+                VStack(spacing: 0) {
+                    if let voteAverage = details?.voteAverage, voteAverage > 0 {
+                        detailRow(label: "Rating", value: String(format: "%.1f/10", voteAverage))
+                    }
+                    if let status = details?.status, !status.isEmpty {
+                        detailRow(label: "Status", value: status)
+                    }
+                    if let runtime = details?.runtime, runtime > 0 {
+                        let hours = runtime / 60
+                        let minutes = runtime % 60
+                        let runtimeText = hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
+                        detailRow(label: "Runtime", value: runtimeText)
+                    }
+                }
+                .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border, lineWidth: 1))
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    private var hasDetailsToShow: Bool {
+        (details?.voteAverage ?? 0) > 0
+            || !(details?.status ?? "").isEmpty
+            || (details?.runtime ?? 0) > 0
+    }
+
+    private func detailRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label.uppercased())
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(Theme.faint)
+            Spacer()
+            Text(value)
+                .font(.system(.subheadline, design: .monospaced))
+                .foregroundStyle(Theme.text)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .overlay(alignment: .bottom) {
+            Divider().overlay(Theme.border)
+        }
     }
 
     // MARK: Seasons

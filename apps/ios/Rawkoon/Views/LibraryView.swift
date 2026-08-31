@@ -245,8 +245,8 @@ private struct MediaPosterCell: View {
             }
 
             Text(item.title)
-                .font(.subheadline)
-                .foregroundStyle(Theme.text)
+                .font(.display(14))
+                .foregroundStyle(Theme.textStrong)
                 .lineLimit(2)
 
             if mediaType == "tv" {
@@ -261,9 +261,9 @@ private struct MediaPosterCell: View {
     private var badge: some View {
         switch item.status {
         case "downloading":
-            StatusBadge(text: "DL", tint: Theme.apricot)
-        case "downloaded":
-            StatusBadge(text: "✓", tint: Theme.seed)
+            StatusBadge(text: "Downloading", tint: Theme.apricot)
+        case "missing", "wanted":
+            StatusBadge(text: item.status.capitalized, tint: Theme.muted)
         default:
             EmptyView()
         }

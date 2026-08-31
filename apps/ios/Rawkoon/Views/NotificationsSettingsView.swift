@@ -112,8 +112,9 @@ struct NotificationsSettingsView: View {
         Toggle(row.label, isOn: Binding(
             get: { prefs[row.key] ?? true },
             set: { newValue in
+                let previousValue = prefs[row.key] ?? true
                 prefs[row.key] = newValue
-                Task { await savePrefs() }
+                Task { await savePrefs(key: row.key, previousValue: previousValue) }
             }
         ))
     }
@@ -126,12 +127,13 @@ struct NotificationsSettingsView: View {
         _ = try? await client.currentUser()
     }
 
-    private func savePrefs() async {
+    private func savePrefs(key: String, previousValue: Bool) async {
         guard let client = model.api() else { return }
         do {
             try await client.updateNotificationPrefs(prefs)
             saveError = nil
         } catch {
+            prefs[key] = previousValue
             saveError = "Couldn't save your notification preferences."
         }
     }
