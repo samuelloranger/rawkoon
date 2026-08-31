@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll, mock } from "bun:test";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 // rescanBookEdition adopts files already sitting in the library. It walks real
 // directories, so these tests use a real tmpdir and mock only the database and
@@ -11,13 +11,19 @@ const root = await mkdtemp(join(tmpdir(), "rawkoon-rescan-"));
 const booksRoot = join(root, "Books");
 const audiobooksRoot = join(root, "Audiobooks");
 
-type Row = { id: number; editionId: number; filePath: string };
+type Row = {
+  id: number;
+  editionId: number;
+  filePath: string;
+  fileName: string;
+};
 
 const state: {
   edition: Record<string, unknown> | null;
   files: Row[];
   nextFileId: number;
   chapterDeleteCalls: number;
+  chaptersCreated: Array<Record<string, unknown>>;
   editionUpdates: Array<{
     where: { id: number };
     data: Record<string, unknown>;
@@ -29,6 +35,7 @@ const state: {
   files: [],
   nextFileId: 1,
   chapterDeleteCalls: 0,
+  chaptersCreated: [],
   editionUpdates: [],
   deletedIds: [],
   created: [],
@@ -95,6 +102,7 @@ mock.module("@rawkoon/api/db", () => ({
           id: state.nextFileId++,
           editionId: args.data.editionId as number,
           filePath: args.data.filePath as string,
+          fileName: args.data.fileName as string,
         };
         state.files.push(row);
         return Promise.resolve(row);
@@ -105,7 +113,13 @@ mock.module("@rawkoon/api/db", () => ({
       arg:
         | Promise<unknown>[]
         | ((tx: {
-            bookChapter: { deleteMany: (args: unknown) => Promise<unknown> };
+            bookChapter: {
+              deleteMany: (args: unknown) => Promise<unknown>;
+              create: (args: {
+                data: Record<string, unknown>;
+              }) => Promise<unknown>;
+            };
+            bookFile: { update: (args: unknown) => Promise<unknown> };
             bookEdition: {
               update: (args: {
                 where: { id: number };
@@ -121,7 +135,12 @@ mock.module("@rawkoon/api/db", () => ({
               state.chapterDeleteCalls += 1;
               return { count: 0 };
             },
+            create: async (args: { data: Record<string, unknown> }) => {
+              state.chaptersCreated.push(args.data);
+              return args.data;
+            },
           },
+          bookFile: { update: async () => ({}) },
           bookEdition: { update: pushEditionUpdate },
         });
       }
@@ -175,6 +194,7 @@ describe("rescanBookEdition", () => {
     state.files = [];
     state.nextFileId = 1;
     state.chapterDeleteCalls = 0;
+    state.chaptersCreated = [];
     state.editionUpdates = [];
     state.deletedIds = [];
     state.created = [];
@@ -299,6 +319,80 @@ describe("rescanBookEdition", () => {
       "02.mp3",
       "03.mp3",
     ]);
+  });
+
+  // An audiobook rescan now also registers the chapter timeline, which is what
+  // flips `offlineReady`. That path probes each track through ffprobe, so it is
+  // covered by the registerBookChapters suite rather than mocked here —
+  // `mock.module` is process-wide in bun and would break that suite.
+  /**
+   * The directory was created at import time from the metadata of the day. A
+   * later refresh bumped publishedYear, so re-rendering the template names a
+   * directory that never existed — and the rescan used to answer "no files
+   * found in the library for this edition" about a file sitting right there.
+   */
+  it("finds files through the rows' own directory when metadata drifted since import", async () => {
+    // On disk under (2019); the book now says 2024.
+    await mkdir(ebookDir, { recursive: true });
+    const file = join(ebookDir, "A Quiet Harbour (2019) [epub].epub");
+    await writeFile(file, "x");
+    state.edition = editionFixture({
+      book: { ...editionFixture().book, publishedYear: 2024 },
+    });
+    state.files = [
+      { id: 7, editionId: 1, filePath: file, fileName: basename(file) } as Row,
+    ];
+
+    const result = await rescanBookEdition(1);
+
+    expect(result.directory).toBe(ebookDir);
+    expect(result.refreshed).toBe(1);
+    expect(state.deletedIds).toEqual([]);
+  });
+
+  // Uppercase extensions are real: the library holds both ".epub" and ".EPUB".
+  it("adopts a file whose extension is uppercased", async () => {
+    await mkdir(ebookDir, { recursive: true });
+    await writeFile(join(ebookDir, "A Quiet Harbour (2019) [epub].EPUB"), "x");
+
+    const result = await rescanBookEdition(1);
+
+    expect(result.registered).toBe(1);
+    expect(state.created[0]?.format).toBe("epub");
+  });
+
+  // The expensive part of a rescan is the per-file probe. An unchanged file
+  // keeps its row untouched rather than paying for it again.
+  it("skips re-probing a file whose size, inode and mtime are unchanged", async () => {
+    const { stat } = await import("node:fs/promises");
+    state.edition = editionFixture({
+      kind: "audiobook",
+      offlineReady: true,
+      bookQualityProfile: { allowedFormats: ["mp3"] },
+    });
+    await mkdir(audiobookDir, { recursive: true });
+    const track = join(audiobookDir, "01.mp3");
+    await writeFile(track, "x");
+    const st = await stat(track);
+    state.files = [
+      {
+        id: 42,
+        editionId: 1,
+        filePath: track,
+        fileName: "01.mp3",
+        sizeBytes: BigInt(st.size),
+        fileDev: String(st.dev),
+        fileIno: String(st.ino),
+        fileMtimeMs: BigInt(Math.trunc(st.mtimeMs)),
+      } as unknown as Row,
+    ];
+
+    const result = await rescanBookEdition(1);
+
+    expect(result.refreshed).toBe(1);
+    expect(result.registered).toBe(0);
+    // No upsert ran, so nothing was re-probed.
+    expect(state.created).toEqual([]);
   });
 
   it("reports an error instead of guessing when no library path is set", async () => {

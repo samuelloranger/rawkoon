@@ -93,6 +93,18 @@ describe("chapterTitleFromFileName", () => {
   test("falls back to the stem when there is no ordinal prefix", () => {
     expect(chapterTitleFromFileName("Prologue.mp3")).toBe("Prologue");
   });
+
+  // The real library names them this way — no dash at all.
+  test("handles a space or a dot as the separator", () => {
+    expect(chapterTitleFromFileName("62 Epilogue.mp3")).toBe("Epilogue");
+    expect(chapterTitleFromFileName("31 Chapitre 31.mp3")).toBe("Chapitre 31");
+    expect(chapterTitleFromFileName("07. Chapter 7.mp3")).toBe("Chapter 7");
+  });
+
+  // Digits that are part of the title, not an ordinal: no separator follows.
+  test("does not eat a leading number that is the title", () => {
+    expect(chapterTitleFromFileName("1984.mp3")).toBe("1984");
+  });
 });
 
 describe("sortChapterFiles", () => {
@@ -118,6 +130,28 @@ describe("sortChapterFiles", () => {
     expect(sortChapterFiles(["02 - B.mp3", "01 - A.mp3"])).toEqual([
       "01 - A.mp3",
       "02 - B.mp3",
+    ]);
+  });
+
+  /**
+   * "62 Epilogue.mp3" — the naming the audiobooks in the library actually use.
+   * A dash-only ordinal matched none of these, so ordering fell back to
+   * localeCompare: fine while every name is zero-padded, wrong the moment one
+   * is not, and every offset after the misplaced chapter is then wrong too.
+   */
+  test("orders numerically when the separator is only a space", () => {
+    expect(
+      sortChapterFiles([
+        "10 Chapitre 10.mp3",
+        "2 Chapitre 2.mp3",
+        "62 Epilogue.mp3",
+        "1 Chapitre 1.mp3",
+      ]),
+    ).toEqual([
+      "1 Chapitre 1.mp3",
+      "2 Chapitre 2.mp3",
+      "10 Chapitre 10.mp3",
+      "62 Epilogue.mp3",
     ]);
   });
 });
