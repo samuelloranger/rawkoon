@@ -49,6 +49,36 @@ struct DebugFirstDetail: View {
     }
 }
 
+/// Shows a book's detail — prefers an ebook-only book so the merged view and
+/// the "Add audiobook" flow are visible.
+struct DebugFirstBook: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var loaded = false
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let book = pick() {
+                    BookView(book: book)
+                } else if loaded {
+                    Text("No books").foregroundStyle(Theme.muted)
+                } else {
+                    ProgressView().tint(Theme.apricot)
+                }
+            }
+            .background(Theme.base)
+        }
+        .task {
+            if model.library.isEmpty { await model.loadLibrary() }
+            loaded = true
+        }
+    }
+
+    private func pick() -> BookListItem? {
+        model.library.first { $0.hasEbook && !$0.hasAudiobook } ?? model.library.first
+    }
+}
+
 /// Shows the release-search sheet content for the first library movie.
 struct DebugFirstReleaseSearch: View {
     @EnvironmentObject private var model: AppModel
