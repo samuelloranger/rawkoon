@@ -2,6 +2,7 @@ import AVFoundation
 import Foundation
 import MediaPlayer
 import RawkoonKit
+import UIKit
 
 final class AudiobookPlayer: ObservableObject {
     @Published private(set) var positionSecs: Double = 0
@@ -24,6 +25,10 @@ final class AudiobookPlayer: ObservableObject {
     private var sleepEndChapterIndex: Int?
     private var lastSleepTick: Date?
     private static let sleepFadeWindow: Double = 8
+
+    private var artworkURL: URL?
+    private var artwork: MPMediaItemArtwork?
+    private var artworkTask: Task<Void, Never>?
 
     private var player: AVQueuePlayer?
     private var timeline: BookTimeline?
@@ -53,9 +58,10 @@ final class AudiobookPlayer: ObservableObject {
         }
     }
 
-    func load(manifest: BookManifest, baseURL: URL, resumeAt: Double) {
+    func load(manifest: BookManifest, baseURL: URL, resumeAt: Double, artworkURL: URL? = nil) {
         self.manifest = manifest
         self.baseURL = baseURL
+        loadArtwork(from: artworkURL)
         self.chapters = manifest.chapters.sorted { $0.index < $1.index }
         let timeline = BookTimeline(chapters: chapters)
         self.timeline = timeline
@@ -69,10 +75,34 @@ final class AudiobookPlayer: ObservableObject {
         guard let manifest, let baseURL else { return }
         let resumeAt = positionSecs
         let resumePlaying = isPlaying
-        load(manifest: manifest, baseURL: baseURL, resumeAt: resumeAt)
+        load(manifest: manifest, baseURL: baseURL, resumeAt: resumeAt, artworkURL: artworkURL)
         if resumePlaying {
             play()
         }
+    }
+
+    /// Stops playback and forgets the book, so the mini player can be closed.
+    ///
+    /// The Now Playing entry has to go with it: leaving it behind keeps a
+    /// paused book on the Lock Screen and in CarPlay with no way to dismiss it.
+    func unload() {
+        pause()
+        artworkTask?.cancel()
+        artworkTask = nil
+        tearDownObservers()
+        player?.removeAllItems()
+        player = nil
+        manifest = nil
+        timeline = nil
+        chapters = []
+        itemChapters = [:]
+        artwork = nil
+        artworkURL = nil
+        positionSecs = 0
+        duration = 0
+        setCurrentChapter(nil)
+        setSleep(.off)
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
 
     func play() {
@@ -515,11 +545,46 @@ final class AudiobookPlayer: ObservableObject {
         }
 
         var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
-        info[MPMediaItemPropertyTitle] = manifest.title
+        info[MPMediaItemPropertyTitle] = currentChapter?.title ?? manifest.title
+        info[MPMediaItemPropertyAlbumTitle] = manifest.title
+        info[MPMediaItemPropertyArtist] = manifest.authors.joined(separator: ", ")
+        info[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.audio.rawValue
         info[MPMediaItemPropertyPlaybackDuration] = duration
         info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = positionSecs
         info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? rate : 0
+        if let artwork {
+            info[MPMediaItemPropertyArtwork] = artwork
+        } else {
+            info.removeValue(forKey: MPMediaItemPropertyArtwork)
+        }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    /// Fetches the cover for the Lock Screen, Control Center and CarPlay.
+    ///
+    /// `MPMediaItemArtwork` wants a `UIImage`, not a URL, so nothing shows
+    /// until the bytes are in hand — which is why Now Playing was blank while
+    /// the same cover rendered fine in-app through `AsyncImage`.
+    private func loadArtwork(from url: URL?) {
+        guard url != artworkURL || (url != nil && artwork == nil) else { return }
+        artworkTask?.cancel()
+        artworkTask = nil
+        artworkURL = url
+        artwork = nil
+        guard let url else { return }
+
+        artworkTask = Task { [weak self] in
+            guard
+                let (data, _) = try? await URLSession.shared.data(from: url),
+                !Task.isCancelled,
+                let image = UIImage(data: data)
+            else { return }
+            await MainActor.run {
+                guard let self, self.artworkURL == url else { return }
+                self.artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+                self.updateNowPlayingInfo()
+            }
+        }
     }
 
     private func configureRemoteCommands() {

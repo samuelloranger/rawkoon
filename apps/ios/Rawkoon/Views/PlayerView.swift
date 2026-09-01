@@ -4,6 +4,7 @@ import SwiftUI
 
 struct PlayerView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
 
     let summary: LibrarySummary
     let manifest: BookManifest
@@ -24,48 +25,16 @@ struct PlayerView: View {
             .ignoresSafeArea()
             Theme.duskGlow.ignoresSafeArea()
 
-            VStack(spacing: 16) {
-                BookCover(url: summary.coverURL, size: 220, corner: 16)
-                    .frame(maxWidth: 220)
-                    .shadow(color: .black.opacity(0.6), radius: 24, y: 14)
-                    .padding(.top, 8)
-                    .accessibilityHidden(true)
+            VStack(spacing: 0) {
+                header
 
-                VStack(spacing: 4) {
-                    Text(summary.title)
-                        .font(.display(20))
-                        .foregroundStyle(Theme.textStrong)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                    Text(currentChapterTitle)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(hasChapter ? Theme.apricotSoft : Theme.muted)
-                        .lineLimit(1)
+                // The sheet is always full-height, and the controls are a
+                // fixed-height stack, so without the pair of spacers
+                // everything pinned itself to the top and left a dead half
+                // screen underneath.
+                Spacer(minLength: 0)
 
-                    if !manifest.chapters.isEmpty {
-                        Button {
-                            showingChapters = true
-                        } label: {
-                            Label("Chapters", systemImage: "list.bullet")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(Theme.muted)
-                                .frame(minHeight: 44)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Choose chapter")
-                    }
-                }
-                .padding(.top, 8)
-                .accessibilityElement(children: .combine)
-
-                scrubber
-                transport
-
-                HStack(spacing: 12) {
-                    rateMenu
-                    sleepMenu
-                }
-                .padding(.top, 8)
+                playbackStack
 
                 Spacer(minLength: 0)
             }
@@ -112,6 +81,88 @@ struct PlayerView: View {
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
         }
+    }
+
+    // MARK: Content
+
+    private var playbackStack: some View {
+        VStack(spacing: 16) {
+            BookCover(url: summary.coverURL, size: 220, corner: 16)
+                .frame(maxWidth: 220)
+                .shadow(color: .black.opacity(0.6), radius: 24, y: 14)
+                .accessibilityHidden(true)
+
+            VStack(spacing: 4) {
+                Text(summary.title)
+                    .font(.display(20))
+                    .foregroundStyle(Theme.textStrong)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                Text(currentChapterTitle)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(hasChapter ? Theme.apricotSoft : Theme.muted)
+                    .lineLimit(1)
+
+                if !manifest.chapters.isEmpty {
+                    Button {
+                        showingChapters = true
+                    } label: {
+                        Label("Chapters", systemImage: "list.bullet")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Theme.muted)
+                            .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Choose chapter")
+                }
+            }
+            .padding(.top, 8)
+            .accessibilityElement(children: .combine)
+
+            scrubber
+            transport
+
+            HStack(spacing: 12) {
+                rateMenu
+                sleepMenu
+            }
+            .padding(.top, 8)
+        }
+    }
+
+    // MARK: Header
+
+    /// Chevron collapses the sheet back to the mini player; the cross stops
+    /// playback outright and dismisses both.
+    private var header: some View {
+        HStack {
+            Button { dismiss() } label: {
+                headerIcon("chevron.down")
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Collapse player")
+
+            Spacer()
+
+            Button {
+                model.closePlayer()
+                dismiss()
+            } label: {
+                headerIcon("xmark")
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Stop playback and close")
+        }
+        .padding(.top, 8)
+    }
+
+    private func headerIcon(_ name: String) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(Theme.textStrong)
+            .frame(width: 44, height: 44)
+            .background(Theme.raised.opacity(0.8), in: Circle())
+            .contentShape(Circle())
     }
 
     // MARK: Scrubber
