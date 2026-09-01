@@ -1,0 +1,23 @@
+# SwiftFormat configuration for apps/ios.
+#
+# Phase 1 (lint/format/logging guardrails) of the iOS clean-code milestone.
+# Default rule set only, aside from the two exceptions below — the milestone's
+# hardest constraint is zero user-visible change, including layout, and a
+# broad default autoformat pass (whitespace, ordering, literal formatting,
+# pattern hoisting) is the intended first commit.
+
+# Mirrors project.yml's targets.Rawkoon.settings.base.SWIFT_VERSION exactly.
+# The two must be bumped together in the same commit in the Swift 6 phase, or
+# SwiftFormat emits syntax the compiler does not yet accept at the old
+# language version.
+--swiftversion 5.0
+
+# Deletes SwiftUI `Group` wrappers, which changes the view tree's static
+# type — the thing SwiftUI uses for identity, diffing and transitions. A dry
+# run on macbuild found 51 sites in this tree, and this milestone forbids any
+# user-visible change including layout, so this rule stays off.
+--disable redundantSwiftUIGroup
+
+# Same class of risk: drops a result-builder attribute and changes the
+# resulting view's static type. 2 sites in this tree.
+--disable redundantViewBuilder
