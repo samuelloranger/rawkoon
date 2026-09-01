@@ -46,6 +46,7 @@ A requirement is not complete without both.
 - [ ] **CONC-04**: No `@unchecked Sendable` and no `nonisolated(unsafe)` is introduced without a comment justifying it against the alternative
 - [ ] **CONC-05**: No remote command, interruption resume, or seek gains a `Task` hop that was not there before, unless the hop is shown to be necessary — a deferred play/pause is a user-visible regression
 - [ ] **CONC-06**: The `InterruptionPolicy` and `SmartRewind` test suites still pass unchanged, and the manual drive test (start a chapter, let Maps speak, playback resumes) is re-run on device
+- [ ] **CONC-07**: `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` is set on the `Rawkoon` app target and on no other target — `RawkoonKit` keeps `nonisolated` default isolation, because a Linux-tested pure-logic package usable from any isolation domain is exactly the case SE-0466 names as the wrong one for this setting
 
 ### Decomposition
 
@@ -86,7 +87,7 @@ Acknowledged, not in this roadmap.
 
 ### Tooling
 
-- **V2-06**: `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, once the strict-concurrency migration has settled
+- ~~**V2-06**: `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`~~ — moved into scope as **CONC-07** (Phase 4). `research/PITFALLS.md` §1 argues it belongs inside the migration rather than after it: with default isolation on, most of the hand-rolled `onMain`/`Task { @MainActor in }` hops become redundant, so deferring it means auditing every isolation annotation a second time
 - **V2-07**: Danger or an equivalent to surface lint findings as PR comments
 
 ## Out of Scope
@@ -131,28 +132,40 @@ Acknowledged, not in this roadmap.
 | CONC-04 | Phase 4 | Pending |
 | CONC-05 | Phase 4 | Pending |
 | CONC-06 | Phase 4 | Pending |
+| CONC-07 | Phase 4 | Pending |
 | API-01 | Phase 5 | Pending |
 | API-02 | Phase 5 | Pending |
-| VM-01 | Phase 5 | Pending |
-| VM-02 | Phase 5 | Pending |
-| VM-03 | Phase 5 | Pending |
-| VM-04 | Phase 5 | Pending |
-| I18N-01 | Phase 6 | Pending |
-| I18N-02 | Phase 6 | Pending |
-| I18N-03 | Phase 6 | Pending |
-| I18N-04 | Phase 6 | Pending |
-| A11Y-01 | Phase 6 | Pending |
-| A11Y-02 | Phase 6 | Pending |
-| A11Y-03 | Phase 6 | Pending |
-| TEST-01 | Phase 6 | Pending |
-| TEST-02 | Phase 6 | Pending |
-| TEST-03 | Phase 6 | Pending |
+| TEST-01 | Phase 5 | Pending |
+| TEST-02 | Phase 5 | Pending |
+| VM-01 | Phase 6 | Pending |
+| VM-02 | Phase 6 | Pending |
+| VM-03 | Phase 6 | Pending |
+| VM-04 | Phase 6 | Pending |
+| I18N-01 | Phase 7 | Pending |
+| I18N-02 | Phase 7 | Pending |
+| I18N-03 | Phase 7 | Pending |
+| I18N-04 | Phase 7 | Pending |
+| A11Y-01 | Phase 7 | Pending |
+| A11Y-02 | Phase 7 | Pending |
+| A11Y-03 | Phase 7 | Pending |
+| TEST-03 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: 40 total
-- Mapped to phases: 40
+- v1 requirements: 41 total (40 as defined above, plus CONC-07 pulled in from v2)
+- Mapped to phases: 41
 - Unmapped: 0 ✓
+- Duplicated across phases: 0 ✓
+
+**Phase re-cut, 2026-09-01.** The grouping above differs from the one first
+proposed here in one place: TEST-01 and TEST-02 moved out of the final phase
+into Phase 5, alongside API-01/API-02. VM-03 requires the two new view models
+to be unit tested, those view models live in the app target, and an app-target
+test bundle is exactly what TEST-01/TEST-02 build — so the harness has to exist
+before the tests that need it are written. TEST-03 (the suite actually covering
+the view models, the loggers, and the formatters, and gating the upload) stays
+in the last phase. See `.planning/ROADMAP.md` § "Deviation from the proposed
+grouping" for the full reasoning.
 
 ---
 *Requirements defined: 2026-09-01*
-*Last updated: 2026-09-01 after initialization*
+*Last updated: 2026-09-01 after roadmap creation (7 phases; CONC-07 added; TEST-01/02 re-cut into Phase 5)*
