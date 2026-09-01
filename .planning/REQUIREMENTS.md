@@ -13,10 +13,10 @@ A requirement is not complete without both.
 
 ### Guardrails
 
-- [ ] **LINT-01**: `.swiftlint.yml` and a SwiftFormat config are committed under `apps/ios`, and both tools run clean over `Rawkoon/`, `Sources/`, and `Tests/`
-- [ ] **LINT-02**: `file_length`, `type_body_length`, and `function_body_length` are enabled as warnings with thresholds just above today's worst offenders, so no file can grow past its current size
-- [ ] **LINT-03**: A `lint` job in `.github/workflows/ios.yml` fails the build on a lint or format violation, and runs before the expensive macOS jobs
-- [ ] **LINT-04**: Every rule disabled project-wide carries a comment saying why; no blanket `disabled_rules` dump
+- [x] **LINT-01**: `.swiftlint.yml` and a SwiftFormat config are committed under `apps/ios`, and both tools run clean over `Rawkoon/`, `Sources/`, and `Tests/`
+- [x] **LINT-02**: `file_length`, `type_body_length`, and `function_body_length` are enabled as warnings with thresholds just above today's worst offenders, so no file can grow past its current size
+- [x] **LINT-03**: A `lint` job in `.github/workflows/ios.yml` fails the build on a lint or format violation, and runs before the expensive macOS jobs
+- [x] **LINT-04**: Every rule disabled project-wide carries a comment saying why; no blanket `disabled_rules` dump
 - [ ] **LOG-01**: A single logging surface exists (`Logger(subsystem: "cloud.samlo.rawkoon", category:)`), with one category per domain: playback, download, network, auth, sync
 - [ ] **LOG-02**: Every `try?` in the download and playback paths either reports its failure through that logger or carries a comment explaining why the error is genuinely uninteresting
 - [ ] **LOG-03**: No logged value leaks a bearer token, a password, or a full server URL with credentials; privacy annotations are explicit where a value is deliberately public
@@ -108,10 +108,10 @@ Acknowledged, not in this roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LINT-01 | Phase 1 | Pending |
-| LINT-02 | Phase 1 | Pending |
-| LINT-03 | Phase 1 | Pending |
-| LINT-04 | Phase 1 | Pending |
+| LINT-01 | Phase 1 | Complete |
+| LINT-02 | Phase 1 | Complete |
+| LINT-03 | Phase 1 | Complete |
+| LINT-04 | Phase 1 | Complete |
 | LOG-01 | Phase 1 | Pending |
 | LOG-02 | Phase 1 | Pending |
 | LOG-03 | Phase 1 | Pending |
@@ -151,6 +151,7 @@ Acknowledged, not in this roadmap.
 | TEST-03 | Phase 7 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 41 total (40 as defined above, plus CONC-07 pulled in from v2)
 - Mapped to phases: 41
 - Unmapped: 0 ✓

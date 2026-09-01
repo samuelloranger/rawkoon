@@ -218,3 +218,7 @@ None - no external service configuration required.
 ---
 *Phase: 01-lint-format-and-logging-guardrails*
 *Completed: 2026-09-01*
+
+## Self-Check: PASSED
+
+All claimed files found on disk (`apps/ios/.swiftlint.yml`, `apps/ios/.swiftformat`, `.github/workflows/ios.yml`, this SUMMARY). All claimed commits found in git history (`5f3c6a3`, `7969f82`, `b8f5ec8`, `ec49445`, `22cfada`).
