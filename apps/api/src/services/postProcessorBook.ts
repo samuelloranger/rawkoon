@@ -1,4 +1,5 @@
 import { mkdir, readdir, stat, unlink } from "node:fs/promises";
+import { sha256File } from "@rawkoon/api/utils/books/fileHash";
 import { basename, dirname, extname, join } from "node:path";
 
 import { prisma } from "@rawkoon/api/db";
@@ -363,6 +364,7 @@ export async function postProcessBook(opts: {
         filePath: dst,
         fileName: basename(dst),
         sizeBytes: BigInt(st?.size ?? 0),
+        sha256: await sha256File(dst),
         format: keeper.format,
         durationSecs,
         audioBitrate: audioBitrate ?? parsedRelease.audioBitrate,
