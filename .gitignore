@@ -96,3 +96,8 @@ apps/ios/*.xcodeproj
 apps/ios/build/
 apps/ios/.build/
 apps/ios/Rawkoon/Info.plist
+
+# GSD run-scoped state — a session lock (pid) and the dispatch-isolation
+# sentinel. Both describe one run on one machine, not the project.
+.planning/milestone.lock
+.gsd/

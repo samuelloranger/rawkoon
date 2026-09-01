@@ -1,0 +1,48 @@
+{
+  "contract": "1.0.0",
+  "flavor": "core",
+  "milestone": "v1.12.6",
+  "phases": [
+    {
+      "number": "1",
+      "name": "Lint, format, and logging guardrails",
+      "status": "in_progress"
+    },
+    {
+      "number": "2",
+      "name": "Shared formatters and network discipline",
+      "status": "pending"
+    },
+    {
+      "number": "3",
+      "name": "Observation",
+      "status": "pending"
+    },
+    {
+      "number": "4",
+      "name": "Swift 6 strict concurrency",
+      "status": "pending"
+    },
+    {
+      "number": "5",
+      "name": "Seams — APIClient split and test bundle",
+      "status": "pending"
+    },
+    {
+      "number": "6",
+      "name": "View models",
+      "status": "pending"
+    },
+    {
+      "number": "7",
+      "name": "Localization, accessibility, coverage gate",
+      "status": "pending"
+    }
+  ],
+  "next": {
+    "command": "/gsd:progress --next",
+    "label": "Advance to the next step (verify)",
+    "reason": "Phase 1 of 7 · ready to verify"
+  },
+  "updated_at": "2026-09-01T19:47:08.076Z"
+}
