@@ -110,6 +110,13 @@ enum Appearance {
                                     .font: UIFont.systemFont(ofSize: 13, weight: .semibold)], for: .selected)
         seg.setTitleTextAttributes([.foregroundColor: UIColor(Theme.muted),
                                     .font: UIFont.systemFont(ofSize: 13, weight: .medium)], for: .normal)
+
+        // SwiftUI Slider is a UISlider. Default tracks are system gray and
+        // fight the well/apricot language every other progress uses.
+        let slider = UISlider.appearance()
+        slider.minimumTrackTintColor = UIColor(Theme.apricot)
+        slider.maximumTrackTintColor = UIColor(Theme.well)
+        slider.thumbTintColor = UIColor(Theme.textStrong)
     }
 }
 

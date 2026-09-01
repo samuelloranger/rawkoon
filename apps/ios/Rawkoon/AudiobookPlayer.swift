@@ -34,6 +34,11 @@ final class AudiobookPlayer: ObservableObject {
     private var timeObserver: Any?
     private var endObserver: NSObjectProtocol?
     private var currentItemObserver: NSKeyValueObservation?
+    private var itemStatusObserver: NSKeyValueObservation?
+    /// Bumped on every seek so a stale completion cannot play() after a newer seek.
+    private var seekID = 0
+    /// While true, ticks and current-item KVO must not overwrite `positionSecs`.
+    private var isSeeking = false
 
     init() {
         configureRemoteCommands()
@@ -71,23 +76,19 @@ final class AudiobookPlayer: ObservableObject {
     }
 
     func play() {
-        if player?.currentItem == nil, duration > 0 {
-            seek(to: 0)
-        }
-        guard let player else { return }
-        do {
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playback, mode: .spokenAudio)
-            try audioSession.setActive(true)
-        } catch {
-            // Audio session activation failures should not crash playback controls.
-        }
-
-        player.play()
-        player.rate = rate
         isPlaying = true
         if case .minutes = sleepMode { lastSleepTick = Date() }
-        updateNowPlayingInfo()
+        if player?.currentItem == nil, duration > 0 {
+            seek(to: 0)
+            return
+        }
+        // play() cancels an in-flight seek, which is the race that makes
+        // scrubbing look like a no-op. Resume from the completion handler.
+        if isSeeking {
+            updateNowPlayingInfo()
+            return
+        }
+        beginPlayback()
     }
 
     func pause() {
@@ -100,8 +101,17 @@ final class AudiobookPlayer: ObservableObject {
         guard let timeline else { return }
         let clamped = timeline.clamp(seconds)
         let autoplay = isPlaying
-        buildQueue(at: clamped, autoplay: autoplay)
+        positionSecs = clamped
         updateNowPlayingInfo()
+
+        if let offset = timeline.inPlaceSeekOffset(
+            fromChapterIndex: currentChapterIndex,
+            to: clamped
+        ), player?.currentItem != nil {
+            seekCurrentItem(to: offset, autoplay: autoplay)
+            return
+        }
+        buildQueue(at: clamped, autoplay: autoplay)
     }
 
     func skipForward(_ seconds: Double = 30) {
@@ -196,6 +206,77 @@ final class AudiobookPlayer: ObservableObject {
         player?.volume = 1
     }
 
+    private func beginPlayback() {
+        guard let player else { return }
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.playback, mode: .spokenAudio)
+            try audioSession.setActive(true)
+        } catch {
+            // Audio session activation failures should not crash playback controls.
+        }
+        player.play()
+        player.rate = rate
+        updateNowPlayingInfo()
+    }
+
+    /// Seek the current item. `play()` must not run until this finishes —
+    /// AVPlayer treats play() as cancelling an in-flight seek, which leaves
+    /// playback at the pre-seek time.
+    private func seekCurrentItem(to offset: Double, autoplay: Bool) {
+        guard let player else { return }
+        itemStatusObserver = nil
+        seekID += 1
+        let id = seekID
+        isSeeking = true
+        isPlaying = autoplay
+        let time = CMTime(seconds: max(0, offset), preferredTimescale: 600)
+        player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
+            DispatchQueue.main.async {
+                guard let self, self.seekID == id else { return }
+                self.isSeeking = false
+                guard finished else { return }
+                if self.isPlaying {
+                    self.beginPlayback()
+                } else {
+                    self.updateNowPlayingInfo()
+                }
+            }
+        }
+    }
+
+    private func seekWhenReady(offset: Double, autoplay: Bool) {
+        guard let item = player?.currentItem else {
+            isSeeking = false
+            return
+        }
+        let id = seekID
+        switch item.status {
+        case .readyToPlay:
+            seekCurrentItem(to: offset, autoplay: autoplay)
+        case .failed:
+            isSeeking = false
+        default:
+            isSeeking = true
+            isPlaying = autoplay
+            itemStatusObserver = item.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
+                DispatchQueue.main.async {
+                    guard let self, self.seekID == id else { return }
+                    switch item.status {
+                    case .readyToPlay:
+                        self.itemStatusObserver = nil
+                        self.seekCurrentItem(to: offset, autoplay: self.isPlaying)
+                    case .failed:
+                        self.itemStatusObserver = nil
+                        self.isSeeking = false
+                    default:
+                        break
+                    }
+                }
+            }
+        }
+    }
+
     private func buildQueue(at wholeBookPosition: Double, autoplay: Bool) {
         guard let timeline, let manifest else { return }
         guard !chapters.isEmpty else {
@@ -204,6 +285,7 @@ final class AudiobookPlayer: ObservableObject {
             positionSecs = 0
             setCurrentChapter(index: nil)
             isPlaying = false
+            isSeeking = false
             return
         }
 
@@ -214,6 +296,7 @@ final class AudiobookPlayer: ObservableObject {
             positionSecs = clamped
             setCurrentChapter(index: nil)
             isPlaying = false
+            isSeeking = false
             return
         }
 
@@ -240,9 +323,12 @@ final class AudiobookPlayer: ObservableObject {
             positionSecs = clamped
             setCurrentChapter(index: nil)
             isPlaying = false
+            isSeeking = false
             return
         }
 
+        seekID += 1
+        isSeeking = true
         tearDownObservers()
         let queuePlayer = AVQueuePlayer(items: items)
         queuePlayer.actionAtItemEnd = .advance
@@ -250,20 +336,12 @@ final class AudiobookPlayer: ObservableObject {
         itemChapters = mapping
 
         let offset = max(0, min(clamped - chapter.startSecs, max(chapter.durationSecs, 0)))
-        queuePlayer.seek(
-            to: CMTime(seconds: offset, preferredTimescale: 600),
-            toleranceBefore: .zero,
-            toleranceAfter: .zero
-        )
         positionSecs = clamped
         setCurrentChapter(chapter)
-        isPlaying = false
+        isPlaying = autoplay
         installObservers(player: queuePlayer)
         applyPitchAlgorithm()
-
-        if autoplay {
-            play()
-        }
+        seekWhenReady(offset: offset, autoplay: autoplay)
     }
 
     private func installObservers(player: AVQueuePlayer) {
@@ -306,10 +384,11 @@ final class AudiobookPlayer: ObservableObject {
         endObserver = nil
 
         currentItemObserver = nil
+        itemStatusObserver = nil
     }
 
     private func handleTick(_ rawSeconds: Double) {
-        guard rawSeconds.isFinite else { return }
+        guard !isSeeking, rawSeconds.isFinite else { return }
         let clamped = timeline?.clamp(wholeBookPosition(fromCurrentItemTime: rawSeconds)) ?? max(rawSeconds, 0)
         positionSecs = clamped
         advanceSleep()
@@ -327,7 +406,7 @@ final class AudiobookPlayer: ObservableObject {
     }
 
     private func handleCurrentItemChanged() {
-        guard let player else { return }
+        guard !isSeeking, let player else { return }
         if let chapter = chapter(for: player.currentItem) {
             setCurrentChapter(chapter)
             if let currentTime = player.currentItem?.currentTime().seconds, currentTime.isFinite {

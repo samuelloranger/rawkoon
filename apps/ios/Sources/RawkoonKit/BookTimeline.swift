@@ -50,6 +50,27 @@ public struct BookTimeline: Sendable {
         chapters.last { $0.startSecs < positionSecs }?.startSecs
     }
 
+    /// Offset inside the current chapter's file, if `positionSecs` still
+    /// falls in that chapter. Nil means the seek crosses a chapter (or there
+    /// is no current chapter) and the playback queue must be rebuilt.
+    ///
+    /// A position exactly on a chapter boundary belongs to the chapter it
+    /// STARTS, matching `chapterIndex(at:)`. The last instant of the book is
+    /// the exception: `chapterIndex` is nil there, but a scrub to the end
+    /// of the last file is still in-place.
+    public func inPlaceSeekOffset(fromChapterIndex current: Int?, to positionSecs: Double) -> Double? {
+        guard let current else { return nil }
+        let clamped = clamp(positionSecs)
+        if let split = offsetWithinChapter(at: clamped) {
+            guard split.index == current else { return nil }
+            return split.offsetSecs
+        }
+        guard let last = chapters.last, last.index == current, clamped >= last.startSecs else {
+            return nil
+        }
+        return last.durationSecs
+    }
+
     private func chapter(at positionSecs: Double) -> ManifestChapter? {
         guard positionSecs >= 0, positionSecs < totalDurationSecs else { return nil }
         return chapters.first { positionSecs >= $0.startSecs && positionSecs < $0.endSecs }
