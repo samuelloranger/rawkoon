@@ -95,8 +95,6 @@ struct LibraryView: View {
     var body: some View {
         VStack(spacing: 0) {
             ContinueListeningView(limit: 3)
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
 
             Picker("Section", selection: $section) {
                 ForEach(LibrarySection.allCases) { Text($0.rawValue).tag($0) }
@@ -111,7 +109,7 @@ struct LibraryView: View {
         }
         .background(Theme.base)
         .navigationTitle("Library")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {
