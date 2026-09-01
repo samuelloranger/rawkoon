@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: v1.12.6
 current_phase: 01
 current_phase_name: Lint, format, and logging guardrails
-status: executing
-stopped_at: Completed 01-02-PLAN.md (Logging.swift, download-failure log call, both LOG-03 scans locked at zero)
-last_updated: "2026-09-01T19:15:25.048Z"
+status: verifying
+stopped_at: Completed 01-03-PLAN.md (all eight try? sites disposed, log-retrieval.md written, v1.12.7 TestFlight build shipped and CI-verified; device parity check deferred to end-of-phase)
+last_updated: "2026-09-01T19:47:41.312Z"
 last_activity: 2026-09-01
 last_activity_desc: Phase 01 execution started
-state_head: ec81010f9990bbcf351c4ea1548e7f76254ded34
+state_head: 910276a11ed3380bcceeac773af010f1cdbce84a
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-09-01)
 
 Phase: 01 (Lint, format, and logging guardrails) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-09-01 — Phase 01 execution started
 
 Progress: [░░░░░░░░░░] 0%
@@ -60,6 +60,7 @@ Progress: [░░░░░░░░░░] 0%
 |------|----------|-------|-------|
 | Phase 01 P01 | 33min | 3 tasks | 47 files |
 | Phase 01 P02 | 25min | 2 tasks | 2 files |
+| Phase 01 P03 | 40min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,8 @@ Recent decisions affecting current work:
 - [Phase 01]: SwiftFormat: redundantSwiftUIGroup and redundantViewBuilder disabled — both change a SwiftUI view's static type, which the no-visible-change constraint forbids touching
 - [Phase 01]: Log's privacy-annotated interpolations must reference a local shadow, not self.<property> — SwiftFormat's redundantSelf rule and the os.Logger escaping-autoclosure requirement disagree, and a local let of the same name satisfies both
 - [Phase 01]: The simctl launch redaction human-check for LOG-03 is deferred to end-of-phase human verification (workflow.human_verify_mode), not fabricated — automated checks (build, credential scans, annotation counts) all pass
+- [Phase 01]: [Phase 01-03]: Cut GitHub release v1.12.7 to prove TestFlight upload since e2f220d gated testflight on published releases, not pushes; this also triggered docker-publish.yml and an auto-redeploy of production (content-identical to v1.12.6, no api/web/shared changes)
+- [Phase 01]: [Phase 01-03]: Device parity check (play/pause/resume on v1.12.7 TestFlight build) deferred to end-of-phase human verification, per workflow.human_verify_mode
 
 ### Pending Todos
 
@@ -94,6 +97,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-09-01T19:15:25.026Z
-Stopped at: Completed 01-02-PLAN.md (Logging.swift, download-failure log call, both LOG-03 scans locked at zero)
+Last session: 2026-09-01T19:47:41.288Z
+Stopped at: Completed 01-03-PLAN.md (all eight try? sites disposed, log-retrieval.md written, v1.12.7 TestFlight build shipped and CI-verified; device parity check deferred to end-of-phase)
 Resume file: None
