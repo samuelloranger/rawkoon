@@ -56,7 +56,7 @@ struct ActivityView: View {
         }
         .background(Theme.base)
         .navigationTitle("Activity")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .task { await loadSpeed() }
         .task(id: lane) { await loadCurrentLane() }
         .refreshable { await loadCurrentLane() }

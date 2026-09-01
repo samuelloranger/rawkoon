@@ -67,7 +67,7 @@ struct DiscoverView: View {
         }
         .background(Theme.base)
         .navigationTitle("Discover")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .task {
             if feed == nil {
                 await loadFeed()
