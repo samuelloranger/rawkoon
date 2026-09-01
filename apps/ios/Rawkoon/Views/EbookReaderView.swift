@@ -82,7 +82,9 @@ private enum ReaderTheme: String, Codable, CaseIterable, Identifiable {
     case sepia
     case dark
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var label: String {
         switch self {
@@ -120,7 +122,9 @@ private final class ReaderSession {
     private let fileId: Int
     private let save: (ReadingPosition) -> Void
 
-    var navigator: EPUBNavigatorViewController { host.navigator }
+    var navigator: EPUBNavigatorViewController {
+        host.navigator
+    }
 
     init(
         publication: Publication,
@@ -147,7 +151,9 @@ private final class ReaderSession {
         guard let editionId else { return }
         guard let locator = currentLocator ?? navigator.currentLocation else { return }
         let now = Int64(Date().timeIntervalSince1970 * 1000)
-        if !force, now - lastPersistMillis < 3_000 { return }
+        if !force, now - lastPersistMillis < 3000 {
+            return
+        }
         lastPersistMillis = now
         save(position(from: locator, editionId: editionId, now: now))
     }
@@ -189,10 +195,10 @@ struct EbookReaderSheet: View {
     // DEBUG only: RAWKOON_CONTROLS=1 starts with the capsule shown, so the
     // controls can be screenshotted on the simulator without tap injection.
     #if DEBUG
-    @State private var controlsVisible =
-        ProcessInfo.processInfo.environment["RAWKOON_CONTROLS"] == "1"
+        @State private var controlsVisible =
+            ProcessInfo.processInfo.environment["RAWKOON_CONTROLS"] == "1"
     #else
-    @State private var controlsVisible = false
+        @State private var controlsVisible = false
     #endif
     /// Cancelled and restarted on every reveal, so the controls always fade a
     /// fixed time after the last interaction rather than the first.
@@ -512,7 +518,7 @@ struct EbookReaderSheet: View {
             switch open {
             case .formatNotSupported:
                 return "This file is not a supported EPUB."
-            case .reading(_):
+            case .reading:
                 return error.localizedDescription
             }
         }
@@ -520,9 +526,9 @@ struct EbookReaderSheet: View {
             switch retrieve {
             case .formatNotSupported:
                 return "This file is not a supported EPUB."
-            case .schemeNotSupported(_):
+            case .schemeNotSupported:
                 return "Could not open the file from this location."
-            case .reading(_):
+            case .reading:
                 return error.localizedDescription
             }
         }
@@ -545,11 +551,11 @@ struct EbookReaderSheet: View {
 private struct ReaderViewControllerWrapper: UIViewControllerRepresentable {
     let viewController: ReaderViewController
 
-    func makeUIViewController(context: Context) -> ReaderViewController {
+    func makeUIViewController(context _: Context) -> ReaderViewController {
         viewController
     }
 
-    func updateUIViewController(_ uiViewController: ReaderViewController, context: Context) {}
+    func updateUIViewController(_: ReaderViewController, context _: Context) {}
 }
 
 /// Host view controller for a Readium Navigator.
@@ -564,7 +570,7 @@ private final class ReaderViewController: UIViewController, EPUBNavigatorDelegat
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) {
+    required init?(coder _: NSCoder) {
         fatalError("init?(coder: NSCoder) not implemented")
     }
 
@@ -578,11 +584,11 @@ private final class ReaderViewController: UIViewController, EPUBNavigatorDelegat
         navigator.didMove(toParent: self)
     }
 
-    func navigator(_ navigator: Navigator, locationDidChange locator: Locator) {
+    func navigator(_: Navigator, locationDidChange locator: Locator) {
         onLocationChange?(locator)
     }
 
-    func navigator(_ navigator: Navigator, presentError _: NavigatorError) {}
+    func navigator(_: Navigator, presentError _: NavigatorError) {}
 }
 
 // MARK: - Table of contents
@@ -653,7 +659,9 @@ private struct TOCRow: View {
     }
 
     private var title: String {
-        if let title = link.title, !title.isEmpty { return title }
+        if let title = link.title, !title.isEmpty {
+            return title
+        }
         return link.href
     }
 

@@ -14,19 +14,19 @@ struct RawkoonApp: App {
         WindowGroup {
             Group {
                 #if DEBUG
-                if let screen = DebugScreen.requested, DebugScreen.isOffline(screen) {
-                    DebugScreen.offlineView(for: screen)
-                } else if model.isLoggedIn {
-                    RootTabsView()
-                } else {
-                    LoginView()
-                }
+                    if let screen = DebugScreen.requested, DebugScreen.isOffline(screen) {
+                        DebugScreen.offlineView(for: screen)
+                    } else if model.isLoggedIn {
+                        RootTabsView()
+                    } else {
+                        LoginView()
+                    }
                 #else
-                if model.isLoggedIn {
-                    RootTabsView()
-                } else {
-                    LoginView()
-                }
+                    if model.isLoggedIn {
+                        RootTabsView()
+                    } else {
+                        LoginView()
+                    }
                 #endif
             }
             .environmentObject(model)
@@ -34,7 +34,7 @@ struct RawkoonApp: App {
             .preferredColorScheme(.dark)
             .task {
                 #if DEBUG
-                await model.debugAutologinIfNeeded()
+                    await model.debugAutologinIfNeeded()
                 #endif
                 if model.isLoggedIn {
                     model.requestPushAuthorization()
@@ -45,27 +45,32 @@ struct RawkoonApp: App {
 }
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
-    // Resolved at launch rather than from a view's onAppear: a background launch
-    // for finished downloads may never render anything.
-    @MainActor private var appModel: AppModel { AppModel.shared }
+    /// Resolved at launch rather than from a view's onAppear: a background launch
+    /// for finished downloads may never render anything.
+    @MainActor private var appModel: AppModel {
+        AppModel.shared
+    }
 
-    func application(_ application: UIApplication,
-                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    func application(_: UIApplication,
+                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data)
+    {
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()
         Task { @MainActor in
             appModel.handleApnsToken(token)
         }
     }
 
-    func application(_ application: UIApplication,
-                     didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    func application(_: UIApplication,
+                     didFailToRegisterForRemoteNotificationsWithError _: Error)
+    {
         // Registration can fail in the simulator or without a provisioning
         // profile that includes the push entitlement — non-fatal.
     }
 
-    func application(_ application: UIApplication,
+    func application(_: UIApplication,
                      handleEventsForBackgroundURLSession identifier: String,
-                     completionHandler: @escaping () -> Void) {
+                     completionHandler: @escaping () -> Void)
+    {
         Task { @MainActor in
             appModel.handleBackgroundEvents(identifier: identifier, completionHandler: completionHandler)
         }
@@ -82,9 +87,9 @@ private struct RootTabsView: View {
         // once `isAdmin` is known. Debug `RAWKOON_TAB` still wins.
         var initial = 2
         #if DEBUG
-        if let raw = ProcessInfo.processInfo.environment["RAWKOON_TAB"], let value = Int(raw) {
-            initial = value
-        }
+            if let raw = ProcessInfo.processInfo.environment["RAWKOON_TAB"], let value = Int(raw) {
+                initial = value
+            }
         #endif
         _selection = State(initialValue: initial)
     }
@@ -95,37 +100,37 @@ private struct RootTabsView: View {
 
     @ViewBuilder private var content: some View {
         #if DEBUG
-        if let screen = DebugScreen.requested {
-            debugRoot(screen)
-        } else {
-            mainTabs
-        }
+            if let screen = DebugScreen.requested {
+                debugRoot(screen)
+            } else {
+                mainTabs
+            }
         #else
-        mainTabs
+            mainTabs
         #endif
     }
 
     #if DEBUG
-    @ViewBuilder private func debugRoot(_ screen: String) -> some View {
-        switch screen {
-        case "movieDetail": DebugFirstDetail(libraryType: "movie")
-        case "showDetail": DebugFirstDetail(libraryType: "show")
-        case "releaseSearch": DebugFirstReleaseSearch()
-        case "home": NavigationStack { HomeView() }
-        case "book": DebugFirstBook()
-        case "playerReal": DebugRealPlayer()
-        case "miniPlayer": DebugMiniPlayer { mainTabs }
-        case "reader": DebugEbookReader()
-        case "settings": NavigationStack { SettingsView() }
-        case "requests": NavigationStack { RequestsView() }
-        case "qualityProfiles": NavigationStack { QualityProfilesView() }
-        case "notifications": NavigationStack { NotificationsSettingsView() }
-        case "indexers": NavigationStack { IndexersView() }
-        case "users": NavigationStack { UsersView() }
-        case "downloadClient": NavigationStack { DownloadClientView() }
-        default: mainTabs
+        @ViewBuilder private func debugRoot(_ screen: String) -> some View {
+            switch screen {
+            case "movieDetail": DebugFirstDetail(libraryType: "movie")
+            case "showDetail": DebugFirstDetail(libraryType: "show")
+            case "releaseSearch": DebugFirstReleaseSearch()
+            case "home": NavigationStack { HomeView() }
+            case "book": DebugFirstBook()
+            case "playerReal": DebugRealPlayer()
+            case "miniPlayer": DebugMiniPlayer { mainTabs }
+            case "reader": DebugEbookReader()
+            case "settings": NavigationStack { SettingsView() }
+            case "requests": NavigationStack { RequestsView() }
+            case "qualityProfiles": NavigationStack { QualityProfilesView() }
+            case "notifications": NavigationStack { NotificationsSettingsView() }
+            case "indexers": NavigationStack { IndexersView() }
+            case "users": NavigationStack { UsersView() }
+            case "downloadClient": NavigationStack { DownloadClientView() }
+            default: mainTabs
+            }
         }
-    }
     #endif
 
     private var mainTabs: some View {
@@ -186,9 +191,9 @@ private struct RootTabsView: View {
         }
         .task {
             #if DEBUG
-            let debugTabLocked = ProcessInfo.processInfo.environment["RAWKOON_TAB"] != nil
+                let debugTabLocked = ProcessInfo.processInfo.environment["RAWKOON_TAB"] != nil
             #else
-            let debugTabLocked = false
+                let debugTabLocked = false
             #endif
             if model.library.isEmpty {
                 await model.loadLibrary()

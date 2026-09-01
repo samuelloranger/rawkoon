@@ -1,5 +1,5 @@
-import XCTest
 @testable import RawkoonKit
+import XCTest
 
 final class ChapterFilterTests: XCTestCase {
     private func chapters(_ titles: [String]) -> [ManifestChapter] {
@@ -30,7 +30,7 @@ final class ChapterFilterTests: XCTestCase {
     }
 
     func testNumericMatchOnOneBasedIndex() {
-        let untitled = (0..<50).map { index in
+        let untitled = (0 ..< 50).map { index in
             ManifestChapter(
                 index: index,
                 title: "Untitled",

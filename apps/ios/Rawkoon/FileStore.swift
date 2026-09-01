@@ -17,7 +17,8 @@ enum FileStore {
 
     static func size(url: URL) -> Int? {
         guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
-              let value = attributes[.size] as? NSNumber else {
+              let value = attributes[.size] as? NSNumber
+        else {
             return nil
         }
         return value.intValue

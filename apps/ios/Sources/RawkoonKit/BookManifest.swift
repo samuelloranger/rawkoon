@@ -16,7 +16,9 @@ public struct ManifestChapter: Codable, Equatable, Sendable {
     public let sha256: String?
     public let url: String
 
-    public var durationSecs: Double { endSecs - startSecs }
+    public var durationSecs: Double {
+        endSecs - startSecs
+    }
 }
 
 public struct BookManifest: Codable, Equatable, Sendable {

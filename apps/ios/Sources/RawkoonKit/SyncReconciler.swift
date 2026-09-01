@@ -34,8 +34,12 @@ public enum SyncReconciler {
         case (.some, nil):
             return .push
         case let (.some(l), .some(r)):
-            if r.updatedAtMillis > l.updatedAtMillis { return .takeRemote }
-            if l.updatedAtMillis > r.updatedAtMillis { return .push }
+            if r.updatedAtMillis > l.updatedAtMillis {
+                return .takeRemote
+            }
+            if l.updatedAtMillis > r.updatedAtMillis {
+                return .push
+            }
             // A tie must be stable, or two devices flip the position forever.
             return .keepLocal
         }

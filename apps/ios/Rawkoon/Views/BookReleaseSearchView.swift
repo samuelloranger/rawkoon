@@ -6,7 +6,7 @@ struct BookReleaseSearchView: View {
     @EnvironmentObject private var model: AppModel
 
     let bookId: Int
-    let kind: String        // "audiobook" | "ebook"
+    let kind: String // "audiobook" | "ebook"
     let title: String
 
     @State private var releases: [BookRelease] = []
@@ -50,7 +50,7 @@ struct BookReleaseSearchView: View {
         } else if visibleReleases.isEmpty {
             centered {
                 ContentUnavailableView("No releases", systemImage: "magnifyingglass",
-                    description: Text("Nothing grabbable found for this book."))
+                                       description: Text("Nothing grabbable found for this book."))
             }
         } else {
             if let grabError {
@@ -78,7 +78,10 @@ struct BookReleaseSearchView: View {
     private var visibleReleases: [BookRelease] {
         showRejected ? releases : releases.filter { $0.rejected != true }
     }
-    private var hasRejected: Bool { releases.contains { $0.rejected == true } }
+
+    private var hasRejected: Bool {
+        releases.contains { $0.rejected == true }
+    }
 
     private func releaseRow(_ release: BookRelease) -> some View {
         VStack(alignment: .leading, spacing: 7) {
@@ -87,7 +90,9 @@ struct BookReleaseSearchView: View {
                 .foregroundStyle(release.rejected == true ? Theme.muted : Theme.text)
                 .lineLimit(2)
             HStack(spacing: 8) {
-                if let format = release.format { chip(format.uppercased()) }
+                if let format = release.format {
+                    chip(format.uppercased())
+                }
                 Text(sizeText(release.sizeBytes)).font(.system(.caption2, design: .monospaced)).foregroundStyle(Theme.muted)
                 Label("\(release.seeders ?? 0)", systemImage: "arrow.up")
                     .font(.system(.caption2, design: .monospaced)).foregroundStyle(Theme.seed)

@@ -53,29 +53,29 @@ struct SettingsView: View {
 
             if model.isAdmin {
                 Section("Admin") {
-                NavigationLink {
-                    QualityProfilesView()
-                } label: {
-                    Label("Quality profiles", systemImage: "slider.horizontal.3")
-                }
+                    NavigationLink {
+                        QualityProfilesView()
+                    } label: {
+                        Label("Quality profiles", systemImage: "slider.horizontal.3")
+                    }
 
-                NavigationLink {
-                    IndexersView()
-                } label: {
-                    Label("Indexers", systemImage: "magnifyingglass")
-                }
+                    NavigationLink {
+                        IndexersView()
+                    } label: {
+                        Label("Indexers", systemImage: "magnifyingglass")
+                    }
 
-                NavigationLink {
-                    DownloadClientView()
-                } label: {
-                    Label("Download client", systemImage: "arrow.down.circle")
-                }
+                    NavigationLink {
+                        DownloadClientView()
+                    } label: {
+                        Label("Download client", systemImage: "arrow.down.circle")
+                    }
 
-                NavigationLink {
-                    UsersView()
-                } label: {
-                    Label("Users", systemImage: "person.2")
-                }
+                    NavigationLink {
+                        UsersView()
+                    } label: {
+                        Label("Users", systemImage: "person.2")
+                    }
                 }
                 .listRowBackground(Theme.raised)
             }

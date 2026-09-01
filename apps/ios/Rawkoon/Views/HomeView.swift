@@ -27,8 +27,12 @@ struct HomeView: View {
                         .frame(maxWidth: .infinity).padding(.top, 40)
                 } else {
                     ContinueListeningView(refreshToken: continueToken, limit: 3)
-                    if !recent.isEmpty { rail("Recently added", recent.map(RailItem.library)) }
-                    if !upcoming.isEmpty { rail("Upcoming", upcoming.map(RailItem.upcoming)) }
+                    if !recent.isEmpty {
+                        rail("Recently added", recent.map(RailItem.library))
+                    }
+                    if !upcoming.isEmpty {
+                        rail("Upcoming", upcoming.map(RailItem.upcoming))
+                    }
                     widgets
                 }
             }
@@ -61,8 +65,8 @@ struct HomeView: View {
 
     private var timeGreeting: String {
         switch Calendar.current.component(.hour, from: Date()) {
-        case 5..<12: return "Good morning"
-        case 12..<18: return "Good afternoon"
+        case 5 ..< 12: return "Good morning"
+        case 12 ..< 18: return "Good afternoon"
         default: return "Good evening"
         }
     }
@@ -84,8 +88,8 @@ struct HomeView: View {
         case upcoming(UpcomingItem)
         var id: String {
             switch self {
-            case .library(let m): return "l\(m.id)"
-            case .upcoming(let u): return "u\(u.id)"
+            case let .library(m): return "l\(m.id)"
+            case let .upcoming(u): return "u\(u.id)"
             }
         }
     }
@@ -105,19 +109,19 @@ struct HomeView: View {
     @ViewBuilder
     private func railCard(_ item: RailItem) -> some View {
         switch item {
-        case .library(let m):
+        case let .library(m):
             NavigationLink {
                 MediaDetailView(tmdbId: m.tmdbId, mediaType: m.type == "show" ? "tv" : "movie",
                                 title: m.title, posterPath: m.posterUrl, libraryId: m.id)
             } label: { poster(title: m.title, url: m.posterUrl) }
-            .buttonStyle(.plain)
-        case .upcoming(let u):
+                .buttonStyle(.plain)
+        case let .upcoming(u):
             NavigationLink {
                 MediaDetailView(tmdbId: u.tmdbId ?? 0, mediaType: u.mediaType,
                                 title: u.title, posterPath: u.posterUrl, libraryId: u.libraryId)
             } label: { poster(title: u.title, url: u.posterUrl) }
-            .buttonStyle(.plain)
-            .disabled(u.tmdbId == nil && u.libraryId == nil)
+                .buttonStyle(.plain)
+                .disabled(u.tmdbId == nil && u.libraryId == nil)
         }
     }
 
@@ -140,10 +144,16 @@ struct HomeView: View {
 
     private var widgets: some View {
         VStack(spacing: 14) {
-            if let np = nowPlaying, np.enabled { nowWatchingWidget(np) }
+            if let np = nowPlaying, np.enabled {
+                nowWatchingWidget(np)
+            }
             downloadsWidget
-            if !attention.isEmpty { attentionWidget }
-            if let rss { rssWidget(rss) }
+            if !attention.isEmpty {
+                attentionWidget
+            }
+            if let rss {
+                rssWidget(rss)
+            }
         }
         .padding(.horizontal, 16)
     }

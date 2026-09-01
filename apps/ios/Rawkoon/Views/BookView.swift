@@ -5,13 +5,17 @@ import SwiftUI
 private enum BookDetailLane: String, CaseIterable, Identifiable {
     case audiobook = "Audiobook"
     case ebook = "Ebook"
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 }
 
 private enum ReleaseSearchLane: String, Identifiable {
     case audiobook
     case ebook
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 }
 
 struct BookView: View {
@@ -65,21 +69,44 @@ struct BookView: View {
         detail?.editions.first(where: { $0.kind == "ebook" })
     }
 
-    private var audiobookEditionId: Int? { audiobookEdition?.id ?? book.audiobookEditionId }
+    private var audiobookEditionId: Int? {
+        audiobookEdition?.id ?? book.audiobookEditionId
+    }
+
     /// Falls back to the list item so reading progress still resolves when the
     /// detail request failed but the library already knew the edition.
-    private var ebookEditionId: Int? { ebookEdition?.id ?? book.ebookEditionId }
-    private var ebookStorageEditionId: Int { ebookEditionId ?? (1_000_000_000 + book.bookId) }
-    private var hasAudiobookEdition: Bool { audiobookEditionId != nil }
-    private var hasEbookEdition: Bool { ebookEdition != nil || book.hasEbook }
+    private var ebookEditionId: Int? {
+        ebookEdition?.id ?? book.ebookEditionId
+    }
 
-    private var titleText: String { detail?.title ?? book.title }
-    private var subtitleText: String? { detail?.subtitle }
+    private var ebookStorageEditionId: Int {
+        ebookEditionId ?? (1_000_000_000 + book.bookId)
+    }
+
+    private var hasAudiobookEdition: Bool {
+        audiobookEditionId != nil
+    }
+
+    private var hasEbookEdition: Bool {
+        ebookEdition != nil || book.hasEbook
+    }
+
+    private var titleText: String {
+        detail?.title ?? book.title
+    }
+
+    private var subtitleText: String? {
+        detail?.subtitle
+    }
+
     private var authorText: String {
         let authors = detail?.authors ?? (book.author.map { [$0] } ?? [])
         return authors.joined(separator: ", ")
     }
-    private var coverURL: URL? { model.absoluteURL(detail?.coverUrl) ?? book.coverURL }
+
+    private var coverURL: URL? {
+        model.absoluteURL(detail?.coverUrl) ?? book.coverURL
+    }
 
     private var audiobookSummary: LibrarySummary? {
         guard let editionId = audiobookEditionId else { return nil }
@@ -535,7 +562,9 @@ struct BookView: View {
                                     loadingPlayer = true
                                     await model.openPlayer(editionId: editionId, resumeAt: chapter.startSecs)
                                     loadingPlayer = false
-                                    if model.errorMessage == nil { showingPlayer = true }
+                                    if model.errorMessage == nil {
+                                        showingPlayer = true
+                                    }
                                 }
                             } label: {
                                 SpineRow(
@@ -1045,7 +1074,7 @@ struct BookView: View {
         }
 
         let (temporaryURL, response) = try await URLSession.shared.download(from: remoteURL)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+        guard let http = response as? HTTPURLResponse, (200 ..< 300).contains(http.statusCode) else {
             throw APIError.transport
         }
 
@@ -1144,7 +1173,9 @@ struct BookView: View {
 
     private func isChapterDownloaded(_ chapter: ManifestChapter) -> Bool {
         guard let editionId = audiobookEditionId else { return false }
-        if model.downloadPlans[editionId]?.states[chapter.fileId] == .verified { return true }
+        if model.downloadPlans[editionId]?.states[chapter.fileId] == .verified {
+            return true
+        }
         return FileStore.exists(editionId: editionId, fileId: chapter.fileId, ext: chapterExtension(chapter))
     }
 
@@ -1163,7 +1194,9 @@ struct BookView: View {
         let total = Int(seconds.rounded())
         let hours = total / 3600
         let minutes = (total % 3600) / 60
-        if hours > 0 { return "\(hours)h \(String(format: "%02dm", minutes))" }
+        if hours > 0 {
+            return "\(hours)h \(String(format: "%02dm", minutes))"
+        }
         return "\(minutes)m"
     }
 

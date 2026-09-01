@@ -43,7 +43,11 @@ struct ContinueListeningView: View {
         }
         .navigationDestination(isPresented: Binding(
             get: { readingBook != nil },
-            set: { if !$0 { readingBook = nil } }
+            set: {
+                if !$0 {
+                    readingBook = nil
+                }
+            }
         )) {
             if let book = readingBook {
                 BookView(book: book, preferEbook: true)
@@ -146,17 +150,17 @@ struct ContinueListeningView: View {
 
     private func title(_ item: ContinueItem) -> String {
         switch item {
-        case .audiobook(let audiobook): return audiobook.title
-        case .ebook(let ebook): return ebook.title
+        case let .audiobook(audiobook): return audiobook.title
+        case let .ebook(ebook): return ebook.title
         }
     }
 
     private func subtitle(_ item: ContinueItem) -> String {
         switch item {
-        case .audiobook(let audiobook):
+        case let .audiobook(audiobook):
             let author = audiobook.author?.trimmingCharacters(in: .whitespacesAndNewlines)
             return (author?.isEmpty == false) ? "Audiobook · \(author!)" : "Audiobook"
-        case .ebook(let ebook):
+        case let .ebook(ebook):
             let author = ebook.author?.trimmingCharacters(in: .whitespacesAndNewlines)
             return (author?.isEmpty == false) ? "Ebook · \(author!)" : "Ebook"
         }
@@ -164,11 +168,11 @@ struct ContinueListeningView: View {
 
     private func progressLabel(_ item: ContinueItem) -> String {
         switch item {
-        case .audiobook(let audiobook):
+        case let .audiobook(audiobook):
             let total = max(audiobook.totalDurationSecs, 1)
             let fraction = min(max(audiobook.positionSecs / total, 0), 1)
             return "\(formatDuration(audiobook.positionSecs)) / \(formatDuration(audiobook.totalDurationSecs)) · \(Int(fraction * 100))%"
-        case .ebook(let ebook):
+        case let .ebook(ebook):
             let section = min(max(ebook.spineIndex + 1, 1), max(ebook.spineCount, 1))
             let fraction = Int(min(max(ebook.scrollFraction, 0), 1) * 100)
             return "Section \(section)/\(max(ebook.spineCount, 1)) · \(fraction)%"
@@ -267,7 +271,7 @@ struct ContinueListeningView: View {
         defer { openingID = nil }
 
         switch item {
-        case .audiobook(let audiobook):
+        case let .audiobook(audiobook):
             errorMessage = nil
             await model.openPlayer(editionId: audiobook.editionId, resumeAt: audiobook.positionSecs)
             if let error = model.errorMessage {
@@ -276,7 +280,7 @@ struct ContinueListeningView: View {
                 showingPlayer = true
             }
 
-        case .ebook(let ebook):
+        case let .ebook(ebook):
             do {
                 previewDocument = try await ebookDocument(for: ebook)
                 errorMessage = nil
@@ -298,8 +302,8 @@ struct ContinueListeningView: View {
 
         let selected =
             files.first(where: { $0.id == item.fileId })
-            ?? files.min(by: { ebookFormatRank($0.format) < ebookFormatRank($1.format) })
-            ?? files[0]
+                ?? files.min(by: { ebookFormatRank($0.format) < ebookFormatRank($1.format) })
+                ?? files[0]
 
         let localURL = try await ensureLocalEbookFile(selected, editionId: item.editionId)
         let language = try? await client.bookDetail(bookId: item.bookId).language
@@ -327,7 +331,7 @@ struct ContinueListeningView: View {
         }
 
         let (temporaryURL, response) = try await URLSession.shared.download(from: remoteURL)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+        guard let http = response as? HTTPURLResponse, (200 ..< 300).contains(http.statusCode) else {
             throw APIError.transport
         }
 
@@ -342,7 +346,9 @@ struct ContinueListeningView: View {
 
     private func ebookExtension(for file: BookEditionFile) -> String {
         let ext = URL(fileURLWithPath: file.fileName).pathExtension.lowercased()
-        if !ext.isEmpty { return ext }
+        if !ext.isEmpty {
+            return ext
+        }
         let normalized = file.format.trimmingCharacters(in: CharacterSet(charactersIn: ".")).lowercased()
         return normalized.isEmpty ? "epub" : normalized
     }
@@ -363,7 +369,9 @@ struct ContinueListeningView: View {
         let total = Int(seconds.rounded())
         let hours = total / 3600
         let minutes = (total % 3600) / 60
-        if hours > 0 { return "\(hours)h \(String(format: "%02dm", minutes))" }
+        if hours > 0 {
+            return "\(hours)h \(String(format: "%02dm", minutes))"
+        }
         return "\(minutes)m"
     }
 
@@ -384,9 +392,9 @@ struct ContinueListeningView: View {
 
     private func libraryBook(for item: ContinueItem) -> BookListItem? {
         switch item {
-        case .audiobook(let audiobook):
+        case let .audiobook(audiobook):
             return model.library.first { $0.audiobookEditionId == audiobook.editionId }
-        case .ebook(let ebook):
+        case let .ebook(ebook):
             return model.library.first { $0.bookId == ebook.bookId }
         }
     }
@@ -474,7 +482,9 @@ struct ContinueListeningView: View {
         let positionSecs: Double
         let totalDurationSecs: Double
         let updatedAt: Date
-        var id: String { "audiobook-\(editionId)" }
+        var id: String {
+            "audiobook-\(editionId)"
+        }
     }
 
     private struct ContinueEbookItem: Identifiable {
@@ -489,7 +499,9 @@ struct ContinueListeningView: View {
         let spineCount: Int
         let scrollFraction: Double
         let updatedAt: Date
-        var id: String { "ebook-\(editionId)" }
+        var id: String {
+            "ebook-\(editionId)"
+        }
     }
 
     private enum ContinueItem: Identifiable {
@@ -498,15 +510,15 @@ struct ContinueListeningView: View {
 
         var id: String {
             switch self {
-            case .audiobook(let audiobook): return audiobook.id
-            case .ebook(let ebook): return ebook.id
+            case let .audiobook(audiobook): return audiobook.id
+            case let .ebook(ebook): return ebook.id
             }
         }
 
         var updatedAt: Date {
             switch self {
-            case .audiobook(let audiobook): return audiobook.updatedAt
-            case .ebook(let ebook): return ebook.updatedAt
+            case let .audiobook(audiobook): return audiobook.updatedAt
+            case let .ebook(ebook): return ebook.updatedAt
             }
         }
     }

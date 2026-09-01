@@ -67,6 +67,6 @@ public func interruptionDecision(
 
 /// A pause the listener asked for abandons any pending resume: they heard the
 /// prompt and decided the book should stay off.
-public func userPaused(_ state: InterruptionState) -> InterruptionState {
+public func userPaused(_: InterruptionState) -> InterruptionState {
     InterruptionState(isPlaying: false, resumePending: false)
 }

@@ -13,7 +13,9 @@ struct NotificationsSettingsView: View {
     private struct Row: Identifiable {
         let key: String
         let label: String
-        var id: String { key }
+        var id: String {
+            key
+        }
     }
 
     private let libraryRows: [Row] = [

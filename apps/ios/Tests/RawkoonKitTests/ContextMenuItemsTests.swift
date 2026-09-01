@@ -1,5 +1,5 @@
-import XCTest
 @testable import RawkoonKit
+import XCTest
 
 final class ContextMenuItemsTests: XCTestCase {
     func testNonAdminNeverGetsAddOrRemove() {

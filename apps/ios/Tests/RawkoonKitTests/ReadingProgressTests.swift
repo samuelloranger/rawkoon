@@ -1,6 +1,5 @@
-import XCTest
-
 @testable import RawkoonKit
+import XCTest
 
 private func position(
     editionId: Int = 10,
@@ -8,7 +7,7 @@ private func position(
     spinePath: String,
     spineCount: Int = 3,
     scrollFraction: Double = 0.5,
-    updatedAtMillis: Int64 = 1_000
+    updatedAtMillis: Int64 = 1000
 ) -> ReadingPosition {
     ReadingPosition(
         editionId: editionId,
@@ -23,8 +22,8 @@ private func position(
 
 final class ReadingProgressReconcilerTests: XCTestCase {
     func testNewestWriteWins() {
-        let local = position(spineIndex: 1, spinePath: "b.xhtml", updatedAtMillis: 2_000)
-        let remote = position(spineIndex: 2, spinePath: "c.xhtml", updatedAtMillis: 3_000)
+        let local = position(spineIndex: 1, spinePath: "b.xhtml", updatedAtMillis: 2000)
+        let remote = position(spineIndex: 2, spinePath: "c.xhtml", updatedAtMillis: 3000)
 
         XCTAssertEqual(ReadingProgressReconciler.reconcile(local: local, remote: remote), .takeRemote)
         XCTAssertEqual(ReadingProgressReconciler.reconcile(local: remote, remote: local), .push)
@@ -32,8 +31,8 @@ final class ReadingProgressReconcilerTests: XCTestCase {
 
     /// A tie must be stable, or two devices flip the position back and forth.
     func testTieKeepsLocal() {
-        let local = position(spineIndex: 1, spinePath: "b.xhtml", updatedAtMillis: 2_000)
-        let remote = position(spineIndex: 2, spinePath: "c.xhtml", updatedAtMillis: 2_000)
+        let local = position(spineIndex: 1, spinePath: "b.xhtml", updatedAtMillis: 2000)
+        let remote = position(spineIndex: 2, spinePath: "c.xhtml", updatedAtMillis: 2000)
 
         XCTAssertEqual(ReadingProgressReconciler.reconcile(local: local, remote: remote), .keepLocal)
     }
@@ -161,7 +160,7 @@ final class ReadingProgressStoreTests: XCTestCase {
                 spinePath: "a.xhtml",
                 spineCount: 3,
                 scrollFraction: 0.2,
-                updatedAtMillis: 1_000,
+                updatedAtMillis: 1000,
                 locator: json
             )
         )

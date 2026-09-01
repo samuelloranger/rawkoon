@@ -17,7 +17,9 @@ public struct BookTimeline: Sendable {
         self.chapters = chapters.sorted { $0.index < $1.index }
     }
 
-    public var totalDurationSecs: Double { chapters.last?.endSecs ?? 0 }
+    public var totalDurationSecs: Double {
+        chapters.last?.endSecs ?? 0
+    }
 
     /// The chapter containing `positionSecs`, or nil when outside the book.
     ///

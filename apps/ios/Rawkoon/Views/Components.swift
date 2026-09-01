@@ -147,7 +147,7 @@ struct PosterFlag: View {
                 .frame(width: 22, height: 22)
             Image(systemName: inLibrary ? "checkmark" : "plus")
                 .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(inLibrary ? Color(hex: 0x10231a) : Theme.onAccent)
+                .foregroundStyle(inLibrary ? Color(hex: 0x10231A) : Theme.onAccent)
         }
     }
 }
@@ -237,13 +237,19 @@ struct BookRow: View {
                     Text(author).font(.subheadline).foregroundStyle(Theme.muted).lineLimit(1)
                 }
                 HStack(spacing: 6) {
-                    if book.hasAudiobook { formatChip("Audiobook", tint: Theme.muted) }
-                    if book.hasEbook { formatChip("Ebook", tint: Theme.muted) }
+                    if book.hasAudiobook {
+                        formatChip("Audiobook", tint: Theme.muted)
+                    }
+                    if book.hasEbook {
+                        formatChip("Ebook", tint: Theme.muted)
+                    }
                 }
             }
 
             Spacer(minLength: 8)
-            if downloaded { StatusBadge(text: "Offline", tint: Theme.seed) }
+            if downloaded {
+                StatusBadge(text: "Offline", tint: Theme.seed)
+            }
         }
         .padding(12)
         .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
@@ -267,7 +273,9 @@ struct ReleaseSearchPresentation: Identifiable {
     let tmdbId: Int
     let mediaType: String
 
-    var id: String { "\(mediaType)-\(tmdbId)-\(libraryMediaId ?? 0)" }
+    var id: String {
+        "\(mediaType)-\(tmdbId)-\(libraryMediaId ?? 0)"
+    }
 }
 
 extension View {

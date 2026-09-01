@@ -31,8 +31,8 @@ public struct DownloadPlan: Sendable {
 
     public init(chapters: [ManifestChapter]) {
         self.chapters = chapters
-        self.states = Dictionary(uniqueKeysWithValues: chapters.map { ($0.fileId, .pending) })
-        self.chapterByFileId = Dictionary(uniqueKeysWithValues: chapters.map { ($0.fileId, $0) })
+        states = Dictionary(uniqueKeysWithValues: chapters.map { ($0.fileId, .pending) })
+        chapterByFileId = Dictionary(uniqueKeysWithValues: chapters.map { ($0.fileId, $0) })
     }
 
     /// Cleared once the caller has swapped in freshly signed URLs. Without
@@ -62,7 +62,7 @@ public struct DownloadPlan: Sendable {
                 needsFreshGrants = true
                 return
             }
-            guard (200...299).contains(status) else { return fail(fileId) }
+            guard (200 ... 299).contains(status) else { return fail(fileId) }
             guard bytes == chapter.sizeBytes else { return fail(fileId) }
             if let expected = chapter.sha256, expected != sha256 {
                 return fail(fileId)

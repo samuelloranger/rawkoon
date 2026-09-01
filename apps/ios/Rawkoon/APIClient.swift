@@ -15,7 +15,9 @@ struct LibrarySummary: Identifiable, Sendable {
     let author: String?
     let coverURL: URL?
     let durationSecs: Double?
-    var id: Int { editionId }
+    var id: Int {
+        editionId
+    }
 }
 
 /// One book in the merged library list — may have an audiobook edition, an
@@ -31,9 +33,13 @@ struct BookListItem: Identifiable, Sendable {
     let audiobookStatus: String?
     let audiobookFileCount: Int
     let hasEbook: Bool
-    var id: Int { bookId }
+    var id: Int {
+        bookId
+    }
 
-    var hasAudiobook: Bool { audiobookEditionId != nil }
+    var hasAudiobook: Bool {
+        audiobookEditionId != nil
+    }
 
     /// A playable summary for the audiobook edition, when present.
     var audiobookSummary: LibrarySummary? {
@@ -80,7 +86,7 @@ actor APIClient {
         config.httpCookieStorage = nil
         config.httpShouldSetCookies = false
         config.httpCookieAcceptPolicy = .never
-        self.session = URLSession(configuration: config)
+        session = URLSession(configuration: config)
         self.token = token
     }
 
@@ -88,7 +94,7 @@ actor APIClient {
     func ssoProviders() async throws -> SsoProvidersResponse {
         let request = try makeRequest(path: "/api/auth/sso-providers", method: "GET", requiresAuth: false)
         let (data, response) = try await perform(request)
-        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         do { return try decoder.decode(SsoProvidersResponse.self, from: data) }
@@ -109,7 +115,7 @@ actor APIClient {
         request.httpBody = body
 
         let (data, response) = try await perform(request)
-        guard (200...299).contains(response.statusCode) else {
+        guard (200 ... 299).contains(response.statusCode) else {
             throw mapStatus(response.statusCode)
         }
 
@@ -120,7 +126,8 @@ actor APIClient {
 
         let decoder = JSONDecoder()
         guard let bodyToken = try? decoder.decode(LoginTokenResponse.self, from: data).token,
-              !bodyToken.isEmpty else {
+              !bodyToken.isEmpty
+        else {
             throw APIError.decode
         }
 
@@ -131,7 +138,7 @@ actor APIClient {
     func libraryAudiobooks() async throws -> [LibrarySummary] {
         let request = try makeRequest(path: "/api/books", method: "GET", requiresAuth: true)
         let (data, response) = try await perform(request)
-        guard (200...299).contains(response.statusCode) else {
+        guard (200 ... 299).contains(response.statusCode) else {
             throw mapStatus(response.statusCode)
         }
 
@@ -179,7 +186,7 @@ actor APIClient {
                 requiresAuth: true
             )
             let (data, response) = try await perform(request)
-            guard (200...299).contains(response.statusCode) else {
+            guard (200 ... 299).contains(response.statusCode) else {
                 throw mapStatus(response.statusCode)
             }
             let decoder = JSONDecoder()
@@ -246,7 +253,7 @@ actor APIClient {
             requiresAuth: true
         )
         let (data, response) = try await perform(request)
-        guard (200...299).contains(response.statusCode) else {
+        guard (200 ... 299).contains(response.statusCode) else {
             throw mapStatus(response.statusCode)
         }
 
@@ -309,7 +316,7 @@ actor APIClient {
     func getProgress() async throws -> [RemoteProgress] {
         let request = try makeRequest(path: "/api/books/progress", method: "GET", requiresAuth: true)
         let (data, response) = try await perform(request)
-        guard (200...299).contains(response.statusCode) else {
+        guard (200 ... 299).contains(response.statusCode) else {
             throw mapStatus(response.statusCode)
         }
 
@@ -380,7 +387,7 @@ actor APIClient {
         request.httpBody = body
 
         let (_, response) = try await perform(request)
-        guard (200...299).contains(response.statusCode) else {
+        guard (200 ... 299).contains(response.statusCode) else {
             throw mapStatus(response.statusCode)
         }
     }
@@ -460,7 +467,7 @@ actor APIClient {
     private func get<T: Decodable>(_ path: String, query: [String: String?] = [:]) async throws -> T {
         let request = try makeRequest(path: pathWithQuery(path, query), method: "GET", requiresAuth: true)
         let (data, response) = try await perform(request)
-        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
         do { return try Self.mediaDecoder.decode(T.self, from: data) }
         catch { throw APIError.decode }
     }
@@ -468,7 +475,7 @@ actor APIClient {
     /// Authenticated POST with a JSON body returning a decoded `T`.
     private func post<B: Encodable, T: Decodable>(_ path: String, body: B) async throws -> T {
         let (data, response) = try await sendPost(path, body: body)
-        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
         do { return try Self.mediaDecoder.decode(T.self, from: data) }
         catch { throw APIError.decode }
     }
@@ -481,7 +488,7 @@ actor APIClient {
         method: String = "POST"
     ) async throws {
         let (_, response) = try await sendPost(path, body: body, method: method)
-        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
     }
 
     private func sendPost<B: Encodable>(
@@ -497,7 +504,7 @@ actor APIClient {
 
     private func patch<B: Encodable, T: Decodable>(_ path: String, body: B) async throws -> T {
         let (data, response) = try await sendPatch(path, body: body)
-        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
         do { return try Self.mediaDecoder.decode(T.self, from: data) }
         catch { throw APIError.decode }
     }
@@ -532,7 +539,7 @@ actor APIClient {
         return q.isEmpty ? path : "\(path)?\(q)"
     }
 
-    // Discover
+    /// Discover
     func explore() async throws -> ExploreFeed {
         try await get("/api/medias/explore")
     }
@@ -550,12 +557,12 @@ actor APIClient {
         try await postExpectOK("/api/books", body: Body(googleVolumeId: googleVolumeId))
     }
 
-    // Detail
+    /// Detail
     func mediaModal(mediaType: String, tmdbId: Int) async throws -> MediaModalResponse {
         try await get("/api/medias/modal/\(mediaType)/\(tmdbId)")
     }
 
-    // Library (movies / shows)
+    /// Library (movies / shows)
     func libraryList(
         type: String? = nil, status: String? = nil, q: String? = nil, page: Int? = nil, limit: Int? = nil,
         sortBy: String? = nil, sortDir: String? = nil
@@ -624,7 +631,7 @@ actor APIClient {
             requiresAuth: true
         )
         let (_, response) = try await perform(request)
-        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
     }
 
     func clearFailedDownloads(libraryId: Int) async throws -> Int {
@@ -634,7 +641,7 @@ actor APIClient {
             requiresAuth: true
         )
         let (data, response) = try await perform(request)
-        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
         let payload: DeleteCountResponse
         do { payload = try Self.mediaDecoder.decode(DeleteCountResponse.self, from: data) }
         catch { throw APIError.decode }
@@ -648,7 +655,7 @@ actor APIClient {
             requiresAuth: true
         )
         let (_, response) = try await perform(request)
-        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
     }
 
     func downloadAction(
@@ -662,7 +669,7 @@ actor APIClient {
             "delete_files": deleteFiles,
         ]
         let (_, response) = try await postRaw("/api/library/\(libraryId)/downloads/\(downloadHistoryId)/action", body: body)
-        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
     }
 
     func similar(tmdbId: Int, mediaType: String, language: String? = nil) async throws -> [TmdbSearchItem] {
@@ -702,7 +709,7 @@ actor APIClient {
             requiresAuth: true
         )
         let (_, response) = try await perform(request)
-        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
     }
 
     func libraryEpisodes(id: Int) async throws -> EpisodesResponse {
@@ -713,7 +720,7 @@ actor APIClient {
         try await get("/api/library/\(id)/files")
     }
 
-    // Requests
+    /// Requests
     func requestsList() async throws -> RequestsResponse {
         try await get("/api/requests")
     }
@@ -722,7 +729,7 @@ actor APIClient {
         try await post("/api/requests", body: body)
     }
 
-    // Interactive release search + grab
+    /// Interactive release search + grab
     func interactiveSearch(
         q: String,
         libraryMediaId: Int? = nil,
@@ -749,7 +756,7 @@ actor APIClient {
         try await postExpectOK("/api/library/\(libraryId)/grab", body: body)
     }
 
-    // Downloads / activity / calendar
+    /// Downloads / activity / calendar
     func downloads(libraryId: Int) async throws -> DownloadsResponse {
         try await get("/api/library/\(libraryId)/downloads")
     }
@@ -766,7 +773,7 @@ actor APIClient {
         try await get("/api/dashboard/upcoming")
     }
 
-    // Home widgets
+    /// Home widgets
     func recentlyAdded(limit: Int = 24) async throws -> LibraryListResponse {
         try await libraryList(limit: limit, sortBy: "added_at", sortDir: "desc")
     }
@@ -783,7 +790,7 @@ actor APIClient {
         try await get("/api/library/rss-status")
     }
 
-    // APNs device registration
+    /// APNs device registration
     func registerApns(deviceToken: String, deviceName: String?, osVersion: String?, appVersion: String?, bundleId: String?) async throws {
         try await postExpectOK("/api/notifications/apns/register", body: ApnsRegisterBody(
             deviceToken: deviceToken,
@@ -845,7 +852,7 @@ actor APIClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try Self.mediaEncoder.encode(body)
         let (_, response) = try await perform(request)
-        guard (200..<300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
     }
 }
 

@@ -133,36 +133,36 @@ final class AppModel: ObservableObject {
     }
 
     #if DEBUG
-    /// Simulator/screenshot convenience: log in from launch environment when
-    /// present. Compiled only in Debug, so it never ships in a Release/TestFlight
-    /// build. Pass via `SIMCTL_CHILD_RAWKOON_SERVER` etc. to `simctl launch`.
-    func debugAutologinIfNeeded() async {
-        guard !isLoggedIn else { return }
-        let env = ProcessInfo.processInfo.environment
+        /// Simulator/screenshot convenience: log in from launch environment when
+        /// present. Compiled only in Debug, so it never ships in a Release/TestFlight
+        /// build. Pass via `SIMCTL_CHILD_RAWKOON_SERVER` etc. to `simctl launch`.
+        func debugAutologinIfNeeded() async {
+            guard !isLoggedIn else { return }
+            let env = ProcessInfo.processInfo.environment
 
-        // A simulator build carries no keychain entitlement, so nothing the app
-        // stores survives a relaunch and every launch starts logged out. Taking
-        // a bearer token straight from the environment sidesteps the keychain
-        // entirely, and avoids putting a real password on a command line.
-        if
-            let server = env["RAWKOON_SERVER"],
-            let token = env["RAWKOON_TOKEN"],
-            let baseURL = URL(string: server)
-        {
-            serverURL = server
-            apiClient = APIClient(baseURL: baseURL, token: token)
-            isLoggedIn = true
-            try? await reloadLibrary()
-            return
+            // A simulator build carries no keychain entitlement, so nothing the app
+            // stores survives a relaunch and every launch starts logged out. Taking
+            // a bearer token straight from the environment sidesteps the keychain
+            // entirely, and avoids putting a real password on a command line.
+            if
+                let server = env["RAWKOON_SERVER"],
+                let token = env["RAWKOON_TOKEN"],
+                let baseURL = URL(string: server)
+            {
+                serverURL = server
+                apiClient = APIClient(baseURL: baseURL, token: token)
+                isLoggedIn = true
+                try? await reloadLibrary()
+                return
+            }
+
+            guard
+                let server = env["RAWKOON_SERVER"],
+                let email = env["RAWKOON_EMAIL"],
+                let password = env["RAWKOON_PASSWORD"]
+            else { return }
+            await login(server: server, email: email, password: password)
         }
-
-        guard
-            let server = env["RAWKOON_SERVER"],
-            let email = env["RAWKOON_EMAIL"],
-            let password = env["RAWKOON_PASSWORD"]
-        else { return }
-        await login(server: server, email: email, password: password)
-    }
     #endif
 
     /// Load the enabled OAuth providers for the login screen (public endpoint).
@@ -223,7 +223,9 @@ final class AppModel: ObservableObject {
 
     /// The configured API client, or nil when logged out. Manage-lane screens
     /// call this directly (e.g. `try await model.api()?.explore()`).
-    func api() -> APIClient? { apiClient }
+    func api() -> APIClient? {
+        apiClient
+    }
 
     // MARK: Push notifications (APNs)
 
@@ -286,7 +288,9 @@ final class AppModel: ObservableObject {
     /// TMDB poster URLs are already absolute; library posters may be relative.
     func absoluteURL(_ raw: String?) -> URL? {
         guard let raw, !raw.isEmpty else { return nil }
-        if let absolute = URL(string: raw), absolute.scheme != nil { return absolute }
+        if let absolute = URL(string: raw), absolute.scheme != nil {
+            return absolute
+        }
         guard let base = URL(string: serverURL) else { return nil }
         return URL(string: raw, relativeTo: base)?.absoluteURL
     }
@@ -510,7 +514,8 @@ final class AppModel: ObservableObject {
 
         var remoteRecord: ProgressRecord?
         if let apiClient,
-           let remote = (try? await apiClient.getProgress())?.first(where: { $0.editionId == editionId }) {
+           let remote = (try? await apiClient.getProgress())?.first(where: { $0.editionId == editionId })
+        {
             remoteRecord = ProgressRecord(
                 positionSecs: remote.positionSecs,
                 totalDurationSecs: remote.totalDurationSecs,
@@ -552,7 +557,7 @@ final class AppModel: ObservableObject {
         let nowMillis = Self.nowMillis()
         if !force {
             let elapsed = nowMillis - (lastProgressWriteMillis[editionId] ?? 0)
-            if elapsed < 5_000 {
+            if elapsed < 5000 {
                 return
             }
             if let last = lastProgressPosition[editionId], abs(last - player.positionSecs) < 1 {
@@ -607,7 +612,9 @@ final class AppModel: ObservableObject {
         case .takeRemote:
             winner = remote
             // Mirror it locally so the next open resumes offline too.
-            if let remote { try? readingProgressStore.save(remote) }
+            if let remote {
+                try? readingProgressStore.save(remote)
+            }
         case .keepLocal, .push:
             winner = local
         }

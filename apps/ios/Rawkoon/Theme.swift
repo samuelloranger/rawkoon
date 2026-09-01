@@ -8,33 +8,38 @@ import UIKit
 /// and late-night queue-watching live at night.
 enum Theme {
     // MARK: Surfaces
-    static let base = Color(hex: 0x1C1715)          // app background
-    static let raised = Color(hex: 0x241E1B)        // cards, rows, sheets
-    static let inset = Color(hex: 0x171311)         // fields, insets
-    static let well = Color(hex: 0x141010)          // grooves & tracks
+
+    static let base = Color(hex: 0x1C1715) // app background
+    static let raised = Color(hex: 0x241E1B) // cards, rows, sheets
+    static let inset = Color(hex: 0x171311) // fields, insets
+    static let well = Color(hex: 0x141010) // grooves & tracks
     static let border = Color(hex: 0x322A25)
     static let borderStrong = Color(hex: 0x3A2F27)
 
     // MARK: Accent
-    static let apricot = Color(hex: 0xE8A06A)        // primary · play · active
+
+    static let apricot = Color(hex: 0xE8A06A) // primary · play · active
     static let apricotSoft = Color(hex: 0xF0BF93)
-    static let terracotta = Color(hex: 0xCF6A4E)     // pressed · progress start
+    static let terracotta = Color(hex: 0xCF6A4E) // pressed · progress start
     static let terracottaDeep = Color(hex: 0xAD5440)
 
     // MARK: Semantic
-    static let seed = Color(hex: 0x86B98A)           // in library · seeders
-    static let importing = Color(hex: 0x8FB6D6)      // importing / renaming
+
+    static let seed = Color(hex: 0x86B98A) // in library · seeders
+    static let importing = Color(hex: 0x8FB6D6) // importing / renaming
 
     // MARK: Text
-    static let textStrong = Color(hex: 0xF4ECE4)     // titles
-    static let text = Color(hex: 0xE3D8CF)           // body
-    static let muted = Color(hex: 0xAA9A8C)          // secondary · captions
-    static let faint = Color(hex: 0x9D8775)          // faintest readable
+
+    static let textStrong = Color(hex: 0xF4ECE4) // titles
+    static let text = Color(hex: 0xE3D8CF) // body
+    static let muted = Color(hex: 0xAA9A8C) // secondary · captions
+    static let faint = Color(hex: 0x9D8775) // faintest readable
 
     /// Ink used on top of the apricot accent (dark brown, high contrast).
     static let onAccent = Color(hex: 0x2A1A10)
 
     // MARK: Gradients
+
     /// Progress fills: terracotta → apricot, left to right.
     static let progress = LinearGradient(
         colors: [terracotta, apricot],
@@ -123,7 +128,7 @@ enum Appearance {
 private extension UIFont {
     func withWeight(_ weight: UIFont.Weight) -> UIFont {
         let descriptor = fontDescriptor.addingAttributes([
-            .traits: [UIFontDescriptor.TraitKey.weight: weight]
+            .traits: [UIFontDescriptor.TraitKey.weight: weight],
         ])
         return UIFont(descriptor: descriptor, size: pointSize)
     }
