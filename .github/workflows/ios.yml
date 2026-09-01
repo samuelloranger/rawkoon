@@ -1,20 +1,21 @@
 name: iOS
 on:
-  # NOTE: do not add `tags:` here. GitHub treats a push trigger carrying `tags`
-  # but no `branches` as tag-only, which silently stops branch pushes from
-  # building at all. TestFlight runs after kit+build succeed on main, or on
-  # workflow_dispatch. Feature branches and PRs never upload.
+  # NOTE: do not add `tags:` to the push trigger. GitHub treats a push trigger
+  # carrying `tags` but no `branches` as tag-only, which silently stops branch
+  # pushes from building at all.
+  #
+  # TestFlight uploads are gated on a published GitHub release and nothing else.
+  # Pushes to main (and every other branch) run kit+lint+build only — they never
+  # upload. A successful upload consumes a (version, build) pair, so it must be a
+  # deliberate act, not a side effect of merging.
   push:
     branches: ["**"]
     paths: ["apps/ios/**", ".github/workflows/ios.yml"]
   pull_request:
     paths: ["apps/ios/**"]
+  release:
+    types: [published]
   workflow_dispatch:
-    inputs:
-      version:
-        description: Marketing version (empty = package.json)
-        required: false
-        default: ""
 jobs:
   kit:
     runs-on: ubuntu-latest
@@ -61,10 +62,10 @@ jobs:
   testflight:
     runs-on: macos-26
     needs: build
-    # After kit+build succeed. Main pushes ship; dispatch still works for a
-    # one-off. A successful upload consumes a (version, build) pair, so PRs
-    # and feature branches never reach this job.
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    # A published GitHub release is the ONLY thing that uploads to TestFlight.
+    # Not a push to main, not a manual dispatch, not a PR — an upload consumes a
+    # (version, build) pair and must be deliberate. To ship: cut a release.
+    if: github.event_name == 'release'
     env:
       APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
@@ -77,11 +78,14 @@ jobs:
       - name: Resolve release version
         working-directory: apps/ios
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
-            MARKETING_VERSION="${{ inputs.version }}"
-          else
-            MARKETING_VERSION="$(python3 -c 'import json; print(json.load(open("../../package.json"))["version"])')"
-          fi
+          # The release tag is authoritative for a release build; package.json is
+          # the fallback if the tag is not version-shaped.
+          TAG="${{ github.event.release.tag_name }}"
+          MARKETING_VERSION="${TAG#v}"
+          case "$MARKETING_VERSION" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) MARKETING_VERSION="$(python3 -c 'import json; print(json.load(open("../../package.json"))["version"])')" ;;
+          esac
           if [ -z "$MARKETING_VERSION" ]; then
             echo "Could not resolve MARKETING_VERSION" >&2
             exit 1
@@ -164,7 +168,7 @@ jobs:
         env:
           BUNDLE_ID: cloud.samlo.rawkoon
           BUILD_NUMBER: ${{ env.CURRENT_PROJECT_VERSION }}
-          WHATS_NEW: "Internal build from ${{ github.ref_name }} (${{ github.sha }})"
+          WHATS_NEW: "Release ${{ github.event.release.tag_name }} (${{ github.sha }})"
         run: node scripts/asc-distribute.mjs
       - name: Upload IPA artifact
         if: always()
