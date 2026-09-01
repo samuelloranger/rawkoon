@@ -279,6 +279,20 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         let nsError = error as NSError
         guard nsError.code != NSURLErrorCancelled else { return }
         guard let fileId = fileId(from: task.taskDescription) else { return }
+        // This is the delegate method the background session actually fires for
+        // every transport-level failure — timeouts, DNS, connection drops. It ran
+        // silently before, so a whole class of download failures left no log line
+        // in the field. See `let editionId` note in didFinishDownloadingTo above.
+        let editionId = editionId
+        Log.download.error(
+            """
+            Chapter download failed (transport): \
+            editionId=\(editionId, privacy: .public) \
+            fileId=\(fileId, privacy: .public) \
+            domain=\(nsError.domain, privacy: .public) \
+            code=\(nsError.code, privacy: .public)
+            """
+        )
         applyEventAndContinue(.transportFailed(fileId: fileId), fileId: fileId)
     }
 
