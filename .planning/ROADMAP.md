@@ -120,7 +120,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. The log is worth reading in the field: on the `macbuild` simulator, force a chapter download against a URL that 404s, run `xcrun simctl spawn booted log stream --predicate 'subsystem == "cloud.samlo.rawkoon"'`, and the failure appears with its book/chapter identifier and status code **readable, not `<private>`** — while no line anywhere in the diff interpolates a bearer token, a password, or a credentialed server URL.
   5. `apps/ios/docs/` gains a page with the exact commands to pull logs off a device (sysdiagnose, `log collect --device-udid`) and off the simulator (`simctl spawn booted log show/stream`), and the phase's TestFlight build plays a downloaded chapter, pauses, and resumes exactly as v1.12.6 does — converting `try?` to `do/catch` in the playback path is the behavior risk in this phase.
 
-**Plans**: 1/3 plans executed
+**Plans**: 2/3 plans executed
 
 Plans:
 **Wave 1**
@@ -129,7 +129,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 01-02-PLAN.md — the five-category `Log` surface and the download-failure line, proven readable end to end via `simctl launch`
+- [x] 01-02-PLAN.md — the five-category `Log` surface and the download-failure line, proven readable end to end via `simctl launch`
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -260,7 +260,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Lint, format, and logging guardrails | 1/3 | In Progress|  |
+| 1. Lint, format, and logging guardrails | 2/3 | In Progress|  |
 | 2. Shared formatters and network discipline | 0/TBD | Not started | - |
 | 3. Observation | 0/TBD | Not started | - |
 | 4. Swift 6 strict concurrency | 0/TBD | Not started | - |
