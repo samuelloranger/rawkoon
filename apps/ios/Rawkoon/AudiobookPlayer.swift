@@ -26,6 +26,13 @@ final class AudiobookPlayer: ObservableObject {
     private var lastSleepTick: Date?
     private static let sleepFadeWindow: Double = 8
 
+    /// When playback last stopped, for smart rewind. Nil while playing.
+    private var pausedAt: Date?
+    /// Whether an interruption arrived while we were playing, so `.ended` knows
+    /// whether resuming is even appropriate.
+    private var wasPlayingBeforeInterruption = false
+    private var interruptionObserver: NSObjectProtocol?
+
     private var artworkURL: URL?
     private var artwork: MPMediaItemArtwork?
     private var artworkTask: Task<Void, Never>?
@@ -46,6 +53,8 @@ final class AudiobookPlayer: ObservableObject {
     private var isSeeking = false
 
     init() {
+        configureAudioSession()
+        observeInterruptions()
         configureRemoteCommands()
     }
 
@@ -55,6 +64,80 @@ final class AudiobookPlayer: ObservableObject {
         }
         if let endObserver {
             NotificationCenter.default.removeObserver(endObserver)
+        }
+        if let interruptionObserver {
+            NotificationCenter.default.removeObserver(interruptionObserver)
+        }
+    }
+
+    // MARK: Audio session
+
+    /// Category and mode are set once, not on every play.
+    ///
+    /// `.spokenAudio` is what makes another app's speech — a Maps navigation
+    /// prompt — interrupt this book rather than duck it, which is right for an
+    /// audiobook and is why interruption handling below matters so much.
+    /// `.longFormAudio` is the documented routing policy for books and podcasts;
+    /// it enables AirPlay 2 long-form routing, and it forbids explicit category
+    /// options, so none are passed.
+    private func configureAudioSession() {
+        do {
+            try AVAudioSession.sharedInstance().setCategory(
+                .playback,
+                mode: .spokenAudio,
+                policy: .longFormAudio
+            )
+        } catch {
+            // A session that will not configure still leaves the transport
+            // controls usable; playback simply fails later, visibly.
+        }
+    }
+
+    /// Resumes after a phone call, Siri, or a Maps navigation prompt.
+    ///
+    /// Without this the book stopped mid-drive and stayed stopped until the
+    /// listener reached for the Lock Screen. `.shouldResume` is a hint from the
+    /// system rather than a command, and Apple is explicit that media apps must
+    /// wait for it instead of resuming on their own — a Siri "pause" arrives as
+    /// an interruption too, and obeying it is the whole point.
+    ///
+    /// Route disconnects come through here as well. Since iOS 17 the system
+    /// interrupts an active Now Playing session when the route drops, so pulling
+    /// AirPods out or losing the car's Bluetooth lands in this handler with no
+    /// `.shouldResume`, and the book stays paused instead of playing on out of
+    /// the phone's speaker.
+    private func observeInterruptions() {
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] notification in
+            self?.handleInterruption(notification)
+        }
+    }
+
+    private func handleInterruption(_ notification: Notification) {
+        guard
+            let raw = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+            let type = AVAudioSession.InterruptionType(rawValue: raw)
+        else { return }
+
+        switch type {
+        case .began:
+            // The system has already stopped the audio; only the published
+            // state is left to correct, or the UI claims to be playing in
+            // silence.
+            wasPlayingBeforeInterruption = isPlaying
+            if isPlaying { pause() }
+        case .ended:
+            guard wasPlayingBeforeInterruption else { return }
+            wasPlayingBeforeInterruption = false
+            let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+            let options = AVAudioSession.InterruptionOptions(rawValue: rawOptions)
+            guard options.contains(.shouldResume) else { return }
+            play()
+        @unknown default:
+            break
         }
     }
 
@@ -102,7 +185,15 @@ final class AudiobookPlayer: ObservableObject {
         duration = 0
         setCurrentChapter(nil)
         setSleep(.off)
+        pausedAt = nil
+        wasPlayingBeforeInterruption = false
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        // Now that no player item is left, the session can actually be released
+        // — and other apps are told they may resume.
+        try? AVAudioSession.sharedInstance().setActive(
+            false,
+            options: .notifyOthersOnDeactivation
+        )
     }
 
     func play() {
@@ -121,9 +212,16 @@ final class AudiobookPlayer: ObservableObject {
         beginPlayback()
     }
 
+    /// Pauses without deactivating the audio session.
+    ///
+    /// A paused book is still the Now Playing session: deactivating would tell
+    /// every other app to resume, and `setActive(false)` is expected to fail
+    /// anyway while an `AVPlayer` still holds a current item. The session is
+    /// released in `unload()`, once the queue is gone.
     func pause() {
         player?.pause()
         isPlaying = false
+        pausedAt = Date()
         updateNowPlayingInfo()
     }
 
@@ -159,6 +257,10 @@ final class AudiobookPlayer: ObservableObject {
     func setRate(_ value: Float) {
         rate = value
         applyPitchAlgorithm()
+        // Both: `defaultRate` so the next chapter item starts at this speed,
+        // `rate` so the change is audible immediately rather than at the next
+        // chapter boundary.
+        player?.defaultRate = value
         if isPlaying {
             player?.rate = value
         }
@@ -243,15 +345,30 @@ final class AudiobookPlayer: ObservableObject {
     private func beginPlayback() {
         guard let player else { return }
         do {
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playback, mode: .spokenAudio)
-            try audioSession.setActive(true)
+            try AVAudioSession.sharedInstance().setActive(true)
         } catch {
             // Audio session activation failures should not crash playback controls.
         }
+        // `defaultRate` rather than assigning `rate` after `play()`: the latter
+        // is reset to 1.0 whenever the queue advances to a new chapter item, so
+        // a book playing at 1.25× would silently drop back to normal speed.
+        player.defaultRate = rate
         player.play()
-        player.rate = rate
+        applySmartRewindIfNeeded()
         updateNowPlayingInfo()
+    }
+
+    /// Rewinds a few seconds when resuming after a gap, if the listener asked
+    /// for it. Off unless `smart_rewind` is on — see `SettingsView`.
+    private func applySmartRewindIfNeeded() {
+        defer { pausedAt = nil }
+        guard
+            UserDefaults.standard.bool(forKey: "smart_rewind"),
+            let pausedAt
+        else { return }
+        let offset = smartRewindOffset(pausedFor: Date().timeIntervalSince(pausedAt))
+        guard offset > 0 else { return }
+        seek(to: positionSecs - offset)
     }
 
     /// Seek the current item. `play()` must not run until this finishes —
@@ -552,6 +669,17 @@ final class AudiobookPlayer: ObservableObject {
         info[MPMediaItemPropertyPlaybackDuration] = duration
         info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = positionSecs
         info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? rate : 0
+        // Tells the system this book's normal speed is the listener's chosen
+        // rate, not 1.0, so a rate control on the Lock Screen or in a car reads
+        // against the right baseline.
+        info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = rate
+        if !chapters.isEmpty {
+            info[MPNowPlayingInfoPropertyChapterCount] = chapters.count
+            // Chapter numbering is zero-based, and so is ManifestChapter.index.
+            if let index = currentChapterIndex {
+                info[MPNowPlayingInfoPropertyChapterNumber] = index
+            }
+        }
         if let artwork {
             info[MPMediaItemPropertyArtwork] = artwork
         } else {
@@ -587,21 +715,55 @@ final class AudiobookPlayer: ObservableObject {
         }
     }
 
+    /// Wires the Lock Screen, Control Center, headset and car controls.
+    ///
+    /// `togglePlayPauseCommand` is not redundant next to play and pause: a wired
+    /// headset button and many steering-wheel controls send only the toggle, so
+    /// an app that wires the pair alone looks unresponsive in a car.
+    ///
+    /// Commands are enabled by default, so every one this player does not
+    /// implement is disabled explicitly — otherwise a car head unit offers
+    /// buttons that do nothing. Seek forward/backward stay off deliberately:
+    /// they deliver begin/end seeking events for a press-and-hold, not the
+    /// fixed jump that `skipForward`/`skipBackward` already provide.
     private func configureRemoteCommands() {
         let center = MPRemoteCommandCenter.shared()
         center.playCommand.removeTarget(nil)
         center.pauseCommand.removeTarget(nil)
+        center.togglePlayPauseCommand.removeTarget(nil)
         center.skipForwardCommand.removeTarget(nil)
         center.skipBackwardCommand.removeTarget(nil)
+        center.nextTrackCommand.removeTarget(nil)
+        center.previousTrackCommand.removeTarget(nil)
         center.changePlaybackPositionCommand.removeTarget(nil)
+        center.changePlaybackRateCommand.removeTarget(nil)
 
         center.playCommand.isEnabled = true
         center.pauseCommand.isEnabled = true
+        center.togglePlayPauseCommand.isEnabled = true
         center.skipForwardCommand.isEnabled = true
         center.skipBackwardCommand.isEnabled = true
+        center.nextTrackCommand.isEnabled = true
+        center.previousTrackCommand.isEnabled = true
         center.changePlaybackPositionCommand.isEnabled = true
+        center.changePlaybackRateCommand.isEnabled = true
         center.skipForwardCommand.preferredIntervals = [30]
         center.skipBackwardCommand.preferredIntervals = [30]
+        center.changePlaybackRateCommand.supportedPlaybackRates = [0.8, 1.0, 1.25, 1.5, 2.0]
+
+        for unsupported in [
+            center.seekForwardCommand,
+            center.seekBackwardCommand,
+            center.stopCommand,
+            center.changeRepeatModeCommand,
+            center.changeShuffleModeCommand,
+            center.likeCommand,
+            center.dislikeCommand,
+            center.bookmarkCommand,
+            center.ratingCommand,
+        ] {
+            unsupported.isEnabled = false
+        }
 
         center.playCommand.addTarget { [weak self] _ in
             self?.play()
@@ -617,6 +779,26 @@ final class AudiobookPlayer: ObservableObject {
         }
         center.skipBackwardCommand.addTarget { [weak self] _ in
             self?.skipBackward(30)
+            return .success
+        }
+        center.togglePlayPauseCommand.addTarget { [weak self] _ in
+            guard let self else { return .commandFailed }
+            isPlaying ? pause() : play()
+            return .success
+        }
+        center.nextTrackCommand.addTarget { [weak self] _ in
+            self?.nextChapter()
+            return .success
+        }
+        center.previousTrackCommand.addTarget { [weak self] _ in
+            self?.prevChapter()
+            return .success
+        }
+        center.changePlaybackRateCommand.addTarget { [weak self] event in
+            guard let event = event as? MPChangePlaybackRateCommandEvent else {
+                return .commandFailed
+            }
+            self?.setRate(event.playbackRate)
             return .success
         }
         center.changePlaybackPositionCommand.addTarget { [weak self] event in
