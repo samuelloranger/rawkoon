@@ -259,7 +259,7 @@ final class AudiobookPlayer: ObservableObject {
         default:
             isSeeking = true
             isPlaying = autoplay
-            itemStatusObserver = item.observe(\.status, options: [.new]) { [weak self] item, _ in
+            itemStatusObserver = item.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
                 DispatchQueue.main.async {
                     guard let self, self.seekID == id else { return }
                     switch item.status {
