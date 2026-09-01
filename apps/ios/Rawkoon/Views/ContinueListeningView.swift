@@ -1,8 +1,8 @@
 import RawkoonKit
 import SwiftUI
 
-/// In-progress audiobooks and ebooks. Lives on Library for everyone, and on
-/// the admin Home dashboard. Self-loads so either surface can host it.
+/// In-progress audiobooks and ebooks. Lives on the Home dashboard.
+/// Self-loads, so any surface can host it.
 struct ContinueListeningView: View {
     @EnvironmentObject private var model: AppModel
 

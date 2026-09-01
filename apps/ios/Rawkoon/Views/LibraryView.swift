@@ -94,8 +94,6 @@ struct LibraryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ContinueListeningView(limit: 3)
-
             Picker("Section", selection: $section) {
                 ForEach(LibrarySection.allCases) { Text($0.rawValue).tag($0) }
             }
