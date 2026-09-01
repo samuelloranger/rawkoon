@@ -1,4 +1,3 @@
-<!-- GSD:project-start source:PROJECT.md -->
 
 ## Project
 
@@ -42,9 +41,6 @@ feel is a failed refactor.
   linter and the compiler hold the new boundaries rather than review alone
 - **Compatibility**: no migration of on-device state — the position journal, the
   Keychain entries, and the downloaded library must survive an app update
-<!-- GSD:project-end -->
-
-<!-- GSD:stack-start source:research/STACK.md -->
 
 ## Technology Stack
 
@@ -153,23 +149,6 @@ feel is a failed refactor.
 | Hardcoded simulator device name in `-destination` | Skip | Not guaranteed to exist on a given `macos-26` runner image; query `simctl list devices available` and pick dynamically instead |
 | Unit-test target with a Host Application | Skip (for now) | Not needed for the view-model logic tests TEST-01/VM-01 actually require; adds app-launch overhead per test run for no benefit at this milestone's scope |
 | XCTest for new tests | Skip (for new code) | Swift Testing is Apple's current default for new unit/integration tests; XCTest only stays relevant for UI automation/performance tests, neither in scope here |
-<!-- GSD:stack-end -->
-
-<!-- GSD:conventions-start source:CONVENTIONS.md -->
-
-## Conventions
-
-Conventions not yet established. Will populate as patterns emerge during development.
-<!-- GSD:conventions-end -->
-
-<!-- GSD:architecture-start source:ARCHITECTURE.md -->
-
-## Architecture
-
-Architecture not yet mapped. Follow existing patterns found in the codebase.
-<!-- GSD:architecture-end -->
-
-<!-- GSD:skills-start source:skills/ -->
 
 ## Project Skills
 
@@ -177,27 +156,3 @@ Architecture not yet mapped. Follow existing patterns found in the codebase.
 |-------|-------------|------|
 | deploying-rawkoon | Use when deploying, releasing, shipping, or rolling back rawkoon — bumping the version, cutting the GitHub release that publishes the ghcr.io Docker image, diagnosing a failed "Build and Push Docker Image" run, or recovering a production instance stuck on a bad image tag. | `.claude/skills/deploying-rawkoon/SKILL.md` |
 | writing-rawkoon-release-notes | Use when writing or rewriting the description of a rawkoon GitHub release — right after `gh release create`, when auto-generated notes need replacing, or when backfilling several releases at once. Covers the required title format, the section order, and what counts as a highlight. | `.claude/skills/writing-rawkoon-release-notes/SKILL.md` |
-<!-- GSD:skills-end -->
-
-<!-- GSD:workflow-start source:GSD defaults -->
-
-## GSD Workflow Enforcement
-
-Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
-
-Use these entry points:
-
-- `/gsd-quick` for small fixes, doc updates, and ad-hoc tasks
-- `/gsd-debug` for investigation and bug fixing
-- `/gsd-execute-phase` for planned phase work
-
-Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
-<!-- GSD:workflow-end -->
-
-<!-- GSD:profile-start -->
-
-## Developer Profile
-
-> Profile not yet configured. Run `/gsd-profile-user` to generate your developer profile.
-> This section is managed by `generate-claude-profile` -- do not edit manually.
-<!-- GSD:profile-end -->
