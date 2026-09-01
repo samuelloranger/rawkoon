@@ -189,11 +189,12 @@ private struct RootTabsView: View {
             #else
             let debugTabLocked = false
             #endif
-            if !debugTabLocked, model.isAdmin, selection == 2 {
-                selection = 0
-            }
             if model.library.isEmpty {
                 await model.loadLibrary()
+            }
+            // `isAdmin` is false until refreshAdmin runs inside loadLibrary.
+            if !debugTabLocked, model.isAdmin, selection == 2 {
+                selection = 0
             }
         }
     }
