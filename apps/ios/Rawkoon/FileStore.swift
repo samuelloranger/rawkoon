@@ -23,6 +23,10 @@ enum FileStore {
         return value.intValue
     }
 
+    static func delete(url: URL) {
+        try? FileManager.default.removeItem(at: url)
+    }
+
     static func deleteEdition(_ editionId: Int) {
         let directory = editionDirectory(editionId)
         guard FileManager.default.fileExists(atPath: directory.path) else { return }
