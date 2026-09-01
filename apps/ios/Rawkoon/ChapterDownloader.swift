@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import RawkoonKit
 
@@ -123,7 +124,11 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
                 FileStore.delete(url: url)
                 continue
             }
-            plan.apply(.completed(fileId: chapter.fileId, status: 200, bytes: bytes, sha256: nil))
+            // Only hash when the manifest carries one to compare against.
+            // Digesting every already-downloaded chapter on each launch would
+            // read the whole book off disk to answer a question nothing asked.
+            let digest = chapter.sha256 == nil ? nil : Self.sha256Hex(of: url)
+            plan.apply(.completed(fileId: chapter.fileId, status: 200, bytes: bytes, sha256: digest))
         }
         emitState()
     }
@@ -234,9 +239,39 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         FileStore.excludeFromBackup(&destination)
         let bytes = FileStore.size(url: destination) ?? 0
         applyEventAndContinue(
-            .completed(fileId: fileId, status: status, bytes: bytes, sha256: nil),
+            .completed(
+                fileId: fileId,
+                status: status,
+                bytes: bytes,
+                sha256: Self.sha256Hex(of: destination)
+            ),
             fileId: fileId
         )
+    }
+
+    /// SHA-256 of a downloaded chapter, lowercase hex to match the digest format
+    /// the server uses elsewhere (`createHash("sha256").digest("hex")`).
+    ///
+    /// Read in chunks rather than with `Data(contentsOf:)`: a chapter is tens of
+    /// megabytes and this runs on the URLSession delegate queue, so loading a
+    /// whole file into memory per completed download is not acceptable.
+    ///
+    /// Returns nil when the file cannot be read. `DownloadPlan` only compares the
+    /// hash when the manifest carries one, so nil keeps today's byte-count-only
+    /// behavior rather than failing a download over an unreadable digest.
+    private static func sha256Hex(of url: URL) -> String? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+
+        var hasher = SHA256()
+        let chunkSize = 1024 * 1024
+        while true {
+            guard let chunk = try? handle.read(upToCount: chunkSize), !chunk.isEmpty else {
+                break
+            }
+            hasher.update(data: chunk)
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
     func urlSession(_: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
