@@ -114,6 +114,7 @@ private struct RootTabsView: View {
         case "home": NavigationStack { HomeView() }
         case "book": DebugFirstBook()
         case "playerReal": DebugRealPlayer()
+        case "miniPlayer": DebugMiniPlayer { mainTabs }
         case "reader": DebugEbookReader()
         case "settings": NavigationStack { SettingsView() }
         case "requests": NavigationStack { RequestsView() }
