@@ -17,9 +17,9 @@ A requirement is not complete without both.
 - [x] **LINT-02**: `file_length`, `type_body_length`, and `function_body_length` are enabled as warnings with thresholds just above today's worst offenders, so no file can grow past its current size
 - [x] **LINT-03**: A `lint` job in `.github/workflows/ios.yml` fails the build on a lint or format violation, and runs before the expensive macOS jobs
 - [x] **LINT-04**: Every rule disabled project-wide carries a comment saying why; no blanket `disabled_rules` dump
-- [ ] **LOG-01**: A single logging surface exists (`Logger(subsystem: "cloud.samlo.rawkoon", category:)`), with one category per domain: playback, download, network, auth, sync
+- [x] **LOG-01**: A single logging surface exists (`Logger(subsystem: "cloud.samlo.rawkoon", category:)`), with one category per domain: playback, download, network, auth, sync
 - [ ] **LOG-02**: Every `try?` in the download and playback paths either reports its failure through that logger or carries a comment explaining why the error is genuinely uninteresting
-- [ ] **LOG-03**: No logged value leaks a bearer token, a password, or a full server URL with credentials; privacy annotations are explicit where a value is deliberately public
+- [x] **LOG-03**: No logged value leaks a bearer token, a password, or a full server URL with credentials; privacy annotations are explicit where a value is deliberately public
 - [ ] **LOG-04**: `docs/` records how to pull logs off a device and off the simulator
 
 ### Shared logic and network discipline
@@ -112,9 +112,9 @@ Acknowledged, not in this roadmap.
 | LINT-02 | Phase 1 | Complete |
 | LINT-03 | Phase 1 | Complete |
 | LINT-04 | Phase 1 | Complete |
-| LOG-01 | Phase 1 | Pending |
+| LOG-01 | Phase 1 | Complete |
 | LOG-02 | Phase 1 | Pending |
-| LOG-03 | Phase 1 | Pending |
+| LOG-03 | Phase 1 | Complete |
 | LOG-04 | Phase 1 | Pending |
 | KIT-01 | Phase 2 | Pending |
 | KIT-02 | Phase 2 | Pending |

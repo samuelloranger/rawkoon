@@ -4,16 +4,16 @@ milestone: v1.12.6
 current_phase: 01
 current_phase_name: Lint, format, and logging guardrails
 status: executing
-stopped_at: "Completed 01-01-PLAN.md (lint/format guardrails: .swiftlint.yml, .swiftformat, lint CI job gating build)"
-last_updated: "2026-09-01T18:57:36.442Z"
+stopped_at: Completed 01-02-PLAN.md (Logging.swift, download-failure log call, both LOG-03 scans locked at zero)
+last_updated: "2026-09-01T19:15:25.048Z"
 last_activity: 2026-09-01
 last_activity_desc: Phase 01 execution started
-state_head: 22cfada5a381a70576b570275e5bc1a6f3d5afc6
+state_head: ec81010f9990bbcf351c4ea1548e7f76254ded34
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-09-01)
 ## Current Position
 
 Phase: 01 (Lint, format, and logging guardrails) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-09-01 — Phase 01 execution started
 
@@ -59,6 +59,7 @@ Progress: [░░░░░░░░░░] 0%
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 01 P01 | 33min | 3 tasks | 47 files |
+| Phase 01 P02 | 25min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,8 @@ Recent decisions affecting current work:
 - [PROJECT.md]: Guardrails first, view models last; Swift 6 before extracting view models; sequential execution, no parallel plans.
 - [Phase 01]: Lint/format guardrail: warning-only size rules (file_length 1500, type_body_length 1400, function_body_length 100) measured on macbuild, not guessed; strict mode deliberately deferred (D-A)
 - [Phase 01]: SwiftFormat: redundantSwiftUIGroup and redundantViewBuilder disabled — both change a SwiftUI view's static type, which the no-visible-change constraint forbids touching
+- [Phase 01]: Log's privacy-annotated interpolations must reference a local shadow, not self.<property> — SwiftFormat's redundantSelf rule and the os.Logger escaping-autoclosure requirement disagree, and a local let of the same name satisfies both
+- [Phase 01]: The simctl launch redaction human-check for LOG-03 is deferred to end-of-phase human verification (workflow.human_verify_mode), not fabricated — automated checks (build, credential scans, annotation counts) all pass
 
 ### Pending Todos
 
@@ -91,6 +94,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-09-01T18:57:36.423Z
-Stopped at: Completed 01-01-PLAN.md (lint/format guardrails: .swiftlint.yml, .swiftformat, lint CI job gating build)
+Last session: 2026-09-01T19:15:25.026Z
+Stopped at: Completed 01-02-PLAN.md (Logging.swift, download-failure log call, both LOG-03 scans locked at zero)
 Resume file: None
