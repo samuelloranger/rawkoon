@@ -32,6 +32,8 @@ final class AudiobookPlayer: ObservableObject {
     /// whether resuming is even appropriate.
     private var wasPlayingBeforeInterruption = false
     private var interruptionObserver: NSObjectProtocol?
+    private var routeChangeObserver: NSObjectProtocol?
+    private var resetObserver: NSObjectProtocol?
 
     private var artworkURL: URL?
     private var artwork: MPMediaItemArtwork?
@@ -65,8 +67,8 @@ final class AudiobookPlayer: ObservableObject {
         if let endObserver {
             NotificationCenter.default.removeObserver(endObserver)
         }
-        if let interruptionObserver {
-            NotificationCenter.default.removeObserver(interruptionObserver)
+        for observer in [interruptionObserver, routeChangeObserver, resetObserver] {
+            if let observer { NotificationCenter.default.removeObserver(observer) }
         }
     }
 
@@ -107,12 +109,47 @@ final class AudiobookPlayer: ObservableObject {
     /// `.shouldResume`, and the book stays paused instead of playing on out of
     /// the phone's speaker.
     private func observeInterruptions() {
-        interruptionObserver = NotificationCenter.default.addObserver(
+        let center = NotificationCenter.default
+        let session = AVAudioSession.sharedInstance()
+
+        interruptionObserver = center.addObserver(
             forName: AVAudioSession.interruptionNotification,
-            object: AVAudioSession.sharedInstance(),
+            object: session,
             queue: .main
         ) { [weak self] notification in
             self?.handleInterruption(notification)
+        }
+
+        // Category and mode are set once now, rather than on every play, so
+        // nothing re-establishes them if the media server restarts and hands
+        // back a blank default session. Without this the next play would
+        // activate the wrong session and go silent.
+        resetObserver = center.addObserver(
+            forName: AVAudioSession.mediaServicesWereResetNotification,
+            object: session,
+            queue: .main
+        ) { [weak self] _ in
+            self?.configureAudioSession()
+            self?.rebuild()
+        }
+
+        // Belt and braces beside the interruption handler. Since iOS 17 a
+        // disconnect on an active Now Playing session arrives as an
+        // interruption, and that path stops the book correctly — but the
+        // failure mode if it ever does not is an audiobook playing out loud
+        // from the phone in public, and pausing twice costs nothing.
+        routeChangeObserver = center.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: session,
+            queue: .main
+        ) { [weak self] notification in
+            guard
+                let raw = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+                AVAudioSession.RouteChangeReason(rawValue: raw) == .oldDeviceUnavailable
+            else { return }
+            // Deliberately never the reverse: plugging headphones in must not
+            // start a book playing on its own.
+            self?.pause()
         }
     }
 
@@ -122,13 +159,26 @@ final class AudiobookPlayer: ObservableObject {
             let type = AVAudioSession.InterruptionType(rawValue: raw)
         else { return }
 
+        // A `.began` raised because the app itself was suspended is not a real
+        // interruption of playback, and pausing on it would stop a book that
+        // nothing interrupted.
+        if #available(iOS 14.5, *),
+           let rawReason = notification.userInfo?[AVAudioSessionInterruptionReasonKey] as? UInt,
+           AVAudioSession.InterruptionReason(rawValue: rawReason) == .appWasSuspended {
+            return
+        }
+
         switch type {
         case .began:
-            // The system has already stopped the audio; only the published
-            // state is left to correct, or the UI claims to be playing in
-            // silence.
-            wasPlayingBeforeInterruption = isPlaying
-            if isPlaying { pause() }
+            // Only ever set, never cleared, here. A second interruption
+            // arriving before the first has ended — a call during a navigation
+            // prompt — finds playback already stopped, and clearing the flag on
+            // that one would lose the single `.ended` the system sends when the
+            // last of them finishes.
+            if isPlaying {
+                wasPlayingBeforeInterruption = true
+                stopPlayback()
+            }
         case .ended:
             guard wasPlayingBeforeInterruption else { return }
             wasPlayingBeforeInterruption = false
@@ -142,6 +192,12 @@ final class AudiobookPlayer: ObservableObject {
     }
 
     func load(manifest: BookManifest, baseURL: URL, resumeAt: Double, artworkURL: URL? = nil) {
+        // A different book is a new session. Carrying the old one's pause clock
+        // over would rewind this book by how long the last one sat paused, and
+        // carrying the interruption flag would auto-start it when a prompt that
+        // began during the previous book ends.
+        pausedAt = nil
+        wasPlayingBeforeInterruption = false
         self.manifest = manifest
         self.baseURL = baseURL
         loadArtwork(from: artworkURL)
@@ -206,6 +262,10 @@ final class AudiobookPlayer: ObservableObject {
         // play() cancels an in-flight seek, which is the race that makes
         // scrubbing look like a no-op. Resume from the completion handler.
         if isSeeking {
+            // The seek's completion resumes playback without coming back
+            // through here, so the rewind has to be spent now or it would sit
+            // unspent and fire on some later play() while already playing.
+            pausedAt = nil
             updateNowPlayingInfo()
             return
         }
@@ -218,16 +278,29 @@ final class AudiobookPlayer: ObservableObject {
         beginPlayback()
     }
 
-    /// Pauses without deactivating the audio session.
+    /// Pauses at the listener's request.
+    ///
+    /// Distinct from the interruption path: choosing to pause during a
+    /// navigation prompt means the book should stay paused when the prompt
+    /// ends, however the system feels about `.shouldResume`.
+    func pause() {
+        wasPlayingBeforeInterruption = false
+        stopPlayback()
+    }
+
+    /// Stops the audio without deactivating the audio session.
     ///
     /// A paused book is still the Now Playing session: deactivating would tell
     /// every other app to resume, and `setActive(false)` is expected to fail
     /// anyway while an `AVPlayer` still holds a current item. The session is
     /// released in `unload()`, once the queue is gone.
-    func pause() {
+    private func stopPlayback() {
+        // Only a real playing-to-paused transition starts the rewind clock. A
+        // second pause on an already-paused book would otherwise throw away the
+        // overnight gap that makes the rewind worth having.
+        if isPlaying { pausedAt = Date() }
         player?.pause()
         isPlaying = false
-        pausedAt = Date()
         updateNowPlayingInfo()
     }
 
@@ -358,7 +431,12 @@ final class AudiobookPlayer: ObservableObject {
         do {
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
-            // Audio session activation failures should not crash playback controls.
+            // Better to show a paused book than to claim playback that is not
+            // happening — silence with a pause button is the bug this whole
+            // change exists to remove.
+            isPlaying = false
+            updateNowPlayingInfo()
+            return
         }
         // `defaultRate` rather than assigning `rate` after `play()`: the latter
         // is reset to 1.0 whenever the queue advances to a new chapter item, so
@@ -740,6 +818,18 @@ final class AudiobookPlayer: ObservableObject {
     /// buttons that do nothing. Seek forward/backward stay off deliberately:
     /// they deliver begin/end seeking events for a press-and-hold, not the
     /// fixed jump that `skipForward`/`skipBackward` already provide.
+    /// `MPRemoteCommandCenter` invokes handlers on its own queue, and every
+    /// transport method here writes `@Published` state that SwiftUI and
+    /// `AppModel`'s progress sink read on the main actor. Hop first.
+    private func onMain(_ work: @escaping () -> Void) -> MPRemoteCommandHandlerStatus {
+        if Thread.isMainThread {
+            work()
+        } else {
+            DispatchQueue.main.async(execute: work)
+        }
+        return .success
+    }
+
     private func configureRemoteCommands() {
         let center = MPRemoteCommandCenter.shared()
         center.playCommand.removeTarget(nil)
@@ -775,52 +865,45 @@ final class AudiobookPlayer: ObservableObject {
             center.dislikeCommand,
             center.bookmarkCommand,
             center.ratingCommand,
+            center.enableLanguageOptionCommand,
+            center.disableLanguageOptionCommand,
         ] {
             unsupported.isEnabled = false
         }
 
         center.playCommand.addTarget { [weak self] _ in
-            self?.play()
-            return .success
+            self?.onMain { self?.play() } ?? .commandFailed
         }
         center.pauseCommand.addTarget { [weak self] _ in
-            self?.pause()
-            return .success
+            self?.onMain { self?.pause() } ?? .commandFailed
         }
         center.skipForwardCommand.addTarget { [weak self] _ in
-            self?.skipForward(30)
-            return .success
+            self?.onMain { self?.skipForward(30) } ?? .commandFailed
         }
         center.skipBackwardCommand.addTarget { [weak self] _ in
-            self?.skipBackward(30)
-            return .success
+            self?.onMain { self?.skipBackward(30) } ?? .commandFailed
         }
         center.togglePlayPauseCommand.addTarget { [weak self] _ in
             guard let self else { return .commandFailed }
-            isPlaying ? pause() : play()
-            return .success
+            return onMain { self.isPlaying ? self.pause() : self.play() }
         }
         center.nextTrackCommand.addTarget { [weak self] _ in
-            self?.nextChapter()
-            return .success
+            self?.onMain { self?.nextChapter() } ?? .commandFailed
         }
         center.previousTrackCommand.addTarget { [weak self] _ in
-            self?.prevChapter()
-            return .success
+            self?.onMain { self?.prevChapter() } ?? .commandFailed
         }
         center.changePlaybackRateCommand.addTarget { [weak self] event in
             guard let event = event as? MPChangePlaybackRateCommandEvent else {
                 return .commandFailed
             }
-            self?.setRate(event.playbackRate)
-            return .success
+            return self?.onMain { self?.setRate(event.playbackRate) } ?? .commandFailed
         }
         center.changePlaybackPositionCommand.addTarget { [weak self] event in
             guard let event = event as? MPChangePlaybackPositionCommandEvent else {
                 return .commandFailed
             }
-            self?.seek(to: event.positionTime)
-            return .success
+            return self?.onMain { self?.seek(to: event.positionTime) } ?? .commandFailed
         }
     }
 }

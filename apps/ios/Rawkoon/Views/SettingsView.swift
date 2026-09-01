@@ -85,7 +85,7 @@ struct SettingsView: View {
             } header: {
                 Text("Playback")
             } footer: {
-                Text("Rewind a few seconds when a book resumes, by how long it was paused \u{2014} a couple of seconds after a navigation prompt, twenty after a night's sleep.")
+                Text("Rewind a few seconds when a book resumes, by how long it was paused \u{2014} nothing after a brief stop, two seconds after a minute away, twenty after a night's sleep.")
             }
             .listRowBackground(Theme.raised)
 
