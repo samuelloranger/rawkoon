@@ -12,7 +12,11 @@
   },
   "genres": [
     { "asin": "21228876031", "name": "Policier et suspense", "type": "genre" },
-    { "asin": "21228884031", "name": "Littérature et fiction", "type": "genre" },
+    {
+      "asin": "21228884031",
+      "name": "Littérature et fiction",
+      "type": "genre"
+    },
     { "asin": "21228906031", "name": "Thrillers", "type": "tag" }
   ],
   "language": "french",

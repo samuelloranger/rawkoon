@@ -19,7 +19,9 @@ export function useBookMetadataSources() {
   return useQuery({
     queryKey: queryKeys.books.metadataSources(),
     queryFn: () =>
-      fetcher<BookMetadataSourceOrderResponse>(BOOKS_ENDPOINTS.METADATA_SOURCES),
+      fetcher<BookMetadataSourceOrderResponse>(
+        BOOKS_ENDPOINTS.METADATA_SOURCES,
+      ),
   });
 }
 
