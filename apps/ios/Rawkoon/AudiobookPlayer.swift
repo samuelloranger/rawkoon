@@ -440,10 +440,21 @@ final class AudiobookPlayer: ObservableObject {
         return chapters.first(where: { $0.index == index })
     }
 
+    /// A local chapter only wins when its size matches the manifest.
+    ///
+    /// An interrupted background download leaves a short file behind.
+    /// `DownloadPlan` already refuses to verify one, but that verdict never
+    /// reached here, so the player kept preferring a file AVPlayer cannot open
+    /// — playback stayed dead until the app was deleted. Drop the bad file and
+    /// stream instead.
     private func playbackURL(for chapter: ManifestChapter, editionId: Int) -> URL? {
         let ext = fileExtension(for: chapter)
         if FileStore.exists(editionId: editionId, fileId: chapter.fileId, ext: ext) {
-            return FileStore.chapterURL(editionId: editionId, fileId: chapter.fileId, ext: ext)
+            let url = FileStore.chapterURL(editionId: editionId, fileId: chapter.fileId, ext: ext)
+            if FileStore.size(url: url) == chapter.sizeBytes {
+                return url
+            }
+            FileStore.delete(url: url)
         }
         return resolvedRemoteURL(for: chapter)
     }

@@ -108,12 +108,21 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         }
     }
 
+    /// A leftover file of the wrong size is discarded, not failed.
+    ///
+    /// Feeding it to the plan as a completed download spends a retry attempt on
+    /// every launch, so three launches would permanently fail a chapter that
+    /// only ever needed re-downloading. Deleting it leaves the chapter pending.
     private func reconcileExistingFiles() {
         for chapter in manifest.chapters {
             let ext = fileExtension(for: chapter)
             guard FileStore.exists(editionId: editionId, fileId: chapter.fileId, ext: ext) else { continue }
             let url = FileStore.chapterURL(editionId: editionId, fileId: chapter.fileId, ext: ext)
             guard let bytes = FileStore.size(url: url) else { continue }
+            guard bytes == chapter.sizeBytes else {
+                FileStore.delete(url: url)
+                continue
+            }
             plan.apply(.completed(fileId: chapter.fileId, status: 200, bytes: bytes, sha256: nil))
         }
         emitState()
