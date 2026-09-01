@@ -541,6 +541,15 @@ actor APIClient {
         try await get("/api/medias/tmdb-search", query: ["q": q, "kind": kind])
     }
 
+    func bookSearch(q: String) async throws -> BookSearchResponse {
+        try await get("/api/books/search", query: ["q": q])
+    }
+
+    func addBook(googleVolumeId: String) async throws {
+        struct Body: Encodable { let googleVolumeId: String }
+        try await postExpectOK("/api/books", body: Body(googleVolumeId: googleVolumeId))
+    }
+
     // Detail
     func mediaModal(mediaType: String, tmdbId: Int) async throws -> MediaModalResponse {
         try await get("/api/medias/modal/\(mediaType)/\(tmdbId)")

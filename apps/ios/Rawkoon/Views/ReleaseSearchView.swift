@@ -23,6 +23,7 @@ struct ReleaseSearchView: View {
     @State private var indexerWarnings: [IndexerWarning] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var grabError: String?
     @State private var adminOnlyNote: String?
     @State private var grabbingGuid: String?
     @State private var grabbedGuids: Set<String> = []
@@ -89,6 +90,15 @@ struct ReleaseSearchView: View {
                 warningStrip
             }
 
+            if let grabError {
+                Text(grabError)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.terracotta)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+            }
+
             content
         }
         .background(Theme.base)
@@ -132,8 +142,8 @@ struct ReleaseSearchView: View {
                             .font(.system(size: 13, weight: .semibold))
                     }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.apricot)
+        .buttonStyle(.borderedProminent)
+        .tint(Theme.terracotta)
                 .disabled(isLoading)
             }
 
@@ -156,7 +166,7 @@ struct ReleaseSearchView: View {
                 Spacer()
             }
             .font(.footnote)
-            .tint(Theme.apricot)
+            .tint(Theme.terracotta)
 
             if mediaType == "tv", !availableSeasons.isEmpty {
                 seasonRow
@@ -189,7 +199,7 @@ struct ReleaseSearchView: View {
     private func seasonButton(
         title: String,
         selected: Bool,
-        accent: Color = Theme.apricot,
+        accent: Color = Theme.terracotta,
         action: @escaping () -> Void
     ) -> some View {
         Button(title) {
@@ -227,7 +237,7 @@ struct ReleaseSearchView: View {
                     .foregroundStyle(Theme.muted)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if let errorMessage {
+        } else if let errorMessage, releases.isEmpty {
             ContentUnavailableView {
                 Label("Search failed", systemImage: "exclamationmark.triangle")
             } description: {
@@ -337,6 +347,7 @@ struct ReleaseSearchView: View {
 
         isLoading = true
         errorMessage = nil
+        grabError = nil
         adminOnlyNote = nil
         indexerWarnings = []
         defer { isLoading = false }
@@ -374,14 +385,15 @@ struct ReleaseSearchView: View {
                     body: GrabUrlBody(downloadUrl: downloadUrl, releaseTitle: release.title, episodeId: nil)
                 )
             } else {
-                errorMessage = "This release can't be grabbed."
+                grabError = "This release can't be grabbed."
                 return
             }
             grabbedGuids.insert(release.guid)
+            grabError = nil
         } catch APIError.unauthorized {
             adminOnlyNote = "Admin only"
         } catch {
-            errorMessage = "Grab failed for \"\(release.title)\"."
+            grabError = "Grab failed for \"\(release.title)\"."
         }
     }
 
@@ -395,7 +407,7 @@ struct ReleaseSearchView: View {
                 Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
             }
             .foregroundStyle(Theme.textStrong)
-            .padding(.horizontal, 12).padding(.vertical, 7)
+            .padding(.horizontal, 12).padding(.vertical, 10)
             .background(Theme.raised, in: Capsule())
             .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
         }
@@ -519,9 +531,9 @@ private struct ReleaseRow: View {
                 Text("Grab")
                     .font(.system(.caption, design: .monospaced).weight(.semibold))
                     .foregroundStyle(Theme.onAccent)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 5)
-                    .background(Theme.apricot, in: Capsule())
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 44)
+                    .background(Theme.terracotta, in: Capsule())
             }
         }
     }
