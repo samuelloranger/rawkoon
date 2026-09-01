@@ -32,7 +32,6 @@ final class AudiobookPlayer: ObservableObject {
     /// whether resuming is even appropriate.
     private var wasPlayingBeforeInterruption = false
     private var interruptionObserver: NSObjectProtocol?
-    private var routeChangeObserver: NSObjectProtocol?
     private var resetObserver: NSObjectProtocol?
 
     private var artworkURL: URL?
@@ -67,7 +66,7 @@ final class AudiobookPlayer: ObservableObject {
         if let endObserver {
             NotificationCenter.default.removeObserver(endObserver)
         }
-        for observer in [interruptionObserver, routeChangeObserver, resetObserver] {
+        for observer in [interruptionObserver, resetObserver] {
             if let observer { NotificationCenter.default.removeObserver(observer) }
         }
     }
@@ -84,11 +83,20 @@ final class AudiobookPlayer: ObservableObject {
     /// options, so none are passed.
     private func configureAudioSession() {
         do {
-            try AVAudioSession.sharedInstance().setCategory(
-                .playback,
-                mode: .spokenAudio,
-                policy: .longFormAudio
-            )
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .spokenAudio, policy: .longFormAudio)
+            // Ask for a route disconnect to arrive as an interruption rather
+            // than only a route change, so the one handler below owns every
+            // reason playback stops. This is the default for a Now Playing
+            // session since iOS 17; saying so makes it a request rather than
+            // an assumption.
+            //
+            // A separate route-change observer is deliberately NOT used. It
+            // would have to pause, and pausing clears the resume flag — so a
+            // Bluetooth profile switch, which a car makes on every call and on
+            // some navigation prompts, would report the old route as
+            // unavailable and cancel the very resume this class exists for.
+            try session.setPrefersInterruptionOnRouteDisconnect(true)
         } catch {
             // A session that will not configure still leaves the transport
             // controls usable; playback simply fails later, visibly.
@@ -103,11 +111,10 @@ final class AudiobookPlayer: ObservableObject {
     /// wait for it instead of resuming on their own — a Siri "pause" arrives as
     /// an interruption too, and obeying it is the whole point.
     ///
-    /// Route disconnects come through here as well. Since iOS 17 the system
-    /// interrupts an active Now Playing session when the route drops, so pulling
-    /// AirPods out or losing the car's Bluetooth lands in this handler with no
-    /// `.shouldResume`, and the book stays paused instead of playing on out of
-    /// the phone's speaker.
+    /// Route disconnects come through here too: the session asks for a
+    /// disconnect to be delivered as an interruption, so pulling AirPods out or
+    /// losing the car's Bluetooth lands here carrying no `.shouldResume`, and
+    /// the book stays paused instead of playing on out of the phone's speaker.
     private func observeInterruptions() {
         let center = NotificationCenter.default
         let session = AVAudioSession.sharedInstance()
@@ -129,27 +136,42 @@ final class AudiobookPlayer: ObservableObject {
             object: session,
             queue: .main
         ) { [weak self] _ in
-            self?.configureAudioSession()
-            self?.rebuild()
+            self?.handleMediaServicesReset()
         }
 
-        // Belt and braces beside the interruption handler. Since iOS 17 a
-        // disconnect on an active Now Playing session arrives as an
-        // interruption, and that path stops the book correctly — but the
-        // failure mode if it ever does not is an audiobook playing out loud
-        // from the phone in public, and pausing twice costs nothing.
-        routeChangeObserver = center.addObserver(
-            forName: AVAudioSession.routeChangeNotification,
-            object: session,
-            queue: .main
-        ) { [weak self] notification in
-            guard
-                let raw = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
-                AVAudioSession.RouteChangeReason(rawValue: raw) == .oldDeviceUnavailable
-            else { return }
-            // Deliberately never the reverse: plugging headphones in must not
-            // start a book playing on its own.
-            self?.pause()
+    }
+
+    /// Rebuilds everything after the media server restarts.
+    ///
+    /// The old `AVPlayer` must be dropped without being spoken to — Apple's
+    /// rule after a reset is to discard the objects, and the ordinary teardown
+    /// path would call `removeTimeObserver` on a player that no longer exists.
+    /// Nilling the handles first means the rebuild cannot reach it.
+    ///
+    /// A reset during an interruption keeps the pending resume: the flag would
+    /// otherwise be cleared by `load()`, and the prompt's `.ended` would find
+    /// nothing to resume.
+    private func handleMediaServicesReset() {
+        guard let manifest, let baseURL else { return }
+        let resumeAt = positionSecs
+        let wasPlaying = isPlaying
+        let hadPendingResume = wasPlayingBeforeInterruption
+
+        timeObserver = nil
+        currentItemObserver = nil
+        itemStatusObserver = nil
+        if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
+        endObserver = nil
+        player = nil
+        isPlaying = false
+
+        configureAudioSession()
+        load(manifest: manifest, baseURL: baseURL, resumeAt: resumeAt, artworkURL: artworkURL)
+
+        if wasPlaying {
+            play()
+        } else {
+            wasPlayingBeforeInterruption = hadPendingResume
         }
     }
 
@@ -162,33 +184,59 @@ final class AudiobookPlayer: ObservableObject {
         // A `.began` raised because the app itself was suspended is not a real
         // interruption of playback, and pausing on it would stop a book that
         // nothing interrupted.
-        if #available(iOS 14.5, *),
-           let rawReason = notification.userInfo?[AVAudioSessionInterruptionReasonKey] as? UInt,
+        if let rawReason = notification.userInfo?[AVAudioSessionInterruptionReasonKey] as? UInt,
            AVAudioSession.InterruptionReason(rawValue: rawReason) == .appWasSuspended {
             return
         }
 
+        let event: InterruptionEvent
         switch type {
         case .began:
-            // Only ever set, never cleared, here. A second interruption
-            // arriving before the first has ended — a call during a navigation
-            // prompt — finds playback already stopped, and clearing the flag on
-            // that one would lose the single `.ended` the system sends when the
-            // last of them finishes.
-            if isPlaying {
-                wasPlayingBeforeInterruption = true
-                stopPlayback()
-            }
+            event = .began
         case .ended:
-            guard wasPlayingBeforeInterruption else { return }
-            wasPlayingBeforeInterruption = false
             let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
             let options = AVAudioSession.InterruptionOptions(rawValue: rawOptions)
-            guard options.contains(.shouldResume) else { return }
-            play()
+            event = .ended(shouldResume: options.contains(.shouldResume))
         @unknown default:
-            break
+            return
         }
+
+        // The decision itself lives in RawkoonKit, where the cases that cannot
+        // be reproduced on a simulator — a call during a navigation prompt, a
+        // pause while the prompt is speaking — are unit tests instead.
+        let (action, next) = interruptionDecision(
+            event,
+            state: InterruptionState(
+                isPlaying: isPlaying,
+                resumePending: wasPlayingBeforeInterruption
+            )
+        )
+        wasPlayingBeforeInterruption = next.resumePending
+
+        switch action {
+        case .doNothing:
+            break
+        case .stopPlayback:
+            stopPlayback()
+        case .resumePlayback:
+            resumeAfterInterruption()
+        }
+    }
+
+    /// Resuming is continuing, or nothing.
+    ///
+    /// Deliberately not `play()`: its empty-queue branch seeks to 0, so an
+    /// interruption landing exactly as the last chapter drains would restart
+    /// the whole book.
+    private func resumeAfterInterruption() {
+        guard player?.currentItem != nil else { return }
+        isPlaying = true
+        if case .minutes = sleepMode { lastSleepTick = Date() }
+        if let target = consumeSmartRewindTarget() {
+            seek(to: target)
+            return
+        }
+        beginPlayback()
     }
 
     func load(manifest: BookManifest, baseURL: URL, resumeAt: Double, artworkURL: URL? = nil) {
@@ -284,7 +332,9 @@ final class AudiobookPlayer: ObservableObject {
     /// navigation prompt means the book should stay paused when the prompt
     /// ends, however the system feels about `.shouldResume`.
     func pause() {
-        wasPlayingBeforeInterruption = false
+        wasPlayingBeforeInterruption = userPaused(
+            InterruptionState(isPlaying: isPlaying, resumePending: wasPlayingBeforeInterruption)
+        ).resumePending
         stopPlayback()
     }
 
@@ -427,7 +477,13 @@ final class AudiobookPlayer: ObservableObject {
     }
 
     private func beginPlayback() {
-        guard let player else { return }
+        guard let player else {
+            // Same lie as a failed activation: `play()` has already published
+            // isPlaying, and there is no player to make good on it.
+            isPlaying = false
+            updateNowPlayingInfo()
+            return
+        }
         do {
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
