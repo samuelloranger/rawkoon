@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// The home screen — admin dashboard: greeting, Recently Added and Upcoming
-/// rails, then a widget stack (Now Watching, Downloads, Library Attention, RSS).
-/// Widgets self-hide when their integration is off. Continue lives on Library.
+/// The home screen — admin dashboard: greeting, Continue, Recently Added and
+/// Upcoming rails, then a widget stack (Now Watching, Downloads, Library
+/// Attention, RSS). Widgets self-hide when their integration is off.
 struct HomeView: View {
     @EnvironmentObject private var model: AppModel
 
@@ -13,6 +13,9 @@ struct HomeView: View {
     @State private var attention: [AttentionItem] = []
     @State private var rss: RssStatusResponse?
     @State private var loading = true
+    /// Bumped on pull-to-refresh so the Continue card reloads with the rest of
+    /// the dashboard; it owns its own fetch otherwise.
+    @State private var continueToken = 0
 
     var body: some View {
         ScrollView {
@@ -23,6 +26,7 @@ struct HomeView: View {
                     ProgressView().tint(Theme.muted)
                         .frame(maxWidth: .infinity).padding(.top, 40)
                 } else {
+                    ContinueListeningView(refreshToken: continueToken, limit: 3)
                     if !recent.isEmpty { rail("Recently added", recent.map(RailItem.library)) }
                     if !upcoming.isEmpty { rail("Upcoming", upcoming.map(RailItem.upcoming)) }
                     widgets
@@ -33,9 +37,12 @@ struct HomeView: View {
         }
         .background(Theme.base)
         .navigationTitle("Home")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
-        .refreshable { await load() }
+        .refreshable {
+            continueToken += 1
+            await load()
+        }
     }
 
     // MARK: Greeting

@@ -17,9 +17,17 @@ struct ContinueListeningView: View {
     @State private var readingBook: BookListItem?
 
     var body: some View {
+        // A bare `if` with no else renders nothing at all, and SwiftUI never
+        // runs a `.task` attached to nothing — so the card stayed empty
+        // forever, because the only thing that fills it is that task. The
+        // zero-size placeholder keeps the view in the hierarchy while hidden.
         Group {
             if errorMessage != nil || !items.isEmpty {
                 card
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+            } else {
+                Color.clear.frame(width: 0, height: 0)
             }
         }
         .task(id: refreshToken) { await load() }
