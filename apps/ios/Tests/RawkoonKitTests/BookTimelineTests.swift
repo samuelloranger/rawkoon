@@ -1,5 +1,5 @@
-import XCTest
 @testable import RawkoonKit
+import XCTest
 
 final class BookTimelineTests: XCTestCase {
     /// The real registered offsets for L'intruse. NOT metadata.json's atoms,
@@ -37,15 +37,15 @@ final class BookTimelineTests: XCTestCase {
         XCTAssertEqual(timeline.chapterIndex(at: 1042.860408), 2)
     }
 
-    func testRoundTripThroughChapterOffset() {
+    func testRoundTripThroughChapterOffset() throws {
         let p = 700.5
         guard let split = timeline.offsetWithinChapter(at: p) else {
             return XCTFail("expected a chapter")
         }
         XCTAssertEqual(split.index, 1)
         XCTAssertEqual(split.offsetSecs, 700.5 - 504.189388, accuracy: 1e-9)
-        XCTAssertEqual(timeline.position(chapterIndex: split.index,
-                                         offsetSecs: split.offsetSecs)!,
+        XCTAssertEqual(try XCTUnwrap(timeline.position(chapterIndex: split.index,
+                                                       offsetSecs: split.offsetSecs)),
                        p, accuracy: 1e-9)
     }
 
@@ -67,19 +67,19 @@ final class BookTimelineTests: XCTestCase {
     func testOutOfRangePositions() {
         XCTAssertNil(timeline.chapterIndex(at: -1))
         XCTAssertNil(timeline.chapterIndex(at: 1995.049796))
-        XCTAssertNil(timeline.chapterIndex(at: 99_999))
+        XCTAssertNil(timeline.chapterIndex(at: 99999))
     }
 
     func testClampKeepsPositionsInsideTheBook() {
         XCTAssertEqual(timeline.clamp(-5), 0)
         XCTAssertEqual(timeline.clamp(500), 500)
-        XCTAssertEqual(timeline.clamp(99_999), 1995.049796, accuracy: 1e-9)
+        XCTAssertEqual(timeline.clamp(99999), 1995.049796, accuracy: 1e-9)
     }
 
-    func testBoundaryNavigation() {
-        XCTAssertEqual(timeline.boundary(after: 100)!, 504.189388, accuracy: 1e-9)
-        XCTAssertEqual(timeline.boundary(before: 600)!, 504.189388, accuracy: 1e-9)
-        XCTAssertEqual(timeline.boundary(before: 100)!, 0, accuracy: 1e-9)
+    func testBoundaryNavigation() throws {
+        XCTAssertEqual(try XCTUnwrap(timeline.boundary(after: 100)), 504.189388, accuracy: 1e-9)
+        XCTAssertEqual(try XCTUnwrap(timeline.boundary(before: 600)), 504.189388, accuracy: 1e-9)
+        XCTAssertEqual(try XCTUnwrap(timeline.boundary(before: 100)), 0, accuracy: 1e-9)
         XCTAssertNil(timeline.boundary(after: 1900))
     }
 

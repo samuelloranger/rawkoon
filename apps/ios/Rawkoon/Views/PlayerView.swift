@@ -174,7 +174,7 @@ struct PlayerView: View {
             if let chapter = scrubberChapterScope {
                 Slider(
                     value: $sliderPosition,
-                    in: chapter.startSecs...chapter.endSecs,
+                    in: chapter.startSecs ... chapter.endSecs,
                     onEditingChanged: scrubChanged
                 )
                 .tint(Theme.apricot)
@@ -199,7 +199,7 @@ struct PlayerView: View {
             } else {
                 Slider(
                     value: $sliderPosition,
-                    in: 0...max(model.player.duration, 0.1),
+                    in: 0 ... max(model.player.duration, 0.1),
                     onEditingChanged: scrubChanged
                 )
                 .tint(Theme.apricot)
@@ -381,8 +381,12 @@ struct PlayerView: View {
 
     private func rateLabel(_ value: Double) -> String {
         let rounded = (value * 100).rounded() / 100
-        if abs(rounded.rounded() - rounded) < 0.001 { return String(format: "%.0f", rounded) }
-        if abs((rounded * 10).rounded() - (rounded * 10)) < 0.001 { return String(format: "%.1f", rounded) }
+        if abs(rounded.rounded() - rounded) < 0.001 {
+            return String(format: "%.0f", rounded)
+        }
+        if abs((rounded * 10).rounded() - (rounded * 10)) < 0.001 {
+            return String(format: "%.1f", rounded)
+        }
         return String(format: "%.2f", rounded)
     }
 
@@ -392,14 +396,16 @@ struct PlayerView: View {
         let hours = total / 3600
         let minutes = (total % 3600) / 60
         let secs = total % 60
-        if hours > 0 { return String(format: "%d:%02d:%02d", hours, minutes, secs) }
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, secs)
+        }
         return String(format: "%d:%02d", minutes, secs)
     }
 }
 
 /// `AVRoutePickerView` has no SwiftUI equivalent.
 private struct RoutePicker: UIViewRepresentable {
-    func makeUIView(context: Context) -> AVRoutePickerView {
+    func makeUIView(context _: Context) -> AVRoutePickerView {
         let view = AVRoutePickerView()
         // AVRoutePickerView is already an accessible button and names itself,
         // so a SwiftUI label on the wrapper would have VoiceOver say it twice.
@@ -411,7 +417,7 @@ private struct RoutePicker: UIViewRepresentable {
         return view
     }
 
-    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
+    func updateUIView(_: AVRoutePickerView, context _: Context) {}
 }
 
 /// Apricot at rest, terracotta when pressed — the lamp, then the ember.

@@ -8,7 +8,9 @@ struct RequestsView: View {
     private enum Filter: String, CaseIterable, Identifiable {
         case pending = "Pending"
         case all = "All"
-        var id: String { rawValue }
+        var id: String {
+            rawValue
+        }
     }
 
     @State private var filter: Filter = .pending
@@ -74,7 +76,11 @@ struct RequestsView: View {
             "Deny this request?",
             isPresented: Binding(
                 get: { denyTarget != nil },
-                set: { if !$0 { denyTarget = nil } }
+                set: {
+                    if !$0 {
+                        denyTarget = nil
+                    }
+                }
             ),
             titleVisibility: .visible
         ) {

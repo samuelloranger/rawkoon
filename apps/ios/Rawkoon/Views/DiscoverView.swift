@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Tab root. Explore feed + TMDB search + poster grid; tap → MediaDetailView.
+/// Tab root. Explore feed + TMDB search + poster grid; tap → MediaDetailView.
 struct DiscoverView: View {
     @EnvironmentObject private var model: AppModel
 
@@ -359,7 +359,7 @@ struct DiscoverView: View {
         if item.alreadyExists == true {
             Image(systemName: "checkmark")
                 .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(Color(hex: 0x10231a))
+                .foregroundStyle(Color(hex: 0x10231A))
                 .frame(width: 22, height: 22)
                 .background(Theme.seed, in: Circle())
                 .accessibilityLabel("In library")
@@ -435,16 +435,20 @@ struct DiscoverView: View {
             do {
                 books = try await client.bookSearch(q: query).results
             } catch let error as APIError {
-                if firstError == nil { firstError = message(for: error) }
+                if firstError == nil {
+                    firstError = message(for: error)
+                }
             } catch {
-                if firstError == nil { firstError = "Network error. Check your connection." }
+                if firstError == nil {
+                    firstError = "Network error. Check your connection."
+                }
             }
             guard !Task.isCancelled else { return }
         }
 
         searchResults = tmdb
         bookResults = books
-        if tmdb.isEmpty && books.isEmpty {
+        if tmdb.isEmpty, books.isEmpty {
             searchError = firstError
         } else {
             searchError = nil

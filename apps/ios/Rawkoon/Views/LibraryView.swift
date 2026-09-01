@@ -4,20 +4,33 @@ import SwiftUI
 private enum LibrarySection: String, CaseIterable, Identifiable {
     case media = "Media"
     case books = "Books"
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 }
 
-// Defaults mirror the web app: type=all, status=all, sort=added_at desc.
+/// Defaults mirror the web app: type=all, status=all, sort=added_at desc.
 private enum MediaTypeFilter: String, CaseIterable, Identifiable {
     case all, movie, show
-    var id: String { rawValue }
-    var label: String { self == .all ? "All" : self == .movie ? "Movies" : "Shows" }
-    var param: String? { self == .all ? nil : rawValue }
+    var id: String {
+        rawValue
+    }
+
+    var label: String {
+        self == .all ? "All" : self == .movie ? "Movies" : "Shows"
+    }
+
+    var param: String? {
+        self == .all ? nil : rawValue
+    }
 }
 
 private enum MediaStatusFilter: String, CaseIterable, Identifiable {
     case all, downloaded, wanted, downloading
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
+
     var label: String {
         switch self {
         case .all: return "All"
@@ -26,12 +39,18 @@ private enum MediaStatusFilter: String, CaseIterable, Identifiable {
         case .downloading: return "Downloading"
         }
     }
-    var param: String? { self == .all ? nil : rawValue }
+
+    var param: String? {
+        self == .all ? nil : rawValue
+    }
 }
 
 private enum MediaSort: String, CaseIterable, Identifiable {
     case added_at, last_grabbed_at, title, year, status, digital_release_date, file_size
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
+
     var label: String {
         switch self {
         case .added_at: return "Date added"
@@ -47,13 +66,21 @@ private enum MediaSort: String, CaseIterable, Identifiable {
 
 private enum BookKindFilter: String, CaseIterable, Identifiable {
     case all, audiobook, ebook
-    var id: String { rawValue }
-    var label: String { self == .all ? "All" : self == .audiobook ? "Audiobook" : "Ebook" }
+    var id: String {
+        rawValue
+    }
+
+    var label: String {
+        self == .all ? "All" : self == .audiobook ? "Audiobook" : "Ebook"
+    }
 }
 
 private enum BookSort: String, CaseIterable, Identifiable {
     case title, author
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
+
     var label: String {
         switch self {
         case .title: return "Title"
@@ -101,7 +128,11 @@ struct LibraryView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
 
-            if section == .media { mediaToolbar } else { booksToolbar }
+            if section == .media {
+                mediaToolbar
+            } else {
+                booksToolbar
+            }
 
             content
         }
@@ -118,14 +149,20 @@ struct LibraryView: View {
             }
         }
         .task {
-            if section == .media { await loadMedia(reset: true) }
-            if model.library.isEmpty { await model.loadLibrary() }
+            if section == .media {
+                await loadMedia(reset: true)
+            }
+            if model.library.isEmpty {
+                await model.loadLibrary()
+            }
         }
         .onChange(of: mediaFilterKey) { _, _ in
             Task { await loadMedia(reset: true) }
         }
         .onChange(of: section) { _, newSection in
-            if newSection == .media { Task { await loadMedia(reset: true) } }
+            if newSection == .media {
+                Task { await loadMedia(reset: true) }
+            }
         }
         .sheet(item: $releaseSearch) { target in
             ReleaseSearchView(
@@ -145,7 +182,11 @@ struct LibraryView: View {
         }
         .navigationDestination(isPresented: Binding(
             get: { menuDetailMedia != nil },
-            set: { if !$0 { menuDetailMedia = nil } }
+            set: {
+                if !$0 {
+                    menuDetailMedia = nil
+                }
+            }
         )) {
             if let m = menuDetailMedia {
                 MediaDetailView(
@@ -159,7 +200,11 @@ struct LibraryView: View {
         }
         .navigationDestination(isPresented: Binding(
             get: { readingBook != nil },
-            set: { if !$0 { readingBook = nil } }
+            set: {
+                if !$0 {
+                    readingBook = nil
+                }
+            }
         )) {
             if let book = readingBook {
                 BookView(book: book, preferEbook: true)
@@ -257,7 +302,11 @@ struct LibraryView: View {
 
     @ViewBuilder
     private var content: some View {
-        if section == .media { mediaGrid } else { booksGrid }
+        if section == .media {
+            mediaGrid
+        } else {
+            booksGrid
+        }
     }
 
     private var mediaGrid: some View {

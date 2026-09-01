@@ -12,13 +12,14 @@ final class AudiobookPlayer: ObservableObject {
     @Published private(set) var rate: Float = 1.0
     @Published private(set) var duration: Double = 0
 
-    // Sleep timer. Countdown advances on playback ticks, so it naturally pauses
-    // when playback pauses. `.endOfChapter` stops when the current chapter ends.
+    /// Sleep timer. Countdown advances on playback ticks, so it naturally pauses
+    /// when playback pauses. `.endOfChapter` stops when the current chapter ends.
     enum SleepMode: Equatable {
         case off
         case minutes(Int)
         case endOfChapter
     }
+
     @Published private(set) var sleepMode: SleepMode = .off
     @Published private(set) var sleepRemainingSecs: Double?
 
@@ -70,7 +71,9 @@ final class AudiobookPlayer: ObservableObject {
             NotificationCenter.default.removeObserver(endObserver)
         }
         for observer in [interruptionObserver, resetObserver] {
-            if let observer { NotificationCenter.default.removeObserver(observer) }
+            if let observer {
+                NotificationCenter.default.removeObserver(observer)
+            }
         }
         // `MPRemoteCommandCenter` is process-global. Leaving handlers behind
         // would let a dead player answer the Lock Screen; removing them by
@@ -148,7 +151,6 @@ final class AudiobookPlayer: ObservableObject {
         ) { [weak self] _ in
             self?.handleMediaServicesReset()
         }
-
     }
 
     /// Rebuilds everything after the media server restarts.
@@ -170,7 +172,9 @@ final class AudiobookPlayer: ObservableObject {
         timeObserver = nil
         currentItemObserver = nil
         itemStatusObserver = nil
-        if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
+        if let endObserver {
+            NotificationCenter.default.removeObserver(endObserver)
+        }
         endObserver = nil
         player = nil
         isPlaying = false
@@ -195,7 +199,8 @@ final class AudiobookPlayer: ObservableObject {
         // interruption of playback, and pausing on it would stop a book that
         // nothing interrupted.
         if let rawReason = notification.userInfo?[AVAudioSessionInterruptionReasonKey] as? UInt,
-           AVAudioSession.InterruptionReason(rawValue: rawReason) == .appWasSuspended {
+           AVAudioSession.InterruptionReason(rawValue: rawReason) == .appWasSuspended
+        {
             return
         }
 
@@ -241,7 +246,9 @@ final class AudiobookPlayer: ObservableObject {
     private func resumeAfterInterruption() {
         guard player?.currentItem != nil else { return }
         isPlaying = true
-        if case .minutes = sleepMode { lastSleepTick = Date() }
+        if case .minutes = sleepMode {
+            lastSleepTick = Date()
+        }
         // The same guard `play()` carries, and for the same reason: AVPlayer
         // treats play() as cancelling an in-flight seek, so resuming here would
         // land back at the pre-seek position. `isPlaying` is set, so the seek's
@@ -268,7 +275,7 @@ final class AudiobookPlayer: ObservableObject {
         self.manifest = manifest
         self.baseURL = baseURL
         loadArtwork(from: artworkURL)
-        self.chapters = manifest.chapters.sorted { $0.index < $1.index }
+        chapters = manifest.chapters.sorted { $0.index < $1.index }
         let timeline = BookTimeline(chapters: chapters)
         self.timeline = timeline
         duration = chapters.last?.endSecs ?? manifest.totalDurationSecs
@@ -321,7 +328,9 @@ final class AudiobookPlayer: ObservableObject {
 
     func play() {
         isPlaying = true
-        if case .minutes = sleepMode { lastSleepTick = Date() }
+        if case .minutes = sleepMode {
+            lastSleepTick = Date()
+        }
         if player?.currentItem == nil, duration > 0 {
             seek(to: 0)
             return
@@ -367,7 +376,9 @@ final class AudiobookPlayer: ObservableObject {
         // Only a real playing-to-paused transition starts the rewind clock. A
         // second pause on an already-paused book would otherwise throw away the
         // overnight gap that makes the rewind worth having.
-        if isPlaying { pausedAt = Date() }
+        if isPlaying {
+            pausedAt = Date()
+        }
         player?.pause()
         isPlaying = false
         updateNowPlayingInfo()
@@ -857,7 +868,8 @@ final class AudiobookPlayer: ObservableObject {
             // `ManifestChapter.index` is only in practice — `BookTimeline`
             // treats it as a domain id and allows gaps. Send the ordinal.
             if let index = currentChapterIndex,
-               let ordinal = chapters.firstIndex(where: { $0.index == index }) {
+               let ordinal = chapters.firstIndex(where: { $0.index == index })
+            {
                 info[MPNowPlayingInfoPropertyChapterNumber] = ordinal
             }
         }

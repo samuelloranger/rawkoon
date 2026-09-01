@@ -1,5 +1,5 @@
-import XCTest
 @testable import RawkoonKit
+import XCTest
 
 final class InterruptionPolicyTests: XCTestCase {
     private let playing = InterruptionState(isPlaying: true)

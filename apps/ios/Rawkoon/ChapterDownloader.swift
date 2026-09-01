@@ -45,9 +45,9 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         self.manifest = manifest
         self.allowCellular = allowCellular
         self.onState = onState
-        self.sessionIdentifier = Self.sessionIdentifier(editionId: editionId)
-        self.plan = DownloadPlan(chapters: manifest.chapters)
-        self.chapterByFileId = Dictionary(uniqueKeysWithValues: manifest.chapters.map { ($0.fileId, $0) })
+        sessionIdentifier = Self.sessionIdentifier(editionId: editionId)
+        plan = DownloadPlan(chapters: manifest.chapters)
+        chapterByFileId = Dictionary(uniqueKeysWithValues: manifest.chapters.map { ($0.fileId, $0) })
         super.init()
         reconcileExistingFiles()
         loadExistingTasks()
@@ -157,7 +157,8 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
             guard started < availableSlots else { break }
             guard !activeFileIds.contains(fileId) else { continue }
             guard let chapter = chapterByFileId[fileId],
-                  let url = resolvedChapterURL(for: chapter) else {
+                  let url = resolvedChapterURL(for: chapter)
+            else {
                 plan.apply(.transportFailed(fileId: fileId))
                 emitState()
                 continue
@@ -179,13 +180,14 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         }
     }
 
-    func urlSession(_ session: URLSession,
+    func urlSession(_: URLSession,
                     downloadTask: URLSessionDownloadTask,
-                    didFinishDownloadingTo location: URL) {
+                    didFinishDownloadingTo location: URL)
+    {
         guard let fileId = fileId(from: downloadTask.taskDescription) else { return }
         let status = (downloadTask.response as? HTTPURLResponse)?.statusCode ?? -1
 
-        if !(200...299).contains(status) {
+        if !(200 ... 299).contains(status) {
             applyEventAndContinue(
                 .completed(fileId: fileId, status: status, bytes: 0, sha256: nil),
                 fileId: fileId
@@ -221,7 +223,7 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         )
     }
 
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+    func urlSession(_: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         guard let error else { return }
         let nsError = error as NSError
         guard nsError.code != NSURLErrorCancelled else { return }
@@ -229,7 +231,7 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         applyEventAndContinue(.transportFailed(fileId: fileId), fileId: fileId)
     }
 
-    func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
+    func urlSessionDidFinishEvents(forBackgroundURLSession _: URLSession) {
         stateQueue.async {
             let completion = self.backgroundSessionCompletion
             self.backgroundSessionCompletion = nil
@@ -261,7 +263,8 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         guard parts.count == 2,
               let parsedEditionId = Int(parts[0]),
               parsedEditionId == editionId,
-              let fileId = Int(parts[1]) else {
+              let fileId = Int(parts[1])
+        else {
             return nil
         }
         return fileId

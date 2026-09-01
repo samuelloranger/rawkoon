@@ -1,8 +1,8 @@
 import RawkoonKit
 import SwiftUI
 
-// Pushed from Discover and Library. `mediaType` is TMDB-style ("movie"/"tv").
-// `libraryId` is non-nil when the title is already in the library.
+/// Pushed from Discover and Library. `mediaType` is TMDB-style ("movie"/"tv").
+/// `libraryId` is non-nil when the title is already in the library.
 struct MediaDetailView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
@@ -64,7 +64,9 @@ struct MediaDetailView: View {
         case similar = "Similar"
         case search = "Search"
         case management = "Management"
-        var id: String { rawValue }
+        var id: String {
+            rawValue
+        }
     }
 
     private let similarColumns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
@@ -126,7 +128,11 @@ struct MediaDetailView: View {
             }
             .navigationDestination(isPresented: Binding(
                 get: { similarMenuDetail != nil },
-                set: { if !$0 { similarMenuDetail = nil } }
+                set: {
+                    if !$0 {
+                        similarMenuDetail = nil
+                    }
+                }
             )) {
                 if let item = similarMenuDetail {
                     MediaDetailView(
@@ -464,7 +470,7 @@ struct MediaDetailView: View {
                         ) {
                             if item.alreadyExists == true {
                                 Circle().fill(Theme.seed).frame(width: 22, height: 22)
-                                    .overlay(Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Color(hex: 0x10231a)))
+                                    .overlay(Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Color(hex: 0x10231A)))
                             }
                         }
                     }
@@ -828,14 +834,18 @@ struct MediaDetailView: View {
     private func trackSummary(_ tracks: [LibraryAudioTrack]) -> String {
         guard !tracks.isEmpty else { return "None" }
         let names = tracks.compactMap { $0.languageName ?? $0.language }.filter { !$0.isEmpty }
-        if names.isEmpty { return "\(tracks.count)" }
+        if names.isEmpty {
+            return "\(tracks.count)"
+        }
         return "\(tracks.count) (\(names.joined(separator: ", ")))"
     }
 
     private func subtitleSummary(_ tracks: [LibrarySubtitleTrack]) -> String {
         guard !tracks.isEmpty else { return "None" }
         let names = tracks.compactMap { $0.languageName ?? $0.language }.filter { !$0.isEmpty }
-        if names.isEmpty { return "\(tracks.count)" }
+        if names.isEmpty {
+            return "\(tracks.count)"
+        }
         return "\(tracks.count) (\(names.joined(separator: ", ")))"
     }
 
@@ -1413,7 +1423,7 @@ struct MediaDetailView: View {
             requested = true
         } catch APIError.unauthorized {
             requestError = "Sign in required."
-        } catch APIError.http(let status) where status == 409 {
+        } catch let APIError.http(status) where status == 409 {
             requestError = "Already requested."
         } catch {
             requestError = "Could not submit request."
@@ -1434,7 +1444,7 @@ struct MediaDetailView: View {
             added = true
         } catch APIError.unauthorized {
             requestError = "Admin only."
-        } catch APIError.http(let status) where status == 409 {
+        } catch let APIError.http(status) where status == 409 {
             added = true
         } catch {
             requestError = "Could not add to library."

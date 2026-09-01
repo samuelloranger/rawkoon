@@ -1,9 +1,9 @@
-import XCTest
 @testable import RawkoonKit
+import XCTest
 
 final class DownloadPlanTests: XCTestCase {
     private func chapters(_ n: Int, size: Int = 1000) -> [ManifestChapter] {
-        (0..<n).map { i in
+        (0 ..< n).map { i in
             ManifestChapter(index: i, title: "C\(i)", startSecs: Double(i) * 10,
                             endSecs: Double(i + 1) * 10, fileId: 100 + i,
                             sizeBytes: size, sha256: nil, url: "u\(i)")
@@ -64,7 +64,7 @@ final class DownloadPlanTests: XCTestCase {
 
     func testGivesUpAfterMaxAttempts() {
         var plan = DownloadPlan(chapters: chapters(1))
-        for _ in 0..<DownloadPlan.maxAttempts {
+        for _ in 0 ..< DownloadPlan.maxAttempts {
             plan.apply(.started(fileId: 100))
             plan.apply(.transportFailed(fileId: 100))
         }
@@ -97,7 +97,7 @@ final class DownloadPlanTests: XCTestCase {
 
     func testRequestedResetsFailedChapterBackToPending() {
         var plan = DownloadPlan(chapters: chapters(1))
-        for _ in 0..<DownloadPlan.maxAttempts {
+        for _ in 0 ..< DownloadPlan.maxAttempts {
             plan.apply(.started(fileId: 100))
             plan.apply(.transportFailed(fileId: 100))
         }

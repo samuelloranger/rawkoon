@@ -21,7 +21,7 @@ public struct PositionEntry: Codable, Equatable, Sendable {
 public enum PositionJournal {
     public static func encode(_ entry: PositionEntry) -> String {
         guard let data = try? JSONEncoder().encode(entry),
-            let line = String(data: data, encoding: .utf8)
+              let line = String(data: data, encoding: .utf8)
         else {
             return ""
         }

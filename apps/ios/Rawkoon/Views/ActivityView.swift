@@ -8,12 +8,14 @@ struct ActivityView: View {
         case queue = "Queue"
         case history = "History"
         case calendar = "Calendar"
-        var id: String { rawValue }
+        var id: String {
+            rawValue
+        }
     }
 
     @State private var lane: Lane = .queue
 
-    // Header speed
+    /// Header speed
     @State private var speed: SpeedResponse?
 
     // Queue
@@ -269,7 +271,9 @@ struct ActivityView: View {
 
     private func historyMetaLine(_ activity: ActivityRecord) -> String {
         var parts: [String] = []
-        if let service = activity.service, !service.isEmpty { parts.append(service) }
+        if let service = activity.service, !service.isEmpty {
+            parts.append(service)
+        }
         if let completedAt = activity.completedAt, let relative = relativeTime(completedAt) {
             parts.append(relative)
         }

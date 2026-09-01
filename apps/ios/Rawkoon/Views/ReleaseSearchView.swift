@@ -39,7 +39,9 @@ struct ReleaseSearchView: View {
     private enum SearchSort: String, CaseIterable, Identifiable {
         case quality, seeders, age, size, title
 
-        var id: String { rawValue }
+        var id: String {
+            rawValue
+        }
 
         var label: String {
             switch self {
@@ -142,8 +144,8 @@ struct ReleaseSearchView: View {
                             .font(.system(size: 13, weight: .semibold))
                     }
                 }
-        .buttonStyle(.borderedProminent)
-        .tint(Theme.terracotta)
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.terracotta)
                 .disabled(isLoading)
             }
 
@@ -312,15 +314,21 @@ struct ReleaseSearchView: View {
             case .seeders:
                 let l = lhs.seeders ?? -1
                 let r = rhs.seeders ?? -1
-                if l != r { return sortAscending ? l < r : l > r }
+                if l != r {
+                    return sortAscending ? l < r : l > r
+                }
             case .age:
                 let l = lhs.age ?? Int.max
                 let r = rhs.age ?? Int.max
-                if l != r { return sortAscending ? l < r : l > r }
+                if l != r {
+                    return sortAscending ? l < r : l > r
+                }
             case .size:
                 let l = lhs.sizeBytes ?? -1
                 let r = rhs.sizeBytes ?? -1
-                if l != r { return sortAscending ? l < r : l > r }
+                if l != r {
+                    return sortAscending ? l < r : l > r
+                }
             case .title:
                 break
             }

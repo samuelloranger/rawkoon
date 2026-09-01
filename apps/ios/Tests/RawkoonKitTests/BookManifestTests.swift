@@ -1,5 +1,5 @@
-import XCTest
 @testable import RawkoonKit
+import XCTest
 
 final class BookManifestTests: XCTestCase {
     /// A trimmed copy of what the server actually returns.
@@ -30,7 +30,7 @@ final class BookManifestTests: XCTestCase {
         XCTAssertEqual(m.chapters.count, 2)
         XCTAssertEqual(m.chapters[0].fileId, 267)
         XCTAssertEqual(m.chapters[0].sizeBytes, 12_367_295)
-        XCTAssertEqual(m.totalDurationSecs, 29_383.444895, accuracy: 0.000001)
+        XCTAssertEqual(m.totalDurationSecs, 29383.444895, accuracy: 0.000001)
     }
 
     /// sha256 is null throughout phase 1 and populated later. A decoder that

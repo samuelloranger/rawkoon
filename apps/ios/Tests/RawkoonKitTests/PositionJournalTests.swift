@@ -1,5 +1,5 @@
-import XCTest
 @testable import RawkoonKit
+import XCTest
 
 final class PositionJournalTests: XCTestCase {
     func testRoundTripsOneEntry() {
@@ -12,9 +12,11 @@ final class PositionJournalTests: XCTestCase {
     /// may be half-written. Everything before it must still be recoverable.
     func testTruncatedFinalLineIsIgnoredAndTheRestSurvives() {
         let good = PositionJournal.encode(
-            PositionEntry(editionId: 14, positionSecs: 100, atMillis: 1))
+            PositionEntry(editionId: 14, positionSecs: 100, atMillis: 1)
+        )
             + PositionJournal.encode(
-                PositionEntry(editionId: 14, positionSecs: 200, atMillis: 2))
+                PositionEntry(editionId: 14, positionSecs: 200, atMillis: 2)
+            )
         let text = good + "{\"editionId\":14,\"positionSe"
         let parsed = PositionJournal.parse(text)
         XCTAssertEqual(parsed.count, 2)

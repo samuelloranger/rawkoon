@@ -1,6 +1,7 @@
 import Foundation
 
 // MARK: - Discover / TMDB
+
 //
 // JSON is snake_case; the media decoder uses `.convertFromSnakeCase`, so Swift
 // camelCase properties map automatically. Dates stay as ISO strings and are
@@ -8,9 +9,9 @@ import Foundation
 // each struct declares only the fields the app actually uses.
 
 struct TmdbSearchItem: Decodable, Identifiable, Hashable, Sendable {
-    let id: String            // "${media_type}-${tmdb_id}"
+    let id: String // "${media_type}-${tmdb_id}"
     let tmdbId: Int
-    let mediaType: String     // "movie" | "tv"
+    let mediaType: String // "movie" | "tv"
     let title: String
     let releaseYear: Int?
     let posterUrl: String?
@@ -55,7 +56,10 @@ struct TmdbSearchResponse: Decodable, Sendable {
 }
 
 struct BookSearchHit: Decodable, Identifiable, Hashable, Sendable {
-    var id: String { googleVolumeId }
+    var id: String {
+        googleVolumeId
+    }
+
     let googleVolumeId: String
     let title: String
     let subtitle: String?
@@ -114,7 +118,9 @@ struct EpisodesResponse: Decodable, Sendable {
 struct SeasonEpisodes: Decodable, Sendable, Identifiable {
     let season: Int
     let episodes: [Episode]
-    var id: Int { season }
+    var id: Int {
+        season
+    }
 }
 
 struct Episode: Decodable, Identifiable, Sendable {
@@ -142,7 +148,9 @@ struct LibraryAudioTrack: Decodable, Identifiable, Sendable {
     let isDefault: Bool
     let forced: Bool
 
-    var id: Int { index }
+    var id: Int {
+        index
+    }
 
     enum CodingKeys: String, CodingKey {
         case index, language, languageName, title, codec, channels, channelLayout, bitrateKbps, forced
@@ -159,7 +167,9 @@ struct LibrarySubtitleTrack: Decodable, Identifiable, Sendable {
     let forced: Bool
     let hearingImpaired: Bool
 
-    var id: Int { index }
+    var id: Int {
+        index
+    }
 }
 
 struct LibraryFileInfo: Decodable, Identifiable, Sendable {
@@ -229,15 +239,15 @@ struct LibraryFilesResponse: Decodable, Sendable {
 struct LibraryMedia: Decodable, Identifiable, Sendable {
     let id: Int
     let tmdbId: Int
-    let type: String          // "movie" | "show"
+    let type: String // "movie" | "show"
     let title: String
     let year: Int?
-    let status: String        // wanted / downloading / downloaded / missing …
+    let status: String // wanted / downloading / downloaded / missing …
     let monitored: Bool
     let posterUrl: String?
     let overview: String?
     let qualityProfileId: Int?
-    let totalSizeBytes: String?   // bigint serialized as string
+    let totalSizeBytes: String? // bigint serialized as string
     let episodeCount: Int?
     let downloadedEpisodeCount: Int?
     let seasonCount: Int?
@@ -256,11 +266,11 @@ struct LibraryListResponse: Decodable, Sendable {
 struct MediaRequest: Decodable, Identifiable, Sendable {
     let id: Int
     let tmdbId: Int
-    let type: String          // "movie" | "show"
+    let type: String // "movie" | "show"
     let title: String
     let posterUrl: String?
     let year: Int?
-    let status: String        // pending | approved | denied
+    let status: String // pending | approved | denied
     let requestedBy: RequestedBy?
     let denyReason: String?
     let createdAt: String
@@ -277,7 +287,7 @@ struct RequestsResponse: Decodable, Sendable {
 
 struct CreateRequestBody: Encodable, Sendable {
     let tmdbId: Int
-    let type: String          // "movie" | "show" (NOT "tv")
+    let type: String // "movie" | "show" (NOT "tv")
     let title: String
     let posterUrl: String?
     let year: Int?
@@ -319,10 +329,12 @@ struct ReleaseItem: Decodable, Identifiable, Sendable {
     let freeleech: Bool?
     let qualityScore: Double?
 
-    var id: String { guid }
+    var id: String {
+        guid
+    }
 
-    // `.convertFromSnakeCase` maps most keys; only `protocol` (a Swift keyword)
-    // needs an explicit key. Raw values are the POST-conversion camelCase forms.
+    /// `.convertFromSnakeCase` maps most keys; only `protocol` (a Swift keyword)
+    /// needs an explicit key. Raw values are the POST-conversion camelCase forms.
     enum CodingKeys: String, CodingKey {
         case guid, title, indexer, indexerId, languages, age, seeders, leechers, rejected, rejectionReason, freeleech, qualityScore
         case protocolType = "protocol"
@@ -361,8 +373,8 @@ struct DownloadHistoryItem: Decodable, Identifiable, Sendable {
 }
 
 struct LiveDownload: Decodable, Sendable {
-    let progress: Double          // 0...1
-    let downloadSpeed: Double     // bytes/s
+    let progress: Double // 0...1
+    let downloadSpeed: Double // bytes/s
     let etaSeconds: Int?
     let state: String
 }
@@ -394,7 +406,7 @@ struct UpcomingResponse: Decodable, Sendable {
 }
 
 struct UpcomingItem: Decodable, Identifiable, Sendable {
-    let id: String            // "${media_type}-${tmdb_id}…"
+    let id: String // "${media_type}-${tmdb_id}…"
     let title: String
     let mediaType: String
     let releaseDate: String?
@@ -585,7 +597,9 @@ struct BookRelease: Decodable, Identifiable, Sendable {
     let score: Double?
     let rejected: Bool?
     let rejections: [String]?
-    var id: String { guid }
+    var id: String {
+        guid
+    }
 }
 
 struct BookReleasesResponse: Decodable, Sendable {
@@ -593,7 +607,7 @@ struct BookReleasesResponse: Decodable, Sendable {
 }
 
 struct CreateBookEditionBody: Encodable, Sendable {
-    let kind: String            // "audiobook" | "ebook"
+    let kind: String // "audiobook" | "ebook"
     let monitored: Bool
 }
 
@@ -619,7 +633,9 @@ struct NowPlayingSession: Decodable, Identifiable, Sendable {
     let posterUrl: String?
     let progressPct: Double?
     let paused: Bool?
-    var id: String { sessionId }
+    var id: String {
+        sessionId
+    }
 }
 
 struct LibraryAttentionResponse: Decodable, Sendable {
@@ -669,7 +685,9 @@ struct SsoProvider: Decodable, Identifiable, Sendable {
     let slug: String
     let name: String
     let iconUrl: String?
-    var id: String { slug }
+    var id: String {
+        slug
+    }
 }
 
 struct SsoProvidersResponse: Decodable, Sendable {
