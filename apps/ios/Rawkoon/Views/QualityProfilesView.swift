@@ -57,7 +57,7 @@ struct QualityProfilesView: View {
                 Spacer()
 
                 if profile.requireHdr == true || profile.preferHdr == true {
-                    StatusBadge(text: "HDR", tint: Theme.apricot)
+                    StatusBadge(text: "HDR", tint: Theme.muted)
                 }
             }
 

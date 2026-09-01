@@ -11,6 +11,7 @@ struct PlayerView: View {
     @State private var sliderPosition: Double = 0
     @State private var isDraggingSlider = false
     @State private var draggingChapterSnapshot: ManifestChapter?
+    @State private var showingChapters = false
 
     private let rates: [Double] = [0.8, 1.0, 1.25, 1.5, 2.0]
 
@@ -40,6 +41,19 @@ struct PlayerView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(hasChapter ? Theme.apricotSoft : Theme.muted)
                         .lineLimit(1)
+
+                    if !manifest.chapters.isEmpty {
+                        Button {
+                            showingChapters = true
+                        } label: {
+                            Label("Chapters", systemImage: "list.bullet")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Theme.muted)
+                                .frame(minHeight: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Choose chapter")
+                    }
                 }
                 .padding(.top, 8)
                 .accessibilityElement(children: .combine)
@@ -64,6 +78,39 @@ struct PlayerView: View {
         .onReceive(model.player.$positionSecs) { position in
             guard !isDraggingSlider else { return }
             sliderPosition = position
+        }
+        .sheet(isPresented: $showingChapters) {
+            NavigationStack {
+                List {
+                    ForEach(manifest.chapters, id: \.index) { chapter in
+                        Button {
+                            model.player.jumpToChapter(chapter)
+                            showingChapters = false
+                        } label: {
+                            SpineRow(
+                                index: chapter.index,
+                                title: chapter.title,
+                                downloaded: true,
+                                current: model.player.currentChapterIndex == chapter.index
+                            )
+                            .frame(minHeight: 44)
+                        }
+                        .listRowBackground(Theme.raised)
+                    }
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .background(Theme.base)
+                .navigationTitle("Chapters")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") { showingChapters = false }
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
     }
 

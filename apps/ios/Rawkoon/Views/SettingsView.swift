@@ -6,6 +6,8 @@ struct SettingsView: View {
 
     @State private var sessionUser: SessionUser?
     @State private var appVersion: String?
+    @State private var confirmDeleteDownloads = false
+    @State private var confirmLogOut = false
 
     var body: some View {
         Form {
@@ -85,7 +87,7 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Button("Delete Downloads", role: .destructive) {
-                    model.deleteDownloads()
+                    confirmDeleteDownloads = true
                 }
             }
             .listRowBackground(Theme.raised)
@@ -101,7 +103,7 @@ struct SettingsView: View {
 
             Section {
                 Button("Log Out", role: .destructive) {
-                    model.logout()
+                    confirmLogOut = true
                 }
             }
             .listRowBackground(Theme.raised)
@@ -110,7 +112,29 @@ struct SettingsView: View {
         .background(Theme.base)
         .tint(Theme.apricot)
         .navigationTitle("Settings")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
+        .confirmationDialog(
+            "Delete downloaded chapters?",
+            isPresented: $confirmDeleteDownloads,
+            titleVisibility: .visible
+        ) {
+            Button("Delete Downloads", role: .destructive) {
+                model.deleteDownloads()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Removes offline audiobook chapters from this iPhone. Playback will need the network until they download again.")
+        }
+        .confirmationDialog(
+            "Log out of Rawkoon?",
+            isPresented: $confirmLogOut,
+            titleVisibility: .visible
+        ) {
+            Button("Log Out", role: .destructive) {
+                model.logout()
+            }
+            Button("Cancel", role: .cancel) {}
+        }
         .task {
             await loadAccount()
             await loadVersion()

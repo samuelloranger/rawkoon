@@ -128,7 +128,7 @@ struct MediaPosterCard<Overlay: View>: View {
                 )
 
             Text(title)
-                .font(.display(13))
+                .font(.caption)
                 .foregroundStyle(Theme.textStrong)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
@@ -237,8 +237,8 @@ struct BookRow: View {
                     Text(author).font(.subheadline).foregroundStyle(Theme.muted).lineLimit(1)
                 }
                 HStack(spacing: 6) {
-                    if book.hasAudiobook { formatChip("Audiobook", tint: Theme.apricot) }
-                    if book.hasEbook { formatChip("EPUB", tint: Theme.importing) }
+                    if book.hasAudiobook { formatChip("Audiobook", tint: Theme.muted) }
+                    if book.hasEbook { formatChip("Ebook", tint: Theme.muted) }
                 }
             }
 
@@ -350,9 +350,9 @@ private func bookCardMenuButton(
         Button { perform(action) } label: {
             Label("Add audiobook", systemImage: "plus.circle")
         }
-    case .addEPUB:
+    case .addEbook:
         Button { perform(action) } label: {
-            Label("Add EPUB", systemImage: "plus.circle")
+            Label("Add ebook", systemImage: "plus.circle")
         }
     case .rescan:
         Button { perform(action) } label: {

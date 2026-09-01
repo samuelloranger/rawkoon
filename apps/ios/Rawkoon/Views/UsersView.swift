@@ -73,7 +73,7 @@ struct UsersView: View {
                         .foregroundStyle(Theme.textStrong)
                         .lineLimit(1)
                     if user.isAdmin {
-                        StatusBadge(text: "Admin", tint: Theme.apricot)
+                        StatusBadge(text: "Admin", tint: Theme.muted)
                     }
                 }
                 if showSubtitle {
