@@ -188,10 +188,15 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         let status = (downloadTask.response as? HTTPURLResponse)?.statusCode ?? -1
 
         if !(200 ... 299).contains(status) {
+            // Captured locally: os.Logger's privacy-annotated interpolation wraps
+            // each value in an escaping autoclosure, which would otherwise need
+            // an explicit self.editionId that SwiftFormat's redundantSelf rule
+            // (correctly, outside this one case) wants to strip back out.
+            let editionId = editionId
             Log.download.error(
                 """
                 Chapter download failed: \
-                editionId=\(self.editionId, privacy: .public) \
+                editionId=\(editionId, privacy: .public) \
                 fileId=\(fileId, privacy: .public) \
                 status=\(status, privacy: .public)
                 """
