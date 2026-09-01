@@ -133,6 +133,26 @@ struct DebugFirstReleaseSearch: View {
     }
 }
 
+/// Wraps the real tab bar and opens the first audiobook, so the mini player
+/// can be screenshotted without tap injection — `simctl` cannot tap, and the
+/// bar only appears once a book is loaded.
+struct DebugMiniPlayer<Content: View>: View {
+    @EnvironmentObject private var model: AppModel
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        content()
+            .task {
+                if model.library.isEmpty { await model.loadLibrary() }
+                guard
+                    model.activeEditionId == nil,
+                    let editionId = model.library.first(where: { $0.hasAudiobook })?.audiobookEditionId
+                else { return }
+                await model.openPlayer(editionId: editionId)
+            }
+    }
+}
+
 /// Renders `PlayerView` against a synthetic manifest, so the scrubber can be
 /// screenshotted on the simulator with no server, no credentials and no real
 /// audio. The chapter shape is what decides which scrubber branch renders, and

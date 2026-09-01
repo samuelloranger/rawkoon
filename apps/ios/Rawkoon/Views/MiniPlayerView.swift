@@ -3,7 +3,8 @@ import SwiftUI
 
 /// The persistent audio bar. Rides above the tab bar on every tab via
 /// `.safeAreaInset`; visible only while a book is loaded. Tapping the body
-/// expands to the full Now Playing sheet; the trailing button toggles play.
+/// expands to the full Now Playing sheet; the trailing buttons toggle play and
+/// close the player.
 struct MiniPlayerView: View {
     @EnvironmentObject private var model: AppModel
     let onExpand: () -> Void
@@ -45,9 +46,21 @@ struct MiniPlayerView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(model.player.isPlaying ? "Pause" : "Play")
+
+                Button {
+                    model.closePlayer()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Theme.muted)
+                        .frame(width: 34, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close player")
             }
             .padding(.leading, 10)
-            .padding(.trailing, 6)
+            .padding(.trailing, 4)
             .padding(.vertical, 7)
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
             .overlay(
