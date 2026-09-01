@@ -76,11 +76,6 @@ struct DiscoverView: View {
         .refreshable {
             await loadFeed()
         }
-        .task {
-            if feed == nil {
-                await loadFeed()
-            }
-        }
         .onChange(of: query) { _, _ in
             scheduleSearch()
         }
