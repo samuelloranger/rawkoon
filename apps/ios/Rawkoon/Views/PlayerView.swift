@@ -73,75 +73,68 @@ struct PlayerView: View {
     private var scrubber: some View {
         VStack(spacing: 8) {
             if let chapter = scrubberChapterScope {
-                let displayPosition = clampedToChapter(
-                    isDraggingSlider ? sliderPosition : model.player.positionSecs,
-                    chapter: chapter
-                )
-
                 Text(chapter.title)
                     .font(.caption)
                     .foregroundStyle(Theme.muted)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 Slider(
-                    value: Binding(
-                        get: { displayPosition },
-                        set: { sliderPosition = clampedToChapter($0, chapter: chapter) }
-                    ),
+                    value: $sliderPosition,
                     in: chapter.startSecs...chapter.endSecs,
-                    onEditingChanged: { editing in
-                        isDraggingSlider = editing
-                        if editing {
-                            // Freeze the chapter while dragging so the slider range
-                            // cannot jump to another chapter under the user's finger.
-                            draggingChapterSnapshot = chapter
-                            sliderPosition = clampedToChapter(model.player.positionSecs, chapter: chapter)
-                        } else {
-                            let target = clampedToChapter(sliderPosition, chapter: chapter)
-                            sliderPosition = target
-                            model.player.seek(to: target)
-                            draggingChapterSnapshot = nil
-                        }
-                    }
+                    onEditingChanged: scrubChanged
                 )
                 .tint(Theme.apricot)
 
                 HStack {
-                    Text(formatTime(max(displayPosition - chapter.startSecs, 0)))
+                    Text(formatTime(max(sliderPosition - chapter.startSecs, 0)))
                     Spacer()
-                    Text("-\(formatTime(max(chapter.endSecs - displayPosition, 0)))")
+                    Text("-\(formatTime(max(chapter.endSecs - sliderPosition, 0)))")
                 }
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.muted)
 
-                Text("\(formatTime(displayPosition)) in / \(formatTime(model.player.duration))")
+                Text("\(formatTime(sliderPosition)) in / \(formatTime(model.player.duration))")
                     .font(.caption)
                     .foregroundStyle(Theme.muted)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Slider(
-                    value: Binding(
-                        get: { isDraggingSlider ? sliderPosition : model.player.positionSecs },
-                        set: { sliderPosition = $0 }
-                    ),
+                    value: $sliderPosition,
                     in: 0...max(model.player.duration, 0.1),
-                    onEditingChanged: { editing in
-                        isDraggingSlider = editing
-                        if !editing { model.player.seek(to: sliderPosition) }
-                    }
+                    onEditingChanged: scrubChanged
                 )
                 .tint(Theme.apricot)
 
                 HStack {
-                    Text(formatTime(model.player.positionSecs))
+                    Text(formatTime(sliderPosition))
                     Spacer()
-                    Text("-\(formatTime(max(model.player.duration - model.player.positionSecs, 0)))")
+                    Text("-\(formatTime(max(model.player.duration - sliderPosition, 0)))")
                 }
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.muted)
             }
         }
         .padding(.top, 6)
+    }
+
+    /// SwiftUI can call `onEditingChanged(false)` before the last thumb
+    /// write lands on `sliderPosition`. One turn of the run loop lets that
+    /// write commit so we seek to where the finger actually was, not where
+    /// playback still is. Keep `isDraggingSlider` true across that hop so a
+    /// tick cannot overwrite the value first.
+    private func scrubChanged(_ editing: Bool) {
+        if editing {
+            isDraggingSlider = true
+            if draggingChapterSnapshot == nil {
+                draggingChapterSnapshot = model.player.currentChapter
+            }
+            return
+        }
+        DispatchQueue.main.async {
+            model.player.seek(to: sliderPosition)
+            isDraggingSlider = false
+            draggingChapterSnapshot = nil
+        }
     }
 
     // MARK: Transport
@@ -255,10 +248,6 @@ struct PlayerView: View {
         let chapter = isDraggingSlider ? draggingChapterSnapshot : model.player.currentChapter
         guard let chapter, chapter.endSecs > chapter.startSecs else { return nil }
         return chapter
-    }
-
-    private func clampedToChapter(_ value: Double, chapter: ManifestChapter) -> Double {
-        min(max(value, chapter.startSecs), chapter.endSecs)
     }
 
     private func rateLabel(_ value: Double) -> String {
