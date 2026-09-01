@@ -9,7 +9,7 @@ final class ContextMenuItemsTests: XCTestCase {
 
         let book = bookCardMenuItems(hasAudiobook: false, hasEbook: true, isAdmin: false)
         XCTAssertFalse(book.contains(.addAudiobook))
-        XCTAssertFalse(book.contains(.addEPUB))
+        XCTAssertFalse(book.contains(.addEbook))
     }
 
     func testBookWithBothEditionsOffersReadAndPlay() {
@@ -17,13 +17,13 @@ final class ContextMenuItemsTests: XCTestCase {
         XCTAssertTrue(items.contains(.read))
         XCTAssertTrue(items.contains(.play))
         XCTAssertFalse(items.contains(.addAudiobook))
-        XCTAssertFalse(items.contains(.addEPUB))
+        XCTAssertFalse(items.contains(.addEbook))
     }
 
     func testBookWithNoAudiobookOffersAddAudiobook() {
         let items = bookCardMenuItems(hasAudiobook: false, hasEbook: true, isAdmin: true)
         XCTAssertTrue(items.contains(.addAudiobook))
-        XCTAssertFalse(items.contains(.addEPUB))
+        XCTAssertFalse(items.contains(.addEbook))
         XCTAssertTrue(items.contains(.read))
         XCTAssertFalse(items.contains(.play))
     }

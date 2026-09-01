@@ -94,6 +94,10 @@ struct LibraryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            ContinueListeningView(limit: 3)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+
             Picker("Section", selection: $section) {
                 ForEach(LibrarySection.allCases) { Text($0.rawValue).tag($0) }
             }
@@ -107,7 +111,16 @@ struct LibraryView: View {
         }
         .background(Theme.base)
         .navigationTitle("Library")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink {
+                    RequestsView()
+                } label: {
+                    Label("Requests", systemImage: "tray.and.arrow.down")
+                }
+            }
+        }
         .task {
             if section == .media { await loadMedia(reset: true) }
             if model.library.isEmpty { await model.loadLibrary() }
@@ -238,7 +251,7 @@ struct LibraryView: View {
                 Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
             }
             .foregroundStyle(Theme.textStrong)
-            .padding(.horizontal, 12).padding(.vertical, 7)
+            .padding(.horizontal, 12).padding(.vertical, 10)
             .background(Theme.raised, in: Capsule())
             .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
         }
@@ -288,11 +301,11 @@ struct LibraryView: View {
                         } else {
                             Text("Load more")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Theme.apricot)
+                                .foregroundStyle(Theme.text)
                         }
                     }
                     .buttonStyle(.plain)
-                    .frame(height: 28)
+                    .frame(minHeight: 44)
                 }
             }
             .padding(.vertical, 16)
@@ -304,7 +317,7 @@ struct LibraryView: View {
     @ViewBuilder
     private func mediaBadge(for m: LibraryMedia) -> some View {
         if m.status == "downloading" {
-            Circle().fill(Theme.apricot).frame(width: 22, height: 22)
+            Circle().fill(Theme.importing).frame(width: 22, height: 22)
                 .overlay(Image(systemName: "arrow.down").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.onAccent))
         } else if m.status == "wanted" || m.status == "missing" {
             Circle().fill(Theme.muted.opacity(0.9)).frame(width: 22, height: 22)
@@ -470,7 +483,7 @@ struct LibraryView: View {
             Task { await playAudiobook(book) }
         case .addAudiobook:
             Task { await addEdition(book: book, kind: "audiobook") }
-        case .addEPUB:
+        case .addEbook:
             Task { await addEdition(book: book, kind: "ebook") }
         case .rescan:
             Task { await rescanBook(book) }

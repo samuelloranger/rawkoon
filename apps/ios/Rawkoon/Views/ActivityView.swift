@@ -56,9 +56,10 @@ struct ActivityView: View {
         }
         .background(Theme.base)
         .navigationTitle("Activity")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .task { await loadSpeed() }
         .task(id: lane) { await loadCurrentLane() }
+        .refreshable { await loadCurrentLane() }
     }
 
     // MARK: Header
@@ -163,9 +164,9 @@ struct ActivityView: View {
             return Theme.importing
         }
         if lower.contains("download") {
-            return Theme.apricot
+            return Theme.importing
         }
-        return Theme.apricot
+        return Theme.muted
     }
 
     private func formatETA(_ seconds: Int) -> String {
@@ -247,7 +248,7 @@ struct ActivityView: View {
         HStack(alignment: .top, spacing: 10) {
             if activity.success == false {
                 Circle()
-                    .fill(.red)
+                    .fill(Theme.terracotta)
                     .frame(width: 7, height: 7)
                     .padding(.top, 5)
             }

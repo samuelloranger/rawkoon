@@ -101,12 +101,12 @@ enum Appearance {
         UINavigationBar.appearance().compactAppearance = nav
         UINavigationBar.appearance().tintColor = UIColor(Theme.apricot)
 
-        // Segmented controls (SwiftUI .pickerStyle(.segmented)) don't inherit the
-        // accent tint — theme them warm to match Cozy Dusk instead of stock gray.
+        // Segmented controls stay in the room: raised fill, terracotta hairline
+        // via selected text — apricot is reserved for Play.
         let seg = UISegmentedControl.appearance()
-        seg.selectedSegmentTintColor = UIColor(Theme.apricot)
+        seg.selectedSegmentTintColor = UIColor(Theme.raised)
         seg.backgroundColor = UIColor(Theme.well)
-        seg.setTitleTextAttributes([.foregroundColor: UIColor(Theme.onAccent),
+        seg.setTitleTextAttributes([.foregroundColor: UIColor(Theme.textStrong),
                                     .font: UIFont.systemFont(ofSize: 13, weight: .semibold)], for: .selected)
         seg.setTitleTextAttributes([.foregroundColor: UIColor(Theme.muted),
                                     .font: UIFont.systemFont(ofSize: 13, weight: .medium)], for: .normal)

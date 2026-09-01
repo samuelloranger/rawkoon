@@ -78,7 +78,9 @@ private struct RootTabsView: View {
     @State private var selection: Int
 
     init() {
-        var initial = 0
+        // Library is the household default. Admins are moved to Home in `.task`
+        // once `isAdmin` is known. Debug `RAWKOON_TAB` still wins.
+        var initial = 2
         #if DEBUG
         if let raw = ProcessInfo.processInfo.environment["RAWKOON_TAB"], let value = Int(raw) {
             initial = value
@@ -127,14 +129,16 @@ private struct RootTabsView: View {
 
     private var mainTabs: some View {
         TabView(selection: $selection) {
-            NavigationStack {
-                HomeView()
+            if model.isAdmin {
+                NavigationStack {
+                    HomeView()
+                }
+                .modifier(MiniPlayerInset { showFullPlayer = true })
+                .tabItem {
+                    Label("Home", systemImage: "house")
+                }
+                .tag(0)
             }
-            .modifier(MiniPlayerInset { showFullPlayer = true })
-            .tabItem {
-                Label("Home", systemImage: "house")
-            }
-            .tag(0)
 
             NavigationStack {
                 DiscoverView()
@@ -180,6 +184,14 @@ private struct RootTabsView: View {
             }
         }
         .task {
+            #if DEBUG
+            let debugTabLocked = ProcessInfo.processInfo.environment["RAWKOON_TAB"] != nil
+            #else
+            let debugTabLocked = false
+            #endif
+            if !debugTabLocked, model.isAdmin, selection == 2 {
+                selection = 0
+            }
             if model.library.isEmpty {
                 await model.loadLibrary()
             }

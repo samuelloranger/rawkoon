@@ -4,7 +4,7 @@ import SwiftUI
 
 private enum BookDetailLane: String, CaseIterable, Identifiable {
     case audiobook = "Audiobook"
-    case ebook = "EPUB"
+    case ebook = "Ebook"
     var id: String { rawValue }
 }
 
@@ -173,10 +173,10 @@ struct BookView: View {
                 HStack(spacing: 6) {
                     if hasAudiobookEdition {
                         let audiobookStatus = formattedStatus(audiobookEdition?.status ?? book.audiobookStatus ?? "wanted")
-                        chip("Audiobook · \(audiobookStatus)", tint: Theme.apricot)
+                        chip("Audiobook · \(audiobookStatus)", tint: Theme.muted)
                     }
                     if hasEbookEdition {
-                        chip("EPUB · \(formattedStatus(ebookEdition?.status ?? "wanted"))", tint: Theme.importing)
+                        chip("Ebook · \(formattedStatus(ebookEdition?.status ?? "wanted"))", tint: Theme.muted)
                     }
                 }
                 .padding(.top, 2)
@@ -335,7 +335,7 @@ struct BookView: View {
                 metricsCard(
                     title: "Audiobook",
                     status: audiobookEdition?.status ?? book.audiobookStatus ?? "wanted",
-                    accent: Theme.apricot,
+                    accent: Theme.muted,
                     metrics: audiobookMetrics
                 )
                 audiobookActionButtons
@@ -346,7 +346,7 @@ struct BookView: View {
                 title: "Audiobook edition missing",
                 description: "Add an audiobook edition, then search releases to play and download chapters offline.",
                 buttonTitle: "Add audiobook",
-                tint: Theme.apricot,
+                tint: Theme.terracotta,
                 action: { Task { await addEdition(kind: "audiobook") } }
             )
         }
@@ -388,7 +388,7 @@ struct BookView: View {
                         Label("Play", systemImage: "play.fill")
                     }
                 }
-                .frame(maxWidth: .infinity).frame(height: 26)
+                .frame(maxWidth: .infinity).frame(minHeight: 44)
             }
             .buttonStyle(.borderedProminent)
             .tint(Theme.apricot)
@@ -572,9 +572,9 @@ struct BookView: View {
         if hasEbookEdition {
             VStack(alignment: .leading, spacing: 14) {
                 metricsCard(
-                    title: "EPUB",
+                    title: "Ebook",
                     status: ebookEdition?.status ?? "wanted",
-                    accent: Theme.importing,
+                    accent: Theme.muted,
                     metrics: ebookMetrics
                 )
                 ebookActions
@@ -582,10 +582,10 @@ struct BookView: View {
             }
         } else {
             missingEditionCard(
-                title: "EPUB edition missing",
-                description: "Add an ebook edition to read EPUB files directly in Rawkoon.",
-                buttonTitle: "Add EPUB",
-                tint: Theme.importing,
+                title: "Ebook edition missing",
+                description: "Add an ebook edition to read files directly in Rawkoon.",
+                buttonTitle: "Add ebook",
+                tint: Theme.muted,
                 action: { Task { await addEdition(kind: "ebook") } }
             )
         }
@@ -623,10 +623,10 @@ struct BookView: View {
                 }
             } label: {
                 Label("Read", systemImage: "book.pages")
-                    .frame(maxWidth: .infinity).frame(height: 24)
+                    .frame(maxWidth: .infinity).frame(minHeight: 44)
             }
             .buttonStyle(.borderedProminent)
-            .tint(Theme.importing)
+            .tint(Theme.terracotta)
             .foregroundStyle(Theme.onAccent)
             .disabled(!preferredCanRead || loadingEbookFiles || openingEbookFileId != nil)
 
@@ -642,7 +642,7 @@ struct BookView: View {
                         Group {
                             if downloadingEbookFileIDs.contains(preferred.id) {
                                 HStack(spacing: 8) {
-                                    ProgressView().tint(Theme.importing)
+                                    ProgressView().tint(Theme.muted)
                                     Text("Downloading...")
                                 }
                             } else {
@@ -652,7 +652,7 @@ struct BookView: View {
                         .frame(maxWidth: .infinity).frame(height: 22)
                     }
                     .buttonStyle(.bordered)
-                    .tint(Theme.importing)
+                    .tint(Theme.muted)
                     .disabled(downloadingEbookFileIDs.contains(preferred.id) || loadingEbookFiles)
                 } else {
                     Text("This server does not expose secure ebook file downloads yet. Update Rawkoon on the server, then retry.")
@@ -670,14 +670,14 @@ struct BookView: View {
                             .frame(maxWidth: .infinity).frame(height: 22)
                     }
                     .buttonStyle(.bordered)
-                    .tint(Theme.importing)
+                    .tint(Theme.muted)
 
                     Button {
                         Task { await rescanEbookEdition() }
                     } label: {
                         Group {
                             if rescanningEbook {
-                                ProgressView().tint(Theme.importing)
+                                ProgressView().tint(Theme.muted)
                             } else {
                                 Label("Rescan", systemImage: "arrow.clockwise")
                             }
@@ -704,9 +704,9 @@ struct BookView: View {
                 .foregroundStyle(Theme.textStrong)
 
             if loadingEbookFiles {
-                ProgressView().tint(Theme.importing)
+                ProgressView().tint(Theme.muted)
             } else if ebookFiles.isEmpty {
-                Text("No EPUB files imported yet. Search releases or rescan this edition.")
+                Text("No ebook files imported yet. Search releases or rescan this edition.")
                     .font(.subheadline)
                     .foregroundStyle(Theme.muted)
             } else {
@@ -728,7 +728,7 @@ struct BookView: View {
                         }
                         Spacer(minLength: 8)
                         if loadingState {
-                            ProgressView().tint(Theme.importing)
+                            ProgressView().tint(Theme.muted)
                         } else {
                             HStack(spacing: 7) {
                                 if downloaded {
@@ -738,7 +738,7 @@ struct BookView: View {
                                         Task { await downloadEbook(file) }
                                     }
                                     .buttonStyle(.bordered)
-                                    .tint(Theme.importing)
+                                    .tint(Theme.muted)
                                     .disabled(!canFetchRemote)
                                 }
 
@@ -747,10 +747,10 @@ struct BookView: View {
                                         Task { await openEbook(file) }
                                     }
                                     .buttonStyle(.bordered)
-                                    .tint(Theme.importing)
+                                    .tint(Theme.muted)
                                     .disabled(!downloaded && !canFetchRemote)
                                 } else {
-                                    StatusBadge(text: "EPUB only", tint: Theme.muted)
+                                    StatusBadge(text: "Ebook only", tint: Theme.muted)
                                 }
                             }
                         }
@@ -911,7 +911,7 @@ struct BookView: View {
             if kind == "audiobook" {
                 manifestError = "Could not add audiobook edition."
             } else {
-                ebookFilesError = "Could not add EPUB edition."
+                ebookFilesError = "Could not add ebook edition."
             }
         }
     }
@@ -974,7 +974,7 @@ struct BookView: View {
             ebookFilesError = message(for: apiError)
         } catch {
             ebookFiles = []
-            ebookFilesError = "Could not load EPUB files."
+            ebookFilesError = "Could not load ebook files."
         }
     }
 
@@ -990,7 +990,7 @@ struct BookView: View {
         } catch let apiError as APIError {
             ebookFilesError = message(for: apiError)
         } catch {
-            ebookFilesError = "Could not rescan EPUB edition."
+            ebookFilesError = "Could not rescan ebook edition."
         }
     }
 

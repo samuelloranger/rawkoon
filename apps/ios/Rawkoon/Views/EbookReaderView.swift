@@ -264,17 +264,23 @@ struct EbookReaderSheet: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
         case let .failed(message):
-            VStack(spacing: 8) {
+            VStack(spacing: 12) {
                 Image(systemName: "book.closed")
                     .font(.system(size: 30))
                     .foregroundStyle(Theme.muted)
-                Text("Could not open this EPUB")
+                Text("Could not open this ebook")
                     .font(.display(17))
                     .foregroundStyle(Theme.textStrong)
                 Text(message)
                     .font(.caption)
                     .foregroundStyle(Theme.muted)
                     .multilineTextAlignment(.center)
+                Button("Close") { persistAndDismiss() }
+                    .frame(minHeight: 44)
+                    .padding(.horizontal, 20)
+                    .background(Theme.raised, in: Capsule())
+                    .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
+                    .foregroundStyle(Theme.textStrong)
             }
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -338,7 +344,8 @@ struct EbookReaderSheet: View {
             Image(systemName: systemImage)
                 .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(Theme.textStrong)
-                .frame(width: 34, height: 34)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

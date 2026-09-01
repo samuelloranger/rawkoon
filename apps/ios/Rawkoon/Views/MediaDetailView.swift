@@ -64,7 +64,6 @@ struct MediaDetailView: View {
         case similar = "Similar"
         case search = "Search"
         case management = "Management"
-        case actions = "Actions"
         var id: String { rawValue }
     }
 
@@ -153,7 +152,7 @@ struct MediaDetailView: View {
     @ViewBuilder
     private var mainContent: some View {
         if loading && details == nil {
-            ProgressView().tint(Theme.apricot)
+            ProgressView().tint(Theme.muted)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 16)
         } else if let errorMessage, details == nil {
@@ -166,6 +165,7 @@ struct MediaDetailView: View {
         } else {
             hero
             statusRow
+            primaryAction
             tabs
             tabContent
         }
@@ -176,8 +176,6 @@ struct MediaDetailView: View {
         if model.isAdmin, libraryId != nil {
             tabs.append(.search)
             tabs.append(.management)
-        } else {
-            tabs.append(.actions)
         }
         return tabs
     }
@@ -228,11 +226,13 @@ struct MediaDetailView: View {
                     } label: {
                         Image(systemName: inWatchlist ? "bookmark.fill" : "bookmark")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(inWatchlist ? Theme.apricot : Theme.textStrong)
-                            .frame(width: 34, height: 34)
+                            .foregroundStyle(inWatchlist ? Theme.terracotta : Theme.textStrong)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Circle())
                             .background(Theme.base.opacity(0.55), in: Circle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(inWatchlist ? "Remove from watchlist" : "Add to watchlist")
                     .disabled(watchlistPending)
                 }
                 .padding(.horizontal, 16)
@@ -296,7 +296,7 @@ struct MediaDetailView: View {
             } else if requested {
                 StatusBadge(text: "Requested", tint: Theme.seed)
             } else if inWatchlist {
-                StatusBadge(text: "Watchlist", tint: Theme.apricot)
+                StatusBadge(text: "Watchlist", tint: Theme.muted)
             } else {
                 StatusBadge(text: "Not added", tint: Theme.muted)
             }
@@ -326,8 +326,6 @@ struct MediaDetailView: View {
             searchTab
         case .management:
             managementTab
-        case .actions:
-            actionsTab
         }
     }
 
@@ -346,16 +344,53 @@ struct MediaDetailView: View {
         }
     }
 
-    private var actionsTab: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            primaryAction
-            if libraryId == nil && !inWatchlist {
-                Text("Tip: add this title to your watchlist if you're not ready to request it yet.")
-                    .font(.footnote)
-                    .foregroundStyle(Theme.faint)
-                    .padding(.horizontal, 16)
+    @ViewBuilder
+    private var primaryAction: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if libraryId == nil {
+                if !requested && !added {
+                    Button {
+                        Task { model.isAdmin ? await submitAdd() : await submitRequest() }
+                    } label: {
+                        Group {
+                            if requesting {
+                                ProgressView().tint(Theme.onAccent)
+                            } else {
+                                Label(model.isAdmin ? "Add to library" : "Request",
+                                      systemImage: model.isAdmin ? "plus.circle.fill" : "plus.circle")
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.terracotta)
+                    .foregroundStyle(Theme.onAccent)
+                    .fontWeight(.semibold)
+                    .disabled(requesting)
+                } else if requested {
+                    Text("We'll notify you when this is in the library. See Requests in Library.")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.muted)
+                }
+                if let requestError {
+                    Text(requestError)
+                        .font(.caption)
+                        .foregroundStyle(Theme.terracotta)
+                }
+            } else if model.isAdmin {
+                Button {
+                    showingReleaseSearch = true
+                } label: {
+                    Label("Search releases", systemImage: "magnifyingglass")
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.bordered)
+                .tint(Theme.muted)
             }
         }
+        .padding(.horizontal, 16)
     }
 
     @ViewBuilder
@@ -377,10 +412,10 @@ struct MediaDetailView: View {
                 } label: {
                     Label("Open interactive search", systemImage: "magnifyingglass")
                         .frame(maxWidth: .infinity)
-                        .frame(height: 24)
+                        .frame(minHeight: 44)
                 }
                 .buttonStyle(.bordered)
-                .tint(Theme.apricot)
+                .tint(Theme.muted)
             }
             .padding(.horizontal, 16)
         }
@@ -389,7 +424,7 @@ struct MediaDetailView: View {
     @ViewBuilder
     private var similarTab: some View {
         if loadingSimilar {
-            ProgressView().tint(Theme.apricot)
+            ProgressView().tint(Theme.muted)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 16)
         } else if let similarError {
@@ -430,9 +465,6 @@ struct MediaDetailView: View {
                             if item.alreadyExists == true {
                                 Circle().fill(Theme.seed).frame(width: 22, height: 22)
                                     .overlay(Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Color(hex: 0x10231a)))
-                            } else {
-                                Circle().fill(Theme.apricot).frame(width: 22, height: 22)
-                                    .overlay(Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.onAccent))
                             }
                         }
                     }
@@ -453,7 +485,7 @@ struct MediaDetailView: View {
             )
             .padding(.top, 12)
         } else if managementLoading && managementItem == nil {
-            ProgressView().tint(Theme.apricot)
+            ProgressView().tint(Theme.muted)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 16)
         } else if let managementError, managementItem == nil {
@@ -525,7 +557,7 @@ struct MediaDetailView: View {
                     Task { await applyMonitoredChange(newValue) }
                 }
             ))
-            .tint(Theme.apricot)
+            .tint(Theme.terracotta)
             .disabled(applyingManagementChange)
 
             HStack {
@@ -561,7 +593,7 @@ struct MediaDetailView: View {
                     Label("Rescan files", systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.bordered)
-                .tint(Theme.apricot)
+                .tint(Theme.muted)
                 .disabled(applyingManagementChange)
 
                 Button {
@@ -570,7 +602,7 @@ struct MediaDetailView: View {
                     Label("Search releases", systemImage: "magnifyingglass")
                 }
                 .buttonStyle(.bordered)
-                .tint(Theme.apricot)
+                .tint(Theme.muted)
             }
 
             Button(role: .destructive) {
@@ -905,7 +937,7 @@ struct MediaDetailView: View {
                 }
                 Spacer()
                 if pendingDownloadActionId == row.id {
-                    ProgressView().tint(Theme.apricot)
+                    ProgressView().tint(Theme.muted)
                 } else if isActive {
                     Button(isPaused ? "Resume" : "Pause") {
                         Task { await performDownloadAction(row.id, action: isPaused ? "resume" : "pause") }
@@ -983,51 +1015,6 @@ struct MediaDetailView: View {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .binary
         return "\(formatter.string(fromByteCount: Int64(bytesPerSecond)))/s"
-    }
-
-    @ViewBuilder
-    private var primaryAction: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if libraryId == nil {
-                if !requested && !added {
-                    Button {
-                        Task { model.isAdmin ? await submitAdd() : await submitRequest() }
-                    } label: {
-                        Group {
-                            if requesting {
-                                ProgressView().tint(Theme.onAccent)
-                            } else {
-                                Label(model.isAdmin ? "Add to library" : "Request",
-                                      systemImage: model.isAdmin ? "plus.circle.fill" : "plus.circle")
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 26)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Theme.apricot)
-                    .foregroundStyle(Theme.onAccent)
-                    .fontWeight(.semibold)
-                    .disabled(requesting)
-                }
-                if let requestError {
-                    Text(requestError)
-                        .font(.caption)
-                        .foregroundStyle(Theme.terracotta)
-                }
-            } else {
-                Button {
-                    showingReleaseSearch = true
-                } label: {
-                    Label("Search releases", systemImage: "magnifyingglass")
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 22)
-                }
-                .buttonStyle(.bordered)
-                .tint(Theme.apricot)
-            }
-        }
-        .padding(.horizontal, 16)
     }
 
     // MARK: Details (movies)

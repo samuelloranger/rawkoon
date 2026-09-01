@@ -54,7 +54,7 @@ struct RequestsView: View {
         }
         .background(Theme.base)
         .navigationTitle("Requests")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .task { await load() }
         .confirmationDialog(
             "Choose a quality profile",
@@ -106,7 +106,7 @@ struct RequestsView: View {
             ContentUnavailableView(
                 "No requests",
                 systemImage: "tray",
-                description: Text(filter == .pending ? "No pending requests." : "No requests yet.")
+                description: Text(filter == .pending ? "No pending requests. Request a title from Discover." : "No requests yet.")
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
@@ -164,7 +164,7 @@ struct RequestsView: View {
         switch status {
         case "approved": return Theme.seed
         case "denied": return Theme.terracotta
-        default: return Theme.apricot
+        default: return Theme.muted
         }
     }
 

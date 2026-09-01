@@ -12,6 +12,7 @@ struct BookReleaseSearchView: View {
     @State private var releases: [BookRelease] = []
     @State private var loading = true
     @State private var errorMessage: String?
+    @State private var grabError: String?
     @State private var grabbing: String?
     @State private var grabbed: Set<String> = []
     @State private var showRejected = false
@@ -42,7 +43,7 @@ struct BookReleaseSearchView: View {
     private var content: some View {
         if loading {
             centered { ProgressView().tint(Theme.apricot); Text("Searching…").foregroundStyle(Theme.muted) }
-        } else if let errorMessage {
+        } else if let errorMessage, releases.isEmpty {
             centered {
                 ContentUnavailableView("Search failed", systemImage: "wifi.slash", description: Text(errorMessage))
             }
@@ -52,6 +53,12 @@ struct BookReleaseSearchView: View {
                     description: Text("Nothing grabbable found for this book."))
             }
         } else {
+            if let grabError {
+                Text(grabError)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.terracotta)
+                    .padding(.bottom, 8)
+            }
             ScrollView {
                 LazyVStack(spacing: 8) {
                     ForEach(visibleReleases) { release in
@@ -59,7 +66,7 @@ struct BookReleaseSearchView: View {
                     }
                     if hasRejected {
                         Button(showRejected ? "Hide rejected" : "Show rejected") { showRejected.toggle() }
-                            .font(.subheadline).foregroundStyle(Theme.apricot)
+                            .font(.subheadline).foregroundStyle(Theme.muted)
                             .padding(.vertical, 8)
                     }
                 }
@@ -109,8 +116,9 @@ struct BookReleaseSearchView: View {
         } else {
             Button("Grab") { Task { await grab(release) } }
                 .font(.caption.weight(.bold)).foregroundStyle(Theme.onAccent)
-                .padding(.horizontal, 12).padding(.vertical, 5)
-                .background(Theme.apricot, in: Capsule())
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .background(Theme.terracotta, in: Capsule())
                 .disabled(release.downloadUrl == nil && release.magnetUrl == nil)
         }
     }
@@ -160,9 +168,10 @@ struct BookReleaseSearchView: View {
                 indexer: release.indexer
             ))
             grabbed.insert(release.guid)
+            grabError = nil
             await model.loadLibrary()
         } catch {
-            errorMessage = "Grab refused (already downloading?)."
+            grabError = "Grab refused (already downloading?)."
         }
     }
 }
