@@ -112,7 +112,7 @@ struct SettingsView: View {
         .background(Theme.base)
         .tint(Theme.apricot)
         .navigationTitle("Settings")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog(
             "Delete downloaded chapters?",
             isPresented: $confirmDeleteDownloads,

@@ -54,7 +54,7 @@ struct RequestsView: View {
         }
         .background(Theme.base)
         .navigationTitle("Requests")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
         .confirmationDialog(
             "Choose a quality profile",
