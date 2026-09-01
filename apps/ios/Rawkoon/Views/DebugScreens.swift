@@ -307,6 +307,31 @@
 
             model.player.load(manifest: manifest, baseURL: baseURL, resumeAt: resumeAt)
             loaded = (summary, manifest)
+
+            // `RAWKOON_JUMP_TO` reproduces a chapter tap taken from an ALREADY
+            // LOADED position: load at RAWKOON_RESUME, let the queue settle, then
+            // seek. Seeking from a live queue is a different path from building
+            // one at a position (`inPlaceSeekOffset` returns nil across a chapter,
+            // so `buildQueue` runs against an existing player), and it is the path
+            // a chapter tap actually takes.
+            if let jumpRaw = env["RAWKOON_JUMP_TO"], let jumpTo = Double(jumpRaw) {
+                let settle = UInt64(Double(env["RAWKOON_JUMP_DELAY"] ?? "") ?? 8)
+                try? await Task.sleep(nanoseconds: settle * 1_000_000_000)
+                Log.playback.error(
+                    """
+                    DEBUG jump: from=\(model.player.positionSecs, privacy: .public) \
+                    to=\(jumpTo, privacy: .public)
+                    """
+                )
+                model.player.seek(to: jumpTo)
+                try? await Task.sleep(nanoseconds: 6 * 1_000_000_000)
+                Log.playback.error(
+                    """
+                    DEBUG after jump: position=\(model.player.positionSecs, privacy: .public) \
+                    chapterIndex=\(model.player.currentChapterIndex ?? -1, privacy: .public)
+                    """
+                )
+            }
         }
     }
 
