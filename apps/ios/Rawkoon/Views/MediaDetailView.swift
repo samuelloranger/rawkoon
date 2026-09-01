@@ -870,7 +870,8 @@ struct MediaDetailView: View {
     }
 
     private func formatDuration(_ seconds: Double?) -> String? {
-        guard let seconds else { return nil }
+        // isFinite/>=0 guard: Int(.nan) and Int(.infinity) trap the app.
+        guard let seconds, seconds.isFinite, seconds >= 0 else { return nil }
         let minutes = Int(seconds / 60)
         let hours = minutes / 60
         let remaining = minutes % 60
@@ -1024,7 +1025,9 @@ struct MediaDetailView: View {
     private func formatSpeed(_ bytesPerSecond: Double) -> String {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .binary
-        return "\(formatter.string(fromByteCount: Int64(bytesPerSecond)))/s"
+        // Non-finite/overflowing rates would trap the non-failable Int64 init.
+        let safeBytes = max(0, Int64(exactly: bytesPerSecond.rounded()) ?? 0)
+        return "\(formatter.string(fromByteCount: safeBytes))/s"
     }
 
     // MARK: Details (movies)
