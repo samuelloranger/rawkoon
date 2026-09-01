@@ -35,6 +35,7 @@ struct RawkoonApp: App {
             .task {
                 #if DEBUG
                     await model.debugAutologinIfNeeded()
+                    await model.debugStartDownloadIfRequested()
                 #endif
                 if model.isLoggedIn {
                     model.requestPushAuthorization()

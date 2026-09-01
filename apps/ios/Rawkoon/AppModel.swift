@@ -163,6 +163,24 @@ final class AppModel: ObservableObject {
             else { return }
             await login(server: server, email: email, password: password)
         }
+
+        /// Simulator convenience: start an edition's chapter downloads straight from
+        /// the launch environment, so the download path can be exercised without tap
+        /// injection — the same reason `RAWKOON_SCREEN` exists. Pass via
+        /// `SIMCTL_CHILD_RAWKOON_DOWNLOAD_EDITION=<id>` to `simctl launch`.
+        ///
+        /// This is how the log-redaction check is run: hide a chapter's file on the
+        /// server so its grant verifies and the content route then 404s, launch with
+        /// this variable set, and read the resulting `Log.download.error` line out of
+        /// `simctl spawn booted log stream`. Compiled only in Debug, so it never ships.
+        func debugStartDownloadIfRequested() async {
+            guard
+                isLoggedIn,
+                let raw = ProcessInfo.processInfo.environment["RAWKOON_DOWNLOAD_EDITION"],
+                let editionId = Int(raw)
+            else { return }
+            await startDownload(editionId: editionId)
+        }
     #endif
 
     /// Load the enabled OAuth providers for the login screen (public endpoint).
