@@ -188,6 +188,14 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         let status = (downloadTask.response as? HTTPURLResponse)?.statusCode ?? -1
 
         if !(200 ... 299).contains(status) {
+            Log.download.error(
+                """
+                Chapter download failed: \
+                editionId=\(editionId, privacy: .public) \
+                fileId=\(fileId, privacy: .public) \
+                status=\(status, privacy: .public)
+                """
+            )
             applyEventAndContinue(
                 .completed(fileId: fileId, status: status, bytes: 0, sha256: nil),
                 fileId: fileId
