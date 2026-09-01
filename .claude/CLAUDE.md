@@ -23,8 +23,15 @@ feel is a failed refactor.
 
 - **Verification**: the `macbuild` ssh host is the only real gate — Linux builds
   `RawkoonKit` alone, so no phase is "done" on a green Linux run
-- **Shippability**: the app must archive and upload to TestFlight after every
-  phase — a phase that leaves `main` unshippable is not complete
+- **Shippability**: a phase that leaves `main` unshippable is not complete —
+  but "shippable" is proved by `lint`, `kit` and `build` green on the push to
+  `main`, not by an upload. **No agent cuts a release.** The `testflight` job
+  is gated on a published GitHub release, and publishing one in this repo also
+  triggers `docker-publish.yml`, which auto-redeploys the production container
+  through `DEPLOYER_WEBHOOK_URL` — so a release is an outward-facing act with
+  production consequences, and it is the user's decision alone. Never bump the
+  version, tag, or publish a release to satisfy a verification gate; if a gate
+  can only be met by releasing, the gate is wrong — say so and stop.
 - **Behavior**: no user-visible change, including layout and wording, until the
   localization phase (which changes the mechanism, not the English strings)
 - **Tech stack**: SwiftUI, iOS 18 deployment target, Xcode 26 SDK, XcodeGen,
