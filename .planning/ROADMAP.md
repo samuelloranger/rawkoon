@@ -95,7 +95,7 @@ here, including the view-model and accessibility phases.
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Lint, format, and logging guardrails** - CI rejects style and size regressions, and the download and playback paths say why they failed
+- [x] **Phase 1: Lint, format, and logging guardrails** - CI rejects style and size regressions, and the download and playback paths say why they failed (completed 2026-09-01)
 - [ ] **Phase 2: Shared formatters and network discipline** - One implementation of each formatter, in RawkoonKit under test; every download authenticated through APIClient
 - [ ] **Phase 3: Observation** - `@Observable` replaces `ObservableObject`, the Combine relay in `bindPlayer()` disappears, and views stop re-rendering on every position tick
 - [ ] **Phase 4: Swift 6 strict concurrency** - Both modules on Swift 6 language mode with the app target defaulting to MainActor, and every remote command, interruption, and seek still runs when it ran before
@@ -260,7 +260,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Lint, format, and logging guardrails | 3/3 | In Progress|  |
+| 1. Lint, format, and logging guardrails | 3/3 | Complete    | 2026-09-01 |
 | 2. Shared formatters and network discipline | 0/TBD | Not started | - |
 | 3. Observation | 0/TBD | Not started | - |
 | 4. Swift 6 strict concurrency | 0/TBD | Not started | - |
