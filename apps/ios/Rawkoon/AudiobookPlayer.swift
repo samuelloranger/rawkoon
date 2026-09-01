@@ -56,6 +56,9 @@ final class AudiobookPlayer: ObservableObject {
     private var seekID = 0
     /// While true, ticks and current-item KVO must not overwrite `positionSecs`.
     private var isSeeking = false
+    /// Chapters whose unreadable local file was already discarded once this
+    /// session, so a chapter that fails for another reason cannot loop.
+    private var recoveredFileIds: Set<Int> = []
 
     init() {
         configureAudioSession()
@@ -604,6 +607,10 @@ final class AudiobookPlayer: ObservableObject {
         case .readyToPlay:
             seekCurrentItem(to: offset, autoplay: autoplay)
         case .failed:
+            logItemFailure(item)
+            if recoverFromFailedLocalItem(item) {
+                return
+            }
             isSeeking = false
         default:
             isSeeking = true
@@ -616,7 +623,11 @@ final class AudiobookPlayer: ObservableObject {
                         self.itemStatusObserver = nil
                         self.seekCurrentItem(to: offset, autoplay: self.isPlaying)
                     case .failed:
+                        self.logItemFailure(item)
                         self.itemStatusObserver = nil
+                        if self.recoverFromFailedLocalItem(item) {
+                            return
+                        }
                         self.isSeeking = false
                     default:
                         break
@@ -819,6 +830,60 @@ final class AudiobookPlayer: ObservableObject {
             return absolute
         }
         return nil
+    }
+
+    /// A player item that fails is the end of the road for that chapter:
+    /// `AVQueuePlayer` moves on to the next item, so without this the listener
+    /// silently lands on a different chapter and nothing anywhere says why.
+    private func logItemFailure(_ item: AVPlayerItem) {
+        let chapterIndex = chapter(for: item)?.index ?? -1
+        let fileId = chapter(for: item)?.fileId ?? -1
+        let reason = item.error?.localizedDescription ?? "no error reported"
+        Log.playback.error(
+            """
+            Chapter item failed to load: \
+            chapterIndex=\(chapterIndex, privacy: .public) \
+            fileId=\(fileId, privacy: .public) \
+            error=\(reason, privacy: .public)
+            """
+        )
+    }
+
+    /// A downloaded chapter is trusted on file size alone (`playbackURL`), so a
+    /// local file that is the right length but unreadable — a truncated or
+    /// interrupted download — is preferred over the server copy and then fails to
+    /// open. The chapter becomes unplayable for as long as that file exists, and
+    /// because `AVQueuePlayer` just moves on, the listener sees a chapter tap
+    /// silently land somewhere else.
+    ///
+    /// Treat a failed LOCAL item as evidence the download is bad: delete it and
+    /// rebuild the queue, which falls back to streaming. `recoveredFileIds` keeps
+    /// this to one attempt per chapter per session, so a chapter that fails for
+    /// some other reason cannot spin.
+    ///
+    /// Returns true when recovery was started, meaning the caller should not also
+    /// treat the failure as final.
+    private func recoverFromFailedLocalItem(_ item: AVPlayerItem) -> Bool {
+        guard
+            let chapter = chapter(for: item),
+            let url = (item.asset as? AVURLAsset)?.url,
+            url.isFileURL,
+            !recoveredFileIds.contains(chapter.fileId)
+        else {
+            return false
+        }
+
+        recoveredFileIds.insert(chapter.fileId)
+        Log.playback.error(
+            """
+            Deleting unreadable local chapter and falling back to streaming: \
+            chapterIndex=\(chapter.index, privacy: .public) \
+            fileId=\(chapter.fileId, privacy: .public)
+            """
+        )
+        FileStore.delete(url: url)
+        buildQueue(at: positionSecs, autoplay: isPlaying)
+        return true
     }
 
     private func chapter(for item: AVPlayerItem?) -> ManifestChapter? {
