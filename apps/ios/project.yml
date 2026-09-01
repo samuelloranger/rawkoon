@@ -34,6 +34,9 @@ targets:
       path: Rawkoon/Info.plist
       properties:
         UIBackgroundModes: [audio, fetch, remote-notification]
+        # Declares the app as a long-form audio player before the session is
+        # ever configured, so AirPlay route suggestions are right from launch.
+        AVInitialRouteSharingPolicy: LongFormAudio
         CFBundleDisplayName: Rawkoon
         ITSAppUsesNonExemptEncryption: false
         # Wire the version/build strings to the build settings so CI's

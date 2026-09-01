@@ -1,3 +1,4 @@
+import AVKit
 import Foundation
 import RawkoonKit
 import SwiftUI
@@ -125,6 +126,7 @@ struct PlayerView: View {
             HStack(spacing: 12) {
                 rateMenu
                 sleepMenu
+                routeButton
             }
             .padding(.top, 8)
         }
@@ -306,6 +308,15 @@ struct PlayerView: View {
         .accessibilityValue(sleepLabel)
     }
 
+    /// AirPlay, in the player rather than only in Control Center — moving a
+    /// book to a HomePod or the car should not mean leaving the app.
+    private var routeButton: some View {
+        RoutePicker()
+            .frame(width: 44, height: 40)
+            .background(Theme.raised.opacity(0.8), in: Capsule())
+            .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
+    }
+
     private func chip(title: String, systemImage: String, emphasized: Bool) -> some View {
         Label(title, systemImage: systemImage)
             .font(.system(.subheadline, design: .monospaced).weight(.medium))
@@ -384,6 +395,23 @@ struct PlayerView: View {
         if hours > 0 { return String(format: "%d:%02d:%02d", hours, minutes, secs) }
         return String(format: "%d:%02d", minutes, secs)
     }
+}
+
+/// `AVRoutePickerView` has no SwiftUI equivalent.
+private struct RoutePicker: UIViewRepresentable {
+    func makeUIView(context: Context) -> AVRoutePickerView {
+        let view = AVRoutePickerView()
+        // AVRoutePickerView is already an accessible button and names itself,
+        // so a SwiftUI label on the wrapper would have VoiceOver say it twice.
+        // Audio only, so the picker should not rank AirPlay displays first.
+        view.prioritizesVideoDevices = false
+        view.tintColor = UIColor(Theme.textStrong)
+        view.activeTintColor = UIColor(Theme.apricot)
+        view.backgroundColor = .clear
+        return view
+    }
+
+    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
 }
 
 /// Apricot at rest, terracotta when pressed — the lamp, then the ember.

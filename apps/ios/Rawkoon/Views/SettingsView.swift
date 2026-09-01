@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
     @AppStorage("download_over") private var downloadOver = "any"
+    @AppStorage("smart_rewind") private var smartRewind = false
 
     @State private var sessionUser: SessionUser?
     @State private var appVersion: String?
@@ -78,6 +79,15 @@ struct SettingsView: View {
                 }
                 .listRowBackground(Theme.raised)
             }
+
+            Section {
+                Toggle("Smart rewind", isOn: $smartRewind)
+            } header: {
+                Text("Playback")
+            } footer: {
+                Text("Rewind when a book resumes, by how long it was paused \u{2014} nothing under ten seconds, two seconds under a minute, ten under an hour, twenty after a night's sleep.")
+            }
+            .listRowBackground(Theme.raised)
 
             Section("Downloads") {
                 Picker("Download over", selection: $downloadOver) {
