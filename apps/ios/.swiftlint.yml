@@ -1,0 +1,81 @@
+# SwiftLint configuration for apps/ios.
+#
+# Phase 1 (lint/format/logging guardrails) of the iOS clean-code milestone.
+# Every threshold below is warning-only, on purpose: this phase's job is to
+# make size regressions visible in CI, not to fail the build on the debt that
+# already exists. `strict:` is intentionally not set here and `--strict` is
+# not passed on the CI command line — a strict run against this tree's ~136
+# pre-existing warnings across ~15 rules would fail on day one, before any of
+# the size rules had a chance to do their ratcheting job over the phases that
+# follow. Turning strict mode on is a deliberate future step, once the
+# warning count has been driven down, not an oversight here.
+
+included:
+  - Rawkoon
+  - Sources
+  - Tests
+
+# Both entries below require a `#` reason comment directly above them — no
+# bare list. If a later change makes this set empty, omit the
+# `disabled_rules` key entirely rather than leaving a header with nothing
+# under it.
+disabled_rules:
+  # SourceKit-dependent: the ubuntu-latest CI runner cannot provide SourceKit,
+  # so this rule silently produces zero findings there while still applying
+  # on a developer's Mac. Disabling it makes CI, macbuild and a local run
+  # agree, instead of the CI runner quietly under-enforcing.
+  - statement_position
+  # The six phases after this one deliberately leave scoped follow-up work
+  # behind, and TODO comments are the intended trail for that work. Leaving
+  # this rule on would bury the size-rule signal (the actual point of this
+  # phase) under routine TODO noise.
+  - todo
+
+# No opt_in_rules key. RESEARCH.md suggested `unused_import`, but that is a
+# SwiftLint *analyzer* rule — it only runs under `swiftlint analyze` driven by
+# a compiler log, never under the plain `swiftlint lint` this CI job invokes.
+# Listing it here would be inert, so it is left out rather than added for show.
+
+# Worst offender at authoring time is MediaDetailView.swift at 1443 lines.
+# 1500 clears that with a 57-line buffer, deliberately small so growth is
+# still visible quickly; Phase 6 (VM-04) ratchets this down once the view is
+# decomposed. No `error:` key: on this SwiftLint version, omitting `error:`
+# fully disables the error-severity threshold for this rule.
+file_length:
+  warning: 1500
+
+# Measured on macbuild (SwiftLint 0.65.1) with a threshold of 1 forcing every
+# type to report: the worst span was 1325 lines (MediaDetailView.swift's
+# struct body). Rounded up to the next multiple of 100 per this plan's fixed
+# rounding rule. No `error:` key — warning-only, same reasoning as file_length.
+type_body_length:
+  warning: 1400
+
+# Measured on macbuild (SwiftLint 0.65.1) with a threshold of 1: the worst
+# span was 76 lines (DebugScreens.swift). Rounded up to the next multiple of
+# 25 per this plan's fixed rounding rule. No `error:` key.
+function_body_length:
+  warning: 100
+
+identifier_name:
+  min_length:
+    # Dropping the error level here demotes the short loop/closure bindings
+    # (`d`, `e`, `q`, ...) this codebase uses throughout from error to
+    # warning severity. This is what actually clears the error-severity
+    # block found in the pre-wiring inventory (58 identifier_name errors),
+    # without touching a single line of Swift. Note: `severity:` is not a
+    # valid key under `min_length` — SwiftLint rejects it with an
+    # "invalid key(s)" warning and the errors remain, so `warning:` is the
+    # only lever here.
+    warning: 3
+  # Admits the underscore in the snake_case `CodingKeys` names the server's
+  # wire format dictates — those keys can't be renamed without breaking
+  # decoding, so they can't be brought into camelCase to satisfy this rule.
+  allowed_symbols: ["_"]
+
+# Clears the single call site at APIClient.swift:600 (a 3-member tuple).
+# No `error:` key.
+large_tuple:
+  warning: 2
+
+# strict mode is intentionally not enabled — see the header comment above.
