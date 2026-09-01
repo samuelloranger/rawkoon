@@ -209,6 +209,12 @@ final class AudiobookPlayer: ObservableObject {
             updateNowPlayingInfo()
             return
         }
+        // `isPlaying` is already true, so the seek autoplays and its completion
+        // calls beginPlayback for us — one seek, no audio at the stale position.
+        if let target = consumeSmartRewindTarget() {
+            seek(to: target)
+            return
+        }
         beginPlayback()
     }
 
@@ -227,6 +233,11 @@ final class AudiobookPlayer: ObservableObject {
 
     func seek(to seconds: Double) {
         guard let timeline else { return }
+        // Any deliberate move — a scrub, a chapter jump, a skip — replaces
+        // "resume where you stopped", so there is nothing left to rewind to.
+        // Without this, pausing, jumping to a chapter and pressing play would
+        // rewind off the front of the chapter the listener just chose.
+        pausedAt = nil
         let clamped = timeline.clamp(seconds)
         let autoplay = isPlaying
         positionSecs = clamped
@@ -354,21 +365,24 @@ final class AudiobookPlayer: ObservableObject {
         // a book playing at 1.25× would silently drop back to normal speed.
         player.defaultRate = rate
         player.play()
-        applySmartRewindIfNeeded()
         updateNowPlayingInfo()
     }
 
-    /// Rewinds a few seconds when resuming after a gap, if the listener asked
-    /// for it. Off unless `smart_rewind` is on — see `SettingsView`.
-    private func applySmartRewindIfNeeded() {
-        defer { pausedAt = nil }
-        guard
-            UserDefaults.standard.bool(forKey: "smart_rewind"),
-            let pausedAt
-        else { return }
+    /// Where playback should resume, once the gap since the pause is accounted
+    /// for — or nil to resume exactly where it stopped.
+    ///
+    /// Consumes `pausedAt`, so the rewind can only ever be spent once.
+    /// Deliberately NOT applied from inside `beginPlayback()`: a seek there
+    /// starts audio at the old position and only then jumps back, and the seek
+    /// completion re-enters `beginPlayback`. The offset has to be folded into
+    /// the seek that starts playback instead.
+    private func consumeSmartRewindTarget() -> Double? {
+        guard let pausedAt else { return nil }
+        self.pausedAt = nil
+        guard UserDefaults.standard.bool(forKey: "smart_rewind") else { return nil }
         let offset = smartRewindOffset(pausedFor: Date().timeIntervalSince(pausedAt))
-        guard offset > 0 else { return }
-        seek(to: positionSecs - offset)
+        guard offset > 0 else { return nil }
+        return positionSecs - offset
     }
 
     /// Seek the current item. `play()` must not run until this finishes —
