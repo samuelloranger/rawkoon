@@ -82,7 +82,9 @@ struct ActivityView: View {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .binary
         formatter.allowedUnits = [.useAll]
-        let formatted = formatter.string(fromByteCount: Int64(bytesPerSecond))
+        // Non-finite/overflowing rates would trap the non-failable Int64 init.
+        let safeBytes = max(0, Int64(exactly: bytesPerSecond.rounded()) ?? 0)
+        let formatted = formatter.string(fromByteCount: safeBytes)
         return "\(formatted)/s"
     }
 

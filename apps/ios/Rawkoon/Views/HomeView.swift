@@ -208,8 +208,13 @@ struct HomeView: View {
     }
 
     private func speedLabel(_ dir: String, _ bytes: Double, _ tint: Color) -> some View {
-        let text = bytes <= 0 ? "0 KB/s"
-            : "\(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file))/s"
+        // `bytes <= 0` is false for .nan/.infinity (and finite overflow slips
+        // past too), so guarding here rather than at the comparison: both would
+        // otherwise fall through to a trapping Int64 init. dlSpeed/ulSpeed are
+        // server-decoded Doubles, so an overflowing literal decodes to .infinity.
+        let safeBytes = bytes.isFinite && bytes > 0 ? (Int64(exactly: bytes.rounded()) ?? 0) : 0
+        let text = safeBytes <= 0 ? "0 KB/s"
+            : "\(ByteCountFormatter.string(fromByteCount: safeBytes, countStyle: .file))/s"
         return HStack(spacing: 5) {
             Image(systemName: dir == "down" ? "arrow.down" : "arrow.up").font(.caption2).foregroundStyle(tint)
             Text(text).font(.system(.subheadline, design: .monospaced)).foregroundStyle(Theme.text)
