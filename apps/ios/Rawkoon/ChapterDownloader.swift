@@ -191,7 +191,7 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
             Log.download.error(
                 """
                 Chapter download failed: \
-                editionId=\(editionId, privacy: .public) \
+                editionId=\(self.editionId, privacy: .public) \
                 fileId=\(fileId, privacy: .public) \
                 status=\(status, privacy: .public)
                 """
