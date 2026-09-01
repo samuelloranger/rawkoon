@@ -26,9 +26,21 @@ jobs:
       - run: swift test
         working-directory: apps/ios
 
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Put Homebrew on PATH (image ships it unlinked)
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          echo "/home/linuxbrew/.linuxbrew/bin" >> "$GITHUB_PATH"
+      - run: brew install swiftlint
+      - run: swiftlint lint
+        working-directory: apps/ios
+
   build:
     runs-on: macos-26
-    needs: kit
+    needs: [kit, lint]
     steps:
       - uses: actions/checkout@v4
       - name: Select Xcode 26 (iOS 26 SDK required by App Store)
