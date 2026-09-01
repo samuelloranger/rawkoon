@@ -232,6 +232,15 @@ final class AudiobookPlayer: ObservableObject {
         guard player?.currentItem != nil else { return }
         isPlaying = true
         if case .minutes = sleepMode { lastSleepTick = Date() }
+        // The same guard `play()` carries, and for the same reason: AVPlayer
+        // treats play() as cancelling an in-flight seek, so resuming here would
+        // land back at the pre-seek position. `isPlaying` is set, so the seek's
+        // own completion starts playback at the right place.
+        if isSeeking {
+            pausedAt = nil
+            updateNowPlayingInfo()
+            return
+        }
         if let target = consumeSmartRewindTarget() {
             seek(to: target)
             return
@@ -823,9 +832,12 @@ final class AudiobookPlayer: ObservableObject {
         info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = rate
         if !chapters.isEmpty {
             info[MPNowPlayingInfoPropertyChapterCount] = chapters.count
-            // Chapter numbering is zero-based, and so is ManifestChapter.index.
-            if let index = currentChapterIndex {
-                info[MPNowPlayingInfoPropertyChapterNumber] = index
+            // Chapter numbering is zero-based and contiguous, which
+            // `ManifestChapter.index` is only in practice — `BookTimeline`
+            // treats it as a domain id and allows gaps. Send the ordinal.
+            if let index = currentChapterIndex,
+               let ordinal = chapters.firstIndex(where: { $0.index == index }) {
+                info[MPNowPlayingInfoPropertyChapterNumber] = ordinal
             }
         }
         if let artwork {
