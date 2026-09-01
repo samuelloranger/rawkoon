@@ -12,21 +12,33 @@ struct DiscoverView: View {
     @State private var feedError: String?
 
     @State private var searchResults: [TmdbSearchItem] = []
+    @State private var bookResults: [BookSearchHit] = []
     @State private var loadingSearch = false
     @State private var searchError: String?
     @State private var searchTask: Task<Void, Never>?
+    @State private var addingVolumeId: String?
 
     private enum KindFilter: String, CaseIterable {
         case all = "All"
         case movies = "Movies"
         case tv = "TV"
+        case books = "Books"
 
         var apiValue: String? {
             switch self {
             case .all: return nil
             case .movies: return "movie"
             case .tv: return "tv"
+            case .books: return nil
             }
+        }
+
+        var includesMoviesAndTV: Bool {
+            self != .books
+        }
+
+        var includesBooks: Bool {
+            self == .all || self == .books
         }
     }
 
@@ -55,11 +67,14 @@ struct DiscoverView: View {
         }
         .background(Theme.base)
         .navigationTitle("Discover")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .task {
             if feed == nil {
                 await loadFeed()
             }
+        }
+        .refreshable {
+            await loadFeed()
         }
         .onChange(of: query) { _, _ in
             scheduleSearch()
@@ -75,7 +90,7 @@ struct DiscoverView: View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(Theme.muted)
-            TextField("Search movies & shows", text: $query)
+            TextField("Search movies, shows & books", text: $query)
                 .foregroundStyle(Theme.text)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
@@ -110,7 +125,7 @@ struct DiscoverView: View {
     @ViewBuilder
     private var feedContent: some View {
         if loadingFeed {
-            ProgressView().tint(Theme.apricot)
+            ProgressView().tint(Theme.muted)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 28)
         } else if let feedError {
@@ -174,7 +189,7 @@ struct DiscoverView: View {
     @ViewBuilder
     private var searchContent: some View {
         if loadingSearch {
-            ProgressView().tint(Theme.apricot)
+            ProgressView().tint(Theme.muted)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 28)
         } else if let searchError {
@@ -184,7 +199,7 @@ struct DiscoverView: View {
                 description: Text(searchError)
             )
             .padding(.top, 16)
-        } else if searchResults.isEmpty {
+        } else if searchResults.isEmpty && bookResults.isEmpty {
             ContentUnavailableView(
                 "Nothing to show yet",
                 systemImage: "magnifyingglass",
@@ -192,24 +207,110 @@ struct DiscoverView: View {
             )
             .padding(.top, 28)
         } else {
-            LazyVGrid(columns: searchGridColumns, spacing: 14) {
-                ForEach(searchResults) { item in
-                    NavigationLink {
-                        MediaDetailView(
-                            tmdbId: item.tmdbId,
-                            mediaType: item.mediaType,
-                            title: item.title,
-                            posterPath: item.posterUrl,
-                            libraryId: item.libraryId
-                        )
-                    } label: {
-                        posterCard(item, fixedWidth: nil)
+            VStack(alignment: .leading, spacing: 20) {
+                if !bookResults.isEmpty {
+                    Text("Books")
+                        .font(.display(17))
+                        .foregroundStyle(Theme.textStrong)
+                        .padding(.horizontal, 16)
+                    ForEach(bookResults) { hit in
+                        bookSearchRow(hit)
+                            .padding(.horizontal, 16)
                     }
-                    .buttonStyle(.plain)
+                }
+                if !searchResults.isEmpty {
+                    if !bookResults.isEmpty {
+                        Text("Movies & TV")
+                            .font(.display(17))
+                            .foregroundStyle(Theme.textStrong)
+                            .padding(.horizontal, 16)
+                    }
+                    LazyVGrid(columns: searchGridColumns, spacing: 14) {
+                        ForEach(searchResults) { item in
+                            NavigationLink {
+                                MediaDetailView(
+                                    tmdbId: item.tmdbId,
+                                    mediaType: item.mediaType,
+                                    title: item.title,
+                                    posterPath: item.posterUrl,
+                                    libraryId: item.libraryId
+                                )
+                            } label: {
+                                posterCard(item, fixedWidth: nil)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 16)
                 }
             }
-            .padding(.horizontal, 16)
         }
+    }
+
+    @ViewBuilder
+    private func bookSearchRow(_ hit: BookSearchHit) -> some View {
+        let inLibraryBook = hit.libraryBookId.flatMap { id in
+            model.library.first { $0.bookId == id }
+        }
+        HStack(spacing: 12) {
+            if let book = inLibraryBook {
+                NavigationLink {
+                    BookView(book: book)
+                } label: {
+                    bookSearchLabel(hit)
+                }
+                .buttonStyle(.plain)
+            } else {
+                bookSearchLabel(hit)
+            }
+
+            if hit.inLibrary {
+                StatusBadge(text: "In library", tint: Theme.seed)
+            } else if model.isAdmin {
+                Button {
+                    Task { await addBook(hit) }
+                } label: {
+                    if addingVolumeId == hit.googleVolumeId {
+                        ProgressView().tint(Theme.onAccent)
+                    } else {
+                        Text("Add")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                }
+                .frame(minWidth: 44, minHeight: 44)
+                .padding(.horizontal, 12)
+                .background(Theme.terracotta, in: Capsule())
+                .foregroundStyle(Theme.onAccent)
+                .disabled(addingVolumeId != nil)
+            }
+        }
+    }
+
+    private func bookSearchLabel(_ hit: BookSearchHit) -> some View {
+        HStack(spacing: 12) {
+            BookCover(url: model.absoluteURL(hit.coverUrl), size: 56, corner: 10)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(hit.title)
+                    .font(.display(16))
+                    .foregroundStyle(Theme.textStrong)
+                    .lineLimit(2)
+                if !hit.authors.isEmpty {
+                    Text(hit.authors.joined(separator: ", "))
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.muted)
+                        .lineLimit(1)
+                }
+                if let year = hit.publishedYear {
+                    Text(String(year))
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(Theme.faint)
+                }
+            }
+            Spacer(minLength: 8)
+        }
+        .padding(12)
+        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
     }
 
     // MARK: Poster card
@@ -243,7 +344,7 @@ struct DiscoverView: View {
             }
 
             Text(item.title)
-                .font(.display(13))
+                .font(.caption)
                 .foregroundStyle(Theme.textStrong)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
@@ -258,15 +359,10 @@ struct DiscoverView: View {
         if item.alreadyExists == true {
             Image(systemName: "checkmark")
                 .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(Theme.onAccent)
-                .padding(5)
+                .foregroundStyle(Color(hex: 0x10231a))
+                .frame(width: 22, height: 22)
                 .background(Theme.seed, in: Circle())
-        } else {
-            Image(systemName: "plus")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(Theme.onAccent)
-                .padding(5)
-                .background(Theme.apricot.opacity(0.9), in: Circle())
+                .accessibilityLabel("In library")
         }
     }
 
@@ -295,6 +391,7 @@ struct DiscoverView: View {
 
         guard isSearching else {
             searchResults = []
+            bookResults = []
             searchError = nil
             loadingSearch = false
             return
@@ -318,16 +415,52 @@ struct DiscoverView: View {
             searchError = "Not signed in."
             return
         }
+
+        var tmdb: [TmdbSearchItem] = []
+        var books: [BookSearchHit] = []
+        var firstError: String?
+
+        if kind.includesMoviesAndTV {
+            do {
+                tmdb = try await client.tmdbSearch(q: query, kind: kind.apiValue).items
+            } catch let error as APIError {
+                firstError = message(for: error)
+            } catch {
+                firstError = "Network error. Check your connection."
+            }
+            guard !Task.isCancelled else { return }
+        }
+
+        if kind.includesBooks {
+            do {
+                books = try await client.bookSearch(q: query).results
+            } catch let error as APIError {
+                if firstError == nil { firstError = message(for: error) }
+            } catch {
+                if firstError == nil { firstError = "Network error. Check your connection." }
+            }
+            guard !Task.isCancelled else { return }
+        }
+
+        searchResults = tmdb
+        bookResults = books
+        if tmdb.isEmpty && books.isEmpty {
+            searchError = firstError
+        } else {
+            searchError = nil
+        }
+    }
+
+    private func addBook(_ hit: BookSearchHit) async {
+        guard let client = model.api() else { return }
+        addingVolumeId = hit.googleVolumeId
+        defer { addingVolumeId = nil }
         do {
-            let response = try await client.tmdbSearch(q: query, kind: kind.apiValue)
-            guard !Task.isCancelled else { return }
-            searchResults = response.items
-        } catch let error as APIError {
-            guard !Task.isCancelled else { return }
-            searchError = message(for: error)
+            try await client.addBook(googleVolumeId: hit.googleVolumeId)
+            await model.loadLibrary()
+            await runSearch(query: trimmedQuery, kind: kindFilter)
         } catch {
-            guard !Task.isCancelled else { return }
-            searchError = "Network error. Check your connection."
+            searchError = "Could not add that book."
         }
     }
 

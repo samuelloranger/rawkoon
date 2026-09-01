@@ -64,8 +64,11 @@ struct LoginView: View {
                             } label: {
                                 Image(systemName: revealPassword ? "eye.slash" : "eye")
                                     .foregroundStyle(Theme.muted)
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel(revealPassword ? "Hide password" : "Show password")
                         }
                     }
                     .listRowBackground(Theme.raised)

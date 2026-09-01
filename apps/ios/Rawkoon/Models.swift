@@ -54,6 +54,23 @@ struct TmdbSearchResponse: Decodable, Sendable {
     let items: [TmdbSearchItem]
 }
 
+struct BookSearchHit: Decodable, Identifiable, Hashable, Sendable {
+    var id: String { googleVolumeId }
+    let googleVolumeId: String
+    let title: String
+    let subtitle: String?
+    let authors: [String]
+    let publishedYear: Int?
+    let coverUrl: String?
+    let overview: String?
+    let inLibrary: Bool
+    let libraryBookId: Int?
+}
+
+struct BookSearchResponse: Decodable, Sendable {
+    let results: [BookSearchHit]
+}
+
 // MARK: - Media detail (TMDB modal)
 
 struct MediaModalResponse: Decodable, Sendable {

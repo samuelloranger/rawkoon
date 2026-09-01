@@ -30,7 +30,7 @@ public enum BookCardMenuAction: Equatable, Sendable, Hashable {
     case read
     case play
     case addAudiobook
-    case addEPUB
+    case addEbook
     case rescan
 }
 
@@ -52,7 +52,7 @@ public func bookCardMenuItems(hasAudiobook: Bool, hasEbook: Bool, isAdmin: Bool)
             items.append(.addAudiobook)
         }
         if !hasEbook {
-            items.append(.addEPUB)
+            items.append(.addEbook)
         }
         if hasAudiobook || hasEbook {
             items.append(.rescan)

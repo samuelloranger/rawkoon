@@ -122,6 +122,10 @@ final class AudiobookPlayer: ObservableObject {
         seek(to: positionSecs - seconds)
     }
 
+    func jumpToChapter(_ chapter: ManifestChapter) {
+        seek(to: chapter.startSecs)
+    }
+
     func setRate(_ value: Float) {
         rate = value
         applyPitchAlgorithm()
