@@ -15,6 +15,9 @@ enum FileStore {
         return FileManager.default.fileExists(atPath: url.path)
     }
 
+    // Best-effort: the return type is already optional, and every caller
+    // coalesces a missing or unreadable file to nil — there is no separate
+    // failure state left to report.
     static func size(url: URL) -> Int? {
         guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
               let value = attributes[.size] as? NSNumber
@@ -24,6 +27,9 @@ enum FileStore {
         return value.intValue
     }
 
+    // Best-effort: removing a file that may already be gone. A failure here
+    // is indistinguishable from success to every caller, so logging it would
+    // only add noise on a path that succeeds routinely.
     static func delete(url: URL) {
         try? FileManager.default.removeItem(at: url)
     }
@@ -31,9 +37,22 @@ enum FileStore {
     static func deleteEdition(_ editionId: Int) {
         let directory = editionDirectory(editionId)
         guard FileManager.default.fileExists(atPath: directory.path) else { return }
-        try? FileManager.default.removeItem(at: directory)
+        do {
+            try FileManager.default.removeItem(at: directory)
+        } catch {
+            Log.download.error(
+                """
+                Failed to delete edition directory: \
+                editionId=\(editionId, privacy: .public) \
+                error=\(error.localizedDescription, privacy: .public)
+                """
+            )
+        }
     }
 
+    // Best-effort: this only flags a directory for iCloud-backup exclusion. A
+    // failure inflates backup size; it never affects playback or download
+    // correctness.
     static func excludeFromBackup(_ url: inout URL) {
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
@@ -58,6 +77,15 @@ enum FileStore {
     }
 
     private static func createDirectoryIfNeeded(_ url: URL) {
-        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        } catch {
+            Log.download.error(
+                """
+                Failed to create directory: \
+                error=\(error.localizedDescription, privacy: .public)
+                """
+            )
+        }
     }
 }

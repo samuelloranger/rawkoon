@@ -484,8 +484,18 @@ final class AppModel: ObservableObject {
         grantRefreshAttempts[editionId] = attempts + 1
         defer { grantRefreshInFlight.remove(editionId) }
 
-        guard let refreshed = try? await manifest(editionId, forceRefresh: true) else { return }
-        downloaders[editionId]?.refreshChapterURLs(from: refreshed)
+        do {
+            let refreshed = try await manifest(editionId, forceRefresh: true)
+            downloaders[editionId]?.refreshChapterURLs(from: refreshed)
+        } catch {
+            Log.download.error(
+                """
+                Grant refresh failed: \
+                editionId=\(editionId, privacy: .public) \
+                error=\(error.localizedDescription, privacy: .public)
+                """
+            )
+        }
     }
 
     private static let maxGrantRefreshAttempts = 3
