@@ -2,8 +2,8 @@ name: iOS
 on:
   # NOTE: do not add `tags:` here. GitHub treats a push trigger carrying `tags`
   # but no `branches` as tag-only, which silently stops branch pushes from
-  # building at all. TestFlight uploads are workflow_dispatch only, which is
-  # also what keeps an irreversible (version, build) upload a deliberate act.
+  # building at all. TestFlight runs after kit+build succeed on main, or on
+  # workflow_dispatch. Feature branches and PRs never upload.
   push:
     branches: ["**"]
     paths: ["apps/ios/**", ".github/workflows/ios.yml"]
@@ -12,9 +12,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Marketing version for TestFlight upload
+        description: Marketing version (empty = package.json)
         required: false
-        default: "1.12.2"
+        default: ""
 jobs:
   kit:
     runs-on: ubuntu-latest
@@ -47,10 +47,10 @@ jobs:
   testflight:
     runs-on: macos-26
     needs: build
-    # Dispatch only. A successful upload permanently consumes a (version, build)
-    # pair on the live App Store Connect record and cannot be undone, so it is
-    # never something a push should be able to cause by accident.
-    if: github.event_name == 'workflow_dispatch'
+    # After kit+build succeed. Main pushes ship; dispatch still works for a
+    # one-off. A successful upload consumes a (version, build) pair, so PRs
+    # and feature branches never reach this job.
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     env:
       APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
@@ -63,10 +63,14 @@ jobs:
       - name: Resolve release version
         working-directory: apps/ios
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
             MARKETING_VERSION="${{ inputs.version }}"
           else
-            MARKETING_VERSION="${GITHUB_REF_NAME#ios-v}"
+            MARKETING_VERSION="$(python3 -c 'import json; print(json.load(open("../../package.json"))["version"])')"
+          fi
+          if [ -z "$MARKETING_VERSION" ]; then
+            echo "Could not resolve MARKETING_VERSION" >&2
+            exit 1
           fi
           echo "MARKETING_VERSION=${MARKETING_VERSION}" >> "$GITHUB_ENV"
           # Rawkoon has one publishing lane; github.run_number is already monotonic.
