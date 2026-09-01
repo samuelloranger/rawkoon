@@ -315,7 +315,6 @@ struct PlayerView: View {
             .frame(width: 44, height: 40)
             .background(Theme.raised.opacity(0.8), in: Capsule())
             .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
-            .accessibilityLabel("Output device")
     }
 
     private func chip(title: String, systemImage: String, emphasized: Bool) -> some View {
@@ -402,6 +401,8 @@ struct PlayerView: View {
 private struct RoutePicker: UIViewRepresentable {
     func makeUIView(context: Context) -> AVRoutePickerView {
         let view = AVRoutePickerView()
+        // AVRoutePickerView is already an accessible button and names itself,
+        // so a SwiftUI label on the wrapper would have VoiceOver say it twice.
         // Audio only, so the picker should not rank AirPlay displays first.
         view.prioritizesVideoDevices = false
         view.tintColor = UIColor(Theme.textStrong)

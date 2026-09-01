@@ -32,6 +32,9 @@ final class AudiobookPlayer: ObservableObject {
     /// whether resuming is even appropriate.
     private var wasPlayingBeforeInterruption = false
     private var interruptionObserver: NSObjectProtocol?
+    /// The remote-command targets this instance registered, so `deinit` can
+    /// remove exactly those.
+    private var commandTargets: [(command: MPRemoteCommand, target: Any)] = []
     private var resetObserver: NSObjectProtocol?
 
     private var artworkURL: URL?
@@ -68,6 +71,13 @@ final class AudiobookPlayer: ObservableObject {
         }
         for observer in [interruptionObserver, resetObserver] {
             if let observer { NotificationCenter.default.removeObserver(observer) }
+        }
+        // `MPRemoteCommandCenter` is process-global. Leaving handlers behind
+        // would let a dead player answer the Lock Screen; removing them by
+        // token rather than with `removeTarget(nil)` leaves any other owner's
+        // alone.
+        for entry in commandTargets {
+            entry.command.removeTarget(entry.target)
         }
     }
 
@@ -543,7 +553,18 @@ final class AudiobookPlayer: ObservableObject {
             DispatchQueue.main.async {
                 guard let self, self.seekID == id else { return }
                 self.isSeeking = false
-                guard finished else { return }
+                guard finished else {
+                    // Cancelled, not superseded — a newer seek would have been
+                    // caught by the seekID guard above. `positionSecs` was
+                    // written optimistically in `seek(to:)`, so take the truth
+                    // back from the player rather than reporting a position it
+                    // never reached.
+                    if let current = self.player?.currentTime().seconds, current.isFinite {
+                        self.positionSecs = self.wholeBookPosition(fromCurrentItemTime: current)
+                    }
+                    self.updateNowPlayingInfo()
+                    return
+                }
                 if self.isPlaying {
                     self.beginPlayback()
                 } else {
@@ -889,6 +910,13 @@ final class AudiobookPlayer: ObservableObject {
     /// `MPRemoteCommandCenter` invokes handlers on its own queue, and every
     /// transport method here writes `@Published` state that SwiftUI and
     /// `AppModel`'s progress sink read on the main actor. Hop first.
+    private func addTarget(
+        _ command: MPRemoteCommand,
+        _ handler: @escaping (MPRemoteCommandEvent) -> MPRemoteCommandHandlerStatus
+    ) {
+        commandTargets.append((command, command.addTarget(handler: handler)))
+    }
+
     private func onMain(_ work: @escaping () -> Void) -> MPRemoteCommandHandlerStatus {
         if Thread.isMainThread {
             work()
@@ -900,15 +928,13 @@ final class AudiobookPlayer: ObservableObject {
 
     private func configureRemoteCommands() {
         let center = MPRemoteCommandCenter.shared()
-        center.playCommand.removeTarget(nil)
-        center.pauseCommand.removeTarget(nil)
-        center.togglePlayPauseCommand.removeTarget(nil)
-        center.skipForwardCommand.removeTarget(nil)
-        center.skipBackwardCommand.removeTarget(nil)
-        center.nextTrackCommand.removeTarget(nil)
-        center.previousTrackCommand.removeTarget(nil)
-        center.changePlaybackPositionCommand.removeTarget(nil)
-        center.changePlaybackRateCommand.removeTarget(nil)
+        // Only ever this instance's own targets. `removeTarget(nil)` would
+        // wipe the command center clean, and it is process-global — another
+        // owner's handlers are not ours to unregister.
+        for entry in commandTargets {
+            entry.command.removeTarget(entry.target)
+        }
+        commandTargets.removeAll()
 
         center.playCommand.isEnabled = true
         center.pauseCommand.isEnabled = true
@@ -939,35 +965,35 @@ final class AudiobookPlayer: ObservableObject {
             unsupported.isEnabled = false
         }
 
-        center.playCommand.addTarget { [weak self] _ in
+        addTarget(center.playCommand) { [weak self] _ in
             self?.onMain { self?.play() } ?? .commandFailed
         }
-        center.pauseCommand.addTarget { [weak self] _ in
+        addTarget(center.pauseCommand) { [weak self] _ in
             self?.onMain { self?.pause() } ?? .commandFailed
         }
-        center.skipForwardCommand.addTarget { [weak self] _ in
+        addTarget(center.skipForwardCommand) { [weak self] _ in
             self?.onMain { self?.skipForward(30) } ?? .commandFailed
         }
-        center.skipBackwardCommand.addTarget { [weak self] _ in
+        addTarget(center.skipBackwardCommand) { [weak self] _ in
             self?.onMain { self?.skipBackward(30) } ?? .commandFailed
         }
-        center.togglePlayPauseCommand.addTarget { [weak self] _ in
+        addTarget(center.togglePlayPauseCommand) { [weak self] _ in
             guard let self else { return .commandFailed }
             return onMain { self.isPlaying ? self.pause() : self.play() }
         }
-        center.nextTrackCommand.addTarget { [weak self] _ in
+        addTarget(center.nextTrackCommand) { [weak self] _ in
             self?.onMain { self?.nextChapter() } ?? .commandFailed
         }
-        center.previousTrackCommand.addTarget { [weak self] _ in
+        addTarget(center.previousTrackCommand) { [weak self] _ in
             self?.onMain { self?.prevChapter() } ?? .commandFailed
         }
-        center.changePlaybackRateCommand.addTarget { [weak self] event in
+        addTarget(center.changePlaybackRateCommand) { [weak self] event in
             guard let event = event as? MPChangePlaybackRateCommandEvent else {
                 return .commandFailed
             }
             return self?.onMain { self?.setRate(event.playbackRate) } ?? .commandFailed
         }
-        center.changePlaybackPositionCommand.addTarget { [weak self] event in
+        addTarget(center.changePlaybackPositionCommand) { [weak self] event in
             guard let event = event as? MPChangePlaybackPositionCommandEvent else {
                 return .commandFailed
             }
