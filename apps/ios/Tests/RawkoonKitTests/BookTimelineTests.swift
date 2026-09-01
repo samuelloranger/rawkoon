@@ -89,4 +89,61 @@ final class BookTimelineTests: XCTestCase {
         XCTAssertNil(empty.chapterIndex(at: 0))
         XCTAssertEqual(empty.clamp(50), 0)
     }
+
+    /// Same-chapter seeks must not rebuild the queue: that tears down the
+    /// current item and races play() against an unfinished seek, which is
+    /// why the scrubber sometimes continues as if the thumb never moved.
+    func testInPlaceSeekOffsetStaysInsideTheCurrentChapter() throws {
+        XCTAssertEqual(
+            try XCTUnwrap(timeline.inPlaceSeekOffset(fromChapterIndex: 0, to: 100)),
+            100,
+            accuracy: 1e-9
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(timeline.inPlaceSeekOffset(fromChapterIndex: 1, to: 700.5)),
+            700.5 - 504.189388,
+            accuracy: 1e-9
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(timeline.inPlaceSeekOffset(fromChapterIndex: 0, to: 0)),
+            0,
+            accuracy: 1e-9
+        )
+    }
+
+    func testInPlaceSeekOffsetIsNilWhenTheSeekCrossesAChapter() {
+        XCTAssertNil(timeline.inPlaceSeekOffset(fromChapterIndex: 0, to: 600))
+        XCTAssertNil(timeline.inPlaceSeekOffset(fromChapterIndex: 1, to: 100))
+        // A position on a boundary belongs to the chapter it starts, so
+        // leaving chapter 0 for chapter 1 is a rebuild.
+        XCTAssertNil(timeline.inPlaceSeekOffset(fromChapterIndex: 0, to: 504.189388))
+    }
+
+    func testInPlaceSeekOffsetIsNilWithoutACurrentChapter() {
+        XCTAssertNil(timeline.inPlaceSeekOffset(fromChapterIndex: nil, to: 100))
+        XCTAssertNil(timeline.inPlaceSeekOffset(fromChapterIndex: 99, to: 100))
+    }
+
+    func testInPlaceSeekOffsetAtTheEndOfTheBookStaysOnTheLastChapter() throws {
+        XCTAssertEqual(
+            try XCTUnwrap(timeline.inPlaceSeekOffset(fromChapterIndex: 3, to: 1995.049796)),
+            1995.049796 - 1452.382041,
+            accuracy: 1e-9
+        )
+        XCTAssertNil(timeline.inPlaceSeekOffset(fromChapterIndex: 2, to: 1995.049796))
+    }
+
+    func testInPlaceSeekOffsetUsesDomainChapterIndices() throws {
+        let timeline = BookTimeline(chapters: [
+            chapter(5, 0, 10),
+            chapter(6, 10, 20),
+            chapter(7, 20, 30),
+        ])
+        XCTAssertEqual(
+            try XCTUnwrap(timeline.inPlaceSeekOffset(fromChapterIndex: 6, to: 12.5)),
+            2.5,
+            accuracy: 1e-9
+        )
+        XCTAssertNil(timeline.inPlaceSeekOffset(fromChapterIndex: 6, to: 21))
+    }
 }
