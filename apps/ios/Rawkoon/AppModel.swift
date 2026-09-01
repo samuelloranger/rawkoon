@@ -358,10 +358,23 @@ final class AppModel: ObservableObject {
             } else {
                 resumeAt = await resolveResumePosition(editionId: editionId, manifest: manifest)
             }
-            player.load(manifest: manifest, baseURL: baseURL, resumeAt: resumeAt)
+            player.load(
+                manifest: manifest,
+                baseURL: baseURL,
+                resumeAt: resumeAt,
+                artworkURL: library
+                    .first(where: { $0.audiobookEditionId == editionId })?
+                    .audiobookSummary?.coverURL
+            )
         } catch {
             errorMessage = message(for: error)
         }
+    }
+
+    /// Closes the player: stops audio, drops Now Playing, hides the mini bar.
+    func closePlayer() {
+        player.unload()
+        activeEditionId = nil
     }
 
     func handleBackgroundEvents(identifier: String, completionHandler: @escaping () -> Void) {
