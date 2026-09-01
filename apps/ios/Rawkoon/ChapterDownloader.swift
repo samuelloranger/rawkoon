@@ -212,6 +212,9 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         var destination = FileStore.chapterURL(editionId: editionId, fileId: fileId, ext: ext)
         let fileManager = FileManager.default
 
+        // Best-effort: a failure here is uninteresting on its own. The move
+        // below either overwrites what's left, or fails and is already
+        // reported through the existing transportFailed path.
         if fileManager.fileExists(atPath: destination.path) {
             try? fileManager.removeItem(at: destination)
         }
