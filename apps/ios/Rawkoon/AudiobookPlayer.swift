@@ -320,10 +320,19 @@ final class AudiobookPlayer: ObservableObject {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         // Now that no player item is left, the session can actually be released
         // — and other apps are told they may resume.
-        try? AVAudioSession.sharedInstance().setActive(
-            false,
-            options: .notifyOthersOnDeactivation
-        )
+        do {
+            try AVAudioSession.sharedInstance().setActive(
+                false,
+                options: .notifyOthersOnDeactivation
+            )
+        } catch {
+            Log.playback.error(
+                """
+                Failed to deactivate audio session: \
+                error=\(error.localizedDescription, privacy: .public)
+                """
+            )
+        }
     }
 
     func play() {
@@ -895,8 +904,19 @@ final class AudiobookPlayer: ObservableObject {
         guard let url else { return }
 
         artworkTask = Task { [weak self] in
+            let data: Data
+            do {
+                (data, _) = try await URLSession.shared.data(from: url)
+            } catch {
+                Log.playback.error(
+                    """
+                    Artwork fetch failed: \
+                    error=\(error.localizedDescription, privacy: .public)
+                    """
+                )
+                return
+            }
             guard
-                let (data, _) = try? await URLSession.shared.data(from: url),
                 !Task.isCancelled,
                 let image = UIImage(data: data)
             else { return }
