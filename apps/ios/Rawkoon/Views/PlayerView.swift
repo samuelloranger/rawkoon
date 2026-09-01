@@ -16,25 +16,21 @@ struct PlayerView: View {
 
     var body: some View {
         ZStack {
-            // Dusk glow — a bedside lamp behind the cover.
             LinearGradient(
-                colors: [Color(hex: 0x2A201B), Theme.base, Theme.well],
+                colors: [Theme.raised, Theme.base, Theme.well],
                 startPoint: .top, endPoint: .bottom
             )
             .ignoresSafeArea()
             Theme.duskGlow.ignoresSafeArea()
 
-            VStack(spacing: 18) {
-                Capsule().fill(Theme.apricotSoft.opacity(0.35))
-                    .frame(width: 38, height: 5)
-                    .padding(.top, 10)
-
+            VStack(spacing: 16) {
                 BookCover(url: summary.coverURL, size: 220, corner: 16)
                     .frame(maxWidth: 220)
                     .shadow(color: .black.opacity(0.6), radius: 24, y: 14)
                     .padding(.top, 8)
+                    .accessibilityHidden(true)
 
-                VStack(spacing: 3) {
+                VStack(spacing: 4) {
                     Text(summary.title)
                         .font(.display(20))
                         .foregroundStyle(Theme.textStrong)
@@ -42,10 +38,11 @@ struct PlayerView: View {
                         .lineLimit(2)
                     Text(currentChapterTitle)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.apricotSoft)
+                        .foregroundStyle(hasChapter ? Theme.apricotSoft : Theme.muted)
                         .lineLimit(1)
                 }
-                .padding(.top, 6)
+                .padding(.top, 8)
+                .accessibilityElement(children: .combine)
 
                 scrubber
                 transport
@@ -54,13 +51,15 @@ struct PlayerView: View {
                     rateMenu
                     sleepMenu
                 }
-                .padding(.top, 2)
+                .padding(.top, 8)
 
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 24)
         }
         .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(Theme.base)
         .onAppear { sliderPosition = model.player.positionSecs }
         .onReceive(model.player.$positionSecs) { position in
             guard !isDraggingSlider else { return }
@@ -73,30 +72,30 @@ struct PlayerView: View {
     private var scrubber: some View {
         VStack(spacing: 8) {
             if let chapter = scrubberChapterScope {
-                Text(chapter.title)
-                    .font(.caption)
-                    .foregroundStyle(Theme.muted)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
                 Slider(
                     value: $sliderPosition,
                     in: chapter.startSecs...chapter.endSecs,
                     onEditingChanged: scrubChanged
                 )
                 .tint(Theme.apricot)
+                .accessibilityLabel("Position in chapter")
+                .accessibilityValue(formatTime(max(sliderPosition - chapter.startSecs, 0)))
 
                 HStack {
                     Text(formatTime(max(sliderPosition - chapter.startSecs, 0)))
                     Spacer()
-                    Text("-\(formatTime(max(chapter.endSecs - sliderPosition, 0)))")
+                    Text("−\(formatTime(max(chapter.endSecs - sliderPosition, 0)))")
                 }
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.muted)
+                .accessibilityHidden(true)
 
-                Text("\(formatTime(sliderPosition)) in / \(formatTime(model.player.duration))")
-                    .font(.caption)
-                    .foregroundStyle(Theme.muted)
+                Text("\(formatTime(sliderPosition)) of \(formatTime(model.player.duration))")
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(Theme.faint)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityLabel("Book position")
+                    .accessibilityValue("\(formatTime(sliderPosition)) of \(formatTime(model.player.duration))")
             } else {
                 Slider(
                     value: $sliderPosition,
@@ -104,17 +103,20 @@ struct PlayerView: View {
                     onEditingChanged: scrubChanged
                 )
                 .tint(Theme.apricot)
+                .accessibilityLabel("Position in book")
+                .accessibilityValue(formatTime(sliderPosition))
 
                 HStack {
                     Text(formatTime(sliderPosition))
                     Spacer()
-                    Text("-\(formatTime(max(model.player.duration - sliderPosition, 0)))")
+                    Text("−\(formatTime(max(model.player.duration - sliderPosition, 0)))")
                 }
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.muted)
+                .accessibilityHidden(true)
             }
         }
-        .padding(.top, 6)
+        .padding(.top, 8)
     }
 
     /// SwiftUI can call `onEditingChanged(false)` before the last thumb
@@ -140,9 +142,9 @@ struct PlayerView: View {
     // MARK: Transport
 
     private var transport: some View {
-        HStack(spacing: 26) {
-            control("backward.end.fill", size: 22, action: model.player.prevChapter)
-            control("gobackward.30", size: 24) { model.player.skipBackward(30) }
+        HStack(spacing: 24) {
+            control("backward.end.fill", label: "Previous chapter", action: model.player.prevChapter)
+            control("gobackward.30", label: "Skip back 30 seconds") { model.player.skipBackward(30) }
 
             Button {
                 model.player.isPlaying ? model.player.pause() : model.player.play()
@@ -151,24 +153,27 @@ struct PlayerView: View {
                     .font(.system(size: 28, weight: .bold))
                     .foregroundStyle(Theme.onAccent)
                     .frame(width: 66, height: 66)
-                    .background(Theme.apricot, in: Circle())
-                    .shadow(color: Theme.apricot.opacity(0.35), radius: 12, y: 6)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PlayFillStyle())
+            .shadow(color: Theme.apricot.opacity(0.35), radius: 12, y: 6)
+            .accessibilityLabel(model.player.isPlaying ? "Pause" : "Play")
 
-            control("goforward.30", size: 24) { model.player.skipForward(30) }
-            control("forward.end.fill", size: 22, action: model.player.nextChapter)
+            control("goforward.30", label: "Skip forward 30 seconds") { model.player.skipForward(30) }
+            control("forward.end.fill", label: "Next chapter", action: model.player.nextChapter)
         }
-        .padding(.top, 6)
+        .padding(.top, 8)
     }
 
-    private func control(_ name: String, size: CGFloat, action: @escaping () -> Void) -> some View {
+    private func control(_ name: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: name)
-                .font(.system(size: size))
+                .font(.system(size: 22))
                 .foregroundStyle(Theme.textStrong)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 
     // MARK: Speed
@@ -179,14 +184,14 @@ struct PlayerView: View {
                 Button("\(rateLabel(rateValue))×") { model.player.setRate(Float(rateValue)) }
             }
         } label: {
-            Label("\(rateLabel(Double(model.player.rate)))×", systemImage: "speedometer")
-                .font(.system(.subheadline, design: .monospaced).weight(.medium))
-                .foregroundStyle(Theme.textStrong)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .background(Theme.raised.opacity(0.8), in: Capsule())
-                .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
+            chip(
+                title: "\(rateLabel(Double(model.player.rate)))×",
+                systemImage: "speedometer",
+                emphasized: false
+            )
         }
+        .accessibilityLabel("Playback speed")
+        .accessibilityValue("\(rateLabel(Double(model.player.rate)))×")
     }
 
     private var sleepMenu: some View {
@@ -197,14 +202,25 @@ struct PlayerView: View {
                 Button("\(m) min") { model.player.setSleep(.minutes(m)) }
             }
         } label: {
-            Label(sleepLabel, systemImage: "moon.zzz.fill")
-                .font(.system(.subheadline, design: .monospaced).weight(.medium))
-                .foregroundStyle(sleepActive ? Theme.apricot : Theme.textStrong)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .background(Theme.raised.opacity(0.8), in: Capsule())
-                .overlay(Capsule().strokeBorder(sleepActive ? Theme.apricot.opacity(0.5) : Theme.borderStrong, lineWidth: 1))
+            chip(title: sleepLabel, systemImage: "moon.zzz.fill", emphasized: sleepActive)
         }
+        .accessibilityLabel("Sleep timer")
+        .accessibilityValue(sleepLabel)
+    }
+
+    private func chip(title: String, systemImage: String, emphasized: Bool) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(.system(.subheadline, design: .monospaced).weight(.medium))
+            .foregroundStyle(emphasized ? Theme.apricot : Theme.textStrong)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(Theme.raised.opacity(0.8), in: Capsule())
+            .overlay(
+                Capsule().strokeBorder(
+                    emphasized ? Theme.apricot.opacity(0.5) : Theme.borderStrong,
+                    lineWidth: 1
+                )
+            )
     }
 
     private var sleepActive: Bool {
@@ -228,6 +244,10 @@ struct PlayerView: View {
     }
 
     // MARK: Derived
+
+    private var hasChapter: Bool {
+        model.player.currentChapterIndex != nil
+    }
 
     private var currentChapterTitle: String {
         guard
@@ -265,5 +285,16 @@ struct PlayerView: View {
         let secs = total % 60
         if hours > 0 { return String(format: "%d:%02d:%02d", hours, minutes, secs) }
         return String(format: "%d:%02d", minutes, secs)
+    }
+}
+
+/// Apricot at rest, terracotta when pressed — the lamp, then the ember.
+private struct PlayFillStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                configuration.isPressed ? Theme.terracotta : Theme.apricot,
+                in: Circle()
+            )
     }
 }
