@@ -1,10 +1,10 @@
 ---
 phase: 01-lint-format-and-logging-guardrails
 verified: 2026-09-01T21:15:00Z
-status: human_needed
+status: passed
 score: 5/5 must-haves verified (2 with a deferred live/behavioral component)
 behavior_unverified: 2
-overrides_applied: 0
+overrides_applied: 2
 behavior_unverified_items:
   - truth: "The log is worth reading in the field: forcing a real chapter 404 and streaming the subsystem shows book/chapter identifier and status code readable, not <private> (Success Criterion 4, live half)"
     test: "On macbuild's booted simulator, start `xcrun simctl spawn booted log stream --predicate 'subsystem == \"cloud.samlo.rawkoon\"'`, then `xcrun simctl launch booted cloud.samlo.rawkoon` (never Xcode's Run/Debug button — OS_ACTIVITY_DT_MODE disables redaction and would produce a false pass). Sign in to a real Rawkoon server, force a genuine HTTP 404 for one chapter (rename its file on the server), start the download."
@@ -23,11 +23,53 @@ human_verification:
     why_human: "Requires physical device interaction; this phase's one named behavior risk (playback try?→do/catch conversion) needs to be felt, not just read."
 ---
 
+## Overrides — accepted unverified, by user decision (2026-09-01)
+
+The phase is marked `passed` by an explicit decision of the user, NOT because the
+two live checks below were performed. They were not. Both remain unexercised, and
+this section exists so nobody later mistakes acceptance for evidence.
+
+### 1. Criterion 4, live half — forced-404 log redaction
+
+**Proven:** the `privacy: .public` annotations are present on all three values,
+and both credential scans return zero. Independently, a `Log.playback` line
+emitted through `simctl` with no debugger attached printed
+`from=20289.000000 to=4373.290000` — plain numbers, not `<private>` — which
+exercises the same annotation mechanism through a different call site.
+
+**Not proven:** that a real chapter-download 404 produces its line in the field.
+A forced 404 was staged against production and the chapter was requested 12
+times, yet no line appeared. The cause is very likely environmental rather than a
+product defect: an UNCONDITIONAL probe at the top of `didFinishDownloadingTo`
+never fired either, no chapter file ever reached disk, and all 189 download tasks
+in a run failed with `NSURLErrorUnknown (-1)` as `BackgroundDownloadTask`, while
+the same URLs returned 200 and byte-identical content to `curl` from both the
+build host and inside the simulator. Background transfers do not complete in this
+simulator at all, so the branch cannot be reached there.
+
+Tracked as board #963. Closing it needs a physical device or the app-target test
+bundle that phase 5 introduces.
+
+### 2. Criterion 5, live half — device playback parity
+
+Never performed on a device. Note that the defect UAT surfaced here was
+**pre-existing and not introduced by this phase**: `git diff -w
+--ignore-blank-lines v1.12.6..v1.12.7 -- 'apps/ios/**/*.swift'` is formatting
+only, and nothing in the release touches seeking, the queue, or chapter
+selection. Root cause (a downloaded chapter trusted on size alone, failing to
+open, with the failure swallowed) was found and fixed on `main` OUTSIDE this
+phase, and is tracked as board #962. The user scoped it out of phase 1 on that
+basis.
+
+The phase's own conversions in `AudiobookPlayer.swift` — audio-session teardown
+and artwork fetch — remain reviewed statically and unexercised on a device.
+
+
 # Phase 1: Lint, format, and logging guardrails Verification Report
 
 **Phase Goal:** The repo holds the code's boundaries instead of review doing it — a CI job rejects style and size regressions, and when a download or a chapter fails there is a log line saying so.
 **Verified:** 2026-09-01T21:15:00Z
-**Status:** human_needed
+**Status:** passed (by explicit user override — see Overrides)
 **Re-verification:** No — initial verification
 
 ## Goal Achievement
