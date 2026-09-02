@@ -123,8 +123,8 @@ struct HomeView: View {
                 poster(title: u.title, url: u.posterUrl,
                        date: u.displayDate, episode: u.episodeLabel)
             }
-                .buttonStyle(.plain)
-                .disabled(u.tmdbId == nil && u.libraryId == nil)
+            .buttonStyle(.plain)
+            .disabled(u.tmdbId == nil && u.libraryId == nil)
         }
     }
 
