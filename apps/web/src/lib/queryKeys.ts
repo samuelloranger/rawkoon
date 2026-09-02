@@ -83,6 +83,8 @@ export const queryKeys = {
   notifications: {
     all: ["notifications"] as const,
     devices: () => [...queryKeys.notifications.all, "devices"] as const,
+    apnsDevices: () =>
+      [...queryKeys.notifications.all, "apns-devices"] as const,
     list: (page?: number, limit?: number, read?: boolean) =>
       [...queryKeys.notifications.all, "list", page, limit, read] as const,
     infinite: (limit?: number, read?: boolean) =>
