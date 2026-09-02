@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { MediaPosterCard } from "@/components/MediaPosterCard";
 import { WidgetHeader } from "@/pages/_component/widgetPrimitives";
@@ -12,7 +13,8 @@ interface PosterRailItem {
   href?: string;
   /** Click action when the card has no destination (e.g. open a dialog). */
   onClick?: () => void;
-  subtitle?: string;
+  /** Small line rendered under the title in the card's glass panel. */
+  meta?: ReactNode;
 }
 
 export interface PosterRailProps {
@@ -79,7 +81,9 @@ export function PosterRail({
                     title={item.title}
                     href={href}
                     onClick={onClick}
-                  />
+                  >
+                    {item.meta}
+                  </MediaPosterCard>
                 </div>
               );
             })}
