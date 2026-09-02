@@ -2,7 +2,11 @@ import CryptoKit
 import Foundation
 import RawkoonKit
 
-final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
+// Not MainActor: this type synchronizes all of its mutable state itself via
+// `stateQueue`, a private serial DispatchQueue, and is driven by
+// URLSessionDownloadDelegate callbacks that arrive off-main. It predates the
+// app's default-MainActor isolation and was never main-actor code.
+nonisolated final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     private let editionId: Int
     private let baseURL: URL
     private let onState: (DownloadPlan) -> Void

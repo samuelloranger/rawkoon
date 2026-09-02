@@ -15,7 +15,10 @@ import os
 /// - `network`: API requests and responses
 /// - `auth`: sign-in, token/grant refresh, and Keychain access
 /// - `sync`: library and manifest refresh
-enum Log {
+// Not MainActor: os.Logger is Sendable and this namespace is called from
+// every isolation domain in the app (background download delegate queues
+// included), so it must stay isolation-free.
+nonisolated enum Log {
     private static let subsystem = "cloud.samlo.rawkoon"
 
     static let playback = Logger(subsystem: subsystem, category: "playback")
