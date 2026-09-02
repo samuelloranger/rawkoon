@@ -64,13 +64,16 @@ actor APIClient {
     private let session: URLSession
     private var token: String?
 
-    private static let iso8601WithFractionalSeconds: ISO8601DateFormatter = {
+    // ISO8601DateFormatter isn't Sendable, but these are configured once here
+    // and never mutated again — only read (parsing/formatting) from any
+    // isolation context afterward, which is safe in practice.
+    private nonisolated(unsafe) static let iso8601WithFractionalSeconds: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
     }()
 
-    private static let iso8601: ISO8601DateFormatter = {
+    private nonisolated(unsafe) static let iso8601: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
         return formatter
