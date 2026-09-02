@@ -6,7 +6,7 @@ export async function handleAppUpdate(): Promise<void> {
 
   try {
     // Clear every cache. Nothing is stored on the user's behalf any more —
-    // Audiobookshelf owns offline playback.
+    // the browser cache is not an offline library.
     const cacheNames = await caches.keys();
     await Promise.all(
       cacheNames.map((cacheName) => {

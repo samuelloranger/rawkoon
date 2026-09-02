@@ -100,9 +100,6 @@ export function BooksSettingsTab() {
   const [audiobooksPath, setAudiobooksPath] = useState("");
   const [bookTemplate, setBookTemplate] = useState("");
   const [audiobookTemplate, setAudiobookTemplate] = useState("");
-  const [absUrl, setAbsUrl] = useState("");
-  const [absAudiobookLibrary, setAbsAudiobookLibrary] = useState("");
-  const [absEbookLibrary, setAbsEbookLibrary] = useState("");
   const [defaultProfile, setDefaultProfile] = useState(NO_PROFILE);
 
   // Seed the file fields from the server value, re-seeding only when the server
@@ -117,9 +114,6 @@ export function BooksSettingsTab() {
     setAudiobooksPath(settings.audiobooks_library_path ?? "");
     setBookTemplate(settings.book_template);
     setAudiobookTemplate(settings.audiobook_template);
-    setAbsUrl(settings.audiobookshelf_url ?? "");
-    setAbsAudiobookLibrary(settings.audiobookshelf_audiobook_library_id ?? "");
-    setAbsEbookLibrary(settings.audiobookshelf_ebook_library_id ?? "");
     setDefaultProfile(
       settings.default_book_quality_profile_id != null
         ? String(settings.default_book_quality_profile_id)
@@ -163,9 +157,6 @@ export function BooksSettingsTab() {
         audiobook_template: audiobookTemplate.trim(),
         default_book_quality_profile_id:
           defaultProfile === NO_PROFILE ? null : Number(defaultProfile),
-        audiobookshelf_url: absUrl.trim() || null,
-        audiobookshelf_audiobook_library_id: absAudiobookLibrary.trim() || null,
-        audiobookshelf_ebook_library_id: absEbookLibrary.trim() || null,
       });
       toast.success(t("settings.books.files.saved"));
     } catch (e) {
@@ -392,53 +383,6 @@ export function BooksSettingsTab() {
           </Select>
           <p className={HINT}>{t("settings.books.files.defaultProfileHint")}</p>
         </div>
-
-        <div className="border-t border-border pt-4">
-          <p className="text-sm font-medium">
-            {t("settings.books.audiobookshelf.title")}
-          </p>
-          <p className={HINT}>
-            {t("settings.books.audiobookshelf.description")}
-          </p>
-        </div>
-
-        <div>
-          <label className={LABEL} htmlFor="abs-url">
-            {t("settings.books.audiobookshelf.url")}
-          </label>
-          <Input
-            id="abs-url"
-            value={absUrl}
-            onChange={(e) => setAbsUrl(e.target.value)}
-            placeholder="https://audiobookshelf.example.com"
-          />
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className={LABEL} htmlFor="abs-audiobook-library">
-              {t("settings.books.audiobookshelf.audiobookLibrary")}
-            </label>
-            <Input
-              id="abs-audiobook-library"
-              value={absAudiobookLibrary}
-              onChange={(e) => setAbsAudiobookLibrary(e.target.value)}
-              placeholder="5bd62c95-771f-4bc2-9b05-b8ccd54a1507"
-            />
-          </div>
-          <div>
-            <label className={LABEL} htmlFor="abs-ebook-library">
-              {t("settings.books.audiobookshelf.ebookLibrary")}
-            </label>
-            <Input
-              id="abs-ebook-library"
-              value={absEbookLibrary}
-              onChange={(e) => setAbsEbookLibrary(e.target.value)}
-              placeholder="385e7f72-8c57-4c0e-9a31-fe0ae68a99b0"
-            />
-          </div>
-        </div>
-        <p className={HINT}>{t("settings.books.audiobookshelf.hint")}</p>
 
         <Button
           onClick={() => void savePaths()}

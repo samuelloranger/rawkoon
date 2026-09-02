@@ -342,7 +342,7 @@ Filters: Status (all/completed/failed/active) select, Days (30 etc.) select, pag
 ### 12d. Metadata sources (`BookMetadataSourcesSection.tsx`) — `GET/PUT /api/books/metadata-sources`
 Ordered/enabled list of sources: local, audnexus, googlebooks, openlibrary. Reorder (up/down buttons), enable/disable (Switch removes from order). Save source order → `PUT` (`{order}`).
 
-### 12e. Files & Audiobookshelf (writes via `PATCH /api/library/post-processing/settings`)
+### 12e. Files (writes via `PATCH /api/library/post-processing/settings`)
 | Field | Control | Editable |
 |---|---|---|
 | Books path | text | yes |
@@ -350,9 +350,6 @@ Ordered/enabled list of sources: local, audnexus, googlebooks, openlibrary. Reor
 | Book template | text (mono) | yes |
 | Audiobook template | text (mono) | yes |
 | Default book quality profile | select (profiles + none) | yes |
-| Audiobookshelf URL | text | yes |
-| ABS audiobook library ID | text | yes |
-| ABS ebook library ID | text | yes |
 | Save | button-action | `PATCH .../post-processing/settings` |
 
 ### 12f. Book Quality Profiles (`BookQualityProfilesSection.tsx`) — **full CRUD list**
@@ -397,7 +394,7 @@ List `GET /api/book-quality-profiles`. Create `POST`, Update `PATCH /api/book-qu
 - Nav rail position (Profile, client-only)
 - Download Client Hook config sub-panel (callback URL, auto-configure, secret rotation, scripts)
 - RSS indexer multiselect inside Prowlarr/Jackett
-- Audnexus + Book metadata source ordering + Audiobookshelf config (Books)
+- Audnexus + Book metadata source ordering (Books)
 - Library scan + Reindex languages cards (Media → Library Settings)
 - Arr (Radarr/Sonarr) migration/import (Media → Import, EventSource)
 - Web-push subscriptions admin table (Sessions)
