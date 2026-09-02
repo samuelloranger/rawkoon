@@ -1,4 +1,3 @@
-import Combine
 import RawkoonKit
 import ReadiumNavigator
 import ReadiumShared
@@ -106,9 +105,10 @@ private enum ReaderTheme: String, Codable, CaseIterable, Identifiable {
 /// Observable chrome so the footer and TOC highlight refresh when the
 /// navigator reports a new locator. The session itself is not observed.
 @MainActor
-private final class ReaderChrome: ObservableObject {
-    @Published var currentLocator: Locator?
-    @Published var percent: Double?
+@Observable
+private final class ReaderChrome {
+    var currentLocator: Locator?
+    var percent: Double?
 }
 
 @MainActor
@@ -187,7 +187,7 @@ struct EbookReaderSheet: View {
 
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var chrome = ReaderChrome()
+    @State private var chrome = ReaderChrome()
     @State private var state: ReaderState = .opening
     @State private var preferences = ReaderPreferences.load()
     @State private var showTOC = false
