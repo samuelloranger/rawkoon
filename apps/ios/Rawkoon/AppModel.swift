@@ -463,6 +463,33 @@ final class AppModel {
         }
     }
 
+    /// Cancels an in-progress audiobook download and discards its partial
+    /// files. One tap, no confirmation: nothing finished is lost, and the
+    /// chapters re-fetch on the next Download tap.
+    func cancelDownload(editionId: Int) {
+        purgeDownload(editionId: editionId)
+    }
+
+    /// Removes a fully downloaded audiobook from the device. The UI confirms
+    /// this because it throws away completed files.
+    func removeDownload(editionId: Int) {
+        purgeDownload(editionId: editionId)
+    }
+
+    /// Tears down any live downloader, deletes the edition's files, and clears
+    /// its plan. A straggling task cannot re-create the directory because the
+    /// downloader is cancelled before the files go.
+    private func purgeDownload(editionId: Int) {
+        downloaders[editionId]?.cancel()
+        downloaders.removeValue(forKey: editionId)
+        FileStore.deleteEdition(editionId)
+        downloadPlans.removeValue(forKey: editionId)
+        verifiedCounts.removeValue(forKey: editionId)
+        if activeEditionId == editionId {
+            player.rebuild()
+        }
+    }
+
     /// Replaces the downloader's signed URLs after a grant expired.
     ///
     /// The plan requeues a 401/403 chapter without spending an attempt, so
