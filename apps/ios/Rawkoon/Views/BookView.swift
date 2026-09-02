@@ -194,7 +194,11 @@ struct BookView: View {
             "Remove downloaded file?",
             isPresented: Binding(
                 get: { ebookFileToRemove != nil },
-                set: { if !$0 { ebookFileToRemove = nil } }
+                set: {
+                    if !$0 {
+                        ebookFileToRemove = nil
+                    }
+                }
             ),
             titleVisibility: .visible,
             presenting: ebookFileToRemove
