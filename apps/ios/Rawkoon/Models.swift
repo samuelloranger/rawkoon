@@ -716,6 +716,37 @@ nonisolated struct BlocklistEntryDTO: Decodable, Identifiable, Sendable {
 }
 nonisolated struct BlocklistResponse: Decodable, Sendable { let entries: [BlocklistEntryDTO] }
 
+// MARK: SSO / OIDC providers CRUD (spec §5 Phase 5)
+
+nonisolated struct OidcProviderDTO: Decodable, Identifiable, Sendable {
+    let id: String
+    let slug: String
+    let name: String
+    let discoveryUrl: String?
+    let clientId: String?
+    let clientSecretSet: Bool?
+    let enabled: Bool
+    let iconUrl: String?
+}
+nonisolated struct OidcProvidersResponse: Decodable, Sendable { let providers: [OidcProviderDTO] }
+nonisolated struct CreateOidcBody: Encodable, Sendable {
+    let slug: String
+    let name: String
+    let discoveryUrl: String
+    let clientId: String
+    let clientSecret: String
+    let enabled: Bool
+    let iconUrl: String?
+}
+nonisolated struct UpdateOidcBody: Encodable, Sendable {
+    let name: String
+    let discoveryUrl: String
+    let clientId: String
+    let clientSecret: String?
+    let enabled: Bool
+    let iconUrl: String?
+}
+
 nonisolated struct AdminUsersResponse: Decodable, Sendable {
     let success: Bool?
     let users: [AdminUser]

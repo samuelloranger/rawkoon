@@ -267,4 +267,19 @@ extension APIClient {
     func unblock(id: Int) async throws {
         try await deleteExpectOK("/api/medias/blocklist/\(id)")
     }
+
+    // MARK: SSO / OIDC providers CRUD (spec §5 Phase 5)
+
+    func oidcProviders() async throws -> OidcProvidersResponse {
+        try await get("/api/integrations/oidc")
+    }
+    func createOidcProvider(_ body: CreateOidcBody) async throws {
+        try await postExpectOK("/api/integrations/oidc", body: body)
+    }
+    func updateOidcProvider(id: String, _ body: UpdateOidcBody) async throws {
+        try await putExpectOK("/api/integrations/oidc/\(id)", body: body)
+    }
+    func deleteOidcProvider(id: String) async throws {
+        try await deleteExpectOK("/api/integrations/oidc/\(id)")
+    }
 }

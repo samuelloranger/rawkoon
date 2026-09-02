@@ -175,6 +175,12 @@ struct SettingsView: View {
                     }
 
                     NavigationLink {
+                        OidcProvidersCrudView()
+                    } label: {
+                        Label("SSO providers", systemImage: "person.badge.key")
+                    }
+
+                    NavigationLink {
                         BlocklistAdminView()
                     } label: {
                         Label("Blocklist", systemImage: "nosign")
