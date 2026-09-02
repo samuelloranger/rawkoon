@@ -971,9 +971,55 @@ nonisolated struct MigrateStatusDTO: Decodable, Sendable {
 nonisolated struct BookQualityProfile: Decodable, Identifiable, Sendable {
     let id: Int
     let name: String
+    let kind: String?
+    let allowedFormats: [String]?
+    let cutoffFormat: String?
+    let preferRetail: Bool?
+    let maxSizeMb: Int?
+    let minSeeders: Int?
+    let minAudioBitrate: Int?
+    let preferredLanguages: [String]?
+    let prioritizedTrackers: [String]?
+    let preferTrackerOverQuality: Bool?
 }
 nonisolated struct BookQualityProfilesResponse: Decodable, Sendable {
     let profiles: [BookQualityProfile]
+}
+
+/// Create/update body for a book quality profile. Custom `encode(to:)` sends
+/// explicit null for the nullable fields (cutoff, max size, min bitrate).
+nonisolated struct SaveBookQualityProfileBody: Encodable, Sendable {
+    var name: String
+    var kind: String
+    var allowedFormats: [String]
+    var cutoffFormat: String?
+    var preferRetail: Bool
+    var maxSizeMb: Int?
+    var minSeeders: Int
+    var minAudioBitrate: Int?
+    var preferredLanguages: [String]
+    var prioritizedTrackers: [String]
+    var preferTrackerOverQuality: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case name, kind, allowedFormats, cutoffFormat, preferRetail, maxSizeMb
+        case minSeeders, minAudioBitrate, preferredLanguages, prioritizedTrackers, preferTrackerOverQuality
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(name, forKey: .name)
+        try c.encode(kind, forKey: .kind)
+        try c.encode(allowedFormats, forKey: .allowedFormats)
+        try c.encode(cutoffFormat, forKey: .cutoffFormat)
+        try c.encode(preferRetail, forKey: .preferRetail)
+        try c.encode(maxSizeMb, forKey: .maxSizeMb)
+        try c.encode(minSeeders, forKey: .minSeeders)
+        try c.encode(minAudioBitrate, forKey: .minAudioBitrate)
+        try c.encode(preferredLanguages, forKey: .preferredLanguages)
+        try c.encode(prioritizedTrackers, forKey: .prioritizedTrackers)
+        try c.encode(preferTrackerOverQuality, forKey: .preferTrackerOverQuality)
+    }
 }
 
 nonisolated struct BooksEnabledBody: Encodable, Sendable {

@@ -138,6 +138,15 @@ extension APIClient {
     func bookQualityProfiles() async throws -> BookQualityProfilesResponse {
         try await get("/api/book-quality-profiles")
     }
+    func createBookQualityProfile(_ body: SaveBookQualityProfileBody) async throws {
+        try await postExpectOK("/api/book-quality-profiles", body: body)
+    }
+    func updateBookQualityProfile(id: Int, _ body: SaveBookQualityProfileBody) async throws {
+        try await patchExpectOK("/api/book-quality-profiles/\(id)", body: body)
+    }
+    func deleteBookQualityProfile(id: Int) async throws {
+        try await deleteExpectOK("/api/book-quality-profiles/\(id)")
+    }
     func updateBooksEnabled(_ enabled: Bool) async throws {
         try await patchExpectOK("/api/settings", body: BooksEnabledBody(booksEnabled: enabled))
     }

@@ -109,6 +109,12 @@ struct SettingsView: View {
                     }
 
                     NavigationLink {
+                        BookQualityProfilesCrudView()
+                    } label: {
+                        Label("Book quality profiles", systemImage: "books.vertical.circle")
+                    }
+
+                    NavigationLink {
                         MediaLibrarySettingsView()
                     } label: {
                         Label("Library", systemImage: "folder")
