@@ -16,6 +16,8 @@ import { useAutoSubscribeNotifications } from "@/lib/notifications/useAutoSubscr
 import { LibraryNavigationProvider } from "@/features/medias/context/LibraryNavigationContext";
 import { ConfirmProvider } from "@/components/confirm/ConfirmContext";
 import { useNavPosition } from "@/pages/settings/useNavPosition";
+import { MiniPlayer } from "@/features/player/MiniPlayer";
+import { PlayerProvider, usePlayer } from "@/features/player/PlayerProvider";
 
 interface RouterContext {
   queryClient: QueryClient;
@@ -41,49 +43,68 @@ function RootLayout() {
 
   return (
     <ConfirmProvider>
-      <LibraryNavigationProvider>
-        <ScrollRestoration />
-        {shouldShowNav && (
-          <>
-            {/*
+      <PlayerProvider>
+        <LibraryNavigationProvider>
+          <ScrollRestoration />
+          {shouldShowNav && (
+            <>
+              {/*
               Visible only once focused, so keyboard users can jump the sidebar
               instead of tabbing every nav item on every route change.
             */}
-            <a
-              href="#main-content"
-              className="focus-ring sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[var(--z-tooltip)] focus:rounded-lg focus:bg-neutral-800 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-neutral-50"
-            >
-              {t("a11y.skipToContent")}
-            </a>
-            <Sidebar
-              position={position}
-              onOpenQuickActions={() => setIsQuickActionsOpen(true)}
-            />
-          </>
-        )}
-        <div className={shouldShowNav ? contentPadding[position] : ""}>
-          <main
-            id="main-content"
-            tabIndex={-1}
-            className={`user min-h-full flex-1 flex flex-col ${isSettings ? "pb-0 min-h-screen" : "pb-10"}`}
-          >
-            <RouteDataRefetcher />
-            <PageTransition />
-          </main>
-        </div>
-        <QuickActionPalette
-          isOpen={isQuickActionsOpen}
-          onOpen={() => setIsQuickActionsOpen(true)}
-          onClose={() => setIsQuickActionsOpen(false)}
-        />
-        <NotificationPermissionModal
-          isOpen={showModal}
-          onAllow={handleAllow}
-          onDismiss={handleDismiss}
-        />
-        <Toaster position="bottom-center" richColors />
-      </LibraryNavigationProvider>
+              <a
+                href="#main-content"
+                className="focus-ring sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[var(--z-tooltip)] focus:rounded-lg focus:bg-neutral-800 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-neutral-50"
+              >
+                {t("a11y.skipToContent")}
+              </a>
+              <Sidebar
+                position={position}
+                onOpenQuickActions={() => setIsQuickActionsOpen(true)}
+              />
+            </>
+          )}
+          <div className={shouldShowNav ? contentPadding[position] : ""}>
+            <MainWithPlayerPad isSettings={isSettings} />
+          </div>
+          <QuickActionPalette
+            isOpen={isQuickActionsOpen}
+            onOpen={() => setIsQuickActionsOpen(true)}
+            onClose={() => setIsQuickActionsOpen(false)}
+          />
+          <NotificationPermissionModal
+            isOpen={showModal}
+            onAllow={handleAllow}
+            onDismiss={handleDismiss}
+          />
+          <Toaster position="bottom-center" richColors />
+          <MiniPlayer />
+        </LibraryNavigationProvider>
+      </PlayerProvider>
     </ConfirmProvider>
+  );
+}
+
+function MainWithPlayerPad({ isSettings }: { isSettings: boolean }) {
+  const player = usePlayer();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const onListen = /\/books\/[^/]+\/listen\/?$/.test(pathname);
+  const pad =
+    player.loaded && !onListen
+      ? "pb-28"
+      : isSettings
+        ? "pb-0 min-h-screen"
+        : "pb-10";
+
+  return (
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className={`user min-h-full flex-1 flex flex-col ${pad}`}
+    >
+      <RouteDataRefetcher />
+      <PageTransition />
+    </main>
   );
 }
 

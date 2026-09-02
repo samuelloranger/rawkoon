@@ -2124,6 +2124,24 @@
     },
     "audiobookshelf": {
       "open": "Ouvrir dans Audiobookshelf"
+    },
+    "listen": {
+      "title": "Écouter",
+      "notReady": "Ce livre audio n’est pas encore prêt — les fichiers de chapitres n’ont pas été enregistrés.",
+      "back": "Retour au livre",
+      "chapters": "Chapitres",
+      "loading": "Chargement…"
+    },
+    "player": {
+      "play": "Lecture",
+      "pause": "Pause",
+      "skipForward": "Avancer de 30 secondes",
+      "skipBack": "Reculer de 30 secondes",
+      "nextChapter": "Chapitre suivant",
+      "prevChapter": "Chapitre précédent",
+      "close": "Fermer le lecteur",
+      "rate": "Vitesse",
+      "error": "Ce chapitre n’a pas pu être lu."
     }
   }
 }

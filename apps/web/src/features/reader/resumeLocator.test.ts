@@ -15,7 +15,10 @@ const pos = (over: {
 describe("resolveReadingPosition", () => {
   it("keeps the index when the path still matches", () => {
     expect(
-      resolveReadingPosition(pos({ spine_index: 1, spine_path: "b.xhtml" }), spine),
+      resolveReadingPosition(
+        pos({ spine_index: 1, spine_path: "b.xhtml" }),
+        spine,
+      ),
     ).toEqual({ index: 1, scrollFraction: 0.4 });
   });
 
@@ -31,7 +34,11 @@ describe("resolveReadingPosition", () => {
   it("drops the offset when the path is gone", () => {
     expect(
       resolveReadingPosition(
-        pos({ spine_index: 9, spine_path: "removed.xhtml", scroll_fraction: 0.8 }),
+        pos({
+          spine_index: 9,
+          spine_path: "removed.xhtml",
+          scroll_fraction: 0.8,
+        }),
         spine,
       ),
     ).toEqual({ index: 2, scrollFraction: 0 });

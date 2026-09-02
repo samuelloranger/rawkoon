@@ -4,7 +4,8 @@ export type Timeline = ReturnType<typeof createTimeline>;
 
 export function createTimeline(chapters: BookManifestChapter[]) {
   const sorted = [...chapters].sort((a, b) => a.index - b.index);
-  const totalDurationSecs = sorted.at(-1)?.end_secs ?? 0;
+  const totalDurationSecs =
+    sorted.length === 0 ? 0 : sorted[sorted.length - 1].end_secs;
 
   const chapterAt = (positionSecs: number) => {
     if (positionSecs < 0 || positionSecs >= totalDurationSecs) return null;

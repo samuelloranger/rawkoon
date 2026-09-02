@@ -22,4 +22,11 @@ export const BOOKS_ENDPOINTS = {
   QUALITY_PROFILE: (id: number) => `/api/book-quality-profiles/${id}`,
   AUTHORS: "/api/authors",
   AUTHOR: (id: number) => `/api/authors/${id}`,
+  MANIFEST: (editionId: number) => `/api/books/editions/${editionId}/manifest`,
+  PROGRESS: "/api/books/progress",
+  PUT_PROGRESS: (editionId: number) =>
+    `/api/books/editions/${editionId}/progress`,
+  READING_PROGRESS: "/api/books/reading-progress",
+  PUT_READING_PROGRESS: (editionId: number) =>
+    `/api/books/editions/${editionId}/reading-progress`,
 } as const;

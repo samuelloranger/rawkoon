@@ -47,6 +47,9 @@ export const queryKeys = {
     qualityProfiles: () => ["books", "quality-profiles"] as const,
     authors: () => ["books", "authors"] as const,
     metadataSources: () => ["books", "metadata-sources"] as const,
+    progress: () => ["books", "progress"] as const,
+    readingProgress: () => ["books", "reading-progress"] as const,
+    manifest: (editionId: number) => ["books", "manifest", editionId] as const,
   },
 
   downloads: {

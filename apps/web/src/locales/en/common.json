@@ -2124,6 +2124,24 @@
     },
     "audiobookshelf": {
       "open": "Open in Audiobookshelf"
+    },
+    "listen": {
+      "title": "Listen",
+      "notReady": "This audiobook isn’t ready to play yet — chapter files haven’t been registered.",
+      "back": "Back to book",
+      "chapters": "Chapters",
+      "loading": "Loading…"
+    },
+    "player": {
+      "play": "Play",
+      "pause": "Pause",
+      "skipForward": "Skip forward 30 seconds",
+      "skipBack": "Skip back 30 seconds",
+      "nextChapter": "Next chapter",
+      "prevChapter": "Previous chapter",
+      "close": "Close player",
+      "rate": "Speed",
+      "error": "This chapter couldn’t be played."
     }
   }
 }
