@@ -381,7 +381,7 @@ struct BookView: View {
 
     private var audiobookMetrics: [String] {
         let secs = manifest?.totalDurationSecs ?? audiobookEdition?.durationSecs ?? book.audiobookDurationSecs ?? 0
-        var parts = [formatDuration(secs)]
+        var parts = [Formatters.durationClock(secs)]
         if let count = manifest?.chapters.count {
             parts.append("\(count) chapters")
         } else if let count = audiobookEdition?.fileCount {
@@ -628,7 +628,7 @@ struct BookView: View {
         if let bestFormat = ebookEdition?.bestFormat {
             parts.append(bestFormat.uppercased())
         }
-        if let size = formatBytes(ebookEdition?.totalSizeBytes) {
+        if let size = Formatters.bytesStrict(ebookEdition?.totalSizeBytes) {
             parts.append(size)
         }
         let offlineCount = ebookFiles.filter { isEbookDownloaded($0) }.count
@@ -1069,14 +1069,14 @@ struct BookView: View {
             return localURL
         }
 
-        guard let remoteURL = remoteEbookURL(for: file) else {
+        guard remoteEbookURL(for: file) != nil else {
             throw EbookStorageError.missingRemoteURL
         }
-
-        let (temporaryURL, response) = try await URLSession.shared.download(from: remoteURL)
-        guard let http = response as? HTTPURLResponse, (200 ..< 300).contains(http.statusCode) else {
-            throw APIError.transport
+        guard let client = model.api() else {
+            throw APIError.unauthorized
         }
+
+        let temporaryURL = try await client.downloadFile(path: file.contentUrl ?? "")
 
         let parent = localURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
@@ -1134,7 +1134,7 @@ struct BookView: View {
 
     private func fileMeta(_ file: BookEditionFile) -> String {
         var parts: [String] = [file.format.uppercased()]
-        if let size = formatBytes(file.sizeBytes) {
+        if let size = Formatters.bytesStrict(file.sizeBytes) {
             parts.append(size)
         }
         if let bitrate = file.audioBitrate {
@@ -1144,11 +1144,6 @@ struct BookView: View {
             parts.append(file.languageTags.joined(separator: ", ").uppercased())
         }
         return parts.joined(separator: " · ")
-    }
-
-    private func formatBytes(_ raw: String?) -> String? {
-        guard let raw, let bytes = Int64(raw), bytes > 0 else { return nil }
-        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 
     private func renderedOverviewText(_ rawOverview: String) -> String {
@@ -1187,17 +1182,6 @@ struct BookView: View {
     private func isCurrentChapter(_ chapter: ManifestChapter) -> Bool {
         guard let editionId = audiobookEditionId else { return false }
         return model.activeEditionId == editionId && model.player.currentChapterIndex == chapter.index
-    }
-
-    private func formatDuration(_ seconds: Double) -> String {
-        guard seconds.isFinite, seconds > 0 else { return "0:00" }
-        let total = Int(seconds.rounded())
-        let hours = total / 3600
-        let minutes = (total % 3600) / 60
-        if hours > 0 {
-            return "\(hours)h \(String(format: "%02dm", minutes))"
-        }
-        return "\(minutes)m"
     }
 
     private func formattedPublishedDate(_ iso: String?, year: Int?) -> String? {

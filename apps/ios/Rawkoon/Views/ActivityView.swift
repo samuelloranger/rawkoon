@@ -1,3 +1,4 @@
+import RawkoonKit
 import SwiftUI
 
 /// Tab root: download queue, recent history, and the upcoming calendar.
@@ -68,24 +69,14 @@ struct ActivityView: View {
 
     private func speedHeader(_ speed: SpeedResponse) -> some View {
         HStack(spacing: 14) {
-            Label(formatSpeed(speed.dlSpeed), systemImage: "arrow.down")
-            Label(formatSpeed(speed.ulSpeed), systemImage: "arrow.up")
+            Label(Formatters.speed(speed.dlSpeed, useAll: true), systemImage: "arrow.down")
+            Label(Formatters.speed(speed.ulSpeed, useAll: true), systemImage: "arrow.up")
             Spacer()
         }
         .font(.system(.caption, design: .monospaced))
         .foregroundStyle(Theme.faint)
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-    }
-
-    private func formatSpeed(_ bytesPerSecond: Double) -> String {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .binary
-        formatter.allowedUnits = [.useAll]
-        // Non-finite/overflowing rates would trap the non-failable Int64 init.
-        let safeBytes = max(0, Int64(exactly: bytesPerSecond.rounded()) ?? 0)
-        let formatted = formatter.string(fromByteCount: safeBytes)
-        return "\(formatted)/s"
     }
 
     // MARK: Queue
@@ -142,7 +133,7 @@ struct ActivityView: View {
             DuskProgress(value: row.live.progress)
 
             HStack(spacing: 10) {
-                Text("↓ \(formatSpeed(row.live.downloadSpeed))")
+                Text("↓ \(Formatters.speed(row.live.downloadSpeed, useAll: true))")
                     .foregroundStyle(Theme.apricotSoft)
                 Text("\(Int(row.live.progress * 100))%")
                     .foregroundStyle(Theme.muted)

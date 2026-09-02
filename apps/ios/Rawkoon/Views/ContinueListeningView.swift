@@ -171,7 +171,7 @@ struct ContinueListeningView: View {
         case let .audiobook(audiobook):
             let total = max(audiobook.totalDurationSecs, 1)
             let fraction = min(max(audiobook.positionSecs / total, 0), 1)
-            return "\(formatDuration(audiobook.positionSecs)) / \(formatDuration(audiobook.totalDurationSecs)) · \(Int(fraction * 100))%"
+            return "\(Formatters.durationClock(audiobook.positionSecs)) / \(Formatters.durationClock(audiobook.totalDurationSecs)) · \(Int(fraction * 100))%"
         case let .ebook(ebook):
             let section = min(max(ebook.spineIndex + 1, 1), max(ebook.spineCount, 1))
             let fraction = Int(min(max(ebook.scrollFraction, 0), 1) * 100)
@@ -326,12 +326,19 @@ struct ContinueListeningView: View {
             return localURL
         }
 
-        guard let remoteURL = model.absoluteURL(file.contentUrl) else {
+        guard model.absoluteURL(file.contentUrl) != nil else {
             throw EbookContinueError.missingRemoteURL
         }
 
-        let (temporaryURL, response) = try await URLSession.shared.download(from: remoteURL)
-        guard let http = response as? HTTPURLResponse, (200 ..< 300).contains(http.statusCode) else {
+        let temporaryURL: URL
+        do {
+            // NOTE: deliberately surfacing .transport for every failure here to preserve
+            // the shipping copy ("Network error…"). The 401→"Sign in required." wording
+            // improvement is deferred to the localization phase — see the milestone spec.
+            guard let client = model.api() else { throw APIError.unauthorized }
+            temporaryURL = try await client.downloadFile(path: file.contentUrl ?? "")
+        } catch {
+            Log.network.error("openEbook download failed: \(String(describing: error), privacy: .public)")
             throw APIError.transport
         }
 
@@ -362,17 +369,6 @@ struct ContinueListeningView: View {
         case "cbz": return 4
         default: return 99
         }
-    }
-
-    private func formatDuration(_ seconds: Double) -> String {
-        guard seconds.isFinite, seconds > 0 else { return "0:00" }
-        let total = Int(seconds.rounded())
-        let hours = total / 3600
-        let minutes = (total % 3600) / 60
-        if hours > 0 {
-            return "\(hours)h \(String(format: "%02dm", minutes))"
-        }
-        return "\(minutes)m"
     }
 
     private func message(for error: APIError) -> String {
