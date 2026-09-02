@@ -18,6 +18,7 @@ import { webDeviceId } from "@/features/player/deviceId";
 import { queryKeys } from "@/lib/queryKeys";
 import { useQueryClient } from "@tanstack/react-query";
 import { resolveReadingPosition } from "./resumeLocator";
+import { spinePositions } from "./spinePositions";
 import { openPublication } from "./openEpub";
 import {
   epubPrefsFromReader,
@@ -153,6 +154,12 @@ export function ReaderPage({ bookId }: { bookId: number }) {
         });
         if (cancelled) return;
         pubRef.current = publication;
+        const fromManifest = await publication.positionsFromManifest();
+        const positions =
+          fromManifest.length > 0
+            ? fromManifest
+            : spinePositions(publication.readingOrder.items);
+        if (positions.length === 0) throw new Error("no spine");
         const initial = resumeLocator(publication, progress);
         const listeners: EpubNavigatorListeners = {
           frameLoaded: () => {},
@@ -196,7 +203,7 @@ export function ReaderPage({ bookId }: { bookId: number }) {
           container,
           publication,
           listeners,
-          undefined,
+          positions,
           initial,
           {
             preferences: epubPrefsFromReader(prefs),
@@ -206,7 +213,8 @@ export function ReaderPage({ bookId }: { bookId: number }) {
         navRef.current = navigator;
         await navigator.load();
         if (!cancelled) setStatus("ready");
-      } catch {
+      } catch (err) {
+        console.error("reader boot failed", err);
         if (!cancelled) setStatus("failed");
       }
     };

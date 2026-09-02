@@ -37,6 +37,8 @@ const contentTypeForPath = (filePath: string): string => {
     case ".ogg":
     case ".opus":
       return "audio/ogg";
+    case ".epub":
+      return "application/epub+zip";
     default:
       return "audio/mpeg";
   }
