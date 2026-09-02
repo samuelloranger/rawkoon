@@ -409,7 +409,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     const onPlay = () => setPlaying(true);
     const onPause = () => {
-      if (seekingRef.current) return;
+      // A cross-chapter seek or auto-advance swaps `audio.src` and calls
+      // `load()`, which fires `pause` asynchronously — after `seek` has already
+      // reset `seekingRef`. `pendingOffsetRef` stays non-null until the new
+      // chapter's metadata loads, so it covers that async window too.
+      if (seekingRef.current || pendingOffsetRef.current != null) return;
       setPlaying(false);
     };
 
