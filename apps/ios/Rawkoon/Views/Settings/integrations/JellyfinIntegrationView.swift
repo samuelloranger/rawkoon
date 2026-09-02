@@ -19,9 +19,13 @@ struct JellyfinIntegrationView: View {
         var enabled: Bool
         var websiteURL: String
     }
+
     @State private var loaded = FormValues(enabled: false, websiteURL: "")
 
-    private var current: FormValues { FormValues(enabled: enabled, websiteURL: websiteURL) }
+    private var current: FormValues {
+        FormValues(enabled: enabled, websiteURL: websiteURL)
+    }
+
     private var isDirty: Bool {
         SettingsDirty.isDirty(loaded: loaded, draft: current, secretEntered: !apiKeyInput.isEmpty)
     }
@@ -60,8 +64,11 @@ struct JellyfinIntegrationView: View {
         .tint(Theme.apricot)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if saving { ProgressView().tint(Theme.apricot) }
-                else { Button("Save") { Task { await save() } }.disabled(!isDirty) }
+                if saving {
+                    ProgressView().tint(Theme.apricot)
+                } else {
+                    Button("Save") { Task { await save() } }.disabled(!isDirty)
+                }
             }
         }
         .task { await load() }

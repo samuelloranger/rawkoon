@@ -71,7 +71,7 @@ struct SessionsAdminView: View {
 
     private func deviceLine(_ session: AdminSessionDTO) -> String {
         [session.device?.browser, session.device?.os, session.ipAddress]
-            .compactMap { $0 }.joined(separator: " \u{2022} ")
+            .compactMap(\.self).joined(separator: " \u{2022} ")
     }
 
     private func load() async {
@@ -79,7 +79,7 @@ struct SessionsAdminView: View {
         loading = true; loadError = nil
         do {
             sessions = try await client.adminSessions().sessions
-            subscriptions = (try? await client.adminWebPush().subscriptions) ?? []
+            subscriptions = await (try? client.adminWebPush().subscriptions) ?? []
         } catch {
             loadError = settingsErrorMessage(error)
         }
@@ -214,8 +214,9 @@ private struct CreateApiKeySheet: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) { Button("Close") { dismiss() } }
             ToolbarItem(placement: .topBarTrailing) {
-                if working { ProgressView().tint(Theme.apricot) }
-                else if createdKey == nil {
+                if working {
+                    ProgressView().tint(Theme.apricot)
+                } else if createdKey == nil {
                     Button("Create") { Task { await create() } }.disabled(name.isEmpty)
                 }
             }
@@ -266,7 +267,7 @@ struct BlocklistAdminView: View {
                 ForEach(entries) { entry in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(entry.releaseTitle ?? "Release").foregroundStyle(Theme.text)
-                        Text([entry.indexer, entry.reason].compactMap { $0 }.joined(separator: " \u{2022} "))
+                        Text([entry.indexer, entry.reason].compactMap(\.self).joined(separator: " \u{2022} "))
                             .font(.footnote).foregroundStyle(Theme.muted)
                     }
                     .listRowBackground(Theme.raised)

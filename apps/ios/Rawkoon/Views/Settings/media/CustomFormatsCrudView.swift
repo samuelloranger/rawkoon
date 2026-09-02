@@ -131,8 +131,11 @@ private struct CustomFormatEditorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if saving { ProgressView().tint(Theme.apricot) }
-                else { Button("Save") { Task { await save() } }.disabled(name.isEmpty || conditions.isEmpty) }
+                if saving {
+                    ProgressView().tint(Theme.apricot)
+                } else {
+                    Button("Save") { Task { await save() } }.disabled(name.isEmpty || conditions.isEmpty)
+                }
             }
         }
         .onAppear(perform: seed)
@@ -187,8 +190,11 @@ private struct CustomFormatEditorView: View {
             }
         )
         do {
-            if let format { try await client.updateCustomFormat(id: format.id, body) }
-            else { try await client.createCustomFormat(body) }
+            if let format {
+                try await client.updateCustomFormat(id: format.id, body)
+            } else {
+                try await client.createCustomFormat(body)
+            }
             dismiss()
         } catch {
             saveError = settingsErrorMessage(error)

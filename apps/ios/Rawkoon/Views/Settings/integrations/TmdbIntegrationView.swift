@@ -19,9 +19,13 @@ struct TmdbIntegrationView: View {
         var enabled: Bool
         var threshold: Int?
     }
+
     @State private var loaded = FormValues(enabled: false, threshold: 15)
 
-    private var current: FormValues { FormValues(enabled: enabled, threshold: threshold) }
+    private var current: FormValues {
+        FormValues(enabled: enabled, threshold: threshold)
+    }
+
     private var isDirty: Bool {
         SettingsDirty.isDirty(loaded: loaded, draft: current, secretEntered: !apiKeyInput.isEmpty)
     }
@@ -59,8 +63,11 @@ struct TmdbIntegrationView: View {
         .tint(Theme.apricot)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if saving { ProgressView().tint(Theme.apricot) }
-                else { Button("Save") { Task { await save() } }.disabled(!isDirty) }
+                if saving {
+                    ProgressView().tint(Theme.apricot)
+                } else {
+                    Button("Save") { Task { await save() } }.disabled(!isDirty)
+                }
             }
         }
         .task { await load() }

@@ -20,12 +20,16 @@ struct LocalAiIntegrationView: View {
         var baseURL: String
         var modelName: String
     }
+
     @State private var loaded = FormValues(enabled: false, baseURL: "", modelName: "")
 
     private var current: FormValues {
         FormValues(enabled: enabled, baseURL: baseURL, modelName: modelName)
     }
-    private var isDirty: Bool { current != loaded }
+
+    private var isDirty: Bool {
+        current != loaded
+    }
 
     var body: some View {
         Group {
@@ -68,8 +72,11 @@ struct LocalAiIntegrationView: View {
         .tint(Theme.apricot)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if saving { ProgressView().tint(Theme.apricot) }
-                else { Button("Save") { Task { await save() } }.disabled(!isDirty) }
+                if saving {
+                    ProgressView().tint(Theme.apricot)
+                } else {
+                    Button("Save") { Task { await save() } }.disabled(!isDirty)
+                }
             }
         }
         .task { await load() }
@@ -79,7 +86,9 @@ struct LocalAiIntegrationView: View {
         guard let client = model.api() else { return .failure("Not signed in.") }
         do {
             let result = try await client.testLocalAi()
-            if let error = result.error { return .failure(error) }
+            if let error = result.error {
+                return .failure(error)
+            }
             let count = result.models?.count ?? 0
             if result.modelAvailable == false {
                 return .success("Connected \u{2014} \(count) models (configured model not found)")

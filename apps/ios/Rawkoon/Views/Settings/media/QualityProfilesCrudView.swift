@@ -75,7 +75,7 @@ struct QualityProfilesCrudView: View {
         loading = true; loadError = nil
         do {
             profiles = try await client.qualityProfiles().profiles
-            formats = (try? await client.customFormats().customFormats) ?? []
+            formats = await (try? client.customFormats().customFormats) ?? []
         } catch {
             loadError = settingsErrorMessage(error)
         }
@@ -114,7 +114,7 @@ private struct QualityProfileEditorView: View {
     @State private var minSeeders: Int? = 0
     @State private var requireHdr = false
     @State private var preferHdr = false
-    @State private var scores: [Int: Int] = [:]  // customFormatId -> score (included when present)
+    @State private var scores: [Int: Int] = [:] // customFormatId -> score (included when present)
 
     @State private var saving = false
     @State private var saveError: String?
@@ -125,6 +125,7 @@ private struct QualityProfileEditorView: View {
     private var cutoffOptions: [(value: Int?, label: String)] {
         [(nil, "None")] + Self.resolutionOptions.map { (Optional($0.value), $0.label) }
     }
+
     private static let sourceOptions: [(value: String, label: String)] = [
         ("REMUX", "REMUX"), ("BluRay", "BluRay"), ("WEB-DL", "WEB-DL"), ("WEBRip", "WEBRip"), ("HDTV", "HDTV"),
     ]
@@ -190,8 +191,11 @@ private struct QualityProfileEditorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if saving { ProgressView().tint(Theme.apricot) }
-                else { Button("Save") { Task { await save() } }.disabled(name.isEmpty) }
+                if saving {
+                    ProgressView().tint(Theme.apricot)
+                } else {
+                    Button("Save") { Task { await save() } }.disabled(name.isEmpty)
+                }
             }
         }
         .onAppear(perform: seed)
@@ -201,7 +205,11 @@ private struct QualityProfileEditorView: View {
         let included = scores[format.id] != nil
         return HStack {
             Button {
-                if included { scores[format.id] = nil } else { scores[format.id] = 0 }
+                if included {
+                    scores[format.id] = nil
+                } else {
+                    scores[format.id] = 0
+                }
             } label: {
                 Image(systemName: included ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(included ? Theme.apricot : Theme.muted)
@@ -214,10 +222,10 @@ private struct QualityProfileEditorView: View {
                     get: { scores[format.id] ?? 0 },
                     set: { scores[format.id] = $0 }
                 ), format: .number)
-                .keyboardType(.numbersAndPunctuation)
-                .multilineTextAlignment(.trailing)
-                .frame(maxWidth: 70)
-                .foregroundStyle(Theme.text)
+                    .keyboardType(.numbersAndPunctuation)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 70)
+                    .foregroundStyle(Theme.text)
             }
         }
         .listRowBackground(Theme.raised)
@@ -240,7 +248,9 @@ private struct QualityProfileEditorView: View {
         preferHdr = profile.preferHdr ?? false
         var seededScores: [Int: Int] = [:]
         for assignment in profile.customFormats ?? [] {
-            if let id = assignment.customFormatId { seededScores[id] = assignment.score ?? 0 }
+            if let id = assignment.customFormatId {
+                seededScores[id] = assignment.score ?? 0
+            }
         }
         scores = seededScores
     }

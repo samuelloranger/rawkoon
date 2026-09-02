@@ -4,7 +4,7 @@ public enum SettingsValidation {
         min(max(v, range.lowerBound), range.upperBound)
     }
 
-    public static func hasMinSelection<T>(_ set: Set<T>, min: Int) -> Bool {
+    public static func hasMinSelection(_ set: Set<some Any>, min: Int) -> Bool {
         set.count >= min
     }
 

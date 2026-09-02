@@ -91,7 +91,10 @@ private struct OidcProviderEditorView: View {
     @State private var saving = false
     @State private var saveError: String?
 
-    private var isEdit: Bool { provider != nil }
+    private var isEdit: Bool {
+        provider != nil
+    }
+
     private var redirectURI: String {
         "\(model.serverURL)/api/auth/oauth2/callback/\(slug)"
     }
@@ -130,8 +133,11 @@ private struct OidcProviderEditorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if saving { ProgressView().tint(Theme.apricot) }
-                else { Button("Save") { Task { await save() } }.disabled(name.isEmpty || slug.isEmpty) }
+                if saving {
+                    ProgressView().tint(Theme.apricot)
+                } else {
+                    Button("Save") { Task { await save() } }.disabled(name.isEmpty || slug.isEmpty)
+                }
             }
         }
         .onAppear(perform: seed)

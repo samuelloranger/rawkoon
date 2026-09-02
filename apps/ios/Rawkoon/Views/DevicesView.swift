@@ -19,7 +19,9 @@ struct DevicesView: View {
         enum Kind { case apns, web }
     }
 
-    private var thisDeviceName: String { UIDevice.current.name }
+    private var thisDeviceName: String {
+        UIDevice.current.name
+    }
 
     /// APNS rows that are not this device (matched by name — the token isn't returned).
     private var otherApns: [ApnsDeviceDTO] {
@@ -80,7 +82,11 @@ struct DevicesView: View {
             "Remove this device?",
             isPresented: Binding(
                 get: { pending != nil },
-                set: { if !$0 { pending = nil } }
+                set: {
+                    if !$0 {
+                        pending = nil
+                    }
+                }
             ),
             titleVisibility: .visible,
             presenting: pending
@@ -113,13 +119,15 @@ struct DevicesView: View {
             device.osVersion.map { "iOS \($0)" },
             device.appVersion.map { "Rawkoon \($0)" },
         ]
-        .compactMap { $0 }
+        .compactMap(\.self)
         .joined(separator: " \u{2022} ")
     }
 
     private func webName(_ device: WebPushDeviceDTO) -> String {
-        if let name = device.deviceName, !name.isEmpty { return name }
-        let parts = [device.browserName, device.osName].compactMap { $0 }
+        if let name = device.deviceName, !name.isEmpty {
+            return name
+        }
+        let parts = [device.browserName, device.osName].compactMap(\.self)
         return parts.isEmpty ? "Browser" : parts.joined(separator: " \u{2022} ")
     }
 
@@ -129,8 +137,12 @@ struct DevicesView: View {
             return
         }
         // Load independently so one failing list doesn't blank the other.
-        if let response = try? await client.apnsDevices() { apns = response.devices }
-        if let response = try? await client.webPushDevices() { web = response.devices }
+        if let response = try? await client.apnsDevices() {
+            apns = response.devices
+        }
+        if let response = try? await client.webPushDevices() {
+            web = response.devices
+        }
         loading = false
     }
 

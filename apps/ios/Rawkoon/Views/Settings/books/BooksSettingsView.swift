@@ -164,7 +164,7 @@ struct BooksSettingsView: View {
             let settings = try await client.postProcessingSettings().settings
             let sources = try await client.bookMetadataSources().order
             let general = try await client.generalSettings().settings
-            profiles = (try? await client.bookQualityProfiles().profiles) ?? []
+            profiles = await (try? client.bookQualityProfiles().profiles) ?? []
             booksEnabled = general.booksEnabled ?? false
             order = sources
             booksPath = settings.booksLibraryPath ?? ""

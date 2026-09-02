@@ -16,7 +16,7 @@ struct GeneralSettingsView: View {
     @State private var windowMonths = 12
     @State private var languages: Set<String> = ["en"]
 
-    // Snapshot of the loaded values, for dirty tracking.
+    /// Snapshot of the loaded values, for dirty tracking.
     private struct FormValues: Equatable {
         var countryCode: String
         var windowMonths: Int
@@ -34,22 +34,25 @@ struct GeneralSettingsView: View {
         ("it", "Italian"), ("pt", "Portuguese"), ("ja", "Japanese"), ("ko", "Korean"),
     ]
 
-    private static let countryOptions: [(value: String, label: String)] = {
-        Locale.Region.isoRegions
-            .map(\.identifier)
-            .filter { $0.count == 2 && $0.allSatisfy(\.isLetter) }
-            .map { code in
-                (value: code, label: Locale.current.localizedString(forRegionCode: code) ?? code)
-            }
-            .sorted { $0.label < $1.label }
-    }()
+    private static let countryOptions: [(value: String, label: String)] = Locale.Region.isoRegions
+        .map(\.identifier)
+        .filter { $0.count == 2 && $0.allSatisfy(\.isLetter) }
+        .map { code in
+            (value: code, label: Locale.current.localizedString(forRegionCode: code) ?? code)
+        }
+        .sorted { $0.label < $1.label }
 
     private var current: FormValues {
         FormValues(countryCode: countryCode, windowMonths: windowMonths, languages: languages)
     }
 
-    private var isValid: Bool { SettingsValidation.hasMinSelection(languages, min: 1) }
-    private var isDirty: Bool { current != loaded }
+    private var isValid: Bool {
+        SettingsValidation.hasMinSelection(languages, min: 1)
+    }
+
+    private var isDirty: Bool {
+        current != loaded
+    }
 
     var body: some View {
         Group {
@@ -120,7 +123,9 @@ struct GeneralSettingsView: View {
             countryCode = settings.countryCode
             windowMonths = settings.upcomingWindowMonths
             languages = Set(settings.upcomingLanguages.split(separator: ",").map(String.init))
-            if languages.isEmpty { languages = ["en"] }
+            if languages.isEmpty {
+                languages = ["en"]
+            }
             loaded = current
         } catch {
             loadError = settingsErrorMessage(error)

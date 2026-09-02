@@ -27,6 +27,7 @@ struct DownloadClientEditView: View {
         var label: String
         var savePath: String
     }
+
     @State private var loaded = FormValues(
         enabled: false, clientType: "qbittorrent", websiteURL: "", username: "", label: "rawkoon", savePath: ""
     )
@@ -39,6 +40,7 @@ struct DownloadClientEditView: View {
         FormValues(enabled: enabled, clientType: clientType, websiteURL: websiteURL,
                    username: username, label: label, savePath: savePath)
     }
+
     private var isDirty: Bool {
         SettingsDirty.isDirty(loaded: loaded, draft: current, secretEntered: !passwordInput.isEmpty)
     }
@@ -99,8 +101,11 @@ struct DownloadClientEditView: View {
         .tint(Theme.apricot)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if saving { ProgressView().tint(Theme.apricot) }
-                else { Button("Save") { Task { await save() } }.disabled(!isDirty) }
+                if saving {
+                    ProgressView().tint(Theme.apricot)
+                } else {
+                    Button("Save") { Task { await save() } }.disabled(!isDirty)
+                }
             }
         }
         .task { await load() }
@@ -110,7 +115,9 @@ struct DownloadClientEditView: View {
         guard let client = model.api() else { return .failure("Not signed in.") }
         do {
             let result = try await client.testDownloadClient(body_)
-            if result.ok == true { return .success("Connected") }
+            if result.ok == true {
+                return .success("Connected")
+            }
             return .failure(result.error ?? "Could not connect.")
         } catch {
             return .failure(settingsErrorMessage(error))

@@ -52,8 +52,11 @@ struct ReleasesAdminView: View {
         .tint(Theme.apricot)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if refreshing { ProgressView().tint(Theme.apricot) }
-                else { Button("Refresh") { Task { await refresh() } } }
+                if refreshing {
+                    ProgressView().tint(Theme.apricot)
+                } else {
+                    Button("Refresh") { Task { await refresh() } }
+                }
             }
         }
         .onAppear { Task { await load() } }
@@ -121,8 +124,11 @@ struct JobsAdminView: View {
                         HStack {
                             Text(item.label).foregroundStyle(Theme.text)
                             Spacer()
-                            if running == item.action { ProgressView().tint(Theme.apricot) }
-                            else { Image(systemName: "play.circle").foregroundStyle(Theme.apricot) }
+                            if running == item.action {
+                                ProgressView().tint(Theme.apricot)
+                            } else {
+                                Image(systemName: "play.circle").foregroundStyle(Theme.apricot)
+                            }
                         }
                     }
                     .disabled(running != nil)
@@ -131,7 +137,9 @@ struct JobsAdminView: View {
             } header: {
                 Text("Run a job now")
             } footer: {
-                if let message { Text(message).foregroundStyle(Theme.muted) }
+                if let message {
+                    Text(message).foregroundStyle(Theme.muted)
+                }
             }
         }
         .scrollContentBackground(.hidden)

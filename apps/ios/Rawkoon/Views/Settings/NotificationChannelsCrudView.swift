@@ -16,30 +16,30 @@ private enum ChannelSchema {
     static func fields(for type: String) -> [ChannelField] {
         switch type {
         case "ntfy":
-            return [ChannelField(key: "server_url", label: "Server URL"),
-                    ChannelField(key: "topic", label: "Topic"),
-                    ChannelField(key: "access_token", label: "Access token", secret: true),
-                    ChannelField(key: "priority", label: "Priority", numeric: true)]
+            [ChannelField(key: "server_url", label: "Server URL"),
+             ChannelField(key: "topic", label: "Topic"),
+             ChannelField(key: "access_token", label: "Access token", secret: true),
+             ChannelField(key: "priority", label: "Priority", numeric: true)]
         case "telegram":
-            return [ChannelField(key: "bot_token", label: "Bot token", secret: true),
-                    ChannelField(key: "chat_id", label: "Chat ID")]
+            [ChannelField(key: "bot_token", label: "Bot token", secret: true),
+             ChannelField(key: "chat_id", label: "Chat ID")]
         case "discord":
-            return [ChannelField(key: "webhook_url", label: "Webhook URL")]
+            [ChannelField(key: "webhook_url", label: "Webhook URL")]
         case "gotify":
-            return [ChannelField(key: "server_url", label: "Server URL"),
-                    ChannelField(key: "app_token", label: "App token", secret: true),
-                    ChannelField(key: "priority", label: "Priority", numeric: true)]
+            [ChannelField(key: "server_url", label: "Server URL"),
+             ChannelField(key: "app_token", label: "App token", secret: true),
+             ChannelField(key: "priority", label: "Priority", numeric: true)]
         case "pushover":
-            return [ChannelField(key: "api_token", label: "API token", secret: true),
-                    ChannelField(key: "user_key", label: "User key", secret: true)]
+            [ChannelField(key: "api_token", label: "API token", secret: true),
+             ChannelField(key: "user_key", label: "User key", secret: true)]
         case "slack":
-            return [ChannelField(key: "webhook_url", label: "Webhook URL")]
+            [ChannelField(key: "webhook_url", label: "Webhook URL")]
         case "webhook":
-            return [ChannelField(key: "url", label: "URL"),
-                    ChannelField(key: "method", label: "Method (GET/POST)"),
-                    ChannelField(key: "body_template", label: "Body template")]
+            [ChannelField(key: "url", label: "URL"),
+             ChannelField(key: "method", label: "Method (GET/POST)"),
+             ChannelField(key: "body_template", label: "Body template")]
         default:
-            return []
+            []
         }
     }
 }
@@ -130,7 +130,9 @@ private struct ChannelEditorView: View {
     @State private var saving = false
     @State private var saveError: String?
 
-    private var fields: [ChannelField] { ChannelSchema.fields(for: type) }
+    private var fields: [ChannelField] {
+        ChannelSchema.fields(for: type)
+    }
 
     var body: some View {
         Form {
@@ -162,8 +164,11 @@ private struct ChannelEditorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if saving { ProgressView().tint(Theme.apricot) }
-                else { Button("Save") { Task { await save() } }.disabled(label.isEmpty) }
+                if saving {
+                    ProgressView().tint(Theme.apricot)
+                } else {
+                    Button("Save") { Task { await save() } }.disabled(label.isEmpty)
+                }
             }
         }
         .onAppear(perform: seed)
@@ -190,7 +195,9 @@ private struct ChannelEditorView: View {
         type = channel.type
         enabled = channel.enabled
         var seeded: [String: String] = [:]
-        for (key, value) in channel.config ?? [:] { seeded[key] = value.stringValue }
+        for (key, value) in channel.config ?? [:] {
+            seeded[key] = value.stringValue
+        }
         values = seeded
     }
 

@@ -23,7 +23,10 @@ struct ProfileView: View {
     @State private var passwordError: String?
     @State private var passwordDone = false
 
-    private var nameDirty: Bool { firstName != loadedFirst || lastName != loadedLast }
+    private var nameDirty: Bool {
+        firstName != loadedFirst || lastName != loadedLast
+    }
+
     private var passwordValid: Bool {
         newPassword.count >= 8 && newPassword == confirmPassword && !currentPassword.isEmpty
     }

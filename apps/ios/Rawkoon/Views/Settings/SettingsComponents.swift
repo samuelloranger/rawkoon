@@ -132,13 +132,19 @@ struct NumberFieldRow: View {
                 .frame(maxWidth: 96)
                 .foregroundStyle(Theme.text)
                 .onChange(of: text) { _, newValue in
-                    if newValue.isEmpty { value = nil; return }
+                    if newValue.isEmpty {
+                        value = nil; return
+                    }
                     if var parsed = Int(newValue.filter(\.isNumber)) {
-                        if let range { parsed = min(max(parsed, range.lowerBound), range.upperBound) }
+                        if let range {
+                            parsed = min(max(parsed, range.lowerBound), range.upperBound)
+                        }
                         value = parsed
                     }
                 }
-            if let suffix { Text(suffix).foregroundStyle(Theme.muted) }
+            if let suffix {
+                Text(suffix).foregroundStyle(Theme.muted)
+            }
         }
         .listRowBackground(Theme.raised)
         .onAppear { text = value.map(String.init) ?? "" }
@@ -187,7 +193,9 @@ struct MultiSelectRow<T: Hashable>: View {
 
     private func toggle(_ value: T) {
         if selected.contains(value) {
-            if selected.count > minSelection { selected.remove(value) }
+            if selected.count > minSelection {
+                selected.remove(value)
+            }
         } else {
             selected.insert(value)
         }
@@ -212,13 +220,15 @@ struct TestConnectionButton: View {
                 Task {
                     state = .running
                     switch await action() {
-                    case .success(let message): state = .ok(message)
-                    case .failure(let message): state = .failed(message)
+                    case let .success(message): state = .ok(message)
+                    case let .failure(message): state = .failed(message)
                     }
                 }
             } label: {
                 HStack {
-                    if state == .running { ProgressView().tint(Theme.apricot) }
+                    if state == .running {
+                        ProgressView().tint(Theme.apricot)
+                    }
                     Text(title)
                 }
             }
@@ -226,9 +236,9 @@ struct TestConnectionButton: View {
             .disabled(state == .running)
 
             switch state {
-            case .ok(let message):
+            case let .ok(message):
                 Text(message ?? "Connected").font(.footnote).foregroundStyle(Theme.apricot)
-            case .failed(let message):
+            case let .failed(message):
                 Text(message).font(.footnote).foregroundStyle(Theme.terracotta)
             default:
                 EmptyView()

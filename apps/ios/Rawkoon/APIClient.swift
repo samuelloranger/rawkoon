@@ -615,9 +615,9 @@ actor APIClient {
     /// Consumes a JSON-over-SSE status stream, yielding a decoded status per
     /// `data:` line. Cancel the consuming task to close the connection.
     func libraryMigrateStatusStream() -> AsyncThrowingStream<MigrateStatusDTO, Error> {
-        let session = self.session
-        let token = self.token
-        let base = self.baseURL
+        let session = session
+        let token = token
+        let base = baseURL
         return AsyncThrowingStream { continuation in
             let task = Task {
                 do {
@@ -636,7 +636,9 @@ actor APIClient {
                     let decoder = JSONDecoder()
                     decoder.keyDecodingStrategy = .convertFromSnakeCase
                     for try await line in bytes.lines {
-                        if Task.isCancelled { break }
+                        if Task.isCancelled {
+                            break
+                        }
                         guard line.hasPrefix("data:") else { continue }
                         let payload = line.dropFirst(5).trimmingCharacters(in: .whitespaces)
                         guard !payload.isEmpty, let data = payload.data(using: .utf8) else { continue }

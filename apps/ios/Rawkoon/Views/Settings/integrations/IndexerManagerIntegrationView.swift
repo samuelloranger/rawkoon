@@ -7,8 +7,13 @@ import SwiftUI
 struct IndexerManagerIntegrationView: View {
     enum Kind {
         case prowlarr, jackett
-        var path: String { self == .prowlarr ? "prowlarr" : "jackett" }
-        var title: String { self == .prowlarr ? "Prowlarr" : "Jackett" }
+        var path: String {
+            self == .prowlarr ? "prowlarr" : "jackett"
+        }
+
+        var title: String {
+            self == .prowlarr ? "Prowlarr" : "Jackett"
+        }
     }
 
     let kind: Kind
@@ -30,11 +35,13 @@ struct IndexerManagerIntegrationView: View {
         var websiteURL: String
         var selected: Set<String>
     }
+
     @State private var loaded = FormValues(enabled: false, websiteURL: "", selected: [])
 
     private var current: FormValues {
         FormValues(enabled: enabled, websiteURL: websiteURL, selected: selected)
     }
+
     private var isDirty: Bool {
         SettingsDirty.isDirty(loaded: loaded, draft: current, secretEntered: !apiKeyInput.isEmpty)
     }
@@ -82,8 +89,11 @@ struct IndexerManagerIntegrationView: View {
         .tint(Theme.apricot)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if saving { ProgressView().tint(Theme.apricot) }
-                else { Button("Save") { Task { await save() } }.disabled(!isDirty) }
+                if saving {
+                    ProgressView().tint(Theme.apricot)
+                } else {
+                    Button("Save") { Task { await save() } }.disabled(!isDirty)
+                }
             }
         }
         .task { await load() }

@@ -21,8 +21,13 @@ struct ArrLibraryImportView: View {
         ("both", "Both"), ("radarr", "Radarr"), ("sonarr", "Sonarr"),
     ]
 
-    private var showRadarr: Bool { source == "both" || source == "radarr" }
-    private var showSonarr: Bool { source == "both" || source == "sonarr" }
+    private var showRadarr: Bool {
+        source == "both" || source == "radarr"
+    }
+
+    private var showSonarr: Bool {
+        source == "both" || source == "sonarr"
+    }
 
     private var isRunning: Bool {
         guard let state = status?.state else { return false }
@@ -86,7 +91,9 @@ struct ArrLibraryImportView: View {
             let imported = progress.imported ?? 0
             return "\(state) \u{2022} \(progress.current ?? 0)/\(total) \u{2022} \(imported) imported"
         }
-        if let error = status.error { return "failed \u{2022} \(error)" }
+        if let error = status.error {
+            return "failed \u{2022} \(error)"
+        }
         return state
     }
 
@@ -116,7 +123,9 @@ struct ArrLibraryImportView: View {
             let stream = await client.libraryMigrateStatusStream()
             do {
                 for try await update in stream {
-                    if Task.isCancelled { break }
+                    if Task.isCancelled {
+                        break
+                    }
                     status = update
                 }
             } catch {

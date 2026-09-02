@@ -22,12 +22,16 @@ struct DownloadClientHookView: View {
         var autoConfigure: Bool
         var activeHookedSecs: Int?
     }
+
     @State private var loaded = FormValues(callbackURL: "", autoConfigure: false, activeHookedSecs: 60)
 
     private var current: FormValues {
         FormValues(callbackURL: callbackURL, autoConfigure: autoConfigure, activeHookedSecs: activeHookedSecs)
     }
-    private var isDirty: Bool { current != loaded }
+
+    private var isDirty: Bool {
+        current != loaded
+    }
 
     var body: some View {
         Group {
@@ -54,7 +58,7 @@ struct DownloadClientHookView: View {
                     LabeledTextFieldRow(title: "Callback URL", text: $callbackURL,
                                         placeholder: "https://…", keyboard: .URL)
                     ToggleRow("Auto-configure", isOn: $autoConfigure)
-                    NumberFieldRow("Active-hooked seconds", value: $activeHookedSecs, range: 1 ... 86_400, suffix: "s")
+                    NumberFieldRow("Active-hooked seconds", value: $activeHookedSecs, range: 1 ... 86400, suffix: "s")
                 }
                 Section {
                     Button("Rotate secret", role: .destructive) { confirmRotate = true }
@@ -71,8 +75,11 @@ struct DownloadClientHookView: View {
         .tint(Theme.apricot)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if saving { ProgressView().tint(Theme.apricot) }
-                else { Button("Save") { Task { await save() } }.disabled(!isDirty) }
+                if saving {
+                    ProgressView().tint(Theme.apricot)
+                } else {
+                    Button("Save") { Task { await save() } }.disabled(!isDirty)
+                }
             }
         }
         .confirmationDialog("Rotate the hook secret?", isPresented: $confirmRotate, titleVisibility: .visible) {
@@ -95,7 +102,7 @@ struct DownloadClientHookView: View {
     private func load() async {
         guard let client = model.api() else { loading = false; return }
         loading = true; loadError = nil
-        do { apply(try await client.downloadClientHook()) }
+        do { try await apply(client.downloadClientHook()) }
         catch { loadError = settingsErrorMessage(error) }
         loading = false
     }

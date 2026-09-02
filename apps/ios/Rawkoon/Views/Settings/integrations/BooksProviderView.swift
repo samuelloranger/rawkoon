@@ -104,7 +104,9 @@ struct BooksProviderView: View {
         guard let client = model.api() else { return .failure("Not signed in.") }
         do {
             let result = try await client.testAudnexus(AudnexusTestBody(baseUrl: audnexusURL, region: audnexusRegion))
-            if result.success == true { return .success("Connected") }
+            if result.success == true {
+                return .success("Connected")
+            }
             return .failure(result.error ?? "Could not connect.")
         } catch { return .failure(settingsErrorMessage(error)) }
     }
@@ -125,7 +127,9 @@ struct BooksProviderView: View {
         do {
             let body = GoogleBooksTestBody(apiKey: googleKeyInput.isEmpty ? nil : googleKeyInput)
             let result = try await client.testGoogleBooks(body)
-            if result.success == true { return .success("Connected") }
+            if result.success == true {
+                return .success("Connected")
+            }
             return .failure(result.error ?? "Could not connect.")
         } catch { return .failure(settingsErrorMessage(error)) }
     }

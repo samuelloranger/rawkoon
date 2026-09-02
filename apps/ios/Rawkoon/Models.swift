@@ -552,6 +552,7 @@ nonisolated struct CustomFormatDTO: Decodable, Identifiable, Sendable {
     let name: String
     let conditions: [FormatConditionDTO]?
 }
+
 nonisolated struct CustomFormatsResponse: Decodable, Sendable {
     let customFormats: [CustomFormatDTO]
 }
@@ -651,11 +652,13 @@ nonisolated struct CreateUserBody: Encodable, Sendable {
     let locale: String
     let isAdmin: Bool
 }
+
 nonisolated struct CreateInvitationBody: Encodable, Sendable {
     let email: String
     let locale: String
     let isAdmin: Bool
 }
+
 nonisolated struct TokenResponse: Decodable, Sendable { let token: String? }
 nonisolated struct InvitationDTO: Decodable, Identifiable, Sendable {
     let id: Int
@@ -665,6 +668,7 @@ nonisolated struct InvitationDTO: Decodable, Identifiable, Sendable {
     let createdAt: String?
     let expiresAt: String?
 }
+
 nonisolated struct InvitationsResponse: Decodable, Sendable { let invitations: [InvitationDTO] }
 
 // MARK: Sessions + web-push + API keys + blocklist (spec §5 Phase 5)
@@ -680,6 +684,7 @@ nonisolated struct AdminSessionDTO: Decodable, Identifiable, Sendable {
     let ipAddress: String?
     let device: SessionDeviceDTO?
 }
+
 nonisolated struct AdminSessionsResponse: Decodable, Sendable { let sessions: [AdminSessionDTO] }
 
 nonisolated struct AdminWebPushDTO: Decodable, Identifiable, Sendable {
@@ -690,6 +695,7 @@ nonisolated struct AdminWebPushDTO: Decodable, Identifiable, Sendable {
     let deviceName: String?
     let createdAt: String?
 }
+
 nonisolated struct AdminWebPushResponse: Decodable, Sendable { let subscriptions: [AdminWebPushDTO] }
 
 nonisolated struct ApiKeyDTO: Decodable, Identifiable, Sendable {
@@ -700,11 +706,13 @@ nonisolated struct ApiKeyDTO: Decodable, Identifiable, Sendable {
     let expiresAt: String?
     let createdAt: String?
 }
+
 nonisolated struct ApiKeysResponse: Decodable, Sendable { let apiKeys: [ApiKeyDTO] }
 nonisolated struct CreateApiKeyBody: Encodable, Sendable {
     let name: String
     let expiresInDays: Int?
 }
+
 nonisolated struct CreateApiKeyResponse: Decodable, Sendable { let key: String? }
 
 nonisolated struct BlocklistEntryDTO: Decodable, Identifiable, Sendable {
@@ -714,6 +722,7 @@ nonisolated struct BlocklistEntryDTO: Decodable, Identifiable, Sendable {
     let reason: String?
     let blockedAt: String?
 }
+
 nonisolated struct BlocklistResponse: Decodable, Sendable { let entries: [BlocklistEntryDTO] }
 
 // MARK: SSO / OIDC providers CRUD (spec §5 Phase 5)
@@ -728,6 +737,7 @@ nonisolated struct OidcProviderDTO: Decodable, Identifiable, Sendable {
     let enabled: Bool
     let iconUrl: String?
 }
+
 nonisolated struct OidcProvidersResponse: Decodable, Sendable { let providers: [OidcProviderDTO] }
 
 // MARK: Releases + jobs (spec §5 Phase 5 + Appendix B)
@@ -736,17 +746,22 @@ nonisolated struct GithubReleaseDTO: Decodable, Identifiable, Sendable {
     let tagName: String
     let name: String?
     let publishedAt: String?
-    var id: String { tagName }
+    var id: String {
+        tagName
+    }
 }
+
 nonisolated struct ReleaseSyncDTO: Decodable, Sendable {
     let repoFullName: String?
     let lastSyncedAt: String?
     let lastError: String?
 }
+
 nonisolated struct ReleasesResponse: Decodable, Sendable {
     let releases: [GithubReleaseDTO]
     let sync: ReleaseSyncDTO?
 }
+
 nonisolated struct TriggerActionBody: Encodable, Sendable { let action: String }
 
 // MARK: Profile (spec §5 Phase 5)
@@ -755,10 +770,12 @@ nonisolated struct UpdateProfileBody: Encodable, Sendable {
     let firstName: String?
     let lastName: String?
 }
+
 nonisolated struct ChangePasswordBody: Encodable, Sendable {
     let currentPassword: String
     let newPassword: String
 }
+
 nonisolated struct CreateOidcBody: Encodable, Sendable {
     let slug: String
     let name: String
@@ -768,6 +785,7 @@ nonisolated struct CreateOidcBody: Encodable, Sendable {
     let enabled: Bool
     let iconUrl: String?
 }
+
 nonisolated struct UpdateOidcBody: Encodable, Sendable {
     let name: String
     let discoveryUrl: String
@@ -849,6 +867,7 @@ nonisolated struct UpdateGeneralSettingsBody: Encodable, Sendable {
 }
 
 // MARK: Simple integrations (spec §5 Phase 2)
+
 // The server returns api_key as "" (never the real secret) and treats an empty
 // api_key on save as "keep the existing one" — so we always send it as a string.
 
@@ -856,6 +875,7 @@ nonisolated struct TmdbIntegrationDTO: Decodable, Sendable {
     let enabled: Bool
     let popularityThreshold: Int?
 }
+
 nonisolated struct TmdbIntegrationResponse: Decodable, Sendable { let integration: TmdbIntegrationDTO }
 nonisolated struct SaveTmdbBody: Encodable, Sendable {
     let enabled: Bool
@@ -867,6 +887,7 @@ nonisolated struct JellyfinIntegrationDTO: Decodable, Sendable {
     let enabled: Bool
     let websiteUrl: String?
 }
+
 nonisolated struct JellyfinIntegrationResponse: Decodable, Sendable { let integration: JellyfinIntegrationDTO }
 nonisolated struct SaveJellyfinBody: Encodable, Sendable {
     let enabled: Bool
@@ -879,12 +900,14 @@ nonisolated struct LocalAiIntegrationDTO: Decodable, Sendable {
     let baseUrl: String?
     let model: String?
 }
+
 nonisolated struct LocalAiIntegrationResponse: Decodable, Sendable { let integration: LocalAiIntegrationDTO }
 nonisolated struct SaveLocalAiBody: Encodable, Sendable {
     let enabled: Bool
     let baseUrl: String
     let model: String
 }
+
 nonisolated struct LocalAiTestResponse: Decodable, Sendable {
     let error: String?
     let models: [String]?
@@ -898,6 +921,7 @@ nonisolated struct IndexerManagerDTO: Decodable, Sendable {
     let websiteUrl: String?
     let rssIndexers: [String]?
 }
+
 nonisolated struct IndexerManagerResponse: Decodable, Sendable { let integration: IndexerManagerDTO }
 nonisolated struct SaveIndexerManagerBody: Encodable, Sendable {
     let websiteUrl: String
@@ -905,10 +929,12 @@ nonisolated struct SaveIndexerManagerBody: Encodable, Sendable {
     let enabled: Bool
     let rssIndexers: [String]
 }
+
 nonisolated struct IndexerOptionDTO: Decodable, Sendable {
     let slug: String?
     let name: String?
 }
+
 nonisolated struct IndexerListResponse: Decodable, Sendable { let indexers: [IndexerOptionDTO] }
 
 // MARK: Download client + hook (spec §5 Phase 2)
@@ -922,6 +948,7 @@ nonisolated struct DownloadClientConfigDTO: Decodable, Sendable {
     let label: String?
     let savePath: String?
 }
+
 nonisolated struct DownloadClientEditResponse: Decodable, Sendable { let integration: DownloadClientConfigDTO }
 nonisolated struct SaveDownloadClientBody: Encodable, Sendable {
     let clientType: String
@@ -932,6 +959,7 @@ nonisolated struct SaveDownloadClientBody: Encodable, Sendable {
     let savePath: String
     let enabled: Bool
 }
+
 nonisolated struct DownloadClientTestResponse: Decodable, Sendable {
     let ok: Bool?
     let error: String?
@@ -945,6 +973,7 @@ nonisolated struct HookConfigDTO: Decodable, Sendable {
     let autoConfigure: Bool?
     let activeHookedSecs: Int?
 }
+
 nonisolated struct SaveHookBody: Encodable, Sendable {
     let callbackUrl: String?
     let autoConfigure: Bool?
@@ -958,12 +987,14 @@ nonisolated struct AudnexusIntegrationDTO: Decodable, Sendable {
     let baseUrl: String?
     let region: String?
 }
+
 nonisolated struct AudnexusIntegrationResponse: Decodable, Sendable { let integration: AudnexusIntegrationDTO }
 nonisolated struct SaveAudnexusBody: Encodable, Sendable {
     let enabled: Bool
     let baseUrl: String
     let region: String
 }
+
 nonisolated struct AudnexusTestBody: Encodable, Sendable {
     let baseUrl: String
     let region: String
@@ -973,11 +1004,13 @@ nonisolated struct GoogleBooksIntegrationDTO: Decodable, Sendable {
     let enabled: Bool
     let hasApiKey: Bool?
 }
+
 nonisolated struct GoogleBooksIntegrationResponse: Decodable, Sendable { let integration: GoogleBooksIntegrationDTO }
 nonisolated struct SaveGoogleBooksBody: Encodable, Sendable {
     let apiKey: String?
     let enabled: Bool
 }
+
 nonisolated struct GoogleBooksTestBody: Encodable, Sendable {
     let apiKey: String?
 }
@@ -998,29 +1031,35 @@ nonisolated enum JSONValue: Codable, Sendable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.singleValueContainer()
-        if c.decodeNil() { self = .null }
-        else if let b = try? c.decode(Bool.self) { self = .bool(b) }
-        else if let d = try? c.decode(Double.self) { self = .number(d) }
-        else if let s = try? c.decode(String.self) { self = .string(s) }
-        else { self = .null }
+        if c.decodeNil() {
+            self = .null
+        } else if let b = try? c.decode(Bool.self) {
+            self = .bool(b)
+        } else if let d = try? c.decode(Double.self) {
+            self = .number(d)
+        } else if let s = try? c.decode(String.self) {
+            self = .string(s)
+        } else {
+            self = .null
+        }
     }
 
     func encode(to encoder: Encoder) throws {
         var c = encoder.singleValueContainer()
         switch self {
-        case .string(let s): try c.encode(s)
-        case .number(let n): try c.encode(n)
-        case .bool(let b): try c.encode(b)
+        case let .string(s): try c.encode(s)
+        case let .number(n): try c.encode(n)
+        case let .bool(b): try c.encode(b)
         case .null: try c.encodeNil()
         }
     }
 
     var stringValue: String {
         switch self {
-        case .string(let s): return s
-        case .number(let n): return n == n.rounded() ? String(Int(n)) : String(n)
-        case .bool(let b): return b ? "true" : "false"
-        case .null: return ""
+        case let .string(s): s
+        case let .number(n): n == n.rounded() ? String(Int(n)) : String(n)
+        case let .bool(b): b ? "true" : "false"
+        case .null: ""
         }
     }
 }
@@ -1032,14 +1071,17 @@ nonisolated struct NotificationChannelDTO: Decodable, Identifiable, Sendable {
     let enabled: Bool
     let config: [String: JSONValue]?
 }
+
 nonisolated struct NotificationChannelsResponse: Decodable, Sendable {
     let channels: [NotificationChannelDTO]
 }
+
 nonisolated struct CreateChannelBody: Encodable, Sendable {
     let type: String
     let label: String
     let config: [String: JSONValue]
 }
+
 nonisolated struct UpdateChannelBody: Encodable, Sendable {
     let label: String?
     let enabled: Bool?
@@ -1069,6 +1111,7 @@ nonisolated struct PostProcessingSettingsDTO: Decodable, Sendable {
     let audiobookshelfAudiobookLibraryId: String?
     let audiobookshelfEbookLibraryId: String?
 }
+
 nonisolated struct PostProcessingSettingsResponseDTO: Decodable, Sendable {
     let settings: PostProcessingSettingsDTO
 }
@@ -1115,13 +1158,16 @@ nonisolated struct ScanBody: Encodable, Sendable {
     let path: String
     let type: String?
 }
+
 nonisolated struct ScanResultDTO: Decodable, Sendable {
     let matched: Int
     let unmatched: [String]
 }
+
 nonisolated struct ReindexStartResponse: Decodable, Sendable {
     let jobId: String?
 }
+
 nonisolated struct ReindexProgressDTO: Decodable, Sendable {
     let current: Int?
     let total: Int?
@@ -1130,6 +1176,7 @@ nonisolated struct ReindexProgressDTO: Decodable, Sendable {
     let errors: Int?
     let currentFile: String?
 }
+
 nonisolated struct ReindexStatusDTO: Decodable, Sendable {
     let jobId: String?
     let state: String?
@@ -1146,9 +1193,11 @@ nonisolated struct MigrateBody: Encodable, Sendable {
     let sonarrUrl: String?
     let sonarrApiKey: String?
 }
+
 nonisolated struct MigrateStartResponse: Decodable, Sendable {
     let jobId: String?
 }
+
 nonisolated struct MigrateProgressDTO: Decodable, Sendable {
     let current: Int?
     let total: Int?
@@ -1156,6 +1205,7 @@ nonisolated struct MigrateProgressDTO: Decodable, Sendable {
     let failed: Int?
     let currentTitle: String?
 }
+
 nonisolated struct MigrateStatusDTO: Decodable, Sendable {
     let jobId: String?
     let state: String?
@@ -1179,6 +1229,7 @@ nonisolated struct BookQualityProfile: Decodable, Identifiable, Sendable {
     let prioritizedTrackers: [String]?
     let preferTrackerOverQuality: Bool?
 }
+
 nonisolated struct BookQualityProfilesResponse: Decodable, Sendable {
     let profiles: [BookQualityProfile]
 }
@@ -1226,6 +1277,7 @@ nonisolated struct BooksEnabledBody: Encodable, Sendable {
 nonisolated struct MetadataSourcesResponse: Decodable, Sendable {
     let order: [String]
 }
+
 nonisolated struct MetadataSourcesBody: Encodable, Sendable {
     let order: [String]
 }

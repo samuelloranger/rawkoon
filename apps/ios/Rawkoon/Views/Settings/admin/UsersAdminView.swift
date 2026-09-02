@@ -66,7 +66,11 @@ struct UsersAdminView: View {
         .sheet(isPresented: $showProvision) {
             NavigationStack { ProvisioningSheet(onDone: { Task { await load() } }) }
         }
-        .alert("Reset password", isPresented: Binding(get: { resetUser != nil }, set: { if !$0 { resetUser = nil } })) {
+        .alert("Reset password", isPresented: Binding(get: { resetUser != nil }, set: {
+            if !$0 {
+                resetUser = nil
+            }
+        })) {
             SecureField("New password (min 8)", text: $newPassword)
             Button("Reset") { Task { await resetPassword() } }
             Button("Cancel", role: .cancel) { resetUser = nil }
@@ -77,7 +81,7 @@ struct UsersAdminView: View {
     }
 
     private func displayName(_ user: AdminUser) -> String {
-        let name = [user.firstName, user.lastName].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
+        let name = [user.firstName, user.lastName].compactMap(\.self).filter { !$0.isEmpty }.joined(separator: " ")
         return name.isEmpty ? user.email : name
     }
 
@@ -172,8 +176,11 @@ private struct ProvisioningSheet: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) { Button("Close") { dismiss() } }
             ToolbarItem(placement: .topBarTrailing) {
-                if working { ProgressView().tint(Theme.apricot) }
-                else { Button("Submit") { Task { await submit() } }.disabled(email.isEmpty) }
+                if working {
+                    ProgressView().tint(Theme.apricot)
+                } else {
+                    Button("Submit") { Task { await submit() } }.disabled(email.isEmpty)
+                }
             }
         }
     }

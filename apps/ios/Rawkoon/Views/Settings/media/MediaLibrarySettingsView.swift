@@ -46,6 +46,7 @@ struct MediaLibrarySettingsView: View {
         var defaultMovieProfile: Int?
         var defaultShowProfile: Int?
     }
+
     @State private var loaded = FormValues(
         ppEnabled: false, moviesPath: "", showsPath: "", downloadsPath: "",
         fileOperation: "hardlink", movieTemplate: "", episodeTemplate: "",
@@ -59,17 +60,22 @@ struct MediaLibrarySettingsView: View {
                    activeManager: activeManager, defaultMovieProfile: defaultMovieProfile,
                    defaultShowProfile: defaultShowProfile)
     }
-    private var isDirty: Bool { current != loaded }
+
+    private var isDirty: Bool {
+        current != loaded
+    }
 
     private var profileOptions: [(value: Int?, label: String)] {
         [(nil, "None")] + profiles.map { (Optional($0.id), $0.name) }
     }
+
     private static let fileOpOptions: [(value: String, label: String)] = [
         ("hardlink", "Hardlink"), ("move", "Move"),
     ]
     private var managerOptions: [(value: String?, label: String)] {
         [(nil, "None"), ("prowlarr", "Prowlarr"), ("jackett", "Jackett")]
     }
+
     private static let scanTypeOptions: [(value: String, label: String)] = [
         ("movie", "Movie"), ("show", "Show"),
     ]
@@ -116,7 +122,9 @@ struct MediaLibrarySettingsView: View {
                     Button("Run scan") { Task { await runScan() } }
                         .disabled(scanning || scanPath.isEmpty)
                         .listRowBackground(Theme.raised)
-                    if scanning { ProgressView().tint(Theme.apricot).listRowBackground(Theme.raised) }
+                    if scanning {
+                        ProgressView().tint(Theme.apricot).listRowBackground(Theme.raised)
+                    }
                     if let scanResult {
                         Text("Matched \(scanResult.matched) \u{2022} \(scanResult.unmatched.count) unmatched")
                             .font(.footnote).foregroundStyle(Theme.muted)
@@ -148,8 +156,11 @@ struct MediaLibrarySettingsView: View {
         .tint(Theme.apricot)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if saving { ProgressView().tint(Theme.apricot) }
-                else { Button("Save") { Task { await save() } }.disabled(!isDirty) }
+                if saving {
+                    ProgressView().tint(Theme.apricot)
+                } else {
+                    Button("Save") { Task { await save() } }.disabled(!isDirty)
+                }
             }
         }
         .task {
@@ -178,7 +189,7 @@ struct MediaLibrarySettingsView: View {
             async let settingsCall = client.postProcessingSettings()
             async let profilesCall = client.qualityProfiles()
             let settings = try await settingsCall.settings
-            profiles = (try? await profilesCall.profiles) ?? []
+            profiles = await (try? profilesCall.profiles) ?? []
             ppEnabled = settings.postProcessingEnabled ?? false
             moviesPath = settings.moviesLibraryPath ?? ""
             showsPath = settings.showsLibraryPath ?? ""
@@ -243,7 +254,9 @@ struct MediaLibrarySettingsView: View {
     private func refreshReindex() async {
         guard let client = model.api() else { return }
         reindexStatus = try? await client.reindexLanguagesStatus()
-        if reindexActive { await pollReindex() }
+        if reindexActive {
+            await pollReindex()
+        }
     }
 
     private func pollReindex() async {
@@ -252,7 +265,9 @@ struct MediaLibrarySettingsView: View {
             guard let client = model.api() else { return }
             while !Task.isCancelled {
                 reindexStatus = try? await client.reindexLanguagesStatus()
-                if !reindexActive { break }
+                if !reindexActive {
+                    break
+                }
                 try? await Task.sleep(for: .seconds(3))
             }
         }

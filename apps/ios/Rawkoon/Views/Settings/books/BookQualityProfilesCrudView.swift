@@ -103,17 +103,20 @@ private struct BookQualityProfileEditorView: View {
 
     private var formatsForKind: [String] {
         switch kind {
-        case "ebook": return Self.ebookFormats
-        case "audiobook": return Self.audiobookFormats
-        default: return Self.ebookFormats + Self.audiobookFormats
+        case "ebook": Self.ebookFormats
+        case "audiobook": Self.audiobookFormats
+        default: Self.ebookFormats + Self.audiobookFormats
         }
     }
+
     private var formatOptions: [(value: String, label: String)] {
         formatsForKind.map { (value: $0, label: $0.uppercased()) }
     }
+
     private var cutoffOptions: [(value: String?, label: String)] {
         [(nil, "None")] + Array(allowedFormats).sorted().map { (Optional($0), $0.uppercased()) }
     }
+
     private static let languageOptions: [(value: String, label: String)] = [
         ("en", "English"), ("fr", "French"), ("de", "German"), ("es", "Spanish"),
         ("it", "Italian"), ("ja", "Japanese"), ("pt", "Portuguese"),
@@ -152,8 +155,11 @@ private struct BookQualityProfileEditorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if saving { ProgressView().tint(Theme.apricot) }
-                else { Button("Save") { Task { await save() } }.disabled(name.isEmpty || allowedFormats.isEmpty) }
+                if saving {
+                    ProgressView().tint(Theme.apricot)
+                } else {
+                    Button("Save") { Task { await save() } }.disabled(name.isEmpty || allowedFormats.isEmpty)
+                }
             }
         }
         .onChange(of: kind) { _, _ in pruneForKind() }
@@ -163,7 +169,9 @@ private struct BookQualityProfileEditorView: View {
     private func pruneForKind() {
         let valid = Set(formatsForKind)
         allowedFormats = allowedFormats.intersection(valid)
-        if let cutoff = cutoffFormat, !allowedFormats.contains(cutoff) { cutoffFormat = nil }
+        if let cutoff = cutoffFormat, !allowedFormats.contains(cutoff) {
+            cutoffFormat = nil
+        }
     }
 
     private func seed() {
@@ -203,8 +211,11 @@ private struct BookQualityProfileEditorView: View {
         guard let client = model.api() else { return }
         saving = true; saveError = nil
         do {
-            if let profile { try await client.updateBookQualityProfile(id: profile.id, body_()) }
-            else { try await client.createBookQualityProfile(body_()) }
+            if let profile {
+                try await client.updateBookQualityProfile(id: profile.id, body_())
+            } else {
+                try await client.createBookQualityProfile(body_())
+            }
             dismiss()
         } catch {
             saveError = settingsErrorMessage(error)
