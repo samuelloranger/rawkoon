@@ -189,4 +189,22 @@ extension APIClient {
     func deleteCustomFormat(id: Int) async throws {
         try await deleteExpectOK("/api/custom-formats/\(id)")
     }
+
+    // MARK: Notification channels (per-user CRUD — spec §5 Phase 4)
+
+    func notificationChannels() async throws -> NotificationChannelsResponse {
+        try await get("/api/notifications/channels")
+    }
+    func createNotificationChannel(_ body: CreateChannelBody) async throws {
+        try await postExpectOK("/api/notifications/channels", body: body)
+    }
+    func updateNotificationChannel(id: Int, _ body: UpdateChannelBody) async throws {
+        try await patchExpectOK("/api/notifications/channels/\(id)", body: body)
+    }
+    func deleteNotificationChannel(id: Int) async throws {
+        try await deleteExpectOK("/api/notifications/channels/\(id)")
+    }
+    func testNotificationChannel(id: Int) async throws {
+        try await postExpectOK("/api/notifications/channels/\(id)/test", body: EmptyBody())
+    }
 }

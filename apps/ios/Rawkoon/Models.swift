@@ -849,6 +849,65 @@ nonisolated struct IntegrationTestResponse: Decodable, Sendable {
     let error: String?
 }
 
+// MARK: Notification channels (per-user CRUD — spec §5 Phase 4)
+
+/// A scalar JSON value for heterogeneous channel config.
+nonisolated enum JSONValue: Codable, Sendable {
+    case string(String)
+    case number(Double)
+    case bool(Bool)
+    case null
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        if c.decodeNil() { self = .null }
+        else if let b = try? c.decode(Bool.self) { self = .bool(b) }
+        else if let d = try? c.decode(Double.self) { self = .number(d) }
+        else if let s = try? c.decode(String.self) { self = .string(s) }
+        else { self = .null }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        switch self {
+        case .string(let s): try c.encode(s)
+        case .number(let n): try c.encode(n)
+        case .bool(let b): try c.encode(b)
+        case .null: try c.encodeNil()
+        }
+    }
+
+    var stringValue: String {
+        switch self {
+        case .string(let s): return s
+        case .number(let n): return n == n.rounded() ? String(Int(n)) : String(n)
+        case .bool(let b): return b ? "true" : "false"
+        case .null: return ""
+        }
+    }
+}
+
+nonisolated struct NotificationChannelDTO: Decodable, Identifiable, Sendable {
+    let id: Int
+    let type: String
+    let label: String?
+    let enabled: Bool
+    let config: [String: JSONValue]?
+}
+nonisolated struct NotificationChannelsResponse: Decodable, Sendable {
+    let channels: [NotificationChannelDTO]
+}
+nonisolated struct CreateChannelBody: Encodable, Sendable {
+    let type: String
+    let label: String
+    let config: [String: JSONValue]
+}
+nonisolated struct UpdateChannelBody: Encodable, Sendable {
+    let label: String?
+    let enabled: Bool?
+    let config: [String: JSONValue]?
+}
+
 // MARK: Post-processing settings (media + books share this row — spec §5 Phase 3)
 
 nonisolated struct PostProcessingSettingsDTO: Decodable, Sendable {

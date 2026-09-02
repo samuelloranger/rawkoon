@@ -55,6 +55,12 @@ struct SettingsView: View {
                 } label: {
                     Label("Devices", systemImage: "iphone")
                 }
+
+                NavigationLink {
+                    NotificationChannelsCrudView()
+                } label: {
+                    Label("Channels", systemImage: "paperplane")
+                }
             }
             .listRowBackground(Theme.raised)
 
