@@ -305,22 +305,29 @@ final class MediaDetailViewModel {
         }
     }
 
-    /// Returns whether the removed item is the one currently displayed by
-    /// this view — the view calls `dismiss()` when true, or refreshes the
-    /// similar-titles list when false.
-    func removeLibraryItem(client: APIClient, id: Int, deleteFiles: Bool) async -> Bool {
+    enum RemoveOutcome {
+        case dismissed
+        case refreshedOthers
+        case failed
+    }
+
+    /// The view calls `dismiss()` on `.dismissed`, refreshes the
+    /// similar-titles list on `.refreshedOthers`, and does nothing further on
+    /// `.failed` — the error state is already set by this method, exactly as
+    /// the original inline `removeLibraryItem` did.
+    func removeLibraryItem(client: APIClient, id: Int, deleteFiles: Bool) async -> RemoveOutcome {
         applyingManagementChange = true
         defer { applyingManagementChange = false }
         do {
             try await client.removeFromLibrary(id: id, deleteFiles: deleteFiles)
-            return id == libraryId
+            return id == libraryId ? .dismissed : .refreshedOthers
         } catch {
             if id == libraryId {
                 managementError = "Could not remove from library."
             } else {
                 similarError = "Could not remove from library."
             }
-            return false
+            return .failed
         }
     }
 

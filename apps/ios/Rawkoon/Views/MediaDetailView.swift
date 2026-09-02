@@ -125,10 +125,13 @@ struct MediaDetailView: View {
                 if let targetId {
                     Task {
                         guard let client = model.api() else { return }
-                        if await vm.removeLibraryItem(client: client, id: targetId, deleteFiles: deleteFiles) {
+                        switch await vm.removeLibraryItem(client: client, id: targetId, deleteFiles: deleteFiles) {
+                        case .dismissed:
                             dismiss()
-                        } else {
+                        case .refreshedOthers:
                             await vm.fetchSimilar(client: client)
+                        case .failed:
+                            break
                         }
                     }
                 }
