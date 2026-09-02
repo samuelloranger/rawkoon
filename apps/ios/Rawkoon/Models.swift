@@ -639,6 +639,34 @@ nonisolated struct AdminUser: Decodable, Identifiable, Sendable {
     let lastLogin: String?
 }
 
+// MARK: Users admin + invitations (spec §5 Phase 5)
+
+nonisolated struct SetRoleBody: Encodable, Sendable { let isAdmin: Bool }
+nonisolated struct ResetPasswordBody: Encodable, Sendable { let newPassword: String }
+nonisolated struct CreateUserBody: Encodable, Sendable {
+    let email: String
+    let password: String
+    let firstName: String?
+    let lastName: String?
+    let locale: String
+    let isAdmin: Bool
+}
+nonisolated struct CreateInvitationBody: Encodable, Sendable {
+    let email: String
+    let locale: String
+    let isAdmin: Bool
+}
+nonisolated struct TokenResponse: Decodable, Sendable { let token: String? }
+nonisolated struct InvitationDTO: Decodable, Identifiable, Sendable {
+    let id: Int
+    let email: String
+    let status: String
+    let isAdmin: Bool?
+    let createdAt: String?
+    let expiresAt: String?
+}
+nonisolated struct InvitationsResponse: Decodable, Sendable { let invitations: [InvitationDTO] }
+
 nonisolated struct AdminUsersResponse: Decodable, Sendable {
     let success: Bool?
     let users: [AdminUser]

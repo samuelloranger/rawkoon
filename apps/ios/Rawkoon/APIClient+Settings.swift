@@ -207,4 +207,31 @@ extension APIClient {
     func testNotificationChannel(id: Int) async throws {
         try await postExpectOK("/api/notifications/channels/\(id)/test", body: EmptyBody())
     }
+
+    // MARK: Users admin + invitations (spec §5 Phase 5)
+
+    func setUserRole(id: String, isAdmin: Bool) async throws {
+        try await patchExpectOK("/api/admin/users/\(id)/role", body: SetRoleBody(isAdmin: isAdmin))
+    }
+    func resetUserPassword(id: String, newPassword: String) async throws {
+        try await postExpectOK("/api/admin/users/\(id)/reset-password", body: ResetPasswordBody(newPassword: newPassword))
+    }
+    func deleteUser(id: String) async throws {
+        try await deleteExpectOK("/api/admin/users/\(id)")
+    }
+    func createUser(_ body: CreateUserBody) async throws {
+        try await postExpectOK("/api/admin/users", body: body)
+    }
+    func invitations() async throws -> InvitationsResponse {
+        try await get("/api/admin/invitations")
+    }
+    func createInvitation(_ body: CreateInvitationBody) async throws -> TokenResponse {
+        try await post("/api/admin/invitations", body: body)
+    }
+    func resendInvitation(id: Int) async throws -> TokenResponse {
+        try await post("/api/admin/invitations/\(id)/resend", body: EmptyBody())
+    }
+    func revokeInvitation(id: Int) async throws {
+        try await deleteExpectOK("/api/admin/invitations/\(id)")
+    }
 }

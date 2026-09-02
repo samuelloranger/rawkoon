@@ -157,7 +157,7 @@ struct SettingsView: View {
                     }
 
                     NavigationLink {
-                        UsersView()
+                        UsersAdminView()
                     } label: {
                         Label("Users", systemImage: "person.2")
                     }
