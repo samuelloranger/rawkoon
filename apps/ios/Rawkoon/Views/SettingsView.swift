@@ -185,6 +185,18 @@ struct SettingsView: View {
                     } label: {
                         Label("Blocklist", systemImage: "nosign")
                     }
+
+                    NavigationLink {
+                        JobsAdminView()
+                    } label: {
+                        Label("Jobs", systemImage: "clock")
+                    }
+
+                    NavigationLink {
+                        ReleasesAdminView()
+                    } label: {
+                        Label("Releases", systemImage: "shippingbox")
+                    }
                 }
                 .listRowBackground(Theme.raised)
             }

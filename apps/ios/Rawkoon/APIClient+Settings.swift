@@ -282,4 +282,16 @@ extension APIClient {
     func deleteOidcProvider(id: String) async throws {
         try await deleteExpectOK("/api/integrations/oidc/\(id)")
     }
+
+    // MARK: Releases + jobs (spec §5 Phase 5 + Appendix B)
+
+    func releases() async throws -> ReleasesResponse {
+        try await get("/api/releases")
+    }
+    func refreshReleases() async throws {
+        try await postExpectOK("/api/releases/refresh", body: EmptyBody())
+    }
+    func triggerJobAction(_ action: String) async throws {
+        try await postExpectOK("/api/admin/trigger-action", body: TriggerActionBody(action: action))
+    }
 }

@@ -729,6 +729,25 @@ nonisolated struct OidcProviderDTO: Decodable, Identifiable, Sendable {
     let iconUrl: String?
 }
 nonisolated struct OidcProvidersResponse: Decodable, Sendable { let providers: [OidcProviderDTO] }
+
+// MARK: Releases + jobs (spec §5 Phase 5 + Appendix B)
+
+nonisolated struct GithubReleaseDTO: Decodable, Identifiable, Sendable {
+    let tagName: String
+    let name: String?
+    let publishedAt: String?
+    var id: String { tagName }
+}
+nonisolated struct ReleaseSyncDTO: Decodable, Sendable {
+    let repoFullName: String?
+    let lastSyncedAt: String?
+    let lastError: String?
+}
+nonisolated struct ReleasesResponse: Decodable, Sendable {
+    let releases: [GithubReleaseDTO]
+    let sync: ReleaseSyncDTO?
+}
+nonisolated struct TriggerActionBody: Encodable, Sendable { let action: String }
 nonisolated struct CreateOidcBody: Encodable, Sendable {
     let slug: String
     let name: String
