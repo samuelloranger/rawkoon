@@ -132,4 +132,22 @@ extension APIClient {
     func reindexLanguagesStatus() async throws -> ReindexStatusDTO {
         try await get("/api/library/reindex-languages/status")
     }
+
+    // MARK: Books settings (non-CRUD — spec §5 Phase 3)
+
+    func bookQualityProfiles() async throws -> BookQualityProfilesResponse {
+        try await get("/api/book-quality-profiles")
+    }
+    func updateBooksEnabled(_ enabled: Bool) async throws {
+        try await patchExpectOK("/api/settings", body: BooksEnabledBody(booksEnabled: enabled))
+    }
+    func bookMetadataSources() async throws -> MetadataSourcesResponse {
+        try await get("/api/books/metadata-sources")
+    }
+    func updateBookMetadataSources(order: [String]) async throws {
+        try await putExpectOK("/api/books/metadata-sources", body: MetadataSourcesBody(order: order))
+    }
+    func updateBookFiles(_ body: UpdateBookFilesBody) async throws {
+        try await patchExpectOK("/api/library/post-processing/settings", body: body)
+    }
 }

@@ -103,6 +103,12 @@ struct SettingsView: View {
                     }
 
                     NavigationLink {
+                        BooksSettingsView()
+                    } label: {
+                        Label("Books", systemImage: "book")
+                    }
+
+                    NavigationLink {
                         MediaLibrarySettingsView()
                     } label: {
                         Label("Library", systemImage: "folder")

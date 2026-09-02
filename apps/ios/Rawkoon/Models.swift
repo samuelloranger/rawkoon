@@ -784,6 +784,58 @@ nonisolated struct ReindexStatusDTO: Decodable, Sendable {
     let error: String?
 }
 
+// MARK: Books settings (non-CRUD — spec §5 Phase 3)
+
+nonisolated struct BookQualityProfile: Decodable, Identifiable, Sendable {
+    let id: Int
+    let name: String
+}
+nonisolated struct BookQualityProfilesResponse: Decodable, Sendable {
+    let profiles: [BookQualityProfile]
+}
+
+nonisolated struct BooksEnabledBody: Encodable, Sendable {
+    let booksEnabled: Bool
+}
+
+nonisolated struct MetadataSourcesResponse: Decodable, Sendable {
+    let order: [String]
+}
+nonisolated struct MetadataSourcesBody: Encodable, Sendable {
+    let order: [String]
+}
+
+/// Book subset of the shared post-processing row. Explicit JSON null for cleared
+/// strings/ids so blanks persist (spec §5 Phase 3, B5).
+nonisolated struct UpdateBookFilesBody: Encodable, Sendable {
+    var booksLibraryPath: String?
+    var audiobooksLibraryPath: String?
+    var bookTemplate: String
+    var audiobookTemplate: String
+    var defaultBookQualityProfileId: Int?
+    var audiobookshelfUrl: String?
+    var audiobookshelfAudiobookLibraryId: String?
+    var audiobookshelfEbookLibraryId: String?
+
+    enum CodingKeys: String, CodingKey {
+        case booksLibraryPath, audiobooksLibraryPath, bookTemplate, audiobookTemplate
+        case defaultBookQualityProfileId, audiobookshelfUrl
+        case audiobookshelfAudiobookLibraryId, audiobookshelfEbookLibraryId
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(booksLibraryPath, forKey: .booksLibraryPath)
+        try c.encode(audiobooksLibraryPath, forKey: .audiobooksLibraryPath)
+        try c.encode(bookTemplate, forKey: .bookTemplate)
+        try c.encode(audiobookTemplate, forKey: .audiobookTemplate)
+        try c.encode(defaultBookQualityProfileId, forKey: .defaultBookQualityProfileId)
+        try c.encode(audiobookshelfUrl, forKey: .audiobookshelfUrl)
+        try c.encode(audiobookshelfAudiobookLibraryId, forKey: .audiobookshelfAudiobookLibraryId)
+        try c.encode(audiobookshelfEbookLibraryId, forKey: .audiobookshelfEbookLibraryId)
+    }
+}
+
 nonisolated struct ApproveRequestBody: Encodable, Sendable {
     let qualityProfileId: Int
 }
