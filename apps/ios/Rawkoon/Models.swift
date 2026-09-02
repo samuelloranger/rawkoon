@@ -693,6 +693,97 @@ nonisolated struct IntegrationTestResponse: Decodable, Sendable {
     let error: String?
 }
 
+// MARK: Post-processing settings (media + books share this row — spec §5 Phase 3)
+
+nonisolated struct PostProcessingSettingsDTO: Decodable, Sendable {
+    let moviesLibraryPath: String?
+    let showsLibraryPath: String?
+    let downloadsPath: String?
+    let fileOperation: String?
+    let movieTemplate: String?
+    let episodeTemplate: String?
+    let minSeedRatio: Double?
+    let postProcessingEnabled: Bool?
+    let defaultMovieQualityProfileId: Int?
+    let defaultShowQualityProfileId: Int?
+    let activeIndexerManager: String?
+    let booksLibraryPath: String?
+    let audiobooksLibraryPath: String?
+    let bookTemplate: String?
+    let audiobookTemplate: String?
+    let defaultBookQualityProfileId: Int?
+    let audiobookshelfUrl: String?
+    let audiobookshelfAudiobookLibraryId: String?
+    let audiobookshelfEbookLibraryId: String?
+}
+nonisolated struct PostProcessingSettingsResponseDTO: Decodable, Sendable {
+    let settings: PostProcessingSettingsDTO
+}
+
+/// Media subset of the shared post-processing row. Custom `encode(to:)` emits
+/// explicit JSON null for cleared paths/ids (a synthesized encoder would omit
+/// nil and keep the old value). Sends only media keys.
+nonisolated struct UpdateMediaSettingsBody: Encodable, Sendable {
+    var postProcessingEnabled: Bool
+    var moviesLibraryPath: String?
+    var showsLibraryPath: String?
+    var downloadsPath: String?
+    var fileOperation: String
+    var movieTemplate: String
+    var episodeTemplate: String
+    var minSeedRatio: Double
+    var activeIndexerManager: String?
+    var defaultMovieQualityProfileId: Int?
+    var defaultShowQualityProfileId: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case postProcessingEnabled, moviesLibraryPath, showsLibraryPath, downloadsPath
+        case fileOperation, movieTemplate, episodeTemplate, minSeedRatio
+        case activeIndexerManager, defaultMovieQualityProfileId, defaultShowQualityProfileId
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(postProcessingEnabled, forKey: .postProcessingEnabled)
+        try c.encode(moviesLibraryPath, forKey: .moviesLibraryPath)
+        try c.encode(showsLibraryPath, forKey: .showsLibraryPath)
+        try c.encode(downloadsPath, forKey: .downloadsPath)
+        try c.encode(fileOperation, forKey: .fileOperation)
+        try c.encode(movieTemplate, forKey: .movieTemplate)
+        try c.encode(episodeTemplate, forKey: .episodeTemplate)
+        try c.encode(minSeedRatio, forKey: .minSeedRatio)
+        try c.encode(activeIndexerManager, forKey: .activeIndexerManager)
+        try c.encode(defaultMovieQualityProfileId, forKey: .defaultMovieQualityProfileId)
+        try c.encode(defaultShowQualityProfileId, forKey: .defaultShowQualityProfileId)
+    }
+}
+
+nonisolated struct ScanBody: Encodable, Sendable {
+    let path: String
+    let type: String?
+}
+nonisolated struct ScanResultDTO: Decodable, Sendable {
+    let matched: Int
+    let unmatched: [String]
+}
+nonisolated struct ReindexStartResponse: Decodable, Sendable {
+    let jobId: String?
+}
+nonisolated struct ReindexProgressDTO: Decodable, Sendable {
+    let current: Int?
+    let total: Int?
+    let updated: Int?
+    let skipped: Int?
+    let errors: Int?
+    let currentFile: String?
+}
+nonisolated struct ReindexStatusDTO: Decodable, Sendable {
+    let jobId: String?
+    let state: String?
+    let progress: ReindexProgressDTO?
+    let error: String?
+}
+
 nonisolated struct ApproveRequestBody: Encodable, Sendable {
     let qualityProfileId: Int
 }

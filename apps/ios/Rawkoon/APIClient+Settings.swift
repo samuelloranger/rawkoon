@@ -114,4 +114,22 @@ extension APIClient {
     func testGoogleBooks(_ body: GoogleBooksTestBody) async throws -> IntegrationTestResponse {
         try await post("/api/integrations/googlebooks/test", body: body)
     }
+
+    // MARK: Media library settings + scan + reindex (spec §5 Phase 3)
+
+    func postProcessingSettings() async throws -> PostProcessingSettingsResponseDTO {
+        try await get("/api/library/post-processing/settings")
+    }
+    func updateMediaSettings(_ body: UpdateMediaSettingsBody) async throws {
+        try await patchExpectOK("/api/library/post-processing/settings", body: body)
+    }
+    func scanLibrary(path: String, type: String?) async throws -> ScanResultDTO {
+        try await post("/api/library/scan", body: ScanBody(path: path, type: type))
+    }
+    func startReindexLanguages() async throws -> ReindexStartResponse {
+        try await post("/api/library/reindex-languages", body: EmptyBody())
+    }
+    func reindexLanguagesStatus() async throws -> ReindexStatusDTO {
+        try await get("/api/library/reindex-languages/status")
+    }
 }

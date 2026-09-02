@@ -103,6 +103,12 @@ struct SettingsView: View {
                     }
 
                     NavigationLink {
+                        MediaLibrarySettingsView()
+                    } label: {
+                        Label("Library", systemImage: "folder")
+                    }
+
+                    NavigationLink {
                         QualityProfilesView()
                     } label: {
                         Label("Quality profiles", systemImage: "slider.horizontal.3")
