@@ -488,6 +488,26 @@ final class AudiobookPlayer {
         seek(to: chapter.startSecs)
     }
 
+    /// The manifest's chapters, exposed read-only so CarPlay can build a chapter
+    /// picker. Empty until a book is loaded.
+    var chapterList: [ManifestChapter] {
+        chapters
+    }
+
+    /// The rates the quick-cycle speed button steps through, in order. A tap
+    /// advances to the next one and wraps past the end back to the first — this
+    /// is the CarPlay rate button's ladder, distinct from the phone UI's picker.
+    static let rateLadder: [Float] = [1.0, 1.25, 1.5, 1.75, 2.0]
+
+    /// Advances to the next rate in `rateLadder`. Snaps to the nearest ladder
+    /// entry first, so a rate set from the phone (e.g. 0.8×) still cycles sanely.
+    func cycleRate() {
+        let ladder = Self.rateLadder
+        let nearest = ladder.min(by: { abs($0 - rate) < abs($1 - rate) }) ?? ladder[0]
+        let index = ladder.firstIndex(of: nearest) ?? 0
+        setRate(ladder[(index + 1) % ladder.count])
+    }
+
     func setRate(_ value: Float) {
         rate = value
         applyPitchAlgorithm()
