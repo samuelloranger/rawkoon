@@ -554,6 +554,49 @@ nonisolated struct UpdateGeneralSettingsBody: Encodable, Sendable {
     let upcomingLanguages: String?
 }
 
+// MARK: Simple integrations (spec §5 Phase 2)
+// The server returns api_key as "" (never the real secret) and treats an empty
+// api_key on save as "keep the existing one" — so we always send it as a string.
+
+nonisolated struct TmdbIntegrationDTO: Decodable, Sendable {
+    let enabled: Bool
+    let popularityThreshold: Int?
+}
+nonisolated struct TmdbIntegrationResponse: Decodable, Sendable { let integration: TmdbIntegrationDTO }
+nonisolated struct SaveTmdbBody: Encodable, Sendable {
+    let enabled: Bool
+    let apiKey: String
+    let popularityThreshold: Int
+}
+
+nonisolated struct JellyfinIntegrationDTO: Decodable, Sendable {
+    let enabled: Bool
+    let websiteUrl: String?
+}
+nonisolated struct JellyfinIntegrationResponse: Decodable, Sendable { let integration: JellyfinIntegrationDTO }
+nonisolated struct SaveJellyfinBody: Encodable, Sendable {
+    let enabled: Bool
+    let websiteUrl: String
+    let apiKey: String
+}
+
+nonisolated struct LocalAiIntegrationDTO: Decodable, Sendable {
+    let enabled: Bool
+    let baseUrl: String?
+    let model: String?
+}
+nonisolated struct LocalAiIntegrationResponse: Decodable, Sendable { let integration: LocalAiIntegrationDTO }
+nonisolated struct SaveLocalAiBody: Encodable, Sendable {
+    let enabled: Bool
+    let baseUrl: String
+    let model: String
+}
+nonisolated struct LocalAiTestResponse: Decodable, Sendable {
+    let error: String?
+    let models: [String]?
+    let modelAvailable: Bool?
+}
+
 nonisolated struct ApproveRequestBody: Encodable, Sendable {
     let qualityProfileId: Int
 }

@@ -34,4 +34,30 @@ extension APIClient {
     func updateGeneralSettings(_ body: UpdateGeneralSettingsBody) async throws {
         try await patchExpectOK("/api/settings", body: body)
     }
+
+    // MARK: Simple integrations (spec §5 Phase 2)
+
+    func tmdbIntegration() async throws -> TmdbIntegrationResponse {
+        try await get("/api/integrations/tmdb")
+    }
+    func saveTmdbIntegration(_ body: SaveTmdbBody) async throws {
+        try await putExpectOK("/api/integrations/tmdb", body: body)
+    }
+
+    func jellyfinIntegration() async throws -> JellyfinIntegrationResponse {
+        try await get("/api/integrations/jellyfin")
+    }
+    func saveJellyfinIntegration(_ body: SaveJellyfinBody) async throws {
+        try await putExpectOK("/api/integrations/jellyfin", body: body)
+    }
+
+    func localAiIntegration() async throws -> LocalAiIntegrationResponse {
+        try await get("/api/integrations/local-ai")
+    }
+    func saveLocalAiIntegration(_ body: SaveLocalAiBody) async throws {
+        try await putExpectOK("/api/integrations/local-ai", body: body)
+    }
+    func testLocalAi() async throws -> LocalAiTestResponse {
+        try await get("/api/integrations/local-ai/test")
+    }
 }

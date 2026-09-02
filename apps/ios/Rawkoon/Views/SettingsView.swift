@@ -67,6 +67,24 @@ struct SettingsView: View {
                     }
 
                     NavigationLink {
+                        TmdbIntegrationView()
+                    } label: {
+                        Label("TMDB", systemImage: "film")
+                    }
+
+                    NavigationLink {
+                        JellyfinIntegrationView()
+                    } label: {
+                        Label("Jellyfin", systemImage: "play.rectangle")
+                    }
+
+                    NavigationLink {
+                        LocalAiIntegrationView()
+                    } label: {
+                        Label("Local AI", systemImage: "brain")
+                    }
+
+                    NavigationLink {
                         QualityProfilesView()
                     } label: {
                         Label("Quality profiles", systemImage: "slider.horizontal.3")
