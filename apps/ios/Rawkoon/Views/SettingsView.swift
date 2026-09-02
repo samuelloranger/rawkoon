@@ -61,6 +61,12 @@ struct SettingsView: View {
             if model.isAdmin {
                 Section("Admin") {
                     NavigationLink {
+                        GeneralSettingsView()
+                    } label: {
+                        Label("General", systemImage: "globe")
+                    }
+
+                    NavigationLink {
                         QualityProfilesView()
                     } label: {
                         Label("Quality profiles", systemImage: "slider.horizontal.3")

@@ -24,4 +24,14 @@ extension APIClient {
     func deleteWebPushDevice(id: Int) async throws {
         try await deleteExpectOK("/api/notifications/devices/\(id)")
     }
+
+    // MARK: General app settings (spec §5 Phase 2)
+
+    func generalSettings() async throws -> AppSettingsResponseDTO {
+        try await get("/api/settings")
+    }
+
+    func updateGeneralSettings(_ body: UpdateGeneralSettingsBody) async throws {
+        try await patchExpectOK("/api/settings", body: body)
+    }
 }

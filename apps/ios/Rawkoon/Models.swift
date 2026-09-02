@@ -535,6 +535,25 @@ nonisolated struct WebPushDevicesResponse: Decodable, Sendable {
     let devices: [WebPushDeviceDTO]
 }
 
+// MARK: General app settings (spec §5 Phase 2)
+
+nonisolated struct AppSettingsDTO: Decodable, Sendable {
+    let countryCode: String
+    let upcomingWindowMonths: Int
+    let upcomingLanguages: String
+    let booksEnabled: Bool?
+}
+
+nonisolated struct AppSettingsResponseDTO: Decodable, Sendable {
+    let settings: AppSettingsDTO
+}
+
+nonisolated struct UpdateGeneralSettingsBody: Encodable, Sendable {
+    let countryCode: String?
+    let upcomingWindowMonths: Int?
+    let upcomingLanguages: String?
+}
+
 nonisolated struct ApproveRequestBody: Encodable, Sendable {
     let qualityProfileId: Int
 }
