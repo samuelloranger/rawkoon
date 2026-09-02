@@ -424,6 +424,23 @@ actor APIClient {
         }
     }
 
+    /// Authenticated file download. Carries the bearer header and the cookie-less
+    /// session, and maps HTTP status the same way as the JSON lane. Returns the
+    /// temporary file URL from URLSession; the caller owns moving it into place.
+    func downloadFile(path: String) async throws -> URL {
+        let request = try makeRequest(path: path, method: "GET", requiresAuth: true)
+        do {
+            let (tempURL, response) = try await session.download(for: request)
+            guard let http = response as? HTTPURLResponse else { throw APIError.transport }
+            guard (200 ..< 300).contains(http.statusCode) else { throw mapStatus(http.statusCode) }
+            return tempURL
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw APIError.transport
+        }
+    }
+
     private func resolveURL(_ raw: String?) -> URL? {
         guard let raw, !raw.isEmpty else { return nil }
         if let absolute = URL(string: raw), absolute.scheme != nil {

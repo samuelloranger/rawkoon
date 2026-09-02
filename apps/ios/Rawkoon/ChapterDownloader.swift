@@ -226,7 +226,13 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         // below either overwrites what's left, or fails and is already
         // reported through the existing transportFailed path.
         if fileManager.fileExists(atPath: destination.path) {
-            try? fileManager.removeItem(at: destination)
+            do {
+                try fileManager.removeItem(at: destination)
+            } catch CocoaError.fileNoSuchFile {
+                // Already gone — nothing to clean up.
+            } catch {
+                Log.download.error("Failed to remove partial chapter at \(destination.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
         }
 
         do {

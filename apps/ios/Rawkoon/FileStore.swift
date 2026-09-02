@@ -27,11 +27,16 @@ enum FileStore {
         return value.intValue
     }
 
-    // Best-effort: removing a file that may already be gone. A failure here
-    // is indistinguishable from success to every caller, so logging it would
-    // only add noise on a path that succeeds routinely.
+    // Removing a file that may already be gone. A missing file is a no-op,
+    // not an error; any other failure is logged for diagnosis.
     static func delete(url: URL) {
-        try? FileManager.default.removeItem(at: url)
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch CocoaError.fileNoSuchFile {
+            // Not present — treat delete as a no-op.
+        } catch {
+            Log.download.error("Failed to remove file at \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     static func deleteEdition(_ editionId: Int) {
@@ -50,13 +55,18 @@ enum FileStore {
         }
     }
 
-    // Best-effort: this only flags a directory for iCloud-backup exclusion. A
-    // failure inflates backup size; it never affects playback or download
-    // correctness.
+    // This only flags a directory for iCloud-backup exclusion. A failure
+    // inflates backup size; it never affects playback or download
+    // correctness, but is logged so it can be diagnosed.
     static func excludeFromBackup(_ url: inout URL) {
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
-        try? url.setResourceValues(values)
+        do {
+            try url.setResourceValues(values)
+        } catch {
+            let name = url.lastPathComponent
+            Log.download.error("Failed to set resource values (exclude-from-backup) on \(name, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     /// The root of the app's book storage — downloads and the reading-progress
