@@ -164,7 +164,9 @@ final class AudiobookPlayer {
             object: session,
             queue: .main
         ) { [weak self] notification in
-            self?.handleInterruption(notification)
+            MainActor.assumeIsolated {
+                self?.handleInterruption(notification)
+            }
         }
 
         // Category and mode are set once now, rather than on every play, so
@@ -176,7 +178,9 @@ final class AudiobookPlayer {
             object: session,
             queue: .main
         ) { [weak self] _ in
-            self?.handleMediaServicesReset()
+            MainActor.assumeIsolated {
+                self?.handleMediaServicesReset()
+            }
         }
     }
 
@@ -598,24 +602,26 @@ final class AudiobookPlayer {
         let time = CMTime(seconds: max(0, offset), preferredTimescale: 600)
         player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
             DispatchQueue.main.async {
-                guard let self, self.seekID == id else { return }
-                self.isSeeking = false
-                guard finished else {
-                    // Cancelled, not superseded — a newer seek would have been
-                    // caught by the seekID guard above. `positionSecs` was
-                    // written optimistically in `seek(to:)`, so take the truth
-                    // back from the player rather than reporting a position it
-                    // never reached.
-                    if let current = self.player?.currentTime().seconds, current.isFinite {
-                        self.positionSecs = self.wholeBookPosition(fromCurrentItemTime: current)
+                MainActor.assumeIsolated {
+                    guard let self, self.seekID == id else { return }
+                    self.isSeeking = false
+                    guard finished else {
+                        // Cancelled, not superseded — a newer seek would have
+                        // been caught by the seekID guard above. `positionSecs`
+                        // was written optimistically in `seek(to:)`, so take
+                        // the truth back from the player rather than reporting
+                        // a position it never reached.
+                        if let current = self.player?.currentTime().seconds, current.isFinite {
+                            self.positionSecs = self.wholeBookPosition(fromCurrentItemTime: current)
+                        }
+                        self.updateNowPlayingInfo()
+                        return
                     }
-                    self.updateNowPlayingInfo()
-                    return
-                }
-                if self.isPlaying {
-                    self.beginPlayback()
-                } else {
-                    self.updateNowPlayingInfo()
+                    if self.isPlaying {
+                        self.beginPlayback()
+                    } else {
+                        self.updateNowPlayingInfo()
+                    }
                 }
             }
         }
@@ -739,11 +745,18 @@ final class AudiobookPlayer {
             forInterval: CMTime(seconds: 0.5, preferredTimescale: 600),
             queue: .main
         ) { [weak self] time in
-            self?.handleTick(time.seconds)
+            MainActor.assumeIsolated {
+                self?.handleTick(time.seconds)
+            }
         }
 
+        // AVQueuePlayer.currentItem KVO fires on whatever queue drives
+        // playback, which for this app is always the main run loop — there is
+        // no separate background playback thread here.
         currentItemObserver = player.observe(\.currentItem, options: [.initial, .new]) { [weak self] _, _ in
-            self?.handleCurrentItemChanged()
+            MainActor.assumeIsolated {
+                self?.handleCurrentItemChanged()
+            }
         }
 
         endObserver = NotificationCenter.default.addObserver(
@@ -751,14 +764,16 @@ final class AudiobookPlayer {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            guard
-                let self,
-                let item = notification.object as? AVPlayerItem,
-                self.itemChapters[ObjectIdentifier(item)] != nil
-            else {
-                return
+            MainActor.assumeIsolated {
+                guard
+                    let self,
+                    let item = notification.object as? AVPlayerItem,
+                    self.itemChapters[ObjectIdentifier(item)] != nil
+                else {
+                    return
+                }
+                self.handleCurrentItemChanged()
             }
-            self.handleCurrentItemChanged()
         }
     }
 
@@ -1044,11 +1059,17 @@ final class AudiobookPlayer {
         commandTargets.append((command, command.addTarget(handler: handler)))
     }
 
-    private func onMain(_ work: @escaping () -> Void) -> MPRemoteCommandHandlerStatus {
+    private func onMain(_ work: @escaping @MainActor () -> Void) -> MPRemoteCommandHandlerStatus {
         if Thread.isMainThread {
-            work()
+            MainActor.assumeIsolated {
+                work()
+            }
         } else {
-            DispatchQueue.main.async(execute: work)
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    work()
+                }
+            }
         }
         return .success
     }
