@@ -195,6 +195,7 @@ struct FormattersTests {
         #expect(Formatters.durationCompact(2 * 3600 + 5 * 60) == "2h 5m")   // unpadded
         #expect(Formatters.durationCompact(90) == "1m")
         #expect(Formatters.durationCompact(59) == "0m")                     // truncation
+        #expect(Formatters.durationCompact(59.6) == "0m")                   // truncates — same input clock rounds up
     }
     @Test func compactRejectsInvalid() {
         #expect(Formatters.durationCompact(nil) == nil)
@@ -205,7 +206,7 @@ struct FormattersTests {
     // durationClock — pure arithmetic, exact strings safe on Linux
     @Test func clockPadsAndRounds() {
         #expect(Formatters.durationClock(2 * 3600 + 5 * 60) == "2h 05m")    // padded
-        #expect(Formatters.durationClock(89.6) == "2m")                     // rounds up over the minute
+        #expect(Formatters.durationClock(59.6) == "1m")                     // rounds up to a full minute
         #expect(Formatters.durationClock(0) == "0:00")
         #expect(Formatters.durationClock(.nan) == "0:00")
     }
