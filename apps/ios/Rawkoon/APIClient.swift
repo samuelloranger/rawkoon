@@ -227,7 +227,7 @@ actor APIClient {
 
     /// Admin: add a movie/show to the library directly from TMDB.
     func addToLibrary(tmdbId: Int, type: String) async throws {
-        struct Body: Encodable { let tmdbId: Int; let type: String }
+        nonisolated struct Body: Encodable { let tmdbId: Int; let type: String }
         try await postExpectOK("/api/library", body: Body(tmdbId: tmdbId, type: type))
     }
 
@@ -573,7 +573,7 @@ actor APIClient {
     }
 
     func addBook(googleVolumeId: String) async throws {
-        struct Body: Encodable { let googleVolumeId: String }
+        nonisolated struct Body: Encodable { let googleVolumeId: String }
         try await postExpectOK("/api/books", body: Body(googleVolumeId: googleVolumeId))
     }
 
@@ -876,20 +876,20 @@ actor APIClient {
     }
 }
 
-private struct LoginTokenResponse: Decodable {
+nonisolated private struct LoginTokenResponse: Decodable {
     let token: String
 }
 
-private struct LibraryResponse: Decodable {
+nonisolated private struct LibraryResponse: Decodable {
     let items: [LibraryBook]
     let hasMore: Bool?
 }
 
-private struct LibraryItemResponse: Decodable {
+nonisolated private struct LibraryItemResponse: Decodable {
     let item: LibraryMedia
 }
 
-private struct LibraryBook: Decodable {
+nonisolated private struct LibraryBook: Decodable {
     let id: Int
     let title: String
     let coverUrl: String?
@@ -897,7 +897,7 @@ private struct LibraryBook: Decodable {
     let editions: [LibraryEdition]
 }
 
-private struct LibraryEdition: Decodable {
+nonisolated private struct LibraryEdition: Decodable {
     let id: Int
     let kind: String
     let status: String
@@ -905,18 +905,18 @@ private struct LibraryEdition: Decodable {
     let fileCount: Int
 }
 
-private struct ProgressResponse: Decodable {
+nonisolated private struct ProgressResponse: Decodable {
     let progress: [ProgressPayload]
 }
 
-struct BookEditionRescanResponse: Decodable, Sendable {
+nonisolated struct BookEditionRescanResponse: Decodable, Sendable {
     let registered: Int
     let refreshed: Int
     let removed: Int
     let directory: String?
 }
 
-private struct ProgressPayload: Decodable {
+nonisolated private struct ProgressPayload: Decodable {
     let editionId: Int
     let positionSecs: Double
     let totalDurationSecs: Double
@@ -924,17 +924,17 @@ private struct ProgressPayload: Decodable {
     let updatedAt: Date
 }
 
-private struct ApnsUnregisterBody: Encodable {
+nonisolated private struct ApnsUnregisterBody: Encodable {
     let deviceToken: String
 }
 
-private struct ReadingProgressResponse: Decodable {
+nonisolated private struct ReadingProgressResponse: Decodable {
     let progress: [ReadingProgressPayload]
 }
 
 /// `updatedAt` stays a String here: the shared media decoder does not install a
 /// date strategy, so it is parsed explicitly.
-private struct ReadingProgressPayload: Decodable {
+nonisolated private struct ReadingProgressPayload: Decodable {
     let editionId: Int
     let fileId: Int?
     let spineIndex: Int
@@ -946,7 +946,7 @@ private struct ReadingProgressPayload: Decodable {
     let locator: String?
 }
 
-private struct PutReadingProgressRequest: Encodable {
+nonisolated private struct PutReadingProgressRequest: Encodable {
     let fileId: Int?
     let spineIndex: Int
     let spinePath: String
@@ -958,7 +958,7 @@ private struct PutReadingProgressRequest: Encodable {
     let locator: String?
 }
 
-private struct PutProgressRequest: Encodable {
+nonisolated private struct PutProgressRequest: Encodable {
     let positionSecs: Double
     let totalDurationSecs: Double
     let finished: Bool
@@ -966,27 +966,27 @@ private struct PutProgressRequest: Encodable {
     let deviceId: String
 }
 
-private struct SimilarResponse: Decodable {
+nonisolated private struct SimilarResponse: Decodable {
     let items: [TmdbSearchItem]
 }
 
-private struct UpdateLibraryMonitoredBody: Encodable {
+nonisolated private struct UpdateLibraryMonitoredBody: Encodable {
     let monitored: Bool
 }
 
-private struct UpdateLibraryStatusBody: Encodable {
+nonisolated private struct UpdateLibraryStatusBody: Encodable {
     let status: String
 }
 
-private struct UpdateLibraryQualityProfileBody: Encodable {
+nonisolated private struct UpdateLibraryQualityProfileBody: Encodable {
     let qualityProfileId: Int?
 }
 
-private struct DeleteCountResponse: Decodable {
+nonisolated private struct DeleteCountResponse: Decodable {
     let deleted: Int
 }
 
-private struct RescanResponse: Decodable {
+nonisolated private struct RescanResponse: Decodable {
     let rescanned: Int
     let skipped: Int
     let failed: Int
@@ -995,9 +995,9 @@ private struct RescanResponse: Decodable {
     let requeued: Int
 }
 
-private struct EmptyBody: Encodable {}
+nonisolated private struct EmptyBody: Encodable {}
 
-private struct WatchlistAddBody: Encodable {
+nonisolated private struct WatchlistAddBody: Encodable {
     let tmdbId: Int
     let mediaType: String
     let title: String
