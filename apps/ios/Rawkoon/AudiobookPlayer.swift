@@ -490,7 +490,9 @@ final class AudiobookPlayer {
 
     /// The manifest's chapters, exposed read-only so CarPlay can build a chapter
     /// picker. Empty until a book is loaded.
-    var chapterList: [ManifestChapter] { chapters }
+    var chapterList: [ManifestChapter] {
+        chapters
+    }
 
     /// The rates the quick-cycle speed button steps through, in order. A tap
     /// advances to the next one and wraps past the end back to the first — this
