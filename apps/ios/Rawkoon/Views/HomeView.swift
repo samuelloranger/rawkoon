@@ -119,13 +119,16 @@ struct HomeView: View {
             NavigationLink {
                 MediaDetailView(tmdbId: u.tmdbId ?? 0, mediaType: u.mediaType,
                                 title: u.title, posterPath: u.posterUrl, libraryId: u.libraryId)
-            } label: { poster(title: u.title, url: u.posterUrl) }
-                .buttonStyle(.plain)
-                .disabled(u.tmdbId == nil && u.libraryId == nil)
+            } label: {
+                poster(title: u.title, url: u.posterUrl,
+                       date: u.displayDate, episode: u.episodeLabel)
+            }
+            .buttonStyle(.plain)
+            .disabled(u.tmdbId == nil && u.libraryId == nil)
         }
     }
 
-    private func poster(title: String, url: String?) -> some View {
+    private func poster(title: String, url: String?, date: String? = nil, episode: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Rectangle().fill(Theme.raised)
                 .frame(width: 110, height: 165)
@@ -137,6 +140,19 @@ struct HomeView: View {
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.05), lineWidth: 1))
             Text(title).font(.caption).foregroundStyle(Theme.textStrong)
                 .lineLimit(2).frame(width: 110, height: 34, alignment: .top)
+            if date != nil || episode != nil {
+                HStack(spacing: 6) {
+                    if let date {
+                        Text(date).font(.caption2).foregroundStyle(Theme.muted)
+                    }
+                    Spacer(minLength: 0)
+                    if let episode {
+                        Text(episode).font(.caption2.weight(.semibold)).foregroundStyle(Theme.apricot)
+                    }
+                }
+                .lineLimit(1)
+                .frame(width: 110)
+            }
         }
     }
 

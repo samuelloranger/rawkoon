@@ -421,6 +421,28 @@ nonisolated struct UpcomingItem: Decodable, Identifiable, Sendable {
         let digits = id.drop { !$0.isNumber }.prefix { $0.isNumber }
         return Int(digits)
     }
+
+    /// Short, locale-aware release/air date ("Sep 12"), or nil when absent or
+    /// unparseable. The API sends day-only ISO strings; parse in the current
+    /// zone so the shown calendar day matches the server's.
+    var displayDate: String? {
+        guard let releaseDate else { return nil }
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.dateFormat = "yyyy-MM-dd"
+        parser.timeZone = .current
+        guard let date = parser.date(from: releaseDate) else { return nil }
+        return date.formatted(.dateTime.month(.abbreviated).day())
+    }
+
+    /// `S2 E5` for a single upcoming episode; nil for movies or for days that
+    /// group several episodes (season/episode arrive null then).
+    var episodeLabel: String? {
+        guard mediaType == "tv", let seasonNumber, let episodeNumber else {
+            return nil
+        }
+        return "S\(seasonNumber) E\(episodeNumber)"
+    }
 }
 
 // MARK: - Management (settings hub)
