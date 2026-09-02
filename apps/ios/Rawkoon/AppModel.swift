@@ -45,6 +45,10 @@ final class AppModel {
     var ssoProviders: [SsoProvider] = []
     var loading = false
     var errorMessage: String?
+    /// Set when sign-in succeeded but the credential could not be written to the
+    /// Keychain — the session works now but will not survive a relaunch. Surfaced
+    /// as an alert at the app root, distinct from `errorMessage` (a login failure).
+    var authWarning: String?
     var downloadPlans: [Int: DownloadPlan] = [:]
     var activeEditionId: Int?
 
@@ -53,6 +57,10 @@ final class AppModel {
     private static let serverURLKey = "server_url"
     private static let authTokenKey = "auth_token"
     private static let deviceIDKey = "device_id"
+
+    private static let persistFailedWarning =
+        "Signed in, but this device couldn't save your login. "
+            + "You may need to sign in again after quitting the app."
 
     private var apiClient: APIClient?
     private var manifests: [Int: BookManifest] = [:]
@@ -120,8 +128,11 @@ final class AppModel {
             let client = APIClient(baseURL: baseURL, token: nil)
             let token = try await client.login(email: email, password: password)
 
-            Keychain.set(normalizedServer, for: Self.serverURLKey)
-            Keychain.set(token, for: Self.authTokenKey)
+            let serverSaved = Keychain.set(normalizedServer, for: Self.serverURLKey)
+            let tokenSaved = Keychain.set(token, for: Self.authTokenKey)
+            if !serverSaved || !tokenSaved {
+                authWarning = Self.persistFailedWarning
+            }
 
             serverURL = normalizedServer
             apiClient = client
@@ -219,8 +230,11 @@ final class AppModel {
             errorMessage = "Enter a valid server URL."
             return
         }
-        Keychain.set(server, for: Self.serverURLKey)
-        Keychain.set(token, for: Self.authTokenKey)
+        let serverSaved = Keychain.set(server, for: Self.serverURLKey)
+        let tokenSaved = Keychain.set(token, for: Self.authTokenKey)
+        if !serverSaved || !tokenSaved {
+            authWarning = Self.persistFailedWarning
+        }
         serverURL = server
         apiClient = APIClient(baseURL: base, token: token)
         isLoggedIn = true
