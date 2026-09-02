@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Admin-only: shows the configured download client integration and live speed.
 struct DownloadClientView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     @State private var integration: DownloadClientIntegration?
     @State private var speed: SpeedResponse?

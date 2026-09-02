@@ -4,7 +4,7 @@ import SwiftUI
 /// Pushed from Discover and Library. `mediaType` is TMDB-style ("movie"/"tv").
 /// `libraryId` is non-nil when the title is already in the library.
 struct MediaDetailView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
 
     let tmdbId: Int
@@ -103,7 +103,7 @@ struct MediaDetailView: View {
                     mediaType: mediaType,
                     availableSeasons: details?.seasons?.map(\.seasonNumber) ?? []
                 )
-                .environmentObject(model)
+                .environment(model)
             }
             .sheet(item: $menuReleaseSearch) { target in
                 ReleaseSearchView(
@@ -113,7 +113,7 @@ struct MediaDetailView: View {
                     mediaType: target.mediaType,
                     availableSeasons: []
                 )
-                .environmentObject(model)
+                .environment(model)
             }
             .libraryRemoveConfirmation(
                 isPresented: $showingRemoveConfirm,

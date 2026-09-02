@@ -4,7 +4,7 @@ import SwiftUI
 /// Upcoming rails, then a widget stack (Now Watching, Downloads, Library
 /// Attention, RSS). Widgets self-hide when their integration is off.
 struct HomeView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     @State private var recent: [LibraryMedia] = []
     @State private var upcoming: [UpcomingItem] = []

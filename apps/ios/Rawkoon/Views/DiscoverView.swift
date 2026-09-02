@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Tab root. Explore feed + TMDB search + poster grid; tap → MediaDetailView.
 struct DiscoverView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     @State private var query = ""
     @State private var kindFilter: KindFilter = .all

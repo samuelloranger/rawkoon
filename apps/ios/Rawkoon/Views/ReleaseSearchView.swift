@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Presented as a sheet from MediaDetailView. Interactive indexer search + grab.
 struct ReleaseSearchView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     let libraryMediaId: Int?
     let tmdbId: Int?

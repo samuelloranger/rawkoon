@@ -1,16 +1,34 @@
 import AVFoundation
 import Foundation
 import MediaPlayer
+import Observation
 import RawkoonKit
 import UIKit
 
-final class AudiobookPlayer: ObservableObject {
-    @Published private(set) var positionSecs: Double = 0
-    @Published private(set) var isPlaying = false
-    @Published private(set) var currentChapterIndex: Int?
-    @Published private(set) var currentChapter: ManifestChapter?
-    @Published private(set) var rate: Float = 1.0
-    @Published private(set) var duration: Double = 0
+@Observable
+final class AudiobookPlayer {
+    private(set) var positionSecs: Double = 0 {
+        didSet { onPositionTick?() }
+    }
+    private(set) var isPlaying = false {
+        didSet {
+            // Combine sink was .dropFirst().removeDuplicates(), fired on !isPlaying:
+            // i.e. only on an actual playing→paused transition.
+            if oldValue && !isPlaying { onPlaybackStopped?() }
+        }
+    }
+    private(set) var currentChapterIndex: Int?
+    private(set) var currentChapter: ManifestChapter?
+    private(set) var rate: Float = 1.0
+    private(set) var duration: Double = 0
+
+    /// Called on every positionSecs change — AppModel uses it to persist progress
+    /// (throttled inside persistPlaybackProgress). Replaces the Combine relay's
+    /// player.$positionSecs sink.
+    var onPositionTick: (() -> Void)?
+    /// Called when playback transitions from playing to paused. Replaces the
+    /// player.$isPlaying.dropFirst().removeDuplicates() sink that force-persisted.
+    var onPlaybackStopped: (() -> Void)?
 
     /// Sleep timer. Countdown advances on playback ticks, so it naturally pauses
     /// when playback pauses. `.endOfChapter` stops when the current chapter ends.
@@ -20,8 +38,8 @@ final class AudiobookPlayer: ObservableObject {
         case endOfChapter
     }
 
-    @Published private(set) var sleepMode: SleepMode = .off
-    @Published private(set) var sleepRemainingSecs: Double?
+    private(set) var sleepMode: SleepMode = .off
+    private(set) var sleepRemainingSecs: Double?
 
     private var sleepEndChapterIndex: Int?
     private var lastSleepTick: Date?

@@ -185,7 +185,7 @@ private final class ReaderSession {
 struct EbookReaderSheet: View {
     let document: EbookPreviewDocument
 
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @StateObject private var chrome = ReaderChrome()
     @State private var state: ReaderState = .opening

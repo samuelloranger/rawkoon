@@ -4,7 +4,7 @@ import SwiftUI
 /// In-progress audiobooks and ebooks. Lives on the Home dashboard.
 /// Self-loads, so any surface can host it.
 struct ContinueListeningView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     var refreshToken: Int = 0
     var limit: Int = 6
@@ -34,12 +34,12 @@ struct ContinueListeningView: View {
         .sheet(isPresented: $showingPlayer, onDismiss: { Task { await load() } }) {
             if let active = model.activeBook() {
                 PlayerView(summary: active.summary, manifest: active.manifest)
-                    .environmentObject(model)
+                    .environment(model)
             }
         }
         .sheet(item: $previewDocument, onDismiss: { Task { await load() } }) { document in
             EbookReaderSheet(document: document)
-                .environmentObject(model)
+                .environment(model)
         }
         .navigationDestination(isPresented: Binding(
             get: { readingBook != nil },

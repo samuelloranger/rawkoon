@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
     @AppStorage("download_over") private var downloadOver = "any"
     @AppStorage("smart_rewind") private var smartRewind = false
 
@@ -11,7 +11,8 @@ struct SettingsView: View {
     @State private var confirmLogOut = false
 
     var body: some View {
-        Form {
+        @Bindable var model = model
+        return Form {
             Section("Account") {
                 TextField("Server URL", text: $model.serverURL)
                     .disabled(true)

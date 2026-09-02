@@ -19,7 +19,7 @@ private enum ReleaseSearchLane: String, Identifiable {
 }
 
 struct BookView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     let book: BookListItem
 
@@ -146,7 +146,7 @@ struct BookView: View {
         .sheet(isPresented: $showingPlayer) {
             if let manifest, let summary = audiobookSummary {
                 PlayerView(summary: summary, manifest: manifest)
-                    .environmentObject(model)
+                    .environment(model)
             }
         }
         .sheet(item: $releaseSearchLane, onDismiss: {
@@ -162,11 +162,11 @@ struct BookView: View {
             }
         }) { lane in
             BookReleaseSearchView(bookId: book.bookId, kind: lane.rawValue, title: titleText)
-                .environmentObject(model)
+                .environment(model)
         }
         .sheet(item: $previewDocument) { document in
             EbookReaderSheet(document: document)
-                .environmentObject(model)
+                .environment(model)
         }
     }
 

@@ -4,7 +4,7 @@ import RawkoonKit
 import SwiftUI
 
 struct PlayerView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
 
     let summary: LibrarySummary
@@ -45,7 +45,7 @@ struct PlayerView: View {
         .presentationDragIndicator(.visible)
         .presentationBackground(Theme.base)
         .onAppear { sliderPosition = model.player.positionSecs }
-        .onReceive(model.player.$positionSecs) { position in
+        .onChange(of: model.player.positionSecs) { _, position in
             guard !isDraggingSlider else { return }
             sliderPosition = position
         }

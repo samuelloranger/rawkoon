@@ -3,7 +3,7 @@ import SwiftUI
 /// Add an audiobook (or ebook) edition to a book, then search indexers and grab
 /// a release — mirrors the web book-detail flow. Presented as a sheet.
 struct BookReleaseSearchView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     let bookId: Int
     let kind: String // "audiobook" | "ebook"

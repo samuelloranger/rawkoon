@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct QualityProfilesView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     @State private var profiles: [QualityProfile] = []
     @State private var isLoading = true

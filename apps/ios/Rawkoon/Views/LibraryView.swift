@@ -90,7 +90,7 @@ private enum BookSort: String, CaseIterable, Identifiable {
 }
 
 struct LibraryView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     @State private var section: LibrarySection = .media
 
@@ -172,12 +172,12 @@ struct LibraryView: View {
                 mediaType: target.mediaType,
                 availableSeasons: []
             )
-            .environmentObject(model)
+            .environment(model)
         }
         .sheet(isPresented: $showingPlayer) {
             if let active = model.activeBook() {
                 PlayerView(summary: active.summary, manifest: active.manifest)
-                    .environmentObject(model)
+                    .environment(model)
             }
         }
         .navigationDestination(isPresented: Binding(

@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Tab root: download queue, recent history, and the upcoming calendar.
 struct ActivityView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     private enum Lane: String, CaseIterable, Identifiable {
         case queue = "Queue"
