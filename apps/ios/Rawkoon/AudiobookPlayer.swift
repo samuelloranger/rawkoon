@@ -759,12 +759,16 @@ final class AudiobookPlayer {
             }
         }
 
-        // AVQueuePlayer.currentItem KVO fires on whatever queue drives
-        // playback, which for this app is always the main run loop — there is
-        // no separate background playback thread here.
+        // AVQueuePlayer.currentItem KVO is not documented to deliver on any
+        // particular queue — with actionAtItemEnd = .advance it fires on
+        // AVQueuePlayer's own auto-advance at every chapter boundary, which
+        // is the most frequent transition in a listening session. Hop
+        // explicitly rather than assuming main, same as itemStatusObserver.
         currentItemObserver = player.observe(\.currentItem, options: [.initial, .new]) { [weak self] _, _ in
-            MainActor.assumeIsolated {
-                self?.handleCurrentItemChanged()
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    self?.handleCurrentItemChanged()
+                }
             }
         }
 
