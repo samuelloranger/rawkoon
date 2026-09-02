@@ -34,6 +34,12 @@ struct SettingsView: View {
                         }
                     }
                 }
+
+                NavigationLink {
+                    ProfileView()
+                } label: {
+                    Label("Edit profile", systemImage: "person.crop.circle")
+                }
             }
             .listRowBackground(Theme.raised)
 

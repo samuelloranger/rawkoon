@@ -748,6 +748,17 @@ nonisolated struct ReleasesResponse: Decodable, Sendable {
     let sync: ReleaseSyncDTO?
 }
 nonisolated struct TriggerActionBody: Encodable, Sendable { let action: String }
+
+// MARK: Profile (spec §5 Phase 5)
+
+nonisolated struct UpdateProfileBody: Encodable, Sendable {
+    let firstName: String?
+    let lastName: String?
+}
+nonisolated struct ChangePasswordBody: Encodable, Sendable {
+    let currentPassword: String
+    let newPassword: String
+}
 nonisolated struct CreateOidcBody: Encodable, Sendable {
     let slug: String
     let name: String

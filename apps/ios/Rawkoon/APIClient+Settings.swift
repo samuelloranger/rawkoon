@@ -294,4 +294,13 @@ extension APIClient {
     func triggerJobAction(_ action: String) async throws {
         try await postExpectOK("/api/admin/trigger-action", body: TriggerActionBody(action: action))
     }
+
+    // MARK: Profile (spec §5 Phase 5)
+
+    func updateProfile(_ body: UpdateProfileBody) async throws {
+        try await putExpectOK("/api/users/me", body: body)
+    }
+    func changePassword(_ body: ChangePasswordBody) async throws {
+        try await postExpectOK("/api/users/me/password", body: body)
+    }
 }
