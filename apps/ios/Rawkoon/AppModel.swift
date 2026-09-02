@@ -663,6 +663,17 @@ final class AppModel {
         await refreshAdmin()
     }
 
+    private var didRefreshAdminOnce = false
+
+    /// Refresh admin state on a cold Settings open (or after a promotion/demotion),
+    /// since `refreshAdmin()` otherwise only runs on login/library-reload (spec §4.5).
+    /// Only ever *adds* admin rows for real admins.
+    func refreshAdminIfNeeded() async {
+        guard apiClient != nil, !didRefreshAdminOnce else { return }
+        didRefreshAdminOnce = true
+        await refreshAdmin()
+    }
+
     /// Best-effort: learn whether the signed-in user is an admin, so the UI can
     /// offer "Add to library" (admin) vs "Request" (non-admin).
     private func refreshAdmin() async {

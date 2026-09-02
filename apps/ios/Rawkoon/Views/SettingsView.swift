@@ -49,6 +49,12 @@ struct SettingsView: View {
                 } label: {
                     Label("Notifications", systemImage: "bell")
                 }
+
+                NavigationLink {
+                    DevicesView()
+                } label: {
+                    Label("Devices", systemImage: "iphone")
+                }
             }
             .listRowBackground(Theme.raised)
 
@@ -147,6 +153,7 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) {}
         }
         .task {
+            await model.refreshAdminIfNeeded()
             await loadAccount()
             await loadVersion()
         }
