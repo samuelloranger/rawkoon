@@ -58,6 +58,52 @@ export interface BookEdition {
   file_count: number;
   /** Best-ranked format among this edition's files; null when it has none. */
   best_format: BookFormat | null;
+  /** Audiobook transport gate: chapter files registered. Ebooks are false. */
+  offline_ready: boolean;
+}
+
+export interface BookManifestChapter {
+  index: number;
+  title: string;
+  start_secs: number;
+  end_secs: number;
+  file_id: number;
+  size_bytes: number;
+  sha256: string | null;
+  url: string;
+}
+
+export interface BookManifest {
+  edition_id: number;
+  book_id: number;
+  title: string;
+  authors: string[];
+  total_duration_secs: number;
+  chapters: BookManifestChapter[];
+}
+
+export interface BookListeningProgress {
+  edition_id: number;
+  book_id: number;
+  title: string;
+  authors: string[];
+  cover_url: string | null;
+  position_secs: number;
+  total_duration_secs: number;
+  finished: boolean;
+  updated_at: string;
+}
+
+export interface BookListeningProgressResponse {
+  progress: BookListeningProgress[];
+}
+
+export interface BookListeningProgressRequest {
+  position_secs: number;
+  total_duration_secs: number;
+  finished?: boolean;
+  updated_at: string;
+  device_id?: string;
 }
 
 export interface Book {
@@ -324,6 +370,10 @@ export interface BookOverridesRequest {
  */
 export interface BookReadingProgress {
   edition_id: number;
+  book_id: number;
+  title: string;
+  authors: string[];
+  cover_url: string | null;
   /** Which file the position was recorded against; an edition can hold several. */
   file_id: number | null;
   spine_index: number;

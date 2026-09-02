@@ -665,12 +665,6 @@ model MediaSettings {
   /// Metadata source priority, highest first. Absence from this array is the
   /// disable switch — see normalizeSourceOrder in @rawkoon/shared/utils.
   bookMetadataSourceOrder String[] @default(["local", "audnexus", "googlebooks", "openlibrary"]) @map("book_metadata_source_order")
-  /// Deep-link target for playback and reading. Rawkoon does not talk to the
-  /// Audiobookshelf API — it only builds a URL, so an unreachable instance
-  /// costs nothing but a dead link. Null means the button is not rendered.
-  audiobookshelfUrl                String? @map("audiobookshelf_url")
-  audiobookshelfAudiobookLibraryId String? @map("audiobookshelf_audiobook_library_id")
-  audiobookshelfEbookLibraryId     String? @map("audiobookshelf_ebook_library_id")
 
   updatedAt               DateTime @updatedAt @map("updated_at")
 
