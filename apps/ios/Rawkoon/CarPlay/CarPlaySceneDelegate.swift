@@ -1,4 +1,5 @@
 import CarPlay
+import Observation
 
 /// Owns the CarPlay interface. Declared in project.yml's scene manifest as the
 /// delegate for the CarPlay scene role; the phone window is untouched SwiftUI.
@@ -8,6 +9,7 @@ import CarPlay
 /// sure the library is loaded before it builds the browse list.
 final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
     private var interfaceController: CPInterfaceController?
+    private var observing = false
 
     func templateApplicationScene(
         _ templateApplicationScene: CPTemplateApplicationScene,
@@ -24,6 +26,24 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     ) {
         Log.playback.info("CarPlay scene disconnected")
         self.interfaceController = nil
+        self.observing = false
+    }
+
+    /// Rebuilds the browse list when the library changes (a download finishing,
+    /// a reload) while a CarPlay scene is connected. `withObservationTracking`
+    /// fires once, so it re-arms after each change.
+    @MainActor
+    private func observeLibrary() {
+        observing = true
+        withObservationTracking {
+            _ = AppModel.shared.library
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self, self.interfaceController != nil else { return }
+                await self.rebuildRoot()
+                self.observeLibrary()
+            }
+        }
     }
 
     @MainActor
@@ -52,6 +72,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
             }
         }
         setRoot(template)
+        if !observing { observeLibrary() }
     }
 
     @MainActor
