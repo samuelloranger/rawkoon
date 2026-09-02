@@ -628,7 +628,7 @@ nonisolated struct DownloadClientConfigDTO: Decodable, Sendable {
     let label: String?
     let savePath: String?
 }
-nonisolated struct DownloadClientResponse: Decodable, Sendable { let integration: DownloadClientConfigDTO }
+nonisolated struct DownloadClientEditResponse: Decodable, Sendable { let integration: DownloadClientConfigDTO }
 nonisolated struct SaveDownloadClientBody: Encodable, Sendable {
     let clientType: String
     let websiteUrl: String

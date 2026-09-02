@@ -75,7 +75,7 @@ extension APIClient {
 
     // MARK: Download client + hook (spec §5 Phase 2)
 
-    func downloadClientConfig() async throws -> DownloadClientResponse {
+    func downloadClientConfig() async throws -> DownloadClientEditResponse {
         try await get("/api/integrations/download-client")
     }
     func saveDownloadClient(_ body: SaveDownloadClientBody) async throws {
