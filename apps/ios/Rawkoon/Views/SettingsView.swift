@@ -115,6 +115,12 @@ struct SettingsView: View {
                     }
 
                     NavigationLink {
+                        ArrLibraryImportView()
+                    } label: {
+                        Label("Import from Radarr/Sonarr", systemImage: "square.and.arrow.down")
+                    }
+
+                    NavigationLink {
                         QualityProfilesView()
                     } label: {
                         Label("Quality profiles", systemImage: "slider.horizontal.3")

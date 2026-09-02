@@ -612,6 +612,47 @@ actor APIClient {
         guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
     }
 
+    /// Consumes a JSON-over-SSE status stream, yielding a decoded status per
+    /// `data:` line. Cancel the consuming task to close the connection.
+    func libraryMigrateStatusStream() -> AsyncThrowingStream<MigrateStatusDTO, Error> {
+        let session = self.session
+        let token = self.token
+        let base = self.baseURL
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    guard let url = URL(string: "/api/library/migrate/status", relativeTo: base)?.absoluteURL else {
+                        throw APIError.transport
+                    }
+                    var request = URLRequest(url: url)
+                    request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+                    if let token, !token.isEmpty {
+                        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                    }
+                    let (bytes, response) = try await session.bytes(for: request)
+                    guard let http = response as? HTTPURLResponse, (200 ..< 300).contains(http.statusCode) else {
+                        throw APIError.transport
+                    }
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    for try await line in bytes.lines {
+                        if Task.isCancelled { break }
+                        guard line.hasPrefix("data:") else { continue }
+                        let payload = line.dropFirst(5).trimmingCharacters(in: .whitespaces)
+                        guard !payload.isEmpty, let data = payload.data(using: .utf8) else { continue }
+                        if let status = try? decoder.decode(MigrateStatusDTO.self, from: data) {
+                            continuation.yield(status)
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
     func postRaw(_ path: String, body: [String: Any]) async throws -> (Data, HTTPURLResponse) {
         var request = try makeRequest(path: path, method: "POST", requiresAuth: true)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

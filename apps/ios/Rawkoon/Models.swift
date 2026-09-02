@@ -784,6 +784,32 @@ nonisolated struct ReindexStatusDTO: Decodable, Sendable {
     let error: String?
 }
 
+// MARK: Arr import (Radarr/Sonarr migration — spec §5 Phase 3)
+
+nonisolated struct MigrateBody: Encodable, Sendable {
+    let source: String
+    let radarrUrl: String?
+    let radarrApiKey: String?
+    let sonarrUrl: String?
+    let sonarrApiKey: String?
+}
+nonisolated struct MigrateStartResponse: Decodable, Sendable {
+    let jobId: String?
+}
+nonisolated struct MigrateProgressDTO: Decodable, Sendable {
+    let current: Int?
+    let total: Int?
+    let imported: Int?
+    let failed: Int?
+    let currentTitle: String?
+}
+nonisolated struct MigrateStatusDTO: Decodable, Sendable {
+    let jobId: String?
+    let state: String?
+    let progress: MigrateProgressDTO?
+    let error: String?
+}
+
 // MARK: Books settings (non-CRUD — spec §5 Phase 3)
 
 nonisolated struct BookQualityProfile: Decodable, Identifiable, Sendable {

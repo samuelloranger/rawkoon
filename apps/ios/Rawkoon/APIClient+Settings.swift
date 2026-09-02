@@ -150,4 +150,10 @@ extension APIClient {
     func updateBookFiles(_ body: UpdateBookFilesBody) async throws {
         try await patchExpectOK("/api/library/post-processing/settings", body: body)
     }
+
+    // MARK: Arr import (spec §5 Phase 3)
+
+    func startLibraryMigrate(_ body: MigrateBody) async throws -> MigrateStartResponse {
+        try await post("/api/library/migrate", body: body)
+    }
 }
