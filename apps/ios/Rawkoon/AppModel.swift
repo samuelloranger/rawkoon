@@ -463,6 +463,37 @@ final class AppModel {
         }
     }
 
+    /// Cancels an in-progress audiobook download and discards its partial
+    /// files. One tap, no confirmation: nothing finished is lost, and the
+    /// chapters re-fetch on the next Download tap.
+    func cancelDownload(editionId: Int) {
+        purgeDownload(editionId: editionId)
+    }
+
+    /// Removes a fully downloaded audiobook from the device. The UI confirms
+    /// this because it throws away completed files.
+    func removeDownload(editionId: Int) {
+        purgeDownload(editionId: editionId)
+    }
+
+    /// Tears down any live downloader, deletes the edition's files, and clears
+    /// its plan. A straggling task cannot re-create the directory because the
+    /// downloader is cancelled before the files go.
+    private func purgeDownload(editionId: Int) {
+        downloaders[editionId]?.cancel()
+        downloaders.removeValue(forKey: editionId)
+        FileStore.deleteEdition(editionId)
+        downloadPlans.removeValue(forKey: editionId)
+        verifiedCounts.removeValue(forKey: editionId)
+        // Otherwise a stale attempt count could trip maxGrantRefreshAttempts on
+        // the next download of this edition.
+        grantRefreshAttempts.removeValue(forKey: editionId)
+        grantRefreshInFlight.remove(editionId)
+        if activeEditionId == editionId {
+            player.rebuild()
+        }
+    }
+
     /// Replaces the downloader's signed URLs after a grant expired.
     ///
     /// The plan requeues a 401/403 chapter without spending an attempt, so
@@ -496,6 +527,9 @@ final class AppModel {
     private static let maxGrantRefreshAttempts = 3
 
     private func applyDownloadPlan(_ plan: DownloadPlan, editionId: Int) {
+        // A late callback from a downloader that `purgeDownload` already dropped
+        // (cancel/remove) must not resurrect the plan or the deleted files.
+        guard downloaders[editionId] != nil else { return }
         if plan.needsFreshGrants {
             Task { await refreshGrants(editionId: editionId) }
         }

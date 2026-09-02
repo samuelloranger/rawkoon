@@ -44,6 +44,13 @@ struct BookView: View {
     @State private var rescanningEbook = false
     @State private var openingEbookFileId: Int?
     @State private var downloadingEbookFileIDs = Set<Int>()
+    /// Live ebook download tasks, kept so a Cancel tap can stop the underlying
+    /// URLSession request mid-flight (`session.download(for:)` honors Task
+    /// cancellation).
+    @State private var ebookDownloadTasks: [Int: Task<Void, Never>] = [:]
+    @State private var confirmRemoveAudiobook = false
+    /// The ebook file awaiting a delete confirmation, or nil when none is.
+    @State private var ebookFileToRemove: BookEditionFile?
     @State private var ebookFilesError: String?
     @State private var previewDocument: EbookPreviewDocument?
     @State private var addingEditionKind: String?
@@ -167,6 +174,41 @@ struct BookView: View {
         .sheet(item: $previewDocument) { document in
             EbookReaderSheet(document: document)
                 .environment(model)
+        }
+        .confirmationDialog(
+            "Remove downloaded audiobook?",
+            isPresented: $confirmRemoveAudiobook,
+            titleVisibility: .visible
+        ) {
+            Button("Remove Download", role: .destructive) {
+                if let editionId = audiobookEditionId {
+                    audiobookActionError = nil
+                    model.removeDownload(editionId: editionId)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Deletes the offline chapters from this iPhone. Playback will need the network until you download them again.")
+        }
+        .confirmationDialog(
+            "Remove downloaded file?",
+            isPresented: Binding(
+                get: { ebookFileToRemove != nil },
+                set: {
+                    if !$0 {
+                        ebookFileToRemove = nil
+                    }
+                }
+            ),
+            titleVisibility: .visible,
+            presenting: ebookFileToRemove
+        ) { file in
+            Button("Remove Download", role: .destructive) {
+                removeEbookDownload(file)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { file in
+            Text("Deletes \(file.fileName) from this iPhone. You can download it again anytime.")
         }
     }
 
@@ -493,19 +535,41 @@ struct BookView: View {
                         .foregroundStyle(Theme.apricot)
                 }
                 DuskProgress(value: plan.progressFraction())
+                Button(role: .destructive) {
+                    if let editionId = audiobookEditionId {
+                        audiobookActionError = nil
+                        preparingAudiobookDownload = false
+                        model.cancelDownload(editionId: editionId)
+                    }
+                } label: {
+                    Label("Cancel", systemImage: "xmark.circle")
+                        .frame(maxWidth: .infinity).frame(height: 22)
+                }
+                .buttonStyle(.bordered)
+                .tint(Theme.terracotta)
             }
             .padding(12)
             .frame(maxWidth: .infinity)
             .background(Theme.raised, in: RoundedRectangle(cornerRadius: 13))
             .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Theme.borderStrong, lineWidth: 1))
         } else if plan?.isComplete == true {
-            Button {} label: {
+            HStack(spacing: 8) {
                 Label("Downloaded", systemImage: "checkmark.circle.fill")
-                    .frame(maxWidth: .infinity).frame(height: 22)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Theme.seed)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Button(role: .destructive) {
+                    confirmRemoveAudiobook = true
+                } label: {
+                    Label("Remove", systemImage: "trash")
+                }
+                .buttonStyle(.bordered)
+                .tint(Theme.terracotta)
             }
-            .buttonStyle(.bordered)
-            .tint(Theme.seed)
-            .disabled(true)
+            .padding(12)
+            .frame(maxWidth: .infinity)
+            .background(Theme.raised, in: RoundedRectangle(cornerRadius: 13))
+            .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Theme.borderStrong, lineWidth: 1))
         } else {
             Button {
                 Task {
@@ -666,7 +730,7 @@ struct BookView: View {
                         .foregroundStyle(Theme.seed)
                 } else if preferredCanFetchRemote {
                     Button {
-                        Task { await downloadEbook(preferred) }
+                        startEbookDownload(preferred)
                     } label: {
                         Group {
                             if downloadingEbookFileIDs.contains(preferred.id) {
@@ -756,15 +820,29 @@ struct BookView: View {
                                 .foregroundStyle(Theme.muted)
                         }
                         Spacer(minLength: 8)
-                        if loadingState {
+                        if downloading {
+                            HStack(spacing: 7) {
+                                ProgressView().tint(Theme.muted)
+                                Button("Cancel") {
+                                    cancelEbookDownload(file)
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(Theme.terracotta)
+                            }
+                        } else if loadingState {
                             ProgressView().tint(Theme.muted)
                         } else {
                             HStack(spacing: 7) {
                                 if downloaded {
                                     StatusBadge(text: "Offline", tint: Theme.seed)
+                                    Button("Remove") {
+                                        ebookFileToRemove = file
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(Theme.terracotta)
                                 } else {
                                     Button("Download") {
-                                        Task { await downloadEbook(file) }
+                                        startEbookDownload(file)
                                     }
                                     .buttonStyle(.bordered)
                                     .tint(Theme.muted)
@@ -1049,18 +1127,44 @@ struct BookView: View {
         }
     }
 
+    /// Starts a cancelable ebook download, tracking the task so a Cancel tap can
+    /// stop it. Runs on the main actor because it mutates view state.
+    private func startEbookDownload(_ file: BookEditionFile) {
+        guard ebookDownloadTasks[file.id] == nil else { return }
+        let task = Task { await downloadEbook(file) }
+        ebookDownloadTasks[file.id] = task
+    }
+
+    /// Cancels an in-flight ebook download. `downloadEbook`'s cleanup clears the
+    /// tracking state and swallows the resulting cancellation quietly.
+    private func cancelEbookDownload(_ file: BookEditionFile) {
+        ebookDownloadTasks[file.id]?.cancel()
+    }
+
     private func downloadEbook(_ file: BookEditionFile) async {
         guard !downloadingEbookFileIDs.contains(file.id) else { return }
         downloadingEbookFileIDs.insert(file.id)
         ebookFilesError = nil
-        defer { downloadingEbookFileIDs.remove(file.id) }
+        defer {
+            downloadingEbookFileIDs.remove(file.id)
+            ebookDownloadTasks.removeValue(forKey: file.id)
+        }
         do {
             _ = try await ensureLocalEbookFile(file)
         } catch EbookStorageError.missingRemoteURL {
             ebookFilesError = "This server version cannot provide ebook download links yet."
         } catch {
+            // A user-initiated cancel surfaces as a transport error too; stay
+            // silent rather than crying failure over an intentional stop.
+            guard !Task.isCancelled else { return }
             ebookFilesError = "Download failed. Check your connection and try again."
         }
+    }
+
+    /// Deletes an offline ebook file from the device.
+    private func removeEbookDownload(_ file: BookEditionFile) {
+        FileStore.delete(url: localEbookURL(for: file))
+        ebookFileToRemove = nil
     }
 
     private func ensureLocalEbookFile(_ file: BookEditionFile) async throws -> URL {

@@ -61,6 +61,22 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         }
     }
 
+    /// Cancels every in-flight chapter download and tears the background
+    /// session down. Single-use: `AppModel` drops the downloader and deletes
+    /// any partial files afterward, so there is nothing to resume into. The
+    /// resulting `NSURLErrorCancelled` is already swallowed in
+    /// `didCompleteWithError`, so no spurious failure state is emitted.
+    func cancel() {
+        // Serialized on stateQueue so it lands after any in-flight pump rather
+        // than racing one: invalidating the session while `pumpIfNeeded` is
+        // mid-`downloadTask(with:)` on the same session is undefined.
+        stateQueue.async {
+            self.isRunning = false
+            self.activeFileIds.removeAll()
+            self.session.invalidateAndCancel()
+        }
+    }
+
     func requestRetry(fileId: Int) {
         stateQueue.async {
             self.plan.apply(.requested(fileId: fileId))
