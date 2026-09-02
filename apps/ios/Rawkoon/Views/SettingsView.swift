@@ -85,6 +85,24 @@ struct SettingsView: View {
                     }
 
                     NavigationLink {
+                        IndexerManagerIntegrationView(kind: .prowlarr)
+                    } label: {
+                        Label("Prowlarr", systemImage: "magnifyingglass.circle")
+                    }
+
+                    NavigationLink {
+                        IndexerManagerIntegrationView(kind: .jackett)
+                    } label: {
+                        Label("Jackett", systemImage: "magnifyingglass.circle")
+                    }
+
+                    NavigationLink {
+                        BooksProviderView()
+                    } label: {
+                        Label("Book providers", systemImage: "books.vertical")
+                    }
+
+                    NavigationLink {
                         QualityProfilesView()
                     } label: {
                         Label("Quality profiles", systemImage: "slider.horizontal.3")
@@ -97,7 +115,7 @@ struct SettingsView: View {
                     }
 
                     NavigationLink {
-                        DownloadClientView()
+                        DownloadClientEditView()
                     } label: {
                         Label("Download client", systemImage: "arrow.down.circle")
                     }

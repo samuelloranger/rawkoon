@@ -60,4 +60,58 @@ extension APIClient {
     func testLocalAi() async throws -> LocalAiTestResponse {
         try await get("/api/integrations/local-ai/test")
     }
+
+    // MARK: Indexer managers — Prowlarr / Jackett (spec §5 Phase 2)
+
+    func indexerManager(_ kind: String) async throws -> IndexerManagerResponse {
+        try await get("/api/integrations/\(kind)")
+    }
+    func saveIndexerManager(_ kind: String, body: SaveIndexerManagerBody) async throws {
+        try await putExpectOK("/api/integrations/\(kind)", body: body)
+    }
+    func indexerManagerIndexers(_ kind: String) async throws -> IndexerListResponse {
+        try await get("/api/integrations/\(kind)/indexers")
+    }
+
+    // MARK: Download client + hook (spec §5 Phase 2)
+
+    func downloadClientConfig() async throws -> DownloadClientResponse {
+        try await get("/api/integrations/download-client")
+    }
+    func saveDownloadClient(_ body: SaveDownloadClientBody) async throws {
+        try await putExpectOK("/api/integrations/download-client", body: body)
+    }
+    func testDownloadClient(_ body: SaveDownloadClientBody) async throws -> DownloadClientTestResponse {
+        try await post("/api/integrations/download-client/test", body: body)
+    }
+    func downloadClientHook() async throws -> HookConfigDTO {
+        try await getPlain("/api/integrations/download-client/hook")
+    }
+    func saveDownloadClientHook(_ body: SaveHookBody) async throws -> HookConfigDTO {
+        try await putPlain("/api/integrations/download-client/hook", body: body)
+    }
+    func rotateDownloadClientHook() async throws {
+        try await postPlainExpectOK("/api/integrations/download-client/hook/rotate", body: EmptyBody())
+    }
+
+    // MARK: Books providers — Audnexus / Google Books (spec §5 Phase 2)
+
+    func audnexusIntegration() async throws -> AudnexusIntegrationResponse {
+        try await get("/api/integrations/audnexus")
+    }
+    func updateAudnexusIntegration(_ body: SaveAudnexusBody) async throws {
+        try await putExpectOK("/api/integrations/audnexus", body: body)
+    }
+    func testAudnexus(_ body: AudnexusTestBody) async throws -> IntegrationTestResponse {
+        try await post("/api/integrations/audnexus/test", body: body)
+    }
+    func googleBooksIntegration() async throws -> GoogleBooksIntegrationResponse {
+        try await get("/api/integrations/googlebooks")
+    }
+    func updateGoogleBooksIntegration(_ body: SaveGoogleBooksBody) async throws {
+        try await putExpectOK("/api/integrations/googlebooks", body: body)
+    }
+    func testGoogleBooks(_ body: GoogleBooksTestBody) async throws -> IntegrationTestResponse {
+        try await post("/api/integrations/googlebooks/test", body: body)
+    }
 }

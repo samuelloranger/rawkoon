@@ -597,6 +597,102 @@ nonisolated struct LocalAiTestResponse: Decodable, Sendable {
     let modelAvailable: Bool?
 }
 
+// MARK: Indexer managers — Prowlarr / Jackett (spec §5 Phase 2)
+
+nonisolated struct IndexerManagerDTO: Decodable, Sendable {
+    let enabled: Bool
+    let websiteUrl: String?
+    let rssIndexers: [String]?
+}
+nonisolated struct IndexerManagerResponse: Decodable, Sendable { let integration: IndexerManagerDTO }
+nonisolated struct SaveIndexerManagerBody: Encodable, Sendable {
+    let websiteUrl: String
+    let apiKey: String
+    let enabled: Bool
+    let rssIndexers: [String]
+}
+nonisolated struct IndexerOptionDTO: Decodable, Sendable {
+    let slug: String?
+    let name: String?
+}
+nonisolated struct IndexerListResponse: Decodable, Sendable { let indexers: [IndexerOptionDTO] }
+
+// MARK: Download client + hook (spec §5 Phase 2)
+
+nonisolated struct DownloadClientConfigDTO: Decodable, Sendable {
+    let enabled: Bool
+    let clientType: String?
+    let websiteUrl: String?
+    let username: String?
+    let passwordSet: Bool?
+    let label: String?
+    let savePath: String?
+}
+nonisolated struct DownloadClientResponse: Decodable, Sendable { let integration: DownloadClientConfigDTO }
+nonisolated struct SaveDownloadClientBody: Encodable, Sendable {
+    let clientType: String
+    let websiteUrl: String
+    let username: String
+    let password: String
+    let label: String
+    let savePath: String
+    let enabled: Bool
+}
+nonisolated struct DownloadClientTestResponse: Decodable, Sendable {
+    let ok: Bool?
+    let error: String?
+}
+
+/// Download-client hook speaks camelCase on the wire — decode/encode with the
+/// plain-casing helpers (no snake conversion).
+nonisolated struct HookConfigDTO: Decodable, Sendable {
+    let status: String?
+    let callbackUrl: String?
+    let autoConfigure: Bool?
+    let activeHookedSecs: Int?
+}
+nonisolated struct SaveHookBody: Encodable, Sendable {
+    let callbackUrl: String?
+    let autoConfigure: Bool?
+    let activeHookedSecs: Int?
+}
+
+// MARK: Books providers — Audnexus / Google Books (spec §5 Phase 2)
+
+nonisolated struct AudnexusIntegrationDTO: Decodable, Sendable {
+    let enabled: Bool
+    let baseUrl: String?
+    let region: String?
+}
+nonisolated struct AudnexusIntegrationResponse: Decodable, Sendable { let integration: AudnexusIntegrationDTO }
+nonisolated struct SaveAudnexusBody: Encodable, Sendable {
+    let enabled: Bool
+    let baseUrl: String
+    let region: String
+}
+nonisolated struct AudnexusTestBody: Encodable, Sendable {
+    let baseUrl: String
+    let region: String
+}
+
+nonisolated struct GoogleBooksIntegrationDTO: Decodable, Sendable {
+    let enabled: Bool
+    let hasApiKey: Bool?
+}
+nonisolated struct GoogleBooksIntegrationResponse: Decodable, Sendable { let integration: GoogleBooksIntegrationDTO }
+nonisolated struct SaveGoogleBooksBody: Encodable, Sendable {
+    let apiKey: String?
+    let enabled: Bool
+}
+nonisolated struct GoogleBooksTestBody: Encodable, Sendable {
+    let apiKey: String?
+}
+
+nonisolated struct IntegrationTestResponse: Decodable, Sendable {
+    let success: Bool?
+    let error: String?
+}
+
 nonisolated struct ApproveRequestBody: Encodable, Sendable {
     let qualityProfileId: Int
 }
