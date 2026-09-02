@@ -136,7 +136,7 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     private func loadExistingTasks() {
         session.getAllTasks { [weak self] tasks in
             guard let self else { return }
-            self.stateQueue.async {
+            stateQueue.async {
                 for task in tasks {
                     guard let fileId = self.fileId(from: task.taskDescription) else { continue }
                     self.activeFileIds.insert(fileId)

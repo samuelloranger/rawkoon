@@ -154,7 +154,7 @@ struct SettingsView: View {
 
     private func displayName(for user: SessionUser) -> String? {
         let composedName = [user.firstName, user.lastName]
-            .compactMap { $0 }
+            .compactMap(\.self)
             .filter { !$0.isEmpty }
             .joined(separator: " ")
         if !composedName.isEmpty {

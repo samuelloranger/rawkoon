@@ -283,11 +283,10 @@
             }
 
             let requested = Int(env["RAWKOON_EDITION"] ?? "")
-            let book: BookListItem?
-            if let requested {
-                book = model.library.first { $0.audiobookEditionId == requested }
+            let book: BookListItem? = if let requested {
+                model.library.first { $0.audiobookEditionId == requested }
             } else {
-                book = model.library.first { $0.hasAudiobook }
+                model.library.first { $0.hasAudiobook }
             }
 
             guard let book, let summary = book.audiobookSummary else {
@@ -404,11 +403,10 @@
             }
 
             let requested = Int(ProcessInfo.processInfo.environment["RAWKOON_BOOK"] ?? "")
-            let book: BookListItem?
-            if let requested {
-                book = model.library.first { $0.bookId == requested }
+            let book: BookListItem? = if let requested {
+                model.library.first { $0.bookId == requested }
             } else {
-                book = model.library.first { $0.hasEbook }
+                model.library.first { $0.hasEbook }
             }
             guard let book else {
                 failure = "No book \(requested.map(String.init) ?? "with an ebook") in the library"

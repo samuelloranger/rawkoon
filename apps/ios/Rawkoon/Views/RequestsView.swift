@@ -28,8 +28,8 @@ struct RequestsView: View {
 
     private var visibleRequests: [MediaRequest] {
         switch filter {
-        case .pending: return requests.filter { $0.status == "pending" }
-        case .all: return requests
+        case .pending: requests.filter { $0.status == "pending" }
+        case .all: requests
         }
     }
 
@@ -98,7 +98,7 @@ struct RequestsView: View {
 
     @ViewBuilder
     private var content: some View {
-        if loading && requests.isEmpty {
+        if loading, requests.isEmpty {
             ProgressView().tint(Theme.apricot)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let errorMessage, requests.isEmpty {
@@ -154,7 +154,7 @@ struct RequestsView: View {
         }
         .padding(.vertical, 4)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            if model.isAdmin && req.status == "pending" {
+            if model.isAdmin, req.status == "pending" {
                 Button("Deny", role: .destructive) {
                     denyTarget = req
                 }
@@ -168,9 +168,9 @@ struct RequestsView: View {
 
     private func badgeTint(_ status: String) -> Color {
         switch status {
-        case "approved": return Theme.seed
-        case "denied": return Theme.terracotta
-        default: return Theme.muted
+        case "approved": Theme.seed
+        case "denied": Theme.terracotta
+        default: Theme.muted
         }
     }
 

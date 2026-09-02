@@ -64,9 +64,9 @@ actor APIClient {
     private let session: URLSession
     private var token: String?
 
-    // ISO8601DateFormatter isn't Sendable, but these are configured once here
-    // and never mutated again — only read (parsing/formatting) from any
-    // isolation context afterward, which is safe in practice.
+    /// ISO8601DateFormatter isn't Sendable, but these are configured once here
+    /// and never mutated again — only read (parsing/formatting) from any
+    /// isolation context afterward, which is safe in practice.
     private nonisolated(unsafe) static let iso8601WithFractionalSeconds: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -454,8 +454,8 @@ actor APIClient {
 
     private func mapStatus(_ status: Int) -> APIError {
         switch status {
-        case 401, 403: return .unauthorized
-        default: return .http(status)
+        case 401, 403: .unauthorized
+        default: .http(status)
         }
     }
 
@@ -493,7 +493,7 @@ actor APIClient {
     }
 
     /// Authenticated POST with a JSON body returning a decoded `T`.
-    private func post<B: Encodable, T: Decodable>(_ path: String, body: B) async throws -> T {
+    private func post<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
         let (data, response) = try await sendPost(path, body: body)
         guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
         do { return try Self.mediaDecoder.decode(T.self, from: data) }
@@ -502,18 +502,18 @@ actor APIClient {
 
     /// Authenticated POST that only cares whether the server accepted it (2xx).
     /// Used for grab endpoints whose bodies mix strings and bools.
-    private func postExpectOK<B: Encodable>(
+    private func postExpectOK(
         _ path: String,
-        body: B,
+        body: some Encodable,
         method: String = "POST"
     ) async throws {
         let (_, response) = try await sendPost(path, body: body, method: method)
         guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
     }
 
-    private func sendPost<B: Encodable>(
+    private func sendPost(
         _ path: String,
-        body: B,
+        body: some Encodable,
         method: String = "POST"
     ) async throws -> (Data, HTTPURLResponse) {
         var request = try makeRequest(path: path, method: method, requiresAuth: true)
@@ -522,14 +522,14 @@ actor APIClient {
         return try await perform(request)
     }
 
-    private func patch<B: Encodable, T: Decodable>(_ path: String, body: B) async throws -> T {
+    private func patch<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
         let (data, response) = try await sendPatch(path, body: body)
         guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
         do { return try Self.mediaDecoder.decode(T.self, from: data) }
         catch { throw APIError.decode }
     }
 
-    private func sendPatch<B: Encodable>(_ path: String, body: B) async throws -> (Data, HTTPURLResponse) {
+    private func sendPatch(_ path: String, body: some Encodable) async throws -> (Data, HTTPURLResponse) {
         var request = try makeRequest(path: path, method: "PATCH", requiresAuth: true)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try Self.mediaEncoder.encode(body)
@@ -867,7 +867,7 @@ actor APIClient {
         try await putExpectOK("/api/users/me/notification-preferences", body: NotificationPrefsBody(notificationPreferences: prefs))
     }
 
-    private func putExpectOK<B: Encodable>(_ path: String, body: B) async throws {
+    private func putExpectOK(_ path: String, body: some Encodable) async throws {
         var request = try makeRequest(path: path, method: "PUT", requiresAuth: true)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try Self.mediaEncoder.encode(body)
@@ -876,20 +876,20 @@ actor APIClient {
     }
 }
 
-nonisolated private struct LoginTokenResponse: Decodable {
+private nonisolated struct LoginTokenResponse: Decodable {
     let token: String
 }
 
-nonisolated private struct LibraryResponse: Decodable {
+private nonisolated struct LibraryResponse: Decodable {
     let items: [LibraryBook]
     let hasMore: Bool?
 }
 
-nonisolated private struct LibraryItemResponse: Decodable {
+private nonisolated struct LibraryItemResponse: Decodable {
     let item: LibraryMedia
 }
 
-nonisolated private struct LibraryBook: Decodable {
+private nonisolated struct LibraryBook: Decodable {
     let id: Int
     let title: String
     let coverUrl: String?
@@ -897,7 +897,7 @@ nonisolated private struct LibraryBook: Decodable {
     let editions: [LibraryEdition]
 }
 
-nonisolated private struct LibraryEdition: Decodable {
+private nonisolated struct LibraryEdition: Decodable {
     let id: Int
     let kind: String
     let status: String
@@ -905,7 +905,7 @@ nonisolated private struct LibraryEdition: Decodable {
     let fileCount: Int
 }
 
-nonisolated private struct ProgressResponse: Decodable {
+private nonisolated struct ProgressResponse: Decodable {
     let progress: [ProgressPayload]
 }
 
@@ -916,7 +916,7 @@ nonisolated struct BookEditionRescanResponse: Decodable, Sendable {
     let directory: String?
 }
 
-nonisolated private struct ProgressPayload: Decodable {
+private nonisolated struct ProgressPayload: Decodable {
     let editionId: Int
     let positionSecs: Double
     let totalDurationSecs: Double
@@ -924,17 +924,17 @@ nonisolated private struct ProgressPayload: Decodable {
     let updatedAt: Date
 }
 
-nonisolated private struct ApnsUnregisterBody: Encodable {
+private nonisolated struct ApnsUnregisterBody: Encodable {
     let deviceToken: String
 }
 
-nonisolated private struct ReadingProgressResponse: Decodable {
+private nonisolated struct ReadingProgressResponse: Decodable {
     let progress: [ReadingProgressPayload]
 }
 
 /// `updatedAt` stays a String here: the shared media decoder does not install a
 /// date strategy, so it is parsed explicitly.
-nonisolated private struct ReadingProgressPayload: Decodable {
+private nonisolated struct ReadingProgressPayload: Decodable {
     let editionId: Int
     let fileId: Int?
     let spineIndex: Int
@@ -946,7 +946,7 @@ nonisolated private struct ReadingProgressPayload: Decodable {
     let locator: String?
 }
 
-nonisolated private struct PutReadingProgressRequest: Encodable {
+private nonisolated struct PutReadingProgressRequest: Encodable {
     let fileId: Int?
     let spineIndex: Int
     let spinePath: String
@@ -958,7 +958,7 @@ nonisolated private struct PutReadingProgressRequest: Encodable {
     let locator: String?
 }
 
-nonisolated private struct PutProgressRequest: Encodable {
+private nonisolated struct PutProgressRequest: Encodable {
     let positionSecs: Double
     let totalDurationSecs: Double
     let finished: Bool
@@ -966,27 +966,27 @@ nonisolated private struct PutProgressRequest: Encodable {
     let deviceId: String
 }
 
-nonisolated private struct SimilarResponse: Decodable {
+private nonisolated struct SimilarResponse: Decodable {
     let items: [TmdbSearchItem]
 }
 
-nonisolated private struct UpdateLibraryMonitoredBody: Encodable {
+private nonisolated struct UpdateLibraryMonitoredBody: Encodable {
     let monitored: Bool
 }
 
-nonisolated private struct UpdateLibraryStatusBody: Encodable {
+private nonisolated struct UpdateLibraryStatusBody: Encodable {
     let status: String
 }
 
-nonisolated private struct UpdateLibraryQualityProfileBody: Encodable {
+private nonisolated struct UpdateLibraryQualityProfileBody: Encodable {
     let qualityProfileId: Int?
 }
 
-nonisolated private struct DeleteCountResponse: Decodable {
+private nonisolated struct DeleteCountResponse: Decodable {
     let deleted: Int
 }
 
-nonisolated private struct RescanResponse: Decodable {
+private nonisolated struct RescanResponse: Decodable {
     let rescanned: Int
     let skipped: Int
     let failed: Int
@@ -995,9 +995,9 @@ nonisolated private struct RescanResponse: Decodable {
     let requeued: Int
 }
 
-nonisolated private struct EmptyBody: Encodable {}
+private nonisolated struct EmptyBody: Encodable {}
 
-nonisolated private struct WatchlistAddBody: Encodable {
+private nonisolated struct WatchlistAddBody: Encodable {
     let tmdbId: Int
     let mediaType: String
     let title: String

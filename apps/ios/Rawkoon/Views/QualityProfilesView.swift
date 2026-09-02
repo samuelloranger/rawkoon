@@ -115,13 +115,13 @@ struct QualityProfilesView: View {
     private func message(for error: APIError) -> String {
         switch error {
         case .unauthorized:
-            return "Admin only."
+            "Admin only."
         case let .http(status):
-            return "Server error (\(status))."
+            "Server error (\(status))."
         case .decode:
-            return "Could not parse server response."
+            "Could not parse server response."
         case .transport:
-            return "Network error. Check your connection."
+            "Network error. Check your connection."
         }
     }
 }
