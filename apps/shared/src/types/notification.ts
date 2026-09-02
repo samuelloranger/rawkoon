@@ -65,3 +65,16 @@ interface NotificationDevice {
 export interface NotificationDevicesResponse {
   devices: NotificationDevice[];
 }
+
+/** A registered iOS device (APNS). Fed by GET /api/notifications/apns/devices. */
+export interface ApnsDevice {
+  id: number;
+  device_name: string | null;
+  os_version: string | null;
+  app_version: string | null;
+  created_at: string;
+}
+
+export interface ApnsDevicesResponse {
+  devices: ApnsDevice[];
+}

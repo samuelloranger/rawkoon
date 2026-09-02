@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { useNotifications } from "@/lib/notifications/useNotifications";
 import { useDeleteNotificationDevice } from "@/lib/notifications/useDeleteNotificationDevice";
 import { useNotificationDevices } from "@/lib/notifications/useNotificationDevices";
+import { useApnsDevices } from "@/lib/notifications/useApnsDevices";
+import { useDeleteApnsDevice } from "@/lib/notifications/useDeleteApnsDevice";
 import { useSubscribeToPushNotifications } from "@/lib/notifications/useSubscribeToPushNotifications";
 import { useTestPushNotification } from "@/lib/notifications/useTestPushNotification";
 import { queryKeys } from "@/lib/queryKeys";
@@ -38,6 +40,10 @@ export function NotificationsTab() {
   const deleteDeviceMutation = useDeleteNotificationDevice();
   const subscribeMutation = useSubscribeToPushNotifications();
   const testNotificationMutation = useTestPushNotification();
+
+  const { data: apnsData, isLoading: apnsLoading } = useApnsDevices();
+  const apnsDevices = apnsData?.devices || [];
+  const deleteApnsMutation = useDeleteApnsDevice();
 
   const handleRequestPermission = async () => {
     setLoading(true);
@@ -120,6 +126,26 @@ export function NotificationsTab() {
           toast.success(t("settings.notifications.deviceDeleted"));
         } catch (error) {
           console.error("Error deleting device:", error);
+          toast.error(t("settings.notifications.deleteDeviceError"));
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
+  };
+
+  const handleDeleteApnsDevice = async (deviceId: number) => {
+    confirm({
+      variant: "destructive",
+      description: t("settings.notifications.deleteDeviceConfirm"),
+      confirmLabel: t("common.delete"),
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          await deleteApnsMutation.mutateAsync(deviceId);
+          toast.success(t("settings.notifications.deviceDeleted"));
+        } catch (error) {
+          console.error("Error deleting iOS device:", error);
           toast.error(t("settings.notifications.deleteDeviceError"));
         } finally {
           setLoading(false);
@@ -293,84 +319,151 @@ export function NotificationsTab() {
                     )}
                   </div>
                 </div>
-
-                {/* Devices List */}
-                <div>
-                  <h3 className="text-sm font-medium text-neutral-300 mb-2">
-                    {t("settings.notifications.devices")}
-                  </h3>
-                  {devicesLoading ? (
-                    <div className="p-4 text-center text-neutral-400">
-                      {t("settings.notifications.loadingDevices")}
-                    </div>
-                  ) : devices.length === 0 ? (
-                    <div className="p-4 bg-neutral-700/50 rounded-lg text-neutral-400 text-sm">
-                      {t("settings.notifications.noDevices")}
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {devices.map((device) => (
-                        <div
-                          key={device.id}
-                          className="flex items-center justify-between p-4 bg-neutral-700/50 rounded-lg"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-neutral-100">
-                                {getDeviceDisplayName(device)}
-                              </span>
-                              {subscription &&
-                                (
-                                  subscription as unknown as {
-                                    endpoint: string;
-                                  }
-                                ).endpoint === device.endpoint && (
-                                  <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-primary-500/20 text-primary-400 uppercase tracking-wide flex-shrink-0">
-                                    {t("settings.notifications.thisDevice")}
-                                  </span>
-                                )}
-                            </div>
-                            <div className="text-xs text-neutral-400 mt-1">
-                              {t("settings.notifications.addedOn")}{" "}
-                              {formatDate(device.created_at)}
-                            </div>
-                            {(device.browser_name || device.os_name) && (
-                              <div className="text-xs text-neutral-500 mt-1">
-                                {device.browser_name &&
-                                  device.browser_version && (
-                                    <span>
-                                      {device.browser_name}{" "}
-                                      {device.browser_version}
-                                    </span>
-                                  )}
-                                {device.browser_name && device.os_name && " • "}
-                                {device.os_name && (
-                                  <span>
-                                    {device.os_name}
-                                    {device.os_version &&
-                                      ` ${device.os_version}`}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDeleteDevice(device.id)}
-                            disabled={loading}
-                            className="ml-4"
-                            title={t("settings.notifications.deleteDevice")}
-                          >
-                            {t("settings.notifications.delete")}
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
               </>
             )}
+
+            {/* Device roster — which devices receive notifications */}
+            <div>
+              <h3 className="text-sm font-medium text-neutral-300 mb-1">
+                {t("settings.notifications.devices")}
+              </h3>
+              <p className="text-xs text-neutral-500 mb-3">
+                {t("settings.notifications.devicesRosterDescription")}
+              </p>
+
+              {/* Web push group */}
+              <div className="mb-4">
+                <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-widest mb-1.5">
+                  {t("settings.notifications.webPushGroup")}
+                </p>
+                {devicesLoading ? (
+                  <div className="p-4 text-center text-neutral-400">
+                    {t("settings.notifications.loadingDevices")}
+                  </div>
+                ) : devices.length === 0 ? (
+                  <div className="p-4 bg-neutral-700/50 rounded-lg text-neutral-400 text-sm">
+                    {t("settings.notifications.webPushEmpty")}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {devices.map((device) => (
+                      <div
+                        key={device.id}
+                        className="flex items-center justify-between p-4 bg-neutral-700/50 rounded-lg"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-neutral-100">
+                              {getDeviceDisplayName(device)}
+                            </span>
+                            {subscription &&
+                              (
+                                subscription as unknown as {
+                                  endpoint: string;
+                                }
+                              ).endpoint === device.endpoint && (
+                                <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-primary-500/20 text-primary-400 uppercase tracking-wide flex-shrink-0">
+                                  {t("settings.notifications.thisDevice")}
+                                </span>
+                              )}
+                          </div>
+                          <div className="text-xs text-neutral-400 mt-1">
+                            {t("settings.notifications.addedOn")}{" "}
+                            {formatDate(device.created_at)}
+                          </div>
+                          {(device.browser_name || device.os_name) && (
+                            <div className="text-xs text-neutral-500 mt-1">
+                              {device.browser_name &&
+                                device.browser_version && (
+                                  <span>
+                                    {device.browser_name}{" "}
+                                    {device.browser_version}
+                                  </span>
+                                )}
+                              {device.browser_name && device.os_name && " • "}
+                              {device.os_name && (
+                                <span>
+                                  {device.os_name}
+                                  {device.os_version && ` ${device.os_version}`}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteDevice(device.id)}
+                          disabled={loading}
+                          className="ml-4"
+                          title={t("settings.notifications.deleteDevice")}
+                        >
+                          {t("settings.notifications.delete")}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* iOS app group */}
+              <div>
+                <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-widest mb-1.5">
+                  {t("settings.notifications.iosGroup")}
+                </p>
+                {apnsLoading ? (
+                  <div className="p-4 text-center text-neutral-400">
+                    {t("settings.notifications.loadingDevices")}
+                  </div>
+                ) : apnsDevices.length === 0 ? (
+                  <div className="p-4 bg-neutral-700/50 rounded-lg text-neutral-400 text-sm">
+                    {t("settings.notifications.iosEmpty")}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {apnsDevices.map((device) => (
+                      <div
+                        key={device.id}
+                        className="flex items-center justify-between p-4 bg-neutral-700/50 rounded-lg"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium text-neutral-100">
+                            {device.device_name ||
+                              t("settings.notifications.unknownDevice")}
+                          </span>
+                          <div className="text-xs text-neutral-500 mt-1">
+                            {[
+                              device.os_version
+                                ? `iOS ${device.os_version}`
+                                : null,
+                              device.app_version
+                                ? `Rawkoon ${device.app_version}`
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" • ")}
+                          </div>
+                          <div className="text-xs text-neutral-400 mt-1">
+                            {t("settings.notifications.addedOn")}{" "}
+                            {formatDate(device.created_at)}
+                          </div>
+                        </div>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteApnsDevice(device.id)}
+                          disabled={loading}
+                          className="ml-4"
+                          title={t("settings.notifications.deleteDevice")}
+                        >
+                          {t("settings.notifications.delete")}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
