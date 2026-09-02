@@ -164,8 +164,12 @@ final class AudiobookPlayer {
             object: session,
             queue: .main
         ) { [weak self] notification in
+            // Parsed outside the isolated block: `Notification` itself isn't
+            // Sendable (its `userInfo` is `[AnyHashable: Any]?`), but the
+            // `InterruptionEvent` it boils down to is — only that crosses.
+            guard let event = self?.parseInterruptionEvent(notification) else { return }
             MainActor.assumeIsolated {
-                self?.handleInterruption(notification)
+                self?.handleInterruption(event)
             }
         }
 
@@ -220,11 +224,15 @@ final class AudiobookPlayer {
         }
     }
 
-    private func handleInterruption(_ notification: Notification) {
+    /// Pure parse of the notification's `userInfo` into the `Sendable` event
+    /// `handleInterruption` acts on — kept `nonisolated` and free of `self`
+    /// state so it can run before the notification closure hops to the main
+    /// actor, since `Notification` itself is not `Sendable`.
+    private nonisolated func parseInterruptionEvent(_ notification: Notification) -> InterruptionEvent? {
         guard
             let raw = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
             let type = AVAudioSession.InterruptionType(rawValue: raw)
-        else { return }
+        else { return nil }
 
         // A `.began` raised because the app itself was suspended is not a real
         // interruption of playback, and pausing on it would stop a book that
@@ -232,21 +240,22 @@ final class AudiobookPlayer {
         if let rawReason = notification.userInfo?[AVAudioSessionInterruptionReasonKey] as? UInt,
            AVAudioSession.InterruptionReason(rawValue: rawReason) == .appWasSuspended
         {
-            return
+            return nil
         }
 
-        let event: InterruptionEvent
         switch type {
         case .began:
-            event = .began
+            return .began
         case .ended:
             let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
             let options = AVAudioSession.InterruptionOptions(rawValue: rawOptions)
-            event = .ended(shouldResume: options.contains(.shouldResume))
+            return .ended(shouldResume: options.contains(.shouldResume))
         @unknown default:
-            return
+            return nil
         }
+    }
 
+    private func handleInterruption(_ event: InterruptionEvent) {
         // The decision itself lives in RawkoonKit, where the cases that cannot
         // be reproduced on a simulator — a call during a navigation prompt, a
         // pause while the prompt is speaking — are unit tests instead.
@@ -764,14 +773,13 @@ final class AudiobookPlayer {
             object: nil,
             queue: .main
         ) { [weak self] notification in
+            // Only the Sendable `ObjectIdentifier` crosses into the isolated
+            // block — the `AVPlayerItem` itself is not `Sendable` and is
+            // never used past this point.
+            guard let item = notification.object as? AVPlayerItem else { return }
+            let identifier = ObjectIdentifier(item)
             MainActor.assumeIsolated {
-                guard
-                    let self,
-                    let item = notification.object as? AVPlayerItem,
-                    self.itemChapters[ObjectIdentifier(item)] != nil
-                else {
-                    return
-                }
+                guard let self, self.itemChapters[identifier] != nil else { return }
                 self.handleCurrentItemChanged()
             }
         }
