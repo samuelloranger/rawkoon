@@ -942,14 +942,6 @@ actor APIClient {
     func updateNotificationPrefs(_ prefs: [String: Bool]) async throws {
         try await putExpectOK("/api/users/me/notification-preferences", body: NotificationPrefsBody(notificationPreferences: prefs))
     }
-
-    private func putExpectOK(_ path: String, body: some Encodable) async throws {
-        var request = try makeRequest(path: path, method: "PUT", requiresAuth: true)
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try Self.mediaEncoder.encode(body)
-        let (_, response) = try await perform(request)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
-    }
 }
 
 private nonisolated struct LoginTokenResponse: Decodable {
