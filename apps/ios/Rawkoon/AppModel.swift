@@ -45,6 +45,10 @@ final class AppModel {
     var ssoProviders: [SsoProvider] = []
     var loading = false
     var errorMessage: String?
+    /// Set when sign-in succeeded but the credential could not be written to the
+    /// Keychain — the session works now but will not survive a relaunch. Surfaced
+    /// as an alert at the app root, distinct from `errorMessage` (a login failure).
+    var authWarning: String?
     var downloadPlans: [Int: DownloadPlan] = [:]
     var activeEditionId: Int?
 
@@ -53,6 +57,10 @@ final class AppModel {
     private static let serverURLKey = "server_url"
     private static let authTokenKey = "auth_token"
     private static let deviceIDKey = "device_id"
+
+    private static let persistFailedWarning =
+        "Signed in, but this device couldn't save your login. "
+            + "You may need to sign in again after quitting the app."
 
     private var apiClient: APIClient?
     private var manifests: [Int: BookManifest] = [:]
@@ -120,8 +128,11 @@ final class AppModel {
             let client = APIClient(baseURL: baseURL, token: nil)
             let token = try await client.login(email: email, password: password)
 
-            Keychain.set(normalizedServer, for: Self.serverURLKey)
-            Keychain.set(token, for: Self.authTokenKey)
+            let serverSaved = Keychain.set(normalizedServer, for: Self.serverURLKey)
+            let tokenSaved = Keychain.set(token, for: Self.authTokenKey)
+            if !serverSaved || !tokenSaved {
+                authWarning = Self.persistFailedWarning
+            }
 
             serverURL = normalizedServer
             apiClient = client
@@ -219,8 +230,11 @@ final class AppModel {
             errorMessage = "Enter a valid server URL."
             return
         }
-        Keychain.set(server, for: Self.serverURLKey)
-        Keychain.set(token, for: Self.authTokenKey)
+        let serverSaved = Keychain.set(server, for: Self.serverURLKey)
+        let tokenSaved = Keychain.set(token, for: Self.authTokenKey)
+        if !serverSaved || !tokenSaved {
+            authWarning = Self.persistFailedWarning
+        }
         serverURL = server
         apiClient = APIClient(baseURL: base, token: token)
         isLoggedIn = true
@@ -463,6 +477,37 @@ final class AppModel {
         }
     }
 
+    /// Cancels an in-progress audiobook download and discards its partial
+    /// files. One tap, no confirmation: nothing finished is lost, and the
+    /// chapters re-fetch on the next Download tap.
+    func cancelDownload(editionId: Int) {
+        purgeDownload(editionId: editionId)
+    }
+
+    /// Removes a fully downloaded audiobook from the device. The UI confirms
+    /// this because it throws away completed files.
+    func removeDownload(editionId: Int) {
+        purgeDownload(editionId: editionId)
+    }
+
+    /// Tears down any live downloader, deletes the edition's files, and clears
+    /// its plan. A straggling task cannot re-create the directory because the
+    /// downloader is cancelled before the files go.
+    private func purgeDownload(editionId: Int) {
+        downloaders[editionId]?.cancel()
+        downloaders.removeValue(forKey: editionId)
+        FileStore.deleteEdition(editionId)
+        downloadPlans.removeValue(forKey: editionId)
+        verifiedCounts.removeValue(forKey: editionId)
+        // Otherwise a stale attempt count could trip maxGrantRefreshAttempts on
+        // the next download of this edition.
+        grantRefreshAttempts.removeValue(forKey: editionId)
+        grantRefreshInFlight.remove(editionId)
+        if activeEditionId == editionId {
+            player.rebuild()
+        }
+    }
+
     /// Replaces the downloader's signed URLs after a grant expired.
     ///
     /// The plan requeues a 401/403 chapter without spending an attempt, so
@@ -496,6 +541,9 @@ final class AppModel {
     private static let maxGrantRefreshAttempts = 3
 
     private func applyDownloadPlan(_ plan: DownloadPlan, editionId: Int) {
+        // A late callback from a downloader that `purgeDownload` already dropped
+        // (cancel/remove) must not resurrect the plan or the deleted files.
+        guard downloaders[editionId] != nil else { return }
         if plan.needsFreshGrants {
             Task { await refreshGrants(editionId: editionId) }
         }

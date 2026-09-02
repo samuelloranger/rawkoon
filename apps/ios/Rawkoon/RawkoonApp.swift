@@ -32,6 +32,23 @@ struct RawkoonApp: App {
             .environment(model)
             .tint(Theme.apricot)
             .preferredColorScheme(.dark)
+            .alert(
+                "Login not saved",
+                isPresented: Binding(
+                    get: { model.authWarning != nil },
+                    set: {
+                        if !$0 {
+                            model.authWarning = nil
+                        }
+                    }
+                )
+            ) {
+                Button("OK", role: .cancel) { model.authWarning = nil }
+            } message: {
+                if let warning = model.authWarning {
+                    Text(warning)
+                }
+            }
             .task {
                 #if DEBUG
                     await model.debugAutologinIfNeeded()
