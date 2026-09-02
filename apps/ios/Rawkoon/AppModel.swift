@@ -328,13 +328,14 @@ final class AppModel {
     /// Flattens the audiobook library + remote progress into the Linux-tested
     /// CarPlay browse model. `libraryOrder` preserves the server's list order.
     func carPlayAudiobooks() async -> [CarPlayBrowseEntry] {
-        let progressByEdition: [Int: RemoteProgress]
-        if let client = api(), let progress = try? await client.getProgress() {
-            progressByEdition = Dictionary(
+        let progressByEdition: [Int: RemoteProgress] = if let client = api(),
+                                                          let progress = try? await client.getProgress()
+        {
+            Dictionary(
                 progress.map { ($0.editionId, $0) }, uniquingKeysWith: { first, _ in first }
             )
         } else {
-            progressByEdition = [:]
+            [:]
         }
 
         var entries: [CarPlayBrowseEntry] = []
