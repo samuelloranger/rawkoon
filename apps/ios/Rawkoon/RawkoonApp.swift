@@ -4,7 +4,7 @@ import UIKit
 @main
 struct RawkoonApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
-    @StateObject private var model = AppModel.shared
+    @State private var model = AppModel.shared
 
     init() {
         Appearance.apply()
@@ -29,7 +29,7 @@ struct RawkoonApp: App {
                     }
                 #endif
             }
-            .environmentObject(model)
+            .environment(model)
             .tint(Theme.apricot)
             .preferredColorScheme(.dark)
             .task {
@@ -79,7 +79,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 }
 
 private struct RootTabsView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
     @State private var showFullPlayer = false
     @State private var selection: Int
 
@@ -187,7 +187,7 @@ private struct RootTabsView: View {
         .sheet(isPresented: $showFullPlayer) {
             if let active = model.activeBook() {
                 PlayerView(summary: active.summary, manifest: active.manifest)
-                    .environmentObject(model)
+                    .environment(model)
             }
         }
         .task {

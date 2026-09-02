@@ -1,6 +1,6 @@
-import Combine
 import Foundation
 import Network
+import Observation
 import RawkoonKit
 import UIKit
 import UserNotifications
@@ -27,7 +27,8 @@ private func withDeadline<T: Sendable>(
 }
 
 @MainActor
-final class AppModel: ObservableObject {
+@Observable
+final class AppModel {
     /// One instance for the process.
     ///
     /// A background launch to deliver `handleEventsForBackgroundURLSession` may
@@ -36,16 +37,16 @@ final class AppModel: ObservableObject {
     /// finished downloads are discarded.
     static let shared = AppModel()
 
-    @Published var isLoggedIn = false
-    @Published var serverURL: String
-    @Published var library: [BookListItem] = []
-    @Published var isAdmin = false
-    @Published var userFirstName: String?
-    @Published var ssoProviders: [SsoProvider] = []
-    @Published var loading = false
-    @Published var errorMessage: String?
-    @Published var downloadPlans: [Int: DownloadPlan] = [:]
-    @Published var activeEditionId: Int?
+    var isLoggedIn = false
+    var serverURL: String
+    var library: [BookListItem] = []
+    var isAdmin = false
+    var userFirstName: String?
+    var ssoProviders: [SsoProvider] = []
+    var loading = false
+    var errorMessage: String?
+    var downloadPlans: [Int: DownloadPlan] = [:]
+    var activeEditionId: Int?
 
     let player = AudiobookPlayer()
 
@@ -57,7 +58,6 @@ final class AppModel: ObservableObject {
     private var manifests: [Int: BookManifest] = [:]
     private var downloaders: [Int: ChapterDownloader] = [:]
     private var pendingBackgroundCompletions: [String: () -> Void] = [:]
-    private var cancellables = Set<AnyCancellable>()
     private var verifiedCounts: [Int: Int] = [:]
     private var lastProgressWriteMillis: [Int: Int64] = [:]
     /// Whether the device currently has a usable network path.
@@ -66,7 +66,7 @@ final class AppModel: ObservableObject {
     /// reported. It says an interface exists, not that the server answers — a
     /// captive portal or a down server still has to be handled by whatever
     /// waits on the request.
-    @Published private(set) var isOnline = true
+    private(set) var isOnline = true
     private let pathMonitor = NWPathMonitor()
 
     private let readingProgressStore = ReadingProgressStore(
@@ -90,7 +90,8 @@ final class AppModel: ObservableObject {
             isLoggedIn = true
         }
 
-        bindPlayer()
+        player.onPositionTick = { [weak self] in self?.persistPlaybackProgress(force: false) }
+        player.onPlaybackStopped = { [weak self] in self?.persistPlaybackProgress(force: true) }
         startPathMonitor()
     }
 
@@ -188,7 +189,7 @@ final class AppModel: ObservableObject {
         let raw = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !raw.isEmpty, let base = URL(string: raw) else { ssoProviders = []; return }
         let client = apiClient ?? APIClient(baseURL: base, token: nil)
-        ssoProviders = (try? await client.ssoProviders().providers) ?? []
+        ssoProviders = await (try? client.ssoProviders().providers) ?? []
     }
 
     /// Sign in through a provider using the native browser OAuth flow.
@@ -260,7 +261,7 @@ final class AppModel: ObservableObject {
     func requestPushAuthorization() {
         Task {
             let center = UNUserNotificationCenter.current()
-            let granted = (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+            let granted = await (try? center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
             if granted {
                 UIApplication.shared.registerForRemoteNotifications()
             }
@@ -374,11 +375,10 @@ final class AppModel: ObservableObject {
             }
             activeEditionId = editionId
 
-            let resumeAt: Double
-            if let overridePosition {
-                resumeAt = max(0, min(overridePosition, manifest.totalDurationSecs))
+            let resumeAt: Double = if let overridePosition {
+                max(0, min(overridePosition, manifest.totalDurationSecs))
             } else {
-                resumeAt = await resolveResumePosition(editionId: editionId, manifest: manifest)
+                await resolveResumePosition(editionId: editionId, manifest: manifest)
             }
             player.load(
                 manifest: manifest,
@@ -463,29 +463,6 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func bindPlayer() {
-        player.objectWillChange
-            .sink { [weak self] _ in
-                self?.objectWillChange.send()
-            }
-            .store(in: &cancellables)
-
-        player.$positionSecs
-            .sink { [weak self] _ in
-                self?.persistPlaybackProgress(force: false)
-            }
-            .store(in: &cancellables)
-
-        player.$isPlaying
-            .dropFirst()
-            .removeDuplicates()
-            .sink { [weak self] isPlaying in
-                guard !isPlaying else { return }
-                self?.persistPlaybackProgress(force: true)
-            }
-            .store(in: &cancellables)
-    }
-
     /// Replaces the downloader's signed URLs after a grant expired.
     ///
     /// The plan requeues a 401/403 chapter without spending an attempt, so
@@ -542,7 +519,7 @@ final class AppModel: ObservableObject {
 
         var remoteRecord: ProgressRecord?
         if let apiClient,
-           let remote = (try? await apiClient.getProgress())?.first(where: { $0.editionId == editionId })
+           let remote = await (try? apiClient.getProgress())?.first(where: { $0.editionId == editionId })
         {
             remoteRecord = ProgressRecord(
                 positionSecs: remote.positionSecs,
@@ -630,7 +607,7 @@ final class AppModel: ObservableObject {
         // also given a short deadline, after which the local position wins.
         if isOnline, let apiClient {
             remote = await withDeadline(seconds: 5) {
-                (try? await apiClient.readingProgress())?
+                await (try? apiClient.readingProgress())?
                     .first { $0.editionId == editionId }
             }
         }
@@ -690,9 +667,9 @@ final class AppModel: ObservableObject {
     /// offer "Add to library" (admin) vs "Request" (non-admin).
     private func refreshAdmin() async {
         guard let apiClient else { return }
-        if let user = (try? await apiClient.currentUser())?.user {
+        if let user = await (try? apiClient.currentUser())?.user {
             isAdmin = user.isAdmin ?? false
-            let full = [user.firstName, user.lastName].compactMap { $0 }.joined(separator: " ")
+            let full = [user.firstName, user.lastName].compactMap(\.self).joined(separator: " ")
             userFirstName = user.firstName ?? (full.isEmpty ? user.name : full)
         }
     }

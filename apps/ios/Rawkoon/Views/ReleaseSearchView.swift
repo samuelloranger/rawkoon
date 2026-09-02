@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Presented as a sheet from MediaDetailView. Interactive indexer search + grab.
 struct ReleaseSearchView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     let libraryMediaId: Int?
     let tmdbId: Int?
@@ -45,11 +45,11 @@ struct ReleaseSearchView: View {
 
         var label: String {
             switch self {
-            case .quality: return "Quality"
-            case .seeders: return "Seeders"
-            case .age: return "Age"
-            case .size: return "Size"
-            case .title: return "Title"
+            case .quality: "Quality"
+            case .seeders: "Seeders"
+            case .age: "Age"
+            case .size: "Size"
+            case .title: "Title"
             }
         }
     }
@@ -405,7 +405,7 @@ struct ReleaseSearchView: View {
         }
     }
 
-    private func filterMenu<Content: View>(title: String, systemImage: String, @ViewBuilder content: () -> Content) -> some View {
+    private func filterMenu(title: String, systemImage: String, @ViewBuilder content: () -> some View) -> some View {
         Menu {
             content()
         } label: {

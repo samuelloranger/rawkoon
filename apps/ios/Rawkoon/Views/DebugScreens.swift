@@ -37,7 +37,7 @@
     /// Loads the first library item of a type and shows its detail — avoids having
     /// to know real tmdb/library ids for a screenshot.
     struct DebugFirstDetail: View {
-        @EnvironmentObject private var model: AppModel
+        @Environment(AppModel.self) private var model
         let libraryType: String // "movie" | "show"
 
         @State private var media: LibraryMedia?
@@ -77,7 +77,7 @@
     /// Shows a book's detail — prefers an ebook-only book so the merged view and
     /// the "Add audiobook" flow are visible.
     struct DebugFirstBook: View {
-        @EnvironmentObject private var model: AppModel
+        @Environment(AppModel.self) private var model
         @State private var loaded = false
 
         var body: some View {
@@ -108,7 +108,7 @@
 
     /// Shows the release-search sheet content for the first library movie.
     struct DebugFirstReleaseSearch: View {
-        @EnvironmentObject private var model: AppModel
+        @Environment(AppModel.self) private var model
 
         @State private var media: LibraryMedia?
         @State private var failed = false
@@ -143,7 +143,7 @@
     /// can be screenshotted without tap injection — `simctl` cannot tap, and the
     /// bar only appears once a book is loaded.
     struct DebugMiniPlayer<Content: View>: View {
-        @EnvironmentObject private var model: AppModel
+        @Environment(AppModel.self) private var model
         @ViewBuilder let content: () -> Content
 
         var body: some View {
@@ -171,7 +171,7 @@
     /// which is the shape a single-file m4b edition has and the whole-book fallback
     /// it must take.
     struct DebugPlayer: View {
-        @EnvironmentObject private var model: AppModel
+        @Environment(AppModel.self) private var model
         /// Zero means "no chapter timeline", which is the fallback case.
         let chapterCount: Int
         let resumeAt: Double
@@ -250,7 +250,7 @@
     /// in seconds to resume at, so a screenshot can be taken mid-chapter rather than
     /// at a chapter boundary.
     struct DebugRealPlayer: View {
-        @EnvironmentObject private var model: AppModel
+        @Environment(AppModel.self) private var model
 
         @State private var loaded: (summary: LibrarySummary, manifest: BookManifest)?
         @State private var failure: String?
@@ -283,11 +283,10 @@
             }
 
             let requested = Int(env["RAWKOON_EDITION"] ?? "")
-            let book: BookListItem?
-            if let requested {
-                book = model.library.first { $0.audiobookEditionId == requested }
+            let book: BookListItem? = if let requested {
+                model.library.first { $0.audiobookEditionId == requested }
             } else {
-                book = model.library.first { $0.hasAudiobook }
+                model.library.first { $0.hasAudiobook }
             }
 
             guard let book, let summary = book.audiobookSummary else {
@@ -343,7 +342,7 @@
     /// without tap injection, and the reader is the one screen whose output cannot
     /// be judged from a compile.
     struct DebugEbookReader: View {
-        @EnvironmentObject private var model: AppModel
+        @Environment(AppModel.self) private var model
 
         @State private var document: EbookPreviewDocument?
         @State private var failure: String?
@@ -404,11 +403,10 @@
             }
 
             let requested = Int(ProcessInfo.processInfo.environment["RAWKOON_BOOK"] ?? "")
-            let book: BookListItem?
-            if let requested {
-                book = model.library.first { $0.bookId == requested }
+            let book: BookListItem? = if let requested {
+                model.library.first { $0.bookId == requested }
             } else {
-                book = model.library.first { $0.hasEbook }
+                model.library.first { $0.hasEbook }
             }
             guard let book else {
                 failure = "No book \(requested.map(String.init) ?? "with an ebook") in the library"

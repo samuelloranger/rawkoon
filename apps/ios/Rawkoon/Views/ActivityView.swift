@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Tab root: download queue, recent history, and the upcoming calendar.
 struct ActivityView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     private enum Lane: String, CaseIterable, Identifiable {
         case queue = "Queue"
@@ -413,13 +413,13 @@ struct ActivityView: View {
     private func message(for error: APIError) -> String {
         switch error {
         case .unauthorized:
-            return "Sign in required."
+            "Sign in required."
         case let .http(status):
-            return "Server error (\(status))."
+            "Server error (\(status))."
         case .decode:
-            return "Could not parse server response."
+            "Could not parse server response."
         case .transport:
-            return "Network error. Check your connection."
+            "Network error. Check your connection."
         }
     }
 }

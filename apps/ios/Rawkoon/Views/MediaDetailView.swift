@@ -4,7 +4,7 @@ import SwiftUI
 /// Pushed from Discover and Library. `mediaType` is TMDB-style ("movie"/"tv").
 /// `libraryId` is non-nil when the title is already in the library.
 struct MediaDetailView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
 
     let tmdbId: Int
@@ -103,7 +103,7 @@ struct MediaDetailView: View {
                     mediaType: mediaType,
                     availableSeasons: details?.seasons?.map(\.seasonNumber) ?? []
                 )
-                .environmentObject(model)
+                .environment(model)
             }
             .sheet(item: $menuReleaseSearch) { target in
                 ReleaseSearchView(
@@ -113,7 +113,7 @@ struct MediaDetailView: View {
                     mediaType: target.mediaType,
                     availableSeasons: []
                 )
-                .environmentObject(model)
+                .environment(model)
             }
             .libraryRemoveConfirmation(
                 isPresented: $showingRemoveConfirm,
@@ -157,7 +157,7 @@ struct MediaDetailView: View {
 
     @ViewBuilder
     private var mainContent: some View {
-        if loading && details == nil {
+        if loading, details == nil {
             ProgressView().tint(Theme.muted)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 16)
@@ -354,7 +354,7 @@ struct MediaDetailView: View {
     private var primaryAction: some View {
         VStack(alignment: .leading, spacing: 8) {
             if libraryId == nil {
-                if !requested && !added {
+                if !requested, !added {
                     Button {
                         Task { model.isAdmin ? await submitAdd() : await submitRequest() }
                     } label: {
@@ -490,7 +490,7 @@ struct MediaDetailView: View {
                 description: Text("Media management controls are available for admins on in-library titles.")
             )
             .padding(.top, 12)
-        } else if managementLoading && managementItem == nil {
+        } else if managementLoading, managementItem == nil {
             ProgressView().tint(Theme.muted)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 16)
@@ -801,7 +801,7 @@ struct MediaDetailView: View {
         VStack(alignment: .leading, spacing: 6) {
             lineItem("Path", file.filePath)
             lineItem("Release group", file.releaseGroup ?? "Unknown")
-            lineItem("Codec", [file.videoCodec, file.videoProfile].compactMap { $0 }.joined(separator: " · "))
+            lineItem("Codec", [file.videoCodec, file.videoProfile].compactMap(\.self).joined(separator: " · "))
             lineItem("Source", file.source ?? "Unknown")
             lineItem("HDR", file.hdrFormat ?? "None")
             lineItem("Bit depth", file.bitDepth.map { "\($0)-bit" } ?? "Unknown")

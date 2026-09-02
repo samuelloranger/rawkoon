@@ -4,7 +4,7 @@ import SwiftUI
 /// Upcoming rails, then a widget stack (Now Watching, Downloads, Library
 /// Attention, RSS). Widgets self-hide when their integration is off.
 struct HomeView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     @State private var recent: [LibraryMedia] = []
     @State private var upcoming: [UpcomingItem] = []
@@ -22,7 +22,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 26) {
                 greeting
 
-                if loading && recent.isEmpty {
+                if loading, recent.isEmpty {
                     ProgressView().tint(Theme.muted)
                         .frame(maxWidth: .infinity).padding(.top, 40)
                 } else {
@@ -65,9 +65,9 @@ struct HomeView: View {
 
     private var timeGreeting: String {
         switch Calendar.current.component(.hour, from: Date()) {
-        case 5 ..< 12: return "Good morning"
-        case 12 ..< 18: return "Good afternoon"
-        default: return "Good evening"
+        case 5 ..< 12: "Good morning"
+        case 12 ..< 18: "Good afternoon"
+        default: "Good evening"
         }
     }
 
@@ -88,8 +88,8 @@ struct HomeView: View {
         case upcoming(UpcomingItem)
         var id: String {
             switch self {
-            case let .library(m): return "l\(m.id)"
-            case let .upcoming(u): return "u\(u.id)"
+            case let .library(m): "l\(m.id)"
+            case let .upcoming(u): "u\(u.id)"
             }
         }
     }
@@ -158,7 +158,7 @@ struct HomeView: View {
         .padding(.horizontal, 16)
     }
 
-    private func widgetCard<C: View>(_ title: String, systemImage: String, @ViewBuilder _ content: () -> C) -> some View {
+    private func widgetCard(_ title: String, systemImage: String, @ViewBuilder _ content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Label(title, systemImage: systemImage)
                 .font(.display(16)).foregroundStyle(Theme.textStrong)
@@ -277,11 +277,11 @@ struct HomeView: View {
         async let attnR = client.libraryAttention()
         async let rssR = client.rssStatus()
 
-        recent = (try? await recentR)?.items ?? []
-        upcoming = (try? await upcomingR)?.items ?? []
+        recent = await (try? recentR)?.items ?? []
+        upcoming = await (try? upcomingR)?.items ?? []
         nowPlaying = try? await npR
         speed = try? await speedR
-        attention = (try? await attnR)?.items ?? []
+        attention = await (try? attnR)?.items ?? []
         rss = try? await rssR
 
         loading = false

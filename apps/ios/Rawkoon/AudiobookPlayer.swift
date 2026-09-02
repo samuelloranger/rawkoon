@@ -1,16 +1,38 @@
 import AVFoundation
 import Foundation
 import MediaPlayer
+import Observation
 import RawkoonKit
 import UIKit
 
-final class AudiobookPlayer: ObservableObject {
-    @Published private(set) var positionSecs: Double = 0
-    @Published private(set) var isPlaying = false
-    @Published private(set) var currentChapterIndex: Int?
-    @Published private(set) var currentChapter: ManifestChapter?
-    @Published private(set) var rate: Float = 1.0
-    @Published private(set) var duration: Double = 0
+@Observable
+final class AudiobookPlayer {
+    private(set) var positionSecs: Double = 0 {
+        didSet { onPositionTick?() }
+    }
+
+    private(set) var isPlaying = false {
+        didSet {
+            // Combine sink was .dropFirst().removeDuplicates(), fired on !isPlaying:
+            // i.e. only on an actual playing→paused transition.
+            if oldValue, !isPlaying {
+                onPlaybackStopped?()
+            }
+        }
+    }
+
+    private(set) var currentChapterIndex: Int?
+    private(set) var currentChapter: ManifestChapter?
+    private(set) var rate: Float = 1.0
+    private(set) var duration: Double = 0
+
+    /// Called on every positionSecs change — AppModel uses it to persist progress
+    /// (throttled inside persistPlaybackProgress). Replaces the Combine relay's
+    /// player.$positionSecs sink.
+    var onPositionTick: (() -> Void)?
+    /// Called when playback transitions from playing to paused. Replaces the
+    /// player.$isPlaying.dropFirst().removeDuplicates() sink that force-persisted.
+    var onPlaybackStopped: (() -> Void)?
 
     /// Sleep timer. Countdown advances on playback ticks, so it naturally pauses
     /// when playback pauses. `.endOfChapter` stops when the current chapter ends.
@@ -20,8 +42,8 @@ final class AudiobookPlayer: ObservableObject {
         case endOfChapter
     }
 
-    @Published private(set) var sleepMode: SleepMode = .off
-    @Published private(set) var sleepRemainingSecs: Double?
+    private(set) var sleepMode: SleepMode = .off
+    private(set) var sleepRemainingSecs: Double?
 
     private var sleepEndChapterIndex: Int?
     private var lastSleepTick: Date?
@@ -67,23 +89,29 @@ final class AudiobookPlayer: ObservableObject {
     }
 
     deinit {
-        if let timeObserver, let player {
-            player.removeTimeObserver(timeObserver)
-        }
-        if let endObserver {
-            NotificationCenter.default.removeObserver(endObserver)
-        }
-        for observer in [interruptionObserver, resetObserver] {
-            if let observer {
-                NotificationCenter.default.removeObserver(observer)
+        // AudiobookPlayer is only ever held strongly by AppModel (@MainActor)
+        // and SwiftUI views observing it, both main-actor-only owners — every
+        // other reference to self in this file is `[weak self]` — so the last
+        // release, and therefore this deinit, always runs on the main actor.
+        MainActor.assumeIsolated {
+            if let timeObserver, let player {
+                player.removeTimeObserver(timeObserver)
             }
-        }
-        // `MPRemoteCommandCenter` is process-global. Leaving handlers behind
-        // would let a dead player answer the Lock Screen; removing them by
-        // token rather than with `removeTarget(nil)` leaves any other owner's
-        // alone.
-        for entry in commandTargets {
-            entry.command.removeTarget(entry.target)
+            if let endObserver {
+                NotificationCenter.default.removeObserver(endObserver)
+            }
+            for observer in [interruptionObserver, resetObserver] {
+                if let observer {
+                    NotificationCenter.default.removeObserver(observer)
+                }
+            }
+            // `MPRemoteCommandCenter` is process-global. Leaving handlers
+            // behind would let a dead player answer the Lock Screen; removing
+            // them by token rather than with `removeTarget(nil)` leaves any
+            // other owner's alone.
+            for entry in commandTargets {
+                entry.command.removeTarget(entry.target)
+            }
         }
     }
 
@@ -140,7 +168,13 @@ final class AudiobookPlayer: ObservableObject {
             object: session,
             queue: .main
         ) { [weak self] notification in
-            self?.handleInterruption(notification)
+            // Parsed outside the isolated block: `Notification` itself isn't
+            // Sendable (its `userInfo` is `[AnyHashable: Any]?`), but the
+            // `InterruptionEvent` it boils down to is — only that crosses.
+            guard let event = self?.parseInterruptionEvent(notification) else { return }
+            MainActor.assumeIsolated {
+                self?.handleInterruption(event)
+            }
         }
 
         // Category and mode are set once now, rather than on every play, so
@@ -152,7 +186,9 @@ final class AudiobookPlayer: ObservableObject {
             object: session,
             queue: .main
         ) { [weak self] _ in
-            self?.handleMediaServicesReset()
+            MainActor.assumeIsolated {
+                self?.handleMediaServicesReset()
+            }
         }
     }
 
@@ -192,11 +228,15 @@ final class AudiobookPlayer: ObservableObject {
         }
     }
 
-    private func handleInterruption(_ notification: Notification) {
+    /// Pure parse of the notification's `userInfo` into the `Sendable` event
+    /// `handleInterruption` acts on — kept `nonisolated` and free of `self`
+    /// state so it can run before the notification closure hops to the main
+    /// actor, since `Notification` itself is not `Sendable`.
+    private nonisolated func parseInterruptionEvent(_ notification: Notification) -> InterruptionEvent? {
         guard
             let raw = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
             let type = AVAudioSession.InterruptionType(rawValue: raw)
-        else { return }
+        else { return nil }
 
         // A `.began` raised because the app itself was suspended is not a real
         // interruption of playback, and pausing on it would stop a book that
@@ -204,21 +244,22 @@ final class AudiobookPlayer: ObservableObject {
         if let rawReason = notification.userInfo?[AVAudioSessionInterruptionReasonKey] as? UInt,
            AVAudioSession.InterruptionReason(rawValue: rawReason) == .appWasSuspended
         {
-            return
+            return nil
         }
 
-        let event: InterruptionEvent
         switch type {
         case .began:
-            event = .began
+            return .began
         case .ended:
             let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
             let options = AVAudioSession.InterruptionOptions(rawValue: rawOptions)
-            event = .ended(shouldResume: options.contains(.shouldResume))
+            return .ended(shouldResume: options.contains(.shouldResume))
         @unknown default:
-            return
+            return nil
         }
+    }
 
+    private func handleInterruption(_ event: InterruptionEvent) {
         // The decision itself lives in RawkoonKit, where the cases that cannot
         // be reproduced on a simulator — a call during a navigation prompt, a
         // pause while the prompt is speaking — are unit tests instead.
@@ -574,24 +615,26 @@ final class AudiobookPlayer: ObservableObject {
         let time = CMTime(seconds: max(0, offset), preferredTimescale: 600)
         player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
             DispatchQueue.main.async {
-                guard let self, self.seekID == id else { return }
-                self.isSeeking = false
-                guard finished else {
-                    // Cancelled, not superseded — a newer seek would have been
-                    // caught by the seekID guard above. `positionSecs` was
-                    // written optimistically in `seek(to:)`, so take the truth
-                    // back from the player rather than reporting a position it
-                    // never reached.
-                    if let current = self.player?.currentTime().seconds, current.isFinite {
-                        self.positionSecs = self.wholeBookPosition(fromCurrentItemTime: current)
+                MainActor.assumeIsolated {
+                    guard let self, self.seekID == id else { return }
+                    self.isSeeking = false
+                    guard finished else {
+                        // Cancelled, not superseded — a newer seek would have
+                        // been caught by the seekID guard above. `positionSecs`
+                        // was written optimistically in `seek(to:)`, so take
+                        // the truth back from the player rather than reporting
+                        // a position it never reached.
+                        if let current = self.player?.currentTime().seconds, current.isFinite {
+                            self.positionSecs = self.wholeBookPosition(fromCurrentItemTime: current)
+                        }
+                        self.updateNowPlayingInfo()
+                        return
                     }
-                    self.updateNowPlayingInfo()
-                    return
-                }
-                if self.isPlaying {
-                    self.beginPlayback()
-                } else {
-                    self.updateNowPlayingInfo()
+                    if self.isPlaying {
+                        self.beginPlayback()
+                    } else {
+                        self.updateNowPlayingInfo()
+                    }
                 }
             }
         }
@@ -616,21 +659,27 @@ final class AudiobookPlayer: ObservableObject {
             isSeeking = true
             isPlaying = autoplay
             itemStatusObserver = item.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
+                let status = item.status
+                let failedItem: AVPlayerItem? = status == .failed ? item : nil
                 DispatchQueue.main.async {
-                    guard let self, self.seekID == id else { return }
-                    switch item.status {
-                    case .readyToPlay:
-                        self.itemStatusObserver = nil
-                        self.seekCurrentItem(to: offset, autoplay: self.isPlaying)
-                    case .failed:
-                        self.logItemFailure(item)
-                        self.itemStatusObserver = nil
-                        if self.recoverFromFailedLocalItem(item) {
-                            return
+                    MainActor.assumeIsolated {
+                        guard let self, self.seekID == id else { return }
+                        switch status {
+                        case .readyToPlay:
+                            self.itemStatusObserver = nil
+                            self.seekCurrentItem(to: offset, autoplay: self.isPlaying)
+                        case .failed:
+                            if let failedItem {
+                                self.logItemFailure(failedItem)
+                            }
+                            self.itemStatusObserver = nil
+                            if let failedItem, self.recoverFromFailedLocalItem(failedItem) {
+                                return
+                            }
+                            self.isSeeking = false
+                        default:
+                            break
                         }
-                        self.isSeeking = false
-                    default:
-                        break
                     }
                 }
             }
@@ -709,11 +758,22 @@ final class AudiobookPlayer: ObservableObject {
             forInterval: CMTime(seconds: 0.5, preferredTimescale: 600),
             queue: .main
         ) { [weak self] time in
-            self?.handleTick(time.seconds)
+            MainActor.assumeIsolated {
+                self?.handleTick(time.seconds)
+            }
         }
 
+        // AVQueuePlayer.currentItem KVO is not documented to deliver on any
+        // particular queue — with actionAtItemEnd = .advance it fires on
+        // AVQueuePlayer's own auto-advance at every chapter boundary, which
+        // is the most frequent transition in a listening session. Hop
+        // explicitly rather than assuming main, same as itemStatusObserver.
         currentItemObserver = player.observe(\.currentItem, options: [.initial, .new]) { [weak self] _, _ in
-            self?.handleCurrentItemChanged()
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    self?.handleCurrentItemChanged()
+                }
+            }
         }
 
         endObserver = NotificationCenter.default.addObserver(
@@ -721,14 +781,15 @@ final class AudiobookPlayer: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            guard
-                let self,
-                let item = notification.object as? AVPlayerItem,
-                self.itemChapters[ObjectIdentifier(item)] != nil
-            else {
-                return
+            // Only the Sendable `ObjectIdentifier` crosses into the isolated
+            // block — the `AVPlayerItem` itself is not `Sendable` and is
+            // never used past this point.
+            guard let item = notification.object as? AVPlayerItem else { return }
+            let identifier = ObjectIdentifier(item)
+            MainActor.assumeIsolated {
+                guard let self, self.itemChapters[identifier] != nil else { return }
+                self.handleCurrentItemChanged()
             }
-            self.handleCurrentItemChanged()
         }
     }
 
@@ -1014,11 +1075,17 @@ final class AudiobookPlayer: ObservableObject {
         commandTargets.append((command, command.addTarget(handler: handler)))
     }
 
-    private func onMain(_ work: @escaping () -> Void) -> MPRemoteCommandHandlerStatus {
+    private func onMain(_ work: @escaping @MainActor () -> Void) -> MPRemoteCommandHandlerStatus {
         if Thread.isMainThread {
-            work()
+            MainActor.assumeIsolated {
+                work()
+            }
         } else {
-            DispatchQueue.main.async(execute: work)
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    work()
+                }
+            }
         }
         return .success
     }

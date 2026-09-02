@@ -33,10 +33,10 @@ private enum MediaStatusFilter: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .all: return "All"
-        case .downloaded: return "Downloaded"
-        case .wanted: return "Missing"
-        case .downloading: return "Downloading"
+        case .all: "All"
+        case .downloaded: "Downloaded"
+        case .wanted: "Missing"
+        case .downloading: "Downloading"
         }
     }
 
@@ -53,13 +53,13 @@ private enum MediaSort: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .added_at: return "Date added"
-        case .last_grabbed_at: return "Last download"
-        case .title: return "Title"
-        case .year: return "Year"
-        case .status: return "Status"
-        case .digital_release_date: return "Digital release"
-        case .file_size: return "File size"
+        case .added_at: "Date added"
+        case .last_grabbed_at: "Last download"
+        case .title: "Title"
+        case .year: "Year"
+        case .status: "Status"
+        case .digital_release_date: "Digital release"
+        case .file_size: "File size"
         }
     }
 }
@@ -83,14 +83,14 @@ private enum BookSort: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .title: return "Title"
-        case .author: return "Author"
+        case .title: "Title"
+        case .author: "Author"
         }
     }
 }
 
 struct LibraryView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     @State private var section: LibrarySection = .media
 
@@ -172,12 +172,12 @@ struct LibraryView: View {
                 mediaType: target.mediaType,
                 availableSeasons: []
             )
-            .environmentObject(model)
+            .environment(model)
         }
         .sheet(isPresented: $showingPlayer) {
             if let active = model.activeBook() {
                 PlayerView(summary: active.summary, manifest: active.manifest)
-                    .environmentObject(model)
+                    .environment(model)
             }
         }
         .navigationDestination(isPresented: Binding(
@@ -282,7 +282,7 @@ struct LibraryView: View {
         }
     }
 
-    private func filterMenu<Content: View>(title: String, systemImage: String, @ViewBuilder content: () -> Content) -> some View {
+    private func filterMenu(title: String, systemImage: String, @ViewBuilder content: () -> some View) -> some View {
         Menu {
             content()
         } label: {
@@ -372,11 +372,11 @@ struct LibraryView: View {
 
     @ViewBuilder
     private var mediaOverlay: some View {
-        if loadingMedia && media.isEmpty {
+        if loadingMedia, media.isEmpty {
             ProgressView().tint(Theme.apricot)
         } else if let mediaError, media.isEmpty {
             ContentUnavailableView("Couldn't load", systemImage: "exclamationmark.triangle", description: Text(mediaError))
-        } else if !loadingMedia && mediaError == nil && media.isEmpty {
+        } else if !loadingMedia, mediaError == nil, media.isEmpty {
             ContentUnavailableView("No titles", systemImage: "film", description: Text("Nothing matches these filters."))
         }
     }
@@ -405,11 +405,11 @@ struct LibraryView: View {
             .padding(.horizontal, 16).padding(.top, 4)
         }
         .overlay {
-            if model.loading && model.library.isEmpty {
+            if model.loading, model.library.isEmpty {
                 ProgressView().tint(Theme.apricot)
             } else if let error = model.errorMessage, model.library.isEmpty {
                 ContentUnavailableView("Couldn't load books", systemImage: "exclamationmark.triangle", description: Text(error))
-            } else if !model.loading && filteredBooks.isEmpty {
+            } else if !model.loading, filteredBooks.isEmpty {
                 ContentUnavailableView("No books", systemImage: "books.vertical", description: Text("Books added on your server show up here."))
             }
         }
@@ -419,9 +419,9 @@ struct LibraryView: View {
     private var filteredBooks: [BookListItem] {
         let filtered = model.library.filter { book in
             switch bookKind {
-            case .all: return true
-            case .audiobook: return book.hasAudiobook
-            case .ebook: return book.hasEbook
+            case .all: true
+            case .audiobook: book.hasAudiobook
+            case .ebook: book.hasEbook
             }
         }.filter { book in
             let query = bookSearch.trimmingCharacters(in: .whitespacesAndNewlines)

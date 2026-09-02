@@ -10,7 +10,7 @@
 # The two must be bumped together in the same commit in the Swift 6 phase, or
 # SwiftFormat emits syntax the compiler does not yet accept at the old
 # language version.
---swiftversion 5.0
+--swiftversion 6.0
 
 # Deletes SwiftUI `Group` wrappers, which changes the view tree's static
 # type — the thing SwiftUI uses for identity, diffing and transitions. A dry

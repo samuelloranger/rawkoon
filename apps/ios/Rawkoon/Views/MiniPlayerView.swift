@@ -6,7 +6,7 @@ import SwiftUI
 /// expands to the full Now Playing sheet; the trailing buttons toggle play and
 /// close the player.
 struct MiniPlayerView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
     let onExpand: () -> Void
 
     var body: some View {
