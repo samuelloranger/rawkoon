@@ -85,23 +85,29 @@ final class AudiobookPlayer {
     }
 
     deinit {
-        if let timeObserver, let player {
-            player.removeTimeObserver(timeObserver)
-        }
-        if let endObserver {
-            NotificationCenter.default.removeObserver(endObserver)
-        }
-        for observer in [interruptionObserver, resetObserver] {
-            if let observer {
-                NotificationCenter.default.removeObserver(observer)
+        // AudiobookPlayer is only ever held strongly by AppModel (@MainActor)
+        // and SwiftUI views observing it, both main-actor-only owners — every
+        // other reference to self in this file is `[weak self]` — so the last
+        // release, and therefore this deinit, always runs on the main actor.
+        MainActor.assumeIsolated {
+            if let timeObserver, let player {
+                player.removeTimeObserver(timeObserver)
             }
-        }
-        // `MPRemoteCommandCenter` is process-global. Leaving handlers behind
-        // would let a dead player answer the Lock Screen; removing them by
-        // token rather than with `removeTarget(nil)` leaves any other owner's
-        // alone.
-        for entry in commandTargets {
-            entry.command.removeTarget(entry.target)
+            if let endObserver {
+                NotificationCenter.default.removeObserver(endObserver)
+            }
+            for observer in [interruptionObserver, resetObserver] {
+                if let observer {
+                    NotificationCenter.default.removeObserver(observer)
+                }
+            }
+            // `MPRemoteCommandCenter` is process-global. Leaving handlers
+            // behind would let a dead player answer the Lock Screen; removing
+            // them by token rather than with `removeTarget(nil)` leaves any
+            // other owner's alone.
+            for entry in commandTargets {
+                entry.command.removeTarget(entry.target)
+            }
         }
     }
 
