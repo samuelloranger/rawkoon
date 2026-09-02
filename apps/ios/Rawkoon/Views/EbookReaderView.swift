@@ -1,7 +1,7 @@
 import RawkoonKit
-import ReadiumNavigator
-import ReadiumShared
-import ReadiumStreamer
+@preconcurrency import ReadiumNavigator
+@preconcurrency import ReadiumShared
+@preconcurrency import ReadiumStreamer
 import SwiftUI
 import UIKit
 

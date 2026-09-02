@@ -634,21 +634,27 @@ final class AudiobookPlayer {
             isSeeking = true
             isPlaying = autoplay
             itemStatusObserver = item.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
+                let status = item.status
+                let failedItem: AVPlayerItem? = status == .failed ? item : nil
                 DispatchQueue.main.async {
-                    guard let self, self.seekID == id else { return }
-                    switch item.status {
-                    case .readyToPlay:
-                        self.itemStatusObserver = nil
-                        self.seekCurrentItem(to: offset, autoplay: self.isPlaying)
-                    case .failed:
-                        self.logItemFailure(item)
-                        self.itemStatusObserver = nil
-                        if self.recoverFromFailedLocalItem(item) {
-                            return
+                    MainActor.assumeIsolated {
+                        guard let self, self.seekID == id else { return }
+                        switch status {
+                        case .readyToPlay:
+                            self.itemStatusObserver = nil
+                            self.seekCurrentItem(to: offset, autoplay: self.isPlaying)
+                        case .failed:
+                            if let failedItem {
+                                self.logItemFailure(failedItem)
+                            }
+                            self.itemStatusObserver = nil
+                            if let failedItem, self.recoverFromFailedLocalItem(failedItem) {
+                                return
+                            }
+                            self.isSeeking = false
+                        default:
+                            break
                         }
-                        self.isSeeking = false
-                    default:
-                        break
                     }
                 }
             }
