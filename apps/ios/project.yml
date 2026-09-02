@@ -24,16 +24,20 @@ targets:
         product: ReadiumStreamer
       - package: Readium
         product: ReadiumNavigator
-    entitlements:
-      path: Rawkoon/Rawkoon.entitlements
-      properties:
-        # TestFlight/App Store builds use the production APNs environment, so
-        # the server must talk to api.push.apple.com (APNS_PRODUCTION=true).
-        aps-environment: production
     info:
       path: Rawkoon/Info.plist
       properties:
         UIBackgroundModes: [audio, fetch, remote-notification]
+        # CarPlay scene ONLY. We do not declare UIWindowSceneSessionRoleApplication:
+        # omitting it lets SwiftUI keep managing the phone WindowGroup. Declaring a
+        # UIKit window SceneDelegate here would drag the phone UI off SwiftUI.
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+          UISceneConfigurations:
+            CPTemplateApplicationSceneSessionRoleApplication:
+              - UISceneConfigurationName: CarPlay
+                UISceneClassName: CPTemplateApplicationScene
+                UISceneDelegateClassName: $(PRODUCT_MODULE_NAME).CarPlaySceneDelegate
         # Declares the app as a long-form audio player before the session is
         # ever configured, so AirPlay route suggestions are right from launch.
         AVInitialRouteSharingPolicy: LongFormAudio
@@ -73,6 +77,12 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         DEVELOPMENT_TEAM: SSU33B2E5B
         CODE_SIGN_STYLE: Automatic
+        # One shared entitlements file for every config now that Apple has granted
+        # com.apple.developer.carplay-audio on the "Rawkoon AppStore CI" profile.
+        # Debug/simulator and Release both carry the CarPlay + push entitlements;
+        # the Release archive signs because the regenerated distribution profile
+        # includes carplay-audio. (Before the grant this was Debug-only.)
+        CODE_SIGN_ENTITLEMENTS: Rawkoon/Rawkoon.entitlements
       configs:
         # Signing lives on the app target, not on the xcodebuild command line.
         # A command-line override applies to every target in the project, and
