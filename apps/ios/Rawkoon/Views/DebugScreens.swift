@@ -432,16 +432,12 @@
             )
 
             if !FileManager.default.fileExists(atPath: localURL.path) {
-                guard let remote = model.absoluteURL(file.contentUrl) else {
+                guard model.absoluteURL(file.contentUrl) != nil else {
                     failure = "No signed content URL for file \(file.id)"
                     return
                 }
                 do {
-                    let (temp, response) = try await URLSession.shared.download(from: remote)
-                    guard let http = response as? HTTPURLResponse, (200 ..< 300).contains(http.statusCode) else {
-                        failure = "Download failed (HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0))"
-                        return
-                    }
+                    let temp = try await client.downloadFile(path: file.contentUrl ?? "")
                     try FileManager.default.createDirectory(
                         at: localURL.deletingLastPathComponent(),
                         withIntermediateDirectories: true

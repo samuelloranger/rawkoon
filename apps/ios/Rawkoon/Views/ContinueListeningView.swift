@@ -326,12 +326,19 @@ struct ContinueListeningView: View {
             return localURL
         }
 
-        guard let remoteURL = model.absoluteURL(file.contentUrl) else {
+        guard model.absoluteURL(file.contentUrl) != nil else {
             throw EbookContinueError.missingRemoteURL
         }
 
-        let (temporaryURL, response) = try await URLSession.shared.download(from: remoteURL)
-        guard let http = response as? HTTPURLResponse, (200 ..< 300).contains(http.statusCode) else {
+        let temporaryURL: URL
+        do {
+            // NOTE: deliberately surfacing .transport for every failure here to preserve
+            // the shipping copy ("Network error…"). The 401→"Sign in required." wording
+            // improvement is deferred to the localization phase — see the milestone spec.
+            guard let client = model.api() else { throw APIError.unauthorized }
+            temporaryURL = try await client.downloadFile(path: file.contentUrl ?? "")
+        } catch {
+            Log.network.error("openEbook download failed: \(String(describing: error), privacy: .public)")
             throw APIError.transport
         }
 

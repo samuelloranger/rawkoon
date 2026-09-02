@@ -1069,14 +1069,14 @@ struct BookView: View {
             return localURL
         }
 
-        guard let remoteURL = remoteEbookURL(for: file) else {
+        guard remoteEbookURL(for: file) != nil else {
             throw EbookStorageError.missingRemoteURL
         }
-
-        let (temporaryURL, response) = try await URLSession.shared.download(from: remoteURL)
-        guard let http = response as? HTTPURLResponse, (200 ..< 300).contains(http.statusCode) else {
-            throw APIError.transport
+        guard let client = model.api() else {
+            throw APIError.unauthorized
         }
+
+        let temporaryURL = try await client.downloadFile(path: file.contentUrl ?? "")
 
         let parent = localURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
