@@ -58,6 +58,8 @@ export interface BookEdition {
   file_count: number;
   /** Best-ranked format among this edition's files; null when it has none. */
   best_format: BookFormat | null;
+  /** Audiobook transport gate: chapter files registered. Ebooks are false. */
+  offline_ready: boolean;
 }
 
 export interface Book {

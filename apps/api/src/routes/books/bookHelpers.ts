@@ -33,6 +33,7 @@ type MappableEdition = {
   lastGrabbedAt: Date | null;
   totalSizeBytes: bigint | null;
   files: { id: number; format: string }[];
+  offlineReady: boolean;
 };
 
 type MappableBook = {
@@ -108,6 +109,7 @@ export function mapBookEdition(e: MappableEdition): BookEdition {
     total_size_bytes: e.totalSizeBytes?.toString() ?? null,
     file_count: e.files.length,
     best_format: bestFormat(e.files),
+    offline_ready: e.offlineReady,
   };
 }
 

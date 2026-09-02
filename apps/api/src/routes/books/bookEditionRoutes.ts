@@ -32,6 +32,7 @@ const editionSelect = {
   searchAttempts: true,
   lastGrabbedAt: true,
   totalSizeBytes: true,
+  offlineReady: true,
   files: { select: { id: true, format: true } },
 } as const;
 
