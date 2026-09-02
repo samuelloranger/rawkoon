@@ -14,6 +14,7 @@ export interface ContinueItem {
   coverUrl: string | null;
   updatedAt: string;
   progressFraction: number;
+  remainingSecs?: number;
 }
 
 const audioInProgress = (row: BookListeningProgress) =>
@@ -38,6 +39,7 @@ export function continueItems(
       authors: row.authors,
       coverUrl: row.cover_url,
       updatedAt: row.updated_at,
+      remainingSecs: Math.max(row.total_duration_secs - row.position_secs, 0),
       progressFraction: Math.min(
         Math.max(row.position_secs / row.total_duration_secs, 0),
         1,

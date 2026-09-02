@@ -192,6 +192,7 @@
       "fromJellyfinEmpty": "Nothing on Jellyfin yet",
       "nowWatching": "Now watching",
       "nowWatchingEmpty": "Nobody's watching right now",
+      "continue": "Continue",
       "paused": "Paused",
       "upcoming": "Upcoming releases",
       "statsEventsToday_one": "event today",
@@ -2127,6 +2128,7 @@
     },
     "listen": {
       "title": "Listen",
+      "open": "Listen",
       "notReady": "This audiobook isn’t ready to play yet — chapter files haven’t been registered.",
       "back": "Back to book",
       "chapters": "Chapters",
@@ -2145,6 +2147,7 @@
     },
     "read": {
       "epubOnly": "Only EPUB can be read in the browser. Download other formats from the book page.",
+      "open": "Read",
       "openFailed": "That book couldn’t be opened.",
       "contents": "Contents",
       "settings": "Settings",
