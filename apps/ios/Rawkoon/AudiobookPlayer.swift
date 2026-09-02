@@ -895,7 +895,7 @@ final class AudiobookPlayer {
 
     private func handleItemFailedToPlayToEnd(_ identifier: ObjectIdentifier) {
         guard !isSeeking, let chapter = itemChapters[identifier] else { return }
-        if recoverFromFailedLocalItem(player?.currentItem) {
+        if let item = player?.currentItem, recoverFromFailedLocalItem(item) {
             return
         }
         reportUnplayable(chapter)
