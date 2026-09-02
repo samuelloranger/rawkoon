@@ -44,6 +44,23 @@ struct PlayerView: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationBackground(Theme.base)
+        .alert(
+            "Couldn't play chapter",
+            isPresented: Binding(
+                get: { model.player.playbackError != nil },
+                set: {
+                    if !$0 {
+                        model.player.clearPlaybackError()
+                    }
+                }
+            )
+        ) {
+            Button("OK", role: .cancel) { model.player.clearPlaybackError() }
+        } message: {
+            if let message = model.player.playbackError {
+                Text(message)
+            }
+        }
         .onAppear { sliderPosition = model.player.positionSecs }
         .onChange(of: model.player.positionSecs) { _, position in
             guard !isDraggingSlider else { return }
