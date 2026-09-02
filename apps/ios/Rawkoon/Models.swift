@@ -529,12 +529,13 @@ nonisolated struct FormatConditionDTO: Decodable, Sendable {
         type = try c.decode(String.self, forKey: .type)
         op = try c.decode(String.self, forKey: .op)
         negate = (try? c.decodeIfPresent(Bool.self, forKey: .negate)) ?? false
-        if let s = try? c.decodeIfPresent(String.self, forKey: .value), let s { stringValue = s }
-        else if let d = try? c.decodeIfPresent(Double.self, forKey: .value), let d {
+        if let s = try? c.decodeIfPresent(String.self, forKey: .value) {
+            stringValue = s
+        } else if let d = try? c.decodeIfPresent(Double.self, forKey: .value) {
             stringValue = FormatConditionDTO.number(d)
-        } else if let arr = try? c.decodeIfPresent([Double].self, forKey: .value), let arr {
+        } else if let arr = try? c.decodeIfPresent([Double].self, forKey: .value) {
             stringValue = arr.map(FormatConditionDTO.number).joined(separator: ",")
-        } else if let b = try? c.decodeIfPresent(Bool.self, forKey: .value), let b {
+        } else if let b = try? c.decodeIfPresent(Bool.self, forKey: .value) {
             stringValue = b ? "true" : "false"
         } else {
             stringValue = ""
