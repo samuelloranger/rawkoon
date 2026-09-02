@@ -726,7 +726,7 @@ struct BookView: View {
                         .foregroundStyle(Theme.seed)
                 } else if preferredCanFetchRemote {
                     Button {
-                        Task { await downloadEbook(preferred) }
+                        startEbookDownload(preferred)
                     } label: {
                         Group {
                             if downloadingEbookFileIDs.contains(preferred.id) {

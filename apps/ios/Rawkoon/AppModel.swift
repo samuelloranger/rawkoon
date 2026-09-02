@@ -485,6 +485,10 @@ final class AppModel {
         FileStore.deleteEdition(editionId)
         downloadPlans.removeValue(forKey: editionId)
         verifiedCounts.removeValue(forKey: editionId)
+        // Otherwise a stale attempt count could trip maxGrantRefreshAttempts on
+        // the next download of this edition.
+        grantRefreshAttempts.removeValue(forKey: editionId)
+        grantRefreshInFlight.remove(editionId)
         if activeEditionId == editionId {
             player.rebuild()
         }
@@ -523,6 +527,9 @@ final class AppModel {
     private static let maxGrantRefreshAttempts = 3
 
     private func applyDownloadPlan(_ plan: DownloadPlan, editionId: Int) {
+        // A late callback from a downloader that `purgeDownload` already dropped
+        // (cancel/remove) must not resurrect the plan or the deleted files.
+        guard downloaders[editionId] != nil else { return }
         if plan.needsFreshGrants {
             Task { await refreshGrants(editionId: editionId) }
         }

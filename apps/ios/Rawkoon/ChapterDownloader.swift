@@ -67,11 +67,14 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     /// resulting `NSURLErrorCancelled` is already swallowed in
     /// `didCompleteWithError`, so no spurious failure state is emitted.
     func cancel() {
+        // Serialized on stateQueue so it lands after any in-flight pump rather
+        // than racing one: invalidating the session while `pumpIfNeeded` is
+        // mid-`downloadTask(with:)` on the same session is undefined.
         stateQueue.async {
             self.isRunning = false
             self.activeFileIds.removeAll()
+            self.session.invalidateAndCancel()
         }
-        session.invalidateAndCancel()
     }
 
     func requestRetry(fileId: Int) {
