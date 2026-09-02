@@ -979,7 +979,14 @@ struct BookView: View {
             detail = try await client.bookDetail(bookId: book.bookId)
             alignLaneToAvailableEditions()
         } catch let apiError as APIError {
-            detailError = message(for: apiError)
+            // A transport failure means we're offline; the screen still works
+            // from the library row and any downloaded files, so don't raise a
+            // network-error wall for it.
+            if case .transport = apiError {
+                detailError = nil
+            } else {
+                detailError = message(for: apiError)
+            }
         } catch {
             detailError = "Could not load book details."
         }
@@ -1076,12 +1083,17 @@ struct BookView: View {
         defer { loadingEbookFiles = false }
         do {
             ebookFiles = try await client.bookEditionFiles(bookId: book.bookId, kind: "ebook")
-        } catch let apiError as APIError {
-            ebookFiles = []
-            ebookFilesError = message(for: apiError)
         } catch {
-            ebookFiles = []
-            ebookFilesError = "Could not load ebook files."
+            // Offline / server unreachable: fall back to the persisted file list
+            // so a downloaded ebook can still be opened. Only when there is no
+            // cached list do we surface an error.
+            if let cached = model.offlineEbookFiles(editionId: ebookStorageEditionId), !cached.isEmpty {
+                ebookFiles = cached
+                ebookFilesError = nil
+            } else {
+                ebookFiles = []
+                ebookFilesError = (error as? APIError).map(message(for:)) ?? "Could not load ebook files."
+            }
         }
     }
 
@@ -1151,6 +1163,16 @@ struct BookView: View {
         }
         do {
             _ = try await ensureLocalEbookFile(file)
+            // Persist enough to list and open this ebook offline.
+            model.recordEbookDownloaded(
+                editionId: ebookStorageEditionId,
+                bookId: book.bookId,
+                title: titleText,
+                author: authorText.isEmpty ? nil : authorText,
+                coverURL: coverURL,
+                files: ebookFiles,
+                downloadedFileCount: ebookFiles.filter(isEbookDownloaded).count
+            )
         } catch EbookStorageError.missingRemoteURL {
             ebookFilesError = "This server version cannot provide ebook download links yet."
         } catch {

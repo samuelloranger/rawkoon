@@ -51,6 +51,10 @@ final class AppModel {
     var authWarning: String?
     var downloadPlans: [Int: DownloadPlan] = [:]
     var activeEditionId: Int?
+    /// True when `library` was built from the on-device downloaded index because
+    /// the server was unreachable — the UI shows an "Offline" hint instead of a
+    /// network-error wall, and lists only downloaded books.
+    var isOfflineLibrary = false
 
     let player = AudiobookPlayer()
 
@@ -373,12 +377,38 @@ final class AppModel {
             return cached
         }
         guard let apiClient else {
+            // Logged out or no client: a downloaded book still opens from its
+            // persisted manifest rather than failing.
+            if let disk = DownloadedStore.readManifest(editionId: editionId) {
+                manifests[editionId] = disk
+                return disk
+            }
             throw APIError.unauthorized
         }
 
-        let fetched = try await apiClient.manifest(editionId: editionId)
-        manifests[editionId] = fetched
-        return fetched
+        do {
+            let fetched = try await apiClient.manifest(editionId: editionId)
+            manifests[editionId] = fetched
+            // Backfill a pre-existing, fully-downloaded audiobook (downloaded
+            // before offline persistence shipped) the first time it is opened
+            // online, so it too becomes usable offline.
+            if DownloadedStore.readManifest(editionId: editionId) == nil,
+               !fetched.chapters.isEmpty,
+               DownloadedStore.downloadedFileCount(editionId: editionId) >= fetched.chapters.count
+            {
+                persistDownloadedAudiobook(editionId: editionId)
+            }
+            return fetched
+        } catch {
+            // Offline / server unreachable: fall back to the downloaded copy so
+            // playback works with no network. Re-throw only when nothing is
+            // cached on disk.
+            if let disk = DownloadedStore.readManifest(editionId: editionId) {
+                manifests[editionId] = disk
+                return disk
+            }
+            throw error
+        }
     }
 
     func startDownload(editionId: Int) async {
@@ -508,6 +538,7 @@ final class AppModel {
 
         for editionId in editionIDs {
             FileStore.deleteEdition(editionId)
+            DownloadedStore.forget(editionId: editionId)
         }
 
         downloadPlans = [:]
@@ -537,6 +568,7 @@ final class AppModel {
         downloaders[editionId]?.cancel()
         downloaders.removeValue(forKey: editionId)
         FileStore.deleteEdition(editionId)
+        DownloadedStore.forget(editionId: editionId)
         downloadPlans.removeValue(forKey: editionId)
         verifiedCounts.removeValue(forKey: editionId)
         // Otherwise a stale attempt count could trip maxGrantRefreshAttempts on
@@ -592,6 +624,98 @@ final class AppModel {
 
         downloadPlans[editionId] = plan
         verifiedCounts[editionId] = newCount
+
+        // When the last chapter verifies, persist what the offline library needs
+        // to list and play this audiobook without the network. Guard on a
+        // missing on-disk manifest so this runs once per completed download, not
+        // on every state emission.
+        if plan.isComplete, DownloadedStore.readManifest(editionId: editionId) == nil {
+            persistDownloadedAudiobook(editionId: editionId)
+        }
+    }
+
+    /// Snapshots a freshly-completed audiobook into the offline store: its
+    /// manifest, a cached cover (best-effort), and an index record.
+    private func persistDownloadedAudiobook(editionId: Int) {
+        guard let manifest = manifests[editionId] else { return }
+        let book = library.first { $0.audiobookEditionId == editionId }
+
+        DownloadedStore.writeManifest(manifest, editionId: editionId)
+
+        let entry = DownloadedEdition(
+            editionId: editionId,
+            bookId: manifest.bookId,
+            kind: .audiobook,
+            title: book?.title ?? manifest.title,
+            author: book?.author ?? manifest.authors.first,
+            totalDurationSecs: manifest.totalDurationSecs,
+            fileCount: manifest.chapters.count,
+            coverFileName: nil,
+            addedAtMillis: Int64(Date().timeIntervalSince1970 * 1000)
+        )
+        DownloadedStore.upsert(entry)
+
+        if let coverURL = book?.coverURL {
+            Task { await cacheCover(from: coverURL, editionId: editionId) }
+        }
+    }
+
+    /// Records a downloaded ebook into the offline store: its file list (so the
+    /// Book screen can offer Read offline), an index record, and a cached cover.
+    /// Called by the Book screen after a file finishes downloading; `editionId`
+    /// is the storage id the on-disk file uses.
+    func recordEbookDownloaded(
+        editionId: Int,
+        bookId: Int,
+        title: String,
+        author: String?,
+        coverURL: URL?,
+        files: [BookEditionFile],
+        downloadedFileCount: Int
+    ) {
+        DownloadedStore.writeEbookFiles(files, editionId: editionId)
+        let entry = DownloadedEdition(
+            editionId: editionId,
+            bookId: bookId,
+            kind: .ebook,
+            title: title,
+            author: author,
+            totalDurationSecs: nil,
+            fileCount: max(downloadedFileCount, 1),
+            coverFileName: nil,
+            addedAtMillis: Int64(Date().timeIntervalSince1970 * 1000)
+        )
+        DownloadedStore.upsert(entry)
+        if let coverURL {
+            Task { await cacheCover(from: coverURL, editionId: editionId) }
+        }
+    }
+
+    /// The persisted ebook file list for a downloaded edition, or nil. The Book
+    /// screen falls back to this when the server is unreachable.
+    func offlineEbookFiles(editionId: Int) -> [BookEditionFile]? {
+        DownloadedStore.readEbookFiles(editionId: editionId)
+    }
+
+    /// Best-effort cover download for the offline list. Failure is silent — the
+    /// row renders without art.
+    private func cacheCover(from url: URL, editionId: Int) async {
+        guard let (data, _) = try? await URLSession.shared.data(from: url) else { return }
+        let ext = url.pathExtension.isEmpty ? "jpg" : url.pathExtension
+        guard let fileName = DownloadedStore.writeCover(data, editionId: editionId, ext: ext) else { return }
+        // Re-read/patch the index so the record points at the saved cover.
+        let patched = DownloadedStore.readIndex().map { entry -> DownloadedEdition in
+            guard entry.editionId == editionId else { return entry }
+            return DownloadedEdition(
+                editionId: entry.editionId, bookId: entry.bookId, kind: entry.kind,
+                title: entry.title, author: entry.author,
+                totalDurationSecs: entry.totalDurationSecs, fileCount: entry.fileCount,
+                coverFileName: fileName, addedAtMillis: entry.addedAtMillis
+            )
+        }
+        for entry in patched where entry.editionId == editionId {
+            DownloadedStore.upsert(entry)
+        }
     }
 
     private func resolveResumePosition(editionId: Int, manifest: BookManifest) async -> Double {
@@ -746,9 +870,56 @@ final class AppModel {
 
     private func reloadLibrary() async throws {
         guard let apiClient else { throw APIError.unauthorized }
-        let fetched = try await apiClient.libraryBooks()
-        library = fetched.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-        await refreshAdmin()
+        do {
+            let fetched = try await apiClient.libraryBooks()
+            library = fetched.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            isOfflineLibrary = false
+            await refreshAdmin()
+        } catch {
+            // Offline / server unreachable: serve the downloaded index so the
+            // library shows what can actually be used without the network.
+            // Only when nothing is downloaded do we surface the error.
+            let downloaded = DownloadedStore.readIndex()
+            guard !downloaded.isEmpty else { throw error }
+            library = Self.offlineLibrary(from: downloaded)
+            isOfflineLibrary = true
+        }
+    }
+
+    /// Collapses the downloaded index into library rows, merging an audiobook
+    /// and an ebook of the same book into one row (mirroring the online merged
+    /// list) and preserving the title sort.
+    private static func offlineLibrary(from index: [DownloadedEdition]) -> [BookListItem] {
+        var byBook: [Int: [DownloadedEdition]] = [:]
+        for entry in DownloadedLibrary.sortedForDisplay(index) {
+            byBook[entry.bookId, default: []].append(entry)
+        }
+        // Order books by their best (first, per the title sort) edition.
+        var seen = Set<Int>()
+        var order: [Int] = []
+        for entry in DownloadedLibrary.sortedForDisplay(index) where !seen.contains(entry.bookId) {
+            seen.insert(entry.bookId)
+            order.append(entry.bookId)
+        }
+        return order.compactMap { bookId in
+            guard let editions = byBook[bookId], let primary = editions.first else { return nil }
+            let audiobook = editions.first { $0.kind == .audiobook }
+            let ebook = editions.first { $0.kind == .ebook }
+            return BookListItem(
+                bookId: bookId,
+                title: primary.title,
+                author: primary.author,
+                coverURL: DownloadedStore.coverURL(
+                    editionId: primary.editionId, fileName: primary.coverFileName
+                ),
+                audiobookEditionId: audiobook?.editionId,
+                ebookEditionId: ebook?.editionId,
+                audiobookDurationSecs: audiobook?.totalDurationSecs,
+                audiobookStatus: audiobook != nil ? "downloaded" : nil,
+                audiobookFileCount: audiobook?.fileCount ?? 0,
+                hasEbook: ebook != nil
+            )
+        }
     }
 
     private var didRefreshAdminOnce = false
