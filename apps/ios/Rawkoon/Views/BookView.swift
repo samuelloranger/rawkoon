@@ -2,7 +2,7 @@ import Foundation
 import RawkoonKit
 import SwiftUI
 
-private enum BookDetailLane: String, CaseIterable, Identifiable {
+enum BookDetailLane: String, CaseIterable, Identifiable {
     case audiobook = "Audiobook"
     case ebook = "Ebook"
     var id: String {
@@ -23,30 +23,14 @@ struct BookView: View {
 
     let book: BookListItem
 
-    @State private var detail: BookDetailItem?
-    @State private var loadingDetail = false
-    @State private var detailError: String?
+    @State private var vm: BookViewModel
     @State private var activeLane: BookDetailLane
 
-    @State private var manifest: BookManifest?
-    @State private var loadingManifest = false
-    @State private var rescanningManifest = false
-    @State private var preparingAudiobookDownload = false
-    @State private var loadingPlayer = false
     @State private var showingPlayer = false
     @State private var releaseSearchLane: ReleaseSearchLane?
-    @State private var manifestError: String?
-    @State private var audiobookActionError: String?
-    @State private var attemptedAutomaticRecovery = false
-
-    @State private var ebookFiles: [BookEditionFile] = []
-    @State private var loadingEbookFiles = false
-    @State private var rescanningEbook = false
     @State private var openingEbookFileId: Int?
     @State private var downloadingEbookFileIDs = Set<Int>()
-    @State private var ebookFilesError: String?
     @State private var previewDocument: EbookPreviewDocument?
-    @State private var addingEditionKind: String?
     @State private var chapterFilter = ""
 
     /// Longer than one screen of spine rows; a 3-chapter book does not need a field.
@@ -54,6 +38,7 @@ struct BookView: View {
 
     init(book: BookListItem, preferEbook: Bool = false) {
         self.book = book
+        _vm = State(initialValue: BookViewModel(book: book))
         if preferEbook, book.hasEbook {
             _activeLane = State(initialValue: .ebook)
         } else {
@@ -61,62 +46,32 @@ struct BookView: View {
         }
     }
 
-    private var audiobookEdition: BookEditionDetail? {
-        detail?.editions.first(where: { $0.kind == "audiobook" })
-    }
-
-    private var ebookEdition: BookEditionDetail? {
-        detail?.editions.first(where: { $0.kind == "ebook" })
-    }
-
-    private var audiobookEditionId: Int? {
-        audiobookEdition?.id ?? book.audiobookEditionId
-    }
-
-    /// Falls back to the list item so reading progress still resolves when the
-    /// detail request failed but the library already knew the edition.
-    private var ebookEditionId: Int? {
-        ebookEdition?.id ?? book.ebookEditionId
-    }
-
-    private var ebookStorageEditionId: Int {
-        ebookEditionId ?? (1_000_000_000 + book.bookId)
-    }
-
-    private var hasAudiobookEdition: Bool {
-        audiobookEditionId != nil
-    }
-
-    private var hasEbookEdition: Bool {
-        ebookEdition != nil || book.hasEbook
-    }
-
     private var titleText: String {
-        detail?.title ?? book.title
+        vm.detail?.title ?? book.title
     }
 
     private var subtitleText: String? {
-        detail?.subtitle
+        vm.detail?.subtitle
     }
 
     private var authorText: String {
-        let authors = detail?.authors ?? (book.author.map { [$0] } ?? [])
+        let authors = vm.detail?.authors ?? (book.author.map { [$0] } ?? [])
         return authors.joined(separator: ", ")
     }
 
     private var coverURL: URL? {
-        model.absoluteURL(detail?.coverUrl) ?? book.coverURL
+        model.absoluteURL(vm.detail?.coverUrl) ?? book.coverURL
     }
 
     private var audiobookSummary: LibrarySummary? {
-        guard let editionId = audiobookEditionId else { return nil }
+        guard let editionId = vm.audiobookEditionId else { return nil }
         return LibrarySummary(
             editionId: editionId,
             bookId: book.bookId,
             title: titleText,
             author: authorText.isEmpty ? nil : authorText,
             coverURL: coverURL,
-            durationSecs: audiobookEdition?.durationSecs ?? book.audiobookDurationSecs
+            durationSecs: vm.audiobookEdition?.durationSecs ?? book.audiobookDurationSecs
         )
     }
 
@@ -125,7 +80,7 @@ struct BookView: View {
             VStack(alignment: .leading, spacing: 18) {
                 header
                 lanePicker
-                if let detailError, detail == nil {
+                if let detailError = vm.detailError, vm.detail == nil {
                     errorBanner(detailError)
                 }
                 laneContent
@@ -138,27 +93,23 @@ struct BookView: View {
         .navigationTitle(titleText)
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            await refreshAll(forceManifestRefresh: false)
+            await vm.refreshAll(model: model, forceManifestRefresh: false)
+            activeLane = vm.alignedLane(current: activeLane)
         }
         .refreshable {
-            await refreshAll(forceManifestRefresh: true)
+            await vm.refreshAll(model: model, forceManifestRefresh: true)
+            activeLane = vm.alignedLane(current: activeLane)
         }
         .sheet(isPresented: $showingPlayer) {
-            if let manifest, let summary = audiobookSummary {
+            if let manifest = vm.manifest, let summary = audiobookSummary {
                 PlayerView(summary: summary, manifest: manifest)
                     .environment(model)
             }
         }
         .sheet(item: $releaseSearchLane, onDismiss: {
             Task {
-                await model.loadLibrary()
-                await loadBookDetail()
-                if hasEbookEdition {
-                    await loadEbookFiles()
-                }
-                if hasAudiobookEdition {
-                    await fetchManifest(forceRefresh: true)
-                }
+                await vm.onReleaseSearchDismissed(model: model)
+                activeLane = vm.alignedLane(current: activeLane)
             }
         }) { lane in
             BookReleaseSearchView(bookId: book.bookId, kind: lane.rawValue, title: titleText)
@@ -192,38 +143,24 @@ struct BookView: View {
                         .font(.subheadline)
                         .foregroundStyle(Theme.muted)
                 }
-                if let facts = factsLine {
+                if let facts = vm.factsLine {
                     Text(facts)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.faint)
                 }
                 HStack(spacing: 6) {
-                    if hasAudiobookEdition {
-                        let audiobookStatus = formattedStatus(audiobookEdition?.status ?? book.audiobookStatus ?? "wanted")
+                    if vm.hasAudiobookEdition {
+                        let audiobookStatus = vm.formattedStatus(vm.audiobookEdition?.status ?? book.audiobookStatus ?? "wanted")
                         chip("Audiobook · \(audiobookStatus)", tint: Theme.muted)
                     }
-                    if hasEbookEdition {
-                        chip("Ebook · \(formattedStatus(ebookEdition?.status ?? "wanted"))", tint: Theme.muted)
+                    if vm.hasEbookEdition {
+                        chip("Ebook · \(vm.formattedStatus(vm.ebookEdition?.status ?? "wanted"))", tint: Theme.muted)
                     }
                 }
                 .padding(.top, 2)
             }
             Spacer(minLength: 0)
         }
-    }
-
-    private var factsLine: String? {
-        guard let detail else { return nil }
-        var parts: [String] = []
-        if let published = formattedPublishedDate(detail.publishedDate, year: detail.publishedYear) {
-            parts.append(published)
-        }
-        parts.append(detail.language.uppercased())
-        if let name = detail.seriesName, !name.isEmpty {
-            let suffix = detail.seriesPosition.map { " #\($0)" } ?? ""
-            parts.append("\(name)\(suffix)")
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     private var lanePicker: some View {
@@ -237,7 +174,7 @@ struct BookView: View {
 
     @ViewBuilder
     private var laneContent: some View {
-        if loadingDetail, detail == nil {
+        if vm.loadingDetail, vm.detail == nil {
             HStack {
                 Spacer()
                 ProgressView().tint(Theme.apricot)
@@ -255,12 +192,12 @@ struct BookView: View {
 
     private var overviewCard: some View {
         Group {
-            if let overview = detail?.overview, !overview.isEmpty {
+            if let overview = vm.detail?.overview, !overview.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Overview")
                         .font(.display(16))
                         .foregroundStyle(Theme.textStrong)
-                    Text(renderedOverviewText(overview))
+                    Text(vm.renderedOverviewText(overview))
                         .font(.subheadline)
                         .foregroundStyle(Theme.text)
                 }
@@ -274,12 +211,12 @@ struct BookView: View {
 
     private var metadataCard: some View {
         Group {
-            if !metadataRows.isEmpty {
+            if !vm.metadataRows.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Book info")
                         .font(.display(16))
                         .foregroundStyle(Theme.textStrong)
-                    ForEach(Array(metadataRows.enumerated()), id: \.offset) { entry in
+                    ForEach(Array(vm.metadataRows.enumerated()), id: \.offset) { entry in
                         let row = entry.element
                         HStack(alignment: .top) {
                             Text(row.label)
@@ -299,34 +236,6 @@ struct BookView: View {
                 .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
             }
         }
-    }
-
-    private var metadataRows: [(label: String, value: String)] {
-        guard let detail else { return [] }
-        var rows: [(String, String)] = []
-        if let isbn = detail.isbn13, !isbn.isEmpty {
-            rows.append(("ISBN-13", isbn))
-        }
-        if !detail.narrators.isEmpty {
-            rows.append(("Narrators", detail.narrators.joined(separator: ", ")))
-        }
-        if let publisher = detail.publisher, !publisher.isEmpty {
-            rows.append(("Publisher", publisher))
-        }
-        if let pages = detail.pageCount {
-            rows.append(("Pages", String(pages)))
-        }
-        if let rating = detail.rating {
-            if let count = detail.ratingCount {
-                rows.append(("Rating", "\(String(format: "%.1f", rating)) (\(count))"))
-            } else {
-                rows.append(("Rating", String(format: "%.1f", rating)))
-            }
-        }
-        if !detail.genres.isEmpty {
-            rows.append(("Genres", detail.genres.joined(separator: " · ")))
-        }
-        return rows
     }
 
     private func chip(_ text: String, tint: Color) -> some View {
@@ -357,13 +266,13 @@ struct BookView: View {
 
     @ViewBuilder
     private var audiobookSection: some View {
-        if hasAudiobookEdition {
+        if vm.hasAudiobookEdition {
             VStack(alignment: .leading, spacing: 14) {
                 metricsCard(
                     title: "Audiobook",
-                    status: audiobookEdition?.status ?? book.audiobookStatus ?? "wanted",
+                    status: vm.audiobookEdition?.status ?? book.audiobookStatus ?? "wanted",
                     accent: Theme.muted,
-                    metrics: audiobookMetrics
+                    metrics: vm.audiobookMetrics
                 )
                 audiobookActionButtons
                 chaptersList
@@ -379,37 +288,17 @@ struct BookView: View {
         }
     }
 
-    private var audiobookMetrics: [String] {
-        let secs = manifest?.totalDurationSecs ?? audiobookEdition?.durationSecs ?? book.audiobookDurationSecs ?? 0
-        var parts = [Formatters.durationClock(secs)]
-        if let count = manifest?.chapters.count {
-            parts.append("\(count) chapters")
-        } else if let count = audiobookEdition?.fileCount {
-            parts.append("\(count) files")
-        } else if book.audiobookFileCount > 0 {
-            parts.append("\(book.audiobookFileCount) files")
-        }
-        return parts
-    }
-
     private var audiobookActionButtons: some View {
         VStack(spacing: 10) {
             Button {
                 Task {
-                    guard let editionId = audiobookEditionId else { return }
-                    audiobookActionError = nil
-                    loadingPlayer = true
-                    await model.openPlayer(editionId: editionId)
-                    loadingPlayer = false
-                    if let error = model.errorMessage {
-                        audiobookActionError = error
-                    } else {
+                    if await vm.playAudiobook(model: model) {
                         showingPlayer = true
                     }
                 }
             } label: {
                 Group {
-                    if loadingPlayer {
+                    if vm.loadingPlayer {
                         ProgressView().tint(Theme.onAccent)
                     } else {
                         Label("Play", systemImage: "play.fill")
@@ -421,7 +310,7 @@ struct BookView: View {
             .tint(Theme.apricot)
             .foregroundStyle(Theme.onAccent)
             .fontWeight(.semibold)
-            .disabled(!canPlayAudiobook || loadingManifest)
+            .disabled(!vm.canPlayAudiobook || vm.loadingManifest)
 
             audiobookDownloadButton
 
@@ -437,12 +326,16 @@ struct BookView: View {
                     .buttonStyle(.bordered)
                     .tint(Theme.apricot)
 
-                    if manifest == nil {
+                    if vm.manifest == nil {
                         Button {
-                            Task { await recoverManifestAfterRescan() }
+                            Task {
+                                guard let client = model.api() else { return }
+                                await vm.recoverManifestAfterRescan(client: client, model: model)
+                                activeLane = vm.alignedLane(current: activeLane)
+                            }
                         } label: {
                             Group {
-                                if rescanningManifest {
+                                if vm.rescanningManifest {
                                     ProgressView().tint(Theme.apricot)
                                 } else {
                                     Label("Rescan", systemImage: "arrow.clockwise")
@@ -453,12 +346,12 @@ struct BookView: View {
                         }
                         .buttonStyle(.bordered)
                         .tint(Theme.raised)
-                        .disabled(rescanningManifest || loadingManifest)
+                        .disabled(vm.rescanningManifest || vm.loadingManifest)
                     }
                 }
             }
 
-            if let audiobookActionError {
+            if let audiobookActionError = vm.audiobookActionError {
                 Text(audiobookActionError)
                     .font(.caption)
                     .foregroundStyle(Theme.terracotta)
@@ -468,8 +361,8 @@ struct BookView: View {
 
     @ViewBuilder
     private var audiobookDownloadButton: some View {
-        let plan = audiobookEditionId.flatMap { model.downloadPlans[$0] }
-        if preparingAudiobookDownload, plan == nil {
+        let plan = vm.audiobookEditionId.flatMap { model.downloadPlans[$0] }
+        if vm.preparingAudiobookDownload, plan == nil {
             HStack {
                 ProgressView().tint(Theme.apricot)
                 Text("Preparing download...")
@@ -509,15 +402,7 @@ struct BookView: View {
         } else {
             Button {
                 Task {
-                    if let editionId = audiobookEditionId {
-                        audiobookActionError = nil
-                        preparingAudiobookDownload = true
-                        await model.startDownload(editionId: editionId)
-                        preparingAudiobookDownload = false
-                        if let error = model.errorMessage {
-                            audiobookActionError = error
-                        }
-                    }
+                    await vm.startAudiobookDownload(model: model)
                 }
             } label: {
                 Label("Download", systemImage: "arrow.down.circle")
@@ -529,7 +414,7 @@ struct BookView: View {
     }
 
     private var sortedChapters: [ManifestChapter] {
-        (manifest?.chapters ?? []).sorted(by: { $0.index < $1.index })
+        (vm.manifest?.chapters ?? []).sorted(by: { $0.index < $1.index })
     }
 
     private var filteredChapters: [ManifestChapter] {
@@ -541,9 +426,9 @@ struct BookView: View {
             Text("Chapters")
                 .font(.display(17))
                 .foregroundStyle(Theme.textStrong)
-            if loadingManifest {
+            if vm.loadingManifest {
                 ProgressView().tint(Theme.apricot)
-            } else if manifest != nil {
+            } else if vm.manifest != nil {
                 if sortedChapters.count > chapterFilterThreshold {
                     searchField("Filter chapters", text: $chapterFilter)
                 }
@@ -558,11 +443,7 @@ struct BookView: View {
                         ForEach(filteredChapters, id: \.fileId) { chapter in
                             Button {
                                 Task {
-                                    guard let editionId = audiobookEditionId else { return }
-                                    loadingPlayer = true
-                                    await model.openPlayer(editionId: editionId, resumeAt: chapter.startSecs)
-                                    loadingPlayer = false
-                                    if model.errorMessage == nil {
+                                    if await vm.playAudiobook(model: model, chapter: chapter) {
                                         showingPlayer = true
                                     }
                                 }
@@ -570,8 +451,8 @@ struct BookView: View {
                                 SpineRow(
                                     index: chapter.index,
                                     title: chapter.title,
-                                    downloaded: isChapterDownloaded(chapter),
-                                    current: isCurrentChapter(chapter)
+                                    downloaded: vm.isChapterDownloaded(chapter, model: model),
+                                    current: vm.isCurrentChapter(chapter, model: model)
                                 )
                             }
                             .buttonStyle(.plain)
@@ -580,13 +461,13 @@ struct BookView: View {
                 }
             } else {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(manifestError ?? "Chapters couldn't load.")
+                    Text(vm.manifestError ?? "Chapters couldn't load.")
                         .font(.subheadline)
                         .foregroundStyle(Theme.muted)
                     Text("Pull to refresh, run rescan, or check the server.")
                         .font(.caption)
                         .foregroundStyle(Theme.faint)
-                    Text("Edition status: \(formattedStatus(audiobookEdition?.status ?? book.audiobookStatus ?? "wanted"))")
+                    Text("Edition status: \(vm.formattedStatus(vm.audiobookEdition?.status ?? book.audiobookStatus ?? "wanted"))")
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(Theme.faint)
                 }
@@ -598,13 +479,13 @@ struct BookView: View {
 
     @ViewBuilder
     private var ebookSection: some View {
-        if hasEbookEdition {
+        if vm.hasEbookEdition {
             VStack(alignment: .leading, spacing: 14) {
                 metricsCard(
                     title: "Ebook",
-                    status: ebookEdition?.status ?? "wanted",
+                    status: vm.ebookEdition?.status ?? "wanted",
                     accent: Theme.muted,
-                    metrics: ebookMetrics
+                    metrics: vm.ebookMetrics
                 )
                 ebookActions
                 ebookFilesCard
@@ -620,34 +501,16 @@ struct BookView: View {
         }
     }
 
-    private var ebookMetrics: [String] {
-        var parts: [String] = []
-        if let count = ebookEdition?.fileCount {
-            parts.append("\(count) files")
-        }
-        if let bestFormat = ebookEdition?.bestFormat {
-            parts.append(bestFormat.uppercased())
-        }
-        if let size = Formatters.bytesStrict(ebookEdition?.totalSizeBytes) {
-            parts.append(size)
-        }
-        let offlineCount = ebookFiles.filter { isEbookDownloaded($0) }.count
-        if offlineCount > 0 {
-            parts.append("\(offlineCount) offline")
-        }
-        return parts
-    }
-
     private var ebookActions: some View {
         VStack(alignment: .leading, spacing: 10) {
-            let preferred = preferredEbookFile
-            let preferredIsDownloaded = preferred.map(isEbookDownloaded) ?? false
-            let preferredCanFetchRemote = preferred.flatMap { remoteEbookURL(for: $0) } != nil
+            let preferred = vm.preferredEbookFile
+            let preferredIsDownloaded = preferred.map(vm.isEbookDownloaded) ?? false
+            let preferredCanFetchRemote = preferred.flatMap { vm.remoteEbookURL(for: $0, model: model) } != nil
             let preferredCanRead = preferredIsDownloaded || preferredCanFetchRemote
 
             Button {
                 Task {
-                    guard let file = preferredEbookFile else { return }
+                    guard let file = vm.preferredEbookFile else { return }
                     await openEbook(file)
                 }
             } label: {
@@ -657,9 +520,9 @@ struct BookView: View {
             .buttonStyle(.borderedProminent)
             .tint(Theme.terracotta)
             .foregroundStyle(Theme.onAccent)
-            .disabled(!preferredCanRead || loadingEbookFiles || openingEbookFileId != nil)
+            .disabled(!preferredCanRead || vm.loadingEbookFiles || openingEbookFileId != nil)
 
-            if let preferred = preferredEbookFile {
+            if let preferred = vm.preferredEbookFile {
                 if preferredIsDownloaded {
                     Label("Saved for offline reading", systemImage: "checkmark.circle.fill")
                         .font(.caption)
@@ -682,7 +545,7 @@ struct BookView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(Theme.muted)
-                    .disabled(downloadingEbookFileIDs.contains(preferred.id) || loadingEbookFiles)
+                    .disabled(downloadingEbookFileIDs.contains(preferred.id) || vm.loadingEbookFiles)
                 } else {
                     Text("This server does not expose secure ebook file downloads yet. Update Rawkoon on the server, then retry.")
                         .font(.caption)
@@ -702,10 +565,14 @@ struct BookView: View {
                     .tint(Theme.muted)
 
                     Button {
-                        Task { await rescanEbookEdition() }
+                        Task {
+                            guard let client = model.api() else { return }
+                            await vm.rescanEbookEdition(client: client, model: model)
+                            activeLane = vm.alignedLane(current: activeLane)
+                        }
                     } label: {
                         Group {
-                            if rescanningEbook {
+                            if vm.rescanningEbook {
                                 ProgressView().tint(Theme.muted)
                             } else {
                                 Label("Rescan", systemImage: "arrow.clockwise")
@@ -715,10 +582,10 @@ struct BookView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(Theme.raised)
-                    .disabled(rescanningEbook || loadingEbookFiles)
+                    .disabled(vm.rescanningEbook || vm.loadingEbookFiles)
                 }
             }
-            if let ebookFilesError {
+            if let ebookFilesError = vm.ebookFilesError {
                 Text(ebookFilesError)
                     .font(.caption)
                     .foregroundStyle(Theme.terracotta)
@@ -732,26 +599,26 @@ struct BookView: View {
                 .font(.display(17))
                 .foregroundStyle(Theme.textStrong)
 
-            if loadingEbookFiles {
+            if vm.loadingEbookFiles {
                 ProgressView().tint(Theme.muted)
-            } else if ebookFiles.isEmpty {
+            } else if vm.ebookFiles.isEmpty {
                 Text("No ebook files imported yet. Search releases or rescan this edition.")
                     .font(.subheadline)
                     .foregroundStyle(Theme.muted)
             } else {
-                ForEach(ebookFiles) { file in
+                ForEach(vm.ebookFiles) { file in
                     HStack(alignment: .top, spacing: 10) {
-                        let downloaded = isEbookDownloaded(file)
+                        let downloaded = vm.isEbookDownloaded(file)
                         let downloading = downloadingEbookFileIDs.contains(file.id)
                         let loadingState = openingEbookFileId == file.id || downloading
-                        let canFetchRemote = remoteEbookURL(for: file) != nil
+                        let canFetchRemote = vm.remoteEbookURL(for: file, model: model) != nil
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text(file.fileName)
                                 .font(.subheadline)
                                 .foregroundStyle(Theme.textStrong)
                                 .lineLimit(2)
-                            Text(fileMeta(file))
+                            Text(vm.fileMeta(file))
                                 .font(.system(.caption2, design: .monospaced))
                                 .foregroundStyle(Theme.muted)
                         }
@@ -771,7 +638,7 @@ struct BookView: View {
                                     .disabled(!canFetchRemote)
                                 }
 
-                                if isReadableEbook(file) {
+                                if vm.isReadableEbook(file) {
                                     Button("Read") {
                                         Task { await openEbook(file) }
                                     }
@@ -792,27 +659,6 @@ struct BookView: View {
         }
     }
 
-    /// The in-app reader unpacks EPUB only. Other formats in the library (the
-    /// Harry Potter editions ship a .mobi beside each .epub) are downloadable
-    /// but not readable here, and offering Read on them just produces a "not a
-    /// valid EPUB container" error.
-    private func isReadableEbook(_ file: BookEditionFile) -> Bool {
-        ebookExtension(for: file) == "epub" || file.format.lowercased() == "epub"
-    }
-
-    private var preferredEbookFile: BookEditionFile? {
-        ebookFiles
-            .sorted { left, right in
-                ebookFormatRank(left.format) < ebookFormatRank(right.format)
-            }
-            .first(where: isReadableEbook)
-    }
-
-    private var canPlayAudiobook: Bool {
-        guard let manifest else { return false }
-        return !manifest.chapters.isEmpty
-    }
-
     private func metricsCard(title: String, status: String, accent: Color, metrics: [String]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -820,7 +666,7 @@ struct BookView: View {
                     .font(.display(16))
                     .foregroundStyle(Theme.textStrong)
                 Spacer()
-                chip(formattedStatus(status), tint: accent)
+                chip(vm.formattedStatus(status), tint: accent)
             }
             if !metrics.isEmpty {
                 Text(metrics.joined(separator: " · "))
@@ -849,7 +695,7 @@ struct BookView: View {
                 .font(.subheadline)
                 .foregroundStyle(Theme.muted)
             Button(action: action) {
-                if addingEditionKind != nil {
+                if vm.addingEditionKind != nil {
                     ProgressView()
                         .tint(Theme.onAccent)
                         .frame(maxWidth: .infinity)
@@ -861,7 +707,7 @@ struct BookView: View {
             .buttonStyle(.borderedProminent)
             .tint(tint)
             .foregroundStyle(Theme.onAccent)
-            .disabled(addingEditionKind != nil)
+            .disabled(vm.addingEditionKind != nil)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
@@ -869,376 +715,54 @@ struct BookView: View {
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
     }
 
-    /// The ebook lane loads before the audiobook manifest on purpose.
-    ///
-    /// A manifest 400 kicks off `recoverManifestAfterRescan()`, and a
-    /// server-side rescan of a many-chapter edition re-reads every file's
-    /// metadata — tens of seconds on a 60+ file audiobook. With the ebook load
-    /// queued behind it, `ebookFiles` stayed empty for that whole window, which
-    /// left "Read" disabled and the Files card spinning.
-    private func refreshAll(forceManifestRefresh: Bool) async {
-        await loadBookDetail()
-        if hasEbookEdition {
-            await loadEbookFiles()
-        } else {
-            ebookFiles = []
-            ebookFilesError = nil
-        }
-        if hasAudiobookEdition {
-            await fetchManifest(forceRefresh: forceManifestRefresh)
-        } else {
-            manifest = nil
-            manifestError = nil
-        }
-    }
+    // MARK: View-owned wrappers around VM calls
+    //
+    // These keep the view-state pieces (`activeLane`, `openingEbookFileId`,
+    // `downloadingEbookFileIDs`, `previewDocument`) out of `BookViewModel`,
+    // which never touches SwiftUI `@State`.
 
-    private func loadBookDetail() async {
-        guard let client = model.api() else { return }
-        loadingDetail = true
-        detailError = nil
-        defer { loadingDetail = false }
-        do {
-            detail = try await client.bookDetail(bookId: book.bookId)
-            alignLaneToAvailableEditions()
-        } catch let apiError as APIError {
-            detailError = message(for: apiError)
-        } catch {
-            detailError = "Could not load book details."
-        }
-    }
-
-    private func alignLaneToAvailableEditions() {
-        if activeLane == .audiobook, !hasAudiobookEdition, hasEbookEdition {
-            activeLane = .ebook
-        } else if activeLane == .ebook, !hasEbookEdition, hasAudiobookEdition {
-            activeLane = .audiobook
-        }
-    }
-
+    /// `activeLane` is view-state, so `addEdition`'s original unconditional
+    /// post-add lane assignment (which overrode whatever
+    /// `alignLaneToAvailableEditions()` had just computed inside the nested
+    /// `loadBookDetail()` call) happens here instead, gated on
+    /// `AddEditionOutcome.succeeded` exactly as the original's `do` block was.
     private func addEdition(kind: String) async {
         guard let client = model.api() else { return }
-        addingEditionKind = kind
-        defer { addingEditionKind = nil }
-        do {
-            try await client.addBookEdition(bookId: book.bookId, kind: kind)
-            await model.loadLibrary()
-            await loadBookDetail()
-            if kind == "audiobook" {
-                activeLane = .audiobook
-                await fetchManifest(forceRefresh: true)
-            } else {
-                activeLane = .ebook
-                await loadEbookFiles()
-            }
-        } catch let apiError as APIError {
-            if kind == "audiobook" {
-                manifestError = message(for: apiError)
-            } else {
-                ebookFilesError = message(for: apiError)
-            }
-        } catch {
-            if kind == "audiobook" {
-                manifestError = "Could not add audiobook edition."
-            } else {
-                ebookFilesError = "Could not add ebook edition."
-            }
+        switch await vm.addEdition(client: client, model: model, kind: kind) {
+        case .succeeded:
+            activeLane = kind == "audiobook" ? .audiobook : .ebook
+        case .failed:
+            break
         }
     }
 
-    private func fetchManifest(forceRefresh: Bool = false) async {
-        guard let editionId = audiobookEditionId else { return }
-        loadingManifest = true
-        manifestError = nil
-        defer { loadingManifest = false }
-        do {
-            manifest = try await model.manifest(editionId, forceRefresh: forceRefresh)
-            attemptedAutomaticRecovery = false
-        } catch let apiError as APIError {
-            manifest = nil
-            manifestError = message(for: apiError)
-            if
-                case .http(400) = apiError,
-                model.isAdmin,
-                !attemptedAutomaticRecovery,
-                !forceRefresh
-            {
-                attemptedAutomaticRecovery = true
-                await recoverManifestAfterRescan()
-            }
-        } catch {
-            manifest = nil
-            manifestError = "Could not load manifest."
-        }
-    }
-
-    private func recoverManifestAfterRescan() async {
-        guard let editionId = audiobookEditionId, let client = model.api() else { return }
-        rescanningManifest = true
-        defer { rescanningManifest = false }
-
-        do {
-            _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "audiobook")
-            manifest = try await model.manifest(editionId, forceRefresh: true)
-            manifestError = nil
-            await model.loadLibrary()
-            await loadBookDetail()
-        } catch let apiError as APIError {
-            manifest = nil
-            manifestError = message(for: apiError)
-        } catch {
-            manifest = nil
-            manifestError = "Rescan completed, but chapters are still unavailable."
-        }
-    }
-
-    private func loadEbookFiles() async {
-        guard hasEbookEdition, let client = model.api() else { return }
-        loadingEbookFiles = true
-        ebookFilesError = nil
-        defer { loadingEbookFiles = false }
-        do {
-            ebookFiles = try await client.bookEditionFiles(bookId: book.bookId, kind: "ebook")
-        } catch let apiError as APIError {
-            ebookFiles = []
-            ebookFilesError = message(for: apiError)
-        } catch {
-            ebookFiles = []
-            ebookFilesError = "Could not load ebook files."
-        }
-    }
-
-    private func rescanEbookEdition() async {
-        guard let client = model.api() else { return }
-        rescanningEbook = true
-        defer { rescanningEbook = false }
-        do {
-            _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "ebook")
-            await model.loadLibrary()
-            await loadBookDetail()
-            await loadEbookFiles()
-        } catch let apiError as APIError {
-            ebookFilesError = message(for: apiError)
-        } catch {
-            ebookFilesError = "Could not rescan ebook edition."
-        }
-    }
-
+    /// `openingEbookFileId` is a view-owned per-row progress flag;
+    /// `previewDocument` is the view's sheet-presentation state.
     private func openEbook(_ file: BookEditionFile) async {
         openingEbookFileId = file.id
-        ebookFilesError = nil
         defer { openingEbookFileId = nil }
-        do {
-            let localURL = try await ensureLocalEbookFile(file)
+        if let localURL = await vm.openEbook(file, model: model) {
             previewDocument = EbookPreviewDocument(
                 id: file.id,
                 // The real edition id, not ebookStorageEditionId: reading
                 // progress is stored server-side per edition, and the synthetic
                 // fallback id does not exist there.
-                editionId: ebookEditionId,
+                editionId: vm.ebookEditionId,
                 // Rawkoon's language, not the EPUB's: an EPUB can list several
                 // and the reader takes the first, which laid a French novel out
                 // right-to-left.
-                language: detail?.language,
+                language: vm.detail?.language,
                 title: file.fileName,
                 localURL: localURL
             )
-        } catch EbookStorageError.missingRemoteURL {
-            ebookFilesError = "This server version cannot provide ebook download links yet."
-        } catch {
-            ebookFilesError = "Read failed. Try refreshing or rescanning this edition."
         }
     }
 
+    /// `downloadingEbookFileIDs` is a view-owned in-flight set.
     private func downloadEbook(_ file: BookEditionFile) async {
         guard !downloadingEbookFileIDs.contains(file.id) else { return }
         downloadingEbookFileIDs.insert(file.id)
-        ebookFilesError = nil
         defer { downloadingEbookFileIDs.remove(file.id) }
-        do {
-            _ = try await ensureLocalEbookFile(file)
-        } catch EbookStorageError.missingRemoteURL {
-            ebookFilesError = "This server version cannot provide ebook download links yet."
-        } catch {
-            ebookFilesError = "Download failed. Check your connection and try again."
-        }
-    }
-
-    private func ensureLocalEbookFile(_ file: BookEditionFile) async throws -> URL {
-        let localURL = localEbookURL(for: file)
-        if FileManager.default.fileExists(atPath: localURL.path) {
-            return localURL
-        }
-
-        guard remoteEbookURL(for: file) != nil else {
-            throw EbookStorageError.missingRemoteURL
-        }
-        guard let client = model.api() else {
-            throw APIError.unauthorized
-        }
-
-        let temporaryURL = try await client.downloadFile(path: file.contentUrl ?? "")
-
-        let parent = localURL.deletingLastPathComponent()
-        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
-
-        if FileManager.default.fileExists(atPath: localURL.path) {
-            try FileManager.default.removeItem(at: localURL)
-        }
-
-        try FileManager.default.moveItem(at: temporaryURL, to: localURL)
-        return localURL
-    }
-
-    private func remoteEbookURL(for file: BookEditionFile) -> URL? {
-        guard let contentURL = file.contentUrl else { return nil }
-        return model.absoluteURL(contentURL)
-    }
-
-    private func localEbookURL(for file: BookEditionFile) -> URL {
-        return FileStore.chapterURL(
-            editionId: ebookStorageEditionId,
-            fileId: file.id,
-            ext: ebookExtension(for: file)
-        )
-    }
-
-    private func isEbookDownloaded(_ file: BookEditionFile) -> Bool {
-        return FileStore.exists(
-            editionId: ebookStorageEditionId,
-            fileId: file.id,
-            ext: ebookExtension(for: file)
-        )
-    }
-
-    private func ebookExtension(for file: BookEditionFile) -> String {
-        // Lowercased on purpose: the library holds both ".epub" and ".EPUB",
-        // and the cached copy must land on one name either way.
-        let ext = URL(fileURLWithPath: file.fileName).pathExtension.lowercased()
-        if !ext.isEmpty {
-            return ext
-        }
-        let normalized = file.format.trimmingCharacters(in: CharacterSet(charactersIn: ".")).lowercased()
-        return normalized.isEmpty ? "epub" : normalized
-    }
-
-    private func ebookFormatRank(_ format: String) -> Int {
-        switch format.lowercased() {
-        case "epub": return 0
-        case "azw3": return 1
-        case "mobi": return 2
-        case "pdf": return 3
-        case "cbz": return 4
-        default: return 99
-        }
-    }
-
-    private func fileMeta(_ file: BookEditionFile) -> String {
-        var parts: [String] = [file.format.uppercased()]
-        if let size = Formatters.bytesStrict(file.sizeBytes) {
-            parts.append(size)
-        }
-        if let bitrate = file.audioBitrate {
-            parts.append("\(bitrate) kbps")
-        }
-        if !file.languageTags.isEmpty {
-            parts.append(file.languageTags.joined(separator: ", ").uppercased())
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    private func renderedOverviewText(_ rawOverview: String) -> String {
-        let trimmed = rawOverview.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.contains("<"), let data = trimmed.data(using: .utf8) else {
-            return trimmed
-        }
-        if let parsed = try? NSAttributedString(
-            data: data,
-            options: [
-                .documentType: NSAttributedString.DocumentType.html,
-                .characterEncoding: String.Encoding.utf8.rawValue,
-            ],
-            documentAttributes: nil
-        ) {
-            return parsed.string
-                .replacingOccurrences(of: "\u{00A0}", with: " ")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        return trimmed
-    }
-
-    private func isChapterDownloaded(_ chapter: ManifestChapter) -> Bool {
-        guard let editionId = audiobookEditionId else { return false }
-        if model.downloadPlans[editionId]?.states[chapter.fileId] == .verified {
-            return true
-        }
-        return FileStore.exists(editionId: editionId, fileId: chapter.fileId, ext: chapterExtension(chapter))
-    }
-
-    private func chapterExtension(_ chapter: ManifestChapter) -> String {
-        let ext = URL(string: chapter.url)?.pathExtension ?? ""
-        return ext.isEmpty ? "bin" : ext
-    }
-
-    private func isCurrentChapter(_ chapter: ManifestChapter) -> Bool {
-        guard let editionId = audiobookEditionId else { return false }
-        return model.activeEditionId == editionId && model.player.currentChapterIndex == chapter.index
-    }
-
-    private func formattedPublishedDate(_ iso: String?, year: Int?) -> String? {
-        if let iso,
-           let date = Self.isoDateFormatter.date(from: iso) ?? Self.isoDateNoFractionFormatter.date(from: iso)
-        {
-            return Self.publishedFormatter.string(from: date)
-        }
-        if let year {
-            return String(year)
-        }
-        return nil
-    }
-
-    private func formattedStatus(_ status: String) -> String {
-        status
-            .split(separator: "_")
-            .map { $0.capitalized }
-            .joined(separator: " ")
-    }
-
-    private func message(for error: APIError) -> String {
-        switch error {
-        case .unauthorized:
-            return "Sign in required."
-        case .http(400):
-            return "This audiobook is not chapter-ready yet. Run a rescan or grab a chapterized release."
-        case let .http(status):
-            return "Server error (\(status))."
-        case .decode:
-            return "Could not parse server response."
-        case .transport:
-            return "Network error. Check your connection."
-        }
-    }
-
-    private static let isoDateFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-
-    private static let isoDateNoFractionFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter
-    }()
-
-    private static let publishedFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .long
-        formatter.timeStyle = .none
-        formatter.locale = .autoupdatingCurrent
-        return formatter
-    }()
-
-    private enum EbookStorageError: Error {
-        case missingRemoteURL
+        await vm.downloadEbook(file, model: model)
     }
 }
