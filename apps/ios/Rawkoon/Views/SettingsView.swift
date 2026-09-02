@@ -121,7 +121,7 @@ struct SettingsView: View {
                     }
 
                     NavigationLink {
-                        QualityProfilesView()
+                        QualityProfilesCrudView()
                     } label: {
                         Label("Quality profiles", systemImage: "slider.horizontal.3")
                     }

@@ -425,6 +425,14 @@ nonisolated struct UpcomingItem: Decodable, Identifiable, Sendable {
 
 // MARK: - Management (settings hub)
 
+nonisolated struct AssignedCustomFormat: Decodable, Sendable {
+    let customFormatId: Int?
+    let name: String?
+    let score: Int?
+    let required: Bool?
+    let forbidden: Bool?
+}
+
 nonisolated struct QualityProfile: Decodable, Identifiable, Sendable {
     let id: Int
     let name: String
@@ -434,10 +442,79 @@ nonisolated struct QualityProfile: Decodable, Identifiable, Sendable {
     let minSeeders: Int?
     let requireHdr: Bool?
     let preferHdr: Bool?
+    let preferredSources: [String]?
+    let preferredCodecs: [String]?
+    let preferredLanguages: [String]?
+    let preferredSearchLanguage: String?
+    let prioritizedTrackers: [String]?
+    let preferTrackerOverQuality: Bool?
+    let customFormats: [AssignedCustomFormat]?
 }
 
 nonisolated struct QualityProfilesResponse: Decodable, Sendable {
     let profiles: [QualityProfile]
+}
+
+// MARK: Quality profile CRUD (spec §5 Phase 4)
+
+nonisolated struct CustomFormatAssignmentBody: Encodable, Sendable {
+    let customFormatId: Int
+    let score: Int
+    let required: Bool
+    let forbidden: Bool
+}
+
+/// Create/update body for a quality profile. Custom `encode(to:)` sends explicit
+/// null for the nullable fields (cutoff, search language, max size).
+nonisolated struct SaveQualityProfileBody: Encodable, Sendable {
+    var name: String
+    var minResolution: Int
+    var cutoffResolution: Int?
+    var preferredSources: [String]
+    var preferredCodecs: [String]
+    var preferredLanguages: [String]
+    var preferredSearchLanguage: String?
+    var prioritizedTrackers: [String]
+    var preferTrackerOverQuality: Bool
+    var maxSizeGb: Double?
+    var requireHdr: Bool
+    var preferHdr: Bool
+    var minSeeders: Int
+    var customFormats: [CustomFormatAssignmentBody]
+
+    enum CodingKeys: String, CodingKey {
+        case name, minResolution, cutoffResolution, preferredSources, preferredCodecs
+        case preferredLanguages, preferredSearchLanguage, prioritizedTrackers
+        case preferTrackerOverQuality, maxSizeGb, requireHdr, preferHdr, minSeeders, customFormats
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(name, forKey: .name)
+        try c.encode(minResolution, forKey: .minResolution)
+        try c.encode(cutoffResolution, forKey: .cutoffResolution)
+        try c.encode(preferredSources, forKey: .preferredSources)
+        try c.encode(preferredCodecs, forKey: .preferredCodecs)
+        try c.encode(preferredLanguages, forKey: .preferredLanguages)
+        try c.encode(preferredSearchLanguage, forKey: .preferredSearchLanguage)
+        try c.encode(prioritizedTrackers, forKey: .prioritizedTrackers)
+        try c.encode(preferTrackerOverQuality, forKey: .preferTrackerOverQuality)
+        try c.encode(maxSizeGb, forKey: .maxSizeGb)
+        try c.encode(requireHdr, forKey: .requireHdr)
+        try c.encode(preferHdr, forKey: .preferHdr)
+        try c.encode(minSeeders, forKey: .minSeeders)
+        try c.encode(customFormats, forKey: .customFormats)
+    }
+}
+
+// MARK: Custom formats (read — spec §5 Phase 4)
+
+nonisolated struct CustomFormatDTO: Decodable, Identifiable, Sendable {
+    let id: Int
+    let name: String
+}
+nonisolated struct CustomFormatsResponse: Decodable, Sendable {
+    let customFormats: [CustomFormatDTO]
 }
 
 nonisolated struct Indexer: Decodable, Identifiable, Sendable {

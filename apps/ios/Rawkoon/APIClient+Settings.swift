@@ -156,4 +156,19 @@ extension APIClient {
     func startLibraryMigrate(_ body: MigrateBody) async throws -> MigrateStartResponse {
         try await post("/api/library/migrate", body: body)
     }
+
+    // MARK: Quality profiles + custom formats CRUD (spec §5 Phase 4)
+
+    func createQualityProfile(_ body: SaveQualityProfileBody) async throws {
+        try await postExpectOK("/api/quality-profiles", body: body)
+    }
+    func updateQualityProfile(id: Int, _ body: SaveQualityProfileBody) async throws {
+        try await putExpectOK("/api/quality-profiles/\(id)", body: body)
+    }
+    func deleteQualityProfile(id: Int) async throws {
+        try await deleteExpectOK("/api/quality-profiles/\(id)")
+    }
+    func customFormats() async throws -> CustomFormatsResponse {
+        try await get("/api/custom-formats")
+    }
 }
