@@ -27,6 +27,10 @@ nonisolated enum DownloadedStore {
         editionDirectory(editionId).appendingPathComponent("manifest.json", isDirectory: false)
     }
 
+    private static func ebookFilesURL(_ editionId: Int) -> URL {
+        editionDirectory(editionId).appendingPathComponent("ebook-files.json", isDirectory: false)
+    }
+
     // MARK: Index
 
     /// The downloaded-editions index, or an empty list when it is missing or
@@ -65,6 +69,23 @@ nonisolated enum DownloadedStore {
         return try? JSONDecoder().decode(BookManifest.self, from: data)
     }
 
+    // MARK: Ebook file list
+
+    /// Persists the ebook edition's file list so the Book screen can show the
+    /// "Read" affordance for a downloaded ebook with no network. Keyed by the
+    /// same storage id the on-disk ebook file uses.
+    static func writeEbookFiles(_ files: [BookEditionFile], editionId: Int) {
+        let directory = editionDirectory(editionId)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        guard let data = try? JSONEncoder().encode(files) else { return }
+        try? data.write(to: ebookFilesURL(editionId), options: .atomic)
+    }
+
+    static func readEbookFiles(editionId: Int) -> [BookEditionFile]? {
+        guard let data = try? Data(contentsOf: ebookFilesURL(editionId)) else { return nil }
+        return try? JSONDecoder().decode([BookEditionFile].self, from: data)
+    }
+
     // MARK: Cover
 
     /// Saves cover image bytes next to the edition's files and returns the file
@@ -84,6 +105,21 @@ nonisolated enum DownloadedStore {
         guard let fileName else { return nil }
         let url = editionDirectory(editionId).appendingPathComponent(fileName, isDirectory: false)
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    // MARK: Completeness
+
+    /// Number of downloaded content files under an edition's directory, ignoring
+    /// the metadata files this store writes. Used to detect a pre-existing,
+    /// fully-downloaded audiobook (from before offline persistence shipped) so it
+    /// can be backfilled into the index on its first online open.
+    static func downloadedFileCount(editionId: Int) -> Int {
+        let directory = editionDirectory(editionId)
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: directory.path) else {
+            return 0
+        }
+        let metadata: Set = ["manifest.json", "ebook-files.json"]
+        return names.filter { !metadata.contains($0) && !$0.hasPrefix("cover") }.count
     }
 
     // MARK: Teardown

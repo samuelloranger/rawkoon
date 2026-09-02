@@ -1371,7 +1371,7 @@ nonisolated struct BookEditionFilesPayload: Decodable, Sendable {
     let files: [BookEditionFile]
 }
 
-nonisolated struct BookEditionFile: Decodable, Identifiable, Sendable {
+nonisolated struct BookEditionFile: Codable, Identifiable, Sendable {
     let id: Int
     let fileName: String
     let filePath: String

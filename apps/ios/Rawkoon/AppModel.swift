@@ -349,6 +349,15 @@ final class AppModel {
         do {
             let fetched = try await apiClient.manifest(editionId: editionId)
             manifests[editionId] = fetched
+            // Backfill a pre-existing, fully-downloaded audiobook (downloaded
+            // before offline persistence shipped) the first time it is opened
+            // online, so it too becomes usable offline.
+            if DownloadedStore.readManifest(editionId: editionId) == nil,
+               !fetched.chapters.isEmpty,
+               DownloadedStore.downloadedFileCount(editionId: editionId) >= fetched.chapters.count
+            {
+                persistDownloadedAudiobook(editionId: editionId)
+            }
             return fetched
         } catch {
             // Offline / server unreachable: fall back to the downloaded copy so
@@ -609,6 +618,43 @@ final class AppModel {
         if let coverURL = book?.coverURL {
             Task { await cacheCover(from: coverURL, editionId: editionId) }
         }
+    }
+
+    /// Records a downloaded ebook into the offline store: its file list (so the
+    /// Book screen can offer Read offline), an index record, and a cached cover.
+    /// Called by the Book screen after a file finishes downloading; `editionId`
+    /// is the storage id the on-disk file uses.
+    func recordEbookDownloaded(
+        editionId: Int,
+        bookId: Int,
+        title: String,
+        author: String?,
+        coverURL: URL?,
+        files: [BookEditionFile],
+        downloadedFileCount: Int
+    ) {
+        DownloadedStore.writeEbookFiles(files, editionId: editionId)
+        let entry = DownloadedEdition(
+            editionId: editionId,
+            bookId: bookId,
+            kind: .ebook,
+            title: title,
+            author: author,
+            totalDurationSecs: nil,
+            fileCount: max(downloadedFileCount, 1),
+            coverFileName: nil,
+            addedAtMillis: Int64(Date().timeIntervalSince1970 * 1000)
+        )
+        DownloadedStore.upsert(entry)
+        if let coverURL {
+            Task { await cacheCover(from: coverURL, editionId: editionId) }
+        }
+    }
+
+    /// The persisted ebook file list for a downloaded edition, or nil. The Book
+    /// screen falls back to this when the server is unreachable.
+    func offlineEbookFiles(editionId: Int) -> [BookEditionFile]? {
+        DownloadedStore.readEbookFiles(editionId: editionId)
     }
 
     /// Best-effort cover download for the offline list. Failure is silent — the
