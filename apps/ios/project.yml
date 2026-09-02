@@ -28,6 +28,16 @@ targets:
       path: Rawkoon/Info.plist
       properties:
         UIBackgroundModes: [audio, fetch, remote-notification]
+        # CarPlay scene ONLY. We do not declare UIWindowSceneSessionRoleApplication:
+        # omitting it lets SwiftUI keep managing the phone WindowGroup. Declaring a
+        # UIKit window SceneDelegate here would drag the phone UI off SwiftUI.
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+          UISceneConfigurations:
+            CPTemplateApplicationSceneSessionRoleApplication:
+              - UISceneConfigurationName: CarPlay
+                UISceneClassName: CPTemplateApplicationScene
+                UISceneDelegateClassName: $(PRODUCT_MODULE_NAME).CarPlaySceneDelegate
         # Declares the app as a long-form audio player before the session is
         # ever configured, so AirPlay route suggestions are right from launch.
         AVInitialRouteSharingPolicy: LongFormAudio
