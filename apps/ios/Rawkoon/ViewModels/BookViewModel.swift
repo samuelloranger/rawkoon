@@ -494,12 +494,12 @@ final class BookViewModel {
 
     func ebookFormatRank(_ format: String) -> Int {
         switch format.lowercased() {
-        case "epub": return 0
-        case "azw3": return 1
-        case "mobi": return 2
-        case "pdf": return 3
-        case "cbz": return 4
-        default: return 99
+        case "epub": 0
+        case "azw3": 1
+        case "mobi": 2
+        case "pdf": 3
+        case "cbz": 4
+        default: 99
         }
     }
 
@@ -570,22 +570,22 @@ final class BookViewModel {
     func formattedStatus(_ status: String) -> String {
         status
             .split(separator: "_")
-            .map { $0.capitalized }
+            .map(\.capitalized)
             .joined(separator: " ")
     }
 
     func message(for error: APIError) -> String {
         switch error {
         case .unauthorized:
-            return "Sign in required."
+            "Sign in required."
         case .http(400):
-            return "This audiobook is not chapter-ready yet. Run a rescan or grab a chapterized release."
+            "This audiobook is not chapter-ready yet. Run a rescan or grab a chapterized release."
         case let .http(status):
-            return "Server error (\(status))."
+            "Server error (\(status))."
         case .decode:
-            return "Could not parse server response."
+            "Could not parse server response."
         case .transport:
-            return "Network error. Check your connection."
+            "Network error. Check your connection."
         }
     }
 

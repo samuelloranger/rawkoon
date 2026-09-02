@@ -143,15 +143,15 @@ struct ContinueListeningView: View {
 
     private func coverURL(_ item: ContinueItem) -> URL? {
         switch item {
-        case let .audiobook(audiobook): return audiobook.coverURL
-        case let .ebook(ebook): return ebook.coverURL
+        case let .audiobook(audiobook): audiobook.coverURL
+        case let .ebook(ebook): ebook.coverURL
         }
     }
 
     private func title(_ item: ContinueItem) -> String {
         switch item {
-        case let .audiobook(audiobook): return audiobook.title
-        case let .ebook(ebook): return ebook.title
+        case let .audiobook(audiobook): audiobook.title
+        case let .ebook(ebook): ebook.title
         }
     }
 
@@ -362,36 +362,36 @@ struct ContinueListeningView: View {
 
     private func ebookFormatRank(_ format: String) -> Int {
         switch format.lowercased() {
-        case "epub": return 0
-        case "azw3": return 1
-        case "mobi": return 2
-        case "pdf": return 3
-        case "cbz": return 4
-        default: return 99
+        case "epub": 0
+        case "azw3": 1
+        case "mobi": 2
+        case "pdf": 3
+        case "cbz": 4
+        default: 99
         }
     }
 
     private func message(for error: APIError) -> String {
         switch error {
         case .unauthorized:
-            return "Sign in required."
+            "Sign in required."
         case let .http(status):
-            return status == 404
+            status == 404
                 ? "No ebook files are available yet for this book."
                 : "Couldn't reach the server (\(status))."
         case .decode:
-            return "Could not parse server response."
+            "Could not parse server response."
         case .transport:
-            return "Network error. Check your connection."
+            "Network error. Check your connection."
         }
     }
 
     private func libraryBook(for item: ContinueItem) -> BookListItem? {
         switch item {
         case let .audiobook(audiobook):
-            return model.library.first { $0.audiobookEditionId == audiobook.editionId }
+            model.library.first { $0.audiobookEditionId == audiobook.editionId }
         case let .ebook(ebook):
-            return model.library.first { $0.bookId == ebook.bookId }
+            model.library.first { $0.bookId == ebook.bookId }
         }
     }
 
@@ -506,15 +506,15 @@ struct ContinueListeningView: View {
 
         var id: String {
             switch self {
-            case let .audiobook(audiobook): return audiobook.id
-            case let .ebook(ebook): return ebook.id
+            case let .audiobook(audiobook): audiobook.id
+            case let .ebook(ebook): ebook.id
             }
         }
 
         var updatedAt: Date {
             switch self {
-            case let .audiobook(audiobook): return audiobook.updatedAt
-            case let .ebook(ebook): return ebook.updatedAt
+            case let .audiobook(audiobook): audiobook.updatedAt
+            case let .ebook(ebook): ebook.updatedAt
             }
         }
     }

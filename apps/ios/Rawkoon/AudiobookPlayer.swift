@@ -10,13 +10,17 @@ final class AudiobookPlayer {
     private(set) var positionSecs: Double = 0 {
         didSet { onPositionTick?() }
     }
+
     private(set) var isPlaying = false {
         didSet {
             // Combine sink was .dropFirst().removeDuplicates(), fired on !isPlaying:
             // i.e. only on an actual playing→paused transition.
-            if oldValue && !isPlaying { onPlaybackStopped?() }
+            if oldValue, !isPlaying {
+                onPlaybackStopped?()
+            }
         }
     }
+
     private(set) var currentChapterIndex: Int?
     private(set) var currentChapter: ManifestChapter?
     private(set) var rate: Float = 1.0

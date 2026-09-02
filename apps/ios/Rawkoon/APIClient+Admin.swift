@@ -52,6 +52,6 @@ extension APIClient {
     }
 }
 
-nonisolated private struct ApnsUnregisterBody: Encodable {
+private nonisolated struct ApnsUnregisterBody: Encodable {
     let deviceToken: String
 }

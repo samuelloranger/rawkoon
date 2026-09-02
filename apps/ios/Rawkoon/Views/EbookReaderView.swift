@@ -87,17 +87,17 @@ private enum ReaderTheme: String, Codable, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .light: return "Light"
-        case .sepia: return "Sepia"
-        case .dark: return "Dark"
+        case .light: "Light"
+        case .sepia: "Sepia"
+        case .dark: "Dark"
         }
     }
 
     var readiumTheme: ReadiumNavigator.Theme {
         switch self {
-        case .light: return .light
-        case .sepia: return .sepia
-        case .dark: return .dark
+        case .light: .light
+        case .sepia: .sepia
+        case .dark: .dark
         }
     }
 }
@@ -160,11 +160,10 @@ private final class ReaderSession {
 
     private func position(from locator: Locator, editionId: Int, now: Int64) -> ReadingPosition {
         let index = publication.readingOrder.firstIndexWithHREF(locator.href) ?? 0
-        let spinePath: String
-        if publication.readingOrder.indices.contains(index) {
-            spinePath = publication.readingOrder[index].href
+        let spinePath: String = if publication.readingOrder.indices.contains(index) {
+            publication.readingOrder[index].href
         } else {
-            spinePath = locator.href.string
+            locator.href.string
         }
         return ReadingPosition(
             editionId: editionId,
@@ -383,11 +382,10 @@ struct EbookReaderSheet: View {
         guard case .opening = state else { return }
         do {
             let publication = try await Self.openPublication(at: document.localURL)
-            let stored: ReadingPosition?
-            if let editionId = document.editionId {
-                stored = await model.readingPosition(editionId: editionId)
+            let stored: ReadingPosition? = if let editionId = document.editionId {
+                await model.readingPosition(editionId: editionId)
             } else {
-                stored = nil
+                nil
             }
             let initialLocation = await Self.resumeLocator(
                 publication: publication,
@@ -444,7 +442,7 @@ struct EbookReaderSheet: View {
                 fileId: document.id,
                 save: { model.saveReadingPosition($0) }
             )
-            let chrome = self.chrome
+            let chrome = chrome
             host.onLocationChange = { [weak session] locator in
                 session?.handleLocationChange(locator)
                 chrome.currentLocator = locator
@@ -506,7 +504,7 @@ struct EbookReaderSheet: View {
     }
 
     private static func loadTableOfContents(_ publication: Publication) async -> [EPUBLink] {
-        let loaded = (try? await publication.tableOfContents().get()) ?? []
+        let loaded = await (try? publication.tableOfContents().get()) ?? []
         return loaded.isEmpty ? publication.readingOrder : loaded
     }
 

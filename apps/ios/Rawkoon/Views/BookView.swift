@@ -716,6 +716,7 @@ struct BookView: View {
     }
 
     // MARK: View-owned wrappers around VM calls
+
     //
     // These keep the view-state pieces (`activeLane`, `openingEbookFileId`,
     // `downloadingEbookFileIDs`, `previewDocument`) out of `BookViewModel`,

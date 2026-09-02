@@ -93,6 +93,6 @@ extension APIClient {
     }
 }
 
-nonisolated private struct DeleteCountResponse: Decodable {
+private nonisolated struct DeleteCountResponse: Decodable {
     let deleted: Int
 }

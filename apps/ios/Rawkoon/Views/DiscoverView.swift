@@ -26,10 +26,10 @@ struct DiscoverView: View {
 
         var apiValue: String? {
             switch self {
-            case .all: return nil
-            case .movies: return "movie"
-            case .tv: return "tv"
-            case .books: return nil
+            case .all: nil
+            case .movies: "movie"
+            case .tv: "tv"
+            case .books: nil
             }
         }
 
@@ -199,7 +199,7 @@ struct DiscoverView: View {
                 description: Text(searchError)
             )
             .padding(.top, 16)
-        } else if searchResults.isEmpty && bookResults.isEmpty {
+        } else if searchResults.isEmpty, bookResults.isEmpty {
             ContentUnavailableView(
                 "Nothing to show yet",
                 systemImage: "magnifyingglass",
@@ -471,13 +471,13 @@ struct DiscoverView: View {
     private func message(for error: APIError) -> String {
         switch error {
         case .unauthorized:
-            return "Sign in required."
+            "Sign in required."
         case let .http(status):
-            return "Server error (\(status))."
+            "Server error (\(status))."
         case .decode:
-            return "Could not parse server response."
+            "Could not parse server response."
         case .transport:
-            return "Network error. Check your connection."
+            "Network error. Check your connection."
         }
     }
 }

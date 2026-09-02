@@ -189,7 +189,7 @@ final class AppModel {
         let raw = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !raw.isEmpty, let base = URL(string: raw) else { ssoProviders = []; return }
         let client = apiClient ?? APIClient(baseURL: base, token: nil)
-        ssoProviders = (try? await client.ssoProviders().providers) ?? []
+        ssoProviders = await (try? client.ssoProviders().providers) ?? []
     }
 
     /// Sign in through a provider using the native browser OAuth flow.
@@ -261,7 +261,7 @@ final class AppModel {
     func requestPushAuthorization() {
         Task {
             let center = UNUserNotificationCenter.current()
-            let granted = (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+            let granted = await (try? center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
             if granted {
                 UIApplication.shared.registerForRemoteNotifications()
             }
@@ -375,11 +375,10 @@ final class AppModel {
             }
             activeEditionId = editionId
 
-            let resumeAt: Double
-            if let overridePosition {
-                resumeAt = max(0, min(overridePosition, manifest.totalDurationSecs))
+            let resumeAt: Double = if let overridePosition {
+                max(0, min(overridePosition, manifest.totalDurationSecs))
             } else {
-                resumeAt = await resolveResumePosition(editionId: editionId, manifest: manifest)
+                await resolveResumePosition(editionId: editionId, manifest: manifest)
             }
             player.load(
                 manifest: manifest,
@@ -520,7 +519,7 @@ final class AppModel {
 
         var remoteRecord: ProgressRecord?
         if let apiClient,
-           let remote = (try? await apiClient.getProgress())?.first(where: { $0.editionId == editionId })
+           let remote = await (try? apiClient.getProgress())?.first(where: { $0.editionId == editionId })
         {
             remoteRecord = ProgressRecord(
                 positionSecs: remote.positionSecs,
@@ -608,7 +607,7 @@ final class AppModel {
         // also given a short deadline, after which the local position wins.
         if isOnline, let apiClient {
             remote = await withDeadline(seconds: 5) {
-                (try? await apiClient.readingProgress())?
+                await (try? apiClient.readingProgress())?
                     .first { $0.editionId == editionId }
             }
         }
@@ -668,9 +667,9 @@ final class AppModel {
     /// offer "Add to library" (admin) vs "Request" (non-admin).
     private func refreshAdmin() async {
         guard let apiClient else { return }
-        if let user = (try? await apiClient.currentUser())?.user {
+        if let user = await (try? apiClient.currentUser())?.user {
             isAdmin = user.isAdmin ?? false
-            let full = [user.firstName, user.lastName].compactMap { $0 }.joined(separator: " ")
+            let full = [user.firstName, user.lastName].compactMap(\.self).joined(separator: " ")
             userFirstName = user.firstName ?? (full.isEmpty ? user.name : full)
         }
     }

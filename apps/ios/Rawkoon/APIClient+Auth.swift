@@ -54,6 +54,6 @@ extension APIClient {
     }
 }
 
-nonisolated private struct LoginTokenResponse: Decodable {
+private nonisolated struct LoginTokenResponse: Decodable {
     let token: String
 }

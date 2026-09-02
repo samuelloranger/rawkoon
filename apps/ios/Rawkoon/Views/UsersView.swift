@@ -92,7 +92,7 @@ struct UsersView: View {
     }
 
     private func displayName(for user: AdminUser) -> String {
-        let parts = [user.firstName, user.lastName].compactMap { $0 }.filter { !$0.isEmpty }
+        let parts = [user.firstName, user.lastName].compactMap(\.self).filter { !$0.isEmpty }
         if !parts.isEmpty {
             return parts.joined(separator: " ")
         }

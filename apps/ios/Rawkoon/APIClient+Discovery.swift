@@ -57,11 +57,11 @@ extension APIClient {
     }
 }
 
-nonisolated private struct SimilarResponse: Decodable {
+private nonisolated struct SimilarResponse: Decodable {
     let items: [TmdbSearchItem]
 }
 
-nonisolated private struct WatchlistAddBody: Encodable {
+private nonisolated struct WatchlistAddBody: Encodable {
     let tmdbId: Int
     let mediaType: String
     let title: String

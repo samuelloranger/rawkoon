@@ -136,7 +136,7 @@ struct BookReleaseSearchView: View {
             .background(Theme.apricot.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
     }
 
-    private func centered<C: View>(@ViewBuilder _ c: () -> C) -> some View {
+    private func centered(@ViewBuilder _ c: () -> some View) -> some View {
         VStack(spacing: 10) { c() }.frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 

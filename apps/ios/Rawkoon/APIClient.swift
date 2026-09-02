@@ -62,16 +62,16 @@ struct RemoteProgress: Sendable {
 actor APIClient {
     private let baseURL: URL
     private let session: URLSession
-    // `internal` (not `private`) because `login(email:password:)` — which
-    // writes this after a successful sign-in — now lives in
-    // `APIClient+Auth.swift`; Swift `private` is file-scoped, so a member in
-    // one file can't be written by an extension method in another. Actor
-    // isolation still protects it exactly as before.
+    /// `internal` (not `private`) because `login(email:password:)` — which
+    /// writes this after a successful sign-in — now lives in
+    /// `APIClient+Auth.swift`; Swift `private` is file-scoped, so a member in
+    /// one file can't be written by an extension method in another. Actor
+    /// isolation still protects it exactly as before.
     var token: String?
 
-    // ISO8601DateFormatter isn't Sendable, but these are configured once here
-    // and never mutated again — only read (parsing/formatting) from any
-    // isolation context afterward, which is safe in practice.
+    /// ISO8601DateFormatter isn't Sendable, but these are configured once here
+    /// and never mutated again — only read (parsing/formatting) from any
+    /// isolation context afterward, which is safe in practice.
     nonisolated(unsafe) static let iso8601WithFractionalSeconds: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -157,8 +157,8 @@ actor APIClient {
 
     func mapStatus(_ status: Int) -> APIError {
         switch status {
-        case 401, 403: return .unauthorized
-        default: return .http(status)
+        case 401, 403: .unauthorized
+        default: .http(status)
         }
     }
 
@@ -194,7 +194,7 @@ actor APIClient {
     }
 
     /// Authenticated POST with a JSON body returning a decoded `T`.
-    func post<B: Encodable, T: Decodable>(_ path: String, body: B) async throws -> T {
+    func post<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
         let (data, response) = try await sendPost(path, body: body)
         guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
         do { return try Self.mediaDecoder.decode(T.self, from: data) }
@@ -203,18 +203,18 @@ actor APIClient {
 
     /// Authenticated POST that only cares whether the server accepted it (2xx).
     /// Used for grab endpoints whose bodies mix strings and bools.
-    func postExpectOK<B: Encodable>(
+    func postExpectOK(
         _ path: String,
-        body: B,
+        body: some Encodable,
         method: String = "POST"
     ) async throws {
         let (_, response) = try await sendPost(path, body: body, method: method)
         guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
     }
 
-    func sendPost<B: Encodable>(
+    func sendPost(
         _ path: String,
-        body: B,
+        body: some Encodable,
         method: String = "POST"
     ) async throws -> (Data, HTTPURLResponse) {
         var request = try makeRequest(path: path, method: method, requiresAuth: true)
@@ -223,14 +223,14 @@ actor APIClient {
         return try await perform(request)
     }
 
-    func patch<B: Encodable, T: Decodable>(_ path: String, body: B) async throws -> T {
+    func patch<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
         let (data, response) = try await sendPatch(path, body: body)
         guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
         do { return try Self.mediaDecoder.decode(T.self, from: data) }
         catch { throw APIError.decode }
     }
 
-    func sendPatch<B: Encodable>(_ path: String, body: B) async throws -> (Data, HTTPURLResponse) {
+    func sendPatch(_ path: String, body: some Encodable) async throws -> (Data, HTTPURLResponse) {
         var request = try makeRequest(path: path, method: "PATCH", requiresAuth: true)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try Self.mediaEncoder.encode(body)
@@ -260,7 +260,7 @@ actor APIClient {
         return q.isEmpty ? path : "\(path)?\(q)"
     }
 
-    func putExpectOK<B: Encodable>(_ path: String, body: B) async throws {
+    func putExpectOK(_ path: String, body: some Encodable) async throws {
         var request = try makeRequest(path: path, method: "PUT", requiresAuth: true)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try Self.mediaEncoder.encode(body)
@@ -270,6 +270,7 @@ actor APIClient {
 }
 
 // MARK: - Shared cross-domain DTOs
+
 //
 // Swift `private` visibility is file-scoped. These two types are each used by
 // funcs that live in two different domain extension files (Library and

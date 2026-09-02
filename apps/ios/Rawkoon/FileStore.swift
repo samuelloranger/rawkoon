@@ -1,10 +1,10 @@
 import Foundation
 
-// Not MainActor: a plain FileManager/filesystem helper called from background
-// queues (ChapterDownloader's URLSession delegate queue, its own stateQueue)
-// as well as from the main actor. FileManager's operations here are
-// independent, self-contained calls with no shared mutable state in this
-// type, so isolation-free is the correct (and pre-existing) behavior.
+/// Not MainActor: a plain FileManager/filesystem helper called from background
+/// queues (ChapterDownloader's URLSession delegate queue, its own stateQueue)
+/// as well as from the main actor. FileManager's operations here are
+/// independent, self-contained calls with no shared mutable state in this
+/// type, so isolation-free is the correct (and pre-existing) behavior.
 nonisolated enum FileStore {
     static func chapterURL(editionId: Int, fileId: Int, ext: String) -> URL {
         let directory = editionDirectory(editionId)
@@ -32,8 +32,8 @@ nonisolated enum FileStore {
         return value.intValue
     }
 
-    // Removing a file that may already be gone. A missing file is a no-op,
-    // not an error; any other failure is logged for diagnosis.
+    /// Removing a file that may already be gone. A missing file is a no-op,
+    /// not an error; any other failure is logged for diagnosis.
     static func delete(url: URL) {
         do {
             try FileManager.default.removeItem(at: url)
@@ -60,9 +60,9 @@ nonisolated enum FileStore {
         }
     }
 
-    // This only flags a directory for iCloud-backup exclusion. A failure
-    // inflates backup size; it never affects playback or download
-    // correctness, but is logged so it can be diagnosed.
+    /// This only flags a directory for iCloud-backup exclusion. A failure
+    /// inflates backup size; it never affects playback or download
+    /// correctness, but is logged so it can be diagnosed.
     static func excludeFromBackup(_ url: inout URL) {
         var values = URLResourceValues()
         values.isExcludedFromBackup = true

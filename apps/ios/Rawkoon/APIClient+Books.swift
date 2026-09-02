@@ -235,11 +235,11 @@ nonisolated struct BookEditionRescanResponse: Decodable, Sendable {
     let directory: String?
 }
 
-nonisolated private struct ProgressResponse: Decodable {
+private nonisolated struct ProgressResponse: Decodable {
     let progress: [ProgressPayload]
 }
 
-nonisolated private struct ProgressPayload: Decodable {
+private nonisolated struct ProgressPayload: Decodable {
     let editionId: Int
     let positionSecs: Double
     let totalDurationSecs: Double
@@ -247,13 +247,13 @@ nonisolated private struct ProgressPayload: Decodable {
     let updatedAt: Date
 }
 
-nonisolated private struct ReadingProgressResponse: Decodable {
+private nonisolated struct ReadingProgressResponse: Decodable {
     let progress: [ReadingProgressPayload]
 }
 
 /// `updatedAt` stays a String here: the shared media decoder does not install a
 /// date strategy, so it is parsed explicitly.
-nonisolated private struct ReadingProgressPayload: Decodable {
+private nonisolated struct ReadingProgressPayload: Decodable {
     let editionId: Int
     let fileId: Int?
     let spineIndex: Int
@@ -265,7 +265,7 @@ nonisolated private struct ReadingProgressPayload: Decodable {
     let locator: String?
 }
 
-nonisolated private struct PutReadingProgressRequest: Encodable {
+private nonisolated struct PutReadingProgressRequest: Encodable {
     let fileId: Int?
     let spineIndex: Int
     let spinePath: String
@@ -277,7 +277,7 @@ nonisolated private struct PutReadingProgressRequest: Encodable {
     let locator: String?
 }
 
-nonisolated private struct PutProgressRequest: Encodable {
+private nonisolated struct PutProgressRequest: Encodable {
     let positionSecs: Double
     let totalDurationSecs: Double
     let finished: Bool

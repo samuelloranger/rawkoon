@@ -142,23 +142,23 @@ extension APIClient {
     }
 }
 
-nonisolated private struct LibraryItemResponse: Decodable {
+private nonisolated struct LibraryItemResponse: Decodable {
     let item: LibraryMedia
 }
 
-nonisolated private struct UpdateLibraryMonitoredBody: Encodable {
+private nonisolated struct UpdateLibraryMonitoredBody: Encodable {
     let monitored: Bool
 }
 
-nonisolated private struct UpdateLibraryStatusBody: Encodable {
+private nonisolated struct UpdateLibraryStatusBody: Encodable {
     let status: String
 }
 
-nonisolated private struct UpdateLibraryQualityProfileBody: Encodable {
+private nonisolated struct UpdateLibraryQualityProfileBody: Encodable {
     let qualityProfileId: Int?
 }
 
-nonisolated private struct RescanResponse: Decodable {
+private nonisolated struct RescanResponse: Decodable {
     let rescanned: Int
     let skipped: Int
     let failed: Int

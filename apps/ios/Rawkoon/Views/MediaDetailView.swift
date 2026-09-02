@@ -167,7 +167,7 @@ struct MediaDetailView: View {
 
     @ViewBuilder
     private var mainContent: some View {
-        if vm.loading && vm.details == nil {
+        if vm.loading, vm.details == nil {
             ProgressView().tint(Theme.muted)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 16)
@@ -346,7 +346,7 @@ struct MediaDetailView: View {
     private var primaryAction: some View {
         VStack(alignment: .leading, spacing: 8) {
             if libraryId == nil {
-                if !vm.requested && !vm.added {
+                if !vm.requested, !vm.added {
                     Button {
                         Task {
                             guard let client = model.api() else {
@@ -492,7 +492,7 @@ struct MediaDetailView: View {
                 description: Text("Media management controls are available for admins on in-library titles.")
             )
             .padding(.top, 12)
-        } else if vm.managementLoading && vm.managementItem == nil {
+        } else if vm.managementLoading, vm.managementItem == nil {
             ProgressView().tint(Theme.muted)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 16)
@@ -795,7 +795,7 @@ struct MediaDetailView: View {
         VStack(alignment: .leading, spacing: 6) {
             lineItem("Path", file.filePath)
             lineItem("Release group", file.releaseGroup ?? "Unknown")
-            lineItem("Codec", [file.videoCodec, file.videoProfile].compactMap { $0 }.joined(separator: " · "))
+            lineItem("Codec", [file.videoCodec, file.videoProfile].compactMap(\.self).joined(separator: " · "))
             lineItem("Source", file.source ?? "Unknown")
             lineItem("HDR", file.hdrFormat ?? "None")
             lineItem("Bit depth", file.bitDepth.map { "\($0)-bit" } ?? "Unknown")
