@@ -12,7 +12,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     private var observing = false
 
     func templateApplicationScene(
-        _ templateApplicationScene: CPTemplateApplicationScene,
+        _: CPTemplateApplicationScene,
         didConnect interfaceController: CPInterfaceController
     ) {
         self.interfaceController = interfaceController
@@ -21,12 +21,12 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     }
 
     func templateApplicationScene(
-        _ templateApplicationScene: CPTemplateApplicationScene,
-        didDisconnectInterfaceController interfaceController: CPInterfaceController
+        _: CPTemplateApplicationScene,
+        didDisconnectInterfaceController _: CPInterfaceController
     ) {
         Log.playback.info("CarPlay scene disconnected")
-        self.interfaceController = nil
-        self.observing = false
+        interfaceController = nil
+        observing = false
     }
 
     /// Rebuilds the browse list when the library changes (a download finishing,
@@ -72,7 +72,9 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
             }
         }
         setRoot(template)
-        if !observing { observeLibrary() }
+        if !observing {
+            observeLibrary()
+        }
     }
 
     @MainActor

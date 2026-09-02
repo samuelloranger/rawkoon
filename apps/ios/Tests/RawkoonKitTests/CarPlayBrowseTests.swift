@@ -21,23 +21,23 @@ final class CarPlayBrowseTests: XCTestCase {
     }
 
     func testContinueSortedByUpdatedDescendingNilLast() {
-        let e = [
+        let list = [
             entry(1, order: 2, pos: 10, total: 100, updated: 500),
             entry(2, order: 0, pos: 10, total: 100, updated: 900),
             entry(3, order: 1, pos: 10, total: 100, updated: nil),
             entry(4, order: 3), // not in progress
         ]
-        let out = CarPlayBrowse.sections(entries: e)
+        let out = CarPlayBrowse.sections(entries: list)
         XCTAssertEqual(out.continueListening.map(\.editionId), [2, 1, 3])
     }
 
     func testLibraryContainsAllSortedByLibraryOrder() {
-        let e = [
+        let list = [
             entry(1, order: 2, pos: 10, total: 100, updated: 500),
             entry(2, order: 0),
             entry(3, order: 1),
         ]
-        let out = CarPlayBrowse.sections(entries: e)
+        let out = CarPlayBrowse.sections(entries: list)
         XCTAssertEqual(out.library.map(\.editionId), [2, 3, 1])
     }
 
