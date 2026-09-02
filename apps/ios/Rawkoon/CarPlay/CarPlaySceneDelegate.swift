@@ -1,6 +1,7 @@
 import CarPlay
 import Observation
 import RawkoonKit
+import UIKit
 
 /// Owns the CarPlay interface. Declared in project.yml's scene manifest as the
 /// delegate for the CarPlay scene role; the phone window is untouched SwiftUI.
@@ -106,9 +107,69 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
             await model.openPlayer(editionId: editionId)
             guard model.errorMessage == nil else { return }
             model.player.play()
+            configureNowPlayingButtons(model: model)
             interfaceController?.pushTemplate(
                 CPNowPlayingTemplate.shared, animated: true, completion: nil
             )
         }
+    }
+
+    /// The two custom controls on the Now Playing screen. CarPlay owns the
+    /// transport row and the black ground; these are the only surface an audio
+    /// app may add. The rate button reads its label from the now-playing info,
+    /// so it reflects a speed change without being rebuilt.
+    @MainActor
+    private func configureNowPlayingButtons(model: AppModel) {
+        let rate = CPNowPlayingPlaybackRateButton { _ in
+            model.player.cycleRate()
+        }
+        let chapters = CPNowPlayingImageButton(
+            image: UIImage(systemName: "list.bullet") ?? UIImage()
+        ) { [weak self] _ in
+            self?.showChapters(model: model)
+        }
+        CPNowPlayingTemplate.shared.updateNowPlayingButtons([rate, chapters])
+    }
+
+    /// Pushes a chapter picker over Now Playing. Tapping a chapter seeks there
+    /// and pops straight back, so the driver lands on the playing screen again.
+    /// The current chapter carries the playing indicator.
+    @MainActor
+    private func showChapters(model: AppModel) {
+        let chapters = model.player.chapterList
+        guard !chapters.isEmpty else { return }
+        let currentIndex = model.player.currentChapterIndex
+
+        let items = chapters.map { chapter -> CPListItem in
+            let item = CPListItem(
+                text: chapter.title,
+                detailText: Self.chapterLength(chapter.durationSecs)
+            )
+            item.isPlaying = chapter.index == currentIndex
+            item.handler = { [weak self] _, completion in
+                model.player.jumpToChapter(chapter)
+                self?.interfaceController?.popTemplate(animated: true, completion: nil)
+                completion()
+            }
+            return item
+        }
+
+        let template = CPListTemplate(
+            title: "Chapters",
+            sections: [CPListSection(items: items)]
+        )
+        interfaceController?.pushTemplate(template, animated: true, completion: nil)
+    }
+
+    /// A chapter's length as `H:MM:SS` (dropping a leading zero hour → `M:SS`),
+    /// for the picker's detail line.
+    private static func chapterLength(_ seconds: Double) -> String {
+        let total = Int(seconds.rounded())
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let secs = total % 60
+        return hours > 0
+            ? String(format: "%d:%02d:%02d", hours, minutes, secs)
+            : String(format: "%d:%02d", minutes, secs)
     }
 }
