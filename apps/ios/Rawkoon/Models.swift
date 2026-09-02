@@ -509,12 +509,90 @@ nonisolated struct SaveQualityProfileBody: Encodable, Sendable {
 
 // MARK: Custom formats (read — spec §5 Phase 4)
 
+/// A custom-format condition, decoded for editing. The heterogeneous `value`
+/// (string / number / [number] / bool) is normalized to a string.
+nonisolated struct FormatConditionDTO: Decodable, Sendable {
+    let type: String
+    let op: String
+    let stringValue: String
+    let negate: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case op = "operator"
+        case value
+        case negate
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        type = try c.decode(String.self, forKey: .type)
+        op = try c.decode(String.self, forKey: .op)
+        negate = (try? c.decodeIfPresent(Bool.self, forKey: .negate)) ?? false
+        if let s = try? c.decodeIfPresent(String.self, forKey: .value), let s { stringValue = s }
+        else if let d = try? c.decodeIfPresent(Double.self, forKey: .value), let d {
+            stringValue = FormatConditionDTO.number(d)
+        } else if let arr = try? c.decodeIfPresent([Double].self, forKey: .value), let arr {
+            stringValue = arr.map(FormatConditionDTO.number).joined(separator: ",")
+        } else if let b = try? c.decodeIfPresent(Bool.self, forKey: .value), let b {
+            stringValue = b ? "true" : "false"
+        } else {
+            stringValue = ""
+        }
+    }
+
+    static func number(_ value: Double) -> String {
+        value == value.rounded() ? String(Int(value)) : String(value)
+    }
+}
+
 nonisolated struct CustomFormatDTO: Decodable, Identifiable, Sendable {
     let id: Int
     let name: String
+    let conditions: [FormatConditionDTO]?
 }
 nonisolated struct CustomFormatsResponse: Decodable, Sendable {
     let customFormats: [CustomFormatDTO]
+}
+
+/// One condition, encoded with its value shaped by type/operator (numeric types
+/// send a number, `between` an array, `is_true` no value, else a string).
+nonisolated struct ConditionEncodable: Encodable, Sendable {
+    let type: String
+    let op: String
+    let stringValue: String
+    let negate: Bool
+
+    static let numericTypes: Set<String> = ["resolution", "seeders", "size_range"]
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case op = "operator"
+        case value
+        case negate
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(type, forKey: .type)
+        try c.encode(op, forKey: .op)
+        try c.encode(negate, forKey: .negate)
+        if op == "is_true" {
+            return
+        } else if op == "between" {
+            let parts = stringValue.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+            try c.encode(parts, forKey: .value)
+        } else if Self.numericTypes.contains(type) {
+            try c.encode(Double(stringValue) ?? 0, forKey: .value)
+        } else {
+            try c.encode(stringValue, forKey: .value)
+        }
+    }
+}
+
+nonisolated struct SaveCustomFormatBody: Encodable, Sendable {
+    let name: String
+    let conditions: [ConditionEncodable]
 }
 
 nonisolated struct Indexer: Decodable, Identifiable, Sendable {

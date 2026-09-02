@@ -127,6 +127,12 @@ struct SettingsView: View {
                     }
 
                     NavigationLink {
+                        CustomFormatsCrudView()
+                    } label: {
+                        Label("Custom formats", systemImage: "tag")
+                    }
+
+                    NavigationLink {
                         IndexersView()
                     } label: {
                         Label("Indexers", systemImage: "magnifyingglass")

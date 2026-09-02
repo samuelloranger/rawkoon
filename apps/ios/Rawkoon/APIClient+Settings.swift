@@ -171,4 +171,13 @@ extension APIClient {
     func customFormats() async throws -> CustomFormatsResponse {
         try await get("/api/custom-formats")
     }
+    func createCustomFormat(_ body: SaveCustomFormatBody) async throws {
+        try await postExpectOK("/api/custom-formats", body: body)
+    }
+    func updateCustomFormat(id: Int, _ body: SaveCustomFormatBody) async throws {
+        try await putExpectOK("/api/custom-formats/\(id)", body: body)
+    }
+    func deleteCustomFormat(id: Int) async throws {
+        try await deleteExpectOK("/api/custom-formats/\(id)")
+    }
 }
