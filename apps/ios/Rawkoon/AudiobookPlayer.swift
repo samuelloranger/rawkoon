@@ -25,6 +25,9 @@ final class AudiobookPlayer {
     private(set) var currentChapter: ManifestChapter?
     private(set) var rate: Float = 1.0
     private(set) var duration: Double = 0
+    /// Set when the next chapter cannot play. Cleared on a new load, seek, or
+    /// the listener dismissing the alert. Never used to skip ahead.
+    private(set) var playbackError: String?
 
     /// Called on every positionSecs change — AppModel uses it to persist progress
     /// (throttled inside persistPlaybackProgress). Replaces the Combine relay's
@@ -72,6 +75,7 @@ final class AudiobookPlayer {
     private var itemChapters: [ObjectIdentifier: ManifestChapter] = [:]
     private var timeObserver: Any?
     private var endObserver: NSObjectProtocol?
+    private var failedEndObserver: NSObjectProtocol?
     private var currentItemObserver: NSKeyValueObservation?
     private var itemStatusObserver: NSKeyValueObservation?
     /// Bumped on every seek so a stale completion cannot play() after a newer seek.
@@ -215,6 +219,10 @@ final class AudiobookPlayer {
             NotificationCenter.default.removeObserver(endObserver)
         }
         endObserver = nil
+        if let failedEndObserver {
+            NotificationCenter.default.removeObserver(failedEndObserver)
+        }
+        failedEndObserver = nil
         player = nil
         isPlaying = false
 
@@ -316,6 +324,8 @@ final class AudiobookPlayer {
         // began during the previous book ends.
         pausedAt = nil
         wasPlayingBeforeInterruption = false
+        playbackError = nil
+        recoveredFileIds = []
         self.manifest = manifest
         self.baseURL = baseURL
         loadArtwork(from: artworkURL)
@@ -361,6 +371,7 @@ final class AudiobookPlayer {
         setSleep(.off)
         pausedAt = nil
         wasPlayingBeforeInterruption = false
+        playbackError = nil
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         // Now that no player item is left, the session can actually be released
         // — and other apps are told they may resume.
@@ -380,6 +391,7 @@ final class AudiobookPlayer {
     }
 
     func play() {
+        playbackError = nil
         isPlaying = true
         if case .minutes = sleepMode {
             lastSleepTick = Date()
@@ -437,6 +449,10 @@ final class AudiobookPlayer {
         updateNowPlayingInfo()
     }
 
+    func clearPlaybackError() {
+        playbackError = nil
+    }
+
     func seek(to seconds: Double) {
         guard let timeline else { return }
         // Any deliberate move — a scrub, a chapter jump, a skip — replaces
@@ -444,6 +460,7 @@ final class AudiobookPlayer {
         // Without this, pausing, jumping to a chapter and pressing play would
         // rewind off the front of the chapter the listener just chose.
         pausedAt = nil
+        playbackError = nil
         let clamped = timeline.clamp(seconds)
         let autoplay = isPlaying
         positionSecs = clamped
@@ -655,6 +672,7 @@ final class AudiobookPlayer {
                 return
             }
             isSeeking = false
+            reportUnplayable(chapter(for: item))
         default:
             isSeeking = true
             isPlaying = autoplay
@@ -677,6 +695,7 @@ final class AudiobookPlayer {
                                 return
                             }
                             self.isSeeking = false
+                            self.reportUnplayable(self.chapter(for: failedItem ?? item))
                         default:
                             break
                         }
@@ -709,11 +728,10 @@ final class AudiobookPlayer {
             return
         }
 
-        guard let startArrayIndex = chapters.firstIndex(where: { $0.index == chapter.index }) else {
-            return
-        }
-
-        let queueChapters = Array(chapters[startArrayIndex...])
+        // Only the chapter being played. Enqueueing the rest of the book with
+        // `.advance` is how an unplayable next chapter skipped to the last
+        // one. The next chapter is started explicitly from `handleItemDidPlayToEnd`.
+        let queueChapters = [chapter]
         var items: [AVPlayerItem] = []
         var mapping: [ObjectIdentifier: ManifestChapter] = [:]
         for queueChapter in queueChapters {
@@ -740,7 +758,10 @@ final class AudiobookPlayer {
         isSeeking = true
         tearDownObservers()
         let queuePlayer = AVQueuePlayer(items: items)
-        queuePlayer.actionAtItemEnd = .advance
+        // Never `.advance`: an unplayable next item used to walk the rest of
+        // the playlist and land on the last chapter. We decide the next step
+        // in `handleItemDidPlayToEnd`.
+        queuePlayer.actionAtItemEnd = .pause
         player = queuePlayer
         itemChapters = mapping
 
@@ -764,10 +785,8 @@ final class AudiobookPlayer {
         }
 
         // AVQueuePlayer.currentItem KVO is not documented to deliver on any
-        // particular queue — with actionAtItemEnd = .advance it fires on
-        // AVQueuePlayer's own auto-advance at every chapter boundary, which
-        // is the most frequent transition in a listening session. Hop
-        // explicitly rather than assuming main, same as itemStatusObserver.
+        // particular queue. Hop explicitly rather than assuming main, same as
+        // itemStatusObserver.
         currentItemObserver = player.observe(\.currentItem, options: [.initial, .new]) { [weak self] _, _ in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
@@ -781,14 +800,22 @@ final class AudiobookPlayer {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            // Only the Sendable `ObjectIdentifier` crosses into the isolated
-            // block — the `AVPlayerItem` itself is not `Sendable` and is
-            // never used past this point.
             guard let item = notification.object as? AVPlayerItem else { return }
             let identifier = ObjectIdentifier(item)
             MainActor.assumeIsolated {
-                guard let self, self.itemChapters[identifier] != nil else { return }
-                self.handleCurrentItemChanged()
+                self?.handleItemDidPlayToEnd(identifier)
+            }
+        }
+
+        failedEndObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemFailedToPlayToEndTime,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let item = notification.object as? AVPlayerItem else { return }
+            let identifier = ObjectIdentifier(item)
+            MainActor.assumeIsolated {
+                self?.handleItemFailedToPlayToEnd(identifier)
             }
         }
     }
@@ -804,6 +831,11 @@ final class AudiobookPlayer {
         }
         endObserver = nil
 
+        if let failedEndObserver {
+            NotificationCenter.default.removeObserver(failedEndObserver)
+        }
+        failedEndObserver = nil
+
         currentItemObserver = nil
         itemStatusObserver = nil
     }
@@ -816,12 +848,10 @@ final class AudiobookPlayer {
         if let chapter = chapter(for: player?.currentItem) {
             setCurrentChapter(chapter)
         } else {
-            setCurrentChapter(index: timeline?.chapterIndex(at: clamped) ?? chapters.last?.index)
+            setCurrentChapter(index: timeline?.chapterIndex(at: clamped))
         }
         if isPlaying, player?.currentItem == nil {
-            isPlaying = false
-            positionSecs = duration
-            setCurrentChapter(index: chapters.last?.index)
+            applyQueueDrained()
         }
         updateNowPlayingInfo()
     }
@@ -835,11 +865,102 @@ final class AudiobookPlayer {
                 positionSecs = clamped
             }
         } else if player.currentItem == nil {
-            isPlaying = false
-            positionSecs = duration
-            setCurrentChapter(index: chapters.last?.index)
+            applyQueueDrained()
         }
         updateNowPlayingInfo()
+    }
+
+    /// A chapter file ended. The only legal next step is the immediate next
+    /// chapter, or stop — never walking the rest of the playlist.
+    private func handleItemDidPlayToEnd(_ identifier: ObjectIdentifier) {
+        guard !isSeeking, let ended = itemChapters[identifier] else { return }
+        setCurrentChapter(ended)
+        positionSecs = ended.endSecs
+
+        if sleepMode == .endOfChapter, sleepEndChapterIndex == ended.index {
+            fireSleep()
+            return
+        }
+
+        let next = chapters.first { $0.index > ended.index }
+        let playable = next.map { nextChapterIsPlayable($0) } ?? true
+        applyChapterAdvance(
+            chapterAdvanceDecision(
+                endedIndex: ended.index,
+                chapters: chapters,
+                nextIsPlayable: playable
+            )
+        )
+    }
+
+    private func handleItemFailedToPlayToEnd(_ identifier: ObjectIdentifier) {
+        guard !isSeeking, let chapter = itemChapters[identifier] else { return }
+        if let item = player?.currentItem, recoverFromFailedLocalItem(item) {
+            return
+        }
+        reportUnplayable(chapter)
+    }
+
+    private func applyChapterAdvance(_ decision: ChapterAdvanceDecision) {
+        switch decision {
+        case .finishedBook:
+            finishBook()
+        case let .playNext(index):
+            guard let next = chapter(forIndex: index) else {
+                reportUnplayable(nil)
+                return
+            }
+            isPlaying = true
+            seek(to: next.startSecs)
+        case let .stopWithError(index, title):
+            stopWithUnplayableChapter(index: index, title: title)
+        }
+    }
+
+    private func applyQueueDrained() {
+        switch queueDrainedDecision(
+            endedIndex: currentChapterIndex,
+            lastIndex: chapters.last?.index
+        ) {
+        case .treatAsFinished:
+            finishBook()
+        case .stopWithError:
+            let next = chapters.first { chapter in
+                guard let current = currentChapterIndex else { return true }
+                return chapter.index > current
+            }
+            stopWithUnplayableChapter(index: next?.index ?? currentChapterIndex ?? 0, title: next?.title ?? "")
+        }
+    }
+
+    private func finishBook() {
+        playbackError = nil
+        stopPlayback()
+        positionSecs = duration
+        setCurrentChapter(index: chapters.last?.index)
+        updateNowPlayingInfo()
+    }
+
+    private func nextChapterIsPlayable(_ chapter: ManifestChapter) -> Bool {
+        guard let manifest else { return false }
+        return playbackURL(for: chapter, editionId: manifest.editionId) != nil
+    }
+
+    private func stopWithUnplayableChapter(index: Int, title: String) {
+        playbackError = unplayableChapterMessage(title: title)
+        stopPlayback()
+        Log.playback.error(
+            """
+            Stopped: next chapter is unplayable: \
+            chapterIndex=\(index, privacy: .public) \
+            title=\(title, privacy: .public)
+            """
+        )
+        updateNowPlayingInfo()
+    }
+
+    private func reportUnplayable(_ chapter: ManifestChapter?) {
+        stopWithUnplayableChapter(index: chapter?.index ?? -1, title: chapter?.title ?? "")
     }
 
     private func setCurrentChapter(_ chapter: ManifestChapter?) {
@@ -893,9 +1014,8 @@ final class AudiobookPlayer {
         return nil
     }
 
-    /// A player item that fails is the end of the road for that chapter:
-    /// `AVQueuePlayer` moves on to the next item, so without this the listener
-    /// silently lands on a different chapter and nothing anywhere says why.
+    /// A player item that fails is the end of the road for that chapter.
+    /// We stop and surface an error rather than walking the playlist.
     private func logItemFailure(_ item: AVPlayerItem) {
         let chapterIndex = chapter(for: item)?.index ?? -1
         let fileId = chapter(for: item)?.fileId ?? -1
@@ -913,9 +1033,8 @@ final class AudiobookPlayer {
     /// A downloaded chapter is trusted on file size alone (`playbackURL`), so a
     /// local file that is the right length but unreadable — a truncated or
     /// interrupted download — is preferred over the server copy and then fails to
-    /// open. The chapter becomes unplayable for as long as that file exists, and
-    /// because `AVQueuePlayer` just moves on, the listener sees a chapter tap
-    /// silently land somewhere else.
+    /// open. Delete it and rebuild so the same chapter streams instead. If that
+    /// also fails, the caller reports an error; we never skip to a later chapter.
     ///
     /// Treat a failed LOCAL item as evidence the download is bad: delete it and
     /// rebuild the queue, which falls back to streaming. `recoveredFileIds` keeps

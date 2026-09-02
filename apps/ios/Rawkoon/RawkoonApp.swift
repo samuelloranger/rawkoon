@@ -201,6 +201,23 @@ private struct RootTabsView: View {
             .tag(4)
         }
         .tint(Theme.apricot)
+        .alert(
+            "Couldn't play chapter",
+            isPresented: Binding(
+                get: { model.player.playbackError != nil },
+                set: {
+                    if !$0 {
+                        model.player.clearPlaybackError()
+                    }
+                }
+            )
+        ) {
+            Button("OK", role: .cancel) { model.player.clearPlaybackError() }
+        } message: {
+            if let message = model.player.playbackError {
+                Text(message)
+            }
+        }
         .sheet(isPresented: $showFullPlayer) {
             if let active = model.activeBook() {
                 PlayerView(summary: active.summary, manifest: active.manifest)

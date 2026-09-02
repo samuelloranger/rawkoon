@@ -23,8 +23,10 @@ struct MiniPlayerView: View {
                                 .lineLimit(1)
                             Text(chapterLine(active.manifest))
                                 .font(.caption2)
-                                .foregroundStyle(Theme.muted)
-                                .lineLimit(1)
+                                .foregroundStyle(
+                                    model.player.playbackError == nil ? Theme.muted : Theme.terracotta
+                                )
+                                .lineLimit(2)
                         }
 
                         Spacer(minLength: 8)
@@ -78,6 +80,9 @@ struct MiniPlayerView: View {
     }
 
     private func chapterLine(_ manifest: BookManifest) -> String {
+        if let error = model.player.playbackError {
+            return error
+        }
         guard
             let index = model.player.currentChapterIndex,
             let chapter = manifest.chapters.first(where: { $0.index == index })
