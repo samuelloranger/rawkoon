@@ -1,6 +1,11 @@
 import Foundation
 
-enum FileStore {
+// Not MainActor: a plain FileManager/filesystem helper called from background
+// queues (ChapterDownloader's URLSession delegate queue, its own stateQueue)
+// as well as from the main actor. FileManager's operations here are
+// independent, self-contained calls with no shared mutable state in this
+// type, so isolation-free is the correct (and pre-existing) behavior.
+nonisolated enum FileStore {
     static func chapterURL(editionId: Int, fileId: Int, ext: String) -> URL {
         let directory = editionDirectory(editionId)
         createDirectoryIfNeeded(directory)
