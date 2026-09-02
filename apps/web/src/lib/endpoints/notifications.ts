@@ -7,6 +7,8 @@ export const NOTIFICATION_ENDPOINTS = {
   DELETE: (id: number) => `/api/notifications/${id}`,
   DEVICES: "/api/notifications/devices",
   DELETE_DEVICE: (id: number) => `/api/notifications/devices/${id}`,
+  APNS_DEVICES: "/api/notifications/apns/devices",
+  APNS_DELETE_DEVICE: (id: number) => `/api/notifications/apns/devices/${id}`,
   SUBSCRIBE: "/api/notifications/subscribe",
   UNSUBSCRIBE: "/api/notifications/unsubscribe",
   VAPID_PUBLIC_KEY: "/api/notifications/vapid-public-key",

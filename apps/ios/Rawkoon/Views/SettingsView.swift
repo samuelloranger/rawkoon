@@ -34,6 +34,12 @@ struct SettingsView: View {
                         }
                     }
                 }
+
+                NavigationLink {
+                    ProfileView()
+                } label: {
+                    Label("Edit profile", systemImage: "person.crop.circle")
+                }
             }
             .listRowBackground(Theme.raised)
 
@@ -49,15 +55,99 @@ struct SettingsView: View {
                 } label: {
                     Label("Notifications", systemImage: "bell")
                 }
+
+                NavigationLink {
+                    DevicesView()
+                } label: {
+                    Label("Devices", systemImage: "iphone")
+                }
+
+                NavigationLink {
+                    NotificationChannelsCrudView()
+                } label: {
+                    Label("Channels", systemImage: "paperplane")
+                }
             }
             .listRowBackground(Theme.raised)
 
             if model.isAdmin {
                 Section("Admin") {
                     NavigationLink {
-                        QualityProfilesView()
+                        GeneralSettingsView()
+                    } label: {
+                        Label("General", systemImage: "globe")
+                    }
+
+                    NavigationLink {
+                        TmdbIntegrationView()
+                    } label: {
+                        Label("TMDB", systemImage: "film")
+                    }
+
+                    NavigationLink {
+                        JellyfinIntegrationView()
+                    } label: {
+                        Label("Jellyfin", systemImage: "play.rectangle")
+                    }
+
+                    NavigationLink {
+                        LocalAiIntegrationView()
+                    } label: {
+                        Label("Local AI", systemImage: "brain")
+                    }
+
+                    NavigationLink {
+                        IndexerManagerIntegrationView(kind: .prowlarr)
+                    } label: {
+                        Label("Prowlarr", systemImage: "magnifyingglass.circle")
+                    }
+
+                    NavigationLink {
+                        IndexerManagerIntegrationView(kind: .jackett)
+                    } label: {
+                        Label("Jackett", systemImage: "magnifyingglass.circle")
+                    }
+
+                    NavigationLink {
+                        BooksProviderView()
+                    } label: {
+                        Label("Book providers", systemImage: "books.vertical")
+                    }
+
+                    NavigationLink {
+                        BooksSettingsView()
+                    } label: {
+                        Label("Books", systemImage: "book")
+                    }
+
+                    NavigationLink {
+                        BookQualityProfilesCrudView()
+                    } label: {
+                        Label("Book quality profiles", systemImage: "books.vertical.circle")
+                    }
+
+                    NavigationLink {
+                        MediaLibrarySettingsView()
+                    } label: {
+                        Label("Library", systemImage: "folder")
+                    }
+
+                    NavigationLink {
+                        ArrLibraryImportView()
+                    } label: {
+                        Label("Import from Radarr/Sonarr", systemImage: "square.and.arrow.down")
+                    }
+
+                    NavigationLink {
+                        QualityProfilesCrudView()
                     } label: {
                         Label("Quality profiles", systemImage: "slider.horizontal.3")
+                    }
+
+                    NavigationLink {
+                        CustomFormatsCrudView()
+                    } label: {
+                        Label("Custom formats", systemImage: "tag")
                     }
 
                     NavigationLink {
@@ -67,15 +157,51 @@ struct SettingsView: View {
                     }
 
                     NavigationLink {
-                        DownloadClientView()
+                        DownloadClientEditView()
                     } label: {
                         Label("Download client", systemImage: "arrow.down.circle")
                     }
 
                     NavigationLink {
-                        UsersView()
+                        UsersAdminView()
                     } label: {
                         Label("Users", systemImage: "person.2")
+                    }
+
+                    NavigationLink {
+                        SessionsAdminView()
+                    } label: {
+                        Label("Sessions", systemImage: "shield")
+                    }
+
+                    NavigationLink {
+                        ApiKeysAdminView()
+                    } label: {
+                        Label("API keys", systemImage: "key")
+                    }
+
+                    NavigationLink {
+                        OidcProvidersCrudView()
+                    } label: {
+                        Label("SSO providers", systemImage: "person.badge.key")
+                    }
+
+                    NavigationLink {
+                        BlocklistAdminView()
+                    } label: {
+                        Label("Blocklist", systemImage: "nosign")
+                    }
+
+                    NavigationLink {
+                        JobsAdminView()
+                    } label: {
+                        Label("Jobs", systemImage: "clock")
+                    }
+
+                    NavigationLink {
+                        ReleasesAdminView()
+                    } label: {
+                        Label("Releases", systemImage: "shippingbox")
                     }
                 }
                 .listRowBackground(Theme.raised)
@@ -147,6 +273,7 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) {}
         }
         .task {
+            await model.refreshAdminIfNeeded()
             await loadAccount()
             await loadVersion()
         }
