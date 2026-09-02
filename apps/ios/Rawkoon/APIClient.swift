@@ -1063,7 +1063,7 @@ private nonisolated struct RescanResponse: Decodable {
     let requeued: Int
 }
 
-private nonisolated struct EmptyBody: Encodable {}
+nonisolated struct EmptyBody: Encodable {}
 
 private nonisolated struct WatchlistAddBody: Encodable {
     let tmdbId: Int
