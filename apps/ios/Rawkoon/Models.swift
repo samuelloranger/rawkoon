@@ -505,6 +505,36 @@ nonisolated struct SessionResponse: Decodable, Sendable {
     let user: SessionUser?
 }
 
+// MARK: Notification devices (roster — spec §5 Phase 1)
+
+nonisolated struct ApnsDeviceDTO: Decodable, Identifiable, Sendable {
+    let id: Int
+    let deviceName: String?
+    let osVersion: String?
+    let appVersion: String?
+    let createdAt: String?
+}
+
+nonisolated struct ApnsDevicesResponse: Decodable, Sendable {
+    let devices: [ApnsDeviceDTO]
+}
+
+nonisolated struct WebPushDeviceDTO: Decodable, Identifiable, Sendable {
+    let id: Int
+    let endpoint: String?
+    let deviceName: String?
+    let osName: String?
+    let osVersion: String?
+    let browserName: String?
+    let browserVersion: String?
+    let platform: String?
+    let createdAt: String?
+}
+
+nonisolated struct WebPushDevicesResponse: Decodable, Sendable {
+    let devices: [WebPushDeviceDTO]
+}
+
 nonisolated struct ApproveRequestBody: Encodable, Sendable {
     let qualityProfileId: Int
 }

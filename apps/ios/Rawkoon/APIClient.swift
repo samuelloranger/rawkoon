@@ -395,7 +395,7 @@ actor APIClient {
         }
     }
 
-    private func makeRequest(path: String, method: String, requiresAuth: Bool = false) throws -> URLRequest {
+    func makeRequest(path: String, method: String, requiresAuth: Bool = false) throws -> URLRequest {
         guard let url = URL(string: path, relativeTo: baseURL)?.absoluteURL else {
             throw APIError.transport
         }
@@ -413,7 +413,7 @@ actor APIClient {
         return request
     }
 
-    private func perform(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+    func perform(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         do {
             let (data, response) = try await session.data(for: request)
             guard let http = response as? HTTPURLResponse else {
@@ -452,7 +452,7 @@ actor APIClient {
         return URL(string: raw, relativeTo: baseURL)?.absoluteURL
     }
 
-    private func mapStatus(_ status: Int) -> APIError {
+    func mapStatus(_ status: Int) -> APIError {
         switch status {
         case 401, 403: .unauthorized
         default: .http(status)
@@ -470,13 +470,13 @@ actor APIClient {
 
     /// Shared decoder for the media endpoints. snake_case → camelCase; dates
     /// stay as strings (the media DTOs decode them as `String`).
-    private static let mediaDecoder: JSONDecoder = {
+    static let mediaDecoder: JSONDecoder = {
         let d = JSONDecoder()
         d.keyDecodingStrategy = .convertFromSnakeCase
         return d
     }()
 
-    private static let mediaEncoder: JSONEncoder = {
+    static let mediaEncoder: JSONEncoder = {
         let e = JSONEncoder()
         e.keyEncodingStrategy = .convertToSnakeCase
         return e
@@ -484,7 +484,7 @@ actor APIClient {
 
     /// Authenticated GET returning a decoded `T`. `query` values that are nil are
     /// dropped, so callers can pass optionals directly.
-    private func get<T: Decodable>(_ path: String, query: [String: String?] = [:]) async throws -> T {
+    func get<T: Decodable>(_ path: String, query: [String: String?] = [:]) async throws -> T {
         let request = try makeRequest(path: pathWithQuery(path, query), method: "GET", requiresAuth: true)
         let (data, response) = try await perform(request)
         guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
@@ -493,7 +493,7 @@ actor APIClient {
     }
 
     /// Authenticated POST with a JSON body returning a decoded `T`.
-    private func post<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
+    func post<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
         let (data, response) = try await sendPost(path, body: body)
         guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
         do { return try Self.mediaDecoder.decode(T.self, from: data) }
@@ -502,7 +502,7 @@ actor APIClient {
 
     /// Authenticated POST that only cares whether the server accepted it (2xx).
     /// Used for grab endpoints whose bodies mix strings and bools.
-    private func postExpectOK(
+    func postExpectOK(
         _ path: String,
         body: some Encodable,
         method: String = "POST"
@@ -511,7 +511,7 @@ actor APIClient {
         guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
     }
 
-    private func sendPost(
+    func sendPost(
         _ path: String,
         body: some Encodable,
         method: String = "POST"
@@ -522,21 +522,97 @@ actor APIClient {
         return try await perform(request)
     }
 
-    private func patch<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
+    func patch<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
         let (data, response) = try await sendPatch(path, body: body)
         guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
         do { return try Self.mediaDecoder.decode(T.self, from: data) }
         catch { throw APIError.decode }
     }
 
-    private func sendPatch(_ path: String, body: some Encodable) async throws -> (Data, HTTPURLResponse) {
+    func sendPatch(_ path: String, body: some Encodable) async throws -> (Data, HTTPURLResponse) {
         var request = try makeRequest(path: path, method: "PATCH", requiresAuth: true)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try Self.mediaEncoder.encode(body)
         return try await perform(request)
     }
 
-    private func postRaw(_ path: String, body: [String: Any]) async throws -> (Data, HTTPURLResponse) {
+    // MARK: Generic settings helpers (spec §4.2)
+
+    private func sendPut(_ path: String, body: some Encodable) async throws -> (Data, HTTPURLResponse) {
+        var request = try makeRequest(path: path, method: "PUT", requiresAuth: true)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try Self.mediaEncoder.encode(body)
+        return try await perform(request)
+    }
+
+    /// Authenticated PUT returning a decoded `T` (most `PUT /api/integrations/*`).
+    func put<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
+        let (data, response) = try await sendPut(path, body: body)
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        do { return try Self.mediaDecoder.decode(T.self, from: data) }
+        catch { throw APIError.decode }
+    }
+
+    /// Authenticated PUT that only cares whether the server accepted it (2xx).
+    func putExpectOK(_ path: String, body: some Encodable) async throws {
+        let (_, response) = try await sendPut(path, body: body)
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+    }
+
+    /// Authenticated PATCH that only cares whether the server accepted it (2xx).
+    func patchExpectOK(_ path: String, body: some Encodable) async throws {
+        let (_, response) = try await sendPatch(path, body: body)
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+    }
+
+    /// Authenticated DELETE returning Void (optionally with query items).
+    func deleteExpectOK(_ path: String, query: [String: String?] = [:]) async throws {
+        let request = try makeRequest(path: pathWithQuery(path, query), method: "DELETE", requiresAuth: true)
+        let (_, response) = try await perform(request)
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+    }
+
+    /// Authenticated DELETE returning a decoded body.
+    func delete<T: Decodable>(_ path: String) async throws -> T {
+        let request = try makeRequest(path: path, method: "DELETE", requiresAuth: true)
+        let (data, response) = try await perform(request)
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        do { return try Self.mediaDecoder.decode(T.self, from: data) }
+        catch { throw APIError.decode }
+    }
+
+    // MARK: Plain-casing helpers (no snake↔camel conversion — Download-Client Hook wire)
+
+    private static let plainDecoder = JSONDecoder()
+    private static let plainEncoder = JSONEncoder()
+
+    func getPlain<T: Decodable>(_ path: String) async throws -> T {
+        let request = try makeRequest(path: path, method: "GET", requiresAuth: true)
+        let (data, response) = try await perform(request)
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        do { return try Self.plainDecoder.decode(T.self, from: data) }
+        catch { throw APIError.decode }
+    }
+
+    func putPlain<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
+        var request = try makeRequest(path: path, method: "PUT", requiresAuth: true)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try Self.plainEncoder.encode(body)
+        let (data, response) = try await perform(request)
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        do { return try Self.plainDecoder.decode(T.self, from: data) }
+        catch { throw APIError.decode }
+    }
+
+    func postPlainExpectOK(_ path: String, body: some Encodable) async throws {
+        var request = try makeRequest(path: path, method: "POST", requiresAuth: true)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try Self.plainEncoder.encode(body)
+        let (_, response) = try await perform(request)
+        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+    }
+
+    func postRaw(_ path: String, body: [String: Any]) async throws -> (Data, HTTPURLResponse) {
         var request = try makeRequest(path: path, method: "POST", requiresAuth: true)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         do {
@@ -547,7 +623,7 @@ actor APIClient {
         return try await perform(request)
     }
 
-    private func pathWithQuery(_ path: String, _ query: [String: String?]) -> String {
+    func pathWithQuery(_ path: String, _ query: [String: String?]) -> String {
         let items = query.compactMap { key, value -> URLQueryItem? in
             guard let value, !value.isEmpty else { return nil }
             return URLQueryItem(name: key, value: value)
