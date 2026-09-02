@@ -15,15 +15,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     ) {
         self.interfaceController = interfaceController
         Log.playback.info("CarPlay scene connected")
-        // Placeholder root; Task 4 replaces this with the real browse list.
-        let item = CPInformationItem(title: "Rawkoon", detail: "CarPlay coming online")
-        let template = CPInformationTemplate(
-            title: "Rawkoon",
-            layout: .leading,
-            items: [item],
-            actions: []
-        )
-        interfaceController.setRootTemplate(template, animated: false, completion: nil)
+        Task { await rebuildRoot() }
     }
 
     func templateApplicationScene(
@@ -32,5 +24,38 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     ) {
         Log.playback.info("CarPlay scene disconnected")
         self.interfaceController = nil
+    }
+
+    @MainActor
+    private func rebuildRoot() async {
+        let model = AppModel.shared
+        guard model.isLoggedIn else {
+            setRoot(CarPlayInterface.message(
+                "Open Rawkoon on your phone to sign in.", title: "Rawkoon"
+            ))
+            return
+        }
+        await model.ensureLibraryLoaded()
+        let entries = await model.carPlayAudiobooks()
+        guard !entries.isEmpty else {
+            setRoot(CarPlayInterface.message("No audiobooks yet.", title: "Rawkoon"))
+            return
+        }
+        let template = CarPlayInterface.browseTemplate(entries: entries, model: model) { editionId in
+            Task { @MainActor in
+                await model.openPlayer(editionId: editionId)
+                guard model.errorMessage == nil else { return }
+                model.player.play()
+                self.interfaceController?.pushTemplate(
+                    CPNowPlayingTemplate.shared, animated: true, completion: nil
+                )
+            }
+        }
+        setRoot(template)
+    }
+
+    @MainActor
+    private func setRoot(_ template: CPTemplate) {
+        interfaceController?.setRootTemplate(template, animated: false, completion: nil)
     }
 }

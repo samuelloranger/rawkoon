@@ -317,6 +317,45 @@ final class AppModel {
         return (summary, manifest)
     }
 
+    /// Loads the library if a CarPlay-only launch means no SwiftUI view ever
+    /// triggered `loadLibrary()`.
+    func ensureLibraryLoaded() async {
+        if library.isEmpty {
+            await loadLibrary()
+        }
+    }
+
+    /// Flattens the audiobook library + remote progress into the Linux-tested
+    /// CarPlay browse model. `libraryOrder` preserves the server's list order.
+    func carPlayAudiobooks() async -> [CarPlayBrowseEntry] {
+        let progressByEdition: [Int: RemoteProgress]
+        if let client = api(), let progress = try? await client.getProgress() {
+            progressByEdition = Dictionary(
+                progress.map { ($0.editionId, $0) }, uniquingKeysWith: { first, _ in first }
+            )
+        } else {
+            progressByEdition = [:]
+        }
+
+        var entries: [CarPlayBrowseEntry] = []
+        for (index, book) in library.enumerated() {
+            guard let summary = book.audiobookSummary else { continue }
+            let progress = progressByEdition[summary.editionId]
+            entries.append(
+                CarPlayBrowseEntry(
+                    editionId: summary.editionId,
+                    title: summary.title,
+                    author: summary.author,
+                    positionSecs: progress.map { $0.finished ? 0 : $0.positionSecs },
+                    totalDurationSecs: progress?.totalDurationSecs ?? summary.durationSecs,
+                    updatedAtMillis: progress.map { Int64($0.updatedAt.timeIntervalSince1970 * 1000) },
+                    libraryOrder: index
+                )
+            )
+        }
+        return entries
+    }
+
     /// Resolves a possibly-relative image path against the server base URL.
     /// TMDB poster URLs are already absolute; library posters may be relative.
     func absoluteURL(_ raw: String?) -> URL? {
