@@ -11,7 +11,8 @@ public struct CarPlayBrowseEntry: Sendable, Equatable {
     public let positionSecs: Double?
     public let totalDurationSecs: Double?
     public let updatedAtMillis: Int64?
-    /// Position in the library list as the server returned it (newest first).
+    /// Position in the library list as the server returned it; preserved so the
+    /// Library section keeps the server's ordering.
     public let libraryOrder: Int
 
     public init(

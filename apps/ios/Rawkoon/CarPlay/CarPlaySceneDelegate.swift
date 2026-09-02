@@ -1,5 +1,6 @@
 import CarPlay
 import Observation
+import RawkoonKit
 
 /// Owns the CarPlay interface. Declared in project.yml's scene manifest as the
 /// delegate for the CarPlay scene role; the phone window is untouched SwiftUI.
@@ -9,15 +10,22 @@ import Observation
 /// sure the library is loaded before it builds the browse list.
 final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
     private var interfaceController: CPInterfaceController?
-    private var observing = false
+    /// The browse list, kept so a background refresh can update its rows in
+    /// place instead of resetting the root (which would tear down a pushed Now
+    /// Playing template). Nil while a message template is showing.
+    private var browseTemplate: CPListTemplate?
 
     func templateApplicationScene(
         _: CPTemplateApplicationScene,
         didConnect interfaceController: CPInterfaceController
     ) {
         self.interfaceController = interfaceController
+        browseTemplate = nil
         Log.playback.info("CarPlay scene connected")
-        Task { await rebuildRoot() }
+        Task { @MainActor in
+            await refresh()
+            observeAppState()
+        }
     }
 
     func templateApplicationScene(
@@ -26,59 +34,81 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     ) {
         Log.playback.info("CarPlay scene disconnected")
         interfaceController = nil
-        observing = false
+        browseTemplate = nil
     }
 
-    /// Rebuilds the browse list when the library changes (a download finishing,
-    /// a reload) while a CarPlay scene is connected. `withObservationTracking`
-    /// fires once, so it re-arms after each change.
+    /// Re-renders whenever the app state CarPlay depends on changes — sign-in
+    /// (a phone login, or a cold launch that logs in later) and the library
+    /// itself (a download finishing, a first audiobook arriving). Armed in every
+    /// state, not just the populated one, so the car recovers without a
+    /// reconnect. `withObservationTracking` fires once, so it re-arms after each
+    /// change — but only while a scene is connected.
     @MainActor
-    private func observeLibrary() {
-        observing = true
+    private func observeAppState() {
+        guard interfaceController != nil else { return }
         withObservationTracking {
+            _ = AppModel.shared.isLoggedIn
             _ = AppModel.shared.library
         } onChange: { [weak self] in
             Task { @MainActor in
                 guard let self, self.interfaceController != nil else { return }
-                await self.rebuildRoot()
-                self.observeLibrary()
+                await self.refresh()
+                self.observeAppState()
             }
         }
     }
 
     @MainActor
-    private func rebuildRoot() async {
+    private func refresh() async {
         let model = AppModel.shared
+
         guard model.isLoggedIn else {
-            setRoot(CarPlayInterface.message(
-                "Open Rawkoon on your phone to sign in.", title: "Rawkoon"
-            ))
+            showMessage("Open Rawkoon on your phone to sign in.")
             return
         }
         await model.ensureLibraryLoaded()
         let entries = await model.carPlayAudiobooks()
         guard !entries.isEmpty else {
-            setRoot(CarPlayInterface.message("No audiobooks yet.", title: "Rawkoon"))
+            showMessage(model.errorMessage ?? "No audiobooks yet.")
             return
         }
-        let template = CarPlayInterface.browseTemplate(entries: entries, model: model) { editionId in
-            Task { @MainActor in
-                await model.openPlayer(editionId: editionId)
-                guard model.errorMessage == nil else { return }
-                model.player.play()
-                self.interfaceController?.pushTemplate(
-                    CPNowPlayingTemplate.shared, animated: true, completion: nil
-                )
-            }
+        showBrowse(entries: entries, model: model)
+    }
+
+    /// Populated state. Updates the existing list in place when one is already
+    /// shown, so a pushed Now Playing template survives a background refresh;
+    /// only the first build (or a return from a message state) sets the root.
+    @MainActor
+    private func showBrowse(entries: [CarPlayBrowseEntry], model: AppModel) {
+        let sections = CarPlayInterface.browseSections(entries: entries, model: model) { [weak self] editionId in
+            self?.play(editionId: editionId, model: model)
         }
-        setRoot(template)
-        if !observing {
-            observeLibrary()
+        if let browseTemplate {
+            browseTemplate.updateSections(sections)
+        } else {
+            let template = CPListTemplate(title: "Rawkoon", sections: sections)
+            browseTemplate = template
+            interfaceController?.setRootTemplate(template, animated: false, completion: nil)
         }
     }
 
     @MainActor
-    private func setRoot(_ template: CPTemplate) {
-        interfaceController?.setRootTemplate(template, animated: false, completion: nil)
+    private func showMessage(_ text: String) {
+        browseTemplate = nil
+        interfaceController?.setRootTemplate(
+            CarPlayInterface.message(text, title: "Rawkoon"), animated: false, completion: nil
+        )
+    }
+
+    @MainActor
+    private func play(editionId: Int, model: AppModel) {
+        Task { @MainActor in
+            await model.openPlayer(editionId: editionId)
+            guard model.errorMessage == nil else { return }
+            model.player.play()
+            interfaceController?.pushTemplate(
+                CPNowPlayingTemplate.shared, animated: true, completion: nil
+            )
+        }
     }
 }
