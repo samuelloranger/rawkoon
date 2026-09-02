@@ -1129,9 +1129,6 @@ nonisolated struct PostProcessingSettingsDTO: Decodable, Sendable {
     let bookTemplate: String?
     let audiobookTemplate: String?
     let defaultBookQualityProfileId: Int?
-    let audiobookshelfUrl: String?
-    let audiobookshelfAudiobookLibraryId: String?
-    let audiobookshelfEbookLibraryId: String?
 }
 
 nonisolated struct PostProcessingSettingsResponseDTO: Decodable, Sendable {
@@ -1312,14 +1309,10 @@ nonisolated struct UpdateBookFilesBody: Encodable, Sendable {
     var bookTemplate: String
     var audiobookTemplate: String
     var defaultBookQualityProfileId: Int?
-    var audiobookshelfUrl: String?
-    var audiobookshelfAudiobookLibraryId: String?
-    var audiobookshelfEbookLibraryId: String?
 
     enum CodingKeys: String, CodingKey {
         case booksLibraryPath, audiobooksLibraryPath, bookTemplate, audiobookTemplate
-        case defaultBookQualityProfileId, audiobookshelfUrl
-        case audiobookshelfAudiobookLibraryId, audiobookshelfEbookLibraryId
+        case defaultBookQualityProfileId
     }
 
     func encode(to encoder: Encoder) throws {
@@ -1329,9 +1322,6 @@ nonisolated struct UpdateBookFilesBody: Encodable, Sendable {
         try c.encode(bookTemplate, forKey: .bookTemplate)
         try c.encode(audiobookTemplate, forKey: .audiobookTemplate)
         try c.encode(defaultBookQualityProfileId, forKey: .defaultBookQualityProfileId)
-        try c.encode(audiobookshelfUrl, forKey: .audiobookshelfUrl)
-        try c.encode(audiobookshelfAudiobookLibraryId, forKey: .audiobookshelfAudiobookLibraryId)
-        try c.encode(audiobookshelfEbookLibraryId, forKey: .audiobookshelfEbookLibraryId)
     }
 }
 

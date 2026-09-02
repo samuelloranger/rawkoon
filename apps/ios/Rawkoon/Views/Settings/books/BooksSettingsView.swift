@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Books settings (admin), non-CRUD: enable the feature, order metadata sources,
-/// and set book file paths / templates / Audiobookshelf. Book quality-profile
+/// and set book file paths / templates. Book quality-profile
 /// CRUD is Phase 4 (only the read is used here for the default picker).
 struct BooksSettingsView: View {
     @Environment(AppModel.self) private var model
@@ -21,9 +21,6 @@ struct BooksSettingsView: View {
     @State private var bookTemplate = ""
     @State private var audiobookTemplate = ""
     @State private var defaultBookProfile: Int? = nil
-    @State private var absURL = ""
-    @State private var absAudiobookLib = ""
-    @State private var absEbookLib = ""
     @State private var savingFiles = false
     @State private var filesError: String?
 
@@ -126,9 +123,6 @@ struct BooksSettingsView: View {
             LabeledTextFieldRow(title: "Book template", text: $bookTemplate, mono: true)
             LabeledTextFieldRow(title: "Audiobook template", text: $audiobookTemplate, mono: true)
             PickerRow(title: "Default book profile", selection: $defaultBookProfile, options: profileOptions)
-            LabeledTextFieldRow(title: "Audiobookshelf URL", text: $absURL, keyboard: .URL)
-            LabeledTextFieldRow(title: "ABS audiobook library ID", text: $absAudiobookLib)
-            LabeledTextFieldRow(title: "ABS ebook library ID", text: $absEbookLib)
             Button("Save files") { Task { await saveFiles() } }
                 .disabled(savingFiles)
                 .listRowBackground(Theme.raised)
@@ -136,7 +130,7 @@ struct BooksSettingsView: View {
                 Text(filesError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
             }
         } header: {
-            Text("Files & Audiobookshelf")
+            Text("Files")
         }
     }
 
@@ -172,9 +166,6 @@ struct BooksSettingsView: View {
             bookTemplate = settings.bookTemplate ?? ""
             audiobookTemplate = settings.audiobookTemplate ?? ""
             defaultBookProfile = settings.defaultBookQualityProfileId
-            absURL = settings.audiobookshelfUrl ?? ""
-            absAudiobookLib = settings.audiobookshelfAudiobookLibraryId ?? ""
-            absEbookLib = settings.audiobookshelfEbookLibraryId ?? ""
         } catch {
             loadError = settingsErrorMessage(error)
         }
@@ -199,10 +190,7 @@ struct BooksSettingsView: View {
                     audiobooksLibraryPath: nilIfEmpty(audiobooksPath),
                     bookTemplate: bookTemplate,
                     audiobookTemplate: audiobookTemplate,
-                    defaultBookQualityProfileId: defaultBookProfile,
-                    audiobookshelfUrl: nilIfEmpty(absURL),
-                    audiobookshelfAudiobookLibraryId: nilIfEmpty(absAudiobookLib),
-                    audiobookshelfEbookLibraryId: nilIfEmpty(absEbookLib)
+                    defaultBookQualityProfileId: defaultBookProfile
                 )
             )
         } catch {

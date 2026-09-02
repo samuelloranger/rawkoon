@@ -12,8 +12,19 @@ import {
 } from "@rawkoon/api/services/books/downloadGrant";
 import { parseByteRange, type ParsedByteRange } from "@rawkoon/shared/utils";
 
+import { bookIdentityFromEdition } from "./progressIdentity";
+
 const GRANT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const CONTENT_CACHE_CONTROL = "private, immutable, max-age=31536000";
+const progressBookSelect = {
+  edition: {
+    select: {
+      book: {
+        select: { id: true, title: true, authors: true, coverUrl: true },
+      },
+    },
+  },
+} as const;
 const contentTypeForPath = (filePath: string): string => {
   switch (extname(filePath).toLowerCase()) {
     case ".mp3":
@@ -26,6 +37,8 @@ const contentTypeForPath = (filePath: string): string => {
     case ".ogg":
     case ".opus":
       return "audio/ogg";
+    case ".epub":
+      return "application/epub+zip";
     default:
       return "audio/mpeg";
   }
@@ -245,18 +258,26 @@ export const bookProgressRoutes = new Elysia()
         totalDurationSecs: true,
         finished: true,
         updatedAt: true,
+        ...progressBookSelect,
       },
       orderBy: { updatedAt: "desc" },
     });
 
     return {
-      progress: rows.map((row) => ({
-        edition_id: row.editionId,
-        position_secs: row.positionSecs,
-        total_duration_secs: row.totalDurationSecs,
-        finished: row.finished,
-        updated_at: row.updatedAt.toISOString(),
-      })),
+      progress: rows.flatMap((row) => {
+        const identity = bookIdentityFromEdition(row.edition);
+        if (!identity) return [];
+        return [
+          {
+            edition_id: row.editionId,
+            ...identity,
+            position_secs: row.positionSecs,
+            total_duration_secs: row.totalDurationSecs,
+            finished: row.finished,
+            updated_at: row.updatedAt.toISOString(),
+          },
+        ];
+      }),
     };
   })
   .put(
@@ -349,22 +370,30 @@ export const bookReadingProgressRoutes = new Elysia()
         locator: true,
         finished: true,
         updatedAt: true,
+        ...progressBookSelect,
       },
       orderBy: { updatedAt: "desc" },
     });
 
     return {
-      progress: rows.map((row) => ({
-        edition_id: row.editionId,
-        file_id: row.fileId,
-        spine_index: row.spineIndex,
-        spine_path: row.spinePath,
-        spine_count: row.spineCount,
-        scroll_fraction: row.scrollFraction,
-        locator: row.locator,
-        finished: row.finished,
-        updated_at: row.updatedAt.toISOString(),
-      })),
+      progress: rows.flatMap((row) => {
+        const identity = bookIdentityFromEdition(row.edition);
+        if (!identity) return [];
+        return [
+          {
+            edition_id: row.editionId,
+            ...identity,
+            file_id: row.fileId,
+            spine_index: row.spineIndex,
+            spine_path: row.spinePath,
+            spine_count: row.spineCount,
+            scroll_fraction: row.scrollFraction,
+            locator: row.locator,
+            finished: row.finished,
+            updated_at: row.updatedAt.toISOString(),
+          },
+        ];
+      }),
     };
   })
   .put(

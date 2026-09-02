@@ -189,50 +189,31 @@ cannot pull in an unrelated book.
 
 ## Reading and listening
 
-**In the web app, Rawkoon downloads and imports; Audiobookshelf plays and
-reads.** Once an edition has files, its page shows **Open in Audiobookshelf**,
-which opens a search for the title in the matching Audiobookshelf library.
+Both the web app and the iOS app play audiobooks and read EPUBs. They share one
+position per user through the same APIs, so where you left off on the phone is
+where the browser resumes.
 
-**The iOS app reads and plays books itself.** It has an in-app EPUB reader and
-an audiobook player, both with offline downloads, and it remembers where you
-are. Nothing there depends on Audiobookshelf.
+On the book page, **Listen** appears when an audiobook has chapter files
+registered, and **Read** when an ebook has an EPUB. A mini-player stays at the
+bottom of the SPA while audio is loaded. Home shows a Continue card for
+in-progress titles.
 
-### Setting it up
+The web player runs only while the tab is visible. Locking the phone or
+switching apps will typically pause audio in Mobile Safari — that is expected.
+There is no sleep timer, datasaver, or CarPlay from the browser.
 
-Point Audiobookshelf at the same folders Rawkoon imports into — the books and
-audiobooks paths from **Settings → Books** — and it will pick up everything
-Rawkoon imports on its next scan. Then fill in, in the same settings section:
-
-| Field | Where to find it |
-| --- | --- |
-| Server URL | The address you open Audiobookshelf at, e.g. `https://audiobookshelf.example.com` |
-| Audiobook library ID | Open the library in Audiobookshelf; the ID is in the URL, `/library/<id>` |
-| Ebook library ID | Same, for the library holding ebooks |
-
-Leave the URL empty and no button is rendered — an install without
-Audiobookshelf sees no change.
-
-Rawkoon never calls the Audiobookshelf API. It has no key and stores no
-Audiobookshelf item IDs, so the link is a title search rather than a link
-straight to the item. An unreachable server costs nothing but a dead link.
+The iOS app still has its own reader and player, including offline downloads.
 
 ### What the web app dropped in 1.8.0
 
-The web app used to ship its own ebook reader and audiobook player, with
-offline downloads and progress tracking. All of it was removed in 1.8.0 and has
-not come back on the web:
+The first web reader and player were removed in 1.8.0. Reading progress from
+before that cut was not migrated. Browser offline downloads from that era are
+gone. The current web Listen/Read path is new and uses the same progress rows
+as iOS.
 
-- **Reading progress from before 1.8.0 was not migrated.** There was no shared
-  key to map the old positions onto, so both Audiobookshelf and the iOS app
-  start from scratch.
-- **Browser offline downloads are gone.** Any book stored in the browser was
-  dropped on the first load after upgrading.
-- **The web "Continue reading" widget is gone.** The iOS app has its own,
-  driven by the progress API below.
+## Progress
 
-## Progress on iOS
-
-The iOS app tracks two positions per user, and both sync through the server so
+Both clients track two positions per user, and both sync through the server so
 they follow you across devices:
 
 | | Audiobook | Ebook |
@@ -347,8 +328,5 @@ monitored author has new titles.
   a whole series is never grabbed for a single edition.
 - **Requests and the discover deck do not cover books yet.** Books are added
   from the books page, not requested.
-- **The web app shows no reading state.** In the browser a book is either in
-  the library or not; reading and listening happen in the iOS app or in
-  Audiobookshelf. Progress recorded by the iOS app is not surfaced on the web.
 - **Bookmarks and notes are not tracked anywhere.** Only a single current
   position per edition is stored.

@@ -192,6 +192,7 @@
       "fromJellyfinEmpty": "Rien sur Jellyfin pour l'instant",
       "nowWatching": "En lecture",
       "nowWatchingEmpty": "Personne ne regarde en ce moment",
+      "continue": "Reprendre",
       "paused": "En pause",
       "upcoming": "Sorties à venir",
       "statsEventsToday_one": "événement aujourd'hui",
@@ -1322,14 +1323,6 @@
         "saved": "Réglages de fichiers enregistrés",
         "saveFailed": "Impossible d’enregistrer ces réglages."
       },
-      "audiobookshelf": {
-        "title": "Audiobookshelf",
-        "description": "Rawkoon télécharge et importe; Audiobookshelf fait la lecture.",
-        "url": "URL du serveur",
-        "audiobookLibrary": "ID de la bibliothèque de livres audio",
-        "ebookLibrary": "ID de la bibliothèque de livres",
-        "hint": "Pointez Audiobookshelf vers les mêmes dossiers que les chemins ci-dessus. L'ID d'une bibliothèque apparaît dans son URL : /library/<id>. Laissez vide pour masquer le bouton."
-      },
       "audnexus": {
         "title": "Audnexus",
         "description": "Narrateurs, séries, genres et couvertures. Aucun compte requis.",
@@ -2122,8 +2115,38 @@
       "upgrading": "Mise à niveau",
       "skipped": "Ignoré"
     },
-    "audiobookshelf": {
-      "open": "Ouvrir dans Audiobookshelf"
+    "listen": {
+      "title": "Écouter",
+      "open": "Écouter",
+      "notReady": "Ce livre audio n’est pas encore prêt — les fichiers de chapitres n’ont pas été enregistrés.",
+      "back": "Retour au livre",
+      "chapters": "Chapitres",
+      "loading": "Chargement…"
+    },
+    "player": {
+      "play": "Lecture",
+      "pause": "Pause",
+      "skipForward": "Avancer de 30 secondes",
+      "skipBack": "Reculer de 30 secondes",
+      "nextChapter": "Chapitre suivant",
+      "prevChapter": "Chapitre précédent",
+      "close": "Fermer le lecteur",
+      "rate": "Vitesse",
+      "error": "Ce chapitre n’a pas pu être lu."
+    },
+    "read": {
+      "epubOnly": "Seul l’EPUB peut être lu dans le navigateur. Téléchargez les autres formats depuis la fiche du livre.",
+      "open": "Lire",
+      "openFailed": "Ce livre n’a pas pu être ouvert.",
+      "contents": "Sommaire",
+      "settings": "Réglages",
+      "fontSize": "Taille du texte",
+      "lineHeight": "Interligne",
+      "margins": "Marges",
+      "theme": "Thème",
+      "theme_light": "Clair",
+      "theme_sepia": "Sépia",
+      "theme_dark": "Sombre"
     }
   }
 }
