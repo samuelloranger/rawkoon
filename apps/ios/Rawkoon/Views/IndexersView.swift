@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Admin-only: lists configured indexers and their enabled/protocol/privacy state.
 struct IndexersView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     @State private var indexers: [Indexer] = []
     @State private var loading = false
@@ -119,13 +119,13 @@ struct IndexersView: View {
     private func message(for error: APIError) -> String {
         switch error {
         case .unauthorized:
-            return "Admin only."
+            "Admin only."
         case let .http(status):
-            return "Server error (\(status))."
+            "Server error (\(status))."
         case .decode:
-            return "Could not parse server response."
+            "Could not parse server response."
         case .transport:
-            return "Network error. Check your connection."
+            "Network error. Check your connection."
         }
     }
 }

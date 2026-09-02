@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Admin-only list of registered users.
 struct UsersView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     @State private var users: [AdminUser] = []
     @State private var loading = false
@@ -92,7 +92,7 @@ struct UsersView: View {
     }
 
     private func displayName(for user: AdminUser) -> String {
-        let parts = [user.firstName, user.lastName].compactMap { $0 }.filter { !$0.isEmpty }
+        let parts = [user.firstName, user.lastName].compactMap(\.self).filter { !$0.isEmpty }
         if !parts.isEmpty {
             return parts.joined(separator: " ")
         }

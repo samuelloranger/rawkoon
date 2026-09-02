@@ -6,11 +6,11 @@ let package = Package(
     platforms: [.iOS(.v18), .macOS(.v14)],
     products: [.library(name: "RawkoonKit", targets: ["RawkoonKit"])],
     targets: [
-        .target(name: "RawkoonKit", swiftSettings: [.swiftLanguageMode(.v5)]),
+        .target(name: "RawkoonKit", swiftSettings: [.swiftLanguageMode(.v6)]),
         .testTarget(
             name: "RawkoonKitTests",
             dependencies: ["RawkoonKit"],
-            swiftSettings: [.swiftLanguageMode(.v5)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]
 )

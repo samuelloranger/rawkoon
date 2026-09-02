@@ -8,7 +8,7 @@ import Foundation
 // formatted in the view layer. Codable ignores JSON keys not listed here, so
 // each struct declares only the fields the app actually uses.
 
-struct TmdbSearchItem: Decodable, Identifiable, Hashable, Sendable {
+nonisolated struct TmdbSearchItem: Decodable, Identifiable, Hashable, Sendable {
     let id: String // "${media_type}-${tmdb_id}"
     let tmdbId: Int
     let mediaType: String // "movie" | "tv"
@@ -22,7 +22,7 @@ struct TmdbSearchItem: Decodable, Identifiable, Hashable, Sendable {
     let libraryId: Int?
 }
 
-struct ExploreFeed: Decodable, Sendable {
+nonisolated struct ExploreFeed: Decodable, Sendable {
     let trending: [TmdbSearchItem]?
     let popularMovies: [TmdbSearchItem]?
     let popularShows: [TmdbSearchItem]?
@@ -50,12 +50,12 @@ struct ExploreFeed: Decodable, Sendable {
     }
 }
 
-struct TmdbSearchResponse: Decodable, Sendable {
+nonisolated struct TmdbSearchResponse: Decodable, Sendable {
     let enabled: Bool?
     let items: [TmdbSearchItem]
 }
 
-struct BookSearchHit: Decodable, Identifiable, Hashable, Sendable {
+nonisolated struct BookSearchHit: Decodable, Identifiable, Hashable, Sendable {
     var id: String {
         googleVolumeId
     }
@@ -71,19 +71,19 @@ struct BookSearchHit: Decodable, Identifiable, Hashable, Sendable {
     let libraryBookId: Int?
 }
 
-struct BookSearchResponse: Decodable, Sendable {
+nonisolated struct BookSearchResponse: Decodable, Sendable {
     let results: [BookSearchHit]
 }
 
 // MARK: - Media detail (TMDB modal)
 
-struct MediaModalResponse: Decodable, Sendable {
+nonisolated struct MediaModalResponse: Decodable, Sendable {
     let watchlistStatus: Bool?
     let watchlistId: Int?
     let details: TmdbMediaDetails
 }
 
-struct TmdbMediaDetails: Decodable, Sendable {
+nonisolated struct TmdbMediaDetails: Decodable, Sendable {
     let runtime: Int?
     let overview: String?
     let voteAverage: Double?
@@ -98,12 +98,12 @@ struct TmdbMediaDetails: Decodable, Sendable {
     let seasons: [SeasonSummary]?
 }
 
-struct NamedRef: Decodable, Hashable, Sendable {
+nonisolated struct NamedRef: Decodable, Hashable, Sendable {
     let id: Int
     let name: String
 }
 
-struct SeasonSummary: Decodable, Hashable, Sendable {
+nonisolated struct SeasonSummary: Decodable, Hashable, Sendable {
     let seasonNumber: Int
     let name: String
     let episodeCount: Int
@@ -111,11 +111,11 @@ struct SeasonSummary: Decodable, Hashable, Sendable {
 
 // MARK: - Library episodes (TV)
 
-struct EpisodesResponse: Decodable, Sendable {
+nonisolated struct EpisodesResponse: Decodable, Sendable {
     let seasons: [SeasonEpisodes]
 }
 
-struct SeasonEpisodes: Decodable, Sendable, Identifiable {
+nonisolated struct SeasonEpisodes: Decodable, Sendable, Identifiable {
     let season: Int
     let episodes: [Episode]
     var id: Int {
@@ -123,7 +123,7 @@ struct SeasonEpisodes: Decodable, Sendable, Identifiable {
     }
 }
 
-struct Episode: Decodable, Identifiable, Sendable {
+nonisolated struct Episode: Decodable, Identifiable, Sendable {
     let id: Int
     let season: Int
     let episode: Int
@@ -136,7 +136,7 @@ struct Episode: Decodable, Identifiable, Sendable {
 
 // MARK: - Library file metadata
 
-struct LibraryAudioTrack: Decodable, Identifiable, Sendable {
+nonisolated struct LibraryAudioTrack: Decodable, Identifiable, Sendable {
     let index: Int
     let language: String?
     let languageName: String?
@@ -158,7 +158,7 @@ struct LibraryAudioTrack: Decodable, Identifiable, Sendable {
     }
 }
 
-struct LibrarySubtitleTrack: Decodable, Identifiable, Sendable {
+nonisolated struct LibrarySubtitleTrack: Decodable, Identifiable, Sendable {
     let index: Int
     let language: String?
     let languageName: String?
@@ -172,7 +172,7 @@ struct LibrarySubtitleTrack: Decodable, Identifiable, Sendable {
     }
 }
 
-struct LibraryFileInfo: Decodable, Identifiable, Sendable {
+nonisolated struct LibraryFileInfo: Decodable, Identifiable, Sendable {
     let id: Int
     let fileName: String
     let filePath: String
@@ -229,14 +229,14 @@ struct LibraryFileInfo: Decodable, Identifiable, Sendable {
     }
 }
 
-struct LibraryFilesResponse: Decodable, Sendable {
+nonisolated struct LibraryFilesResponse: Decodable, Sendable {
     let mediaType: String
     let files: [LibraryFileInfo]
 }
 
 // MARK: - Library media (movies / shows)
 
-struct LibraryMedia: Decodable, Identifiable, Sendable {
+nonisolated struct LibraryMedia: Decodable, Identifiable, Sendable {
     let id: Int
     let tmdbId: Int
     let type: String // "movie" | "show"
@@ -254,7 +254,7 @@ struct LibraryMedia: Decodable, Identifiable, Sendable {
     let durationSecs: Double?
 }
 
-struct LibraryListResponse: Decodable, Sendable {
+nonisolated struct LibraryListResponse: Decodable, Sendable {
     let items: [LibraryMedia]
     let movieCount: Int?
     let showCount: Int?
@@ -263,7 +263,7 @@ struct LibraryListResponse: Decodable, Sendable {
 
 // MARK: - Requests
 
-struct MediaRequest: Decodable, Identifiable, Sendable {
+nonisolated struct MediaRequest: Decodable, Identifiable, Sendable {
     let id: Int
     let tmdbId: Int
     let type: String // "movie" | "show"
@@ -276,16 +276,16 @@ struct MediaRequest: Decodable, Identifiable, Sendable {
     let createdAt: String
 }
 
-struct RequestedBy: Decodable, Sendable {
+nonisolated struct RequestedBy: Decodable, Sendable {
     let id: String
     let name: String?
 }
 
-struct RequestsResponse: Decodable, Sendable {
+nonisolated struct RequestsResponse: Decodable, Sendable {
     let requests: [MediaRequest]
 }
 
-struct CreateRequestBody: Encodable, Sendable {
+nonisolated struct CreateRequestBody: Encodable, Sendable {
     let tmdbId: Int
     let type: String // "movie" | "show" (NOT "tv")
     let title: String
@@ -295,20 +295,20 @@ struct CreateRequestBody: Encodable, Sendable {
 
 // MARK: - Interactive release search + grab
 
-struct InteractiveSearchResponse: Decodable, Sendable {
+nonisolated struct InteractiveSearchResponse: Decodable, Sendable {
     let success: Bool
     let service: String?
     let releases: [ReleaseItem]
     let indexerWarnings: [IndexerWarning]?
 }
 
-struct IndexerWarning: Decodable, Identifiable, Sendable {
+nonisolated struct IndexerWarning: Decodable, Identifiable, Sendable {
     let id: String
     let name: String
     let error: String
 }
 
-struct ReleaseItem: Decodable, Identifiable, Sendable {
+nonisolated struct ReleaseItem: Decodable, Identifiable, Sendable {
     let guid: String
     let title: String
     let indexer: String?
@@ -342,11 +342,11 @@ struct ReleaseItem: Decodable, Identifiable, Sendable {
     }
 }
 
-struct GrabTokenBody: Encodable, Sendable {
+nonisolated struct GrabTokenBody: Encodable, Sendable {
     let token: String
 }
 
-struct GrabUrlBody: Encodable, Sendable {
+nonisolated struct GrabUrlBody: Encodable, Sendable {
     let downloadUrl: String
     let releaseTitle: String
     let episodeId: Int?
@@ -354,11 +354,11 @@ struct GrabUrlBody: Encodable, Sendable {
 
 // MARK: - Downloads / activity / calendar
 
-struct DownloadsResponse: Decodable, Sendable {
+nonisolated struct DownloadsResponse: Decodable, Sendable {
     let items: [DownloadHistoryItem]
 }
 
-struct DownloadHistoryItem: Decodable, Identifiable, Sendable {
+nonisolated struct DownloadHistoryItem: Decodable, Identifiable, Sendable {
     let id: Int
     let releaseTitle: String
     let indexer: String?
@@ -372,26 +372,26 @@ struct DownloadHistoryItem: Decodable, Identifiable, Sendable {
     let aiPicked: Bool?
 }
 
-struct LiveDownload: Decodable, Sendable {
+nonisolated struct LiveDownload: Decodable, Sendable {
     let progress: Double // 0...1
     let downloadSpeed: Double // bytes/s
     let etaSeconds: Int?
     let state: String
 }
 
-struct SpeedResponse: Decodable, Sendable {
+nonisolated struct SpeedResponse: Decodable, Sendable {
     let enabled: Bool
     let connected: Bool
     let dlSpeed: Double
     let ulSpeed: Double
 }
 
-struct ActivityFeedResponse: Decodable, Sendable {
+nonisolated struct ActivityFeedResponse: Decodable, Sendable {
     let activities: [ActivityRecord]
     let hasMore: Bool?
 }
 
-struct ActivityRecord: Decodable, Sendable {
+nonisolated struct ActivityRecord: Decodable, Sendable {
     let type: String?
     let service: String?
     let completedAt: String?
@@ -400,12 +400,12 @@ struct ActivityRecord: Decodable, Sendable {
     let success: Bool?
 }
 
-struct UpcomingResponse: Decodable, Sendable {
+nonisolated struct UpcomingResponse: Decodable, Sendable {
     let enabled: Bool
     let items: [UpcomingItem]
 }
 
-struct UpcomingItem: Decodable, Identifiable, Sendable {
+nonisolated struct UpcomingItem: Decodable, Identifiable, Sendable {
     let id: String // "${media_type}-${tmdb_id}…"
     let title: String
     let mediaType: String
@@ -425,7 +425,7 @@ struct UpcomingItem: Decodable, Identifiable, Sendable {
 
 // MARK: - Management (settings hub)
 
-struct QualityProfile: Decodable, Identifiable, Sendable {
+nonisolated struct QualityProfile: Decodable, Identifiable, Sendable {
     let id: Int
     let name: String
     let minResolution: Int?
@@ -436,11 +436,11 @@ struct QualityProfile: Decodable, Identifiable, Sendable {
     let preferHdr: Bool?
 }
 
-struct QualityProfilesResponse: Decodable, Sendable {
+nonisolated struct QualityProfilesResponse: Decodable, Sendable {
     let profiles: [QualityProfile]
 }
 
-struct Indexer: Decodable, Identifiable, Sendable {
+nonisolated struct Indexer: Decodable, Identifiable, Sendable {
     let id: Int
     let slug: String
     let name: String
@@ -454,11 +454,11 @@ struct Indexer: Decodable, Identifiable, Sendable {
     }
 }
 
-struct IndexersResponse: Decodable, Sendable {
+nonisolated struct IndexersResponse: Decodable, Sendable {
     let indexers: [Indexer]
 }
 
-struct DownloadClientIntegration: Decodable, Sendable {
+nonisolated struct DownloadClientIntegration: Decodable, Sendable {
     let enabled: Bool
     let clientType: String?
     let websiteUrl: String?
@@ -468,11 +468,11 @@ struct DownloadClientIntegration: Decodable, Sendable {
     let savePath: String?
 }
 
-struct DownloadClientResponse: Decodable, Sendable {
+nonisolated struct DownloadClientResponse: Decodable, Sendable {
     let integration: DownloadClientIntegration
 }
 
-struct AdminUser: Decodable, Identifiable, Sendable {
+nonisolated struct AdminUser: Decodable, Identifiable, Sendable {
     let id: String
     let email: String
     let firstName: String?
@@ -483,16 +483,16 @@ struct AdminUser: Decodable, Identifiable, Sendable {
     let lastLogin: String?
 }
 
-struct AdminUsersResponse: Decodable, Sendable {
+nonisolated struct AdminUsersResponse: Decodable, Sendable {
     let success: Bool?
     let users: [AdminUser]
 }
 
-struct SystemVersion: Decodable, Sendable {
+nonisolated struct SystemVersion: Decodable, Sendable {
     let version: String
 }
 
-struct SessionUser: Decodable, Sendable {
+nonisolated struct SessionUser: Decodable, Sendable {
     let email: String?
     let name: String?
     let firstName: String?
@@ -501,29 +501,29 @@ struct SessionUser: Decodable, Sendable {
     let notificationPreferences: [String: Bool]?
 }
 
-struct SessionResponse: Decodable, Sendable {
+nonisolated struct SessionResponse: Decodable, Sendable {
     let user: SessionUser?
 }
 
-struct ApproveRequestBody: Encodable, Sendable {
+nonisolated struct ApproveRequestBody: Encodable, Sendable {
     let qualityProfileId: Int
 }
 
-struct DenyRequestBody: Encodable, Sendable {
+nonisolated struct DenyRequestBody: Encodable, Sendable {
     let denyReason: String?
 }
 
-struct NotificationPrefsBody: Encodable, Sendable {
+nonisolated struct NotificationPrefsBody: Encodable, Sendable {
     let notificationPreferences: [String: Bool]
 }
 
 // MARK: - Books detail / editions / files
 
-struct BookDetailResponse: Decodable, Sendable {
+nonisolated struct BookDetailResponse: Decodable, Sendable {
     let item: BookDetailItem
 }
 
-struct BookDetailItem: Decodable, Identifiable, Sendable {
+nonisolated struct BookDetailItem: Decodable, Identifiable, Sendable {
     let id: Int
     let title: String
     let subtitle: String?
@@ -545,7 +545,7 @@ struct BookDetailItem: Decodable, Identifiable, Sendable {
     let editions: [BookEditionDetail]
 }
 
-struct BookEditionDetail: Decodable, Identifiable, Sendable {
+nonisolated struct BookEditionDetail: Decodable, Identifiable, Sendable {
     let id: Int
     let kind: String
     let status: String
@@ -557,13 +557,13 @@ struct BookEditionDetail: Decodable, Identifiable, Sendable {
     let narrators: [String]
 }
 
-struct BookEditionFilesPayload: Decodable, Sendable {
+nonisolated struct BookEditionFilesPayload: Decodable, Sendable {
     let editionId: Int
     let kind: String
     let files: [BookEditionFile]
 }
 
-struct BookEditionFile: Decodable, Identifiable, Sendable {
+nonisolated struct BookEditionFile: Decodable, Identifiable, Sendable {
     let id: Int
     let fileName: String
     let filePath: String
@@ -581,7 +581,7 @@ struct BookEditionFile: Decodable, Identifiable, Sendable {
 
 // MARK: - Book editions: add + release search + grab
 
-struct BookRelease: Decodable, Identifiable, Sendable {
+nonisolated struct BookRelease: Decodable, Identifiable, Sendable {
     let guid: String
     let title: String
     let indexer: String?
@@ -602,16 +602,16 @@ struct BookRelease: Decodable, Identifiable, Sendable {
     }
 }
 
-struct BookReleasesResponse: Decodable, Sendable {
+nonisolated struct BookReleasesResponse: Decodable, Sendable {
     let releases: [BookRelease]
 }
 
-struct CreateBookEditionBody: Encodable, Sendable {
+nonisolated struct CreateBookEditionBody: Encodable, Sendable {
     let kind: String // "audiobook" | "ebook"
     let monitored: Bool
 }
 
-struct BookGrabBody: Encodable, Sendable {
+nonisolated struct BookGrabBody: Encodable, Sendable {
     let releaseTitle: String
     let downloadUrl: String?
     let magnetUrl: String?
@@ -620,12 +620,12 @@ struct BookGrabBody: Encodable, Sendable {
 
 // MARK: - Home / dashboard widgets
 
-struct NowPlayingResponse: Decodable, Sendable {
+nonisolated struct NowPlayingResponse: Decodable, Sendable {
     let enabled: Bool
     let sessions: [NowPlayingSession]?
 }
 
-struct NowPlayingSession: Decodable, Identifiable, Sendable {
+nonisolated struct NowPlayingSession: Decodable, Identifiable, Sendable {
     let sessionId: String
     let user: String?
     let device: String?
@@ -638,11 +638,11 @@ struct NowPlayingSession: Decodable, Identifiable, Sendable {
     }
 }
 
-struct LibraryAttentionResponse: Decodable, Sendable {
+nonisolated struct LibraryAttentionResponse: Decodable, Sendable {
     let items: [AttentionItem]
 }
 
-struct AttentionItem: Decodable, Identifiable, Sendable {
+nonisolated struct AttentionItem: Decodable, Identifiable, Sendable {
     let id: Int
     let kind: String?
     let mediaId: Int?
@@ -651,12 +651,12 @@ struct AttentionItem: Decodable, Identifiable, Sendable {
     let detail: String?
 }
 
-struct RssStatusResponse: Decodable, Sendable {
+nonisolated struct RssStatusResponse: Decodable, Sendable {
     let lastRun: RssRun?
     let nextRunAt: String?
 }
 
-struct RssRun: Decodable, Sendable {
+nonisolated struct RssRun: Decodable, Sendable {
     let status: String?
     let completedAt: String?
     let releasesFound: Int?
@@ -667,21 +667,21 @@ struct RssRun: Decodable, Sendable {
 
 // MARK: - APNs device registration
 
-struct ApnsDeviceInfo: Encodable, Sendable {
+nonisolated struct ApnsDeviceInfo: Encodable, Sendable {
     let deviceName: String?
     let osVersion: String?
     let appVersion: String?
     let bundleId: String?
 }
 
-struct ApnsRegisterBody: Encodable, Sendable {
+nonisolated struct ApnsRegisterBody: Encodable, Sendable {
     let deviceToken: String
     let deviceInfo: ApnsDeviceInfo
 }
 
 // MARK: - SSO / OAuth providers
 
-struct SsoProvider: Decodable, Identifiable, Sendable {
+nonisolated struct SsoProvider: Decodable, Identifiable, Sendable {
     let slug: String
     let name: String
     let iconUrl: String?
@@ -690,6 +690,6 @@ struct SsoProvider: Decodable, Identifiable, Sendable {
     }
 }
 
-struct SsoProvidersResponse: Decodable, Sendable {
+nonisolated struct SsoProvidersResponse: Decodable, Sendable {
     let providers: [SsoProvider]
 }

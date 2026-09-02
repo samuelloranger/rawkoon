@@ -19,7 +19,7 @@ private enum ReleaseSearchLane: String, Identifiable {
 }
 
 struct BookView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     let book: BookListItem
 
@@ -146,7 +146,7 @@ struct BookView: View {
         .sheet(isPresented: $showingPlayer) {
             if let manifest, let summary = audiobookSummary {
                 PlayerView(summary: summary, manifest: manifest)
-                    .environmentObject(model)
+                    .environment(model)
             }
         }
         .sheet(item: $releaseSearchLane, onDismiss: {
@@ -162,11 +162,11 @@ struct BookView: View {
             }
         }) { lane in
             BookReleaseSearchView(bookId: book.bookId, kind: lane.rawValue, title: titleText)
-                .environmentObject(model)
+                .environment(model)
         }
         .sheet(item: $previewDocument) { document in
             EbookReaderSheet(document: document)
-                .environmentObject(model)
+                .environment(model)
         }
     }
 
@@ -1095,7 +1095,7 @@ struct BookView: View {
     }
 
     private func localEbookURL(for file: BookEditionFile) -> URL {
-        return FileStore.chapterURL(
+        FileStore.chapterURL(
             editionId: ebookStorageEditionId,
             fileId: file.id,
             ext: ebookExtension(for: file)
@@ -1103,7 +1103,7 @@ struct BookView: View {
     }
 
     private func isEbookDownloaded(_ file: BookEditionFile) -> Bool {
-        return FileStore.exists(
+        FileStore.exists(
             editionId: ebookStorageEditionId,
             fileId: file.id,
             ext: ebookExtension(for: file)
@@ -1123,12 +1123,12 @@ struct BookView: View {
 
     private func ebookFormatRank(_ format: String) -> Int {
         switch format.lowercased() {
-        case "epub": return 0
-        case "azw3": return 1
-        case "mobi": return 2
-        case "pdf": return 3
-        case "cbz": return 4
-        default: return 99
+        case "epub": 0
+        case "azw3": 1
+        case "mobi": 2
+        case "pdf": 3
+        case "cbz": 4
+        default: 99
         }
     }
 
@@ -1199,22 +1199,22 @@ struct BookView: View {
     private func formattedStatus(_ status: String) -> String {
         status
             .split(separator: "_")
-            .map { $0.capitalized }
+            .map(\.capitalized)
             .joined(separator: " ")
     }
 
     private func message(for error: APIError) -> String {
         switch error {
         case .unauthorized:
-            return "Sign in required."
+            "Sign in required."
         case .http(400):
-            return "This audiobook is not chapter-ready yet. Run a rescan or grab a chapterized release."
+            "This audiobook is not chapter-ready yet. Run a rescan or grab a chapterized release."
         case let .http(status):
-            return "Server error (\(status))."
+            "Server error (\(status))."
         case .decode:
-            return "Could not parse server response."
+            "Could not parse server response."
         case .transport:
-            return "Network error. Check your connection."
+            "Network error. Check your connection."
         }
     }
 

@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Admin-only: shows the configured download client integration and live speed.
 struct DownloadClientView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     @State private var integration: DownloadClientIntegration?
     @State private var speed: SpeedResponse?
@@ -158,13 +158,13 @@ struct DownloadClientView: View {
     private func message(for error: APIError) -> String {
         switch error {
         case .unauthorized:
-            return "Admin only."
+            "Admin only."
         case let .http(status):
-            return "Server error (\(status))."
+            "Server error (\(status))."
         case .decode:
-            return "Could not parse server response."
+            "Could not parse server response."
         case .transport:
-            return "Network error. Check your connection."
+            "Network error. Check your connection."
         }
     }
 }
