@@ -27,8 +27,8 @@ enum FileStore {
         return value.intValue
     }
 
-    // Removing a file that may already be gone. A missing file is a no-op,
-    // not an error; any other failure is logged for diagnosis.
+    /// Removing a file that may already be gone. A missing file is a no-op,
+    /// not an error; any other failure is logged for diagnosis.
     static func delete(url: URL) {
         do {
             try FileManager.default.removeItem(at: url)
@@ -55,9 +55,9 @@ enum FileStore {
         }
     }
 
-    // This only flags a directory for iCloud-backup exclusion. A failure
-    // inflates backup size; it never affects playback or download
-    // correctness, but is logged so it can be diagnosed.
+    /// This only flags a directory for iCloud-backup exclusion. A failure
+    /// inflates backup size; it never affects playback or download
+    /// correctness, but is logged so it can be diagnosed.
     static func excludeFromBackup(_ url: inout URL) {
         var values = URLResourceValues()
         values.isExcludedFromBackup = true

@@ -11,7 +11,9 @@ public enum Formatters {
         let minutes = Int(seconds / 60)
         let hours = minutes / 60
         let remaining = minutes % 60
-        if hours > 0 { return "\(hours)h \(remaining)m" }
+        if hours > 0 {
+            return "\(hours)h \(remaining)m"
+        }
         return "\(remaining)m"
     }
 
@@ -21,7 +23,9 @@ public enum Formatters {
         let total = Int(seconds.rounded())
         let hours = total / 3600
         let minutes = (total % 3600) / 60
-        if hours > 0 { return "\(hours)h \(String(format: "%02dm", minutes))" }
+        if hours > 0 {
+            return "\(hours)h \(String(format: "%02dm", minutes))"
+        }
         return "\(minutes)m"
     }
 
@@ -29,7 +33,9 @@ public enum Formatters {
     public static func speed(_ bytesPerSecond: Double, useAll: Bool) -> String {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .binary
-        if useAll { formatter.allowedUnits = [.useAll] }
+        if useAll {
+            formatter.allowedUnits = [.useAll]
+        }
         // Non-finite/overflowing rates would trap the non-failable Int64 init.
         let safeBytes = max(0, Int64(exactly: bytesPerSecond.rounded()) ?? 0)
         return "\(formatter.string(fromByteCount: safeBytes))/s"
