@@ -19,18 +19,16 @@ struct MediaDetailView: View {
         self.title = title
         self.posterPath = posterPath
         self.libraryId = libraryId
+        _vm = State(initialValue: MediaDetailViewModel(
+            tmdbId: tmdbId,
+            mediaType: mediaType,
+            title: title,
+            posterPath: posterPath,
+            libraryId: libraryId
+        ))
     }
 
-    @State private var details: TmdbMediaDetails?
-    @State private var loading = false
-    @State private var errorMessage: String?
-
-    @State private var requesting = false
-    @State private var requested = false
-    @State private var added = false
-    @State private var requestError: String?
-    @State private var watchlistPending = false
-    @State private var inWatchlist = false
+    @State private var vm: MediaDetailViewModel
 
     @State private var showingReleaseSearch = false
     @State private var showingRemoveConfirm = false
@@ -39,21 +37,6 @@ struct MediaDetailView: View {
     @State private var pendingRemoveTitle = ""
     @State private var similarMenuDetail: TmdbSearchItem?
 
-    @State private var episodesBySeason: [Int: [Episode]] = [:]
-    @State private var similarItems: [TmdbSearchItem] = []
-    @State private var loadingSimilar = false
-    @State private var similarError: String?
-
-    @State private var managementItem: LibraryMedia?
-    @State private var managementLoading = false
-    @State private var managementError: String?
-    @State private var managementNotice: String?
-    @State private var qualityProfiles: [QualityProfile] = []
-    @State private var mediaFiles: [LibraryFileInfo] = []
-    @State private var mediaFilesType: String = "movie"
-    @State private var downloads: [DownloadHistoryItem] = []
-    @State private var pendingDownloadActionId: Int?
-    @State private var applyingManagementChange = false
     @State private var expandedFileIDs: Set<Int> = []
     @State private var expandedFileSeasons: Set<Int> = []
 
@@ -78,17 +61,34 @@ struct MediaDetailView: View {
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .task {
-                if details == nil {
-                    await fetchDetails()
+                if vm.details == nil {
+                    guard let client = model.api() else {
+                        vm.errorMessage = "Not logged in."
+                        return
+                    }
+                    await vm.fetchDetails(client: client)
                 }
             }
             .onChange(of: activeTab) { tab in
-                guard tab == .similar, similarItems.isEmpty, !loadingSimilar else { return }
-                Task { await fetchSimilar() }
+                guard tab == .similar, vm.similarItems.isEmpty, !vm.loadingSimilar else { return }
+                Task {
+                    guard let client = model.api() else {
+                        vm.similarError = "Not logged in."
+                        return
+                    }
+                    await vm.fetchSimilar(client: client)
+                }
             }
             .onChange(of: activeTab) { tab in
-                guard tab == .management, managementItem == nil else { return }
-                Task { await refreshManagementData() }
+                guard tab == .management, vm.managementItem == nil else { return }
+                Task {
+                    guard libraryId != nil, model.isAdmin else { return }
+                    guard let client = model.api() else {
+                        vm.managementError = "Not logged in."
+                        return
+                    }
+                    await vm.refreshManagementData(client: client, isAdmin: model.isAdmin)
+                }
             }
             .onChange(of: availableTabKey) { _ in
                 if !availableTabs.contains(activeTab) {
@@ -101,7 +101,7 @@ struct MediaDetailView: View {
                     libraryMediaId: libraryId,
                     tmdbId: tmdbId,
                     mediaType: mediaType,
-                    availableSeasons: details?.seasons?.map(\.seasonNumber) ?? []
+                    availableSeasons: vm.details?.seasons?.map(\.seasonNumber) ?? []
                 )
                 .environment(model)
             }
@@ -123,7 +123,14 @@ struct MediaDetailView: View {
                 pendingRemoveLibraryId = nil
                 pendingRemoveTitle = ""
                 if let targetId {
-                    Task { await removeLibraryItem(id: targetId, deleteFiles: deleteFiles) }
+                    Task {
+                        guard let client = model.api() else { return }
+                        if await vm.removeLibraryItem(client: client, id: targetId, deleteFiles: deleteFiles) {
+                            dismiss()
+                        } else {
+                            await vm.fetchSimilar(client: client)
+                        }
+                    }
                 }
             }
             .navigationDestination(isPresented: Binding(
@@ -157,11 +164,11 @@ struct MediaDetailView: View {
 
     @ViewBuilder
     private var mainContent: some View {
-        if loading && details == nil {
+        if vm.loading && vm.details == nil {
             ProgressView().tint(Theme.muted)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 16)
-        } else if let errorMessage, details == nil {
+        } else if let errorMessage = vm.errorMessage, vm.details == nil {
             ContentUnavailableView(
                 "Couldn't load details",
                 systemImage: "exclamationmark.triangle",
@@ -195,7 +202,7 @@ struct MediaDetailView: View {
     private var hero: some View {
         VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .bottomLeading) {
-                AsyncImage(url: model.absoluteURL(details?.primaryBackdropUrl)) { image in
+                AsyncImage(url: model.absoluteURL(vm.details?.primaryBackdropUrl)) { image in
                     image.resizable().scaledToFill()
                 } placeholder: {
                     Theme.raised
@@ -216,10 +223,10 @@ struct MediaDetailView: View {
                             .font(.display(22))
                             .foregroundStyle(Theme.textStrong)
                             .lineLimit(3)
-                        Text(metaLine)
+                        Text(vm.metaLine)
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(Theme.faint)
-                        if let tagline = details?.tagline, !tagline.isEmpty {
+                        if let tagline = vm.details?.tagline, !tagline.isEmpty {
                             Text(tagline)
                                 .font(.caption.italic())
                                 .foregroundStyle(Theme.muted)
@@ -228,18 +235,24 @@ struct MediaDetailView: View {
                     }
                     Spacer(minLength: 0)
                     Button {
-                        Task { await toggleWatchlist() }
+                        Task {
+                            guard let client = model.api() else {
+                                vm.requestError = "Not logged in."
+                                return
+                            }
+                            await vm.toggleWatchlist(client: client)
+                        }
                     } label: {
-                        Image(systemName: inWatchlist ? "bookmark.fill" : "bookmark")
+                        Image(systemName: vm.inWatchlist ? "bookmark.fill" : "bookmark")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(inWatchlist ? Theme.terracotta : Theme.textStrong)
+                            .foregroundStyle(vm.inWatchlist ? Theme.terracotta : Theme.textStrong)
                             .frame(width: 44, height: 44)
                             .contentShape(Circle())
                             .background(Theme.base.opacity(0.55), in: Circle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(inWatchlist ? "Remove from watchlist" : "Add to watchlist")
-                    .disabled(watchlistPending)
+                    .accessibilityLabel(vm.inWatchlist ? "Remove from watchlist" : "Add to watchlist")
+                    .disabled(vm.watchlistPending)
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
@@ -269,39 +282,15 @@ struct MediaDetailView: View {
             .shadow(color: .black.opacity(0.5), radius: 10, y: 6)
     }
 
-    private var metaLine: String {
-        var parts: [String] = []
-        if let year = yearValue {
-            parts.append(String(year))
-        }
-        if mediaType == "tv" {
-            parts.append("\(details?.numberOfSeasons ?? 0) seasons")
-        } else if let runtime = details?.runtime, runtime > 0 {
-            let hours = runtime / 60
-            let minutes = runtime % 60
-            parts.append(hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m")
-        }
-        if let genres = details?.genres, !genres.isEmpty {
-            parts.append(genres.map(\.name).joined(separator: ", "))
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    private var yearValue: Int? {
-        let raw = mediaType == "tv" ? details?.firstAirDate : details?.releaseDate
-        guard let raw, raw.count >= 4 else { return nil }
-        return Int(raw.prefix(4))
-    }
-
     // MARK: Status + tabs
 
     private var statusRow: some View {
         HStack {
-            if libraryId != nil || added {
+            if libraryId != nil || vm.added {
                 StatusBadge(text: "In library", tint: Theme.seed)
-            } else if requested {
+            } else if vm.requested {
                 StatusBadge(text: "Requested", tint: Theme.seed)
-            } else if inWatchlist {
+            } else if vm.inWatchlist {
                 StatusBadge(text: "Watchlist", tint: Theme.muted)
             } else {
                 StatusBadge(text: "Not added", tint: Theme.muted)
@@ -337,7 +326,7 @@ struct MediaDetailView: View {
 
     @ViewBuilder
     private var infoTab: some View {
-        if let overview = details?.overview, !overview.isEmpty {
+        if let overview = vm.details?.overview, !overview.isEmpty {
             Text(overview)
                 .font(.subheadline)
                 .foregroundStyle(Theme.muted)
@@ -354,12 +343,22 @@ struct MediaDetailView: View {
     private var primaryAction: some View {
         VStack(alignment: .leading, spacing: 8) {
             if libraryId == nil {
-                if !requested && !added {
+                if !vm.requested && !vm.added {
                     Button {
-                        Task { model.isAdmin ? await submitAdd() : await submitRequest() }
+                        Task {
+                            guard let client = model.api() else {
+                                vm.requestError = "Not logged in."
+                                return
+                            }
+                            if model.isAdmin {
+                                await vm.submitAdd(client: client)
+                            } else {
+                                await vm.submitRequest(client: client)
+                            }
+                        }
                     } label: {
                         Group {
-                            if requesting {
+                            if vm.requesting {
                                 ProgressView().tint(Theme.onAccent)
                             } else {
                                 Label(model.isAdmin ? "Add to library" : "Request",
@@ -373,13 +372,13 @@ struct MediaDetailView: View {
                     .tint(Theme.terracotta)
                     .foregroundStyle(Theme.onAccent)
                     .fontWeight(.semibold)
-                    .disabled(requesting)
-                } else if requested {
+                    .disabled(vm.requesting)
+                } else if vm.requested {
                     Text("We'll notify you when this is in the library. See Requests in Library.")
                         .font(.footnote)
                         .foregroundStyle(Theme.muted)
                 }
-                if let requestError {
+                if let requestError = vm.requestError {
                     Text(requestError)
                         .font(.caption)
                         .foregroundStyle(Theme.terracotta)
@@ -429,18 +428,18 @@ struct MediaDetailView: View {
 
     @ViewBuilder
     private var similarTab: some View {
-        if loadingSimilar {
+        if vm.loadingSimilar {
             ProgressView().tint(Theme.muted)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 16)
-        } else if let similarError {
+        } else if let similarError = vm.similarError {
             ContentUnavailableView(
                 "Couldn't load similar titles",
                 systemImage: "exclamationmark.triangle",
                 description: Text(similarError)
             )
             .padding(.top, 16)
-        } else if similarItems.isEmpty {
+        } else if vm.similarItems.isEmpty {
             ContentUnavailableView(
                 "No similar titles",
                 systemImage: "sparkles",
@@ -449,7 +448,7 @@ struct MediaDetailView: View {
             .padding(.top, 16)
         } else {
             LazyVGrid(columns: similarColumns, spacing: 14) {
-                ForEach(similarItems) { item in
+                ForEach(vm.similarItems) { item in
                     NavigationLink {
                         MediaDetailView(
                             tmdbId: item.tmdbId,
@@ -490,30 +489,30 @@ struct MediaDetailView: View {
                 description: Text("Media management controls are available for admins on in-library titles.")
             )
             .padding(.top, 12)
-        } else if managementLoading && managementItem == nil {
+        } else if vm.managementLoading && vm.managementItem == nil {
             ProgressView().tint(Theme.muted)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 16)
-        } else if let managementError, managementItem == nil {
+        } else if let managementError = vm.managementError, vm.managementItem == nil {
             ContentUnavailableView(
                 "Couldn't load management",
                 systemImage: "exclamationmark.triangle",
                 description: Text(managementError)
             )
             .padding(.top, 12)
-        } else if let managementItem {
+        } else if let managementItem = vm.managementItem {
             VStack(alignment: .leading, spacing: 12) {
                 managementSummaryCard(managementItem)
                 managementControlsCard(managementItem)
                 managementFilesCard
                 managementDownloadsCard
-                if let managementNotice {
+                if let managementNotice = vm.managementNotice {
                     Text(managementNotice)
                         .font(.caption)
                         .foregroundStyle(Theme.apricotSoft)
                         .padding(.horizontal, 16)
                 }
-                if let managementError {
+                if let managementError = vm.managementError {
                     Text(managementError)
                         .font(.caption)
                         .foregroundStyle(Theme.terracotta)
@@ -560,11 +559,14 @@ struct MediaDetailView: View {
             Toggle("Monitored", isOn: Binding(
                 get: { item.monitored },
                 set: { newValue in
-                    Task { await applyMonitoredChange(newValue) }
+                    Task {
+                        guard let client = model.api() else { return }
+                        await vm.applyMonitoredChange(client: client, newValue)
+                    }
                 }
             ))
             .tint(Theme.terracotta)
-            .disabled(applyingManagementChange)
+            .disabled(vm.applyingManagementChange)
 
             HStack {
                 Text("Status")
@@ -581,26 +583,32 @@ struct MediaDetailView: View {
             Picker("Quality profile", selection: Binding(
                 get: { item.qualityProfileId ?? 0 },
                 set: { newValue in
-                    Task { await applyQualityProfileChange(newValue == 0 ? nil : newValue) }
+                    Task {
+                        guard let client = model.api() else { return }
+                        await vm.applyQualityProfileChange(client: client, newValue == 0 ? nil : newValue)
+                    }
                 }
             )) {
                 Text("None").tag(0)
-                ForEach(qualityProfiles) { profile in
+                ForEach(vm.qualityProfiles) { profile in
                     Text(profile.name).tag(profile.id)
                 }
             }
             .pickerStyle(.menu)
-            .disabled(applyingManagementChange)
+            .disabled(vm.applyingManagementChange)
 
             HStack(spacing: 8) {
                 Button {
-                    Task { await runRescan() }
+                    Task {
+                        guard let client = model.api() else { return }
+                        await vm.runRescan(client: client, isAdmin: model.isAdmin)
+                    }
                 } label: {
                     Label("Rescan files", systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.bordered)
                 .tint(Theme.muted)
-                .disabled(applyingManagementChange)
+                .disabled(vm.applyingManagementChange)
 
                 Button {
                     showingReleaseSearch = true
@@ -622,7 +630,7 @@ struct MediaDetailView: View {
             }
             .buttonStyle(.bordered)
             .tint(Theme.terracotta)
-            .disabled(applyingManagementChange)
+            .disabled(vm.applyingManagementChange)
         }
         .padding(14)
         .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
@@ -637,18 +645,18 @@ struct MediaDetailView: View {
                     .font(.display(16))
                     .foregroundStyle(Theme.textStrong)
                 Spacer()
-                Text("\(mediaFiles.count)")
+                Text("\(vm.mediaFiles.count)")
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.faint)
             }
 
-            if mediaFiles.isEmpty {
+            if vm.mediaFiles.isEmpty {
                 Text("No file metadata yet.")
                     .font(.subheadline)
                     .foregroundStyle(Theme.muted)
-            } else if mediaFilesType == "show" {
+            } else if vm.mediaFilesType == "show" {
                 VStack(spacing: 8) {
-                    ForEach(groupedSeasonFiles, id: \.season) { group in
+                    ForEach(vm.groupedSeasonFiles, id: \.season) { group in
                         VStack(spacing: 0) {
                             Button {
                                 toggleFileSeason(group.season)
@@ -683,7 +691,7 @@ struct MediaDetailView: View {
                 }
             } else {
                 VStack(spacing: 8) {
-                    ForEach(mediaFiles) { file in
+                    ForEach(vm.mediaFiles) { file in
                         movieFileRow(file)
                     }
                 }
@@ -693,23 +701,6 @@ struct MediaDetailView: View {
         .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
         .padding(.horizontal, 16)
-    }
-
-    private var groupedSeasonFiles: [(season: Int, files: [LibraryFileInfo])] {
-        let grouped = Dictionary(grouping: mediaFiles) { $0.season ?? 0 }
-        return grouped
-            .map { season, files in
-                (
-                    season: season,
-                    files: files.sorted { lhs, rhs in
-                        if lhs.episode != rhs.episode {
-                            return (lhs.episode ?? 0) < (rhs.episode ?? 0)
-                        }
-                        return lhs.fileName.localizedCaseInsensitiveCompare(rhs.fileName) == .orderedAscending
-                    }
-                )
-            }
-            .sorted { $0.season < $1.season }
     }
 
     private func seasonFileRow(_ file: LibraryFileInfo) -> some View {
@@ -733,7 +724,7 @@ struct MediaDetailView: View {
                             if let duration = Formatters.durationCompact(file.durationSecs) {
                                 Text(duration)
                             }
-                            if let res = resolutionText(for: file) {
+                            if let res = vm.resolutionText(for: file) {
                                 Text(res)
                             }
                         }
@@ -773,7 +764,7 @@ struct MediaDetailView: View {
                             if let duration = Formatters.durationCompact(file.durationSecs) {
                                 Text(duration)
                             }
-                            if let res = resolutionText(for: file) {
+                            if let res = vm.resolutionText(for: file) {
                                 Text(res)
                             }
                         }
@@ -807,9 +798,9 @@ struct MediaDetailView: View {
             lineItem("Bit depth", file.bitDepth.map { "\($0)-bit" } ?? "Unknown")
             lineItem("Frame rate", file.frameRate.map { String(format: "%.2f fps", $0) } ?? "Unknown")
             lineItem("Video bitrate", file.videoBitrate.map { "\($0) kbps" } ?? "Unknown")
-            lineItem("Audio tracks", trackSummary(file.audioTracks))
-            lineItem("Subtitle tracks", subtitleSummary(file.subtitleTracks))
-            if let scanned = scannedDate(file.scannedAt) {
+            lineItem("Audio tracks", vm.trackSummary(file.audioTracks))
+            lineItem("Subtitle tracks", vm.subtitleSummary(file.subtitleTracks))
+            if let scanned = vm.scannedDate(file.scannedAt) {
                 lineItem("Scanned", scanned)
             }
         }
@@ -829,39 +820,6 @@ struct MediaDetailView: View {
                 .multilineTextAlignment(.leading)
             Spacer(minLength: 0)
         }
-    }
-
-    private func trackSummary(_ tracks: [LibraryAudioTrack]) -> String {
-        guard !tracks.isEmpty else { return "None" }
-        let names = tracks.compactMap { $0.languageName ?? $0.language }.filter { !$0.isEmpty }
-        if names.isEmpty {
-            return "\(tracks.count)"
-        }
-        return "\(tracks.count) (\(names.joined(separator: ", ")))"
-    }
-
-    private func subtitleSummary(_ tracks: [LibrarySubtitleTrack]) -> String {
-        guard !tracks.isEmpty else { return "None" }
-        let names = tracks.compactMap { $0.languageName ?? $0.language }.filter { !$0.isEmpty }
-        if names.isEmpty {
-            return "\(tracks.count)"
-        }
-        return "\(tracks.count) (\(names.joined(separator: ", ")))"
-    }
-
-    private func resolutionText(for file: LibraryFileInfo) -> String? {
-        if let res = file.resolution {
-            return "\(res)p"
-        }
-        if let width = file.width, let height = file.height {
-            return "\(width)x\(height)"
-        }
-        return nil
-    }
-
-    private func scannedDate(_ isoDate: String) -> String? {
-        guard let date = ISO8601DateFormatter().date(from: isoDate) else { return nil }
-        return DateFormatter.localizedString(from: date, dateStyle: .medium, timeStyle: .short)
     }
 
     private func toggleFileDetails(_ fileId: Int) {
@@ -888,21 +846,24 @@ struct MediaDetailView: View {
                     .foregroundStyle(Theme.textStrong)
                 Spacer()
                 Button("Clear failed") {
-                    Task { await clearFailedDownloadsAction() }
+                    Task {
+                        guard let client = model.api() else { return }
+                        await vm.clearFailedDownloadsAction(client: client, isAdmin: model.isAdmin)
+                    }
                 }
                 .font(.caption)
                 .buttonStyle(.plain)
                 .foregroundStyle(Theme.apricot)
-                .disabled(applyingManagementChange)
+                .disabled(vm.applyingManagementChange)
             }
 
-            if downloads.isEmpty {
+            if vm.downloads.isEmpty {
                 Text("No download history yet.")
                     .font(.subheadline)
                     .foregroundStyle(Theme.muted)
             } else {
                 VStack(spacing: 8) {
-                    ForEach(downloads) { row in
+                    ForEach(vm.downloads) { row in
                         downloadHistoryRow(row)
                     }
                 }
@@ -925,16 +886,19 @@ struct MediaDetailView: View {
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(Theme.textStrong)
                         .lineLimit(2)
-                    Text(metaLine(for: row))
+                    Text(vm.metaLine(for: row))
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(Theme.faint)
                 }
                 Spacer()
-                if pendingDownloadActionId == row.id {
+                if vm.pendingDownloadActionId == row.id {
                     ProgressView().tint(Theme.muted)
                 } else if isActive {
                     Button(isPaused ? "Resume" : "Pause") {
-                        Task { await performDownloadAction(row.id, action: isPaused ? "resume" : "pause") }
+                        Task {
+                            guard let client = model.api() else { return }
+                            await vm.performDownloadAction(client: client, row.id, action: isPaused ? "resume" : "pause", isAdmin: model.isAdmin)
+                        }
                     }
                     .font(.caption)
                     .buttonStyle(.plain)
@@ -970,10 +934,11 @@ struct MediaDetailView: View {
                     Spacer()
                     Button("Remove") {
                         Task {
+                            guard let client = model.api() else { return }
                             if isActive {
-                                await performDownloadAction(row.id, action: "remove")
+                                await vm.performDownloadAction(client: client, row.id, action: "remove", isAdmin: model.isAdmin)
                             } else {
-                                await deleteDownloadEntryAction(row.id)
+                                await vm.deleteDownloadEntryAction(client: client, row.id, isAdmin: model.isAdmin)
                             }
                         }
                     }
@@ -987,42 +952,24 @@ struct MediaDetailView: View {
         .background(Theme.well, in: RoundedRectangle(cornerRadius: 10))
     }
 
-    private func metaLine(for row: DownloadHistoryItem) -> String {
-        var parts: [String] = []
-        if let indexer = row.indexer, !indexer.isEmpty {
-            parts.append(indexer)
-        }
-        if row.failed {
-            parts.append("failed")
-        } else if row.completedAt != nil {
-            parts.append("completed")
-        } else if row.live != nil {
-            parts.append("active")
-        }
-        if row.aiPicked == true {
-            parts.append("AI pick")
-        }
-        return parts.joined(separator: " · ")
-    }
-
     // MARK: Details (movies)
 
     @ViewBuilder
     private var detailsSection: some View {
-        if hasDetailsToShow {
+        if vm.hasDetailsToShow {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Details")
                     .font(.display(17))
                     .foregroundStyle(Theme.textStrong)
 
                 VStack(spacing: 0) {
-                    if let voteAverage = details?.voteAverage, voteAverage > 0 {
+                    if let voteAverage = vm.details?.voteAverage, voteAverage > 0 {
                         detailRow(label: "Rating", value: String(format: "%.1f/10", voteAverage))
                     }
-                    if let status = details?.status, !status.isEmpty {
+                    if let status = vm.details?.status, !status.isEmpty {
                         detailRow(label: "Status", value: status)
                     }
-                    if let runtime = details?.runtime, runtime > 0 {
+                    if let runtime = vm.details?.runtime, runtime > 0 {
                         let hours = runtime / 60
                         let minutes = runtime % 60
                         let runtimeText = hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
@@ -1034,12 +981,6 @@ struct MediaDetailView: View {
             }
             .padding(.horizontal, 16)
         }
-    }
-
-    private var hasDetailsToShow: Bool {
-        (details?.voteAverage ?? 0) > 0
-            || !(details?.status ?? "").isEmpty
-            || (details?.runtime ?? 0) > 0
     }
 
     private func detailRow(label: String, value: String) -> some View {
@@ -1063,7 +1004,7 @@ struct MediaDetailView: View {
 
     @ViewBuilder
     private var seasonsSection: some View {
-        if let seasons = details?.seasons, !seasons.isEmpty {
+        if let seasons = vm.details?.seasons, !seasons.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Seasons")
                     .font(.display(17))
@@ -1082,7 +1023,7 @@ struct MediaDetailView: View {
     }
 
     private func seasonRow(_ season: SeasonSummary) -> some View {
-        let episodes = episodesBySeason[season.seasonNumber]
+        let episodes = vm.episodesBySeason[season.seasonNumber]
         let downloaded = episodes?.filter { $0.status == "downloaded" }.count
         let total = episodes?.count ?? season.episodeCount
 
@@ -1111,201 +1052,16 @@ struct MediaDetailView: View {
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border, lineWidth: 1))
     }
 
-    // MARK: Networking
-
-    private func fetchDetails() async {
-        guard let client = model.api() else {
-            errorMessage = "Not logged in."
-            return
-        }
-        loading = true
-        errorMessage = nil
-        defer { loading = false }
-
-        do {
-            let response = try await client.mediaModal(mediaType: mediaType, tmdbId: tmdbId)
-            details = response.details
-            inWatchlist = response.watchlistStatus == true
-
-            if mediaType == "tv", let libraryId {
-                await fetchEpisodes(client: client, libraryId: libraryId)
-            }
-        } catch APIError.unauthorized {
-            errorMessage = "Sign in required."
-        } catch {
-            errorMessage = "Could not load details."
-        }
-    }
-
-    private func fetchSimilar() async {
-        guard let client = model.api() else {
-            similarError = "Not logged in."
-            return
-        }
-        loadingSimilar = true
-        similarError = nil
-        defer { loadingSimilar = false }
-
-        do {
-            let response = try await client.similar(tmdbId: tmdbId, mediaType: mediaType)
-            similarItems = response
-        } catch APIError.unauthorized {
-            similarError = "Sign in required."
-        } catch {
-            similarError = "Could not load similar titles."
-        }
-    }
-
-    private func refreshManagementData() async {
-        guard let libraryId, model.isAdmin else { return }
-        guard let client = model.api() else {
-            managementError = "Not logged in."
-            return
-        }
-        managementLoading = true
-        managementError = nil
-        defer { managementLoading = false }
-
-        do {
-            async let itemRequest = client.libraryItem(id: libraryId)
-            async let profileRequest = client.qualityProfiles()
-            async let filesRequest = client.libraryFiles(id: libraryId)
-            async let downloadsRequest = client.downloads(libraryId: libraryId)
-
-            let item = try await itemRequest
-            let profileResponse = try await profileRequest
-            let filesResponse = try await filesRequest
-            let downloadsResponse = try await downloadsRequest
-
-            managementItem = item
-            qualityProfiles = profileResponse.profiles
-            mediaFilesType = filesResponse.mediaType
-            mediaFiles = filesResponse.files
-            downloads = downloadsResponse.items
-        } catch APIError.unauthorized {
-            managementError = "Admin only."
-        } catch {
-            managementError = "Could not load management data."
-        }
-    }
-
-    private func applyMonitoredChange(_ monitored: Bool) async {
-        guard let libraryId else { return }
-        guard let client = model.api() else { return }
-        applyingManagementChange = true
-        defer { applyingManagementChange = false }
-        do {
-            managementItem = try await client.updateLibraryMonitored(id: libraryId, monitored: monitored)
-            managementNotice = "Monitoring updated."
-            managementError = nil
-        } catch {
-            managementError = "Could not update monitoring."
-        }
-    }
-
-    private func applyQualityProfileChange(_ qualityProfileId: Int?) async {
-        guard let libraryId else { return }
-        guard let client = model.api() else { return }
-        applyingManagementChange = true
-        defer { applyingManagementChange = false }
-        do {
-            managementItem = try await client.updateLibraryQualityProfile(id: libraryId, qualityProfileId: qualityProfileId)
-            managementNotice = "Quality profile updated."
-            managementError = nil
-        } catch {
-            managementError = "Could not update quality profile."
-        }
-    }
-
-    private func runRescan() async {
-        guard let libraryId else { return }
-        guard let client = model.api() else { return }
-        applyingManagementChange = true
-        defer { applyingManagementChange = false }
-        do {
-            let result = try await client.rescanLibraryItem(id: libraryId)
-            managementNotice = "Rescan complete: \(result.rescanned) rescanned, \(result.imported) imported, \(result.deleted) deleted."
-            managementError = nil
-            await refreshManagementData()
-        } catch {
-            managementError = "Rescan failed."
-        }
-    }
-
-    private func clearFailedDownloadsAction() async {
-        guard let libraryId else { return }
-        guard let client = model.api() else { return }
-        applyingManagementChange = true
-        defer { applyingManagementChange = false }
-        do {
-            let deleted = try await client.clearFailedDownloads(libraryId: libraryId)
-            managementNotice = deleted == 0 ? "No failed downloads to clear." : "Cleared \(deleted) failed downloads."
-            managementError = nil
-            await refreshManagementData()
-        } catch {
-            managementError = "Could not clear failed downloads."
-        }
-    }
-
-    private func performDownloadAction(_ downloadHistoryId: Int, action: String) async {
-        guard let libraryId else { return }
-        guard let client = model.api() else { return }
-        pendingDownloadActionId = downloadHistoryId
-        defer { pendingDownloadActionId = nil }
-        do {
-            try await client.downloadAction(
-                libraryId: libraryId,
-                downloadHistoryId: downloadHistoryId,
-                action: action
-            )
-            managementNotice = "Download updated."
-            managementError = nil
-            await refreshManagementData()
-        } catch {
-            managementError = "Could not update download."
-        }
-    }
-
-    private func deleteDownloadEntryAction(_ downloadHistoryId: Int) async {
-        guard let libraryId else { return }
-        guard let client = model.api() else { return }
-        pendingDownloadActionId = downloadHistoryId
-        defer { pendingDownloadActionId = nil }
-        do {
-            try await client.deleteDownloadEntry(libraryId: libraryId, downloadHistoryId: downloadHistoryId)
-            managementNotice = "Download entry removed."
-            managementError = nil
-            await refreshManagementData()
-        } catch {
-            managementError = "Could not remove download entry."
-        }
-    }
-
-    private func removeLibraryItem(id: Int, deleteFiles: Bool) async {
-        guard let client = model.api() else { return }
-        applyingManagementChange = true
-        defer { applyingManagementChange = false }
-        do {
-            try await client.removeFromLibrary(id: id, deleteFiles: deleteFiles)
-            if id == libraryId {
-                dismiss()
-            } else {
-                await fetchSimilar()
-            }
-        } catch {
-            if id == libraryId {
-                managementError = "Could not remove from library."
-            } else {
-                similarError = "Could not remove from library."
-            }
-        }
-    }
+    // MARK: Similar-menu dispatch
 
     private func handleSimilarMenu(_ action: MediaPosterMenuAction, item: TmdbSearchItem) {
         switch action {
         case .toggleMonitored:
             guard let libraryId = item.libraryId else { return }
-            Task { await toggleSimilarMonitored(libraryId: libraryId) }
+            Task {
+                guard let client = model.api() else { return }
+                await vm.toggleSimilarMonitored(client: client, libraryId: libraryId)
+            }
         case .searchReleases:
             menuReleaseSearch = ReleaseSearchPresentation(
                 query: item.title,
@@ -1320,112 +1076,6 @@ struct MediaDetailView: View {
             pendingRemoveTitle = item.title
             pendingRemoveLibraryId = libraryId
             showingRemoveConfirm = true
-        }
-    }
-
-    private func toggleSimilarMonitored(libraryId: Int) async {
-        guard let client = model.api() else { return }
-        do {
-            let item = try await client.libraryItem(id: libraryId)
-            _ = try await client.updateLibraryMonitored(id: libraryId, monitored: !item.monitored)
-            await fetchSimilar()
-        } catch {
-            similarError = "Could not update monitoring."
-        }
-    }
-
-    private func toggleWatchlist() async {
-        guard let client = model.api() else {
-            requestError = "Not logged in."
-            return
-        }
-        watchlistPending = true
-        defer { watchlistPending = false }
-
-        do {
-            if inWatchlist {
-                try await client.removeFromWatchlist(tmdbId: tmdbId, mediaType: mediaType)
-                inWatchlist = false
-            } else {
-                try await client.addToWatchlist(
-                    tmdbId: tmdbId,
-                    mediaType: mediaType,
-                    title: title,
-                    posterURL: posterPath,
-                    overview: details?.overview,
-                    releaseYear: yearValue,
-                    voteAverage: details?.voteAverage,
-                    releaseDate: mediaType == "tv" ? details?.firstAirDate : details?.releaseDate
-                )
-                inWatchlist = true
-            }
-        } catch APIError.unauthorized {
-            requestError = "Sign in required."
-        } catch {
-            requestError = "Could not update watchlist."
-        }
-    }
-
-    private func fetchEpisodes(client: APIClient, libraryId: Int) async {
-        do {
-            let response = try await client.libraryEpisodes(id: libraryId)
-            var map: [Int: [Episode]] = [:]
-            for season in response.seasons {
-                map[season.season] = season.episodes
-            }
-            episodesBySeason = map
-        } catch {
-            // Non-fatal: seasons still render with episode counts from TMDB.
-        }
-    }
-
-    private func submitRequest() async {
-        guard let client = model.api() else {
-            requestError = "Not logged in."
-            return
-        }
-        requesting = true
-        requestError = nil
-        defer { requesting = false }
-
-        let body = CreateRequestBody(
-            tmdbId: tmdbId,
-            type: mediaType == "tv" ? "show" : "movie",
-            title: title,
-            posterUrl: posterPath,
-            year: yearValue
-        )
-
-        do {
-            _ = try await client.createRequest(body)
-            requested = true
-        } catch APIError.unauthorized {
-            requestError = "Sign in required."
-        } catch let APIError.http(status) where status == 409 {
-            requestError = "Already requested."
-        } catch {
-            requestError = "Could not submit request."
-        }
-    }
-
-    // Admin: add straight to the library from TMDB.
-    private func submitAdd() async {
-        guard let client = model.api() else {
-            requestError = "Not logged in."
-            return
-        }
-        requesting = true
-        requestError = nil
-        defer { requesting = false }
-        do {
-            try await client.addToLibrary(tmdbId: tmdbId, type: mediaType == "tv" ? "show" : "movie")
-            added = true
-        } catch APIError.unauthorized {
-            requestError = "Admin only."
-        } catch let APIError.http(status) where status == 409 {
-            added = true
-        } catch {
-            requestError = "Could not add to library."
         }
     }
 }
