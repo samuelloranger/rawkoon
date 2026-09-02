@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NotificationsSettingsView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     private static let allKeys: [String] = [
         "library_downloaded", "library_grabbed", "library_failed", "library_grab_skipped", "library_attention",

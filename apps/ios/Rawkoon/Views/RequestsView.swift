@@ -3,7 +3,7 @@ import SwiftUI
 /// Requests tab: everyone sees their own (and others') pending/all requests;
 /// admins get approve/deny actions inline.
 struct RequestsView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     private enum Filter: String, CaseIterable, Identifiable {
         case pending = "Pending"

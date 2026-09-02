@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Admin-only list of registered users.
 struct UsersView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     @State private var users: [AdminUser] = []
     @State private var loading = false

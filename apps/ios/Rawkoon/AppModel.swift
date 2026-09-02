@@ -1,6 +1,6 @@
-import Combine
 import Foundation
 import Network
+import Observation
 import RawkoonKit
 import UIKit
 import UserNotifications
@@ -27,7 +27,8 @@ private func withDeadline<T: Sendable>(
 }
 
 @MainActor
-final class AppModel: ObservableObject {
+@Observable
+final class AppModel {
     /// One instance for the process.
     ///
     /// A background launch to deliver `handleEventsForBackgroundURLSession` may
@@ -36,16 +37,16 @@ final class AppModel: ObservableObject {
     /// finished downloads are discarded.
     static let shared = AppModel()
 
-    @Published var isLoggedIn = false
-    @Published var serverURL: String
-    @Published var library: [BookListItem] = []
-    @Published var isAdmin = false
-    @Published var userFirstName: String?
-    @Published var ssoProviders: [SsoProvider] = []
-    @Published var loading = false
-    @Published var errorMessage: String?
-    @Published var downloadPlans: [Int: DownloadPlan] = [:]
-    @Published var activeEditionId: Int?
+    var isLoggedIn = false
+    var serverURL: String
+    var library: [BookListItem] = []
+    var isAdmin = false
+    var userFirstName: String?
+    var ssoProviders: [SsoProvider] = []
+    var loading = false
+    var errorMessage: String?
+    var downloadPlans: [Int: DownloadPlan] = [:]
+    var activeEditionId: Int?
 
     let player = AudiobookPlayer()
 
@@ -57,7 +58,6 @@ final class AppModel: ObservableObject {
     private var manifests: [Int: BookManifest] = [:]
     private var downloaders: [Int: ChapterDownloader] = [:]
     private var pendingBackgroundCompletions: [String: () -> Void] = [:]
-    private var cancellables = Set<AnyCancellable>()
     private var verifiedCounts: [Int: Int] = [:]
     private var lastProgressWriteMillis: [Int: Int64] = [:]
     /// Whether the device currently has a usable network path.
@@ -66,7 +66,7 @@ final class AppModel: ObservableObject {
     /// reported. It says an interface exists, not that the server answers — a
     /// captive portal or a down server still has to be handled by whatever
     /// waits on the request.
-    @Published private(set) var isOnline = true
+    private(set) var isOnline = true
     private let pathMonitor = NWPathMonitor()
 
     private let readingProgressStore = ReadingProgressStore(
@@ -90,7 +90,8 @@ final class AppModel: ObservableObject {
             isLoggedIn = true
         }
 
-        bindPlayer()
+        player.onPositionTick = { [weak self] in self?.persistPlaybackProgress(force: false) }
+        player.onPlaybackStopped = { [weak self] in self?.persistPlaybackProgress(force: true) }
         startPathMonitor()
     }
 
@@ -461,29 +462,6 @@ final class AppModel: ObservableObject {
         if activeEditionId != nil {
             player.rebuild()
         }
-    }
-
-    private func bindPlayer() {
-        player.objectWillChange
-            .sink { [weak self] _ in
-                self?.objectWillChange.send()
-            }
-            .store(in: &cancellables)
-
-        player.$positionSecs
-            .sink { [weak self] _ in
-                self?.persistPlaybackProgress(force: false)
-            }
-            .store(in: &cancellables)
-
-        player.$isPlaying
-            .dropFirst()
-            .removeDuplicates()
-            .sink { [weak self] isPlaying in
-                guard !isPlaying else { return }
-                self?.persistPlaybackProgress(force: true)
-            }
-            .store(in: &cancellables)
     }
 
     /// Replaces the downloader's signed URLs after a grant expired.

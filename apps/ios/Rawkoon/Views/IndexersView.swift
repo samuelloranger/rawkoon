@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Admin-only: lists configured indexers and their enabled/protocol/privacy state.
 struct IndexersView: View {
-    @EnvironmentObject private var model: AppModel
+    @Environment(AppModel.self) private var model
 
     @State private var indexers: [Indexer] = []
     @State private var loading = false
