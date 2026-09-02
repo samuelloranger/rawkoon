@@ -61,6 +61,19 @@ export async function putListeningProgress(
   );
 }
 
+export async function putReadingProgress(
+  editionId: number,
+  body: BookReadingProgressRequest,
+): Promise<{ applied: boolean }> {
+  return fetchApi<{ applied: boolean }>(
+    BOOKS_ENDPOINTS.PUT_READING_PROGRESS(editionId),
+    {
+      method: "PUT",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
 export function usePutReadingProgress() {
   const qc = useQueryClient();
   return useMutation({

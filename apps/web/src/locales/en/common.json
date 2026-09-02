@@ -2142,6 +2142,19 @@
       "close": "Close player",
       "rate": "Speed",
       "error": "This chapter couldn’t be played."
+    },
+    "read": {
+      "epubOnly": "Only EPUB can be read in the browser. Download other formats from the book page.",
+      "openFailed": "That book couldn’t be opened.",
+      "contents": "Contents",
+      "settings": "Settings",
+      "fontSize": "Font size",
+      "lineHeight": "Line height",
+      "margins": "Margins",
+      "theme": "Theme",
+      "theme_light": "Light",
+      "theme_sepia": "Sepia",
+      "theme_dark": "Dark"
     }
   }
 }

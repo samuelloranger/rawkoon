@@ -2142,6 +2142,19 @@
       "close": "Fermer le lecteur",
       "rate": "Vitesse",
       "error": "Ce chapitre n’a pas pu être lu."
+    },
+    "read": {
+      "epubOnly": "Seul l’EPUB peut être lu dans le navigateur. Téléchargez les autres formats depuis la fiche du livre.",
+      "openFailed": "Ce livre n’a pas pu être ouvert.",
+      "contents": "Sommaire",
+      "settings": "Réglages",
+      "fontSize": "Taille du texte",
+      "lineHeight": "Interligne",
+      "margins": "Marges",
+      "theme": "Thème",
+      "theme_light": "Clair",
+      "theme_sepia": "Sépia",
+      "theme_dark": "Sombre"
     }
   }
 }

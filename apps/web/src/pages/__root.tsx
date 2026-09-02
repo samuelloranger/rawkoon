@@ -39,7 +39,9 @@ function RootLayout() {
 
   const { t } = useTranslation("common");
   const isSettings = router.location.pathname.startsWith("/settings");
-  const shouldShowNav = !["/login"].includes(router.location.pathname);
+  const isRead = /\/books\/[^/]+\/read\/?$/.test(router.location.pathname);
+  const shouldShowNav =
+    !["/login"].includes(router.location.pathname) && !isRead;
 
   return (
     <ConfirmProvider>
