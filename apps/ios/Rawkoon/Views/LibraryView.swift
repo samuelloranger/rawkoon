@@ -128,6 +128,10 @@ struct LibraryView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
 
+            if model.isOfflineLibrary {
+                offlineBanner
+            }
+
             if section == .media {
                 mediaToolbar
             } else {
@@ -414,6 +418,18 @@ struct LibraryView: View {
             }
         }
         .refreshable { await model.loadLibrary() }
+    }
+
+    private var offlineBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "wifi.slash")
+            Text("Offline — showing downloaded books")
+            Spacer(minLength: 0)
+        }
+        .font(.caption)
+        .foregroundStyle(Theme.muted)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
     }
 
     private var filteredBooks: [BookListItem] {
