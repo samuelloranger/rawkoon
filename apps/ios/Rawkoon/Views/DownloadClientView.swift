@@ -1,3 +1,4 @@
+import RawkoonKit
 import SwiftUI
 
 /// Admin-only: shows the configured download client integration and live speed.
@@ -105,22 +106,12 @@ struct DownloadClientView: View {
 
     private func speedHeader(_ speed: SpeedResponse) -> some View {
         HStack(spacing: 14) {
-            Label(formatSpeed(speed.dlSpeed), systemImage: "arrow.down")
-            Label(formatSpeed(speed.ulSpeed), systemImage: "arrow.up")
+            Label(Formatters.speed(speed.dlSpeed, useAll: true), systemImage: "arrow.down")
+            Label(Formatters.speed(speed.ulSpeed, useAll: true), systemImage: "arrow.up")
             Spacer()
         }
         .font(.system(.caption, design: .monospaced))
         .foregroundStyle(Theme.faint)
-    }
-
-    private func formatSpeed(_ bytesPerSecond: Double) -> String {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .binary
-        formatter.allowedUnits = [.useAll]
-        // Non-finite/overflowing rates would trap the non-failable Int64 init.
-        let safeBytes = max(0, Int64(exactly: bytesPerSecond.rounded()) ?? 0)
-        let formatted = formatter.string(fromByteCount: safeBytes)
-        return "\(formatted)/s"
     }
 
     private func detailRow(_ title: String, _ value: String) -> some View {

@@ -729,8 +729,8 @@ struct MediaDetailView: View {
                             .foregroundStyle(Theme.textStrong)
                             .lineLimit(2)
                         HStack(spacing: 6) {
-                            Text(formatBytes(file.sizeBytes))
-                            if let duration = formatDuration(file.durationSecs) {
+                            Text(Formatters.bytesEcho(file.sizeBytes))
+                            if let duration = Formatters.durationCompact(file.durationSecs) {
                                 Text(duration)
                             }
                             if let res = resolutionText(for: file) {
@@ -769,8 +769,8 @@ struct MediaDetailView: View {
                             .foregroundStyle(Theme.textStrong)
                             .lineLimit(2)
                         HStack(spacing: 6) {
-                            Text(formatBytes(file.sizeBytes))
-                            if let duration = formatDuration(file.durationSecs) {
+                            Text(Formatters.bytesEcho(file.sizeBytes))
+                            if let duration = Formatters.durationCompact(file.durationSecs) {
                                 Text(duration)
                             }
                             if let res = resolutionText(for: file) {
@@ -864,23 +864,6 @@ struct MediaDetailView: View {
         return DateFormatter.localizedString(from: date, dateStyle: .medium, timeStyle: .short)
     }
 
-    private func formatBytes(_ raw: String) -> String {
-        guard let value = Int64(raw) else { return raw }
-        return ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
-    }
-
-    private func formatDuration(_ seconds: Double?) -> String? {
-        // isFinite/>=0 guard: Int(.nan) and Int(.infinity) trap the app.
-        guard let seconds, seconds.isFinite, seconds >= 0 else { return nil }
-        let minutes = Int(seconds / 60)
-        let hours = minutes / 60
-        let remaining = minutes % 60
-        if hours > 0 {
-            return "\(hours)h \(remaining)m"
-        }
-        return "\(remaining)m"
-    }
-
     private func toggleFileDetails(_ fileId: Int) {
         if expandedFileIDs.contains(fileId) {
             expandedFileIDs.remove(fileId)
@@ -962,7 +945,7 @@ struct MediaDetailView: View {
             if let live = row.live {
                 DuskProgress(value: live.progress)
                 HStack(spacing: 10) {
-                    Text("↓ \(formatSpeed(live.downloadSpeed))")
+                    Text("↓ \(Formatters.speed(live.downloadSpeed, useAll: false))")
                     Text("\(Int(live.progress * 100))%")
                     Text(live.state)
                 }
@@ -1020,14 +1003,6 @@ struct MediaDetailView: View {
             parts.append("AI pick")
         }
         return parts.joined(separator: " · ")
-    }
-
-    private func formatSpeed(_ bytesPerSecond: Double) -> String {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .binary
-        // Non-finite/overflowing rates would trap the non-failable Int64 init.
-        let safeBytes = max(0, Int64(exactly: bytesPerSecond.rounded()) ?? 0)
-        return "\(formatter.string(fromByteCount: safeBytes))/s"
     }
 
     // MARK: Details (movies)

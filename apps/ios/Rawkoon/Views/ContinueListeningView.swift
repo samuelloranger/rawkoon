@@ -171,7 +171,7 @@ struct ContinueListeningView: View {
         case let .audiobook(audiobook):
             let total = max(audiobook.totalDurationSecs, 1)
             let fraction = min(max(audiobook.positionSecs / total, 0), 1)
-            return "\(formatDuration(audiobook.positionSecs)) / \(formatDuration(audiobook.totalDurationSecs)) · \(Int(fraction * 100))%"
+            return "\(Formatters.durationClock(audiobook.positionSecs)) / \(Formatters.durationClock(audiobook.totalDurationSecs)) · \(Int(fraction * 100))%"
         case let .ebook(ebook):
             let section = min(max(ebook.spineIndex + 1, 1), max(ebook.spineCount, 1))
             let fraction = Int(min(max(ebook.scrollFraction, 0), 1) * 100)
@@ -362,17 +362,6 @@ struct ContinueListeningView: View {
         case "cbz": return 4
         default: return 99
         }
-    }
-
-    private func formatDuration(_ seconds: Double) -> String {
-        guard seconds.isFinite, seconds > 0 else { return "0:00" }
-        let total = Int(seconds.rounded())
-        let hours = total / 3600
-        let minutes = (total % 3600) / 60
-        if hours > 0 {
-            return "\(hours)h \(String(format: "%02dm", minutes))"
-        }
-        return "\(minutes)m"
     }
 
     private func message(for error: APIError) -> String {
