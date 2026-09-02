@@ -234,4 +234,37 @@ extension APIClient {
     func revokeInvitation(id: Int) async throws {
         try await deleteExpectOK("/api/admin/invitations/\(id)")
     }
+
+    // MARK: Sessions + web-push + API keys + blocklist (spec §5 Phase 5)
+
+    func adminSessions() async throws -> AdminSessionsResponse {
+        try await get("/api/admin/sessions")
+    }
+    func revokeSession(id: String) async throws {
+        try await deleteExpectOK("/api/admin/sessions/\(id)")
+    }
+    func revokeUserSessions(userId: String) async throws {
+        try await deleteExpectOK("/api/admin/sessions/user/\(userId)")
+    }
+    func adminWebPush() async throws -> AdminWebPushResponse {
+        try await get("/api/admin/web-push")
+    }
+    func deleteWebPushSubscription(id: Int) async throws {
+        try await deleteExpectOK("/api/admin/web-push/\(id)")
+    }
+    func apiKeys() async throws -> ApiKeysResponse {
+        try await get("/api/admin/api-keys")
+    }
+    func createApiKey(_ body: CreateApiKeyBody) async throws -> CreateApiKeyResponse {
+        try await post("/api/admin/api-keys", body: body)
+    }
+    func deleteApiKey(id: String) async throws {
+        try await deleteExpectOK("/api/admin/api-keys/\(id)")
+    }
+    func blocklist() async throws -> BlocklistResponse {
+        try await get("/api/medias/blocklist")
+    }
+    func unblock(id: Int) async throws {
+        try await deleteExpectOK("/api/medias/blocklist/\(id)")
+    }
 }

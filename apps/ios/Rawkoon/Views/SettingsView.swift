@@ -161,6 +161,24 @@ struct SettingsView: View {
                     } label: {
                         Label("Users", systemImage: "person.2")
                     }
+
+                    NavigationLink {
+                        SessionsAdminView()
+                    } label: {
+                        Label("Sessions", systemImage: "shield")
+                    }
+
+                    NavigationLink {
+                        ApiKeysAdminView()
+                    } label: {
+                        Label("API keys", systemImage: "key")
+                    }
+
+                    NavigationLink {
+                        BlocklistAdminView()
+                    } label: {
+                        Label("Blocklist", systemImage: "nosign")
+                    }
                 }
                 .listRowBackground(Theme.raised)
             }

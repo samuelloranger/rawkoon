@@ -667,6 +667,55 @@ nonisolated struct InvitationDTO: Decodable, Identifiable, Sendable {
 }
 nonisolated struct InvitationsResponse: Decodable, Sendable { let invitations: [InvitationDTO] }
 
+// MARK: Sessions + web-push + API keys + blocklist (spec §5 Phase 5)
+
+nonisolated struct SessionDeviceDTO: Decodable, Sendable { let browser: String?; let os: String? }
+nonisolated struct AdminSessionDTO: Decodable, Identifiable, Sendable {
+    let id: String
+    let userId: String?
+    let userEmail: String?
+    let userName: String?
+    let expiresAt: String?
+    let createdAt: String?
+    let ipAddress: String?
+    let device: SessionDeviceDTO?
+}
+nonisolated struct AdminSessionsResponse: Decodable, Sendable { let sessions: [AdminSessionDTO] }
+
+nonisolated struct AdminWebPushDTO: Decodable, Identifiable, Sendable {
+    let id: Int
+    let userEmail: String?
+    let userName: String?
+    let endpoint: String?
+    let deviceName: String?
+    let createdAt: String?
+}
+nonisolated struct AdminWebPushResponse: Decodable, Sendable { let subscriptions: [AdminWebPushDTO] }
+
+nonisolated struct ApiKeyDTO: Decodable, Identifiable, Sendable {
+    let id: String
+    let name: String?
+    let start: String?
+    let lastUsed: String?
+    let expiresAt: String?
+    let createdAt: String?
+}
+nonisolated struct ApiKeysResponse: Decodable, Sendable { let apiKeys: [ApiKeyDTO] }
+nonisolated struct CreateApiKeyBody: Encodable, Sendable {
+    let name: String
+    let expiresInDays: Int?
+}
+nonisolated struct CreateApiKeyResponse: Decodable, Sendable { let key: String? }
+
+nonisolated struct BlocklistEntryDTO: Decodable, Identifiable, Sendable {
+    let id: Int
+    let releaseTitle: String?
+    let indexer: String?
+    let reason: String?
+    let blockedAt: String?
+}
+nonisolated struct BlocklistResponse: Decodable, Sendable { let entries: [BlocklistEntryDTO] }
+
 nonisolated struct AdminUsersResponse: Decodable, Sendable {
     let success: Bool?
     let users: [AdminUser]
