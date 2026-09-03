@@ -145,8 +145,12 @@ struct BooksSettingsView: View {
         booksEnabled = value
         Task {
             togglingEnabled = true
-            do { try await model.api()?.updateBooksEnabled(value) }
-            catch { booksEnabled = previous }
+            do {
+                try await model.api()?.updateBooksEnabled(value)
+            } catch {
+                booksEnabled = previous
+                model.toast("Couldn't update books setting.", style: .error)
+            }
             togglingEnabled = false
         }
     }
@@ -158,7 +162,12 @@ struct BooksSettingsView: View {
             let settings = try await client.postProcessingSettings().settings
             let sources = try await client.bookMetadataSources().order
             let general = try await client.generalSettings().settings
-            profiles = await (try? client.bookQualityProfiles().profiles) ?? []
+            do {
+                profiles = try await client.bookQualityProfiles().profiles
+            } catch {
+                profiles = []
+                model.toast("Couldn't load quality profiles.", style: .error)
+            }
             booksEnabled = general.booksEnabled ?? false
             order = sources
             booksPath = settings.booksLibraryPath ?? ""

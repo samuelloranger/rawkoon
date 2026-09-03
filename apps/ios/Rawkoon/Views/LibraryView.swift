@@ -112,10 +112,12 @@ struct LibraryView: View {
     @State private var menuDetailMedia: LibraryMedia?
     @State private var showingPlayer = false
     @State private var readingBook: BookListItem?
+    @State private var busyMediaIds: Set<Int> = []
 
     @State private var bookKind: BookKindFilter = .all
     @State private var bookSearch = ""
     @State private var bookSort: BookSort = .title
+    @State private var busyBookIds: Set<Int> = []
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
 
@@ -341,7 +343,11 @@ struct LibraryView: View {
                                 menuItems: mediaPosterMenuItems(inLibrary: true, isAdmin: model.isAdmin),
                                 onMenuAction: { handleMediaMenu($0, media: m) }
                             ) {
-                                mediaBadge(for: m)
+                                if busyMediaIds.contains(m.id) {
+                                    ProgressView().tint(Theme.apricot)
+                                } else {
+                                    mediaBadge(for: m)
+                                }
                             }
                         }
                         .buttonStyle(.plain)
@@ -410,6 +416,11 @@ struct LibraryView: View {
                             ),
                             onMenuAction: { handleBookMenu($0, book: book) }
                         )
+                        .overlay(alignment: .trailing) {
+                            if busyBookIds.contains(book.bookId) {
+                                ProgressView().tint(Theme.muted).padding(.trailing, 10)
+                            }
+                        }
                     }
                     .buttonStyle(.plain)
                 }
@@ -545,39 +556,62 @@ struct LibraryView: View {
     }
 
     private func handleBookMenu(_ action: BookCardMenuAction, book: BookListItem) {
+        guard !busyBookIds.contains(book.bookId) else { return }
         switch action {
         case .read:
             readingBook = book
         case .play:
-            Task { await playAudiobook(book) }
+            busyBookIds.insert(book.bookId)
+            Task {
+                await playAudiobook(book)
+                busyBookIds.remove(book.bookId)
+            }
         case .addAudiobook:
-            Task { await addEdition(book: book, kind: "audiobook") }
+            busyBookIds.insert(book.bookId)
+            Task {
+                await addEdition(book: book, kind: "audiobook")
+                busyBookIds.remove(book.bookId)
+            }
         case .addEbook:
-            Task { await addEdition(book: book, kind: "ebook") }
+            busyBookIds.insert(book.bookId)
+            Task {
+                await addEdition(book: book, kind: "ebook")
+                busyBookIds.remove(book.bookId)
+            }
         case .rescan:
-            Task { await rescanBook(book) }
+            busyBookIds.insert(book.bookId)
+            Task {
+                await rescanBook(book)
+                busyBookIds.remove(book.bookId)
+            }
         }
     }
 
     private func toggleMonitored(_ media: LibraryMedia) async {
-        guard let client = model.api() else { return }
+        guard let client = model.api(), !busyMediaIds.contains(media.id) else { return }
+        busyMediaIds.insert(media.id)
         do {
             _ = try await client.updateLibraryMonitored(id: media.id, monitored: !media.monitored)
             await loadMedia(reset: true)
+            model.toast(media.monitored ? "Unmonitored." : "Monitored.", style: .success)
         } catch {
-            mediaError = errorMessage(for: error)
+            model.toast(errorMessage(for: error), style: .error)
         }
+        busyMediaIds.remove(media.id)
     }
 
     private func removeFromLibrary(_ media: LibraryMedia, deleteFiles: Bool) async {
         guard let client = model.api() else { return }
+        busyMediaIds.insert(media.id)
         do {
             try await client.removeFromLibrary(id: media.id, deleteFiles: deleteFiles)
             removeCandidate = nil
             await loadMedia(reset: true)
+            model.toast("Removed from library.", style: .success)
         } catch {
-            mediaError = errorMessage(for: error)
+            model.toast(errorMessage(for: error), style: .error)
         }
+        busyMediaIds.remove(media.id)
     }
 
     private func playAudiobook(_ book: BookListItem) async {
@@ -585,6 +619,8 @@ struct LibraryView: View {
         await model.openPlayer(editionId: editionId)
         if model.errorMessage == nil {
             showingPlayer = true
+        } else {
+            model.toast(model.errorMessage ?? "Could not start playback.", style: .error)
         }
     }
 
@@ -593,8 +629,9 @@ struct LibraryView: View {
         do {
             try await client.addBookEdition(bookId: book.bookId, kind: kind)
             await model.loadLibrary()
+            model.toast("Added \(kind == "audiobook" ? "audiobook" : "ebook") edition.", style: .success)
         } catch {
-            mediaError = errorMessage(for: error)
+            model.toast(errorMessage(for: error), style: .error)
         }
     }
 
@@ -608,8 +645,9 @@ struct LibraryView: View {
                 _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "ebook")
             }
             await model.loadLibrary()
+            model.toast("Rescan started.", style: .success)
         } catch {
-            mediaError = errorMessage(for: error)
+            model.toast(errorMessage(for: error), style: .error)
         }
     }
 }

@@ -8,7 +8,8 @@ struct OidcProvidersCrudView: View {
     @State private var providers: [OidcProviderDTO] = []
     @State private var loading = true
     @State private var loadError: String?
-    @State private var actionError: String?
+    @State private var busyIds: Set<String> = []
+    @State private var loadGen = 0
 
     var body: some View {
         Group {
@@ -41,10 +42,13 @@ struct OidcProvidersCrudView: View {
                     .listRowBackground(Theme.raised)
                     .swipeActions {
                         Button("Delete", role: .destructive) { Task { await delete(provider) } }
+                            .disabled(busyIds.contains(provider.id))
                     }
-                }
-                if let actionError {
-                    Text(actionError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                    .overlay(alignment: .trailing) {
+                        if busyIds.contains(provider.id) {
+                            ProgressView().tint(Theme.muted).padding(.trailing, 4)
+                        }
+                    }
                 }
             }
         }
@@ -62,16 +66,33 @@ struct OidcProvidersCrudView: View {
     private func load() async {
         guard let client = model.api() else { loading = false; return }
         loading = true; loadError = nil
-        do { providers = try await client.oidcProviders().providers }
-        catch { loadError = settingsErrorMessage(error) }
+        do {
+            let gen = loadGen
+            let fetched = try await client.oidcProviders().providers
+            if gen == loadGen {
+                providers = fetched
+            }
+        } catch { loadError = settingsErrorMessage(error) }
         loading = false
     }
 
     private func delete(_ provider: OidcProviderDTO) async {
-        guard let client = model.api() else { return }
-        actionError = nil
-        do { try await client.deleteOidcProvider(id: provider.id); await load() }
-        catch { actionError = "Couldn't delete provider." }
+        guard let client = model.api(), !busyIds.contains(provider.id) else { return }
+        busyIds.insert(provider.id)
+        defer { busyIds.remove(provider.id) }
+        loadGen &+= 1
+        guard let idx = providers.firstIndex(where: { $0.id == provider.id }) else { return }
+        let removed = providers[idx]
+        providers.remove(at: idx) // optimistic (single element)
+        do {
+            try await client.deleteOidcProvider(id: provider.id)
+            model.toast("Provider deleted.", style: .success)
+        } catch {
+            if !providers.contains(where: { $0.id == removed.id }) {
+                providers.insert(removed, at: min(idx, providers.count)) // restore just this row
+            }
+            model.toast("Couldn't delete provider.", style: .error)
+        }
     }
 }
 

@@ -52,7 +52,8 @@ struct NotificationChannelsCrudView: View {
     @State private var channels: [NotificationChannelDTO] = []
     @State private var loading = true
     @State private var loadError: String?
-    @State private var actionError: String?
+    @State private var busyIds: Set<Int> = []
+    @State private var loadGen = 0
 
     var body: some View {
         Form {
@@ -73,11 +74,16 @@ struct NotificationChannelsCrudView: View {
                     .listRowBackground(Theme.raised)
                     .swipeActions {
                         Button("Delete", role: .destructive) { Task { await delete(channel) } }
-                        Button("Test") { Task { await test(channel) } }.tint(Theme.apricot)
+                            .disabled(busyIds.contains(channel.id))
+                        Button("Test") { Task { await test(channel) } }
+                            .tint(Theme.apricot)
+                            .disabled(busyIds.contains(channel.id))
                     }
-                }
-                if let actionError {
-                    Text(actionError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                    .overlay(alignment: .trailing) {
+                        if busyIds.contains(channel.id) {
+                            ProgressView().tint(Theme.muted).padding(.trailing, 4)
+                        }
+                    }
                 }
             }
         }
@@ -97,23 +103,45 @@ struct NotificationChannelsCrudView: View {
     private func load() async {
         guard let client = model.api() else { loading = false; return }
         loading = true; loadError = nil
-        do { channels = try await client.notificationChannels().channels }
-        catch { loadError = settingsErrorMessage(error) }
+        do {
+            let gen = loadGen
+            let fetched = try await client.notificationChannels().channels
+            if gen == loadGen {
+                channels = fetched
+            }
+        } catch { loadError = settingsErrorMessage(error) }
         loading = false
     }
 
     private func delete(_ channel: NotificationChannelDTO) async {
-        guard let client = model.api() else { return }
-        actionError = nil
-        do { try await client.deleteNotificationChannel(id: channel.id); await load() }
-        catch { actionError = settingsErrorMessage(error) }
+        guard let client = model.api(), !busyIds.contains(channel.id) else { return }
+        busyIds.insert(channel.id)
+        defer { busyIds.remove(channel.id) }
+        loadGen &+= 1
+        guard let idx = channels.firstIndex(where: { $0.id == channel.id }) else { return }
+        let removed = channels[idx]
+        channels.remove(at: idx) // optimistic (single element)
+        do {
+            try await client.deleteNotificationChannel(id: channel.id)
+            model.toast("Channel deleted.", style: .success)
+        } catch {
+            if !channels.contains(where: { $0.id == removed.id }) {
+                channels.insert(removed, at: min(idx, channels.count)) // restore just this row
+            }
+            model.toast(settingsErrorMessage(error), style: .error)
+        }
     }
 
     private func test(_ channel: NotificationChannelDTO) async {
-        guard let client = model.api() else { return }
-        actionError = nil
-        do { try await client.testNotificationChannel(id: channel.id) }
-        catch { actionError = "Test failed for \(channel.label ?? channel.type)." }
+        guard let client = model.api(), !busyIds.contains(channel.id) else { return }
+        busyIds.insert(channel.id)
+        do {
+            try await client.testNotificationChannel(id: channel.id)
+            model.toast("Test succeeded for \(channel.label ?? channel.type).", style: .success)
+        } catch {
+            model.toast("Test failed for \(channel.label ?? channel.type).", style: .error)
+        }
+        busyIds.remove(channel.id)
     }
 }
 

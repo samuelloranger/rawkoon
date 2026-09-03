@@ -33,6 +33,9 @@ struct RawkoonApp: App {
             .environment(model)
             .tint(Theme.apricot)
             .preferredColorScheme(.dark)
+            .overlay {
+                ToastOverlay(toast: model.currentToast)
+            }
             .alert(
                 "Login not saved",
                 isPresented: Binding(

@@ -12,6 +12,7 @@ struct ContinueListeningView: View {
     @State private var items: [ContinueItem] = []
     @State private var errorMessage: String?
     @State private var openingID: String?
+    @State private var busyIds: Set<String> = []
     @State private var showingPlayer = false
     @State private var previewDocument: EbookPreviewDocument?
     @State private var readingBook: BookListItem?
@@ -74,7 +75,7 @@ struct ContinueListeningView: View {
                             row(item)
                         }
                         .buttonStyle(.plain)
-                        .disabled(openingID != nil)
+                        .disabled(openingID != nil || busyIds.contains(item.id))
                         .bookCardContextMenu(
                             items: menuItems(for: item),
                             onAction: { handleMenu($0, item: item) }
@@ -90,7 +91,7 @@ struct ContinueListeningView: View {
     }
 
     private func row(_ item: ContinueItem) -> some View {
-        let opening = openingID == item.id
+        let opening = openingID == item.id || busyIds.contains(item.id)
         return HStack(spacing: 10) {
             poster(item)
             VStack(alignment: .leading, spacing: 3) {
@@ -272,10 +273,9 @@ struct ContinueListeningView: View {
 
         switch item {
         case let .audiobook(audiobook):
-            errorMessage = nil
             await model.openPlayer(editionId: audiobook.editionId, resumeAt: audiobook.positionSecs)
             if let error = model.errorMessage {
-                errorMessage = error
+                model.toast(error, style: .error)
             } else {
                 showingPlayer = true
             }
@@ -283,13 +283,12 @@ struct ContinueListeningView: View {
         case let .ebook(ebook):
             do {
                 previewDocument = try await ebookDocument(for: ebook)
-                errorMessage = nil
             } catch EbookContinueError.missingRemoteURL {
-                errorMessage = "This server version cannot provide ebook download links yet."
+                model.toast("This server version cannot provide ebook download links yet.", style: .error)
             } catch let error as APIError {
-                errorMessage = message(for: error)
+                model.toast(message(for: error), style: .error)
             } catch {
-                errorMessage = "Could not open this ebook yet. Pull to refresh and retry."
+                model.toast("Could not open this ebook yet. Pull to refresh and retry.", style: .error)
             }
         }
     }
@@ -417,21 +416,39 @@ struct ContinueListeningView: View {
             if case .audiobook = item {
                 Task { await open(item) }
             } else if let editionId = book.audiobookEditionId {
+                guard !busyIds.contains(item.id) else { return }
+                busyIds.insert(item.id)
                 Task {
                     await model.openPlayer(editionId: editionId)
                     if model.errorMessage == nil {
                         showingPlayer = true
                     } else {
-                        errorMessage = model.errorMessage
+                        model.toast(model.errorMessage ?? "Could not start playback.", style: .error)
                     }
+                    busyIds.remove(item.id)
                 }
             }
         case .addAudiobook:
-            Task { await addEdition(book: book, kind: "audiobook") }
+            guard !busyIds.contains(item.id) else { return }
+            busyIds.insert(item.id)
+            Task {
+                await addEdition(book: book, kind: "audiobook")
+                busyIds.remove(item.id)
+            }
         case .addEbook:
-            Task { await addEdition(book: book, kind: "ebook") }
+            guard !busyIds.contains(item.id) else { return }
+            busyIds.insert(item.id)
+            Task {
+                await addEdition(book: book, kind: "ebook")
+                busyIds.remove(item.id)
+            }
         case .rescan:
-            Task { await rescanBook(book) }
+            guard !busyIds.contains(item.id) else { return }
+            busyIds.insert(item.id)
+            Task {
+                await rescanBook(book)
+                busyIds.remove(item.id)
+            }
         }
     }
 
@@ -441,10 +458,11 @@ struct ContinueListeningView: View {
             try await client.addBookEdition(bookId: book.bookId, kind: kind)
             await model.loadLibrary()
             await load()
+            model.toast("Added \(kind == "audiobook" ? "audiobook" : "ebook") edition.", style: .success)
         } catch let error as APIError {
-            errorMessage = message(for: error)
+            model.toast(message(for: error), style: .error)
         } catch {
-            errorMessage = "Could not add that edition."
+            model.toast("Could not add that edition.", style: .error)
         }
     }
 
@@ -459,10 +477,11 @@ struct ContinueListeningView: View {
             }
             await model.loadLibrary()
             await load()
+            model.toast("Rescan started.", style: .success)
         } catch let error as APIError {
-            errorMessage = message(for: error)
+            model.toast(message(for: error), style: .error)
         } catch {
-            errorMessage = "Could not rescan this book."
+            model.toast("Could not rescan this book.", style: .error)
         }
     }
 
