@@ -42,7 +42,26 @@ struct HomeView: View {
         .background(Theme.base)
         .navigationTitle("Home")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink {
+                    NotificationsListView()
+                } label: {
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: "bell")
+                        if model.unreadNotificationCount > 0 {
+                            Circle()
+                                .fill(Theme.terracotta)
+                                .frame(width: 8, height: 8)
+                                .offset(x: 3, y: -3)
+                        }
+                    }
+                }
+                .accessibilityLabel("Notifications")
+            }
+        }
         .task { await load() }
+        .task { await model.refreshUnreadNotificationCount() }
         .refreshable {
             continueToken += 1
             await load()

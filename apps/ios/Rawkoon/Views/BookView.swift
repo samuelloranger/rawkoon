@@ -150,6 +150,9 @@ struct BookView: View {
         .refreshable {
             await refreshAll(forceManifestRefresh: true)
         }
+        .onChange(of: model.bookChangeToken) { _, _ in
+            Task { await refreshAll(forceManifestRefresh: false) }
+        }
         .sheet(isPresented: $showingPlayer) {
             if let manifest, let summary = audiobookSummary {
                 PlayerView(summary: summary, manifest: manifest)

@@ -1536,3 +1536,73 @@ nonisolated struct SsoProvider: Decodable, Identifiable, Sendable {
 nonisolated struct SsoProvidersResponse: Decodable, Sendable {
     let providers: [SsoProvider]
 }
+
+// MARK: - Notification center (spec §T3/T4/T5) — mirrors the web `/notifications` page.
+
+/// The fields `NotificationLeadingVisual` (web) reads to pick an icon override
+/// for `external` notifications. Other metadata keys are ignored on decode.
+nonisolated struct NotificationMetadata: Decodable, Sendable {
+    let serviceName: String?
+}
+
+nonisolated struct NotificationDTO: Decodable, Identifiable, Sendable {
+    let id: Int
+    let title: String
+    let body: String
+    let type: String
+    let read: Bool
+    let readAt: String?
+    let url: String?
+    let imageUrl: String?
+    let metadata: NotificationMetadata?
+    let createdAt: String
+}
+
+nonisolated struct NotificationsPagination: Decodable, Sendable {
+    let page: Int
+    let limit: Int
+    let total: Int
+    let pages: Int
+}
+
+nonisolated struct NotificationsResponseDTO: Decodable, Sendable {
+    let notifications: [NotificationDTO]
+    let pagination: NotificationsPagination?
+}
+
+nonisolated struct UnreadCountResponseDTO: Decodable, Sendable {
+    let unreadCount: Int
+}
+
+/// A notification pushed live over `/api/notifications/stream`. The
+/// connection's `{connected:true}` handshake has no `id` and so fails to
+/// decode as this type — `APIClient.sseStream` drops it silently.
+nonisolated struct StreamNotificationDTO: Decodable, Identifiable, Sendable {
+    let id: Int
+    let title: String
+    let body: String
+    let type: String
+    let url: String?
+    let imageUrl: String?
+    let metadata: NotificationMetadata?
+}
+
+// MARK: - Live library/book events (spec §T2)
+
+/// Raw payload from `/api/library/events`: either the `{connected:true,ts}`
+/// handshake, or a `{kind:"media",mediaId,ts}` / `{kind:"book",bookId,ts}`
+/// update. An untagged `mediaId`-only payload (older server) is treated as a
+/// media event by `APIClient.libraryEventsStream`.
+nonisolated struct LibraryEventDTO: Decodable, Sendable {
+    let connected: Bool?
+    let kind: String?
+    let mediaId: Int?
+    let bookId: Int?
+}
+
+/// A decoded library/book change with the connection handshake already
+/// dropped — what `AppModel` actually reacts to.
+enum LibraryEvent: Sendable {
+    case media(id: Int)
+    case book(id: Int)
+}
