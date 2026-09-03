@@ -273,7 +273,7 @@ export function ReaderPage({ bookId }: { bookId: number }) {
 
   return (
     <div className="relative min-h-dvh bg-neutral-950">
-      <div ref={containerRef} className="h-dvh w-full" />
+      <div ref={containerRef} className="relative h-dvh w-full" />
       {status === "loading" && (
         <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-neutral-500">
           {t("books.detail.loading")}
