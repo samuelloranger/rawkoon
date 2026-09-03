@@ -57,6 +57,12 @@ struct MediaDetailView: View {
     @State private var expandedFileIDs: Set<Int> = []
     @State private var expandedFileSeasons: Set<Int> = []
 
+    @State private var remuxFileId: Int?
+    @State private var remuxKeepAudio: Set<Int> = []
+    @State private var remuxKeepSubtitle: Set<Int> = []
+    @State private var remuxStarting = false
+    @State private var remuxRunning = false
+
     @State private var activeTab: DetailTab = .info
 
     private enum DetailTab: String, CaseIterable, Identifiable {
@@ -798,7 +804,10 @@ struct MediaDetailView: View {
     }
 
     private func fileDetailBlock(_ file: LibraryFileInfo) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        let isMkv = file.fileName.lowercased().hasSuffix(".mkv")
+        let canRemux = model.isAdmin && isMkv && file.audioTracks.count > 1
+
+        return VStack(alignment: .leading, spacing: 6) {
             lineItem("Path", file.filePath)
             lineItem("Release group", file.releaseGroup ?? "Unknown")
             lineItem("Codec", [file.videoCodec, file.videoProfile].compactMap(\.self).joined(separator: " · "))
@@ -807,14 +816,341 @@ struct MediaDetailView: View {
             lineItem("Bit depth", file.bitDepth.map { "\($0)-bit" } ?? "Unknown")
             lineItem("Frame rate", file.frameRate.map { String(format: "%.2f fps", $0) } ?? "Unknown")
             lineItem("Video bitrate", file.videoBitrate.map { "\($0) kbps" } ?? "Unknown")
-            lineItem("Audio tracks", trackSummary(file.audioTracks))
-            lineItem("Subtitle tracks", subtitleSummary(file.subtitleTracks))
-            if let scanned = scannedDate(file.scannedAt) {
-                lineItem("Scanned", scanned)
+
+            audioTracksBlock(file.audioTracks)
+            subtitleTracksBlock(file.subtitleTracks)
+
+            HStack {
+                if let scanned = scannedDate(file.scannedAt) {
+                    Text("Scanned \(scanned)")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.faint)
+                }
+                Spacer()
+                if canRemux, remuxFileId != file.id {
+                    Button {
+                        openRemux(file)
+                    } label: {
+                        Label("Remux", systemImage: "shuffle")
+                            .font(.caption.weight(.medium))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.apricot)
+                }
+            }
+            .padding(.top, 2)
+
+            if remuxFileId == file.id {
+                remuxPanel(file)
             }
         }
         .padding(10)
         .background(Theme.well, in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    @ViewBuilder
+    private func audioTracksBlock(_ tracks: [LibraryAudioTrack]) -> some View {
+        if tracks.isEmpty {
+            lineItem("Audio", "None")
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Audio (\(tracks.count))")
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(Theme.faint)
+                ForEach(tracks) { tr in
+                    trackRow(
+                        lang: audioLanguage(tr),
+                        details: audioDetails(tr),
+                        badges: audioBadges(tr)
+                    )
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func subtitleTracksBlock(_ tracks: [LibrarySubtitleTrack]) -> some View {
+        if tracks.isEmpty {
+            lineItem("Subtitles", "None")
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Subtitles (\(tracks.count))")
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(Theme.faint)
+                ForEach(tracks) { tr in
+                    trackRow(
+                        lang: subtitleLanguage(tr),
+                        details: subtitleDetails(tr),
+                        badges: subtitleBadges(tr)
+                    )
+                }
+            }
+        }
+    }
+
+    private func trackRow(lang: String, details: String, badges: [(String, Color)]) -> some View {
+        HStack(spacing: 8) {
+            Text(lang)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(Theme.muted)
+                .frame(width: 96, alignment: .leading)
+                .lineLimit(1)
+            Text(details.isEmpty ? "—" : details)
+                .font(.caption2)
+                .foregroundStyle(Theme.faint)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            ForEach(Array(badges.enumerated()), id: \.offset) { _, badge in
+                trackBadge(badge.0, color: badge.1)
+            }
+        }
+    }
+
+    private func trackBadge(_ text: String, color: Color) -> some View {
+        Text(text)
+            .font(.system(size: 9, weight: .semibold))
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.15), in: Capsule())
+            .foregroundStyle(color)
+    }
+
+    private func frenchLabel(_ lang: String?) -> String? {
+        guard let lang else { return nil }
+        switch lang.uppercased() {
+        case "VFF": return "VFF (France)"
+        case "VFQ": return "VFQ (Québec)"
+        case "VFI": return "VFI (International)"
+        case "VF2": return "VF2"
+        case "TRUEFRENCH": return "TRUEFRENCH"
+        default: return nil
+        }
+    }
+
+    private func audioLanguage(_ tr: LibraryAudioTrack) -> String {
+        frenchLabel(tr.language) ?? tr.languageName ?? tr.language ?? "—"
+    }
+
+    private func audioDetails(_ tr: LibraryAudioTrack) -> String {
+        [
+            tr.codec,
+            tr.channelLayout ?? tr.channels.map { "\($0)ch" },
+            tr.bitrateKbps.map { "\($0) kbps" },
+        ]
+        .compactMap(\.self)
+        .joined(separator: " · ")
+    }
+
+    private func audioBadges(_ tr: LibraryAudioTrack) -> [(String, Color)] {
+        var badges: [(String, Color)] = []
+        if tr.isDefault {
+            badges.append(("Default", Theme.apricot))
+        }
+        if tr.forced {
+            badges.append(("Forced", Theme.muted))
+        }
+        return badges
+    }
+
+    private func subtitleLanguage(_ tr: LibrarySubtitleTrack) -> String {
+        frenchLabel(tr.language) ?? tr.languageName ?? tr.language ?? "—"
+    }
+
+    private func subtitleDetails(_ tr: LibrarySubtitleTrack) -> String {
+        [tr.format, tr.title]
+            .compactMap(\.self)
+            .joined(separator: " · ")
+    }
+
+    private func subtitleBadges(_ tr: LibrarySubtitleTrack) -> [(String, Color)] {
+        var badges: [(String, Color)] = []
+        if tr.forced {
+            badges.append(("Forced", Theme.muted))
+        }
+        if tr.hearingImpaired {
+            badges.append(("HI", Theme.muted))
+        }
+        return badges
+    }
+
+    // MARK: Remux
+
+    @ViewBuilder
+    private func remuxPanel(_ file: LibraryFileInfo) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("REMUX")
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(Theme.faint)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Keep audio tracks")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.faint)
+                ForEach(file.audioTracks) { tr in
+                    remuxToggleRow(
+                        kept: remuxKeepAudio.contains(tr.index),
+                        lang: audioLanguage(tr),
+                        details: audioDetails(tr)
+                    ) { toggleRemuxAudio(tr.index) }
+                }
+            }
+
+            if !file.subtitleTracks.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Keep subtitle tracks")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.faint)
+                    ForEach(file.subtitleTracks) { tr in
+                        remuxToggleRow(
+                            kept: remuxKeepSubtitle.contains(tr.index),
+                            lang: subtitleLanguage(tr),
+                            details: subtitleDetails(tr)
+                        ) { toggleRemuxSubtitle(tr.index) }
+                    }
+                }
+            }
+
+            HStack(spacing: 12) {
+                if remuxRunning || remuxStarting {
+                    ProgressView().tint(Theme.muted)
+                    Text(remuxStarting ? "Starting…" : "Remuxing…")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.muted)
+                } else {
+                    Button("Start remux") {
+                        Task { await startRemux(file) }
+                    }
+                    .font(.caption.weight(.medium))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.apricot)
+                    .disabled(remuxKeepAudio.isEmpty)
+                    Button("Cancel") { closeRemux() }
+                        .font(.caption)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Theme.faint)
+                }
+            }
+            .padding(.top, 2)
+        }
+        .padding(10)
+        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func remuxToggleRow(
+        kept: Bool,
+        lang: String,
+        details: String,
+        toggle: @escaping () -> Void
+    ) -> some View {
+        Button(action: toggle) {
+            HStack(spacing: 8) {
+                Image(systemName: kept ? "checkmark.square.fill" : "square")
+                    .font(.caption)
+                    .foregroundStyle(kept ? Theme.apricot : Theme.faint)
+                Text(lang)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(Theme.muted)
+                    .frame(width: 90, alignment: .leading)
+                    .lineLimit(1)
+                Text(details.isEmpty ? "—" : details)
+                    .font(.caption2)
+                    .foregroundStyle(Theme.faint)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+            .opacity(kept ? 1 : 0.5)
+        }
+        .buttonStyle(.plain)
+        .disabled(remuxRunning || remuxStarting)
+    }
+
+    private func openRemux(_ file: LibraryFileInfo) {
+        remuxFileId = file.id
+        remuxKeepAudio = Set(file.audioTracks.map(\.index))
+        remuxKeepSubtitle = Set(file.subtitleTracks.map(\.index))
+        remuxStarting = false
+        remuxRunning = false
+    }
+
+    private func closeRemux() {
+        remuxFileId = nil
+        remuxKeepAudio = []
+        remuxKeepSubtitle = []
+        remuxStarting = false
+        remuxRunning = false
+    }
+
+    private func toggleRemuxAudio(_ index: Int) {
+        if remuxKeepAudio.contains(index) {
+            if remuxKeepAudio.count <= 1 {
+                return
+            } // keep at least one audio track
+            remuxKeepAudio.remove(index)
+        } else {
+            remuxKeepAudio.insert(index)
+        }
+    }
+
+    private func toggleRemuxSubtitle(_ index: Int) {
+        if remuxKeepSubtitle.contains(index) {
+            remuxKeepSubtitle.remove(index)
+        } else {
+            remuxKeepSubtitle.insert(index)
+        }
+    }
+
+    private func startRemux(_ file: LibraryFileInfo) async {
+        guard let client = model.api() else {
+            managementError = "Not logged in."
+            return
+        }
+        remuxStarting = true
+        do {
+            _ = try await client.remuxFile(
+                fileId: file.id,
+                keepAudioTrackIndices: remuxKeepAudio.sorted(),
+                keepSubtitleTrackIndices: remuxKeepSubtitle.sorted()
+            )
+            remuxStarting = false
+            remuxRunning = true
+            managementError = nil
+            await pollRemux(fileId: file.id)
+        } catch {
+            remuxStarting = false
+            managementError = "Could not start remux."
+        }
+    }
+
+    private func pollRemux(fileId: Int) async {
+        guard let client = model.api() else { return }
+        for _ in 0 ..< 150 { // ~5 min cap at a 2s interval
+            try? await Task.sleep(for: .seconds(2))
+            if remuxFileId != fileId {
+                return
+            } // panel closed
+            guard let status = try? await client.remuxFileStatus(fileId: fileId) else { continue }
+            switch status.state {
+            case "completed":
+                switch status.result?.status {
+                case "remuxed": managementNotice = "Remux complete."
+                case "skipped": managementNotice = "Remux skipped — nothing to change."
+                default: managementError = status.result?.message ?? "Remux failed."
+                }
+                closeRemux()
+                await refreshManagementData()
+                return
+            case "failed":
+                managementError = status.error ?? "Remux failed."
+                closeRemux()
+                await refreshManagementData()
+                return
+            default:
+                continue
+            }
+        }
+        remuxRunning = false
+        managementNotice = "Remux still running in the background."
     }
 
     private func lineItem(_ label: String, _ value: String) -> some View {
@@ -829,24 +1165,6 @@ struct MediaDetailView: View {
                 .multilineTextAlignment(.leading)
             Spacer(minLength: 0)
         }
-    }
-
-    private func trackSummary(_ tracks: [LibraryAudioTrack]) -> String {
-        guard !tracks.isEmpty else { return "None" }
-        let names = tracks.compactMap { $0.languageName ?? $0.language }.filter { !$0.isEmpty }
-        if names.isEmpty {
-            return "\(tracks.count)"
-        }
-        return "\(tracks.count) (\(names.joined(separator: ", ")))"
-    }
-
-    private func subtitleSummary(_ tracks: [LibrarySubtitleTrack]) -> String {
-        guard !tracks.isEmpty else { return "None" }
-        let names = tracks.compactMap { $0.languageName ?? $0.language }.filter { !$0.isEmpty }
-        if names.isEmpty {
-            return "\(tracks.count)"
-        }
-        return "\(tracks.count) (\(names.joined(separator: ", ")))"
     }
 
     private func resolutionText(for file: LibraryFileInfo) -> String? {
