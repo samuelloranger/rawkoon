@@ -62,6 +62,9 @@ struct MediaDetailView: View {
     @State private var downloads: [DownloadHistoryItem] = []
     @State private var pendingDownloadActionId: Int?
     @State private var applyingManagementChange = false
+    /// In-flight live-event management refresh, cancelled before the next starts
+    /// so a burst of SSE events can't run overlapping refreshes.
+    @State private var liveReloadTask: Task<Void, Never>?
     @State private var expandedFileIDs: Set<Int> = []
     @State private var expandedFileSeasons: Set<Int> = []
 
@@ -116,7 +119,8 @@ struct MediaDetailView: View {
             }
             .onChange(of: model.libraryChangeToken) { _, _ in
                 guard libraryId != nil, managementItem != nil else { return }
-                Task { await refreshManagementData() }
+                liveReloadTask?.cancel()
+                liveReloadTask = Task { await refreshManagementData() }
             }
             .sheet(isPresented: $showingReleaseSearch) {
                 ReleaseSearchView(

@@ -67,6 +67,10 @@ final class AppModel {
     /// Same idea as `libraryChangeToken`, for `.book` events — see
     /// `LibraryView`, `BookView`, `ActivityView`.
     private(set) var bookChangeToken = 0
+    /// Bumped for each notification arriving on the stream, so an open
+    /// `NotificationsListView` refetches (via `.task(id:)`) rather than only
+    /// the bell badge updating while the list stays stale.
+    private(set) var notificationChangeToken = 0
 
     /// Kept live by the notification stream and by `NotificationsListView`'s
     /// own REST calls; drives the Home bell badge.
@@ -337,10 +341,23 @@ final class AppModel {
     func startLiveStreams() {
         guard isLoggedIn else { return }
         if libraryEventsTask == nil {
-            libraryEventsTask = Task { [weak self] in await self?.runLibraryEventsLoop() }
+            libraryEventsTask = Task { [weak self] in
+                await self?.runLibraryEventsLoop()
+                // The loop also returns on its own (a 401, or the client going
+                // away) — not just on cancellation. Clear the handle on those
+                // natural exits so the next `.active` can start a fresh stream;
+                // skip it when cancelled, since `stopLiveStreams` already nil'd
+                // the handle and a restart may have replaced this task.
+                guard let self, !Task.isCancelled else { return }
+                libraryEventsTask = nil
+            }
         }
         if notificationStreamTask == nil {
-            notificationStreamTask = Task { [weak self] in await self?.runNotificationStreamLoop() }
+            notificationStreamTask = Task { [weak self] in
+                await self?.runNotificationStreamLoop()
+                guard let self, !Task.isCancelled else { return }
+                notificationStreamTask = nil
+            }
         }
     }
 
@@ -396,6 +413,7 @@ final class AppModel {
                 for try await notification in await client.notificationStream() {
                     backoff = 1.0
                     unreadNotificationCount += 1
+                    notificationChangeToken += 1
                     showBanner(notification)
                 }
             } catch APIError.unauthorized {
