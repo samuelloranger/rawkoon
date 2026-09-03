@@ -234,6 +234,29 @@ nonisolated struct LibraryFilesResponse: Decodable, Sendable {
     let files: [LibraryFileInfo]
 }
 
+// MARK: - Remux
+
+nonisolated struct RemuxRequest: Encodable, Sendable {
+    let keepAudioTrackIndices: [Int]
+    let keepSubtitleTrackIndices: [Int]
+}
+
+nonisolated struct RemuxStartResponse: Decodable, Sendable {
+    let jobId: String
+}
+
+nonisolated struct RemuxResult: Decodable, Sendable {
+    let status: String // "remuxed" | "skipped" | "error"
+    let message: String?
+}
+
+nonisolated struct RemuxFileStatus: Decodable, Sendable {
+    let jobId: String?
+    let state: String // unknown | active | waiting | completed | failed | delayed | paused
+    let result: RemuxResult?
+    let error: String?
+}
+
 // MARK: - Library media (movies / shows)
 
 nonisolated struct LibraryMedia: Decodable, Identifiable, Sendable {
