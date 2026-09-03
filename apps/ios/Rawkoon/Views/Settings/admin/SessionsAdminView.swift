@@ -8,7 +8,8 @@ struct SessionsAdminView: View {
     @State private var subscriptions: [AdminWebPushDTO] = []
     @State private var loading = true
     @State private var loadError: String?
-    @State private var actionError: String?
+    @State private var busySessionIds: Set<String> = []
+    @State private var busySubscriptionIds: Set<Int> = []
 
     var body: some View {
         Group {
@@ -37,6 +38,12 @@ struct SessionsAdminView: View {
                         .listRowBackground(Theme.raised)
                         .swipeActions {
                             Button("Revoke", role: .destructive) { Task { await revoke(session) } }
+                                .disabled(busySessionIds.contains(session.id))
+                        }
+                        .overlay(alignment: .trailing) {
+                            if busySessionIds.contains(session.id) {
+                                ProgressView().tint(Theme.muted).padding(.trailing, 4)
+                            }
                         }
                     }
                 } header: { Text("Active sessions") }
@@ -54,13 +61,15 @@ struct SessionsAdminView: View {
                         .listRowBackground(Theme.raised)
                         .swipeActions {
                             Button("Delete", role: .destructive) { Task { await deleteSub(sub) } }
+                                .disabled(busySubscriptionIds.contains(sub.id))
+                        }
+                        .overlay(alignment: .trailing) {
+                            if busySubscriptionIds.contains(sub.id) {
+                                ProgressView().tint(Theme.muted).padding(.trailing, 4)
+                            }
                         }
                     }
                 } header: { Text("Web push") }
-
-                if let actionError {
-                    Text(actionError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
-                }
             }
         }
         .scrollContentBackground(.hidden)
@@ -79,7 +88,12 @@ struct SessionsAdminView: View {
         loading = true; loadError = nil
         do {
             sessions = try await client.adminSessions().sessions
-            subscriptions = await (try? client.adminWebPush().subscriptions) ?? []
+            do {
+                subscriptions = try await client.adminWebPush().subscriptions
+            } catch {
+                subscriptions = []
+                model.toast("Couldn't load web-push subscriptions.", style: .error)
+            }
         } catch {
             loadError = settingsErrorMessage(error)
         }
@@ -87,17 +101,33 @@ struct SessionsAdminView: View {
     }
 
     private func revoke(_ session: AdminSessionDTO) async {
-        guard let client = model.api() else { return }
-        actionError = nil
-        do { try await client.revokeSession(id: session.id); await load() }
-        catch { actionError = "Couldn't revoke session." }
+        guard let client = model.api(), !busySessionIds.contains(session.id) else { return }
+        busySessionIds.insert(session.id)
+        let removed = sessions
+        sessions.removeAll { $0.id == session.id } // optimistic
+        do {
+            try await client.revokeSession(id: session.id)
+            model.toast("Session revoked.", style: .success)
+        } catch {
+            sessions = removed // restore on failure
+            model.toast("Couldn't revoke session.", style: .error)
+        }
+        busySessionIds.remove(session.id)
     }
 
     private func deleteSub(_ sub: AdminWebPushDTO) async {
-        guard let client = model.api() else { return }
-        actionError = nil
-        do { try await client.deleteWebPushSubscription(id: sub.id); await load() }
-        catch { actionError = "Couldn't delete subscription." }
+        guard let client = model.api(), !busySubscriptionIds.contains(sub.id) else { return }
+        busySubscriptionIds.insert(sub.id)
+        let removed = subscriptions
+        subscriptions.removeAll { $0.id == sub.id } // optimistic
+        do {
+            try await client.deleteWebPushSubscription(id: sub.id)
+            model.toast("Subscription deleted.", style: .success)
+        } catch {
+            subscriptions = removed // restore on failure
+            model.toast("Couldn't delete subscription.", style: .error)
+        }
+        busySubscriptionIds.remove(sub.id)
     }
 }
 
@@ -108,7 +138,7 @@ struct ApiKeysAdminView: View {
     @State private var keys: [ApiKeyDTO] = []
     @State private var loading = true
     @State private var loadError: String?
-    @State private var actionError: String?
+    @State private var busyIds: Set<String> = []
     @State private var showCreate = false
 
     var body: some View {
@@ -137,10 +167,13 @@ struct ApiKeysAdminView: View {
                     .listRowBackground(Theme.raised)
                     .swipeActions {
                         Button("Revoke", role: .destructive) { Task { await revoke(key) } }
+                            .disabled(busyIds.contains(key.id))
                     }
-                }
-                if let actionError {
-                    Text(actionError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                    .overlay(alignment: .trailing) {
+                        if busyIds.contains(key.id) {
+                            ProgressView().tint(Theme.muted).padding(.trailing, 4)
+                        }
+                    }
                 }
             }
         }
@@ -167,10 +200,18 @@ struct ApiKeysAdminView: View {
     }
 
     private func revoke(_ key: ApiKeyDTO) async {
-        guard let client = model.api() else { return }
-        actionError = nil
-        do { try await client.deleteApiKey(id: key.id); await load() }
-        catch { actionError = "Couldn't revoke key." }
+        guard let client = model.api(), !busyIds.contains(key.id) else { return }
+        busyIds.insert(key.id)
+        let removed = keys
+        keys.removeAll { $0.id == key.id } // optimistic
+        do {
+            try await client.deleteApiKey(id: key.id)
+            model.toast("Key revoked.", style: .success)
+        } catch {
+            keys = removed // restore on failure
+            model.toast("Couldn't revoke key.", style: .error)
+        }
+        busyIds.remove(key.id)
     }
 }
 
@@ -244,7 +285,7 @@ struct BlocklistAdminView: View {
     @State private var entries: [BlocklistEntryDTO] = []
     @State private var loading = true
     @State private var loadError: String?
-    @State private var actionError: String?
+    @State private var busyIds: Set<Int> = []
 
     var body: some View {
         Group {
@@ -273,10 +314,13 @@ struct BlocklistAdminView: View {
                     .listRowBackground(Theme.raised)
                     .swipeActions {
                         Button("Unblock", role: .destructive) { Task { await unblock(entry) } }
+                            .disabled(busyIds.contains(entry.id))
                     }
-                }
-                if let actionError {
-                    Text(actionError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                    .overlay(alignment: .trailing) {
+                        if busyIds.contains(entry.id) {
+                            ProgressView().tint(Theme.muted).padding(.trailing, 4)
+                        }
+                    }
                 }
             }
         }
@@ -295,9 +339,17 @@ struct BlocklistAdminView: View {
     }
 
     private func unblock(_ entry: BlocklistEntryDTO) async {
-        guard let client = model.api() else { return }
-        actionError = nil
-        do { try await client.unblock(id: entry.id); await load() }
-        catch { actionError = "Couldn't unblock." }
+        guard let client = model.api(), !busyIds.contains(entry.id) else { return }
+        busyIds.insert(entry.id)
+        let removed = entries
+        entries.removeAll { $0.id == entry.id } // optimistic
+        do {
+            try await client.unblock(id: entry.id)
+            model.toast("Unblocked.", style: .success)
+        } catch {
+            entries = removed // restore on failure
+            model.toast("Couldn't unblock.", style: .error)
+        }
+        busyIds.remove(entry.id)
     }
 }

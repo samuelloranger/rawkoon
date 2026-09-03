@@ -8,11 +8,12 @@ struct UsersAdminView: View {
     @State private var users: [AdminUser] = []
     @State private var loading = true
     @State private var loadError: String?
-    @State private var actionError: String?
+    @State private var busyIds: Set<String> = []
 
     @State private var showProvision = false
     @State private var resetUser: AdminUser?
     @State private var newPassword = ""
+    @State private var resettingPassword = false
 
     var body: some View {
         Group {
@@ -44,14 +45,21 @@ struct UsersAdminView: View {
                     .listRowBackground(Theme.raised)
                     .swipeActions {
                         Button("Delete", role: .destructive) { Task { await delete(user) } }
+                            .disabled(busyIds.contains(user.id))
                         Button(user.isAdmin ? "Make user" : "Make admin") {
                             Task { await toggleRole(user) }
-                        }.tint(Theme.apricot)
-                        Button("Reset") { resetUser = user; newPassword = "" }.tint(Theme.terracotta)
+                        }
+                        .tint(Theme.apricot)
+                        .disabled(busyIds.contains(user.id))
+                        Button("Reset") { resetUser = user; newPassword = "" }
+                            .tint(Theme.terracotta)
+                            .disabled(busyIds.contains(user.id))
                     }
-                }
-                if let actionError {
-                    Text(actionError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                    .overlay(alignment: .trailing) {
+                        if busyIds.contains(user.id) {
+                            ProgressView().tint(Theme.muted).padding(.trailing, 4)
+                        }
+                    }
                 }
             }
         }
@@ -73,6 +81,7 @@ struct UsersAdminView: View {
         })) {
             SecureField("New password (min 8)", text: $newPassword)
             Button("Reset") { Task { await resetPassword() } }
+                .disabled(resettingPassword)
             Button("Cancel", role: .cancel) { resetUser = nil }
         } message: {
             Text("Sets a new password and signs the user out everywhere.")
@@ -94,28 +103,47 @@ struct UsersAdminView: View {
     }
 
     private func toggleRole(_ user: AdminUser) async {
-        guard let client = model.api() else { return }
-        actionError = nil
-        do { try await client.setUserRole(id: user.id, isAdmin: !user.isAdmin); await load() }
-        catch { actionError = settingsErrorMessage(error) }
+        guard let client = model.api(), !busyIds.contains(user.id) else { return }
+        busyIds.insert(user.id)
+        do {
+            try await client.setUserRole(id: user.id, isAdmin: !user.isAdmin)
+            await load()
+            model.toast(user.isAdmin ? "\(displayName(user)) is now a user." : "\(displayName(user)) is now an admin.", style: .success)
+        } catch {
+            model.toast(settingsErrorMessage(error), style: .error)
+        }
+        busyIds.remove(user.id)
     }
 
     private func delete(_ user: AdminUser) async {
-        guard let client = model.api() else { return }
-        actionError = nil
-        do { try await client.deleteUser(id: user.id); await load() }
-        catch { actionError = "Couldn't delete \(user.email)." }
+        guard let client = model.api(), !busyIds.contains(user.id) else { return }
+        busyIds.insert(user.id)
+        let removed = users
+        users.removeAll { $0.id == user.id } // optimistic
+        do {
+            try await client.deleteUser(id: user.id)
+            model.toast("Deleted \(user.email).", style: .success)
+        } catch {
+            users = removed // restore on failure
+            model.toast("Couldn't delete \(user.email).", style: .error)
+        }
+        busyIds.remove(user.id)
     }
 
     private func resetPassword() async {
         guard let client = model.api(), let user = resetUser, newPassword.count >= 8 else {
-            actionError = "Password must be at least 8 characters."
+            model.toast("Password must be at least 8 characters.", style: .error)
             return
         }
         resetUser = nil
-        actionError = nil
-        do { try await client.resetUserPassword(id: user.id, newPassword: newPassword) }
-        catch { actionError = "Couldn't reset password." }
+        resettingPassword = true
+        do {
+            try await client.resetUserPassword(id: user.id, newPassword: newPassword)
+            model.toast("Password reset for \(user.email).", style: .success)
+        } catch {
+            model.toast("Couldn't reset password.", style: .error)
+        }
+        resettingPassword = false
     }
 }
 
@@ -220,7 +248,7 @@ private struct InvitationsView: View {
     @State private var invitations: [InvitationDTO] = []
     @State private var loading = true
     @State private var loadError: String?
-    @State private var actionError: String?
+    @State private var busyIds: Set<Int> = []
     @State private var link: String?
 
     var body: some View {
@@ -237,7 +265,15 @@ private struct InvitationsView: View {
                     .listRowBackground(Theme.raised)
                     .swipeActions {
                         Button("Revoke", role: .destructive) { Task { await revoke(invitation) } }
-                        Button("Resend") { Task { await resend(invitation) } }.tint(Theme.apricot)
+                            .disabled(busyIds.contains(invitation.id))
+                        Button("Resend") { Task { await resend(invitation) } }
+                            .tint(Theme.apricot)
+                            .disabled(busyIds.contains(invitation.id))
+                    }
+                    .overlay(alignment: .trailing) {
+                        if busyIds.contains(invitation.id) {
+                            ProgressView().tint(Theme.muted).padding(.trailing, 4)
+                        }
                     }
                 }
                 if let link {
@@ -247,9 +283,6 @@ private struct InvitationsView: View {
                     } header: {
                         Text("New link")
                     }
-                }
-                if let actionError {
-                    Text(actionError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
                 }
             }
         }
@@ -270,23 +303,33 @@ private struct InvitationsView: View {
     }
 
     private func revoke(_ invitation: InvitationDTO) async {
-        guard let client = model.api() else { return }
-        actionError = nil
-        do { try await client.revokeInvitation(id: invitation.id); await load() }
-        catch { actionError = "Couldn't revoke." }
+        guard let client = model.api(), !busyIds.contains(invitation.id) else { return }
+        busyIds.insert(invitation.id)
+        let removed = invitations
+        invitations.removeAll { $0.id == invitation.id } // optimistic
+        do {
+            try await client.revokeInvitation(id: invitation.id)
+            model.toast("Invitation revoked.", style: .success)
+        } catch {
+            invitations = removed // restore on failure
+            model.toast("Couldn't revoke.", style: .error)
+        }
+        busyIds.remove(invitation.id)
     }
 
     private func resend(_ invitation: InvitationDTO) async {
-        guard let client = model.api() else { return }
-        actionError = nil
+        guard let client = model.api(), !busyIds.contains(invitation.id) else { return }
+        busyIds.insert(invitation.id)
         do {
             let response = try await client.resendInvitation(id: invitation.id)
             if let token = response.token {
                 link = "\(model.serverURL)/accept-invitation?token=\(token)"
             }
             await load()
+            model.toast("Invitation resent.", style: .success)
         } catch {
-            actionError = "Couldn't resend."
+            model.toast("Couldn't resend.", style: .error)
         }
+        busyIds.remove(invitation.id)
     }
 }

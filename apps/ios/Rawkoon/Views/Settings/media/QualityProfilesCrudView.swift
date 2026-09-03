@@ -9,7 +9,7 @@ struct QualityProfilesCrudView: View {
     @State private var formats: [CustomFormatDTO] = []
     @State private var loading = true
     @State private var loadError: String?
-    @State private var deleteError: String?
+    @State private var busyIds: Set<Int> = []
 
     var body: some View {
         Group {
@@ -43,10 +43,13 @@ struct QualityProfilesCrudView: View {
                     .listRowBackground(Theme.raised)
                     .swipeActions {
                         Button("Delete", role: .destructive) { Task { await delete(profile) } }
+                            .disabled(busyIds.contains(profile.id))
                     }
-                }
-                if let deleteError {
-                    Text(deleteError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                    .overlay(alignment: .trailing) {
+                        if busyIds.contains(profile.id) {
+                            ProgressView().tint(Theme.muted).padding(.trailing, 4)
+                        }
+                    }
                 }
             }
         }
@@ -83,14 +86,18 @@ struct QualityProfilesCrudView: View {
     }
 
     private func delete(_ profile: QualityProfile) async {
-        guard let client = model.api() else { return }
-        deleteError = nil
+        guard let client = model.api(), !busyIds.contains(profile.id) else { return }
+        busyIds.insert(profile.id)
+        let removed = profiles
+        profiles.removeAll { $0.id == profile.id } // optimistic
         do {
             try await client.deleteQualityProfile(id: profile.id)
-            await load()
+            model.toast("Profile deleted.", style: .success)
         } catch {
-            deleteError = settingsErrorMessage(error)
+            profiles = removed // restore on failure
+            model.toast(settingsErrorMessage(error), style: .error)
         }
+        busyIds.remove(profile.id)
     }
 }
 

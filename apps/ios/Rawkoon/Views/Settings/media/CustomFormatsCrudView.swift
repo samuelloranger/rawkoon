@@ -9,7 +9,7 @@ struct CustomFormatsCrudView: View {
     @State private var formats: [CustomFormatDTO] = []
     @State private var loading = true
     @State private var loadError: String?
-    @State private var deleteError: String?
+    @State private var busyIds: Set<Int> = []
 
     var body: some View {
         Group {
@@ -43,10 +43,13 @@ struct CustomFormatsCrudView: View {
                     .listRowBackground(Theme.raised)
                     .swipeActions {
                         Button("Delete", role: .destructive) { Task { await delete(format) } }
+                            .disabled(busyIds.contains(format.id))
                     }
-                }
-                if let deleteError {
-                    Text(deleteError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                    .overlay(alignment: .trailing) {
+                        if busyIds.contains(format.id) {
+                            ProgressView().tint(Theme.muted).padding(.trailing, 4)
+                        }
+                    }
                 }
             }
         }
@@ -70,10 +73,18 @@ struct CustomFormatsCrudView: View {
     }
 
     private func delete(_ format: CustomFormatDTO) async {
-        guard let client = model.api() else { return }
-        deleteError = nil
-        do { try await client.deleteCustomFormat(id: format.id); await load() }
-        catch { deleteError = settingsErrorMessage(error) }
+        guard let client = model.api(), !busyIds.contains(format.id) else { return }
+        busyIds.insert(format.id)
+        let removed = formats
+        formats.removeAll { $0.id == format.id } // optimistic
+        do {
+            try await client.deleteCustomFormat(id: format.id)
+            model.toast("Custom format deleted.", style: .success)
+        } catch {
+            formats = removed // restore on failure
+            model.toast(settingsErrorMessage(error), style: .error)
+        }
+        busyIds.remove(format.id)
     }
 }
 

@@ -8,7 +8,7 @@ struct OidcProvidersCrudView: View {
     @State private var providers: [OidcProviderDTO] = []
     @State private var loading = true
     @State private var loadError: String?
-    @State private var actionError: String?
+    @State private var busyIds: Set<String> = []
 
     var body: some View {
         Group {
@@ -41,10 +41,13 @@ struct OidcProvidersCrudView: View {
                     .listRowBackground(Theme.raised)
                     .swipeActions {
                         Button("Delete", role: .destructive) { Task { await delete(provider) } }
+                            .disabled(busyIds.contains(provider.id))
                     }
-                }
-                if let actionError {
-                    Text(actionError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                    .overlay(alignment: .trailing) {
+                        if busyIds.contains(provider.id) {
+                            ProgressView().tint(Theme.muted).padding(.trailing, 4)
+                        }
+                    }
                 }
             }
         }
@@ -68,10 +71,18 @@ struct OidcProvidersCrudView: View {
     }
 
     private func delete(_ provider: OidcProviderDTO) async {
-        guard let client = model.api() else { return }
-        actionError = nil
-        do { try await client.deleteOidcProvider(id: provider.id); await load() }
-        catch { actionError = "Couldn't delete provider." }
+        guard let client = model.api(), !busyIds.contains(provider.id) else { return }
+        busyIds.insert(provider.id)
+        let removed = providers
+        providers.removeAll { $0.id == provider.id } // optimistic
+        do {
+            try await client.deleteOidcProvider(id: provider.id)
+            model.toast("Provider deleted.", style: .success)
+        } catch {
+            providers = removed // restore on failure
+            model.toast("Couldn't delete provider.", style: .error)
+        }
+        busyIds.remove(provider.id)
     }
 }
 

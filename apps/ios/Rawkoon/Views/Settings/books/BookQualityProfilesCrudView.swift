@@ -8,7 +8,7 @@ struct BookQualityProfilesCrudView: View {
     @State private var profiles: [BookQualityProfile] = []
     @State private var loading = true
     @State private var loadError: String?
-    @State private var deleteError: String?
+    @State private var busyIds: Set<Int> = []
 
     var body: some View {
         Group {
@@ -40,10 +40,13 @@ struct BookQualityProfilesCrudView: View {
                     .listRowBackground(Theme.raised)
                     .swipeActions {
                         Button("Delete", role: .destructive) { Task { await delete(profile) } }
+                            .disabled(busyIds.contains(profile.id))
                     }
-                }
-                if let deleteError {
-                    Text(deleteError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                    .overlay(alignment: .trailing) {
+                        if busyIds.contains(profile.id) {
+                            ProgressView().tint(Theme.muted).padding(.trailing, 4)
+                        }
+                    }
                 }
             }
         }
@@ -67,10 +70,18 @@ struct BookQualityProfilesCrudView: View {
     }
 
     private func delete(_ profile: BookQualityProfile) async {
-        guard let client = model.api() else { return }
-        deleteError = nil
-        do { try await client.deleteBookQualityProfile(id: profile.id); await load() }
-        catch { deleteError = settingsErrorMessage(error) }
+        guard let client = model.api(), !busyIds.contains(profile.id) else { return }
+        busyIds.insert(profile.id)
+        let removed = profiles
+        profiles.removeAll { $0.id == profile.id } // optimistic
+        do {
+            try await client.deleteBookQualityProfile(id: profile.id)
+            model.toast("Profile deleted.", style: .success)
+        } catch {
+            profiles = removed // restore on failure
+            model.toast(settingsErrorMessage(error), style: .error)
+        }
+        busyIds.remove(profile.id)
     }
 }
 
