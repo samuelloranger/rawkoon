@@ -33,7 +33,10 @@ struct NotificationsListView: View {
                     }
                 }
             }
-            .task { await load(reset: true) }
+            // Keyed on the live token so a notification arriving while the list
+            // is open refetches it (and cancels an in-flight load), instead of
+            // only the bell badge updating while the list stays stale.
+            .task(id: model.notificationChangeToken) { await load(reset: true) }
             .refreshable { await load(reset: true) }
             .confirmationDialog(
                 "Delete this notification?",
