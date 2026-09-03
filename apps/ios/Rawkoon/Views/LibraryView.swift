@@ -111,6 +111,9 @@ struct LibraryView: View {
     @State private var showingRemoveConfirm = false
     @State private var menuDetailMedia: LibraryMedia?
     @State private var showingPlayer = false
+    /// The in-flight live-event reload, cancelled before a new one starts so
+    /// rapid `/api/library/events` bursts can't race the list state.
+    @State private var liveReloadTask: Task<Void, Never>?
     @State private var readingBook: BookListItem?
 
     @State private var bookKind: BookKindFilter = .all
@@ -170,11 +173,17 @@ struct LibraryView: View {
         }
         .onChange(of: model.libraryChangeToken) { _, _ in
             guard section == .media else { return }
-            Task { await loadMedia(reset: true) }
+            // Cancel any reload still in flight before starting the next one, so
+            // a burst of SSE events can't run overlapping resets that race the
+            // paginated @State (the superseded fetch throws on cancellation
+            // rather than writing a stale page).
+            liveReloadTask?.cancel()
+            liveReloadTask = Task { await loadMedia(reset: true) }
         }
         .onChange(of: model.bookChangeToken) { _, _ in
             guard section == .books else { return }
-            Task { await model.loadLibrary() }
+            liveReloadTask?.cancel()
+            liveReloadTask = Task { await model.loadLibrary() }
         }
         .sheet(item: $releaseSearch) { target in
             ReleaseSearchView(

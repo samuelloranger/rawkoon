@@ -9,40 +9,43 @@ struct NotificationBannerView: View {
     let notification: StreamNotificationDTO
 
     var body: some View {
-        Button {
-            model.dismissBanner()
-            model.navigate(toNotificationUrl: notification.url)
-        } label: {
-            HStack(alignment: .top, spacing: 12) {
-                NotificationLeadingVisual(
-                    type: notification.type, metadata: notification.metadata, imageUrl: notification.imageUrl
-                )
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(notification.title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.textStrong)
-                        .lineLimit(1)
-                    Text(notification.body)
-                        .font(.caption)
-                        .foregroundStyle(Theme.muted)
-                        .lineLimit(2)
-                }
-                Spacer(minLength: 0)
-                Button {
-                    model.dismissBanner()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Theme.faint)
-                }
-                .buttonStyle(.plain)
+        // The navigate area and the dismiss button are SIBLINGS, not nested:
+        // a `Button` inside another `Button` delivers the tap to both on iOS, so
+        // tapping the xmark would also fire the navigation. The row body uses a
+        // tap gesture over its content shape; only the xmark is a real Button.
+        HStack(alignment: .top, spacing: 12) {
+            NotificationLeadingVisual(
+                type: notification.type, metadata: notification.metadata, imageUrl: notification.imageUrl
+            )
+            VStack(alignment: .leading, spacing: 2) {
+                Text(notification.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.textStrong)
+                    .lineLimit(1)
+                Text(notification.body)
+                    .font(.caption)
+                    .foregroundStyle(Theme.muted)
+                    .lineLimit(2)
             }
-            .padding(12)
-            .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
-            .shadow(color: .black.opacity(0.35), radius: 12, y: 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                model.dismissBanner()
+                model.navigate(toNotificationUrl: notification.url)
+            }
+            Button {
+                model.dismissBanner()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.faint)
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
+        .padding(12)
+        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
+        .shadow(color: .black.opacity(0.35), radius: 12, y: 6)
         .padding(.horizontal, 16)
     }
 }

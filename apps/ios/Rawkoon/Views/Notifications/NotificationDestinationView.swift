@@ -73,7 +73,15 @@ struct NotificationDestinationView: View {
             if model.library.isEmpty {
                 await model.ensureLibraryLoaded()
             }
-            bookItem = model.library.first { $0.bookId == bookId }
+            if let found = model.library.first(where: { $0.bookId == bookId }) {
+                bookItem = found
+            } else {
+                // Not in the cached list — a book grabbed/downloaded after the
+                // library was last loaded won't be there yet. Refresh once and
+                // retry before falling back to the "unavailable" message.
+                await model.loadLibrary()
+                bookItem = model.library.first { $0.bookId == bookId }
+            }
         case .requests:
             break
         }

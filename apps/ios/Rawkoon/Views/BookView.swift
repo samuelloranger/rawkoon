@@ -144,14 +144,15 @@ struct BookView: View {
         .background(Theme.base)
         .navigationTitle(titleText)
         .navigationBarTitleDisplayMode(.inline)
-        .task {
+        // `.task(id:)` covers both the initial load and live `/api/library/events`
+        // book updates, and — unlike a bare `onChange { Task { … } }` — cancels an
+        // in-flight refresh before starting the next, so a burst of events can't
+        // run overlapping reloads.
+        .task(id: model.bookChangeToken) {
             await refreshAll(forceManifestRefresh: false)
         }
         .refreshable {
             await refreshAll(forceManifestRefresh: true)
-        }
-        .onChange(of: model.bookChangeToken) { _, _ in
-            Task { await refreshAll(forceManifestRefresh: false) }
         }
         .sheet(isPresented: $showingPlayer) {
             if let manifest, let summary = audiobookSummary {
