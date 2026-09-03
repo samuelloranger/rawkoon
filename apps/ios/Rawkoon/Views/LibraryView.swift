@@ -168,6 +168,14 @@ struct LibraryView: View {
                 Task { await loadMedia(reset: true) }
             }
         }
+        .onChange(of: model.libraryChangeToken) { _, _ in
+            guard section == .media else { return }
+            Task { await loadMedia(reset: true) }
+        }
+        .onChange(of: model.bookChangeToken) { _, _ in
+            guard section == .books else { return }
+            Task { await model.loadLibrary() }
+        }
         .sheet(item: $releaseSearch) { target in
             ReleaseSearchView(
                 query: target.query,

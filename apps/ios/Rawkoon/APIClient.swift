@@ -612,16 +612,23 @@ actor APIClient {
         guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
     }
 
-    /// Consumes a JSON-over-SSE status stream, yielding a decoded status per
-    /// `data:` line. Cancel the consuming task to close the connection.
-    func libraryMigrateStatusStream() -> AsyncThrowingStream<MigrateStatusDTO, Error> {
+    /// Consumes a JSON-over-SSE stream at `path`, yielding a decoded value per
+    /// `data:` line. Comment/heartbeat lines (`:`-prefixed) and blanks are
+    /// skipped, as are lines that fail to decode as `T` (e.g. a handshake
+    /// payload shaped differently from the steady-state event — the caller
+    /// need not special-case it). A 401/403 response finishes the stream with
+    /// `APIError.unauthorized` so callers know to stop reconnecting rather
+    /// than retry a stream that will never authenticate; any other transport
+    /// failure finishes with `APIError.transport`. Cancel the consuming task
+    /// to close the connection.
+    func sseStream<T: Decodable & Sendable>(_ path: String) -> AsyncThrowingStream<T, Error> {
         let session = session
         let token = token
         let base = baseURL
         return AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    guard let url = URL(string: "/api/library/migrate/status", relativeTo: base)?.absoluteURL else {
+                    guard let url = URL(string: path, relativeTo: base)?.absoluteURL else {
                         throw APIError.transport
                     }
                     var request = URLRequest(url: url)
@@ -630,8 +637,10 @@ actor APIClient {
                         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
                     }
                     let (bytes, response) = try await session.bytes(for: request)
-                    guard let http = response as? HTTPURLResponse, (200 ..< 300).contains(http.statusCode) else {
-                        throw APIError.transport
+                    guard let http = response as? HTTPURLResponse else { throw APIError.transport }
+                    guard (200 ..< 300).contains(http.statusCode) else {
+                        let unauthorized = http.statusCode == 401 || http.statusCode == 403
+                        throw unauthorized ? APIError.unauthorized : APIError.transport
                     }
                     let decoder = JSONDecoder()
                     decoder.keyDecodingStrategy = .convertFromSnakeCase
@@ -642,8 +651,8 @@ actor APIClient {
                         guard line.hasPrefix("data:") else { continue }
                         let payload = line.dropFirst(5).trimmingCharacters(in: .whitespaces)
                         guard !payload.isEmpty, let data = payload.data(using: .utf8) else { continue }
-                        if let status = try? decoder.decode(MigrateStatusDTO.self, from: data) {
-                            continuation.yield(status)
+                        if let value = try? decoder.decode(T.self, from: data) {
+                            continuation.yield(value)
                         }
                     }
                     continuation.finish()
@@ -653,6 +662,44 @@ actor APIClient {
             }
             continuation.onTermination = { _ in task.cancel() }
         }
+    }
+
+    /// Migration job status stream. Kept as its own named method (rather than
+    /// a bare `sseStream` call at the use site) so `ArrLibraryImportView` reads
+    /// the same as before this was generalized.
+    func libraryMigrateStatusStream() -> AsyncThrowingStream<MigrateStatusDTO, Error> {
+        sseStream("/api/library/migrate/status")
+    }
+
+    /// Live library/book change feed. The handshake (`{connected:true,...}`)
+    /// decodes but carries no id, so it is filtered out here rather than at
+    /// each call site.
+    func libraryEventsStream() -> AsyncThrowingStream<LibraryEvent, Error> {
+        let raw: AsyncThrowingStream<LibraryEventDTO, Error> = sseStream("/api/library/events")
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    for try await event in raw {
+                        if let bookId = event.bookId, event.kind == "book" {
+                            continuation.yield(.book(id: bookId))
+                        } else if let mediaId = event.mediaId {
+                            continuation.yield(.media(id: mediaId))
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    /// Live per-user notification feed. The handshake (`{connected:true}`)
+    /// has no `id`, so it fails to decode as `StreamNotificationDTO` and is
+    /// dropped by `sseStream` automatically — no separate filtering needed.
+    func notificationStream() -> AsyncThrowingStream<StreamNotificationDTO, Error> {
+        sseStream("/api/notifications/stream")
     }
 
     func postRaw(_ path: String, body: [String: Any]) async throws -> (Data, HTTPURLResponse) {
@@ -945,6 +992,34 @@ actor APIClient {
 
     func rssStatus() async throws -> RssStatusResponse {
         try await get("/api/library/rss-status")
+    }
+
+    /// Notification center (spec §T3) — mirrors the web `/notifications` page.
+    /// `read` filters server-side when set; omit it for "all".
+    func notifications(
+        page: Int? = nil, limit: Int? = nil, read: Bool? = nil
+    ) async throws -> NotificationsResponseDTO {
+        try await get("/api/notifications", query: [
+            "page": page.map(String.init),
+            "limit": limit.map(String.init),
+            "read": read.map { $0 ? "true" : "false" },
+        ])
+    }
+
+    func unreadNotificationCount() async throws -> UnreadCountResponseDTO {
+        try await get("/api/notifications/unread-count")
+    }
+
+    func markNotificationRead(id: Int) async throws {
+        try await putExpectOK("/api/notifications/\(id)/read", body: EmptyBody())
+    }
+
+    func markAllNotificationsRead() async throws {
+        try await putExpectOK("/api/notifications/read-all", body: EmptyBody())
+    }
+
+    func deleteNotification(id: Int) async throws {
+        try await deleteExpectOK("/api/notifications/\(id)")
     }
 
     /// APNs device registration

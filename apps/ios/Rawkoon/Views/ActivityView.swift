@@ -63,6 +63,12 @@ struct ActivityView: View {
         .task { await loadSpeed() }
         .task(id: lane) { await loadCurrentLane() }
         .refreshable { await loadCurrentLane() }
+        .onChange(of: model.libraryChangeToken) { _, _ in
+            Task { await loadCurrentLane() }
+        }
+        .onChange(of: model.bookChangeToken) { _, _ in
+            Task { await loadCurrentLane() }
+        }
     }
 
     // MARK: Header
