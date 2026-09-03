@@ -30,6 +30,9 @@ struct BookView: View {
 
     @State private var manifest: BookManifest?
     @State private var loadingManifest = false
+    /// False until `fetchManifest` has actually run. The chapter list treats
+    /// "not yet attempted" as loading, not as "Chapters couldn't load."
+    @State private var fetchAttemptedManifest = false
     @State private var rescanningManifest = false
     @State private var preparingAudiobookDownload = false
     @State private var loadingPlayer = false
@@ -144,6 +147,9 @@ struct BookView: View {
         .background(Theme.base)
         .navigationTitle(titleText)
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            seedManifestFromCache()
+        }
         // `.task(id:)` covers both the initial load and live `/api/library/events`
         // book updates, and — unlike a bare `onChange { Task { … } }` — cancels an
         // in-flight refresh before starting the next, so a burst of events can't
@@ -283,19 +289,11 @@ struct BookView: View {
 
     @ViewBuilder
     private var laneContent: some View {
-        if loadingDetail, detail == nil {
-            HStack {
-                Spacer()
-                ProgressView().tint(Theme.apricot)
-                Spacer()
-            }
-        } else {
-            switch activeLane {
-            case .audiobook:
-                audiobookSection
-            case .ebook:
-                ebookSection
-            }
+        switch activeLane {
+        case .audiobook:
+            audiobookSection
+        case .ebook:
+            ebookSection
         }
     }
 
@@ -467,7 +465,7 @@ struct BookView: View {
             .tint(Theme.apricot)
             .foregroundStyle(Theme.onAccent)
             .fontWeight(.semibold)
-            .disabled(!canPlayAudiobook || loadingManifest)
+            .disabled(!canPlayAudiobook)
 
             audiobookDownloadButton
 
@@ -609,9 +607,15 @@ struct BookView: View {
             Text("Chapters")
                 .font(.display(17))
                 .foregroundStyle(Theme.textStrong)
-            if loadingManifest {
+            switch chapterListPhase(
+                loading: loadingManifest,
+                fetchAttempted: fetchAttemptedManifest,
+                hasChapters: !(manifest?.chapters.isEmpty ?? true),
+                error: manifestError
+            ) {
+            case .loading:
                 ProgressView().tint(Theme.apricot)
-            } else if manifest != nil {
+            case .ready:
                 if sortedChapters.count > chapterFilterThreshold {
                     searchField("Filter chapters", text: $chapterFilter)
                 }
@@ -646,9 +650,9 @@ struct BookView: View {
                         }
                     }
                 }
-            } else {
+            case let .failed(message):
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(manifestError ?? "Chapters couldn't load.")
+                    Text(message)
                         .font(.subheadline)
                         .foregroundStyle(Theme.muted)
                     Text("Pull to refresh, run rescan, or check the server.")
@@ -951,26 +955,26 @@ struct BookView: View {
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
     }
 
-    /// The ebook lane loads before the audiobook manifest on purpose.
-    ///
-    /// A manifest 400 kicks off `recoverManifestAfterRescan()`, and a
-    /// server-side rescan of a many-chapter edition re-reads every file's
-    /// metadata — tens of seconds on a 60+ file audiobook. With the ebook load
-    /// queued behind it, `ebookFiles` stayed empty for that whole window, which
-    /// left "Read" disabled and the Files card spinning.
+    /// Chapters first, then ebook files. Fetching ebooks first used to leave the
+    /// chapter list in its idle state (now a spinner; previously the default
+    /// "Chapters couldn't load" error) for the whole ebook GET. Starting the
+    /// manifest first also avoids a MainActor deadlock from overlapping the two.
     private func refreshAll(forceManifestRefresh: Bool) async {
+        seedManifestFromCache()
         await loadBookDetail()
-        if hasEbookEdition {
-            await loadEbookFiles()
-        } else {
-            ebookFiles = []
-            ebookFilesError = nil
-        }
+        seedManifestFromCache()
         if hasAudiobookEdition {
             await fetchManifest(forceRefresh: forceManifestRefresh)
         } else {
             manifest = nil
             manifestError = nil
+            fetchAttemptedManifest = true
+        }
+        if hasEbookEdition {
+            await loadEbookFiles()
+        } else {
+            ebookFiles = []
+            ebookFilesError = nil
         }
     }
 
@@ -1034,8 +1038,31 @@ struct BookView: View {
         }
     }
 
+    private func seedManifestFromCache() {
+        guard manifest == nil, let editionId = audiobookEditionId else { return }
+        let cached = model.cachedManifest(editionId)
+            ?? DownloadedStore.readManifest(editionId: editionId)
+        guard let cached, !cached.chapters.isEmpty else { return }
+        manifest = cached
+        fetchAttemptedManifest = true
+        loadingManifest = false
+    }
+
     private func fetchManifest(forceRefresh: Bool = false) async {
-        guard let editionId = audiobookEditionId else { return }
+        guard let editionId = audiobookEditionId else {
+            fetchAttemptedManifest = true
+            return
+        }
+        seedManifestFromCache()
+        fetchAttemptedManifest = true
+
+        // Disk/cache is enough to list chapters. Blocking on the network here
+        // is what left a spinner up after a kill even with manifest.json on disk.
+        if !forceRefresh, let existing = manifest, !existing.chapters.isEmpty {
+            loadingManifest = false
+            return
+        }
+
         loadingManifest = true
         manifestError = nil
         defer { loadingManifest = false }
@@ -1043,20 +1070,22 @@ struct BookView: View {
             manifest = try await model.manifest(editionId, forceRefresh: forceRefresh)
             attemptedAutomaticRecovery = false
         } catch let apiError as APIError {
-            manifest = nil
-            manifestError = message(for: apiError)
-            if
-                case .http(400) = apiError,
-                model.isAdmin,
-                !attemptedAutomaticRecovery,
-                !forceRefresh
-            {
-                attemptedAutomaticRecovery = true
-                await recoverManifestAfterRescan()
+            if manifest == nil {
+                manifestError = message(for: apiError)
+                if
+                    case .http(400) = apiError,
+                    model.isAdmin,
+                    !attemptedAutomaticRecovery,
+                    !forceRefresh
+                {
+                    attemptedAutomaticRecovery = true
+                    await recoverManifestAfterRescan()
+                }
             }
         } catch {
-            manifest = nil
-            manifestError = "Could not load manifest."
+            if manifest == nil {
+                manifestError = "Could not load manifest."
+            }
         }
     }
 

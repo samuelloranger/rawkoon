@@ -89,6 +89,9 @@ actor APIClient {
         config.httpCookieStorage = nil
         config.httpShouldSetCookies = false
         config.httpCookieAcceptPolicy = .never
+        config.waitsForConnectivity = false
+        config.timeoutIntervalForRequest = 15
+        config.timeoutIntervalForResource = 20
         session = URLSession(configuration: config)
         self.token = token
     }
@@ -423,7 +426,48 @@ actor APIClient {
         } catch let error as APIError {
             throw error
         } catch {
+            // A long-lived URLSession reuses keep-alive connections; after the app
+            // idles or backgrounds, the server or NAT can drop that socket while the
+            // client still believes it is open. The next request over the dead
+            // connection fails with -1005 (networkConnectionLost) — the request never
+            // reached the server, so retrying an idempotent GET is safe and opens a
+            // fresh connection. This is what makes a pull-to-refresh fail while a
+            // cold app launch (fresh session) succeeds.
+            if request.httpMethod == "GET", Self.isConnectionResetError(error) {
+                Log.network.warning(
+                    "Retrying GET \(request.url?.path ?? "?", privacy: .public) after transport reset: \(error.localizedDescription, privacy: .public)"
+                )
+                do {
+                    let (data, response) = try await session.data(for: request)
+                    guard let http = response as? HTTPURLResponse else {
+                        throw APIError.transport
+                    }
+                    return (data, http)
+                } catch let retryError as APIError {
+                    throw retryError
+                } catch let retryError {
+                    Log.network.error(
+                        "GET \(request.url?.path ?? "?", privacy: .public) failed after retry: \(retryError.localizedDescription, privacy: .public)"
+                    )
+                    throw APIError.transport
+                }
+            }
+            Log.network.error(
+                "\(request.httpMethod ?? "?", privacy: .public) \(request.url?.path ?? "?", privacy: .public) transport error: \(error.localizedDescription, privacy: .public)"
+            )
             throw APIError.transport
+        }
+    }
+
+    /// Transport failures that mean the request never reached the server over a
+    /// stale keep-alive connection, so a single retry on a fresh socket is safe.
+    private static func isConnectionResetError(_ error: Error) -> Bool {
+        guard let urlError = error as? URLError else { return false }
+        switch urlError.code {
+        case .networkConnectionLost, .cannotConnectToHost, .timedOut:
+            return true
+        default:
+            return false
         }
     }
 

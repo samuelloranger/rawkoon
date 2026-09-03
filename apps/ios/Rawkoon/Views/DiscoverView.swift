@@ -124,7 +124,20 @@ struct DiscoverView: View {
 
     @ViewBuilder
     private var feedContent: some View {
-        if loadingFeed {
+        if let feed, !feed.sections.isEmpty {
+            // Keep already-loaded rails on screen even when a refresh fails or is in
+            // flight — a transient refresh error must not wipe good data. The pull
+            // spinner covers loading, and a failed refresh surfaces as a banner
+            // above the rails instead of replacing them.
+            VStack(alignment: .leading, spacing: 24) {
+                if let feedError {
+                    refreshErrorBanner(feedError)
+                }
+                ForEach(feed.sections, id: \.title) { section in
+                    rail(title: section.title, items: section.items)
+                }
+            }
+        } else if loadingFeed {
             ProgressView().tint(Theme.muted)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 28)
@@ -135,12 +148,6 @@ struct DiscoverView: View {
                 description: Text(feedError)
             )
             .padding(.top, 16)
-        } else if let feed, !feed.sections.isEmpty {
-            VStack(alignment: .leading, spacing: 24) {
-                ForEach(feed.sections, id: \.title) { section in
-                    rail(title: section.title, items: section.items)
-                }
-            }
         } else {
             ContentUnavailableView(
                 "Nothing to show yet",
@@ -149,6 +156,21 @@ struct DiscoverView: View {
             )
             .padding(.top, 28)
         }
+    }
+
+    private func refreshErrorBanner(_ message: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "wifi.slash")
+                .foregroundStyle(Theme.terracotta)
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(Theme.muted)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func rail(title: String, items: [TmdbSearchItem]) -> some View {
