@@ -88,6 +88,12 @@ final class AppModel {
     private var notificationStreamTask: Task<Void, Never>?
     private var bannerDismissTask: Task<Void, Never>?
 
+    /// Current toast banner, rendered once at the app root by `ToastOverlay`.
+    /// Any screen can call `toast(_:style:)` to surface a background action's
+    /// result without owning any presentation state itself.
+    var currentToast: Toast?
+    private var toastDismissTask: Task<Void, Never>?
+
     let player = AudiobookPlayer()
 
     private static let serverURLKey = "server_url"
@@ -232,6 +238,28 @@ final class AppModel {
             await startDownload(editionId: editionId)
         }
     #endif
+
+    /// Surfaces a brief banner at the app root and auto-dismisses it. This is
+    /// the app-wide fix for actions that used to fail (or succeed) silently:
+    /// call this from anywhere instead of stashing an error string a screen
+    /// might not be showing.
+    func toast(_ message: String, style: Toast.Style = .info) {
+        currentToast = Toast(message: message, style: style)
+
+        let generator = UINotificationFeedbackGenerator()
+        switch style {
+        case .success: generator.notificationOccurred(.success)
+        case .error: generator.notificationOccurred(.error)
+        case .info: break
+        }
+
+        toastDismissTask?.cancel()
+        toastDismissTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            self?.currentToast = nil
+        }
+    }
 
     /// Load the enabled OAuth providers for the login screen (public endpoint).
     func loadSsoProviders() async {

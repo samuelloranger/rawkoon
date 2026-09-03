@@ -101,19 +101,25 @@ struct LoginView: View {
                                     Task { await model.signInWithProvider(provider.slug) }
                                 } label: {
                                     HStack(spacing: 10) {
-                                        AsyncImage(url: URL(string: provider.iconUrl ?? "")) { image in
-                                            image.resizable().scaledToFit()
-                                        } placeholder: {
-                                            Image(systemName: "person.badge.key.fill")
-                                                .foregroundStyle(Theme.muted)
+                                        if model.loading {
+                                            ProgressView().tint(Theme.muted)
+                                                .frame(width: 20, height: 20)
+                                        } else {
+                                            AsyncImage(url: URL(string: provider.iconUrl ?? "")) { image in
+                                                image.resizable().scaledToFit()
+                                            } placeholder: {
+                                                Image(systemName: "person.badge.key.fill")
+                                                    .foregroundStyle(Theme.muted)
+                                            }
+                                            .frame(width: 20, height: 20)
                                         }
-                                        .frame(width: 20, height: 20)
                                         Text("Sign in with \(provider.name)")
                                             .fontWeight(.medium)
                                         Spacer()
                                     }
                                     .foregroundStyle(Theme.textStrong)
                                 }
+                                .disabled(model.loading)
                             }
                         } header: {
                             Text("Or")

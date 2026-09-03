@@ -48,6 +48,7 @@ struct MediaDetailView: View {
 
     @State private var episodesBySeason: [Int: [Episode]] = [:]
     @State private var similarItems: [TmdbSearchItem] = []
+    @State private var busySimilarLibraryIds: Set<Int> = []
     @State private var loadingSimilar = false
     @State private var similarError: String?
 
@@ -490,7 +491,9 @@ struct MediaDetailView: View {
                             ),
                             onMenuAction: { handleSimilarMenu($0, item: item) }
                         ) {
-                            if item.alreadyExists == true {
+                            if let libraryId = item.libraryId, busySimilarLibraryIds.contains(libraryId) {
+                                ProgressView().tint(Theme.apricot)
+                            } else if item.alreadyExists == true {
                                 Circle().fill(Theme.seed).frame(width: 22, height: 22)
                                     .overlay(Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Color(hex: 0x10231A)))
                             }
@@ -1658,14 +1661,17 @@ struct MediaDetailView: View {
     }
 
     private func toggleSimilarMonitored(libraryId: Int) async {
-        guard let client = model.api() else { return }
+        guard let client = model.api(), !busySimilarLibraryIds.contains(libraryId) else { return }
+        busySimilarLibraryIds.insert(libraryId)
         do {
             let item = try await client.libraryItem(id: libraryId)
             _ = try await client.updateLibraryMonitored(id: libraryId, monitored: !item.monitored)
             await fetchSimilar()
+            model.toast("Updated monitoring.", style: .success)
         } catch {
-            similarError = "Could not update monitoring."
+            model.toast("Could not update monitoring.", style: .error)
         }
+        busySimilarLibraryIds.remove(libraryId)
     }
 
     private func toggleWatchlist() async {

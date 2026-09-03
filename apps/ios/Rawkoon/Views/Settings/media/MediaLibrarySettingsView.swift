@@ -136,7 +136,7 @@ struct MediaLibrarySettingsView: View {
                 } header: { Text("Scan") }
 
                 Section {
-                    Button("Reindex languages") { Task { await startReindex() } }
+                    AsyncButton("Reindex languages", action: startReindex)
                         .disabled(reindexActive)
                         .listRowBackground(Theme.raised)
                     if let status = reindexStatus, let state = status.state, state != "unknown" {
@@ -247,8 +247,12 @@ struct MediaLibrarySettingsView: View {
 
     private func startReindex() async {
         guard let client = model.api() else { return }
-        _ = try? await client.startReindexLanguages()
-        await pollReindex()
+        do {
+            _ = try await client.startReindexLanguages()
+            await pollReindex()
+        } catch {
+            model.toast("Couldn't start reindex.", style: .error)
+        }
     }
 
     private func refreshReindex() async {
