@@ -12,13 +12,20 @@ struct MediaDetailView: View {
     let title: String
     let posterPath: String?
     let libraryId: Int?
+    /// Set when opened via a notification's `?tab=management` deep link
+    /// (spec T6) — jumps straight to the Management tab once it's available.
+    let focusManagement: Bool
 
-    init(tmdbId: Int, mediaType: String, title: String, posterPath: String?, libraryId: Int?) {
+    init(
+        tmdbId: Int, mediaType: String, title: String, posterPath: String?, libraryId: Int?,
+        focusManagement: Bool = false
+    ) {
         self.tmdbId = tmdbId
         self.mediaType = mediaType
         self.title = title
         self.posterPath = posterPath
         self.libraryId = libraryId
+        self.focusManagement = focusManagement
     }
 
     @State private var details: TmdbMediaDetails?
@@ -84,6 +91,9 @@ struct MediaDetailView: View {
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .task {
+                if focusManagement, availableTabs.contains(.management) {
+                    activeTab = .management
+                }
                 if details == nil {
                     await fetchDetails()
                 }
@@ -97,9 +107,15 @@ struct MediaDetailView: View {
                 Task { await refreshManagementData() }
             }
             .onChange(of: availableTabKey) { _ in
-                if !availableTabs.contains(activeTab) {
+                if focusManagement, availableTabs.contains(.management) {
+                    activeTab = .management
+                } else if !availableTabs.contains(activeTab) {
                     activeTab = availableTabs.first ?? .info
                 }
+            }
+            .onChange(of: model.libraryChangeToken) { _, _ in
+                guard libraryId != nil, managementItem != nil else { return }
+                Task { await refreshManagementData() }
             }
             .sheet(isPresented: $showingReleaseSearch) {
                 ReleaseSearchView(

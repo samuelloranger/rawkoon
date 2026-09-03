@@ -56,6 +56,38 @@ final class AppModel {
     /// network-error wall, and lists only downloaded books.
     var isOfflineLibrary = false
 
+    // MARK: Live updates (spec §T2/T4)
+
+    /// Bumped whenever a `.media` event arrives on the foreground-only
+    /// `/api/library/events` SSE stream. There is no TanStack Query
+    /// equivalent on iOS, so "invalidate" means "a view watching this token
+    /// via `.onChange` reloads itself" — see `LibraryView`, `MediaDetailView`,
+    /// `ActivityView`.
+    private(set) var libraryChangeToken = 0
+    /// Same idea as `libraryChangeToken`, for `.book` events — see
+    /// `LibraryView`, `BookView`, `ActivityView`.
+    private(set) var bookChangeToken = 0
+
+    /// Kept live by the notification stream and by `NotificationsListView`'s
+    /// own REST calls; drives the Home bell badge.
+    var unreadNotificationCount = 0
+    /// The most recent live notification, shown as a transient top banner and
+    /// cleared after a few seconds — the iOS analog of the web app's
+    /// `NotificationToastContainer`. `id` lets `NotificationBannerView` key its
+    /// dismiss timer per-notification instead of restarting on unrelated
+    /// re-renders.
+    var bannerNotification: StreamNotificationDTO?
+    /// Set from a banner tap or a notification-list row tap (via
+    /// `navigate(toNotificationUrl:)`); `RawkoonApp` presents it as a sheet
+    /// from the app root, so it works regardless of which tab is active.
+    /// Bounded to the paths `NotificationDestination.resolve` understands —
+    /// see spec T6.
+    var deepLinkTarget: NotificationDestination?
+
+    private var libraryEventsTask: Task<Void, Never>?
+    private var notificationStreamTask: Task<Void, Never>?
+    private var bannerDismissTask: Task<Void, Never>?
+
     let player = AudiobookPlayer()
 
     private static let serverURLKey = "server_url"
@@ -143,6 +175,8 @@ final class AppModel {
             isLoggedIn = true
             try await reloadLibrary()
             requestPushAuthorization()
+            startLiveStreams()
+            await refreshUnreadNotificationCount()
         } catch {
             errorMessage = message(for: error)
         }
@@ -244,6 +278,8 @@ final class AppModel {
         isLoggedIn = true
         do { try await reloadLibrary() } catch { errorMessage = message(for: error) }
         requestPushAuthorization()
+        startLiveStreams()
+        await refreshUnreadNotificationCount()
     }
 
     func loadLibrary() async {
@@ -262,6 +298,127 @@ final class AppModel {
     /// call this directly (e.g. `try await model.api()?.explore()`).
     func api() -> APIClient? {
         apiClient
+    }
+
+    // MARK: Live updates (spec §T2/T4)
+
+    /// Starts the library-events and notification SSE consumers if they
+    /// aren't already running. Call when the app becomes active while signed
+    /// in (see `RawkoonApp`'s `scenePhase` handling); a no-op when logged out
+    /// or already running.
+    func startLiveStreams() {
+        guard isLoggedIn else { return }
+        if libraryEventsTask == nil {
+            libraryEventsTask = Task { [weak self] in await self?.runLibraryEventsLoop() }
+        }
+        if notificationStreamTask == nil {
+            notificationStreamTask = Task { [weak self] in await self?.runNotificationStreamLoop() }
+        }
+    }
+
+    /// Stops both live streams. Call on background/logout — APNs already
+    /// covers background delivery, so a foreground-only stream has nothing
+    /// left to do off-screen.
+    func stopLiveStreams() {
+        libraryEventsTask?.cancel()
+        libraryEventsTask = nil
+        notificationStreamTask?.cancel()
+        notificationStreamTask = nil
+    }
+
+    /// Consumes `/api/library/events` until cancelled or unauthorized,
+    /// reconnecting with exponential backoff (capped at 30s) on any other
+    /// drop — the connection is expected to close periodically (idle
+    /// timeouts, backgrounding at the edge, server restarts).
+    private func runLibraryEventsLoop() async {
+        var backoff = 1.0
+        while !Task.isCancelled {
+            guard let client = apiClient else { return }
+            do {
+                for try await event in await client.libraryEventsStream() {
+                    backoff = 1.0
+                    switch event {
+                    case .media: libraryChangeToken += 1
+                    case .book: bookChangeToken += 1
+                    }
+                }
+            } catch APIError.unauthorized {
+                Log.sync.notice("library events stream unauthorized — not reconnecting")
+                return
+            } catch {
+                Log.sync.debug("library events stream dropped: \(error.localizedDescription, privacy: .public)")
+            }
+            if Task.isCancelled {
+                return
+            }
+            try? await Task.sleep(for: .seconds(backoff))
+            backoff = min(backoff * 2, 30)
+        }
+    }
+
+    /// Consumes `/api/notifications/stream` the same way — see
+    /// `runLibraryEventsLoop`. Each event bumps the unread count and shows the
+    /// transient in-app banner; it does not itself update the notification
+    /// list (open `NotificationsListView` refetches on appear/pull-to-refresh).
+    private func runNotificationStreamLoop() async {
+        var backoff = 1.0
+        while !Task.isCancelled {
+            guard let client = apiClient else { return }
+            do {
+                for try await notification in await client.notificationStream() {
+                    backoff = 1.0
+                    unreadNotificationCount += 1
+                    showBanner(notification)
+                }
+            } catch APIError.unauthorized {
+                Log.sync.notice("notification stream unauthorized — not reconnecting")
+                return
+            } catch {
+                Log.sync.debug("notification stream dropped: \(error.localizedDescription, privacy: .public)")
+            }
+            if Task.isCancelled {
+                return
+            }
+            try? await Task.sleep(for: .seconds(backoff))
+            backoff = min(backoff * 2, 30)
+        }
+    }
+
+    /// Shows the transient in-app banner for a live notification, replacing
+    /// whichever one is already shown, and auto-dismisses it a few seconds
+    /// later — the iOS analog of the web app's `NotificationToastContainer`.
+    private func showBanner(_ notification: StreamNotificationDTO) {
+        bannerDismissTask?.cancel()
+        bannerNotification = notification
+        bannerDismissTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled else { return }
+            self?.dismissBanner()
+        }
+    }
+
+    /// Dismisses the in-app banner early (e.g. on tap).
+    func dismissBanner() {
+        bannerDismissTask?.cancel()
+        bannerDismissTask = nil
+        bannerNotification = nil
+    }
+
+    /// Resolves a notification's `url` to a native destination and pushes it.
+    /// Does nothing when the URL doesn't map to a screen (spec T6) — staying
+    /// on the current screen is the safe fallback, not a web view or a crash.
+    func navigate(toNotificationUrl url: String?) {
+        guard let destination = NotificationDestination.resolve(url: url) else { return }
+        deepLinkTarget = destination
+    }
+
+    /// Best-effort unread-count refresh — called after sign-in and whenever
+    /// `NotificationsListView` changes read state server-side.
+    func refreshUnreadNotificationCount() async {
+        guard let client = apiClient else { return }
+        if let response = try? await client.unreadNotificationCount() {
+            unreadNotificationCount = response.unreadCount
+        }
     }
 
     // MARK: Push notifications (APNs)
@@ -514,6 +671,11 @@ final class AppModel {
             Task { try? await client.unregisterApns(deviceToken: token) }
         }
         registeredApnsToken = nil
+
+        stopLiveStreams()
+        dismissBanner()
+        deepLinkTarget = nil
+        unreadNotificationCount = 0
 
         Keychain.delete(Self.serverURLKey)
         Keychain.delete(Self.authTokenKey)
