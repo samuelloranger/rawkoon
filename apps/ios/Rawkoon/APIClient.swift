@@ -859,6 +859,24 @@ actor APIClient {
         try await get("/api/library/\(id)/files")
     }
 
+    func remuxFile(
+        fileId: Int,
+        keepAudioTrackIndices: [Int],
+        keepSubtitleTrackIndices: [Int]
+    ) async throws -> RemuxStartResponse {
+        try await post(
+            "/api/library/files/\(fileId)/remux",
+            body: RemuxRequest(
+                keepAudioTrackIndices: keepAudioTrackIndices,
+                keepSubtitleTrackIndices: keepSubtitleTrackIndices
+            )
+        )
+    }
+
+    func remuxFileStatus(fileId: Int) async throws -> RemuxFileStatus {
+        try await get("/api/library/files/\(fileId)/remux/status")
+    }
+
     /// Requests
     func requestsList() async throws -> RequestsResponse {
         try await get("/api/requests")
