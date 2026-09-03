@@ -15,6 +15,9 @@ struct ActivityView: View {
     }
 
     @State private var lane: Lane = .queue
+    /// In-flight live-event reload, cancelled before the next starts so a burst
+    /// of SSE events can't run overlapping lane reloads.
+    @State private var liveReloadTask: Task<Void, Never>?
 
     /// Header speed
     @State private var speed: SpeedResponse?
@@ -63,6 +66,14 @@ struct ActivityView: View {
         .task { await loadSpeed() }
         .task(id: lane) { await loadCurrentLane() }
         .refreshable { await loadCurrentLane() }
+        .onChange(of: model.libraryChangeToken) { _, _ in
+            liveReloadTask?.cancel()
+            liveReloadTask = Task { await loadCurrentLane() }
+        }
+        .onChange(of: model.bookChangeToken) { _, _ in
+            liveReloadTask?.cancel()
+            liveReloadTask = Task { await loadCurrentLane() }
+        }
     }
 
     // MARK: Header

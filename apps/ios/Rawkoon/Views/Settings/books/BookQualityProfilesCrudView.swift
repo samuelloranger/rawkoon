@@ -8,7 +8,8 @@ struct BookQualityProfilesCrudView: View {
     @State private var profiles: [BookQualityProfile] = []
     @State private var loading = true
     @State private var loadError: String?
-    @State private var deleteError: String?
+    @State private var busyIds: Set<Int> = []
+    @State private var loadGen = 0
 
     var body: some View {
         Group {
@@ -40,10 +41,13 @@ struct BookQualityProfilesCrudView: View {
                     .listRowBackground(Theme.raised)
                     .swipeActions {
                         Button("Delete", role: .destructive) { Task { await delete(profile) } }
+                            .disabled(busyIds.contains(profile.id))
                     }
-                }
-                if let deleteError {
-                    Text(deleteError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                    .overlay(alignment: .trailing) {
+                        if busyIds.contains(profile.id) {
+                            ProgressView().tint(Theme.muted).padding(.trailing, 4)
+                        }
+                    }
                 }
             }
         }
@@ -61,16 +65,33 @@ struct BookQualityProfilesCrudView: View {
     private func load() async {
         guard let client = model.api() else { loading = false; return }
         loading = true; loadError = nil
-        do { profiles = try await client.bookQualityProfiles().profiles }
-        catch { loadError = settingsErrorMessage(error) }
+        do {
+            let gen = loadGen
+            let fetched = try await client.bookQualityProfiles().profiles
+            if gen == loadGen {
+                profiles = fetched
+            }
+        } catch { loadError = settingsErrorMessage(error) }
         loading = false
     }
 
     private func delete(_ profile: BookQualityProfile) async {
-        guard let client = model.api() else { return }
-        deleteError = nil
-        do { try await client.deleteBookQualityProfile(id: profile.id); await load() }
-        catch { deleteError = settingsErrorMessage(error) }
+        guard let client = model.api(), !busyIds.contains(profile.id) else { return }
+        busyIds.insert(profile.id)
+        defer { busyIds.remove(profile.id) }
+        loadGen &+= 1
+        guard let idx = profiles.firstIndex(where: { $0.id == profile.id }) else { return }
+        let removed = profiles[idx]
+        profiles.remove(at: idx) // optimistic (single element)
+        do {
+            try await client.deleteBookQualityProfile(id: profile.id)
+            model.toast("Profile deleted.", style: .success)
+        } catch {
+            if !profiles.contains(where: { $0.id == removed.id }) {
+                profiles.insert(removed, at: min(idx, profiles.count)) // restore just this row
+            }
+            model.toast(settingsErrorMessage(error), style: .error)
+        }
     }
 }
 

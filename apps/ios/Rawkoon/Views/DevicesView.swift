@@ -11,6 +11,7 @@ struct DevicesView: View {
     @State private var web: [WebPushDeviceDTO] = []
     @State private var loading = true
     @State private var pending: PendingDelete?
+    @State private var removing = false
 
     private struct PendingDelete: Identifiable {
         let id = UUID()
@@ -92,6 +93,7 @@ struct DevicesView: View {
             presenting: pending
         ) { item in
             Button("Remove", role: .destructive) { Task { await remove(item) } }
+                .disabled(removing)
             Button("Cancel", role: .cancel) { pending = nil }
         } message: { _ in
             Text("It will stop receiving notifications.")
@@ -137,22 +139,44 @@ struct DevicesView: View {
             return
         }
         // Load independently so one failing list doesn't blank the other.
-        if let response = try? await client.apnsDevices() {
-            apns = response.devices
+        var failed = false
+        do {
+            apns = try await client.apnsDevices().devices
+        } catch {
+            failed = true
         }
-        if let response = try? await client.webPushDevices() {
-            web = response.devices
+        do {
+            web = try await client.webPushDevices().devices
+        } catch {
+            failed = true
+        }
+        if failed {
+            model.toast("Couldn't refresh all devices.", style: .error)
         }
         loading = false
     }
 
     private func remove(_ item: PendingDelete) async {
         pending = nil
-        guard let client = model.api() else { return }
-        switch item.kind {
-        case .apns: try? await client.deleteApnsDevice(id: item.deviceId)
-        case .web: try? await client.deleteWebPushDevice(id: item.deviceId)
+        guard let client = model.api(), !removing else { return }
+        removing = true
+        defer { removing = false }
+        do {
+            // Remove from the local list on a confirmed delete rather than
+            // re-fetching: a failed refetch must not resurrect a device that
+            // the server already deleted, nor overwrite the success toast with
+            // its own "couldn't refresh" error.
+            switch item.kind {
+            case .apns:
+                try await client.deleteApnsDevice(id: item.deviceId)
+                apns.removeAll { $0.id == item.deviceId }
+            case .web:
+                try await client.deleteWebPushDevice(id: item.deviceId)
+                web.removeAll { $0.id == item.deviceId }
+            }
+            model.toast("Device removed.", style: .success)
+        } catch {
+            model.toast("Couldn't remove device.", style: .error)
         }
-        await load()
     }
 }

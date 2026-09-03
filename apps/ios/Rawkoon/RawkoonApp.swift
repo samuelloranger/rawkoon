@@ -5,6 +5,7 @@ import UIKit
 struct RawkoonApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @State private var model = AppModel.shared
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         Appearance.apply()
@@ -32,6 +33,9 @@ struct RawkoonApp: App {
             .environment(model)
             .tint(Theme.apricot)
             .preferredColorScheme(.dark)
+            .overlay {
+                ToastOverlay(toast: model.currentToast)
+            }
             .alert(
                 "Login not saved",
                 isPresented: Binding(
@@ -49,6 +53,33 @@ struct RawkoonApp: App {
                     Text(warning)
                 }
             }
+            // Live notification banner (spec T4) — foreground-only, so it sits
+            // above whichever tab is showing rather than inside one NavigationStack.
+            .overlay(alignment: .top) {
+                if let notification = model.bannerNotification {
+                    NotificationBannerView(notification: notification)
+                        .padding(.top, 8)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: model.bannerNotification?.id)
+                }
+            }
+            // A notification's resolved destination (spec T6) is shown modally
+            // from the app root so a banner tap works no matter which tab is
+            // active; the list itself also navigates here for the same reason.
+            .sheet(item: Binding(
+                get: { model.deepLinkTarget },
+                set: { model.deepLinkTarget = $0 }
+            )) { destination in
+                NavigationStack {
+                    NotificationDestinationView(destination: destination)
+                        .environment(model)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Done") { model.deepLinkTarget = nil }
+                            }
+                        }
+                }
+            }
             .task {
                 #if DEBUG
                     await model.debugAutologinIfNeeded()
@@ -56,6 +87,23 @@ struct RawkoonApp: App {
                 #endif
                 if model.isLoggedIn {
                     model.requestPushAuthorization()
+                    model.startLiveStreams()
+                    await model.refreshUnreadNotificationCount()
+                }
+            }
+            // `.inactive` (a brief transitional state — Control Center, a system
+            // alert) intentionally does nothing here; only a real background
+            // transition tears the streams down.
+            .onChange(of: scenePhase) { _, newPhase in
+                switch newPhase {
+                case .active:
+                    model.startLiveStreams()
+                case .background:
+                    model.stopLiveStreams()
+                case .inactive:
+                    break
+                @unknown default:
+                    break
                 }
             }
         }

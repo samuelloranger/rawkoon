@@ -12,13 +12,20 @@ struct MediaDetailView: View {
     let title: String
     let posterPath: String?
     let libraryId: Int?
+    /// Set when opened via a notification's `?tab=management` deep link
+    /// (spec T6) — jumps straight to the Management tab once it's available.
+    let focusManagement: Bool
 
-    init(tmdbId: Int, mediaType: String, title: String, posterPath: String?, libraryId: Int?) {
+    init(
+        tmdbId: Int, mediaType: String, title: String, posterPath: String?, libraryId: Int?,
+        focusManagement: Bool = false
+    ) {
         self.tmdbId = tmdbId
         self.mediaType = mediaType
         self.title = title
         self.posterPath = posterPath
         self.libraryId = libraryId
+        self.focusManagement = focusManagement
     }
 
     @State private var details: TmdbMediaDetails?
@@ -41,6 +48,7 @@ struct MediaDetailView: View {
 
     @State private var episodesBySeason: [Int: [Episode]] = [:]
     @State private var similarItems: [TmdbSearchItem] = []
+    @State private var busySimilarLibraryIds: Set<Int> = []
     @State private var loadingSimilar = false
     @State private var similarError: String?
 
@@ -54,6 +62,9 @@ struct MediaDetailView: View {
     @State private var downloads: [DownloadHistoryItem] = []
     @State private var pendingDownloadActionId: Int?
     @State private var applyingManagementChange = false
+    /// In-flight live-event management refresh, cancelled before the next starts
+    /// so a burst of SSE events can't run overlapping refreshes.
+    @State private var liveReloadTask: Task<Void, Never>?
     @State private var expandedFileIDs: Set<Int> = []
     @State private var expandedFileSeasons: Set<Int> = []
 
@@ -84,6 +95,9 @@ struct MediaDetailView: View {
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .task {
+                if focusManagement, availableTabs.contains(.management) {
+                    activeTab = .management
+                }
                 if details == nil {
                     await fetchDetails()
                 }
@@ -97,9 +111,16 @@ struct MediaDetailView: View {
                 Task { await refreshManagementData() }
             }
             .onChange(of: availableTabKey) { _ in
-                if !availableTabs.contains(activeTab) {
+                if focusManagement, availableTabs.contains(.management) {
+                    activeTab = .management
+                } else if !availableTabs.contains(activeTab) {
                     activeTab = availableTabs.first ?? .info
                 }
+            }
+            .onChange(of: model.libraryChangeToken) { _, _ in
+                guard libraryId != nil, managementItem != nil else { return }
+                liveReloadTask?.cancel()
+                liveReloadTask = Task { await refreshManagementData() }
             }
             .sheet(isPresented: $showingReleaseSearch) {
                 ReleaseSearchView(
@@ -474,7 +495,9 @@ struct MediaDetailView: View {
                             ),
                             onMenuAction: { handleSimilarMenu($0, item: item) }
                         ) {
-                            if item.alreadyExists == true {
+                            if let libraryId = item.libraryId, busySimilarLibraryIds.contains(libraryId) {
+                                ProgressView().tint(Theme.apricot)
+                            } else if item.alreadyExists == true {
                                 Circle().fill(Theme.seed).frame(width: 22, height: 22)
                                     .overlay(Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Color(hex: 0x10231A)))
                             }
@@ -1642,14 +1665,17 @@ struct MediaDetailView: View {
     }
 
     private func toggleSimilarMonitored(libraryId: Int) async {
-        guard let client = model.api() else { return }
+        guard let client = model.api(), !busySimilarLibraryIds.contains(libraryId) else { return }
+        busySimilarLibraryIds.insert(libraryId)
         do {
             let item = try await client.libraryItem(id: libraryId)
             _ = try await client.updateLibraryMonitored(id: libraryId, monitored: !item.monitored)
             await fetchSimilar()
+            model.toast("Updated monitoring.", style: .success)
         } catch {
-            similarError = "Could not update monitoring."
+            model.toast("Could not update monitoring.", style: .error)
         }
+        busySimilarLibraryIds.remove(libraryId)
     }
 
     private func toggleWatchlist() async {

@@ -78,7 +78,12 @@ struct ReleasesAdminView: View {
     private func refresh() async {
         guard let client = model.api() else { return }
         refreshing = true
-        try? await client.refreshReleases()
+        do {
+            try await client.refreshReleases()
+            model.toast("Releases refreshed.", style: .success)
+        } catch {
+            model.toast("Couldn't refresh releases.", style: .error)
+        }
         await load()
         refreshing = false
     }
