@@ -10,6 +10,7 @@ struct CustomFormatsCrudView: View {
     @State private var loading = true
     @State private var loadError: String?
     @State private var busyIds: Set<Int> = []
+    @State private var loadGen = 0
 
     var body: some View {
         Group {
@@ -67,24 +68,33 @@ struct CustomFormatsCrudView: View {
     private func load() async {
         guard let client = model.api() else { loading = false; return }
         loading = true; loadError = nil
-        do { formats = try await client.customFormats().customFormats }
-        catch { loadError = settingsErrorMessage(error) }
+        do {
+            let gen = loadGen
+            let fetched = try await client.customFormats().customFormats
+            if gen == loadGen {
+                formats = fetched
+            }
+        } catch { loadError = settingsErrorMessage(error) }
         loading = false
     }
 
     private func delete(_ format: CustomFormatDTO) async {
         guard let client = model.api(), !busyIds.contains(format.id) else { return }
         busyIds.insert(format.id)
-        let removed = formats
-        formats.removeAll { $0.id == format.id } // optimistic
+        defer { busyIds.remove(format.id) }
+        loadGen &+= 1
+        guard let idx = formats.firstIndex(where: { $0.id == format.id }) else { return }
+        let removed = formats[idx]
+        formats.remove(at: idx) // optimistic (single element)
         do {
             try await client.deleteCustomFormat(id: format.id)
             model.toast("Custom format deleted.", style: .success)
         } catch {
-            formats = removed // restore on failure
+            if !formats.contains(where: { $0.id == removed.id }) {
+                formats.insert(removed, at: min(idx, formats.count)) // restore just this row
+            }
             model.toast(settingsErrorMessage(error), style: .error)
         }
-        busyIds.remove(format.id)
     }
 }
 

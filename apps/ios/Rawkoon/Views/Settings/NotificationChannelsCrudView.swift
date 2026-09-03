@@ -53,6 +53,7 @@ struct NotificationChannelsCrudView: View {
     @State private var loading = true
     @State private var loadError: String?
     @State private var busyIds: Set<Int> = []
+    @State private var loadGen = 0
 
     var body: some View {
         Form {
@@ -102,24 +103,33 @@ struct NotificationChannelsCrudView: View {
     private func load() async {
         guard let client = model.api() else { loading = false; return }
         loading = true; loadError = nil
-        do { channels = try await client.notificationChannels().channels }
-        catch { loadError = settingsErrorMessage(error) }
+        do {
+            let gen = loadGen
+            let fetched = try await client.notificationChannels().channels
+            if gen == loadGen {
+                channels = fetched
+            }
+        } catch { loadError = settingsErrorMessage(error) }
         loading = false
     }
 
     private func delete(_ channel: NotificationChannelDTO) async {
         guard let client = model.api(), !busyIds.contains(channel.id) else { return }
         busyIds.insert(channel.id)
-        let removed = channels
-        channels.removeAll { $0.id == channel.id } // optimistic
+        defer { busyIds.remove(channel.id) }
+        loadGen &+= 1
+        guard let idx = channels.firstIndex(where: { $0.id == channel.id }) else { return }
+        let removed = channels[idx]
+        channels.remove(at: idx) // optimistic (single element)
         do {
             try await client.deleteNotificationChannel(id: channel.id)
             model.toast("Channel deleted.", style: .success)
         } catch {
-            channels = removed // restore on failure
+            if !channels.contains(where: { $0.id == removed.id }) {
+                channels.insert(removed, at: min(idx, channels.count)) // restore just this row
+            }
             model.toast(settingsErrorMessage(error), style: .error)
         }
-        busyIds.remove(channel.id)
     }
 
     private func test(_ channel: NotificationChannelDTO) async {

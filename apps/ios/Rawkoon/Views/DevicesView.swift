@@ -160,16 +160,23 @@ struct DevicesView: View {
         pending = nil
         guard let client = model.api(), !removing else { return }
         removing = true
+        defer { removing = false }
         do {
+            // Remove from the local list on a confirmed delete rather than
+            // re-fetching: a failed refetch must not resurrect a device that
+            // the server already deleted, nor overwrite the success toast with
+            // its own "couldn't refresh" error.
             switch item.kind {
-            case .apns: try await client.deleteApnsDevice(id: item.deviceId)
-            case .web: try await client.deleteWebPushDevice(id: item.deviceId)
+            case .apns:
+                try await client.deleteApnsDevice(id: item.deviceId)
+                apns.removeAll { $0.id == item.deviceId }
+            case .web:
+                try await client.deleteWebPushDevice(id: item.deviceId)
+                web.removeAll { $0.id == item.deviceId }
             }
-            await load()
             model.toast("Device removed.", style: .success)
         } catch {
             model.toast("Couldn't remove device.", style: .error)
         }
-        removing = false
     }
 }

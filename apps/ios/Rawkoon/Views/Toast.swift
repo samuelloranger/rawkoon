@@ -96,11 +96,15 @@ struct AsyncButton<Label: View>: View {
 
     var body: some View {
         Button(role: role) {
+            // `.disabled(isRunning)` only takes effect on the next render, so a
+            // fast double-tap can fire this twice before the button greys out —
+            // guard synchronously so the action runs at most once per completion.
+            guard !isRunning else { return }
             tapCount += 1
             isRunning = true
             Task {
+                defer { isRunning = false }
                 await action()
-                isRunning = false
             }
         } label: {
             HStack(spacing: 6) {

@@ -9,6 +9,7 @@ struct UsersAdminView: View {
     @State private var loading = true
     @State private var loadError: String?
     @State private var busyIds: Set<String> = []
+    @State private var loadGen = 0
 
     @State private var showProvision = false
     @State private var resetUser: AdminUser?
@@ -97,8 +98,13 @@ struct UsersAdminView: View {
     private func load() async {
         guard let client = model.api() else { loading = false; return }
         loading = true; loadError = nil
-        do { users = try await client.adminUsers().users }
-        catch { loadError = settingsErrorMessage(error) }
+        do {
+            let gen = loadGen
+            let fetched = try await client.adminUsers().users
+            if gen == loadGen {
+                users = fetched
+            }
+        } catch { loadError = settingsErrorMessage(error) }
         loading = false
     }
 
@@ -118,16 +124,20 @@ struct UsersAdminView: View {
     private func delete(_ user: AdminUser) async {
         guard let client = model.api(), !busyIds.contains(user.id) else { return }
         busyIds.insert(user.id)
-        let removed = users
-        users.removeAll { $0.id == user.id } // optimistic
+        defer { busyIds.remove(user.id) }
+        loadGen &+= 1
+        guard let idx = users.firstIndex(where: { $0.id == user.id }) else { return }
+        let removed = users[idx]
+        users.remove(at: idx) // optimistic (single element)
         do {
             try await client.deleteUser(id: user.id)
             model.toast("Deleted \(user.email).", style: .success)
         } catch {
-            users = removed // restore on failure
+            if !users.contains(where: { $0.id == removed.id }) {
+                users.insert(removed, at: min(idx, users.count)) // restore just this row
+            }
             model.toast("Couldn't delete \(user.email).", style: .error)
         }
-        busyIds.remove(user.id)
     }
 
     private func resetPassword() async {
@@ -249,6 +259,7 @@ private struct InvitationsView: View {
     @State private var loading = true
     @State private var loadError: String?
     @State private var busyIds: Set<Int> = []
+    @State private var loadGen = 0
     @State private var link: String?
 
     var body: some View {
@@ -297,24 +308,33 @@ private struct InvitationsView: View {
     private func load() async {
         guard let client = model.api() else { loading = false; return }
         loading = true; loadError = nil
-        do { invitations = try await client.invitations().invitations }
-        catch { loadError = settingsErrorMessage(error) }
+        do {
+            let gen = loadGen
+            let fetched = try await client.invitations().invitations
+            if gen == loadGen {
+                invitations = fetched
+            }
+        } catch { loadError = settingsErrorMessage(error) }
         loading = false
     }
 
     private func revoke(_ invitation: InvitationDTO) async {
         guard let client = model.api(), !busyIds.contains(invitation.id) else { return }
         busyIds.insert(invitation.id)
-        let removed = invitations
-        invitations.removeAll { $0.id == invitation.id } // optimistic
+        defer { busyIds.remove(invitation.id) }
+        loadGen &+= 1
+        guard let idx = invitations.firstIndex(where: { $0.id == invitation.id }) else { return }
+        let removed = invitations[idx]
+        invitations.remove(at: idx) // optimistic (single element)
         do {
             try await client.revokeInvitation(id: invitation.id)
             model.toast("Invitation revoked.", style: .success)
         } catch {
-            invitations = removed // restore on failure
+            if !invitations.contains(where: { $0.id == removed.id }) {
+                invitations.insert(removed, at: min(idx, invitations.count)) // restore just this row
+            }
             model.toast("Couldn't revoke.", style: .error)
         }
-        busyIds.remove(invitation.id)
     }
 
     private func resend(_ invitation: InvitationDTO) async {

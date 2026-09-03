@@ -10,6 +10,7 @@ struct SessionsAdminView: View {
     @State private var loadError: String?
     @State private var busySessionIds: Set<String> = []
     @State private var busySubscriptionIds: Set<Int> = []
+    @State private var loadGen = 0
 
     var body: some View {
         Group {
@@ -87,11 +88,20 @@ struct SessionsAdminView: View {
         guard let client = model.api() else { loading = false; return }
         loading = true; loadError = nil
         do {
-            sessions = try await client.adminSessions().sessions
+            let gen = loadGen
+            let fetchedSessions = try await client.adminSessions().sessions
+            if gen == loadGen {
+                sessions = fetchedSessions
+            }
             do {
-                subscriptions = try await client.adminWebPush().subscriptions
+                let fetchedSubs = try await client.adminWebPush().subscriptions
+                if gen == loadGen {
+                    subscriptions = fetchedSubs
+                }
             } catch {
-                subscriptions = []
+                if gen == loadGen {
+                    subscriptions = []
+                }
                 model.toast("Couldn't load web-push subscriptions.", style: .error)
             }
         } catch {
@@ -103,31 +113,39 @@ struct SessionsAdminView: View {
     private func revoke(_ session: AdminSessionDTO) async {
         guard let client = model.api(), !busySessionIds.contains(session.id) else { return }
         busySessionIds.insert(session.id)
-        let removed = sessions
-        sessions.removeAll { $0.id == session.id } // optimistic
+        defer { busySessionIds.remove(session.id) }
+        loadGen &+= 1
+        guard let idx = sessions.firstIndex(where: { $0.id == session.id }) else { return }
+        let removed = sessions[idx]
+        sessions.remove(at: idx) // optimistic (single element)
         do {
             try await client.revokeSession(id: session.id)
             model.toast("Session revoked.", style: .success)
         } catch {
-            sessions = removed // restore on failure
+            if !sessions.contains(where: { $0.id == removed.id }) {
+                sessions.insert(removed, at: min(idx, sessions.count)) // restore just this row
+            }
             model.toast("Couldn't revoke session.", style: .error)
         }
-        busySessionIds.remove(session.id)
     }
 
     private func deleteSub(_ sub: AdminWebPushDTO) async {
         guard let client = model.api(), !busySubscriptionIds.contains(sub.id) else { return }
         busySubscriptionIds.insert(sub.id)
-        let removed = subscriptions
-        subscriptions.removeAll { $0.id == sub.id } // optimistic
+        defer { busySubscriptionIds.remove(sub.id) }
+        loadGen &+= 1
+        guard let idx = subscriptions.firstIndex(where: { $0.id == sub.id }) else { return }
+        let removed = subscriptions[idx]
+        subscriptions.remove(at: idx) // optimistic (single element)
         do {
             try await client.deleteWebPushSubscription(id: sub.id)
             model.toast("Subscription deleted.", style: .success)
         } catch {
-            subscriptions = removed // restore on failure
+            if !subscriptions.contains(where: { $0.id == removed.id }) {
+                subscriptions.insert(removed, at: min(idx, subscriptions.count)) // restore just this row
+            }
             model.toast("Couldn't delete subscription.", style: .error)
         }
-        busySubscriptionIds.remove(sub.id)
     }
 }
 
@@ -139,6 +157,7 @@ struct ApiKeysAdminView: View {
     @State private var loading = true
     @State private var loadError: String?
     @State private var busyIds: Set<String> = []
+    @State private var loadGen = 0
     @State private var showCreate = false
 
     var body: some View {
@@ -194,24 +213,33 @@ struct ApiKeysAdminView: View {
     private func load() async {
         guard let client = model.api() else { loading = false; return }
         loading = true; loadError = nil
-        do { keys = try await client.apiKeys().apiKeys }
-        catch { loadError = settingsErrorMessage(error) }
+        do {
+            let gen = loadGen
+            let fetched = try await client.apiKeys().apiKeys
+            if gen == loadGen {
+                keys = fetched
+            }
+        } catch { loadError = settingsErrorMessage(error) }
         loading = false
     }
 
     private func revoke(_ key: ApiKeyDTO) async {
         guard let client = model.api(), !busyIds.contains(key.id) else { return }
         busyIds.insert(key.id)
-        let removed = keys
-        keys.removeAll { $0.id == key.id } // optimistic
+        defer { busyIds.remove(key.id) }
+        loadGen &+= 1
+        guard let idx = keys.firstIndex(where: { $0.id == key.id }) else { return }
+        let removed = keys[idx]
+        keys.remove(at: idx) // optimistic (single element)
         do {
             try await client.deleteApiKey(id: key.id)
             model.toast("Key revoked.", style: .success)
         } catch {
-            keys = removed // restore on failure
+            if !keys.contains(where: { $0.id == removed.id }) {
+                keys.insert(removed, at: min(idx, keys.count)) // restore just this row
+            }
             model.toast("Couldn't revoke key.", style: .error)
         }
-        busyIds.remove(key.id)
     }
 }
 
@@ -286,6 +314,7 @@ struct BlocklistAdminView: View {
     @State private var loading = true
     @State private var loadError: String?
     @State private var busyIds: Set<Int> = []
+    @State private var loadGen = 0
 
     var body: some View {
         Group {
@@ -333,23 +362,32 @@ struct BlocklistAdminView: View {
     private func load() async {
         guard let client = model.api() else { loading = false; return }
         loading = true; loadError = nil
-        do { entries = try await client.blocklist().entries }
-        catch { loadError = settingsErrorMessage(error) }
+        do {
+            let gen = loadGen
+            let fetched = try await client.blocklist().entries
+            if gen == loadGen {
+                entries = fetched
+            }
+        } catch { loadError = settingsErrorMessage(error) }
         loading = false
     }
 
     private func unblock(_ entry: BlocklistEntryDTO) async {
         guard let client = model.api(), !busyIds.contains(entry.id) else { return }
         busyIds.insert(entry.id)
-        let removed = entries
-        entries.removeAll { $0.id == entry.id } // optimistic
+        defer { busyIds.remove(entry.id) }
+        loadGen &+= 1
+        guard let idx = entries.firstIndex(where: { $0.id == entry.id }) else { return }
+        let removed = entries[idx]
+        entries.remove(at: idx) // optimistic (single element)
         do {
             try await client.unblock(id: entry.id)
             model.toast("Unblocked.", style: .success)
         } catch {
-            entries = removed // restore on failure
+            if !entries.contains(where: { $0.id == removed.id }) {
+                entries.insert(removed, at: min(idx, entries.count)) // restore just this row
+            }
             model.toast("Couldn't unblock.", style: .error)
         }
-        busyIds.remove(entry.id)
     }
 }

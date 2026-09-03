@@ -9,6 +9,7 @@ struct OidcProvidersCrudView: View {
     @State private var loading = true
     @State private var loadError: String?
     @State private var busyIds: Set<String> = []
+    @State private var loadGen = 0
 
     var body: some View {
         Group {
@@ -65,24 +66,33 @@ struct OidcProvidersCrudView: View {
     private func load() async {
         guard let client = model.api() else { loading = false; return }
         loading = true; loadError = nil
-        do { providers = try await client.oidcProviders().providers }
-        catch { loadError = settingsErrorMessage(error) }
+        do {
+            let gen = loadGen
+            let fetched = try await client.oidcProviders().providers
+            if gen == loadGen {
+                providers = fetched
+            }
+        } catch { loadError = settingsErrorMessage(error) }
         loading = false
     }
 
     private func delete(_ provider: OidcProviderDTO) async {
         guard let client = model.api(), !busyIds.contains(provider.id) else { return }
         busyIds.insert(provider.id)
-        let removed = providers
-        providers.removeAll { $0.id == provider.id } // optimistic
+        defer { busyIds.remove(provider.id) }
+        loadGen &+= 1
+        guard let idx = providers.firstIndex(where: { $0.id == provider.id }) else { return }
+        let removed = providers[idx]
+        providers.remove(at: idx) // optimistic (single element)
         do {
             try await client.deleteOidcProvider(id: provider.id)
             model.toast("Provider deleted.", style: .success)
         } catch {
-            providers = removed // restore on failure
+            if !providers.contains(where: { $0.id == removed.id }) {
+                providers.insert(removed, at: min(idx, providers.count)) // restore just this row
+            }
             model.toast("Couldn't delete provider.", style: .error)
         }
-        busyIds.remove(provider.id)
     }
 }
 
