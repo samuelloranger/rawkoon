@@ -105,6 +105,52 @@ final class AppModel {
         player.onPositionTick = { [weak self] in self?.persistPlaybackProgress(force: false) }
         player.onPlaybackStopped = { [weak self] in self?.persistPlaybackProgress(force: true) }
         startPathMonitor()
+        restoreDownloadedAudiobooks()
+    }
+
+    /// Rehydrates in-memory manifests and download plans from disk so a process
+    /// kill does not look like "Chapters couldn't load" / a missing download.
+    private func restoreDownloadedAudiobooks() {
+        var editionIds = Set(
+            DownloadedStore.readIndex()
+                .filter { $0.kind == .audiobook }
+                .map(\.editionId)
+        )
+        let root = FileStore.booksDirectory()
+        if let names = try? FileManager.default.contentsOfDirectory(atPath: root.path) {
+            for name in names {
+                if let id = Int(name) {
+                    editionIds.insert(id)
+                }
+            }
+        }
+        for editionId in editionIds {
+            guard let manifest = DownloadedStore.readManifest(editionId: editionId) else {
+                continue
+            }
+            manifests[editionId] = manifest
+            var existingBytes: [Int: Int] = [:]
+            for chapter in manifest.chapters {
+                let ext = chapter.fileExtension
+                guard FileStore.exists(editionId: editionId, fileId: chapter.fileId, ext: ext) else {
+                    continue
+                }
+                let url = FileStore.chapterURL(editionId: editionId, fileId: chapter.fileId, ext: ext)
+                if let bytes = FileStore.size(url: url) {
+                    existingBytes[chapter.fileId] = bytes
+                }
+            }
+            // Only surface a plan when files are actually on disk. A manifest-only
+            // cache (written at download-start) must not look like an in-flight
+            // 0% download after a process kill — there is no live downloader.
+            let plan = DownloadPlan.restored(
+                chapters: manifest.chapters,
+                existingBytes: existingBytes
+            )
+            if plan.isComplete {
+                downloadPlans[editionId] = plan
+            }
+        }
     }
 
     private func startPathMonitor() {
@@ -372,9 +418,24 @@ final class AppModel {
         return URL(string: raw, relativeTo: base)?.absoluteURL
     }
 
+    func cachedManifest(_ editionId: Int) -> BookManifest? {
+        if let cached = manifests[editionId] {
+            return cached
+        }
+        if let disk = DownloadedStore.readManifest(editionId: editionId) {
+            manifests[editionId] = disk
+            return disk
+        }
+        return nil
+    }
+
     func manifest(_ editionId: Int, forceRefresh: Bool = false) async throws -> BookManifest {
         if !forceRefresh, let cached = manifests[editionId] {
             return cached
+        }
+        if !forceRefresh, let disk = DownloadedStore.readManifest(editionId: editionId) {
+            manifests[editionId] = disk
+            return disk
         }
         guard let apiClient else {
             // Logged out or no client: a downloaded book still opens from its
@@ -415,7 +476,10 @@ final class AppModel {
         errorMessage = nil
 
         do {
-            let manifest = try await manifest(editionId)
+            // Fresh grants: a restored disk manifest is enough to list chapters
+            // but its signed URLs may already have expired.
+            let manifest = try await manifest(editionId, forceRefresh: true)
+            DownloadedStore.writeManifest(manifest, editionId: editionId)
             guard let baseURL = URL(string: serverURL) else {
                 errorMessage = "Enter a valid server URL."
                 return
@@ -571,6 +635,7 @@ final class AppModel {
         DownloadedStore.forget(editionId: editionId)
         downloadPlans.removeValue(forKey: editionId)
         verifiedCounts.removeValue(forKey: editionId)
+        manifests.removeValue(forKey: editionId)
         // Otherwise a stale attempt count could trip maxGrantRefreshAttempts on
         // the next download of this edition.
         grantRefreshAttempts.removeValue(forKey: editionId)

@@ -115,4 +115,30 @@ public struct DownloadPlan: Sendable {
         let done = chapters.filter { states[$0.fileId] == .verified }.count
         return Double(done) / Double(chapters.count)
     }
+
+    /// Rebuilds a plan from files already on disk after a process kill.
+    ///
+    /// Size is the only check: hashing hundreds of megabytes on launch would
+    /// freeze the book screen. A wrong-size file stays pending so the next
+    /// download can replace it, rather than consuming a retry attempt.
+    public static func restored(
+        chapters: [ManifestChapter],
+        existingBytes: [Int: Int]
+    ) -> DownloadPlan {
+        var plan = DownloadPlan(chapters: chapters)
+        for chapter in chapters {
+            guard let bytes = existingBytes[chapter.fileId], bytes == chapter.sizeBytes else {
+                continue
+            }
+            plan.apply(
+                .completed(
+                    fileId: chapter.fileId,
+                    status: 200,
+                    bytes: bytes,
+                    sha256: chapter.sha256
+                )
+            )
+        }
+        return plan
+    }
 }

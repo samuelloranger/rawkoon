@@ -41,4 +41,48 @@ final class BookManifestTests: XCTestCase {
         let m = try d.decode(BookManifest.self, from: json)
         XCTAssertNil(m.chapters[0].sha256)
     }
+
+    func testGrantURLHasNoExtensionSoFileIsBin() throws {
+        let d = JSONDecoder()
+        d.keyDecodingStrategy = .convertFromSnakeCase
+        let m = try d.decode(BookManifest.self, from: json)
+        XCTAssertEqual(m.chapters[0].fileExtension, "bin")
+    }
+
+    func testAbsoluteAudioURLKeepsItsExtension() {
+        let chapter = ManifestChapter(
+            index: 0, title: "C", startSecs: 0, endSecs: 1,
+            fileId: 1, sizeBytes: 1, sha256: nil,
+            url: "https://cdn.example/chapter.m4b"
+        )
+        XCTAssertEqual(chapter.fileExtension, "m4b")
+    }
+
+    func testRoundTripThroughJSONEncoderIsReadableWithoutSnakeCase() throws {
+        let d = JSONDecoder()
+        d.keyDecodingStrategy = .convertFromSnakeCase
+        let original = try d.decode(BookManifest.self, from: json)
+        let data = try JSONEncoder().encode(original)
+        let fromDisk = try JSONDecoder().decode(BookManifest.self, from: data)
+        XCTAssertEqual(fromDisk.editionId, 14)
+        XCTAssertEqual(fromDisk.chapters.count, 2)
+        XCTAssertEqual(fromDisk.chapters[0].fileId, 267)
+    }
+
+    func testDecodePersistedAcceptsCamelCaseDiskJSON() throws {
+        let d = JSONDecoder()
+        d.keyDecodingStrategy = .convertFromSnakeCase
+        let original = try d.decode(BookManifest.self, from: json)
+        let data = try JSONEncoder().encode(original)
+        let decoded = BookManifest.decodePersisted(data)
+        XCTAssertEqual(decoded?.editionId, 14)
+        XCTAssertEqual(decoded?.chapters.count, 2)
+    }
+
+    func testDecodePersistedAcceptsServerSnakeCaseJSON() {
+        let decoded = BookManifest.decodePersisted(json)
+        XCTAssertEqual(decoded?.editionId, 14)
+        XCTAssertEqual(decoded?.chapters.count, 2)
+        XCTAssertEqual(decoded?.chapters[0].fileId, 267)
+    }
 }
