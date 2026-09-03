@@ -85,6 +85,7 @@
                 Group {
                     if let book = pick() {
                         BookView(book: book)
+                            .id(book.bookId)
                     } else if loaded {
                         Text("No books").foregroundStyle(Theme.muted)
                     } else {
@@ -102,7 +103,12 @@
         }
 
         private func pick() -> BookListItem? {
-            model.library.first { $0.hasEbook && !$0.hasAudiobook } ?? model.library.first
+            if let raw = ProcessInfo.processInfo.environment["RAWKOON_BOOK"],
+               let id = Int(raw)
+            {
+                return model.library.first { $0.bookId == id }
+            }
+            return model.library.first { $0.hasEbook && !$0.hasAudiobook } ?? model.library.first
         }
     }
 

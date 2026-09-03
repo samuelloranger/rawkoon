@@ -1006,7 +1006,7 @@ final class AudiobookPlayer {
     /// — playback stayed dead until the app was deleted. Drop the bad file and
     /// stream instead.
     private func playbackURL(for chapter: ManifestChapter, editionId: Int) -> URL? {
-        let ext = fileExtension(for: chapter)
+        let ext = chapter.fileExtension
         if FileStore.exists(editionId: editionId, fileId: chapter.fileId, ext: ext) {
             let url = FileStore.chapterURL(editionId: editionId, fileId: chapter.fileId, ext: ext)
             if FileStore.size(url: url) == chapter.sizeBytes {
@@ -1015,13 +1015,6 @@ final class AudiobookPlayer {
             FileStore.delete(url: url)
         }
         return resolvedRemoteURL(for: chapter)
-    }
-
-    private func fileExtension(for chapter: ManifestChapter) -> String {
-        let pathExt = URL(string: chapter.url, relativeTo: baseURL)?.pathExtension
-            ?? URL(string: chapter.url)?.pathExtension
-            ?? ""
-        return pathExt.isEmpty ? "bin" : pathExt
     }
 
     private func resolvedRemoteURL(for chapter: ManifestChapter) -> URL? {

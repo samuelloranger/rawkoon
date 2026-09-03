@@ -66,7 +66,7 @@ nonisolated enum DownloadedStore {
     /// was never downloaded — the caller falls back to the network.
     static func readManifest(editionId: Int) -> BookManifest? {
         guard let data = try? Data(contentsOf: manifestURL(editionId)) else { return nil }
-        return try? JSONDecoder().decode(BookManifest.self, from: data)
+        return BookManifest.decodePersisted(data)
     }
 
     // MARK: Ebook file list

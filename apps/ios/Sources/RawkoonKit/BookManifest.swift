@@ -19,6 +19,13 @@ public struct ManifestChapter: Codable, Equatable, Sendable {
     public var durationSecs: Double {
         endSecs - startSecs
     }
+
+    /// Filename suffix for the on-disk chapter. Grant URLs have no extension,
+    /// so those land as `.bin` — same rule the downloader and player use.
+    public var fileExtension: String {
+        let ext = URL(string: url)?.pathExtension ?? ""
+        return ext.isEmpty ? "bin" : ext
+    }
 }
 
 public struct BookManifest: Codable, Equatable, Sendable {
@@ -28,4 +35,16 @@ public struct BookManifest: Codable, Equatable, Sendable {
     public let authors: [String]
     public let totalDurationSecs: Double
     public let chapters: [ManifestChapter]
+
+    /// On-disk manifests are camelCase (`JSONEncoder` default). The live
+    /// server payload is snake_case. Accept either so a cold start can list
+    /// chapters without waiting on the network.
+    public static func decodePersisted(_ data: Data) -> BookManifest? {
+        if let decoded = try? JSONDecoder().decode(BookManifest.self, from: data) {
+            return decoded
+        }
+        let snake = JSONDecoder()
+        snake.keyDecodingStrategy = .convertFromSnakeCase
+        return try? snake.decode(BookManifest.self, from: data)
+    }
 }

@@ -137,4 +137,44 @@ final class DownloadPlanTests: XCTestCase {
         // The chapter is still queued, not failed.
         XCTAssertEqual(plan.states[100], .pending)
     }
+
+    /// Cold start: files already on disk must come back as verified without
+    /// hashing or spending retry attempts on a size mismatch.
+    func testRestoredMatchingFilesAreVerified() {
+        let all = chapters(2, size: 1000)
+        let plan = DownloadPlan.restored(
+            chapters: all,
+            existingBytes: [100: 1000, 101: 1000]
+        )
+        XCTAssertEqual(plan.states[100], .verified)
+        XCTAssertEqual(plan.states[101], .verified)
+        XCTAssertTrue(plan.isComplete)
+    }
+
+    func testRestoredMissingOrWrongSizeStaysPending() {
+        let all = chapters(2, size: 1000)
+        let plan = DownloadPlan.restored(
+            chapters: all,
+            existingBytes: [100: 1000, 101: 999]
+        )
+        XCTAssertEqual(plan.states[100], .verified)
+        XCTAssertEqual(plan.states[101], .pending)
+        XCTAssertFalse(plan.isComplete)
+        XCTAssertEqual(plan.nextToStart(limit: 5), [101])
+    }
+
+    func testRestoredMatchingSizeTrustsManifestHash() {
+        let hashed = [
+            ManifestChapter(
+                index: 0, title: "C0", startSecs: 0, endSecs: 10,
+                fileId: 100, sizeBytes: 1000, sha256: "abc", url: "u0"
+            ),
+        ]
+        let plan = DownloadPlan.restored(
+            chapters: hashed,
+            existingBytes: [100: 1000]
+        )
+        XCTAssertEqual(plan.states[100], .verified)
+        XCTAssertTrue(plan.isComplete)
+    }
 }

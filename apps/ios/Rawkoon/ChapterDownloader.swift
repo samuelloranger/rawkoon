@@ -132,7 +132,7 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     /// only ever needed re-downloading. Deleting it leaves the chapter pending.
     private func reconcileExistingFiles() {
         for chapter in manifest.chapters {
-            let ext = fileExtension(for: chapter)
+            let ext = chapter.fileExtension
             guard FileStore.exists(editionId: editionId, fileId: chapter.fileId, ext: ext) else { continue }
             let url = FileStore.chapterURL(editionId: editionId, fileId: chapter.fileId, ext: ext)
             guard let bytes = FileStore.size(url: url) else { continue }
@@ -234,7 +234,7 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
             return
         }
 
-        let ext = fileExtension(for: chapter)
+        let ext = chapter.fileExtension
         var destination = FileStore.chapterURL(editionId: editionId, fileId: fileId, ext: ext)
         let fileManager = FileManager.default
 
@@ -355,14 +355,6 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
             return nil
         }
         return fileId
-    }
-
-    private func fileExtension(for chapter: ManifestChapter) -> String {
-        guard let url = resolvedChapterURL(for: chapter) ?? URL(string: chapter.url) else {
-            return "bin"
-        }
-        let ext = url.pathExtension
-        return ext.isEmpty ? "bin" : ext
     }
 
     private func resolvedChapterURL(for chapter: ManifestChapter) -> URL? {
