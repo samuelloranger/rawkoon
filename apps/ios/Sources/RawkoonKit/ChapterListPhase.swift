@@ -17,7 +17,11 @@ public func chapterListPhase(
     hasChapters: Bool,
     error: String?
 ) -> ChapterListPhase {
-    if hasChapters { return .ready }
-    if loading || !fetchAttempted { return .loading }
+    if hasChapters {
+        return .ready
+    }
+    if loading || !fetchAttempted {
+        return .loading
+    }
     return .failed(error ?? "Chapters couldn't load.")
 }
