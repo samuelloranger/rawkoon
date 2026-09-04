@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 // MARK: - Discover / TMDB
 
@@ -33,19 +34,21 @@ nonisolated struct ExploreFeed: Decodable, Sendable {
     let recommended: [TmdbSearchItem]?
 
     /// Named sections in a sensible display order, empty ones dropped.
-    var sections: [(title: String, items: [TmdbSearchItem])] {
-        [
-            ("Trending", trending),
-            ("Popular movies", popularMovies),
-            ("Popular shows", popularShows),
-            ("Now playing", nowPlaying),
-            ("Upcoming", upcomingMovies),
-            ("Top rated movies", topRatedMovies),
-            ("Top rated shows", topRatedShows),
-            ("Recommended", recommended),
-        ].compactMap { name, items in
+    /// `id` exists because `LocalizedStringKey` is not Hashable (`ForEach` needs it).
+    var sections: [(id: String, title: LocalizedStringKey, items: [TmdbSearchItem])] {
+        let rails: [(String, LocalizedStringKey, [TmdbSearchItem]?)] = [
+            ("trending", "Trending", trending),
+            ("popularMovies", "Popular movies", popularMovies),
+            ("popularShows", "Popular shows", popularShows),
+            ("nowPlaying", "Now playing", nowPlaying),
+            ("upcoming", "Upcoming", upcomingMovies),
+            ("topRatedMovies", "Top rated movies", topRatedMovies),
+            ("topRatedShows", "Top rated shows", topRatedShows),
+            ("recommended", "Recommended", recommended),
+        ]
+        return rails.compactMap { id, name, items in
             guard let items, !items.isEmpty else { return nil }
-            return (name, items)
+            return (id, name, items)
         }
     }
 }

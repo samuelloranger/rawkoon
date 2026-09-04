@@ -33,7 +33,7 @@ struct LoginView: View {
                     }
 
                     Section("Server") {
-                        TextField("", text: $model.serverURL, prompt: prompt("https://your-rawkoon-server"))
+                        TextField("", text: $model.serverURL, prompt: prompt(verbatim: "https://your-rawkoon-server"))
                             .keyboardType(.URL)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
@@ -146,7 +146,11 @@ struct LoginView: View {
         }
     }
 
-    private func prompt(_ text: String) -> Text {
+    private func prompt(_ text: LocalizedStringKey) -> Text {
         Text(text).foregroundStyle(Theme.muted)
+    }
+
+    private func prompt(verbatim text: String) -> Text {
+        Text(verbatim: text).foregroundStyle(Theme.muted)
     }
 }

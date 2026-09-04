@@ -142,7 +142,7 @@ struct DiscoverView: View {
                 if let feedError {
                     refreshErrorBanner(feedError)
                 }
-                ForEach(feed.sections, id: \.title) { section in
+                ForEach(feed.sections, id: \.id) { section in
                     rail(title: section.title, items: section.items)
                 }
             }
@@ -182,7 +182,7 @@ struct DiscoverView: View {
         .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
-    private func rail(title: String, items: [TmdbSearchItem]) -> some View {
+    private func rail(title: LocalizedStringKey, items: [TmdbSearchItem]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(.display(17))

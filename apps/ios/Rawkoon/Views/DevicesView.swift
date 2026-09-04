@@ -35,7 +35,7 @@ struct DevicesView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(thisDeviceName)
                         .foregroundStyle(Theme.text)
-                    Text("iOS \(UIDevice.current.systemVersion) \u{2022} this device")
+                    Text("iOS \(UIDevice.current.systemVersion) • this device")
                         .font(.footnote)
                         .foregroundStyle(Theme.muted)
                 }
@@ -46,8 +46,8 @@ struct DevicesView: View {
                 Section("Other iOS devices") {
                     ForEach(otherApns) { device in
                         deviceRow(
-                            name: device.deviceName ?? "iPhone",
-                            subtitle: iosSubtitle(device)
+                            name: device.deviceName ?? String(localized: "iPhone"),
+                            verbatimSubtitle: iosSubtitle(device)
                         ) {
                             pending = PendingDelete(kind: .apns, deviceId: device.id)
                         }
@@ -102,12 +102,28 @@ struct DevicesView: View {
 
     private func deviceRow(
         name: String,
-        subtitle: String,
+        subtitle: LocalizedStringKey,
+        onDelete: @escaping () -> Void
+    ) -> some View {
+        deviceRowContent(name: name, subtitle: Text(subtitle), onDelete: onDelete)
+    }
+
+    private func deviceRow(
+        name: String,
+        verbatimSubtitle: String,
+        onDelete: @escaping () -> Void
+    ) -> some View {
+        deviceRowContent(name: name, subtitle: Text(verbatim: verbatimSubtitle), onDelete: onDelete)
+    }
+
+    private func deviceRowContent(
+        name: String,
+        subtitle: Text,
         onDelete: @escaping () -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(name).foregroundStyle(Theme.text)
-            Text(subtitle)
+            subtitle
                 .font(.footnote)
                 .foregroundStyle(Theme.muted)
         }

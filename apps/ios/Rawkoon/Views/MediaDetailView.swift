@@ -568,9 +568,13 @@ struct MediaDetailView: View {
                 .foregroundStyle(Theme.textStrong)
             LazyVGrid(columns: managementColumns, spacing: 8) {
                 statPill("Status", value: LocalizedStatus.text(item.status))
-                statPill("Type", value: item.type == "show" ? "TV show" : "Movie")
-                statPill("Year", value: item.year.map(String.init) ?? "Unknown")
-                statPill("Monitored", value: item.monitored ? "Yes" : "No")
+                statPill("Type", value: Text(item.type == "show" ? LocalizedStringKey("TV show") : LocalizedStringKey("Movie")))
+                if let year = item.year {
+                    statPill("Year", value: String(year))
+                } else {
+                    statPill("Year", value: Text("Unknown"))
+                }
+                statPill("Monitored", value: Text(item.monitored ? LocalizedStringKey("Yes") : LocalizedStringKey("No")))
             }
         }
         .padding(14)
@@ -579,15 +583,16 @@ struct MediaDetailView: View {
         .padding(.horizontal, 16)
     }
 
-    private func statPill(_ label: String, value: String) -> some View {
+    private func statPill(_ label: LocalizedStringKey, value: String) -> some View {
         statPill(label, value: Text(verbatim: value))
     }
 
-    private func statPill(_ label: String, value: Text) -> some View {
+    private func statPill(_ label: LocalizedStringKey, value: Text) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(label.uppercased())
+            Text(label)
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(Theme.faint)
+                .textCase(.uppercase)
             value
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(Theme.textStrong)
@@ -699,9 +704,15 @@ struct MediaDetailView: View {
                                     Image(systemName: expandedFileSeasons.contains(group.season) ? "chevron.down" : "chevron.right")
                                         .font(.system(size: 10, weight: .bold))
                                         .foregroundStyle(Theme.faint)
-                                    Text(group.season == 0 ? "Specials" : "Season \(group.season)")
-                                        .font(.subheadline.weight(.medium))
-                                        .foregroundStyle(Theme.textStrong)
+                                    Group {
+                                        if group.season == 0 {
+                                            Text("Specials")
+                                        } else {
+                                            Text("Season \(group.season)")
+                                        }
+                                    }
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(Theme.textStrong)
                                     Spacer()
                                     Text("\(group.files.count) files")
                                         .font(.system(.caption2, design: .monospaced))
@@ -1377,7 +1388,7 @@ struct MediaDetailView: View {
                         detailRow(label: "Rating", value: String(format: "%.1f/10", voteAverage))
                     }
                     if let status = details?.status, !status.isEmpty {
-                        detailRow(label: "Status", value: status)
+                        detailRow(label: "Status", value: LocalizedStatus.text(status))
                     }
                     if let runtime = details?.runtime, runtime > 0 {
                         let hours = runtime / 60
@@ -1399,13 +1410,18 @@ struct MediaDetailView: View {
             || (details?.runtime ?? 0) > 0
     }
 
-    private func detailRow(label: String, value: String) -> some View {
+    private func detailRow(label: LocalizedStringKey, value: String) -> some View {
+        detailRow(label: label, value: Text(verbatim: value))
+    }
+
+    private func detailRow(label: LocalizedStringKey, value: Text) -> some View {
         HStack {
-            Text(label.uppercased())
+            Text(label)
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(Theme.faint)
+                .textCase(.uppercase)
             Spacer()
-            Text(value)
+            value
                 .font(.system(.subheadline, design: .monospaced))
                 .foregroundStyle(Theme.text)
         }

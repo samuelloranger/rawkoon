@@ -155,7 +155,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         }
 
         let template = CPListTemplate(
-            title: "Chapters",
+            title: String(localized: "Chapters"),
             sections: [CPListSection(items: items)]
         )
         interfaceController?.pushTemplate(template, animated: true, completion: nil)

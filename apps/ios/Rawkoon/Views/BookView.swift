@@ -441,11 +441,11 @@ struct BookView: View {
         let secs = manifest?.totalDurationSecs ?? audiobookEdition?.durationSecs ?? book.audiobookDurationSecs ?? 0
         var parts = [Formatters.durationClock(secs)]
         if let count = manifest?.chapters.count {
-            parts.append("\(count) chapters")
+            parts.append(String(localized: "\(count) chapters"))
         } else if let count = audiobookEdition?.fileCount {
-            parts.append("\(count) files")
+            parts.append(String(localized: "\(count) files"))
         } else if book.audiobookFileCount > 0 {
-            parts.append("\(book.audiobookFileCount) files")
+            parts.append(String(localized: "\(book.audiobookFileCount) files"))
         }
         return parts
     }
@@ -709,7 +709,7 @@ struct BookView: View {
     private var ebookMetrics: [String] {
         var parts: [String] = []
         if let count = ebookEdition?.fileCount {
-            parts.append("\(count) files")
+            parts.append(String(localized: "\(count) files"))
         }
         if let bestFormat = ebookEdition?.bestFormat {
             parts.append(bestFormat.uppercased())
@@ -935,9 +935,9 @@ struct BookView: View {
     }
 
     private func missingEditionCard(
-        title: String,
-        description: String,
-        buttonTitle: String,
+        title: LocalizedStringKey,
+        description: LocalizedStringKey,
+        buttonTitle: LocalizedStringKey,
         tint: Color,
         action: @escaping () -> Void
     ) -> some View {
