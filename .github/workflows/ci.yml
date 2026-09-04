@@ -12,10 +12,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - name: Format check (Biome)
-        run: |
-          bun run formatCheck
-          cd apps/shared && bun run formatCheck
+      - name: Format check (Biome — web + API + shared)
+        run: bun run formatCheck
 
   lint:
     runs-on: ubuntu-latest
