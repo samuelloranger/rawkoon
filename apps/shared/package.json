@@ -17,14 +17,12 @@
   "scripts": {
     "test": "bun test --parallel",
     "typecheck": "tsc --noEmit",
-    "format": "prettier --write \"src/**/*.{ts,tsx,js,json,md}\" \"*.{ts,js,json,md}\"",
-    "formatCheck": "prettier --check \"src/**/*.{ts,tsx,js,json,md}\" \"*.{ts,js,json,md}\""
+    "format": "biome format --write .",
+    "formatCheck": "biome format .",
+    "lint": "biome lint ."
   },
   "peerDependencies": {
     "react": "^19.2.0",
     "@tanstack/react-query": "^5.100.9"
-  },
-  "devDependencies": {
-    "prettier": "3.8.4"
   }
 }

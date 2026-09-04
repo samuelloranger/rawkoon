@@ -9,6 +9,7 @@
     "includes": [
       "apps/web/**",
       "apps/api/**",
+      "apps/shared/**",
       "!**/node_modules",
       "!**/dist",
       "!**/routeTree.gen.ts",

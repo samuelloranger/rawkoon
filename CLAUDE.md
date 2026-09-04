@@ -26,8 +26,8 @@ bun run dev:web              # Vite dev server :5173
 
 bun run test                 # web (vitest) + api (bun test) + shared, in that order
 bun run typecheck            # tsc --noEmit (TS 7) in every workspace — the sole typechecker
-bun run lint                 # biome lint apps/web apps/api
-bun run format               # biome format --write apps/web apps/api  (shared uses prettier)
+bun run lint                 # biome lint apps/web apps/api apps/shared
+bun run format               # biome format --write apps/web apps/api apps/shared
 bun run knip                 # dead code / unused deps
 bun run build                # production web build (vite build + tsc project check)
 ```
@@ -58,7 +58,7 @@ Every `db:*` script sources the **root** `.env` before invoking prisma (`set -a 
 - **`APP_VERSION` is a build arg, not a file read.** `services/versionService.ts` reads `process.env.APP_VERSION` (baked by CI from the git tag) and falls back to `0.0.0-dev+<boot ts>` so each restart busts the service-worker cache. Only non-`0.0.0-dev` versions trigger "App updated" notifications.
 - **The generated route tree is gitignored.** `apps/web/src/routeTree.gen.ts` is produced by the TanStack router plugin; CI runs `bunx @tanstack/router-cli generate` before lint/typecheck/test, and `apps/web` has a `postinstall` that generates it, so a fresh `bun install` yields a compilable tree. If it ever goes missing, run `bun run dev:web` once or regenerate manually.
 - **TS config is strict and unforgiving** — `noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns` are on. Typechecking is `tsc --noEmit` (TypeScript 7); the `tsgo` native-preview binary was folded into `tsc` at GA, so one typechecker, one CI gate.
-- **Biome covers `apps/web` and `apps/api` only**; `apps/shared` formats with prettier (`cd apps/shared && bun run formatCheck`) and CI checks it separately.
+- **Biome covers all three apps** (`apps/web`, `apps/api`, `apps/shared`) for lint and format; prettier is gone. One `bun run formatCheck` / `bun run lint` checks the whole workspace.
 - **Shared types are the contract.** API responses are typed from `@rawkoon/shared/types`; change the type there, not in one side only. Web query keys are centralized in `apps/web/src/lib/queryKeys.ts`.
 - **Tests are colocated** (`*.test.ts` next to the code) plus `apps/api/test/`. API tests mock `@rawkoon/api/db`; a real `DATABASE_URL` in the env switches some suites to integration mode.
 - **Path aliases:** API code imports itself as `@rawkoon/api/<path>` (package `exports` maps `./*` → `./src/*.ts`), not by relative path. Follow that.
