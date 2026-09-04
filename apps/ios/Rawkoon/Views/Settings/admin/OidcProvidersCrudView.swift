@@ -86,12 +86,12 @@ struct OidcProvidersCrudView: View {
         providers.remove(at: idx) // optimistic (single element)
         do {
             try await client.deleteOidcProvider(id: provider.id)
-            model.toast("Provider deleted.", style: .success)
+            model.toast(String(localized: "Provider deleted."), style: .success)
         } catch {
             if !providers.contains(where: { $0.id == removed.id }) {
                 providers.insert(removed, at: min(idx, providers.count)) // restore just this row
             }
-            model.toast("Couldn't delete provider.", style: .error)
+            model.toast(String(localized: "Couldn't delete provider."), style: .error)
         }
     }
 }
@@ -193,7 +193,7 @@ private struct OidcProviderEditorView: View {
             }
             dismiss()
         } catch {
-            saveError = "Couldn't save. Check the fields and try again."
+            saveError = String(localized: "Couldn't save. Check the fields and try again.")
         }
         saving = false
     }

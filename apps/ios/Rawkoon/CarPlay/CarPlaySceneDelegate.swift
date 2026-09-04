@@ -64,13 +64,13 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         let model = AppModel.shared
 
         guard model.isLoggedIn else {
-            showMessage("Open Rawkoon on your phone to sign in.")
+            showMessage(String(localized: "Open Rawkoon on your phone to sign in."))
             return
         }
         await model.ensureLibraryLoaded()
         let entries = await model.carPlayAudiobooks()
         guard !entries.isEmpty else {
-            showMessage(model.errorMessage ?? "No audiobooks yet.")
+            showMessage(model.errorMessage ?? String(localized: "No audiobooks yet."))
             return
         }
         showBrowse(entries: entries, model: model)

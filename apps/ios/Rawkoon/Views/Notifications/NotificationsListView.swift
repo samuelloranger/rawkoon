@@ -149,7 +149,7 @@ struct NotificationsListView: View {
     private func load(reset: Bool) async {
         guard let client = model.api() else {
             loading = false
-            errorMessage = "Not logged in."
+            errorMessage = String(localized: "Not logged in.")
             return
         }
         if reset {
@@ -164,7 +164,7 @@ struct NotificationsListView: View {
             notifications = response.notifications
             hasMore = (response.pagination?.page ?? page) < (response.pagination?.pages ?? page)
         } catch {
-            errorMessage = "Could not load notifications."
+            errorMessage = String(localized: "Could not load notifications.")
         }
     }
 

@@ -251,7 +251,7 @@ struct MediaLibrarySettingsView: View {
             _ = try await client.startReindexLanguages()
             await pollReindex()
         } catch {
-            model.toast("Couldn't start reindex.", style: .error)
+            model.toast(String(localized: "Couldn't start reindex."), style: .error)
         }
     }
 

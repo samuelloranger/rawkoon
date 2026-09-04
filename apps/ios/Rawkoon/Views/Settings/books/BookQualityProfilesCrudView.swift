@@ -85,7 +85,7 @@ struct BookQualityProfilesCrudView: View {
         profiles.remove(at: idx) // optimistic (single element)
         do {
             try await client.deleteBookQualityProfile(id: profile.id)
-            model.toast("Profile deleted.", style: .success)
+            model.toast(String(localized: "Profile deleted."), style: .success)
         } catch {
             if !profiles.contains(where: { $0.id == removed.id }) {
                 profiles.insert(removed, at: min(idx, profiles.count)) // restore just this row

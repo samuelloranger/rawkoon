@@ -100,7 +100,7 @@ struct IndexersView: View {
         defer { loading = false }
 
         guard let client = model.api() else {
-            errorMessage = "Not signed in."
+            errorMessage = String(localized: "Not signed in.")
             return
         }
 
@@ -112,20 +112,20 @@ struct IndexersView: View {
         } catch let error as APIError {
             errorMessage = message(for: error)
         } catch {
-            errorMessage = "Network error. Check your connection."
+            errorMessage = String(localized: "Network error. Check your connection.")
         }
     }
 
     private func message(for error: APIError) -> String {
         switch error {
         case .unauthorized:
-            "Admin only."
+            String(localized: "Admin only.")
         case let .http(status):
-            "Server error (\(status))."
+            String(localized: "Server error (\(status)).")
         case .decode:
-            "Could not parse server response."
+            String(localized: "Could not parse server response.")
         case .transport:
-            "Network error. Check your connection."
+            String(localized: "Network error. Check your connection.")
         }
     }
 }

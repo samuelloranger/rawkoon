@@ -151,7 +151,7 @@ struct DevicesView: View {
             failed = true
         }
         if failed {
-            model.toast("Couldn't refresh all devices.", style: .error)
+            model.toast(String(localized: "Couldn't refresh all devices."), style: .error)
         }
         loading = false
     }
@@ -174,9 +174,9 @@ struct DevicesView: View {
                 try await client.deleteWebPushDevice(id: item.deviceId)
                 web.removeAll { $0.id == item.deviceId }
             }
-            model.toast("Device removed.", style: .success)
+            model.toast(String(localized: "Device removed."), style: .success)
         } catch {
-            model.toast("Couldn't remove device.", style: .error)
+            model.toast(String(localized: "Couldn't remove device."), style: .error)
         }
     }
 }

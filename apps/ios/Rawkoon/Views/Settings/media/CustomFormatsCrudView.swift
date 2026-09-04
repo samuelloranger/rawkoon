@@ -88,7 +88,7 @@ struct CustomFormatsCrudView: View {
         formats.remove(at: idx) // optimistic (single element)
         do {
             try await client.deleteCustomFormat(id: format.id)
-            model.toast("Custom format deleted.", style: .success)
+            model.toast(String(localized: "Custom format deleted."), style: .success)
         } catch {
             if !formats.contains(where: { $0.id == removed.id }) {
                 formats.insert(removed, at: min(idx, formats.count)) // restore just this row

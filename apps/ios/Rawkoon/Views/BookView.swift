@@ -996,7 +996,7 @@ struct BookView: View {
                 detailError = message(for: apiError)
             }
         } catch {
-            detailError = "Could not load book details."
+            detailError = String(localized: "Could not load book details.")
         }
     }
 
@@ -1031,9 +1031,9 @@ struct BookView: View {
             }
         } catch {
             if kind == "audiobook" {
-                manifestError = "Could not add audiobook edition."
+                manifestError = String(localized: "Could not add audiobook edition.")
             } else {
-                ebookFilesError = "Could not add ebook edition."
+                ebookFilesError = String(localized: "Could not add ebook edition.")
             }
         }
     }
@@ -1084,7 +1084,7 @@ struct BookView: View {
             }
         } catch {
             if manifest == nil {
-                manifestError = "Could not load manifest."
+                manifestError = String(localized: "Could not load manifest.")
             }
         }
     }
@@ -1105,7 +1105,7 @@ struct BookView: View {
             manifestError = message(for: apiError)
         } catch {
             manifest = nil
-            manifestError = "Rescan completed, but chapters are still unavailable."
+            manifestError = String(localized: "Rescan completed, but chapters are still unavailable.")
         }
     }
 
@@ -1125,7 +1125,7 @@ struct BookView: View {
                 ebookFilesError = nil
             } else {
                 ebookFiles = []
-                ebookFilesError = (error as? APIError).map(message(for:)) ?? "Could not load ebook files."
+                ebookFilesError = (error as? APIError).map(message(for:)) ?? String(localized: "Could not load ebook files.")
             }
         }
     }
@@ -1142,7 +1142,7 @@ struct BookView: View {
         } catch let apiError as APIError {
             ebookFilesError = message(for: apiError)
         } catch {
-            ebookFilesError = "Could not rescan ebook edition."
+            ebookFilesError = String(localized: "Could not rescan ebook edition.")
         }
     }
 
@@ -1166,9 +1166,9 @@ struct BookView: View {
                 localURL: localURL
             )
         } catch EbookStorageError.missingRemoteURL {
-            ebookFilesError = "This server version cannot provide ebook download links yet."
+            ebookFilesError = String(localized: "This server version cannot provide ebook download links yet.")
         } catch {
-            ebookFilesError = "Read failed. Try refreshing or rescanning this edition."
+            ebookFilesError = String(localized: "Read failed. Try refreshing or rescanning this edition.")
         }
     }
 
@@ -1207,12 +1207,12 @@ struct BookView: View {
                 downloadedFileCount: ebookFiles.filter(isEbookDownloaded).count
             )
         } catch EbookStorageError.missingRemoteURL {
-            ebookFilesError = "This server version cannot provide ebook download links yet."
+            ebookFilesError = String(localized: "This server version cannot provide ebook download links yet.")
         } catch {
             // A user-initiated cancel surfaces as a transport error too; stay
             // silent rather than crying failure over an intentional stop.
             guard !Task.isCancelled else { return }
-            ebookFilesError = "Download failed. Check your connection and try again."
+            ebookFilesError = String(localized: "Download failed. Check your connection and try again.")
         }
     }
 
@@ -1365,15 +1365,15 @@ struct BookView: View {
     private func message(for error: APIError) -> String {
         switch error {
         case .unauthorized:
-            "Sign in required."
+            String(localized: "Sign in required.")
         case .http(400):
-            "This audiobook is not chapter-ready yet. Run a rescan or grab a chapterized release."
+            String(localized: "This audiobook is not chapter-ready yet. Run a rescan or grab a chapterized release.")
         case let .http(status):
-            "Server error (\(status))."
+            String(localized: "Server error (\(status)).")
         case .decode:
-            "Could not parse server response."
+            String(localized: "Could not parse server response.")
         case .transport:
-            "Network error. Check your connection."
+            String(localized: "Network error. Check your connection.")
         }
     }
 

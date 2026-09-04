@@ -126,7 +126,7 @@ struct UsersView: View {
         defer { loading = false }
 
         guard let client = model.api() else {
-            errorText = "Not signed in."
+            errorText = String(localized: "Not signed in.")
             return
         }
 
@@ -138,16 +138,16 @@ struct UsersView: View {
         } catch let error as APIError {
             switch error {
             case let .http(status):
-                errorText = "Server error (\(status))."
+                errorText = String(localized: "Server error (\(status)).")
             case .decode:
-                errorText = "Could not parse server response."
+                errorText = String(localized: "Could not parse server response.")
             case .transport:
-                errorText = "Network error. Check your connection."
+                errorText = String(localized: "Network error. Check your connection.")
             case .unauthorized:
                 isForbidden = true
             }
         } catch {
-            errorText = "Network error. Check your connection."
+            errorText = String(localized: "Network error. Check your connection.")
         }
     }
 }

@@ -536,12 +536,12 @@ struct LibraryView: View {
     }
 
     private func errorMessage(for error: Error) -> String {
-        guard let apiError = error as? APIError else { return "Unexpected error." }
+        guard let apiError = error as? APIError else { return String(localized: "Unexpected error.") }
         switch apiError {
-        case .unauthorized: return "Sign in required."
-        case let .http(status): return "Server error (\(status))."
-        case .decode: return "Could not parse server response."
-        case .transport: return "Network error."
+        case .unauthorized: return String(localized: "Sign in required.")
+        case let .http(status): return String(localized: "Server error (\(status)).")
+        case .decode: return String(localized: "Could not parse server response.")
+        case .transport: return String(localized: "Network error.")
         }
     }
 
@@ -602,7 +602,7 @@ struct LibraryView: View {
         do {
             _ = try await client.updateLibraryMonitored(id: media.id, monitored: !media.monitored)
             await loadMedia(reset: true)
-            model.toast(media.monitored ? "Unmonitored." : "Monitored.", style: .success)
+            model.toast(media.monitored ? String(localized: "Unmonitored.") : String(localized: "Monitored."), style: .success)
         } catch {
             model.toast(errorMessage(for: error), style: .error)
         }
@@ -616,7 +616,7 @@ struct LibraryView: View {
             try await client.removeFromLibrary(id: media.id, deleteFiles: deleteFiles)
             removeCandidate = nil
             await loadMedia(reset: true)
-            model.toast("Removed from library.", style: .success)
+            model.toast(String(localized: "Removed from library."), style: .success)
         } catch {
             model.toast(errorMessage(for: error), style: .error)
         }
@@ -629,7 +629,7 @@ struct LibraryView: View {
         if model.errorMessage == nil {
             showingPlayer = true
         } else {
-            model.toast(model.errorMessage ?? "Could not start playback.", style: .error)
+            model.toast(model.errorMessage ?? String(localized: "Could not start playback."), style: .error)
         }
     }
 
@@ -638,7 +638,7 @@ struct LibraryView: View {
         do {
             try await client.addBookEdition(bookId: book.bookId, kind: kind)
             await model.loadLibrary()
-            model.toast("Added \(kind == "audiobook" ? "audiobook" : "ebook") edition.", style: .success)
+            model.toast(String(localized: "Added \(kind == "audiobook" ? "audiobook" : "ebook") edition."), style: .success)
         } catch {
             model.toast(errorMessage(for: error), style: .error)
         }
@@ -654,7 +654,7 @@ struct LibraryView: View {
                 _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "ebook")
             }
             await model.loadLibrary()
-            model.toast("Rescan started.", style: .success)
+            model.toast(String(localized: "Rescan started."), style: .success)
         } catch {
             model.toast(errorMessage(for: error), style: .error)
         }

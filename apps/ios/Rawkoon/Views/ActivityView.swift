@@ -189,7 +189,7 @@ struct ActivityView: View {
         defer { loadingQueue = false }
 
         guard let client = model.api() else {
-            queueError = "Not signed in."
+            queueError = String(localized: "Not signed in.")
             return
         }
 
@@ -219,7 +219,7 @@ struct ActivityView: View {
         } catch let error as APIError {
             queueError = message(for: error)
         } catch {
-            queueError = "Network error. Check your connection."
+            queueError = String(localized: "Network error. Check your connection.")
         }
     }
 
@@ -290,7 +290,7 @@ struct ActivityView: View {
         defer { loadingHistory = false }
 
         guard let client = model.api() else {
-            historyError = "Not signed in."
+            historyError = String(localized: "Not signed in.")
             return
         }
 
@@ -300,7 +300,7 @@ struct ActivityView: View {
         } catch let error as APIError {
             historyError = message(for: error)
         } catch {
-            historyError = "Network error. Check your connection."
+            historyError = String(localized: "Network error. Check your connection.")
         }
     }
 
@@ -367,7 +367,7 @@ struct ActivityView: View {
         defer { loadingCalendar = false }
 
         guard let client = model.api() else {
-            calendarError = "Not signed in."
+            calendarError = String(localized: "Not signed in.")
             return
         }
 
@@ -377,7 +377,7 @@ struct ActivityView: View {
         } catch let error as APIError {
             calendarError = message(for: error)
         } catch {
-            calendarError = "Network error. Check your connection."
+            calendarError = String(localized: "Network error. Check your connection.")
         }
     }
 
@@ -424,13 +424,13 @@ struct ActivityView: View {
     private func message(for error: APIError) -> String {
         switch error {
         case .unauthorized:
-            "Sign in required."
+            String(localized: "Sign in required.")
         case let .http(status):
-            "Server error (\(status))."
+            String(localized: "Server error (\(status)).")
         case .decode:
-            "Could not parse server response."
+            String(localized: "Could not parse server response.")
         case .transport:
-            "Network error. Check your connection."
+            String(localized: "Network error. Check your connection.")
         }
     }
 }

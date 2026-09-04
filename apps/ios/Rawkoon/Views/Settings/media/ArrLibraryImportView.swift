@@ -92,7 +92,7 @@ struct ArrLibraryImportView: View {
             return "\(state) \u{2022} \(progress.current ?? 0)/\(total) \u{2022} \(imported) imported"
         }
         if let error = status.error {
-            return "failed \u{2022} \(error)"
+            return String(localized: "failed \u{2022} \(error)")
         }
         return state
     }

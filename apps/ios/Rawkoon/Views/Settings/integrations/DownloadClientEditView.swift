@@ -112,13 +112,13 @@ struct DownloadClientEditView: View {
     }
 
     private func testConnection() async -> TestOutcome {
-        guard let client = model.api() else { return .failure("Not signed in.") }
+        guard let client = model.api() else { return .failure(String(localized: "Not signed in.")) }
         do {
             let result = try await client.testDownloadClient(body_)
             if result.ok == true {
-                return .success("Connected")
+                return .success(String(localized: "Connected"))
             }
-            return .failure(result.error ?? "Could not connect.")
+            return .failure(result.error ?? String(localized: "Could not connect."))
         } catch {
             return .failure(settingsErrorMessage(error))
         }

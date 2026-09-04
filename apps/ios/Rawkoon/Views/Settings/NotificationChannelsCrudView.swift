@@ -123,7 +123,7 @@ struct NotificationChannelsCrudView: View {
         channels.remove(at: idx) // optimistic (single element)
         do {
             try await client.deleteNotificationChannel(id: channel.id)
-            model.toast("Channel deleted.", style: .success)
+            model.toast(String(localized: "Channel deleted."), style: .success)
         } catch {
             if !channels.contains(where: { $0.id == removed.id }) {
                 channels.insert(removed, at: min(idx, channels.count)) // restore just this row
@@ -137,9 +137,9 @@ struct NotificationChannelsCrudView: View {
         busyIds.insert(channel.id)
         do {
             try await client.testNotificationChannel(id: channel.id)
-            model.toast("Test succeeded for \(channel.label ?? channel.type).", style: .success)
+            model.toast(String(localized: "Test succeeded for \(channel.label ?? channel.type)."), style: .success)
         } catch {
-            model.toast("Test failed for \(channel.label ?? channel.type).", style: .error)
+            model.toast(String(localized: "Test failed for \(channel.label ?? channel.type)."), style: .error)
         }
         busyIds.remove(channel.id)
     }
