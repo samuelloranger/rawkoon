@@ -72,7 +72,7 @@ struct HomeView: View {
 
     private var greeting: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("\(timeGreeting), \(model.userFirstName ?? "there")")
+            greetingLine
                 .font(.display(28))
                 .foregroundStyle(Theme.textStrong)
             Text(subtitle)
@@ -82,7 +82,12 @@ struct HomeView: View {
         .padding(.horizontal, 16)
     }
 
-    private var timeGreeting: String {
+    private var greetingLine: Text {
+        let name = model.userFirstName ?? String(localized: "there")
+        return Text(timeGreeting) + Text(verbatim: ", ") + Text(verbatim: name)
+    }
+
+    private var timeGreeting: LocalizedStringKey {
         switch Calendar.current.component(.hour, from: Date()) {
         case 5 ..< 12: "Good morning"
         case 12 ..< 18: "Good afternoon"
@@ -90,13 +95,12 @@ struct HomeView: View {
         }
     }
 
-    private var subtitle: String {
-        let weekday = Calendar.current.component(.weekday, from: Date())
-        switch weekday {
-        case 1, 7: return "Enjoy your weekend."
-        case 2: return "A fresh week begins."
-        case 6: return "The weekend's nearly here."
-        default: return "Here's what's happening."
+    private var subtitle: LocalizedStringKey {
+        switch Calendar.current.component(.weekday, from: Date()) {
+        case 1, 7: "Enjoy your weekend."
+        case 2: "A fresh week begins."
+        case 6: "The weekend's nearly here."
+        default: "Here's what's happening."
         }
     }
 
@@ -113,7 +117,7 @@ struct HomeView: View {
         }
     }
 
-    private func rail(_ title: String, _ items: [RailItem]) -> some View {
+    private func rail(_ title: LocalizedStringKey, _ items: [RailItem]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title).font(.display(19)).foregroundStyle(Theme.textStrong).padding(.horizontal, 16)
             ScrollView(.horizontal, showsIndicators: false) {
@@ -244,7 +248,7 @@ struct HomeView: View {
         .padding(.horizontal, 16)
     }
 
-    private func widgetCard(_ title: String, systemImage: String, @ViewBuilder _ content: () -> some View) -> some View {
+    private func widgetCard(_ title: LocalizedStringKey, systemImage: String, @ViewBuilder _ content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Label(title, systemImage: systemImage)
                 .font(.display(16)).foregroundStyle(Theme.textStrong)
@@ -263,7 +267,7 @@ struct HomeView: View {
                     ForEach(sessions) { s in
                         HStack(spacing: 10) {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(s.title ?? "Playing").font(.subheadline.weight(.medium)).foregroundStyle(Theme.text).lineLimit(1)
+                                Text(s.title ?? String(localized: "Playing")).font(.subheadline.weight(.medium)).foregroundStyle(Theme.text).lineLimit(1)
                                 Text("\(s.user ?? "") · \(s.device ?? "")").font(.caption2).foregroundStyle(Theme.faint).lineLimit(1)
                             }
                             Spacer()
@@ -331,7 +335,7 @@ struct HomeView: View {
             if let run = r.lastRun {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
-                        StatusBadge(text: LocalizedStringKey(run.status == "error" ? "Error" : "OK"),
+                        StatusBadge(text: run.status == "error" ? "Error" : "OK",
                                     tint: run.status == "error" ? Theme.terracotta : Theme.seed)
                         Text("\(run.releasesFound ?? 0) found · \(run.releasesGrabbed ?? 0) grabbed")
                             .font(.system(.caption, design: .monospaced)).foregroundStyle(Theme.muted)

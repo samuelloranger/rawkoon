@@ -12,7 +12,7 @@ struct NotificationsSettingsView: View {
 
     private struct Row: Identifiable {
         let key: String
-        let label: String
+        let label: LocalizedStringKey
         var id: String {
             key
         }

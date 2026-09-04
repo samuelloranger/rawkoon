@@ -302,7 +302,7 @@ struct PlayerView: View {
             }
         } label: {
             chip(
-                title: "\(rateLabel(Double(model.player.rate)))×",
+                verbatim: "\(rateLabel(Double(model.player.rate)))×",
                 systemImage: "speedometer",
                 emphasized: false
             )
@@ -319,7 +319,14 @@ struct PlayerView: View {
                 Button("\(m) min") { model.player.setSleep(.minutes(m)) }
             }
         } label: {
-            chip(title: sleepLabel, systemImage: "moon.zzz.fill", emphasized: sleepActive)
+            switch model.player.sleepMode {
+            case .off:
+                chip(title: "Sleep", systemImage: "moon.zzz.fill", emphasized: sleepActive)
+            case .endOfChapter:
+                chip(title: "Chapter", systemImage: "moon.zzz.fill", emphasized: sleepActive)
+            case .minutes:
+                chip(verbatim: sleepLabel, systemImage: "moon.zzz.fill", emphasized: sleepActive)
+            }
         }
         .accessibilityLabel("Sleep timer")
         .accessibilityValue(sleepLabel)
@@ -334,8 +341,23 @@ struct PlayerView: View {
             .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
     }
 
-    private func chip(title: String, systemImage: String, emphasized: Bool) -> some View {
-        Label(title, systemImage: systemImage)
+    private func chip(title: LocalizedStringKey, systemImage: String, emphasized: Bool) -> some View {
+        chipLabel(Label(title, systemImage: systemImage), emphasized: emphasized)
+    }
+
+    private func chip(verbatim title: String, systemImage: String, emphasized: Bool) -> some View {
+        chipLabel(
+            Label {
+                Text(verbatim: title)
+            } icon: {
+                Image(systemName: systemImage)
+            },
+            emphasized: emphasized
+        )
+    }
+
+    private func chipLabel(_ label: some View, emphasized: Bool) -> some View {
+        label
             .font(.system(.subheadline, design: .monospaced).weight(.medium))
             .foregroundStyle(emphasized ? Theme.apricot : Theme.textStrong)
             .padding(.horizontal, 14)
@@ -356,16 +378,16 @@ struct PlayerView: View {
     private var sleepLabel: String {
         switch model.player.sleepMode {
         case .off:
-            return "Sleep"
+            return String(localized: "Sleep")
         case .endOfChapter:
-            return "Chapter"
+            return String(localized: "Chapter")
         case .minutes:
             if let remaining = model.player.sleepRemainingSecs {
                 let m = Int(remaining) / 60
                 let s = Int(remaining) % 60
                 return String(format: "%d:%02d", m, s)
             }
-            return "Sleep"
+            return String(localized: "Sleep")
         }
     }
 
@@ -380,7 +402,7 @@ struct PlayerView: View {
             let currentIndex = model.player.currentChapterIndex,
             let chapter = manifest.chapters.first(where: { $0.index == currentIndex })
         else {
-            return "No chapter loaded"
+            return String(localized: "No chapter loaded")
         }
         return chapter.title
     }

@@ -44,8 +44,11 @@ struct StatusBadge: View {
         self.tint = tint
     }
 
-    init(text: some StringProtocol, tint: Color = Theme.apricot) {
-        self.text = Text(text)
+    /// Runtime / server tokens. A `String`/`StringProtocol` `text:` init would
+    /// steal string literals from the `LocalizedStringKey` overload, so catalog
+    /// keys like `In library` would render verbatim.
+    init(verbatim: String, tint: Color = Theme.apricot) {
+        self.text = Text(verbatim: verbatim)
         self.tint = tint
     }
 
@@ -282,7 +285,7 @@ struct BookRow: View {
         .bookCardContextMenu(items: menuItems, onAction: onMenuAction)
     }
 
-    private func formatChip(_ text: String, tint: Color) -> some View {
+    private func formatChip(_ text: LocalizedStringKey, tint: Color) -> some View {
         Text(text)
             .font(.system(.caption2, design: .monospaced))
             .foregroundStyle(tint)

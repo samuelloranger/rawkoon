@@ -54,7 +54,7 @@ struct DownloadClientView: View {
                             .foregroundStyle(Theme.text)
                         Spacer()
                         StatusBadge(
-                            text: LocalizedStringKey(integration.enabled ? "Connected" : "Disabled"),
+                            text: integration.enabled ? "Connected" : "Disabled",
                             tint: integration.enabled ? Theme.seed : Theme.muted
                         )
                     }
@@ -114,12 +114,12 @@ struct DownloadClientView: View {
         .foregroundStyle(Theme.faint)
     }
 
-    private func detailRow(_ title: String, _ value: String) -> some View {
+    private func detailRow(_ title: LocalizedStringKey, _ value: String) -> some View {
         HStack(alignment: .top) {
             Text(title)
                 .foregroundStyle(Theme.text)
             Spacer(minLength: 12)
-            Text(value)
+            Text(verbatim: value)
                 .font(.system(.body, design: .monospaced))
                 .foregroundStyle(Theme.muted)
                 .multilineTextAlignment(.trailing)
