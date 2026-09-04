@@ -57,8 +57,13 @@ targets:
         UIAppFonts:
           - Fraunces.ttf
         # Dark-only by design — audiobooks and late-night queue-watching live at
-        # night, and the whole palette is built for a dim room.
-        UIUserInterfaceStyle: Dark
+        # night, and the whole palette is built for a dim room. The phone app is
+        # forced dark in SwiftUI via `.preferredColorScheme(.dark)` on the root
+        # WindowGroup (RawkoonApp.swift), so we deliberately DON'T set the
+        # app-wide `UIUserInterfaceStyle: Dark` here: that key also forces the
+        # style onto the CarPlay scene, which must follow the car's own day/night
+        # appearance — forcing it made CarPlay list text render dark-on-dark in
+        # the car's night mode. Leaving it unset lets CarPlay pick readable colors.
         # iPhone-only (TARGETED_DEVICE_FAMILY = 1 below), so the iPad-multitasking
         # rule that demands all four orientations does not apply and the player
         # can stay portrait-only.
