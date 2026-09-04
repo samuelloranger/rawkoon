@@ -6516,7 +6516,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ajoutez une édition audio, puis cherchez des releases pour lire et télécharger les chapitres hors ligne."
+            "value": "Ajoutez une édition audio, puis cherchez des releases pour écouter et télécharger les chapitres hors ligne."
           }
         }
       }
@@ -6556,7 +6556,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Annulée"
+            "value": "Annulé"
           }
         }
       }
@@ -6706,7 +6706,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nécessite une attention"
+            "value": "À traiter"
           }
         }
       }
@@ -7096,7 +7096,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "vous"
+            "value": "Utilisateur"
           }
         }
       }
