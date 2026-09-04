@@ -21,8 +21,6 @@
     "formatCheck": "biome format apps/web apps/api",
     "typecheck": "bun run --workspaces --if-present typecheck",
     "typecheck:build": "tsc -b tsconfig.build.json --pretty false",
-    "typecheck:native": "bun run --workspaces --if-present typecheck:native",
-    "typecheck:native:build": "tsgo -b tsconfig.build.json --pretty false",
     "lint": "biome lint apps/web apps/api",
     "knip": "knip",
     "licenses": "bun pm licenses",
@@ -43,7 +41,6 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.3",
     "@types/react": "~19.2.17",
-    "@typescript/native-preview": "^7.0.0-dev.20260616.1",
     "elysia": "^1.4.29",
     "husky": "^9.1.7",
     "knip": "^6.17.1",
