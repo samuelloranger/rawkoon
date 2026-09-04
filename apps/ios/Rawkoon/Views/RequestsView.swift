@@ -11,6 +11,13 @@ struct RequestsView: View {
         var id: String {
             rawValue
         }
+
+        var title: LocalizedStringKey {
+            switch self {
+            case .pending: "Pending"
+            case .all: "All"
+            }
+        }
     }
 
     @State private var filter: Filter = .pending
@@ -37,7 +44,7 @@ struct RequestsView: View {
         VStack(spacing: 0) {
             Picker("Filter", selection: $filter) {
                 ForEach(Filter.allCases) { f in
-                    Text(f.rawValue).tag(f)
+                    Text(f.title).tag(f)
                 }
             }
             .pickerStyle(.segmented)
@@ -112,7 +119,7 @@ struct RequestsView: View {
             ContentUnavailableView(
                 "No requests",
                 systemImage: "tray",
-                description: Text(filter == .pending ? "No pending requests. Request a title from Discover." : "No requests yet.")
+                description: Text(LocalizedStringKey(filter == .pending ? "No pending requests. Request a title from Discover." : "No requests yet."))
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
@@ -149,7 +156,7 @@ struct RequestsView: View {
             if busyRequestId == req.id {
                 ProgressView().tint(Theme.apricot)
             } else {
-                StatusBadge(text: req.status, tint: badgeTint(req.status))
+                statusBadge(req.status, tint: badgeTint(req.status))
             }
         }
         .padding(.vertical, 4)
@@ -185,9 +192,9 @@ struct RequestsView: View {
             let response = try await client.requestsList()
             requests = response.requests
         } catch APIError.unauthorized {
-            errorMessage = "Sign in required."
+            errorMessage = String(localized: "Sign in required.")
         } catch {
-            errorMessage = "Something went wrong. Pull to retry."
+            errorMessage = String(localized: "Something went wrong. Pull to retry.")
         }
     }
 
@@ -199,7 +206,7 @@ struct RequestsView: View {
             let response = try await client.qualityProfiles()
             busyRequestId = nil
             if response.profiles.isEmpty {
-                adminNote = "No quality profiles configured."
+                adminNote = String(localized: "No quality profiles configured.")
                 return
             }
             profiles = response.profiles
@@ -207,10 +214,10 @@ struct RequestsView: View {
             showApproveDialog = true
         } catch APIError.unauthorized {
             busyRequestId = nil
-            adminNote = "Admin only."
+            adminNote = String(localized: "Admin only.")
         } catch {
             busyRequestId = nil
-            adminNote = "Couldn't load quality profiles."
+            adminNote = String(localized: "Couldn't load quality profiles.")
         }
     }
 
@@ -223,9 +230,9 @@ struct RequestsView: View {
             try await client.approveRequest(id: request.id, qualityProfileId: profile.id)
             await load()
         } catch APIError.unauthorized {
-            adminNote = "Admin only."
+            adminNote = String(localized: "Admin only.")
         } catch {
-            adminNote = "Couldn't approve that request."
+            adminNote = String(localized: "Couldn't approve that request.")
         }
     }
 
@@ -237,9 +244,9 @@ struct RequestsView: View {
             try await client.denyRequest(id: request.id, reason: nil)
             await load()
         } catch APIError.unauthorized {
-            adminNote = "Admin only."
+            adminNote = String(localized: "Admin only.")
         } catch {
-            adminNote = "Couldn't deny that request."
+            adminNote = String(localized: "Couldn't deny that request.")
         }
     }
 }

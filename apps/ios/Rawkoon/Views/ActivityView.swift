@@ -12,6 +12,14 @@ struct ActivityView: View {
         var id: String {
             rawValue
         }
+
+        var title: LocalizedStringKey {
+            switch self {
+            case .queue: "Queue"
+            case .history: "History"
+            case .calendar: "Calendar"
+            }
+        }
     }
 
     @State private var lane: Lane = .queue
@@ -41,7 +49,7 @@ struct ActivityView: View {
         VStack(spacing: 0) {
             Picker("Lane", selection: $lane) {
                 ForEach(Lane.allCases) { lane in
-                    Text(lane.rawValue).tag(lane)
+                    Text(lane.title).tag(lane)
                 }
             }
             .pickerStyle(.segmented)
@@ -138,7 +146,7 @@ struct ActivityView: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                StatusBadge(text: row.live.state, tint: stateTint(row.live.state))
+                statusBadge(row.live.state, tint: stateTint(row.live.state))
             }
 
             DuskProgress(value: row.live.progress)
@@ -189,7 +197,7 @@ struct ActivityView: View {
         defer { loadingQueue = false }
 
         guard let client = model.api() else {
-            queueError = "Not signed in."
+            queueError = String(localized: "Not signed in.")
             return
         }
 
@@ -219,7 +227,7 @@ struct ActivityView: View {
         } catch let error as APIError {
             queueError = message(for: error)
         } catch {
-            queueError = "Network error. Check your connection."
+            queueError = String(localized: "Network error. Check your connection.")
         }
     }
 
@@ -290,7 +298,7 @@ struct ActivityView: View {
         defer { loadingHistory = false }
 
         guard let client = model.api() else {
-            historyError = "Not signed in."
+            historyError = String(localized: "Not signed in.")
             return
         }
 
@@ -300,7 +308,7 @@ struct ActivityView: View {
         } catch let error as APIError {
             historyError = message(for: error)
         } catch {
-            historyError = "Network error. Check your connection."
+            historyError = String(localized: "Network error. Check your connection.")
         }
     }
 
@@ -367,7 +375,7 @@ struct ActivityView: View {
         defer { loadingCalendar = false }
 
         guard let client = model.api() else {
-            calendarError = "Not signed in."
+            calendarError = String(localized: "Not signed in.")
             return
         }
 
@@ -377,7 +385,7 @@ struct ActivityView: View {
         } catch let error as APIError {
             calendarError = message(for: error)
         } catch {
-            calendarError = "Network error. Check your connection."
+            calendarError = String(localized: "Network error. Check your connection.")
         }
     }
 
@@ -424,13 +432,13 @@ struct ActivityView: View {
     private func message(for error: APIError) -> String {
         switch error {
         case .unauthorized:
-            "Sign in required."
+            String(localized: "Sign in required.")
         case let .http(status):
-            "Server error (\(status))."
+            String(localized: "Server error (\(status)).")
         case .decode:
-            "Could not parse server response."
+            String(localized: "Could not parse server response.")
         case .transport:
-            "Network error. Check your connection."
+            String(localized: "Network error. Check your connection.")
         }
     }
 }

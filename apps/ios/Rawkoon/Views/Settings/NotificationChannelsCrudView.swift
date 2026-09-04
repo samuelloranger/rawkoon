@@ -2,13 +2,13 @@ import SwiftUI
 
 private struct ChannelField {
     let key: String
-    let label: String
+    let label: LocalizedStringKey
     var secret = false
     var numeric = false
 }
 
 private enum ChannelSchema {
-    static let types: [(value: String, label: String)] = [
+    static let types: [(value: String, label: LocalizedStringKey)] = [
         ("ntfy", "ntfy"), ("telegram", "Telegram"), ("discord", "Discord"),
         ("gotify", "Gotify"), ("pushover", "Pushover"), ("slack", "Slack"), ("webhook", "Webhook"),
     ]
@@ -123,7 +123,7 @@ struct NotificationChannelsCrudView: View {
         channels.remove(at: idx) // optimistic (single element)
         do {
             try await client.deleteNotificationChannel(id: channel.id)
-            model.toast("Channel deleted.", style: .success)
+            model.toast(String(localized: "Channel deleted."), style: .success)
         } catch {
             if !channels.contains(where: { $0.id == removed.id }) {
                 channels.insert(removed, at: min(idx, channels.count)) // restore just this row
@@ -137,9 +137,9 @@ struct NotificationChannelsCrudView: View {
         busyIds.insert(channel.id)
         do {
             try await client.testNotificationChannel(id: channel.id)
-            model.toast("Test succeeded for \(channel.label ?? channel.type).", style: .success)
+            model.toast(String(localized: "Test succeeded for \(channel.label ?? channel.type)."), style: .success)
         } catch {
-            model.toast("Test failed for \(channel.label ?? channel.type).", style: .error)
+            model.toast(String(localized: "Test failed for \(channel.label ?? channel.type)."), style: .error)
         }
         busyIds.remove(channel.id)
     }
@@ -188,7 +188,7 @@ private struct ChannelEditorView: View {
         .scrollContentBackground(.hidden)
         .background(Theme.base)
         .tint(Theme.apricot)
-        .navigationTitle(channel == nil ? "New channel" : "Edit channel")
+        .navigationTitle(Text(LocalizedStringKey(channel == nil ? "New channel" : "Edit channel")))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

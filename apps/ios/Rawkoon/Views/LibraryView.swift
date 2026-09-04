@@ -7,6 +7,13 @@ private enum LibrarySection: String, CaseIterable, Identifiable {
     var id: String {
         rawValue
     }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .media: "Media"
+        case .books: "Books"
+        }
+    }
 }
 
 /// Defaults mirror the web app: type=all, status=all, sort=added_at desc.
@@ -16,8 +23,12 @@ private enum MediaTypeFilter: String, CaseIterable, Identifiable {
         rawValue
     }
 
-    var label: String {
-        self == .all ? "All" : self == .movie ? "Movies" : "Shows"
+    var title: LocalizedStringKey {
+        switch self {
+        case .all: "All"
+        case .movie: "Movies"
+        case .show: "Shows"
+        }
     }
 
     var param: String? {
@@ -31,7 +42,7 @@ private enum MediaStatusFilter: String, CaseIterable, Identifiable {
         rawValue
     }
 
-    var label: String {
+    var title: LocalizedStringKey {
         switch self {
         case .all: "All"
         case .downloaded: "Downloaded"
@@ -51,7 +62,7 @@ private enum MediaSort: String, CaseIterable, Identifiable {
         rawValue
     }
 
-    var label: String {
+    var title: LocalizedStringKey {
         switch self {
         case .added_at: "Date added"
         case .last_grabbed_at: "Last download"
@@ -70,8 +81,12 @@ private enum BookKindFilter: String, CaseIterable, Identifiable {
         rawValue
     }
 
-    var label: String {
-        self == .all ? "All" : self == .audiobook ? "Audiobook" : "Ebook"
+    var title: LocalizedStringKey {
+        switch self {
+        case .all: "All"
+        case .audiobook: "Audiobook"
+        case .ebook: "Ebook"
+        }
     }
 }
 
@@ -83,7 +98,7 @@ private enum BookSort: String, CaseIterable, Identifiable {
         rawValue
     }
 
-    var label: String {
+    var title: LocalizedStringKey {
         switch self {
         case .recent: "Recent"
         case .title: "Title"
@@ -133,7 +148,7 @@ struct LibraryView: View {
     var body: some View {
         VStack(spacing: 0) {
             Picker("Section", selection: $section) {
-                ForEach(LibrarySection.allCases) { Text($0.rawValue).tag($0) }
+                ForEach(LibrarySection.allCases) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, 16)
@@ -271,22 +286,22 @@ struct LibraryView: View {
                 .padding(.horizontal, 16)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    filterMenu(title: mediaType.label, systemImage: "film") {
+                    filterMenu(title: mediaType.title, systemImage: "film") {
                         ForEach(MediaTypeFilter.allCases) { t in
-                            Button(t.label) { mediaType = t }
+                            Button(t.title) { mediaType = t }
                         }
                     }
-                    filterMenu(title: mediaStatus.label, systemImage: "line.3.horizontal.decrease") {
+                    filterMenu(title: mediaStatus.title, systemImage: "line.3.horizontal.decrease") {
                         ForEach(MediaStatusFilter.allCases) { s in
-                            Button(s.label) { mediaStatus = s }
+                            Button(s.title) { mediaStatus = s }
                         }
                     }
-                    filterMenu(title: sort.label, systemImage: sortAscending ? "arrow.up" : "arrow.down") {
+                    filterMenu(title: sort.title, systemImage: sortAscending ? "arrow.up" : "arrow.down") {
                         ForEach(MediaSort.allCases) { s in
-                            Button(s.label) { sort = s }
+                            Button(s.title) { sort = s }
                         }
                         Divider()
-                        Button(sortAscending ? "Descending" : "Ascending") { sortAscending.toggle() }
+                        Button(LocalizedStringKey(sortAscending ? "Descending" : "Ascending")) { sortAscending.toggle() }
                     }
                 }
                 .padding(.horizontal, 16)
@@ -300,14 +315,14 @@ struct LibraryView: View {
             searchField("Search books", text: $bookSearch)
                 .padding(.horizontal, 16)
             HStack(spacing: 8) {
-                filterMenu(title: bookKind.label, systemImage: "books.vertical") {
+                filterMenu(title: bookKind.title, systemImage: "books.vertical") {
                     ForEach(BookKindFilter.allCases) { k in
-                        Button(k.label) { bookKind = k }
+                        Button(k.title) { bookKind = k }
                     }
                 }
-                filterMenu(title: bookSort.label, systemImage: "arrow.up.arrow.down") {
+                filterMenu(title: bookSort.title, systemImage: "arrow.up.arrow.down") {
                     ForEach(BookSort.allCases) { s in
-                        Button(s.label) { bookSort = s }
+                        Button(s.title) { bookSort = s }
                     }
                 }
                 Spacer()
@@ -317,7 +332,7 @@ struct LibraryView: View {
         }
     }
 
-    private func filterMenu(title: String, systemImage: String, @ViewBuilder content: () -> some View) -> some View {
+    private func filterMenu(title: LocalizedStringKey, systemImage: String, @ViewBuilder content: () -> some View) -> some View {
         Menu {
             content()
         } label: {
@@ -605,12 +620,12 @@ struct LibraryView: View {
     }
 
     private func errorMessage(for error: Error) -> String {
-        guard let apiError = error as? APIError else { return "Unexpected error." }
+        guard let apiError = error as? APIError else { return String(localized: "Unexpected error.") }
         switch apiError {
-        case .unauthorized: return "Sign in required."
-        case let .http(status): return "Server error (\(status))."
-        case .decode: return "Could not parse server response."
-        case .transport: return "Network error."
+        case .unauthorized: return String(localized: "Sign in required.")
+        case let .http(status): return String(localized: "Server error (\(status)).")
+        case .decode: return String(localized: "Could not parse server response.")
+        case .transport: return String(localized: "Network error.")
         }
     }
 
@@ -671,7 +686,7 @@ struct LibraryView: View {
         do {
             _ = try await client.updateLibraryMonitored(id: media.id, monitored: !media.monitored)
             await loadMedia(reset: true)
-            model.toast(media.monitored ? "Unmonitored." : "Monitored.", style: .success)
+            model.toast(media.monitored ? String(localized: "Unmonitored.") : String(localized: "Monitored."), style: .success)
         } catch {
             model.toast(errorMessage(for: error), style: .error)
         }
@@ -685,7 +700,7 @@ struct LibraryView: View {
             try await client.removeFromLibrary(id: media.id, deleteFiles: deleteFiles)
             removeCandidate = nil
             await loadMedia(reset: true)
-            model.toast("Removed from library.", style: .success)
+            model.toast(String(localized: "Removed from library."), style: .success)
         } catch {
             model.toast(errorMessage(for: error), style: .error)
         }
@@ -698,7 +713,7 @@ struct LibraryView: View {
         if model.errorMessage == nil {
             showingPlayer = true
         } else {
-            model.toast(model.errorMessage ?? "Could not start playback.", style: .error)
+            model.toast(model.errorMessage ?? String(localized: "Could not start playback."), style: .error)
         }
     }
 
@@ -707,7 +722,7 @@ struct LibraryView: View {
         do {
             try await client.addBookEdition(bookId: book.bookId, kind: kind)
             await model.loadLibrary()
-            model.toast("Added \(kind == "audiobook" ? "audiobook" : "ebook") edition.", style: .success)
+            model.toast(String(localized: "Added \(kind == "audiobook" ? "audiobook" : "ebook") edition."), style: .success)
         } catch {
             model.toast(errorMessage(for: error), style: .error)
         }
@@ -723,7 +738,7 @@ struct LibraryView: View {
                 _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "ebook")
             }
             await model.loadLibrary()
-            model.toast("Rescan started.", style: .success)
+            model.toast(String(localized: "Rescan started."), style: .success)
         } catch {
             model.toast(errorMessage(for: error), style: .error)
         }

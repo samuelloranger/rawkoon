@@ -69,14 +69,14 @@ struct MediaLibrarySettingsView: View {
         [(nil, "None")] + profiles.map { (Optional($0.id), $0.name) }
     }
 
-    private static let fileOpOptions: [(value: String, label: String)] = [
+    private static let fileOpOptions: [(value: String, label: LocalizedStringKey)] = [
         ("hardlink", "Hardlink"), ("move", "Move"),
     ]
-    private var managerOptions: [(value: String?, label: String)] {
+    private var managerOptions: [(value: String?, label: LocalizedStringKey)] {
         [(nil, "None"), ("prowlarr", "Prowlarr"), ("jackett", "Jackett")]
     }
 
-    private static let scanTypeOptions: [(value: String, label: String)] = [
+    private static let scanTypeOptions: [(value: String, label: LocalizedStringKey)] = [
         ("movie", "Movie"), ("show", "Show"),
     ]
 
@@ -251,7 +251,7 @@ struct MediaLibrarySettingsView: View {
             _ = try await client.startReindexLanguages()
             await pollReindex()
         } catch {
-            model.toast("Couldn't start reindex.", style: .error)
+            model.toast(String(localized: "Couldn't start reindex."), style: .error)
         }
     }
 

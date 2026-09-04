@@ -43,7 +43,7 @@ struct ReleaseSearchView: View {
             rawValue
         }
 
-        var label: String {
+        var title: LocalizedStringKey {
             switch self {
             case .quality: "Quality"
             case .seeders: "Seeders"
@@ -151,12 +151,12 @@ struct ReleaseSearchView: View {
 
             HStack(spacing: 8) {
                 searchField("Filter loaded releases", text: $filterQuery)
-                filterMenu(title: sortBy.label, systemImage: sortAscending ? "arrow.up" : "arrow.down") {
+                filterMenu(title: sortBy.title, systemImage: sortAscending ? "arrow.up" : "arrow.down") {
                     ForEach(sortOptions) { option in
-                        Button(option.label) { sortBy = option }
+                        Button(option.title) { sortBy = option }
                     }
                     Divider()
-                    Button(sortAscending ? "Descending" : "Ascending") { sortAscending.toggle() }
+                    Button(LocalizedStringKey(sortAscending ? "Descending" : "Ascending")) { sortAscending.toggle() }
                 }
             }
 
@@ -343,12 +343,12 @@ struct ReleaseSearchView: View {
 
     private func search() async {
         guard let client = model.api() else {
-            errorMessage = "Not connected."
+            errorMessage = String(localized: "Not connected.")
             return
         }
         let trimmedQuery = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedQuery.count < 2, selectedSeason == nil, !completeSeries {
-            errorMessage = "Search query must be at least 2 characters."
+            errorMessage = String(localized: "Search query must be at least 2 characters.")
             releases = []
             return
         }
@@ -372,10 +372,10 @@ struct ReleaseSearchView: View {
             service = response.service
             indexerWarnings = response.indexerWarnings ?? []
         } catch APIError.unauthorized {
-            adminOnlyNote = "Admin only"
+            adminOnlyNote = String(localized: "Admin only")
             releases = []
         } catch {
-            errorMessage = "Couldn't load releases. Check the server."
+            errorMessage = String(localized: "Couldn't load releases. Check the server.")
             releases = []
         }
     }
@@ -393,19 +393,19 @@ struct ReleaseSearchView: View {
                     body: GrabUrlBody(downloadUrl: downloadUrl, releaseTitle: release.title, episodeId: nil)
                 )
             } else {
-                grabError = "This release can't be grabbed."
+                grabError = String(localized: "This release can't be grabbed.")
                 return
             }
             grabbedGuids.insert(release.guid)
             grabError = nil
         } catch APIError.unauthorized {
-            adminOnlyNote = "Admin only"
+            adminOnlyNote = String(localized: "Admin only")
         } catch {
-            grabError = "Grab failed for \"\(release.title)\"."
+            grabError = String(localized: "Grab failed for \"\(release.title)\".")
         }
     }
 
-    private func filterMenu(title: String, systemImage: String, @ViewBuilder content: () -> some View) -> some View {
+    private func filterMenu(title: LocalizedStringKey, systemImage: String, @ViewBuilder content: () -> some View) -> some View {
         Menu {
             content()
         } label: {

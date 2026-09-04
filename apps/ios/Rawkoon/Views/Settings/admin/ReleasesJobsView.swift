@@ -80,9 +80,9 @@ struct ReleasesAdminView: View {
         refreshing = true
         do {
             try await client.refreshReleases()
-            model.toast("Releases refreshed.", style: .success)
+            model.toast(String(localized: "Releases refreshed."), style: .success)
         } catch {
-            model.toast("Couldn't refresh releases.", style: .error)
+            model.toast(String(localized: "Couldn't refresh releases."), style: .error)
         }
         await load()
         refreshing = false
@@ -157,9 +157,9 @@ struct JobsAdminView: View {
         running = action; message = nil
         do {
             try await client.triggerJobAction(action)
-            message = "Started."
+            message = String(localized: "Started.")
         } catch {
-            message = "Couldn't start the job."
+            message = String(localized: "Couldn't start the job.")
         }
         running = nil
     }

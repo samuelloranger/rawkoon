@@ -33,15 +33,15 @@ struct SettingsStateView<Content: View>: View {
 /// screen. Admin screens say "Admin only" on 401/403; account screens say
 /// "Unauthorized".
 func settingsErrorMessage(_ error: Error, admin: Bool = true) -> String {
-    guard let apiError = error as? APIError else { return "Something went wrong." }
+    guard let apiError = error as? APIError else { return String(localized: "Something went wrong.") }
     switch apiError {
     case .unauthorized:
-        return admin ? "Admin only." : "Unauthorized. Check your credentials."
+        return admin ? String(localized: "Admin only.") : String(localized: "Unauthorized. Check your credentials.")
     case .transport:
-        return "Network error. Check your connection."
+        return String(localized: "Network error. Check your connection.")
     case .http:
-        return "Couldn't save. Check the values and try again."
+        return String(localized: "Couldn't save. Check the values and try again.")
     case .decode:
-        return "Unexpected response from the server."
+        return String(localized: "Unexpected response from the server.")
     }
 }

@@ -33,6 +33,15 @@ struct DiscoverView: View {
             }
         }
 
+        var title: LocalizedStringKey {
+            switch self {
+            case .all: "All"
+            case .movies: "Movies"
+            case .tv: "TV"
+            case .books: "Books"
+            }
+        }
+
         var includesMoviesAndTV: Bool {
             self != .books
         }
@@ -113,7 +122,7 @@ struct DiscoverView: View {
     private var kindPicker: some View {
         Picker("Kind", selection: $kindFilter) {
             ForEach(KindFilter.allCases, id: \.self) { kind in
-                Text(kind.rawValue).tag(kind)
+                Text(kind.title).tag(kind)
             }
         }
         .pickerStyle(.segmented)
@@ -396,7 +405,7 @@ struct DiscoverView: View {
         defer { loadingFeed = false }
 
         guard let client = model.api() else {
-            feedError = "Not signed in."
+            feedError = String(localized: "Not signed in.")
             return
         }
         do {
@@ -404,7 +413,7 @@ struct DiscoverView: View {
         } catch let error as APIError {
             feedError = message(for: error)
         } catch {
-            feedError = "Network error. Check your connection."
+            feedError = String(localized: "Network error. Check your connection.")
         }
     }
 
@@ -434,7 +443,7 @@ struct DiscoverView: View {
         defer { loadingSearch = false }
 
         guard let client = model.api() else {
-            searchError = "Not signed in."
+            searchError = String(localized: "Not signed in.")
             return
         }
 
@@ -448,7 +457,7 @@ struct DiscoverView: View {
             } catch let error as APIError {
                 firstError = message(for: error)
             } catch {
-                firstError = "Network error. Check your connection."
+                firstError = String(localized: "Network error. Check your connection.")
             }
             guard !Task.isCancelled else { return }
         }
@@ -462,7 +471,7 @@ struct DiscoverView: View {
                 }
             } catch {
                 if firstError == nil {
-                    firstError = "Network error. Check your connection."
+                    firstError = String(localized: "Network error. Check your connection.")
                 }
             }
             guard !Task.isCancelled else { return }
@@ -486,20 +495,20 @@ struct DiscoverView: View {
             await model.loadLibrary()
             await runSearch(query: trimmedQuery, kind: kindFilter)
         } catch {
-            searchError = "Could not add that book."
+            searchError = String(localized: "Could not add that book.")
         }
     }
 
     private func message(for error: APIError) -> String {
         switch error {
         case .unauthorized:
-            "Sign in required."
+            String(localized: "Sign in required.")
         case let .http(status):
-            "Server error (\(status))."
+            String(localized: "Server error (\(status)).")
         case .decode:
-            "Could not parse server response."
+            String(localized: "Could not parse server response.")
         case .transport:
-            "Network error. Check your connection."
+            String(localized: "Network error. Check your connection.")
         }
     }
 }

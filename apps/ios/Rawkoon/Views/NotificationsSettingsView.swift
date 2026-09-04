@@ -141,7 +141,7 @@ struct NotificationsSettingsView: View {
             saveError = nil
         } catch {
             prefs[key] = previousValue
-            saveError = "Couldn't save your notification preferences."
+            saveError = String(localized: "Couldn't save your notification preferences.")
         }
     }
 }

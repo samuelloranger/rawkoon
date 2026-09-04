@@ -967,7 +967,10 @@ final class AudiobookPlayer {
     }
 
     private func stopWithUnplayableChapter(index: Int, title: String) {
-        playbackError = unplayableChapterMessage(title: title)
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        playbackError = trimmed.isEmpty
+            ? String(localized: "The next chapter couldn't be played. Playback stopped.")
+            : String(localized: "\"\(trimmed)\" couldn't be played. Playback stopped.")
         stopPlayback()
         Log.playback.error(
             """

@@ -273,7 +273,7 @@ struct PlayerView: View {
             }
             .buttonStyle(PlayFillStyle())
             .shadow(color: Theme.apricot.opacity(0.35), radius: 12, y: 6)
-            .accessibilityLabel(model.player.isPlaying ? "Pause" : "Play")
+            .accessibilityLabel(Text(LocalizedStringKey(model.player.isPlaying ? "Pause" : "Play")))
 
             control("goforward.30", label: "Skip forward 30 seconds") { model.player.skipForward(30) }
             control("forward.end.fill", label: "Next chapter", action: model.player.nextChapter)

@@ -85,7 +85,7 @@ private enum ReaderTheme: String, Codable, CaseIterable, Identifiable {
         rawValue
     }
 
-    var label: String {
+    var title: LocalizedStringKey {
         switch self {
         case .light: "Light"
         case .sepia: "Sepia"
@@ -510,12 +510,12 @@ struct EbookReaderSheet: View {
 
     private static func describe(_ error: Error) -> String {
         if error is OpenError {
-            return "The book file is missing from disk."
+            return String(localized: "The book file is missing from disk.")
         }
         if let open = error as? PublicationOpenError {
             switch open {
             case .formatNotSupported:
-                return "This file is not a supported EPUB."
+                return String(localized: "This file is not a supported EPUB.")
             case .reading:
                 return error.localizedDescription
             }
@@ -523,9 +523,9 @@ struct EbookReaderSheet: View {
         if let retrieve = error as? AssetRetrieveURLError {
             switch retrieve {
             case .formatNotSupported:
-                return "This file is not a supported EPUB."
+                return String(localized: "This file is not a supported EPUB.")
             case .schemeNotSupported:
-                return "Could not open the file from this location."
+                return String(localized: "Could not open the file from this location.")
             case .reading:
                 return error.localizedDescription
             }
@@ -533,7 +533,7 @@ struct EbookReaderSheet: View {
         if let epubError = error as? EPUBNavigatorViewController.EPUBError,
            case .publicationRestricted = epubError
         {
-            return "This publication is locked and cannot be opened."
+            return String(localized: "This publication is locked and cannot be opened.")
         }
         return error.localizedDescription
     }
@@ -718,7 +718,7 @@ private struct ReaderSettingsSheet: View {
                 Section("Theme") {
                     Picker("Theme", selection: $preferences.theme) {
                         ForEach(ReaderTheme.allCases) { theme in
-                            Text(theme.label).tag(theme)
+                            Text(theme.title).tag(theme)
                         }
                     }
                     .pickerStyle(.segmented)
