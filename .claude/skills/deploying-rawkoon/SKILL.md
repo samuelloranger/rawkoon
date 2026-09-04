@@ -19,7 +19,7 @@ There is **no release script**. A release is a GitHub Release, cut by hand, and 
 CI (`ci.yml`) must be green on `main` first — it gates format, lint, typecheck, the production web build, and tests. Locally:
 
 ```bash
-bun run formatCheck && (cd apps/shared && bun run formatCheck)
+bun run formatCheck
 bun run lint
 bun run typecheck
 bun run test
