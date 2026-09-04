@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "@tanstack/react-router";
 import {
@@ -11,8 +11,18 @@ import {
   Search,
   UserRound,
 } from "lucide-react";
-import type { Book, BookEdition, BookEditionKind } from "@rawkoon/shared/types";
+import type {
+  Book,
+  BookEdition,
+  BookEditionKind,
+  BookListeningProgress,
+  BookReadingProgress,
+} from "@rawkoon/shared/types";
 import { useLibraryEvents } from "@/features/medias/hooks/useLibraryEvents";
+import {
+  useListeningProgress,
+  useReadingProgress,
+} from "@/features/player/usePlayback";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -175,6 +185,44 @@ const readStoredView = (): BooksViewMode => {
   }
 };
 
+/**
+ * Default order: the books you are still in the middle of, most recently
+ * touched first, then everything else in the server's latest-added order.
+ *
+ * "Still in the middle of" is the same in-progress test the Continue shelf
+ * uses — some real progress, not finished. A book with several editions floats
+ * on whichever edition was touched last.
+ */
+const sortByActivity = (
+  books: Book[],
+  listening: BookListeningProgress[],
+  reading: BookReadingProgress[],
+): Book[] => {
+  const lastRead = new Map<number, string>();
+  const note = (bookId: number, updatedAt: string) => {
+    const prev = lastRead.get(bookId);
+    if (prev === undefined || prev < updatedAt) lastRead.set(bookId, updatedAt);
+  };
+  for (const r of listening) {
+    if (!r.finished && r.position_secs > 1 && r.total_duration_secs > 1)
+      note(r.book_id, r.updated_at);
+  }
+  for (const r of reading) {
+    if (!r.finished && (r.spine_index > 0 || r.scroll_fraction > 0.01))
+      note(r.book_id, r.updated_at);
+  }
+
+  // Stable sort: books with no active read keep the server's added_at order.
+  return [...books].sort((a, b) => {
+    const ta = lastRead.get(a.id);
+    const tb = lastRead.get(b.id);
+    if (ta && tb) return ta < tb ? 1 : ta > tb ? -1 : 0;
+    if (ta) return -1;
+    if (tb) return 1;
+    return 0;
+  });
+};
+
 export function BooksPage() {
   const { t } = useTranslation("common");
   // Server-pushed updates, same stream the media pages use. No polling.
@@ -199,8 +247,20 @@ export function BooksPage() {
     kind,
     limit: 100,
   });
+  // Reading/listening progress drives the default order. Both are small,
+  // per-user, and already cached by the Continue shelf and the players.
+  const { data: listening } = useListeningProgress();
+  const { data: reading } = useReadingProgress();
 
-  const books = data?.items ?? [];
+  const books = useMemo(
+    () =>
+      sortByActivity(
+        data?.items ?? [],
+        listening?.progress ?? [],
+        reading?.progress ?? [],
+      ),
+    [data, listening, reading],
+  );
 
   return (
     <PageLayout>

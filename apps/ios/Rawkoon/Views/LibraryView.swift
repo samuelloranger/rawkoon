@@ -76,13 +76,16 @@ private enum BookKindFilter: String, CaseIterable, Identifiable {
 }
 
 private enum BookSort: String, CaseIterable, Identifiable {
-    case title, author
+    /// Books still being read/listened, most recently touched first, then the
+    /// rest in the server's latest-added order. The web app's default order.
+    case recent, title, author
     var id: String {
         rawValue
     }
 
     var label: String {
         switch self {
+        case .recent: "Recent"
         case .title: "Title"
         case .author: "Author"
         }
@@ -119,8 +122,11 @@ struct LibraryView: View {
 
     @State private var bookKind: BookKindFilter = .all
     @State private var bookSearch = ""
-    @State private var bookSort: BookSort = .title
+    @State private var bookSort: BookSort = .recent
     @State private var busyBookIds: Set<Int> = []
+    // Per-user progress that drives the `.recent` sort, keyed by edition id.
+    @State private var audioProgress: [Int: RemoteProgress] = [:]
+    @State private var ebookProgress: [Int: ReadingPosition] = [:]
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
 
@@ -164,6 +170,7 @@ struct LibraryView: View {
             if model.library.isEmpty {
                 await model.loadLibrary()
             }
+            await loadBookProgress()
         }
         .onChange(of: mediaFilterKey) { _, _ in
             Task { await loadMedia(reset: true) }
@@ -171,6 +178,8 @@ struct LibraryView: View {
         .onChange(of: section) { _, newSection in
             if newSection == .media {
                 Task { await loadMedia(reset: true) }
+            } else {
+                Task { await loadBookProgress() }
             }
         }
         .onChange(of: model.libraryChangeToken) { _, _ in
@@ -185,7 +194,10 @@ struct LibraryView: View {
         .onChange(of: model.bookChangeToken) { _, _ in
             guard section == .books else { return }
             liveReloadTask?.cancel()
-            liveReloadTask = Task { await model.loadLibrary() }
+            liveReloadTask = Task {
+                await model.loadLibrary()
+                await loadBookProgress()
+            }
         }
         .sheet(item: $releaseSearch) { target in
             ReleaseSearchView(
@@ -475,6 +487,21 @@ struct LibraryView: View {
         }
 
         switch bookSort {
+        case .recent:
+            // Floats books with an active read to the top; ties and inactive
+            // books fall back to the server's order (added_at desc), which
+            // `model.library` already carries.
+            let order = Dictionary(
+                uniqueKeysWithValues: model.library.enumerated().map { ($1.bookId, $0) }
+            )
+            return filtered.sorted { lhs, rhs in
+                let l = lastReadMillis(lhs)
+                let r = lastReadMillis(rhs)
+                if l != r {
+                    return l > r
+                }
+                return (order[lhs.bookId] ?? 0) < (order[rhs.bookId] ?? 0)
+            }
         case .title:
             return filtered.sorted {
                 $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
@@ -485,6 +512,48 @@ struct LibraryView: View {
                 let right = $1.author ?? $1.title
                 return left.localizedCaseInsensitiveCompare(right) == .orderedAscending
             }
+        }
+    }
+
+    /// The most recent unfinished read/listen across a book's editions, in epoch
+    /// millis. Zero when nothing is in progress — the same "some real progress,
+    /// not finished" test the Continue shelf and the web app use.
+    private func lastReadMillis(_ book: BookListItem) -> Int64 {
+        var best: Int64 = 0
+        if
+            let editionId = book.audiobookEditionId,
+            let p = audioProgress[editionId],
+            !p.finished, p.positionSecs > 1, p.totalDurationSecs > 1
+        {
+            best = max(best, Int64(p.updatedAt.timeIntervalSince1970 * 1000))
+        }
+        if
+            let editionId = book.ebookEditionId,
+            let p = ebookProgress[editionId],
+            !p.finished, p.spineIndex > 0 || p.scrollFraction > 0.01
+        {
+            best = max(best, p.updatedAtMillis)
+        }
+        return best
+    }
+
+    /// Loads audiobook and ebook progress for the `.recent` sort. Best effort:
+    /// a failure just leaves the list in latest-added order.
+    private func loadBookProgress() async {
+        guard let client = model.api() else { return }
+        let audio = try? await client.getProgress()
+        let ebook = try? await client.readingProgress()
+        if let audio {
+            audioProgress = Dictionary(
+                audio.map { ($0.editionId, $0) },
+                uniquingKeysWith: { first, _ in first }
+            )
+        }
+        if let ebook {
+            ebookProgress = Dictionary(
+                ebook.map { ($0.editionId, $0) },
+                uniquingKeysWith: { first, _ in first }
+            )
         }
     }
 
