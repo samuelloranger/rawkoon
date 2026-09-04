@@ -961,10 +961,10 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
         </div>
       </div>
 
-      {/* The one piece of human writing on the page, so it gets a real reading
-          measure and paragraph rhythm instead of being crammed into the grid. */}
+      {/* The one piece of human writing on the page. It spans the full container
+          width rather than a fixed reading measure. */}
       {paragraphs.length > 0 && (
-        <div className="mt-10 max-w-[62ch]">
+        <div className="mt-10">
           {paragraphs.map((html, i) => (
             <p
               // Safe: sanitizeProviderHtml has already run twice on this string
