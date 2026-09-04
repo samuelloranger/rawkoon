@@ -1,6 +1,7 @@
 name: Rawkoon
 options:
   bundleIdPrefix: cloud.samlo
+  developmentLanguage: en
   deploymentTarget:
     iOS: "18.0"
 packages:
@@ -68,6 +69,10 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: cloud.samlo.rawkoon
+        # String Catalog: let the Swift compiler extract localizable literals
+        # (Text("…"), Button("…"), .navigationTitle("…"), …) into
+        # Rawkoon/Localizable.xcstrings at build time. English-only for now.
+        SWIFT_EMIT_LOC_STRINGS: "YES"
         MARKETING_VERSION: "1.12.2"
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "6.0"
