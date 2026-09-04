@@ -11,6 +11,7 @@ enum LocalizedStatus {
         }
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     static func key(for raw: String) -> LocalizedStringKey? {
         switch raw.lowercased() {
         case "pending": "Pending"
