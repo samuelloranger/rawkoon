@@ -3,19 +3,78 @@ import SwiftUI
 // Reusable settings form primitives (spec §4.7). Every editable settings screen
 // composes these; no bespoke per-screen field styling. House style: Theme tokens,
 // Form/Section-friendly rows with .listRowBackground(Theme.raised).
+//
+// User-facing text takes LocalizedStringKey so string literals extract into the
+// String Catalog. Companion String / StringProtocol overloads display runtime
+// values verbatim (server data, interpolations) and are preferred over
+// LocalizedStringKey's String initializer, which would treat data as catalog keys.
 
 struct LabeledTextFieldRow: View {
-    let title: String
+    private let title: Text
     @Binding var text: String
-    var placeholder: String = ""
+    private let placeholder: Placeholder
     var keyboard: UIKeyboardType = .default
     var autocaps: Bool = false
     var mono: Bool = false
 
+    private enum Placeholder {
+        case localized(LocalizedStringKey)
+        case verbatim(String)
+    }
+
+    init(
+        title: LocalizedStringKey,
+        text: Binding<String>,
+        placeholder: LocalizedStringKey = "",
+        keyboard: UIKeyboardType = .default,
+        autocaps: Bool = false,
+        mono: Bool = false
+    ) {
+        self.title = Text(title)
+        _text = text
+        self.placeholder = .localized(placeholder)
+        self.keyboard = keyboard
+        self.autocaps = autocaps
+        self.mono = mono
+    }
+
+    /// Localized title with a runtime placeholder (interpolation, ternary, data).
+    init(
+        title: LocalizedStringKey,
+        text: Binding<String>,
+        placeholder: String,
+        keyboard: UIKeyboardType = .default,
+        autocaps: Bool = false,
+        mono: Bool = false
+    ) {
+        self.title = Text(title)
+        _text = text
+        self.placeholder = .verbatim(placeholder)
+        self.keyboard = keyboard
+        self.autocaps = autocaps
+        self.mono = mono
+    }
+
+    init<S: StringProtocol>(
+        title: S,
+        text: Binding<String>,
+        placeholder: S? = nil,
+        keyboard: UIKeyboardType = .default,
+        autocaps: Bool = false,
+        mono: Bool = false
+    ) {
+        self.title = Text(title)
+        _text = text
+        self.placeholder = .verbatim(placeholder.map { String($0) } ?? "")
+        self.keyboard = keyboard
+        self.autocaps = autocaps
+        self.mono = mono
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.footnote).foregroundStyle(Theme.muted)
-            TextField(placeholder, text: $text)
+            title.font(.footnote).foregroundStyle(Theme.muted)
+            placeholderField
                 .keyboardType(keyboard)
                 .textInputAutocapitalization(autocaps ? .sentences : .never)
                 .autocorrectionDisabled(!autocaps)
@@ -24,47 +83,84 @@ struct LabeledTextFieldRow: View {
         }
         .listRowBackground(Theme.raised)
     }
+
+    @ViewBuilder
+    private var placeholderField: some View {
+        switch placeholder {
+        case let .localized(key):
+            TextField(key, text: $text)
+        case let .verbatim(string):
+            TextField(string, text: $text)
+        }
+    }
 }
 
 /// Write-only secret. Never renders the stored value; starts empty; a blank value
 /// means "keep the existing secret" and must be omitted from the request body.
 struct SecretFieldRow: View {
-    let title: String
+    private let title: Text
     @Binding var input: String
     var isStored: Bool = false
 
+    init(title: LocalizedStringKey, input: Binding<String>, isStored: Bool = false) {
+        self.title = Text(title)
+        _input = input
+        self.isStored = isStored
+    }
+
+    init<S: StringProtocol>(title: S, input: Binding<String>, isStored: Bool = false) {
+        self.title = Text(title)
+        _input = input
+        self.isStored = isStored
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.footnote).foregroundStyle(Theme.muted)
-            SecureField(
-                isStored ? "\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022} (stored \u{2014} leave blank to keep)" : "Required",
-                text: $input
-            )
-            .textInputAutocapitalization(.never)
-            .autocorrectionDisabled(true)
-            .foregroundStyle(Theme.text)
+            title.font(.footnote).foregroundStyle(Theme.muted)
+            storedOrRequiredField
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled(true)
+                .foregroundStyle(Theme.text)
         }
         .listRowBackground(Theme.raised)
+    }
+
+    @ViewBuilder
+    private var storedOrRequiredField: some View {
+        if isStored {
+            SecureField(
+                "\u{2022}\u{2022}\u{2022}\u{2022}\u{2022}\u{2022} (stored \u{2014} leave blank to keep)",
+                text: $input
+            )
+        } else {
+            SecureField("Required", text: $input)
+        }
     }
 }
 
 struct ToggleRow: View {
-    let title: String
+    private let title: Text
     @Binding var isOn: Bool
-    var subtitle: String?
+    private let subtitle: Text?
 
-    init(_ title: String, isOn: Binding<Bool>, subtitle: String? = nil) {
-        self.title = title
+    init(_ title: LocalizedStringKey, isOn: Binding<Bool>, subtitle: LocalizedStringKey? = nil) {
+        self.title = Text(title)
         _isOn = isOn
-        self.subtitle = subtitle
+        self.subtitle = subtitle.map { Text($0) }
+    }
+
+    init<S: StringProtocol>(_ title: S, isOn: Binding<Bool>, subtitle: S? = nil) {
+        self.title = Text(title)
+        _isOn = isOn
+        self.subtitle = subtitle.map { Text($0) }
     }
 
     var body: some View {
         Toggle(isOn: $isOn) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).foregroundStyle(Theme.text)
+                title.foregroundStyle(Theme.text)
                 if let subtitle {
-                    Text(subtitle).font(.footnote).foregroundStyle(Theme.muted)
+                    subtitle.font(.footnote).foregroundStyle(Theme.muted)
                 }
             }
         }
@@ -74,15 +170,37 @@ struct ToggleRow: View {
 }
 
 struct PickerRow<T: Hashable>: View {
-    let title: String
+    private let title: Text
     @Binding var selection: T
-    let options: [(value: T, label: String)]
+    private let options: [(value: T, label: Text)]
+
+    init(
+        title: LocalizedStringKey,
+        selection: Binding<T>,
+        options: [(value: T, label: LocalizedStringKey)]
+    ) {
+        self.title = Text(title)
+        _selection = selection
+        self.options = options.map { ($0.value, Text($0.label)) }
+    }
+
+    init(
+        title: LocalizedStringKey,
+        selection: Binding<T>,
+        options: [(value: T, label: String)]
+    ) {
+        self.title = Text(title)
+        _selection = selection
+        self.options = options.map { ($0.value, Text(verbatim: $0.label)) }
+    }
 
     var body: some View {
-        Picker(title, selection: $selection) {
+        Picker(selection: $selection) {
             ForEach(options, id: \.value) { option in
-                Text(option.label).tag(option.value)
+                option.label.tag(option.value)
             }
+        } label: {
+            title
         }
         .tint(Theme.apricot)
         .listRowBackground(Theme.raised)
@@ -90,17 +208,39 @@ struct PickerRow<T: Hashable>: View {
 }
 
 struct SegmentedRow<T: Hashable>: View {
-    let title: String
+    private let title: Text
     @Binding var selection: T
-    let options: [(value: T, label: String)]
+    private let options: [(value: T, label: Text)]
+
+    init(
+        title: LocalizedStringKey,
+        selection: Binding<T>,
+        options: [(value: T, label: LocalizedStringKey)]
+    ) {
+        self.title = Text(title)
+        _selection = selection
+        self.options = options.map { ($0.value, Text($0.label)) }
+    }
+
+    init(
+        title: LocalizedStringKey,
+        selection: Binding<T>,
+        options: [(value: T, label: String)]
+    ) {
+        self.title = Text(title)
+        _selection = selection
+        self.options = options.map { ($0.value, Text(verbatim: $0.label)) }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.footnote).foregroundStyle(Theme.muted)
-            Picker(title, selection: $selection) {
+            title.font(.footnote).foregroundStyle(Theme.muted)
+            Picker(selection: $selection) {
                 ForEach(options, id: \.value) { option in
-                    Text(option.label).tag(option.value)
+                    option.label.tag(option.value)
                 }
+            } label: {
+                title
             }
             .pickerStyle(.segmented)
         }
@@ -109,22 +249,39 @@ struct SegmentedRow<T: Hashable>: View {
 }
 
 struct NumberFieldRow: View {
-    let title: String
+    private let title: Text
     @Binding var value: Int?
     var range: ClosedRange<Int>?
-    var suffix: String?
+    private let suffix: Text?
     @State private var text = ""
 
-    init(_ title: String, value: Binding<Int?>, range: ClosedRange<Int>? = nil, suffix: String? = nil) {
-        self.title = title
+    init(
+        _ title: LocalizedStringKey,
+        value: Binding<Int?>,
+        range: ClosedRange<Int>? = nil,
+        suffix: LocalizedStringKey? = nil
+    ) {
+        self.title = Text(title)
         _value = value
         self.range = range
-        self.suffix = suffix
+        self.suffix = suffix.map { Text($0) }
+    }
+
+    init<S: StringProtocol>(
+        _ title: S,
+        value: Binding<Int?>,
+        range: ClosedRange<Int>? = nil,
+        suffix: S? = nil
+    ) {
+        self.title = Text(title)
+        _value = value
+        self.range = range
+        self.suffix = suffix.map { Text($0) }
     }
 
     var body: some View {
         HStack {
-            Text(title).foregroundStyle(Theme.text)
+            title.foregroundStyle(Theme.text)
             Spacer()
             TextField("\u{2014}", text: $text)
                 .keyboardType(.numberPad)
@@ -143,7 +300,7 @@ struct NumberFieldRow: View {
                     }
                 }
             if let suffix {
-                Text(suffix).foregroundStyle(Theme.muted)
+                suffix.foregroundStyle(Theme.muted)
             }
         }
         .listRowBackground(Theme.raised)
@@ -154,10 +311,34 @@ struct NumberFieldRow: View {
 /// Pushes a checklist of options; enforces `minSelection` by disabling the last
 /// remaining checkmark.
 struct MultiSelectRow<T: Hashable>: View {
-    let title: String
+    private let titleKey: LocalizedStringKey
     @Binding var selected: Set<T>
-    let options: [(value: T, label: String)]
+    private let options: [(value: T, label: Text)]
     var minSelection: Int = 0
+
+    init(
+        title: LocalizedStringKey,
+        selected: Binding<Set<T>>,
+        options: [(value: T, label: LocalizedStringKey)],
+        minSelection: Int = 0
+    ) {
+        self.titleKey = title
+        _selected = selected
+        self.options = options.map { ($0.value, Text($0.label)) }
+        self.minSelection = minSelection
+    }
+
+    init(
+        title: LocalizedStringKey,
+        selected: Binding<Set<T>>,
+        options: [(value: T, label: String)],
+        minSelection: Int = 0
+    ) {
+        self.titleKey = title
+        _selected = selected
+        self.options = options.map { ($0.value, Text(verbatim: $0.label)) }
+        self.minSelection = minSelection
+    }
 
     var body: some View {
         NavigationLink {
@@ -167,7 +348,7 @@ struct MultiSelectRow<T: Hashable>: View {
                         toggle(option.value)
                     } label: {
                         HStack {
-                            Text(option.label).foregroundStyle(Theme.text)
+                            option.label.foregroundStyle(Theme.text)
                             Spacer()
                             if selected.contains(option.value) {
                                 Image(systemName: "checkmark").foregroundStyle(Theme.apricot)
@@ -179,11 +360,11 @@ struct MultiSelectRow<T: Hashable>: View {
             }
             .scrollContentBackground(.hidden)
             .background(Theme.base)
-            .navigationTitle(title)
+            .navigationTitle(titleKey)
             .navigationBarTitleDisplayMode(.inline)
         } label: {
             HStack {
-                Text(title).foregroundStyle(Theme.text)
+                Text(titleKey).foregroundStyle(Theme.text)
                 Spacer()
                 Text("\(selected.count)").foregroundStyle(Theme.muted)
             }
@@ -208,11 +389,21 @@ enum TestOutcome: Equatable {
 }
 
 struct TestConnectionButton: View {
-    var title: String = "Test connection"
+    private let title: Text
     let action: () async -> TestOutcome
     @State private var state: TestState = .idle
 
     enum TestState: Equatable { case idle, running, ok(String?), failed(String) }
+
+    init(title: LocalizedStringKey = "Test connection", action: @escaping () async -> TestOutcome) {
+        self.title = Text(title)
+        self.action = action
+    }
+
+    init<S: StringProtocol>(title: S, action: @escaping () async -> TestOutcome) {
+        self.title = Text(title)
+        self.action = action
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -229,7 +420,7 @@ struct TestConnectionButton: View {
                     if state == .running {
                         ProgressView().tint(Theme.apricot)
                     }
-                    Text(title)
+                    title
                 }
             }
             .tint(Theme.apricot)
@@ -237,7 +428,11 @@ struct TestConnectionButton: View {
 
             switch state {
             case let .ok(message):
-                Text(message ?? "Connected").font(.footnote).foregroundStyle(Theme.apricot)
+                if let message {
+                    Text(message).font(.footnote).foregroundStyle(Theme.apricot)
+                } else {
+                    Text("Connected").font(.footnote).foregroundStyle(Theme.apricot)
+                }
             case let .failed(message):
                 Text(message).font(.footnote).foregroundStyle(Theme.terracotta)
             default:

@@ -117,7 +117,7 @@ private struct CustomFormatEditorView: View {
     @State private var saving = false
     @State private var saveError: String?
 
-    private static let typeOptions: [(value: String, label: String)] = [
+    private static let typeOptions: [(value: String, label: LocalizedStringKey)] = [
         ("title_regex", "Title regex"), ("release_group", "Release group"), ("source", "Source"),
         ("codec", "Codec"), ("indexer", "Indexer"), ("language", "Language"),
         ("resolution", "Resolution"), ("seeders", "Seeders"), ("size_range", "Size range"),

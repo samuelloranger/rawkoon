@@ -116,7 +116,7 @@ private struct BookQualityProfileEditorView: View {
     @State private var saving = false
     @State private var saveError: String?
 
-    private static let kindOptions: [(value: String, label: String)] = [
+    private static let kindOptions: [(value: String, label: LocalizedStringKey)] = [
         ("ebook", "Ebook"), ("audiobook", "Audiobook"), ("both", "Both"),
     ]
     private static let ebookFormats = ["epub", "azw3", "mobi", "pdf", "cbz"]
@@ -138,7 +138,7 @@ private struct BookQualityProfileEditorView: View {
         [(nil, "None")] + Array(allowedFormats).sorted().map { (Optional($0), $0.uppercased()) }
     }
 
-    private static let languageOptions: [(value: String, label: String)] = [
+    private static let languageOptions: [(value: String, label: LocalizedStringKey)] = [
         ("en", "English"), ("fr", "French"), ("de", "German"), ("es", "Spanish"),
         ("it", "Italian"), ("ja", "Japanese"), ("pt", "Portuguese"),
     ]

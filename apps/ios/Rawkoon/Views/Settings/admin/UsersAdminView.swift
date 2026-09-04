@@ -174,10 +174,10 @@ private struct ProvisioningSheet: View {
     @State private var working = false
     @State private var error: String?
 
-    private static let modeOptions: [(value: String, label: String)] = [
+    private static let modeOptions: [(value: String, label: LocalizedStringKey)] = [
         ("invite", "Invite"), ("direct", "Add user"),
     ]
-    private static let localeOptions: [(value: String, label: String)] = [
+    private static let localeOptions: [(value: String, label: LocalizedStringKey)] = [
         ("en", "English"), ("fr", "French"),
     ]
 

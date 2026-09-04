@@ -17,7 +17,7 @@ struct ArrLibraryImportView: View {
     @State private var status: MigrateStatusDTO?
     @State private var streamTask: Task<Void, Never>?
 
-    private static let sourceOptions: [(value: String, label: String)] = [
+    private static let sourceOptions: [(value: String, label: LocalizedStringKey)] = [
         ("both", "Both"), ("radarr", "Radarr"), ("sonarr", "Sonarr"),
     ]
 

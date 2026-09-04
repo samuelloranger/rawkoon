@@ -2,13 +2,13 @@ import SwiftUI
 
 private struct ChannelField {
     let key: String
-    let label: String
+    let label: LocalizedStringKey
     var secret = false
     var numeric = false
 }
 
 private enum ChannelSchema {
-    static let types: [(value: String, label: String)] = [
+    static let types: [(value: String, label: LocalizedStringKey)] = [
         ("ntfy", "ntfy"), ("telegram", "Telegram"), ("discord", "Discord"),
         ("gotify", "Gotify"), ("pushover", "Pushover"), ("slack", "Slack"), ("webhook", "Webhook"),
     ]

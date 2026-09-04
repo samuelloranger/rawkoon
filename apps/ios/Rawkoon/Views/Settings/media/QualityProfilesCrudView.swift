@@ -135,28 +135,29 @@ private struct QualityProfileEditorView: View {
     @State private var saving = false
     @State private var saveError: String?
 
-    private static let resolutionOptions: [(value: Int, label: String)] = [
+    private static let resolutionOptions: [(value: Int, label: LocalizedStringKey)] = [
         (480, "480p"), (720, "720p"), (1080, "1080p"), (2160, "2160p"),
     ]
-    private var cutoffOptions: [(value: Int?, label: String)] {
+    private var cutoffOptions: [(value: Int?, label: LocalizedStringKey)] {
         [(nil, "None")] + Self.resolutionOptions.map { (Optional($0.value), $0.label) }
     }
 
-    private static let sourceOptions: [(value: String, label: String)] = [
+    private static let sourceOptions: [(value: String, label: LocalizedStringKey)] = [
         ("REMUX", "REMUX"), ("BluRay", "BluRay"), ("WEB-DL", "WEB-DL"), ("WEBRip", "WEBRip"), ("HDTV", "HDTV"),
     ]
-    private static let codecOptions: [(value: String, label: String)] = [
+    private static let codecOptions: [(value: String, label: LocalizedStringKey)] = [
         ("HEVC", "HEVC"), ("AVC", "AVC"), ("AV1", "AV1"), ("VP9", "VP9"),
     ]
-    private static let languageOptions: [(value: String, label: String)] = [
+    private static let languageOptions: [(value: String, label: LocalizedStringKey)] = [
         ("en", "English"), ("fr", "French"), ("VFQ", "VFQ"), ("TRUEFRENCH", "TRUEFRENCH"),
         ("de", "German"), ("es", "Spanish"), ("it", "Italian"), ("ja", "Japanese"), ("pt", "Portuguese"),
     ]
-    private var searchLanguageOptions: [(value: String?, label: String)] {
-        [(nil, "Default (English)")] + [
+    private var searchLanguageOptions: [(value: String?, label: LocalizedStringKey)] {
+        let named: [(String, LocalizedStringKey)] = [
             ("en", "English"), ("fr", "French"), ("de", "German"), ("es", "Spanish"),
             ("it", "Italian"), ("ja", "Japanese"), ("ko", "Korean"), ("pt", "Portuguese"), ("zh", "Chinese"),
-        ].map { (Optional($0.0), $0.1) }
+        ]
+        return [(nil, "Default (English)")] + named.map { (Optional($0.0), $0.1) }
     }
 
     var body: some View {

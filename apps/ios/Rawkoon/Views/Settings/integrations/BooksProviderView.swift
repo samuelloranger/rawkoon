@@ -22,7 +22,7 @@ struct BooksProviderView: View {
     @State private var googleSaving = false
     @State private var googleError: String?
 
-    private static let regionOptions: [(value: String, label: String)] = [
+    private static let regionOptions: [(value: String, label: LocalizedStringKey)] = [
         ("us", "United States"), ("ca", "Canada"), ("uk", "United Kingdom"), ("fr", "France"),
         ("de", "Germany"), ("es", "Spain"), ("it", "Italy"), ("au", "Australia"),
         ("br", "Brazil"), ("in", "India"), ("jp", "Japan"),

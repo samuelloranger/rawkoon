@@ -25,11 +25,11 @@ struct GeneralSettingsView: View {
 
     @State private var loaded = FormValues(countryCode: "US", windowMonths: 12, languages: ["en"])
 
-    private static let windowOptions: [(value: Int, label: String)] = [
+    private static let windowOptions: [(value: Int, label: LocalizedStringKey)] = [
         (3, "3 months"), (6, "6 months"), (12, "1 year"), (24, "2 years"),
     ]
 
-    private static let languageOptions: [(value: String, label: String)] = [
+    private static let languageOptions: [(value: String, label: LocalizedStringKey)] = [
         ("en", "English"), ("fr", "French"), ("de", "German"), ("es", "Spanish"),
         ("it", "Italian"), ("pt", "Portuguese"), ("ja", "Japanese"), ("ko", "Korean"),
     ]

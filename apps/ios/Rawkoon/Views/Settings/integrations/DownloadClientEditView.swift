@@ -32,7 +32,7 @@ struct DownloadClientEditView: View {
         enabled: false, clientType: "qbittorrent", websiteURL: "", username: "", label: "rawkoon", savePath: ""
     )
 
-    private static let clientOptions: [(value: String, label: String)] = [
+    private static let clientOptions: [(value: String, label: LocalizedStringKey)] = [
         ("qbittorrent", "qBittorrent"), ("transmission", "Transmission"), ("deluge", "Deluge"),
     ]
 
