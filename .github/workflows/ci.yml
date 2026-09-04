@@ -22,7 +22,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           generate-routes: "true"
-      - name: Lint (Biome on web + API — Makefile `make lint` matches)
+      - name: Lint (Biome on web + API + shared — Makefile `make lint` matches)
         run: bun run lint
 
   typecheck:

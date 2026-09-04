@@ -26,7 +26,7 @@ bun run dev:web              # Vite dev server :5173
 
 bun run test                 # web (vitest) + api (bun test) + shared, in that order
 bun run typecheck            # tsc --noEmit (TS 7) in every workspace — the sole typechecker
-bun run lint                 # biome lint apps/web apps/api
+bun run lint                 # biome lint apps/web apps/api apps/shared
 bun run format               # biome format --write apps/web apps/api apps/shared
 bun run knip                 # dead code / unused deps
 bun run build                # production web build (vite build + tsc project check)
