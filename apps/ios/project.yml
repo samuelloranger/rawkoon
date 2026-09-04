@@ -1,7 +1,7 @@
 name: Rawkoon
 options:
   bundleIdPrefix: cloud.samlo
-  developmentRegion: en
+  developmentLanguage: en
   deploymentTarget:
     iOS: "18.0"
 packages:
