@@ -28,7 +28,6 @@
     "format": "biome format --write .",
     "formatCheck": "biome format .",
     "typecheck": "tsc --noEmit",
-    "typecheck:native": "tsgo --noEmit",
     "lint": "biome lint ."
   },
   "dependencies": {

@@ -17,7 +17,6 @@
     "clean": "rm -rf dist node_modules",
     "generate-icons": "node scripts/generate-icons.js",
     "typecheck": "tsc --noEmit",
-    "typecheck:native": "tsgo --noEmit",
     "format": "biome format --write .",
     "formatCheck": "biome format ."
   },

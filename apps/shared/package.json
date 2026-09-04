@@ -17,7 +17,6 @@
   "scripts": {
     "test": "bun test --parallel",
     "typecheck": "tsc --noEmit",
-    "typecheck:native": "tsgo --noEmit",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,json,md}\" \"*.{ts,js,json,md}\"",
     "formatCheck": "prettier --check \"src/**/*.{ts,tsx,js,json,md}\" \"*.{ts,js,json,md}\""
   },

@@ -34,18 +34,8 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           generate-routes: "true"
-      - name: Typecheck
+      - name: Typecheck (tsc / TS 7)
         run: bun run typecheck
-
-  typecheck-native:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-        with:
-          generate-routes: "true"
-      - name: Typecheck (tsgo / TS 7 native preview)
-        run: bun run typecheck:native
 
   build:
     runs-on: ubuntu-latest
