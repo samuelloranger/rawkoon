@@ -35,7 +35,7 @@ struct BookQualityProfilesCrudView: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(profile.name).foregroundStyle(Theme.text)
-                            Text(profile.kind ?? "").font(.footnote).foregroundStyle(Theme.muted)
+                            LocalizedStatus.text(profile.kind ?? "").font(.footnote).foregroundStyle(Theme.muted)
                         }
                     }
                     .listRowBackground(Theme.raised)

@@ -84,6 +84,15 @@ struct MediaDetailView: View {
         var id: String {
             rawValue
         }
+
+        var title: LocalizedStringKey {
+            switch self {
+            case .info: "Info"
+            case .similar: "Similar"
+            case .search: "Search"
+            case .management: "Management"
+            }
+        }
     }
 
     private let similarColumns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
@@ -341,7 +350,7 @@ struct MediaDetailView: View {
     private var tabs: some View {
         Picker("Section", selection: $activeTab) {
             ForEach(availableTabs) { tab in
-                Text(tab.rawValue).tag(tab)
+                Text(tab.title).tag(tab)
             }
         }
         .pickerStyle(.segmented)
@@ -558,7 +567,7 @@ struct MediaDetailView: View {
                 .font(.display(16))
                 .foregroundStyle(Theme.textStrong)
             LazyVGrid(columns: managementColumns, spacing: 8) {
-                statPill("Status", value: item.status.capitalized)
+                statPill("Status", value: LocalizedStatus.text(item.status))
                 statPill("Type", value: item.type == "show" ? "TV show" : "Movie")
                 statPill("Year", value: item.year.map(String.init) ?? "Unknown")
                 statPill("Monitored", value: item.monitored ? "Yes" : "No")
@@ -571,11 +580,15 @@ struct MediaDetailView: View {
     }
 
     private func statPill(_ label: String, value: String) -> some View {
+        statPill(label, value: Text(verbatim: value))
+    }
+
+    private func statPill(_ label: String, value: Text) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(label.uppercased())
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(Theme.faint)
-            Text(value)
+            value
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(Theme.textStrong)
         }
@@ -598,7 +611,7 @@ struct MediaDetailView: View {
             HStack {
                 Text("Status")
                 Spacer()
-                Text(item.status.capitalized)
+                LocalizedStatus.text(item.status)
                     .foregroundStyle(Theme.muted)
             }
             .font(.subheadline)
@@ -1266,7 +1279,7 @@ struct MediaDetailView: View {
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(Theme.textStrong)
                         .lineLimit(2)
-                    Text(metaLine(for: row))
+                    metaLine(for: row)
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(Theme.faint)
                 }
@@ -1288,7 +1301,7 @@ struct MediaDetailView: View {
                 HStack(spacing: 10) {
                     Text("↓ \(Formatters.speed(live.downloadSpeed, useAll: false))")
                     Text("\(Int(live.progress * 100))%")
-                    Text(live.state)
+                    LocalizedStatus.text(live.state)
                 }
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(Theme.muted)
@@ -1328,22 +1341,25 @@ struct MediaDetailView: View {
         .background(Theme.well, in: RoundedRectangle(cornerRadius: 10))
     }
 
-    private func metaLine(for row: DownloadHistoryItem) -> String {
-        var parts: [String] = []
+    private func metaLine(for row: DownloadHistoryItem) -> Text {
+        var parts: [Text] = []
         if let indexer = row.indexer, !indexer.isEmpty {
-            parts.append(indexer)
+            parts.append(Text(verbatim: indexer))
         }
         if row.failed {
-            parts.append("failed")
+            parts.append(Text("Failed"))
         } else if row.completedAt != nil {
-            parts.append("completed")
+            parts.append(Text("Completed"))
         } else if row.live != nil {
-            parts.append("active")
+            parts.append(Text("Active"))
         }
         if row.aiPicked == true {
-            parts.append("AI pick")
+            parts.append(Text("AI pick"))
         }
-        return parts.joined(separator: " · ")
+        guard let first = parts.first else {
+            return Text(verbatim: "")
+        }
+        return parts.dropFirst().reduce(first) { $0 + Text(verbatim: " · ") + $1 }
     }
 
     // MARK: Details (movies)

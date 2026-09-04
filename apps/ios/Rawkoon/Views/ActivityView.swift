@@ -12,6 +12,14 @@ struct ActivityView: View {
         var id: String {
             rawValue
         }
+
+        var title: LocalizedStringKey {
+            switch self {
+            case .queue: "Queue"
+            case .history: "History"
+            case .calendar: "Calendar"
+            }
+        }
     }
 
     @State private var lane: Lane = .queue
@@ -41,7 +49,7 @@ struct ActivityView: View {
         VStack(spacing: 0) {
             Picker("Lane", selection: $lane) {
                 ForEach(Lane.allCases) { lane in
-                    Text(lane.rawValue).tag(lane)
+                    Text(lane.title).tag(lane)
                 }
             }
             .pickerStyle(.segmented)
@@ -138,7 +146,7 @@ struct ActivityView: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                StatusBadge(text: row.live.state, tint: stateTint(row.live.state))
+                statusBadge(row.live.state, tint: stateTint(row.live.state))
             }
 
             DuskProgress(value: row.live.progress)

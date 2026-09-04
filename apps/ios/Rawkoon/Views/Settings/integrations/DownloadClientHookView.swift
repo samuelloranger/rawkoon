@@ -50,7 +50,7 @@ struct DownloadClientHookView: View {
             SettingsStateView(isLoading: loading, error: loadError, retry: { Task { await load() } }) {
                 if !status.isEmpty {
                     Section {
-                        LabeledContent("Status") { Text(status).foregroundStyle(Theme.muted) }
+                        LabeledContent("Status") { LocalizedStatus.text(status).foregroundStyle(Theme.muted) }
                             .listRowBackground(Theme.raised)
                     }
                 }

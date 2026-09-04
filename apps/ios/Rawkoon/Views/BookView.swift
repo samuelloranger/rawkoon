@@ -8,6 +8,13 @@ private enum BookDetailLane: String, CaseIterable, Identifiable {
     var id: String {
         rawValue
     }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .audiobook: "Audiobook"
+        case .ebook: "Ebook"
+        }
+    }
 }
 
 private enum ReleaseSearchLane: String, Identifiable {
@@ -251,11 +258,18 @@ struct BookView: View {
                 }
                 HStack(spacing: 6) {
                     if hasAudiobookEdition {
-                        let audiobookStatus = formattedStatus(audiobookEdition?.status ?? book.audiobookStatus ?? "wanted")
-                        chip("Audiobook · \(audiobookStatus)", tint: Theme.muted)
+                        chip(
+                            Text("Audiobook") + Text(verbatim: " · ")
+                                + LocalizedStatus.text(audiobookEdition?.status ?? book.audiobookStatus ?? "wanted"),
+                            tint: Theme.muted
+                        )
                     }
                     if hasEbookEdition {
-                        chip("Ebook · \(formattedStatus(ebookEdition?.status ?? "wanted"))", tint: Theme.muted)
+                        chip(
+                            Text("Ebook") + Text(verbatim: " · ")
+                                + LocalizedStatus.text(ebookEdition?.status ?? "wanted"),
+                            tint: Theme.muted
+                        )
                     }
                 }
                 .padding(.top, 2)
@@ -281,7 +295,7 @@ struct BookView: View {
     private var lanePicker: some View {
         Picker("Edition", selection: $activeLane) {
             ForEach(BookDetailLane.allCases) { lane in
-                Text(lane.rawValue).tag(lane)
+                Text(lane.title).tag(lane)
             }
         }
         .pickerStyle(.segmented)
@@ -373,8 +387,8 @@ struct BookView: View {
         return rows
     }
 
-    private func chip(_ text: String, tint: Color) -> some View {
-        Text(text)
+    private func chip(_ text: Text, tint: Color) -> some View {
+        text
             .font(.system(.caption2, design: .monospaced))
             .foregroundStyle(tint)
             .padding(.horizontal, 7).padding(.vertical, 3)
@@ -658,7 +672,7 @@ struct BookView: View {
                     Text("Pull to refresh, run rescan, or check the server.")
                         .font(.caption)
                         .foregroundStyle(Theme.faint)
-                    Text("Edition status: \(formattedStatus(audiobookEdition?.status ?? book.audiobookStatus ?? "wanted"))")
+                    (Text("Edition status: ") + LocalizedStatus.text(audiobookEdition?.status ?? book.audiobookStatus ?? "wanted"))
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(Theme.faint)
                 }
@@ -899,14 +913,14 @@ struct BookView: View {
         return !manifest.chapters.isEmpty
     }
 
-    private func metricsCard(title: String, status: String, accent: Color, metrics: [String]) -> some View {
+    private func metricsCard(title: LocalizedStringKey, status: String, accent: Color, metrics: [String]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(title)
                     .font(.display(16))
                     .foregroundStyle(Theme.textStrong)
                 Spacer()
-                chip(formattedStatus(status), tint: accent)
+                chip(LocalizedStatus.text(status), tint: accent)
             }
             if !metrics.isEmpty {
                 Text(metrics.joined(separator: " · "))
@@ -1353,13 +1367,6 @@ struct BookView: View {
             return String(year)
         }
         return nil
-    }
-
-    private func formattedStatus(_ status: String) -> String {
-        status
-            .split(separator: "_")
-            .map(\.capitalized)
-            .joined(separator: " ")
     }
 
     private func message(for error: APIError) -> String {

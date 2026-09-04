@@ -43,7 +43,7 @@ struct ReleaseSearchView: View {
             rawValue
         }
 
-        var label: String {
+        var title: LocalizedStringKey {
             switch self {
             case .quality: "Quality"
             case .seeders: "Seeders"
@@ -151,9 +151,9 @@ struct ReleaseSearchView: View {
 
             HStack(spacing: 8) {
                 searchField("Filter loaded releases", text: $filterQuery)
-                filterMenu(title: sortBy.label, systemImage: sortAscending ? "arrow.up" : "arrow.down") {
+                filterMenu(title: sortBy.title, systemImage: sortAscending ? "arrow.up" : "arrow.down") {
                     ForEach(sortOptions) { option in
-                        Button(option.label) { sortBy = option }
+                        Button(option.title) { sortBy = option }
                     }
                     Divider()
                     Button(LocalizedStringKey(sortAscending ? "Descending" : "Ascending")) { sortAscending.toggle() }
@@ -405,7 +405,7 @@ struct ReleaseSearchView: View {
         }
     }
 
-    private func filterMenu(title: String, systemImage: String, @ViewBuilder content: () -> some View) -> some View {
+    private func filterMenu(title: LocalizedStringKey, systemImage: String, @ViewBuilder content: () -> some View) -> some View {
         Menu {
             content()
         } label: {

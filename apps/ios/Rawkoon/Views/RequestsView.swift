@@ -11,6 +11,13 @@ struct RequestsView: View {
         var id: String {
             rawValue
         }
+
+        var title: LocalizedStringKey {
+            switch self {
+            case .pending: "Pending"
+            case .all: "All"
+            }
+        }
     }
 
     @State private var filter: Filter = .pending
@@ -37,7 +44,7 @@ struct RequestsView: View {
         VStack(spacing: 0) {
             Picker("Filter", selection: $filter) {
                 ForEach(Filter.allCases) { f in
-                    Text(f.rawValue).tag(f)
+                    Text(f.title).tag(f)
                 }
             }
             .pickerStyle(.segmented)
@@ -149,7 +156,7 @@ struct RequestsView: View {
             if busyRequestId == req.id {
                 ProgressView().tint(Theme.apricot)
             } else {
-                StatusBadge(text: req.status, tint: badgeTint(req.status))
+                statusBadge(req.status, tint: badgeTint(req.status))
             }
         }
         .padding(.vertical, 4)

@@ -271,7 +271,7 @@ private struct InvitationsView: View {
                 ForEach(invitations) { invitation in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(invitation.email).foregroundStyle(Theme.text)
-                        Text(invitation.status).font(.footnote).foregroundStyle(Theme.muted)
+                        LocalizedStatus.text(invitation.status).font(.footnote).foregroundStyle(Theme.muted)
                     }
                     .listRowBackground(Theme.raised)
                     .swipeActions {

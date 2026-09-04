@@ -33,6 +33,15 @@ struct DiscoverView: View {
             }
         }
 
+        var title: LocalizedStringKey {
+            switch self {
+            case .all: "All"
+            case .movies: "Movies"
+            case .tv: "TV"
+            case .books: "Books"
+            }
+        }
+
         var includesMoviesAndTV: Bool {
             self != .books
         }
@@ -113,7 +122,7 @@ struct DiscoverView: View {
     private var kindPicker: some View {
         Picker("Kind", selection: $kindFilter) {
             ForEach(KindFilter.allCases, id: \.self) { kind in
-                Text(kind.rawValue).tag(kind)
+                Text(kind.title).tag(kind)
             }
         }
         .pickerStyle(.segmented)

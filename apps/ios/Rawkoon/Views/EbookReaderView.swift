@@ -85,7 +85,7 @@ private enum ReaderTheme: String, Codable, CaseIterable, Identifiable {
         rawValue
     }
 
-    var label: String {
+    var title: LocalizedStringKey {
         switch self {
         case .light: "Light"
         case .sepia: "Sepia"
@@ -718,7 +718,7 @@ private struct ReaderSettingsSheet: View {
                 Section("Theme") {
                     Picker("Theme", selection: $preferences.theme) {
                         ForEach(ReaderTheme.allCases) { theme in
-                            Text(theme.label).tag(theme)
+                            Text(theme.title).tag(theme)
                         }
                     }
                     .pickerStyle(.segmented)
