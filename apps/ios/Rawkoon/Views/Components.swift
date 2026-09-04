@@ -48,7 +48,7 @@ struct StatusBadge: View {
     /// steal string literals from the `LocalizedStringKey` overload, so catalog
     /// keys like `In library` would render verbatim.
     init(verbatim: String, tint: Color = Theme.apricot) {
-        self.text = Text(verbatim: verbatim)
+        text = Text(verbatim: verbatim)
         self.tint = tint
     }
 
