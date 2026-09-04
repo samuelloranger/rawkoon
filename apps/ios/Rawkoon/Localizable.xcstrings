@@ -3745,6 +3745,2751 @@
     },
     "−%@": {
       "shouldTranslate": false
+    },
+    "1080p": {
+      "shouldTranslate": false
+    },
+    "2160p": {
+      "shouldTranslate": false
+    },
+    "480p": {
+      "shouldTranslate": false
+    },
+    "720p": {
+      "shouldTranslate": false
+    },
+    "AV1": {
+      "shouldTranslate": false
+    },
+    "AVC": {
+      "shouldTranslate": false
+    },
+    "BluRay": {
+      "shouldTranslate": false
+    },
+    "Deluge": {
+      "shouldTranslate": false
+    },
+    "Discord": {
+      "shouldTranslate": false
+    },
+    "Gotify": {
+      "shouldTranslate": false
+    },
+    "HDR": {
+      "shouldTranslate": false
+    },
+    "HDTV": {
+      "shouldTranslate": false
+    },
+    "HEVC": {
+      "shouldTranslate": false
+    },
+    "Pushover": {
+      "shouldTranslate": false
+    },
+    "Slack": {
+      "shouldTranslate": false
+    },
+    "TV": {
+      "shouldTranslate": false
+    },
+    "Telegram": {
+      "shouldTranslate": false
+    },
+    "Transmission": {
+      "shouldTranslate": false
+    },
+    "URL": {
+      "shouldTranslate": false
+    },
+    "VFQ": {
+      "shouldTranslate": false
+    },
+    "VP9": {
+      "shouldTranslate": false
+    },
+    "WEB-DL": {
+      "shouldTranslate": false
+    },
+    "WEBRip": {
+      "shouldTranslate": false
+    },
+    "ntfy": {
+      "shouldTranslate": false
+    },
+    "qBittorrent": {
+      "shouldTranslate": false
+    },
+    "Accepted": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceptée"
+          }
+        }
+      }
+    },
+    "Active": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actif"
+          }
+        }
+      }
+    },
+    "Age": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Âge"
+          }
+        }
+      }
+    },
+    "All": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous"
+          }
+        }
+      }
+    },
+    "Approved": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approuvée"
+          }
+        }
+      }
+    },
+    "Audiobook": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "audio"
+          }
+        }
+      }
+    },
+    "Available": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disponible"
+          }
+        }
+      }
+    },
+    "Both": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les deux"
+          }
+        }
+      }
+    },
+    "Calendar": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendrier"
+          }
+        }
+      }
+    },
+    "Completed": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminés"
+          }
+        }
+      }
+    },
+    "Cutoff format": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Format de coupure"
+          }
+        }
+      }
+    },
+    "Dark": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sombre"
+          }
+        }
+      }
+    },
+    "Date added": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date d’ajout"
+          }
+        }
+      }
+    },
+    "Denied": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refusée"
+          }
+        }
+      }
+    },
+    "Digital release": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sortie numérique"
+          }
+        }
+      }
+    },
+    "Ebook": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "numérique"
+          }
+        }
+      }
+    },
+    "Error": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erreur"
+          }
+        }
+      }
+    },
+    "Expired": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expirée"
+          }
+        }
+      }
+    },
+    "Failed": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échoué"
+          }
+        }
+      }
+    },
+    "File operation": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opération sur les fichiers"
+          }
+        }
+      }
+    },
+    "File size": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taille"
+          }
+        }
+      }
+    },
+    "History": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Historique"
+          }
+        }
+      }
+    },
+    "In production": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En production"
+          }
+        }
+      }
+    },
+    "Indexer": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indexeur"
+          }
+        }
+      }
+    },
+    "Info": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Infos"
+          }
+        }
+      }
+    },
+    "Language": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langue"
+          }
+        }
+      }
+    },
+    "Languages": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langues"
+          }
+        }
+      }
+    },
+    "Light": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clair"
+          }
+        }
+      }
+    },
+    "Locale": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langue"
+          }
+        }
+      }
+    },
+    "Management": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gestion"
+          }
+        }
+      }
+    },
+    "Media": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Médias"
+          }
+        }
+      }
+    },
+    "Missing": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manquant"
+          }
+        }
+      }
+    },
+    "Move": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déplacer"
+          }
+        }
+      }
+    },
+    "Movie": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Film"
+          }
+        }
+      }
+    },
+    "Movies": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Films"
+          }
+        }
+      }
+    },
+    "Paused": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause"
+          }
+        }
+      }
+    },
+    "Pending": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En attente"
+          }
+        }
+      }
+    },
+    "Planned": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planifié"
+          }
+        }
+      }
+    },
+    "Preferred codecs": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codecs préférés"
+          }
+        }
+      }
+    },
+    "Preferred languages": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langues préférées"
+          }
+        }
+      }
+    },
+    "Preferred sources": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sources préférées"
+          }
+        }
+      }
+    },
+    "Profile deleted.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil supprimé."
+          }
+        }
+      }
+    },
+    "Quality": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qualité"
+          }
+        }
+      }
+    },
+    "Release group": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Groupe de release"
+          }
+        }
+      }
+    },
+    "Releases refreshed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Releases actualisées."
+          }
+        }
+      }
+    },
+    "Remux complete.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remuxage terminé."
+          }
+        }
+      }
+    },
+    "Remux failed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le remuxage a échoué."
+          }
+        }
+      }
+    },
+    "Rescan failed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’analyse a échoué."
+          }
+        }
+      }
+    },
+    "Resolution": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Résolution"
+          }
+        }
+      }
+    },
+    "Returning": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En cours"
+          }
+        }
+      }
+    },
+    "Revoked": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Révoquée"
+          }
+        }
+      }
+    },
+    "Search": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechercher"
+          }
+        }
+      }
+    },
+    "Search title language": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langue du titre de recherche"
+          }
+        }
+      }
+    },
+    "Seeders": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sources"
+          }
+        }
+      }
+    },
+    "Sepia": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sépia"
+          }
+        }
+      }
+    },
+    "Show": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Série"
+          }
+        }
+      }
+    },
+    "Shows": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Séries"
+          }
+        }
+      }
+    },
+    "Similar": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Similaires"
+          }
+        }
+      }
+    },
+    "Size": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taille"
+          }
+        }
+      }
+    },
+    "Size range": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plage de taille"
+          }
+        }
+      }
+    },
+    "Skipped": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ignoré"
+          }
+        }
+      }
+    },
+    "Test connection": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tester la connexion"
+          }
+        }
+      }
+    },
+    "Title": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titre"
+          }
+        }
+      }
+    },
+    "Upgrading": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mise à niveau"
+          }
+        }
+      }
+    },
+    "Wanted": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Souhaité"
+          }
+        }
+      }
+    },
+    "Year": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Année"
+          }
+        }
+      }
+    },
+    "\"%@\" couldn't be played. Playback stopped.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« %@ » n'a pas pu être lu. Lecture arrêtée."
+          }
+        }
+      }
+    },
+    "%@ is now a user.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ est maintenant un utilisateur."
+          }
+        }
+      }
+    },
+    "%@ is now an admin.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ est maintenant un admin."
+          }
+        }
+      }
+    },
+    "1 year": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 an"
+          }
+        }
+      }
+    },
+    "2 years": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 ans"
+          }
+        }
+      }
+    },
+    "3 months": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 mois"
+          }
+        }
+      }
+    },
+    "6 months": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 mois"
+          }
+        }
+      }
+    },
+    "AI pick": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choix IA"
+          }
+        }
+      }
+    },
+    "API token": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jeton API"
+          }
+        }
+      }
+    },
+    "Access token": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jeton d'accès"
+          }
+        }
+      }
+    },
+    "Active indexer manager": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gestionnaire d'indexeurs actif"
+          }
+        }
+      }
+    },
+    "Add user": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter un utilisateur"
+          }
+        }
+      }
+    },
+    "Added %@ edition.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Édition %@ ajoutée."
+          }
+        }
+      }
+    },
+    "Admin only.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Admins seulement."
+          }
+        }
+      }
+    },
+    "Allowed formats": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Formats permis"
+          }
+        }
+      }
+    },
+    "Already requested.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déjà demandé."
+          }
+        }
+      }
+    },
+    "App token": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jeton d'application"
+          }
+        }
+      }
+    },
+    "Australia": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Australie"
+          }
+        }
+      }
+    },
+    "Author": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auteur"
+          }
+        }
+      }
+    },
+    "Awaiting first": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En attente du premier"
+          }
+        }
+      }
+    },
+    "Body template": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modèle du corps"
+          }
+        }
+      }
+    },
+    "Bot token": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jeton du bot"
+          }
+        }
+      }
+    },
+    "Brazil": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brésil"
+          }
+        }
+      }
+    },
+    "Canada": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canada"
+          }
+        }
+      }
+    },
+    "Channel deleted.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canal supprimé."
+          }
+        }
+      }
+    },
+    "Chat ID": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chat ID"
+          }
+        }
+      }
+    },
+    "Chinese": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chinois"
+          }
+        }
+      }
+    },
+    "Cleared %lld failed downloads.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld téléchargements en échec effacés."
+          }
+        }
+      }
+    },
+    "Client": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Client"
+          }
+        }
+      }
+    },
+    "Codec": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codec"
+          }
+        }
+      }
+    },
+    "Connected": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecté"
+          }
+        }
+      }
+    },
+    "Connected — %lld models": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecté — %lld modèles"
+          }
+        }
+      }
+    },
+    "Connected — %lld models (configured model not found)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecté — %lld modèles (modèle configuré introuvable)"
+          }
+        }
+      }
+    },
+    "Could not add audiobook edition.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'ajouter l'édition livre audio."
+          }
+        }
+      }
+    },
+    "Could not add ebook edition.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'ajouter l'édition livre numérique."
+          }
+        }
+      }
+    },
+    "Could not add that book.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'ajouter ce livre."
+          }
+        }
+      }
+    },
+    "Could not add that edition.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'ajouter cette édition."
+          }
+        }
+      }
+    },
+    "Could not add to library.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'ajouter à la bibliothèque."
+          }
+        }
+      }
+    },
+    "Could not clear failed downloads.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'effacer les téléchargements en échec."
+          }
+        }
+      }
+    },
+    "Could not connect.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de se connecter."
+          }
+        }
+      }
+    },
+    "Could not load book details.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger les détails du livre."
+          }
+        }
+      }
+    },
+    "Could not load continue progress.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger la progression."
+          }
+        }
+      }
+    },
+    "Could not load details.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger les détails."
+          }
+        }
+      }
+    },
+    "Could not load ebook files.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger les fichiers du livre numérique."
+          }
+        }
+      }
+    },
+    "Could not load management data.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger les données de gestion."
+          }
+        }
+      }
+    },
+    "Could not load manifest.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger le manifeste."
+          }
+        }
+      }
+    },
+    "Could not load notifications.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger les notifications."
+          }
+        }
+      }
+    },
+    "Could not load similar titles.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger les titres similaires."
+          }
+        }
+      }
+    },
+    "Could not open the file from this location.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'ouvrir le fichier depuis cet emplacement."
+          }
+        }
+      }
+    },
+    "Could not open this ebook yet. Pull to refresh and retry.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'ouvrir ce livre numérique pour l'instant. Tirez pour actualiser et réessayer."
+          }
+        }
+      }
+    },
+    "Could not parse server response.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'analyser la réponse du serveur."
+          }
+        }
+      }
+    },
+    "Could not remove download entry.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de retirer l'entrée de téléchargement."
+          }
+        }
+      }
+    },
+    "Could not remove from library.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de retirer de la bibliothèque."
+          }
+        }
+      }
+    },
+    "Could not rescan ebook edition.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de réanalyser l'édition livre numérique."
+          }
+        }
+      }
+    },
+    "Could not rescan this book.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de réanalyser ce livre."
+          }
+        }
+      }
+    },
+    "Could not search releases.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de rechercher les sorties."
+          }
+        }
+      }
+    },
+    "Could not start playback.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de démarrer la lecture."
+          }
+        }
+      }
+    },
+    "Could not start remux.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de démarrer le remuxage."
+          }
+        }
+      }
+    },
+    "Could not submit request.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de soumettre la demande."
+          }
+        }
+      }
+    },
+    "Could not update download.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de mettre à jour le téléchargement."
+          }
+        }
+      }
+    },
+    "Could not update monitoring.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de mettre à jour la surveillance."
+          }
+        }
+      }
+    },
+    "Could not update quality profile.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de mettre à jour le profil de qualité."
+          }
+        }
+      }
+    },
+    "Could not update watchlist.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de mettre à jour la liste de visionnage."
+          }
+        }
+      }
+    },
+    "Couldn't approve that request.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'approuver cette demande."
+          }
+        }
+      }
+    },
+    "Couldn't change password.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de changer le mot de passe."
+          }
+        }
+      }
+    },
+    "Couldn't complete. Check the email and try again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de terminer. Vérifiez le courriel et réessayez."
+          }
+        }
+      }
+    },
+    "Couldn't create the key.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de créer la clé."
+          }
+        }
+      }
+    },
+    "Couldn't delete %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de supprimer %@."
+          }
+        }
+      }
+    },
+    "Couldn't delete provider.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de supprimer le fournisseur."
+          }
+        }
+      }
+    },
+    "Couldn't delete subscription.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de supprimer l'abonnement."
+          }
+        }
+      }
+    },
+    "Couldn't deny that request.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de refuser cette demande."
+          }
+        }
+      }
+    },
+    "Couldn't load quality profiles.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger les profils de qualité."
+          }
+        }
+      }
+    },
+    "Couldn't load releases. Check the server.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger les sorties. Vérifiez le serveur."
+          }
+        }
+      }
+    },
+    "Couldn't load web-push subscriptions.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger les abonnements web-push."
+          }
+        }
+      }
+    },
+    "Couldn't reach the server (%lld).": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de joindre le serveur (%lld)."
+          }
+        }
+      }
+    },
+    "Couldn't refresh all devices.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'actualiser tous les appareils."
+          }
+        }
+      }
+    },
+    "Couldn't refresh releases.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'actualiser les sorties."
+          }
+        }
+      }
+    },
+    "Couldn't remove device.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de retirer l'appareil."
+          }
+        }
+      }
+    },
+    "Couldn't resend.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de renvoyer."
+          }
+        }
+      }
+    },
+    "Couldn't reset password.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de réinitialiser le mot de passe."
+          }
+        }
+      }
+    },
+    "Couldn't revoke key.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de révoquer la clé."
+          }
+        }
+      }
+    },
+    "Couldn't revoke session.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de révoquer la session."
+          }
+        }
+      }
+    },
+    "Couldn't revoke.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de révoquer."
+          }
+        }
+      }
+    },
+    "Couldn't save your name.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'enregistrer votre nom."
+          }
+        }
+      }
+    },
+    "Couldn't save your notification preferences.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'enregistrer vos préférences de notifications."
+          }
+        }
+      }
+    },
+    "Couldn't save. Check the fields and try again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'enregistrer. Vérifiez les champs et réessayez."
+          }
+        }
+      }
+    },
+    "Couldn't save. Check the values and try again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'enregistrer. Vérifiez les valeurs et réessayez."
+          }
+        }
+      }
+    },
+    "Couldn't start reindex.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de lancer la réindexation."
+          }
+        }
+      }
+    },
+    "Couldn't start the job.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de lancer la tâche."
+          }
+        }
+      }
+    },
+    "Couldn't unblock.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de débloquer."
+          }
+        }
+      }
+    },
+    "Couldn't update books setting.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de modifier le réglage des livres."
+          }
+        }
+      }
+    },
+    "Country": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pays"
+          }
+        }
+      }
+    },
+    "Current password is incorrect.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le mot de passe actuel est incorrect."
+          }
+        }
+      }
+    },
+    "Custom format deleted.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Format personnalisé supprimé."
+          }
+        }
+      }
+    },
+    "Cutoff": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coupure"
+          }
+        }
+      }
+    },
+    "Default (English)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Par défaut (anglais)"
+          }
+        }
+      }
+    },
+    "Default book profile": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil de livre par défaut"
+          }
+        }
+      }
+    },
+    "Default movie profile": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil de film par défaut"
+          }
+        }
+      }
+    },
+    "Default show profile": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil de série par défaut"
+          }
+        }
+      }
+    },
+    "Deleted %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ supprimé."
+          }
+        }
+      }
+    },
+    "Device removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appareil retiré."
+          }
+        }
+      }
+    },
+    "Download entry removed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entrée de téléchargement retirée."
+          }
+        }
+      }
+    },
+    "Download failed. Check your connection and try again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec du téléchargement. Vérifiez votre connexion et réessayez."
+          }
+        }
+      }
+    },
+    "Download updated.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Téléchargement mis à jour."
+          }
+        }
+      }
+    },
+    "Downloads for this book need a fresh sign-in.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les téléchargements de ce livre nécessitent une nouvelle connexion."
+          }
+        }
+      }
+    },
+    "Edition status: ": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Statut de l'édition : "
+          }
+        }
+      }
+    },
+    "English": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anglais"
+          }
+        }
+      }
+    },
+    "Enter a valid server URL.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entrez une URL de serveur valide."
+          }
+        }
+      }
+    },
+    "Foreign program": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Programme externe"
+          }
+        }
+      }
+    },
+    "France": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "France"
+          }
+        }
+      }
+    },
+    "French": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Français"
+          }
+        }
+      }
+    },
+    "German": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allemand"
+          }
+        }
+      }
+    },
+    "Germany": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allemagne"
+          }
+        }
+      }
+    },
+    "Grab failed for \"%@\".": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec de la récupération de « %@ »."
+          }
+        }
+      }
+    },
+    "Grab refused (already downloading?).": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Récupération refusée (déjà en téléchargement ?)."
+          }
+        }
+      }
+    },
+    "Hardlink": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lien dur"
+          }
+        }
+      }
+    },
+    "India": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inde"
+          }
+        }
+      }
+    },
+    "Invitation resent.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitation renvoyée."
+          }
+        }
+      }
+    },
+    "Invitation revoked.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitation révoquée."
+          }
+        }
+      }
+    },
+    "Invite": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inviter"
+          }
+        }
+      }
+    },
+    "Italian": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Italien"
+          }
+        }
+      }
+    },
+    "Italy": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Italie"
+          }
+        }
+      }
+    },
+    "Japan": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Japon"
+          }
+        }
+      }
+    },
+    "Japanese": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Japonais"
+          }
+        }
+      }
+    },
+    "Key revoked.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clé révoquée."
+          }
+        }
+      }
+    },
+    "Korean": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coréen"
+          }
+        }
+      }
+    },
+    "Last download": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dernier téléchargement"
+          }
+        }
+      }
+    },
+    "Look-ahead window": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fenêtre d'anticipation"
+          }
+        }
+      }
+    },
+    "Method": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Méthode"
+          }
+        }
+      }
+    },
+    "Method (GET/POST)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Méthode (GET/POST)"
+          }
+        }
+      }
+    },
+    "Min resolution": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Résolution min."
+          }
+        }
+      }
+    },
+    "Monitored.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Surveillé."
+          }
+        }
+      }
+    },
+    "Monitoring updated.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Surveillance mise à jour."
+          }
+        }
+      }
+    },
+    "Network error.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erreur réseau."
+          }
+        }
+      }
+    },
+    "Network error. Check your connection.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erreur réseau. Vérifiez votre connexion."
+          }
+        }
+      }
+    },
+    "No audiobooks yet.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun livre audio pour l'instant."
+          }
+        }
+      }
+    },
+    "No ebook files are available yet for this book.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun fichier de livre numérique n'est encore disponible pour ce livre."
+          }
+        }
+      }
+    },
+    "No failed downloads to clear.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun téléchargement en échec à effacer."
+          }
+        }
+      }
+    },
+    "No quality profiles configured.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun profil de qualité configuré."
+          }
+        }
+      }
+    },
+    "Not configured": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non configuré"
+          }
+        }
+      }
+    },
+    "Not connected.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non connecté."
+          }
+        }
+      }
+    },
+    "Not logged in.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non connecté."
+          }
+        }
+      }
+    },
+    "Not signed in.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non connecté."
+          }
+        }
+      }
+    },
+    "Open Rawkoon on your phone to sign in.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez Rawkoon sur votre téléphone pour vous connecter."
+          }
+        }
+      }
+    },
+    "Operator": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opérateur"
+          }
+        }
+      }
+    },
+    "Password must be at least 8 characters.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le mot de passe doit contenir au moins 8 caractères."
+          }
+        }
+      }
+    },
+    "Password reset for %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mot de passe réinitialisé pour %@."
+          }
+        }
+      }
+    },
+    "Portuguese": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Portugais"
+          }
+        }
+      }
+    },
+    "Priority": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Priorité"
+          }
+        }
+      }
+    },
+    "Proper/Repack": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proper/Repack"
+          }
+        }
+      }
+    },
+    "Provider deleted.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fournisseur supprimé."
+          }
+        }
+      }
+    },
+    "Quality profile updated.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil de qualité mis à jour."
+          }
+        }
+      }
+    },
+    "Queue": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File d'attente"
+          }
+        }
+      }
+    },
+    "Read failed. Try refreshing or rescanning this edition.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec de la lecture. Actualisez ou réanalysez cette édition."
+          }
+        }
+      }
+    },
+    "Removed from library.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retiré de la bibliothèque."
+          }
+        }
+      }
+    },
+    "Remux skipped — nothing to change.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remuxage ignoré — rien à modifier."
+          }
+        }
+      }
+    },
+    "Remux still running in the background.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le remuxage se poursuit en arrière-plan."
+          }
+        }
+      }
+    },
+    "Rescan complete: %lld rescanned, %lld imported, %lld deleted.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réanalyse terminée : %lld réanalysés, %lld importés, %lld supprimés."
+          }
+        }
+      }
+    },
+    "Rescan completed, but chapters are still unavailable.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réanalyse terminée, mais les chapitres sont encore indisponibles."
+          }
+        }
+      }
+    },
+    "Rescan started.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réanalyse lancée."
+          }
+        }
+      }
+    },
+    "Search query must be at least 2 characters.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La recherche doit contenir au moins 2 caractères."
+          }
+        }
+      }
+    },
+    "Server error (%lld).": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erreur serveur (%lld)."
+          }
+        }
+      }
+    },
+    "Session revoked.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Session révoquée."
+          }
+        }
+      }
+    },
+    "Sign in required.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexion requise."
+          }
+        }
+      }
+    },
+    "Sign-in failed. Please try again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec de la connexion. Veuillez réessayer."
+          }
+        }
+      }
+    },
+    "Signed in, but this device couldn't save your login. You may need to sign in again after quitting the app.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecté, mais cet appareil n'a pas pu enregistrer votre connexion. Vous devrez peut-être vous reconnecter après avoir quitté l'app."
+          }
+        }
+      }
+    },
+    "Something went wrong.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une erreur est survenue."
+          }
+        }
+      }
+    },
+    "Something went wrong. Pull to retry.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une erreur est survenue. Tirez pour réessayer."
+          }
+        }
+      }
+    },
+    "Source": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source"
+          }
+        }
+      }
+    },
+    "Spain": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espagne"
+          }
+        }
+      }
+    },
+    "Spanish": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espagnol"
+          }
+        }
+      }
+    },
+    "Stale": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obsolète"
+          }
+        }
+      }
+    },
+    "Stalled": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bloqué"
+          }
+        }
+      }
+    },
+    "Started.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lancé."
+          }
+        }
+      }
+    },
+    "Subscription deleted.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonnement supprimé."
+          }
+        }
+      }
+    },
+    "TRUEFRENCH": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TRUEFRENCH"
+          }
+        }
+      }
+    },
+    "Test failed for %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec du test pour %@."
+          }
+        }
+      }
+    },
+    "Test succeeded for %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test réussi pour %@."
+          }
+        }
+      }
+    },
+    "The book file is missing from disk.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fichier du livre est absent du disque."
+          }
+        }
+      }
+    },
+    "The next chapter couldn't be played. Playback stopped.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le chapitre suivant n'a pas pu être lu. Lecture arrêtée."
+          }
+        }
+      }
+    },
+    "This audiobook is not chapter-ready yet. Run a rescan or grab a chapterized release.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce livre audio n'est pas encore découpé en chapitres. Lancez une réanalyse ou récupérez une sortie chapitrée."
+          }
+        }
+      }
+    },
+    "This file is not a supported EPUB.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce fichier n'est pas un EPUB pris en charge."
+          }
+        }
+      }
+    },
+    "This publication is locked and cannot be opened.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette publication est verrouillée et ne peut pas être ouverte."
+          }
+        }
+      }
+    },
+    "This release can't be grabbed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette sortie ne peut pas être récupérée."
+          }
+        }
+      }
+    },
+    "This server version cannot provide ebook download links yet.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette version du serveur ne peut pas encore fournir de liens de téléchargement de livres numériques."
+          }
+        }
+      }
+    },
+    "Title regex": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titre (regex)"
+          }
+        }
+      }
+    },
+    "Topic": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sujet"
+          }
+        }
+      }
+    },
+    "Unauthorized. Check your credentials.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non autorisé. Vérifiez vos identifiants."
+          }
+        }
+      }
+    },
+    "Unblocked.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Débloqué."
+          }
+        }
+      }
+    },
+    "Unexpected error.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erreur inattendue."
+          }
+        }
+      }
+    },
+    "Unexpected error. Please try again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erreur inattendue. Veuillez réessayer."
+          }
+        }
+      }
+    },
+    "Unexpected response from the server.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réponse inattendue du serveur."
+          }
+        }
+      }
+    },
+    "United Kingdom": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Royaume-Uni"
+          }
+        }
+      }
+    },
+    "United States": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "États-Unis"
+          }
+        }
+      }
+    },
+    "Unmonitored.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non surveillé."
+          }
+        }
+      }
+    },
+    "Updated monitoring.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Surveillance mise à jour."
+          }
+        }
+      }
+    },
+    "User key": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clé utilisateur"
+          }
+        }
+      }
+    },
+    "Value": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Valeur"
+          }
+        }
+      }
+    },
+    "Webhook": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Webhook"
+          }
+        }
+      }
+    },
+    "Webhook URL": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URL du webhook"
+          }
+        }
+      }
+    },
+    "failed • %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "échec • %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
