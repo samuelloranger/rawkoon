@@ -4616,7 +4616,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Admins seulement."
+            "value": "Réservé aux admins."
           }
         }
       }
@@ -4676,7 +4676,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "En attente du premier"
+            "value": "En attente du 1er appel"
           }
         }
       }
@@ -4816,7 +4816,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible d'ajouter l'édition livre audio."
+            "value": "Impossible d'ajouter l'édition audio."
           }
         }
       }
@@ -4826,7 +4826,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible d'ajouter l'édition livre numérique."
+            "value": "Impossible d'ajouter l'édition numérique."
           }
         }
       }
@@ -5016,7 +5016,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible de réanalyser l'édition livre numérique."
+            "value": "Impossible de réanalyser l'édition numérique."
           }
         }
       }
@@ -5036,7 +5036,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible de rechercher les sorties."
+            "value": "Impossible de rechercher les versions."
           }
         }
       }
@@ -5206,7 +5206,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible de charger les sorties. Vérifiez le serveur."
+            "value": "Impossible de charger les releases. Vérifiez le serveur."
           }
         }
       }
@@ -5246,7 +5246,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible d'actualiser les sorties."
+            "value": "Impossible d'actualiser les releases."
           }
         }
       }
@@ -6286,7 +6286,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce livre audio n'est pas encore découpé en chapitres. Lancez une réanalyse ou récupérez une sortie chapitrée."
+            "value": "Ce livre audio n'est pas encore découpé en chapitres. Lancez une réanalyse ou récupérez une version chapitrée."
           }
         }
       }
@@ -6316,7 +6316,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cette sortie ne peut pas être récupérée."
+            "value": "Cette release ne peut pas être récupérée."
           }
         }
       }
@@ -6346,7 +6346,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sujet"
+            "value": "Topic"
           }
         }
       }
