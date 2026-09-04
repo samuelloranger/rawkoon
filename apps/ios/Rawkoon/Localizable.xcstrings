@@ -74,7 +74,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld trouvés · %lld récupérés"
+            "value": "%lld trouvées · %lld récupérées"
           }
         }
       }
@@ -104,7 +104,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld actifs"
+            "value": "%lld sources"
           }
         }
       }
@@ -266,7 +266,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ajouter le premier"
+            "value": "Ajouter d'abord"
           }
         }
       }
@@ -336,7 +336,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Admins seulement"
+            "value": "Réservé aux admins"
           }
         }
       }
@@ -346,7 +346,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tous"
+            "value": "Tous réseaux"
           }
         }
       }
@@ -646,7 +646,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copiez maintenant — ne sera plus affiché"
+            "value": "Copiez maintenant — il ne sera plus affiché"
           }
         }
       }
@@ -746,7 +746,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible d'ouvrir"
+            "value": "Impossible d'ouvrir ceci"
           }
         }
       }
@@ -1069,7 +1069,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ETA %@"
+            "value": "Fin %@"
           }
         }
       }
@@ -1199,7 +1199,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Filtrer"
+            "value": "Filtre"
           }
         }
       }
@@ -1279,7 +1279,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Masquer les rejetés"
+            "value": "Masquer les rejetées"
           }
         }
       }
@@ -1299,7 +1299,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Jusqu'où afficher les films et séries à venir, et quelles langues inclure."
+            "value": "Combien de temps à l'avance afficher les films et séries à venir, et quelles langues inclure."
           }
         }
       }
@@ -1469,7 +1469,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Colonne"
+            "value": "Section"
           }
         }
       }
@@ -1579,7 +1579,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rétrograder en utilisateur"
+            "value": "Rendre utilisateur"
           }
         }
       }
@@ -2089,7 +2089,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucun abonnement web-push."
+            "value": "Aucun abonnement push web."
           }
         }
       }
@@ -2199,7 +2199,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Actuellement au cinéma"
+            "value": "Lecture en cours"
           }
         }
       }
@@ -2219,7 +2219,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "désactivé"
+            "value": "Désactivé"
           }
         }
       }
@@ -2299,7 +2299,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ou"
+            "value": "Ou"
           }
         }
       }
@@ -2329,7 +2329,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aperçu"
+            "value": "Description"
           }
         }
       }
@@ -2419,7 +2419,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lecture"
+            "value": "Lire"
           }
         }
       }
@@ -2552,7 +2552,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Profil qualité"
+            "value": "Profil de qualité"
           }
         }
       }
@@ -2562,7 +2562,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Profils qualité"
+            "value": "Profils de qualité"
           }
         }
       }
@@ -2882,7 +2882,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Analyser"
+            "value": "Réanalyser"
           }
         }
       }
@@ -2972,7 +2972,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Renouveler"
+            "value": "Régénérer"
           }
         }
       }
@@ -2982,7 +2982,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Renouveler le secret"
+            "value": "Régénérer le secret"
           }
         }
       }
@@ -2992,7 +2992,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Renouveler le secret du hook ?"
+            "value": "Régénérer le secret du hook ?"
           }
         }
       }
@@ -3122,7 +3122,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Analysé %@"
+            "value": "Analysé le %@"
           }
         }
       }
@@ -3152,7 +3152,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rechercher films, séries et livres"
+            "value": "Rechercher des films, séries et livres"
           }
         }
       }
@@ -3272,7 +3272,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Afficher les rejetés"
+            "value": "Afficher les rejetées"
           }
         }
       }
@@ -3302,7 +3302,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Minuterie de veille"
+            "value": "Minuterie d'arrêt"
           }
         }
       }
@@ -3402,7 +3402,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le statut est déterminé par les récupérations et les analyses, non modifié manuellement."
+            "value": "Le statut est déterminé par les récupérations et les analyses et n'est pas modifié manuellement."
           }
         }
       }
@@ -3492,7 +3492,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce livre n'a pas de table des matières."
+            "value": "Ce livre n'a pas de sommaire."
           }
         }
       }
@@ -3532,7 +3532,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Basculer le suivi"
+            "value": "Basculer la surveillance"
           }
         }
       }
@@ -3612,7 +3612,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Utilisé pour la découverte régionale TMDB et les dates de sortie."
+            "value": "Utilisée pour la découverte régionale TMDB et les dates de sortie."
           }
         }
       }
@@ -3642,7 +3642,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nous vous préviendrons lorsque ce sera en bibliothèque. Voir Demandes dans Bibliothèque."
+            "value": "Nous vous préviendrons lorsque ce sera en bibliothèque. Voir les Demandes dans Bibliothèque."
           }
         }
       }
@@ -3725,7 +3725,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "« %@ » quittera votre bibliothèque. Supprimer les fichiers les retire aussi du disque."
+            "value": "« %@ » sera retiré de votre bibliothèque. Supprimer les fichiers les retire aussi du disque."
           }
         }
       }
