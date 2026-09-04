@@ -7,6 +7,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "postinstall": "bunx @tanstack/router-cli generate",
     "build": "vite build && tsc --project tsconfig.build.json --noEmit",
     "preview": "vite preview",
     "playwright:load": "bun scripts/playwright-load.mjs",
@@ -59,6 +60,7 @@
   "devDependencies": {
     "@playwright/test": "^1.61.0",
     "@tailwindcss/postcss": "^4.3.1",
+    "@tanstack/router-cli": "^1.167.33",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/bun": "^1.4.0",
