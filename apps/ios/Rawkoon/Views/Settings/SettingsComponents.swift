@@ -108,7 +108,7 @@ struct SecretFieldRow: View {
         self.isStored = isStored
     }
 
-    init<S: StringProtocol>(title: S, input: Binding<String>, isStored: Bool = false) {
+    init(title: some StringProtocol, input: Binding<String>, isStored: Bool = false) {
         self.title = Text(title)
         _input = input
         self.isStored = isStored
@@ -322,7 +322,7 @@ struct MultiSelectRow<T: Hashable>: View {
         options: [(value: T, label: LocalizedStringKey)],
         minSelection: Int = 0
     ) {
-        self.titleKey = title
+        titleKey = title
         _selected = selected
         self.options = options.map { ($0.value, Text($0.label)) }
         self.minSelection = minSelection
@@ -334,7 +334,7 @@ struct MultiSelectRow<T: Hashable>: View {
         options: [(value: T, label: String)],
         minSelection: Int = 0
     ) {
-        self.titleKey = title
+        titleKey = title
         _selected = selected
         self.options = options.map { ($0.value, Text(verbatim: $0.label)) }
         self.minSelection = minSelection
@@ -400,7 +400,7 @@ struct TestConnectionButton: View {
         self.action = action
     }
 
-    init<S: StringProtocol>(title: S, action: @escaping () async -> TestOutcome) {
+    init(title: some StringProtocol, action: @escaping () async -> TestOutcome) {
         self.title = Text(title)
         self.action = action
     }

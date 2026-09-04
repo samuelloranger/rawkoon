@@ -44,7 +44,7 @@ struct StatusBadge: View {
         self.tint = tint
     }
 
-    init<S: StringProtocol>(text: S, tint: Color = Theme.apricot) {
+    init(text: some StringProtocol, tint: Color = Theme.apricot) {
         self.text = Text(text)
         self.tint = tint
     }
@@ -170,15 +170,15 @@ func searchField(_ placeholder: LocalizedStringKey, text: Binding<String>) -> so
     }
 }
 
-func searchField<S: StringProtocol>(_ placeholder: S, text: Binding<String>) -> some View {
+func searchField(_ placeholder: some StringProtocol, text: Binding<String>) -> some View {
     searchFieldStack(text: text) {
         TextField(placeholder, text: text)
     }
 }
 
-private func searchFieldStack<Field: View>(
+private func searchFieldStack(
     text: Binding<String>,
-    @ViewBuilder field: () -> Field
+    @ViewBuilder field: () -> some View
 ) -> some View {
     HStack(spacing: 8) {
         Image(systemName: "magnifyingglass")
