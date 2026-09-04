@@ -346,7 +346,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tous réseaux"
+            "value": "Toutes connexions"
           }
         }
       }
@@ -646,7 +646,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copiez maintenant — il ne sera plus affiché"
+            "value": "Copiez maintenant — elle ne sera plus affichée"
           }
         }
       }
@@ -746,7 +746,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible d'ouvrir ceci"
+            "value": "Impossible d'ouvrir"
           }
         }
       }
@@ -1069,7 +1069,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fin %@"
+            "value": "Reste %@"
           }
         }
       }
@@ -1579,7 +1579,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rendre utilisateur"
+            "value": "Passer en utilisateur"
           }
         }
       }
@@ -2419,7 +2419,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lire"
+            "value": "Écouter"
           }
         }
       }
@@ -3152,7 +3152,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rechercher des films, séries et livres"
+            "value": "Rechercher des films, des séries et des livres"
           }
         }
       }
