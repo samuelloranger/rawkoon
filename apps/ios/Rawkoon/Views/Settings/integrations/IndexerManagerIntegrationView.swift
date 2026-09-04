@@ -11,7 +11,7 @@ struct IndexerManagerIntegrationView: View {
             self == .prowlarr ? "prowlarr" : "jackett"
         }
 
-        var title: String {
+        var title: LocalizedStringKey {
             self == .prowlarr ? "Prowlarr" : "Jackett"
         }
     }

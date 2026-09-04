@@ -22,9 +22,12 @@ enum LocalizedStatus {
         case "downloading": "Downloading"
         case "downloaded": "Downloaded"
         case "skipped": "Skipped"
-        case "returning": "Returning"
-        case "in_production": "In production"
+        case "returning", "returning series": "Returning"
+        case "in_production", "in production": "In production"
         case "planned": "Planned"
+        case "released": "Released"
+        case "canceled", "cancelled": "Canceled"
+        case "post_production", "post production", "post-production": "Post-production"
         case "upgrading": "Upgrading"
         case "missing": "Missing"
         case "accepted": "Accepted"
@@ -52,6 +55,6 @@ func statusBadge(_ status: String, tint: Color) -> StatusBadge {
     if let key = LocalizedStatus.key(for: status) {
         StatusBadge(text: key, tint: tint)
     } else {
-        StatusBadge(text: status.capitalized, tint: tint)
+        StatusBadge(verbatim: status.capitalized, tint: tint)
     }
 }

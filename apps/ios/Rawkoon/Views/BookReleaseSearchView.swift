@@ -24,7 +24,7 @@ struct BookReleaseSearchView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, 10).padding(.bottom, 12)
 
-            Text("Add \(kind == "audiobook" ? "audiobook" : "ebook")")
+            Text(kind == "audiobook" ? LocalizedStringKey("Add audiobook") : LocalizedStringKey("Add ebook"))
                 .font(.display(20)).foregroundStyle(Theme.textStrong)
             Text(title)
                 .font(.system(.caption, design: .monospaced))

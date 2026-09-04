@@ -48,7 +48,7 @@ enum CarPlayInterface {
             sections.append(
                 CPListSection(
                     items: split.continueListening.map(makeItem),
-                    header: "Continue Listening",
+                    header: String(localized: "Continue Listening"),
                     sectionIndexTitle: nil
                 )
             )
@@ -56,7 +56,7 @@ enum CarPlayInterface {
         sections.append(
             CPListSection(
                 items: cappedLibrary.map(makeItem),
-                header: "Library",
+                header: String(localized: "Library"),
                 sectionIndexTitle: nil
             )
         )
