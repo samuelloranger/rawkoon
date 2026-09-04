@@ -156,7 +156,7 @@ struct ReleaseSearchView: View {
                         Button(option.label) { sortBy = option }
                     }
                     Divider()
-                    Button(sortAscending ? "Descending" : "Ascending") { sortAscending.toggle() }
+                    Button(LocalizedStringKey(sortAscending ? "Descending" : "Ascending")) { sortAscending.toggle() }
                 }
             }
 

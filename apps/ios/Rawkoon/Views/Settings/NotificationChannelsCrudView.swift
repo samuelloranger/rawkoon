@@ -188,7 +188,7 @@ private struct ChannelEditorView: View {
         .scrollContentBackground(.hidden)
         .background(Theme.base)
         .tint(Theme.apricot)
-        .navigationTitle(channel == nil ? "New channel" : "Edit channel")
+        .navigationTitle(Text(LocalizedStringKey(channel == nil ? "New channel" : "Edit channel")))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

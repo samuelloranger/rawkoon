@@ -172,7 +172,7 @@ private struct BookQualityProfileEditorView: View {
         .scrollContentBackground(.hidden)
         .background(Theme.base)
         .tint(Theme.apricot)
-        .navigationTitle(profile == nil ? "New profile" : "Edit profile")
+        .navigationTitle(Text(LocalizedStringKey(profile == nil ? "New profile" : "Edit profile")))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

@@ -274,7 +274,7 @@ struct LibraryView: View {
                             Button(s.label) { sort = s }
                         }
                         Divider()
-                        Button(sortAscending ? "Descending" : "Ascending") { sortAscending.toggle() }
+                        Button(LocalizedStringKey(sortAscending ? "Descending" : "Ascending")) { sortAscending.toggle() }
                     }
                 }
                 .padding(.horizontal, 16)

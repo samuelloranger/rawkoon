@@ -265,7 +265,7 @@ struct MediaDetailView: View {
                             .background(Theme.base.opacity(0.55), in: Circle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(inWatchlist ? "Remove from watchlist" : "Add to watchlist")
+                    .accessibilityLabel(Text(LocalizedStringKey(inWatchlist ? "Remove from watchlist" : "Add to watchlist")))
                     .disabled(watchlistPending)
                 }
                 .padding(.horizontal, 16)
@@ -389,7 +389,7 @@ struct MediaDetailView: View {
                             if requesting {
                                 ProgressView().tint(Theme.onAccent)
                             } else {
-                                Label(model.isAdmin ? "Add to library" : "Request",
+                                Label(LocalizedStringKey(model.isAdmin ? "Add to library" : "Request"),
                                       systemImage: model.isAdmin ? "plus.circle.fill" : "plus.circle")
                             }
                         }
@@ -1036,7 +1036,7 @@ struct MediaDetailView: View {
             HStack(spacing: 12) {
                 if remuxRunning || remuxStarting {
                     ProgressView().tint(Theme.muted)
-                    Text(remuxStarting ? "Starting…" : "Remuxing…")
+                    Text(LocalizedStringKey(remuxStarting ? "Starting…" : "Remuxing…"))
                         .font(.caption2)
                         .foregroundStyle(Theme.muted)
                 } else {
@@ -1274,7 +1274,7 @@ struct MediaDetailView: View {
                 if pendingDownloadActionId == row.id {
                     ProgressView().tint(Theme.muted)
                 } else if isActive {
-                    Button(isPaused ? "Resume" : "Pause") {
+                    Button(LocalizedStringKey(isPaused ? "Resume" : "Pause")) {
                         Task { await performDownloadAction(row.id, action: isPaused ? "resume" : "pause") }
                     }
                     .font(.caption)

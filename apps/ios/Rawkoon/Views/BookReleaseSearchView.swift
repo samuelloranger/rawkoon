@@ -65,7 +65,7 @@ struct BookReleaseSearchView: View {
                         releaseRow(release)
                     }
                     if hasRejected {
-                        Button(showRejected ? "Hide rejected" : "Show rejected") { showRejected.toggle() }
+                        Button(LocalizedStringKey(showRejected ? "Hide rejected" : "Show rejected")) { showRejected.toggle() }
                             .font(.subheadline).foregroundStyle(Theme.muted)
                             .padding(.vertical, 8)
                     }

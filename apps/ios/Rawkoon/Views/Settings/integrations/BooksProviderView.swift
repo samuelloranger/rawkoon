@@ -73,7 +73,7 @@ struct BooksProviderView: View {
                 } header: {
                     Text("Google Books")
                 } footer: {
-                    Text(googleHasKey ? "A key is stored. Leave blank to keep it." : "Add a key to enable Google Books.")
+                    Text(LocalizedStringKey(googleHasKey ? "A key is stored. Leave blank to keep it." : "Add a key to enable Google Books."))
                 }
             }
         }

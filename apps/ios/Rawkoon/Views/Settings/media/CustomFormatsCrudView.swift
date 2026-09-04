@@ -148,7 +148,7 @@ private struct CustomFormatEditorView: View {
         .scrollContentBackground(.hidden)
         .background(Theme.base)
         .tint(Theme.apricot)
-        .navigationTitle(format == nil ? "New format" : "Edit format")
+        .navigationTitle(Text(LocalizedStringKey(format == nil ? "New format" : "Edit format")))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -176,7 +176,7 @@ private struct CustomFormatEditorView: View {
                 LabeledTextFieldRow(
                     title: "Value",
                     text: condition.value,
-                    placeholder: condition.wrappedValue.op == "between" ? "min,max" : "value"
+                    placeholder: LocalizedStringKey(condition.wrappedValue.op == "between" ? "min,max" : "value")
                 )
             }
             Toggle("Negate", isOn: condition.negate).tint(Theme.apricot).listRowBackground(Theme.raised)

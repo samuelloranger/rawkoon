@@ -75,7 +75,7 @@ struct IndexersView: View {
             Spacer(minLength: 8)
 
             StatusBadge(
-                text: indexer.enabled ? "Enabled" : "Disabled",
+                text: LocalizedStringKey(indexer.enabled ? "Enabled" : "Disabled"),
                 tint: indexer.enabled ? Theme.seed : Theme.muted
             )
         }

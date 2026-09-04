@@ -150,7 +150,7 @@ private struct OidcProviderEditorView: View {
         .scrollContentBackground(.hidden)
         .background(Theme.base)
         .tint(Theme.apricot)
-        .navigationTitle(isEdit ? "Edit provider" : "New provider")
+        .navigationTitle(Text(LocalizedStringKey(isEdit ? "Edit provider" : "New provider")))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

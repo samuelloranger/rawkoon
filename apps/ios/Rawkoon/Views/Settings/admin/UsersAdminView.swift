@@ -47,7 +47,7 @@ struct UsersAdminView: View {
                     .swipeActions {
                         Button("Delete", role: .destructive) { Task { await delete(user) } }
                             .disabled(busyIds.contains(user.id))
-                        Button(user.isAdmin ? "Make user" : "Make admin") {
+                        Button(LocalizedStringKey(user.isAdmin ? "Make user" : "Make admin")) {
                             Task { await toggleRole(user) }
                         }
                         .tint(Theme.apricot)

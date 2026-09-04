@@ -69,7 +69,7 @@ struct LoginView: View {
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel(revealPassword ? "Hide password" : "Show password")
+                            .accessibilityLabel(Text(LocalizedStringKey(revealPassword ? "Hide password" : "Show password")))
                         }
                     }
                     .listRowBackground(Theme.raised)

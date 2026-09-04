@@ -88,8 +88,8 @@ struct GeneralSettingsView: View {
                 } header: {
                     Text("Upcoming releases")
                 } footer: {
-                    Text(isValid ? "How far ahead to show upcoming movies and TV, and which languages to include."
-                        : "Choose at least one language.")
+                    Text(LocalizedStringKey(isValid ? "How far ahead to show upcoming movies and TV, and which languages to include."
+                        : "Choose at least one language."))
                 }
 
                 if let saveError {

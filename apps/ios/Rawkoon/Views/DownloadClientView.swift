@@ -54,7 +54,7 @@ struct DownloadClientView: View {
                             .foregroundStyle(Theme.text)
                         Spacer()
                         StatusBadge(
-                            text: integration.enabled ? "Connected" : "Disabled",
+                            text: LocalizedStringKey(integration.enabled ? "Connected" : "Disabled"),
                             tint: integration.enabled ? Theme.seed : Theme.muted
                         )
                     }
@@ -83,7 +83,7 @@ struct DownloadClientView: View {
                         Text("Password set")
                             .foregroundStyle(Theme.text)
                         Spacer()
-                        Text((integration.passwordSet ?? false) ? "Yes" : "No")
+                        Text(LocalizedStringKey((integration.passwordSet ?? false) ? "Yes" : "No"))
                             .font(.system(.body, design: .monospaced))
                             .foregroundStyle(Theme.muted)
                     }

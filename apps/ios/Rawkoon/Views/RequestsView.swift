@@ -112,7 +112,7 @@ struct RequestsView: View {
             ContentUnavailableView(
                 "No requests",
                 systemImage: "tray",
-                description: Text(filter == .pending ? "No pending requests. Request a title from Discover." : "No requests yet.")
+                description: Text(LocalizedStringKey(filter == .pending ? "No pending requests. Request a title from Discover." : "No requests yet."))
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
