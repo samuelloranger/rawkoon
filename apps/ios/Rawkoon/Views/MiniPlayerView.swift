@@ -47,7 +47,7 @@ struct MiniPlayerView: View {
                         .background(Theme.apricot, in: Circle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(model.player.isPlaying ? "Pause" : "Play")
+                .accessibilityLabel(Text(LocalizedStringKey(model.player.isPlaying ? "Pause" : "Play")))
 
                 Button {
                     model.closePlayer()

@@ -88,7 +88,7 @@ struct CustomFormatsCrudView: View {
         formats.remove(at: idx) // optimistic (single element)
         do {
             try await client.deleteCustomFormat(id: format.id)
-            model.toast("Custom format deleted.", style: .success)
+            model.toast(String(localized: "Custom format deleted."), style: .success)
         } catch {
             if !formats.contains(where: { $0.id == removed.id }) {
                 formats.insert(removed, at: min(idx, formats.count)) // restore just this row
@@ -117,7 +117,7 @@ private struct CustomFormatEditorView: View {
     @State private var saving = false
     @State private var saveError: String?
 
-    private static let typeOptions: [(value: String, label: String)] = [
+    private static let typeOptions: [(value: String, label: LocalizedStringKey)] = [
         ("title_regex", "Title regex"), ("release_group", "Release group"), ("source", "Source"),
         ("codec", "Codec"), ("indexer", "Indexer"), ("language", "Language"),
         ("resolution", "Resolution"), ("seeders", "Seeders"), ("size_range", "Size range"),
@@ -148,7 +148,7 @@ private struct CustomFormatEditorView: View {
         .scrollContentBackground(.hidden)
         .background(Theme.base)
         .tint(Theme.apricot)
-        .navigationTitle(format == nil ? "New format" : "Edit format")
+        .navigationTitle(Text(LocalizedStringKey(format == nil ? "New format" : "Edit format")))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -176,7 +176,7 @@ private struct CustomFormatEditorView: View {
                 LabeledTextFieldRow(
                     title: "Value",
                     text: condition.value,
-                    placeholder: condition.wrappedValue.op == "between" ? "min,max" : "value"
+                    placeholder: LocalizedStringKey(condition.wrappedValue.op == "between" ? "min,max" : "value")
                 )
             }
             Toggle("Negate", isOn: condition.negate).tint(Theme.apricot).listRowBackground(Theme.raised)

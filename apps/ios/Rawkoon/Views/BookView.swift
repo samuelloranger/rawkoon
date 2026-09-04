@@ -8,6 +8,13 @@ private enum BookDetailLane: String, CaseIterable, Identifiable {
     var id: String {
         rawValue
     }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .audiobook: "Audiobook"
+        case .ebook: "Ebook"
+        }
+    }
 }
 
 private enum ReleaseSearchLane: String, Identifiable {
@@ -251,11 +258,18 @@ struct BookView: View {
                 }
                 HStack(spacing: 6) {
                     if hasAudiobookEdition {
-                        let audiobookStatus = formattedStatus(audiobookEdition?.status ?? book.audiobookStatus ?? "wanted")
-                        chip("Audiobook · \(audiobookStatus)", tint: Theme.muted)
+                        chip(
+                            Text("Audiobook") + Text(verbatim: " · ")
+                                + LocalizedStatus.text(audiobookEdition?.status ?? book.audiobookStatus ?? "wanted"),
+                            tint: Theme.muted
+                        )
                     }
                     if hasEbookEdition {
-                        chip("Ebook · \(formattedStatus(ebookEdition?.status ?? "wanted"))", tint: Theme.muted)
+                        chip(
+                            Text("Ebook") + Text(verbatim: " · ")
+                                + LocalizedStatus.text(ebookEdition?.status ?? "wanted"),
+                            tint: Theme.muted
+                        )
                     }
                 }
                 .padding(.top, 2)
@@ -281,7 +295,7 @@ struct BookView: View {
     private var lanePicker: some View {
         Picker("Edition", selection: $activeLane) {
             ForEach(BookDetailLane.allCases) { lane in
-                Text(lane.rawValue).tag(lane)
+                Text(lane.title).tag(lane)
             }
         }
         .pickerStyle(.segmented)
@@ -373,8 +387,8 @@ struct BookView: View {
         return rows
     }
 
-    private func chip(_ text: String, tint: Color) -> some View {
-        Text(text)
+    private func chip(_ text: Text, tint: Color) -> some View {
+        text
             .font(.system(.caption2, design: .monospaced))
             .foregroundStyle(tint)
             .padding(.horizontal, 7).padding(.vertical, 3)
@@ -658,7 +672,7 @@ struct BookView: View {
                     Text("Pull to refresh, run rescan, or check the server.")
                         .font(.caption)
                         .foregroundStyle(Theme.faint)
-                    Text("Edition status: \(formattedStatus(audiobookEdition?.status ?? book.audiobookStatus ?? "wanted"))")
+                    (Text("Edition status: ") + LocalizedStatus.text(audiobookEdition?.status ?? book.audiobookStatus ?? "wanted"))
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(Theme.faint)
                 }
@@ -899,14 +913,14 @@ struct BookView: View {
         return !manifest.chapters.isEmpty
     }
 
-    private func metricsCard(title: String, status: String, accent: Color, metrics: [String]) -> some View {
+    private func metricsCard(title: LocalizedStringKey, status: String, accent: Color, metrics: [String]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(title)
                     .font(.display(16))
                     .foregroundStyle(Theme.textStrong)
                 Spacer()
-                chip(formattedStatus(status), tint: accent)
+                chip(LocalizedStatus.text(status), tint: accent)
             }
             if !metrics.isEmpty {
                 Text(metrics.joined(separator: " · "))
@@ -996,7 +1010,7 @@ struct BookView: View {
                 detailError = message(for: apiError)
             }
         } catch {
-            detailError = "Could not load book details."
+            detailError = String(localized: "Could not load book details.")
         }
     }
 
@@ -1031,9 +1045,9 @@ struct BookView: View {
             }
         } catch {
             if kind == "audiobook" {
-                manifestError = "Could not add audiobook edition."
+                manifestError = String(localized: "Could not add audiobook edition.")
             } else {
-                ebookFilesError = "Could not add ebook edition."
+                ebookFilesError = String(localized: "Could not add ebook edition.")
             }
         }
     }
@@ -1084,7 +1098,7 @@ struct BookView: View {
             }
         } catch {
             if manifest == nil {
-                manifestError = "Could not load manifest."
+                manifestError = String(localized: "Could not load manifest.")
             }
         }
     }
@@ -1105,7 +1119,7 @@ struct BookView: View {
             manifestError = message(for: apiError)
         } catch {
             manifest = nil
-            manifestError = "Rescan completed, but chapters are still unavailable."
+            manifestError = String(localized: "Rescan completed, but chapters are still unavailable.")
         }
     }
 
@@ -1125,7 +1139,7 @@ struct BookView: View {
                 ebookFilesError = nil
             } else {
                 ebookFiles = []
-                ebookFilesError = (error as? APIError).map(message(for:)) ?? "Could not load ebook files."
+                ebookFilesError = (error as? APIError).map(message(for:)) ?? String(localized: "Could not load ebook files.")
             }
         }
     }
@@ -1142,7 +1156,7 @@ struct BookView: View {
         } catch let apiError as APIError {
             ebookFilesError = message(for: apiError)
         } catch {
-            ebookFilesError = "Could not rescan ebook edition."
+            ebookFilesError = String(localized: "Could not rescan ebook edition.")
         }
     }
 
@@ -1166,9 +1180,9 @@ struct BookView: View {
                 localURL: localURL
             )
         } catch EbookStorageError.missingRemoteURL {
-            ebookFilesError = "This server version cannot provide ebook download links yet."
+            ebookFilesError = String(localized: "This server version cannot provide ebook download links yet.")
         } catch {
-            ebookFilesError = "Read failed. Try refreshing or rescanning this edition."
+            ebookFilesError = String(localized: "Read failed. Try refreshing or rescanning this edition.")
         }
     }
 
@@ -1207,12 +1221,12 @@ struct BookView: View {
                 downloadedFileCount: ebookFiles.filter(isEbookDownloaded).count
             )
         } catch EbookStorageError.missingRemoteURL {
-            ebookFilesError = "This server version cannot provide ebook download links yet."
+            ebookFilesError = String(localized: "This server version cannot provide ebook download links yet.")
         } catch {
             // A user-initiated cancel surfaces as a transport error too; stay
             // silent rather than crying failure over an intentional stop.
             guard !Task.isCancelled else { return }
-            ebookFilesError = "Download failed. Check your connection and try again."
+            ebookFilesError = String(localized: "Download failed. Check your connection and try again.")
         }
     }
 
@@ -1355,25 +1369,18 @@ struct BookView: View {
         return nil
     }
 
-    private func formattedStatus(_ status: String) -> String {
-        status
-            .split(separator: "_")
-            .map(\.capitalized)
-            .joined(separator: " ")
-    }
-
     private func message(for error: APIError) -> String {
         switch error {
         case .unauthorized:
-            "Sign in required."
+            String(localized: "Sign in required.")
         case .http(400):
-            "This audiobook is not chapter-ready yet. Run a rescan or grab a chapterized release."
+            String(localized: "This audiobook is not chapter-ready yet. Run a rescan or grab a chapterized release.")
         case let .http(status):
-            "Server error (\(status))."
+            String(localized: "Server error (\(status)).")
         case .decode:
-            "Could not parse server response."
+            String(localized: "Could not parse server response.")
         case .transport:
-            "Network error. Check your connection."
+            String(localized: "Network error. Check your connection.")
         }
     }
 

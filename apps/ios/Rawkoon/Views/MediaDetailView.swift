@@ -84,6 +84,15 @@ struct MediaDetailView: View {
         var id: String {
             rawValue
         }
+
+        var title: LocalizedStringKey {
+            switch self {
+            case .info: "Info"
+            case .similar: "Similar"
+            case .search: "Search"
+            case .management: "Management"
+            }
+        }
     }
 
     private let similarColumns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
@@ -265,7 +274,7 @@ struct MediaDetailView: View {
                             .background(Theme.base.opacity(0.55), in: Circle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(inWatchlist ? "Remove from watchlist" : "Add to watchlist")
+                    .accessibilityLabel(Text(LocalizedStringKey(inWatchlist ? "Remove from watchlist" : "Add to watchlist")))
                     .disabled(watchlistPending)
                 }
                 .padding(.horizontal, 16)
@@ -341,7 +350,7 @@ struct MediaDetailView: View {
     private var tabs: some View {
         Picker("Section", selection: $activeTab) {
             ForEach(availableTabs) { tab in
-                Text(tab.rawValue).tag(tab)
+                Text(tab.title).tag(tab)
             }
         }
         .pickerStyle(.segmented)
@@ -389,7 +398,7 @@ struct MediaDetailView: View {
                             if requesting {
                                 ProgressView().tint(Theme.onAccent)
                             } else {
-                                Label(model.isAdmin ? "Add to library" : "Request",
+                                Label(LocalizedStringKey(model.isAdmin ? "Add to library" : "Request"),
                                       systemImage: model.isAdmin ? "plus.circle.fill" : "plus.circle")
                             }
                         }
@@ -558,7 +567,7 @@ struct MediaDetailView: View {
                 .font(.display(16))
                 .foregroundStyle(Theme.textStrong)
             LazyVGrid(columns: managementColumns, spacing: 8) {
-                statPill("Status", value: item.status.capitalized)
+                statPill("Status", value: LocalizedStatus.text(item.status))
                 statPill("Type", value: item.type == "show" ? "TV show" : "Movie")
                 statPill("Year", value: item.year.map(String.init) ?? "Unknown")
                 statPill("Monitored", value: item.monitored ? "Yes" : "No")
@@ -571,11 +580,15 @@ struct MediaDetailView: View {
     }
 
     private func statPill(_ label: String, value: String) -> some View {
+        statPill(label, value: Text(verbatim: value))
+    }
+
+    private func statPill(_ label: String, value: Text) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(label.uppercased())
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(Theme.faint)
-            Text(value)
+            value
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(Theme.textStrong)
         }
@@ -598,7 +611,7 @@ struct MediaDetailView: View {
             HStack {
                 Text("Status")
                 Spacer()
-                Text(item.status.capitalized)
+                LocalizedStatus.text(item.status)
                     .foregroundStyle(Theme.muted)
             }
             .font(.subheadline)
@@ -1036,7 +1049,7 @@ struct MediaDetailView: View {
             HStack(spacing: 12) {
                 if remuxRunning || remuxStarting {
                     ProgressView().tint(Theme.muted)
-                    Text(remuxStarting ? "Starting…" : "Remuxing…")
+                    Text(LocalizedStringKey(remuxStarting ? "Starting…" : "Remuxing…"))
                         .font(.caption2)
                         .foregroundStyle(Theme.muted)
                 } else {
@@ -1125,7 +1138,7 @@ struct MediaDetailView: View {
 
     private func startRemux(_ file: LibraryFileInfo) async {
         guard let client = model.api() else {
-            managementError = "Not logged in."
+            managementError = String(localized: "Not logged in.")
             return
         }
         remuxStarting = true
@@ -1141,7 +1154,7 @@ struct MediaDetailView: View {
             await pollRemux(fileId: file.id)
         } catch {
             remuxStarting = false
-            managementError = "Could not start remux."
+            managementError = String(localized: "Could not start remux.")
         }
     }
 
@@ -1156,15 +1169,15 @@ struct MediaDetailView: View {
             switch status.state {
             case "completed":
                 switch status.result?.status {
-                case "remuxed": managementNotice = "Remux complete."
-                case "skipped": managementNotice = "Remux skipped — nothing to change."
-                default: managementError = status.result?.message ?? "Remux failed."
+                case "remuxed": managementNotice = String(localized: "Remux complete.")
+                case "skipped": managementNotice = String(localized: "Remux skipped — nothing to change.")
+                default: managementError = status.result?.message ?? String(localized: "Remux failed.")
                 }
                 closeRemux()
                 await refreshManagementData()
                 return
             case "failed":
-                managementError = status.error ?? "Remux failed."
+                managementError = status.error ?? String(localized: "Remux failed.")
                 closeRemux()
                 await refreshManagementData()
                 return
@@ -1173,7 +1186,7 @@ struct MediaDetailView: View {
             }
         }
         remuxRunning = false
-        managementNotice = "Remux still running in the background."
+        managementNotice = String(localized: "Remux still running in the background.")
     }
 
     private func lineItem(_ label: String, _ value: String) -> some View {
@@ -1266,7 +1279,7 @@ struct MediaDetailView: View {
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(Theme.textStrong)
                         .lineLimit(2)
-                    Text(metaLine(for: row))
+                    metaLine(for: row)
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(Theme.faint)
                 }
@@ -1274,7 +1287,7 @@ struct MediaDetailView: View {
                 if pendingDownloadActionId == row.id {
                     ProgressView().tint(Theme.muted)
                 } else if isActive {
-                    Button(isPaused ? "Resume" : "Pause") {
+                    Button(LocalizedStringKey(isPaused ? "Resume" : "Pause")) {
                         Task { await performDownloadAction(row.id, action: isPaused ? "resume" : "pause") }
                     }
                     .font(.caption)
@@ -1288,7 +1301,7 @@ struct MediaDetailView: View {
                 HStack(spacing: 10) {
                     Text("↓ \(Formatters.speed(live.downloadSpeed, useAll: false))")
                     Text("\(Int(live.progress * 100))%")
-                    Text(live.state)
+                    LocalizedStatus.text(live.state)
                 }
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(Theme.muted)
@@ -1328,22 +1341,25 @@ struct MediaDetailView: View {
         .background(Theme.well, in: RoundedRectangle(cornerRadius: 10))
     }
 
-    private func metaLine(for row: DownloadHistoryItem) -> String {
-        var parts: [String] = []
+    private func metaLine(for row: DownloadHistoryItem) -> Text {
+        var parts: [Text] = []
         if let indexer = row.indexer, !indexer.isEmpty {
-            parts.append(indexer)
+            parts.append(Text(verbatim: indexer))
         }
         if row.failed {
-            parts.append("failed")
+            parts.append(Text("Failed"))
         } else if row.completedAt != nil {
-            parts.append("completed")
+            parts.append(Text("Completed"))
         } else if row.live != nil {
-            parts.append("active")
+            parts.append(Text("Active"))
         }
         if row.aiPicked == true {
-            parts.append("AI pick")
+            parts.append(Text("AI pick"))
         }
-        return parts.joined(separator: " · ")
+        guard let first = parts.first else {
+            return Text(verbatim: "")
+        }
+        return parts.dropFirst().reduce(first) { $0 + Text(verbatim: " · ") + $1 }
     }
 
     // MARK: Details (movies)
@@ -1456,7 +1472,7 @@ struct MediaDetailView: View {
 
     private func fetchDetails() async {
         guard let client = model.api() else {
-            errorMessage = "Not logged in."
+            errorMessage = String(localized: "Not logged in.")
             return
         }
         loading = true
@@ -1472,15 +1488,15 @@ struct MediaDetailView: View {
                 await fetchEpisodes(client: client, libraryId: libraryId)
             }
         } catch APIError.unauthorized {
-            errorMessage = "Sign in required."
+            errorMessage = String(localized: "Sign in required.")
         } catch {
-            errorMessage = "Could not load details."
+            errorMessage = String(localized: "Could not load details.")
         }
     }
 
     private func fetchSimilar() async {
         guard let client = model.api() else {
-            similarError = "Not logged in."
+            similarError = String(localized: "Not logged in.")
             return
         }
         loadingSimilar = true
@@ -1491,16 +1507,16 @@ struct MediaDetailView: View {
             let response = try await client.similar(tmdbId: tmdbId, mediaType: mediaType)
             similarItems = response
         } catch APIError.unauthorized {
-            similarError = "Sign in required."
+            similarError = String(localized: "Sign in required.")
         } catch {
-            similarError = "Could not load similar titles."
+            similarError = String(localized: "Could not load similar titles.")
         }
     }
 
     private func refreshManagementData() async {
         guard let libraryId, model.isAdmin else { return }
         guard let client = model.api() else {
-            managementError = "Not logged in."
+            managementError = String(localized: "Not logged in.")
             return
         }
         managementLoading = true
@@ -1524,9 +1540,9 @@ struct MediaDetailView: View {
             mediaFiles = filesResponse.files
             downloads = downloadsResponse.items
         } catch APIError.unauthorized {
-            managementError = "Admin only."
+            managementError = String(localized: "Admin only.")
         } catch {
-            managementError = "Could not load management data."
+            managementError = String(localized: "Could not load management data.")
         }
     }
 
@@ -1537,10 +1553,10 @@ struct MediaDetailView: View {
         defer { applyingManagementChange = false }
         do {
             managementItem = try await client.updateLibraryMonitored(id: libraryId, monitored: monitored)
-            managementNotice = "Monitoring updated."
+            managementNotice = String(localized: "Monitoring updated.")
             managementError = nil
         } catch {
-            managementError = "Could not update monitoring."
+            managementError = String(localized: "Could not update monitoring.")
         }
     }
 
@@ -1551,10 +1567,10 @@ struct MediaDetailView: View {
         defer { applyingManagementChange = false }
         do {
             managementItem = try await client.updateLibraryQualityProfile(id: libraryId, qualityProfileId: qualityProfileId)
-            managementNotice = "Quality profile updated."
+            managementNotice = String(localized: "Quality profile updated.")
             managementError = nil
         } catch {
-            managementError = "Could not update quality profile."
+            managementError = String(localized: "Could not update quality profile.")
         }
     }
 
@@ -1565,11 +1581,11 @@ struct MediaDetailView: View {
         defer { applyingManagementChange = false }
         do {
             let result = try await client.rescanLibraryItem(id: libraryId)
-            managementNotice = "Rescan complete: \(result.rescanned) rescanned, \(result.imported) imported, \(result.deleted) deleted."
+            managementNotice = String(localized: "Rescan complete: \(result.rescanned) rescanned, \(result.imported) imported, \(result.deleted) deleted.")
             managementError = nil
             await refreshManagementData()
         } catch {
-            managementError = "Rescan failed."
+            managementError = String(localized: "Rescan failed.")
         }
     }
 
@@ -1580,11 +1596,11 @@ struct MediaDetailView: View {
         defer { applyingManagementChange = false }
         do {
             let deleted = try await client.clearFailedDownloads(libraryId: libraryId)
-            managementNotice = deleted == 0 ? "No failed downloads to clear." : "Cleared \(deleted) failed downloads."
+            managementNotice = deleted == 0 ? String(localized: "No failed downloads to clear.") : String(localized: "Cleared \(deleted) failed downloads.")
             managementError = nil
             await refreshManagementData()
         } catch {
-            managementError = "Could not clear failed downloads."
+            managementError = String(localized: "Could not clear failed downloads.")
         }
     }
 
@@ -1599,11 +1615,11 @@ struct MediaDetailView: View {
                 downloadHistoryId: downloadHistoryId,
                 action: action
             )
-            managementNotice = "Download updated."
+            managementNotice = String(localized: "Download updated.")
             managementError = nil
             await refreshManagementData()
         } catch {
-            managementError = "Could not update download."
+            managementError = String(localized: "Could not update download.")
         }
     }
 
@@ -1614,11 +1630,11 @@ struct MediaDetailView: View {
         defer { pendingDownloadActionId = nil }
         do {
             try await client.deleteDownloadEntry(libraryId: libraryId, downloadHistoryId: downloadHistoryId)
-            managementNotice = "Download entry removed."
+            managementNotice = String(localized: "Download entry removed.")
             managementError = nil
             await refreshManagementData()
         } catch {
-            managementError = "Could not remove download entry."
+            managementError = String(localized: "Could not remove download entry.")
         }
     }
 
@@ -1635,9 +1651,9 @@ struct MediaDetailView: View {
             }
         } catch {
             if id == libraryId {
-                managementError = "Could not remove from library."
+                managementError = String(localized: "Could not remove from library.")
             } else {
-                similarError = "Could not remove from library."
+                similarError = String(localized: "Could not remove from library.")
             }
         }
     }
@@ -1671,16 +1687,16 @@ struct MediaDetailView: View {
             let item = try await client.libraryItem(id: libraryId)
             _ = try await client.updateLibraryMonitored(id: libraryId, monitored: !item.monitored)
             await fetchSimilar()
-            model.toast("Updated monitoring.", style: .success)
+            model.toast(String(localized: "Updated monitoring."), style: .success)
         } catch {
-            model.toast("Could not update monitoring.", style: .error)
+            model.toast(String(localized: "Could not update monitoring."), style: .error)
         }
         busySimilarLibraryIds.remove(libraryId)
     }
 
     private func toggleWatchlist() async {
         guard let client = model.api() else {
-            requestError = "Not logged in."
+            requestError = String(localized: "Not logged in.")
             return
         }
         watchlistPending = true
@@ -1704,9 +1720,9 @@ struct MediaDetailView: View {
                 inWatchlist = true
             }
         } catch APIError.unauthorized {
-            requestError = "Sign in required."
+            requestError = String(localized: "Sign in required.")
         } catch {
-            requestError = "Could not update watchlist."
+            requestError = String(localized: "Could not update watchlist.")
         }
     }
 
@@ -1725,7 +1741,7 @@ struct MediaDetailView: View {
 
     private func submitRequest() async {
         guard let client = model.api() else {
-            requestError = "Not logged in."
+            requestError = String(localized: "Not logged in.")
             return
         }
         requesting = true
@@ -1744,18 +1760,18 @@ struct MediaDetailView: View {
             _ = try await client.createRequest(body)
             requested = true
         } catch APIError.unauthorized {
-            requestError = "Sign in required."
+            requestError = String(localized: "Sign in required.")
         } catch let APIError.http(status) where status == 409 {
-            requestError = "Already requested."
+            requestError = String(localized: "Already requested.")
         } catch {
-            requestError = "Could not submit request."
+            requestError = String(localized: "Could not submit request.")
         }
     }
 
     // Admin: add straight to the library from TMDB.
     private func submitAdd() async {
         guard let client = model.api() else {
-            requestError = "Not logged in."
+            requestError = String(localized: "Not logged in.")
             return
         }
         requesting = true
@@ -1765,11 +1781,11 @@ struct MediaDetailView: View {
             try await client.addToLibrary(tmdbId: tmdbId, type: mediaType == "tv" ? "show" : "movie")
             added = true
         } catch APIError.unauthorized {
-            requestError = "Admin only."
+            requestError = String(localized: "Admin only.")
         } catch let APIError.http(status) where status == 409 {
             added = true
         } catch {
-            requestError = "Could not add to library."
+            requestError = String(localized: "Could not add to library.")
         }
     }
 }

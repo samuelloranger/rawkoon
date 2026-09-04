@@ -47,7 +47,7 @@ struct UsersAdminView: View {
                     .swipeActions {
                         Button("Delete", role: .destructive) { Task { await delete(user) } }
                             .disabled(busyIds.contains(user.id))
-                        Button(user.isAdmin ? "Make user" : "Make admin") {
+                        Button(LocalizedStringKey(user.isAdmin ? "Make user" : "Make admin")) {
                             Task { await toggleRole(user) }
                         }
                         .tint(Theme.apricot)
@@ -114,7 +114,7 @@ struct UsersAdminView: View {
         do {
             try await client.setUserRole(id: user.id, isAdmin: !user.isAdmin)
             await load()
-            model.toast(user.isAdmin ? "\(displayName(user)) is now a user." : "\(displayName(user)) is now an admin.", style: .success)
+            model.toast(user.isAdmin ? String(localized: "\(displayName(user)) is now a user.") : String(localized: "\(displayName(user)) is now an admin."), style: .success)
         } catch {
             model.toast(settingsErrorMessage(error), style: .error)
         }
@@ -131,27 +131,27 @@ struct UsersAdminView: View {
         users.remove(at: idx) // optimistic (single element)
         do {
             try await client.deleteUser(id: user.id)
-            model.toast("Deleted \(user.email).", style: .success)
+            model.toast(String(localized: "Deleted \(user.email)."), style: .success)
         } catch {
             if !users.contains(where: { $0.id == removed.id }) {
                 users.insert(removed, at: min(idx, users.count)) // restore just this row
             }
-            model.toast("Couldn't delete \(user.email).", style: .error)
+            model.toast(String(localized: "Couldn't delete \(user.email)."), style: .error)
         }
     }
 
     private func resetPassword() async {
         guard let client = model.api(), let user = resetUser, newPassword.count >= 8 else {
-            model.toast("Password must be at least 8 characters.", style: .error)
+            model.toast(String(localized: "Password must be at least 8 characters."), style: .error)
             return
         }
         resetUser = nil
         resettingPassword = true
         do {
             try await client.resetUserPassword(id: user.id, newPassword: newPassword)
-            model.toast("Password reset for \(user.email).", style: .success)
+            model.toast(String(localized: "Password reset for \(user.email)."), style: .success)
         } catch {
-            model.toast("Couldn't reset password.", style: .error)
+            model.toast(String(localized: "Couldn't reset password."), style: .error)
         }
         resettingPassword = false
     }
@@ -174,10 +174,10 @@ private struct ProvisioningSheet: View {
     @State private var working = false
     @State private var error: String?
 
-    private static let modeOptions: [(value: String, label: String)] = [
+    private static let modeOptions: [(value: String, label: LocalizedStringKey)] = [
         ("invite", "Invite"), ("direct", "Add user"),
     ]
-    private static let localeOptions: [(value: String, label: String)] = [
+    private static let localeOptions: [(value: String, label: LocalizedStringKey)] = [
         ("en", "English"), ("fr", "French"),
     ]
 
@@ -246,7 +246,7 @@ private struct ProvisioningSheet: View {
                 onDone()
             }
         } catch {
-            self.error = "Couldn't complete. Check the email and try again."
+            self.error = String(localized: "Couldn't complete. Check the email and try again.")
         }
         working = false
     }
@@ -271,7 +271,7 @@ private struct InvitationsView: View {
                 ForEach(invitations) { invitation in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(invitation.email).foregroundStyle(Theme.text)
-                        Text(invitation.status).font(.footnote).foregroundStyle(Theme.muted)
+                        LocalizedStatus.text(invitation.status).font(.footnote).foregroundStyle(Theme.muted)
                     }
                     .listRowBackground(Theme.raised)
                     .swipeActions {
@@ -328,12 +328,12 @@ private struct InvitationsView: View {
         invitations.remove(at: idx) // optimistic (single element)
         do {
             try await client.revokeInvitation(id: invitation.id)
-            model.toast("Invitation revoked.", style: .success)
+            model.toast(String(localized: "Invitation revoked."), style: .success)
         } catch {
             if !invitations.contains(where: { $0.id == removed.id }) {
                 invitations.insert(removed, at: min(idx, invitations.count)) // restore just this row
             }
-            model.toast("Couldn't revoke.", style: .error)
+            model.toast(String(localized: "Couldn't revoke."), style: .error)
         }
     }
 
@@ -346,9 +346,9 @@ private struct InvitationsView: View {
                 link = "\(model.serverURL)/accept-invitation?token=\(token)"
             }
             await load()
-            model.toast("Invitation resent.", style: .success)
+            model.toast(String(localized: "Invitation resent."), style: .success)
         } catch {
-            model.toast("Couldn't resend.", style: .error)
+            model.toast(String(localized: "Couldn't resend."), style: .error)
         }
         busyIds.remove(invitation.id)
     }

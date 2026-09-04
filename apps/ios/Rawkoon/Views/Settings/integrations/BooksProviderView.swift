@@ -22,7 +22,7 @@ struct BooksProviderView: View {
     @State private var googleSaving = false
     @State private var googleError: String?
 
-    private static let regionOptions: [(value: String, label: String)] = [
+    private static let regionOptions: [(value: String, label: LocalizedStringKey)] = [
         ("us", "United States"), ("ca", "Canada"), ("uk", "United Kingdom"), ("fr", "France"),
         ("de", "Germany"), ("es", "Spain"), ("it", "Italy"), ("au", "Australia"),
         ("br", "Brazil"), ("in", "India"), ("jp", "Japan"),
@@ -73,7 +73,7 @@ struct BooksProviderView: View {
                 } header: {
                     Text("Google Books")
                 } footer: {
-                    Text(googleHasKey ? "A key is stored. Leave blank to keep it." : "Add a key to enable Google Books.")
+                    Text(LocalizedStringKey(googleHasKey ? "A key is stored. Leave blank to keep it." : "Add a key to enable Google Books."))
                 }
             }
         }
@@ -101,13 +101,13 @@ struct BooksProviderView: View {
     }
 
     private func testAudnexus() async -> TestOutcome {
-        guard let client = model.api() else { return .failure("Not signed in.") }
+        guard let client = model.api() else { return .failure(String(localized: "Not signed in.")) }
         do {
             let result = try await client.testAudnexus(AudnexusTestBody(baseUrl: audnexusURL, region: audnexusRegion))
             if result.success == true {
-                return .success("Connected")
+                return .success(String(localized: "Connected"))
             }
-            return .failure(result.error ?? "Could not connect.")
+            return .failure(result.error ?? String(localized: "Could not connect."))
         } catch { return .failure(settingsErrorMessage(error)) }
     }
 
@@ -123,14 +123,14 @@ struct BooksProviderView: View {
     }
 
     private func testGoogleBooks() async -> TestOutcome {
-        guard let client = model.api() else { return .failure("Not signed in.") }
+        guard let client = model.api() else { return .failure(String(localized: "Not signed in.")) }
         do {
             let body = GoogleBooksTestBody(apiKey: googleKeyInput.isEmpty ? nil : googleKeyInput)
             let result = try await client.testGoogleBooks(body)
             if result.success == true {
-                return .success("Connected")
+                return .success(String(localized: "Connected"))
             }
-            return .failure(result.error ?? "Could not connect.")
+            return .failure(result.error ?? String(localized: "Could not connect."))
         } catch { return .failure(settingsErrorMessage(error)) }
     }
 

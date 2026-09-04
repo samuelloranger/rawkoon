@@ -65,7 +65,7 @@ struct BookReleaseSearchView: View {
                         releaseRow(release)
                     }
                     if hasRejected {
-                        Button(showRejected ? "Hide rejected" : "Show rejected") { showRejected.toggle() }
+                        Button(LocalizedStringKey(showRejected ? "Hide rejected" : "Show rejected")) { showRejected.toggle() }
                             .font(.subheadline).foregroundStyle(Theme.muted)
                             .padding(.vertical, 8)
                     }
@@ -148,15 +148,15 @@ struct BookReleaseSearchView: View {
     // MARK: Actions
 
     private func start() async {
-        guard let client = model.api() else { errorMessage = "Not logged in."; loading = false; return }
+        guard let client = model.api() else { errorMessage = String(localized: "Not logged in."); loading = false; return }
         // Ensure the edition exists (400 if it already does — that's fine).
         try? await client.addBookEdition(bookId: bookId, kind: kind)
         do {
             releases = try await client.bookReleaseSearch(bookId: bookId, kind: kind).releases
         } catch APIError.unauthorized {
-            errorMessage = "Admin only."
+            errorMessage = String(localized: "Admin only.")
         } catch {
-            errorMessage = "Could not search releases."
+            errorMessage = String(localized: "Could not search releases.")
         }
         loading = false
     }
@@ -176,7 +176,7 @@ struct BookReleaseSearchView: View {
             grabError = nil
             await model.loadLibrary()
         } catch {
-            grabError = "Grab refused (already downloading?)."
+            grabError = String(localized: "Grab refused (already downloading?).")
         }
     }
 }

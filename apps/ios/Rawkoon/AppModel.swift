@@ -104,9 +104,7 @@ final class AppModel {
     private static let authTokenKey = "auth_token"
     private static let deviceIDKey = "device_id"
 
-    private static let persistFailedWarning =
-        "Signed in, but this device couldn't save your login. "
-            + "You may need to sign in again after quitting the app."
+    private static let persistFailedWarning = String(localized: "Signed in, but this device couldn't save your login. You may need to sign in again after quitting the app.")
 
     private var apiClient: APIClient?
     private var manifests: [Int: BookManifest] = [:]
@@ -208,7 +206,7 @@ final class AppModel {
     func login(server: String, email: String, password: String) async {
         let normalizedServer = server.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let baseURL = URL(string: normalizedServer) else {
-            errorMessage = "Enter a valid server URL."
+            errorMessage = String(localized: "Enter a valid server URL.")
             return
         }
 
@@ -326,7 +324,7 @@ final class AppModel {
             let base = URL(string: raw),
             let startURL = URL(string: "/api/mobile/oauth-start?provider=\(slug)", relativeTo: base)?.absoluteURL
         else {
-            errorMessage = "Enter a valid server URL."
+            errorMessage = String(localized: "Enter a valid server URL.")
             return
         }
         errorMessage = nil
@@ -337,13 +335,13 @@ final class AppModel {
         if let token = comps?.queryItems?.first(where: { $0.name == "token" })?.value, !token.isEmpty {
             await applyOAuthToken(server: raw, token: token)
         } else {
-            errorMessage = "Sign-in failed. Please try again."
+            errorMessage = String(localized: "Sign-in failed. Please try again.")
         }
     }
 
     private func applyOAuthToken(server: String, token: String) async {
         guard let base = URL(string: server) else {
-            errorMessage = "Enter a valid server URL."
+            errorMessage = String(localized: "Enter a valid server URL.")
             return
         }
         let serverSaved = Keychain.set(server, for: Self.serverURLKey)
@@ -684,7 +682,7 @@ final class AppModel {
             let manifest = try await manifest(editionId, forceRefresh: true)
             DownloadedStore.writeManifest(manifest, editionId: editionId)
             guard let baseURL = URL(string: serverURL) else {
-                errorMessage = "Enter a valid server URL."
+                errorMessage = String(localized: "Enter a valid server URL.")
                 return
             }
             if let existing = downloaders[editionId] {
@@ -721,7 +719,7 @@ final class AppModel {
         do {
             let manifest = try await manifest(editionId)
             guard let baseURL = URL(string: serverURL) else {
-                errorMessage = "Enter a valid server URL."
+                errorMessage = String(localized: "Enter a valid server URL.")
                 return
             }
             activeEditionId = editionId
@@ -862,7 +860,7 @@ final class AppModel {
         guard !grantRefreshInFlight.contains(editionId) else { return }
         let attempts = grantRefreshAttempts[editionId] ?? 0
         guard attempts < Self.maxGrantRefreshAttempts else {
-            errorMessage = "Downloads for this book need a fresh sign-in."
+            errorMessage = String(localized: "Downloads for this book need a fresh sign-in.")
             return
         }
         grantRefreshInFlight.insert(editionId)
@@ -1254,17 +1252,17 @@ final class AppModel {
 
     private func message(for error: Error) -> String {
         guard let apiError = error as? APIError else {
-            return "Unexpected error. Please try again."
+            return String(localized: "Unexpected error. Please try again.")
         }
         switch apiError {
         case .unauthorized:
-            return "Unauthorized. Check your credentials."
+            return String(localized: "Unauthorized. Check your credentials.")
         case let .http(status):
-            return "Server error (\(status))."
+            return String(localized: "Server error (\(status)).")
         case .decode:
-            return "Could not parse server response."
+            return String(localized: "Could not parse server response.")
         case .transport:
-            return "Network error. Check your connection."
+            return String(localized: "Network error. Check your connection.")
         }
     }
 

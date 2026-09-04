@@ -122,10 +122,18 @@ struct AsyncButton<Label: View>: View {
 
 extension AsyncButton where Label == Text {
     init(
-        _ titleKey: String,
+        _ titleKey: LocalizedStringKey,
         role: ButtonRole? = nil,
         action: @escaping () async -> Void
     ) {
         self.init(role: role, action: action) { Text(titleKey) }
+    }
+
+    init(
+        _ title: some StringProtocol,
+        role: ButtonRole? = nil,
+        action: @escaping () async -> Void
+    ) {
+        self.init(role: role, action: action) { Text(title) }
     }
 }

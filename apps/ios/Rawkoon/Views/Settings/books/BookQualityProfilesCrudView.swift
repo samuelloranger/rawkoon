@@ -35,7 +35,7 @@ struct BookQualityProfilesCrudView: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(profile.name).foregroundStyle(Theme.text)
-                            Text(profile.kind ?? "").font(.footnote).foregroundStyle(Theme.muted)
+                            LocalizedStatus.text(profile.kind ?? "").font(.footnote).foregroundStyle(Theme.muted)
                         }
                     }
                     .listRowBackground(Theme.raised)
@@ -85,7 +85,7 @@ struct BookQualityProfilesCrudView: View {
         profiles.remove(at: idx) // optimistic (single element)
         do {
             try await client.deleteBookQualityProfile(id: profile.id)
-            model.toast("Profile deleted.", style: .success)
+            model.toast(String(localized: "Profile deleted."), style: .success)
         } catch {
             if !profiles.contains(where: { $0.id == removed.id }) {
                 profiles.insert(removed, at: min(idx, profiles.count)) // restore just this row
@@ -116,7 +116,7 @@ private struct BookQualityProfileEditorView: View {
     @State private var saving = false
     @State private var saveError: String?
 
-    private static let kindOptions: [(value: String, label: String)] = [
+    private static let kindOptions: [(value: String, label: LocalizedStringKey)] = [
         ("ebook", "Ebook"), ("audiobook", "Audiobook"), ("both", "Both"),
     ]
     private static let ebookFormats = ["epub", "azw3", "mobi", "pdf", "cbz"]
@@ -138,7 +138,7 @@ private struct BookQualityProfileEditorView: View {
         [(nil, "None")] + Array(allowedFormats).sorted().map { (Optional($0), $0.uppercased()) }
     }
 
-    private static let languageOptions: [(value: String, label: String)] = [
+    private static let languageOptions: [(value: String, label: LocalizedStringKey)] = [
         ("en", "English"), ("fr", "French"), ("de", "German"), ("es", "Spanish"),
         ("it", "Italian"), ("ja", "Japanese"), ("pt", "Portuguese"),
     ]
@@ -172,7 +172,7 @@ private struct BookQualityProfileEditorView: View {
         .scrollContentBackground(.hidden)
         .background(Theme.base)
         .tint(Theme.apricot)
-        .navigationTitle(profile == nil ? "New profile" : "Edit profile")
+        .navigationTitle(Text(LocalizedStringKey(profile == nil ? "New profile" : "Edit profile")))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

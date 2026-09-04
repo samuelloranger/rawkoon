@@ -200,7 +200,7 @@ struct ContinueListeningView: View {
             ebookProgress: ebookProgress ?? []
         )
         errorMessage = (audiobookProgress == nil && ebookProgress == nil)
-            ? "Could not load continue progress."
+            ? String(localized: "Could not load continue progress.")
             : nil
     }
 
@@ -284,11 +284,11 @@ struct ContinueListeningView: View {
             do {
                 previewDocument = try await ebookDocument(for: ebook)
             } catch EbookContinueError.missingRemoteURL {
-                model.toast("This server version cannot provide ebook download links yet.", style: .error)
+                model.toast(String(localized: "This server version cannot provide ebook download links yet."), style: .error)
             } catch let error as APIError {
                 model.toast(message(for: error), style: .error)
             } catch {
-                model.toast("Could not open this ebook yet. Pull to refresh and retry.", style: .error)
+                model.toast(String(localized: "Could not open this ebook yet. Pull to refresh and retry."), style: .error)
             }
         }
     }
@@ -373,15 +373,15 @@ struct ContinueListeningView: View {
     private func message(for error: APIError) -> String {
         switch error {
         case .unauthorized:
-            "Sign in required."
+            String(localized: "Sign in required.")
         case let .http(status):
             status == 404
-                ? "No ebook files are available yet for this book."
-                : "Couldn't reach the server (\(status))."
+                ? String(localized: "No ebook files are available yet for this book.")
+                : String(localized: "Couldn't reach the server (\(status)).")
         case .decode:
-            "Could not parse server response."
+            String(localized: "Could not parse server response.")
         case .transport:
-            "Network error. Check your connection."
+            String(localized: "Network error. Check your connection.")
         }
     }
 
@@ -423,7 +423,7 @@ struct ContinueListeningView: View {
                     if model.errorMessage == nil {
                         showingPlayer = true
                     } else {
-                        model.toast(model.errorMessage ?? "Could not start playback.", style: .error)
+                        model.toast(model.errorMessage ?? String(localized: "Could not start playback."), style: .error)
                     }
                     busyIds.remove(item.id)
                 }
@@ -458,11 +458,11 @@ struct ContinueListeningView: View {
             try await client.addBookEdition(bookId: book.bookId, kind: kind)
             await model.loadLibrary()
             await load()
-            model.toast("Added \(kind == "audiobook" ? "audiobook" : "ebook") edition.", style: .success)
+            model.toast(String(localized: "Added \(kind == "audiobook" ? "audiobook" : "ebook") edition."), style: .success)
         } catch let error as APIError {
             model.toast(message(for: error), style: .error)
         } catch {
-            model.toast("Could not add that edition.", style: .error)
+            model.toast(String(localized: "Could not add that edition."), style: .error)
         }
     }
 
@@ -477,11 +477,11 @@ struct ContinueListeningView: View {
             }
             await model.loadLibrary()
             await load()
-            model.toast("Rescan started.", style: .success)
+            model.toast(String(localized: "Rescan started."), style: .success)
         } catch let error as APIError {
             model.toast(message(for: error), style: .error)
         } catch {
-            model.toast("Could not rescan this book.", style: .error)
+            model.toast(String(localized: "Could not rescan this book."), style: .error)
         }
     }
 

@@ -102,7 +102,7 @@ struct SessionsAdminView: View {
                 if gen == loadGen {
                     subscriptions = []
                 }
-                model.toast("Couldn't load web-push subscriptions.", style: .error)
+                model.toast(String(localized: "Couldn't load web-push subscriptions."), style: .error)
             }
         } catch {
             loadError = settingsErrorMessage(error)
@@ -120,12 +120,12 @@ struct SessionsAdminView: View {
         sessions.remove(at: idx) // optimistic (single element)
         do {
             try await client.revokeSession(id: session.id)
-            model.toast("Session revoked.", style: .success)
+            model.toast(String(localized: "Session revoked."), style: .success)
         } catch {
             if !sessions.contains(where: { $0.id == removed.id }) {
                 sessions.insert(removed, at: min(idx, sessions.count)) // restore just this row
             }
-            model.toast("Couldn't revoke session.", style: .error)
+            model.toast(String(localized: "Couldn't revoke session."), style: .error)
         }
     }
 
@@ -139,12 +139,12 @@ struct SessionsAdminView: View {
         subscriptions.remove(at: idx) // optimistic (single element)
         do {
             try await client.deleteWebPushSubscription(id: sub.id)
-            model.toast("Subscription deleted.", style: .success)
+            model.toast(String(localized: "Subscription deleted."), style: .success)
         } catch {
             if !subscriptions.contains(where: { $0.id == removed.id }) {
                 subscriptions.insert(removed, at: min(idx, subscriptions.count)) // restore just this row
             }
-            model.toast("Couldn't delete subscription.", style: .error)
+            model.toast(String(localized: "Couldn't delete subscription."), style: .error)
         }
     }
 }
@@ -233,12 +233,12 @@ struct ApiKeysAdminView: View {
         keys.remove(at: idx) // optimistic (single element)
         do {
             try await client.deleteApiKey(id: key.id)
-            model.toast("Key revoked.", style: .success)
+            model.toast(String(localized: "Key revoked."), style: .success)
         } catch {
             if !keys.contains(where: { $0.id == removed.id }) {
                 keys.insert(removed, at: min(idx, keys.count)) // restore just this row
             }
-            model.toast("Couldn't revoke key.", style: .error)
+            model.toast(String(localized: "Couldn't revoke key."), style: .error)
         }
     }
 }
@@ -300,7 +300,7 @@ private struct CreateApiKeySheet: View {
             createdKey = response.key
             onDone()
         } catch {
-            self.error = "Couldn't create the key."
+            self.error = String(localized: "Couldn't create the key.")
         }
         working = false
     }
@@ -382,12 +382,12 @@ struct BlocklistAdminView: View {
         entries.remove(at: idx) // optimistic (single element)
         do {
             try await client.unblock(id: entry.id)
-            model.toast("Unblocked.", style: .success)
+            model.toast(String(localized: "Unblocked."), style: .success)
         } catch {
             if !entries.contains(where: { $0.id == removed.id }) {
                 entries.insert(removed, at: min(idx, entries.count)) // restore just this row
             }
-            model.toast("Couldn't unblock.", style: .error)
+            model.toast(String(localized: "Couldn't unblock."), style: .error)
         }
     }
 }

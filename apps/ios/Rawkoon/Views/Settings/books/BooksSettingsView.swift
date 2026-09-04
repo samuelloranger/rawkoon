@@ -149,7 +149,7 @@ struct BooksSettingsView: View {
                 try await model.api()?.updateBooksEnabled(value)
             } catch {
                 booksEnabled = previous
-                model.toast("Couldn't update books setting.", style: .error)
+                model.toast(String(localized: "Couldn't update books setting."), style: .error)
             }
             togglingEnabled = false
         }
@@ -166,7 +166,7 @@ struct BooksSettingsView: View {
                 profiles = try await client.bookQualityProfiles().profiles
             } catch {
                 profiles = []
-                model.toast("Couldn't load quality profiles.", style: .error)
+                model.toast(String(localized: "Couldn't load quality profiles."), style: .error)
             }
             booksEnabled = general.booksEnabled ?? false
             order = sources

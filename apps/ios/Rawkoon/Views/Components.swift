@@ -36,11 +36,21 @@ struct BookCover: View {
 /// A monospaced state pill. Semantic tint (green present, apricot active, …)
 /// carries meaning at a glance so a list is scannable without reading it.
 struct StatusBadge: View {
-    let text: String
+    private let text: Text
     var tint: Color = Theme.apricot
 
+    init(text: LocalizedStringKey, tint: Color = Theme.apricot) {
+        self.text = Text(text)
+        self.tint = tint
+    }
+
+    init(text: some StringProtocol, tint: Color = Theme.apricot) {
+        self.text = Text(text)
+        self.tint = tint
+    }
+
     var body: some View {
-        Text(text)
+        text
             .font(.system(.caption2, design: .monospaced))
             .fontWeight(.medium)
             .foregroundStyle(tint)
@@ -154,12 +164,27 @@ struct PosterFlag: View {
 
 /// Shared by LibraryView and BookView. A second copy would drift; `.searchable`
 /// would change a screen that currently works.
-func searchField(_ placeholder: String, text: Binding<String>) -> some View {
+func searchField(_ placeholder: LocalizedStringKey, text: Binding<String>) -> some View {
+    searchFieldStack(text: text) {
+        TextField(placeholder, text: text)
+    }
+}
+
+func searchField(_ placeholder: some StringProtocol, text: Binding<String>) -> some View {
+    searchFieldStack(text: text) {
+        TextField(placeholder, text: text)
+    }
+}
+
+private func searchFieldStack(
+    text: Binding<String>,
+    @ViewBuilder field: () -> some View
+) -> some View {
     HStack(spacing: 8) {
         Image(systemName: "magnifyingglass")
             .font(.caption)
             .foregroundStyle(Theme.muted)
-        TextField(placeholder, text: text)
+        field()
             .foregroundStyle(Theme.textStrong)
             .autocorrectionDisabled()
             .textInputAutocapitalization(.never)

@@ -83,7 +83,7 @@ struct LocalAiIntegrationView: View {
     }
 
     private func testConnection() async -> TestOutcome {
-        guard let client = model.api() else { return .failure("Not signed in.") }
+        guard let client = model.api() else { return .failure(String(localized: "Not signed in.")) }
         do {
             let result = try await client.testLocalAi()
             if let error = result.error {
@@ -91,9 +91,9 @@ struct LocalAiIntegrationView: View {
             }
             let count = result.models?.count ?? 0
             if result.modelAvailable == false {
-                return .success("Connected \u{2014} \(count) models (configured model not found)")
+                return .success(String(localized: "Connected \u{2014} \(count) models (configured model not found)"))
             }
-            return .success("Connected \u{2014} \(count) models")
+            return .success(String(localized: "Connected \u{2014} \(count) models"))
         } catch {
             return .failure(settingsErrorMessage(error))
         }

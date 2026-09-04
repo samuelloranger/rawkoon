@@ -287,7 +287,7 @@ struct HomeView: View {
                     speedLabel("up", speed.ulSpeed, Theme.muted)
                 }
             } else {
-                Text(speed?.enabled == true ? "Download client offline." : "No download client configured.")
+                Text(LocalizedStringKey(speed?.enabled == true ? "Download client offline." : "No download client configured."))
                     .font(.subheadline).foregroundStyle(Theme.muted)
             }
         }
@@ -331,7 +331,7 @@ struct HomeView: View {
             if let run = r.lastRun {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
-                        StatusBadge(text: run.status == "error" ? "Error" : "OK",
+                        StatusBadge(text: LocalizedStringKey(run.status == "error" ? "Error" : "OK"),
                                     tint: run.status == "error" ? Theme.terracotta : Theme.seed)
                         Text("\(run.releasesFound ?? 0) found · \(run.releasesGrabbed ?? 0) grabbed")
                             .font(.system(.caption, design: .monospaced)).foregroundStyle(Theme.muted)

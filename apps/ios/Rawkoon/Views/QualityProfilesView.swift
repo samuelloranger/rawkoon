@@ -96,7 +96,7 @@ struct QualityProfilesView: View {
 
         guard let client = model.api() else {
             isLoading = false
-            errorMessage = "Not signed in."
+            errorMessage = String(localized: "Not signed in.")
             return
         }
 
@@ -106,7 +106,7 @@ struct QualityProfilesView: View {
         } catch let error as APIError {
             errorMessage = message(for: error)
         } catch {
-            errorMessage = "Network error. Check your connection."
+            errorMessage = String(localized: "Network error. Check your connection.")
         }
 
         isLoading = false
@@ -115,13 +115,13 @@ struct QualityProfilesView: View {
     private func message(for error: APIError) -> String {
         switch error {
         case .unauthorized:
-            "Admin only."
+            String(localized: "Admin only.")
         case let .http(status):
-            "Server error (\(status))."
+            String(localized: "Server error (\(status)).")
         case .decode:
-            "Could not parse server response."
+            String(localized: "Could not parse server response.")
         case .transport:
-            "Network error. Check your connection."
+            String(localized: "Network error. Check your connection.")
         }
     }
 }

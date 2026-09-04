@@ -100,7 +100,7 @@ struct ProfileView: View {
             loadedFirst = firstName
             loadedLast = lastName
         } catch {
-            nameError = "Couldn't save your name."
+            nameError = String(localized: "Couldn't save your name.")
         }
         savingName = false
     }
@@ -116,12 +116,12 @@ struct ProfileView: View {
             currentPassword = ""; newPassword = ""; confirmPassword = ""
         } catch let error as APIError {
             if case .http(400) = error {
-                passwordError = "Current password is incorrect."
+                passwordError = String(localized: "Current password is incorrect.")
             } else {
-                passwordError = "Couldn't change password."
+                passwordError = String(localized: "Couldn't change password.")
             }
         } catch {
-            passwordError = "Couldn't change password."
+            passwordError = String(localized: "Couldn't change password.")
         }
         changingPassword = false
     }

@@ -17,7 +17,7 @@ struct ArrLibraryImportView: View {
     @State private var status: MigrateStatusDTO?
     @State private var streamTask: Task<Void, Never>?
 
-    private static let sourceOptions: [(value: String, label: String)] = [
+    private static let sourceOptions: [(value: String, label: LocalizedStringKey)] = [
         ("both", "Both"), ("radarr", "Radarr"), ("sonarr", "Sonarr"),
     ]
 
@@ -92,7 +92,7 @@ struct ArrLibraryImportView: View {
             return "\(state) \u{2022} \(progress.current ?? 0)/\(total) \u{2022} \(imported) imported"
         }
         if let error = status.error {
-            return "failed \u{2022} \(error)"
+            return String(localized: "failed \u{2022} \(error)")
         }
         return state
     }
