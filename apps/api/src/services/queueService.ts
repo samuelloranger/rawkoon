@@ -6,6 +6,10 @@ import {
   type JobsOptions,
 } from "bullmq";
 import { redisConnection } from "@rawkoon/api/db/redis";
+import {
+  PERF_TIMING_ENABLED,
+  recordJobDuration,
+} from "@rawkoon/api/services/perf/perfStore";
 
 // Define queue names
 export const QUEUE_NAMES = {
@@ -130,87 +134,134 @@ export async function addJob<T = Record<string, unknown>>(
 }
 
 /**
+ * Attach perf-baseline duration listeners to a worker. No-op unless
+ * PERF_TIMING_ENABLED=true, so normal runs add no listeners and no overhead.
+ * Uses BullMQ's own job.finishedOn - job.processedOn, so no job handler changes.
+ */
+function trackJobDurations(worker: Worker, queueName: string): Worker {
+  if (!PERF_TIMING_ENABLED) return worker;
+  worker.on("completed", (job: Job) => {
+    recordJobDuration({
+      queue: queueName,
+      name: job.name,
+      ms: (job.finishedOn ?? 0) - (job.processedOn ?? 0),
+      outcome: "completed",
+      at: Date.now(),
+    });
+  });
+  worker.on("failed", (job) => {
+    if (!job) return;
+    recordJobDuration({
+      queue: queueName,
+      name: job.name,
+      ms: (job.finishedOn ?? 0) - (job.processedOn ?? 0),
+      outcome: "failed",
+      at: Date.now(),
+    });
+  });
+  return worker;
+}
+
+/**
  * Initialize Workers
  */
 export function initWorkers() {
   console.log("🚀 Initializing BullMQ workers...");
 
   // 1. Fast Worker — notifications + activity logs (concurrency 10)
-  new Worker(
-    QUEUE_NAMES.EXPRESS,
-    async (job: Job) => {
-      if (job.name.startsWith("log:")) {
-        const { processActivityLogJob } = await import(
-          "./jobs/activityLogWorker"
+  trackJobDurations(
+    new Worker(
+      QUEUE_NAMES.EXPRESS,
+      async (job: Job) => {
+        if (job.name.startsWith("log:")) {
+          const { processActivityLogJob } = await import(
+            "./jobs/activityLogWorker"
+          );
+          return processActivityLogJob(job);
+        }
+        const { processNotificationJob } = await import(
+          "./jobs/notificationWorker"
         );
-        return processActivityLogJob(job);
-      }
-      const { processNotificationJob } = await import(
-        "./jobs/notificationWorker"
-      );
-      return processNotificationJob(job);
-    },
-    { connection: redisConnection, concurrency: 10 },
+        return processNotificationJob(job);
+      },
+      { connection: redisConnection, concurrency: 10 },
+    ),
+    QUEUE_NAMES.EXPRESS,
   );
 
   // 2. Scheduled Tasks Worker
-  new Worker(
+  trackJobDurations(
+    new Worker(
+      QUEUE_NAMES.SCHEDULED_TASKS,
+      async (job: Job) => {
+        const { processScheduledJob } = await import(
+          "./jobs/scheduledTasksWorker"
+        );
+        return processScheduledJob(job);
+      },
+      { connection: redisConnection, concurrency: 3 }, // Allow a few scheduled tasks at once
+    ),
     QUEUE_NAMES.SCHEDULED_TASKS,
-    async (job: Job) => {
-      const { processScheduledJob } = await import(
-        "./jobs/scheduledTasksWorker"
-      );
-      return processScheduledJob(job);
-    },
-    { connection: redisConnection, concurrency: 3 }, // Allow a few scheduled tasks at once
   );
 
   // 3. Library Migrate Worker (concurrency 1 — one migration at a time)
-  new Worker(
+  trackJobDurations(
+    new Worker(
+      QUEUE_NAMES.LIBRARY_MIGRATE,
+      async (job: Job) => {
+        const { processLibraryMigrateJob } = await import(
+          "./jobs/libraryMigrateWorker"
+        );
+        return processLibraryMigrateJob(job);
+      },
+      { connection: redisConnection, concurrency: 1 },
+    ),
     QUEUE_NAMES.LIBRARY_MIGRATE,
-    async (job: Job) => {
-      const { processLibraryMigrateJob } = await import(
-        "./jobs/libraryMigrateWorker"
-      );
-      return processLibraryMigrateJob(job);
-    },
-    { connection: redisConnection, concurrency: 1 },
   );
 
   // 6. Library Reindex Languages Worker (concurrency 1)
-  new Worker(
+  trackJobDurations(
+    new Worker(
+      QUEUE_NAMES.LIBRARY_REINDEX_LANGUAGES,
+      async (job: Job) => {
+        const { processLibraryReindexLanguagesJob } = await import(
+          "./jobs/libraryReindexLanguagesWorker"
+        );
+        return processLibraryReindexLanguagesJob(job);
+      },
+      { connection: redisConnection, concurrency: 1 },
+    ),
     QUEUE_NAMES.LIBRARY_REINDEX_LANGUAGES,
-    async (job: Job) => {
-      const { processLibraryReindexLanguagesJob } = await import(
-        "./jobs/libraryReindexLanguagesWorker"
-      );
-      return processLibraryReindexLanguagesJob(job);
-    },
-    { connection: redisConnection, concurrency: 1 },
   );
 
   // 7. Library Remux Worker (concurrency 1 — one file at a time)
-  new Worker(
+  trackJobDurations(
+    new Worker(
+      QUEUE_NAMES.LIBRARY_REMUX,
+      async (job: Job) => {
+        const { processLibraryRemuxFileJob } = await import(
+          "./jobs/libraryRemuxWorker"
+        );
+        return processLibraryRemuxFileJob(job);
+      },
+      { connection: redisConnection, concurrency: 1 },
+    ),
     QUEUE_NAMES.LIBRARY_REMUX,
-    async (job: Job) => {
-      const { processLibraryRemuxFileJob } = await import(
-        "./jobs/libraryRemuxWorker"
-      );
-      return processLibraryRemuxFileJob(job);
-    },
-    { connection: redisConnection, concurrency: 1 },
   );
 
   // 8. Library Post-Process Worker (concurrency 1 — one file at a time)
-  new Worker(
+  trackJobDurations(
+    new Worker(
+      QUEUE_NAMES.LIBRARY_POST_PROCESS,
+      async (job: Job) => {
+        const { processPostProcessJob } = await import(
+          "./jobs/postProcessWorker"
+        );
+        return processPostProcessJob(job);
+      },
+      { connection: redisConnection, concurrency: 1 },
+    ),
     QUEUE_NAMES.LIBRARY_POST_PROCESS,
-    async (job: Job) => {
-      const { processPostProcessJob } = await import(
-        "./jobs/postProcessWorker"
-      );
-      return processPostProcessJob(job);
-    },
-    { connection: redisConnection, concurrency: 1 },
   );
 }
 

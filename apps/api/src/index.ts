@@ -39,8 +39,10 @@ import { settingsRoutes } from "./routes/settings";
 import { systemRoutes } from "./routes/system";
 import { usersRoutes } from "./routes/users";
 import { globalRateLimit, strictAuthRateLimit } from "./middleware/rateLimit";
+import { requestTiming } from "./middleware/requestTiming";
 import { resolveUser } from "./middleware/auth";
 import { initWorkers, setupScheduledJobs } from "./services/queueService";
+import { startResourceSampler } from "./services/perf/perfStore";
 
 // The production image copies the built frontend into ./public (see
 // Dockerfile); in dev the directory doesn't exist and Vite serves the SPA.
@@ -104,6 +106,9 @@ export const app = new Elysia()
     }
     return app;
   })
+  // Perf-baseline request timing. Inert unless PERF_TIMING_ENABLED=true — off by
+  // default, so a normal run behaves identically.
+  .use(requestTiming)
   .onError(({ code, error, set }) => {
     if (code === "NOT_FOUND") {
       set.status = 404;
@@ -189,6 +194,9 @@ export const app = new Elysia()
 if (import.meta.main) {
   // 1. Initialize BullMQ Workers
   initWorkers();
+
+  // 1b. Perf-baseline CPU/RSS sampler (no-op unless PERF_TIMING_ENABLED=true)
+  startResourceSampler();
 
   // 2. Setup Scheduled Tasks (Crons)
   setupScheduledJobs().catch((err) => {

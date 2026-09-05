@@ -28,6 +28,7 @@ import { classifyLanguageTags } from "@rawkoon/shared";
 import type { LibraryAudioTrack } from "@rawkoon/shared";
 import { renderMovieTemplate } from "@rawkoon/api/utils/medias/fileTemplate";
 import { withKeyedLock } from "@rawkoon/api/utils/keyedLock";
+import { PERF_TIMING_ENABLED } from "@rawkoon/api/services/perf/perfStore";
 
 export type RescanResult = {
   rescanned: number; // files whose MediaInfo was updated
@@ -63,9 +64,17 @@ export async function rescanLibraryItem(
 ): Promise<RescanResult | null> {
   // Serialize concurrent rescans of the same item so the file-rename step
   // can't have two runs pass the overwrite guard and clobber each other.
-  return withKeyedLock(`rescan:${mediaId}`, () =>
-    rescanLibraryItemInner(mediaId),
-  );
+  return withKeyedLock(`rescan:${mediaId}`, () => {
+    if (!PERF_TIMING_ENABLED) return rescanLibraryItemInner(mediaId);
+    // Perf-baseline: wall-clock the library rescan (readdir walk + MediaInfo),
+    // logged like scheduledTasksWorker.ts. No-op unless the flag is set.
+    const startedAt = Date.now();
+    return rescanLibraryItemInner(mediaId).finally(() => {
+      console.log(
+        `[perf] rescanLibraryItem(${mediaId}) completed in ${Date.now() - startedAt}ms`,
+      );
+    });
+  });
 }
 
 async function rescanLibraryItemInner(

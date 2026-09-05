@@ -15,6 +15,7 @@ import {
   parseReleaseTitle,
 } from "@rawkoon/api/utils/medias/filenameParser";
 import { remapPath } from "@rawkoon/api/utils/medias/mediainfoScanner";
+import { PERF_TIMING_ENABLED } from "@rawkoon/api/services/perf/perfStore";
 
 export const DOWNLOADS_MIN_BYTES = 100 * 1024 * 1024;
 const MIN_BYTES = DOWNLOADS_MIN_BYTES;
@@ -418,7 +419,15 @@ export async function scanDownloads(
 
   const excludeRoots = deriveLibraryExcludeRoots(settings);
   const inodeKeySet = await buildLibraryInodeKeySet(opts.refresh);
+  // Perf-baseline: wall-clock the downloads walk. Gated + logged like
+  // scheduledTasksWorker.ts's job-duration line; no-op unless enabled.
+  const scanStartedAt = PERF_TIMING_ENABLED ? Date.now() : 0;
   const entries = await walkDownloadsOnce(roots, excludeRoots, inodeKeySet);
+  if (PERF_TIMING_ENABLED) {
+    console.log(
+      `[perf] walkDownloadsOnce scanned ${entries.length} files in ${Date.now() - scanStartedAt}ms`,
+    );
+  }
   cache = {
     entries,
     file_operation: fileOperation,
