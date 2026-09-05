@@ -447,7 +447,13 @@ async function collectNarrators(editionId: number): Promise<string[]> {
 export async function postProcessBookDownload(
   downloadHistoryId: number,
 ): Promise<
-  | { success: true; destinationPath: string }
+  | {
+      success: true;
+      destinationPath: string;
+      /** True when success meant "already imported by another grab", not a fresh import. */
+      skipped?: boolean;
+      skipReason?: string;
+    }
   | { success: false; reason: string }
 > {
   const [dh, settings] = await Promise.all([
@@ -497,6 +503,11 @@ export async function postProcessBookDownload(
       } catch {
         continue;
       }
+      // Another grab already imported this edition's file. Success, but a
+      // losing-duplicate skip — not a fresh import. Record why in
+      // postProcessSkipReason (never postProcessError) so the "downloaded"
+      // notification is suppressed. The rescan branch below, which registers
+      // genuinely new files, stays a real import.
       await prisma.bookEdition.update({
         where: { id: dh.bookEditionId },
         data: { status: "downloaded" },
@@ -506,6 +517,7 @@ export async function postProcessBookDownload(
         data: {
           postProcessDestinationPath: file.filePath,
           postProcessError: null,
+          postProcessSkipReason: "duplicate-already-imported",
         },
       });
       const ed = await prisma.bookEdition.findUnique({
@@ -513,7 +525,12 @@ export async function postProcessBookDownload(
         select: { bookId: true },
       });
       if (ed) emitBookUpdate(ed.bookId);
-      return { success: true, destinationPath: file.filePath };
+      return {
+        success: true,
+        destinationPath: file.filePath,
+        skipped: true,
+        skipReason: "duplicate-already-imported",
+      };
     }
 
     // No rows, or every row's file is gone: the files may still be on disk from
