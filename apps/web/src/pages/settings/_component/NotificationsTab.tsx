@@ -69,16 +69,13 @@ export function NotificationsTab() {
     try {
       const sub = await subscribe();
       if (sub) {
-        // Get device information
         const deviceInfo = getDeviceInfo();
 
-        // Send subscription to backend with device info
         await subscribeMutation.mutateAsync({
           subscription: sub as unknown as Record<string, unknown>,
           deviceInfo: deviceInfo as unknown as Record<string, unknown>,
         });
         toast.success(t("settings.notifications.subscribeSuccess"));
-        // Invalidate devices query to refetch
         queryClient.invalidateQueries({
           queryKey: queryKeys.notifications.devices(),
         });
@@ -99,7 +96,6 @@ export function NotificationsTab() {
       const success = await unsubscribe();
       if (success) {
         toast.success(t("settings.notifications.unsubscribeSuccess"));
-        // Invalidate devices query to refetch
         queryClient.invalidateQueries({
           queryKey: queryKeys.notifications.devices(),
         });
@@ -171,12 +167,10 @@ export function NotificationsTab() {
   };
 
   const getDeviceDisplayName = (device: (typeof devices)[0]) => {
-    // Use device name if available
     if (device.device_name) {
       return device.device_name;
     }
 
-    // Build name from browser and OS info
     const parts: string[] = [];
 
     if (device.browser_name) {
@@ -195,7 +189,6 @@ export function NotificationsTab() {
       return parts.join(" ");
     }
 
-    // Fallback to platform if available
     if (device.platform) {
       return device.platform;
     }

@@ -357,9 +357,6 @@ export async function reconcilePendingDownloads(
 }
 
 /**
- * Poll the active client for pending downloads.
- */
-/**
  * In-flight reconcile, so overlapping triggers coalesce instead of racing.
  *
  * The scheduled-tasks worker runs at concurrency 3 and there are now three ways

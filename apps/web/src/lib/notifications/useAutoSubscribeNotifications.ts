@@ -175,10 +175,8 @@ export function useAutoSubscribeNotifications() {
       }
 
       if (granted) {
-        // Subscribe to push notifications
         const subscription = await subscribe();
         if (subscription) {
-          // Get device information
           const deviceInfo = getDeviceInfo();
 
           // Send subscription to backend with device info
