@@ -124,6 +124,83 @@ final class DownloadPlanTests: XCTestCase {
         XCTAssertEqual(plan.nextToStart(limit: 5), [100])
     }
 
+    // MARK: - Transient-failure stall + recovery (bug: 98% stuck forever)
+
+    /// Reproduces the "stuck at 98%" report. A flaky network fails one chapter
+    /// `maxAttempts` times while the rest verify. The plan then latches: the
+    /// failed chapter is never offered again, so `isComplete` can never become
+    /// true even though only transient network blips — not the chapter — were
+    /// ever wrong. Nothing in a live session recovers it.
+    func testOneTransientlyFailedChapterStallsTheWholeBookForever() {
+        var plan = DownloadPlan(chapters: chapters(5))
+        // Four chapters verify.
+        for fileId in [100, 101, 102, 103] {
+            plan.apply(.started(fileId: fileId))
+            plan.apply(.completed(fileId: fileId, status: 200, bytes: 1000, sha256: nil))
+        }
+        // The fifth burns its attempts on transient transport failures.
+        for _ in 0 ..< DownloadPlan.maxAttempts {
+            plan.apply(.started(fileId: 104))
+            plan.apply(.transportFailed(fileId: 104))
+        }
+
+        XCTAssertEqual(plan.states[104], .failed(attempts: DownloadPlan.maxAttempts))
+        XCTAssertEqual(plan.progressFraction(), 0.8, accuracy: 1e-9)
+        XCTAssertFalse(plan.isComplete)
+        // The stall: no more work is offered, so the book sits at 80% forever.
+        XCTAssertTrue(plan.nextToStart(limit: 5).isEmpty)
+    }
+
+    /// The recovery the bug needs: on reconnect (or an explicit retry) every
+    /// latched chapter goes back to pending in one call, so the download can
+    /// finish once the network is back — without disturbing verified or
+    /// in-flight chapters.
+    func testRetryFailedUnlatchesEveryFailedChapter() {
+        var plan = DownloadPlan(chapters: chapters(5))
+        plan.apply(.started(fileId: 100)) // stays in flight
+        for fileId in [101, 102] { // verify two
+            plan.apply(.started(fileId: fileId))
+            plan.apply(.completed(fileId: fileId, status: 200, bytes: 1000, sha256: nil))
+        }
+        for fileId in [103, 104] { // latch two
+            for _ in 0 ..< DownloadPlan.maxAttempts {
+                plan.apply(.started(fileId: fileId))
+                plan.apply(.transportFailed(fileId: fileId))
+            }
+        }
+        XCTAssertEqual(plan.states[103], .failed(attempts: DownloadPlan.maxAttempts))
+        XCTAssertEqual(plan.states[104], .failed(attempts: DownloadPlan.maxAttempts))
+
+        plan.retryFailed()
+
+        // Both failed chapters are offered again; the fresh attempt budget is
+        // restored so a still-flaky network gets the full three tries anew.
+        XCTAssertEqual(plan.states[103], .pending)
+        XCTAssertEqual(plan.states[104], .pending)
+        XCTAssertEqual(plan.nextToStart(limit: 5), [103, 104])
+        // Untouched: in-flight and verified chapters are left alone.
+        XCTAssertEqual(plan.states[100], .inFlight)
+        XCTAssertEqual(plan.states[101], .verified)
+        XCTAssertEqual(plan.states[102], .verified)
+
+        // And the book can now actually complete.
+        for fileId in [100, 103, 104] {
+            plan.apply(.started(fileId: fileId))
+            plan.apply(.completed(fileId: fileId, status: 200, bytes: 1000, sha256: nil))
+        }
+        XCTAssertTrue(plan.isComplete)
+    }
+
+    /// `retryFailed()` on a plan with nothing failed is a no-op.
+    func testRetryFailedIsANoOpWhenNothingFailed() {
+        var plan = DownloadPlan(chapters: chapters(2))
+        plan.apply(.started(fileId: 100))
+        plan.apply(.completed(fileId: 100, status: 200, bytes: 1000, sha256: nil))
+        plan.retryFailed()
+        XCTAssertEqual(plan.states[100], .verified)
+        XCTAssertEqual(plan.states[101], .pending)
+    }
+
     /// The flag has to clear, or every later emission re-triggers a refetch.
     func testAcknowledgingFreshGrantsClearsTheFlag() {
         var plan = DownloadPlan(chapters: chapters(1))

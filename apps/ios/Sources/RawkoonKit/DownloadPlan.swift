@@ -85,6 +85,22 @@ public struct DownloadPlan: Sendable {
         states[fileId] = .failed(attempts: n)
     }
 
+    /// Re-queues every chapter that gave up, so a network blip that latched
+    /// `.failed(maxAttempts)` no longer strands the book below 100% forever.
+    public mutating func retryFailed() {
+        for fileId in states.keys where isFailed(states[fileId]) {
+            states[fileId] = .pending
+            attempts[fileId] = 0
+        }
+    }
+
+    private func isFailed(_ state: ChapterState?) -> Bool {
+        if case .failed = state {
+            return true
+        }
+        return false
+    }
+
     /// The next chapters worth starting, in book order.
     ///
     /// Book order matters: a listener starts at chapter 1, so downloading in
