@@ -25,7 +25,6 @@ export function clearBadge(): void {
  * Show notification when update is available
  */
 function showUpdateAvailableNotification(): void {
-  // Send message to service worker to show update notification
   navigator.serviceWorker.ready.then((registration) => {
     if (registration.active) {
       registration.active.postMessage({ type: "showUpdateNotification" });
@@ -41,7 +40,6 @@ export function registerServiceWorker(): void {
     return;
   }
 
-  // Register service worker on window load
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("/sw.js")
@@ -51,10 +49,8 @@ export function registerServiceWorker(): void {
           registration.scope,
         );
 
-        // Sync badge when app loads
         syncBadge();
 
-        // Listen for service worker updates
         registration.addEventListener("updatefound", () => {
           const newWorker = registration.installing;
           if (newWorker) {
@@ -96,7 +92,6 @@ export function registerServiceWorker(): void {
     syncBadge();
   });
 
-  // Sync badge when app comes back online
   window.addEventListener("online", () => {
     syncBadge();
   });

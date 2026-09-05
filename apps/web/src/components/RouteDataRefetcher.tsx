@@ -36,7 +36,6 @@ export function RouteDataRefetcher() {
           });
           break;
         case "/notifications":
-          // Notifications
           await queryClient.refetchQueries({
             queryKey: queryKeys.notifications.all,
           });

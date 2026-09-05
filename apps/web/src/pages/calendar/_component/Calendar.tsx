@@ -83,7 +83,6 @@ function CalendarBody({
     return map;
   }, [upcomingData?.items]);
 
-  // Get calendar grid
   const calendarGrid = useMemo(() => {
     const firstDay = new Date(currentYear, currentMonth - 1, 1);
     const lastDay = new Date(currentYear, currentMonth, 0);
@@ -173,7 +172,6 @@ function CalendarBody({
 
   const selectedDayReleases = selectedDate ? getDayReleases(selectedDate) : [];
 
-  // Check if viewing the current month
   const isViewingCurrentMonth =
     currentMonth === today.getMonth() + 1 &&
     currentYear === today.getFullYear();

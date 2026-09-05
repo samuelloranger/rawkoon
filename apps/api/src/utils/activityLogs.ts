@@ -25,7 +25,6 @@ export async function logActivity(input: {
   createdAt?: Date;
 }): Promise<void> {
   try {
-    // Add job to BullMQ
     await addJob(
       QUEUE_NAMES.EXPRESS,
       `log:${input.type}`,

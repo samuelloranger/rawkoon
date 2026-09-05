@@ -32,7 +32,6 @@ const queryClient = new QueryClient({ defaultOptions: QUERY_DEFAULTS });
 setQueryClient(queryClient);
 bootstrapAuthFromWindow(queryClient);
 
-// Component to handle service worker query invalidation and iOS improvements
 function AppWithServiceWorkerIntegration() {
   useCloseReadNotifications();
   useIOSImprovements();

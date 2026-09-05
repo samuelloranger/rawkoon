@@ -11,24 +11,16 @@ import {
 } from "./storageService";
 import { getBaseUrl } from "@rawkoon/api/config";
 
-// Allowed image extensions
 const ALLOWED_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp"]);
 
-// Thumbnail size
 const THUMBNAIL_SIZE = 48;
 
-/**
- * Check if file extension is allowed
- */
 export function isAllowedFile(filename: string): boolean {
   if (!filename.includes(".")) return false;
   const ext = filename.split(".").pop()?.toLowerCase();
   return ext ? ALLOWED_EXTENSIONS.has(ext) : false;
 }
 
-/**
- * Get content type from filename
- */
 export function getContentType(filename: string): string {
   const ext = filename.split(".").pop()?.toLowerCase();
   switch (ext) {

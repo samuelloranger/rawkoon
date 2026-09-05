@@ -1,4 +1,3 @@
-// apps/api/src/utils/medias/customFormatTypes.ts
 import type { ParsedRelease } from "@rawkoon/api/utils/medias/filenameParser";
 
 /** Condition dimensions — all derivable from existing parse/release data. */

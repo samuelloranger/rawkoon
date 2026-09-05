@@ -155,7 +155,6 @@ export const libraryMetaRoutes = new Elysia()
               select: fileSelect,
             });
 
-            // Group files by episodeId
             const byEpisode = new Map<number, typeof allFiles>();
             for (const f of allFiles) {
               if (f.episodeId == null) continue;

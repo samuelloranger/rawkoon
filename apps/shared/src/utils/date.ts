@@ -1,8 +1,3 @@
-/**
- * Date utilities
- * Centralizes all date operations for consistency
- */
-
 export type MaybeDate = Date | string | number | null | undefined;
 
 function toLocale(locale: string): string {
