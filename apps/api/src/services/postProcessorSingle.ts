@@ -35,10 +35,15 @@ import { postProcessSeasonPack } from "@rawkoon/api/services/postProcessorSeason
 /**
  * After a library torrent completes: hardlink/move into the configured library tree.
  */
-export async function postProcess(
-  downloadHistoryId: number,
-): Promise<
-  | { success: true; destinationPath: string; episodeCount?: number }
+export async function postProcess(downloadHistoryId: number): Promise<
+  | {
+      success: true;
+      destinationPath: string;
+      episodeCount?: number;
+      /** True when success meant "already imported by another grab", not a fresh import. */
+      skipped?: boolean;
+      skipReason?: string;
+    }
   | { success: false; reason: string }
 > {
   const [dh, settings] = await Promise.all([
@@ -107,16 +112,28 @@ export async function postProcess(
     for (const ef of existingFiles) {
       try {
         await stat(ef.filePath);
-        // File is on disk — mark complete and return without hardlinking
+        // File is on disk — another grab already imported it. Mark the item
+        // downloaded (idempotent) and return WITHOUT hardlinking or creating a
+        // MediaFile row. This is a losing-duplicate skip, not a fresh import:
+        // record why in postProcessSkipReason (never postProcessError, which
+        // drives failure notices) so the "downloaded" notification is
+        // suppressed. Rescan idempotency is preserved — a legitimate re-run
+        // still finds the same file and re-marks it.
         await markItemDownloaded({ media: dh.media!, episode: dh.episode });
         await prisma.downloadHistory.update({
           where: { id: downloadHistoryId },
           data: {
             postProcessDestinationPath: ef.filePath,
             postProcessError: null,
+            postProcessSkipReason: "duplicate-already-imported",
           },
         });
-        return { success: true, destinationPath: ef.filePath };
+        return {
+          success: true,
+          destinationPath: ef.filePath,
+          skipped: true,
+          skipReason: "duplicate-already-imported",
+        };
       } catch (e) {
         if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
           console.warn(
