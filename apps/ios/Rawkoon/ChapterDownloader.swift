@@ -85,6 +85,16 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         }
     }
 
+    /// Re-queues chapters that gave up, so a download stranded by a blip finishes
+    /// once the network is back. Called on reconnect and on a re-tap.
+    func retryFailedChapters() {
+        stateQueue.async {
+            self.plan.retryFailed()
+            self.emitState()
+            self.pumpIfNeeded()
+        }
+    }
+
     func hasBackgroundSession(identifier: String) -> Bool {
         identifier == sessionIdentifier
     }
