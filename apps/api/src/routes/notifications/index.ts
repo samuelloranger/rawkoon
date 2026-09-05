@@ -412,12 +412,6 @@ export const notificationsRoutes = new Elysia({ prefix: "/api/notifications" })
               platform,
             },
           });
-
-          await logActivity({
-            type: "notification_push_subscription_saved",
-            userId: user.id,
-            payload: { action: "updated" },
-          });
         } else {
           await prisma.userSubscription.create({
             data: {
@@ -436,11 +430,6 @@ export const notificationsRoutes = new Elysia({ prefix: "/api/notifications" })
           });
 
           isNewSubscription = true;
-          await logActivity({
-            type: "notification_push_subscription_saved",
-            userId: user.id,
-            payload: { action: "created" },
-          });
         }
 
         if (isNewSubscription) {
