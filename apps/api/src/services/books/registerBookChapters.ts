@@ -3,6 +3,10 @@ import { basename } from "node:path";
 import { prisma } from "@rawkoon/api/db";
 import { buildTimeline } from "@rawkoon/api/services/books/bookTimeline";
 import { probeAudioDuration } from "@rawkoon/api/services/books/probeAudioDuration";
+import {
+  type ChapterAtom,
+  probeChapterAtoms,
+} from "@rawkoon/api/services/books/probeChapterAtoms";
 
 // The separator after the leading number varies by release: "01 - Chapter 1",
 // "01. Chapter 1", "62 Epilogue". Requiring a dash meant the whole "NN Title"
@@ -66,6 +70,143 @@ const refuseChapterRegistration = async (
   };
 };
 
+interface ChapterRow {
+  bookFileId: number;
+  index: number;
+  title: string;
+  startSecs: number;
+  endSecs: number;
+}
+
+/** Write chapter rows for an edition and mark it offline-ready, atomically. */
+const writeChapters = async (
+  editionId: number,
+  rows: ChapterRow[],
+): Promise<void> => {
+  await prisma.$transaction(async (tx) => {
+    await tx.bookChapter.deleteMany({ where: { editionId } });
+    for (const row of rows) {
+      await tx.bookChapter.create({
+        data: {
+          editionId,
+          bookFileId: row.bookFileId,
+          index: row.index,
+          title: row.title,
+          startSecs: row.startSecs,
+          endSecs: row.endSecs,
+        },
+      });
+      await tx.bookFile.update({
+        where: { id: row.bookFileId },
+        data: { chapterIndex: row.index },
+      });
+    }
+    await tx.bookEdition.update({
+      where: { id: editionId },
+      data: { offlineReady: true },
+    });
+  });
+};
+
+// Frame-boundary rounding on an `-c copy` remux drifts the atom offsets by a
+// second or two against the probed stream duration; tolerate that much before
+// judging the atoms nonsensical.
+const ATOM_TOLERANCE_SECS = 2;
+
+/**
+ * Do the embedded atoms describe a sane, gap-free-enough cover of the file?
+ *
+ * Rejects overlaps, zero/negative-length chapters, and offsets that fall
+ * outside the probed duration. A false here means fall back to a single
+ * whole-file chapter rather than trust garbage offsets.
+ */
+const atomsAreConsistent = (
+  atoms: ChapterAtom[],
+  totalDurationSecs: number,
+): boolean => {
+  let cursor = 0;
+  for (const atom of atoms) {
+    if (!Number.isFinite(atom.startSecs) || !Number.isFinite(atom.endSecs)) {
+      return false;
+    }
+    if (atom.startSecs < 0) return false;
+    if (atom.endSecs <= atom.startSecs) return false;
+    // Starts before the previous chapter ended -> overlap.
+    if (atom.startSecs + ATOM_TOLERANCE_SECS < cursor) return false;
+    if (atom.startSecs > totalDurationSecs + ATOM_TOLERANCE_SECS) return false;
+    cursor = atom.endSecs;
+  }
+  if (cursor > totalDurationSecs + ATOM_TOLERANCE_SECS) return false;
+  return true;
+};
+
+/**
+ * Register the chapters of a single-file audiobook (one .m4b/.mp3 for the whole
+ * book).
+ *
+ * Prefers the container's embedded chapter atoms; when there are none — or they
+ * are inconsistent — falls back to one chapter spanning the file so the book is
+ * at least playable. Either way the edition becomes offline-ready. Only an
+ * unprobeable duration is refused, since without it there is no timeline at all.
+ */
+const registerSingleFileEdition = async (
+  editionId: number,
+  file: { id: number; filePath: string; fileName: string },
+): Promise<RegisterResult> => {
+  const totalDurationSecs = await probeAudioDuration(file.filePath);
+  if (totalDurationSecs === null) {
+    return refuseChapterRegistration(
+      editionId,
+      `Could not probe ${basename(file.filePath)}`,
+    );
+  }
+
+  const atoms = await probeChapterAtoms(file.filePath);
+
+  let rows: ChapterRow[];
+  if (atoms && atomsAreConsistent(atoms, totalDurationSecs)) {
+    const lastIndex = atoms.length - 1;
+    rows = atoms.map((atom, index) => ({
+      bookFileId: file.id,
+      index,
+      title: atom.title || `Chapter ${index + 1}`,
+      startSecs: Math.min(atom.startSecs, totalDurationSecs),
+      // The atoms are already whole-file offsets, so they are used directly
+      // (never run through buildTimeline, which accumulates per-file durations).
+      // The final chapter is pinned to the probed total so the timeline covers
+      // the whole file exactly, absorbing any remux rounding.
+      endSecs:
+        index === lastIndex
+          ? totalDurationSecs
+          : Math.min(atom.endSecs, totalDurationSecs),
+    }));
+  } else {
+    const edition = await prisma.bookEdition.findUnique({
+      where: { id: editionId },
+      select: { book: { select: { title: true } } },
+    });
+    const title =
+      edition?.book.title ?? chapterTitleFromFileName(file.fileName);
+    rows = [
+      {
+        bookFileId: file.id,
+        index: 0,
+        title,
+        startSecs: 0,
+        endSecs: totalDurationSecs,
+      },
+    ];
+  }
+
+  await writeChapters(editionId, rows);
+
+  return {
+    chapters: rows.length,
+    totalDurationSecs,
+    offlineReady: true,
+  };
+};
+
 /**
  * Probe and register the audio files of an edition that is already one file
  * per chapter.
@@ -73,8 +214,9 @@ const refuseChapterRegistration = async (
  * Idempotent by database state: re-running over an unchanged edition rewrites
  * equivalent chapter rows against the same BookFile ids. Chapter row ids are
  * not stable across runs because the refresh is delete-then-create.
- * An edition with fewer than two audio files is not chapterized and is refused
- * rather than guessed at.
+ * A single-file edition is chapterized from its embedded chapter atoms, or from
+ * one whole-file chapter when it has none (see registerSingleFileEdition); only
+ * an edition with no audio files at all is refused.
  */
 export async function registerBookChapters(
   editionId: number,
@@ -84,11 +226,12 @@ export async function registerBookChapters(
     select: { id: true, filePath: true, fileName: true },
   });
 
-  if (files.length < 2) {
-    return refuseChapterRegistration(
-      editionId,
-      "Edition is not split into chapters",
-    );
+  if (files.length === 0) {
+    return refuseChapterRegistration(editionId, "Edition has no audio files");
+  }
+
+  if (files.length === 1) {
+    return registerSingleFileEdition(editionId, files[0]!);
   }
 
   const ordered = sortBookFiles(files);
