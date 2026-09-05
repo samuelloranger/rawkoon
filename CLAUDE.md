@@ -62,6 +62,7 @@ Every `db:*` script sources the **root** `.env` before invoking prisma (`set -a 
 - **Shared types are the contract.** API responses are typed from `@rawkoon/shared/types`; change the type there, not in one side only. Web query keys are centralized in `apps/web/src/lib/queryKeys.ts`.
 - **Tests are colocated** (`*.test.ts` next to the code) plus `apps/api/test/`. API tests mock `@rawkoon/api/db`; a real `DATABASE_URL` in the env switches some suites to integration mode.
 - **Path aliases:** API code imports itself as `@rawkoon/api/<path>` (package `exports` maps `./*` → `./src/*.ts`), not by relative path. Follow that.
+- **Comments say why, in one line.** Write a comment only where the reason isn't obvious from the code, and keep it to a single short sentence. Let names and types carry the rest.
 
 ## Deployment
 

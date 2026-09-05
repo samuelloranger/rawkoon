@@ -1,4 +1,3 @@
-// apps/api/src/utils/medias/customFormatValidation.ts
 import type {
   ConditionOperator,
   ConditionType,

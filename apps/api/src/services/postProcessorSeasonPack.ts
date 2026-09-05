@@ -89,7 +89,6 @@ export async function postProcessSeasonPack(
   if (allVideos.length === 0)
     return { success: false, reason: "No video files found in torrent folder" };
 
-  // Load all episodes for this show
   const episodes = await prisma.libraryEpisode.findMany({
     where: { mediaId: dh.media.id },
   });
@@ -379,7 +378,6 @@ export async function postProcessSeasonPack(
     };
   }
 
-  // Mark the show as downloaded and update the DH record
   await prisma.libraryMedia.update({
     where: { id: dh.media.id },
     data: {

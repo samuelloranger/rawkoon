@@ -7,6 +7,10 @@ import { prisma } from "@rawkoon/api/db";
 
 const NOTIFICATION_RETENTION_DAYS = 30;
 
+// activity_logs backs the dashboard feed but is dominated by cron/push-subscription
+// bookkeeping; 30 days matches notifications and the feed is capped anyway.
+const ACTIVITY_LOG_RETENTION_DAYS = 30;
+
 /**
  * qbittorrent_request_logs is written fire-and-forget on every qBittorrent HTTP
  * call and read only by the `qbittorrent:request-logs` / `qbittorrentClientDebug`
@@ -42,6 +46,27 @@ export async function cleanupOldNotifications(): Promise<number> {
     return deletedCount;
   } catch (error) {
     console.error("[CRON] Error cleaning up old notifications:", error);
+    return 0;
+  }
+}
+
+/** Prune activity_logs older than the retention window. */
+export async function cleanupOldActivityLogs(): Promise<number> {
+  console.log("[CRON] Running cleanupOldActivityLogs...");
+
+  try {
+    const result = await prisma.activityLog.deleteMany({
+      where: {
+        createdAt: { lt: daysAgo(ACTIVITY_LOG_RETENTION_DAYS) },
+      },
+    });
+
+    console.log(
+      `[CRON] Cleaned up ${result.count} activity logs older than ${ACTIVITY_LOG_RETENTION_DAYS} days`,
+    );
+    return result.count;
+  } catch (error) {
+    console.error("[CRON] Error cleaning up old activity logs:", error);
     return 0;
   }
 }

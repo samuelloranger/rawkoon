@@ -528,6 +528,11 @@ model DownloadHistory {
   postProcessError           String?   @map("post_process_error") @db.Text
   /// Final library path after successful post-processing
   postProcessDestinationPath String?   @map("post_process_destination_path") @db.Text
+  /// Set when post-processing succeeded WITHOUT importing anything because the
+  /// destination was already imported by another grab (losing duplicate). A
+  /// success, not a failure — kept separate from postProcessError so it never
+  /// drives failure notifications, and used to suppress the "downloaded" notice.
+  postProcessSkipReason      String?   @map("post_process_skip_reason") @db.Text
   /// Book grab target. Exactly one of media_id / book_edition_id is set,
   /// enforced by a CHECK constraint. The one-active-grab-per-target rule is
   /// enforced by a SECOND partial unique index, disjoint from the media one:

@@ -10,6 +10,12 @@ type CreatedChapterData = {
   endSecs: number;
 };
 
+type RawChapterAtom = {
+  start_time: string;
+  end_time: string;
+  tags?: { title?: string };
+};
+
 let findManyResult: MockBookFile[] = [
   {
     id: 1,
@@ -21,22 +27,42 @@ const findMany = mock(async () => findManyResult);
 let probeResults = new Map<string, number | null>([
   ["/library/Book/01 - Chapter 1.mp3", 60],
 ]);
-const spawn = mock((argv: string[]) => {
-  const filePath = argv.at(-1);
-  const duration =
-    typeof filePath === "string" ? (probeResults.get(filePath) ?? null) : null;
-  const out = duration === null ? "" : `${duration}`;
-  return {
+// Per-path embedded chapter atoms for the `-show_chapters` probe.
+//   [] or absent -> ffprobe succeeds with no chapters (probe returns null)
+//   null         -> ffprobe exits non-zero (probe returns null)
+let atomResults = new Map<string, RawChapterAtom[] | null>();
+
+const makeProc = (out: string, code: number): Bun.Subprocess =>
+  ({
     stdout: new ReadableStream({
       start(controller) {
         controller.enqueue(new TextEncoder().encode(out));
         controller.close();
       },
     }),
-    exited: Promise.resolve(duration === null ? 1 : 0),
-  } as Bun.Subprocess;
+    exited: Promise.resolve(code),
+  }) as Bun.Subprocess;
+
+const spawn = mock((argv: string[]) => {
+  const filePath = argv.at(-1);
+  if (argv.includes("-show_chapters")) {
+    const raw =
+      typeof filePath === "string" ? atomResults.get(filePath) : undefined;
+    if (raw === null) {
+      return makeProc("", 1);
+    }
+    return makeProc(JSON.stringify({ chapters: raw ?? [] }), 0);
+  }
+  const duration =
+    typeof filePath === "string" ? (probeResults.get(filePath) ?? null) : null;
+  const out = duration === null ? "" : `${duration}`;
+  return makeProc(out, duration === null ? 1 : 0);
 });
 const originalSpawn = Bun.spawn;
+let editionBookTitle: string | null = null;
+const findUniqueEdition = mock(async () =>
+  editionBookTitle === null ? null : { book: { title: editionBookTitle } },
+);
 const updateEdition = mock(async () => ({}));
 const deleteChapters = mock(async () => ({ count: 0 }));
 const createChapter = mock(async () => ({}));
@@ -62,7 +88,7 @@ const transaction = mock(
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
     bookFile: { findMany },
-    bookEdition: { update: updateEdition },
+    bookEdition: { update: updateEdition, findUnique: findUniqueEdition },
     $transaction: transaction,
   },
 }));
@@ -169,9 +195,12 @@ describe("registerBookChapters", () => {
       },
     ];
     probeResults = new Map([["/library/Book/01 - Chapter 1.mp3", 60]]);
+    atomResults = new Map();
+    editionBookTitle = null;
 
     findMany.mockClear();
     spawn.mockClear();
+    findUniqueEdition.mockClear();
     updateEdition.mockClear();
     deleteChapters.mockClear();
     createChapter.mockClear();
@@ -179,14 +208,16 @@ describe("registerBookChapters", () => {
     transaction.mockClear();
   });
 
-  test("refuses an edition with fewer than two audio files", async () => {
+  test("refuses an edition with no audio files", async () => {
+    findManyResult = [];
+
     const result = await registerBookChapters(61);
 
     expect(result).toEqual({
       chapters: 0,
       totalDurationSecs: 0,
       offlineReady: false,
-      reason: "Edition is not split into chapters",
+      reason: "Edition has no audio files",
     });
     expect(updateEdition).toHaveBeenCalledWith({
       where: { id: 61 },
@@ -194,6 +225,213 @@ describe("registerBookChapters", () => {
     });
     expect(transaction).toHaveBeenCalledTimes(1);
     expect(deleteChapters).toHaveBeenCalledWith({ where: { editionId: 61 } });
+    expect(createChapter).not.toHaveBeenCalled();
+    expect(updateBookFile).not.toHaveBeenCalled();
+  });
+
+  test("single file with chapter atoms builds a timeline on one bookFileId", async () => {
+    findManyResult = [
+      { id: 65, filePath: "/library/Book/book.m4b", fileName: "book.m4b" },
+    ];
+    probeResults = new Map([["/library/Book/book.m4b", 300]]);
+    atomResults = new Map([
+      [
+        "/library/Book/book.m4b",
+        [
+          {
+            start_time: "0.000000",
+            end_time: "100.000000",
+            tags: { title: "Chapter 1" },
+          },
+          {
+            start_time: "100.000000",
+            end_time: "200.000000",
+            tags: { title: "Chapter 2" },
+          },
+          {
+            start_time: "200.000000",
+            end_time: "300.500000",
+            tags: { title: "Chapter 3" },
+          },
+        ],
+      ],
+    ]);
+
+    const result = await registerBookChapters(65);
+
+    expect(result).toEqual({
+      chapters: 3,
+      totalDurationSecs: 300,
+      offlineReady: true,
+    });
+
+    const created = chapterCreateCalls().map((arg) => arg.data);
+    expect(created).toEqual([
+      {
+        editionId: 65,
+        bookFileId: 65,
+        index: 0,
+        title: "Chapter 1",
+        startSecs: 0,
+        endSecs: 100,
+      },
+      {
+        editionId: 65,
+        bookFileId: 65,
+        index: 1,
+        title: "Chapter 2",
+        startSecs: 100,
+        endSecs: 200,
+      },
+      {
+        // Last atom's end (300.5) is clamped down to the probed total (300).
+        editionId: 65,
+        bookFileId: 65,
+        index: 2,
+        title: "Chapter 3",
+        startSecs: 200,
+        endSecs: 300,
+      },
+    ]);
+    expect(new Set(created.map((chapter) => chapter.bookFileId))).toEqual(
+      new Set([65]),
+    );
+    expect(updateEdition).toHaveBeenCalledWith({
+      where: { id: 65 },
+      data: { offlineReady: true },
+    });
+    expect(updateBookFile).toHaveBeenCalledWith({
+      where: { id: 65 },
+      data: { chapterIndex: 0 },
+    });
+  });
+
+  test("single file with no chapter atoms falls back to one chapter spanning the file", async () => {
+    findManyResult = [
+      { id: 65, filePath: "/library/Book/book.m4b", fileName: "book.m4b" },
+    ];
+    probeResults = new Map([["/library/Book/book.m4b", 3600]]);
+    atomResults = new Map();
+    editionBookTitle = "La femme de ménage voit tout";
+
+    const result = await registerBookChapters(65);
+
+    expect(result).toEqual({
+      chapters: 1,
+      totalDurationSecs: 3600,
+      offlineReady: true,
+    });
+
+    const created = chapterCreateCalls().map((arg) => arg.data);
+    expect(created).toEqual([
+      {
+        editionId: 65,
+        bookFileId: 65,
+        index: 0,
+        title: "La femme de ménage voit tout",
+        startSecs: 0,
+        endSecs: 3600,
+      },
+    ]);
+    expect(updateBookFile).toHaveBeenCalledWith({
+      where: { id: 65 },
+      data: { chapterIndex: 0 },
+    });
+  });
+
+  test("single-file fallback uses the file name when the book has no title", async () => {
+    findManyResult = [
+      {
+        id: 65,
+        filePath: "/library/Book/Prologue.m4b",
+        fileName: "Prologue.m4b",
+      },
+    ];
+    probeResults = new Map([["/library/Book/Prologue.m4b", 120]]);
+    atomResults = new Map();
+    editionBookTitle = null;
+
+    const result = await registerBookChapters(65);
+
+    expect(result.chapters).toBe(1);
+    expect(chapterCreateCalls().at(0)?.data.title).toBe("Prologue");
+  });
+
+  test("single file with inconsistent atoms falls back to one chapter", async () => {
+    findManyResult = [
+      { id: 65, filePath: "/library/Book/book.m4b", fileName: "book.m4b" },
+    ];
+    probeResults = new Map([["/library/Book/book.m4b", 300]]);
+    // Overlapping atoms: chapter 2 starts before chapter 1 ends.
+    atomResults = new Map([
+      [
+        "/library/Book/book.m4b",
+        [
+          {
+            start_time: "0.000000",
+            end_time: "200.000000",
+            tags: { title: "One" },
+          },
+          {
+            start_time: "100.000000",
+            end_time: "300.000000",
+            tags: { title: "Two" },
+          },
+        ],
+      ],
+    ]);
+    editionBookTitle = "Whole Book";
+
+    const result = await registerBookChapters(65);
+
+    expect(result).toEqual({
+      chapters: 1,
+      totalDurationSecs: 300,
+      offlineReady: true,
+    });
+    const created = chapterCreateCalls().map((arg) => arg.data);
+    expect(created).toEqual([
+      {
+        editionId: 65,
+        bookFileId: 65,
+        index: 0,
+        title: "Whole Book",
+        startSecs: 0,
+        endSecs: 300,
+      },
+    ]);
+  });
+
+  test("single file with an unprobeable duration is still refused", async () => {
+    findManyResult = [
+      { id: 65, filePath: "/library/Book/book.m4b", fileName: "book.m4b" },
+    ];
+    probeResults = new Map(); // duration unprobeable
+    atomResults = new Map([
+      [
+        "/library/Book/book.m4b",
+        [
+          {
+            start_time: "0.000000",
+            end_time: "100.000000",
+            tags: { title: "One" },
+          },
+        ],
+      ],
+    ]);
+
+    const result = await registerBookChapters(65);
+
+    expect(result).toEqual({
+      chapters: 0,
+      totalDurationSecs: 0,
+      offlineReady: false,
+      reason: "Could not probe book.m4b",
+    });
+    expect(updateEdition).toHaveBeenCalledWith({
+      where: { id: 65 },
+      data: { offlineReady: false },
+    });
     expect(createChapter).not.toHaveBeenCalled();
     expect(updateBookFile).not.toHaveBeenCalled();
   });

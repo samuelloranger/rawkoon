@@ -355,7 +355,18 @@ export async function enqueuePostProcess(
 }
 
 export type PostProcessOutcome =
-  | { success: true; destinationPath: string; episodeCount?: number }
+  | {
+      success: true;
+      destinationPath: string;
+      episodeCount?: number;
+      /**
+       * Success that imported nothing because another grab already placed the
+       * file (a losing duplicate). Recorded on the row and used to suppress the
+       * "downloaded" admin notification — a skip is not a fresh import.
+       */
+      skipped?: boolean;
+      skipReason?: string;
+    }
   | { success: false; reason: string };
 
 /**
@@ -418,25 +429,32 @@ export async function finishPostProcess(
       return result;
     }
 
+    // A skip is a success that imported nothing (the file was already placed by
+    // another grab). Record the reason and DON'T fire the "downloaded" notice;
+    // clear it on a real import so a later genuine grab resets the state.
+    const skipReason = result.skipped ? (result.skipReason ?? null) : null;
     await prisma.downloadHistory.update({
       where: { id: downloadHistoryId },
       data: {
         postProcessDestinationPath: result.destinationPath,
         postProcessError: null,
+        postProcessSkipReason: skipReason,
       },
     });
     if (mediaId != null) {
       emitLibraryUpdate(mediaId);
-      const packEpisodeCount = result.success ? result.episodeCount : undefined;
-      await notifyAdminsMediaDownloaded({
-        mediaId,
-        episodeId,
-        season,
-        episodeCount: packEpisodeCount,
-        isUpgrade,
-      });
+      if (!result.skipped) {
+        const packEpisodeCount = result.episodeCount;
+        await notifyAdminsMediaDownloaded({
+          mediaId,
+          episodeId,
+          season,
+          episodeCount: packEpisodeCount,
+          isUpgrade,
+        });
+      }
     }
-    if (bookEditionId != null) {
+    if (bookEditionId != null && !result.skipped) {
       const { notifyAdminsBookDownloaded } = await import(
         "@rawkoon/api/workers/notifyBookEvents"
       );

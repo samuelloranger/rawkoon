@@ -197,7 +197,15 @@ final class AppModel {
         pathMonitor.pathUpdateHandler = { path in
             let online = path.status == .satisfied
             Task { @MainActor [weak self] in
-                self?.isOnline = online
+                guard let self else { return }
+                let cameBackOnline = online && !isOnline
+                isOnline = online
+                // Reconnected: un-latch downloads the dead zone stranded.
+                if cameBackOnline {
+                    for downloader in downloaders.values {
+                        downloader.retryFailedChapters()
+                    }
+                }
             }
         }
         pathMonitor.start(queue: DispatchQueue(label: "cloud.samlo.rawkoon.path"))
@@ -686,6 +694,8 @@ final class AppModel {
                 return
             }
             if let existing = downloaders[editionId] {
+                // Re-tap means "try again": clear given-up chapters first.
+                existing.retryFailedChapters()
                 existing.start()
                 return
             }

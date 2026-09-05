@@ -96,14 +96,12 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
 
       const { current_password, new_password } = body;
 
-      // Validate new password
       const [isValid, passwordError] = validatePassword(new_password);
       if (!isValid) {
         return badRequest(set, passwordError ?? "Invalid password");
       }
 
       try {
-        // Fetch user with password hash
         const dbUser = await prisma.user.findFirst({
           where: { id: user.id },
           select: { id: true, passwordHash: true },
@@ -120,7 +118,6 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
           );
         }
 
-        // Verify current password
         const isCurrentValid = await verifyPassword(
           current_password,
           dbUser.passwordHash,
@@ -129,7 +126,6 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
           return badRequest(set, "Current password is incorrect");
         }
 
-        // Hash new password and update
         const passwordHash = await hashPassword(new_password);
         await prisma.$transaction([
           prisma.user.update({
@@ -173,7 +169,6 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
         return notFound(set, "Image not found");
       }
 
-      // Set content type based on filename extension
       set.headers["Content-Type"] = getContentType(filename);
       set.headers["Cache-Control"] = "public, max-age=31536000"; // Cache for 1 year
 

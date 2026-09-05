@@ -36,7 +36,6 @@ export function useIOSImprovements(): void {
     window.addEventListener("resize", setVH);
     window.addEventListener("orientationchange", orientationChangeHandler);
 
-    // Cleanup function
     return () => {
       window.removeEventListener("resize", setVH);
       window.removeEventListener("orientationchange", orientationChangeHandler);

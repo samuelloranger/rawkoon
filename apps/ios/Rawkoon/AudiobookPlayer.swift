@@ -1012,9 +1012,15 @@ final class AudiobookPlayer {
         let ext = chapter.fileExtension
         if FileStore.exists(editionId: editionId, fileId: chapter.fileId, ext: ext) {
             let url = FileStore.chapterURL(editionId: editionId, fileId: chapter.fileId, ext: ext)
+            // Failed to open this session: stream but keep the file — the
+            // failure may be transient and it may be the only offline copy.
+            if recoveredFileIds.contains(chapter.fileId) {
+                return resolvedRemoteURL(for: chapter)
+            }
             if FileStore.size(url: url) == chapter.sizeBytes {
                 return url
             }
+            // Wrong size proves the file is broken, so drop it and stream.
             FileStore.delete(url: url)
         }
         return resolvedRemoteURL(for: chapter)
@@ -1046,19 +1052,11 @@ final class AudiobookPlayer {
         )
     }
 
-    /// A downloaded chapter is trusted on file size alone (`playbackURL`), so a
-    /// local file that is the right length but unreadable — a truncated or
-    /// interrupted download — is preferred over the server copy and then fails to
-    /// open. Delete it and rebuild so the same chapter streams instead. If that
-    /// also fails, the caller reports an error; we never skip to a later chapter.
-    ///
-    /// Treat a failed LOCAL item as evidence the download is bad: delete it and
-    /// rebuild the queue, which falls back to streaming. `recoveredFileIds` keeps
-    /// this to one attempt per chapter per session, so a chapter that fails for
-    /// some other reason cannot spin.
-    ///
-    /// Returns true when recovery was started, meaning the caller should not also
-    /// treat the failure as final.
+    /// Streams a local chapter AVPlayer failed to open, keeping the file: the
+    /// failure is often transient (audio-session/route churn), so deleting the
+    /// only offline copy would strand a listener who then loses network.
+    /// `recoveredFileIds` caps this to one attempt per chapter per session.
+    /// Returns true when recovery started, so the caller doesn't also finalize.
     private func recoverFromFailedLocalItem(_ item: AVPlayerItem) -> Bool {
         guard
             let chapter = chapter(for: item),
@@ -1072,12 +1070,11 @@ final class AudiobookPlayer {
         recoveredFileIds.insert(chapter.fileId)
         Log.playback.error(
             """
-            Deleting unreadable local chapter and falling back to streaming: \
-            chapterIndex=\(chapter.index, privacy: .public) \
+            Local chapter failed to open; streaming this session and keeping the \
+            file: chapterIndex=\(chapter.index, privacy: .public) \
             fileId=\(chapter.fileId, privacy: .public)
             """
         )
-        FileStore.delete(url: url)
         buildQueue(at: positionSecs, autoplay: isPlaying)
         return true
     }

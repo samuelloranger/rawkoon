@@ -119,9 +119,6 @@ const queues: Record<QueueName, Queue> = {
   [QUEUE_NAMES.LIBRARY_POST_PROCESS]: libraryPostProcessQueue,
 };
 
-/**
- * Utility to add a job to a specific queue
- */
 export async function addJob<T = Record<string, unknown>>(
   queueName: QueueName,
   jobName: string,
@@ -265,9 +262,6 @@ export function initWorkers() {
   );
 }
 
-/**
- * Setup repeatable jobs
- */
 export async function setupScheduledJobs() {
   console.log("⏰ Setting up scheduled jobs...");
 

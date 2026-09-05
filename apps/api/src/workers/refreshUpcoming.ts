@@ -189,18 +189,8 @@ export const refreshUpcoming = async (options?: {
       TMDB_UPCOMING_CACHE_TTL_SECONDS,
     );
 
+    // A successful cron end is not feed-worthy; only failures/skips are logged.
     console.log(`[cron:upcoming] Cached ${cacheItems.length} upcoming items`);
-    await logActivity({
-      type: "cron_job_ended",
-      payload: {
-        job_id: JOB_ID,
-        job_name: JOB_NAME,
-        success: true,
-        duration_ms: Date.now() - startedAt,
-        trigger,
-        message: `Cached ${cacheItems.length} items`,
-      },
-    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[cron:upcoming] Failed:", message);
