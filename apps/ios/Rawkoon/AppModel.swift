@@ -299,8 +299,8 @@ final class AppModel {
     /// the app-wide fix for actions that used to fail (or succeed) silently:
     /// call this from anywhere instead of stashing an error string a screen
     /// might not be showing.
-    func toast(_ message: String, style: Toast.Style = .info) {
-        currentToast = Toast(message: message, style: style)
+    func toast(_ message: String, style: Toast.Style = .info, action: ToastAction? = nil) {
+        currentToast = Toast(message: message, style: style, action: action)
 
         let generator = UINotificationFeedbackGenerator()
         switch style {
@@ -309,9 +309,13 @@ final class AppModel {
         case .info: break
         }
 
+        // An actionable toast (e.g. discover's "Undo") gets a longer window —
+        // the user needs time to read it and decide, not just glance at it.
+        let dismissDelay: Double = action == nil ? 3 : 5
+
         toastDismissTask?.cancel()
         toastDismissTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(3))
+            try? await Task.sleep(for: .seconds(dismissDelay))
             guard !Task.isCancelled else { return }
             self?.currentToast = nil
         }

@@ -1,5 +1,13 @@
 import SwiftUI
 
+/// An inline action offered alongside a toast's message — e.g. "Undo" after a
+/// discover-deck dismiss. Not `Equatable`; `Toast`'s own `==` only compares
+/// `id`, so this never needs to compare itself.
+struct ToastAction {
+    let label: String
+    let handler: () -> Void
+}
+
 /// A brief, auto-dismissing confirmation or error banner. The app has no
 /// notification-banner mechanism otherwise, so this is the one place a
 /// background action (a swipe delete, a menu action, a fire-and-forget
@@ -12,6 +20,7 @@ struct Toast: Equatable, Identifiable {
     let id = UUID()
     let message: String
     var style: Style = .info
+    var action: ToastAction?
 
     static func == (lhs: Toast, rhs: Toast) -> Bool {
         lhs.id == rhs.id
@@ -32,9 +41,9 @@ struct ToastOverlay: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .padding(.horizontal, 16)
                     .padding(.bottom, 12)
+                    .allowsHitTesting(toast.action != nil)
             }
         }
-        .allowsHitTesting(false)
         .animation(.spring(duration: 0.3), value: toast)
     }
 
@@ -46,6 +55,14 @@ struct ToastOverlay: View {
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(Theme.textStrong)
                 .lineLimit(2)
+            if let action = toast.action {
+                Spacer(minLength: 8)
+                Button(action: action.handler) {
+                    Text(action.label)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.apricot)
+                }
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)

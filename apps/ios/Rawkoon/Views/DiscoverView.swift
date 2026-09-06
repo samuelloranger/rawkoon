@@ -1,15 +1,36 @@
 import SwiftUI
 
-/// Tab root. Explore feed + TMDB search + poster grid; tap → MediaDetailView.
+/// Tab root. Deck-primary Discover (swipe triage of personalized/trending
+/// picks) + TMDB/book search; a toolbar Filter button opens the paginated
+/// `ExploreView` grid. Tap → MediaDetailView.
 struct DiscoverView: View {
     @Environment(AppModel.self) private var model
 
     @State private var query = ""
     @State private var kindFilter: KindFilter = .all
 
-    @State private var feed: ExploreFeed?
-    @State private var loadingFeed = false
-    @State private var feedError: String?
+    // MARK: Deck
+
+    @State private var deckItems: [DiscoverDeckItem] = []
+    @State private var deckSource: DiscoverSource?
+    @State private var deckLoading = false
+    @State private var deckError: String?
+    /// Bumped on every fresh batch so `.id(deckBatch)` forces `SwipeDeck` to
+    /// re-init its own local stack state instead of reusing stale offsets.
+    @State private var deckBatch = 0
+    /// tmdbIds already surfaced this session (acted on or merely shown), so a
+    /// prefetch/exhausted refetch doesn't hand back a card already seen.
+    @State private var excludedTmdbIds: Set<Int> = []
+    /// Cards left in the on-screen deck, tracked from this side since
+    /// `SwipeDeck` doesn't expose its remaining count — decremented on every
+    /// action closure so a background prefetch can fire before the deck
+    /// visibly runs dry.
+    @State private var actionsRemaining = 0
+    @State private var isPrefetching = false
+    @State private var prefetchedBatch: DiscoverDeckResponse?
+    @State private var openDeckItem: DiscoverDeckItem?
+
+    @State private var showExplore = false
 
     @State private var searchResults: [TmdbSearchItem] = []
     @State private var bookResults: [BookSearchHit] = []
@@ -17,6 +38,9 @@ struct DiscoverView: View {
     @State private var searchError: String?
     @State private var searchTask: Task<Void, Never>?
     @State private var addingVolumeId: String?
+
+    /// Cards still in the current batch before a prefetch kicks off.
+    private let prefetchThreshold = 5
 
     private enum KindFilter: String, CaseIterable {
         case all = "All"
@@ -68,7 +92,7 @@ struct DiscoverView: View {
                     kindPicker
                     searchContent
                 } else {
-                    feedContent
+                    deckContent
                 }
             }
             .padding(.top, 12)
@@ -77,13 +101,36 @@ struct DiscoverView: View {
         .background(Theme.base)
         .navigationTitle("Discover")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showExplore = true
+                } label: {
+                    Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
+                }
+            }
+        }
+        .sheet(isPresented: $showExplore) {
+            NavigationStack {
+                ExploreView()
+            }
+        }
+        .navigationDestination(item: $openDeckItem) { item in
+            MediaDetailView(
+                tmdbId: item.tmdbId,
+                mediaType: item.mediaType,
+                title: item.title,
+                posterPath: item.posterUrl,
+                libraryId: nil
+            )
+        }
         .task {
-            if feed == nil {
-                await loadFeed()
+            if deckItems.isEmpty, !deckLoading {
+                await loadDeck()
             }
         }
         .refreshable {
-            await loadFeed()
+            await loadDeck()
         }
         .onChange(of: query) { _, _ in
             scheduleSearch()
@@ -129,32 +176,30 @@ struct DiscoverView: View {
         .padding(.horizontal, 16)
     }
 
-    // MARK: Explore feed
+    // MARK: Discover deck
 
     @ViewBuilder
-    private var feedContent: some View {
-        if let feed, !feed.sections.isEmpty {
-            // Keep already-loaded rails on screen even when a refresh fails or is in
-            // flight — a transient refresh error must not wipe good data. The pull
-            // spinner covers loading, and a failed refresh surfaces as a banner
-            // above the rails instead of replacing them.
-            VStack(alignment: .leading, spacing: 24) {
-                if let feedError {
-                    refreshErrorBanner(feedError)
-                }
-                ForEach(feed.sections, id: \.id) { section in
-                    rail(title: section.title, items: section.items)
-                }
-            }
-        } else if loadingFeed {
+    private var deckContent: some View {
+        if !deckItems.isEmpty {
+            SwipeDeck(
+                items: deckItems,
+                label: deckSource.map(deckLabel(for:)) ?? "",
+                onDismiss: handleDismiss,
+                onWatchlist: handleWatchlist,
+                onPrimary: handlePrimary,
+                onExhausted: handleExhausted,
+                onOpen: { openDeckItem = $0 }
+            )
+            .id(deckBatch)
+        } else if deckLoading {
             ProgressView().tint(Theme.muted)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 28)
-        } else if let feedError {
+        } else if let deckError {
             ContentUnavailableView(
                 "Couldn't load Discover",
                 systemImage: "wifi.slash",
-                description: Text(feedError)
+                description: Text(deckError)
             )
             .padding(.top, 16)
         } else {
@@ -167,47 +212,10 @@ struct DiscoverView: View {
         }
     }
 
-    private func refreshErrorBanner(_ message: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "wifi.slash")
-                .foregroundStyle(Theme.terracotta)
-            Text(message)
-                .font(.callout)
-                .foregroundStyle(Theme.muted)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-
-    private func rail(title: LocalizedStringKey, items: [TmdbSearchItem]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.display(17))
-                .foregroundStyle(Theme.textStrong)
-                .padding(.horizontal, 16)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(items) { item in
-                        NavigationLink {
-                            MediaDetailView(
-                                tmdbId: item.tmdbId,
-                                mediaType: item.mediaType,
-                                title: item.title,
-                                posterPath: item.posterUrl,
-                                libraryId: item.libraryId
-                            )
-                        } label: {
-                            posterCard(item, fixedWidth: 110)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
+    private func deckLabel(for source: DiscoverSource) -> String {
+        switch source {
+        case .personalized: String(localized: "For you")
+        case .trending: String(localized: "Trending now")
         }
     }
 
@@ -347,10 +355,9 @@ struct DiscoverView: View {
     // MARK: Poster card
 
     /// A 2:3 poster with a status chip, plus a title caption below the image.
-    /// Pass `fixedWidth` for the horizontal rails (a known point size); pass
-    /// nil inside the search grid, where the LazyVGrid column already
-    /// constrains the width and the view simply fills it while keeping the
-    /// 2:3 ratio.
+    /// Pass `fixedWidth` for a known point size; pass nil inside the search
+    /// grid, where the LazyVGrid column already constrains the width and the
+    /// view simply fills it while keeping the 2:3 ratio.
     @ViewBuilder
     private func posterCard(_ item: TmdbSearchItem, fixedWidth: CGFloat?) -> some View {
         let image = AsyncImage(url: model.absoluteURL(item.posterUrl)) { image in
@@ -397,25 +404,137 @@ struct DiscoverView: View {
         }
     }
 
-    // MARK: Data
+    // MARK: Deck data
 
-    private func loadFeed() async {
-        loadingFeed = true
-        feedError = nil
-        defer { loadingFeed = false }
+    private func loadDeck() async {
+        deckLoading = true
+        deckError = nil
+        defer { deckLoading = false }
 
         guard let client = model.api() else {
-            feedError = String(localized: "Not signed in.")
+            deckError = String(localized: "Not signed in.")
             return
         }
         do {
-            feed = try await client.explore()
+            let response = try await client.discoverDeck(exclude: Array(excludedTmdbIds))
+            applyBatch(response)
         } catch let error as APIError {
-            feedError = message(for: error)
+            deckError = message(for: error)
         } catch {
-            feedError = String(localized: "Network error. Check your connection.")
+            deckError = String(localized: "Network error. Check your connection.")
         }
     }
+
+    private func applyBatch(_ response: DiscoverDeckResponse) {
+        deckItems = response.items
+        deckSource = response.source
+        actionsRemaining = response.items.count
+        deckBatch += 1
+        excludedTmdbIds.formUnion(response.items.map(\.tmdbId))
+        prefetchedBatch = nil
+    }
+
+    /// Called from every deck action closure. Once the visible stack drops to
+    /// `prefetchThreshold`, fetch the next batch in the background so
+    /// `handleExhausted` can hand it over instantly instead of showing a
+    /// loading spinner mid-swipe.
+    private func trackAction() {
+        actionsRemaining = max(0, actionsRemaining - 1)
+        guard actionsRemaining == prefetchThreshold, !isPrefetching, prefetchedBatch == nil else { return }
+        Task { await prefetchMore() }
+    }
+
+    private func prefetchMore() async {
+        guard let client = model.api() else { return }
+        isPrefetching = true
+        defer { isPrefetching = false }
+        if let response = try? await client.discoverDeck(exclude: Array(excludedTmdbIds)) {
+            prefetchedBatch = response
+        }
+    }
+
+    private func handleExhausted() {
+        if let batch = prefetchedBatch, !batch.items.isEmpty {
+            applyBatch(batch)
+        } else {
+            Task { await loadDeck() }
+        }
+    }
+
+    private func handleDismiss(_ item: DiscoverDeckItem) {
+        trackAction()
+        excludedTmdbIds.insert(item.tmdbId)
+
+        let tmdbId = item.tmdbId
+        let type = item.mediaType
+        Task {
+            guard let client = model.api() else { return }
+            try? await client.dismissDiscover(tmdbId: tmdbId, type: type)
+        }
+
+        model.toast(
+            String(localized: "Not interested"),
+            action: ToastAction(label: String(localized: "Undo")) {
+                Task {
+                    guard let client = model.api() else { return }
+                    try? await client.undismissDiscover(tmdbId: tmdbId, type: type)
+                }
+            }
+        )
+    }
+
+    private func handleWatchlist(_ item: DiscoverDeckItem) {
+        trackAction()
+        Task {
+            guard let client = model.api() else { return }
+            do {
+                try await client.addToWatchlist(
+                    tmdbId: item.tmdbId,
+                    mediaType: item.mediaType,
+                    title: item.title,
+                    posterURL: item.posterUrl,
+                    overview: item.overview,
+                    releaseYear: item.releaseYear,
+                    voteAverage: item.voteAverage,
+                    releaseDate: nil
+                )
+                model.toast(String(localized: "Added to watchlist"), style: .success)
+            } catch let error as APIError {
+                model.toast(message(for: error), style: .error)
+            } catch {
+                model.toast(String(localized: "Network error. Check your connection."), style: .error)
+            }
+        }
+    }
+
+    private func handlePrimary(_ item: DiscoverDeckItem) {
+        trackAction()
+        Task {
+            guard let client = model.api() else { return }
+            do {
+                if model.isAdmin {
+                    try await client.addToLibrary(tmdbId: item.tmdbId, type: item.mediaType)
+                    await model.loadLibrary()
+                    model.toast(String(localized: "Added to library"), style: .success)
+                } else {
+                    _ = try await client.createRequest(CreateRequestBody(
+                        tmdbId: item.tmdbId,
+                        type: item.mediaType == "tv" ? "show" : "movie",
+                        title: item.title,
+                        posterUrl: item.posterUrl,
+                        year: item.releaseYear
+                    ))
+                    model.toast(String(localized: "Requested — we'll notify you"), style: .success)
+                }
+            } catch let error as APIError {
+                model.toast(message(for: error), style: .error)
+            } catch {
+                model.toast(String(localized: "Network error. Check your connection."), style: .error)
+            }
+        }
+    }
+
+    // MARK: Search data
 
     private func scheduleSearch() {
         searchTask?.cancel()
