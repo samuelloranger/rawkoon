@@ -10,18 +10,38 @@ import { describe, it, expect, beforeEach, mock } from "bun:test";
  */
 
 type ActiveGrab = { id: number } | null;
+type HistoryRow = {
+  id: number;
+  mediaId: number;
+  episodeId: number | null;
+  season: number | null;
+};
 
 let activeGrab: ActiveGrab = null;
 let createError: unknown = null;
+let mediaRow = { id: 42, type: "movie", title: "Some Movie" };
+let nextHistoryId = 9001;
+const createdRows: HistoryRow[] = [];
 const createCalls: Record<string, unknown>[] = [];
 const findFirstWhere: Record<string, unknown>[] = [];
 const addedTorrents: unknown[] = [];
 
+function matchesTarget(
+  row: HistoryRow,
+  where: Record<string, unknown>,
+): boolean {
+  return (
+    row.mediaId === where.mediaId &&
+    row.episodeId === (where.episodeId ?? null) &&
+    row.season === (where.season ?? null)
+  );
+}
+
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
     libraryMedia: {
-      findUnique: async () => ({ id: 42, type: "movie", title: "Some Movie" }),
-      update: async () => ({ id: 42 }),
+      findUnique: async () => mediaRow,
+      update: async () => mediaRow,
     },
     libraryEpisode: {
       update: async () => ({ id: 1 }),
@@ -32,12 +52,21 @@ mock.module("@rawkoon/api/db", () => ({
     downloadHistory: {
       findFirst: async (args: { where: Record<string, unknown> }) => {
         findFirstWhere.push(args.where);
-        return activeGrab;
+        if (activeGrab) return activeGrab;
+        const found = createdRows.find((row) => matchesTarget(row, args.where));
+        return found ? { id: found.id } : null;
       },
       create: async (args: { data: Record<string, unknown> }) => {
         createCalls.push(args.data);
         if (createError) throw createError;
-        return { id: 9001 };
+        const row: HistoryRow = {
+          id: nextHistoryId++,
+          mediaId: args.data.mediaId as number,
+          episodeId: (args.data.episodeId as number | null) ?? null,
+          season: (args.data.season as number | null) ?? null,
+        };
+        createdRows.push(row);
+        return { id: row.id };
       },
       update: async () => ({ id: 9001 }),
     },
@@ -68,6 +97,9 @@ const MAGNET = "magnet:?xt=urn:btih:aaaabbbbccccddddeeeeffff0000111122223333";
 beforeEach(() => {
   activeGrab = null;
   createError = null;
+  mediaRow = { id: 42, type: "movie", title: "Some Movie" };
+  nextHistoryId = 9001;
+  createdRows.length = 0;
   createCalls.length = 0;
   findFirstWhere.length = 0;
   addedTorrents.length = 0;
@@ -140,6 +172,68 @@ describe("grabRelease duplicate-grab guard", () => {
       episodeId: null,
       season: 3,
     });
+  });
+
+  it("infers season from a pack title when the caller omits it", async () => {
+    mediaRow = { id: 500, type: "show", title: "Show" };
+
+    await grabRelease({
+      mediaId: 500,
+      downloadUrl: MAGNET,
+      releaseTitle: "Show.S02.1080p.WEB-DL",
+    });
+
+    expect(findFirstWhere[0]).toMatchObject({
+      mediaId: 500,
+      episodeId: null,
+      season: 2,
+    });
+    expect(createCalls[0]).toMatchObject({
+      mediaId: 500,
+      episodeId: null,
+      season: 2,
+    });
+  });
+
+  it("grabs a second season pack while another season of the same show is downloading", async () => {
+    mediaRow = { id: 500, type: "show", title: "Show" };
+
+    const season1 = await grabRelease({
+      mediaId: 500,
+      downloadUrl: MAGNET,
+      releaseTitle: "Show.S01.1080p.WEB-DL",
+    });
+    const season2 = await grabRelease({
+      mediaId: 500,
+      downloadUrl: MAGNET,
+      releaseTitle: "Show.S02.1080p.WEB-DL",
+    });
+
+    expect(season1.grabbed).toBe(true);
+    expect(season2.grabbed).toBe(true);
+    expect(addedTorrents).toHaveLength(2);
+  });
+
+  it("still refuses a second pack for the same season while the first is downloading", async () => {
+    mediaRow = { id: 500, type: "show", title: "Show" };
+
+    const first = await grabRelease({
+      mediaId: 500,
+      downloadUrl: MAGNET,
+      releaseTitle: "Show.S01.1080p.WEB-DL",
+    });
+    const second = await grabRelease({
+      mediaId: 500,
+      downloadUrl: MAGNET,
+      releaseTitle: "Show.S01.720p.WEB-DL",
+    });
+
+    expect(first.grabbed).toBe(true);
+    expect(second.grabbed).toBe(false);
+    expect(second.grabbed === false && second.reason).toContain(
+      "already active",
+    );
+    expect(addedTorrents).toHaveLength(1);
   });
 
   it("treats a P2002 on the unique index as a duplicate, not a crash", async () => {

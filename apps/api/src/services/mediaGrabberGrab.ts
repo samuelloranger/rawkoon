@@ -16,6 +16,7 @@ import {
   qualityJsonValue,
 } from "@rawkoon/api/services/mediaGrabberHelpers";
 import { tryAdoptQbDuplicate } from "@rawkoon/api/services/mediaGrabberAdopt";
+import { resolveGrabSeason } from "@rawkoon/api/services/grabEpisodeResolver";
 
 /**
  * Identifies what a grab is FOR. Movies are (media, null, null), single
@@ -119,10 +120,16 @@ export async function grabRelease(opts: {
     // (RSS poll + the 6-hourly release sweep) off the same "wanted" snapshot,
     // and a slow release pick makes that snapshot stale, so without this both
     // hand a torrent to the client for the same item.
+    const season = resolveGrabSeason({
+      mediaType: media.type,
+      episodeId: episodeId ?? null,
+      season: opts.season ?? null,
+      releaseTitle,
+    });
     const target: GrabTarget = {
       mediaId,
       episodeId: episodeId ?? null,
-      season: opts.season ?? null,
+      season,
     };
     const activeGrab = await prisma.downloadHistory.findFirst({
       where: { ...target, completedAt: null, failed: false },
@@ -374,7 +381,7 @@ export async function grabRelease(opts: {
       await notifyAdminsLibraryGrabbed({
         mediaId,
         episodeId: episodeId ?? null,
-        season: opts.season ?? null,
+        season,
         releaseTitle,
         isUpgrade: opts.isUpgrade,
       });

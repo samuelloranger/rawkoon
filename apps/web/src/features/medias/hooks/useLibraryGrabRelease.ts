@@ -17,6 +17,7 @@ export function useLibraryGrabRelease(libraryMediaId: number | null) {
       quality_parsed?: unknown;
       size_bytes?: number | null;
       episode_id?: number | null;
+      season?: number | null;
       is_upgrade?: boolean;
     }) => {
       if (libraryMediaId == null || libraryMediaId <= 0) {
@@ -37,6 +38,7 @@ export function useLibraryGrabRelease(libraryMediaId: number | null) {
               : {}),
             ...(body.size_bytes != null ? { size_bytes: body.size_bytes } : {}),
             ...(body.episode_id != null ? { episode_id: body.episode_id } : {}),
+            ...(body.season != null ? { season: body.season } : {}),
             ...(body.is_upgrade ? { is_upgrade: true } : {}),
           },
         },

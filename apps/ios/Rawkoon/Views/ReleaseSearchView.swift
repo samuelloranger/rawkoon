@@ -893,18 +893,23 @@ struct ReleaseSearchView: View {
             // release URL and, on a Jackett instance, enqueues nothing — so it is a
             // fallback for media-agnostic searches that have no library item yet.
             if let libraryMediaId, let downloadUrl = release.downloadUrl {
-                try await client.grabByUrl(
+                let result = try await client.grabByUrl(
                     libraryId: libraryMediaId,
                     body: GrabUrlBody(
                         downloadUrl: downloadUrl,
                         releaseTitle: release.title,
                         episodeId: nil,
+                        season: completeSeries ? nil : selectedSeason,
                         indexer: release.indexer,
                         qualityParsed: release.parsedQuality,
                         sizeBytes: release.sizeBytes,
                         isUpgrade: nil
                     )
                 )
+                if !result.grabbed {
+                    grabError = result.reason ?? String(localized: "Grab failed for \"\(release.title)\".")
+                    return
+                }
             } else if let token = release.downloadToken {
                 try await client.grabByToken(token)
             } else {

@@ -1171,8 +1171,8 @@ actor APIClient {
         try await postExpectOK("/api/medias/interactive-search/download", body: GrabTokenBody(token: token))
     }
 
-    func grabByUrl(libraryId: Int, body: GrabUrlBody) async throws {
-        try await postExpectOK("/api/library/\(libraryId)/grab", body: body)
+    func grabByUrl(libraryId: Int, body: GrabUrlBody) async throws -> LibrarySearchResponse {
+        try await post("/api/library/\(libraryId)/grab", body: body)
     }
 
     /// Whether the Local AI integration is enabled — gates the AI-pick UI.

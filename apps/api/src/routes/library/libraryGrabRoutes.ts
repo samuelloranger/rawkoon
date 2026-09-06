@@ -87,6 +87,7 @@ export const libraryGrabRoutes = new Elysia()
         const result = await grabRelease({
           mediaId: id,
           episodeId,
+          season: body.season ?? null,
           downloadUrl: body.download_url,
           releaseTitle: body.release_title,
           indexer: body.indexer ?? null,
@@ -112,6 +113,7 @@ export const libraryGrabRoutes = new Elysia()
         quality_parsed: t.Optional(t.Any()),
         size_bytes: t.Optional(t.Union([t.Number(), t.Null()])),
         episode_id: t.Optional(t.Union([t.Number(), t.Null()])),
+        season: t.Optional(t.Union([t.Number(), t.Null()])),
         is_upgrade: t.Optional(t.Boolean()),
       }),
     },
