@@ -262,15 +262,22 @@ export function useInteractiveSearchState({
       if (isSearchMode && libId != null && release.download_url) {
         // Library grab — records in DB and sends URL to the active client.
         if (libraryGrabMutation.isPending) return;
-        await libraryGrabMutation.mutateAsync({
+        const result = await libraryGrabMutation.mutateAsync({
           download_url: release.download_url,
           release_title: release.title,
           indexer: release.indexer,
           quality_parsed: release.parsed_quality ?? undefined,
           size_bytes: release.size_bytes,
           episode_id: episodeId,
+          ...(typeof selectedSeason === "number"
+            ? { season: selectedSeason }
+            : {}),
           ...(isUpgradeMode ? { is_upgrade: true } : {}),
         });
+        if (!result.grabbed) {
+          toast.error(result.reason ?? t("medias.interactive.downloadFailed"));
+          return;
+        }
       } else if (isSearchMode && release.download_token) {
         if (interactiveDownloadMutation.isPending) return;
         const res = await interactiveDownloadMutation.mutateAsync({
@@ -279,15 +286,24 @@ export function useInteractiveSearchState({
         const resolvedUrl = res.magnet_url ?? res.download_url;
         if (libId != null && resolvedUrl) {
           if (libraryGrabMutation.isPending) return;
-          await libraryGrabMutation.mutateAsync({
+          const result = await libraryGrabMutation.mutateAsync({
             download_url: resolvedUrl,
             release_title: release.title,
             indexer: release.indexer,
             quality_parsed: release.parsed_quality ?? undefined,
             size_bytes: release.size_bytes,
             episode_id: episodeId,
+            ...(typeof selectedSeason === "number"
+              ? { season: selectedSeason }
+              : {}),
             ...(isUpgradeMode ? { is_upgrade: true } : {}),
           });
+          if (!result.grabbed) {
+            toast.error(
+              result.reason ?? t("medias.interactive.downloadFailed"),
+            );
+            return;
+          }
         }
       } else {
         return;

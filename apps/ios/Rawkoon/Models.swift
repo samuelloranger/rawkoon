@@ -558,6 +558,7 @@ nonisolated struct GrabUrlBody: Encodable, Sendable {
     let downloadUrl: String
     let releaseTitle: String
     let episodeId: Int?
+    let season: Int?
     // Enriched to match the web grab: the server records these on the download
     // history so a grab from iOS is no longer lossier than one from the browser.
     let indexer: String?

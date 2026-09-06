@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
   episodeMapKey,
   resolveGrabEpisodeId,
+  resolveGrabSeason,
   type GrabEpisodeRef,
 } from "../src/services/grabEpisodeResolver";
 
@@ -69,5 +70,62 @@ describe("resolveGrabEpisodeId", () => {
       episodesBySeasonEpisode: map,
     });
     expect(r).toEqual({ ok: true, episodeId: 112, corrected: false });
+  });
+});
+
+describe("resolveGrabSeason", () => {
+  it("keeps an explicit season for a show pack", () => {
+    expect(
+      resolveGrabSeason({
+        mediaType: "show",
+        episodeId: null,
+        season: 2,
+        releaseTitle: "Show.S02.1080p",
+      }),
+    ).toBe(2);
+  });
+
+  it("infers season from a pack title when the caller omits it", () => {
+    expect(
+      resolveGrabSeason({
+        mediaType: "show",
+        episodeId: null,
+        season: null,
+        releaseTitle: "Show.S02.1080p.WEB-DL",
+      }),
+    ).toBe(2);
+  });
+
+  it("infers season from an SxxExx title grabbed as a pack (no episode id)", () => {
+    expect(
+      resolveGrabSeason({
+        mediaType: "show",
+        episodeId: null,
+        season: null,
+        releaseTitle: "Show.S02E01-E10.COMPLETE.1080p",
+      }),
+    ).toBe(2);
+  });
+
+  it("stays null for movies", () => {
+    expect(
+      resolveGrabSeason({
+        mediaType: "movie",
+        episodeId: null,
+        season: null,
+        releaseTitle: "Movie.2024.1080p",
+      }),
+    ).toBe(null);
+  });
+
+  it("stays null for episode grabs so they do not collide with a season pack", () => {
+    expect(
+      resolveGrabSeason({
+        mediaType: "show",
+        episodeId: 77,
+        season: 2,
+        releaseTitle: "Show.S02E01.1080p",
+      }),
+    ).toBe(null);
   });
 });

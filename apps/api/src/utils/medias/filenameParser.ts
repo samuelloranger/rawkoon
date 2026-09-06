@@ -360,8 +360,10 @@ export function parseReleaseSeasonEpisode(
   const xForm = title.match(/(?:^|[\s._-])(\d{1,2})x(\d{1,3})(?!\d)/i);
   if (xForm)
     return { season: parseInt(xForm[1], 10), episode: parseInt(xForm[2], 10) };
+  // (?!\d) not (?![\s._-]?\d): scene packs are "Show.S02.1080p", and the
+  // separator+digit lookahead treated ".1080p" as more of the season number.
   const seasonOnly = title.match(
-    /(?:^|[\s._-])(?:S|Season|Saison|Stagione|Series)[\s._-]?(\d{1,2})(?![\s._-]?\d)/i,
+    /(?:^|[\s._-])(?:S|Season|Saison|Stagione|Series)[\s._-]?(\d{1,2})(?!\d)/i,
   );
   if (seasonOnly) return { season: parseInt(seasonOnly[1], 10), episode: null };
   return null;

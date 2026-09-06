@@ -57,3 +57,19 @@ export function resolveGrabEpisodeId(opts: {
 export function episodeMapKey(season: number, episode: number): string {
   return `${season}x${episode}`;
 }
+
+/**
+ * Season half of the grab-target key. Infer from the title when interactive
+ * grab omits it, otherwise two packs for one show share (media, null, null).
+ */
+export function resolveGrabSeason(opts: {
+  mediaType: string;
+  episodeId?: number | null;
+  season?: number | null;
+  releaseTitle: string;
+}): number | null {
+  if (opts.episodeId != null) return null;
+  if (opts.season != null) return opts.season;
+  if (opts.mediaType !== "show") return null;
+  return parseReleaseSeasonEpisode(opts.releaseTitle)?.season ?? null;
+}
