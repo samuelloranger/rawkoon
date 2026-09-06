@@ -160,12 +160,14 @@ struct ExploreView: View {
             Button(action: onClear) {
                 Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .bold))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .accessibilityLabel("Clear filter")
         }
         .foregroundStyle(Theme.onAccent)
-        .padding(.horizontal, 10)
-        .frame(minHeight: 32)
+        .padding(.leading, 10)
+        .frame(minHeight: 44)
         .background(Theme.apricot, in: Capsule())
     }
 
@@ -261,7 +263,7 @@ struct ExploreView: View {
                 .padding(.vertical, 16)
         } else if let loadMoreError, page < totalPages {
             Button {
-                Task { await loadMore() }
+                Task { await loadMore(force: true) }
             } label: {
                 Text("Couldn't load more — \(loadMoreError). Tap to retry.")
                     .font(.footnote)
@@ -348,10 +350,14 @@ struct ExploreView: View {
         }
     }
 
-    private func loadMore() async {
-        guard !loadingMore, !loading, page < totalPages, loadMoreError == nil else { return }
+    /// `force` lets the "Tap to retry" button bypass the `loadMoreError`
+    /// guard that otherwise stops the automatic `onAppear` trigger from
+    /// hot-looping after a failed page fetch.
+    private func loadMore(force: Bool = false) async {
+        guard !loadingMore, !loading, page < totalPages, force || loadMoreError == nil else { return }
         guard let client = model.api() else { return }
         loadingMore = true
+        loadMoreError = nil
         defer { loadingMore = false }
         do {
             let response = try await fetchPage(client: client, page: page + 1)

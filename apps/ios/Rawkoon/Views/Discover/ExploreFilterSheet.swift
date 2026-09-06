@@ -164,7 +164,7 @@ struct ExploreFilterSheet: View {
                 .foregroundStyle(selected ? Theme.onAccent : Theme.text)
                 .lineLimit(1)
                 .padding(.horizontal, 12)
-                .frame(minHeight: 36)
+                .frame(minHeight: 44)
                 .background(selected ? Theme.apricot : Theme.inset, in: Capsule())
                 .overlay(Capsule().strokeBorder(selected ? .clear : Theme.border, lineWidth: 1))
         }
