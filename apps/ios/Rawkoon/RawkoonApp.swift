@@ -250,7 +250,7 @@ private struct RootTabsView: View {
         }
         .tabViewStyle(.sidebarAdaptable)
         .tint(Theme.apricot)
-        .miniPlayerAccessory(active: model.activeBook() != nil, onExpand: { showFullPlayer = true })
+        .miniPlayerAccessory(model: model, active: model.activeBook() != nil, onExpand: { showFullPlayer = true })
         .alert(
             "Couldn't play chapter",
             isPresented: Binding(
@@ -302,11 +302,17 @@ private extension View {
     /// (no active book) state must skip attaching it rather than render an
     /// empty accessory. `chromed: false` hands the system its own framing —
     /// `MiniPlayerView`'s floating-pill chrome is for the iOS 18 fallback only.
+    ///
+    /// The accessory content is hosted in a tree detached from the `WindowGroup`,
+    /// so it does not inherit the app root's `.environment(model)` — `MiniPlayerView`
+    /// reads `@Environment(AppModel.self)` and would trap on the missing value. Inject
+    /// it here, as every other presentation boundary (the player and deep-link sheets) does.
     @ViewBuilder
-    func miniPlayerAccessory(active: Bool, onExpand: @escaping () -> Void) -> some View {
+    func miniPlayerAccessory(model: AppModel, active: Bool, onExpand: @escaping () -> Void) -> some View {
         if #available(iOS 26.0, *), active {
             tabViewBottomAccessory {
                 MiniPlayerView(onExpand: onExpand, chromed: false)
+                    .environment(model)
             }
         } else {
             self
