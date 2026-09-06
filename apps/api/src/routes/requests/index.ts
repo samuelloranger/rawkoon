@@ -14,15 +14,19 @@ const REQUEST_LIST_LIMIT = 500;
 
 function mapRequest(r: {
   id: number;
-  tmdbId: number;
+  tmdbId: number | null;
   type: string;
   title: string;
+  author?: string | null;
   posterUrl: string | null;
   year: number | null;
   status: string;
   requestedById: string;
   qualityProfileId: number | null;
   libraryMediaId: number | null;
+  googleVolumeId?: string | null;
+  bookQualityProfileId?: number | null;
+  libraryBookId?: number | null;
   denyReason: string | null;
   createdAt: Date;
   decidedAt: Date | null;
@@ -33,6 +37,7 @@ function mapRequest(r: {
     tmdb_id: r.tmdbId,
     type: r.type,
     title: r.title,
+    author: r.author ?? null,
     poster_url: r.posterUrl,
     year: r.year,
     status: r.status,
@@ -42,6 +47,9 @@ function mapRequest(r: {
     },
     quality_profile_id: r.qualityProfileId,
     library_media_id: r.libraryMediaId,
+    google_volume_id: r.googleVolumeId ?? null,
+    book_quality_profile_id: r.bookQualityProfileId ?? null,
+    library_book_id: r.libraryBookId ?? null,
     deny_reason: r.denyReason,
     created_at: r.createdAt.toISOString(),
     decided_at: r.decidedAt ? r.decidedAt.toISOString() : null,
@@ -66,14 +74,26 @@ export const requestRoutes = new Elysia({ prefix: "/api/requests" })
   .post(
     "/",
     async ({ body, user, set }) => {
-      const result = await createRequest({
-        tmdbId: body.tmdb_id,
-        type: body.type,
-        title: body.title,
-        posterUrl: body.poster_url ?? null,
-        year: body.year ?? null,
-        userId: user!.id,
-      });
+      const result = await createRequest(
+        body.type === "book"
+          ? {
+              type: "book",
+              googleVolumeId: body.google_volume_id,
+              title: body.title,
+              author: body.author ?? null,
+              posterUrl: body.poster_url ?? null,
+              year: body.year ?? null,
+              userId: user!.id,
+            }
+          : {
+              type: body.type,
+              tmdbId: body.tmdb_id,
+              title: body.title,
+              posterUrl: body.poster_url ?? null,
+              year: body.year ?? null,
+              userId: user!.id,
+            },
+      );
       if (!result.ok) {
         return badRequest(
           set,
@@ -85,13 +105,23 @@ export const requestRoutes = new Elysia({ prefix: "/api/requests" })
       return { id: result.id };
     },
     {
-      body: t.Object({
-        tmdb_id: t.Number(),
-        type: t.Union([t.Literal("movie"), t.Literal("show")]),
-        title: t.String(),
-        poster_url: t.Optional(t.Union([t.String(), t.Null()])),
-        year: t.Optional(t.Union([t.Number(), t.Null()])),
-      }),
+      body: t.Union([
+        t.Object({
+          type: t.Union([t.Literal("movie"), t.Literal("show")]),
+          tmdb_id: t.Number(),
+          title: t.String(),
+          poster_url: t.Optional(t.Union([t.String(), t.Null()])),
+          year: t.Optional(t.Union([t.Number(), t.Null()])),
+        }),
+        t.Object({
+          type: t.Literal("book"),
+          google_volume_id: t.String(),
+          title: t.String(),
+          author: t.Optional(t.Union([t.String(), t.Null()])),
+          poster_url: t.Optional(t.Union([t.String(), t.Null()])),
+          year: t.Optional(t.Union([t.Number(), t.Null()])),
+        }),
+      ]),
     },
   )
   // Admin-only sub-app for approve/deny

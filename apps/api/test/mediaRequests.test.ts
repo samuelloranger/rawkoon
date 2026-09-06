@@ -2,16 +2,20 @@ import { describe, it, expect, beforeEach, mock, afterAll } from "bun:test";
 
 type Req = {
   id: number;
-  tmdbId: number;
+  tmdbId?: number | null;
   type: string;
   status: string;
   requestedById: string;
   libraryMediaId: number | null;
   title?: string;
+  googleVolumeId?: string | null;
+  bookQualityProfileId?: number | null;
+  libraryBookId?: number | null;
 };
 
 const state: {
   library: Array<{ tmdbId: number }>;
+  libraryBooks: Array<{ googleVolumeId: string }>;
   requests: Req[];
   created: unknown[];
   notifications: Array<{ userId: string; type: string }>;
@@ -21,15 +25,20 @@ const state: {
     notificationPreferences?: null;
   }>;
   profiles: number[];
+  bookProfiles: number[];
   mediaStatusById: Record<number, string>;
+  addedBooks: Array<{ volumeId: string; bookQualityProfileId?: number }>;
 } = {
   library: [],
+  libraryBooks: [],
   requests: [],
   created: [],
   notifications: [],
   admins: [],
   profiles: [],
+  bookProfiles: [],
   mediaStatusById: {},
+  addedBooks: [],
 };
 
 mock.module("@rawkoon/api/db", () => ({
@@ -48,21 +57,45 @@ mock.module("@rawkoon/api/db", () => ({
       },
       update: () => Promise.resolve({}),
     },
+    libraryBook: {
+      findUnique: ({ where }: { where: { googleVolumeId: string } }) =>
+        Promise.resolve(
+          state.libraryBooks.find(
+            (b) => b.googleVolumeId === where.googleVolumeId,
+          ) ?? null,
+        ),
+    },
     qualityProfile: {
       findUnique: ({ where }: { where: { id: number } }) =>
         Promise.resolve(
           state.profiles.includes(where.id) ? { id: where.id } : null,
         ),
     },
+    bookQualityProfile: {
+      findUnique: ({ where }: { where: { id: number } }) =>
+        Promise.resolve(
+          state.bookProfiles.includes(where.id) ? { id: where.id } : null,
+        ),
+    },
     mediaRequest: {
       findUnique: ({
         where,
       }: {
-        where: { tmdbId_type?: { tmdbId: number; type: string }; id?: number };
+        where: {
+          tmdbId_type?: { tmdbId: number; type: string };
+          googleVolumeId?: string;
+          id?: number;
+        };
       }) => {
         if (where.id != null)
           return Promise.resolve(
             state.requests.find((r) => r.id === where.id) ?? null,
+          );
+        if (where.googleVolumeId != null)
+          return Promise.resolve(
+            state.requests.find(
+              (r) => r.googleVolumeId === where.googleVolumeId,
+            ) ?? null,
           );
         const k = where.tmdbId_type!;
         return Promise.resolve(
@@ -139,6 +172,23 @@ mock.module("@rawkoon/api/utils/medias/tmdbRegion", () => ({
   getGlobalTmdbRegion: () => Promise.resolve("US"),
 }));
 
+mock.module("@rawkoon/api/services/books/bookLibrary", () => ({
+  addBookFromVolume: ({
+    volumeId,
+    bookQualityProfileId,
+  }: {
+    volumeId: string;
+    bookQualityProfileId?: number;
+  }) => {
+    state.addedBooks.push({ volumeId, bookQualityProfileId });
+    return Promise.resolve({
+      added: true,
+      bookId: 5000 + state.addedBooks.length,
+      created: true,
+    });
+  },
+}));
+
 // Full export surface — a partial mock here leaks globally (bun mock.module is
 // process-wide) and breaks other suites that use the real cache module.
 mock.module("@rawkoon/api/services/cache", () => ({
@@ -175,12 +225,15 @@ afterAll(() => {
 
 beforeEach(() => {
   state.library = [];
+  state.libraryBooks = [];
   state.requests = [];
   state.created = [];
   state.notifications = [];
   state.admins = [{ id: "admin-1" }];
   state.profiles = [1, 3];
+  state.bookProfiles = [7];
   state.mediaStatusById = {};
+  state.addedBooks = [];
 });
 
 describe("createRequest", () => {
@@ -260,6 +313,64 @@ describe("createRequest", () => {
       { userId: "admin-1", type: "request_pending" },
     ]);
   });
+
+  it("rejects a book already in the library", async () => {
+    state.libraryBooks = [{ googleVolumeId: "vol-1" }];
+    const r = await createRequest({
+      type: "book",
+      googleVolumeId: "vol-1",
+      title: "Book X",
+      author: "Author X",
+      posterUrl: null,
+      year: null,
+      userId: "u1",
+    });
+    expect(r).toEqual({ ok: false, reason: "exists_in_library" });
+  });
+
+  it("creates a book request and notifies admins", async () => {
+    const r = await createRequest({
+      type: "book",
+      googleVolumeId: "vol-2",
+      title: "Book Y",
+      author: "Author Y",
+      posterUrl: null,
+      year: 2020,
+      userId: "u1",
+    });
+    expect(r).toEqual({ ok: true, id: 1 });
+    expect(state.requests[0]).toMatchObject({
+      type: "book",
+      googleVolumeId: "vol-2",
+      title: "Book Y",
+    });
+    expect(state.notifications).toEqual([
+      { userId: "admin-1", type: "request_pending" },
+    ]);
+  });
+
+  it("rejects a duplicate book request by volume id", async () => {
+    state.requests = [
+      {
+        id: 1,
+        type: "book",
+        status: "pending",
+        requestedById: "u2",
+        libraryMediaId: null,
+        googleVolumeId: "vol-3",
+      },
+    ];
+    const r = await createRequest({
+      type: "book",
+      googleVolumeId: "vol-3",
+      title: "Book Z",
+      author: null,
+      posterUrl: null,
+      year: null,
+      userId: "u1",
+    });
+    expect(r).toEqual({ ok: false, reason: "already_requested" });
+  });
 });
 
 describe("approveRequest", () => {
@@ -307,6 +418,51 @@ describe("approveRequest", () => {
     const r = await approveRequest(1, 999, "admin-1"); // 999 not in profiles
     expect(r).toEqual({ ok: false, reason: "invalid_profile" });
     expect(state.requests[0].status).toBe("pending");
+    expect(state.notifications).toEqual([]);
+  });
+
+  it("adds a book via the book-add flow, links it, sets approved, notifies requester", async () => {
+    state.requests = [
+      {
+        id: 1,
+        type: "book",
+        status: "pending",
+        requestedById: "u1",
+        libraryMediaId: null,
+        title: "Book X",
+        googleVolumeId: "vol-1",
+      },
+    ];
+    const r = await approveRequest(1, 7, "admin-1"); // 7 is a book profile
+    expect(r).toEqual({ ok: true });
+    const row = state.requests[0];
+    expect(row.status).toBe("approved");
+    expect(row.bookQualityProfileId).toBe(7);
+    expect(row.libraryBookId).toBe(5001);
+    expect(state.addedBooks).toEqual([
+      { volumeId: "vol-1", bookQualityProfileId: 7 },
+    ]);
+    expect(state.notifications).toEqual([
+      { userId: "u1", type: "request_decided" },
+    ]);
+  });
+
+  it("rejects a stale/deleted book quality profile for a book request", async () => {
+    state.requests = [
+      {
+        id: 1,
+        type: "book",
+        status: "pending",
+        requestedById: "u1",
+        libraryMediaId: null,
+        title: "Book X",
+        googleVolumeId: "vol-1",
+      },
+    ];
+    const r = await approveRequest(1, 999, "admin-1"); // 999 not in bookProfiles
+    expect(r).toEqual({ ok: false, reason: "invalid_profile" });
+    expect(state.requests[0].status).toBe("pending");
+    expect(state.addedBooks).toEqual([]);
     expect(state.notifications).toEqual([]);
   });
 });

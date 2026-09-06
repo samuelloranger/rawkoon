@@ -263,6 +263,10 @@ const COPY = {
     en: () => "TV show",
     fr: () => "Série",
   },
+  mediaKindBook: {
+    en: () => "Book",
+    fr: () => "Livre",
+  },
   bookKindEbook: {
     en: () => "Ebook",
     fr: () => "Livre numérique",
