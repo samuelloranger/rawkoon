@@ -27,7 +27,7 @@ struct DetailSeasonsSection: View {
     private var visibleSeasons: [SeasonSummary] {
         seasons
             .sorted { $0.seasonNumber < $1.seasonNumber }
-            .filter { $0.seasonNumber != 0 || $0.episodeCount > 0 }
+            .filter { $0.seasonNumber != 0 || ($0.episodeCount ?? 0) > 0 }
     }
 
     var body: some View {
@@ -48,7 +48,7 @@ struct DetailSeasonsSection: View {
     private func seasonBlock(_ season: SeasonSummary) -> some View {
         let episodes = episodesBySeason[season.seasonNumber] ?? []
         let downloaded = episodes.filter { $0.status == "downloaded" }.count
-        let total = episodes.isEmpty ? season.episodeCount : episodes.count
+        let total = episodes.isEmpty ? (season.episodeCount ?? 0) : episodes.count
         let isExpanded = expanded.contains(season.seasonNumber)
         let canManage = inLibrary && isAdmin
 
@@ -93,7 +93,7 @@ struct DetailSeasonsSection: View {
     }
 
     private func countLabel(downloaded: Int, total: Int, season: SeasonSummary) -> String {
-        inLibrary ? "\(downloaded)/\(total)" : "\(season.episodeCount) episodes"
+        inLibrary ? "\(downloaded)/\(total)" : "\(season.episodeCount ?? 0) episodes"
     }
 
     private func seasonMenu(_ season: SeasonSummary, episodes: [Episode]) -> some View {

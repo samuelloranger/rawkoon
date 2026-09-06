@@ -97,7 +97,6 @@ struct DiscoverView: View {
                 }
             }
             .padding(.top, 12)
-            .padding(.bottom, 96)
         }
         .background(Theme.base)
         .navigationTitle("Discover")
@@ -493,6 +492,7 @@ struct DiscoverView: View {
         model.toast(
             String(localized: "Not interested"),
             action: ToastAction(label: String(localized: "Undo")) {
+                excludedTmdbIds.remove(tmdbId)
                 Task {
                     guard let client = model.api() else { return }
                     try? await client.undismissDiscover(tmdbId: tmdbId, type: type)

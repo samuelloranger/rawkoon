@@ -360,7 +360,12 @@ struct ActivityView: View {
             queueRows = rows
         } catch let error as APIError {
             queueError = message(for: error)
+        } catch is CancellationError {
+            // A lane switch or live reload cancelled this fetch — not a real failure.
         } catch {
+            if Task.isCancelled {
+                return
+            }
             queueError = String(localized: "Network error. Check your connection.")
         }
     }
@@ -393,12 +398,21 @@ struct ActivityView: View {
 
     private var historyList: some View {
         LazyVStack(spacing: 8) {
-            ForEach(Array(activities.enumerated()), id: \.offset) { offset, activity in
+            ForEach(Array(activities.enumerated()), id: \.offset) { _, activity in
                 historyRow(activity)
                     .onAppear {
-                        guard offset == activities.count - 1, historyHasMore else { return }
-                        loadMoreTask?.cancel()
-                        loadMoreTask = Task { await loadMoreHistory() }
+                        // Trigger on the row's own identity, not its offset: an
+                        // offset-keyed ForEach re-fires `onAppear` for whichever
+                        // row currently sits at the "last" offset, which with
+                        // SwiftUI's double-fire could cancel a load that's
+                        // already in flight and stall pagination.
+                        guard historyHasMore, !loadingMoreHistory, loadMoreTask == nil,
+                              let id = activity.id, id == activities.last?.id
+                        else { return }
+                        loadMoreTask = Task {
+                            await loadMoreHistory()
+                            loadMoreTask = nil
+                        }
                     }
             }
             if loadingMoreHistory {

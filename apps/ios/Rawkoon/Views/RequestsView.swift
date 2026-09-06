@@ -186,8 +186,11 @@ struct RequestsView: View {
 
     private func subtitle(for req: MediaRequest) -> String {
         let requester = req.requestedBy?.name ?? "someone"
-        if req.type == "book", let author = req.author, !author.isEmpty {
-            return "\(author) · requested by \(requester)"
+        if req.type == "book" {
+            if let author = req.author, !author.isEmpty {
+                return "\(author) · requested by \(requester)"
+            }
+            return "requested by \(requester)"
         }
         return "\(req.year ?? 0) · requested by \(requester)"
     }

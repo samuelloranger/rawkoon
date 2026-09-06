@@ -250,7 +250,7 @@ private struct RootTabsView: View {
         }
         .tabViewStyle(.sidebarAdaptable)
         .tint(Theme.apricot)
-        .miniPlayerAccessory(onExpand: { showFullPlayer = true })
+        .miniPlayerAccessory(active: model.activeBook() != nil, onExpand: { showFullPlayer = true })
         .alert(
             "Couldn't play chapter",
             isPresented: Binding(
@@ -295,11 +295,18 @@ private extension View {
     /// `tabViewBottomAccessory` is iOS 26+; the app's deployment target is 18,
     /// so pre-26 devices get the mini player from `MiniPlayerContentInset`
     /// instead (applied per-tab, not here — see that type's doc comment).
+    ///
+    /// `active` gates whether the accessory is attached at all: the system
+    /// reserves the accessory's slot as soon as `tabViewBottomAccessory` is
+    /// present, even if `MiniPlayerView`'s own content is empty, so an idle
+    /// (no active book) state must skip attaching it rather than render an
+    /// empty accessory. `chromed: false` hands the system its own framing —
+    /// `MiniPlayerView`'s floating-pill chrome is for the iOS 18 fallback only.
     @ViewBuilder
-    func miniPlayerAccessory(onExpand: @escaping () -> Void) -> some View {
-        if #available(iOS 26.0, *) {
+    func miniPlayerAccessory(active: Bool, onExpand: @escaping () -> Void) -> some View {
+        if #available(iOS 26.0, *), active {
             tabViewBottomAccessory {
-                MiniPlayerView(onExpand: onExpand)
+                MiniPlayerView(onExpand: onExpand, chromed: false)
             }
         } else {
             self

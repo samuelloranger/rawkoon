@@ -57,6 +57,10 @@ struct ExploreView: View {
     @State private var error: String?
     @State private var loadMoreError: String?
     @State private var showFilters = false
+    /// Bumped every time filters change so a `loadFirstPage`/`loadMore` still
+    /// in flight from the previous filters discards its response instead of
+    /// appending stale-filter pages onto the new grid.
+    @State private var loadGeneration = 0
 
     private var gridColumns: [GridItem] {
         Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
@@ -100,6 +104,7 @@ struct ExploreView: View {
             await loadFirstPage()
         }
         .onChange(of: filters) { _, _ in
+            loadGeneration += 1
             items = []
             page = 1
             totalPages = 1
@@ -334,18 +339,24 @@ struct ExploreView: View {
             error = String(localized: "Not signed in.")
             return
         }
+        let generation = loadGeneration
         loading = true
         error = nil
-        defer { loading = false }
+        defer {
+            if generation == loadGeneration { loading = false }
+        }
         do {
             let response = try await fetchPage(client: client, page: 1)
+            guard generation == loadGeneration else { return }
             items = response.items
             page = response.page
             totalPages = response.totalPages
             totalResults = response.totalResults
         } catch let apiError as APIError {
+            guard generation == loadGeneration else { return }
             error = message(for: apiError)
         } catch {
+            guard generation == loadGeneration else { return }
             self.error = String(localized: "Network error. Check your connection.")
         }
     }
@@ -356,18 +367,24 @@ struct ExploreView: View {
     private func loadMore(force: Bool = false) async {
         guard !loadingMore, !loading, page < totalPages, force || loadMoreError == nil else { return }
         guard let client = model.api() else { return }
+        let generation = loadGeneration
         loadingMore = true
         loadMoreError = nil
-        defer { loadingMore = false }
+        defer {
+            if generation == loadGeneration { loadingMore = false }
+        }
         do {
             let response = try await fetchPage(client: client, page: page + 1)
+            guard generation == loadGeneration else { return }
             items.append(contentsOf: response.items)
             page = response.page
             totalPages = response.totalPages
             totalResults = response.totalResults
         } catch let apiError as APIError {
+            guard generation == loadGeneration else { return }
             loadMoreError = message(for: apiError)
         } catch {
+            guard generation == loadGeneration else { return }
             loadMoreError = String(localized: "Network error.")
         }
     }

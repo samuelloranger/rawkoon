@@ -44,7 +44,7 @@ struct ToastOverlay: View {
                     .allowsHitTesting(toast.action != nil)
             }
         }
-        .animation(.spring(duration: 0.3), value: toast)
+        .rawkoonMotion(.spring(duration: 0.3), value: toast)
     }
 
     private func content(for toast: Toast) -> some View {
@@ -61,6 +61,7 @@ struct ToastOverlay: View {
                     Text(action.label)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.apricot)
+                        .frame(minHeight: 44)
                 }
             }
         }

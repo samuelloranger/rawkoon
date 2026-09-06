@@ -160,7 +160,7 @@ nonisolated struct CastMember: Decodable, Identifiable, Hashable, Sendable {
     let id: Int
     let name: String
     let character: String?
-    let profilePath: String? // server key is `profile_url`, not `profile_path`
+    let profileUrl: String?
 }
 
 nonisolated struct MediaCredits: Decodable, Sendable {
@@ -212,7 +212,7 @@ nonisolated struct NamedRef: Decodable, Hashable, Sendable {
 nonisolated struct SeasonSummary: Decodable, Hashable, Sendable {
     let seasonNumber: Int
     let name: String
-    let episodeCount: Int
+    let episodeCount: Int?
 }
 
 // MARK: - Library episodes (TV)
