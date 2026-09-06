@@ -36,9 +36,24 @@ struct MiniPlayerView: View {
             } else {
                 row(active)
                     .padding(.horizontal, 10)
-                    .padding(.vertical, 7)
+                    .padding(.vertical, 12)
             }
         }
+    }
+
+    /// The native `tabViewBottomAccessory` (iOS 26) draws on a light, adaptive
+    /// system material, where the app's dark-surface text tokens go unreadable —
+    /// so the un-chromed variant uses semantic colors that adapt to it. The
+    /// iOS 18 pill keeps the Cozy Dusk tokens against its own dark chrome.
+    private var titleColor: Color {
+        chromed ? Theme.textStrong : .primary
+    }
+
+    private var subtitleColor: Color {
+        if model.player.playbackError != nil {
+            return Theme.terracotta
+        }
+        return chromed ? Theme.muted : .secondary
     }
 
     @ViewBuilder
@@ -51,13 +66,11 @@ struct MiniPlayerView: View {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(active.summary.title)
                             .font(.display(14))
-                            .foregroundStyle(Theme.textStrong)
+                            .foregroundStyle(titleColor)
                             .lineLimit(1)
                         Text(chapterLine(active.manifest))
                             .font(.caption2)
-                            .foregroundStyle(
-                                model.player.playbackError == nil ? Theme.muted : Theme.terracotta
-                            )
+                            .foregroundStyle(subtitleColor)
                             .lineLimit(2)
                     }
 
@@ -87,7 +100,7 @@ struct MiniPlayerView: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(Theme.muted)
+                    .foregroundStyle(chromed ? Theme.muted : .secondary)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
