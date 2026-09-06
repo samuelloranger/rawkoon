@@ -198,6 +198,7 @@ private struct RootTabsView: View {
             case "indexers": NavigationStack { IndexersView() }
             case "users": NavigationStack { UsersView() }
             case "downloadClient": NavigationStack { DownloadClientView() }
+            case "explore": NavigationStack { ExploreView() }
             default: mainTabs
             }
         }
