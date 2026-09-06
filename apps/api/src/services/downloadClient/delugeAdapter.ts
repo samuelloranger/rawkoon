@@ -6,6 +6,7 @@ import {
   DownloadClientError,
   type NormalizedTorrent,
 } from "./types";
+import { fetchWithTimeout } from "@rawkoon/api/utils/fetchWithTimeout";
 
 const num = (value: unknown, fallback = 0): number =>
   typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -58,14 +59,18 @@ export function createDelugeAdapter(
   let loggedIn = false;
 
   const rawCall = async <T>(method: string, params: unknown[]): Promise<T> => {
-    const response = await fetch(jsonUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(cookie ? { Cookie: cookie } : {}),
+    const response = await fetchWithTimeout(
+      jsonUrl,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(cookie ? { Cookie: cookie } : {}),
+        },
+        body: JSON.stringify({ method, params, id: ++rpcId }),
       },
-      body: JSON.stringify({ method, params, id: ++rpcId }),
-    });
+      15_000,
+    );
     const setCookie = response.headers.get("set-cookie");
     if (setCookie) cookie = setCookie.split(";")[0] ?? "";
     if (!response.ok) {

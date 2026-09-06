@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
+import * as realFs from "node:fs/promises";
 
 // The health page is the only place that tells an admin a book is downloaded
 // but unreadable. Two behaviours matter: an edition marked downloaded with no
@@ -56,17 +57,23 @@ mock.module("@rawkoon/api/db", () => ({
   },
 }));
 
-mock.module("node:fs/promises", () => ({
-  access: (path: string) =>
-    state.existingPaths.has(path)
-      ? Promise.resolve(undefined)
-      : Promise.reject(new Error("ENOENT")),
-}));
+function installIntegrityFsMock() {
+  mock.module("node:fs/promises", () => ({
+    ...realFs,
+    access: (path: string) =>
+      state.existingPaths.has(path)
+        ? Promise.resolve(undefined)
+        : Promise.reject(new Error("ENOENT")),
+  }));
+}
+installIntegrityFsMock();
 
 const {
   collectDownloadedBookEditionsWithoutFiles,
   collectMissingBookFilePaths,
 } = await import("@rawkoon/api/services/libraryIntegrityCollectors");
+
+beforeEach(installIntegrityFsMock);
 
 describe("collectDownloadedBookEditionsWithoutFiles", () => {
   beforeEach(() => {

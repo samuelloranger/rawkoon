@@ -1,5 +1,6 @@
 import { logQbittorrentRequest } from "./requestLogs";
 import type { QbittorrentIntegrationConfig } from "./clientTypes";
+import { fetchWithTimeout } from "@rawkoon/api/utils/fetchWithTimeout";
 
 interface SessionState {
   key: string;
@@ -138,14 +139,18 @@ const login = async (
   const startedAt = Date.now();
 
   try {
-    const response = await fetch(loginUrl.toString(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Referer: config.website_url,
+    const response = await fetchWithTimeout(
+      loginUrl.toString(),
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Referer: config.website_url,
+        },
+        body: body.toString(),
       },
-      body: body.toString(),
-    });
+      15_000,
+    );
 
     const text = (await response.text()).trim();
 
@@ -212,7 +217,11 @@ export const qbRequest = async (
   const request = async (): Promise<Response> => {
     const mergedHeaders = new Headers(init?.headers ?? {});
     if (qbSession.sidCookie) mergedHeaders.set("Cookie", qbSession.sidCookie);
-    return fetch(url.toString(), { ...init, headers: mergedHeaders });
+    return fetchWithTimeout(
+      url.toString(),
+      { ...init, headers: mergedHeaders },
+      15_000,
+    );
   };
 
   let authRetried = false;

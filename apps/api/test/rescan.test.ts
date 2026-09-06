@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll, mock } from "bun:test";
+import * as realFs from "node:fs/promises";
+import * as shared from "@rawkoon/shared";
+import * as realFilenameParser from "@rawkoon/api/utils/medias/filenameParser";
 
 // ---------------------------------------------------------------------------
 // Mutable state shared across all mock factories
@@ -184,6 +187,7 @@ mock.module("@rawkoon/api/db", () => ({
 }));
 
 mock.module("node:fs/promises", () => ({
+  ...realFs,
   stat: (filePath: string) => {
     const entry = statMap[filePath];
     if (!entry) return Promise.reject(new Error("ENOENT"));
@@ -216,6 +220,7 @@ mock.module("@rawkoon/api/utils/medias/mediainfoScanner", () => ({
 }));
 
 mock.module("@rawkoon/api/utils/medias/filenameParser", () => ({
+  ...realFilenameParser,
   parseFilenameMetadata: () => ({
     hdrFormat: null,
     resolution: null,
@@ -259,6 +264,7 @@ mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
 }));
 
 mock.module("@rawkoon/shared", () => ({
+  ...shared,
   classifyLanguageTags: () => [],
 }));
 
@@ -313,6 +319,44 @@ function makeFile(overrides: Partial<FileRecord> = {}): FileRecord {
 }
 
 beforeEach(() => {
+  mock.module("node:fs/promises", () => ({
+    ...realFs,
+    stat: (filePath: string) => {
+      const entry = statMap[filePath];
+      if (!entry) return Promise.reject(new Error("ENOENT"));
+      const ov = entry === true ? {} : entry;
+      return Promise.resolve({
+        size: BigInt(ov.size ?? 1_000_000),
+        mtimeMs: BigInt(ov.mtimeMs ?? 1_700_000_000_000),
+        dev: BigInt(ov.dev ?? 1),
+        ino: BigInt(ov.ino ?? 100 + (filePath.length % 50)),
+        isFile: () => true,
+      });
+    },
+    readdir: (dirPath: string) => {
+      const names = readdirMap[dirPath] ?? [];
+      return Promise.resolve(
+        names.map((name) => ({ name, isFile: () => true })),
+      );
+    },
+    rename: (from: string, to: string) => {
+      renameCaptures.push({ from, to });
+      return Promise.resolve();
+    },
+  }));
+  mock.module("@rawkoon/shared", () => ({
+    ...shared,
+    classifyLanguageTags: () => [],
+  }));
+  mock.module("@rawkoon/api/utils/medias/filenameParser", () => ({
+    ...realFilenameParser,
+    parseFilenameMetadata: () => ({
+      hdrFormat: null,
+      resolution: null,
+      source: null,
+      releaseGroup: null,
+    }),
+  }));
   state.media = null;
   state.files = [];
   state.remainingFileCount = null;

@@ -63,6 +63,21 @@ export async function postProcess(downloadHistoryId: number): Promise<
     return { success: false, reason: "Post-processing disabled" };
   }
 
+  // A previous attempt already placed the file; SIGTERM retry must not re-copy.
+  if (dh.postProcessDestinationPath) {
+    try {
+      await stat(dh.postProcessDestinationPath);
+      return {
+        success: true,
+        destinationPath: dh.postProcessDestinationPath,
+        skipped: true,
+        skipReason: "already-placed",
+      };
+    } catch {
+      // Destination gone — continue and place again.
+    }
+  }
+
   const op = settings.fileOperation === "move" ? "move" : "hardlink";
 
   if (dh.media.type === "movie") {
@@ -214,11 +229,30 @@ export async function postProcess(downloadHistoryId: number): Promise<
 
   const destinationPath = join(root, relativeDest);
 
+  // A previous run may have finished the copy/link before dying; skip
+  // re-placing so attempts:2 is safe after SIGTERM mid-import.
+  if (dh.postProcessDestinationPath) {
+    try {
+      await stat(dh.postProcessDestinationPath);
+      await markItemDownloaded({ media: dh.media!, episode: dh.episode });
+      return {
+        success: true,
+        destinationPath: dh.postProcessDestinationPath,
+      };
+    } catch {
+      // dest gone — fall through and place again
+    }
+  }
+
   try {
-    await placeFile(srcVideo, destinationPath, op);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { success: false, reason: msg };
+    await stat(destinationPath);
+  } catch {
+    try {
+      await placeFile(srcVideo, destinationPath, op);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return { success: false, reason: msg };
+    }
   }
 
   // Create (or refresh) a MediaFile record so the library listing reflects the processed file.

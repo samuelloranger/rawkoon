@@ -40,7 +40,7 @@ export interface NormalizedRelease {
   tmdbId: number | null;
   /** Download volume factor: 0 = freeleech, 1 = normal (Jackett-only) */
   freeleech: boolean;
-  /** Original raw payload — used by Prowlarr adapter for grab POST */
+  /** Original raw payload — Prowlarr stores this on the download token */
   rawPayload?: Record<string, unknown>;
 }
 
@@ -58,6 +58,9 @@ export interface GrabResult {
   success: boolean;
   downloadUrl?: string;
   magnetUrl?: string;
+  /** Release title from the stored token — needed to call grabRelease(). */
+  title?: string;
+  indexer?: string | null;
   error?: string;
 }
 
@@ -83,17 +86,15 @@ export interface IndexerManagerAdapter {
   getIndexers(): Promise<NormalizedIndexer[]>;
 
   /**
-   * Grab/download a release.
-   * - Prowlarr: POSTs stored payload back to Prowlarr API
-   * - Jackett: returns the direct download URL/magnet
+   * Resolve a stored token to a download URL/magnet (and title).
+   * Neither adapter hands the torrent to a download client — Rawkoon owns that.
    */
   grabRelease(token: string): Promise<GrabResult>;
 
   /**
    * Store a release and return a download token for later grab.
-   * - Prowlarr: stores the full raw payload for POST-back
-   * - Jackett: stores the download URL/magnet
-   * Returns null if the release has no downloadable target.
+   * Prowlarr stores the raw payload (URL extracted at grab time); Jackett stores
+   * the download URL/magnet plus title. Returns null if there is no target.
    */
   storeReleaseToken(release: NormalizedRelease): string | null;
 

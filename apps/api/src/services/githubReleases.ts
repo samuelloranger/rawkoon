@@ -12,6 +12,7 @@ import type {
 } from "@rawkoon/shared/types";
 import { getAdminNotificationTargets } from "@rawkoon/api/services/notificationPreferences";
 import { notificationCopy } from "@rawkoon/api/services/notificationCopy";
+import { fetchWithTimeout } from "@rawkoon/api/utils/fetchWithTimeout";
 
 const RELEASES_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
 const SYNC_STATE_CACHE_TTL_SECONDS = 365 * 24 * 60 * 60;
@@ -101,7 +102,7 @@ function normalizeVersionTag(version: string): string {
 
 async function fetchPublicGitHubReleases(): Promise<GitHubRelease[]> {
   const repoFullName = getRepoFullName();
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `https://api.github.com/repos/${repoFullName}/releases?per_page=50`,
     {
       headers: {
@@ -110,6 +111,7 @@ async function fetchPublicGitHubReleases(): Promise<GitHubRelease[]> {
         "User-Agent": "Rawkoon",
       },
     },
+    10_000,
   );
 
   if (!response.ok) {

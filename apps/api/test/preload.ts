@@ -1,10 +1,16 @@
-import { mock } from "bun:test";
+import * as realFs from "node:fs/promises";
+import * as realShared from "@rawkoon/shared";
+import * as realFilenameParser from "../src/utils/medias/filenameParser";
+import { mock, beforeEach } from "bun:test";
 
 // Set required env vars for config validation in tests (only if not already set)
 // DATABASE_URL must NOT be set if no real DB is available — integration tests check its presence
 process.env.SECRET_KEY ??=
   "test-secret-key-for-tests-must-be-at-least-32-characters";
 process.env.BASE_URL ??= "http://localhost:3000";
+// perfStore.test.ts needs this at import time; without --isolate the first
+// importer otherwise freezes PERF_TIMING_ENABLED as false for the whole process.
+process.env.PERF_TIMING_ENABLED ??= "true";
 
 // Mock ioredis Redis singleton so it doesn't try to connect
 mock.module("../src/db/redis", () => {
@@ -17,6 +23,7 @@ mock.module("../src/db/redis", () => {
     del: async () => 0,
     expire: async () => 0,
     send: async () => null,
+    ping: async () => "PONG",
     quit: async () => {},
   };
   return {
@@ -39,7 +46,11 @@ mock.module("../src/services/queueService", () => ({
     LIBRARY_MIGRATE: "library-migrate",
     LIBRARY_REINDEX_LANGUAGES: "library-reindex-languages",
     LIBRARY_REMUX: "library-remux",
+    LIBRARY_POST_PROCESS: "library-post-process",
   },
+  POST_PROCESS_JOB_NAME: "post-process",
+  closeAllWorkers: async () => {},
+  libraryPostProcessQueue: mockQueue,
   SCHEDULED_JOB_NAMES: {
     CHECK_REMINDERS: "check-reminders",
     CHECK_ALL_DAY_EVENTS: "check-all-day-events",
@@ -86,3 +97,14 @@ mock.module("../src/db", () => ({
     },
   ),
 }));
+
+// mock.module is process-global. Restore these to the real implementations
+// before every test so a partial stub in one file cannot leak into the next.
+beforeEach(() => {
+  mock.module("node:fs/promises", () => realFs);
+  mock.module("@rawkoon/shared", () => realShared);
+  mock.module(
+    "@rawkoon/api/utils/medias/filenameParser",
+    () => realFilenameParser,
+  );
+});

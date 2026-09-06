@@ -24,31 +24,35 @@ const state: {
   episode: null,
 };
 
-mock.module("@rawkoon/api/db", () => ({
-  prisma: {
-    libraryMedia: { findUnique: async () => state.media },
-    libraryEpisode: { findUnique: async () => state.episode },
-    user: {
-      findMany: async () => [
-        { id: "admin-1", locale: "en", notificationPreferences: null },
-      ],
+function installNotificationTargetMocks() {
+  mock.module("@rawkoon/api/db", () => ({
+    prisma: {
+      libraryMedia: { findUnique: async () => state.media },
+      libraryEpisode: { findUnique: async () => state.episode },
+      user: {
+        findMany: async () => [
+          { id: "admin-1", locale: "en", notificationPreferences: null },
+        ],
+      },
     },
-  },
-}));
+  }));
 
-mock.module("@rawkoon/api/workers/notificationService", () => ({
-  getAllUsers: () => Promise.resolve([]),
-  createAndQueueNotification: async (
-    _userId: string,
-    title: string,
-    body: string,
-    _type: string,
-    url?: string,
-  ) => {
-    state.notifications.push({ title, body, url });
-    return true;
-  },
-}));
+  mock.module("@rawkoon/api/workers/notificationService", () => ({
+    getAllUsers: () => Promise.resolve([]),
+    createAndQueueNotification: async (
+      _userId: string,
+      title: string,
+      body: string,
+      _type: string,
+      url?: string,
+    ) => {
+      state.notifications.push({ title, body, url });
+      return true;
+    },
+  }));
+}
+
+installNotificationTargetMocks();
 
 const { notifyAdminsMediaDownloaded } = await import(
   "@rawkoon/api/workers/notifyMediaDownloaded"
@@ -62,6 +66,7 @@ const { notifyAdminsPostProcessFailed } = await import(
 
 describe("library notification targets", () => {
   beforeEach(() => {
+    installNotificationTargetMocks();
     state.notifications = [];
     state.episode = null;
     state.media = {

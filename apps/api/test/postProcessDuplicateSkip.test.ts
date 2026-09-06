@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
+import * as realFs from "node:fs/promises";
 
 /**
  * Regression (board task 723): a second grab for an item whose file another
@@ -38,6 +39,7 @@ const state: {
 
 // Every existing file the pre-scan stat()s is on disk.
 mock.module("node:fs/promises", () => ({
+  ...realFs,
   stat: async () => ({ isFile: () => true }),
   unlink: async () => {},
   link: async () => {},
@@ -94,6 +96,20 @@ const { postProcessBookDownload } = await import(
 );
 
 beforeEach(() => {
+  mock.module("node:fs/promises", () => ({
+    ...realFs,
+    stat: async () => ({ isFile: () => true }),
+    unlink: async () => {},
+    link: async () => {},
+    rename: async () => {},
+    copyFile: async () => {},
+    mkdir: async () => {},
+    readdir: async () => [],
+    rm: async () => {},
+    readFile: async () => Buffer.from(""),
+    writeFile: async () => {},
+    access: async () => {},
+  }));
   state.dh = null;
   state.settings = null;
   state.mediaFiles = [];

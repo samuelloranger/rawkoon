@@ -1,5 +1,6 @@
 import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationConfigCache";
 import { normalizeTmdbConfig } from "@rawkoon/api/utils/integrations/normalizers";
+import { fetchWithTimeout } from "@rawkoon/api/utils/fetchWithTimeout";
 
 /**
  * Supported i18n locale → TMDB language tag mappings.
@@ -37,9 +38,11 @@ export function makeTmdbFetch(apiKey: string, language = "en-US") {
         if (v != null && v !== "") url.searchParams.set(k, v);
       }
     }
-    const res = await fetch(url.toString(), {
-      headers: { Accept: "application/json" },
-    });
+    const res = await fetchWithTimeout(
+      url.toString(),
+      { headers: { Accept: "application/json" } },
+      10_000,
+    );
     if (!res.ok) return null;
     return res.json() as Promise<Record<string, unknown>>;
   };

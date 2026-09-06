@@ -23,6 +23,13 @@ mock.module("@rawkoon/api/lib/auth", () => ({
   refreshOidcProviders: () => {},
 }));
 
+mock.module("@rawkoon/api/lib/apiKeyApi", () => ({
+  apiKeyApi: {
+    verifyApiKey: ({ body }: { body: { key: string } }) =>
+      Promise.resolve({ valid: body.key === "valid-key" }),
+  },
+}));
+
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
     downloadClient: { findMany: () => Promise.resolve([]) },
@@ -102,6 +109,48 @@ describe("global rate limit", () => {
           : { "x-forwarded-for": ip },
       }),
     );
+
+  it("never limits a Bearer session", async () => {
+    sessionExists = true;
+    const bearerApp = new Elysia()
+      .use(globalRateLimit)
+      .get("/api/books", () => ({ books: [] }));
+    let last = 0;
+    for (let i = 0; i < GLOBAL_LIMIT + 50; i++) {
+      last = (
+        await bearerApp.handle(
+          new Request("http://localhost/api/books", {
+            headers: {
+              "x-forwarded-for": "203.0.113.50",
+              authorization: "Bearer tok",
+            },
+          }),
+        )
+      ).status;
+    }
+    expect(last).toBe(200);
+  });
+
+  it("never limits an x-api-key request with a session", async () => {
+    sessionExists = true;
+    const keyApp = new Elysia()
+      .use(globalRateLimit)
+      .get("/api/books", () => ({ books: [] }));
+    let last = 0;
+    for (let i = 0; i < GLOBAL_LIMIT + 50; i++) {
+      last = (
+        await keyApp.handle(
+          new Request("http://localhost/api/books", {
+            headers: {
+              "x-forwarded-for": "203.0.113.51",
+              "x-api-key": "valid-key",
+            },
+          }),
+        )
+      ).status;
+    }
+    expect(last).toBe(200);
+  });
 
   it("never limits a signed-in session", async () => {
     sessionExists = true;

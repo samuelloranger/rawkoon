@@ -19,7 +19,13 @@ import {
   isSeasonPack,
   isCompleteSeries,
 } from "@rawkoon/api/utils/medias/mappers";
-import { badRequest, notFound, serverError } from "@rawkoon/api/errors";
+import {
+  badRequest,
+  conflict,
+  notFound,
+  serverError,
+} from "@rawkoon/api/errors";
+import { grabRelease } from "@rawkoon/api/services/mediaGrabberGrab";
 import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationConfigCache";
 import { normalizeLocalAiConfig } from "@rawkoon/api/utils/integrations/normalizers";
 import {
@@ -269,21 +275,68 @@ export const mediasSearchRoutes = new Elysia()
           );
         }
 
-        const result = await adapter.grabRelease(token);
-        if (!result.success) {
+        // Pop the token first so a retry cannot double-grab the same payload.
+        const resolved = await adapter.grabRelease(token);
+        if (!resolved.success) {
           return notFound(
             set,
-            result.error ??
+            resolved.error ??
               "Selected release is no longer available. Run the search again.",
           );
         }
 
-        return {
-          success: true,
-          service: adapter.name,
-          ...(result.downloadUrl ? { download_url: result.downloadUrl } : {}),
-          ...(result.magnetUrl ? { magnet_url: result.magnetUrl } : {}),
-        };
+        const downloadUrl = resolved.magnetUrl ?? resolved.downloadUrl;
+        if (!downloadUrl) {
+          return badRequest(set, "Release has no download URL");
+        }
+        const releaseTitle = resolved.title?.trim();
+        if (!releaseTitle) {
+          return badRequest(set, "Release has no title");
+        }
+
+        let mediaId = body.library_media_id;
+        if (mediaId == null && body.episode_id != null) {
+          const episode = await prisma.libraryEpisode.findUnique({
+            where: { id: body.episode_id },
+            select: { mediaId: true },
+          });
+          mediaId = episode?.mediaId;
+        }
+        if (mediaId == null) {
+          return conflict(
+            set,
+            "No library item to attach this download to. Add the title to your library first.",
+          );
+        }
+        const media = await prisma.libraryMedia.findUnique({
+          where: { id: mediaId },
+          select: { id: true },
+        });
+        if (!media) {
+          return conflict(
+            set,
+            "No library item to attach this download to. Add the title to your library first.",
+          );
+        }
+
+        const result = await grabRelease({
+          mediaId,
+          episodeId: body.episode_id,
+          season: body.season,
+          downloadUrl,
+          releaseTitle,
+          indexer: resolved.indexer,
+          isUpgrade: body.is_upgrade ?? false,
+        });
+
+        if (result.grabbed) {
+          return {
+            grabbed: true,
+            release_title: result.releaseTitle,
+            service: adapter.name,
+          };
+        }
+        return { grabbed: false, reason: result.reason };
       } catch (error) {
         console.error("Error downloading release:", error);
         return serverError(set, "Failed to download release");
@@ -292,6 +345,10 @@ export const mediasSearchRoutes = new Elysia()
     {
       body: t.Object({
         token: t.String(),
+        library_media_id: t.Optional(t.Number()),
+        episode_id: t.Optional(t.Number()),
+        season: t.Optional(t.Number()),
+        is_upgrade: t.Optional(t.Boolean()),
       }),
     },
   )
