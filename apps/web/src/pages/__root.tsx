@@ -11,7 +11,6 @@ import { Sidebar } from "@/components/Sidebar";
 import { PageTransition } from "@/components/PageTransition";
 import { NotificationPermissionModal } from "@/components/NotificationPermissionModal";
 import { QuickActionPalette } from "@/components/QuickActionPalette";
-import { RouteDataRefetcher } from "@/components/RouteDataRefetcher";
 import { useAutoSubscribeNotifications } from "@/lib/notifications/useAutoSubscribeNotifications";
 import { LibraryNavigationProvider } from "@/features/medias/context/LibraryNavigationContext";
 import { ConfirmProvider } from "@/components/confirm/ConfirmContext";
@@ -104,7 +103,6 @@ function MainWithPlayerPad({ isSettings }: { isSettings: boolean }) {
       tabIndex={-1}
       className={`user min-h-full flex-1 flex flex-col ${pad}`}
     >
-      <RouteDataRefetcher />
       <PageTransition />
     </main>
   );

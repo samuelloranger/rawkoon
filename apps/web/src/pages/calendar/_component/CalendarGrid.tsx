@@ -46,7 +46,7 @@ export function CalendarGrid({
           <button
             onClick={onPreviousMonth}
             className="p-2 rounded-xl hover:bg-neutral-700/60 transition-all duration-200 active:scale-95"
-            aria-label="Previous month"
+            aria-label={t("calendar.previousMonth")}
           >
             <ChevronLeft className="w-5 h-5 text-neutral-400" />
           </button>
@@ -60,7 +60,7 @@ export function CalendarGrid({
                 onClick={onGoToToday}
                 className="text-xs font-medium text-primary-400 hover:text-primary-300 px-2.5 py-1 rounded-lg bg-primary-900/20 hover:bg-primary-900/30 transition-colors"
               >
-                {t("calendar.today") || "Today"}
+                {t("calendar.today")}
               </button>
             )}
           </div>
@@ -68,7 +68,7 @@ export function CalendarGrid({
           <button
             onClick={onNextMonth}
             className="p-2 rounded-xl hover:bg-neutral-700/60 transition-all duration-200 active:scale-95"
-            aria-label="Next month"
+            aria-label={t("calendar.nextMonth")}
           >
             <ChevronRight className="w-5 h-5 text-neutral-400" />
           </button>

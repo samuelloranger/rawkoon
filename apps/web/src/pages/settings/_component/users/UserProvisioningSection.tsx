@@ -119,12 +119,12 @@ export function UserProvisioningSection({
         const link = `${window.location.origin}/accept-invitation?token=${result.token}`;
         onLinkGenerated(link);
         resetInvite();
-        toast.success("Invitation link generated successfully");
+        toast.success(t("settings.users.inviteLinkGenerated"));
       }
     } catch (error: unknown) {
       toast.error(
         (error instanceof HttpError ? error.apiError() : undefined) ||
-          "Failed to generate invitation",
+          t("settings.users.inviteLinkError"),
       );
     }
   };
@@ -142,12 +142,12 @@ export function UserProvisioningSection({
 
       if (result.success) {
         resetDirect();
-        toast.success("User created successfully");
+        toast.success(t("settings.users.userCreated"));
       }
     } catch (error: unknown) {
       toast.error(
         (error instanceof HttpError ? error.apiError() : undefined) ||
-          "Failed to create user",
+          t("settings.users.userCreateError"),
       );
     }
   };
@@ -183,13 +183,13 @@ export function UserProvisioningSection({
           <FormInput
             {...registerInvite("email")}
             type="email"
-            aria-label={t("settings.users.emailPlaceholder") || "Email"}
-            placeholder={t("settings.users.emailPlaceholder") || "Email"}
+            aria-label={t("settings.users.emailPlaceholder")}
+            placeholder={t("settings.users.emailPlaceholder")}
             error={
               inviteErrors.email
                 ? inviteErrors.email.type === "required" ||
                   inviteErrors.email.type === "too_small"
-                  ? t("settings.users.emailRequired") || "Email is required"
+                  ? t("settings.users.emailRequired")
                   : inviteErrors.email.message
                 : undefined
             }
@@ -247,13 +247,13 @@ export function UserProvisioningSection({
             <FormInput
               {...registerDirect("first_name")}
               type="text"
-              placeholder="First Name (Optional)"
+              placeholder={t("settings.users.firstNameOptional")}
               error={directErrors.first_name?.message}
             />
             <FormInput
               {...registerDirect("last_name")}
               type="text"
-              placeholder="Last Name (Optional)"
+              placeholder={t("settings.users.lastNameOptional")}
               error={directErrors.last_name?.message}
             />
           </div>
@@ -261,14 +261,14 @@ export function UserProvisioningSection({
           <FormInput
             {...registerDirect("email")}
             type="email"
-            placeholder="Email Address"
+            placeholder={t("settings.users.emailAddress")}
             error={directErrors.email?.message}
           />
 
           <FormInput
             {...registerDirect("password")}
             type="password"
-            placeholder="Password (minimum 8 characters)"
+            placeholder={t("settings.users.passwordMinPlaceholder")}
             error={directErrors.password?.message}
           />
 

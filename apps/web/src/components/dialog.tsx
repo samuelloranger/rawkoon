@@ -1,5 +1,6 @@
 import * as RadixDialog from "@radix-ui/react-dialog";
 import { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ export function Dialog({
   panelClassName,
   bodyScroll = false,
 }: DialogProps) {
+  const { t } = useTranslation("common");
   return (
     <RadixDialog.Root
       open={isOpen}
@@ -73,7 +75,7 @@ export function Dialog({
 
               {showCloseButton && (
                 <RadixDialog.Close
-                  aria-label="Close dialog"
+                  aria-label={t("a11y.closeDialog")}
                   className={cn(
                     "pointer-events-auto absolute shrink-0 rounded-full p-1 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700/60 transition-colors",
                     hideTitle ? "top-4 right-4 z-20" : "top-5 right-5 z-20",

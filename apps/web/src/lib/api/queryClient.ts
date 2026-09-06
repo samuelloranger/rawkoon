@@ -1,5 +1,20 @@
-import type { DefaultOptions, QueryClient } from "@tanstack/react-query";
+import {
+  type DefaultOptions,
+  MutationCache,
+  QueryClient,
+} from "@tanstack/react-query";
+import { toast } from "sonner";
+import i18n from "@/lib/i18n";
+import { HttpError } from "@/lib/api/httpClient";
 import { queryKeys } from "@/lib/queryKeys";
+
+declare module "@tanstack/react-query" {
+  interface Register {
+    mutationMeta: {
+      silent?: boolean;
+    };
+  }
+}
 
 /**
  * Query defaults, kept here rather than inline in main.tsx so they can be
@@ -29,6 +44,25 @@ export const QUERY_DEFAULTS: DefaultOptions = {
     gcTime: 5 * 60 * 1000,
   },
 };
+
+export function createMutationCache(): MutationCache {
+  return new MutationCache({
+    onError: (error, _variables, _context, mutation) => {
+      if (mutation.meta?.silent) return;
+      // Call-site onError already reports the failure; this covers fire-and-forget .mutate().
+      if (mutation.options.onError) return;
+      const api = error instanceof HttpError ? error.apiError() : undefined;
+      toast.error(api ?? i18n.t("common.requestFailed"));
+    },
+  });
+}
+
+export function createQueryClient(): QueryClient {
+  return new QueryClient({
+    defaultOptions: QUERY_DEFAULTS,
+    mutationCache: createMutationCache(),
+  });
+}
 
 let queryClientInstance: QueryClient | null = null;
 

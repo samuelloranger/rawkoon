@@ -61,7 +61,16 @@ export function NotificationList({
       {notifications.map((notification) => (
         <div
           key={notification.id}
+          role="button"
+          tabIndex={0}
+          aria-label={t("a11y.openNotification")}
           onClick={() => handleNotificationClick(notification)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              void handleNotificationClick(notification);
+            }
+          }}
           className={cn(
             "relative p-4 rounded-lg border cursor-pointer transition-colors",
             notification.read

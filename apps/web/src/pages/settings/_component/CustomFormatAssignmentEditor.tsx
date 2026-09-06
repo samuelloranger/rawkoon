@@ -120,7 +120,9 @@ export function CustomFormatAssignmentEditor({ value, onChange }: Props) {
 
                 {/* Mutual-exclusive stance selector */}
                 <select
-                  aria-label={`stance ${nameOf(assignment.custom_format_id)}`}
+                  aria-label={t("customFormats.a11y.stance", {
+                    name: nameOf(assignment.custom_format_id),
+                  })}
                   value={stance}
                   onChange={(e) =>
                     applyStance(
@@ -142,7 +144,9 @@ export function CustomFormatAssignmentEditor({ value, onChange }: Props) {
                 {/* Remove button */}
                 <button
                   type="button"
-                  aria-label={`remove ${nameOf(assignment.custom_format_id)}`}
+                  aria-label={t("customFormats.a11y.removeFormat", {
+                    name: nameOf(assignment.custom_format_id),
+                  })}
                   onClick={() => removeAssignment(assignment.custom_format_id)}
                   className="shrink-0 rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-200"
                 >
@@ -162,7 +166,7 @@ export function CustomFormatAssignmentEditor({ value, onChange }: Props) {
             if (e.target.value) addAssignment(Number(e.target.value));
           }}
           className={cn(selectClass, "text-neutral-400")}
-          aria-label="add custom format"
+          aria-label={t("customFormats.a11y.addFormat")}
         >
           <option value="" disabled>
             + {t("customFormats.title")}…

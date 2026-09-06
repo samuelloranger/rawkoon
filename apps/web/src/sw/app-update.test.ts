@@ -10,7 +10,6 @@ vi.mock("./sw", () => ({
     location: { origin: "https://x" },
   },
 }));
-vi.mock("./constants", () => ({ CACHE_VERSION: "rawkoon-1.9.0" }));
 
 const { handleAppUpdate } = await import("./app-update");
 

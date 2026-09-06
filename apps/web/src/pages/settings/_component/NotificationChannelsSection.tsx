@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Trash2, Send, Plus, Pencil } from "lucide-react";
 import type { NotificationChannel } from "@rawkoon/shared/types";
@@ -14,6 +15,7 @@ import { AddNotificationChannelModal } from "./AddNotificationChannelModal";
 import { EditNotificationChannelModal } from "./EditNotificationChannelModal";
 
 export function NotificationChannelsSection() {
+  const { t } = useTranslation("common");
   const { data, isLoading } = useNotificationChannels();
   const updateMutation = useUpdateNotificationChannel();
   const deleteMutation = useDeleteNotificationChannel();
@@ -30,10 +32,16 @@ export function NotificationChannelsSection() {
       { id, enabled },
       {
         onSuccess: () =>
-          toast.success(enabled ? "Channel enabled." : "Channel disabled."),
+          toast.success(
+            enabled
+              ? t("settings.notifications.channels.enabled")
+              : t("settings.notifications.channels.disabled"),
+          ),
         onError: (err) => {
           toast.error(
-            err instanceof Error ? err.message : "Failed to update channel.",
+            err instanceof Error
+              ? err.message
+              : t("settings.notifications.channels.updateError"),
           );
         },
       },
@@ -42,12 +50,13 @@ export function NotificationChannelsSection() {
 
   async function handleTest(id: number) {
     testMutation.mutate(id, {
-      onSuccess: () => toast.success("Test notification sent."),
+      onSuccess: () =>
+        toast.success(t("settings.notifications.channels.testSent")),
       onError: (err) => {
         toast.error(
           err instanceof Error
             ? err.message
-            : "Failed to send test notification.",
+            : t("settings.notifications.channels.testError"),
         );
       },
     });
@@ -55,10 +64,13 @@ export function NotificationChannelsSection() {
 
   async function handleDelete(id: number) {
     deleteMutation.mutate(id, {
-      onSuccess: () => toast.success("Channel deleted."),
+      onSuccess: () =>
+        toast.success(t("settings.notifications.channels.deleted")),
       onError: (err) => {
         toast.error(
-          err instanceof Error ? err.message : "Failed to delete channel.",
+          err instanceof Error
+            ? err.message
+            : t("settings.notifications.channels.deleteError"),
         );
       },
     });
@@ -70,10 +82,10 @@ export function NotificationChannelsSection() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-base font-semibold text-neutral-100">
-              Notification Channels
+              {t("settings.notifications.channels.title")}
             </h2>
             <p className="text-sm text-neutral-400 mt-0.5">
-              Push notifications to external services.
+              {t("settings.notifications.channels.description")}
             </p>
           </div>
           <Button
@@ -82,17 +94,17 @@ export function NotificationChannelsSection() {
             className="whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
-            Add Channel
+            {t("settings.notifications.channels.addTitle")}
           </Button>
         </div>
 
         {isLoading ? (
           <div className="p-4 text-center text-neutral-400 text-sm">
-            Loading channels…
+            {t("common.loading")}
           </div>
         ) : channels.length === 0 ? (
           <div className="p-4 bg-neutral-700/50 rounded-lg text-neutral-400 text-sm">
-            No channels configured.
+            {t("settings.notifications.channels.empty")}
           </div>
         ) : (
           <div className="space-y-2">
@@ -124,7 +136,7 @@ export function NotificationChannelsSection() {
                     variant="ghost"
                     size="icon"
                     onClick={() => setEditingChannel(channel)}
-                    title="Edit channel"
+                    title={t("settings.notifications.channels.editChannel")}
                   >
                     <Pencil className="w-4 h-4" />
                   </Button>
@@ -133,7 +145,7 @@ export function NotificationChannelsSection() {
                     size="icon"
                     onClick={() => handleTest(channel.id)}
                     disabled={testMutation.isPending}
-                    title="Send test notification"
+                    title={t("settings.notifications.channels.testChannel")}
                   >
                     <Send className="w-4 h-4" />
                   </Button>
@@ -142,7 +154,7 @@ export function NotificationChannelsSection() {
                     size="icon"
                     onClick={() => handleDelete(channel.id)}
                     disabled={deleteMutation.isPending}
-                    title="Delete channel"
+                    title={t("settings.notifications.channels.deleteChannel")}
                     className="text-red-500 hover:text-red-400 hover:bg-red-500/10"
                   >
                     <Trash2 className="w-4 h-4" />

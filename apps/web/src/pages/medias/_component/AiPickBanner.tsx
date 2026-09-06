@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Sparkles, AlertTriangle, RefreshCcw, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ export function AiPickBanner({
   onRetry,
   onDismiss,
 }: AiPickBannerProps) {
+  const { t } = useTranslation("common");
   const [grabbed, setGrabbed] = useState(false);
 
   if (!isLoading && !isError && !release) return null;
@@ -105,7 +107,7 @@ export function AiPickBanner({
                     type="button"
                     onClick={onDismiss}
                     className="flex h-7 w-7 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-violet-900/30 hover:text-neutral-300"
-                    aria-label="Dismiss"
+                    aria-label={t("a11y.dismiss")}
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>

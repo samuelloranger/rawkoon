@@ -109,10 +109,7 @@ export function MergedEpisodeRow({
     if (!file) return;
     confirm({
       variant: "destructive",
-      description: t("library.media.deleteEpisodeConfirm", {
-        defaultValue:
-          "Delete this episode's downloaded file from disk and reset it to 'wanted'?",
-      }),
+      description: t("library.media.deleteEpisodeConfirm"),
       confirmLabel: t("common.delete"),
       onConfirm: () => {
         void deleteEpisodeMut
@@ -121,13 +118,7 @@ export function MergedEpisodeRow({
             episodeId: ep.id,
             deleteFile: true,
           })
-          .then(() =>
-            toast.success(
-              t("library.media.episodeDeleted", {
-                defaultValue: "Episode deleted",
-              }),
-            ),
-          )
+          .then(() => toast.success(t("library.media.episodeDeleted")))
           .catch(() => toast.error(t("library.management.grabFailed")));
       },
     });
@@ -147,14 +138,8 @@ export function MergedEpisodeRow({
     ep.title ? ` ${ep.title}` : ""
   }`;
   const expandLabel = expanded
-    ? t("library.media.collapseEpisode", {
-        defaultValue: "Collapse {{episode}}",
-        episode: epLabel,
-      })
-    : t("library.media.expandEpisode", {
-        defaultValue: "Expand {{episode}}",
-        episode: epLabel,
-      });
+    ? t("library.media.collapseEpisode", { episode: epLabel })
+    : t("library.media.expandEpisode", { episode: epLabel });
 
   const handleToggleMonitored = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -281,9 +266,7 @@ export function MergedEpisodeRow({
                   type="button"
                   onClick={handleDelete}
                   disabled={deleteEpisodeMut.isPending}
-                  title={t("library.media.deleteEpisode", {
-                    defaultValue: "Delete episode",
-                  })}
+                  title={t("library.media.deleteEpisode")}
                   className="rounded-md p-2.5 text-neutral-400 hover:text-red-400 hover:bg-red-950/30 disabled:opacity-50 transition-colors"
                 >
                   <Trash2 size={14} />
@@ -381,9 +364,7 @@ export function MergedEpisodeRow({
                 type="button"
                 onClick={handleDelete}
                 disabled={deleteEpisodeMut.isPending}
-                title={t("library.media.deleteEpisode", {
-                  defaultValue: "Delete episode",
-                })}
+                title={t("library.media.deleteEpisode")}
                 className="inline-flex size-6 items-center justify-center rounded p-1 text-neutral-400 hover:text-red-400 hover:bg-red-950/30 disabled:opacity-50 transition-colors"
               >
                 <Trash2 size={11} />

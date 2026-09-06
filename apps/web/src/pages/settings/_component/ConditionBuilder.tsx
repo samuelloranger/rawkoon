@@ -168,7 +168,7 @@ function ConditionRow({ condition, onChange, onRemove }: ConditionRowProps) {
             value={min}
             onChange={(e) => handleBetweenChange(0, e.target.value)}
             className={cn(inputClass, "min-w-0")}
-            aria-label="min"
+            aria-label={t("customFormats.a11y.min")}
           />
           <span className="text-xs text-neutral-400 shrink-0">–</span>
           <input
@@ -176,7 +176,7 @@ function ConditionRow({ condition, onChange, onRemove }: ConditionRowProps) {
             value={max}
             onChange={(e) => handleBetweenChange(1, e.target.value)}
             className={cn(inputClass, "min-w-0")}
-            aria-label="max"
+            aria-label={t("customFormats.a11y.max")}
           />
         </div>
       );
@@ -215,7 +215,11 @@ function ConditionRow({ condition, onChange, onRemove }: ConditionRowProps) {
               "absolute right-2.5 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full",
               showRegexError ? "bg-red-500" : "bg-emerald-500",
             )}
-            aria-label={showRegexError ? "invalid regex" : "valid regex"}
+            aria-label={
+              showRegexError
+                ? t("customFormats.a11y.invalidRegex")
+                : t("customFormats.a11y.validRegex")
+            }
           />
         )}
       </div>
@@ -232,7 +236,7 @@ function ConditionRow({ condition, onChange, onRemove }: ConditionRowProps) {
             value={type}
             onChange={(e) => handleTypeChange(e.target.value as ConditionType)}
             className={selectClass}
-            aria-label="condition type"
+            aria-label={t("customFormats.a11y.conditionType")}
           >
             {ALL_CONDITION_TYPES.map((ct) => (
               <option key={ct} value={ct}>
@@ -251,7 +255,7 @@ function ConditionRow({ condition, onChange, onRemove }: ConditionRowProps) {
             }
             className={selectClass}
             disabled={allowedOps.length === 1}
-            aria-label="condition operator"
+            aria-label={t("customFormats.a11y.conditionOperator")}
           >
             {allowedOps.map((op) => (
               <option key={op} value={op}>
@@ -275,7 +279,7 @@ function ConditionRow({ condition, onChange, onRemove }: ConditionRowProps) {
           type="button"
           onClick={onRemove}
           className="flex-shrink-0 mt-0.5 flex h-[38px] w-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-700 hover:text-red-400 transition-colors"
-          aria-label="remove condition"
+          aria-label={t("customFormats.a11y.removeCondition")}
         >
           <Trash2 size={14} />
         </button>

@@ -382,8 +382,10 @@ export function Sidebar({ onOpenQuickActions, position }: SidebarProps) {
         {/* Right-click position popover */}
         {popoverOpen && (
           <>
-            <div
+            <button
+              type="button"
               className="fixed inset-0 z-[60]"
+              aria-label={t("a11y.closeNavPosition")}
               onClick={() => setPopoverOpen(false)}
             />
             <div
@@ -391,7 +393,7 @@ export function Sidebar({ onOpenQuickActions, position }: SidebarProps) {
               style={{ left: popoverCoords.x, top: popoverCoords.y }}
             >
               <p className="text-xs font-semibold text-neutral-400 mb-2 px-1">
-                Navigation position
+                {t("a11y.navPosition")}
               </p>
               <NavPositionPicker
                 value={position}

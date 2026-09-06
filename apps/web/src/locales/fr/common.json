@@ -11,7 +11,8 @@
     "watchlist": "À regarder",
     "collections": "Collections",
     "calendar": "Calendrier",
-    "logout": "Déconnexion"
+    "logout": "Déconnexion",
+    "positionTitle": "Position de la navigation"
   },
   "requests": {
     "title": "Demandes",
@@ -99,7 +100,9 @@
     "noReleasesThisDay": "Aucune sortie média ce jour",
     "film": "Film",
     "tv": "Série",
-    "selectDateRange": "Sélectionner une plage de dates"
+    "selectDateRange": "Sélectionner une plage de dates",
+    "previousMonth": "Mois précédent",
+    "nextMonth": "Mois suivant"
   },
   "dashboard": {
     "goodMorning": "Bonjour",
@@ -511,7 +514,10 @@
     "clear": "Effacer",
     "deleting": "Suppression...",
     "edit": "Modifier",
-    "copy": "Copier"
+    "copy": "Copier",
+    "open": "Ouvrir",
+    "requestFailed": "La requête a échoué",
+    "tooManyRequests": "Trop de requêtes. Veuillez ralentir."
   },
   "notifications": {
     "modal": {
@@ -523,6 +529,7 @@
     "title": "Notifications",
     "description": "Voir et gérer vos notifications",
     "bell": "Notifications",
+    "pushFallback": "Vous avez une nouvelle notification",
     "noNotifications": "Aucune notification",
     "markAllAsRead": "Tout marquer comme lu",
     "viewAll": "Voir tout",
@@ -658,7 +665,33 @@
       "thisDevice": "Cet appareil",
       "chromeDevice": "Navigateur Chrome",
       "firefoxDevice": "Navigateur Firefox",
-      "safariDevice": "Navigateur Safari"
+      "safariDevice": "Navigateur Safari",
+      "channels": {
+        "title": "Canaux de notification",
+        "description": "Envoyer des notifications vers des services externes.",
+        "enabled": "Canal activé.",
+        "disabled": "Canal désactivé.",
+        "updateError": "Échec de la mise à jour du canal.",
+        "testSent": "Notification de test envoyée.",
+        "testError": "Échec de l'envoi de la notification de test.",
+        "deleted": "Canal supprimé.",
+        "deleteError": "Échec de la suppression du canal.",
+        "added": "Canal ajouté.",
+        "addError": "Échec de l'ajout du canal.",
+        "updated": "Canal mis à jour.",
+        "labelEmpty": "Le libellé ne peut pas être vide.",
+        "labelRequired": "Veuillez saisir un libellé pour le canal.",
+        "addTitle": "Ajouter un canal",
+        "editTitle": "Modifier — {{label}}",
+        "editChannel": "Modifier le canal",
+        "testChannel": "Envoyer une notification de test",
+        "deleteChannel": "Supprimer le canal",
+        "label": "Libellé",
+        "labelPlaceholder": "Mon canal",
+        "type": "Type",
+        "empty": "Aucun canal configuré.",
+        "adding": "Ajout…"
+      }
     },
     "calendar": {
       "title": "Calendrier",
@@ -797,7 +830,24 @@
       "empty": "Aucun profil pour l'instant. Utilisez « Créer un profil » pour en ajouter un.",
       "hdrRequired": "HDR requis ✦",
       "hdrPreferred": "HDR préféré",
-      "deselectAll": "Tout désélectionner"
+      "deselectAll": "Tout désélectionner",
+      "namePlaceholder": "ex. Cinéma 1080p FR",
+      "selectSources": "Sélectionner des sources…",
+      "selectCodecs": "Sélectionner des codecs…",
+      "selectLanguages": "Sélectionner des langues…",
+      "priorityTrackers": "Trackers prioritaires",
+      "addTracker": "Ajouter",
+      "searchTracker": "Rechercher un tracker…",
+      "loadingTrackers": "Chargement…",
+      "noTrackerResults": "Aucun résultat",
+      "allTrackersAdded": "Tous les trackers sont déjà ajoutés",
+      "noPriorityTrackers": "Aucun tracker prioritaire — tous les indexers sont traités également",
+      "privateTracker": "Privé",
+      "preferTrackerOverQuality": "Préférer le tracker sur la qualité",
+      "preferTrackerOverQualityHelp": "Le tracker prioritaire l'emporte sur la résolution et la source (+1 500 / +1 000 / +500 pts)",
+      "moveTrackerUp": "Monter le tracker",
+      "moveTrackerDown": "Descendre le tracker",
+      "removeTracker": "Retirer le tracker"
     },
     "mediaHistory": {
       "title": "Historique média",
@@ -1127,7 +1177,30 @@
       "revoking": "Révocation...",
       "revokeConfirm": "Êtes-vous sûr de vouloir révoquer l'invitation pour {{email}} ?",
       "revokeSuccess": "Invitation révoquée",
-      "revokeError": "Échec de la révocation de l'invitation"
+      "revokeError": "Échec de la révocation de l'invitation",
+      "roleUpdated": "Rôle de l'utilisateur mis à jour",
+      "roleUpdateError": "Échec de la mise à jour du rôle",
+      "roleToggleConfirm": "Voulez-vous vraiment {{action}} {{email}} ?",
+      "promote": "promouvoir",
+      "demote": "rétrograder",
+      "passwordMinLength": "Le mot de passe doit contenir au moins 8 caractères",
+      "passwordResetSuccess": "Mot de passe réinitialisé",
+      "passwordResetError": "Échec de la réinitialisation du mot de passe",
+      "passwordResetPrompt": "Nouveau mot de passe pour {{email}} (8 caractères minimum) :",
+      "passwordResetTitle": "Réinitialiser le mot de passe",
+      "inviteLinkGenerated": "Lien d'invitation généré",
+      "inviteLinkRegenerated": "Nouveau lien d'invitation généré",
+      "inviteLinkError": "Échec de la génération de l'invitation",
+      "inviteLinkRegenerateError": "Échec de la régénération du lien d'invitation",
+      "userCreated": "Utilisateur créé",
+      "userCreateError": "Échec de la création de l'utilisateur",
+      "firstNameOptional": "Prénom (facultatif)",
+      "lastNameOptional": "Nom (facultatif)",
+      "emailAddress": "Adresse e-mail",
+      "passwordMinPlaceholder": "Mot de passe (8 caractères minimum)",
+      "inviteLinkTitle": "Lien d'invitation généré",
+      "inviteLinkHelp": "Partagez ce lien d'inscription avec l'utilisateur. Il est à usage unique et expire dans 7 jours.",
+      "dismissLink": "Fermer"
     },
     "integrations": {
       "title": "Intégrations",
@@ -1326,11 +1399,25 @@
       "audnexus": {
         "title": "Audnexus",
         "description": "Narrateurs, séries, genres et couvertures. Aucun compte requis.",
-        "docs": "Projet"
+        "docs": "Projet",
+        "saved": "Réglages Audnexus enregistrés",
+        "saveFailed": "Impossible d’enregistrer les réglages Audnexus",
+        "reachable": "Audnexus est joignable",
+        "notReachable": "Audnexus n’est pas joignable",
+        "testFailed": "Impossible de tester Audnexus",
+        "enable": "Activer Audnexus",
+        "baseUrlPlaceholder": "https://api.audnex.us"
       },
       "metadataSources": {
         "title": "Sources de métadonnées",
-        "description": "Quelle source gagne pour chaque champ, la plus haute d'abord."
+        "description": "Quelle source gagne pour chaque champ, la plus haute d'abord.",
+        "saved": "Ordre des sources de métadonnées enregistré",
+        "saveFailed": "Impossible d’enregistrer l’ordre des sources",
+        "moveUp": "Monter {{name}}",
+        "moveDown": "Descendre {{name}}",
+        "disable": "Désactiver {{name}}",
+        "enable": "Activer {{name}}",
+        "disabledHeading": "Désactivées"
       }
     },
     "bookQualityProfiles": {
@@ -1492,7 +1579,18 @@
       "noResults": "Aucun résultat. Essayez d'ajuster vos filtres.",
       "titles": "titres",
       "regionHint": "Disponibilité : {{region}}",
-      "lang": "Langue"
+      "lang": "Langue",
+      "service": "Service",
+      "genre": "Genre",
+      "sort": "Trier",
+      "allServices": "Tous les services",
+      "allGenres": "Tous les genres",
+      "notInterested": "Pas intéressé",
+      "addToWatchlist": "Ajouter à la liste",
+      "addToLibrary": "Ajouter à la bibliothèque",
+      "undoLastAction": "Annuler la dernière action",
+      "undoFailed": "Impossible d'annuler",
+      "clearFilter": "Effacer le filtre"
     },
     "movie_plural": "Films",
     "series_plural": "Séries TV",
@@ -1676,6 +1774,8 @@
       "size": "Taille",
       "duration": "Durée",
       "releaseGroup": "Groupe de release",
+      "editReleaseGroup": "Cliquer pour modifier le groupe de release",
+      "updateReleaseGroupFailed": "Échec de la mise à jour du groupe de release",
       "path": "Chemin",
       "codec": "Codec",
       "resolution": "Résolution",
@@ -1727,7 +1827,10 @@
       "yesDelete": "Oui, supprimer",
       "keepFile": "Non, conserver le fichier",
       "expandEpisode": "Développer {{episode}}",
-      "collapseEpisode": "Réduire {{episode}}"
+      "collapseEpisode": "Réduire {{episode}}",
+      "deleteEpisode": "Supprimer l'épisode",
+      "deleteEpisodeConfirm": "Supprimer le fichier téléchargé de cet épisode du disque et le remettre en « recherché » ?",
+      "episodeDeleted": "Épisode supprimé"
     },
     "management": {
       "qualityProfile": "Profil qualité",
@@ -1948,10 +2051,28 @@
     "createTitle": "Nouveau format personnalisé",
     "editTitle": "Modifier le format personnalisé",
     "formDescription": "Définissez les conditions qui doivent correspondre pour que ce format s'applique.",
-    "conditions": "Conditions"
+    "conditions": "Conditions",
+    "a11y": {
+      "min": "Minimum",
+      "max": "Maximum",
+      "conditionType": "Type de condition",
+      "conditionOperator": "Opérateur de condition",
+      "removeCondition": "Supprimer la condition",
+      "invalidRegex": "Expression régulière invalide",
+      "validRegex": "Expression régulière valide",
+      "addFormat": "Ajouter un format personnalisé",
+      "stance": "Position pour {{name}}",
+      "removeFormat": "Retirer {{name}}"
+    }
   },
   "a11y": {
-    "skipToContent": "Aller au contenu principal"
+    "skipToContent": "Aller au contenu principal",
+    "closeDialog": "Fermer la fenêtre",
+    "dismiss": "Fermer",
+    "metacritic": "Metacritic",
+    "closeNavPosition": "Fermer le choix de position de navigation",
+    "navPosition": "Position de la navigation",
+    "openNotification": "Ouvrir la notification"
   },
   "books": {
     "title": "Livres",

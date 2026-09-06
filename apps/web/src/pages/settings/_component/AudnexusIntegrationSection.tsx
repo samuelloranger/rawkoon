@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ const REGIONS = [
 ];
 
 export function AudnexusIntegrationSection() {
+  const { t } = useTranslation("common");
   const { data } = useAudnexusIntegration();
   const update = useUpdateAudnexusIntegration();
   const test = useTestAudnexusIntegration();
@@ -64,10 +66,12 @@ export function AudnexusIntegrationSection() {
   const save = async () => {
     try {
       await update.mutateAsync({ base_url: baseUrl.trim(), region, enabled });
-      toast.success("Audnexus settings saved");
+      toast.success(t("settings.books.audnexus.saved"));
     } catch (e) {
       toast.error(
-        e instanceof ApiError ? e.message : "Failed to save Audnexus settings",
+        e instanceof ApiError
+          ? e.message
+          : t("settings.books.audnexus.saveFailed"),
       );
     }
   };
@@ -75,11 +79,13 @@ export function AudnexusIntegrationSection() {
   const runTest = async () => {
     try {
       const res = await test.mutateAsync({ base_url: baseUrl.trim(), region });
-      if (res.success) toast.success("Audnexus is reachable");
-      else toast.error(res.error ?? "Audnexus is not reachable");
+      if (res.success) toast.success(t("settings.books.audnexus.reachable"));
+      else toast.error(res.error ?? t("settings.books.audnexus.notReachable"));
     } catch (e) {
       toast.error(
-        e instanceof ApiError ? e.message : "Could not test Audnexus",
+        e instanceof ApiError
+          ? e.message
+          : t("settings.books.audnexus.testFailed"),
       );
     }
   };
@@ -97,7 +103,7 @@ export function AudnexusIntegrationSection() {
         <Switch
           checked={enabled}
           onCheckedChange={setEnabled}
-          aria-label="Enable Audnexus"
+          aria-label={t("settings.books.audnexus.enable")}
         />
       </div>
 
@@ -130,7 +136,7 @@ export function AudnexusIntegrationSection() {
         <Input
           id="audnexus-base-url"
           value={baseUrl}
-          placeholder="https://api.audnex.us"
+          placeholder={t("settings.books.audnexus.baseUrlPlaceholder")}
           onChange={(e) => setBaseUrl(e.target.value)}
         />
         <p className={HINT}>

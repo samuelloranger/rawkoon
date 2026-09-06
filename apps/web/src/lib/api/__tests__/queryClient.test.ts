@@ -1,5 +1,23 @@
-import { describe, expect, it } from "vitest";
-import { QUERY_DEFAULTS } from "@/lib/api/queryClient";
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { toast } from "sonner";
+import {
+  MutationObserver,
+  type MutationObserverOptions,
+} from "@tanstack/react-query";
+import { QUERY_DEFAULTS, createQueryClient } from "@/lib/api/queryClient";
+import { HttpError } from "@/lib/api/httpClient";
+
+async function runMutation(
+  client: ReturnType<typeof createQueryClient>,
+  options: MutationObserverOptions,
+): Promise<void> {
+  const observer = new MutationObserver(client, options);
+  await observer.mutate().catch(() => undefined);
+}
+
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), success: vi.fn() },
+}));
 
 /**
  * These defaults decide whether a list reflects a mutation made on a detail
@@ -33,5 +51,58 @@ describe("query client defaults", () => {
     // focus-refetching every query was noisy.
     expect(queries?.refetchOnWindowFocus).toBe(false);
     expect(queries?.refetchOnReconnect).toBe(false);
+  });
+});
+
+describe("mutation cache onError", () => {
+  beforeEach(() => {
+    vi.mocked(toast.error).mockClear();
+  });
+
+  it("toasts HttpError.apiError for fire-and-forget mutations", async () => {
+    const client = createQueryClient();
+    await runMutation(client, {
+      mutationFn: async () => {
+        throw new HttpError("nope", 400, undefined, {
+          error: "Nope from API",
+        });
+      },
+    });
+    expect(toast.error).toHaveBeenCalledWith("Nope from API");
+  });
+
+  it("falls back to common.requestFailed when there is no API error", async () => {
+    const client = createQueryClient();
+    await runMutation(client, {
+      mutationFn: async () => {
+        throw new Error("network down");
+      },
+    });
+    expect(toast.error).toHaveBeenCalledWith("Request failed");
+  });
+
+  it("stays silent when meta.silent is set", async () => {
+    const client = createQueryClient();
+    await runMutation(client, {
+      mutationFn: async () => {
+        throw new Error("hidden");
+      },
+      meta: { silent: true },
+    });
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("does not double-toast when the mutation already has onError", async () => {
+    const client = createQueryClient();
+    await runMutation(client, {
+      mutationFn: async () => {
+        throw new Error("handled");
+      },
+      onError: () => {
+        toast.error("call-site");
+      },
+    });
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledWith("call-site");
   });
 });

@@ -8,6 +8,7 @@ import {
   Plus,
   X,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   Popover,
   PopoverContent,
@@ -37,6 +38,7 @@ export function TrackerPrioritySection({
   onTrackersChange: (next: string[]) => void;
   onPreferOverQualityChange: (next: boolean) => void;
 }) {
+  const { t } = useTranslation("common");
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [search, setSearch] = useState("");
   const { data, isFetching } = useIndexers(popoverOpen);
@@ -71,7 +73,7 @@ export function TrackerPrioritySection({
           htmlFor="quality-profile-tracker-section-trackers-prioritaires"
           className="text-sm font-medium text-neutral-300"
         >
-          Trackers prioritaires
+          {t("settings.qualityProfiles.priorityTrackers")}
         </label>
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PopoverTrigger asChild>
@@ -80,7 +82,7 @@ export function TrackerPrioritySection({
               className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-600 hover:bg-neutral-800"
             >
               <Plus size={12} />
-              Ajouter
+              {t("settings.qualityProfiles.addTracker")}
             </button>
           </PopoverTrigger>
           <PopoverContent align="end" sideOffset={6} className="w-64 p-2">
@@ -89,18 +91,18 @@ export function TrackerPrioritySection({
               autoFocus
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher un tracker…"
+              placeholder={t("settings.qualityProfiles.searchTracker")}
               className="focus-ring mb-2 w-full rounded-md border px-2.5 py-1.5 text-sm placeholder-neutral-400 border-neutral-700 bg-neutral-900 text-neutral-100"
             />
             {isFetching && available.length === 0 ? (
               <p className="px-2 py-3 text-center text-xs text-neutral-400">
-                Chargement…
+                {t("settings.qualityProfiles.loadingTrackers")}
               </p>
             ) : available.length === 0 ? (
               <p className="px-2 py-3 text-center text-xs text-neutral-400">
                 {search
-                  ? "Aucun résultat"
-                  : "Tous les trackers sont déjà ajoutés"}
+                  ? t("settings.qualityProfiles.noTrackerResults")
+                  : t("settings.qualityProfiles.allTrackersAdded")}
               </p>
             ) : (
               <div className="max-h-52 overflow-y-auto">
@@ -122,7 +124,7 @@ export function TrackerPrioritySection({
                     <span className="flex-1 text-left">{idx.name}</span>
                     {idx.privacy === "private" && (
                       <span className="rounded px-1 py-0.5 text-[10px] font-medium bg-amber-500/10 text-amber-400">
-                        Privé
+                        {t("settings.qualityProfiles.privateTracker")}
                       </span>
                     )}
                   </button>
@@ -135,7 +137,7 @@ export function TrackerPrioritySection({
 
       {trackers.length === 0 ? (
         <p className="rounded-lg border border-dashed px-4 py-3 text-center text-xs text-neutral-400 border-neutral-700">
-          Aucun tracker prioritaire — tous les indexers sont traités également
+          {t("settings.qualityProfiles.noPriorityTrackers")}
         </p>
       ) : (
         <div className="flex flex-col gap-1">
@@ -156,6 +158,7 @@ export function TrackerPrioritySection({
                   type="button"
                   disabled={i === 0}
                   onClick={() => move(i, i - 1)}
+                  aria-label={t("settings.qualityProfiles.moveTrackerUp")}
                   className="rounded p-1 text-neutral-400 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-neutral-700 hover:text-neutral-300 transition-colors"
                 >
                   <ChevronUp size={14} />
@@ -164,6 +167,7 @@ export function TrackerPrioritySection({
                   type="button"
                   disabled={i === trackers.length - 1}
                   onClick={() => move(i, i + 1)}
+                  aria-label={t("settings.qualityProfiles.moveTrackerDown")}
                   className="rounded p-1 text-neutral-400 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-neutral-700 hover:text-neutral-300 transition-colors"
                 >
                   <ChevronDown size={14} />
@@ -171,6 +175,7 @@ export function TrackerPrioritySection({
                 <button
                   type="button"
                   onClick={() => remove(name)}
+                  aria-label={t("settings.qualityProfiles.removeTracker")}
                   className="rounded p-1 text-neutral-400 hover:text-red-500 hover:bg-red-500/10 transition-colors"
                 >
                   <X size={14} />
@@ -201,11 +206,10 @@ export function TrackerPrioritySection({
           />
           <span className="flex flex-col gap-0.5">
             <span className="text-sm text-neutral-300">
-              Préférer le tracker sur la qualité
+              {t("settings.qualityProfiles.preferTrackerOverQuality")}
             </span>
             <span className="text-xs text-neutral-500">
-              Le tracker prioritaire l'emporte sur la résolution et la source
-              (+1 500 / +1 000 / +500 pts)
+              {t("settings.qualityProfiles.preferTrackerOverQualityHelp")}
             </span>
           </span>
         </label>

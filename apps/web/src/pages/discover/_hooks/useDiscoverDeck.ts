@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import type {
   DiscoverDeckItem,
   DiscoverDeckResponse,
@@ -34,6 +35,7 @@ const libraryType = (t: "movie" | "tv"): "movie" | "show" =>
   t === "tv" ? "show" : "movie";
 
 export function useDiscoverDeck() {
+  const { t } = useTranslation("common");
   const fetcher = useFetcher();
   const [queue, setQueue] = useState<DiscoverDeckItem[]>([]);
   const [source, setSource] = useState<DiscoverDeckSource>("personalized");
@@ -201,9 +203,9 @@ export function useDiscoverDeck() {
       setQueue((q) => [action.item, ...q]);
       setStatus("ready");
     } catch {
-      toast.error("Couldn't undo that");
+      toast.error(t("medias.discover.undoFailed"));
     }
-  }, [last, removeFromLibrary, removeFromWatchlist, undismiss]);
+  }, [last, removeFromLibrary, removeFromWatchlist, undismiss, t]);
 
   return {
     current,

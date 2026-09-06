@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type {
   NotificationChannelType,
@@ -28,6 +29,7 @@ interface Props {
 }
 
 export function AddNotificationChannelModal({ isOpen, onClose }: Props) {
+  const { t } = useTranslation("common");
   const createMutation = useCreateNotificationChannel();
 
   const [formType, setFormType] = useState<NotificationChannelType>("ntfy");
@@ -50,7 +52,7 @@ export function AddNotificationChannelModal({ isOpen, onClose }: Props) {
 
   async function handleAdd() {
     if (!formLabel.trim()) {
-      toast.error("Please enter a label for the channel.");
+      toast.error(t("settings.notifications.channels.labelRequired"));
       return;
     }
     const config =
@@ -65,12 +67,14 @@ export function AddNotificationChannelModal({ isOpen, onClose }: Props) {
       { type: formType, label: formLabel.trim(), config },
       {
         onSuccess: () => {
-          toast.success("Channel added.");
+          toast.success(t("settings.notifications.channels.added"));
           handleClose();
         },
         onError: (err) => {
           toast.error(
-            err instanceof Error ? err.message : "Failed to add channel.",
+            err instanceof Error
+              ? err.message
+              : t("settings.notifications.channels.addError"),
           );
         },
       },
@@ -81,12 +85,14 @@ export function AddNotificationChannelModal({ isOpen, onClose }: Props) {
     <Dialog
       isOpen={isOpen}
       onClose={handleClose}
-      title="Add Channel"
+      title={t("settings.notifications.channels.addTitle")}
       panelClassName="max-w-lg"
     >
       <div className="space-y-4 pt-2">
         <div>
-          <h3 className="text-sm font-medium text-neutral-300 mb-1">Type</h3>
+          <h3 className="text-sm font-medium text-neutral-300 mb-1">
+            {t("settings.notifications.channels.type")}
+          </h3>
           <Select
             value={formType}
             onValueChange={(v) =>
@@ -107,11 +113,13 @@ export function AddNotificationChannelModal({ isOpen, onClose }: Props) {
         </div>
 
         <div>
-          <h3 className="text-sm font-medium text-neutral-300 mb-1">Label</h3>
+          <h3 className="text-sm font-medium text-neutral-300 mb-1">
+            {t("settings.notifications.channels.label")}
+          </h3>
           <Input
             value={formLabel}
             onChange={(e) => setFormLabel(e.target.value)}
-            placeholder="My channel"
+            placeholder={t("settings.notifications.channels.labelPlaceholder")}
           />
         </div>
 
@@ -123,14 +131,16 @@ export function AddNotificationChannelModal({ isOpen, onClose }: Props) {
 
         <div className="flex gap-2 pt-1">
           <Button onClick={handleAdd} disabled={createMutation.isPending}>
-            {createMutation.isPending ? "Adding…" : "Add Channel"}
+            {createMutation.isPending
+              ? t("settings.notifications.channels.adding")
+              : t("settings.notifications.channels.addTitle")}
           </Button>
           <Button
             variant="ghost"
             onClick={handleClose}
             disabled={createMutation.isPending}
           >
-            Cancel
+            {t("common.cancel")}
           </Button>
         </div>
       </div>

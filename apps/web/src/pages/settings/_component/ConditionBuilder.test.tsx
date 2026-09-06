@@ -29,7 +29,9 @@ describe("ConditionBuilder", () => {
     renderBuilder(conditions);
     // Each row has a remove button
     expect(
-      screen.getAllByRole("button", { name: /remove condition/i }),
+      screen.getAllByRole("button", {
+        name: /customFormats.a11y.removeCondition/i,
+      }),
     ).toHaveLength(2);
   });
 
@@ -58,7 +60,7 @@ describe("ConditionBuilder", () => {
     expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
     // Operator select shows only is_true option
     const opSelects = screen.getAllByRole("combobox", {
-      name: /condition operator/i,
+      name: /customFormats.a11y.conditionOperator/i,
     });
     expect(opSelects[0]).toBeDisabled();
     // The single option is the is_true key
@@ -73,7 +75,7 @@ describe("ConditionBuilder", () => {
     ];
     renderBuilder(conditions);
     const opSelect = screen.getByRole("combobox", {
-      name: /condition operator/i,
+      name: /customFormats.a11y.conditionOperator/i,
     });
     const options = Array.from(opSelect.querySelectorAll("option")).map(
       (o) => o.value,
@@ -89,8 +91,9 @@ describe("ConditionBuilder", () => {
       { type: "title_regex", operator: "matches", value: "[invalid" },
     ];
     renderBuilder(conditions);
-    // The indicator has aria-label="invalid regex"
-    expect(screen.getByLabelText("invalid regex")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("customFormats.a11y.invalidRegex"),
+    ).toBeInTheDocument();
   });
 
   it("shows the valid-regex indicator on a valid regex pattern", () => {
@@ -98,7 +101,9 @@ describe("ConditionBuilder", () => {
       { type: "title_regex", operator: "matches", value: "^foo.*bar$" },
     ];
     renderBuilder(conditions);
-    expect(screen.getByLabelText("valid regex")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("customFormats.a11y.validRegex"),
+    ).toBeInTheDocument();
   });
 
   // ── 6. Add condition ──────────────────────────────────────────────────────
@@ -135,7 +140,7 @@ describe("ConditionBuilder", () => {
     renderBuilder(conditions, onChange);
 
     const removeBtns = screen.getAllByRole("button", {
-      name: /remove condition/i,
+      name: /customFormats.a11y.removeCondition/i,
     });
     fireEvent.click(removeBtns[0]); // remove first row
 
@@ -155,7 +160,7 @@ describe("ConditionBuilder", () => {
     renderBuilder(conditions, onChange);
 
     const typeSelect = screen.getByRole("combobox", {
-      name: /condition type/i,
+      name: /customFormats.a11y.conditionType/i,
     });
     fireEvent.change(typeSelect, { target: { value: "hdr_flag" } });
 
@@ -174,7 +179,7 @@ describe("ConditionBuilder", () => {
     renderBuilder(conditions, onChange);
 
     const typeSelect = screen.getByRole("combobox", {
-      name: /condition type/i,
+      name: /customFormats.a11y.conditionType/i,
     });
     fireEvent.change(typeSelect, { target: { value: "resolution" } });
 
@@ -197,7 +202,7 @@ describe("ConditionBuilder", () => {
     renderBuilder(conditions, onChange);
 
     const opSelect = screen.getByRole("combobox", {
-      name: /condition operator/i,
+      name: /customFormats.a11y.conditionOperator/i,
     });
     fireEvent.change(opSelect, { target: { value: "between" } });
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ArrowDown, ArrowUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ const SOURCE_HINTS: Record<BookMetadataSource, string> = {
 };
 
 export function BookMetadataSourcesSection() {
+  const { t } = useTranslation("common");
   const { data, isLoading } = useBookMetadataSources();
   const update = useUpdateBookMetadataSources();
 
@@ -73,10 +75,12 @@ export function BookMetadataSourcesSection() {
   const save = async () => {
     try {
       await update.mutateAsync(order);
-      toast.success("Metadata source order saved");
+      toast.success(t("settings.books.metadataSources.saved"));
     } catch (e) {
       toast.error(
-        e instanceof ApiError ? e.message : "Failed to save the source order",
+        e instanceof ApiError
+          ? e.message
+          : t("settings.books.metadataSources.saveFailed"),
       );
     }
   };
@@ -117,7 +121,9 @@ export function BookMetadataSourcesSection() {
               type="button"
               size="icon"
               variant="ghost"
-              aria-label={`Move ${SOURCE_LABELS[source]} up`}
+              aria-label={t("settings.books.metadataSources.moveUp", {
+                name: SOURCE_LABELS[source],
+              })}
               disabled={index === 0}
               onClick={() => move(index, -1)}
             >
@@ -127,7 +133,9 @@ export function BookMetadataSourcesSection() {
               type="button"
               size="icon"
               variant="ghost"
-              aria-label={`Move ${SOURCE_LABELS[source]} down`}
+              aria-label={t("settings.books.metadataSources.moveDown", {
+                name: SOURCE_LABELS[source],
+              })}
               disabled={index === order.length - 1}
               onClick={() => move(index, 1)}
             >
@@ -135,7 +143,9 @@ export function BookMetadataSourcesSection() {
             </Button>
             <Switch
               checked
-              aria-label={`Disable ${SOURCE_LABELS[source]}`}
+              aria-label={t("settings.books.metadataSources.disable", {
+                name: SOURCE_LABELS[source],
+              })}
               onCheckedChange={() => toggle(source, false)}
             />
           </li>
@@ -144,7 +154,9 @@ export function BookMetadataSourcesSection() {
 
       {disabled.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs font-medium text-neutral-400">Disabled</p>
+          <p className="text-xs font-medium text-neutral-400">
+            {t("settings.books.metadataSources.disabledHeading")}
+          </p>
           {disabled.map((source) => (
             <div
               key={source}
@@ -157,7 +169,9 @@ export function BookMetadataSourcesSection() {
               </div>
               <Switch
                 checked={false}
-                aria-label={`Enable ${SOURCE_LABELS[source]}`}
+                aria-label={t("settings.books.metadataSources.enable", {
+                  name: SOURCE_LABELS[source],
+                })}
                 onCheckedChange={() => toggle(source, true)}
               />
             </div>

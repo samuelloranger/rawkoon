@@ -108,6 +108,8 @@ export function LibraryItemRow({
 
   return (
     <div
+      role="link"
+      tabIndex={0}
       className="group flex items-stretch gap-3 rounded-xl border border-neutral-700 bg-neutral-800 px-3 py-2.5 cursor-pointer hover:bg-neutral-700/40 transition-colors"
       onClick={() =>
         navigate({
@@ -115,6 +117,15 @@ export function LibraryItemRow({
           params: { libraryId: String(item.id) },
         })
       }
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          void navigate({
+            to: "/library/$libraryId",
+            params: { libraryId: String(item.id) },
+          });
+        }
+      }}
       onMouseEnter={() => prefetchLibraryItem(item)}
       onTouchStart={() => prefetchLibraryItem(item)}
     >

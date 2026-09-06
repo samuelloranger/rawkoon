@@ -4,7 +4,13 @@ import LanguageDetector from "i18next-browser-languagedetector";
 import commonEn from "@/locales/en/common.json";
 import commonFr from "@/locales/fr/common.json";
 
-i18n
+function applyDocumentLang(lng: string): void {
+  if (typeof document === "undefined") return;
+  const lang = lng.split("-")[0] || "en";
+  document.documentElement.lang = lang;
+}
+
+void i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
@@ -28,4 +34,7 @@ i18n
     },
   });
 
-// i18n instance is initialized as a side-effect; no need to export.
+applyDocumentLang(i18n.resolvedLanguage ?? i18n.language);
+i18n.on("languageChanged", applyDocumentLang);
+
+export default i18n;

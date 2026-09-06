@@ -1,4 +1,4 @@
-// Type definitions for service worker
+import type { SwUiStrings } from "./strings";
 
 export interface NotificationData {
   url?: string;
@@ -24,12 +24,13 @@ export interface MessageData {
   type:
     | "clearBadge"
     | "syncBadge"
-    | "showUpdateNotification"
     | "notification-sync"
     | "notification-received"
-    | "clearCache";
+    | "clearCache"
+    | "setStrings";
   notificationId?: number | null;
   notificationData?: PushNotificationData;
+  strings?: Partial<SwUiStrings>;
 }
 
 export interface UnreadCountResponse {
