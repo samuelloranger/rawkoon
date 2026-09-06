@@ -8,8 +8,14 @@ struct ExploreFilters: Equatable {
         case movie
         case tv
 
-        var id: String { rawValue }
-        var apiValue: String { rawValue }
+        var id: String {
+            rawValue
+        }
+
+        var apiValue: String {
+            rawValue
+        }
+
         var label: LocalizedStringKey {
             switch self {
             case .movie: "Movies"
