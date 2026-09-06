@@ -24,13 +24,22 @@
                 DebugPlayer(chapterCount: 63, resumeAt: 15120)
             case "playerNoChapters":
                 DebugPlayer(chapterCount: 0, resumeAt: 15120)
+            case "shimmerTEMP":
+                VStack(spacing: 16) {
+                    ShimmerView(cornerRadius: 8).frame(height: 60)
+                    ShimmerView(cornerRadius: 12).frame(height: 100)
+                    ShimmerView(cornerRadius: 24).frame(width: 120, height: 120)
+                }
+                .padding()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black)
             default:
                 EmptyView()
             }
         }
 
         static func isOffline(_ screen: String) -> Bool {
-            ["player", "playerNoChapters"].contains(screen)
+            ["player", "playerNoChapters", "shimmerTEMP"].contains(screen)
         }
     }
 
