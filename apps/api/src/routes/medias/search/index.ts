@@ -63,6 +63,101 @@ function normalizedToInteractive(
 
 let warmInFlight = false;
 
+export type InteractiveSearchDownloadBody = {
+  token: string;
+  library_media_id?: number;
+  episode_id?: number;
+  season?: number;
+  is_upgrade?: boolean;
+};
+
+/** Resolve a search token and enqueue via grabRelease(); 409 if no library item. */
+export async function downloadInteractiveSearchRelease(
+  body: InteractiveSearchDownloadBody,
+  set: { status?: number | string },
+) {
+  const token = body.token.trim();
+  if (!token) {
+    return badRequest(set, "Invalid release token");
+  }
+
+  try {
+    const adapter = await getActiveIndexerManager();
+    if (!adapter) {
+      return badRequest(
+        set,
+        "No indexer manager configured. Enable Prowlarr or Jackett in integration settings.",
+      );
+    }
+
+    // Pop the token first so a retry cannot double-grab the same payload.
+    const resolved = await adapter.grabRelease(token);
+    if (!resolved.success) {
+      return notFound(
+        set,
+        resolved.error ??
+          "Selected release is no longer available. Run the search again.",
+      );
+    }
+
+    const downloadUrl = resolved.magnetUrl ?? resolved.downloadUrl;
+    if (!downloadUrl) {
+      return badRequest(set, "Release has no download URL");
+    }
+    const releaseTitle = resolved.title?.trim();
+    if (!releaseTitle) {
+      return badRequest(set, "Release has no title");
+    }
+
+    let mediaId = body.library_media_id;
+    if (mediaId == null && body.episode_id != null) {
+      const episode = await prisma.libraryEpisode.findUnique({
+        where: { id: body.episode_id },
+        select: { mediaId: true },
+      });
+      mediaId = episode?.mediaId;
+    }
+    if (mediaId == null) {
+      return conflict(
+        set,
+        "No library item to attach this download to. Add the title to your library first.",
+      );
+    }
+    const media = await prisma.libraryMedia.findUnique({
+      where: { id: mediaId },
+      select: { id: true },
+    });
+    if (!media) {
+      return conflict(
+        set,
+        "No library item to attach this download to. Add the title to your library first.",
+      );
+    }
+
+    const result = await grabRelease({
+      mediaId,
+      episodeId: body.episode_id,
+      season: body.season,
+      downloadUrl,
+      releaseTitle,
+      indexer: resolved.indexer,
+      isUpgrade: body.is_upgrade ?? false,
+    });
+
+    if (result.grabbed) {
+      return {
+        grabbed: true,
+        release_title: result.releaseTitle,
+        service: adapter.name,
+      };
+    }
+    return { grabbed: false, reason: result.reason };
+  } catch (error) {
+    console.error("Error downloading release:", error);
+    return serverError(set, "Failed to download release");
+  }
+}
+
 export const mediasSearchRoutes = new Elysia()
   .use(auth)
   .use(requireAdmin)
@@ -260,88 +355,7 @@ export const mediasSearchRoutes = new Elysia()
   })
   .post(
     "/interactive-search/download",
-    async ({ set, body }) => {
-      const token = body.token.trim();
-      if (!token) {
-        return badRequest(set, "Invalid release token");
-      }
-
-      try {
-        const adapter = await getActiveIndexerManager();
-        if (!adapter) {
-          return badRequest(
-            set,
-            "No indexer manager configured. Enable Prowlarr or Jackett in integration settings.",
-          );
-        }
-
-        // Pop the token first so a retry cannot double-grab the same payload.
-        const resolved = await adapter.grabRelease(token);
-        if (!resolved.success) {
-          return notFound(
-            set,
-            resolved.error ??
-              "Selected release is no longer available. Run the search again.",
-          );
-        }
-
-        const downloadUrl = resolved.magnetUrl ?? resolved.downloadUrl;
-        if (!downloadUrl) {
-          return badRequest(set, "Release has no download URL");
-        }
-        const releaseTitle = resolved.title?.trim();
-        if (!releaseTitle) {
-          return badRequest(set, "Release has no title");
-        }
-
-        let mediaId = body.library_media_id;
-        if (mediaId == null && body.episode_id != null) {
-          const episode = await prisma.libraryEpisode.findUnique({
-            where: { id: body.episode_id },
-            select: { mediaId: true },
-          });
-          mediaId = episode?.mediaId;
-        }
-        if (mediaId == null) {
-          return conflict(
-            set,
-            "No library item to attach this download to. Add the title to your library first.",
-          );
-        }
-        const media = await prisma.libraryMedia.findUnique({
-          where: { id: mediaId },
-          select: { id: true },
-        });
-        if (!media) {
-          return conflict(
-            set,
-            "No library item to attach this download to. Add the title to your library first.",
-          );
-        }
-
-        const result = await grabRelease({
-          mediaId,
-          episodeId: body.episode_id,
-          season: body.season,
-          downloadUrl,
-          releaseTitle,
-          indexer: resolved.indexer,
-          isUpgrade: body.is_upgrade ?? false,
-        });
-
-        if (result.grabbed) {
-          return {
-            grabbed: true,
-            release_title: result.releaseTitle,
-            service: adapter.name,
-          };
-        }
-        return { grabbed: false, reason: result.reason };
-      } catch (error) {
-        console.error("Error downloading release:", error);
-        return serverError(set, "Failed to download release");
-      }
-    },
+    async ({ set, body }) => downloadInteractiveSearchRelease(body, set),
     {
       body: t.Object({
         token: t.String(),

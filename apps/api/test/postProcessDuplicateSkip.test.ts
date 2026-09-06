@@ -96,20 +96,6 @@ const { postProcessBookDownload } = await import(
 );
 
 beforeEach(() => {
-  mock.module("node:fs/promises", () => ({
-    ...realFs,
-    stat: async () => ({ isFile: () => true }),
-    unlink: async () => {},
-    link: async () => {},
-    rename: async () => {},
-    copyFile: async () => {},
-    mkdir: async () => {},
-    readdir: async () => [],
-    rm: async () => {},
-    readFile: async () => Buffer.from(""),
-    writeFile: async () => {},
-    access: async () => {},
-  }));
   state.dh = null;
   state.settings = null;
   state.mediaFiles = [];

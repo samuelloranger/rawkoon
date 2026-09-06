@@ -256,8 +256,6 @@ afterAll(() => {
 });
 
 beforeEach(() => {
-  installMediaRequestDbMock();
-  installMediaRequestNotificationMock();
   state.library = [];
   state.libraryBooks = [];
   state.requests = [];

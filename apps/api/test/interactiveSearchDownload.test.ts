@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { Elysia } from "elysia";
 
 const grabRelease = mock(async () => ({
   grabbed: true as const,
@@ -17,17 +16,6 @@ const state = {
   media: { id: 42 } as { id: number } | null,
   episode: null as { mediaId: number } | null,
 };
-
-mock.module("@rawkoon/api/auth", () => ({
-  auth: (app: Elysia) => app,
-}));
-
-mock.module("@rawkoon/api/middleware/auth", () => ({
-  requireAdmin: (app: Elysia) => app,
-  requireUser: (app: Elysia) => app,
-  resolveUser: async () => null,
-  ensureAdmin: () => {},
-}));
 
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
@@ -56,23 +44,23 @@ mock.module("@rawkoon/api/services/mediaGrabberGrab", () => ({
   grabRelease,
 }));
 
-const { mediasSearchRoutes } = await import(
+const { downloadInteractiveSearchRelease } = await import(
   "@rawkoon/api/routes/medias/search/index"
 );
 
-const app = new Elysia().use(mediasSearchRoutes);
-
-function post(body: unknown) {
-  return app.handle(
-    new Request("http://localhost/interactive-search/download", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }),
-  );
+async function post(body: {
+  token: string;
+  library_media_id?: number;
+  episode_id?: number;
+  season?: number;
+  is_upgrade?: boolean;
+}) {
+  const set: { status?: number | string } = {};
+  const payload = await downloadInteractiveSearchRelease(body, set);
+  return { status: (set.status as number | undefined) ?? 200, json: payload };
 }
 
-describe("POST /interactive-search/download", () => {
+describe("downloadInteractiveSearchRelease", () => {
   beforeEach(() => {
     grabRelease.mockClear();
     adapterGrab.mockClear();
@@ -93,7 +81,7 @@ describe("POST /interactive-search/download", () => {
   it("enqueues via grabRelease when a library item is present", async () => {
     const res = await post({ token: "abc", library_media_id: 42 });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
+    expect(res.json).toEqual({
       grabbed: true,
       release_title: "Movie.2024.1080p",
       service: "jackett",
@@ -113,7 +101,7 @@ describe("POST /interactive-search/download", () => {
   it("returns 409 when no library item is resolvable", async () => {
     const res = await post({ token: "abc" });
     expect(res.status).toBe(409);
-    const json = (await res.json()) as { error: string };
+    const json = res.json as { error: string };
     expect(json.error).toContain("library item");
     expect(adapterGrab).toHaveBeenCalledWith("abc");
     expect(grabRelease).not.toHaveBeenCalled();

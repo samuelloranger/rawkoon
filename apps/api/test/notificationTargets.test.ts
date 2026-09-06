@@ -66,7 +66,6 @@ const { notifyAdminsPostProcessFailed } = await import(
 
 describe("library notification targets", () => {
   beforeEach(() => {
-    installNotificationTargetMocks();
     state.notifications = [];
     state.episode = null;
     state.media = {

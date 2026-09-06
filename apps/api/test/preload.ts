@@ -1,16 +1,57 @@
-import * as realFs from "node:fs/promises";
-import * as realShared from "@rawkoon/shared";
-import * as realFilenameParser from "../src/utils/medias/filenameParser";
-import { mock, beforeEach } from "bun:test";
+import { readFileSync } from "node:fs";
+import { mock } from "bun:test";
+
+/**
+ * bunfig cannot set --isolate (oven-sh/bun#38728). mock.module + ESM caching
+ * leak across files in the default shared-global runner, so `bun test` with
+ * no flags is not a valid suite. Re-invoke with --parallel --isolate unless
+ * the caller already chose isolation (or explicitly opted out via --no-isolate).
+ */
+function bunTestArgv(): string[] {
+  try {
+    return readFileSync("/proc/self/cmdline", "utf8")
+      .split("\0")
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+const bunTestArgvList = bunTestArgv();
+const isolationAlreadyChosen = bunTestArgvList.some(
+  (arg) =>
+    arg === "--isolate" ||
+    arg === "--no-isolate" ||
+    arg === "--parallel" ||
+    arg.startsWith("--parallel="),
+);
+if (
+  bunTestArgvList[1] === "test" &&
+  !isolationAlreadyChosen &&
+  process.env.RAWKOON_TEST_ISOLATED !== "1"
+) {
+  const result = Bun.spawnSync({
+    cmd: [
+      process.execPath,
+      "test",
+      "--parallel",
+      "--isolate",
+      ...bunTestArgvList.slice(2),
+    ],
+    cwd: process.cwd(),
+    env: { ...process.env, RAWKON_TEST_ISOLATED: "1" },
+    stdin: "inherit",
+    stdout: "inherit",
+    stderr: "inherit",
+  });
+  process.exit(result.exitCode ?? 1);
+}
 
 // Set required env vars for config validation in tests (only if not already set)
 // DATABASE_URL must NOT be set if no real DB is available — integration tests check its presence
 process.env.SECRET_KEY ??=
   "test-secret-key-for-tests-must-be-at-least-32-characters";
 process.env.BASE_URL ??= "http://localhost:3000";
-// perfStore.test.ts needs this at import time; without --isolate the first
-// importer otherwise freezes PERF_TIMING_ENABLED as false for the whole process.
-process.env.PERF_TIMING_ENABLED ??= "true";
 
 // Mock ioredis Redis singleton so it doesn't try to connect
 mock.module("../src/db/redis", () => {
@@ -97,14 +138,3 @@ mock.module("../src/db", () => ({
     },
   ),
 }));
-
-// mock.module is process-global. Restore these to the real implementations
-// before every test so a partial stub in one file cannot leak into the next.
-beforeEach(() => {
-  mock.module("node:fs/promises", () => realFs);
-  mock.module("@rawkoon/shared", () => realShared);
-  mock.module(
-    "@rawkoon/api/utils/medias/filenameParser",
-    () => realFilenameParser,
-  );
-});
