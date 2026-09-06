@@ -763,9 +763,12 @@ enum MediaRequestStatus {
 
 model MediaRequest {
   id               Int                @id @default(autoincrement())
-  tmdbId           Int                @map("tmdb_id")
-  type             String // "movie" | "show"
+  /// Movie/show requests only — null for "book" requests, which key off googleVolumeId instead.
+  tmdbId           Int?               @map("tmdb_id")
+  type             String // "movie" | "show" | "book"
   title            String
+  /// Book requests only: display author line, mirrors LibraryBook.authors joined for the card.
+  author           String?
   posterUrl        String?            @map("poster_url")
   year             Int?
   requestedById    String             @map("requested_by_id")
@@ -775,20 +778,31 @@ model MediaRequest {
   qualityProfile   QualityProfile?    @relation(fields: [qualityProfileId], references: [id], onDelete: SetNull)
   libraryMediaId   Int?               @map("library_media_id")
   libraryMedia     LibraryMedia?      @relation(fields: [libraryMediaId], references: [id], onDelete: SetNull)
+  /// Book requests only: the volume being requested, before it exists as a LibraryBook row.
+  googleVolumeId       String?             @map("google_volume_id")
+  /// Book requests only: profile chosen at approval, from the book profile table (distinct FK target from qualityProfileId).
+  bookQualityProfileId Int?                @map("book_quality_profile_id")
+  bookQualityProfile   BookQualityProfile? @relation(fields: [bookQualityProfileId], references: [id], onDelete: SetNull)
+  /// Book requests only: set once approveRequest adds the book, mirrors libraryMediaId.
+  libraryBookId        Int?                @map("library_book_id")
+  libraryBook          LibraryBook?        @relation(fields: [libraryBookId], references: [id], onDelete: SetNull)
   denyReason       String?            @map("deny_reason")
   decidedById      String?            @map("decided_by_id")
   decidedBy        User?              @relation("MediaRequestDecider", fields: [decidedById], references: [id], onDelete: SetNull)
   createdAt        DateTime           @default(now()) @map("created_at")
   decidedAt        DateTime?          @map("decided_at")
 
-  // Single-request behavior: only one request per TMDB item can exist at a time 
-  // since this is a self-hosted shared library instance.
+  // Single-request behavior: only one request per TMDB item (or, for books, per
+  // volume) can exist at a time since this is a self-hosted shared library instance.
   @@unique([tmdbId, type])
+  @@unique([googleVolumeId], map: "uq_media_request_google_volume_id")
   @@index([status, createdAt(sort: Desc)], map: "ix_media_request_status_created_at")
   @@index([requestedById], map: "ix_media_request_requested_by_id")
   @@index([libraryMediaId], map: "ix_media_request_library_media_id")
   @@index([qualityProfileId], map: "ix_media_request_quality_profile_id")
   @@index([decidedById], map: "ix_media_request_decided_by_id")
+  @@index([libraryBookId], map: "ix_media_request_library_book_id")
+  @@index([bookQualityProfileId], map: "ix_media_request_book_quality_profile_id")
   @@map("media_requests")
 }
 
@@ -856,6 +870,7 @@ model LibraryBook {
   authorLinks BookAuthor[]
   externalIds    BookExternalId[]
   metadataFields BookMetadataField[]
+  mediaRequests  MediaRequest[]
 
   @@index([addedAt], map: "ix_library_books_added_at")
   @@index([listTitle], map: "ix_library_books_list_title")
@@ -1133,6 +1148,7 @@ model BookQualityProfile {
   authors       Author[]
   customFormats BookQualityProfileCustomFormat[]
   defaultForSettings MediaSettings[] @relation("DefaultBookQualityProfile")
+  mediaRequests MediaRequest[]
 
   @@map("book_quality_profiles")
 }

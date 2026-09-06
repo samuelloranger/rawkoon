@@ -299,8 +299,8 @@ final class AppModel {
     /// the app-wide fix for actions that used to fail (or succeed) silently:
     /// call this from anywhere instead of stashing an error string a screen
     /// might not be showing.
-    func toast(_ message: String, style: Toast.Style = .info) {
-        currentToast = Toast(message: message, style: style)
+    func toast(_ message: String, style: Toast.Style = .info, action: ToastAction? = nil) {
+        currentToast = Toast(message: message, style: style, action: action)
 
         let generator = UINotificationFeedbackGenerator()
         switch style {
@@ -309,9 +309,13 @@ final class AppModel {
         case .info: break
         }
 
+        // An actionable toast (e.g. discover's "Undo") gets a longer window —
+        // the user needs time to read it and decide, not just glance at it.
+        let dismissDelay: Double = action == nil ? 3 : 5
+
         toastDismissTask?.cancel()
         toastDismissTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(3))
+            try? await Task.sleep(for: .seconds(dismissDelay))
             guard !Task.isCancelled else { return }
             self?.currentToast = nil
         }
@@ -465,6 +469,7 @@ final class AppModel {
                 for try await notification in await client.notificationStream() {
                     backoff = 1.0
                     unreadNotificationCount += 1
+                    syncAppIconBadge()
                     notificationChangeToken += 1
                     showBanner(notification)
                 }
@@ -516,7 +521,15 @@ final class AppModel {
         guard let client = apiClient else { return }
         if let response = try? await client.unreadNotificationCount() {
             unreadNotificationCount = response.unreadCount
+            syncAppIconBadge()
         }
+    }
+
+    /// Reconciles the app-icon badge with `unreadNotificationCount`. Pure
+    /// mapping lives in `NotificationBadge` (Kit); this just applies it.
+    private func syncAppIconBadge() {
+        let n = NotificationBadge.value(forUnread: unreadNotificationCount)
+        Task { try? await UNUserNotificationCenter.current().setBadgeCount(n) }
     }
 
     // MARK: Push notifications (APNs)
@@ -794,6 +807,7 @@ final class AppModel {
         dismissBanner()
         deepLinkTarget = nil
         unreadNotificationCount = 0
+        syncAppIconBadge()
 
         Keychain.delete(Self.serverURLKey)
         Keychain.delete(Self.authTokenKey)

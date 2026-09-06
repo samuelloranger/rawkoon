@@ -24,13 +24,15 @@
                 DebugPlayer(chapterCount: 63, resumeAt: 15120)
             case "playerNoChapters":
                 DebugPlayer(chapterCount: 0, resumeAt: 15120)
+            case "deck":
+                DebugDeck()
             default:
                 EmptyView()
             }
         }
 
         static func isOffline(_ screen: String) -> Bool {
-            ["player", "playerNoChapters"].contains(screen)
+            ["player", "playerNoChapters", "deck"].contains(screen)
         }
     }
 
@@ -244,6 +246,38 @@
             let decoder = JSONDecoder()
             decoder.keyDecodingStrategy = .convertFromSnakeCase
             return try? decoder.decode(BookManifest.self, from: Data(json.utf8))
+        }
+    }
+
+    /// `RAWKOON_SCREEN=deck` — the discover triage deck (Task 3, "Dusk in
+    /// Motion") with three synthetic items, screenshotted with no server. Also
+    /// the place to toggle Simulator Settings > Accessibility > Motion >
+    /// Reduce Motion and re-screenshot to confirm the drag-follow disables.
+    struct DebugDeck: View {
+        private static let sample: [DiscoverDeckItem] = [
+            DiscoverDeckItem(
+                id: "movie-1", tmdbId: 1, mediaType: "movie", title: "Dusk in Motion",
+                releaseYear: 2024, posterUrl: nil, overview: nil, voteAverage: 7.8, genreIds: []
+            ),
+            DiscoverDeckItem(
+                id: "tv-2", tmdbId: 2, mediaType: "tv", title: "The Long Corridor",
+                releaseYear: 2022, posterUrl: nil, overview: nil, voteAverage: 8.4, genreIds: []
+            ),
+            DiscoverDeckItem(
+                id: "movie-3", tmdbId: 3, mediaType: "movie", title: "Amber Hour",
+                releaseYear: 2019, posterUrl: nil, overview: nil, voteAverage: nil, genreIds: []
+            ),
+        ]
+
+        var body: some View {
+            ZStack {
+                Theme.base.ignoresSafeArea()
+                SwipeDeck(
+                    items: Self.sample, label: "For you", primaryActionTitle: "Add",
+                    onDismiss: { _ in }, onWatchlist: { _ in }, onPrimary: { _ in },
+                    onExhausted: {}, onOpen: { _ in }
+                )
+            }
         }
     }
 

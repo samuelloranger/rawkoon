@@ -58,6 +58,72 @@ nonisolated struct TmdbSearchResponse: Decodable, Sendable {
     let items: [TmdbSearchItem]
 }
 
+// MARK: - Discover deck (swipe)
+
+nonisolated enum DiscoverSource: String, Codable, Sendable {
+    case personalized
+    case trending
+}
+
+nonisolated struct DiscoverDeckItem: Codable, Identifiable, Hashable, Sendable {
+    let id: String // "${media_type}-${tmdb_id}"
+    let tmdbId: Int
+    let mediaType: String // "movie" | "tv"
+    let title: String
+    let releaseYear: Int?
+    let posterUrl: String?
+    let overview: String?
+    let voteAverage: Double?
+    let genreIds: [Int]
+}
+
+nonisolated struct DiscoverDeckResponse: Codable, Sendable {
+    let items: [DiscoverDeckItem]
+    let source: DiscoverSource
+}
+
+// MARK: - Discover filter grid (Explore)
+
+/// Copies server `DISCOVER_VALID_SORTS` (tmdbRouteHelpers.ts) exactly so the UI
+/// can't send an invalid `sort_by` value.
+nonisolated enum DiscoverSort: String, CaseIterable, Sendable {
+    case popularityDesc = "popularity.desc"
+    case popularityAsc = "popularity.asc"
+    case voteAverageDesc = "vote_average.desc"
+    case voteAverageAsc = "vote_average.asc"
+    case primaryReleaseDateDesc = "primary_release_date.desc"
+    case firstAirDateDesc = "first_air_date.desc"
+    case revenueDesc = "revenue.desc"
+}
+
+nonisolated struct DiscoverMediasResponse: Decodable, Sendable {
+    let items: [TmdbSearchItem]
+    let page: Int
+    let region: String?
+    let totalPages: Int
+    let totalResults: Int
+}
+
+nonisolated struct Genre: Decodable, Identifiable, Hashable, Sendable {
+    let id: Int
+    let name: String
+}
+
+nonisolated struct GenresResponse: Decodable, Sendable {
+    let genres: [Genre]
+}
+
+nonisolated struct StreamingProvider: Decodable, Identifiable, Hashable, Sendable {
+    let id: Int
+    let name: String
+    let logoUrl: String? // server key is `logo_url`, not `logo_path`
+}
+
+nonisolated struct StreamingProvidersResponse: Decodable, Sendable {
+    let providers: [StreamingProvider]
+    let region: String?
+}
+
 nonisolated struct BookSearchHit: Decodable, Identifiable, Hashable, Sendable {
     var id: String {
         googleVolumeId
@@ -84,6 +150,43 @@ nonisolated struct MediaModalResponse: Decodable, Sendable {
     let watchlistStatus: Bool?
     let watchlistId: Int?
     let details: TmdbMediaDetails
+    let credits: MediaCredits?
+    let trailer: MediaTrailer?
+    let providers: WatchProviders?
+    let ratings: MediaRatings?
+}
+
+nonisolated struct CastMember: Decodable, Identifiable, Hashable, Sendable {
+    let id: Int
+    let name: String
+    let character: String?
+    let profileUrl: String?
+}
+
+nonisolated struct MediaCredits: Decodable, Sendable {
+    let cast: [CastMember]
+    let directors: [String]?
+}
+
+nonisolated struct MediaTrailer: Decodable, Sendable {
+    let key: String?
+    let name: String?
+}
+
+/// Mirrors `TmdbWatchProvidersResponse` (media.ts) exactly — `streaming`, not `stream`.
+nonisolated struct WatchProviders: Decodable, Sendable {
+    let region: String?
+    let streaming: [StreamingProvider]?
+    let free: [StreamingProvider]?
+    let rent: [StreamingProvider]?
+    let buy: [StreamingProvider]?
+    let link: String?
+}
+
+nonisolated struct MediaRatings: Decodable, Sendable {
+    let imdbRating: String?
+    let rottenTomatoes: String?
+    let metacritic: String?
 }
 
 nonisolated struct TmdbMediaDetails: Decodable, Sendable {
@@ -109,7 +212,7 @@ nonisolated struct NamedRef: Decodable, Hashable, Sendable {
 nonisolated struct SeasonSummary: Decodable, Hashable, Sendable {
     let seasonNumber: Int
     let name: String
-    let episodeCount: Int
+    let episodeCount: Int?
 }
 
 // MARK: - Library episodes (TV)
@@ -273,11 +376,26 @@ nonisolated struct LibraryMedia: Decodable, Identifiable, Sendable {
     let posterUrl: String?
     let overview: String?
     let qualityProfileId: Int?
+    let qualityProfile: LibraryQualityProfileRef?
     let totalSizeBytes: String? // bigint serialized as string
     let episodeCount: Int?
     let downloadedEpisodeCount: Int?
     let seasonCount: Int?
     let durationSecs: Double?
+    // Density/ledger metadata — mirrors `libraryHelpers.ts` mapLibraryMedia.
+    let resolution: Int?
+    let videoCodec: String?
+    let hdrFormat: String?
+    let audioFormat: String?
+    let languageTags: [String]?
+    let lastGrabbedAt: String?
+    let addedAt: String?
+    let digitalReleaseDate: String?
+}
+
+nonisolated struct LibraryQualityProfileRef: Decodable, Sendable {
+    let id: Int
+    let name: String
 }
 
 nonisolated struct LibraryListResponse: Decodable, Sendable {
@@ -287,17 +405,34 @@ nonisolated struct LibraryListResponse: Decodable, Sendable {
     let hasMore: Bool?
 }
 
+/// Response shared by the item/season/episode manual-search endpoints
+/// (`libraryGrabRoutes.ts` — `LibrarySearchResponse` in `library.ts`).
+nonisolated struct LibrarySearchResponse: Decodable, Sendable {
+    let grabbed: Bool
+    let releaseTitle: String?
+    let reason: String?
+}
+
 // MARK: - Requests
 
 nonisolated struct MediaRequest: Decodable, Identifiable, Sendable {
     let id: Int
-    let tmdbId: Int
-    let type: String // "movie" | "show"
+    /// Null for a "book" request — books key off googleVolumeId instead.
+    let tmdbId: Int?
+    let type: String // "movie" | "show" | "book"
     let title: String
+    /// Book requests only: display author line.
+    let author: String?
     let posterUrl: String?
     let year: Int?
     let status: String // pending | approved | denied
     let requestedBy: RequestedBy?
+    /// Book requests only: the volume being requested.
+    let googleVolumeId: String?
+    /// Book requests only: profile chosen at approval.
+    let bookQualityProfileId: Int?
+    /// Book requests only: set once the request is approved and the book exists.
+    let libraryBookId: Int?
     let denyReason: String?
     let createdAt: String
 }
@@ -312,11 +447,16 @@ nonisolated struct RequestsResponse: Decodable, Sendable {
 }
 
 nonisolated struct CreateRequestBody: Encodable, Sendable {
-    let tmdbId: Int
-    let type: String // "movie" | "show" (NOT "tv")
+    /// Movie/show requests only; nil for a "book" request.
+    let tmdbId: Int?
+    let type: String // "movie" | "show" | "book" (NOT "tv")
     let title: String
     let posterUrl: String?
     let year: Int?
+    /// Book requests only.
+    let googleVolumeId: String?
+    /// Book requests only.
+    let author: String?
 }
 
 // MARK: - Interactive release search + grab
@@ -415,15 +555,30 @@ nonisolated struct SpeedResponse: Decodable, Sendable {
 nonisolated struct ActivityFeedResponse: Decodable, Sendable {
     let activities: [ActivityRecord]
     let hasMore: Bool?
+    let availableServices: [String]?
+    let availableTypes: [String]?
+    let total: Int?
 }
 
 nonisolated struct ActivityRecord: Decodable, Sendable {
+    let id: Int?
     let type: String?
     let service: String?
     let completedAt: String?
     let releaseTitle: String?
     let message: String?
     let success: Bool?
+    let jobName: String?
+    let fromVersion: String?
+    let toVersion: String?
+    let integrationType: String?
+    let reason: String?
+    let durationMs: Int?
+    let eventTitle: String?
+    let grabSource: String?
+    let aiPicked: Bool?
+    let username: String?
+    let taskName: String?
 }
 
 nonisolated struct UpcomingResponse: Decodable, Sendable {

@@ -33,7 +33,10 @@ enum Theme {
     static let textStrong = Color(hex: 0xF4ECE4) // titles
     static let text = Color(hex: 0xE3D8CF) // body
     static let muted = Color(hex: 0xAA9A8C) // secondary · captions
-    static let faint = Color(hex: 0x9D8775) // faintest readable
+    /// Faintest readable text. Nudged from 0x9D8775 for a safer WCAG AA margin
+    /// (was ~4.8:1 against `raised`, right at the edge; now ~6:1 against both
+    /// `base` and `raised`) — still reads as the dimmest tone in the palette.
+    static let faint = Color(hex: 0xAE9885)
 
     /// Ink used on top of the apricot accent (dark brown, high contrast).
     static let onAccent = Color(hex: 0x2A1A10)
@@ -107,14 +110,21 @@ enum Appearance {
         UINavigationBar.appearance().tintColor = UIColor(Theme.apricot)
 
         // Segmented controls stay in the room: raised fill, terracotta hairline
-        // via selected text — apricot is reserved for Play.
+        // via selected text — apricot is reserved for Play. Fonts scale with
+        // Dynamic Type (via UIFontMetrics) instead of a hard 13pt so labels
+        // don't truncate at larger text sizes.
+        let segMetrics = UIFontMetrics(forTextStyle: .footnote)
         let seg = UISegmentedControl.appearance()
         seg.selectedSegmentTintColor = UIColor(Theme.raised)
         seg.backgroundColor = UIColor(Theme.well)
-        seg.setTitleTextAttributes([.foregroundColor: UIColor(Theme.textStrong),
-                                    .font: UIFont.systemFont(ofSize: 13, weight: .semibold)], for: .selected)
-        seg.setTitleTextAttributes([.foregroundColor: UIColor(Theme.muted),
-                                    .font: UIFont.systemFont(ofSize: 13, weight: .medium)], for: .normal)
+        seg.setTitleTextAttributes([
+            .foregroundColor: UIColor(Theme.textStrong),
+            .font: segMetrics.scaledFont(for: .systemFont(ofSize: 13, weight: .semibold)),
+        ], for: .selected)
+        seg.setTitleTextAttributes([
+            .foregroundColor: UIColor(Theme.muted),
+            .font: segMetrics.scaledFont(for: .systemFont(ofSize: 13, weight: .medium)),
+        ], for: .normal)
 
         // SwiftUI Slider is a UISlider. Default tracks are system gray and
         // fight the well/apricot language every other progress uses.

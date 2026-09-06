@@ -93,6 +93,10 @@ struct MediaPosterCard<Overlay: View>: View {
     var onMenuAction: (MediaPosterMenuAction) -> Void = { _ in }
     @ViewBuilder var overlay: Overlay
 
+    /// Reserves space for a 2-line `.caption` title at the standard content
+    /// size; grows with Dynamic Type instead of clipping at larger sizes.
+    @ScaledMetric(relativeTo: .caption) private var captionMinHeight: CGFloat = 34
+
     init(
         title: String,
         posterURL: URL?,
@@ -145,7 +149,7 @@ struct MediaPosterCard<Overlay: View>: View {
                 .foregroundStyle(Theme.textStrong)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
-                .frame(height: 34, alignment: .top)
+                .frame(minHeight: captionMinHeight, alignment: .top)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }

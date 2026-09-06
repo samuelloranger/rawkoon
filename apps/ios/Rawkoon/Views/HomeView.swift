@@ -197,6 +197,7 @@ struct HomeView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.white)
                 .lineLimit(2)
+                .minimumScaleFactor(0.8)
             if date != nil || episode != nil {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     if let date {
@@ -212,6 +213,7 @@ struct HomeView: View {
                     }
                 }
                 .lineLimit(1)
+                .minimumScaleFactor(0.8)
             }
         }
         .padding(.horizontal, 10)
