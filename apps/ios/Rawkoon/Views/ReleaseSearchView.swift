@@ -1014,51 +1014,55 @@ private struct ReleaseRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 10) {
-                VStack(alignment: .leading, spacing: 6) {
-                    titleView
-                    if hasMarkers {
-                        markersLine
+        HStack(alignment: .top, spacing: 12) {
+            // Left rail: brightness encodes the resolution tier, so quality reads
+            // straight down the list edge without reading each footer.
+            RoundedRectangle(cornerRadius: 2)
+                .fill(tierColor)
+                .frame(width: 4)
+                .frame(maxHeight: .infinity)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top, spacing: 10) {
+                    titleRow
+                    Spacer(minLength: 8)
+                    VStack(alignment: .trailing, spacing: 8) {
+                        grabButton
+                        blockButton
                     }
                 }
-                Spacer(minLength: 8)
-                VStack(alignment: .trailing, spacing: 8) {
-                    grabButton
-                    blockButton
+
+                footerLine
+
+                if isRejected {
+                    rejectionReasons
+                }
+
+                if !isRejected, let breakdown = release.scoreBreakdown {
+                    ScoreBreakdownPanel(breakdown: breakdown)
                 }
             }
-
-            if hasSpecLine {
-                specLine
-            }
-            healthLine
-
-            if isRejected {
-                rejectionReasons
-            }
-
-            if !isRejected, let breakdown = release.scoreBreakdown {
-                ScoreBreakdownPanel(breakdown: breakdown)
-            }
         }
-        .padding(14)
+        .padding(12)
         .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
-        // A slim apricot spine marks the AI's pick from the card edge, so the
-        // recommendation reads at a glance without adding another chip.
-        .overlay(alignment: .leading) {
-            if isAiPick {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Theme.apricot)
-                    .frame(width: 3)
-                    .padding(.vertical, 12)
-                    .padding(.leading, 1)
-            }
-        }
         .overlay(
             RoundedRectangle(cornerRadius: 14)
                 .strokeBorder(cardBorder, lineWidth: 1)
         )
+    }
+
+    /// Resolution tier → rail colour: brighter for higher quality.
+    private var tierColor: Color {
+        switch release.parsedQuality?.resolution {
+        case let r? where r >= 2160:
+            Theme.apricot
+        case let r? where r >= 1080:
+            Theme.apricotSoft
+        case let r? where r >= 720:
+            Theme.muted
+        default:
+            Theme.faint
+        }
     }
 
     private var cardBorder: Color {
@@ -1071,6 +1075,18 @@ private struct ReleaseRow: View {
         return Theme.border
     }
 
+    /// Title with a leading sparkle when it is the AI pick.
+    private var titleRow: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            if isAiPick {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.apricotSoft)
+            }
+            titleView
+        }
+    }
+
     @ViewBuilder
     private var titleView: some View {
         if let infoURL = release.infoURL, let url = URL(string: infoURL) {
@@ -1078,7 +1094,7 @@ private struct ReleaseRow: View {
                 openURL(url)
             } label: {
                 Text(release.title)
-                    .font(.subheadline.weight(.medium))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.textStrong)
                     .underline()
                     .lineLimit(2)
@@ -1087,121 +1103,89 @@ private struct ReleaseRow: View {
             .buttonStyle(.plain)
         } else {
             Text(release.title)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(Theme.text)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.textStrong)
                 .lineLimit(2)
         }
     }
 
-    private var hasMarkers: Bool {
-        isAiPick || release.isCompleteSeries == true || release.isSeasonPack == true
-    }
-
-    /// Only the release's special attributes (AI pick, pack) — kept off the spec
-    /// and health lines so those stay scannable.
-    private var markersLine: some View {
-        HStack(spacing: 6) {
-            if isAiPick {
-                HStack(spacing: 3) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 9))
-                    Text("AI Pick")
-                        .font(.system(.caption2, design: .monospaced).weight(.semibold))
-                }
-                .foregroundStyle(Theme.apricotSoft)
+    /// One quiet, colour-coded data line under the title: pack, quality, flags,
+    /// size, seeders (green), score (apricot), then faint provenance. Wraps if long.
+    private var footerLine: some View {
+        FlowLayout(spacing: 8) {
+            if let packLabel {
+                footerRun(packLabel, Theme.apricotSoft)
             }
-            if release.isCompleteSeries == true {
-                BadgeChip(text: "Intégrale", fg: Theme.apricotSoft, bg: Theme.apricot.opacity(0.12))
-            } else if release.isSeasonPack == true {
-                BadgeChip(text: "Season pack", fg: Theme.apricotSoft, bg: Theme.apricot.opacity(0.12))
-            }
-        }
-    }
-
-    private var hasSpecLine: Bool {
-        release.parsedQuality?.resolution != nil
-            || secondarySpec != nil
-            || (release.parsedQuality?.hdr.map { !$0.isEmpty } ?? false)
-            || release.freeleech == true
-            || release.qualityScore != nil
-    }
-
-    /// The scan anchor: resolution large, source/codec demoted, HDR/FL inline,
-    /// and the profile score as the card's one accent, right-aligned.
-    private var specLine: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
             if let resolution = release.parsedQuality?.resolution {
-                Text(verbatim: "\(resolution)p")
-                    .font(.system(.subheadline, design: .monospaced).weight(.semibold))
-                    .foregroundStyle(Theme.textStrong)
+                footerRun("\(resolution)p", Theme.text, weight: .semibold)
             }
             if let secondarySpec {
-                Text(secondarySpec)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.muted)
-                    .lineLimit(1)
+                footerRun(secondarySpec, Theme.muted)
             }
             if let hdr = release.parsedQuality?.hdr, !hdr.isEmpty {
-                BadgeChip(text: hdr, fg: Theme.apricotSoft, bg: Theme.apricot.opacity(0.14))
+                footerRun(hdr, Theme.apricotSoft)
             }
             if release.freeleech == true {
-                BadgeChip(text: "FL", fg: Theme.seed, bg: Theme.seed.opacity(0.14))
+                footerRun("FL", Theme.seed)
             }
-            Spacer(minLength: 8)
+            if let sizeText {
+                footerRun(sizeText, Theme.text)
+            }
+            if release.seeders != nil || release.leechers != nil {
+                seedRun
+            }
             if let qualityScore = release.qualityScore {
-                scoreAccent(Int(qualityScore.rounded()))
+                scoreRun(Int(qualityScore.rounded()))
+            }
+            if let metaText {
+                footerRun(metaText, Theme.faint)
             }
         }
     }
 
-    private func scoreAccent(_ value: Int) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: "gauge.with.needle")
-                .font(.system(size: 10))
-            Text(verbatim: "\(value)")
-                .font(.system(.caption, design: .monospaced).weight(.semibold))
+    private func footerRun(_ text: String, _ color: Color, weight: Font.Weight = .regular) -> some View {
+        Text(verbatim: text)
+            .font(.system(.caption2, design: .monospaced).weight(weight))
+            .foregroundStyle(color)
+            .lineLimit(1)
+            .fixedSize()
+    }
+
+    private var seedRun: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "arrow.up")
+                .font(.system(size: 8, weight: .bold))
+            Text(verbatim: "\(release.seeders ?? 0)")
+                .font(.system(.caption2, design: .monospaced))
+            if let leechers = release.leechers {
+                Text(verbatim: "/\(leechers)")
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(Theme.muted)
+            }
         }
-        .foregroundStyle(Theme.apricotSoft)
-        .padding(.horizontal, 9)
-        .padding(.vertical, 4)
-        .background(Theme.apricot.opacity(0.12), in: Capsule())
-        .overlay(Capsule().strokeBorder(Theme.apricot.opacity(0.28), lineWidth: 1))
+        .foregroundStyle(seederColor)
         .fixedSize()
     }
 
-    /// Seeders (green when healthy) / leechers, then size, then quiet metadata.
-    private var healthLine: some View {
-        HStack(spacing: 12) {
-            if release.seeders != nil || release.leechers != nil {
-                HStack(spacing: 10) {
-                    Label {
-                        Text(verbatim: "\(release.seeders ?? 0)")
-                    } icon: {
-                        Image(systemName: "arrow.up")
-                    }
-                    .foregroundStyle(seederColor)
-                    Label {
-                        Text(verbatim: "\(release.leechers ?? 0)")
-                    } icon: {
-                        Image(systemName: "arrow.down")
-                    }
-                    .foregroundStyle(Theme.muted)
-                }
-                .labelStyle(.titleAndIcon)
-            }
-            if let sizeText {
-                Text(sizeText)
-                    .foregroundStyle(Theme.text)
-            }
-            Spacer(minLength: 8)
-            if let metaText {
-                Text(metaText)
-                    .foregroundStyle(Theme.faint)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
+    private func scoreRun(_ value: Int) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: "gauge.with.needle")
+                .font(.system(size: 9))
+            Text(verbatim: "\(value)")
+                .font(.system(.caption2, design: .monospaced).weight(.semibold))
         }
-        .font(.system(.caption2, design: .monospaced))
+        .foregroundStyle(Theme.apricotSoft)
+        .fixedSize()
+    }
+
+    private var packLabel: String? {
+        if release.isCompleteSeries == true {
+            return "Intégrale"
+        }
+        if release.isSeasonPack == true {
+            return "Season pack"
+        }
+        return nil
     }
 
     private var seederColor: Color {
