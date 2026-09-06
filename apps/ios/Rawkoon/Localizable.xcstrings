@@ -41,30 +41,120 @@
     },
     "%lld conditions": {
       "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld condition"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld conditions"
+                }
+              }
+            }
+          }
+        },
         "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld conditions"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld condition"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld conditions"
+                }
+              }
+            }
           }
         }
       }
     },
     "%lld episodes": {
       "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld episode"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld episodes"
+                }
+              }
+            }
+          }
+        },
         "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld épisodes"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld épisode"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld épisodes"
+                }
+              }
+            }
           }
         }
       }
     },
     "%lld files": {
       "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld file"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld files"
+                }
+              }
+            }
+          }
+        },
         "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld fichiers"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld fichier"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld fichiers"
+                }
+              }
+            }
           }
         }
       }
@@ -81,20 +171,80 @@
     },
     "%lld min": {
       "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld min"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld min"
+                }
+              }
+            }
+          }
+        },
         "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld min"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld min"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld min"
+                }
+              }
+            }
           }
         }
       }
     },
     "%lld profiles": {
       "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld profile"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld profiles"
+                }
+              }
+            }
+          }
+        },
         "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld profils"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld profil"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld profils"
+                }
+              }
+            }
           }
         }
       }
@@ -111,10 +261,40 @@
     },
     "%lld users": {
       "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld user"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld users"
+                }
+              }
+            }
+          }
+        },
         "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld utilisateurs"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld utilisateur"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld utilisateurs"
+                }
+              }
+            }
           }
         }
       }
@@ -6493,10 +6673,40 @@
     },
     "%lld chapters": {
       "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld chapter"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld chapters"
+                }
+              }
+            }
+          }
+        },
         "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld chapitres"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld chapitre"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld chapitres"
+                }
+              }
+            }
           }
         }
       }
@@ -7097,6 +7307,876 @@
           "stringUnit": {
             "state": "translated",
             "value": "Utilisateur"
+          }
+        }
+      }
+    },
+    "%lld results": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld result"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld results"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld résultat"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld résultats"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld seasons": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld season"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld seasons"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld saison"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld saisons"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Added to library": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouté à la bibliothèque"
+          }
+        }
+      }
+    },
+    "Added to watchlist": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouté à la liste de suivi"
+          }
+        }
+      }
+    },
+    "Auto search": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche auto."
+          }
+        }
+      }
+    },
+    "Auto search season": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche auto. de la saison"
+          }
+        }
+      }
+    },
+    "Cast": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Distribution"
+          }
+        }
+      }
+    },
+    "Clear filter": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Effacer le filtre"
+          }
+        }
+      }
+    },
+    "Clear filters": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Effacer les filtres"
+          }
+        }
+      }
+    },
+    "Couldn't load Explore": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger Explorer"
+          }
+        }
+      }
+    },
+    "Couldn't load more — %@. Tap to retry.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger la suite — %@. Touchez pour réessayer."
+          }
+        }
+      }
+    },
+    "Delete file": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer le fichier"
+          }
+        }
+      }
+    },
+    "Episode %lld": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Épisode %lld"
+          }
+        }
+      }
+    },
+    "Episode details appear once this is in your library.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les détails des épisodes apparaissent une fois le titre dans votre bibliothèque."
+          }
+        }
+      }
+    },
+    "Explore": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Explorer"
+          }
+        }
+      }
+    },
+    "Filters": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtres"
+          }
+        }
+      }
+    },
+    "Genre": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Genre"
+          }
+        }
+      }
+    },
+    "Highest rated": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mieux notés"
+          }
+        }
+      }
+    },
+    "Highest revenue": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus gros revenus"
+          }
+        }
+      }
+    },
+    "Least popular": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les moins populaires"
+          }
+        }
+      }
+    },
+    "Lowest rated": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moins bien notés"
+          }
+        }
+      }
+    },
+    "Monitor": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Surveiller"
+          }
+        }
+      }
+    },
+    "Monitor season": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Surveiller la saison"
+          }
+        }
+      }
+    },
+    "Most popular": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les plus populaires"
+          }
+        }
+      }
+    },
+    "Newest first-aired": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Premières diffusions les plus récentes"
+          }
+        }
+      }
+    },
+    "Newest releases": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sorties les plus récentes"
+          }
+        }
+      }
+    },
+    "No cast information.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune information sur la distribution."
+          }
+        }
+      }
+    },
+    "No episode data yet.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas encore de données d'épisodes."
+          }
+        }
+      }
+    },
+    "No genres available.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun genre disponible."
+          }
+        }
+      }
+    },
+    "No providers available in this region.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune plateforme disponible dans cette région."
+          }
+        }
+      }
+    },
+    "No results for these filters": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun résultat pour ces filtres"
+          }
+        }
+      }
+    },
+    "Only show titles originally in %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher uniquement les titres originaux en %@"
+          }
+        }
+      }
+    },
+    "Original language": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langue originale"
+          }
+        }
+      }
+    },
+    "Previous chapter": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapitre précédent"
+          }
+        }
+      }
+    },
+    "Requested — we'll notify you": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demandé — nous vous préviendrons"
+          }
+        }
+      }
+    },
+    "Retry (mark wanted)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réessayer (marquer comme voulu)"
+          }
+        }
+      }
+    },
+    "Retry skipped": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réessayer les ignorés"
+          }
+        }
+      }
+    },
+    "Search releases…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chercher des releases…"
+          }
+        }
+      }
+    },
+    "Search settings": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechercher dans les réglages"
+          }
+        }
+      }
+    },
+    "Skip back 30 seconds": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reculer de 30 secondes"
+          }
+        }
+      }
+    },
+    "Skip forward 30 seconds": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avancer de 30 secondes"
+          }
+        }
+      }
+    },
+    "Next chapter": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapitre suivant"
+          }
+        }
+      }
+    },
+    "Sort": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tri"
+          }
+        }
+      }
+    },
+    "Streaming provider": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plateforme de streaming"
+          }
+        }
+      }
+    },
+    "Try a different provider, genre, or sort order.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Essayez un autre fournisseur, genre ou tri."
+          }
+        }
+      }
+    },
+    "Unmonitor": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ne plus surveiller"
+          }
+        }
+      }
+    },
+    "Unmonitor season": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ne plus surveiller la saison"
+          }
+        }
+      }
+    },
+    "Unmonitored": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non surveillé"
+          }
+        }
+      }
+    },
+    "You don't have permission to do that.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous n'avez pas la permission de faire ça."
+          }
+        }
+      }
+    },
+    "your language": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "votre langue"
+          }
+        }
+      }
+    },
+    "Watch trailer": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir la bande-annonce"
+          }
+        }
+      }
+    },
+    "Could not load filter options.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger les filtres."
+          }
+        }
+      }
+    },
+    "For you": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pour vous"
+          }
+        }
+      }
+    },
+    "Trending now": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tendances"
+          }
+        }
+      }
+    },
+    "Not interested": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas intéressé"
+          }
+        }
+      }
+    },
+    "Undo": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler"
+          }
+        }
+      }
+    },
+    "Grid": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grille"
+          }
+        }
+      }
+    },
+    "List": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liste"
+          }
+        }
+      }
+    },
+    "Layout": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disposition"
+          }
+        }
+      }
+    },
+    "Similar titles": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titres similaires"
+          }
+        }
+      }
+    },
+    "No similar titles.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun titre similaire."
+          }
+        }
+      }
+    },
+    "File deleted.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fichier supprimé."
+          }
+        }
+      }
+    },
+    "Could not delete file.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de supprimer le fichier."
+          }
+        }
+      }
+    },
+    "Season search failed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La recherche de saison a échoué."
+          }
+        }
+      }
+    },
+    "Could not retry skipped episodes.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de réessayer les épisodes ignorés."
+          }
+        }
+      }
+    },
+    "Episode search failed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La recherche d'épisode a échoué."
+          }
+        }
+      }
+    },
+    "Episode marked wanted.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Épisode marqué comme voulu."
+          }
+        }
+      }
+    },
+    "Could not update episode.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de mettre à jour l'épisode."
+          }
+        }
+      }
+    },
+    "Episode file deleted.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fichier d'épisode supprimé."
+          }
+        }
+      }
+    },
+    "Could not delete episode file.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de supprimer le fichier d'épisode."
+          }
+        }
+      }
+    },
+    "No release grabbed.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune release récupérée."
+          }
+        }
+      }
+    },
+    "Clear": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Effacer"
+          }
+        }
+      }
+    },
+    "Could not get a response from AI": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'IA n'a pas répondu"
+          }
+        }
+      }
+    },
+    "AI is picking the best release…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'IA choisit la meilleure release…"
+          }
+        }
+      }
+    },
+    "Grabbed!": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Récupéré !"
+          }
+        }
+      }
+    },
+    "AI Pick": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choix IA"
+          }
+        }
+      }
+    },
+    "Re-grab": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-récupérer"
+          }
+        }
+      }
+    },
+    "Blocked": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bloqué"
+          }
+        }
+      }
+    },
+    "Block": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bloquer"
+          }
+        }
+      }
+    },
+    "Score breakdown": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Détail du score"
+          }
+        }
+      }
+    },
+    "Book": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Livre"
           }
         }
       }

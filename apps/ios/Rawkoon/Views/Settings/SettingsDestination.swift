@@ -69,10 +69,13 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Row label — kept as a plain `String` so the same value drives both the
-    /// visible label and the in-Swift search filter. Wording is unchanged from
-    /// the flat list it replaces.
-    var title: String {
+    /// Row label. `LocalizedStringKey` so `Label` looks the key up in the
+    /// catalog — a plain `String` hits the verbatim overload and shows English.
+    var title: LocalizedStringKey {
+        LocalizedStringKey(titleKey)
+    }
+
+    var titleKey: String {
         switch self {
         case .general: "General"
         case .tmdb: "TMDB"
@@ -160,7 +163,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         if needle.isEmpty {
             return true
         }
-        if title.lowercased().contains(needle) {
+        if String(localized: LocalizedStringResource(stringLiteral: titleKey)).lowercased().contains(needle) {
             return true
         }
         return keywords.contains { $0.lowercased().contains(needle) }
