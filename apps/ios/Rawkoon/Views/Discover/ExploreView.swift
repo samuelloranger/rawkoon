@@ -45,6 +45,7 @@ struct ExploreFilters: Equatable {
 /// counterpart to the swipe deck. Pushed from Discover's Filter button.
 struct ExploreView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
 
     @State private var filters = ExploreFilters()
     @State private var items: [TmdbSearchItem] = []
@@ -84,6 +85,9 @@ struct ExploreView: View {
         .navigationTitle("Explore")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Done") { dismiss() }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     showFilters = true
