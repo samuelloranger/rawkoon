@@ -14,7 +14,9 @@ struct LibraryMediaRow: View {
 
     /// The mini poster grows with Dynamic Type instead of clipping.
     @ScaledMetric(relativeTo: .body) private var posterWidth: CGFloat = 46
-    private var posterHeight: CGFloat { posterWidth * 3 / 2 }
+    private var posterHeight: CGFloat {
+        posterWidth * 3 / 2
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -139,8 +141,8 @@ struct LibraryMediaRow: View {
         return "\(progress.downloaded)/\(progress.total)"
     }
 
-    // Mirrors the private `mediaPosterMenuButton` in Components.swift; the row
-    // needs its own context menu since that builder isn't visible here.
+    /// Mirrors the private `mediaPosterMenuButton` in Components.swift; the row
+    /// needs its own context menu since that builder isn't visible here.
     @ViewBuilder
     private func menuButton(_ action: MediaPosterMenuAction) -> some View {
         switch action {

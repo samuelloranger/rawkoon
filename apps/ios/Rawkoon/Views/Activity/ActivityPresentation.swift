@@ -32,7 +32,8 @@ struct ActivityPresentation {
         case "app_updated":
             symbol = "sparkles"
             if let from = record.fromVersion, let to = record.toVersion,
-               !from.isEmpty, !to.isEmpty {
+               !from.isEmpty, !to.isEmpty
+            {
                 description = "Updated from \(from) to \(to)"
             } else {
                 description = "App updated"

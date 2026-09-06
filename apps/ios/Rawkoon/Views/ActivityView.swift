@@ -128,7 +128,9 @@ struct ActivityView: View {
     /// `LiveDownload.state` so the counts stay in sync with the visible cards.
     private enum QueuePhase: String, CaseIterable, Identifiable {
         case downloading, importing, seeding
-        var id: String { rawValue }
+        var id: String {
+            rawValue
+        }
 
         var label: LocalizedStringKey {
             switch self {
@@ -149,8 +151,12 @@ struct ActivityView: View {
 
     private func phase(of state: String) -> QueuePhase {
         let lower = state.lowercased()
-        if lower.contains("seed") || lower.contains("complete") { return .seeding }
-        if lower.contains("import") || lower.contains("process") { return .importing }
+        if lower.contains("seed") || lower.contains("complete") {
+            return .seeding
+        }
+        if lower.contains("import") || lower.contains("process") {
+            return .importing
+        }
         return .downloading
     }
 
@@ -548,7 +554,9 @@ struct ActivityView: View {
             return
         }
         // Skeleton only on a cold load; a live reload keeps the current rows.
-        if activities.isEmpty { loadingHistory = true }
+        if activities.isEmpty {
+            loadingHistory = true
+        }
         historyError = nil
         defer { loadingHistory = false }
 
@@ -556,11 +564,17 @@ struct ActivityView: View {
             let feed = try await client.activityFeed(
                 limit: historyLimit, service: serviceFilter, type: typeFilter
             )
-            if Task.isCancelled { return }
+            if Task.isCancelled {
+                return
+            }
             activities = feed.activities
             historyHasMore = feed.hasMore == true
-            if let services = feed.availableServices { availableServices = services }
-            if let types = feed.availableTypes { availableTypes = types }
+            if let services = feed.availableServices {
+                availableServices = services
+            }
+            if let types = feed.availableTypes {
+                availableTypes = types
+            }
         } catch let error as APIError {
             historyError = message(for: error)
         } catch {
@@ -579,12 +593,18 @@ struct ActivityView: View {
             let feed = try await client.activityFeed(
                 limit: nextLimit, service: serviceFilter, type: typeFilter
             )
-            if Task.isCancelled { return }
+            if Task.isCancelled {
+                return
+            }
             historyLimit = nextLimit
             activities = feed.activities
             historyHasMore = feed.hasMore == true
-            if let services = feed.availableServices { availableServices = services }
-            if let types = feed.availableTypes { availableTypes = types }
+            if let services = feed.availableServices {
+                availableServices = services
+            }
+            if let types = feed.availableTypes {
+                availableTypes = types
+            }
         } catch {
             // Keep the rows already on screen if a page fails to load.
         }

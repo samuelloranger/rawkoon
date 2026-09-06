@@ -8,7 +8,9 @@ enum SettingsGroup: String, CaseIterable, Identifiable {
     case usersSecurity
     case jobsReleases
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     /// Sanctioned new section-header wording for the regroup.
     var title: LocalizedStringKey {
@@ -48,7 +50,9 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
     case jobs
     case releases
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var group: SettingsGroup {
         switch self {
@@ -153,8 +157,12 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
     /// True when the query (case-insensitive) is found in the title or a keyword.
     func matches(_ query: String) -> Bool {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if needle.isEmpty { return true }
-        if title.lowercased().contains(needle) { return true }
+        if needle.isEmpty {
+            return true
+        }
+        if title.lowercased().contains(needle) {
+            return true
+        }
         return keywords.contains { $0.lowercased().contains(needle) }
     }
 

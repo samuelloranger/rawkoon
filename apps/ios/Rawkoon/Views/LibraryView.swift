@@ -118,7 +118,7 @@ struct LibraryView: View {
 
     @State private var section: LibrarySection = .media
 
-    // Grid is the default so the first open is byte-identical to today.
+    /// Grid is the default so the first open is byte-identical to today.
     @AppStorage("library.density") private var densityRaw = LibraryDensity.grid.rawValue
 
     // Media filters/sort — web defaults.
@@ -154,7 +154,9 @@ struct LibraryView: View {
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
 
-    private var density: LibraryDensity { LibraryDensity(rawValue: densityRaw) ?? .grid }
+    private var density: LibraryDensity {
+        LibraryDensity(rawValue: densityRaw) ?? .grid
+    }
 
     private var densityBinding: Binding<LibraryDensity> {
         Binding(get: { density }, set: { densityRaw = $0.rawValue })

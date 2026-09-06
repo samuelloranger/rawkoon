@@ -165,7 +165,11 @@ struct MediaDetailView: View {
                 "Delete file?",
                 isPresented: Binding(
                     get: { pendingMovieFileDelete != nil },
-                    set: { if !$0 { pendingMovieFileDelete = nil } }
+                    set: {
+                        if !$0 {
+                            pendingMovieFileDelete = nil
+                        }
+                    }
                 ),
                 titleVisibility: .visible,
                 presenting: pendingMovieFileDelete
@@ -179,7 +183,11 @@ struct MediaDetailView: View {
                 "Delete episode file?",
                 isPresented: Binding(
                     get: { pendingEpisodeDelete != nil },
-                    set: { if !$0 { pendingEpisodeDelete = nil } }
+                    set: {
+                        if !$0 {
+                            pendingEpisodeDelete = nil
+                        }
+                    }
                 ),
                 titleVisibility: .visible,
                 presenting: pendingEpisodeDelete
