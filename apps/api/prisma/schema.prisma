@@ -40,6 +40,7 @@ model User {
   mediaRequests        MediaRequest[] @relation("MediaRequestRequester")
   decidedMediaRequests MediaRequest[] @relation("MediaRequestDecider")
   bookProgress         BookListeningProgress[]
+  listeningDaily       BookListeningDaily[]
   bookReadingProgress  BookReadingProgress[]
 
   @@map("users")
@@ -998,6 +999,16 @@ model BookListeningProgress {
 
   @@unique([userId, editionId], map: "uq_book_progress_user_edition")
   @@map("book_listening_progress")
+}
+
+model BookListeningDaily {
+  userId  String   @map("user_id")
+  day     DateTime @db.Date
+  seconds Float
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, day])
+  @@map("book_listening_daily")
 }
 
 /// Where a reader left off in an ebook edition.
