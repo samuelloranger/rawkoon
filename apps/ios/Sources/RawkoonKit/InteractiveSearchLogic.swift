@@ -236,6 +236,102 @@ public enum InteractiveSearchLogic {
     }
 }
 
+// MARK: Language / title picker (Phase 5)
+
+public extension InteractiveSearchLogic {
+    /// Languages offered in the search-title picker beyond the platform,
+    /// English, French, and original-language titles — verbatim from
+    /// `interactive-search.ts` `COMMON_TITLE_LANGUAGES`.
+    static let commonTitleLanguages = ["es", "de", "it", "pt", "ja", "ko", "zh", "ru"]
+
+    /// One TMDB per-language title fed to `buildTitleOptions`.
+    struct TitleTranslationInput: Sendable {
+        public let languageCode: String
+        public let title: String
+        public init(languageCode: String, title: String) {
+            self.languageCode = languageCode
+            self.title = title
+        }
+    }
+
+    /// A resolved search-title option for the picker.
+    struct TitleOption: Equatable, Sendable, Identifiable {
+        public let languageCode: String
+        public let query: String
+        public let isOriginal: Bool
+        public var id: String { query }
+        public init(languageCode: String, query: String, isOriginal: Bool) {
+            self.languageCode = languageCode
+            self.query = query
+            self.isOriginal = isOriginal
+        }
+    }
+
+    /// Ordered search-title options (`buildTitleOptions`, `interactive-search.ts:58-157`),
+    /// ported verbatim: platform title first (the default), English & French pinned,
+    /// then the original-language title, then the common allowlist — each only when a
+    /// non-empty title exists, deduped by lowercased query. Secondary titles need ≥2
+    /// chars; the platform title is always kept.
+    static func buildTitleOptions(
+        localized: String,
+        localizedLanguage: String,
+        original: String?,
+        originalLanguage: String?,
+        translations: [TitleTranslationInput],
+        suffix: String = ""
+    ) -> [TitleOption] {
+        let platform = localizedLanguage.lowercased()
+        let originalLang = (originalLanguage ?? "").lowercased()
+
+        var translationByLang: [String: String] = [:]
+        for entry in translations {
+            let code = entry.languageCode.lowercased()
+            let title = entry.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !code.isEmpty, !title.isEmpty, translationByLang[code] == nil {
+                translationByLang[code] = title
+            }
+        }
+
+        struct Candidate {
+            let languageCode: String
+            let title: String?
+            let isOriginal: Bool
+            let isPlatform: Bool
+        }
+
+        let coveredCodes = Set([platform, originalLang].filter { !$0.isEmpty })
+
+        var candidates: [Candidate] = [
+            Candidate(languageCode: platform, title: localized, isOriginal: false, isPlatform: true),
+        ]
+        for code in ["en", "fr"] where !coveredCodes.contains(code) {
+            candidates.append(Candidate(languageCode: code, title: translationByLang[code], isOriginal: false, isPlatform: false))
+        }
+        if !originalLang.isEmpty {
+            let originalTitle = original?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let resolved = (originalTitle?.isEmpty == false ? originalTitle : nil) ?? translationByLang[originalLang]
+            candidates.append(Candidate(languageCode: originalLang, title: resolved, isOriginal: true, isPlatform: false))
+        }
+        for code in commonTitleLanguages where !coveredCodes.contains(code) {
+            candidates.append(Candidate(languageCode: code, title: translationByLang[code], isOriginal: false, isPlatform: false))
+        }
+
+        var options: [TitleOption] = []
+        var seenQueries = Set<String>()
+        for candidate in candidates {
+            let base = candidate.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let minLength = candidate.isPlatform ? 1 : 2
+            if base.isEmpty || base.count < minLength { continue }
+            let query = base + suffix
+            let dedupeKey = query.lowercased()
+            if seenQueries.contains(dedupeKey) { continue }
+            seenQueries.insert(dedupeKey)
+            options.append(TitleOption(languageCode: candidate.languageCode, query: query, isOriginal: candidate.isOriginal))
+        }
+        return options
+    }
+}
+
 /// Minimal shape `sortReleases` needs; `ReleaseItem` conforms in the app target.
 public protocol InteractiveSortable {
     var qualityScoreValue: Double? { get }

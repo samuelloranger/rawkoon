@@ -202,6 +202,15 @@ nonisolated struct TmdbMediaDetails: Decodable, Sendable {
     let genres: [NamedRef]?
     let primaryBackdropUrl: String?
     let seasons: [SeasonSummary]?
+    // TMDB localized titles for the release-search language picker (Phase 5).
+    let originalLanguage: String?
+    let titleTranslations: [TitleTranslation]?
+}
+
+/// One TMDB per-language title (`title_translations` on the modal details).
+nonisolated struct TitleTranslation: Decodable, Sendable {
+    let languageCode: String
+    let title: String
 }
 
 nonisolated struct NamedRef: Decodable, Hashable, Sendable {

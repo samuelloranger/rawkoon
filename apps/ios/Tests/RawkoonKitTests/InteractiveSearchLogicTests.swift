@@ -179,4 +179,67 @@ final class InteractiveSearchLogicTests: XCTestCase {
         let options = L.languageOptions(languageLists: [["French"], [], ["french"]])
         XCTAssertEqual(Set(options.map(\.key)), ["french", "__unknown_language__"])
     }
+
+    // MARK: buildTitleOptions
+
+    func testTitleOptionsPlatformFirstDedupesAndAppliesSuffix() {
+        let options = L.buildTitleOptions(
+            localized: "The Matrix",
+            localizedLanguage: "en",
+            original: "The Matrix",
+            originalLanguage: "en",
+            translations: [
+                .init(languageCode: "de", title: "Matrix"),
+                .init(languageCode: "ja", title: "マトリックス"),
+            ],
+            suffix: " S01"
+        )
+        XCTAssertEqual(options.map(\.query), ["The Matrix S01", "Matrix S01", "マトリックス S01"])
+        XCTAssertEqual(options.map(\.languageCode), ["en", "de", "ja"])
+        XCTAssertFalse(options.contains { $0.isOriginal })
+    }
+
+    func testTitleOptionsTagsOriginalLanguageTitle() {
+        let options = L.buildTitleOptions(
+            localized: "Spirited Away",
+            localizedLanguage: "en",
+            original: "千と千尋の神隠し",
+            originalLanguage: "ja",
+            translations: [],
+            suffix: ""
+        )
+        XCTAssertEqual(options.map(\.query), ["Spirited Away", "千と千尋の神隠し"])
+        XCTAssertEqual(options.first(where: { $0.isOriginal })?.query, "千と千尋の神隠し")
+    }
+
+    func testTitleOptionsSkipsSingleCharSecondaryTitles() {
+        let options = L.buildTitleOptions(
+            localized: "Up",
+            localizedLanguage: "en",
+            original: nil,
+            originalLanguage: nil,
+            translations: [.init(languageCode: "es", title: "A")],
+            suffix: ""
+        )
+        // Platform title kept (min length 1); the 1-char Spanish title dropped.
+        XCTAssertEqual(options.map(\.query), ["Up"])
+    }
+
+    func testTitleOptionsPinsEnglishAndFrenchWhenNotCovered() {
+        let options = L.buildTitleOptions(
+            localized: "El Laberinto del Fauno",
+            localizedLanguage: "es",
+            original: "El Laberinto del Fauno",
+            originalLanguage: "es",
+            translations: [
+                .init(languageCode: "en", title: "Pan's Labyrinth"),
+                .init(languageCode: "fr", title: "Le Labyrinthe de Pan"),
+            ],
+            suffix: ""
+        )
+        XCTAssertEqual(options.map(\.query), [
+            "El Laberinto del Fauno", "Pan's Labyrinth", "Le Labyrinthe de Pan",
+        ])
+        XCTAssertEqual(options.map(\.languageCode), ["es", "en", "fr"])
+    }
 }
