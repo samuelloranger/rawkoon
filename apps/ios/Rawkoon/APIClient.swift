@@ -3,9 +3,37 @@ import RawkoonKit
 
 enum APIError: Error, Sendable {
     case unauthorized
+    case forbidden
     case http(Int)
+    case server(status: Int, message: String)
     case decode
     case transport
+
+    static func from(_ failure: HTTPFailure) -> APIError {
+        switch failure {
+        case .unauthorized: .unauthorized
+        case .forbidden: .forbidden
+        case let .server(status, message): .server(status: status, message: message)
+        case let .http(status): .http(status)
+        }
+    }
+
+    /// User-visible copy. `unauthorized`/`forbidden` labels vary by screen
+    /// (admin gate vs expired session), so callers override those two.
+    func userMessage(
+        unauthorized: String = String(localized: "Unauthorized. Check your credentials."),
+        forbidden: String = String(localized: "You don't have permission to do that."),
+        transport: String = String(localized: "Network error. Check your connection.")
+    ) -> String {
+        switch self {
+        case .unauthorized: unauthorized
+        case .forbidden: forbidden
+        case let .http(status): String(localized: "Server error (\(status)).")
+        case let .server(_, message): message
+        case .decode: String(localized: "Could not parse server response.")
+        case .transport: transport
+        }
+    }
 }
 
 struct LibrarySummary: Identifiable, Sendable {
@@ -61,8 +89,15 @@ struct RemoteProgress: Sendable {
 
 actor APIClient {
     private let baseURL: URL
+    /// JSON lane: 15s per-request, 60s for the whole resource.
     private let session: URLSession
+    /// File downloads (EPUBs): no resource cap, so a large file cannot hit a 20s wall.
+    private let downloadSession: URLSession
+    /// SSE: request timeout above the 15s server heartbeat, no resource cap.
+    private let sseSession: URLSession
     private var token: String?
+    /// Fired on an authenticated 401 so `AppModel` can drop the Keychain session.
+    private let onUnauthorized: (@Sendable () -> Void)?
 
     /// ISO8601DateFormatter isn't Sendable, but these are configured once here
     /// and never mutated again — only read (parsing/formatting) from any
@@ -79,32 +114,54 @@ actor APIClient {
         return formatter
     }()
 
-    init(baseURL: URL, token: String?) {
+    init(
+        baseURL: URL,
+        token: String?,
+        onUnauthorized: (@Sendable () -> Void)? = nil
+    ) {
         self.baseURL = baseURL
-        // The app authenticates with a bearer token, never cookies. A stale
-        // better-auth cookie left in the shared store makes the sign-in POST
-        // arrive "already in a session", which better-auth rejects with 403 —
-        // so use a cookie-less session that neither stores nor sends cookies.
+        // Cookie-less ephemeral sessions: a stale better-auth cookie in the
+        // shared store makes the sign-in POST arrive "already in a session",
+        // which better-auth rejects with 403.
+        session = URLSession(configuration: Self.ephemeralConfig(
+            requestTimeout: 15,
+            resourceTimeout: 60
+        ))
+        downloadSession = URLSession(configuration: Self.ephemeralConfig(
+            requestTimeout: 60,
+            resourceTimeout: 0
+        ))
+        sseSession = URLSession(configuration: Self.ephemeralConfig(
+            requestTimeout: 60,
+            resourceTimeout: 0
+        ))
+        self.token = token
+        self.onUnauthorized = onUnauthorized
+    }
+
+    /// Shared cookie policy; timeouts differ per lane (JSON / download / SSE).
+    private static func ephemeralConfig(
+        requestTimeout: TimeInterval,
+        resourceTimeout: TimeInterval
+    ) -> URLSessionConfiguration {
         let config = URLSessionConfiguration.ephemeral
         config.httpCookieStorage = nil
         config.httpShouldSetCookies = false
         config.httpCookieAcceptPolicy = .never
         config.waitsForConnectivity = false
-        config.timeoutIntervalForRequest = 15
-        config.timeoutIntervalForResource = 20
-        session = URLSession(configuration: config)
-        self.token = token
+        config.timeoutIntervalForRequest = requestTimeout
+        config.timeoutIntervalForResource = resourceTimeout
+        return config
     }
 
     /// Public: the enabled OAuth/SSO providers to offer on the login screen.
     func ssoProviders() async throws -> SsoProvidersResponse {
         let request = try makeRequest(path: "/api/auth/sso-providers", method: "GET", requiresAuth: false)
         let (data, response) = try await perform(request)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        try checkStatus(data, response, authenticated: false)
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        do { return try decoder.decode(SsoProvidersResponse.self, from: data) }
-        catch { throw APIError.decode }
+        return try decodeJSON(data, decoder: decoder)
     }
 
     func login(email: String, password: String) async throws -> String {
@@ -121,9 +178,7 @@ actor APIClient {
         request.httpBody = body
 
         let (data, response) = try await perform(request)
-        guard (200 ... 299).contains(response.statusCode) else {
-            throw mapStatus(response.statusCode)
-        }
+        try checkStatus(data, response, authenticated: false)
 
         if let headerToken = response.value(forHTTPHeaderField: "set-auth-token"), !headerToken.isEmpty {
             token = headerToken
@@ -131,32 +186,29 @@ actor APIClient {
         }
 
         let decoder = JSONDecoder()
-        guard let bodyToken = try? decoder.decode(LoginTokenResponse.self, from: data).token,
-              !bodyToken.isEmpty
-        else {
+        let login: LoginTokenResponse
+        do {
+            login = try decoder.decode(LoginTokenResponse.self, from: data)
+        } catch {
+            Log.network.error("decode LoginTokenResponse failed: \(String(describing: error), privacy: .public)")
+            throw APIError.decode
+        }
+        guard !login.token.isEmpty else {
             throw APIError.decode
         }
 
-        token = bodyToken
-        return bodyToken
+        token = login.token
+        return login.token
     }
 
     func libraryAudiobooks() async throws -> [LibrarySummary] {
         let request = try makeRequest(path: "/api/books", method: "GET", requiresAuth: true)
         let (data, response) = try await perform(request)
-        guard (200 ... 299).contains(response.statusCode) else {
-            throw mapStatus(response.statusCode)
-        }
+        try checkStatus(data, response)
 
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-
-        let payload: LibraryResponse
-        do {
-            payload = try decoder.decode(LibraryResponse.self, from: data)
-        } catch {
-            throw APIError.decode
-        }
+        let payload: LibraryResponse = try decodeJSON(data, decoder: decoder)
 
         var out: [LibrarySummary] = []
         for book in payload.items {
@@ -192,14 +244,10 @@ actor APIClient {
                 requiresAuth: true
             )
             let (data, response) = try await perform(request)
-            guard (200 ... 299).contains(response.statusCode) else {
-                throw mapStatus(response.statusCode)
-            }
+            try checkStatus(data, response)
             let decoder = JSONDecoder()
             decoder.keyDecodingStrategy = .convertFromSnakeCase
-            let payload: LibraryResponse
-            do { payload = try decoder.decode(LibraryResponse.self, from: data) }
-            catch { throw APIError.decode }
+            let payload: LibraryResponse = try decodeJSON(data, decoder: decoder)
 
             let pageItems = payload.items.map { book in
                 let audiobook = book.editions.first { $0.kind == "audiobook" }
@@ -259,17 +307,11 @@ actor APIClient {
             requiresAuth: true
         )
         let (data, response) = try await perform(request)
-        guard (200 ... 299).contains(response.statusCode) else {
-            throw mapStatus(response.statusCode)
-        }
+        try checkStatus(data, response)
 
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        do {
-            return try decoder.decode(BookManifest.self, from: data)
-        } catch {
-            throw APIError.decode
-        }
+        return try decodeJSON(data, decoder: decoder)
     }
 
     func bookDetail(bookId: Int) async throws -> BookDetailItem {
@@ -322,9 +364,7 @@ actor APIClient {
     func getProgress() async throws -> [RemoteProgress] {
         let request = try makeRequest(path: "/api/books/progress", method: "GET", requiresAuth: true)
         let (data, response) = try await perform(request)
-        guard (200 ... 299).contains(response.statusCode) else {
-            throw mapStatus(response.statusCode)
-        }
+        try checkStatus(data, response)
 
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
@@ -337,12 +377,7 @@ actor APIClient {
             return parsed
         }
 
-        let payload: ProgressResponse
-        do {
-            payload = try decoder.decode(ProgressResponse.self, from: data)
-        } catch {
-            throw APIError.decode
-        }
+        let payload: ProgressResponse = try decodeJSON(data, decoder: decoder)
 
         return payload.progress.map {
             RemoteProgress(
@@ -392,10 +427,8 @@ actor APIClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = body
 
-        let (_, response) = try await perform(request)
-        guard (200 ... 299).contains(response.statusCode) else {
-            throw mapStatus(response.statusCode)
-        }
+        let (data, response) = try await perform(request)
+        try checkStatus(data, response)
     }
 
     func makeRequest(path: String, method: String, requiresAuth: Bool = false) throws -> URLRequest {
@@ -477,9 +510,12 @@ actor APIClient {
     func downloadFile(path: String) async throws -> URL {
         let request = try makeRequest(path: path, method: "GET", requiresAuth: true)
         do {
-            let (tempURL, response) = try await session.download(for: request)
+            let (tempURL, response) = try await downloadSession.download(for: request)
             guard let http = response as? HTTPURLResponse else { throw APIError.transport }
-            guard (200 ..< 300).contains(http.statusCode) else { throw mapStatus(http.statusCode) }
+            if !(200 ..< 300).contains(http.statusCode) {
+                let data = (try? Data(contentsOf: tempURL)) ?? Data()
+                try checkStatus(data, http)
+            }
             return tempURL
         } catch let error as APIError {
             throw error
@@ -496,10 +532,30 @@ actor APIClient {
         return URL(string: raw, relativeTo: baseURL)?.absoluteURL
     }
 
-    func mapStatus(_ status: Int) -> APIError {
-        switch status {
-        case 401, 403: .unauthorized
-        default: .http(status)
+    /// Throws unless `response` is 2xx. Authenticated 401 also notifies AppModel
+    /// to drop the Keychain session. Decodes `{error}` into `.server` when present.
+    func checkStatus(
+        _ data: Data,
+        _ response: HTTPURLResponse,
+        authenticated: Bool = true
+    ) throws {
+        guard (200 ..< 300).contains(response.statusCode) else {
+            let failure = HTTPStatusMapping.failure(status: response.statusCode, body: data)
+            if authenticated, failure == .unauthorized {
+                onUnauthorized?()
+            }
+            throw APIError.from(failure)
+        }
+    }
+
+    private func decodeJSON<T: Decodable>(_ data: Data, decoder: JSONDecoder = mediaDecoder) throws -> T {
+        do {
+            return try decoder.decode(T.self, from: data)
+        } catch {
+            Log.network.error(
+                "decode \(String(describing: T.self), privacy: .public) failed: \(String(describing: error), privacy: .public)"
+            )
+            throw APIError.decode
         }
     }
 
@@ -531,17 +587,15 @@ actor APIClient {
     func get<T: Decodable>(_ path: String, query: [String: String?] = [:]) async throws -> T {
         let request = try makeRequest(path: pathWithQuery(path, query), method: "GET", requiresAuth: true)
         let (data, response) = try await perform(request)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
-        do { return try Self.mediaDecoder.decode(T.self, from: data) }
-        catch { throw APIError.decode }
+        try checkStatus(data, response)
+        return try decodeJSON(data)
     }
 
     /// Authenticated POST with a JSON body returning a decoded `T`.
     func post<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
         let (data, response) = try await sendPost(path, body: body)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
-        do { return try Self.mediaDecoder.decode(T.self, from: data) }
-        catch { throw APIError.decode }
+        try checkStatus(data, response)
+        return try decodeJSON(data)
     }
 
     /// Authenticated POST that only cares whether the server accepted it (2xx).
@@ -551,8 +605,8 @@ actor APIClient {
         body: some Encodable,
         method: String = "POST"
     ) async throws {
-        let (_, response) = try await sendPost(path, body: body, method: method)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        let (data, response) = try await sendPost(path, body: body, method: method)
+        try checkStatus(data, response)
     }
 
     func sendPost(
@@ -568,9 +622,8 @@ actor APIClient {
 
     func patch<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
         let (data, response) = try await sendPatch(path, body: body)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
-        do { return try Self.mediaDecoder.decode(T.self, from: data) }
-        catch { throw APIError.decode }
+        try checkStatus(data, response)
+        return try decodeJSON(data)
     }
 
     func sendPatch(_ path: String, body: some Encodable) async throws -> (Data, HTTPURLResponse) {
@@ -592,37 +645,35 @@ actor APIClient {
     /// Authenticated PUT returning a decoded `T` (most `PUT /api/integrations/*`).
     func put<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
         let (data, response) = try await sendPut(path, body: body)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
-        do { return try Self.mediaDecoder.decode(T.self, from: data) }
-        catch { throw APIError.decode }
+        try checkStatus(data, response)
+        return try decodeJSON(data)
     }
 
     /// Authenticated PUT that only cares whether the server accepted it (2xx).
     func putExpectOK(_ path: String, body: some Encodable) async throws {
-        let (_, response) = try await sendPut(path, body: body)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        let (data, response) = try await sendPut(path, body: body)
+        try checkStatus(data, response)
     }
 
     /// Authenticated PATCH that only cares whether the server accepted it (2xx).
     func patchExpectOK(_ path: String, body: some Encodable) async throws {
-        let (_, response) = try await sendPatch(path, body: body)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        let (data, response) = try await sendPatch(path, body: body)
+        try checkStatus(data, response)
     }
 
     /// Authenticated DELETE returning Void (optionally with query items).
     func deleteExpectOK(_ path: String, query: [String: String?] = [:]) async throws {
         let request = try makeRequest(path: pathWithQuery(path, query), method: "DELETE", requiresAuth: true)
-        let (_, response) = try await perform(request)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        let (data, response) = try await perform(request)
+        try checkStatus(data, response)
     }
 
     /// Authenticated DELETE returning a decoded body.
     func delete<T: Decodable>(_ path: String) async throws -> T {
         let request = try makeRequest(path: path, method: "DELETE", requiresAuth: true)
         let (data, response) = try await perform(request)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
-        do { return try Self.mediaDecoder.decode(T.self, from: data) }
-        catch { throw APIError.decode }
+        try checkStatus(data, response)
+        return try decodeJSON(data)
     }
 
     // MARK: Plain-casing helpers (no snake↔camel conversion — Download-Client Hook wire)
@@ -633,9 +684,8 @@ actor APIClient {
     func getPlain<T: Decodable>(_ path: String) async throws -> T {
         let request = try makeRequest(path: path, method: "GET", requiresAuth: true)
         let (data, response) = try await perform(request)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
-        do { return try Self.plainDecoder.decode(T.self, from: data) }
-        catch { throw APIError.decode }
+        try checkStatus(data, response)
+        return try decodeJSON(data, decoder: Self.plainDecoder)
     }
 
     func putPlain<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
@@ -643,32 +693,30 @@ actor APIClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try Self.plainEncoder.encode(body)
         let (data, response) = try await perform(request)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
-        do { return try Self.plainDecoder.decode(T.self, from: data) }
-        catch { throw APIError.decode }
+        try checkStatus(data, response)
+        return try decodeJSON(data, decoder: Self.plainDecoder)
     }
 
     func postPlainExpectOK(_ path: String, body: some Encodable) async throws {
         var request = try makeRequest(path: path, method: "POST", requiresAuth: true)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try Self.plainEncoder.encode(body)
-        let (_, response) = try await perform(request)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        let (data, response) = try await perform(request)
+        try checkStatus(data, response)
     }
 
     /// Consumes a JSON-over-SSE stream at `path`, yielding a decoded value per
     /// `data:` line. Comment/heartbeat lines (`:`-prefixed) and blanks are
     /// skipped, as are lines that fail to decode as `T` (e.g. a handshake
     /// payload shaped differently from the steady-state event — the caller
-    /// need not special-case it). A 401/403 response finishes the stream with
-    /// `APIError.unauthorized` so callers know to stop reconnecting rather
-    /// than retry a stream that will never authenticate; any other transport
-    /// failure finishes with `APIError.transport`. Cancel the consuming task
-    /// to close the connection.
+    /// need not special-case it). A 401 finishes with `APIError.unauthorized`
+    /// (and notifies AppModel to log out); a 403 finishes with `.forbidden`.
+    /// Cancel the consuming task to close the connection.
     func sseStream<T: Decodable & Sendable>(_ path: String) -> AsyncThrowingStream<T, Error> {
-        let session = session
+        let session = sseSession
         let token = token
         let base = baseURL
+        let onUnauthorized = onUnauthorized
         return AsyncThrowingStream { continuation in
             let task = Task {
                 do {
@@ -682,9 +730,12 @@ actor APIClient {
                     }
                     let (bytes, response) = try await session.bytes(for: request)
                     guard let http = response as? HTTPURLResponse else { throw APIError.transport }
-                    guard (200 ..< 300).contains(http.statusCode) else {
-                        let unauthorized = http.statusCode == 401 || http.statusCode == 403
-                        throw unauthorized ? APIError.unauthorized : APIError.transport
+                    if !(200 ..< 300).contains(http.statusCode) {
+                        let failure = HTTPStatusMapping.failure(status: http.statusCode, body: Data())
+                        if failure == .unauthorized {
+                            onUnauthorized?()
+                        }
+                        throw APIError.from(failure)
                     }
                     let decoder = JSONDecoder()
                     decoder.keyDecodingStrategy = .convertFromSnakeCase
@@ -915,8 +966,8 @@ actor APIClient {
             method: "DELETE",
             requiresAuth: true
         )
-        let (_, response) = try await perform(request)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        let (data, response) = try await perform(request)
+        try checkStatus(data, response)
     }
 
     func clearFailedDownloads(libraryId: Int) async throws -> Int {
@@ -926,10 +977,8 @@ actor APIClient {
             requiresAuth: true
         )
         let (data, response) = try await perform(request)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
-        let payload: DeleteCountResponse
-        do { payload = try Self.mediaDecoder.decode(DeleteCountResponse.self, from: data) }
-        catch { throw APIError.decode }
+        try checkStatus(data, response)
+        let payload: DeleteCountResponse = try decodeJSON(data)
         return payload.deleted
     }
 
@@ -939,8 +988,8 @@ actor APIClient {
             method: "DELETE",
             requiresAuth: true
         )
-        let (_, response) = try await perform(request)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        let (data, response) = try await perform(request)
+        try checkStatus(data, response)
     }
 
     func downloadAction(
@@ -953,8 +1002,8 @@ actor APIClient {
             "action": action,
             "delete_files": deleteFiles,
         ]
-        let (_, response) = try await postRaw("/api/library/\(libraryId)/downloads/\(downloadHistoryId)/action", body: body)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        let (data, response) = try await postRaw("/api/library/\(libraryId)/downloads/\(downloadHistoryId)/action", body: body)
+        try checkStatus(data, response)
     }
 
     func similar(tmdbId: Int, mediaType: String, language: String? = nil) async throws -> [TmdbSearchItem] {
@@ -993,8 +1042,8 @@ actor APIClient {
             method: "DELETE",
             requiresAuth: true
         )
-        let (_, response) = try await perform(request)
-        guard (200 ..< 300).contains(response.statusCode) else { throw mapStatus(response.statusCode) }
+        let (data, response) = try await perform(request)
+        try checkStatus(data, response)
     }
 
     func libraryEpisodes(id: Int) async throws -> EpisodesResponse {

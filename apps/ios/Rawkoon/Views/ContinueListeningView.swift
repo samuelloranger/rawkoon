@@ -374,10 +374,14 @@ struct ContinueListeningView: View {
         switch error {
         case .unauthorized:
             String(localized: "Sign in required.")
+        case .forbidden:
+            String(localized: "You don't have permission to do that.")
         case let .http(status):
             status == 404
                 ? String(localized: "No ebook files are available yet for this book.")
                 : String(localized: "Couldn't reach the server (\(status)).")
+        case let .server(_, message):
+            message
         case .decode:
             String(localized: "Could not parse server response.")
         case .transport:

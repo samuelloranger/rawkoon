@@ -138,7 +138,7 @@ final class AppModel {
             let token = Keychain.get(Self.authTokenKey),
             let baseURL = URL(string: serverURL)
         {
-            apiClient = APIClient(baseURL: baseURL, token: token)
+            apiClient = makeAPIClient(baseURL: baseURL, token: token)
             isLoggedIn = true
         }
 
@@ -233,7 +233,7 @@ final class AppModel {
             }
 
             serverURL = normalizedServer
-            apiClient = client
+            apiClient = makeAPIClient(baseURL: baseURL, token: token)
             isLoggedIn = true
             try await reloadLibrary()
             requestPushAuthorization()
@@ -262,7 +262,7 @@ final class AppModel {
                 let baseURL = URL(string: server)
             {
                 serverURL = server
-                apiClient = APIClient(baseURL: baseURL, token: token)
+                apiClient = makeAPIClient(baseURL: baseURL, token: token)
                 isLoggedIn = true
                 try? await reloadLibrary()
                 return
@@ -362,7 +362,7 @@ final class AppModel {
             authWarning = Self.persistFailedWarning
         }
         serverURL = server
-        apiClient = APIClient(baseURL: base, token: token)
+        apiClient = makeAPIClient(baseURL: base, token: token)
         isLoggedIn = true
         do { try await reloadLibrary() } catch { errorMessage = message(for: error) }
         requestPushAuthorization()
@@ -444,7 +444,11 @@ final class AppModel {
                     }
                 }
             } catch APIError.unauthorized {
-                Log.sync.notice("library events stream unauthorized — not reconnecting")
+                Log.sync.notice("library events stream unauthorized — signing out")
+                handleSessionExpired()
+                return
+            } catch APIError.forbidden {
+                Log.sync.notice("library events stream forbidden — not reconnecting")
                 return
             } catch {
                 Log.sync.debug("library events stream dropped: \(error.localizedDescription, privacy: .public)")
@@ -474,7 +478,11 @@ final class AppModel {
                     showBanner(notification)
                 }
             } catch APIError.unauthorized {
-                Log.sync.notice("notification stream unauthorized — not reconnecting")
+                Log.sync.notice("notification stream unauthorized — signing out")
+                handleSessionExpired()
+                return
+            } catch APIError.forbidden {
+                Log.sync.notice("notification stream forbidden — not reconnecting")
                 return
             } catch {
                 Log.sync.debug("notification stream dropped: \(error.localizedDescription, privacy: .public)")
@@ -792,6 +800,22 @@ final class AppModel {
             return
         }
         Task { await startDownload(editionId: editionId) }
+    }
+
+    /// Authenticated 401 — the Keychain token is stale. Drop the session so
+    /// the next frame shows LoginView rather than retrying forever.
+    func handleSessionExpired() {
+        guard isLoggedIn else { return }
+        Log.auth.notice("session expired (401) — signing out")
+        logout()
+    }
+
+    private func makeAPIClient(baseURL: URL, token: String?) -> APIClient {
+        APIClient(baseURL: baseURL, token: token, onUnauthorized: {
+            Task { @MainActor in
+                AppModel.shared.handleSessionExpired()
+            }
+        })
     }
 
     func logout() {
@@ -1278,16 +1302,7 @@ final class AppModel {
         guard let apiError = error as? APIError else {
             return String(localized: "Unexpected error. Please try again.")
         }
-        switch apiError {
-        case .unauthorized:
-            return String(localized: "Unauthorized. Check your credentials.")
-        case let .http(status):
-            return String(localized: "Server error (\(status)).")
-        case .decode:
-            return String(localized: "Could not parse server response.")
-        case .transport:
-            return String(localized: "Network error. Check your connection.")
-        }
+        return apiError.userMessage()
     }
 
     private static func resolveDeviceID() -> String {

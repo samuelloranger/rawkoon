@@ -1389,10 +1389,14 @@ struct BookView: View {
         switch error {
         case .unauthorized:
             String(localized: "Sign in required.")
+        case .forbidden:
+            String(localized: "You don't have permission to do that.")
         case .http(400):
             String(localized: "This audiobook is not chapter-ready yet. Run a rescan or grab a chapterized release.")
         case let .http(status):
             String(localized: "Server error (\(status)).")
+        case let .server(_, message):
+            message
         case .decode:
             String(localized: "Could not parse server response.")
         case .transport:

@@ -746,12 +746,10 @@ struct LibraryView: View {
 
     private func errorMessage(for error: Error) -> String {
         guard let apiError = error as? APIError else { return String(localized: "Unexpected error.") }
-        switch apiError {
-        case .unauthorized: return String(localized: "Sign in required.")
-        case let .http(status): return String(localized: "Server error (\(status)).")
-        case .decode: return String(localized: "Could not parse server response.")
-        case .transport: return String(localized: "Network error.")
-        }
+        return apiError.userMessage(
+            unauthorized: String(localized: "Sign in required."),
+            transport: String(localized: "Network error.")
+        )
     }
 
     private func handleMediaMenu(_ action: MediaPosterMenuAction, media: LibraryMedia) {
