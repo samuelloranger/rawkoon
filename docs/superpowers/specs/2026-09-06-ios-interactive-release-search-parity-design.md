@@ -167,6 +167,6 @@ Title (→ `info_url` new tab if present) · badges: **AI Pick** (if pick) · **
 
 ## 8. Open questions (resolve before Phase 3 / 5)
 
-1. **Phase 5 (language/title picker):** build now or defer? It is the one item needing a model change (TMDB translations on iOS). Default: **defer** unless requested.
+1. ~~**Phase 5 (language/title picker):** build now or defer?~~ **RESOLVED 2026-09-06: build now, in scope.** Note it needs a model change (TMDB translations on iOS) and may require confirming the server exposes translations to the iOS media-detail endpoint before implementing.
 2. **AI banner placement** in the iOS sheet — pinned header above the list (matches web) vs. an inline first row. Default: pinned header.
 3. **Block scope** — per-release only (web parity) vs. also exposing the blocklist manager. Default: per-release only this milestone.

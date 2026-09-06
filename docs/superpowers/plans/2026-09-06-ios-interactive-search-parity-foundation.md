@@ -93,10 +93,10 @@
 - [ ] "already grabbed / Re-grab" state: compare release title against current library downloads; button label "Re-grab this release".
 - [ ] macbuild green + CI green.
 
-## PHASE 5 (optional, flagged) — Language/title picker
-- [ ] **Prerequisite:** surface TMDB per-language translations on the iOS media model (not carried today).
-- [ ] Port `buildTitleOptions` + `COMMON_TITLE_LANGUAGES` (`es,de,it,pt,ja,ko,zh,ru`); add a language/title picker driving `searchApiQuery` (platform title first, EN/FR pinned, original-language, then allowlist; dedupe by lowercased query; secondary titles ≥2 chars).
-- [ ] Build only if requested (Open Question §8.1 in the spec).
+## PHASE 5 — Language/title picker (IN SCOPE, confirmed 2026-09-06)
+- [ ] **Prerequisite:** surface TMDB per-language translations on the iOS media model (not carried today). Check what the web reads (`buildTitleOptions` inputs) and add the equivalent field to the iOS media DTO + the endpoint response if the server already returns it; if the server does not expose translations to the media detail iOS calls, flag it (this is the one place a server touch may be needed — confirm before adding).
+- [ ] Port `buildTitleOptions` + `COMMON_TITLE_LANGUAGES` (`es,de,it,pt,ja,ko,zh,ru`); add a language/title picker (`SearchTitleSelect` analogue) driving `searchApiQuery` (platform title first, EN/FR pinned, original-language, then allowlist; dedupe by lowercased query; secondary titles ≥2 chars).
+- [ ] macbuild green + CI green.
 
 ---
 
