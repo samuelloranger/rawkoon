@@ -150,6 +150,43 @@ nonisolated struct MediaModalResponse: Decodable, Sendable {
     let watchlistStatus: Bool?
     let watchlistId: Int?
     let details: TmdbMediaDetails
+    let credits: MediaCredits?
+    let trailer: MediaTrailer?
+    let providers: WatchProviders?
+    let ratings: MediaRatings?
+}
+
+nonisolated struct CastMember: Decodable, Identifiable, Hashable, Sendable {
+    let id: Int
+    let name: String
+    let character: String?
+    let profilePath: String? // server key is `profile_url`, not `profile_path`
+}
+
+nonisolated struct MediaCredits: Decodable, Sendable {
+    let cast: [CastMember]
+    let directors: [String]?
+}
+
+nonisolated struct MediaTrailer: Decodable, Sendable {
+    let key: String?
+    let name: String?
+}
+
+/// Mirrors `TmdbWatchProvidersResponse` (media.ts) exactly — `streaming`, not `stream`.
+nonisolated struct WatchProviders: Decodable, Sendable {
+    let region: String?
+    let streaming: [StreamingProvider]?
+    let free: [StreamingProvider]?
+    let rent: [StreamingProvider]?
+    let buy: [StreamingProvider]?
+    let link: String?
+}
+
+nonisolated struct MediaRatings: Decodable, Sendable {
+    let imdbRating: String?
+    let rottenTomatoes: String?
+    let metacritic: String?
 }
 
 nonisolated struct TmdbMediaDetails: Decodable, Sendable {
@@ -351,6 +388,14 @@ nonisolated struct LibraryListResponse: Decodable, Sendable {
     let movieCount: Int?
     let showCount: Int?
     let hasMore: Bool?
+}
+
+/// Response shared by the item/season/episode manual-search endpoints
+/// (`libraryGrabRoutes.ts` — `LibrarySearchResponse` in `library.ts`).
+nonisolated struct LibrarySearchResponse: Decodable, Sendable {
+    let grabbed: Bool
+    let releaseTitle: String?
+    let reason: String?
 }
 
 // MARK: - Requests
