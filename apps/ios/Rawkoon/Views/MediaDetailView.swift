@@ -447,29 +447,29 @@ struct MediaDetailView: View {
             .pickerStyle(.menu)
             .disabled(applyingManagementChange)
 
-            Button {
-                Task { await runRescan() }
-            } label: {
-                Label("Rescan files", systemImage: "arrow.clockwise")
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 44)
-            }
-            .buttonStyle(.bordered)
-            .tint(Theme.muted)
-            .disabled(applyingManagementChange)
+            HStack(spacing: 10) {
+                Button {
+                    Task { await runRescan() }
+                } label: {
+                    Label("Rescan files", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+                .tint(Theme.muted)
+                .disabled(applyingManagementChange)
 
-            Button(role: .destructive) {
-                pendingRemoveLibraryId = libraryId
-                pendingRemoveTitle = title
-                showingRemoveConfirm = true
-            } label: {
-                Label("Remove from library", systemImage: "trash")
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 44)
+                Spacer(minLength: 0)
+
+                Button(role: .destructive) {
+                    pendingRemoveLibraryId = libraryId
+                    pendingRemoveTitle = title
+                    showingRemoveConfirm = true
+                } label: {
+                    Label("Remove from library", systemImage: "trash")
+                }
+                .buttonStyle(.bordered)
+                .tint(Theme.terracotta)
+                .disabled(applyingManagementChange)
             }
-            .buttonStyle(.bordered)
-            .tint(Theme.terracotta)
-            .disabled(applyingManagementChange)
         }
         .padding(14)
         .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))

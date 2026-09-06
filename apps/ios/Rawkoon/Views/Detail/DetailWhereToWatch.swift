@@ -28,8 +28,6 @@ struct DetailWhereToWatch: View {
                     }
                 } label: {
                     Label("Watch trailer", systemImage: "play.rectangle.fill")
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 44)
                 }
                 .buttonStyle(.bordered)
                 .tint(Theme.muted)
