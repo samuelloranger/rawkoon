@@ -42,4 +42,16 @@ struct FormattersTests {
         #expect(Formatters.speed(.nan, useAll: true).hasSuffix("/s"))
         #expect(Formatters.speed(.infinity, useAll: false).hasSuffix("/s"))
     }
+
+    @Test func listeningHoursZeroIs0h() {
+        #expect(Formatters.listeningHours(0) == "0h")
+    }
+
+    @Test func listeningHoursUnderAnHourIsMinutes() {
+        #expect(Formatters.listeningHours(20 * 60) == "20m")
+    }
+
+    @Test func listeningHoursUnpadded() {
+        #expect(Formatters.listeningHours(3 * 3600 + 20 * 60) == "3h 20m")
+    }
 }

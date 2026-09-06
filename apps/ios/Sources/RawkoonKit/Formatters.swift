@@ -52,4 +52,14 @@ public enum Formatters {
         guard let raw, let bytes = Int64(raw), bytes > 0 else { return nil }
         return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
+
+    /// Listening stats: truncating, unpadded hours/minutes, "0h" for zero/invalid.
+    public static func listeningHours(_ seconds: Double) -> String {
+        guard seconds.isFinite, seconds > 0 else { return "0h" }
+        let total = Int(seconds.rounded(.down))
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        if hours == 0 { return "\(minutes)m" }
+        return "\(hours)h \(minutes)m"
+    }
 }

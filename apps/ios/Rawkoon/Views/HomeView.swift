@@ -27,6 +27,8 @@ struct HomeView: View {
                         .frame(maxWidth: .infinity).padding(.top, 40)
                 } else {
                     ContinueListeningView(refreshToken: continueToken, limit: 3)
+                    ListeningStatsCard(refreshToken: continueToken)
+                        .padding(.horizontal, 16)
                     if !recent.isEmpty {
                         rail("Recently added", recent.map(RailItem.library))
                     }
