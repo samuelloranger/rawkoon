@@ -1,5 +1,5 @@
-import Testing
 @testable import Rawkoon
+import Testing
 
 struct SmokeTests {
     @Test func appModuleLinks() {

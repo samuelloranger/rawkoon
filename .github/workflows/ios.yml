@@ -36,7 +36,11 @@ jobs:
           eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
           echo "/home/linuxbrew/.linuxbrew/bin" >> "$GITHUB_PATH"
       - run: brew install swiftlint swiftformat
-      - run: swiftformat Rawkoon Sources Tests --lint
+      - run: python3 scripts/check-l10n.py
+        working-directory: apps/ios
+      - run: python3 scripts/check-env-inject.py
+        working-directory: apps/ios
+      - run: swiftformat Rawkoon RawkoonTests Sources Tests --lint
         working-directory: apps/ios
       - run: swiftlint lint
         working-directory: apps/ios

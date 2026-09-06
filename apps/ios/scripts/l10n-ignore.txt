@@ -1,0 +1,5 @@
+# Intentional verbatim strings the l10n grep should not fail on.
+# One catalog key (or source literal) per line. Lines starting with # are comments.
+#
+# Interpolated Text/Button strings are skipped by the script — those need an
+# Xcode extraction pass on macbuild to confirm format-specifier keys.
