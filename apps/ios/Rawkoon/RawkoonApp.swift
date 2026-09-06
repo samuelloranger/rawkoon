@@ -241,10 +241,6 @@ private struct RootTabsView: View {
                 }
             }
             .customizationID("tab.settings")
-
-            Tab("Search", systemImage: "magnifyingglass", value: "search", role: .search) {
-                GlobalSearchView()
-            }
         }
         .tabViewStyle(.sidebarAdaptable)
         .tint(Theme.apricot)
