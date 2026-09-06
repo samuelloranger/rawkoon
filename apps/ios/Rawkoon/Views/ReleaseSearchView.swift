@@ -1,3 +1,4 @@
+import RawkoonKit
 import SwiftUI
 
 /// Presented as a sheet from MediaDetailView. Interactive indexer search + grab.
@@ -8,12 +9,23 @@ struct ReleaseSearchView: View {
     let tmdbId: Int?
     let mediaType: String
     let availableSeasons: [Int]
+    /// Expected release year, fed into the client-side rejection heuristic in
+    /// search mode. The call site wires it separately; nil disables the year check.
+    let mediaYear: Int?
 
-    init(query: String, libraryMediaId: Int?, tmdbId: Int?, mediaType: String, availableSeasons: [Int] = []) {
+    init(
+        query: String,
+        libraryMediaId: Int?,
+        tmdbId: Int?,
+        mediaType: String,
+        availableSeasons: [Int] = [],
+        mediaYear: Int? = nil
+    ) {
         self.libraryMediaId = libraryMediaId
         self.tmdbId = tmdbId
         self.mediaType = mediaType
         self.availableSeasons = availableSeasons.filter { $0 > 0 }.sorted()
+        self.mediaYear = mediaYear
         _searchQuery = State(initialValue: query)
         _sortBy = State(initialValue: libraryMediaId == nil ? .seeders : .quality)
     }
@@ -35,6 +47,9 @@ struct ReleaseSearchView: View {
     @State private var completeSeries = false
     @State private var sortBy: SearchSort = .seeders
     @State private var sortAscending = false
+    @State private var includedTrackers: Set<String> = []
+    @State private var excludedTrackers: Set<String> = []
+    @State private var includedLanguages: Set<String> = []
 
     private enum SearchSort: String, CaseIterable, Identifiable {
         case quality, seeders, age, size, title
@@ -45,11 +60,21 @@ struct ReleaseSearchView: View {
 
         var title: LocalizedStringKey {
             switch self {
-            case .quality: "Quality"
+            case .quality: "Profile score"
             case .seeders: "Seeders"
             case .age: "Age"
             case .size: "Size"
             case .title: "Title"
+            }
+        }
+
+        var sortKey: InteractiveSearchLogic.SortKey {
+            switch self {
+            case .quality: .quality
+            case .seeders: .seeders
+            case .age: .age
+            case .size: .size
+            case .title: .title
             }
         }
     }
@@ -170,12 +195,142 @@ struct ReleaseSearchView: View {
             .font(.footnote)
             .tint(Theme.terracotta)
 
+            filterRow
+
             if mediaType == "tv", !availableSeasons.isEmpty {
                 seasonRow
             }
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 10)
+    }
+
+    @ViewBuilder
+    private var filterRow: some View {
+        if !trackerOptions.isEmpty || !languageOptions.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    if !trackerOptions.isEmpty {
+                        filterChipMenu(title: "Include trackers", activeCount: includedTrackers.count) {
+                            ForEach(trackerOptions) { option in
+                                Toggle(option.label, isOn: includedTrackerBinding(option.key))
+                            }
+                        }
+                        filterChipMenu(title: "Exclude trackers", activeCount: excludedTrackers.count) {
+                            ForEach(trackerOptions) { option in
+                                Toggle(option.label, isOn: excludedTrackerBinding(option.key))
+                            }
+                        }
+                    }
+                    if !languageOptions.isEmpty {
+                        filterChipMenu(title: "Languages", activeCount: includedLanguages.count) {
+                            ForEach(languageOptions) { option in
+                                Toggle(option.label, isOn: includedLanguageBinding(option.key))
+                            }
+                        }
+                    }
+                    if hasActiveFilters {
+                        Button {
+                            includedTrackers.removeAll()
+                            excludedTrackers.removeAll()
+                            includedLanguages.removeAll()
+                        } label: {
+                            Text("Clear")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(Theme.muted)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                                .background(Theme.raised, in: Capsule())
+                                .overlay(Capsule().strokeBorder(Theme.border, lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .fixedSize()
+                    }
+                }
+            }
+        }
+    }
+
+    private var hasActiveFilters: Bool {
+        !includedTrackers.isEmpty || !excludedTrackers.isEmpty || !includedLanguages.isEmpty
+    }
+
+    private func filterChipMenu(
+        title: LocalizedStringKey,
+        activeCount: Int,
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        Menu {
+            content()
+        } label: {
+            HStack(spacing: 5) {
+                Text(title).font(.subheadline.weight(.medium))
+                if activeCount > 0 {
+                    Text("\(activeCount)")
+                        .font(.system(.caption2, design: .monospaced).weight(.semibold))
+                        .foregroundStyle(Theme.onAccent)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(Theme.terracotta, in: Capsule())
+                }
+                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+            }
+            .foregroundStyle(activeCount > 0 ? Theme.textStrong : Theme.muted)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(activeCount > 0 ? Theme.apricot.opacity(0.12) : Theme.raised, in: Capsule())
+            .overlay(
+                Capsule().strokeBorder(activeCount > 0 ? Theme.apricotSoft : Theme.borderStrong, lineWidth: 1)
+            )
+        }
+        .fixedSize()
+    }
+
+    private func includedTrackerBinding(_ key: String) -> Binding<Bool> {
+        Binding(
+            get: {
+                includedTrackers.contains(key)
+            },
+            set: { isOn in
+                if isOn {
+                    includedTrackers.insert(key)
+                    excludedTrackers.remove(key)
+                } else {
+                    includedTrackers.remove(key)
+                }
+            }
+        )
+    }
+
+    private func excludedTrackerBinding(_ key: String) -> Binding<Bool> {
+        Binding(
+            get: {
+                excludedTrackers.contains(key)
+            },
+            set: { isOn in
+                if isOn {
+                    excludedTrackers.insert(key)
+                    includedTrackers.remove(key)
+                } else {
+                    excludedTrackers.remove(key)
+                }
+            }
+        )
+    }
+
+    private func includedLanguageBinding(_ key: String) -> Binding<Bool> {
+        Binding(
+            get: {
+                includedLanguages.contains(key)
+            },
+            set: { isOn in
+                if isOn {
+                    includedLanguages.insert(key)
+                } else {
+                    includedLanguages.remove(key)
+                }
+            }
+        )
     }
 
     private var seasonRow: some View {
@@ -271,74 +426,84 @@ struct ReleaseSearchView: View {
         return hasQuality ? SearchSort.allCases : SearchSort.allCases.filter { $0 != .quality }
     }
 
+    private var trackerOptions: [InteractiveSearchLogic.FilterOption] {
+        InteractiveSearchLogic.trackerOptions(indexers: releases.map(\.indexer))
+    }
+
+    private var languageOptions: [InteractiveSearchLogic.FilterOption] {
+        InteractiveSearchLogic.languageOptions(languageLists: releases.map(\.languages))
+    }
+
     private var filteredAndSortedReleases: [ReleaseItem] {
-        let normalizedFilter = filterQuery
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-        var list = releases.filter { release in
-            if hideRejected && (release.rejected == true) {
-                return false
+        // Search mode strips the query's trailing SxxExx/year suffix to a bare title
+        // for the client rejection heuristic, mirroring the web picker.
+        let expectedTitle = InteractiveSearchLogic.stripTitleSuffixes(searchQuery)
+        let normalizedFilter = InteractiveSearchLogic.normalizeKey(filterQuery)
+
+        let filtered = releases.filter { release in
+            if hideRejected {
+                if release.rejected == true {
+                    return false
+                }
+                if libraryMediaId == nil, !expectedTitle.isEmpty,
+                   InteractiveSearchLogic.isClientRejected(
+                       releaseTitle: release.title,
+                       expectedTitle: expectedTitle,
+                       expectedYear: mediaYear
+                   ) {
+                    return false
+                }
             }
+
             if showPacksOnly || selectedSeason != nil || completeSeries {
                 if !(release.isSeasonPack == true || release.isCompleteSeries == true) {
                     return false
                 }
             }
+
+            let trackerKey = trackerKey(for: release)
+            if !includedTrackers.isEmpty, !includedTrackers.contains(trackerKey) {
+                return false
+            }
+            if excludedTrackers.contains(trackerKey) {
+                return false
+            }
+
+            if !includedLanguages.isEmpty {
+                if languageKeys(for: release).isDisjoint(with: includedLanguages) {
+                    return false
+                }
+            }
+
             if normalizedFilter.isEmpty {
                 return true
             }
-            let haystack = ([release.title, release.indexer ?? ""] + release.languages)
-                .joined(separator: " ")
-                .lowercased()
+            let haystack = InteractiveSearchLogic.normalizeKey("\(release.title) \(release.indexer ?? "")")
             return haystack.contains(normalizedFilter)
         }
 
         let effectiveSort: SearchSort = sortOptions.contains(sortBy) ? sortBy : .seeders
-        list.sort { lhs, rhs in
-            let direction: (Bool) -> Bool = { comparison in
-                sortAscending ? !comparison : comparison
-            }
-            switch effectiveSort {
-            case .quality:
-                let lRejected = lhs.rejected == true
-                let rRejected = rhs.rejected == true
-                if lRejected != rRejected {
-                    return lRejected ? false : true
-                }
-                let lScore = lhs.qualityScore ?? -Double.greatestFiniteMagnitude
-                let rScore = rhs.qualityScore ?? -Double.greatestFiniteMagnitude
-                if lScore != rScore {
-                    return sortAscending ? lScore < rScore : lScore > rScore
-                }
-                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-            case .seeders:
-                let l = lhs.seeders ?? -1
-                let r = rhs.seeders ?? -1
-                if l != r {
-                    return sortAscending ? l < r : l > r
-                }
-            case .age:
-                let l = lhs.age ?? Int.max
-                let r = rhs.age ?? Int.max
-                if l != r {
-                    return sortAscending ? l < r : l > r
-                }
-            case .size:
-                let l = lhs.sizeBytes ?? -1
-                let r = rhs.sizeBytes ?? -1
-                if l != r {
-                    return sortAscending ? l < r : l > r
-                }
-            case .title:
-                break
-            }
-            let cmp = lhs.title.localizedCaseInsensitiveCompare(rhs.title)
-            if cmp == .orderedSame {
-                return lhs.guid < rhs.guid
-            }
-            return direction(cmp == .orderedAscending)
+        return InteractiveSearchLogic.sortReleases(
+            filtered,
+            by: effectiveSort.sortKey,
+            dir: sortAscending ? .asc : .desc
+        )
+    }
+
+    /// Normalized tracker key for `release`, matching `trackerOptions` bucketing.
+    private func trackerKey(for release: ReleaseItem) -> String {
+        let trimmed = release.indexer?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty
+            ? InteractiveSearchLogic.unknownTrackerKey
+            : InteractiveSearchLogic.normalizeKey(trimmed)
+    }
+
+    /// Normalized language keys for `release`, matching `languageOptions` bucketing.
+    private func languageKeys(for release: ReleaseItem) -> Set<String> {
+        if release.languages.isEmpty {
+            return [InteractiveSearchLogic.unknownLanguageKey]
         }
-        return list
+        return Set(release.languages.map { InteractiveSearchLogic.normalizeKey($0) })
     }
 
     private func search() async {
@@ -461,73 +626,126 @@ struct ReleaseSearchView: View {
 // MARK: - Row
 
 private struct ReleaseRow: View {
+    @Environment(\.openURL) private var openURL
+
     let release: ReleaseItem
     let isGrabbing: Bool
     let isGrabbed: Bool
     let onGrab: () async -> Void
 
+    private var isRejected: Bool {
+        release.rejected == true
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(release.title)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(Theme.text)
-                .lineLimit(2)
-
-            HStack(spacing: 8) {
-                Text(quality)
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(Theme.muted)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Theme.well, in: Capsule())
-
-                if let qualityScore = release.qualityScore {
-                    Text("Q\(Int(qualityScore.rounded()))")
-                        .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(Theme.apricotSoft)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(Theme.apricot.opacity(0.12), in: Capsule())
-                }
-
-                if release.freeleech == true {
-                    Text("Freeleech")
-                        .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(Theme.seed)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(Theme.seed.opacity(0.14), in: Capsule())
-                }
-
-                if let sizeText {
-                    Text(sizeText)
-                        .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(Theme.muted)
-                }
-
-                Text("\(release.seeders ?? 0) up")
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(Theme.seed)
-
+            HStack(alignment: .top, spacing: 8) {
+                titleView
                 Spacer(minLength: 8)
-
                 grabButton
             }
 
-            Text(metaLine)
-                .font(.system(.caption2, design: .monospaced))
-                .foregroundStyle(Theme.faint)
+            badgeStrip
 
-            if release.rejected == true, let reason = release.rejectionReason, !reason.isEmpty {
-                Text(reason)
-                    .font(.caption2)
-                    .foregroundStyle(Theme.terracotta)
-                    .lineLimit(2)
+            if isRejected {
+                rejectionReasons
+            }
+
+            if !isRejected, let breakdown = release.scoreBreakdown {
+                ScoreBreakdownPanel(breakdown: breakdown)
             }
         }
         .padding(12)
         .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border, lineWidth: 1))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(isRejected ? Theme.apricotSoft : Theme.border, lineWidth: 1)
+        )
+    }
+
+    @ViewBuilder
+    private var titleView: some View {
+        if let infoURL = release.infoURL, let url = URL(string: infoURL) {
+            Button {
+                openURL(url)
+            } label: {
+                Text(release.title)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Theme.textStrong)
+                    .underline()
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+            .buttonStyle(.plain)
+        } else {
+            Text(release.title)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(Theme.text)
+                .lineLimit(2)
+        }
+    }
+
+    private var badgeStrip: some View {
+        FlowLayout(spacing: 6) {
+            if release.isCompleteSeries == true {
+                BadgeChip(text: "Intégrale", fg: Theme.apricotSoft, bg: Theme.apricot.opacity(0.12))
+            }
+            if release.isSeasonPack == true, release.isCompleteSeries != true {
+                BadgeChip(text: "Season pack", fg: Theme.apricotSoft, bg: Theme.apricot.opacity(0.12))
+            }
+            if let indexer = release.indexer, !indexer.isEmpty {
+                BadgeChip(text: indexer)
+            }
+            if let sizeText {
+                BadgeChip(text: sizeText)
+            }
+            if let parsedQualityText {
+                BadgeChip(text: parsedQualityText)
+            }
+            if let hdr = release.parsedQuality?.hdr, !hdr.isEmpty {
+                BadgeChip(text: hdr, fg: Theme.apricotSoft, bg: Theme.apricot.opacity(0.14))
+            }
+            if release.freeleech == true {
+                BadgeChip(text: "FL", fg: Theme.seed, bg: Theme.seed.opacity(0.14))
+            }
+            if let qualityScore = release.qualityScore {
+                BadgeChip(
+                    text: "Score \(Int(qualityScore.rounded()))",
+                    fg: Theme.apricotSoft,
+                    bg: Theme.apricot.opacity(0.12)
+                )
+            }
+            if let age = release.age {
+                BadgeChip(text: "Age: \(age)d")
+            }
+            if let seedLeechText {
+                BadgeChip(text: seedLeechText, fg: Theme.seed)
+            }
+            if !release.languages.isEmpty {
+                BadgeChip(text: release.languages.joined(separator: ", "))
+            }
+        }
+    }
+
+    private var rejectionReasons: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            let codes = release.qualityRejectionReasons ?? []
+            if codes.isEmpty {
+                if let reason = release.rejectionReason, !reason.isEmpty {
+                    Text(reason)
+                        .font(.caption2)
+                        .foregroundStyle(Theme.terracotta)
+                        .lineLimit(2)
+                }
+            } else {
+                ForEach(codes, id: \.self) { code in
+                    Text(ReleaseScoringLabels.rejectionLabel(code))
+                        .font(.caption2)
+                        .foregroundStyle(Theme.terracotta)
+                        .lineLimit(2)
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -554,39 +772,151 @@ private struct ReleaseRow: View {
         }
     }
 
-    private var quality: String {
-        let title = release.title.lowercased()
-        let markers: [(String, String)] = [
-            ("2160p", "2160p"),
-            ("1080p", "1080p"),
-            ("720p", "720p"),
-            ("web-dl", "WEB-DL"),
-            ("webdl", "WEB-DL"),
-            ("bluray", "BluRay"),
-            ("blu-ray", "BluRay"),
-        ]
-        for (needle, label) in markers where title.contains(needle) {
-            return label
+    /// Server parsed quality as `resolutionp · source · codec`, dropping empties.
+    private var parsedQualityText: String? {
+        guard let parsed = release.parsedQuality else {
+            return nil
         }
-        return release.protocolType ?? ""
+        var parts: [String] = []
+        if let resolution = parsed.resolution {
+            parts.append("\(resolution)p")
+        }
+        if let source = parsed.source, !source.isEmpty {
+            parts.append(source)
+        }
+        if let codec = parsed.codec, !codec.isEmpty {
+            parts.append(codec)
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     private var sizeText: String? {
-        guard let bytes = release.sizeBytes else { return nil }
+        guard let bytes = release.sizeBytes else {
+            return nil
+        }
         return ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
     }
 
-    private var metaLine: String {
-        var parts: [String] = []
-        if let indexer = release.indexer, !indexer.isEmpty {
-            parts.append(indexer)
+    private var seedLeechText: String? {
+        guard release.seeders != nil || release.leechers != nil else {
+            return nil
         }
-        if let age = release.age {
-            parts.append("\(age)d")
+        let seeders = release.seeders.map(String.init) ?? "–"
+        let leechers = release.leechers.map(String.init) ?? "–"
+        return "S/L: \(seeders)/\(leechers)"
+    }
+}
+
+// MARK: - Score breakdown
+
+private struct ScoreBreakdownPanel: View {
+    let breakdown: ScoreBreakdown
+    @State private var isExpanded = false
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            VStack(alignment: .leading, spacing: 6) {
+                if let total = breakdown.total {
+                    row(label: "Total", value: total, emphasized: true)
+                }
+                ForEach(breakdown.components) { component in
+                    row(label: ReleaseScoringLabels.componentLabel(component.code), value: component.value)
+                }
+                if !breakdown.matchedFormats.isEmpty {
+                    FlowLayout(spacing: 6) {
+                        ForEach(breakdown.matchedFormats, id: \.self) { format in
+                            BadgeChip(text: format, fg: Theme.apricotSoft, bg: Theme.apricot.opacity(0.12))
+                        }
+                    }
+                }
+            }
+            .padding(.top, 6)
+        } label: {
+            Text("Score breakdown")
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(Theme.muted)
         }
-        if !release.languages.isEmpty {
-            parts.append(release.languages.joined(separator: ", "))
+        .tint(Theme.muted)
+    }
+
+    private func row(label: String, value: Int, emphasized: Bool = false) -> some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(emphasized ? Theme.textStrong : Theme.muted)
+            Spacer(minLength: 8)
+            Text(signed(value))
+                .font(.system(.caption2, design: .monospaced).weight(emphasized ? .semibold : .regular))
+                .foregroundStyle(value >= 0 ? Theme.seed : Theme.terracotta)
         }
-        return parts.joined(separator: " · ")
+    }
+
+    private func signed(_ value: Int) -> String {
+        value > 0 ? "+\(value)" : "\(value)"
+    }
+}
+
+// MARK: - Badge chip + wrapping layout
+
+private struct BadgeChip: View {
+    let text: String
+    var fg: Color = Theme.muted
+    var bg: Color = Theme.well
+
+    var body: some View {
+        Text(text)
+            .font(.system(.caption2, design: .monospaced))
+            .foregroundStyle(fg)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(bg, in: Capsule())
+            .lineLimit(1)
+            .fixedSize()
+    }
+}
+
+/// Left-to-right wrapping layout for the badge strip so chips flow onto new rows
+/// instead of overflowing the card width.
+private struct FlowLayout: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .greatestFiniteMagnitude
+        var rowWidth: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var totalWidth: CGFloat = 0
+        var totalHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if rowWidth > 0, rowWidth + spacing + size.width > maxWidth {
+                totalHeight += rowHeight + spacing
+                totalWidth = max(totalWidth, rowWidth)
+                rowWidth = size.width
+                rowHeight = size.height
+            } else {
+                rowWidth += (rowWidth > 0 ? spacing : 0) + size.width
+                rowHeight = max(rowHeight, size.height)
+            }
+        }
+        totalHeight += rowHeight
+        totalWidth = max(totalWidth, rowWidth)
+        return CGSize(width: totalWidth, height: totalHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
     }
 }
