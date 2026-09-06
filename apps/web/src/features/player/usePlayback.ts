@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api/client";
+import { getQueryClient } from "@/lib/api/queryClient";
 import { BOOKS_ENDPOINTS } from "@/lib/endpoints";
 import { queryKeys } from "@/lib/queryKeys";
 import type {
@@ -52,13 +53,17 @@ export async function putListeningProgress(
   editionId: number,
   body: BookListeningProgressRequest,
 ): Promise<{ applied: boolean }> {
-  return fetchApi<{ applied: boolean }>(
+  const result = await fetchApi<{ applied: boolean }>(
     BOOKS_ENDPOINTS.PUT_PROGRESS(editionId),
     {
       method: "PUT",
       body: JSON.stringify(body),
     },
   );
+  void getQueryClient()?.invalidateQueries({
+    queryKey: queryKeys.books.listeningStats(),
+  });
+  return result;
 }
 
 export async function putReadingProgress(

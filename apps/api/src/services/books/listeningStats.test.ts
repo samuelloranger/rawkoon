@@ -84,16 +84,34 @@ describe("applyListeningCredit", () => {
   });
 
   test("increment throw is swallowed", async () => {
+    await expect(
+      applyListeningCredit({
+        userId: "u1",
+        created: false,
+        previous: {
+          positionSecs: 0,
+          receivedAt: new Date("2026-09-06T17:00:00.000Z"),
+        },
+        newPosition: 999,
+        receivedAt: new Date("2026-09-06T18:00:00.000Z"),
+      }),
+    ).resolves.toBeUndefined();
+    // Reject happens before the mock records a successful upsert.
+    expect(upserts).toHaveLength(0);
+  });
+
+  test("credited <= 0 writes nothing", async () => {
     await applyListeningCredit({
       userId: "u1",
       created: false,
       previous: {
-        positionSecs: 0,
-        receivedAt: new Date("2026-09-06T17:00:00.000Z"),
+        positionSecs: 100,
+        receivedAt: new Date("2026-09-06T17:59:50.000Z"),
       },
-      newPosition: 999,
+      newPosition: 90,
       receivedAt: new Date("2026-09-06T18:00:00.000Z"),
     });
+    expect(upserts).toHaveLength(0);
   });
 });
 
@@ -154,5 +172,30 @@ describe("getListeningStats", () => {
     expect(stats.since).toBeNull();
     expect(stats.series).toHaveLength(1);
     expect(stats.series[0].percent).toBe(75);
+  });
+
+  test("daily buckets fill today, ISO week (month-span), streak, and since", async () => {
+    // pinnedNow is Sunday 2026-09-06 in America/Toronto; ISO week Mon 08-31..Sun 09-06.
+    dailyFindManyRows.push(
+      { day: new Date("2026-08-31T00:00:00.000Z"), seconds: 100 },
+      { day: new Date("2026-09-01T00:00:00.000Z"), seconds: 50 },
+      { day: new Date("2026-09-05T00:00:00.000Z"), seconds: 200 },
+    );
+
+    const stats = await getListeningStats("u1", pinnedNow);
+    expect(stats.timezone).toBe("America/Toronto");
+    expect(stats.since).toBe("2026-08-31");
+    expect(stats.today_secs).toBe(0);
+    expect(stats.week).toEqual([
+      { day: "2026-08-31", seconds: 100 },
+      { day: "2026-09-01", seconds: 50 },
+      { day: "2026-09-02", seconds: 0 },
+      { day: "2026-09-03", seconds: 0 },
+      { day: "2026-09-04", seconds: 0 },
+      { day: "2026-09-05", seconds: 200 },
+      { day: "2026-09-06", seconds: 0 },
+    ]);
+    expect(stats.week_secs).toBe(350);
+    expect(stats.streak_days).toBe(1);
   });
 });

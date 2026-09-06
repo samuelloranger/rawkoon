@@ -47,6 +47,10 @@ struct FormattersTests {
         #expect(Formatters.listeningHours(0) == "0h")
     }
 
+    @Test func listeningHoursSubMinuteIs0hNot0m() {
+        #expect(Formatters.listeningHours(59) == "0h")
+    }
+
     @Test func listeningHoursUnderAnHourIsMinutes() {
         #expect(Formatters.listeningHours(20 * 60) == "20m")
     }

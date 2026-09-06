@@ -931,6 +931,16 @@
         }
       }
     },
+    "Couldn't load listening stats.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger les stats d'écoute."
+          }
+        }
+      }
+    },
     "Couldn't load management": {
       "localizations": {
         "fr": {
