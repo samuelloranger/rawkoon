@@ -417,13 +417,22 @@ nonisolated struct LibrarySearchResponse: Decodable, Sendable {
 
 nonisolated struct MediaRequest: Decodable, Identifiable, Sendable {
     let id: Int
-    let tmdbId: Int
-    let type: String // "movie" | "show"
+    /// Null for a "book" request — books key off googleVolumeId instead.
+    let tmdbId: Int?
+    let type: String // "movie" | "show" | "book"
     let title: String
+    /// Book requests only: display author line.
+    let author: String?
     let posterUrl: String?
     let year: Int?
     let status: String // pending | approved | denied
     let requestedBy: RequestedBy?
+    /// Book requests only: the volume being requested.
+    let googleVolumeId: String?
+    /// Book requests only: profile chosen at approval.
+    let bookQualityProfileId: Int?
+    /// Book requests only: set once the request is approved and the book exists.
+    let libraryBookId: Int?
     let denyReason: String?
     let createdAt: String
 }

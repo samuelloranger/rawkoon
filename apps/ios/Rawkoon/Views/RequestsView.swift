@@ -27,7 +27,7 @@ struct RequestsView: View {
     @State private var adminNote: String?
 
     // Approve flow
-    @State private var profiles: [QualityProfile] = []
+    @State private var profileOptions: [ApprovalProfileOption] = []
     @State private var approvingRequest: MediaRequest?
     @State private var showApproveDialog = false
     @State private var busyRequestId: Int?
@@ -70,9 +70,9 @@ struct RequestsView: View {
             isPresented: $showApproveDialog,
             titleVisibility: .visible
         ) {
-            ForEach(profiles) { profile in
-                Button(profile.name) {
-                    Task { await approve(request: approvingRequest, profile: profile) }
+            ForEach(profileOptions) { option in
+                Button(option.name) {
+                    Task { await approve(request: approvingRequest, profileId: option.id) }
                 }
             }
             Button("Cancel", role: .cancel) {
@@ -140,12 +140,23 @@ struct RequestsView: View {
             BookCover(url: model.absoluteURL(req.posterUrl), size: 46, corner: 6)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(req.title)
-                    .font(.display(16))
-                    .foregroundStyle(Theme.textStrong)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(req.title)
+                        .font(.display(16))
+                        .foregroundStyle(Theme.textStrong)
+                        .lineLimit(1)
 
-                Text("\(req.year ?? 0) · requested by \(req.requestedBy?.name ?? "someone")")
+                    if req.type == "book" {
+                        Text("Book")
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(Theme.muted)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Theme.muted.opacity(0.15), in: Capsule())
+                    }
+                }
+
+                Text(subtitle(for: req))
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.muted)
                     .lineLimit(1)
@@ -171,6 +182,14 @@ struct RequestsView: View {
                 .tint(Theme.seed)
             }
         }
+    }
+
+    private func subtitle(for req: MediaRequest) -> String {
+        let requester = req.requestedBy?.name ?? "someone"
+        if req.type == "book", let author = req.author, !author.isEmpty {
+            return "\(author) · requested by \(requester)"
+        }
+        return "\(req.year ?? 0) · requested by \(requester)"
     }
 
     private func badgeTint(_ status: String) -> Color {
@@ -203,13 +222,22 @@ struct RequestsView: View {
         adminNote = nil
         busyRequestId = request.id
         do {
-            let response = try await client.qualityProfiles()
+            let options: [ApprovalProfileOption] =
+                if request.type == "book" {
+                    try await client.bookQualityProfiles().profiles.map {
+                        ApprovalProfileOption(id: $0.id, name: $0.name)
+                    }
+                } else {
+                    try await client.qualityProfiles().profiles.map {
+                        ApprovalProfileOption(id: $0.id, name: $0.name)
+                    }
+                }
             busyRequestId = nil
-            if response.profiles.isEmpty {
+            if options.isEmpty {
                 adminNote = String(localized: "No quality profiles configured.")
                 return
             }
-            profiles = response.profiles
+            profileOptions = options
             approvingRequest = request
             showApproveDialog = true
         } catch APIError.unauthorized {
@@ -221,13 +249,13 @@ struct RequestsView: View {
         }
     }
 
-    private func approve(request: MediaRequest?, profile: QualityProfile) async {
+    private func approve(request: MediaRequest?, profileId: Int) async {
         guard let client = model.api(), let request else { return }
         approvingRequest = nil
         busyRequestId = request.id
         defer { busyRequestId = nil }
         do {
-            try await client.approveRequest(id: request.id, qualityProfileId: profile.id)
+            try await client.approveRequest(id: request.id, qualityProfileId: profileId)
             await load()
         } catch APIError.unauthorized {
             adminNote = String(localized: "Admin only.")
@@ -249,4 +277,11 @@ struct RequestsView: View {
             adminNote = String(localized: "Couldn't deny that request.")
         }
     }
+}
+
+/// A quality profile choice for the approve dialog — unifies `QualityProfile`
+/// (movie/show) and `BookQualityProfile` (book) behind the id/name the picker needs.
+private struct ApprovalProfileOption: Identifiable {
+    let id: Int
+    let name: String
 }
