@@ -1022,15 +1022,8 @@ private struct ReleaseRow: View {
                 .frame(width: 4)
                 .frame(maxHeight: .infinity)
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .top, spacing: 10) {
-                    titleRow
-                    Spacer(minLength: 8)
-                    VStack(alignment: .trailing, spacing: 8) {
-                        grabButton
-                        blockButton
-                    }
-                }
+            VStack(alignment: .leading, spacing: 10) {
+                titleRow
 
                 footerLine
 
@@ -1041,6 +1034,8 @@ private struct ReleaseRow: View {
                 if !isRejected, let breakdown = release.scoreBreakdown {
                     ScoreBreakdownPanel(breakdown: breakdown)
                 }
+
+                actionsRow
             }
         }
         .padding(12)
@@ -1075,7 +1070,7 @@ private struct ReleaseRow: View {
         return Theme.border
     }
 
-    /// Title with a leading sparkle when it is the AI pick.
+    /// Title with a leading sparkle when it is the AI pick; spans the full card.
     private var titleRow: some View {
         HStack(alignment: .firstTextBaseline, spacing: 5) {
             if isAiPick {
@@ -1084,6 +1079,17 @@ private struct ReleaseRow: View {
                     .foregroundStyle(Theme.apricotSoft)
             }
             titleView
+            Spacer(minLength: 0)
+        }
+    }
+
+    /// Actions sit on their own row so the title can use the full card width:
+    /// Block quiet on the left, Grab (the primary) reachable on the right.
+    private var actionsRow: some View {
+        HStack(spacing: 10) {
+            blockButton
+            Spacer(minLength: 8)
+            grabButton
         }
     }
 
