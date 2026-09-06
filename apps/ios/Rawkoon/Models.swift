@@ -494,6 +494,10 @@ nonisolated struct ReleaseItem: Decodable, Identifiable, Sendable {
     let isCompleteSeries: Bool?
     let freeleech: Bool?
     let qualityScore: Double?
+    let source: String?
+    let parsedQuality: ParsedQuality?
+    let qualityRejectionReasons: [String]?
+    let scoreBreakdown: ScoreBreakdown?
 
     var id: String {
         guid
@@ -505,7 +509,36 @@ nonisolated struct ReleaseItem: Decodable, Identifiable, Sendable {
         case guid, title, indexer, indexerId, languages, age, seeders, leechers, rejected, rejectionReason, freeleech, qualityScore
         case protocolType = "protocol"
         case sizeBytes, infoURL = "infoUrl", downloadToken, downloadUrl, isSeasonPack, isCompleteSeries
+        case source, parsedQuality, qualityRejectionReasons, scoreBreakdown
     }
+}
+
+/// Server-parsed quality of a release, decoded straight from the wire — the app
+/// no longer re-derives quality by keyword-scanning the title.
+nonisolated struct ParsedQuality: Codable, Sendable {
+    let resolution: Int?
+    let source: String?
+    let codec: String?
+    let hdr: String?
+}
+
+/// One line of the server's release-scoring breakdown. `params` is intentionally
+/// not decoded — labels are static English (see `ScoreComponentLabels`) and
+/// decoding a heterogeneous param bag would only make decode fragile.
+nonisolated struct ScoreComponent: Decodable, Sendable, Identifiable {
+    let code: String
+    let value: Int
+
+    var id: String {
+        code
+    }
+}
+
+nonisolated struct ScoreBreakdown: Decodable, Sendable {
+    let rejected: Bool
+    let total: Int?
+    let components: [ScoreComponent]
+    let matchedFormats: [String]
 }
 
 nonisolated struct GrabTokenBody: Encodable, Sendable {
@@ -515,6 +548,45 @@ nonisolated struct GrabTokenBody: Encodable, Sendable {
 nonisolated struct GrabUrlBody: Encodable, Sendable {
     let downloadUrl: String
     let releaseTitle: String
+    let episodeId: Int?
+    // Enriched to match the web grab: the server records these on the download
+    // history so a grab from iOS is no longer lossier than one from the browser.
+    let indexer: String?
+    let qualityParsed: ParsedQuality?
+    let sizeBytes: Int?
+    let isUpgrade: Bool?
+}
+
+// MARK: - AI pick / blocklist (interactive search)
+
+nonisolated struct AiPickMediaContext: Encodable, Sendable {
+    let title: String
+    let year: Int?
+    let type: String // "movie" | "tv"
+}
+
+nonisolated struct AiPickCandidate: Encodable, Sendable {
+    let key: String // release guid
+    let title: String
+    let sizeBytes: Int?
+    let seeders: Int?
+    let score: Double?
+}
+
+nonisolated struct AiPickRequest: Encodable, Sendable {
+    let mediaContext: AiPickMediaContext
+    let releases: [AiPickCandidate]
+}
+
+nonisolated struct AiPick: Decodable, Sendable {
+    let releaseKey: String
+    let reasoning: String
+}
+
+nonisolated struct BlocklistBody: Encodable, Sendable {
+    let releaseTitle: String
+    let indexer: String?
+    let mediaId: Int?
     let episodeId: Int?
 }
 

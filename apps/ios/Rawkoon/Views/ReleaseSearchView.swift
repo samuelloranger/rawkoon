@@ -390,7 +390,15 @@ struct ReleaseSearchView: View {
             } else if let libraryMediaId, let downloadUrl = release.downloadUrl {
                 try await client.grabByUrl(
                     libraryId: libraryMediaId,
-                    body: GrabUrlBody(downloadUrl: downloadUrl, releaseTitle: release.title, episodeId: nil)
+                    body: GrabUrlBody(
+                        downloadUrl: downloadUrl,
+                        releaseTitle: release.title,
+                        episodeId: nil,
+                        indexer: release.indexer,
+                        qualityParsed: release.parsedQuality,
+                        sizeBytes: release.sizeBytes,
+                        isUpgrade: nil
+                    )
                 )
             } else {
                 grabError = String(localized: "This release can't be grabbed.")
