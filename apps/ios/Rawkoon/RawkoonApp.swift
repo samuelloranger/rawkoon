@@ -30,7 +30,6 @@ struct RawkoonApp: App {
                     }
                 #endif
             }
-            .environment(model)
             .tint(Theme.apricot)
             .preferredColorScheme(.dark)
             .overlay {
@@ -72,7 +71,6 @@ struct RawkoonApp: App {
             )) { destination in
                 NavigationStack {
                     NotificationDestinationView(destination: destination)
-                        .environment(model)
                         .toolbar {
                             ToolbarItem(placement: .cancellationAction) {
                                 Button("Done") { model.deepLinkTarget = nil }
@@ -107,6 +105,11 @@ struct RawkoonApp: App {
                     break
                 }
             }
+            // Outermost on purpose: overlays, alerts, and sheets inherit AppModel.
+            // `tabViewBottomAccessory` is a system-hosted tree that does NOT
+            // inherit — pass the model explicitly there (see MiniPlayerView).
+            // CI greps this file so `.environment(model)` stays below `.overlay`/`.sheet`.
+            .environment(model)
         }
     }
 }

@@ -33,7 +33,7 @@ struct SettingsView: View {
         .searchable(
             text: $settingsSearch,
             placement: .navigationBarDrawer(displayMode: .automatic),
-            prompt: "Search settings"
+            prompt: String(localized: "Search settings")
         )
         .scrollContentBackground(.hidden)
         .background(Theme.base)

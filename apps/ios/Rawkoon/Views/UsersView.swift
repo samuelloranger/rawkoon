@@ -135,17 +135,10 @@ struct UsersView: View {
             users = response.users
         } catch APIError.unauthorized {
             isForbidden = true
+        } catch APIError.forbidden {
+            isForbidden = true
         } catch let error as APIError {
-            switch error {
-            case let .http(status):
-                errorText = String(localized: "Server error (\(status)).")
-            case .decode:
-                errorText = String(localized: "Could not parse server response.")
-            case .transport:
-                errorText = String(localized: "Network error. Check your connection.")
-            case .unauthorized:
-                isForbidden = true
-            }
+            errorText = error.userMessage()
         } catch {
             errorText = String(localized: "Network error. Check your connection.")
         }

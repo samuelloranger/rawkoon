@@ -266,7 +266,7 @@ private extension Locale {
     /// Best-effort display name for the device's current language, used only
     /// in the toggle's caption copy.
     var localizedLanguageName: String {
-        guard let code = language.languageCode?.identifier else { return "your language" }
+        guard let code = language.languageCode?.identifier else { return String(localized: "your language") }
         return localizedString(forLanguageCode: code) ?? code
     }
 }

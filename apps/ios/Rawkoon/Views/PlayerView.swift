@@ -281,7 +281,7 @@ struct PlayerView: View {
         .padding(.top, 8)
     }
 
-    private func control(_ name: String, label: String, action: @escaping () -> Void) -> some View {
+    private func control(_ name: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: name)
                 .font(.system(size: 22))

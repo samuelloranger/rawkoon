@@ -29,18 +29,22 @@ struct SettingsStateView<Content: View>: View {
     }
 }
 
-/// Maps the app's only surfaced error to a fixed local string for a settings
-/// screen. Admin screens say "Admin only" on 401/403; account screens say
-/// "Unauthorized".
+/// Maps a settings-screen error to a local string. Permission denials (403)
+/// stay generic ("Admin only"); a server `{error}` body is shown as-is so a
+/// 503 is not reduced to "Server error (503)".
 func settingsErrorMessage(_ error: Error, admin: Bool = true) -> String {
     guard let apiError = error as? APIError else { return String(localized: "Something went wrong.") }
     switch apiError {
     case .unauthorized:
-        return admin ? String(localized: "Admin only.") : String(localized: "Unauthorized. Check your credentials.")
+        return String(localized: "Unauthorized. Check your credentials.")
+    case .forbidden:
+        return admin ? String(localized: "Admin only.") : String(localized: "You don't have permission to do that.")
     case .transport:
         return String(localized: "Network error. Check your connection.")
     case .http:
         return String(localized: "Couldn't save. Check the values and try again.")
+    case let .server(_, message):
+        return message
     case .decode:
         return String(localized: "Unexpected response from the server.")
     }

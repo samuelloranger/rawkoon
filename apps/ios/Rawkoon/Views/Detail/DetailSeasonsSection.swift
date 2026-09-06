@@ -93,7 +93,7 @@ struct DetailSeasonsSection: View {
     }
 
     private func countLabel(downloaded: Int, total: Int, season: SeasonSummary) -> String {
-        inLibrary ? "\(downloaded)/\(total)" : "\(season.episodeCount ?? 0) episodes"
+        inLibrary ? String(localized: "\(downloaded)/\(total)") : String(localized: "\(season.episodeCount ?? 0) episodes")
     }
 
     private func seasonMenu(_ season: SeasonSummary, episodes: [Episode]) -> some View {
@@ -156,7 +156,7 @@ struct DetailSeasonsSection: View {
                 .frame(width: 30, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(episode.title ?? "Episode \(episode.episode)")
+                Text(episode.title ?? String(localized: "Episode \(episode.episode)"))
                     .font(.caption.weight(.medium))
                     .foregroundStyle(Theme.textStrong)
                     .lineLimit(2)
