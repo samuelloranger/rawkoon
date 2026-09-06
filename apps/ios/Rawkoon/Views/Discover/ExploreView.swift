@@ -106,6 +106,17 @@ struct ExploreView: View {
             loadMoreError = nil
             Task { await loadFirstPage() }
         }
+        #if DEBUG
+        .onAppear {
+            // `simctl` has no tap injection, so the filter sheet — normally
+            // opened by tapping the toolbar button — needs a way in for
+            // screenshot verification. Mirrors the `RAWKOON_TAB`/`RAWKOON_SCREEN`
+            // pattern in `RawkoonApp.swift`.
+            if ProcessInfo.processInfo.environment["RAWKOON_EXPLORE_FILTERS"] != nil {
+                showFilters = true
+            }
+        }
+        #endif
     }
 
     // MARK: Filter bar
