@@ -29,12 +29,12 @@ export function PendingInvitationsSection({
       if (result.success && result.token) {
         const link = `${window.location.origin}/accept-invitation?token=${result.token}`;
         onLinkGenerated(link);
-        toast.success("New invitation link generated");
+        toast.success(t("settings.users.inviteLinkRegenerated"));
       }
     } catch (error: unknown) {
       toast.error(
         (error instanceof HttpError ? error.apiError() : undefined) ||
-          "Failed to regenerate invitation link",
+          t("settings.users.inviteLinkRegenerateError"),
       );
     }
   };
@@ -51,8 +51,7 @@ export function PendingInvitationsSection({
         } catch (error: unknown) {
           toast.error(
             (error instanceof HttpError ? error.apiError() : undefined) ||
-              t("settings.users.revokeError") ||
-              "Failed to revoke invitation",
+              t("settings.users.revokeError"),
           );
         }
       },

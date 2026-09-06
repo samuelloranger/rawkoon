@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type {
   NotificationChannel,
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function EditNotificationChannelModal({ channel, onClose }: Props) {
+  const { t } = useTranslation("common");
   const updateMutation = useUpdateNotificationChannel();
 
   // Initialized from props on mount — parent passes key={channel.id} to remount
@@ -31,19 +33,21 @@ export function EditNotificationChannelModal({ channel, onClose }: Props) {
   async function handleSave() {
     if (!channel) return;
     if (!editLabel.trim()) {
-      toast.error("Label cannot be empty.");
+      toast.error(t("settings.notifications.channels.labelEmpty"));
       return;
     }
     updateMutation.mutate(
       { id: channel.id, label: editLabel.trim(), config: editConfig },
       {
         onSuccess: () => {
-          toast.success("Channel updated.");
+          toast.success(t("settings.notifications.channels.updated"));
           onClose();
         },
         onError: (err) => {
           toast.error(
-            err instanceof Error ? err.message : "Failed to update channel.",
+            err instanceof Error
+              ? err.message
+              : t("settings.notifications.channels.updateError"),
           );
         },
       },
@@ -54,16 +58,20 @@ export function EditNotificationChannelModal({ channel, onClose }: Props) {
     <Dialog
       isOpen={channel !== null}
       onClose={onClose}
-      title={`Edit — ${channel?.label ?? ""}`}
+      title={t("settings.notifications.channels.editTitle", {
+        label: channel?.label ?? "",
+      })}
       panelClassName="max-w-lg"
     >
       <div className="space-y-4 pt-2">
         <div>
-          <h3 className="text-sm font-medium text-neutral-300 mb-1">Label</h3>
+          <h3 className="text-sm font-medium text-neutral-300 mb-1">
+            {t("settings.notifications.channels.label")}
+          </h3>
           <Input
             value={editLabel}
             onChange={(e) => setEditLabel(e.target.value)}
-            placeholder="My channel"
+            placeholder={t("settings.notifications.channels.labelPlaceholder")}
           />
         </div>
 
@@ -77,14 +85,14 @@ export function EditNotificationChannelModal({ channel, onClose }: Props) {
 
         <div className="flex gap-2 pt-1">
           <Button onClick={handleSave} disabled={updateMutation.isPending}>
-            {updateMutation.isPending ? "Saving…" : "Save"}
+            {updateMutation.isPending ? t("common.saving") : t("common.save")}
           </Button>
           <Button
             variant="ghost"
             onClick={onClose}
             disabled={updateMutation.isPending}
           >
-            Cancel
+            {t("common.cancel")}
           </Button>
         </div>
       </div>

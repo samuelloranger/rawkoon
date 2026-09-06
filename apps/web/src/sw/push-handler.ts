@@ -2,6 +2,7 @@ import { sw } from "./sw";
 import { normalizeNotificationUrl } from "@rawkoon/shared/utils/notifications";
 import { handleAppUpdate } from "./app-update";
 import { syncBadgeCount } from "./badge";
+import { getSwStrings } from "./strings";
 import type { PushNotificationData } from "./types";
 
 export function handlePush(event: PushEvent): void {
@@ -18,8 +19,9 @@ export function handlePush(event: PushEvent): void {
   // The in-app banner is delivered separately over SSE (works without a push
   // subscription). The service worker is responsible only for the OS-level
   // notification + badge when a push arrives.
+  const ui = getSwStrings();
   const title = data.title || "Rawkoon";
-  const body = data.body || "Vous avez une nouvelle notification";
+  const body = data.body || ui.fallbackBody;
   const icon = data.icon || "/icon-192.png";
   const badge = data.badge || "/icon-32.png";
   const tag = data.tag || "notification";
@@ -46,8 +48,8 @@ export function handlePush(event: PushEvent): void {
     options.actions = data.actions;
   } else {
     options.actions = [
-      { action: "open", title: "Ouvrir" },
-      { action: "close", title: "Fermer" },
+      { action: "open", title: ui.open },
+      { action: "close", title: ui.close },
     ];
   }
 

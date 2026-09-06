@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, X } from "lucide-react";
 import {
   Popover,
@@ -23,6 +24,7 @@ export function DiscoverFilterChip({
   onClear?: () => void;
   popoverContent: (close: () => void) => React.ReactNode;
 }) {
+  const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
   const active = value !== null && value !== undefined;
   return (
@@ -87,7 +89,7 @@ export function DiscoverFilterChip({
             e.stopPropagation();
             onClear();
           }}
-          aria-label="Clear filter"
+          aria-label={t("medias.discover.clearFilter")}
           className="mr-1 flex h-5 w-5 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
         >
           <X size={12} />

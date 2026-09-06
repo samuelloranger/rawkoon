@@ -5,6 +5,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import { webFetcher } from "@/lib/api/fetcher";
 import { ApiError } from "@/lib/api/client";
 import { toast } from "sonner";
+import i18n from "@/lib/i18n";
 import { fetchAuthMeUser } from "@/lib/auth/fetchAuthMeUser";
 
 let currentUser: User | null | undefined = undefined;
@@ -42,7 +43,7 @@ export async function getCurrentUser(): Promise<User | null> {
     } catch (error: unknown) {
       // If 429, show toast and re-throw so the router can avoid redirect
       if (error instanceof ApiError && error.status === 429) {
-        toast.error("Too many requests. Please slow down.");
+        toast.error(i18n.t("common.tooManyRequests"));
         throw error;
       }
 

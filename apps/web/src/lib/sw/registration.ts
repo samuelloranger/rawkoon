@@ -1,3 +1,5 @@
+import i18n from "@/lib/i18n";
+
 export function syncBadge(): void {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.ready.then((registration) => {
@@ -8,9 +10,6 @@ export function syncBadge(): void {
   }
 }
 
-/**
- * Clear badge count by sending a message to the service worker
- */
 export function clearBadge(): void {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.ready.then((registration) => {
@@ -21,20 +20,18 @@ export function clearBadge(): void {
   }
 }
 
-/**
- * Show notification when update is available
- */
-function showUpdateAvailableNotification(): void {
-  navigator.serviceWorker.ready.then((registration) => {
-    if (registration.active) {
-      registration.active.postMessage({ type: "showUpdateNotification" });
-    }
+function postSwStrings(): void {
+  if (!("serviceWorker" in navigator)) return;
+  const strings = {
+    open: i18n.t("common.open"),
+    close: i18n.t("common.close"),
+    fallbackBody: i18n.t("notifications.pushFallback"),
+  };
+  void navigator.serviceWorker.ready.then((registration) => {
+    registration.active?.postMessage({ type: "setStrings", strings });
   });
 }
 
-/**
- * Register the service worker and set up badge clearing, syncing, and update notifications
- */
 export function registerServiceWorker(): void {
   if (!("serviceWorker" in navigator)) {
     return;
@@ -50,23 +47,8 @@ export function registerServiceWorker(): void {
         );
 
         syncBadge();
+        postSwStrings();
 
-        registration.addEventListener("updatefound", () => {
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener("statechange", () => {
-              if (
-                newWorker.state === "installed" &&
-                navigator.serviceWorker.controller
-              ) {
-                // New version available - notify user
-                showUpdateAvailableNotification();
-              }
-            });
-          }
-        });
-
-        // Check for updates periodically (every hour)
         setInterval(
           () => {
             registration.update();
@@ -74,9 +56,7 @@ export function registerServiceWorker(): void {
           60 * 60 * 1000,
         );
 
-        // In development, check for updates more frequently
         if (import.meta.env.DEV) {
-          // Check for updates every 30 seconds in dev
           setInterval(() => {
             registration.update();
           }, 30000);
@@ -87,12 +67,15 @@ export function registerServiceWorker(): void {
       });
   });
 
-  // Sync badge when app gains focus (user switches back to the app)
   window.addEventListener("focus", () => {
     syncBadge();
   });
 
   window.addEventListener("online", () => {
     syncBadge();
+  });
+
+  i18n.on("languageChanged", () => {
+    postSwStrings();
   });
 }

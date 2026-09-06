@@ -1,4 +1,5 @@
 import { Bookmark, Plus, RotateCcw, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -21,11 +22,12 @@ export function DiscoverActionBar({
   onAdd,
   onUndo,
 }: Props) {
+  const { t } = useTranslation("common");
   return (
     <div className="mt-5 flex items-center justify-center gap-5">
       <button
         type="button"
-        aria-label="Not interested"
+        aria-label={t("medias.discover.notInterested")}
         disabled={disabled}
         onClick={onDismiss}
         className={cn(
@@ -37,7 +39,7 @@ export function DiscoverActionBar({
       </button>
       <button
         type="button"
-        aria-label="Add to watchlist"
+        aria-label={t("medias.discover.addToWatchlist")}
         disabled={disabled}
         onClick={onWatchlist}
         className={cn(
@@ -49,7 +51,7 @@ export function DiscoverActionBar({
       </button>
       <button
         type="button"
-        aria-label="Add to library"
+        aria-label={t("medias.discover.addToLibrary")}
         disabled={disabled}
         onClick={onAdd}
         className={cn(
@@ -61,7 +63,7 @@ export function DiscoverActionBar({
       </button>
       <button
         type="button"
-        aria-label="Undo last action"
+        aria-label={t("medias.discover.undoLastAction")}
         disabled={!canUndo}
         onClick={onUndo}
         className={cn(

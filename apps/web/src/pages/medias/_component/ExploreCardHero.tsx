@@ -155,7 +155,7 @@ function ExploreCardHeroMeta({
             <svg
               viewBox="0 0 32 32"
               className="h-4 w-4"
-              aria-label="Metacritic"
+              aria-label={t("a11y.metacritic")}
             >
               <circle cx="16" cy="16" r="16" fill="#FFCC34" />
               <text

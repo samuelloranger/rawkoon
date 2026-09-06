@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,12 +10,13 @@ interface InviteLinkPanelProps {
 }
 
 export function InviteLinkPanel({ link, onDismiss }: InviteLinkPanelProps) {
+  const { t } = useTranslation("common");
   const [copied, setCopied] = useState(false);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
-    toast.success("Copied to clipboard");
+    toast.success(t("common.copied"));
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -22,11 +24,10 @@ export function InviteLinkPanel({ link, onDismiss }: InviteLinkPanelProps) {
     <div className="bg-primary-950/40 border border-primary-800 rounded-xl p-5 animate-in zoom-in-95 duration-200">
       <h3 className="text-sm font-semibold text-primary-200 mb-2 flex items-center gap-2">
         <Check className="w-4 h-4 text-green-400" />
-        Invitation Link Generated
+        {t("settings.users.inviteLinkTitle")}
       </h3>
       <p className="text-xs text-neutral-300 mb-4">
-        Share this signup link with the user directly. This link is single-use
-        and expires in 7 days.
+        {t("settings.users.inviteLinkHelp")}
       </p>
       <div className="flex gap-2">
         <input
@@ -45,10 +46,10 @@ export function InviteLinkPanel({ link, onDismiss }: InviteLinkPanelProps) {
           ) : (
             <Copy className="w-3.5 h-3.5" />
           )}
-          {copied ? "Copied" : "Copy"}
+          {copied ? t("common.copied") : t("common.copy")}
         </Button>
         <Button variant="outline" size="sm" onClick={onDismiss}>
-          Dismiss
+          {t("settings.users.dismissLink")}
         </Button>
       </div>
     </div>

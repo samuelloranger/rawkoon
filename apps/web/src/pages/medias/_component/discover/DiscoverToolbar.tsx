@@ -73,7 +73,7 @@ export function DiscoverToolbar({
         <div className="min-w-0 flex-1 basis-0 md:flex-none md:min-w-0">
           <DiscoverFilterChip
             icon={Tv}
-            label={t("medias.discover.service", { defaultValue: "Service" })}
+            label={t("medias.discover.service")}
             value={
               activeProvider ? (
                 <span className="flex min-w-0 items-center gap-1.5">
@@ -99,9 +99,7 @@ export function DiscoverToolbar({
                   onProviderChange(id);
                   close();
                 }}
-                allLabel={t("medias.discover.allServices", {
-                  defaultValue: "All services",
-                })}
+                allLabel={t("medias.discover.allServices")}
               />
             )}
           />
@@ -110,7 +108,7 @@ export function DiscoverToolbar({
         <div className="min-w-0 flex-1 basis-0 md:flex-none md:min-w-0">
           <DiscoverFilterChip
             icon={Tag}
-            label={t("medias.discover.genre", { defaultValue: "Genre" })}
+            label={t("medias.discover.genre")}
             value={activeGenre?.name ?? null}
             onClear={activeGenre ? () => onGenreChange(null) : undefined}
             popoverContent={(close) => (
@@ -121,9 +119,7 @@ export function DiscoverToolbar({
                   onGenreChange(id);
                   close();
                 }}
-                allLabel={t("medias.discover.allGenres", {
-                  defaultValue: "All genres",
-                })}
+                allLabel={t("medias.discover.allGenres")}
               />
             )}
           />
@@ -140,7 +136,7 @@ export function DiscoverToolbar({
         <div className="min-w-0 max-w-[min(100%,55vw)] md:max-w-none">
           <DiscoverFilterChip
             icon={ArrowDownUp}
-            label={t("medias.discover.sort", { defaultValue: "Sort" })}
+            label={t("medias.discover.sort")}
             value={activeSort ? t(activeSort.labelKey) : null}
             popoverContent={(close) => (
               <DiscoverSortPicker

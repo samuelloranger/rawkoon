@@ -163,7 +163,7 @@ export function QualityProfileForm({
         label={t("settings.qualityProfiles.name")}
         value={form.name}
         onChange={(e) => set("name", e.target.value)}
-        placeholder="ex. Cinéma 1080p FR"
+        placeholder={t("settings.qualityProfiles.namePlaceholder")}
       />
 
       <div className="grid grid-cols-2 gap-4">
@@ -210,14 +210,14 @@ export function QualityProfileForm({
       <div className="grid grid-cols-2 gap-4">
         <MultiSelect
           label={t("settings.qualityProfiles.preferredSources")}
-          placeholder="Sélectionner des sources…"
+          placeholder={t("settings.qualityProfiles.selectSources")}
           options={SOURCE_OPTIONS}
           selected={form.preferred_sources}
           onChange={(v) => set("preferred_sources", v)}
         />
         <MultiSelect
           label={t("settings.qualityProfiles.preferredCodecs")}
-          placeholder="Sélectionner des codecs…"
+          placeholder={t("settings.qualityProfiles.selectCodecs")}
           options={CODEC_OPTIONS}
           selected={form.preferred_codecs}
           onChange={(v) => set("preferred_codecs", v)}
@@ -226,7 +226,7 @@ export function QualityProfileForm({
 
       <MultiSelect
         label={t("settings.qualityProfiles.preferredLanguages")}
-        placeholder="Sélectionner des langues…"
+        placeholder={t("settings.qualityProfiles.selectLanguages")}
         options={LANGUAGE_OPTIONS}
         selected={form.preferred_languages}
         onChange={(v) => set("preferred_languages", v)}
@@ -234,10 +234,7 @@ export function QualityProfileForm({
 
       <div className="flex flex-col gap-1.5">
         <FieldLabel htmlFor="qp-preferred-search-language">
-          {t(
-            "settings.qualityProfiles.preferredSearchLanguage",
-            "Preferred search title language",
-          )}
+          {t("settings.qualityProfiles.preferredSearchLanguage")}
         </FieldLabel>
         <select
           id="qp-preferred-search-language"

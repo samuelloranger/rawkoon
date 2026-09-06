@@ -48,8 +48,7 @@ export function UsersListSection() {
         } catch (error: unknown) {
           toast.error(
             (error instanceof HttpError ? error.apiError() : undefined) ||
-              t("settings.users.deleteError") ||
-              "Failed to delete user",
+              t("settings.users.deleteError"),
           );
         }
       },
@@ -62,19 +61,24 @@ export function UsersListSection() {
     currentIsAdmin: boolean,
   ) => {
     confirm({
-      description: `Are you sure you want to ${currentIsAdmin ? "demote" : "promote"} ${email}?`,
-      confirmLabel: "Confirm",
+      description: t("settings.users.roleToggleConfirm", {
+        action: currentIsAdmin
+          ? t("settings.users.demote")
+          : t("settings.users.promote"),
+        email,
+      }),
+      confirmLabel: t("common.confirmDialog.confirmLabel"),
       onConfirm: async () => {
         try {
           await updateRoleMutation.mutateAsync({
             userId,
             isAdmin: !currentIsAdmin,
           });
-          toast.success("User role updated successfully");
+          toast.success(t("settings.users.roleUpdated"));
         } catch (error: unknown) {
           toast.error(
             (error instanceof HttpError ? error.apiError() : undefined) ||
-              "Failed to update user role",
+              t("settings.users.roleUpdateError"),
           );
         }
       },
@@ -82,22 +86,20 @@ export function UsersListSection() {
   };
 
   const handleResetPassword = async (userId: string, email: string) => {
-    const password = prompt(
-      `Enter new password for ${email} (minimum 8 characters):`,
-    );
+    const password = prompt(t("settings.users.passwordResetPrompt", { email }));
     if (password === null) return;
     if (password.length < 8) {
-      toast.error("Password must be at least 8 characters");
+      toast.error(t("settings.users.passwordMinLength"));
       return;
     }
 
     try {
       await resetPasswordMutation.mutateAsync({ userId, password });
-      toast.success("Password reset successfully");
+      toast.success(t("settings.users.passwordResetSuccess"));
     } catch (error: unknown) {
       toast.error(
         (error instanceof HttpError ? error.apiError() : undefined) ||
-          "Failed to reset user password",
+          t("settings.users.passwordResetError"),
       );
     }
   };
@@ -111,9 +113,7 @@ export function UsersListSection() {
       {usersLoading ? (
         <LoadingState />
       ) : usersError ? (
-        <div className="text-red-400">
-          {t("settings.users.loadError") || "Failed to load users"}
-        </div>
+        <div className="text-red-400">{t("settings.users.loadError")}</div>
       ) : usersData?.users && usersData.users.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -216,7 +216,7 @@ export function UsersListSection() {
                             onClick={() =>
                               handleResetPassword(user.id, user.email)
                             }
-                            title="Reset User Password"
+                            title={t("settings.users.passwordResetTitle")}
                           >
                             <KeyRound className="w-3.5 h-3.5" />
                           </Button>
@@ -229,8 +229,8 @@ export function UsersListSection() {
                             disabled={deleteMutation.isPending}
                           >
                             {deleteMutation.isPending
-                              ? t("settings.users.deleting") || "Deleting..."
-                              : t("settings.users.delete") || "Delete"}
+                              ? t("settings.users.deleting")
+                              : t("settings.users.delete")}
                           </Button>
                         </div>
                       )}

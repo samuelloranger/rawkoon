@@ -41,40 +41,26 @@ export function GreetingCard({ userName }: GreetingCardProps) {
     let subtext: string;
     switch (timeOfDay) {
       case "morning":
-        subtext = t("dashboard.subtexts.morning", {
-          defaultValue: "Ready to make today count?",
-        });
+        subtext = t("dashboard.subtexts.morning");
         break;
       case "afternoon":
-        subtext = t("dashboard.subtexts.afternoon", {
-          defaultValue: "Keep the momentum going!",
-        });
+        subtext = t("dashboard.subtexts.afternoon");
         break;
       case "evening":
-        subtext = t("dashboard.subtexts.evening", {
-          defaultValue: "Wrapping up the day? Check your progress.",
-        });
+        subtext = t("dashboard.subtexts.evening");
         break;
       default:
-        subtext = t("dashboard.subtexts.night", {
-          defaultValue: "Planning for tomorrow?",
-        });
+        subtext = t("dashboard.subtexts.night");
         break;
     }
 
     // Day-of-week flavor overrides the generic time-based subtext.
     if (isWeekend) {
-      subtext = t("dashboard.subtexts.weekendRelax", {
-        defaultValue: "Time to relax and recharge.",
-      });
+      subtext = t("dashboard.subtexts.weekendRelax");
     } else if (dayOfWeek === 1) {
-      subtext = t("dashboard.subtexts.monday", {
-        defaultValue: "Fresh week, fresh start. You got this!",
-      });
+      subtext = t("dashboard.subtexts.monday");
     } else if (dayOfWeek === 5) {
-      subtext = t("dashboard.subtexts.friday", {
-        defaultValue: "Almost there! Finish strong.",
-      });
+      subtext = t("dashboard.subtexts.friday");
     }
 
     return { greeting: baseGreeting, subtext };

@@ -385,7 +385,7 @@ export function FileDetailBlock({
                     release_group: val,
                   });
                 } catch {
-                  toast.error("Failed to update release group");
+                  toast.error(t("library.fileDetail.updateReleaseGroupFailed"));
                   setGroupValue(file.release_group ?? "");
                 }
               }}
@@ -402,7 +402,7 @@ export function FileDetailBlock({
           <div
             className="flex gap-2 text-xs items-center group cursor-pointer"
             onClick={() => setEditingGroup(true)}
-            title="Click to edit release group"
+            title={t("library.fileDetail.editReleaseGroup")}
           >
             <span className="w-[34%] shrink-0 text-neutral-400">
               {t("library.fileDetail.releaseGroup")}

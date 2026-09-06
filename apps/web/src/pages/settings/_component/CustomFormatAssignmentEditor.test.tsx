@@ -52,7 +52,7 @@ describe("CustomFormatAssignmentEditor", () => {
     renderEditor([], onChange);
 
     const addSelect = screen.getByRole("combobox", {
-      name: /add custom format/i,
+      name: /customFormats.a11y.addFormat/i,
     });
     fireEvent.change(addSelect, { target: { value: "1" } });
 
@@ -77,7 +77,7 @@ describe("CustomFormatAssignmentEditor", () => {
     renderEditor(initial, onChange);
 
     const stanceSelect = screen.getByRole("combobox", {
-      name: /stance dolby vision/i,
+      name: /customFormats.a11y.stance/i,
     });
     fireEvent.change(stanceSelect, { target: { value: "required" } });
 
@@ -97,7 +97,7 @@ describe("CustomFormatAssignmentEditor", () => {
     renderEditor(initial, onChange);
 
     const stanceSelect = screen.getByRole("combobox", {
-      name: /stance dolby vision/i,
+      name: /customFormats.a11y.stance/i,
     });
     fireEvent.change(stanceSelect, { target: { value: "forbidden" } });
 
@@ -117,7 +117,7 @@ describe("CustomFormatAssignmentEditor", () => {
     renderEditor(initial, onChange);
 
     const stanceSelect = screen.getByRole("combobox", {
-      name: /stance dolby vision/i,
+      name: /customFormats.a11y.stance/i,
     });
     fireEvent.change(stanceSelect, { target: { value: "neither" } });
 
@@ -157,7 +157,7 @@ describe("CustomFormatAssignmentEditor", () => {
     renderEditor(initial, onChange);
 
     const removeBtn = screen.getByRole("button", {
-      name: /remove dolby vision/i,
+      name: /customFormats.a11y.removeFormat name:Dolby Vision/i,
     });
     fireEvent.click(removeBtn);
 
@@ -176,7 +176,7 @@ describe("CustomFormatAssignmentEditor", () => {
     renderEditor(initial);
 
     const addSelect = screen.getByRole("combobox", {
-      name: /add custom format/i,
+      name: /customFormats.a11y.addFormat/i,
     });
     const options = Array.from(addSelect.querySelectorAll("option")).map(
       (o) => o.value,

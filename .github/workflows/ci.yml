@@ -24,6 +24,12 @@ jobs:
           generate-routes: "true"
       - name: Lint (Biome on web + API + shared — Makefile `make lint` matches)
         run: bun run lint
+      - name: No hardcoded toast copy
+        run: |
+          if grep -RInE 'toast\.(error|success|info|warning)\(\s*["'\''`]' apps/web/src --include='*.ts' --include='*.tsx' --exclude='*.test.ts' --exclude='*.test.tsx'; then
+            echo "Hardcoded toast strings — use t() / i18n.t()" >&2
+            exit 1
+          fi
 
   typecheck:
     runs-on: ubuntu-latest

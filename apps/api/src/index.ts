@@ -191,7 +191,10 @@ export const app = new Elysia()
           const html = indexHtml.replace("</body>", `${bootScript}\n</body>`);
 
           return new Response(html, {
-            headers: { "Content-Type": "text/html; charset=utf-8" },
+            headers: {
+              "Content-Type": "text/html; charset=utf-8",
+              "Cache-Control": "no-cache",
+            },
           });
         });
     }
