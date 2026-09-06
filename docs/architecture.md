@@ -6,18 +6,23 @@ web interface ship in the same container.
 
 ## System map
 
-    Browser
+    Browser / iPhone
       │
       ├── Rawkoon web application
       │     └── same-origin /api requests and server-sent events
       │
+      ├── Rawkoon iOS app (`apps/ios`)
+      │     └── REST + APNs device token; audiobook chapters download offline
+      │
       └── Rawkoon API
             ├── PostgreSQL: users, library, settings, history, integrations
             ├── Redis/BullMQ: scheduled and background work
-            ├── TMDB: discovery and catalog metadata
+            ├── TMDB: movie/TV discovery
+            ├── Google Books, Audnexus, Open Library: book metadata
             ├── Prowlarr or Jackett: release search
             ├── qBittorrent, Transmission, or Deluge: active download client
-            └── Jellyfin/Plex, OIDC, and Web Push: optional services
+            ├── Jellyfin, OIDC, and Web Push: optional services
+            └── Push relay (`apps/relay`): APNs signing for the iOS app
 
 ## Workspaces and boundaries
 
@@ -26,10 +31,14 @@ web interface ship in the same container.
 | <code>apps/web</code> | React interface, routing, query cache, translations, and realtime UI |
 | <code>apps/api</code> | Elysia routes, authentication, database access, integrations, workers, and file operations |
 | <code>apps/shared</code> | Types, pure utilities, and constants used by both applications |
+| <code>apps/ios</code> | Native SwiftUI client (XcodeGen). Linux CI builds RawkoonKit only; full app builds on macOS |
+| <code>apps/relay</code> | Hono APNs push relay. Holds the Apple signing key; the API posts to it, it talks to Apple |
 
 The shared workspace has no runtime dependency on the web or API applications.
 The web app owns query hooks and query keys; the API owns business rules and
-all secrets.
+all secrets. The iOS app talks to the same `/api` surface. The relay is a
+separate process (often a separate host): a self-hosted API cannot sign APNs
+for the published app, so pushes go through the relay.
 
 ## A normal request
 

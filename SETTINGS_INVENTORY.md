@@ -405,4 +405,15 @@ List `GET /api/book-quality-profiles`. Create `POST`, Update `PATCH /api/book-qu
 ---
 
 ## iOS parity status (current)
-iOS Settings screens today (`apps/ios/Rawkoon/Views/`): SettingsView (server URL/email/name readonly; smart-rewind + download-over editable @AppStorage; version), NotificationsSettingsView (14 pref toggles editable), QualityProfilesView (readonly list), IndexersView (readonly list), DownloadClientView (readonly display), UsersView (readonly list). Everything admin is readonly on iOS. See task #969.
+
+Shipped in #67 (v1.13.0). iOS Settings is no longer a readonly peek at a few
+admin lists. `SettingsView` is the root: account (server URL, profile),
+requests/alerts (notifications, devices, channels), playback (smart rewind),
+and downloads (Wi-Fi vs any). Admins also get ~22 native destinations in
+`SettingsDestination` — General, TMDB, Jellyfin, Local AI, Prowlarr, Jackett,
+Indexers, Download client, Book providers, Library, Arr import, Quality
+profiles, Custom formats, Books, Book quality profiles, Users, Sessions, API
+keys, SSO providers, Blocklist, Jobs, Releases — grouped as System /
+Integrations / Library & Quality / Users & Security / Jobs & Releases. Those
+views write through the same settings APIs as the web app; they are not
+display-only.

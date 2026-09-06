@@ -19,12 +19,15 @@ example compose file:
 - Your media-library directories at the same paths Rawkoon is configured to
   use.
 
-The container applies pending Prisma migrations when it starts. To apply them
-manually:
+The container applies pending Prisma migrations when it starts
+(`entrypoint.sh` runs `bunx prisma migrate deploy`). To apply them
+manually without restarting:
 
-    docker compose -f docker-compose.prod.yml exec rawkoon bun run db:migrate
+    docker compose -f docker-compose.prod.yml exec rawkoon bunx prisma migrate deploy
 
-Do not run development migration commands against production.
+Do not run `bun run db:migrate` inside the container — that script sources a
+repo-root `.env` the image does not ship. Do not run development migration
+commands against production.
 
 ## Back up a complete instance
 

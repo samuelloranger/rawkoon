@@ -1,3 +1,5 @@
+> **Status (2026-09-06):** Partial. Phases 0–3 and localization shipped; remaining work (APIClient split, view models, app-target tests, haptics) is tracked on board task 966. The behaviour-freeze premise was lifted 2026-09-05 for the Dusk in Motion redesign.
+
 # iOS clean-code milestone — execution design — 2026-09-01
 
 One spec to clear the iOS board. It consolidates the remaining `apps/ios`
