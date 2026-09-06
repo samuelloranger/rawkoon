@@ -244,6 +244,9 @@ private struct RootTabsView: View {
         }
         .tabViewStyle(.sidebarAdaptable)
         .tint(Theme.apricot)
+        .tabViewBottomAccessory {
+            MiniPlayerView(onExpand: { showFullPlayer = true })
+        }
         .alert(
             "Couldn't play chapter",
             isPresented: Binding(
@@ -280,22 +283,6 @@ private struct RootTabsView: View {
             if !debugTabLocked, model.isAdmin, selection == "library" {
                 selection = "home"
             }
-        }
-    }
-}
-
-/// Insets the mini player above each tab's content.
-///
-/// A `.safeAreaInset(edge: .bottom)` applied to the `TabView` itself lays the
-/// bar out against the bottom of the whole tab view, so it sat on top of the
-/// tab bar. Insetting each tab's content keeps it just above the tab bar and
-/// leaves the tab items tappable.
-private struct MiniPlayerInset: ViewModifier {
-    let onExpand: () -> Void
-
-    func body(content: Content) -> some View {
-        content.safeAreaInset(edge: .bottom) {
-            MiniPlayerView(onExpand: onExpand)
         }
     }
 }

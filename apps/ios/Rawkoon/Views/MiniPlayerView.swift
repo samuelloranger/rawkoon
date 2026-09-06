@@ -45,6 +45,7 @@ struct MiniPlayerView: View {
                         .foregroundStyle(Theme.onAccent)
                         .frame(width: 44, height: 44)
                         .background(Theme.apricot, in: Circle())
+                        .breathingLamp(active: model.player.isPlaying)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text(LocalizedStringKey(model.player.isPlaying ? "Pause" : "Play")))
@@ -55,7 +56,7 @@ struct MiniPlayerView: View {
                     Image(systemName: "xmark")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(Theme.muted)
-                        .frame(width: 34, height: 44)
+                        .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
