@@ -61,9 +61,9 @@ A new `RawkoonMotion` layer (spring constants, durations, and view modifiers) in
 ### 6.0 Navigation shell / IA (`RawkoonApp.swift`)
 **Decision: tab bar + a dedicated Search tab. No sidebar (iPhone-only, `TARGETED_DEVICE_FAMILY: 1`).**
 - Adopt the modern iOS 26 `Tab` API with **`.tabViewStyle(.sidebarAdaptable)`** — renders as a tab bar on iPhone today; if iPad is ever enabled it becomes a sidebar for free, no rework.
-- Tabs: **Discover · Library · Activity · Settings**, plus **`Tab(role: .search)`** — the search tab renders as a detached Liquid-Glass pill and expands into a field that jumps to any title / request / surface. This is the native equivalent of web's ⌘K palette and the fix for buried surfaces (Requests/Explore/Watchlist), which stay reachable via search + in-screen nav rather than each becoming a tab.
+- Tabs: **Discover · Library · Activity · Settings** (household); admins also keep **Home** (dashboard) as a 5th tab. **No Search tab** — abandoned 2026-09-05 (owner ruling): a `Tab(role: .search)` pushed the admin bar to 6 tabs and iOS buried it in the "More" overflow, defeating its purpose. Buried surfaces (Requests/Explore/Watchlist) stay reachable via in-screen navigation, not a global search entry point.
 - **Mini-player → `tabViewBottomAccessory`** (native iOS 26 slot above the bar), retiring the hand-rolled `MiniPlayerInset` in `RawkoonApp.swift:294-306`; it cooperates with tab-bar-minimize-on-scroll and Liquid Glass.
-- Admin-vs-household tab divergence (`RawkoonApp.swift:204,285-287`) is preserved; the search tab is available to both.
+- Admin-vs-household tab divergence (`RawkoonApp.swift:204,285-287`) is preserved (admins get Home; households default to Library).
 - **Liquid Glass is the default and non-disableable** — the dark-only warm theme must be verified against it (apricot tint, legibility over blurred content). This is a real test surface, not a given.
 
 ### 6.1 Discover (`DiscoverView.swift`)
@@ -95,7 +95,7 @@ A new `RawkoonMotion` layer (spring constants, durations, and view modifiers) in
 ### 6.5 Notification badge (new)
 **Decision: app-icon (home-screen) badge is the requirement.**
 - **App-icon badge** via `UNUserNotificationCenter.setBadgeCount`, driven by the unread count from the existing notifications model (`HomeView.swift:45-61` bell logic), kept in sync on foreground/refresh and cleared as items are read.
-- Tab-bar badge on the Activity/Search tab is a cheap complement and may ride along, but the app-icon badge is the deliverable.
+- Tab-bar badge on the Activity tab is a cheap complement and may ride along, but the app-icon badge is the deliverable.
 
 ## 7. New / changed components
 
@@ -128,8 +128,8 @@ A new `RawkoonMotion` layer (spring constants, durations, and view modifiers) in
 - Manual sim pass per screen (light/dark/Dynamic Type/Reduce Motion) — the parts unit tests can't reach.
 
 ## 11. Decisions (all resolved with the owner)
-1. **Navigation — RESOLVED:** tab bar + dedicated Search tab (`role: .search`), `.sidebarAdaptable` style, mini-player as `tabViewBottomAccessory`. No sidebar (iPhone-only). See §6.0.
-2. **Discover — RESOLVED:** deck-primary; Explore (filters/sort/provider) behind a Filter button; the Search tab handles cross-surface jump. See §6.1.
+1. **Navigation — RESOLVED:** tab bar (`.sidebarAdaptable` style), mini-player as `tabViewBottomAccessory`, no sidebar (iPhone-only). **Search tab abandoned 2026-09-05** — it overflowed the admin bar into "More". See §6.0.
+2. **Discover — RESOLVED:** deck-primary; Explore (filters/sort/provider) behind a Filter button. Cross-surface jump is via in-screen nav (no global search). See §6.1.
 3. **Notification badge — RESOLVED:** app-icon (home-screen) badge is the deliverable. See §6.5.
 4. **Activity N+1 — RESOLVED:** client-side concurrent fetch, no API change. See §5.
 5. **Merge — RESOLVED:** one big merge to `main` from a single worktree branch, green on macbuild lint+kit+build. See §9.

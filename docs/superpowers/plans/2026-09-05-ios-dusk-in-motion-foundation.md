@@ -285,7 +285,9 @@ git commit -m "feat(ios): set app-icon unread badge from notification count"
 
 ---
 
-### Task 4: Migrate the tab shell to the iOS 26 `Tab` API + Search tab
+### Task 4: Migrate the tab shell to the iOS 26 `Tab` API
+
+> **UPDATE 2026-09-05 (owner ruling):** the Search tab is **abandoned**. Ignore every `Tab(role: .search)` / `GlobalSearchView` instruction below — do NOT create the search tab or `GlobalSearchView.swift`. Keep the rest: `Tab` API items (Home admin-only, Discover, Library, Activity, Settings), `.sidebarAdaptable`, `.customizationID`, `selection` as String, RAWKOON_TAB mapping, admin redirect, MiniPlayerInset-usage removal.
 
 **Files:**
 - Modify: `Rawkoon/RawkoonApp.swift` — `RootTabsView.mainTabs` (`:202-250`), remove `MiniPlayerInset` usage per tab (`:208,218,227,236,245`); the modifier struct (`:298-306`) is deleted in Task 5.
@@ -526,5 +528,5 @@ Each becomes its own `docs/superpowers/plans/2026-09-05-ios-dusk-in-motion-<name
 2. **Detail** — merge Info+Management into one interactive screen; grab-any-episode via swipe/context; cast/trailer/providers rails; hide the non-admin book dead-end.
 3. **Activity (content)** — Queue/History segmented, status filter chips with counts, humanized rows, live DuskProgress (perf already done here in Task 6).
 4. **Settings** — regroup the 22-link admin wall into labeled sections + `.searchable`; pull drifted lists from `@rawkoon/shared`.
-5. **Search** — expand `GlobalSearchView` into real cross-entity scopes (titles/requests/go-to), the ⌘K equivalent.
+5. ~~**Search**~~ — CANCELLED 2026-09-05: the Search tab was abandoned (it overflowed the admin bar into "More"). No global-search surface.
 6. **Density + a11y sweep** — list/grid density on Library rows, Dynamic Type fixes (fixed caption heights, segmented truncation), `Theme.faint` contrast lift.
