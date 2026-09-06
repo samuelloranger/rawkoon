@@ -85,5 +85,9 @@ RUN mkdir -p /app/data/images /app/vapid_keys /app/apps/api/data/images \
     && chown -R bun:bun /app
 USER bun
 
+# Probe /api/health (SELECT 1 + redis.ping). start-period covers migrate-on-boot.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
+  CMD curl -fsS http://127.0.0.1:3000/api/health || exit 1
+
 # Run migrations then start the application
 CMD ["./entrypoint.sh"]

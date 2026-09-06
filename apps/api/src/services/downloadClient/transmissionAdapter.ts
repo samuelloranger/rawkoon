@@ -6,6 +6,7 @@ import {
   DownloadClientError,
   type NormalizedTorrent,
 } from "./types";
+import { fetchWithTimeout } from "@rawkoon/api/utils/fetchWithTimeout";
 
 const num = (value: unknown, fallback = 0): number =>
   typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -68,17 +69,21 @@ export function createTransmissionAdapter(
     args: Record<string, unknown> = {},
   ): Promise<T> => {
     const request = () =>
-      fetch(rpcUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Transmission-Session-Id": sessionId,
-          Authorization: `Basic ${Buffer.from(
-            `${config.username}:${config.password}`,
-          ).toString("base64")}`,
+      fetchWithTimeout(
+        rpcUrl,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Transmission-Session-Id": sessionId,
+            Authorization: `Basic ${Buffer.from(
+              `${config.username}:${config.password}`,
+            ).toString("base64")}`,
+          },
+          body: JSON.stringify({ method, arguments: args }),
         },
-        body: JSON.stringify({ method, arguments: args }),
-      });
+        15_000,
+      );
 
     let response = await request();
     if (response.status === 409) {

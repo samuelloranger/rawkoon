@@ -43,137 +43,144 @@ const state: {
   bookEditionStatusByBookId: {},
 };
 
-mock.module("@rawkoon/api/db", () => ({
-  prisma: {
-    libraryMedia: {
-      findUnique: ({ where }: { where: { tmdbId?: number; id?: number } }) => {
-        if (where.id != null)
+function installMediaRequestDbMock() {
+  mock.module("@rawkoon/api/db", () => ({
+    prisma: {
+      libraryMedia: {
+        findUnique: ({
+          where,
+        }: {
+          where: { tmdbId?: number; id?: number };
+        }) => {
+          if (where.id != null)
+            return Promise.resolve(
+              state.mediaStatusById[where.id] != null
+                ? { id: where.id, status: state.mediaStatusById[where.id] }
+                : null,
+            );
           return Promise.resolve(
-            state.mediaStatusById[where.id] != null
-              ? { id: where.id, status: state.mediaStatusById[where.id] }
-              : null,
+            state.library.find((m) => m.tmdbId === where.tmdbId) ?? null,
           );
-        return Promise.resolve(
-          state.library.find((m) => m.tmdbId === where.tmdbId) ?? null,
-        );
+        },
+        update: () => Promise.resolve({}),
       },
-      update: () => Promise.resolve({}),
-    },
-    libraryBook: {
-      findUnique: ({ where }: { where: { googleVolumeId: string } }) =>
-        Promise.resolve(
-          state.libraryBooks.find(
-            (b) => b.googleVolumeId === where.googleVolumeId,
-          ) ?? null,
-        ),
-    },
-    qualityProfile: {
-      findUnique: ({ where }: { where: { id: number } }) =>
-        Promise.resolve(
-          state.profiles.includes(where.id) ? { id: where.id } : null,
-        ),
-    },
-    bookQualityProfile: {
-      findUnique: ({ where }: { where: { id: number } }) =>
-        Promise.resolve(
-          state.bookProfiles.includes(where.id) ? { id: where.id } : null,
-        ),
-    },
-    mediaRequest: {
-      findUnique: ({
-        where,
-      }: {
-        where: {
-          tmdbId_type?: { tmdbId: number; type: string };
-          googleVolumeId?: string;
-          id?: number;
-        };
-      }) => {
-        if (where.id != null)
-          return Promise.resolve(
-            state.requests.find((r) => r.id === where.id) ?? null,
-          );
-        if (where.googleVolumeId != null)
+      libraryBook: {
+        findUnique: ({ where }: { where: { googleVolumeId: string } }) =>
+          Promise.resolve(
+            state.libraryBooks.find(
+              (b) => b.googleVolumeId === where.googleVolumeId,
+            ) ?? null,
+          ),
+      },
+      qualityProfile: {
+        findUnique: ({ where }: { where: { id: number } }) =>
+          Promise.resolve(
+            state.profiles.includes(where.id) ? { id: where.id } : null,
+          ),
+      },
+      bookQualityProfile: {
+        findUnique: ({ where }: { where: { id: number } }) =>
+          Promise.resolve(
+            state.bookProfiles.includes(where.id) ? { id: where.id } : null,
+          ),
+      },
+      mediaRequest: {
+        findUnique: ({
+          where,
+        }: {
+          where: {
+            tmdbId_type?: { tmdbId: number; type: string };
+            googleVolumeId?: string;
+            id?: number;
+          };
+        }) => {
+          if (where.id != null)
+            return Promise.resolve(
+              state.requests.find((r) => r.id === where.id) ?? null,
+            );
+          if (where.googleVolumeId != null)
+            return Promise.resolve(
+              state.requests.find(
+                (r) => r.googleVolumeId === where.googleVolumeId,
+              ) ?? null,
+            );
+          const k = where.tmdbId_type!;
           return Promise.resolve(
             state.requests.find(
-              (r) => r.googleVolumeId === where.googleVolumeId,
+              (r) => r.tmdbId === k.tmdbId && r.type === k.type,
             ) ?? null,
           );
-        const k = where.tmdbId_type!;
-        return Promise.resolve(
-          state.requests.find(
-            (r) => r.tmdbId === k.tmdbId && r.type === k.type,
-          ) ?? null,
-        );
+        },
+        findFirst: ({
+          where,
+        }: {
+          where: {
+            libraryMediaId?: number;
+            libraryBookId?: number;
+            status: string;
+          };
+        }) =>
+          Promise.resolve(
+            state.requests.find((r) => {
+              if (where.status !== r.status) return false;
+              if (where.libraryMediaId != null)
+                return r.libraryMediaId === where.libraryMediaId;
+              if (where.libraryBookId != null)
+                return r.libraryBookId === where.libraryBookId;
+              return false;
+            }) ?? null,
+          ),
+        create: ({ data }: { data: Req }) => {
+          const row = { ...data, id: state.requests.length + 1 };
+          state.requests.push(row);
+          state.created.push(row);
+          return Promise.resolve(row);
+        },
+        update: ({
+          where,
+          data,
+        }: {
+          where: { id: number };
+          data: Partial<Req>;
+        }) => {
+          const row = state.requests.find((r) => r.id === where.id)!;
+          Object.assign(row, data);
+          return Promise.resolve(row);
+        },
       },
-      findFirst: ({
-        where,
-      }: {
-        where: {
-          libraryMediaId?: number;
-          libraryBookId?: number;
-          status: string;
-        };
-      }) =>
-        Promise.resolve(
-          state.requests.find((r) => {
-            if (where.status !== r.status) return false;
-            if (where.libraryMediaId != null)
-              return r.libraryMediaId === where.libraryMediaId;
-            if (where.libraryBookId != null)
-              return r.libraryBookId === where.libraryBookId;
-            return false;
-          }) ?? null,
-        ),
-      create: ({ data }: { data: Req }) => {
-        const row = { ...data, id: state.requests.length + 1 };
-        state.requests.push(row);
-        state.created.push(row);
-        return Promise.resolve(row);
+      bookEdition: {
+        findFirst: ({ where }: { where: { bookId: number; status: string } }) =>
+          Promise.resolve(
+            state.bookEditionStatusByBookId[where.bookId] === where.status
+              ? { id: where.bookId }
+              : null,
+          ),
       },
-      update: ({
-        where,
-        data,
-      }: {
-        where: { id: number };
-        data: Partial<Req>;
-      }) => {
-        const row = state.requests.find((r) => r.id === where.id)!;
-        Object.assign(row, data);
-        return Promise.resolve(row);
+      user: {
+        findMany: ({ where }: { where?: { isAdmin?: boolean } } = {}) => {
+          if (where?.isAdmin) {
+            return Promise.resolve(
+              state.admins.map((a) => ({
+                id: a.id,
+                locale: a.locale ?? null,
+                notificationPreferences: a.notificationPreferences ?? null,
+              })),
+            );
+          }
+          return Promise.resolve(state.admins);
+        },
+        findUnique: ({ where }: { where: { id: string } }) =>
+          Promise.resolve({
+            id: where.id,
+            locale: null,
+            notificationPreferences: null,
+          }),
       },
+      $transaction: (promises: Promise<any>[]) => Promise.all(promises),
     },
-    bookEdition: {
-      findFirst: ({ where }: { where: { bookId: number; status: string } }) =>
-        Promise.resolve(
-          state.bookEditionStatusByBookId[where.bookId] === where.status
-            ? { id: where.bookId }
-            : null,
-        ),
-    },
-    user: {
-      findMany: ({ where }: { where?: { isAdmin?: boolean } } = {}) => {
-        if (where?.isAdmin) {
-          return Promise.resolve(
-            state.admins.map((a) => ({
-              id: a.id,
-              locale: a.locale ?? null,
-              notificationPreferences: a.notificationPreferences ?? null,
-            })),
-          );
-        }
-        return Promise.resolve(state.admins);
-      },
-      findUnique: ({ where }: { where: { id: string } }) =>
-        Promise.resolve({
-          id: where.id,
-          locale: null,
-          notificationPreferences: null,
-        }),
-    },
-    $transaction: (promises: Promise<any>[]) => Promise.all(promises),
-  },
-}));
+  }));
+}
+installMediaRequestDbMock();
 
 mock.module("@rawkoon/api/services/libraryFromTmdb", () => ({
   addOrUpdateLibraryFromTmdb: ({ tmdb_id }: { tmdb_id: number }) =>
@@ -220,18 +227,21 @@ mock.module("@rawkoon/api/utils/dashboard/tmdbUpcoming", () => ({
   TMDB_UPCOMING_CACHE_KEY: "tmdb:upcoming",
 }));
 
-mock.module("@rawkoon/api/workers/notificationService", () => ({
-  getAllUsers: () => Promise.resolve([]),
-  createAndQueueNotification: (
-    userId: string,
-    _t: string,
-    _b: string,
-    type: string,
-  ) => {
-    state.notifications.push({ userId, type });
-    return Promise.resolve(true);
-  },
-}));
+function installMediaRequestNotificationMock() {
+  mock.module("@rawkoon/api/workers/notificationService", () => ({
+    getAllUsers: () => Promise.resolve([]),
+    createAndQueueNotification: (
+      userId: string,
+      _t: string,
+      _b: string,
+      type: string,
+    ) => {
+      state.notifications.push({ userId, type });
+      return Promise.resolve(true);
+    },
+  }));
+}
+installMediaRequestNotificationMock();
 
 const {
   createRequest,

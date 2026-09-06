@@ -41,8 +41,13 @@ import { usersRoutes } from "./routes/users";
 import { globalRateLimit, strictAuthRateLimit } from "./middleware/rateLimit";
 import { requestTiming } from "./middleware/requestTiming";
 import { resolveUser } from "./middleware/auth";
-import { initWorkers, setupScheduledJobs } from "./services/queueService";
+import {
+  closeAllWorkers,
+  initWorkers,
+  setupScheduledJobs,
+} from "./services/queueService";
 import { startResourceSampler } from "./services/perf/perfStore";
+import { checkHealth } from "./services/healthCheck";
 
 // The production image copies the built frontend into ./public (see
 // Dockerfile); in dev the directory doesn't exist and Vite serves the SPA.
@@ -127,7 +132,6 @@ export const app = new Elysia()
   .use(ssoProvidersRoute)
   .use(mobileAuthRoutes)
   .use(protectedAuthRoutes)
-  .get("/api/auth/*", ({ request }) => betterAuthInstance.handler(request))
   .all("/api/auth/*", ({ request }) => betterAuthInstance.handler(request))
   .use(downloadClientHookRoutes)
   .use(globalRateLimit) // Global rate limiting for unauthenticated requests
@@ -151,8 +155,11 @@ export const app = new Elysia()
   .use(requestRoutes)
   .use(searchRoutes)
   .use(systemRoutes)
-  .get("/health", () => ({ status: "ok" }))
-  .get("/api/health", () => ({ status: "ok" }))
+  .get("/api/health", async ({ set }) => {
+    const health = await checkHealth();
+    if (health.status === "degraded") set.status = 503;
+    return health;
+  })
   .use((app) => {
     if (serveStatic) {
       // On Bun, @elysiajs/static imports .html as modules; Vite's index.html is plain HTML, so those routes
@@ -213,4 +220,20 @@ if (import.meta.main) {
   checkAndNotifyVersionChange().catch((err) => {
     console.error("Failed to check version change after startup:", err);
   });
+
+  let shuttingDown = false;
+  const shutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`Received ${signal}, shutting down...`);
+    try {
+      await closeAllWorkers();
+      await app.stop();
+    } catch (err) {
+      console.error("Shutdown error:", err);
+    }
+    process.exit(0);
+  };
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  process.on("SIGINT", () => void shutdown("SIGINT"));
 }

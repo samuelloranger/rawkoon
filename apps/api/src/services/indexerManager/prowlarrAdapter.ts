@@ -14,6 +14,8 @@ import {
   toNumberOrNull,
   extractProwlarrDownloadTarget,
   infoHashFromMagnet,
+  indexerNameFromRaw,
+  releaseTitleFromRaw,
   toBoolean,
 } from "../../utils/medias/prowlarrSearchUtils";
 import { randomUUID } from "crypto";
@@ -221,24 +223,16 @@ export class ProwlarrAdapter implements IndexerManagerAdapter {
       return { success: false, error: "Release token expired or not found" };
     }
 
-    const searchUrl = new URL("/api/v1/search", this.config.website_url);
-    const res = await fetch(searchUrl.toString(), {
-      method: "POST",
-      headers: {
-        ...this.headers(),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    }).catch(() => null);
-
-    if (!res?.ok) {
-      return {
-        success: false,
-        error: `Prowlarr grab failed (${res?.status ?? "network error"})`,
-      };
+    const target = extractProwlarrDownloadTarget(payload, this.baseUrl());
+    if (!target) {
+      return { success: false, error: "Release has no download URL" };
     }
-
-    return { success: true };
+    const title = releaseTitleFromRaw(payload) ?? undefined;
+    const indexer = indexerNameFromRaw(payload);
+    if (target.isMagnet) {
+      return { success: true, magnetUrl: target.url, title, indexer };
+    }
+    return { success: true, downloadUrl: target.url, title, indexer };
   }
 
   storeReleaseToken(release: NormalizedRelease): string | null {

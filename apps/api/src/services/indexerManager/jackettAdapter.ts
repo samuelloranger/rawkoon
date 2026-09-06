@@ -14,7 +14,13 @@ const RELEASE_TTL_MS = 10 * 60 * 1000;
 
 const releasePayloads = new Map<
   string,
-  { url: string; isMagnet: boolean; expiresAt: number }
+  {
+    url: string;
+    isMagnet: boolean;
+    title: string;
+    indexer: string | null;
+    expiresAt: number;
+  }
 >();
 
 function cleanupExpired() {
@@ -28,25 +34,40 @@ function cleanupExpired() {
 // entries pinned. unref so this never keeps the process alive.
 setInterval(cleanupExpired, RELEASE_TTL_MS).unref?.();
 
-function storeDownloadUrl(url: string, isMagnet: boolean): string {
+function storeDownloadUrl(
+  url: string,
+  isMagnet: boolean,
+  title: string,
+  indexer: string | null,
+): string {
   cleanupExpired();
   const token = randomUUID();
   releasePayloads.set(token, {
     url,
     isMagnet,
+    title,
+    indexer,
     expiresAt: Date.now() + RELEASE_TTL_MS,
   });
   return token;
 }
 
-function takeDownloadUrl(
-  token: string,
-): { url: string; isMagnet: boolean } | null {
+function takeDownloadUrl(token: string): {
+  url: string;
+  isMagnet: boolean;
+  title: string;
+  indexer: string | null;
+} | null {
   cleanupExpired();
   const entry = releasePayloads.get(token);
   if (!entry) return null;
   releasePayloads.delete(token);
-  return { url: entry.url, isMagnet: entry.isMagnet };
+  return {
+    url: entry.url,
+    isMagnet: entry.isMagnet,
+    title: entry.title,
+    indexer: entry.indexer,
+  };
 }
 
 export class JackettAdapter implements IndexerManagerAdapter {
@@ -275,15 +296,30 @@ export class JackettAdapter implements IndexerManagerAdapter {
     }
 
     if (stored.isMagnet) {
-      return { success: true, magnetUrl: stored.url };
+      return {
+        success: true,
+        magnetUrl: stored.url,
+        title: stored.title,
+        indexer: stored.indexer,
+      };
     }
-    return { success: true, downloadUrl: stored.url };
+    return {
+      success: true,
+      downloadUrl: stored.url,
+      title: stored.title,
+      indexer: stored.indexer,
+    };
   }
 
   storeReleaseToken(release: NormalizedRelease): string | null {
     const url = release.magnetUrl ?? release.downloadUrl;
     if (!url) return null;
-    return storeDownloadUrl(url, url.startsWith("magnet:"));
+    return storeDownloadUrl(
+      url,
+      url.startsWith("magnet:"),
+      release.title,
+      release.indexer,
+    );
   }
 
   private normalizeRelease(

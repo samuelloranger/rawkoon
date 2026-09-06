@@ -2,18 +2,26 @@ import { describe, expect, it } from "bun:test";
 import { app } from "../src/index";
 
 describe("Elysia Server", () => {
-  it("returns ok on /health", async () => {
+  it("does not expose the constant /health path", async () => {
     const response = await app.handle(new Request("http://localhost/health"));
-    const json = await response.json();
-    expect(json).toEqual({ status: "ok" });
+    expect(response.status).toBe(404);
   });
 
-  it("returns ok on /api/health", async () => {
+  it("returns db and redis status on /api/health", async () => {
     const response = await app.handle(
       new Request("http://localhost/api/health"),
     );
-    const json = await response.json();
-    expect(json).toEqual({ status: "ok" });
+    const json = (await response.json()) as {
+      status: string;
+      db: boolean;
+      redis: boolean;
+    };
+    expect(json).toHaveProperty("status");
+    expect(json).toHaveProperty("db");
+    expect(json).toHaveProperty("redis");
+    expect(["ok", "degraded"]).toContain(json.status);
+    if (json.status === "ok") expect(response.status).toBe(200);
+    else expect(response.status).toBe(503);
   });
 
   /**

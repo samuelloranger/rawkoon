@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll, mock } from "bun:test";
+import * as realFs from "node:fs/promises";
+import * as shared from "@rawkoon/shared";
+import * as realFilenameParser from "@rawkoon/api/utils/medias/filenameParser";
 
 // ---------------------------------------------------------------------------
 // Mutable state shared across all mock factories
@@ -184,6 +187,7 @@ mock.module("@rawkoon/api/db", () => ({
 }));
 
 mock.module("node:fs/promises", () => ({
+  ...realFs,
   stat: (filePath: string) => {
     const entry = statMap[filePath];
     if (!entry) return Promise.reject(new Error("ENOENT"));
@@ -216,6 +220,7 @@ mock.module("@rawkoon/api/utils/medias/mediainfoScanner", () => ({
 }));
 
 mock.module("@rawkoon/api/utils/medias/filenameParser", () => ({
+  ...realFilenameParser,
   parseFilenameMetadata: () => ({
     hdrFormat: null,
     resolution: null,
@@ -259,6 +264,7 @@ mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
 }));
 
 mock.module("@rawkoon/shared", () => ({
+  ...shared,
   classifyLanguageTags: () => [],
 }));
 

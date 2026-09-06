@@ -9,7 +9,9 @@ if [ -z "$DATABASE_URL" ]; then
   exit 1
 fi
 
-echo "Using DATABASE_URL: ${DATABASE_URL%@*}***"  # Mask password for security
+# Strip the password (user:***@host) rather than cutting at the last @,
+# which left postgresql://user:password*** in every container log.
+echo "Using DATABASE_URL: $(printf '%s' "$DATABASE_URL" | sed -E 's#://([^:/@]+):[^@]*@#://\1:***@#')"
 
 MAX_RETRIES=60
 RETRY_COUNT=0

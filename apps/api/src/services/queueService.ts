@@ -96,15 +96,15 @@ export const libraryRemuxQueue = new Queue(QUEUE_NAMES.LIBRARY_REMUX, {
   },
 });
 // Post-process places a completed download into the library — fs-heavy, one
-// file at a time. No auto-retry: `postProcess` is not proven idempotent across
-// both the single-file and season-pack pipelines, and retrying a half-placed
-// file is worse than surfacing the failure on the row.
+// file at a time. Two attempts: SIGTERM mid-place used to stamp completedAt
+// then never retry. postProcess skips when the destination already exists.
 export const libraryPostProcessQueue = new Queue(
   QUEUE_NAMES.LIBRARY_POST_PROCESS,
   {
     ...defaultQueueOptions,
     defaultJobOptions: {
-      attempts: 1,
+      attempts: 2,
+      backoff: { type: "exponential", delay: 2000 },
       removeOnComplete: { age: 24 * 3600 },
       removeOnFail: { age: 7 * 24 * 3600 },
     },
@@ -135,6 +135,21 @@ export async function addJob<T = Record<string, unknown>>(
  * PERF_TIMING_ENABLED=true, so normal runs add no listeners and no overhead.
  * Uses BullMQ's own job.finishedOn - job.processedOn, so no job handler changes.
  */
+const workers: Worker[] = [];
+
+function registerWorker(worker: Worker, queueName: string): Worker {
+  worker.on("error", (err) => {
+    console.error(`[worker:${queueName}] error:`, err);
+  });
+  workers.push(trackJobDurations(worker, queueName));
+  return worker;
+}
+
+export async function closeAllWorkers(): Promise<void> {
+  await Promise.all(workers.map((w) => w.close()));
+  workers.length = 0;
+}
+
 function trackJobDurations(worker: Worker, queueName: string): Worker {
   if (!PERF_TIMING_ENABLED) return worker;
   worker.on("completed", (job: Job) => {
@@ -166,7 +181,7 @@ export function initWorkers() {
   console.log("🚀 Initializing BullMQ workers...");
 
   // 1. Fast Worker — notifications + activity logs (concurrency 10)
-  trackJobDurations(
+  registerWorker(
     new Worker(
       QUEUE_NAMES.EXPRESS,
       async (job: Job) => {
@@ -187,7 +202,7 @@ export function initWorkers() {
   );
 
   // 2. Scheduled Tasks Worker
-  trackJobDurations(
+  registerWorker(
     new Worker(
       QUEUE_NAMES.SCHEDULED_TASKS,
       async (job: Job) => {
@@ -202,7 +217,7 @@ export function initWorkers() {
   );
 
   // 3. Library Migrate Worker (concurrency 1 — one migration at a time)
-  trackJobDurations(
+  registerWorker(
     new Worker(
       QUEUE_NAMES.LIBRARY_MIGRATE,
       async (job: Job) => {
@@ -217,7 +232,7 @@ export function initWorkers() {
   );
 
   // 6. Library Reindex Languages Worker (concurrency 1)
-  trackJobDurations(
+  registerWorker(
     new Worker(
       QUEUE_NAMES.LIBRARY_REINDEX_LANGUAGES,
       async (job: Job) => {
@@ -232,7 +247,7 @@ export function initWorkers() {
   );
 
   // 7. Library Remux Worker (concurrency 1 — one file at a time)
-  trackJobDurations(
+  registerWorker(
     new Worker(
       QUEUE_NAMES.LIBRARY_REMUX,
       async (job: Job) => {
@@ -247,7 +262,7 @@ export function initWorkers() {
   );
 
   // 8. Library Post-Process Worker (concurrency 1 — one file at a time)
-  trackJobDurations(
+  registerWorker(
     new Worker(
       QUEUE_NAMES.LIBRARY_POST_PROCESS,
       async (job: Job) => {
