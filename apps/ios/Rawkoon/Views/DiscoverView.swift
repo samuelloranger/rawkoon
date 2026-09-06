@@ -38,6 +38,7 @@ struct DiscoverView: View {
     @State private var searchError: String?
     @State private var searchTask: Task<Void, Never>?
     @State private var addingVolumeId: String?
+    @State private var requestingVolumeId: String?
 
     /// Cards still in the current batch before a prefetch kicks off.
     private let prefetchThreshold = 5
@@ -322,6 +323,22 @@ struct DiscoverView: View {
                 .background(Theme.terracotta, in: Capsule())
                 .foregroundStyle(Theme.onAccent)
                 .disabled(addingVolumeId != nil)
+            } else {
+                Button {
+                    Task { await requestBook(hit) }
+                } label: {
+                    if requestingVolumeId == hit.googleVolumeId {
+                        ProgressView().tint(Theme.onAccent)
+                    } else {
+                        Text("Request")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                }
+                .frame(minWidth: 44, minHeight: 44)
+                .padding(.horizontal, 12)
+                .background(Theme.terracotta, in: Capsule())
+                .foregroundStyle(Theme.onAccent)
+                .disabled(requestingVolumeId != nil)
             }
         }
     }
@@ -619,6 +636,28 @@ struct DiscoverView: View {
             await runSearch(query: trimmedQuery, kind: kindFilter)
         } catch {
             searchError = String(localized: "Could not add that book.")
+        }
+    }
+
+    private func requestBook(_ hit: BookSearchHit) async {
+        guard let client = model.api() else { return }
+        requestingVolumeId = hit.googleVolumeId
+        defer { requestingVolumeId = nil }
+        do {
+            _ = try await client.createRequest(CreateRequestBody(
+                tmdbId: nil,
+                type: "book",
+                title: hit.title,
+                posterUrl: hit.coverUrl,
+                year: hit.publishedYear,
+                googleVolumeId: hit.googleVolumeId,
+                author: hit.authors.isEmpty ? nil : hit.authors.joined(separator: ", ")
+            ))
+            model.toast(String(localized: "Requested — we'll notify you"), style: .success)
+        } catch let error as APIError {
+            model.toast(message(for: error), style: .error)
+        } catch {
+            model.toast(String(localized: "Network error. Check your connection."), style: .error)
         }
     }
 

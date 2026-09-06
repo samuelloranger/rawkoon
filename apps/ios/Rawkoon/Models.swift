@@ -438,11 +438,16 @@ nonisolated struct RequestsResponse: Decodable, Sendable {
 }
 
 nonisolated struct CreateRequestBody: Encodable, Sendable {
-    let tmdbId: Int
-    let type: String // "movie" | "show" (NOT "tv")
+    /// Movie/show requests only; nil for a "book" request.
+    let tmdbId: Int?
+    let type: String // "movie" | "show" | "book" (NOT "tv")
     let title: String
     let posterUrl: String?
     let year: Int?
+    /// Book requests only.
+    let googleVolumeId: String? = nil
+    /// Book requests only.
+    let author: String? = nil
 }
 
 // MARK: - Interactive release search + grab
