@@ -60,7 +60,7 @@ struct RawkoonApp: App {
                     NotificationBannerView(notification: notification)
                         .padding(.top, 8)
                         .transition(.move(edge: .top).combined(with: .opacity))
-                        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: model.bannerNotification?.id)
+                        .rawkoonMotion(RawkoonMotion.spring, value: model.bannerNotification?.id)
                 }
             }
             // A notification's resolved destination (spec T6) is shown modally

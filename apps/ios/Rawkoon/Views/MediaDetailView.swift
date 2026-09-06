@@ -11,6 +11,7 @@ import SwiftUI
 struct MediaDetailView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let tmdbId: Int
     let mediaType: String
@@ -118,7 +119,9 @@ struct MediaDetailView: View {
                     await fetchSimilar()
                 }
                 if focusManagement, showManagement {
-                    withAnimation { proxy.scrollTo("management", anchor: .top) }
+                    withAnimation(reduceMotion ? RawkoonMotion.reduced : RawkoonMotion.spring) {
+                        proxy.scrollTo("management", anchor: .top)
+                    }
                 }
             }
         }
@@ -311,9 +314,18 @@ struct MediaDetailView: View {
                         .foregroundStyle(Theme.terracotta)
                 }
             } else if model.isAdmin {
-                lampButton(title: "Search releases", systemImage: "magnifyingglass", busy: false) {
-                    releaseSearchSeason = nil
-                    showingReleaseSearch = true
+                // In-library, "Search releases" is a management action, not the
+                // screen's one lamp — compact bordered, content-width.
+                HStack(spacing: 10) {
+                    Button {
+                        releaseSearchSeason = nil
+                        showingReleaseSearch = true
+                    } label: {
+                        Label("Search releases", systemImage: "magnifyingglass")
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(Theme.apricot)
+                    Spacer(minLength: 0)
                 }
             }
         }
