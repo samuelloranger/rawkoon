@@ -465,6 +465,7 @@ final class AppModel {
                 for try await notification in await client.notificationStream() {
                     backoff = 1.0
                     unreadNotificationCount += 1
+                    syncAppIconBadge()
                     notificationChangeToken += 1
                     showBanner(notification)
                 }
@@ -516,7 +517,15 @@ final class AppModel {
         guard let client = apiClient else { return }
         if let response = try? await client.unreadNotificationCount() {
             unreadNotificationCount = response.unreadCount
+            syncAppIconBadge()
         }
+    }
+
+    /// Reconciles the app-icon badge with `unreadNotificationCount`. Pure
+    /// mapping lives in `NotificationBadge` (Kit); this just applies it.
+    private func syncAppIconBadge() {
+        let n = NotificationBadge.value(forUnread: unreadNotificationCount)
+        Task { try? await UNUserNotificationCenter.current().setBadgeCount(n) }
     }
 
     // MARK: Push notifications (APNs)
@@ -794,6 +803,7 @@ final class AppModel {
         dismissBanner()
         deepLinkTarget = nil
         unreadNotificationCount = 0
+        syncAppIconBadge()
 
         Keychain.delete(Self.serverURLKey)
         Keychain.delete(Self.authTokenKey)

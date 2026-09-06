@@ -98,6 +98,7 @@ struct RawkoonApp: App {
                 switch newPhase {
                 case .active:
                     model.startLiveStreams()
+                    Task { await model.refreshUnreadNotificationCount() }
                 case .background:
                     model.stopLiveStreams()
                 case .inactive:
