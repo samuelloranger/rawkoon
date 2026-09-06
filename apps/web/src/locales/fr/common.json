@@ -2074,6 +2074,18 @@
     "navPosition": "Position de la navigation",
     "openNotification": "Ouvrir la notification"
   },
+  "listening": {
+    "title": "Écoute",
+    "streak_one": "1 jour de série",
+    "streak_other": "{{count}} jours de série",
+    "hoursHint": "Les heures commencent maintenant — écoutez et elles s'accumuleront.",
+    "emptySeries": "Aucune série dans la bibliothèque pour l'instant.",
+    "thisWeek": "Cette semaine",
+    "series": "Séries",
+    "seriesLine": "{{name}} · {{percent}} %",
+    "booksOf": "{{count}} sur {{total}}",
+    "loadError": "Impossible de charger les stats d'écoute."
+  },
   "books": {
     "title": "Livres",
     "subtitleCount": "{{count}} dans la bibliothèque",

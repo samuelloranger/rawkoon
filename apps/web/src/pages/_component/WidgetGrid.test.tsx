@@ -9,6 +9,9 @@ vi.mock("@/pages/_component/NowWatchingWidget", () => ({
 vi.mock("@/features/continue/ContinueListeningWidget", () => ({
   ContinueListeningWidget: () => <div data-testid="w-continue" />,
 }));
+vi.mock("@/features/listening/ListeningStatsWidget", () => ({
+  ListeningStatsWidget: () => <div data-testid="w-listening" />,
+}));
 vi.mock("@/pages/_component/DownloadsPanel", () => ({
   DownloadsPanel: () => <div data-testid="w-downloads" />,
 }));
@@ -24,6 +27,7 @@ describe("WidgetGrid", () => {
     renderWithProviders(<WidgetGrid />);
     for (const id of [
       "w-continue",
+      "w-listening",
       "w-nowwatching",
       "w-downloads",
       "w-library",
