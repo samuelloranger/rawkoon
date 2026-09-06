@@ -51,6 +51,17 @@ struct ReleaseSearchView: View {
     @State private var excludedTrackers: Set<String> = []
     @State private var includedLanguages: Set<String> = []
 
+    // AI-picks: the banner + row badge mirror the web `useAiPick`/`AiPickBanner`.
+    @State private var aiEnabled = false
+    @State private var aiPickLoading = false
+    @State private var aiPick: AiPick?
+    @State private var aiPickError: String?
+    @State private var aiPickGrabbed = false
+    @State private var aiPickDismissed = false
+    /// Canonical guid-set the pick was last requested for, so the pick refires
+    /// only when the non-rejected candidate set changes, not on every filter.
+    @State private var lastAiPickKey: String?
+
     private enum SearchSort: String, CaseIterable, Identifiable {
         case quality, seeders, age, size, title
 
@@ -126,10 +137,15 @@ struct ReleaseSearchView: View {
                     .padding(.bottom, 8)
             }
 
+            if aiEnabled, !aiPickDismissed {
+                aiPickBanner
+            }
+
             content
         }
         .background(Theme.base)
         .task {
+            await resolveAiGate()
             await search()
         }
         .onChange(of: selectedSeason) { _, _ in
@@ -412,6 +428,7 @@ struct ReleaseSearchView: View {
                             release: release,
                             isGrabbing: grabbingGuid == release.guid,
                             isGrabbed: grabbedGuids.contains(release.guid),
+                            isAiPick: release.guid == aiPickBadgeKey,
                             onGrab: { await grab(release) }
                         )
                     }
@@ -544,6 +561,235 @@ struct ReleaseSearchView: View {
             errorMessage = String(localized: "Couldn't load releases. Check the server.")
             releases = []
         }
+        // Fire-and-forget so the AI banner loads on its own timeline, decoupled
+        // from the main search spinner (parity with the web's separate query).
+        Task {
+            await runAiPick()
+        }
+    }
+
+    /// Resolves the AI gate once and pre-warms the model when enabled.
+    private func resolveAiGate() async {
+        guard let client = model.api() else {
+            return
+        }
+        aiEnabled = await client.localAiEnabled()
+        if aiEnabled {
+            Task {
+                await client.aiWarm()
+            }
+        }
+    }
+
+    /// Requests an AI pick for the current non-rejected candidates. Skips when
+    /// the candidate guid-set is unchanged unless `force` (Retry) is set.
+    private func runAiPick(force: Bool = false) async {
+        guard aiEnabled, let client = model.api() else {
+            return
+        }
+        let candidates = releases.filter { release in
+            release.rejected != true
+        }
+        guard !candidates.isEmpty else {
+            aiPick = nil
+            aiPickError = nil
+            aiPickLoading = false
+            lastAiPickKey = nil
+            return
+        }
+        let key = candidates.map(\.guid).sorted().joined(separator: ",")
+        if !force, key == lastAiPickKey {
+            return
+        }
+        lastAiPickKey = key
+        aiPickDismissed = false
+        aiPickGrabbed = false
+        aiPickError = nil
+        aiPick = nil
+        aiPickLoading = true
+        defer {
+            aiPickLoading = false
+        }
+        let request = AiPickRequest(
+            mediaContext: AiPickMediaContext(
+                title: searchQuery,
+                year: mediaYear,
+                type: mediaType
+            ),
+            releases: candidates.map { release in
+                AiPickCandidate(
+                    key: release.guid,
+                    title: release.title,
+                    sizeBytes: release.sizeBytes,
+                    seeders: release.seeders,
+                    score: release.qualityScore
+                )
+            }
+        )
+        do {
+            aiPick = try await client.aiPick(request)
+        } catch {
+            aiPickError = String(localized: "Could not get a response from AI")
+        }
+    }
+
+    /// The release the AI picked, only if it's still in the current list.
+    private var aiPickedRelease: ReleaseItem? {
+        guard let key = aiPick?.releaseKey else {
+            return nil
+        }
+        return releases.first { release in
+            release.guid == key
+        }
+    }
+
+    /// The guid the row badge highlights — nil once the banner is dismissed.
+    private var aiPickBadgeKey: String? {
+        guard aiEnabled, !aiPickDismissed else {
+            return nil
+        }
+        return aiPick?.releaseKey
+    }
+
+    @ViewBuilder
+    private var aiPickBanner: some View {
+        if aiPickLoading {
+            aiPickBannerShell(isError: false) {
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkles")
+                        .font(.caption)
+                        .foregroundStyle(Theme.apricot)
+                    Text("AI is picking the best release…")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.muted)
+                }
+            }
+        } else if aiPickError != nil {
+            aiPickBannerShell(isError: true) {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(Theme.terracotta)
+                    Text("Could not get a response from AI")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.terracotta)
+                    Spacer(minLength: 8)
+                    Button {
+                        Task {
+                            await runAiPick(force: true)
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Retry")
+                        }
+                        .font(.system(.caption, design: .monospaced).weight(.semibold))
+                        .foregroundStyle(Theme.textStrong)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        } else if let release = aiPickedRelease {
+            aiPickBannerShell(isError: false) {
+                if aiPickGrabbed {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(Theme.seed)
+                        Text("Grabbed!")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(Theme.seed)
+                    }
+                } else {
+                    aiPickBannerContent(release)
+                }
+            }
+        }
+    }
+
+    private func aiPickBannerContent(_ release: ReleaseItem) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "sparkles")
+                .font(.caption)
+                .foregroundStyle(Theme.apricot)
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("AI Pick")
+                    .font(.system(.caption, design: .monospaced).weight(.semibold))
+                    .foregroundStyle(Theme.apricotSoft)
+                Text(release.title)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.text)
+                    .lineLimit(2)
+                if let reasoning = aiPick?.reasoning, !reasoning.isEmpty {
+                    Text(reasoning)
+                        .font(.caption)
+                        .italic()
+                        .foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                HStack(spacing: 8) {
+                    Spacer(minLength: 8)
+                    Button {
+                        Task {
+                            await grabFromBanner(release)
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "sparkles")
+                            Text("Grab")
+                        }
+                        .font(.system(.caption, design: .monospaced).weight(.semibold))
+                        .foregroundStyle(Theme.onAccent)
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 44)
+                        .background(Theme.apricot, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(grabbingGuid != nil)
+                    Button {
+                        aiPickDismissed = true
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Theme.muted)
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func aiPickBannerShell(isError: Bool, @ViewBuilder content: () -> some View) -> some View {
+        content()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                (isError ? Theme.terracotta : Theme.apricot).opacity(0.12),
+                in: RoundedRectangle(cornerRadius: 12)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(isError ? Theme.terracotta.opacity(0.4) : Theme.apricotSoft, lineWidth: 1)
+            )
+            .padding(.horizontal, 16)
+            .padding(.bottom, 10)
+    }
+
+    /// Grab initiated from the AI banner: reuses the row grab path, then shows a
+    /// brief "Grabbed!" confirmation before auto-dismissing (parity with web).
+    private func grabFromBanner(_ release: ReleaseItem) async {
+        await grab(release)
+        guard grabbedGuids.contains(release.guid) else {
+            return
+        }
+        aiPickGrabbed = true
+        try? await Task.sleep(for: .milliseconds(1800))
+        aiPickDismissed = true
     }
 
     private func grab(_ release: ReleaseItem) async {
@@ -632,6 +878,7 @@ private struct ReleaseRow: View {
     let release: ReleaseItem
     let isGrabbing: Bool
     let isGrabbed: Bool
+    let isAiPick: Bool
     let onGrab: () async -> Void
 
     private var isRejected: Bool {
@@ -688,6 +935,9 @@ private struct ReleaseRow: View {
 
     private var badgeStrip: some View {
         FlowLayout(spacing: 6) {
+            if isAiPick {
+                aiPickBadge
+            }
             if release.isCompleteSeries == true {
                 BadgeChip(text: "Intégrale", fg: Theme.apricotSoft, bg: Theme.apricot.opacity(0.12))
             }
@@ -726,6 +976,22 @@ private struct ReleaseRow: View {
                 BadgeChip(text: release.languages.joined(separator: ", "))
             }
         }
+    }
+
+    /// Violet is absent from Cozy Dusk, so the AI badge uses the apricot accent
+    /// family — the palette's designated "special" highlight.
+    private var aiPickBadge: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 9))
+            Text("AI Pick")
+                .font(.system(.caption2, design: .monospaced))
+        }
+        .foregroundStyle(Theme.apricotSoft)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(Theme.apricot.opacity(0.14), in: Capsule())
+        .fixedSize()
     }
 
     private var rejectionReasons: some View {
