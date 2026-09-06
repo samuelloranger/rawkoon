@@ -445,6 +445,52 @@ export async function notifyRequestAvailable(
   });
   if (media?.status !== "downloaded") return;
 
+  await finalizeRequestAvailable(req, {
+    libraryMediaId: req.libraryMediaId,
+    urlLibraryMediaId: req.libraryMediaId,
+  });
+}
+
+/**
+ * Book counterpart of notifyRequestAvailable: movies/shows carry a single
+ * libraryMediaId whose LibraryMedia.status flips to "downloaded", but a book
+ * request is linked by libraryBookId and completion lives on its
+ * BookEdition rows instead (see postProcessorBook.ts, the only writer of
+ * status: "downloaded" for editions). "Available" fires the first time any
+ * edition of the approved book lands — a request captures no ebook/audiobook
+ * preference, so either format satisfies it.
+ */
+export async function notifyBookRequestAvailable(
+  libraryBookId: number,
+): Promise<void> {
+  const req = await prisma.mediaRequest.findFirst({
+    where: { libraryBookId, status: "approved" },
+  });
+  if (!req) return;
+
+  const downloadedEdition = await prisma.bookEdition.findFirst({
+    where: { bookId: libraryBookId, status: "downloaded" },
+    select: { id: true },
+  });
+  if (!downloadedEdition) return;
+
+  await finalizeRequestAvailable(req, {
+    libraryMediaId: null,
+    urlLibraryMediaId: null,
+  });
+}
+
+/** Shared status flip + notification for both the movie/show and book paths. */
+async function finalizeRequestAvailable(
+  req: {
+    id: number;
+    requestedById: string;
+    title: string;
+    year: number | null;
+    posterUrl: string | null;
+  },
+  opts: { libraryMediaId: number | null; urlLibraryMediaId: number | null },
+): Promise<void> {
   await prisma.mediaRequest.update({
     where: { id: req.id },
     data: { status: "available" },
@@ -454,8 +500,8 @@ export async function notifyRequestAvailable(
   const locale = requester?.locale ?? null;
   const label = requestTitleLabel(req.title, req.year);
   const url =
-    req.libraryMediaId != null
-      ? buildLibraryNotificationUrl(req.libraryMediaId)
+    opts.urlLibraryMediaId != null
+      ? buildLibraryNotificationUrl(opts.urlLibraryMediaId)
       : "/requests";
 
   await createAndQueueNotification(
@@ -464,7 +510,7 @@ export async function notifyRequestAvailable(
     notificationCopy(locale, "requestAvailableBody", { title: label }),
     "request_available",
     url,
-    { requestId: req.id, libraryMediaId: req.libraryMediaId },
+    { requestId: req.id, libraryMediaId: opts.libraryMediaId },
     req.posterUrl ?? undefined,
     { preferenceKey: "request_available" },
   );

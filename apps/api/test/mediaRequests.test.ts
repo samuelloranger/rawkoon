@@ -28,6 +28,7 @@ const state: {
   bookProfiles: number[];
   mediaStatusById: Record<number, string>;
   addedBooks: Array<{ volumeId: string; bookQualityProfileId?: number }>;
+  bookEditionStatusByBookId: Record<number, string>;
 } = {
   library: [],
   libraryBooks: [],
@@ -39,6 +40,7 @@ const state: {
   bookProfiles: [],
   mediaStatusById: {},
   addedBooks: [],
+  bookEditionStatusByBookId: {},
 };
 
 mock.module("@rawkoon/api/db", () => ({
@@ -107,14 +109,21 @@ mock.module("@rawkoon/api/db", () => ({
       findFirst: ({
         where,
       }: {
-        where: { libraryMediaId: number; status: string };
+        where: {
+          libraryMediaId?: number;
+          libraryBookId?: number;
+          status: string;
+        };
       }) =>
         Promise.resolve(
-          state.requests.find(
-            (r) =>
-              r.libraryMediaId === where.libraryMediaId &&
-              r.status === where.status,
-          ) ?? null,
+          state.requests.find((r) => {
+            if (where.status !== r.status) return false;
+            if (where.libraryMediaId != null)
+              return r.libraryMediaId === where.libraryMediaId;
+            if (where.libraryBookId != null)
+              return r.libraryBookId === where.libraryBookId;
+            return false;
+          }) ?? null,
         ),
       create: ({ data }: { data: Req }) => {
         const row = { ...data, id: state.requests.length + 1 };
@@ -133,6 +142,14 @@ mock.module("@rawkoon/api/db", () => ({
         Object.assign(row, data);
         return Promise.resolve(row);
       },
+    },
+    bookEdition: {
+      findFirst: ({ where }: { where: { bookId: number; status: string } }) =>
+        Promise.resolve(
+          state.bookEditionStatusByBookId[where.bookId] === where.status
+            ? { id: where.bookId }
+            : null,
+        ),
     },
     user: {
       findMany: ({ where }: { where?: { isAdmin?: boolean } } = {}) => {
@@ -216,8 +233,13 @@ mock.module("@rawkoon/api/workers/notificationService", () => ({
   },
 }));
 
-const { createRequest, approveRequest, denyRequest, notifyRequestAvailable } =
-  await import("@rawkoon/api/services/mediaRequests");
+const {
+  createRequest,
+  approveRequest,
+  denyRequest,
+  notifyRequestAvailable,
+  notifyBookRequestAvailable,
+} = await import("@rawkoon/api/services/mediaRequests");
 
 afterAll(() => {
   mock.restore();
@@ -234,6 +256,7 @@ beforeEach(() => {
   state.bookProfiles = [7];
   state.mediaStatusById = {};
   state.addedBooks = [];
+  state.bookEditionStatusByBookId = {};
 });
 
 describe("createRequest", () => {
@@ -530,6 +553,51 @@ describe("notifyRequestAvailable", () => {
 
   it("is a no-op when no approved request links to the media", async () => {
     await notifyRequestAvailable(123);
+    expect(state.notifications).toEqual([]);
+  });
+});
+
+describe("notifyBookRequestAvailable", () => {
+  it("flips an approved book request to available once an edition lands", async () => {
+    state.requests = [
+      {
+        id: 1,
+        type: "book",
+        status: "approved",
+        requestedById: "u1",
+        libraryMediaId: null,
+        libraryBookId: 5001,
+        title: "Book X",
+      },
+    ];
+    state.bookEditionStatusByBookId = { 5001: "downloaded" };
+    await notifyBookRequestAvailable(5001);
+    expect(state.requests[0].status).toBe("available");
+    expect(state.notifications).toEqual([
+      { userId: "u1", type: "request_available" },
+    ]);
+  });
+
+  it("does not flip while no edition of the book has finished downloading", async () => {
+    state.requests = [
+      {
+        id: 1,
+        type: "book",
+        status: "approved",
+        requestedById: "u1",
+        libraryMediaId: null,
+        libraryBookId: 5001,
+        title: "Book X",
+      },
+    ];
+    state.bookEditionStatusByBookId = { 5001: "wanted" };
+    await notifyBookRequestAvailable(5001);
+    expect(state.requests[0].status).toBe("approved");
+    expect(state.notifications).toEqual([]);
+  });
+
+  it("is a no-op when no approved request links to the book", async () => {
+    await notifyBookRequestAvailable(9999);
     expect(state.notifications).toEqual([]);
   });
 });

@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { prisma } from "@rawkoon/api/db";
 import { auth } from "@rawkoon/api/auth";
 import { requireUser, requireAdmin } from "@rawkoon/api/middleware/auth";
-import { badRequest, notFound } from "@rawkoon/api/errors";
+import { badRequest, conflict, notFound } from "@rawkoon/api/errors";
 import {
   createRequest,
   approveRequest,
@@ -95,12 +95,13 @@ export const requestRoutes = new Elysia({ prefix: "/api/requests" })
             },
       );
       if (!result.ok) {
-        return badRequest(
-          set,
-          result.reason === "exists_in_library"
-            ? "Already in your library"
-            : "Already requested",
-        );
+        // Duplicate requests use conflict() (409) so the client can special-case
+        // "already requested" instead of showing a generic error; every other
+        // rejection reason stays a 400.
+        if (result.reason === "already_requested") {
+          return conflict(set, "Already requested");
+        }
+        return badRequest(set, "Already in your library");
       }
       return { id: result.id };
     },

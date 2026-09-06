@@ -5,6 +5,7 @@ import { basename, dirname, extname, join } from "node:path";
 import { prisma } from "@rawkoon/api/db";
 import { registerBookChapters } from "@rawkoon/api/services/books/registerBookChapters";
 import { emitBookUpdate } from "@rawkoon/api/services/libraryEvents";
+import { notifyBookRequestAvailable } from "@rawkoon/api/services/mediaRequests";
 import {
   placeFile,
   resolveTorrentContentPath,
@@ -408,6 +409,7 @@ export async function postProcessBook(opts: {
   // Push to any open client so the list and detail both update without polling,
   // the same way a movie import does.
   emitBookUpdate(edition.bookId);
+  await notifyBookRequestAvailable(edition.bookId);
 
   return { imported, destinationPath: destDir, skipped };
 }
@@ -524,7 +526,10 @@ export async function postProcessBookDownload(
         where: { id: dh.bookEditionId },
         select: { bookId: true },
       });
-      if (ed) emitBookUpdate(ed.bookId);
+      if (ed) {
+        emitBookUpdate(ed.bookId);
+        await notifyBookRequestAvailable(ed.bookId);
+      }
       return {
         success: true,
         destinationPath: file.filePath,
@@ -949,6 +954,9 @@ export async function rescanBookEdition(editionId: number): Promise<{
 
   if (shouldEmitBookUpdate) {
     emitBookUpdate(edition.bookId);
+  }
+  if (registered + refreshed > 0) {
+    await notifyBookRequestAvailable(edition.bookId);
   }
 
   return { registered, refreshed, removed, directory };
