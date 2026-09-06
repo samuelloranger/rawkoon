@@ -82,6 +82,48 @@ nonisolated struct DiscoverDeckResponse: Codable, Sendable {
     let source: DiscoverSource
 }
 
+// MARK: - Discover filter grid (Explore)
+
+/// Copies server `DISCOVER_VALID_SORTS` (tmdbRouteHelpers.ts) exactly so the UI
+/// can't send an invalid `sort_by` value.
+nonisolated enum DiscoverSort: String, CaseIterable, Sendable {
+    case popularityDesc = "popularity.desc"
+    case popularityAsc = "popularity.asc"
+    case voteAverageDesc = "vote_average.desc"
+    case voteAverageAsc = "vote_average.asc"
+    case primaryReleaseDateDesc = "primary_release_date.desc"
+    case firstAirDateDesc = "first_air_date.desc"
+    case revenueDesc = "revenue.desc"
+}
+
+nonisolated struct DiscoverMediasResponse: Decodable, Sendable {
+    let items: [TmdbSearchItem]
+    let page: Int
+    let region: String?
+    let totalPages: Int
+    let totalResults: Int
+}
+
+nonisolated struct Genre: Decodable, Identifiable, Hashable, Sendable {
+    let id: Int
+    let name: String
+}
+
+nonisolated struct GenresResponse: Decodable, Sendable {
+    let genres: [Genre]
+}
+
+nonisolated struct StreamingProvider: Decodable, Identifiable, Hashable, Sendable {
+    let id: Int
+    let name: String
+    let logoUrl: String? // server key is `logo_url`, not `logo_path`
+}
+
+nonisolated struct StreamingProvidersResponse: Decodable, Sendable {
+    let providers: [StreamingProvider]
+    let region: String?
+}
+
 nonisolated struct BookSearchHit: Decodable, Identifiable, Hashable, Sendable {
     var id: String {
         googleVolumeId

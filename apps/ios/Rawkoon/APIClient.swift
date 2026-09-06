@@ -796,6 +796,43 @@ actor APIClient {
         try await deleteExpectOK("/api/medias/discover/dismiss/\(tmdbId)", query: ["type": type])
     }
 
+    /// Explore filter grid
+    func discoverGrid(
+        type: String,
+        providerId: Int? = nil,
+        genreId: Int? = nil,
+        sortBy: String? = nil,
+        page: Int = 1,
+        language: String? = nil,
+        originalLanguage: String? = nil
+    ) async throws -> DiscoverMediasResponse {
+        try await get(
+            "/api/medias/discover",
+            query: [
+                "type": type,
+                "provider_id": providerId.map(String.init),
+                "genre_id": genreId.map(String.init),
+                "sort_by": sortBy,
+                "page": String(page),
+                "language": language,
+                "original_language": originalLanguage,
+            ]
+        )
+    }
+
+    func genres(type: String) async throws -> [Genre] {
+        let response: GenresResponse = try await get("/api/medias/genres", query: ["type": type])
+        return response.genres
+    }
+
+    func streamingProviders(type: String) async throws -> [StreamingProvider] {
+        let response: StreamingProvidersResponse = try await get(
+            "/api/medias/streaming-providers",
+            query: ["type": type]
+        )
+        return response.providers
+    }
+
     func bookSearch(q: String) async throws -> BookSearchResponse {
         try await get("/api/books/search", query: ["q": q])
     }
