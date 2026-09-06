@@ -376,11 +376,26 @@ nonisolated struct LibraryMedia: Decodable, Identifiable, Sendable {
     let posterUrl: String?
     let overview: String?
     let qualityProfileId: Int?
+    let qualityProfile: LibraryQualityProfileRef?
     let totalSizeBytes: String? // bigint serialized as string
     let episodeCount: Int?
     let downloadedEpisodeCount: Int?
     let seasonCount: Int?
     let durationSecs: Double?
+    // Density/ledger metadata — mirrors `libraryHelpers.ts` mapLibraryMedia.
+    let resolution: Int?
+    let videoCodec: String?
+    let hdrFormat: String?
+    let audioFormat: String?
+    let languageTags: [String]?
+    let lastGrabbedAt: String?
+    let addedAt: String?
+    let digitalReleaseDate: String?
+}
+
+nonisolated struct LibraryQualityProfileRef: Decodable, Sendable {
+    let id: Int
+    let name: String
 }
 
 nonisolated struct LibraryListResponse: Decodable, Sendable {
