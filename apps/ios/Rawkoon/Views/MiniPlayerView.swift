@@ -10,7 +10,12 @@ import SwiftUI
 /// which already frames the accessory natively — `chromed: false` there drops
 /// this view's own background/shadow so the two don't double-frame each other.
 struct MiniPlayerView: View {
-    @Environment(AppModel.self) private var model
+    /// Passed explicitly rather than read from `@Environment`: on iOS 26 the
+    /// `tabViewBottomAccessory` host does not propagate the window's environment
+    /// into the accessory, so an `@Environment(AppModel.self)` read there traps on
+    /// the missing value. An `@Observable` reference held as a plain property still
+    /// tracks its reads in `body`, so reactivity is unchanged.
+    let model: AppModel
     let onExpand: () -> Void
     var chromed: Bool = true
 

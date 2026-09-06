@@ -211,7 +211,7 @@ private struct RootTabsView: View {
                     NavigationStack {
                         HomeView()
                     }
-                    .modifier(MiniPlayerContentInset(onExpand: { showFullPlayer = true }))
+                    .modifier(MiniPlayerContentInset(model: model, onExpand: { showFullPlayer = true }))
                 }
                 .customizationID("tab.home")
             }
@@ -220,7 +220,7 @@ private struct RootTabsView: View {
                 NavigationStack {
                     DiscoverView()
                 }
-                .modifier(MiniPlayerContentInset(onExpand: { showFullPlayer = true }))
+                .modifier(MiniPlayerContentInset(model: model, onExpand: { showFullPlayer = true }))
             }
             .customizationID("tab.discover")
 
@@ -228,7 +228,7 @@ private struct RootTabsView: View {
                 NavigationStack {
                     LibraryView()
                 }
-                .modifier(MiniPlayerContentInset(onExpand: { showFullPlayer = true }))
+                .modifier(MiniPlayerContentInset(model: model, onExpand: { showFullPlayer = true }))
             }
             .customizationID("tab.library")
 
@@ -236,7 +236,7 @@ private struct RootTabsView: View {
                 NavigationStack {
                     ActivityView()
                 }
-                .modifier(MiniPlayerContentInset(onExpand: { showFullPlayer = true }))
+                .modifier(MiniPlayerContentInset(model: model, onExpand: { showFullPlayer = true }))
             }
             .customizationID("tab.activity")
 
@@ -244,7 +244,7 @@ private struct RootTabsView: View {
                 NavigationStack {
                     SettingsView()
                 }
-                .modifier(MiniPlayerContentInset(onExpand: { showFullPlayer = true }))
+                .modifier(MiniPlayerContentInset(model: model, onExpand: { showFullPlayer = true }))
             }
             .customizationID("tab.settings")
         }
@@ -304,15 +304,14 @@ private extension View {
     /// `MiniPlayerView`'s floating-pill chrome is for the iOS 18 fallback only.
     ///
     /// The accessory content is hosted in a tree detached from the `WindowGroup`,
-    /// so it does not inherit the app root's `.environment(model)` — `MiniPlayerView`
-    /// reads `@Environment(AppModel.self)` and would trap on the missing value. Inject
-    /// it here, as every other presentation boundary (the player and deep-link sheets) does.
+    /// which on iOS 26 does not propagate its environment — so `MiniPlayerView`
+    /// takes the model as an explicit argument rather than via `@Environment`,
+    /// which trapped on the missing value even when injected here.
     @ViewBuilder
     func miniPlayerAccessory(model: AppModel, active: Bool, onExpand: @escaping () -> Void) -> some View {
         if #available(iOS 26.0, *), active {
             tabViewBottomAccessory {
-                MiniPlayerView(onExpand: onExpand, chromed: false)
-                    .environment(model)
+                MiniPlayerView(model: model, onExpand: onExpand, chromed: false)
             }
         } else {
             self
@@ -330,6 +329,7 @@ private extension View {
 /// slot (`miniPlayerAccessory`, applied to the `TabView`) already places it,
 /// and inset here too would double it up.
 private struct MiniPlayerContentInset: ViewModifier {
+    let model: AppModel
     let onExpand: () -> Void
 
     @ViewBuilder
@@ -338,7 +338,7 @@ private struct MiniPlayerContentInset: ViewModifier {
             content
         } else {
             content.safeAreaInset(edge: .bottom) {
-                MiniPlayerView(onExpand: onExpand)
+                MiniPlayerView(model: model, onExpand: onExpand)
             }
         }
     }
