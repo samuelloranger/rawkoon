@@ -259,7 +259,10 @@ public extension InteractiveSearchLogic {
         public let languageCode: String
         public let query: String
         public let isOriginal: Bool
-        public var id: String { query }
+        public var id: String {
+            query
+        }
+
         public init(languageCode: String, query: String, isOriginal: Bool) {
             self.languageCode = languageCode
             self.query = query
@@ -321,10 +324,14 @@ public extension InteractiveSearchLogic {
         for candidate in candidates {
             let base = candidate.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let minLength = candidate.isPlatform ? 1 : 2
-            if base.isEmpty || base.count < minLength { continue }
+            if base.isEmpty || base.count < minLength {
+                continue
+            }
             let query = base + suffix
             let dedupeKey = query.lowercased()
-            if seenQueries.contains(dedupeKey) { continue }
+            if seenQueries.contains(dedupeKey) {
+                continue
+            }
             seenQueries.insert(dedupeKey)
             options.append(TitleOption(languageCode: candidate.languageCode, query: query, isOriginal: candidate.isOriginal))
         }

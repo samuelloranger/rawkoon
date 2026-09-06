@@ -136,7 +136,9 @@ struct MediaDetailView: View {
                     tmdbId: tmdbId,
                     mediaType: mediaType,
                     availableSeasons: releaseSearchSeason.map { [$0] } ?? (details?.seasons?.map(\.seasonNumber) ?? []),
-                    mediaYear: yearValue
+                    mediaYear: yearValue,
+                    originalLanguage: details?.originalLanguage,
+                    titleTranslations: details?.titleTranslations ?? []
                 )
                 .environment(model)
             }

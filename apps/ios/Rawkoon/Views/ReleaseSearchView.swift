@@ -12,6 +12,12 @@ struct ReleaseSearchView: View {
     /// Expected release year, fed into the client-side rejection heuristic in
     /// search mode. The call site wires it separately; nil disables the year check.
     let mediaYear: Int?
+    /// The library (English) title the sheet opened with — the base for the
+    /// language/title picker; `searchQuery` may then change to another language.
+    let localizedTitle: String
+    /// TMDB original-language code + per-language titles, for the picker (Phase 5).
+    let originalLanguage: String?
+    let titleTranslations: [TitleTranslation]
 
     init(
         query: String,
@@ -19,15 +25,34 @@ struct ReleaseSearchView: View {
         tmdbId: Int?,
         mediaType: String,
         availableSeasons: [Int] = [],
-        mediaYear: Int? = nil
+        mediaYear: Int? = nil,
+        originalLanguage: String? = nil,
+        titleTranslations: [TitleTranslation] = []
     ) {
         self.libraryMediaId = libraryMediaId
         self.tmdbId = tmdbId
         self.mediaType = mediaType
         self.availableSeasons = availableSeasons.filter { $0 > 0 }.sorted()
         self.mediaYear = mediaYear
+        localizedTitle = query
+        self.originalLanguage = originalLanguage
+        self.titleTranslations = titleTranslations
         _searchQuery = State(initialValue: query)
         _sortBy = State(initialValue: libraryMediaId == nil ? .seeders : .quality)
+    }
+
+    /// Ordered search-title options (platform/EN/FR/original/allowlist), library
+    /// titles being persisted in English — matches the web `LIBRARY_TITLE_LANGUAGE`.
+    private var titleOptions: [InteractiveSearchLogic.TitleOption] {
+        InteractiveSearchLogic.buildTitleOptions(
+            localized: localizedTitle,
+            localizedLanguage: "en",
+            original: nil,
+            originalLanguage: originalLanguage,
+            translations: titleTranslations.map {
+                .init(languageCode: $0.languageCode, title: $0.title)
+            }
+        )
     }
 
     @State private var releases: [ReleaseItem] = []
@@ -178,6 +203,10 @@ struct ReleaseSearchView: View {
                 searchField("Search releases", text: $searchQuery, onSubmit: {
                     Task { await search() }
                 })
+
+                if titleOptions.count > 1 {
+                    titleLanguageMenu
+                }
 
                 Button {
                     Task { await search() }
@@ -885,6 +914,38 @@ struct ReleaseSearchView: View {
             adminOnlyNote = String(localized: "Admin only")
         } catch {
             grabError = String(localized: "Grab failed for \"\(release.title)\".")
+        }
+    }
+
+    /// Language/title picker: private trackers name releases under localized
+    /// titles, so the user can search by another language's title. Selecting one
+    /// swaps `searchQuery` and re-runs the server search (web `SearchTitleSelect`).
+    private var titleLanguageMenu: some View {
+        let current = titleOptions.first { $0.query == searchQuery }
+        let code = (current?.languageCode ?? "en").uppercased()
+        return Menu {
+            ForEach(titleOptions) { option in
+                Button {
+                    searchQuery = option.query
+                    Task { await search() }
+                } label: {
+                    if option.isOriginal {
+                        Label("\(option.languageCode.uppercased()) · \(option.query) (original)", systemImage: "globe")
+                    } else {
+                        Text("\(option.languageCode.uppercased()) · \(option.query)")
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "globe").font(.caption2)
+                Text(code).font(.subheadline.weight(.medium))
+                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+            }
+            .foregroundStyle(Theme.textStrong)
+            .padding(.horizontal, 12).padding(.vertical, 10)
+            .background(Theme.raised, in: Capsule())
+            .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
         }
     }
 
