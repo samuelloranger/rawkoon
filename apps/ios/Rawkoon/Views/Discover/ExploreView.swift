@@ -327,7 +327,7 @@ struct ExploreView: View {
         } catch let apiError as APIError {
             error = message(for: apiError)
         } catch {
-            error = String(localized: "Network error. Check your connection.")
+            self.error = String(localized: "Network error. Check your connection.")
         }
     }
 
