@@ -10,6 +10,7 @@ import {
   signGrant,
   verifyGrant,
 } from "@rawkoon/api/services/books/downloadGrant";
+import { applyListeningCredit } from "@rawkoon/api/services/books/listeningStats";
 import { parseByteRange, type ParsedByteRange } from "@rawkoon/shared/utils";
 
 import { bookIdentityFromEdition } from "./progressIdentity";
@@ -299,7 +300,7 @@ export const bookProgressRoutes = new Elysia()
             editionId: params.id,
           },
         },
-        select: { updatedAt: true },
+        select: { updatedAt: true, positionSecs: true, receivedAt: true },
       });
       if (existing && existing.updatedAt > updatedAt) return { applied: false };
 
@@ -330,6 +331,14 @@ export const bookProgressRoutes = new Elysia()
           userId: user!.id,
           editionId: params.id,
         },
+      });
+
+      await applyListeningCredit({
+        userId: user!.id,
+        created: !existing,
+        previous: existing,
+        newPosition: body.position_secs,
+        receivedAt: now,
       });
 
       return { applied: true };
