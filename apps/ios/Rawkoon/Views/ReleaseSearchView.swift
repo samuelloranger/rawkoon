@@ -888,9 +888,11 @@ struct ReleaseSearchView: View {
         grabbingGuid = release.guid
         defer { grabbingGuid = nil }
         do {
-            if let token = release.downloadToken {
-                try await client.grabByToken(token)
-            } else if let libraryMediaId, let downloadUrl = release.downloadUrl {
+            // Prefer the library grab: it hands the release to the download client
+            // and records download history. The token endpoint only *resolves* the
+            // release URL and, on a Jackett instance, enqueues nothing — so it is a
+            // fallback for media-agnostic searches that have no library item yet.
+            if let libraryMediaId, let downloadUrl = release.downloadUrl {
                 try await client.grabByUrl(
                     libraryId: libraryMediaId,
                     body: GrabUrlBody(
@@ -903,6 +905,8 @@ struct ReleaseSearchView: View {
                         isUpgrade: nil
                     )
                 )
+            } else if let token = release.downloadToken {
+                try await client.grabByToken(token)
             } else {
                 grabError = String(localized: "This release can't be grabbed.")
                 return
