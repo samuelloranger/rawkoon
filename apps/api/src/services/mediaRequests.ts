@@ -463,21 +463,31 @@ export async function notifyRequestAvailable(
 export async function notifyBookRequestAvailable(
   libraryBookId: number,
 ): Promise<void> {
-  const req = await prisma.mediaRequest.findFirst({
-    where: { libraryBookId, status: "approved" },
-  });
-  if (!req) return;
+  // Best-effort: this runs inline in post-processing (postProcessorBook.ts),
+  // which must complete and leave the edition marked downloaded regardless
+  // of whether the request-notify side effect succeeds.
+  try {
+    const req = await prisma.mediaRequest.findFirst({
+      where: { libraryBookId, status: "approved" },
+    });
+    if (!req) return;
 
-  const downloadedEdition = await prisma.bookEdition.findFirst({
-    where: { bookId: libraryBookId, status: "downloaded" },
-    select: { id: true },
-  });
-  if (!downloadedEdition) return;
+    const downloadedEdition = await prisma.bookEdition.findFirst({
+      where: { bookId: libraryBookId, status: "downloaded" },
+      select: { id: true },
+    });
+    if (!downloadedEdition) return;
 
-  await finalizeRequestAvailable(req, {
-    libraryMediaId: null,
-    urlLibraryMediaId: null,
-  });
+    await finalizeRequestAvailable(req, {
+      libraryMediaId: null,
+      urlLibraryMediaId: null,
+    });
+  } catch (e) {
+    console.warn(
+      `[mediaRequests] notifyBookRequestAvailable failed for book ${libraryBookId}:`,
+      e,
+    );
+  }
 }
 
 /** Shared status flip + notification for both the movie/show and book paths. */
