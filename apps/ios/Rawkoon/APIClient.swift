@@ -1135,8 +1135,12 @@ actor APIClient {
         try await get("/api/dashboard/downloads/speed")
     }
 
-    func activityFeed(limit: Int = 50) async throws -> ActivityFeedResponse {
-        try await get("/api/dashboard/activities/feed", query: ["limit": String(limit)])
+    func activityFeed(limit: Int = 50, service: String? = nil, type: String? = nil) async throws -> ActivityFeedResponse {
+        try await get("/api/dashboard/activities/feed", query: [
+            "limit": String(limit),
+            "service": service,
+            "type": type,
+        ])
     }
 
     func upcoming() async throws -> UpcomingResponse {

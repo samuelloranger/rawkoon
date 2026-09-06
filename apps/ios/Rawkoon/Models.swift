@@ -526,15 +526,30 @@ nonisolated struct SpeedResponse: Decodable, Sendable {
 nonisolated struct ActivityFeedResponse: Decodable, Sendable {
     let activities: [ActivityRecord]
     let hasMore: Bool?
+    let availableServices: [String]?
+    let availableTypes: [String]?
+    let total: Int?
 }
 
 nonisolated struct ActivityRecord: Decodable, Sendable {
+    let id: Int?
     let type: String?
     let service: String?
     let completedAt: String?
     let releaseTitle: String?
     let message: String?
     let success: Bool?
+    let jobName: String?
+    let fromVersion: String?
+    let toVersion: String?
+    let integrationType: String?
+    let reason: String?
+    let durationMs: Int?
+    let eventTitle: String?
+    let grabSource: String?
+    let aiPicked: Bool?
+    let username: String?
+    let taskName: String?
 }
 
 nonisolated struct UpcomingResponse: Decodable, Sendable {
