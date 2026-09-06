@@ -1126,6 +1126,30 @@ actor APIClient {
         try await postExpectOK("/api/library/\(libraryId)/grab", body: body)
     }
 
+    /// Whether the Local AI integration is enabled — gates the AI-pick UI.
+    func localAiEnabled() async -> Bool {
+        do {
+            let response: LocalAiIntegrationResponse = try await get("/api/integrations/local-ai")
+            return response.integration.enabled
+        } catch {
+            return false
+        }
+    }
+
+    /// Fire-and-forget: loads the model into VRAM so the first real pick is fast.
+    func aiWarm() async {
+        guard let request = try? makeRequest(path: "/api/medias/search/ai-warm", method: "GET", requiresAuth: true) else { return }
+        _ = try? await perform(request)
+    }
+
+    func aiPick(_ body: AiPickRequest) async throws -> AiPick {
+        try await post("/api/medias/search/ai-pick", body: body)
+    }
+
+    func blockRelease(_ body: BlocklistBody) async throws {
+        try await postExpectOK("/api/medias/blocklist", body: body)
+    }
+
     /// Downloads / activity / calendar
     func downloads(libraryId: Int) async throws -> DownloadsResponse {
         try await get("/api/library/\(libraryId)/downloads")
