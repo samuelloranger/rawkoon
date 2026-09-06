@@ -273,7 +273,7 @@
             ZStack {
                 Theme.base.ignoresSafeArea()
                 SwipeDeck(
-                    items: Self.sample, label: "For you",
+                    items: Self.sample, label: "For you", primaryActionTitle: "Add",
                     onDismiss: { _ in }, onWatchlist: { _ in }, onPrimary: { _ in },
                     onExhausted: {}, onOpen: { _ in }
                 )
