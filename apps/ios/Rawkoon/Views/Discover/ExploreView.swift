@@ -343,7 +343,9 @@ struct ExploreView: View {
         loading = true
         error = nil
         defer {
-            if generation == loadGeneration { loading = false }
+            if generation == loadGeneration {
+                loading = false
+            }
         }
         do {
             let response = try await fetchPage(client: client, page: 1)
@@ -371,7 +373,9 @@ struct ExploreView: View {
         loadingMore = true
         loadMoreError = nil
         defer {
-            if generation == loadGeneration { loadingMore = false }
+            if generation == loadGeneration {
+                loadingMore = false
+            }
         }
         do {
             let response = try await fetchPage(client: client, page: page + 1)
