@@ -11,14 +11,21 @@ export interface ApnsKey {
 
 const TOKEN_TTL_SECONDS = 50 * 60;
 const b64url = (input: Buffer | string): string =>
-  (typeof input === "string" ? Buffer.from(input) : input).toString("base64url");
+  (typeof input === "string" ? Buffer.from(input) : input).toString(
+    "base64url",
+  );
 
 export function signApnsJwt(key: ApnsKey, nowSeconds: number): string {
-  const header = b64url(JSON.stringify({ alg: "ES256", kid: key.keyId, typ: "JWT" }));
+  const header = b64url(
+    JSON.stringify({ alg: "ES256", kid: key.keyId, typ: "JWT" }),
+  );
   const claims = b64url(JSON.stringify({ iss: key.teamId, iat: nowSeconds }));
   const signer = createSign("SHA256");
   signer.update(`${header}.${claims}`);
-  const signature = signer.sign({ key: key.privateKeyPem, dsaEncoding: "ieee-p1363" });
+  const signature = signer.sign({
+    key: key.privateKeyPem,
+    dsaEncoding: "ieee-p1363",
+  });
   return `${header}.${claims}.${b64url(signature)}`;
 }
 

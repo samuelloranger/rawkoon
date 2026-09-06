@@ -27,7 +27,8 @@ export class ApnsClient {
   ) {}
 
   private connect(): http2.ClientHttp2Session {
-    if (this.session && !this.session.closed && !this.session.destroyed) return this.session;
+    if (this.session && !this.session.closed && !this.session.destroyed)
+      return this.session;
     const session = http2.connect(this.host);
     session.on("error", () => {
       if (this.session === session) this.session = null;

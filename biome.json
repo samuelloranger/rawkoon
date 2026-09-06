@@ -10,6 +10,7 @@
       "apps/web/**",
       "apps/api/**",
       "apps/shared/**",
+      "apps/relay/**",
       "!**/node_modules",
       "!**/dist",
       "!**/routeTree.gen.ts",

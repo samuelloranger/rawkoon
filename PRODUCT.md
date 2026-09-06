@@ -20,13 +20,13 @@ Success is a household that can find, request, and receive media from one instan
 
 ## Positioning
 
-One image replaces Radarr, Sonarr, and Overseerr, and books live in that same image rather than a second project. The iPhone app is the front-end for the whole instance: it manages the movie/TV pipeline and plays audiobooks itself (chapters download offline; Now Playing is the screen a PWA could not keep alive). Video playback stays in Jellyfin or Plex.
+One image replaces Radarr, Sonarr, and Overseerr, and books live in that same image rather than a second project. The iPhone app is the front-end for the whole instance: it manages the movie/TV pipeline and plays audiobooks itself (chapters download offline; Now Playing is the screen a PWA could not keep alive). The web client plays audiobooks and reads EPUBs in the foreground (#70). Video playback stays in the operator's media player (typically Jellyfin).
 
 ## Operating Context
 
 - The instance runs at home (Docker: API + web in one container, Postgres, Redis). There is no public SaaS.
 - Administrators work in the browser for setup and library management; the iPhone is for on-the-go manage and listen.
-- Discovery: TMDB (movies/TV), Google Books (books). Releases: Prowlarr or Jackett. Downloads: qBittorrent, Transmission, or Deluge.
+- Discovery: TMDB (movies/TV); Google Books, Audnexus, Open Library, and local files (books). Releases: Prowlarr or Jackett. Downloads: qBittorrent, Transmission, or Deluge.
 - First account on a new instance is the administrator. There is no open registration; later accounts are created by an admin.
 - Books are a first-class domain behind an admin flag (`booksEnabled`).
 - Early-stage: breaking changes between releases are expected.
@@ -37,12 +37,8 @@ In-product:
 
 - Movies and TV: discover, request, quality profiles, grab, monitor, import, calendar of upcoming *releases*.
 - Books: ebook and audiobook editions, same request/grab/quality-profile surface as video.
-- iOS: Discover / Library / Activity / Settings; audiobook playback with chapter downloads, position sync, lock-screen Now Playing. The phone does not play video.
-
-Out, and to be removed:
-
-- Chores and habits.
-- Household/custom calendar events. Calendar is only upcoming movie and TV show releases.
+- Web: library management plus in-tab audiobook playback and EPUB reading (foreground only).
+- iOS: Home / Discover / Library / Activity / Settings; audiobook playback with chapter downloads, position sync, lock-screen Now Playing. The phone does not play video.
 
 Terminology that future work must keep: library, request, grab, quality profile, edition, chapter, monitor, Now Playing.
 
@@ -65,5 +61,5 @@ GPL-3.0. Published as `ghcr.io/samuelloranger/rawkoon`. Live docs: https://samlo
 1. Collapse the stack, don't recreate it — one instance, one image, books included.
 2. The phone is the remote for video and the player for audiobooks.
 3. Design for the admin's job first; household members request and listen, they do not configure.
-4. Stay a media library. Home-hub features (chores, habits, personal events) are out.
+4. Stay a media library. Do not add home-hub surfaces (chores, habits, personal events).
 5. One product on two surfaces: native iOS structure, shared Rawkoon identity.

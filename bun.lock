@@ -58,6 +58,9 @@
         "hono": "^4.6.3",
         "zod": "^3.23.8",
       },
+      "devDependencies": {
+        "bun-types": "^1.4.0",
+      },
     },
     "apps/shared": {
       "name": "@rawkoon/shared",

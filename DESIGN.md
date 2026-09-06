@@ -1,6 +1,6 @@
 ---
 name: Rawkoon
-description: Cozy Dusk — a dark-only, lamp-lit media library for the homelab and the bedside.
+description: Cozy Dusk — a lamp-lit dark media library for the homelab and the bedside.
 colors:
   apricot: "#E8A06A"
   apricot-soft: "#F0BF93"
@@ -108,10 +108,12 @@ Rawkoon is a dim room with one lamp. The ground is warm brown, almost wood, neve
 
 Web and iPhone are one product. On iOS the structure is native (tabs, stacks, sheets, SF Symbols, SF Pro on every control). Brand lives in the ground, the serif, and Now Playing. On the web, Hanken Grotesk carries the tool UI and Fraunces still owns titles. Do not fork a second identity.
 
-The system is dark-only. Light mode is not a variant; it is out of scope. Cool hues exist only as semantics (in-library, importing). They never become brand.
+The visual system is Cozy Dusk: warm brown night, one apricot lamp. Light mode is not a product variant. Cool hues exist only as semantics (in-library, importing). They never become brand.
+
+The phone UI is forced dark at the SwiftUI root (`.preferredColorScheme(.dark)`). Do **not** set `UIUserInterfaceStyle: Dark` in Info.plist — that key is app-wide and also forces the CarPlay scene, which must follow the car's day/night mode (#89).
 
 **Key Characteristics:**
-- Dark-only warm brown surfaces (base / raised / inset / well)
+- Warm brown surfaces (base / raised / inset / well); phone chrome is dark
 - One lamp: apricot for play, focus, and the single active thing
 - Terracotta for pressed, progress start, and the web primary button
 - Fraunces for titles only; never body copy
@@ -146,7 +148,7 @@ A warm, low-chroma brown night with a single apricot lamp. Secondary cool hues a
 
 **The Semantic Hue Rule.** Seed and Importing never paint chrome, buttons, or backgrounds. They label state. Brand stays warm.
 
-**The Dark-Only Rule.** There is no light theme. Do not invert the brown into cream.
+**The Dark Room Rule.** There is no light theme for the phone or the web chrome. Do not invert the brown into cream. Do not force dark via Info.plist — CarPlay must follow the car (#89).
 
 ## Typography
 
@@ -172,11 +174,19 @@ A warm, low-chroma brown night with a single apricot lamp. Secondary cool hues a
 
 ## Layout
 
-Web is a dense homelab tool: inset lists, poster grids, a 945px `mobile-max` breakpoint. iOS is four tabs (Discover, Library, Activity, Settings) plus a glass mini-player above the tab bar; Now Playing is a large sheet. Safe-area insets are real on both (PWA `viewport-fit=cover` and native).
+Web is a dense homelab tool: inset lists, poster grids, a 945px `mobile-max` breakpoint. iOS is five tabs (Home, Discover, Library, Activity, Settings) plus a glass mini-player above the tab bar; Now Playing is a large sheet. Safe-area insets are real on both (PWA `viewport-fit=cover` and native).
 
 Rhythm is 8 / 12 / 16 / 24. Poster cards are 2:3. Touch targets on iOS are 44pt minimum. Edge-swipe back stays alive; do not overlay it.
 
-Do not invent a fifth tab or a custom global nav on iOS. Sections, not actions, live in the tab bar.
+Do not invent a sixth tab or a custom global nav on iOS. Sections, not actions, live in the tab bar.
+
+## Motion
+
+One vocabulary, defined in `apps/ios/Rawkoon/Motion/RawkoonMotion.swift`. Timing comes from three springs (`spring`, `snappy`, `gentle`) plus a Reduce-Motion crossfade (`reduced`). Apply motion with `.rawkoonMotion(_:value:)`, never `.animation` directly — the helper swaps in the crossfade when Reduce Motion is on.
+
+The apricot lamp breathes while something is playing (`.breathingLamp(active:)`); under Reduce Motion it stays still.
+
+Loading placeholders are `ShimmerView`: apricot light over `Theme.well`, never a gray spinner. Under Reduce Motion the shimmer is a static well fill.
 
 ## Elevation & Depth
 
@@ -243,9 +253,9 @@ A 5px well capsule; fill is terracotta → apricot, left to right. Never a syste
 - **Do** let iOS be iOS: tabs, sheets, swipe actions, SF Symbols.
 
 ### Don't:
-- **Don't** introduce light mode, cold gray, or Plex-style neon.
+- **Don't** introduce a light theme, cold gray, or neon chrome.
 - **Don't** set body copy in Fraunces.
 - **Don't** put white type on apricot.
 - **Don't** use the CSS neutral-600 brown for text (borders only).
 - **Don't** rebuild navigation, back gestures, or tab bars as a website.
-- **Don't** paint chores, habits, or household-event chrome — those surfaces are out of the product.
+- **Don't** skip Reduce-Motion gating on springs, the breathing lamp, or shimmer.

@@ -17,7 +17,10 @@ export class RateLimiter {
     const now = this.now();
     const b = this.buckets.get(key) ?? { tokens: this.capacity, updated: now };
     const elapsed = (now - b.updated) / 1000;
-    b.tokens = Math.min(this.capacity, b.tokens + elapsed * this.refillPerSecond);
+    b.tokens = Math.min(
+      this.capacity,
+      b.tokens + elapsed * this.refillPerSecond,
+    );
     b.updated = now;
     if (b.tokens < 1) {
       this.buckets.set(key, b);

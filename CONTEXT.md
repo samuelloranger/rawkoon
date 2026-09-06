@@ -41,3 +41,34 @@ One pass of the polling loop that compares pending `DownloadHistory` rows agains
 download client's torrent list and decides, per row, whether it completed, failed, stalled,
 or should keep waiting. Owns polling cadence and stall/max-age policy — not the transitions
 themselves, which it delegates to the download outcome module.
+
+## Books
+
+### Edition
+
+The grab-able unit of a book: one **ebook** or one **audiobook** row on a
+`LibraryBook` (`BookEdition`, unique on `(bookId, kind)`). Status, monitoring,
+quality profile, files, chapters, and progress hang off the edition, not the
+title. A book can have both editions; each is requested and imported on its
+own.
+
+### Chapter
+
+A slice of an audiobook on the **whole-book timeline** (`BookChapter`). Offsets
+are the running sum of probed file durations, not the source chapter atoms
+(frame-accurate `-c copy` splits drift). The download unit is a chapter, never
+an eight-hour file. An edition without chapters is not offline-ready.
+
+### Manifest
+
+The client's whole contract for an edition: title, authors, total duration, and
+the ordered chapter list with signed content URLs
+(`GET /api/books/editions/:id/manifest`). Playback, download planning, and
+resume all read this payload — not the edition row directly.
+
+### Grant
+
+A short-lived HMAC on a content URL (`downloadGrant.ts`). Background
+`URLSession` downloads carry no session cookie, so the signature in the query
+string is what authenticates the bytes. A 401 means the grant expired: refetch
+the manifest, do not fail the chapter.

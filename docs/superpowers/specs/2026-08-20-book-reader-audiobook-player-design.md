@@ -1,3 +1,5 @@
+> Superseded by #70 (in-app web player/reader).
+
 # Book reader and audiobook player — design
 
 **Date:** 2026-08-20

@@ -317,11 +317,12 @@ monitored author has new titles.
 
 ## Limits worth knowing
 
-- **Google Books is the only metadata source.** It is the single point of
-  failure for discovery, its records are often sparse (missing descriptions,
-  page counts of zero, no cover art), and it returns transient 5xx errors for
-  valid queries. Rawkoon retries and never caches an error as "not found", but
-  it cannot invent data the provider does not have.
+- **Discovery still goes through Google Books.** Identity and title search
+  use that catalogue; enrichment then merges Audnexus, Open Library, and
+  on-disk tags (see [Metadata sources](#metadata-sources)). Google's records
+  are often sparse, and it returns transient 5xx errors for valid queries.
+  Rawkoon retries and never caches an error as "not found", but it cannot
+  invent data no provider has.
 - **A reported language can be wrong.** Rawkoon cross-checks it against the
   ISBN's registration group and corrects an obvious contradiction.
 - **Multi-book and author-collection packs are rejected.** A release containing

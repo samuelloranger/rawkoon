@@ -3,7 +3,11 @@ import { Hono } from "hono";
 import { ApnsTokenCache } from "./apnsAuth";
 import { APNS_PROD, APNS_SANDBOX, ApnsClient } from "./apnsClient";
 import { clientIpFromForwarded } from "./clientIp";
-import { buildApnsPayload, classifyApnsStatus, pushRequestSchema } from "./payload";
+import {
+  buildApnsPayload,
+  classifyApnsStatus,
+  pushRequestSchema,
+} from "./payload";
 import { RateLimiter } from "./rateLimit";
 
 // Every value here is deployment config — never a default that could silently
@@ -43,23 +47,34 @@ app.get("/health", (c) => c.json({ ok: true }));
 app.post("/push", async (c) => {
   // Rate-limit before reading the body: /push is public, so parsing first would
   // let an attacker spend memory on a huge JSON the schema always rejects.
-  const ip = clientIpFromForwarded(c.req.header("x-forwarded-for"), TRUSTED_PROXY_HOPS);
+  const ip = clientIpFromForwarded(
+    c.req.header("x-forwarded-for"),
+    TRUSTED_PROXY_HOPS,
+  );
   if (!perIp.take(ip)) return c.json({ error: "rate_limited" }, 429);
 
   const declared = Number(c.req.header("content-length") ?? 0);
-  if (declared > MAX_BODY_BYTES) return c.json({ error: "payload_too_large" }, 413);
+  if (declared > MAX_BODY_BYTES)
+    return c.json({ error: "payload_too_large" }, 413);
   const raw = await c.req.text().catch(() => "");
-  if (raw.length > MAX_BODY_BYTES) return c.json({ error: "payload_too_large" }, 413);
+  if (raw.length > MAX_BODY_BYTES)
+    return c.json({ error: "payload_too_large" }, 413);
 
   let parsedBody: unknown;
   try {
     parsedBody = JSON.parse(raw);
   } catch {
-    return c.json({ error: "invalid_request", detail: "body must be JSON" }, 400);
+    return c.json(
+      { error: "invalid_request", detail: "body must be JSON" },
+      400,
+    );
   }
   const parsed = pushRequestSchema.safeParse(parsedBody);
   if (!parsed.success) {
-    return c.json({ error: "invalid_request", detail: parsed.error.issues[0]?.message }, 400);
+    return c.json(
+      { error: "invalid_request", detail: parsed.error.issues[0]?.message },
+      400,
+    );
   }
   const req = parsed.data;
   if (!perToken.take(req.token)) return c.json({ error: "rate_limited" }, 429);
@@ -73,7 +88,10 @@ app.post("/push", async (c) => {
       collapseId: req.collapseId,
     });
   } catch (error) {
-    console.warn("apns transport error:", error instanceof Error ? error.message : error);
+    console.warn(
+      "apns transport error:",
+      error instanceof Error ? error.message : error,
+    );
     return c.json({ error: "upstream_unavailable" }, 502);
   }
 
@@ -89,5 +107,7 @@ app.post("/push", async (c) => {
   }
 });
 
-console.log(`rawkoon-relay listening on :${PORT} (${HOST}, topic ${BUNDLE_ID})`);
+console.log(
+  `rawkoon-relay listening on :${PORT} (${HOST}, topic ${BUNDLE_ID})`,
+);
 export default { port: PORT, fetch: app.fetch };

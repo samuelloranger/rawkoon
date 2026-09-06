@@ -14,9 +14,11 @@
 
 ![Library screenshot](docs/screenshots/library.png)
 
-Rawkoon is a self-hosted movie and TV library with a built-in download manager.
-It discovers titles through TMDB, searches releases through your indexer,
-downloads through qBittorrent, and tracks the library from one web UI.
+Rawkoon is a self-hosted movie, TV, ebook, and audiobook library with a
+built-in download manager. It discovers titles through TMDB and book
+providers, searches releases through your indexer, downloads through
+qBittorrent, Transmission, or Deluge, and tracks the library from one web UI.
+A native iOS app (TestFlight) manages the queue and plays audiobooks offline.
 
 > **Early-stage project.** Breaking changes may occur between releases.
 
@@ -30,9 +32,9 @@ downloads through qBittorrent, and tracks the library from one web UI.
     cp .env.example .env
     # Set SECRET_KEY, BETTER_AUTH_SECRET, and DATABASE_URL.
     docker compose -f docker-compose.prod.yml up -d
-    docker compose -f docker-compose.prod.yml exec rawkoon bunx prisma migrate deploy
 
-The application listens on port 3000 by default.
+The container applies pending Prisma migrations on boot. The application
+listens on port 3000 by default.
 
 ## License
 
