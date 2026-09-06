@@ -489,11 +489,13 @@ struct BookView: View {
                         releaseSearchLane = .audiobook
                     } label: {
                         Label("Search releases", systemImage: "magnifyingglass")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                             .frame(maxWidth: .infinity)
                             .frame(height: 22)
                     }
                     .buttonStyle(.bordered)
-                    .tint(Theme.apricot)
+                    .tint(Theme.muted)
 
                     if manifest == nil {
                         Button {
@@ -501,16 +503,18 @@ struct BookView: View {
                         } label: {
                             Group {
                                 if rescanningManifest {
-                                    ProgressView().tint(Theme.apricot)
+                                    ProgressView().tint(Theme.muted)
                                 } else {
                                     Label("Rescan", systemImage: "arrow.clockwise")
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.85)
                                 }
                             }
                             .frame(maxWidth: .infinity)
                             .frame(height: 22)
                         }
                         .buttonStyle(.bordered)
-                        .tint(Theme.raised)
+                        .tint(Theme.muted)
                         .disabled(rescanningManifest || loadingManifest)
                     }
                 }
@@ -782,6 +786,8 @@ struct BookView: View {
                         releaseSearchLane = .ebook
                     } label: {
                         Label("Search releases", systemImage: "magnifyingglass")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                             .frame(maxWidth: .infinity).frame(height: 22)
                     }
                     .buttonStyle(.bordered)
@@ -795,12 +801,14 @@ struct BookView: View {
                                 ProgressView().tint(Theme.muted)
                             } else {
                                 Label("Rescan", systemImage: "arrow.clockwise")
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.85)
                             }
                         }
                         .frame(maxWidth: .infinity).frame(height: 22)
                     }
                     .buttonStyle(.bordered)
-                    .tint(Theme.raised)
+                    .tint(Theme.muted)
                     .disabled(rescanningEbook || loadingEbookFiles)
                 }
             }
@@ -850,24 +858,30 @@ struct BookView: View {
                                 }
                                 .buttonStyle(.bordered)
                                 .tint(Theme.terracotta)
+                                .lineLimit(1)
                             }
+                            .fixedSize()
                         } else if loadingState {
                             ProgressView().tint(Theme.muted)
                         } else {
+                            // Actions hold their intrinsic width; the file name (which
+                            // wraps to two lines) yields the remaining space, so labels
+                            // like "Retirer" never break character-by-character.
                             HStack(spacing: 7) {
                                 if downloaded {
-                                    StatusBadge(text: "Offline", tint: Theme.seed)
                                     Button("Remove") {
                                         ebookFileToRemove = file
                                     }
                                     .buttonStyle(.bordered)
                                     .tint(Theme.terracotta)
+                                    .lineLimit(1)
                                 } else {
                                     Button("Download") {
                                         startEbookDownload(file)
                                     }
                                     .buttonStyle(.bordered)
                                     .tint(Theme.muted)
+                                    .lineLimit(1)
                                     .disabled(!canFetchRemote)
                                 }
 
@@ -877,11 +891,13 @@ struct BookView: View {
                                     }
                                     .buttonStyle(.bordered)
                                     .tint(Theme.muted)
+                                    .lineLimit(1)
                                     .disabled(!downloaded && !canFetchRemote)
                                 } else {
                                     StatusBadge(text: "Ebook only", tint: Theme.muted)
                                 }
                             }
+                            .fixedSize()
                         }
                     }
                     .padding(11)

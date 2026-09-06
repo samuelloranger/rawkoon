@@ -464,12 +464,13 @@ struct MediaDetailView: View {
                     Task { await runRescan() }
                 } label: {
                     Label("Rescan files", systemImage: "arrow.clockwise")
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
                 .tint(Theme.muted)
                 .disabled(applyingManagementChange)
-
-                Spacer(minLength: 0)
 
                 Button(role: .destructive) {
                     pendingRemoveLibraryId = libraryId
@@ -477,6 +478,9 @@ struct MediaDetailView: View {
                     showingRemoveConfirm = true
                 } label: {
                     Label("Remove from library", systemImage: "trash")
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
                 .tint(Theme.terracotta)
