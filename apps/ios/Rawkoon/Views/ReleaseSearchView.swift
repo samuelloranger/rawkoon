@@ -450,7 +450,8 @@ struct ReleaseSearchView: View {
                        releaseTitle: release.title,
                        expectedTitle: expectedTitle,
                        expectedYear: mediaYear
-                   ) {
+                   )
+                {
                     return false
                 }
             }
@@ -880,7 +881,7 @@ private struct BadgeChip: View {
 private struct FlowLayout: Layout {
     var spacing: CGFloat = 6
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
         let maxWidth = proposal.width ?? .greatestFiniteMagnitude
         var rowWidth: CGFloat = 0
         var rowHeight: CGFloat = 0
@@ -903,7 +904,7 @@ private struct FlowLayout: Layout {
         return CGSize(width: totalWidth, height: totalHeight)
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+    func placeSubviews(in bounds: CGRect, proposal _: ProposedViewSize, subviews: Subviews, cache _: inout ()) {
         var x = bounds.minX
         var y = bounds.minY
         var rowHeight: CGFloat = 0
