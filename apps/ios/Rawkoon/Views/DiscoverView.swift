@@ -184,6 +184,7 @@ struct DiscoverView: View {
             SwipeDeck(
                 items: deckItems,
                 label: deckSource.map(deckLabel(for:)) ?? "",
+                primaryActionTitle: model.isAdmin ? String(localized: "Add") : String(localized: "Request"),
                 onDismiss: handleDismiss,
                 onWatchlist: handleWatchlist,
                 onPrimary: handlePrimary,
@@ -513,7 +514,10 @@ struct DiscoverView: View {
             guard let client = model.api() else { return }
             do {
                 if model.isAdmin {
-                    try await client.addToLibrary(tmdbId: item.tmdbId, type: item.mediaType)
+                    try await client.addToLibrary(
+                        tmdbId: item.tmdbId,
+                        type: item.mediaType == "tv" ? "show" : "movie"
+                    )
                     await model.loadLibrary()
                     model.toast(String(localized: "Added to library"), style: .success)
                 } else {

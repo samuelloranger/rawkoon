@@ -11,6 +11,11 @@ struct SwipeDeck: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let label: String
+    /// The primary button's accessibility label — "Add" for an admin
+    /// (adds straight to the library), "Request" otherwise (files a
+    /// request). The button itself is icon-only, so this is what VoiceOver
+    /// announces the role difference through.
+    let primaryActionTitle: String
     let onDismiss: (DiscoverDeckItem) -> Void
     let onWatchlist: (DiscoverDeckItem) -> Void
     let onPrimary: (DiscoverDeckItem) -> Void
@@ -30,6 +35,7 @@ struct SwipeDeck: View {
     init(
         items: [DiscoverDeckItem],
         label: String,
+        primaryActionTitle: String,
         onDismiss: @escaping (DiscoverDeckItem) -> Void,
         onWatchlist: @escaping (DiscoverDeckItem) -> Void,
         onPrimary: @escaping (DiscoverDeckItem) -> Void,
@@ -38,6 +44,7 @@ struct SwipeDeck: View {
     ) {
         _items = State(initialValue: items)
         self.label = label
+        self.primaryActionTitle = primaryActionTitle
         self.onDismiss = onDismiss
         self.onWatchlist = onWatchlist
         self.onPrimary = onPrimary
@@ -114,7 +121,7 @@ struct SwipeDeck: View {
             actionButton(system: "xmark", label: "Not interested", filled: false) {
                 actOnTop(.dismiss)
             }
-            actionButton(system: "paperplane.fill", label: "Add", filled: true) {
+            actionButton(system: "paperplane.fill", label: LocalizedStringKey(primaryActionTitle), filled: true) {
                 actOnTop(.primary)
             }
             actionButton(system: "bookmark", label: "Watchlist", filled: false) {
