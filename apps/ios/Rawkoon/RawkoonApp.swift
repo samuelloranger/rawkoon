@@ -147,15 +147,18 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 private struct RootTabsView: View {
     @Environment(AppModel.self) private var model
     @State private var showFullPlayer = false
-    @State private var selection: Int
+    @State private var selection: String
 
     init() {
         // Library is the household default. Admins are moved to Home in `.task`
         // once `isAdmin` is known. Debug `RAWKOON_TAB` still wins.
-        var initial = 2
+        var initial = "library"
         #if DEBUG
             if let raw = ProcessInfo.processInfo.environment["RAWKOON_TAB"], let value = Int(raw) {
-                initial = value
+                let tags = ["home", "discover", "library", "activity", "settings"]
+                if tags.indices.contains(value) {
+                    initial = tags[value]
+                }
             }
         #endif
         _selection = State(initialValue: initial)
@@ -203,52 +206,47 @@ private struct RootTabsView: View {
     private var mainTabs: some View {
         TabView(selection: $selection) {
             if model.isAdmin {
+                Tab("Home", systemImage: "house", value: "home") {
+                    NavigationStack {
+                        HomeView()
+                    }
+                }
+                .customizationID("tab.home")
+            }
+
+            Tab("Discover", systemImage: "sparkles.rectangle.stack", value: "discover") {
                 NavigationStack {
-                    HomeView()
+                    DiscoverView()
                 }
-                .modifier(MiniPlayerInset { showFullPlayer = true })
-                .tabItem {
-                    Label("Home", systemImage: "house")
+            }
+            .customizationID("tab.discover")
+
+            Tab("Library", systemImage: "square.stack", value: "library") {
+                NavigationStack {
+                    LibraryView()
                 }
-                .tag(0)
             }
+            .customizationID("tab.library")
 
-            NavigationStack {
-                DiscoverView()
+            Tab("Activity", systemImage: "arrow.down.circle", value: "activity") {
+                NavigationStack {
+                    ActivityView()
+                }
             }
-            .modifier(MiniPlayerInset { showFullPlayer = true })
-            .tabItem {
-                Label("Discover", systemImage: "sparkles.rectangle.stack")
-            }
-            .tag(1)
+            .customizationID("tab.activity")
 
-            NavigationStack {
-                LibraryView()
+            Tab("Settings", systemImage: "gearshape", value: "settings") {
+                NavigationStack {
+                    SettingsView()
+                }
             }
-            .modifier(MiniPlayerInset { showFullPlayer = true })
-            .tabItem {
-                Label("Library", systemImage: "square.stack")
-            }
-            .tag(2)
+            .customizationID("tab.settings")
 
-            NavigationStack {
-                ActivityView()
+            Tab("Search", systemImage: "magnifyingglass", value: "search", role: .search) {
+                GlobalSearchView()
             }
-            .modifier(MiniPlayerInset { showFullPlayer = true })
-            .tabItem {
-                Label("Activity", systemImage: "arrow.down.circle")
-            }
-            .tag(3)
-
-            NavigationStack {
-                SettingsView()
-            }
-            .modifier(MiniPlayerInset { showFullPlayer = true })
-            .tabItem {
-                Label("Settings", systemImage: "gearshape")
-            }
-            .tag(4)
         }
+        .tabViewStyle(.sidebarAdaptable)
         .tint(Theme.apricot)
         .alert(
             "Couldn't play chapter",
@@ -283,8 +281,8 @@ private struct RootTabsView: View {
                 await model.loadLibrary()
             }
             // `isAdmin` is false until refreshAdmin runs inside loadLibrary.
-            if !debugTabLocked, model.isAdmin, selection == 2 {
-                selection = 0
+            if !debugTabLocked, model.isAdmin, selection == "library" {
+                selection = "home"
             }
         }
     }
