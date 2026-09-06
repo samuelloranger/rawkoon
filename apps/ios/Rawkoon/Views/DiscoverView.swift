@@ -543,7 +543,9 @@ struct DiscoverView: View {
                         type: item.mediaType == "tv" ? "show" : "movie",
                         title: item.title,
                         posterUrl: item.posterUrl,
-                        year: item.releaseYear
+                        year: item.releaseYear,
+                        googleVolumeId: nil,
+                        author: nil
                     ))
                     model.toast(String(localized: "Requested — we'll notify you"), style: .success)
                 }

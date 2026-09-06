@@ -1112,7 +1112,9 @@ struct MediaDetailView: View {
             type: mediaType == "tv" ? "show" : "movie",
             title: title,
             posterUrl: posterPath,
-            year: yearValue
+            year: yearValue,
+            googleVolumeId: nil,
+            author: nil
         )
 
         do {

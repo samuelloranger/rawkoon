@@ -445,9 +445,9 @@ nonisolated struct CreateRequestBody: Encodable, Sendable {
     let posterUrl: String?
     let year: Int?
     /// Book requests only.
-    let googleVolumeId: String? = nil
+    let googleVolumeId: String?
     /// Book requests only.
-    let author: String? = nil
+    let author: String?
 }
 
 // MARK: - Interactive release search + grab
