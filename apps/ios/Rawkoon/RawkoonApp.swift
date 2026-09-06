@@ -194,6 +194,15 @@ private struct RootTabsView: View {
             case "indexers": NavigationStack { IndexersView() }
             case "users": NavigationStack { UsersView() }
             case "downloadClient": NavigationStack { DownloadClientView() }
+            case "shimmerTEMP":
+                VStack(spacing: 16) {
+                    ShimmerView(cornerRadius: 8).frame(height: 60)
+                    ShimmerView(cornerRadius: 12).frame(height: 100)
+                    ShimmerView(cornerRadius: 24).frame(width: 120, height: 120)
+                }
+                .padding()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black)
             default: mainTabs
             }
         }
