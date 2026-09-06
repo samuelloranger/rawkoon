@@ -1131,7 +1131,7 @@ private struct ReleaseRow: View {
     private var specLine: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             if let resolution = release.parsedQuality?.resolution {
-                Text("\(resolution)p")
+                Text(verbatim: "\(resolution)p")
                     .font(.system(.subheadline, design: .monospaced).weight(.semibold))
                     .foregroundStyle(Theme.textStrong)
             }
@@ -1158,7 +1158,7 @@ private struct ReleaseRow: View {
         HStack(spacing: 4) {
             Image(systemName: "gauge.with.needle")
                 .font(.system(size: 10))
-            Text("\(value)")
+            Text(verbatim: "\(value)")
                 .font(.system(.caption, design: .monospaced).weight(.semibold))
         }
         .foregroundStyle(Theme.apricotSoft)
@@ -1174,10 +1174,18 @@ private struct ReleaseRow: View {
         HStack(spacing: 12) {
             if release.seeders != nil || release.leechers != nil {
                 HStack(spacing: 10) {
-                    Label("\(release.seeders ?? 0)", systemImage: "arrow.up")
-                        .foregroundStyle(seederColor)
-                    Label("\(release.leechers ?? 0)", systemImage: "arrow.down")
-                        .foregroundStyle(Theme.muted)
+                    Label {
+                        Text(verbatim: "\(release.seeders ?? 0)")
+                    } icon: {
+                        Image(systemName: "arrow.up")
+                    }
+                    .foregroundStyle(seederColor)
+                    Label {
+                        Text(verbatim: "\(release.leechers ?? 0)")
+                    } icon: {
+                        Image(systemName: "arrow.down")
+                    }
+                    .foregroundStyle(Theme.muted)
                 }
                 .labelStyle(.titleAndIcon)
             }
