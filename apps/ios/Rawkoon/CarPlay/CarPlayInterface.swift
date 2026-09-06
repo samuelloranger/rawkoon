@@ -8,15 +8,16 @@ import UIKit
 /// RawkoonKit (`CarPlayBrowse`); this file is the UIKit-bound glue and lives in
 /// the app target because CarPlay types cannot compile on Linux CI.
 enum CarPlayInterface {
-    /// A shallow information template used for the logged-out / empty / error
-    /// states. CarPlay audio apps may only use system templates.
-    static func message(_ text: String, title: String) -> CPInformationTemplate {
-        CPInformationTemplate(
-            title: title,
-            layout: .leading,
-            items: [CPInformationItem(title: nil, detail: text)],
-            actions: []
-        )
+    /// The logged-out / empty / error state. Built as an empty `CPListTemplate`
+    /// whose empty-view strings carry the message: `CPInformationTemplate` is a
+    /// system template but not an allowed *root* for the CarPlay audio category,
+    /// so setting it as the root traps in `CPAssertAllowedClasses`. `CPListTemplate`
+    /// is a valid audio root, and an item-less one shows its empty-view variants.
+    static func message(_ text: String, title: String) -> CPListTemplate {
+        let template = CPListTemplate(title: title, sections: [])
+        template.emptyViewTitleVariants = [title]
+        template.emptyViewSubtitleVariants = [text]
+        return template
     }
 
     /// Builds the two browse sections from already-loaded model state. Returns
