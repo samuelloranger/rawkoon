@@ -244,9 +244,7 @@ private struct RootTabsView: View {
         }
         .tabViewStyle(.sidebarAdaptable)
         .tint(Theme.apricot)
-        .tabViewBottomAccessory {
-            MiniPlayerView(onExpand: { showFullPlayer = true })
-        }
+        .miniPlayerAccessory(onExpand: { showFullPlayer = true })
         .alert(
             "Couldn't play chapter",
             isPresented: Binding(
@@ -282,6 +280,23 @@ private struct RootTabsView: View {
             // `isAdmin` is false until refreshAdmin runs inside loadLibrary.
             if !debugTabLocked, model.isAdmin, selection == "library" {
                 selection = "home"
+            }
+        }
+    }
+}
+
+extension View {
+    /// `tabViewBottomAccessory` is iOS 26+; the app's deployment target is 18,
+    /// so pre-26 devices keep the mini player as a bottom safe-area inset.
+    @ViewBuilder
+    fileprivate func miniPlayerAccessory(onExpand: @escaping () -> Void) -> some View {
+        if #available(iOS 26.0, *) {
+            self.tabViewBottomAccessory {
+                MiniPlayerView(onExpand: onExpand)
+            }
+        } else {
+            self.safeAreaInset(edge: .bottom) {
+                MiniPlayerView(onExpand: onExpand)
             }
         }
     }
