@@ -778,6 +778,24 @@ actor APIClient {
         try await get("/api/medias/tmdb-search", query: ["q": q, "kind": kind])
     }
 
+    /// Discover deck (swipe)
+    func discoverDeck(exclude: [Int], limit: Int = 20, language: String? = nil) async throws -> DiscoverDeckResponse {
+        let excludeParam = exclude.isEmpty ? nil : exclude.map(String.init).joined(separator: ",")
+        return try await get(
+            "/api/medias/discover/deck",
+            query: ["limit": String(limit), "exclude": excludeParam, "language": language]
+        )
+    }
+
+    func dismissDiscover(tmdbId: Int, type: String) async throws {
+        nonisolated struct Body: Encodable { let tmdbId: Int; let type: String }
+        try await postExpectOK("/api/medias/discover/dismiss", body: Body(tmdbId: tmdbId, type: type))
+    }
+
+    func undismissDiscover(tmdbId: Int, type: String) async throws {
+        try await deleteExpectOK("/api/medias/discover/dismiss/\(tmdbId)", query: ["type": type])
+    }
+
     func bookSearch(q: String) async throws -> BookSearchResponse {
         try await get("/api/books/search", query: ["q": q])
     }

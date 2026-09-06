@@ -58,6 +58,30 @@ nonisolated struct TmdbSearchResponse: Decodable, Sendable {
     let items: [TmdbSearchItem]
 }
 
+// MARK: - Discover deck (swipe)
+
+nonisolated enum DiscoverSource: String, Codable, Sendable {
+    case personalized
+    case trending
+}
+
+nonisolated struct DiscoverDeckItem: Codable, Identifiable, Hashable, Sendable {
+    let id: String // "${media_type}-${tmdb_id}"
+    let tmdbId: Int
+    let mediaType: String // "movie" | "tv"
+    let title: String
+    let releaseYear: Int?
+    let posterUrl: String?
+    let overview: String?
+    let voteAverage: Double?
+    let genreIds: [Int]
+}
+
+nonisolated struct DiscoverDeckResponse: Codable, Sendable {
+    let items: [DiscoverDeckItem]
+    let source: DiscoverSource
+}
+
 nonisolated struct BookSearchHit: Decodable, Identifiable, Hashable, Sendable {
     var id: String {
         googleVolumeId
