@@ -1014,9 +1014,14 @@ private struct ReleaseRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 8) {
-                titleView
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 6) {
+                    titleView
+                    if hasMarkers {
+                        markersLine
+                    }
+                }
                 Spacer(minLength: 8)
                 VStack(alignment: .trailing, spacing: 8) {
                     grabButton
@@ -1024,7 +1029,10 @@ private struct ReleaseRow: View {
                 }
             }
 
-            badgeStrip
+            if hasSpecLine {
+                specLine
+            }
+            healthLine
 
             if isRejected {
                 rejectionReasons
@@ -1034,12 +1042,33 @@ private struct ReleaseRow: View {
                 ScoreBreakdownPanel(breakdown: breakdown)
             }
         }
-        .padding(12)
-        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12))
+        .padding(14)
+        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
+        // A slim apricot spine marks the AI's pick from the card edge, so the
+        // recommendation reads at a glance without adding another chip.
+        .overlay(alignment: .leading) {
+            if isAiPick {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Theme.apricot)
+                    .frame(width: 3)
+                    .padding(.vertical, 12)
+                    .padding(.leading, 1)
+            }
+        }
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(isRejected ? Theme.apricotSoft : Theme.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(cardBorder, lineWidth: 1)
         )
+    }
+
+    private var cardBorder: Color {
+        if isRejected {
+            return Theme.apricotSoft
+        }
+        if isAiPick {
+            return Theme.apricot.opacity(0.5)
+        }
+        return Theme.border
     }
 
     @ViewBuilder
@@ -1064,25 +1093,53 @@ private struct ReleaseRow: View {
         }
     }
 
-    private var badgeStrip: some View {
-        FlowLayout(spacing: 6) {
+    private var hasMarkers: Bool {
+        isAiPick || release.isCompleteSeries == true || release.isSeasonPack == true
+    }
+
+    /// Only the release's special attributes (AI pick, pack) — kept off the spec
+    /// and health lines so those stay scannable.
+    private var markersLine: some View {
+        HStack(spacing: 6) {
             if isAiPick {
-                aiPickBadge
+                HStack(spacing: 3) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 9))
+                    Text("AI Pick")
+                        .font(.system(.caption2, design: .monospaced).weight(.semibold))
+                }
+                .foregroundStyle(Theme.apricotSoft)
             }
             if release.isCompleteSeries == true {
                 BadgeChip(text: "Intégrale", fg: Theme.apricotSoft, bg: Theme.apricot.opacity(0.12))
-            }
-            if release.isSeasonPack == true, release.isCompleteSeries != true {
+            } else if release.isSeasonPack == true {
                 BadgeChip(text: "Season pack", fg: Theme.apricotSoft, bg: Theme.apricot.opacity(0.12))
             }
-            if let indexer = release.indexer, !indexer.isEmpty {
-                BadgeChip(text: indexer)
+        }
+    }
+
+    private var hasSpecLine: Bool {
+        release.parsedQuality?.resolution != nil
+            || secondarySpec != nil
+            || (release.parsedQuality?.hdr.map { !$0.isEmpty } ?? false)
+            || release.freeleech == true
+            || release.qualityScore != nil
+    }
+
+    /// The scan anchor: resolution large, source/codec demoted, HDR/FL inline,
+    /// and the profile score as the card's one accent, right-aligned.
+    private var specLine: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            if let resolution = release.parsedQuality?.resolution {
+                Text("\(resolution)p")
+                    .font(.system(.subheadline, design: .monospaced).weight(.semibold))
+                    .foregroundStyle(Theme.textStrong)
             }
-            if let sizeText {
-                BadgeChip(text: sizeText)
-            }
-            if let parsedQualityText {
-                BadgeChip(text: parsedQualityText)
+            if let secondarySpec {
+                Text(secondarySpec)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.muted)
+                    .lineLimit(1)
             }
             if let hdr = release.parsedQuality?.hdr, !hdr.isEmpty {
                 BadgeChip(text: hdr, fg: Theme.apricotSoft, bg: Theme.apricot.opacity(0.14))
@@ -1090,39 +1147,57 @@ private struct ReleaseRow: View {
             if release.freeleech == true {
                 BadgeChip(text: "FL", fg: Theme.seed, bg: Theme.seed.opacity(0.14))
             }
+            Spacer(minLength: 8)
             if let qualityScore = release.qualityScore {
-                BadgeChip(
-                    text: "Score \(Int(qualityScore.rounded()))",
-                    fg: Theme.apricotSoft,
-                    bg: Theme.apricot.opacity(0.12)
-                )
-            }
-            if let age = release.age {
-                BadgeChip(text: "Age: \(age)d")
-            }
-            if let seedLeechText {
-                BadgeChip(text: seedLeechText, fg: Theme.seed)
-            }
-            if !release.languages.isEmpty {
-                BadgeChip(text: release.languages.joined(separator: ", "))
+                scoreAccent(Int(qualityScore.rounded()))
             }
         }
     }
 
-    /// Violet is absent from Cozy Dusk, so the AI badge uses the apricot accent
-    /// family — the palette's designated "special" highlight.
-    private var aiPickBadge: some View {
-        HStack(spacing: 3) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 9))
-            Text("AI Pick")
-                .font(.system(.caption2, design: .monospaced))
+    private func scoreAccent(_ value: Int) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "gauge.with.needle")
+                .font(.system(size: 10))
+            Text("\(value)")
+                .font(.system(.caption, design: .monospaced).weight(.semibold))
         }
         .foregroundStyle(Theme.apricotSoft)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(Theme.apricot.opacity(0.14), in: Capsule())
+        .padding(.horizontal, 9)
+        .padding(.vertical, 4)
+        .background(Theme.apricot.opacity(0.12), in: Capsule())
+        .overlay(Capsule().strokeBorder(Theme.apricot.opacity(0.28), lineWidth: 1))
         .fixedSize()
+    }
+
+    /// Seeders (green when healthy) / leechers, then size, then quiet metadata.
+    private var healthLine: some View {
+        HStack(spacing: 12) {
+            if release.seeders != nil || release.leechers != nil {
+                HStack(spacing: 10) {
+                    Label("\(release.seeders ?? 0)", systemImage: "arrow.up")
+                        .foregroundStyle(seederColor)
+                    Label("\(release.leechers ?? 0)", systemImage: "arrow.down")
+                        .foregroundStyle(Theme.muted)
+                }
+                .labelStyle(.titleAndIcon)
+            }
+            if let sizeText {
+                Text(sizeText)
+                    .foregroundStyle(Theme.text)
+            }
+            Spacer(minLength: 8)
+            if let metaText {
+                Text(metaText)
+                    .foregroundStyle(Theme.faint)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+        }
+        .font(.system(.caption2, design: .monospaced))
+    }
+
+    private var seederColor: Color {
+        (release.seeders ?? 0) > 0 ? Theme.seed : Theme.muted
     }
 
     private var rejectionReasons: some View {
@@ -1206,15 +1281,12 @@ private struct ReleaseRow: View {
         }
     }
 
-    /// Server parsed quality as `resolutionp · source · codec`, dropping empties.
-    private var parsedQualityText: String? {
+    /// Source and codec only (resolution is rendered separately as the anchor).
+    private var secondarySpec: String? {
         guard let parsed = release.parsedQuality else {
             return nil
         }
         var parts: [String] = []
-        if let resolution = parsed.resolution {
-            parts.append("\(resolution)p")
-        }
         if let source = parsed.source, !source.isEmpty {
             parts.append(source)
         }
@@ -1231,13 +1303,19 @@ private struct ReleaseRow: View {
         return ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
     }
 
-    private var seedLeechText: String? {
-        guard release.seeders != nil || release.leechers != nil else {
-            return nil
+    /// Quiet provenance: indexer, age, languages — the least-scanned data.
+    private var metaText: String? {
+        var parts: [String] = []
+        if let indexer = release.indexer, !indexer.isEmpty {
+            parts.append(indexer)
         }
-        let seeders = release.seeders.map(String.init) ?? "–"
-        let leechers = release.leechers.map(String.init) ?? "–"
-        return "S/L: \(seeders)/\(leechers)"
+        if let age = release.age {
+            parts.append("\(age)d")
+        }
+        if !release.languages.isEmpty {
+            parts.append(release.languages.joined(separator: ", "))
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }
 
