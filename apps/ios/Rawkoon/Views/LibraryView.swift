@@ -107,10 +107,19 @@ private enum BookSort: String, CaseIterable, Identifiable {
     }
 }
 
+/// Two densities only (not the web's three): the default poster grid and an
+/// opt-in list. Persisted per-device via `@AppStorage`.
+private enum LibraryDensity: String, CaseIterable {
+    case grid, list
+}
+
 struct LibraryView: View {
     @Environment(AppModel.self) private var model
 
     @State private var section: LibrarySection = .media
+
+    // Grid is the default so the first open is byte-identical to today.
+    @AppStorage("library.density") private var densityRaw = LibraryDensity.grid.rawValue
 
     // Media filters/sort — web defaults.
     @State private var mediaType: MediaTypeFilter = .all
@@ -145,6 +154,12 @@ struct LibraryView: View {
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
 
+    private var density: LibraryDensity { LibraryDensity(rawValue: densityRaw) ?? .grid }
+
+    private var densityBinding: Binding<LibraryDensity> {
+        Binding(get: { density }, set: { densityRaw = $0.rawValue })
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             Picker("Section", selection: $section) {
@@ -170,6 +185,18 @@ struct LibraryView: View {
         .navigationTitle("Library")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if section == .media {
+                    Menu {
+                        Picker("Layout", selection: densityBinding) {
+                            Label("Grid", systemImage: "square.grid.2x2").tag(LibraryDensity.grid)
+                            Label("List", systemImage: "list.bullet").tag(LibraryDensity.list)
+                        }
+                    } label: {
+                        Label("Layout", systemImage: density == .grid ? "square.grid.2x2" : "list.bullet")
+                    }
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {
                     RequestsView()
@@ -353,7 +380,14 @@ struct LibraryView: View {
     @ViewBuilder
     private var content: some View {
         if section == .media {
-            mediaGrid
+            ZStack {
+                if density == .list {
+                    mediaList
+                } else {
+                    mediaGrid
+                }
+            }
+            .rawkoonMotion(RawkoonMotion.spring, value: density)
         } else {
             booksGrid
         }
@@ -427,12 +461,101 @@ struct LibraryView: View {
     @ViewBuilder
     private var mediaOverlay: some View {
         if loadingMedia, media.isEmpty {
-            ProgressView().tint(Theme.apricot)
+            if density == .list {
+                mediaListSkeleton
+            } else {
+                mediaGridSkeleton
+            }
         } else if let mediaError, media.isEmpty {
             ContentUnavailableView("Couldn't load", systemImage: "exclamationmark.triangle", description: Text(mediaError))
         } else if !loadingMedia, mediaError == nil, media.isEmpty {
             ContentUnavailableView("No titles", systemImage: "film", description: Text("Nothing matches these filters."))
         }
+    }
+
+    /// Warm skeleton poster grid shown while the first media page loads.
+    private var mediaGridSkeleton: some View {
+        ScrollView {
+            LazyVGrid(columns: columns, spacing: 16) {
+                ForEach(0 ..< 9, id: \.self) { _ in
+                    VStack(alignment: .leading, spacing: 6) {
+                        ShimmerView(cornerRadius: 10)
+                            .aspectRatio(2.0 / 3.0, contentMode: .fit)
+                        ShimmerView(cornerRadius: 4).frame(height: 12)
+                    }
+                }
+            }
+            .padding(16)
+        }
+        .allowsHitTesting(false)
+    }
+
+    /// Warm skeleton rows matching the list layout while the first page loads.
+    private var mediaListSkeleton: some View {
+        ScrollView {
+            LazyVStack(spacing: 8) {
+                ForEach(0 ..< 8, id: \.self) { _ in
+                    HStack(alignment: .top, spacing: 12) {
+                        ShimmerView(cornerRadius: 6).frame(width: 46, height: 69)
+                        VStack(alignment: .leading, spacing: 6) {
+                            ShimmerView(cornerRadius: 4).frame(height: 14)
+                            ShimmerView(cornerRadius: 4).frame(width: 140, height: 10)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(12)
+                    .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12))
+                }
+            }
+            .padding(.horizontal, 16).padding(.vertical, 16)
+        }
+        .allowsHitTesting(false)
+    }
+
+    private var mediaList: some View {
+        ScrollView {
+            LazyVStack(spacing: 8) {
+                ForEach(media) { m in
+                    NavigationLink {
+                        MediaDetailView(
+                            tmdbId: m.tmdbId,
+                            mediaType: m.type == "show" ? "tv" : "movie",
+                            title: m.title,
+                            posterPath: m.posterUrl,
+                            libraryId: m.id
+                        )
+                    } label: {
+                        LibraryMediaRow(
+                            media: m,
+                            posterURL: model.absoluteURL(m.posterUrl),
+                            isBusy: busyMediaIds.contains(m.id),
+                            menuItems: mediaPosterMenuItems(inLibrary: true, isAdmin: model.isAdmin),
+                            onMenuAction: { handleMediaMenu($0, media: m) }
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if mediaHasMore {
+                    Button {
+                        Task { await loadMedia(reset: false) }
+                    } label: {
+                        if loadingMoreMedia {
+                            ProgressView().tint(Theme.apricot)
+                        } else {
+                            Text("Load more")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Theme.text)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .frame(minHeight: 44)
+                }
+            }
+            .padding(.horizontal, 16).padding(.vertical, 16)
+        }
+        .overlay { mediaOverlay }
+        .refreshable { await loadMedia(reset: true) }
     }
 
     private var booksGrid: some View {

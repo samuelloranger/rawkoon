@@ -9,10 +9,110 @@ struct SettingsView: View {
     @State private var appVersion: String?
     @State private var confirmDeleteDownloads = false
     @State private var confirmLogOut = false
+    @State private var settingsSearch = ""
+
+    private var isSearching: Bool {
+        !settingsSearch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var searchResults: [SettingsDestination] {
+        guard model.isAdmin else { return [] }
+        return SettingsDestination.allCases.filter { $0.matches(settingsSearch) }
+    }
 
     var body: some View {
         @Bindable var model = model
         return Form {
+            if isSearching {
+                searchResultsSection
+            } else {
+                staticSections
+                adminSections
+            }
+        }
+        .searchable(
+            text: $settingsSearch,
+            placement: .navigationBarDrawer(displayMode: .automatic),
+            prompt: "Search settings"
+        )
+        .scrollContentBackground(.hidden)
+        .background(Theme.base)
+        .tint(Theme.apricot)
+        .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog(
+            "Delete downloaded chapters?",
+            isPresented: $confirmDeleteDownloads,
+            titleVisibility: .visible
+        ) {
+            Button("Delete Downloads", role: .destructive) {
+                model.deleteDownloads()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Removes offline audiobook chapters from this iPhone. Playback will need the network until they download again.")
+        }
+        .confirmationDialog(
+            "Log out of Rawkoon?",
+            isPresented: $confirmLogOut,
+            titleVisibility: .visible
+        ) {
+            Button("Log Out", role: .destructive) {
+                model.logout()
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .task {
+            await model.refreshAdminIfNeeded()
+            await loadAccount()
+            await loadVersion()
+        }
+    }
+
+    @ViewBuilder
+    private var searchResultsSection: some View {
+        Section {
+            if searchResults.isEmpty {
+                Text("No settings match \u{201C}\(settingsSearch)\u{201D}")
+                    .foregroundStyle(Theme.muted)
+            } else {
+                ForEach(searchResults) { destination in
+                    NavigationLink {
+                        destination.destination
+                    } label: {
+                        Label(destination.title, systemImage: destination.systemImage)
+                    }
+                }
+            }
+        }
+        .listRowBackground(Theme.raised)
+    }
+
+    @ViewBuilder
+    private var adminSections: some View {
+        if model.isAdmin {
+            ForEach(SettingsGroup.allCases) { group in
+                let items = SettingsDestination.allCases.filter { $0.group == group }
+                Section {
+                    ForEach(items) { destination in
+                        NavigationLink {
+                            destination.destination
+                        } label: {
+                            Label(destination.title, systemImage: destination.systemImage)
+                        }
+                    }
+                } header: {
+                    Text(group.title)
+                }
+                .listRowBackground(Theme.raised)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var staticSections: some View {
+        @Bindable var model = model
+        Group {
             Section("Account") {
                 TextField("Server URL", text: $model.serverURL)
                     .disabled(true)
@@ -70,143 +170,6 @@ struct SettingsView: View {
             }
             .listRowBackground(Theme.raised)
 
-            if model.isAdmin {
-                Section("Admin") {
-                    NavigationLink {
-                        GeneralSettingsView()
-                    } label: {
-                        Label("General", systemImage: "globe")
-                    }
-
-                    NavigationLink {
-                        TmdbIntegrationView()
-                    } label: {
-                        Label("TMDB", systemImage: "film")
-                    }
-
-                    NavigationLink {
-                        JellyfinIntegrationView()
-                    } label: {
-                        Label("Jellyfin", systemImage: "play.rectangle")
-                    }
-
-                    NavigationLink {
-                        LocalAiIntegrationView()
-                    } label: {
-                        Label("Local AI", systemImage: "brain")
-                    }
-
-                    NavigationLink {
-                        IndexerManagerIntegrationView(kind: .prowlarr)
-                    } label: {
-                        Label("Prowlarr", systemImage: "magnifyingglass.circle")
-                    }
-
-                    NavigationLink {
-                        IndexerManagerIntegrationView(kind: .jackett)
-                    } label: {
-                        Label("Jackett", systemImage: "magnifyingglass.circle")
-                    }
-
-                    NavigationLink {
-                        BooksProviderView()
-                    } label: {
-                        Label("Book providers", systemImage: "books.vertical")
-                    }
-
-                    NavigationLink {
-                        BooksSettingsView()
-                    } label: {
-                        Label("Books", systemImage: "book")
-                    }
-
-                    NavigationLink {
-                        BookQualityProfilesCrudView()
-                    } label: {
-                        Label("Book quality profiles", systemImage: "books.vertical.circle")
-                    }
-
-                    NavigationLink {
-                        MediaLibrarySettingsView()
-                    } label: {
-                        Label("Library", systemImage: "folder")
-                    }
-
-                    NavigationLink {
-                        ArrLibraryImportView()
-                    } label: {
-                        Label("Import from Radarr/Sonarr", systemImage: "square.and.arrow.down")
-                    }
-
-                    NavigationLink {
-                        QualityProfilesCrudView()
-                    } label: {
-                        Label("Quality profiles", systemImage: "slider.horizontal.3")
-                    }
-
-                    NavigationLink {
-                        CustomFormatsCrudView()
-                    } label: {
-                        Label("Custom formats", systemImage: "tag")
-                    }
-
-                    NavigationLink {
-                        IndexersView()
-                    } label: {
-                        Label("Indexers", systemImage: "magnifyingglass")
-                    }
-
-                    NavigationLink {
-                        DownloadClientEditView()
-                    } label: {
-                        Label("Download client", systemImage: "arrow.down.circle")
-                    }
-
-                    NavigationLink {
-                        UsersAdminView()
-                    } label: {
-                        Label("Users", systemImage: "person.2")
-                    }
-
-                    NavigationLink {
-                        SessionsAdminView()
-                    } label: {
-                        Label("Sessions", systemImage: "shield")
-                    }
-
-                    NavigationLink {
-                        ApiKeysAdminView()
-                    } label: {
-                        Label("API keys", systemImage: "key")
-                    }
-
-                    NavigationLink {
-                        OidcProvidersCrudView()
-                    } label: {
-                        Label("SSO providers", systemImage: "person.badge.key")
-                    }
-
-                    NavigationLink {
-                        BlocklistAdminView()
-                    } label: {
-                        Label("Blocklist", systemImage: "nosign")
-                    }
-
-                    NavigationLink {
-                        JobsAdminView()
-                    } label: {
-                        Label("Jobs", systemImage: "clock")
-                    }
-
-                    NavigationLink {
-                        ReleasesAdminView()
-                    } label: {
-                        Label("Releases", systemImage: "shippingbox")
-                    }
-                }
-                .listRowBackground(Theme.raised)
-            }
-
             Section {
                 Toggle("Smart rewind", isOn: $smartRewind)
             } header: {
@@ -244,38 +207,6 @@ struct SettingsView: View {
                 }
             }
             .listRowBackground(Theme.raised)
-        }
-        .scrollContentBackground(.hidden)
-        .background(Theme.base)
-        .tint(Theme.apricot)
-        .navigationTitle("Settings")
-        .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog(
-            "Delete downloaded chapters?",
-            isPresented: $confirmDeleteDownloads,
-            titleVisibility: .visible
-        ) {
-            Button("Delete Downloads", role: .destructive) {
-                model.deleteDownloads()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Removes offline audiobook chapters from this iPhone. Playback will need the network until they download again.")
-        }
-        .confirmationDialog(
-            "Log out of Rawkoon?",
-            isPresented: $confirmLogOut,
-            titleVisibility: .visible
-        ) {
-            Button("Log Out", role: .destructive) {
-                model.logout()
-            }
-            Button("Cancel", role: .cancel) {}
-        }
-        .task {
-            await model.refreshAdminIfNeeded()
-            await loadAccount()
-            await loadVersion()
         }
     }
 
