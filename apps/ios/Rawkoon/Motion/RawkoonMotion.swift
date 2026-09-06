@@ -43,12 +43,15 @@ private struct AnyEquatable: Equatable {
     private let isEqual: (any Equatable) -> Bool
     init<T: Equatable>(_ base: T) {
         self.base = base
-        self.isEqual = { other in
+        isEqual = { other in
             guard let other = other as? T else { return false }
             return other == base
         }
     }
-    static func == (lhs: AnyEquatable, rhs: AnyEquatable) -> Bool { lhs.isEqual(rhs.base) }
+
+    static func == (lhs: AnyEquatable, rhs: AnyEquatable) -> Bool {
+        lhs.isEqual(rhs.base)
+    }
 }
 
 struct BreathingLamp: ViewModifier {
@@ -64,7 +67,11 @@ struct BreathingLamp: ViewModifier {
             .onChange(of: isActive) { _, now in phase = now }
             .animation(animation, value: breathe)
     }
-    private var breathe: Bool { isActive && phase && !reduceMotion }
+
+    private var breathe: Bool {
+        isActive && phase && !reduceMotion
+    }
+
     private var animation: Animation {
         isActive && !reduceMotion
             ? .easeInOut(duration: 1.8).repeatForever(autoreverses: true)

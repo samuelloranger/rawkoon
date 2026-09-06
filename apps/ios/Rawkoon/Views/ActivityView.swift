@@ -109,9 +109,9 @@ struct ActivityView: View {
 
     @ViewBuilder
     private var queueContent: some View {
-        if loadingQueue && queueRows.isEmpty {
+        if loadingQueue, queueRows.isEmpty {
             LazyVStack(spacing: 10) {
-                ForEach(0..<4, id: \.self) { _ in
+                ForEach(0 ..< 4, id: \.self) { _ in
                     queueSkeletonCard
                 }
             }
@@ -231,7 +231,7 @@ struct ActivityView: View {
             let byId = try await withThrowingTaskGroup(of: (Int, [DownloadHistoryItem]).self) { group in
                 for media in list.items {
                     group.addTask {
-                        (media.id, (try? await client.downloads(libraryId: media.id))?.items ?? [])
+                        await (media.id, (try? client.downloads(libraryId: media.id))?.items ?? [])
                     }
                 }
                 var map: [Int: [DownloadHistoryItem]] = [:]
