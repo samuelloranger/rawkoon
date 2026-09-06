@@ -39,6 +39,11 @@ struct ReleaseSearchView: View {
     @State private var adminOnlyNote: String?
     @State private var grabbingGuid: String?
     @State private var grabbedGuids: Set<String> = []
+    /// Normalized titles already in the library's download history, so a matching
+    /// release relabels its grab action to "Re-grab" (web parity).
+    @State private var grabbedTitles: Set<String> = []
+    @State private var blockingGuid: String?
+    @State private var blockedGuids: Set<String> = []
     @State private var searchQuery = ""
     @State private var filterQuery = ""
     @State private var hideRejected = true
@@ -146,6 +151,7 @@ struct ReleaseSearchView: View {
         .background(Theme.base)
         .task {
             await resolveAiGate()
+            await loadGrabbedTitles()
             await search()
         }
         .onChange(of: selectedSeason) { _, _ in
@@ -428,8 +434,12 @@ struct ReleaseSearchView: View {
                             release: release,
                             isGrabbing: grabbingGuid == release.guid,
                             isGrabbed: grabbedGuids.contains(release.guid),
+                            alreadyGrabbed: isAlreadyGrabbed(release),
+                            isBlocking: blockingGuid == release.guid,
+                            isBlocked: blockedGuids.contains(release.guid),
                             isAiPick: release.guid == aiPickBadgeKey,
-                            onGrab: { await grab(release) }
+                            onGrab: { await grab(release) },
+                            onBlock: { await block(release) }
                         )
                     }
                 }
@@ -792,6 +802,58 @@ struct ReleaseSearchView: View {
         aiPickDismissed = true
     }
 
+    /// Normalized release-title key, matching the app's lowercase+trim convention.
+    private func normalizedTitle(_ title: String) -> String {
+        title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    /// A release counts as already grabbed if its title is in the library's
+    /// download history or its guid was grabbed earlier this session.
+    private func isAlreadyGrabbed(_ release: ReleaseItem) -> Bool {
+        grabbedTitles.contains(normalizedTitle(release.title))
+            || grabbedGuids.contains(release.guid)
+    }
+
+    /// Fetches the library's download history once and records the grabbed
+    /// release titles, so matching releases relabel their action to "Re-grab".
+    private func loadGrabbedTitles() async {
+        guard let client = model.api(), let libraryMediaId else {
+            return
+        }
+        guard let response = try? await client.downloads(libraryId: libraryMediaId) else {
+            return
+        }
+        grabbedTitles = Set(response.items.map { item in
+            normalizedTitle(item.releaseTitle)
+        })
+    }
+
+    private func block(_ release: ReleaseItem) async {
+        guard let client = model.api() else {
+            return
+        }
+        blockingGuid = release.guid
+        defer {
+            blockingGuid = nil
+        }
+        do {
+            try await client.blockRelease(
+                BlocklistBody(
+                    releaseTitle: release.title,
+                    indexer: release.indexer,
+                    mediaId: libraryMediaId,
+                    episodeId: nil
+                )
+            )
+            blockedGuids.insert(release.guid)
+            grabError = nil
+        } catch APIError.unauthorized {
+            adminOnlyNote = String(localized: "Admin only")
+        } catch {
+            grabError = String(localized: "Block failed for \"\(release.title)\".")
+        }
+    }
+
     private func grab(_ release: ReleaseItem) async {
         guard let client = model.api() else { return }
         grabbingGuid = release.guid
@@ -818,6 +880,7 @@ struct ReleaseSearchView: View {
             }
             grabbedGuids.insert(release.guid)
             grabError = nil
+            await loadGrabbedTitles()
         } catch APIError.unauthorized {
             adminOnlyNote = String(localized: "Admin only")
         } catch {
@@ -878,8 +941,12 @@ private struct ReleaseRow: View {
     let release: ReleaseItem
     let isGrabbing: Bool
     let isGrabbed: Bool
+    let alreadyGrabbed: Bool
+    let isBlocking: Bool
+    let isBlocked: Bool
     let isAiPick: Bool
     let onGrab: () async -> Void
+    let onBlock: () async -> Void
 
     private var isRejected: Bool {
         release.rejected == true
@@ -890,7 +957,10 @@ private struct ReleaseRow: View {
             HStack(alignment: .top, spacing: 8) {
                 titleView
                 Spacer(minLength: 8)
-                grabButton
+                VStack(alignment: .trailing, spacing: 8) {
+                    grabButton
+                    blockButton
+                }
             }
 
             badgeStrip
@@ -1029,13 +1099,49 @@ private struct ReleaseRow: View {
             Button {
                 Task { await onGrab() }
             } label: {
-                Text("Grab")
-                    .font(.system(.caption, design: .monospaced).weight(.semibold))
-                    .foregroundStyle(Theme.onAccent)
-                    .padding(.horizontal, 14)
-                    .frame(minHeight: 44)
-                    .background(Theme.terracotta, in: Capsule())
+                Group {
+                    if alreadyGrabbed {
+                        Label("Re-grab", systemImage: "arrow.triangle.2.circlepath")
+                            .labelStyle(.titleAndIcon)
+                    } else {
+                        Label("Grab", systemImage: "arrow.down.circle")
+                            .labelStyle(.titleOnly)
+                    }
+                }
+                .font(.system(.caption, design: .monospaced).weight(.semibold))
+                .foregroundStyle(Theme.onAccent)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .background(Theme.terracotta, in: Capsule())
             }
+        }
+    }
+
+    @ViewBuilder
+    private var blockButton: some View {
+        if isBlocked {
+            Label("Blocked", systemImage: "xmark.octagon.fill")
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(Theme.muted)
+                .lineLimit(1)
+                .frame(minHeight: 44)
+        } else if isBlocking {
+            ProgressView()
+                .tint(Theme.terracotta)
+                .frame(width: 20, height: 20)
+                .frame(minHeight: 44)
+        } else {
+            Button {
+                Task { await onBlock() }
+            } label: {
+                Label("Block", systemImage: "xmark.octagon")
+                    .font(.system(.caption2, design: .monospaced))
+                    .lineLimit(1)
+            }
+            .buttonStyle(.bordered)
+            .tint(Theme.muted)
+            .controlSize(.small)
+            .frame(minHeight: 44)
         }
     }
 
