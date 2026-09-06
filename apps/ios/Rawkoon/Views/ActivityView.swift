@@ -109,9 +109,13 @@ struct ActivityView: View {
 
     @ViewBuilder
     private var queueContent: some View {
-        if loadingQueue {
-            ProgressView().tint(Theme.apricot)
-                .frame(maxWidth: .infinity, minHeight: 420)
+        if loadingQueue && queueRows.isEmpty {
+            LazyVStack(spacing: 10) {
+                ForEach(0..<4, id: \.self) { _ in
+                    queueSkeletonCard
+                }
+            }
+            .padding(16)
         } else if let queueError {
             errorView(queueError)
         } else if queueRows.isEmpty {
@@ -169,6 +173,24 @@ struct ActivityView: View {
         .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Theme.border, lineWidth: 1))
     }
 
+    /// Warm skeleton row shown while the queue's first load is in flight.
+    private var queueSkeletonCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 8) {
+                ShimmerView(cornerRadius: 8)
+                    .frame(width: 44, height: 44)
+                VStack(alignment: .leading, spacing: 6) {
+                    ShimmerView(cornerRadius: 4).frame(height: 14)
+                    ShimmerView(cornerRadius: 4).frame(width: 120, height: 11)
+                }
+            }
+            ShimmerView(cornerRadius: 4).frame(height: 6)
+        }
+        .padding(12)
+        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 13))
+        .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Theme.border, lineWidth: 1))
+    }
+
     private func stateTint(_ state: String) -> Color {
         let lower = state.lowercased()
         if lower.contains("seed") || lower.contains("complete") {
@@ -203,24 +225,33 @@ struct ActivityView: View {
 
         do {
             let list = try await client.libraryList(status: "downloading")
+            // Fetch every media's downloads concurrently instead of one round-trip
+            // per media; a per-media failure yields an empty list rather than
+            // aborting the whole queue.
+            let byId = try await withThrowingTaskGroup(of: (Int, [DownloadHistoryItem]).self) { group in
+                for media in list.items {
+                    group.addTask {
+                        (media.id, (try? await client.downloads(libraryId: media.id))?.items ?? [])
+                    }
+                }
+                var map: [Int: [DownloadHistoryItem]] = [:]
+                for try await (id, items) in group {
+                    map[id] = items
+                }
+                return map
+            }
             var rows: [QueueRow] = []
             for media in list.items {
-                do {
-                    let downloads = try await client.downloads(libraryId: media.id)
-                    for item in downloads.items {
-                        guard let live = item.live else { continue }
-                        rows.append(
-                            QueueRow(
-                                id: "\(media.id)-\(item.id)",
-                                mediaTitle: media.title,
-                                releaseTitle: item.releaseTitle,
-                                live: live
-                            )
+                for item in byId[media.id] ?? [] {
+                    guard let live = item.live else { continue }
+                    rows.append(
+                        QueueRow(
+                            id: "\(media.id)-\(item.id)",
+                            mediaTitle: media.title,
+                            releaseTitle: item.releaseTitle,
+                            live: live
                         )
-                    }
-                } catch {
-                    // Skip items whose per-media download lookup fails; keep the rest.
-                    continue
+                    )
                 }
             }
             queueRows = rows
