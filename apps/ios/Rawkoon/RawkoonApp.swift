@@ -210,6 +210,7 @@ private struct RootTabsView: View {
                     NavigationStack {
                         HomeView()
                     }
+                    .modifier(MiniPlayerContentInset(onExpand: { showFullPlayer = true }))
                 }
                 .customizationID("tab.home")
             }
@@ -218,6 +219,7 @@ private struct RootTabsView: View {
                 NavigationStack {
                     DiscoverView()
                 }
+                .modifier(MiniPlayerContentInset(onExpand: { showFullPlayer = true }))
             }
             .customizationID("tab.discover")
 
@@ -225,6 +227,7 @@ private struct RootTabsView: View {
                 NavigationStack {
                     LibraryView()
                 }
+                .modifier(MiniPlayerContentInset(onExpand: { showFullPlayer = true }))
             }
             .customizationID("tab.library")
 
@@ -232,6 +235,7 @@ private struct RootTabsView: View {
                 NavigationStack {
                     ActivityView()
                 }
+                .modifier(MiniPlayerContentInset(onExpand: { showFullPlayer = true }))
             }
             .customizationID("tab.activity")
 
@@ -239,6 +243,7 @@ private struct RootTabsView: View {
                 NavigationStack {
                     SettingsView()
                 }
+                .modifier(MiniPlayerContentInset(onExpand: { showFullPlayer = true }))
             }
             .customizationID("tab.settings")
         }
@@ -287,7 +292,8 @@ private struct RootTabsView: View {
 
 private extension View {
     /// `tabViewBottomAccessory` is iOS 26+; the app's deployment target is 18,
-    /// so pre-26 devices keep the mini player as a bottom safe-area inset.
+    /// so pre-26 devices get the mini player from `MiniPlayerContentInset`
+    /// instead (applied per-tab, not here — see that type's doc comment).
     @ViewBuilder
     func miniPlayerAccessory(onExpand: @escaping () -> Void) -> some View {
         if #available(iOS 26.0, *) {
@@ -295,7 +301,29 @@ private extension View {
                 MiniPlayerView(onExpand: onExpand)
             }
         } else {
-            safeAreaInset(edge: .bottom) {
+            self
+        }
+    }
+}
+
+/// Insets a single tab's content above the tab bar with the mini player, for
+/// iOS versions before `tabViewBottomAccessory` (iOS 26) exists.
+///
+/// A `.safeAreaInset(edge: .bottom)` applied to the `TabView` itself lays the
+/// bar out against the bottom of the whole tab view, so it sits on top of the
+/// tab bar. Insetting each tab's content keeps it just above the tab bar and
+/// leaves the tab items tappable. On iOS 26+ this is a no-op: the accessory
+/// slot (`miniPlayerAccessory`, applied to the `TabView`) already places it,
+/// and inset here too would double it up.
+private struct MiniPlayerContentInset: ViewModifier {
+    let onExpand: () -> Void
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content
+        } else {
+            content.safeAreaInset(edge: .bottom) {
                 MiniPlayerView(onExpand: onExpand)
             }
         }
