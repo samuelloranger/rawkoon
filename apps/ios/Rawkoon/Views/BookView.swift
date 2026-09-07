@@ -302,9 +302,11 @@ struct BookView: View {
                     }
                 } label: {
                     Text(isRead ? "Mark as unread" : "Mark as read")
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .font(.subheadline.weight(.medium))
+                        .frame(minHeight: 44)
                 }
-                .font(.subheadline)
+                .buttonStyle(.bordered)
+                .tint(Theme.seed)
                 .padding(.top, 4)
             }
             Spacer(minLength: 0)
@@ -349,7 +351,7 @@ struct BookView: View {
             if let overview = detail?.overview, !overview.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Overview")
-                        .font(.display(16))
+                        .font(.sectionTitle)
                         .foregroundStyle(Theme.textStrong)
                     Text(renderedOverviewText(overview))
                         .font(.subheadline)
@@ -368,7 +370,7 @@ struct BookView: View {
             if !metadataRows.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Book info")
-                        .font(.display(16))
+                        .font(.sectionTitle)
                         .foregroundStyle(Theme.textStrong)
                     ForEach(Array(metadataRows.enumerated()), id: \.offset) { entry in
                         let row = entry.element
@@ -525,7 +527,7 @@ struct BookView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 22)
+                            .frame(minHeight: 44)
                     }
                     .buttonStyle(.bordered)
                     .tint(Theme.muted)
@@ -544,7 +546,7 @@ struct BookView: View {
                                 }
                             }
                             .frame(maxWidth: .infinity)
-                            .frame(height: 22)
+                            .frame(minHeight: 44)
                         }
                         .buttonStyle(.bordered)
                         .tint(Theme.muted)
@@ -596,7 +598,7 @@ struct BookView: View {
                     }
                 } label: {
                     Label("Cancel", systemImage: "xmark.circle")
-                        .frame(maxWidth: .infinity).frame(height: 22)
+                        .frame(maxWidth: .infinity).frame(minHeight: 44)
                 }
                 .buttonStyle(.bordered)
                 .tint(Theme.terracotta)
@@ -638,7 +640,7 @@ struct BookView: View {
                 }
             } label: {
                 Label("Download", systemImage: "arrow.down.circle")
-                    .frame(maxWidth: .infinity).frame(height: 22)
+                    .frame(maxWidth: .infinity).frame(minHeight: 44)
             }
             .buttonStyle(.bordered)
             .tint(Theme.apricot)
@@ -656,7 +658,7 @@ struct BookView: View {
     private var chaptersList: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Chapters")
-                .font(.display(17))
+                .font(.sectionTitle)
                 .foregroundStyle(Theme.textStrong)
             switch chapterListPhase(
                 loading: loadingManifest,
@@ -801,7 +803,7 @@ struct BookView: View {
                                 Label("Download primary file", systemImage: "arrow.down.circle")
                             }
                         }
-                        .frame(maxWidth: .infinity).frame(height: 22)
+                        .frame(maxWidth: .infinity).frame(minHeight: 44)
                     }
                     .buttonStyle(.bordered)
                     .tint(Theme.muted)
@@ -821,7 +823,7 @@ struct BookView: View {
                         Label("Search releases", systemImage: "magnifyingglass")
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
-                            .frame(maxWidth: .infinity).frame(height: 22)
+                            .frame(maxWidth: .infinity).frame(minHeight: 44)
                     }
                     .buttonStyle(.bordered)
                     .tint(Theme.muted)
@@ -838,7 +840,7 @@ struct BookView: View {
                                     .minimumScaleFactor(0.85)
                             }
                         }
-                        .frame(maxWidth: .infinity).frame(height: 22)
+                        .frame(maxWidth: .infinity).frame(minHeight: 44)
                     }
                     .buttonStyle(.bordered)
                     .tint(Theme.muted)
@@ -856,7 +858,7 @@ struct BookView: View {
     private var ebookFilesCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Files")
-                .font(.display(17))
+                .font(.sectionTitle)
                 .foregroundStyle(Theme.textStrong)
 
             if loadingEbookFiles {
@@ -966,7 +968,7 @@ struct BookView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(title)
-                    .font(.display(16))
+                    .font(.sectionTitle)
                     .foregroundStyle(Theme.textStrong)
                 Spacer()
                 chip(LocalizedStatus.text(status), tint: accent)

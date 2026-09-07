@@ -158,6 +158,9 @@ struct LibraryView: View {
     @State private var bookSearch = ""
     @State private var bookSort: BookSort = .recent
     @State private var busyBookIds: Set<Int> = []
+    /// Local books error, captured at the load site so a stale/unrelated
+    /// `model.errorMessage` can't leak into the books view.
+    @State private var booksError: String?
     // Per-user progress that drives the `.recent` sort, keyed by edition id.
     @State private var audioProgress: [Int: RemoteProgress] = [:]
     @State private var ebookProgress: [Int: ReadingPosition] = [:]
@@ -225,7 +228,7 @@ struct LibraryView: View {
                 await loadMedia(reset: true)
             }
             if model.library.isEmpty {
-                await model.loadLibrary()
+                await loadBooks()
             }
             await loadBookProgress()
         }
@@ -625,14 +628,45 @@ struct LibraryView: View {
         }
         .overlay {
             if model.loading, model.library.isEmpty {
-                ProgressView().tint(Theme.apricot)
-            } else if let error = model.errorMessage, model.library.isEmpty {
-                ContentUnavailableView("Couldn't load books", systemImage: "exclamationmark.triangle", description: Text(error))
+                booksSkeleton
+            } else if let booksError, model.library.isEmpty {
+                ContentUnavailableView {
+                    Label("Couldn't load books", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(booksError)
+                } actions: {
+                    Button("Try again") { Task { await loadBooks() } }
+                        .buttonStyle(.bordered)
+                        .tint(Theme.apricot)
+                }
             } else if !model.loading, filteredBooks.isEmpty {
                 ContentUnavailableView("No books", systemImage: "books.vertical", description: Text("Books added on your server show up here."))
             }
         }
-        .refreshable { await model.loadLibrary() }
+        .refreshable { await loadBooks() }
+    }
+
+    /// Warm skeleton rows matching `BookRow` while the first books page loads.
+    private var booksSkeleton: some View {
+        ScrollView {
+            LazyVStack(spacing: 8) {
+                ForEach(0 ..< 8, id: \.self) { _ in
+                    HStack(spacing: 12) {
+                        ShimmerView(cornerRadius: 10).frame(width: 56, height: 56)
+                        VStack(alignment: .leading, spacing: 6) {
+                            ShimmerView(cornerRadius: 4).frame(height: 15)
+                            ShimmerView(cornerRadius: 4).frame(width: 120, height: 11)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(12)
+                    .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
+                }
+            }
+            .padding(.horizontal, 16).padding(.top, 4)
+        }
+        .allowsHitTesting(false)
     }
 
     private var offlineBanner: some View {
@@ -710,6 +744,17 @@ struct LibraryView: View {
             best = max(best, p.updatedAtMillis)
         }
         return best
+    }
+
+    /// Loads the books library and captures any failure locally, so the books
+    /// view shows this load's own error (with a retry) rather than the shared,
+    /// possibly stale, `model.errorMessage`.
+    private func loadBooks() async {
+        booksError = nil
+        await model.loadLibrary()
+        // `loadLibrary` clears then sets `model.errorMessage` within its own
+        // scope, so reading it right here reflects this load's outcome.
+        booksError = model.errorMessage
     }
 
     /// Loads audiobook and ebook progress for the `.recent` sort. Best effort:

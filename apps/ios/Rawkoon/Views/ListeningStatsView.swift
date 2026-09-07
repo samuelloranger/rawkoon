@@ -24,16 +24,23 @@ struct ListeningStatsView: View {
 
     private var weekChart: some View {
         let maxSeconds = weekBarMaxSeconds(stats.week)
+        let allZero = stats.week.allSatisfy { $0.seconds == 0 }
         return VStack(alignment: .leading, spacing: 12) {
             Text("This week")
                 .font(.display(16))
                 .foregroundStyle(Theme.textStrong)
-            HStack(alignment: .bottom, spacing: 8) {
-                ForEach(stats.week) { entry in
-                    weekBar(entry, maxSeconds: maxSeconds)
+            if allZero {
+                Text("No listening yet this week.")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.muted)
+            } else {
+                HStack(alignment: .bottom, spacing: 8) {
+                    ForEach(stats.week) { entry in
+                        weekBar(entry, maxSeconds: maxSeconds)
+                    }
                 }
+                .frame(height: 128, alignment: .bottom)
             }
-            .frame(height: 128, alignment: .bottom)
         }
     }
 

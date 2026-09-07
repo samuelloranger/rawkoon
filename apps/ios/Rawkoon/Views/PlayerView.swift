@@ -336,7 +336,7 @@ struct PlayerView: View {
     /// book to a HomePod or the car should not mean leaving the app.
     private var routeButton: some View {
         RoutePicker()
-            .frame(width: 44, height: 40)
+            .frame(width: 44, height: 44)
             .background(Theme.raised.opacity(0.8), in: Capsule())
             .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
     }

@@ -79,7 +79,6 @@ struct MediaDetailView: View {
     /// In-flight live-event management refresh, cancelled before the next starts
     /// so a burst of SSE events can't run overlapping refreshes.
     @State private var liveReloadTask: Task<Void, Never>?
-    @State private var expandedFileSeasons: Set<Int> = []
 
     private let similarColumns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
 
@@ -224,9 +223,7 @@ struct MediaDetailView: View {
     @ViewBuilder
     private var mainContent: some View {
         if loading, details == nil {
-            ProgressView().tint(Theme.muted)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 16)
+            detailSkeleton
         } else if let errorMessage, details == nil {
             ContentUnavailableView(
                 "Couldn't load details",
@@ -261,6 +258,37 @@ struct MediaDetailView: View {
             }
             similarSection
         }
+    }
+
+    /// Warm shimmer for the first paint: a hero band (backdrop + poster thumb +
+    /// title lines) and a few overview lines, shaped like the real content.
+    private var detailSkeleton: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            ZStack(alignment: .bottomLeading) {
+                ShimmerView(cornerRadius: 0)
+                    .frame(height: 200)
+                HStack(alignment: .bottom, spacing: 14) {
+                    ShimmerView(cornerRadius: 10)
+                        .frame(width: 84, height: 126)
+                    VStack(alignment: .leading, spacing: 8) {
+                        ShimmerView(cornerRadius: 6).frame(width: 180, height: 22)
+                        ShimmerView(cornerRadius: 4).frame(width: 120, height: 12)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+            }
+            .frame(height: 200)
+
+            VStack(alignment: .leading, spacing: 8) {
+                ShimmerView(cornerRadius: 4).frame(height: 12)
+                ShimmerView(cornerRadius: 4).frame(height: 12)
+                ShimmerView(cornerRadius: 4).frame(width: 220, height: 12)
+            }
+            .padding(.horizontal, 16)
+        }
+        .allowsHitTesting(false)
     }
 
     private var overview: some View {
@@ -367,6 +395,7 @@ struct MediaDetailView: View {
             DetailSeasonsSection(
                 seasons: seasons,
                 episodesBySeason: episodesBySeason,
+                filesBySeason: filesBySeason,
                 inLibrary: libraryId != nil,
                 isAdmin: model.isAdmin,
                 onSeasonAutoSearch: { season in Task { await seasonAutoSearch(season) } },
@@ -383,7 +412,10 @@ struct MediaDetailView: View {
                 },
                 onEpisodeToggleMonitor: { episode in Task { await episodeToggleMonitor(episode) } },
                 onEpisodeRetry: { episode in Task { await episodeRetry(episode) } },
-                onEpisodeDeleteFile: { episode in pendingEpisodeDelete = episode }
+                onEpisodeDeleteFile: { episode in pendingEpisodeDelete = episode },
+                onFileChanged: { Task { await refreshManagementData() } },
+                onFileNotice: { managementNotice = $0; managementError = nil },
+                onFileError: { managementError = $0 }
             )
         }
     }
@@ -397,16 +429,28 @@ struct MediaDetailView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, 8)
         } else if let managementError, managementItem == nil {
-            ContentUnavailableView(
-                "Couldn't load management",
-                systemImage: "exclamationmark.triangle",
-                description: Text(managementError)
-            )
+            VStack(spacing: 12) {
+                ContentUnavailableView(
+                    "Couldn't load management",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(managementError)
+                )
+                Button {
+                    Task { await refreshManagementData() }
+                } label: {
+                    Label("Try again", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+                .tint(Theme.apricot)
+            }
             .padding(.top, 8)
         } else if let managementItem {
             managementControlsCard(managementItem)
                 .id("management")
-            managementFilesCard
+            // TV files fold into the seasons section; only movies keep a card.
+            if mediaType != "tv" {
+                managementFilesCard
+            }
             managementDownloadsCard
             if let managementNotice {
                 Text(managementNotice)
@@ -426,7 +470,7 @@ struct MediaDetailView: View {
     private func managementControlsCard(_ item: LibraryMedia) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Management")
-                .font(.display(16))
+                .font(.sectionTitle)
                 .foregroundStyle(Theme.textStrong)
 
             Toggle("Monitored", isOn: Binding(
@@ -498,7 +542,7 @@ struct MediaDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Files")
-                    .font(.display(16))
+                    .font(.sectionTitle)
                     .foregroundStyle(Theme.textStrong)
                 Spacer()
                 Text("\(mediaFiles.count)")
@@ -510,12 +554,6 @@ struct MediaDetailView: View {
                 Text("No file metadata yet.")
                     .font(.subheadline)
                     .foregroundStyle(Theme.muted)
-            } else if mediaFilesType == "show" {
-                VStack(spacing: 8) {
-                    ForEach(groupedSeasonFiles, id: \.season) { group in
-                        seasonFileGroup(group)
-                    }
-                }
             } else {
                 VStack(spacing: 8) {
                     ForEach(mediaFiles) { file in
@@ -530,46 +568,6 @@ struct MediaDetailView: View {
         .padding(.horizontal, 16)
     }
 
-    private func seasonFileGroup(_ group: (season: Int, files: [LibraryFileInfo])) -> some View {
-        VStack(spacing: 0) {
-            Button {
-                toggleFileSeason(group.season)
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: expandedFileSeasons.contains(group.season) ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Theme.faint)
-                    Group {
-                        if group.season == 0 {
-                            Text("Specials")
-                        } else {
-                            Text("Season \(group.season)")
-                        }
-                    }
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.textStrong)
-                    Spacer()
-                    Text("\(group.files.count) files")
-                        .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(Theme.muted)
-                }
-                .padding(10)
-                .background(Theme.well, in: RoundedRectangle(cornerRadius: 10))
-            }
-            .buttonStyle(.plain)
-
-            if expandedFileSeasons.contains(group.season) {
-                VStack(spacing: 8) {
-                    ForEach(group.files) { file in
-                        fileRow(file, mode: .episode)
-                    }
-                }
-                .padding(.top, 8)
-            }
-        }
-        .rawkoonMotion(RawkoonMotion.snappy, value: expandedFileSeasons.contains(group.season))
-    }
-
     private func fileRow(_ file: LibraryFileInfo, mode: DetailFileRow.Mode) -> some View {
         DetailFileRow(
             file: file,
@@ -582,28 +580,18 @@ struct MediaDetailView: View {
         )
     }
 
-    private var groupedSeasonFiles: [(season: Int, files: [LibraryFileInfo])] {
-        let grouped = Dictionary(grouping: mediaFiles) { $0.season ?? 0 }
-        return grouped
-            .map { season, files in
-                (
-                    season: season,
-                    files: files.sorted { lhs, rhs in
-                        if lhs.episode != rhs.episode {
-                            return (lhs.episode ?? 0) < (rhs.episode ?? 0)
-                        }
-                        return lhs.fileName.localizedCaseInsensitiveCompare(rhs.fileName) == .orderedAscending
-                    }
-                )
-            }
-            .sorted { $0.season < $1.season }
+    /// Library files keyed by season, for the seasons section. Empty unless
+    /// admin + in-library (the only case `mediaFiles` is populated).
+    private var filesBySeason: [Int: [LibraryFileInfo]] {
+        guard mediaFilesType == "show" else { return [:] }
+        return Dictionary(grouping: mediaFiles) { $0.season ?? 0 }
     }
 
     private var managementDownloadsCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Download history")
-                    .font(.display(16))
+                    .font(.sectionTitle)
                     .foregroundStyle(Theme.textStrong)
                 Spacer()
                 Button("Clear failed") {
@@ -638,21 +626,13 @@ struct MediaDetailView: View {
         .padding(.horizontal, 16)
     }
 
-    private func toggleFileSeason(_ season: Int) {
-        if expandedFileSeasons.contains(season) {
-            expandedFileSeasons.remove(season)
-        } else {
-            expandedFileSeasons.insert(season)
-        }
-    }
-
     // MARK: Similar
 
     @ViewBuilder
     private var similarSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Similar titles")
-                .font(.display(17))
+                .font(.sectionTitle)
                 .foregroundStyle(Theme.textStrong)
                 .padding(.horizontal, 16)
             similarBody
@@ -662,14 +642,31 @@ struct MediaDetailView: View {
     @ViewBuilder
     private var similarBody: some View {
         if loadingSimilar {
-            ProgressView().tint(Theme.muted)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 8)
+            LazyVGrid(columns: similarColumns, spacing: 14) {
+                ForEach(0 ..< 6, id: \.self) { _ in
+                    VStack(alignment: .leading, spacing: 6) {
+                        ShimmerView(cornerRadius: 10)
+                            .aspectRatio(2.0 / 3.0, contentMode: .fit)
+                        ShimmerView(cornerRadius: 4).frame(height: 12)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .allowsHitTesting(false)
         } else if let similarError {
-            Text(similarError)
-                .font(.subheadline)
-                .foregroundStyle(Theme.muted)
-                .padding(.horizontal, 16)
+            VStack(alignment: .leading, spacing: 10) {
+                Text(similarError)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.muted)
+                Button {
+                    Task { await fetchSimilar() }
+                } label: {
+                    Label("Try again", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+                .tint(Theme.apricot)
+            }
+            .padding(.horizontal, 16)
         } else if similarItems.isEmpty {
             Text("No similar titles.")
                 .font(.subheadline)

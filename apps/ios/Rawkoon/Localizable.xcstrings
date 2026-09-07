@@ -8376,6 +8376,36 @@
           }
         }
       }
+    },
+    "Try again": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réessayer"
+          }
+        }
+      }
+    },
+    "No listening yet this week.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune écoute cette semaine."
+          }
+        }
+      }
+    },
+    "Couldn't open that item.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'ouvrir cet élément."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

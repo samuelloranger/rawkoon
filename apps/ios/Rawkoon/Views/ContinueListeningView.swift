@@ -93,9 +93,17 @@ struct ContinueListeningView: View {
                 .foregroundStyle(Theme.textStrong)
 
             if let errorMessage, items.isEmpty {
-                Text(errorMessage)
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.muted)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(errorMessage)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.muted)
+                    Button("Try again") {
+                        Task { await load() }
+                    }
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Theme.apricot)
+                    .frame(minHeight: 44)
+                }
             } else {
                 VStack(spacing: 10) {
                     ForEach(items.prefix(limit)) { item in
@@ -149,7 +157,7 @@ struct ContinueListeningView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
+        .padding(12)
         .background(Theme.base.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border, lineWidth: 1))
     }

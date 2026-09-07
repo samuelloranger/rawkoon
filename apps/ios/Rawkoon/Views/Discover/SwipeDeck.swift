@@ -52,16 +52,21 @@ struct SwipeDeck: View {
         self.onOpen = onOpen
     }
 
+    /// Poster width cap. Well under the screen so the deck sits in open space
+    /// rather than filling edge-to-edge — the page needs room to breathe.
+    private let cardMaxWidth: CGFloat = 260
+
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 28) {
             ZStack {
                 ForEach(Array(visibleItems.enumerated()).reversed(), id: \.element.id) { index, item in
                     card(for: item, stackIndex: index)
                 }
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: cardMaxWidth)
             .aspectRatio(2.0 / 3.0, contentMode: .fit)
-            .padding(.horizontal, 24)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 12)
 
             actionBar
         }

@@ -33,6 +33,46 @@ struct BookCover: View {
     }
 }
 
+/// A film/TV poster thumbnail — a plain 2:3 poster with no book-spine edge, for
+/// rows and calendars where `BookCover` (which draws a spine) would wrongly
+/// make a movie read as a book. Width-driven; height is the 2:3 counterpart.
+struct MediaThumb: View {
+    let url: URL?
+    var width: CGFloat
+    var corner: CGFloat = 8
+
+    var body: some View {
+        Rectangle()
+            .fill(Theme.raised)
+            .overlay {
+                CachedAsyncImage(url: url, targetSize: CGSize(width: width * 2, height: width * 3)) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Image(systemName: "photo")
+                        .font(.caption)
+                        .foregroundStyle(Theme.faint)
+                }
+            }
+            .frame(width: width, height: width * 3 / 2)
+            .clipShape(RoundedRectangle(cornerRadius: corner))
+            .overlay(
+                RoundedRectangle(cornerRadius: corner).strokeBorder(.white.opacity(0.05), lineWidth: 1)
+            )
+    }
+}
+
+extension View {
+    /// The state-pill chrome StatusBadge uses — tinted fill + hairline in a
+    /// Capsule — as a modifier, for the few chips that carry custom content
+    /// (a non-monospaced label, an icon) and can't be a plain `StatusBadge`.
+    func chipCapsule(tint: Color) -> some View {
+        padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(tint.opacity(0.12), in: Capsule())
+            .overlay(Capsule().strokeBorder(tint.opacity(0.3), lineWidth: 1))
+    }
+}
+
 /// A monospaced state pill. Semantic tint (green present, apricot active, …)
 /// carries meaning at a glance so a list is scannable without reading it.
 struct StatusBadge: View {
@@ -296,9 +336,7 @@ struct BookRow: View {
         Text(text)
             .font(.system(.caption2, design: .monospaced))
             .foregroundStyle(tint)
-            .padding(.horizontal, 7).padding(.vertical, 3)
-            .background(tint.opacity(0.12), in: Capsule())
-            .overlay(Capsule().strokeBorder(tint.opacity(0.3), lineWidth: 1))
+            .chipCapsule(tint: tint)
     }
 }
 

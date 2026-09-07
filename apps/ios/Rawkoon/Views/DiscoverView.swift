@@ -43,6 +43,10 @@ struct DiscoverView: View {
     /// Cards still in the current batch before a prefetch kicks off.
     private let prefetchThreshold = 5
 
+    /// Reserves space for a 2-line caption at the standard content size; grows
+    /// with Dynamic Type instead of clipping the title at larger sizes.
+    @ScaledMetric(relativeTo: .caption) private var captionMinHeight: CGFloat = 34
+
     private enum KindFilter: String, CaseIterable {
         case all = "All"
         case movies = "Movies"
@@ -193,9 +197,12 @@ struct DiscoverView: View {
             )
             .id(deckBatch)
         } else if deckLoading {
-            ProgressView().tint(Theme.muted)
+            ShimmerView(cornerRadius: 16)
+                .aspectRatio(2.0 / 3.0, contentMode: .fit)
+                .frame(maxWidth: 260)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 28)
+                .allowsHitTesting(false)
         } else if let deckError {
             ContentUnavailableView(
                 "Couldn't load Discover",
@@ -229,9 +236,17 @@ struct DiscoverView: View {
     @ViewBuilder
     private var searchContent: some View {
         if loadingSearch {
-            ProgressView().tint(Theme.muted)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 28)
+            LazyVGrid(columns: searchGridColumns, spacing: 14) {
+                ForEach(0 ..< 9, id: \.self) { _ in
+                    VStack(alignment: .leading, spacing: 6) {
+                        ShimmerView(cornerRadius: 10)
+                            .aspectRatio(2.0 / 3.0, contentMode: .fit)
+                        ShimmerView(cornerRadius: 4).frame(height: 12)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .allowsHitTesting(false)
         } else if let searchError {
             ContentUnavailableView(
                 "Search failed",
@@ -250,7 +265,7 @@ struct DiscoverView: View {
             VStack(alignment: .leading, spacing: 20) {
                 if !bookResults.isEmpty {
                     Text("Books")
-                        .font(.display(17))
+                        .font(.sectionTitle)
                         .foregroundStyle(Theme.textStrong)
                         .padding(.horizontal, 16)
                     ForEach(bookResults) { hit in
@@ -261,7 +276,7 @@ struct DiscoverView: View {
                 if !searchResults.isEmpty {
                     if !bookResults.isEmpty {
                         Text("Movies & TV")
-                            .font(.display(17))
+                            .font(.sectionTitle)
                             .foregroundStyle(Theme.textStrong)
                             .padding(.horizontal, 16)
                     }
@@ -403,7 +418,7 @@ struct DiscoverView: View {
                 .foregroundStyle(Theme.textStrong)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
-                .frame(height: 34, alignment: .top)
+                .frame(minHeight: captionMinHeight, alignment: .top)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(width: fixedWidth)
@@ -488,17 +503,6 @@ struct DiscoverView: View {
             guard let client = model.api() else { return }
             try? await client.dismissDiscover(tmdbId: tmdbId, type: type)
         }
-
-        model.toast(
-            String(localized: "Not interested"),
-            action: ToastAction(label: String(localized: "Undo")) {
-                excludedTmdbIds.remove(tmdbId)
-                Task {
-                    guard let client = model.api() else { return }
-                    try? await client.undismissDiscover(tmdbId: tmdbId, type: type)
-                }
-            }
-        )
     }
 
     private func handleWatchlist(_ item: DiscoverDeckItem) {
@@ -536,7 +540,6 @@ struct DiscoverView: View {
                         type: item.mediaType == "tv" ? "show" : "movie"
                     )
                     await model.loadLibrary()
-                    model.toast(String(localized: "Added to library"), style: .success)
                 } else {
                     _ = try await client.createRequest(CreateRequestBody(
                         tmdbId: item.tmdbId,
@@ -547,7 +550,6 @@ struct DiscoverView: View {
                         googleVolumeId: nil,
                         author: nil
                     ))
-                    model.toast(String(localized: "Requested — we'll notify you"), style: .success)
                 }
             } catch let error as APIError {
                 model.toast(message(for: error), style: .error)

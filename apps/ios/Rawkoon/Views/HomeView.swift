@@ -16,6 +16,20 @@ struct HomeView: View {
     /// Bumped on pull-to-refresh and when Continue's player sheet dismisses
     /// so Listening reloads with Continue.
     @State private var continueToken = 0
+    /// A "Needs attention" row tapped: the widget carries only a library id, so
+    /// resolve the full item (for its tmdbId/poster) then push its detail.
+    @State private var attentionTarget: AttentionRoute?
+    @State private var resolvingAttentionId: Int?
+
+    /// Resolved detail destination for an attention row — Hashable so it can
+    /// drive `navigationDestination(item:)`, which `LibraryMedia` can't.
+    private struct AttentionRoute: Identifiable, Hashable {
+        let id: Int
+        let tmdbId: Int
+        let mediaType: String
+        let title: String
+        let posterUrl: String?
+    }
 
     var body: some View {
         ScrollView {
@@ -23,8 +37,7 @@ struct HomeView: View {
                 greeting
 
                 if loading, recent.isEmpty {
-                    ProgressView().tint(Theme.muted)
-                        .frame(maxWidth: .infinity).padding(.top, 40)
+                    homeSkeleton
                 } else {
                     ContinueListeningView(
                         refreshToken: continueToken,
@@ -46,6 +59,10 @@ struct HomeView: View {
             .padding(.bottom, 96)
         }
         .background(Theme.base)
+        .navigationDestination(item: $attentionTarget) { route in
+            MediaDetailView(tmdbId: route.tmdbId, mediaType: route.mediaType,
+                            title: route.title, posterPath: route.posterUrl, libraryId: route.id)
+        }
         .navigationTitle("Home")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -110,6 +127,28 @@ struct HomeView: View {
         }
     }
 
+    // MARK: First-load skeleton
+
+    /// Warm shimmer standing in for the first paint: a greeting line and one
+    /// poster rail, shaped like the real content below it.
+    private var homeSkeleton: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ShimmerView(cornerRadius: 6)
+                .frame(width: 200, height: 20)
+                .padding(.horizontal, 16)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(0 ..< 4, id: \.self) { _ in
+                        ShimmerView(cornerRadius: RailPoster.corner)
+                            .frame(width: RailPoster.width, height: RailPoster.height)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
     // MARK: Poster rails
 
     private enum RailItem: Identifiable {
@@ -125,7 +164,7 @@ struct HomeView: View {
 
     private func rail(_ title: LocalizedStringKey, _ items: [RailItem]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(title).font(.display(19)).foregroundStyle(Theme.textStrong).padding(.horizontal, 16)
+            Text(title).font(.sectionTitle).foregroundStyle(Theme.textStrong).padding(.horizontal, 16)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(items) { item in railCard(item) }
@@ -279,7 +318,7 @@ struct HomeView: View {
                         HStack(spacing: 10) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(s.title ?? String(localized: "Playing")).font(.subheadline.weight(.medium)).foregroundStyle(Theme.text).lineLimit(1)
-                                Text("\(s.user ?? "") · \(s.device ?? "")").font(.caption2).foregroundStyle(Theme.faint).lineLimit(1)
+                                Text(verbatim: [s.user, s.device].compactMap(\.self).filter { !$0.isEmpty }.joined(separator: " · ")).font(.caption2).foregroundStyle(Theme.faint).lineLimit(1)
                             }
                             Spacer()
                             if let p = s.progressPct {
@@ -326,17 +365,65 @@ struct HomeView: View {
         widgetCard("Needs attention", systemImage: "exclamationmark.triangle") {
             VStack(spacing: 10) {
                 ForEach(attention.prefix(5)) { item in
-                    HStack(alignment: .top, spacing: 10) {
-                        Circle().fill(Theme.terracotta).frame(width: 7, height: 7).padding(.top, 5)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(item.mediaTitle ?? item.kind ?? "Item").font(.subheadline.weight(.medium)).foregroundStyle(Theme.text).lineLimit(1)
-                            if let detail = item.detail {
-                                Text(detail).font(.caption2).foregroundStyle(Theme.muted).lineLimit(2)
-                            }
-                        }
-                        Spacer()
-                    }
+                    attentionRow(item)
                 }
+            }
+        }
+    }
+
+    /// A row tappable through to detail when it carries a library id; otherwise
+    /// a plain informational row.
+    @ViewBuilder
+    private func attentionRow(_ item: AttentionItem) -> some View {
+        if let mediaId = item.mediaId {
+            Button {
+                openAttention(mediaId: mediaId)
+            } label: {
+                attentionRowContent(item, busy: resolvingAttentionId == mediaId)
+            }
+            .buttonStyle(.plain)
+            .disabled(resolvingAttentionId != nil)
+        } else {
+            attentionRowContent(item, busy: false)
+        }
+    }
+
+    private func attentionRowContent(_ item: AttentionItem, busy: Bool) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Circle().fill(Theme.terracotta).frame(width: 7, height: 7).padding(.top, 5)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.mediaTitle ?? item.kind ?? "Item").font(.subheadline.weight(.medium)).foregroundStyle(Theme.text).lineLimit(1)
+                if let detail = item.detail {
+                    Text(detail).font(.caption2).foregroundStyle(Theme.muted).lineLimit(2)
+                }
+            }
+            Spacer()
+            if busy {
+                ProgressView().tint(Theme.muted)
+            } else if item.mediaId != nil {
+                Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(Theme.faint)
+            }
+        }
+        .contentShape(Rectangle())
+    }
+
+    /// Resolve a library item by id (the attention feed omits tmdbId/poster) and
+    /// push its detail. Silent no-op on missing api; toasts on fetch failure.
+    private func openAttention(mediaId: Int) {
+        guard let client = model.api(), resolvingAttentionId == nil else { return }
+        resolvingAttentionId = mediaId
+        Task {
+            defer { resolvingAttentionId = nil }
+            if let item = try? await client.libraryItem(id: mediaId) {
+                attentionTarget = AttentionRoute(
+                    id: item.id,
+                    tmdbId: item.tmdbId,
+                    mediaType: item.type == "show" ? "tv" : "movie",
+                    title: item.title,
+                    posterUrl: item.posterUrl
+                )
+            } else {
+                model.toast(String(localized: "Couldn't open that item."), style: .error)
             }
         }
     }

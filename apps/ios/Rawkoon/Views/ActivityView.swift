@@ -186,7 +186,6 @@ struct ActivityView: View {
                 systemImage: "arrow.down.circle",
                 description: Text("The queue is empty right now.")
             )
-            .foregroundStyle(Theme.faint)
             .frame(maxWidth: .infinity, minHeight: 420)
         } else {
             VStack(spacing: 12) {
@@ -231,10 +230,7 @@ struct ActivityView: View {
                     .font(.system(.caption, design: .monospaced))
             }
             .foregroundStyle(selected ? Theme.textStrong : Theme.muted)
-            .padding(.horizontal, 12)
-            .frame(minHeight: 44)
-            .background(selected ? Theme.raised : Theme.well, in: Capsule())
-            .overlay(Capsule().strokeBorder(selected ? Theme.borderStrong : Theme.border, lineWidth: 1))
+            .selectableChipChrome(selected: selected, horizontalPadding: 12)
         }
         .buttonStyle(.plain)
     }
@@ -272,8 +268,7 @@ struct ActivityView: View {
             .font(.system(.caption, design: .monospaced))
         }
         .padding(12)
-        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 13))
-        .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Theme.border, lineWidth: 1))
+        .activityCard(cornerRadius: 13)
     }
 
     /// Warm skeleton row shown while the queue's first load is in flight.
@@ -290,8 +285,7 @@ struct ActivityView: View {
             ShimmerView(cornerRadius: 4).frame(height: 6)
         }
         .padding(12)
-        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 13))
-        .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Theme.border, lineWidth: 1))
+        .activityCard(cornerRadius: 13)
     }
 
     private func stateTint(_ state: String) -> Color {
@@ -387,7 +381,6 @@ struct ActivityView: View {
                     systemImage: "clock.arrow.circlepath",
                     description: Text("Nothing has happened yet.")
                 )
-                .foregroundStyle(Theme.faint)
                 .frame(maxWidth: .infinity, minHeight: 360)
             } else {
                 historyList
@@ -450,16 +443,14 @@ struct ActivityView: View {
             }
         }
         .padding(12)
-        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12))
+        .activityCard(cornerRadius: 12)
     }
 
     private func metaPill(_ text: String, tint: Color) -> some View {
         Text(text)
             .font(.system(.caption2, design: .rounded).weight(.medium))
             .foregroundStyle(tint)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(tint.opacity(0.14), in: Capsule())
+            .chipCapsule(tint: tint)
     }
 
     // MARK: History filters
@@ -523,10 +514,7 @@ struct ActivityView: View {
             Text(label)
                 .font(.system(.caption, design: .rounded).weight(.medium))
                 .foregroundStyle(selected ? Theme.textStrong : Theme.faint)
-                .padding(.horizontal, 14)
-                .frame(minHeight: 44)
-                .background(selected ? Theme.raised : Theme.well, in: Capsule())
-                .overlay(Capsule().strokeBorder(selected ? Theme.borderStrong : Theme.border, lineWidth: 1))
+                .selectableChipChrome(selected: selected, horizontalPadding: 14)
         }
         .buttonStyle(.plain)
     }
@@ -639,7 +627,6 @@ struct ActivityView: View {
                 systemImage: "calendar",
                 description: Text("No known releases on the horizon.")
             )
-            .foregroundStyle(Theme.faint)
             .frame(maxWidth: .infinity, minHeight: 420)
         } else {
             LazyVStack(spacing: 8) {
@@ -653,7 +640,7 @@ struct ActivityView: View {
 
     private func calendarRow(_ item: UpcomingItem) -> some View {
         HStack(spacing: 12) {
-            BookCover(url: model.absoluteURL(item.posterUrl), size: 48, corner: 8)
+            MediaThumb(url: model.absoluteURL(item.posterUrl), width: 48)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.title)
@@ -678,7 +665,7 @@ struct ActivityView: View {
             Spacer(minLength: 0)
         }
         .padding(12)
-        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12))
+        .activityCard(cornerRadius: 12)
     }
 
     private func loadCalendar() async {
@@ -722,11 +709,28 @@ struct ActivityView: View {
             systemImage: "exclamationmark.triangle",
             description: Text(text)
         )
-        .foregroundStyle(Theme.faint)
         .frame(maxWidth: .infinity, minHeight: 420)
     }
 
     private func message(for error: APIError) -> String {
         error.userMessage(unauthorized: String(localized: "Sign in required."))
+    }
+}
+
+private extension View {
+    /// Shared lane-card chrome: raised fill + a hairline border, so queue,
+    /// history and calendar cards read as the same surface.
+    func activityCard(cornerRadius: CGFloat) -> some View {
+        background(Theme.raised, in: RoundedRectangle(cornerRadius: cornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Theme.border, lineWidth: 1))
+    }
+
+    /// Shared selectable-chip chrome (raised when on, well when off) for the
+    /// queue-phase and history-filter chips, which were near-identical.
+    func selectableChipChrome(selected: Bool, horizontalPadding: CGFloat) -> some View {
+        padding(.horizontal, horizontalPadding)
+            .frame(minHeight: 44)
+            .background(selected ? Theme.raised : Theme.well, in: Capsule())
+            .overlay(Capsule().strokeBorder(selected ? Theme.borderStrong : Theme.border, lineWidth: 1))
     }
 }

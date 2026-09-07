@@ -68,6 +68,13 @@ extension Font {
         }
         return .system(size: size, weight: weight, design: .serif)
     }
+
+    /// Peer-level section headers across the app (Similar, Files, Chapters,
+    /// Management, Home rails…). One token so section titles stop drifting
+    /// between 16/17/19pt from screen to screen.
+    static var sectionTitle: Font {
+        display(17)
+    }
 }
 
 // MARK: - Color hex helper

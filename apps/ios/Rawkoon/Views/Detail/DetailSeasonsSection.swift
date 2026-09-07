@@ -1,13 +1,17 @@
+import RawkoonKit
 import SwiftUI
 
 /// Expandable season → episode list. Info-only for viewers and not-in-library
 /// titles; for admins on in-library shows it surfaces per-season and per-episode
 /// actions through context menus (the one-primary-control rule keeps buttons off
-/// the rows). All grabs/monitor/status/delete controls are admin-gated because
-/// the underlying routes 403 for viewers.
+/// the rows), and the season's real files fold in under its episodes. All
+/// grabs/monitor/status/delete controls are admin-gated because the underlying
+/// routes 403 for viewers.
 struct DetailSeasonsSection: View {
     let seasons: [SeasonSummary]
     let episodesBySeason: [Int: [Episode]]
+    /// Real library files keyed by season number (empty when not admin/in-library).
+    let filesBySeason: [Int: [LibraryFileInfo]]
     let inLibrary: Bool
     let isAdmin: Bool
 
@@ -21,6 +25,10 @@ struct DetailSeasonsSection: View {
     let onEpisodeToggleMonitor: (Episode) -> Void
     let onEpisodeRetry: (Episode) -> Void
     let onEpisodeDeleteFile: (Episode) -> Void
+
+    let onFileChanged: () -> Void
+    let onFileNotice: (String) -> Void
+    let onFileError: (String) -> Void
 
     @State private var expanded: Set<Int> = []
 
@@ -84,6 +92,10 @@ struct DetailSeasonsSection: View {
 
             if isExpanded {
                 episodeList(episodes, canManage: canManage)
+                let files = filesBySeason[season.seasonNumber] ?? []
+                if !files.isEmpty {
+                    seasonFilesList(files)
+                }
             }
         }
         .padding(12)
@@ -144,6 +156,29 @@ struct DetailSeasonsSection: View {
                 ForEach(episodes.sorted { $0.episode < $1.episode }) { episode in
                     episodeRow(episode, canManage: canManage)
                 }
+            }
+        }
+    }
+
+    /// The season's real files, folded in below its episodes so a series page
+    /// has one season-grouped list instead of a separate Files card. Delete
+    /// stays on the episode row (episode-mode rows carry no delete menu).
+    private func seasonFilesList(_ files: [LibraryFileInfo]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Files")
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(Theme.faint)
+                .padding(.top, 2)
+            ForEach(files.sorted { ($0.episode ?? 0) < ($1.episode ?? 0) }) { file in
+                DetailFileRow(
+                    file: file,
+                    mode: .episode,
+                    isAdmin: isAdmin,
+                    onChanged: onFileChanged,
+                    onNotice: onFileNotice,
+                    onError: onFileError,
+                    onRequestDelete: {}
+                )
             }
         }
     }

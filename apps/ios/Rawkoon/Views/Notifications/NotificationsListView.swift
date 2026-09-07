@@ -96,15 +96,12 @@ struct NotificationsListView: View {
         }
     }
 
+    /// Infinite-scroll sentinel: appearing near the list's end pulls the next
+    /// page; the spinner is just the loading indicator, not a manual trigger.
     private var loadMoreRow: some View {
         HStack {
             Spacer()
-            if loadingMore {
-                ProgressView().tint(Theme.muted)
-            } else {
-                Button("Load more") { Task { await loadMore() } }
-                    .foregroundStyle(Theme.apricot)
-            }
+            ProgressView().tint(Theme.muted)
             Spacer()
         }
         .listRowBackground(Theme.raised)

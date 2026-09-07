@@ -126,38 +126,27 @@ struct RequestsView: View {
 
     private func row(_ req: MediaRequest) -> some View {
         HStack(spacing: 12) {
-            BookCover(url: model.absoluteURL(req.posterUrl), size: 46, corner: 6)
-
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(req.title)
-                        .font(.display(16))
-                        .foregroundStyle(Theme.textStrong)
-                        .lineLimit(1)
-
-                    if req.type == "book" {
-                        Text("Book")
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(Theme.muted)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Theme.muted.opacity(0.15), in: Capsule())
-                    }
+            // Movie/TV requests navigate to detail; book requests (no tmdbId) don't.
+            if req.type != "book", let tmdbId = req.tmdbId {
+                NavigationLink {
+                    MediaDetailView(
+                        tmdbId: tmdbId,
+                        mediaType: req.type == "show" ? "tv" : "movie",
+                        title: req.title,
+                        posterPath: req.posterUrl,
+                        libraryId: nil
+                    )
+                } label: {
+                    rowLabel(req)
                 }
-
-                Text(subtitle(for: req))
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.muted)
-                    .lineLimit(1)
-            }
-
-            Spacer()
-
-            if busyRequestId == req.id {
-                ProgressView().tint(Theme.apricot)
+                .buttonStyle(.plain)
             } else {
-                statusBadge(req.status, tint: badgeTint(req.status))
+                rowLabel(req)
             }
+
+            Spacer(minLength: 8)
+
+            rowTrailing(req)
         }
         .padding(.vertical, 4)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -170,6 +159,70 @@ struct RequestsView: View {
                 }
                 .tint(Theme.seed)
             }
+        }
+    }
+
+    private func rowLabel(_ req: MediaRequest) -> some View {
+        HStack(spacing: 12) {
+            if req.type == "book" {
+                BookCover(url: model.absoluteURL(req.posterUrl), size: 46, corner: 6)
+            } else {
+                MediaThumb(url: model.absoluteURL(req.posterUrl), width: 46)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(req.title)
+                        .font(.display(16))
+                        .foregroundStyle(Theme.textStrong)
+                        .lineLimit(1)
+
+                    if req.type == "book" {
+                        StatusBadge(text: "Book", tint: Theme.muted)
+                    }
+                }
+
+                Text(subtitle(for: req))
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.muted)
+                    .lineLimit(1)
+            }
+        }
+        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private func rowTrailing(_ req: MediaRequest) -> some View {
+        if busyRequestId == req.id {
+            ProgressView().tint(Theme.apricot)
+        } else if model.isAdmin, req.status == "pending" {
+            HStack(spacing: 2) {
+                Button {
+                    Task { await beginApprove(request: req) }
+                } label: {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.seed)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Approve")
+
+                Button {
+                    denyTarget = req
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.terracotta)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Deny")
+            }
+        } else {
+            statusBadge(req.status, tint: badgeTint(req.status))
         }
     }
 
