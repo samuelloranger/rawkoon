@@ -173,7 +173,7 @@ struct SettingsView: View {
             } header: {
                 Text("Playback")
             } footer: {
-                Text("Rewind when a book resumes, by how long it was paused \u{2014} nothing under ten seconds, two seconds under a minute, ten under an hour, twenty after a night's sleep.")
+                Text("Rewind when a book resumes, by how long it was paused \u{2014} nothing under three seconds, three under fifteen, six under five minutes, ten under an hour, twenty after a night's sleep.")
             }
             .listRowBackground(Theme.raised)
 

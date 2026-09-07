@@ -3273,12 +3273,12 @@
         }
       }
     },
-    "Rewind when a book resumes, by how long it was paused — nothing under ten seconds, two seconds under a minute, ten under an hour, twenty after a night's sleep.": {
+    "Rewind when a book resumes, by how long it was paused — nothing under three seconds, three under fifteen, six under five minutes, ten under an hour, twenty after a night's sleep.": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Recul à la reprise d'un livre, selon la durée de pause — rien sous dix secondes, deux secondes sous une minute, dix sous une heure, vingt après une nuit de sommeil."
+            "value": "Recul à la reprise d'un livre, selon la durée de pause — rien sous trois secondes, trois sous quinze, six sous cinq minutes, dix sous une heure, vingt après une nuit de sommeil."
           }
         }
       }

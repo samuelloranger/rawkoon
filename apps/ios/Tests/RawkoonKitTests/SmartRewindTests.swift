@@ -2,19 +2,27 @@
 import XCTest
 
 final class SmartRewindTests: XCTestCase {
-    func testShortPauseRewindsNothing() {
+    func testVeryShortPauseRewindsNothing() {
         XCTAssertEqual(smartRewindOffset(pausedFor: 0), 0)
-        XCTAssertEqual(smartRewindOffset(pausedFor: 3), 0)
-        XCTAssertEqual(smartRewindOffset(pausedFor: 9.99), 0)
+        XCTAssertEqual(smartRewindOffset(pausedFor: 1), 0)
+        XCTAssertEqual(smartRewindOffset(pausedFor: 2.99), 0)
     }
 
-    func testUnderAMinuteRewindsTwoSeconds() {
-        XCTAssertEqual(smartRewindOffset(pausedFor: 10), 2)
-        XCTAssertEqual(smartRewindOffset(pausedFor: 59.9), 2)
+    /// A short navigation prompt or quick question — the reported case that got
+    /// no rewind under the old 10s floor.
+    func testShortPromptRewindsThreeSeconds() {
+        XCTAssertEqual(smartRewindOffset(pausedFor: 3), 3)
+        XCTAssertEqual(smartRewindOffset(pausedFor: 5), 3)
+        XCTAssertEqual(smartRewindOffset(pausedFor: 14.9), 3)
+    }
+
+    func testUnderFiveMinutesRewindsSixSeconds() {
+        XCTAssertEqual(smartRewindOffset(pausedFor: 15), 6)
+        XCTAssertEqual(smartRewindOffset(pausedFor: 299), 6)
     }
 
     func testUnderAnHourRewindsTenSeconds() {
-        XCTAssertEqual(smartRewindOffset(pausedFor: 60), 10)
+        XCTAssertEqual(smartRewindOffset(pausedFor: 300), 10)
         XCTAssertEqual(smartRewindOffset(pausedFor: 3599), 10)
     }
 

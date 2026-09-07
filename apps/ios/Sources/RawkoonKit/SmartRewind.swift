@@ -8,13 +8,16 @@ import Foundation
 /// rather than a curve because the listener has to be able to predict it: the
 /// same gap always costs the same rewind.
 ///
-/// A very short gap rewinds nothing. Pausing to answer a question and pressing
-/// play again should resume where the voice stopped, not talk over itself.
+/// A very short gap rewinds nothing. Un-pausing within a few seconds — a cough,
+/// a misfire — should resume where the voice stopped, not talk over itself. But
+/// a short navigation prompt or a quick question is long enough to lose the
+/// thread of the sentence, so anything past a few seconds gives a little back.
 public func smartRewindOffset(pausedFor seconds: Double) -> Double {
     guard seconds.isFinite, seconds > 0 else { return 0 }
     switch seconds {
-    case ..<10: return 0
-    case ..<60: return 2
+    case ..<3: return 0
+    case ..<15: return 3
+    case ..<300: return 6
     case ..<3600: return 10
     default: return 20
     }
