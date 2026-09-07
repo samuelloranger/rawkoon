@@ -115,6 +115,13 @@ private enum LibraryDensity: String, CaseIterable {
 
 struct LibraryView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// List mutations animate with the app spring, degrading to a crossfade
+    /// under Reduce Motion (RawkoonMotion consumers must be Reduce-Motion safe).
+    private var listMotion: Animation {
+        reduceMotion ? RawkoonMotion.reduced : RawkoonMotion.spring
+    }
 
     @State private var section: LibrarySection = .media
 
@@ -132,6 +139,8 @@ struct LibraryView: View {
     @State private var mediaHasMore = false
     @State private var loadingMedia = false
     @State private var loadingMoreMedia = false
+    /// Bumped on every reset so a superseded load-more or live reload discards its result.
+    @State private var loadGeneration = 0
     @State private var mediaError: String?
     @State private var releaseSearch: ReleaseSearchPresentation?
     @State private var removeCandidate: LibraryMedia?
@@ -209,7 +218,10 @@ struct LibraryView: View {
             }
         }
         .task {
-            if section == .media {
+            // Only the first appearance loads — `.task` re-runs when we pop back
+            // from a pushed detail, and a reset there would drop loaded pages and
+            // reset the scroll position. Live edits keep the list fresh instead.
+            if section == .media, media.isEmpty {
                 await loadMedia(reset: true)
             }
             if model.library.isEmpty {
@@ -234,7 +246,7 @@ struct LibraryView: View {
             // paginated @State (the superseded fetch throws on cancellation
             // rather than writing a stale page).
             liveReloadTask?.cancel()
-            liveReloadTask = Task { await loadMedia(reset: true) }
+            liveReloadTask = Task { await reloadLoadedWindow() }
         }
         .onChange(of: model.bookChangeToken) { _, _ in
             guard section == .books else { return }
@@ -419,7 +431,7 @@ struct LibraryView: View {
 
     private var mediaGrid: some View {
         ScrollView {
-            VStack(spacing: 16) {
+            LazyVStack(spacing: 16) {
                 LazyVGrid(columns: columns, spacing: 16) {
                     ForEach(media) { m in
                         NavigationLink {
@@ -450,25 +462,37 @@ struct LibraryView: View {
                 .padding(.horizontal, 16)
 
                 if mediaHasMore {
-                    Button {
-                        Task { await loadMedia(reset: false) }
-                    } label: {
-                        if loadingMoreMedia {
-                            ProgressView().tint(Theme.apricot)
-                        } else {
-                            Text("Load more")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Theme.text)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .frame(minHeight: 44)
+                    paginationFooter
                 }
             }
             .padding(.vertical, 16)
         }
         .overlay { mediaOverlay }
         .refreshable { await loadMedia(reset: true) }
+    }
+
+    /// Infinite-scroll sentinel. Lives inside the lazy container so its `onAppear`
+    /// fires only when scrolled near the end — and re-fires each time it reappears,
+    /// so a failed page can be retried and a deleted last row can't strand it.
+    @ViewBuilder
+    private var paginationFooter: some View {
+        Group {
+            if let mediaError, !media.isEmpty {
+                Button {
+                    Task { await loadMedia(reset: false) }
+                } label: {
+                    VStack(spacing: 4) {
+                        Text(mediaError).font(.caption).foregroundStyle(Theme.muted)
+                        Text("Tap to retry").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.text)
+                    }
+                }
+                .buttonStyle(.plain)
+            } else {
+                ProgressView().tint(Theme.apricot)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 44)
+        .onAppear { loadMoreIfNeeded() }
     }
 
     @ViewBuilder
@@ -561,19 +585,7 @@ struct LibraryView: View {
                 }
 
                 if mediaHasMore {
-                    Button {
-                        Task { await loadMedia(reset: false) }
-                    } label: {
-                        if loadingMoreMedia {
-                            ProgressView().tint(Theme.apricot)
-                        } else {
-                            Text("Load more")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Theme.text)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .frame(minHeight: 44)
+                    paginationFooter
                 }
             }
             .padding(.horizontal, 16).padding(.vertical, 16)
@@ -729,17 +741,25 @@ struct LibraryView: View {
         guard let client = model.api() else { return }
 
         if reset {
+            // A reset supersedes any load-more and any live reload in flight — bump
+            // the generation so their late results are discarded, not applied.
+            loadGeneration += 1
+            liveReloadTask?.cancel()
             loadingMedia = true
         } else {
-            guard !loadingMoreMedia else { return }
+            guard !loadingMoreMedia, !loadingMedia else { return }
             loadingMoreMedia = true
         }
         mediaError = nil
         defer {
-            loadingMedia = false
-            loadingMoreMedia = false
+            if reset {
+                loadingMedia = false
+            } else {
+                loadingMoreMedia = false
+            }
         }
 
+        let gen = loadGeneration
         let targetPage = reset ? 1 : (mediaPage + 1)
         do {
             let response = try await client.libraryList(
@@ -751,6 +771,8 @@ struct LibraryView: View {
                 sortBy: sort.rawValue,
                 sortDir: sortAscending ? "asc" : "desc"
             )
+            // A newer reset (filter/search change) ran while we awaited — drop this.
+            guard gen == loadGeneration else { return }
             mediaPage = targetPage
             mediaHasMore = response.hasMore == true
             if reset {
@@ -763,7 +785,61 @@ struct LibraryView: View {
                 media = merged
             }
         } catch {
+            guard gen == loadGeneration else { return }
             mediaError = errorMessage(for: error)
+        }
+    }
+
+    /// Infinite scroll: the footer sentinel scrolled into view — fetch the next page.
+    /// A load-more error blocks auto-retry (the footer shows a manual retry instead).
+    private func loadMoreIfNeeded() {
+        guard mediaHasMore, !loadingMoreMedia, !loadingMedia, mediaError == nil else { return }
+        Task { await loadMedia(reset: false) }
+    }
+
+    /// Refetch every page currently loaded and replace in place, so a live event
+    /// refreshes content without collapsing to page 1 — which would drop the pages
+    /// the user scrolled past and reset their scroll position. Same item ids keep
+    /// the grid's identity, so the scroll offset survives.
+    private func reloadLoadedWindow() async {
+        guard let client = model.api() else { return }
+        let gen = loadGeneration
+        let pages = max(mediaPage, 1)
+        // Snapshot the filters so a mid-loop change can't stitch pages from two filters.
+        let type = mediaType.param
+        let status = mediaStatus.param
+        let q = normalizedMediaSearch.isEmpty ? nil : normalizedMediaSearch
+        let sortBy = sort.rawValue
+        let sortDir = sortAscending ? "asc" : "desc"
+        do {
+            var merged: [LibraryMedia] = []
+            var hasMore = false
+            for page in 1 ... pages {
+                try Task.checkCancellation()
+                let response = try await client.libraryList(
+                    type: type,
+                    status: status,
+                    q: q,
+                    page: page,
+                    limit: 60,
+                    sortBy: sortBy,
+                    sortDir: sortDir
+                )
+                for item in response.items where !merged.contains(where: { $0.id == item.id }) {
+                    merged.append(item)
+                }
+                hasMore = response.hasMore == true
+            }
+            try Task.checkCancellation()
+            // Discard if a reset ran or a load-more grew the window while we fetched.
+            guard gen == loadGeneration, pages == max(mediaPage, 1) else { return }
+            mediaHasMore = hasMore
+            // Stable ids mean a single-item live change animates as one reflow.
+            withAnimation(listMotion) {
+                media = merged
+            }
+        } catch {
+            // Cancelled or transient — keep the current list.
         }
     }
 
@@ -838,8 +914,13 @@ struct LibraryView: View {
         guard let client = model.api(), !busyMediaIds.contains(media.id) else { return }
         busyMediaIds.insert(media.id)
         do {
-            _ = try await client.updateLibraryMonitored(id: media.id, monitored: !media.monitored)
-            await loadMedia(reset: true)
+            let updated = try await client.updateLibraryMonitored(id: media.id, monitored: !media.monitored)
+            // Optimistic in-place swap — no refetch, so scroll and loaded pages stay put.
+            if let idx = self.media.firstIndex(where: { $0.id == updated.id }) {
+                withAnimation(listMotion) {
+                    self.media[idx] = updated
+                }
+            }
             model.toast(media.monitored ? String(localized: "Unmonitored.") : String(localized: "Monitored."), style: .success)
         } catch {
             model.toast(errorMessage(for: error), style: .error)
@@ -853,8 +934,18 @@ struct LibraryView: View {
         do {
             try await client.removeFromLibrary(id: media.id, deleteFiles: deleteFiles)
             removeCandidate = nil
-            await loadMedia(reset: true)
+            // Optimistic removal — drop the row locally instead of refetching page 1,
+            // which would reset scroll and drop the pages already loaded. Animated so
+            // the remaining cells reflow into the gap.
+            withAnimation(listMotion) {
+                self.media.removeAll { $0.id == media.id }
+            }
             model.toast(String(localized: "Removed from library."), style: .success)
+            // Removing the last loaded row while more pages exist would strand the
+            // list on an empty view with no sentinel to fire — pull the next page in.
+            if self.media.isEmpty, mediaHasMore {
+                await loadMedia(reset: true)
+            }
         } catch {
             model.toast(errorMessage(for: error), style: .error)
         }
