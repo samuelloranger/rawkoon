@@ -13,8 +13,8 @@ struct HomeView: View {
     @State private var attention: [AttentionItem] = []
     @State private var rss: RssStatusResponse?
     @State private var loading = true
-    /// Bumped on pull-to-refresh so the Continue card reloads with the rest of
-    /// the dashboard; it owns its own fetch otherwise.
+    /// Bumped on pull-to-refresh and when Continue's player sheet dismisses
+    /// so Listening reloads with Continue.
     @State private var continueToken = 0
 
     var body: some View {
@@ -26,7 +26,13 @@ struct HomeView: View {
                     ProgressView().tint(Theme.muted)
                         .frame(maxWidth: .infinity).padding(.top, 40)
                 } else {
-                    ContinueListeningView(refreshToken: continueToken, limit: 3)
+                    ContinueListeningView(
+                        refreshToken: continueToken,
+                        limit: 3,
+                        onPlaybackDismiss: { continueToken += 1 }
+                    )
+                    ListeningStatsCard(refreshToken: continueToken)
+                        .padding(.horizontal, 16)
                     if !recent.isEmpty {
                         rail("Recently added", recent.map(RailItem.library))
                     }

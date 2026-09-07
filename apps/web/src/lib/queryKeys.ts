@@ -49,6 +49,7 @@ export const queryKeys = {
     metadataSources: () => ["books", "metadata-sources"] as const,
     progress: () => ["books", "progress"] as const,
     readingProgress: () => ["books", "reading-progress"] as const,
+    listeningStats: () => ["books", "listening-stats"] as const,
     manifest: (editionId: number) => ["books", "manifest", editionId] as const,
   },
 

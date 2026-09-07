@@ -2074,6 +2074,18 @@
     "navPosition": "Navigation position",
     "openNotification": "Open notification"
   },
+  "listening": {
+    "title": "Listening",
+    "streak_one": "1 day streak",
+    "streak_other": "{{count}} day streak",
+    "hoursHint": "Hours start now — listen and they'll add up.",
+    "emptySeries": "No series in the library yet.",
+    "thisWeek": "This week",
+    "series": "Series",
+    "seriesLine": "{{name}} · {{percent}}%",
+    "booksOf": "{{count}} of {{total}}",
+    "loadError": "Couldn't load listening stats."
+  },
   "books": {
     "title": "Books",
     "subtitleCount": "{{count}} in library",

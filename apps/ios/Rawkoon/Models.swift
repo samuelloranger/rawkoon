@@ -1600,6 +1600,43 @@ nonisolated struct NotificationPrefsBody: Encodable, Sendable {
     let notificationPreferences: [String: Bool]
 }
 
+// MARK: - Listening stats / system features
+
+nonisolated struct SystemFeatures: Decodable, Sendable {
+    let booksEnabled: Bool
+}
+
+nonisolated struct ListeningSeriesStat: Decodable, Sendable, Identifiable {
+    var id: String {
+        name
+    }
+
+    let name: String
+    let booksTotal: Int
+    let booksFinished: Int
+    let percent: Int
+    let currentTitle: String?
+}
+
+nonisolated struct ListeningWeekDay: Decodable, Sendable, Identifiable {
+    var id: String {
+        day
+    }
+
+    let day: String
+    let seconds: Double
+}
+
+nonisolated struct ListeningStats: Decodable, Sendable {
+    let timezone: String
+    let todaySecs: Double
+    let weekSecs: Double
+    let streakDays: Int
+    let since: String?
+    let week: [ListeningWeekDay]
+    let series: [ListeningSeriesStat]
+}
+
 // MARK: - Books detail / editions / files
 
 nonisolated struct BookDetailResponse: Decodable, Sendable {

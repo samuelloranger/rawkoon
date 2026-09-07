@@ -169,6 +169,56 @@
         }
       }
     },
+    "%lld day streak": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 day streak"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld day streak"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 jour de série"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld jours de série"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld of %lld": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld sur %lld"
+          }
+        }
+      }
+    },
     "%lld min": {
       "localizations": {
         "en": {
@@ -881,6 +931,16 @@
         }
       }
     },
+    "Couldn't load listening stats.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger les stats d'écoute."
+          }
+        }
+      }
+    },
     "Couldn't load management": {
       "localizations": {
         "fr": {
@@ -1470,6 +1530,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Accueil"
+          }
+        }
+      }
+    },
+    "Hours start now — listen and they'll add up.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les heures commencent maintenant — écoutez et elles s'accumuleront."
           }
         }
       }
@@ -2230,6 +2300,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aucune demande pour l'instant."
+          }
+        }
+      }
+    },
+    "No series in the library yet.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune série dans la bibliothèque pour l'instant."
           }
         }
       }
@@ -3387,6 +3467,16 @@
         }
       }
     },
+    "Series": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Séries"
+          }
+        }
+      }
+    },
     "Server": {
       "localizations": {
         "fr": {
@@ -3663,6 +3753,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Thème"
+          }
+        }
+      }
+    },
+    "This week": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette semaine"
           }
         }
       }
@@ -7947,6 +8047,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Liste"
+          }
+        }
+      }
+    },
+    "Listening": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Écoute"
           }
         }
       }

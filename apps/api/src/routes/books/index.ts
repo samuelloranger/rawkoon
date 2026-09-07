@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import { auth } from "@rawkoon/api/auth";
 
+import { bookListeningStatsRoutes } from "./bookListeningStatsRoutes";
 import { bookListRoutes } from "./bookListRoutes";
 import { bookEditionRoutes } from "./bookEditionRoutes";
 import { bookGrabRoutes } from "./bookGrabRoutes";
@@ -22,17 +23,19 @@ export { authorRoutes } from "./authorRoutes";
 
 /**
  * Books router — thin orchestrator, same shape as routes/library/index.ts.
+ *   bookListeningStatsRoutes — GET /listening-stats (before /:id routes)
  *   bookListRoutes    — GET /, GET /search, GET /:id, PUT /:id/read, POST /, DELETE /:id
  *   bookMetadata*     — refresh a book's metadata, read/reorder the sources
  *   bookOverrides     — PATCH /:id/overrides, manual field edits
  *   bookEditionRoutes — PATCH /:id/editions/:kind, POST /:id/editions, files
  *   bookGrabRoutes    — search / grab / auto per edition
  *
- * bookListRoutes must come first: its literal /search route has to be matched
- * before anything that could treat "search" as an :id.
+ * bookListeningStatsRoutes and bookListRoutes must come before /:id routes:
+ * literal /listening-stats and /search must not be swallowed as an :id.
  */
 export const bookRoutes = new Elysia({ prefix: "/api/books" })
   .use(auth)
+  .use(bookListeningStatsRoutes)
   .use(bookListRoutes)
   .use(bookPlaybackRoutes)
   .use(bookContentRoutes)

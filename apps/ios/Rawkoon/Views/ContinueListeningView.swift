@@ -8,6 +8,8 @@ struct ContinueListeningView: View {
 
     var refreshToken: Int = 0
     var limit: Int = 6
+    /// Home bumps Continue+Listening refresh when the player sheet closes.
+    var onPlaybackDismiss: (() -> Void)?
 
     @State private var items: [ContinueItem] = []
     @State private var errorMessage: String?
@@ -33,7 +35,10 @@ struct ContinueListeningView: View {
             }
         }
         .task(id: refreshToken) { await load() }
-        .sheet(isPresented: $showingPlayer, onDismiss: { Task { await load() } }) {
+        .sheet(isPresented: $showingPlayer, onDismiss: {
+            onPlaybackDismiss?()
+            Task { await load() }
+        }) {
             if let active = model.activeBook() {
                 PlayerView(summary: active.summary, manifest: active.manifest)
                     .environment(model)

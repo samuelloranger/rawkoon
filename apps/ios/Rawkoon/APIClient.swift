@@ -1314,6 +1314,14 @@ actor APIClient {
         try await get("/api/system/version")
     }
 
+    func systemFeatures() async throws -> SystemFeatures {
+        try await get("/api/system/features")
+    }
+
+    func listeningStats() async throws -> ListeningStats {
+        try await get("/api/books/listening-stats")
+    }
+
     /// Current session user (better-auth). Best-effort: used to show name/email
     /// and gate admin-only settings rows.
     func currentUser() async throws -> SessionResponse {

@@ -106,6 +106,29 @@ export interface BookListeningProgressRequest {
   device_id?: string;
 }
 
+export interface BookListeningSeriesStat {
+  name: string;
+  books_total: number;
+  books_finished: number;
+  percent: number;
+  current_title: string | null;
+}
+
+export interface BookListeningWeekDay {
+  day: string;
+  seconds: number;
+}
+
+export interface BookListeningStats {
+  timezone: string;
+  today_secs: number;
+  week_secs: number;
+  streak_days: number;
+  since: string | null;
+  week: BookListeningWeekDay[];
+  series: BookListeningSeriesStat[];
+}
+
 export interface Book {
   id: number;
   google_volume_id: string;
