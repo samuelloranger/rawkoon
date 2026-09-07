@@ -347,29 +347,29 @@ extension View {
 
     /// Window-level confirm. iOS 26's `confirmationDialog` is a popover anchored
     /// to this view — on a ScrollView that lands off-screen or on the wrong row.
-    func rawkoonConfirm<A: View>(
+    func rawkoonConfirm(
         _ title: LocalizedStringKey,
         isPresented: Binding<Bool>,
-        @ViewBuilder actions: () -> A
+        @ViewBuilder actions: () -> some View
     ) -> some View {
         alert(title, isPresented: isPresented, actions: actions)
     }
 
-    func rawkoonConfirm<A: View, M: View>(
+    func rawkoonConfirm(
         _ title: LocalizedStringKey,
         isPresented: Binding<Bool>,
-        @ViewBuilder actions: () -> A,
-        @ViewBuilder message: () -> M
+        @ViewBuilder actions: () -> some View,
+        @ViewBuilder message: () -> some View
     ) -> some View {
         alert(title, isPresented: isPresented, actions: actions, message: message)
     }
 
-    func rawkoonConfirm<T, A: View, M: View>(
+    func rawkoonConfirm<T>(
         _ title: LocalizedStringKey,
         isPresented: Binding<Bool>,
         presenting data: T?,
-        @ViewBuilder actions: (T) -> A,
-        @ViewBuilder message: (T) -> M
+        @ViewBuilder actions: (T) -> some View,
+        @ViewBuilder message: (T) -> some View
     ) -> some View {
         alert(title, isPresented: isPresented, presenting: data, actions: actions, message: message)
     }

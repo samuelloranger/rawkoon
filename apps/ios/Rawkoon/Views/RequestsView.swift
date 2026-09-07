@@ -29,7 +29,6 @@ struct RequestsView: View {
     // Approve flow
     @State private var profileOptions: [ApprovalProfileOption] = []
     @State private var approvingRequest: MediaRequest?
-    @State private var showApproveDialog = false
     @State private var busyRequestId: Int?
     @State private var denyTarget: MediaRequest?
 
@@ -65,17 +64,9 @@ struct RequestsView: View {
         .navigationTitle("Requests")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
-        .rawkoonConfirm(
-            "Choose a quality profile",
-            isPresented: $showApproveDialog
-        ) {
-            ForEach(profileOptions) { option in
-                Button(option.name) {
-                    Task { await approve(request: approvingRequest, profileId: option.id) }
-                }
-            }
-            Button("Cancel", role: .cancel) {
-                approvingRequest = nil
+        .sheet(item: $approvingRequest) { request in
+            ProfilePickerSheet(options: profileOptions) { option in
+                Task { await approve(request: request, profileId: option.id) }
             }
         }
         .rawkoonConfirm(
@@ -225,12 +216,32 @@ struct RequestsView: View {
         do {
             let options: [ApprovalProfileOption] =
                 if request.type == "book" {
-                    try await client.bookQualityProfiles().profiles.map {
-                        ApprovalProfileOption(id: $0.id, name: $0.name)
+                    try await client.bookQualityProfiles().profiles.map { p in
+                        var parts: [String] = []
+                        if let f = p.cutoffFormat {
+                            parts.append(f.uppercased())
+                        }
+                        if let mb = p.maxSizeMb {
+                            parts.append("≤ \(mb) MB")
+                        }
+                        return ApprovalProfileOption(
+                            id: p.id, name: p.name,
+                            detail: parts.isEmpty ? nil : parts.joined(separator: " · ")
+                        )
                     }
                 } else {
-                    try await client.qualityProfiles().profiles.map {
-                        ApprovalProfileOption(id: $0.id, name: $0.name)
+                    try await client.qualityProfiles().profiles.map { p in
+                        var parts: [String] = []
+                        if let r = p.cutoffResolution {
+                            parts.append("up to \(r)p")
+                        }
+                        if let gb = p.maxSizeGb {
+                            parts.append("≤ \(gb) GB")
+                        }
+                        return ApprovalProfileOption(
+                            id: p.id, name: p.name,
+                            detail: parts.isEmpty ? nil : parts.joined(separator: " · ")
+                        )
                     }
                 }
             busyRequestId = nil
@@ -239,8 +250,7 @@ struct RequestsView: View {
                 return
             }
             profileOptions = options
-            approvingRequest = request
-            showApproveDialog = true
+            approvingRequest = request // presents the picker sheet via .sheet(item:)
         } catch APIError.unauthorized {
             busyRequestId = nil
             adminNote = String(localized: "Admin only.")
@@ -250,8 +260,8 @@ struct RequestsView: View {
         }
     }
 
-    private func approve(request: MediaRequest?, profileId: Int) async {
-        guard let client = model.api(), let request else { return }
+    private func approve(request: MediaRequest, profileId: Int) async {
+        guard let client = model.api() else { return }
         approvingRequest = nil
         busyRequestId = request.id
         defer { busyRequestId = nil }
@@ -285,4 +295,53 @@ struct RequestsView: View {
 private struct ApprovalProfileOption: Identifiable {
     let id: Int
     let name: String
+    let detail: String?
+}
+
+/// Approve flow's profile picker. A sheet, not an alert/action-sheet: the list
+/// can be long and each row carries a resolution/size detail line.
+private struct ProfilePickerSheet: View {
+    let options: [ApprovalProfileOption]
+    let onSelect: (ApprovalProfileOption) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(options) { option in
+                    Button {
+                        onSelect(option)
+                        dismiss()
+                    } label: {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(option.name)
+                                .font(.display(16))
+                                .foregroundStyle(Theme.textStrong)
+                            if let detail = option.detail {
+                                Text(detail)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundStyle(Theme.muted)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(Theme.raised)
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Theme.base)
+            .navigationTitle("Choose a quality profile")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationBackground(Theme.base)
+    }
 }
