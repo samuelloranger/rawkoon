@@ -200,10 +200,9 @@ struct BookView: View {
             EbookReaderSheet(document: document)
                 .environment(model)
         }
-        .confirmationDialog(
+        .rawkoonConfirm(
             "Remove downloaded audiobook?",
-            isPresented: $confirmRemoveAudiobook,
-            titleVisibility: .visible
+            isPresented: $confirmRemoveAudiobook
         ) {
             Button("Remove Download", role: .destructive) {
                 if let editionId = audiobookEditionId {
@@ -215,10 +214,9 @@ struct BookView: View {
         } message: {
             Text("Deletes the offline chapters from this iPhone. Playback will need the network until you download them again.")
         }
-        .confirmationDialog(
+        .rawkoonConfirm(
             "Mark as read?",
-            isPresented: $confirmMarkRead,
-            titleVisibility: .visible
+            isPresented: $confirmMarkRead
         ) {
             Button("Mark as read") {
                 Task { await model.setBookRead(book, read: true) }
@@ -227,7 +225,7 @@ struct BookView: View {
         } message: {
             Text("This resets ebook and audiobook progress.")
         }
-        .confirmationDialog(
+        .rawkoonConfirm(
             "Remove downloaded file?",
             isPresented: Binding(
                 get: { ebookFileToRemove != nil },
@@ -237,7 +235,6 @@ struct BookView: View {
                     }
                 }
             ),
-            titleVisibility: .visible,
             presenting: ebookFileToRemove
         ) { file in
             Button("Remove Download", role: .destructive) {

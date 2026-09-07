@@ -82,7 +82,7 @@ struct DownloadClientHookView: View {
                 }
             }
         }
-        .confirmationDialog("Rotate the hook secret?", isPresented: $confirmRotate, titleVisibility: .visible) {
+        .rawkoonConfirm("Rotate the hook secret?", isPresented: $confirmRotate) {
             Button("Rotate", role: .destructive) { Task { await rotate() } }
             Button("Cancel", role: .cancel) {}
         } message: {

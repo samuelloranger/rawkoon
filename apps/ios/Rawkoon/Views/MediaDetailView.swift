@@ -167,7 +167,7 @@ struct MediaDetailView: View {
                     Task { await removeLibraryItem(id: targetId, deleteFiles: deleteFiles) }
                 }
             }
-            .confirmationDialog(
+            .rawkoonConfirm(
                 "Delete file?",
                 isPresented: Binding(
                     get: { pendingMovieFileDelete != nil },
@@ -177,7 +177,6 @@ struct MediaDetailView: View {
                         }
                     }
                 ),
-                titleVisibility: .visible,
                 presenting: pendingMovieFileDelete
             ) { file in
                 Button("Delete file", role: .destructive) { Task { await deleteMovieFileAction(file) } }
@@ -185,7 +184,7 @@ struct MediaDetailView: View {
             } message: { file in
                 Text("“\(file.fileName)” will be removed from disk.")
             }
-            .confirmationDialog(
+            .rawkoonConfirm(
                 "Delete episode file?",
                 isPresented: Binding(
                     get: { pendingEpisodeDelete != nil },
@@ -195,7 +194,6 @@ struct MediaDetailView: View {
                         }
                     }
                 ),
-                titleVisibility: .visible,
                 presenting: pendingEpisodeDelete
             ) { episode in
                 Button("Delete file", role: .destructive) { Task { await deleteEpisodeFileAction(episode) } }

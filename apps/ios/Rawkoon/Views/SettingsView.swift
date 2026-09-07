@@ -40,10 +40,9 @@ struct SettingsView: View {
         .tint(Theme.apricot)
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog(
+        .rawkoonConfirm(
             "Delete downloaded chapters?",
-            isPresented: $confirmDeleteDownloads,
-            titleVisibility: .visible
+            isPresented: $confirmDeleteDownloads
         ) {
             Button("Delete Downloads", role: .destructive) {
                 model.deleteDownloads()
@@ -52,10 +51,9 @@ struct SettingsView: View {
         } message: {
             Text("Removes offline audiobook chapters from this iPhone. Playback will need the network until they download again.")
         }
-        .confirmationDialog(
+        .rawkoonConfirm(
             "Log out of Rawkoon?",
-            isPresented: $confirmLogOut,
-            titleVisibility: .visible
+            isPresented: $confirmLogOut
         ) {
             Button("Log Out", role: .destructive) {
                 model.logout()

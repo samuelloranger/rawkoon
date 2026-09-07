@@ -38,7 +38,7 @@ struct NotificationsListView: View {
             // only the bell badge updating while the list stays stale.
             .task(id: model.notificationChangeToken) { await load(reset: true) }
             .refreshable { await load(reset: true) }
-            .confirmationDialog(
+            .rawkoonConfirm(
                 "Delete this notification?",
                 isPresented: Binding(
                     get: { pendingDeleteId != nil },
@@ -47,8 +47,7 @@ struct NotificationsListView: View {
                             pendingDeleteId = nil
                         }
                     }
-                ),
-                titleVisibility: .visible
+                )
             ) {
                 Button("Delete", role: .destructive) {
                     if let id = pendingDeleteId {

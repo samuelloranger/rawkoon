@@ -298,7 +298,7 @@ struct LibraryView: View {
                 Task { await removeFromLibrary(media, deleteFiles: deleteFiles) }
             }
         }
-        .confirmationDialog(
+        .rawkoonConfirm(
             "Mark as read?",
             isPresented: Binding(
                 get: { markReadBook != nil },
@@ -307,8 +307,7 @@ struct LibraryView: View {
                         markReadBook = nil
                     }
                 }
-            ),
-            titleVisibility: .visible
+            )
         ) {
             Button("Mark as read") {
                 if let book = markReadBook {

@@ -79,7 +79,7 @@ struct DevicesView: View {
         }
         .task { await load() }
         .refreshable { await load() }
-        .confirmationDialog(
+        .rawkoonConfirm(
             "Remove this device?",
             isPresented: Binding(
                 get: { pending != nil },
@@ -89,7 +89,6 @@ struct DevicesView: View {
                     }
                 }
             ),
-            titleVisibility: .visible,
             presenting: pending
         ) { item in
             Button("Remove", role: .destructive) { Task { await remove(item) } }

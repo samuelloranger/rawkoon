@@ -60,7 +60,7 @@ struct ContinueListeningView: View {
                 BookView(book: book, preferEbook: true)
             }
         }
-        .confirmationDialog(
+        .rawkoonConfirm(
             "Mark as read?",
             isPresented: Binding(
                 get: { markReadBook != nil },
@@ -69,8 +69,7 @@ struct ContinueListeningView: View {
                         markReadBook = nil
                     }
                 }
-            ),
-            titleVisibility: .visible
+            )
         ) {
             Button("Mark as read") {
                 if let book = markReadBook {

@@ -65,10 +65,9 @@ struct RequestsView: View {
         .navigationTitle("Requests")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
-        .confirmationDialog(
+        .rawkoonConfirm(
             "Choose a quality profile",
-            isPresented: $showApproveDialog,
-            titleVisibility: .visible
+            isPresented: $showApproveDialog
         ) {
             ForEach(profileOptions) { option in
                 Button(option.name) {
@@ -79,7 +78,7 @@ struct RequestsView: View {
                 approvingRequest = nil
             }
         }
-        .confirmationDialog(
+        .rawkoonConfirm(
             "Deny this request?",
             isPresented: Binding(
                 get: { denyTarget != nil },
@@ -88,8 +87,7 @@ struct RequestsView: View {
                         denyTarget = nil
                     }
                 }
-            ),
-            titleVisibility: .visible
+            )
         ) {
             Button("Deny", role: .destructive) {
                 if let req = denyTarget {

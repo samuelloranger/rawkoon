@@ -336,17 +336,42 @@ extension View {
         title: String,
         onConfirm: @escaping (_ deleteFiles: Bool) -> Void
     ) -> some View {
-        confirmationDialog(
-            "Remove from library?",
-            isPresented: isPresented,
-            titleVisibility: .visible
-        ) {
+        rawkoonConfirm("Remove from library?", isPresented: isPresented) {
             Button("Remove, keep files") { onConfirm(false) }
             Button("Remove and delete files", role: .destructive) { onConfirm(true) }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("“\(title)” will leave your library. Deleting files also removes them from disk.")
         }
+    }
+
+    /// Window-level confirm. iOS 26's `confirmationDialog` is a popover anchored
+    /// to this view — on a ScrollView that lands off-screen or on the wrong row.
+    func rawkoonConfirm<A: View>(
+        _ title: LocalizedStringKey,
+        isPresented: Binding<Bool>,
+        @ViewBuilder actions: () -> A
+    ) -> some View {
+        alert(title, isPresented: isPresented, actions: actions)
+    }
+
+    func rawkoonConfirm<A: View, M: View>(
+        _ title: LocalizedStringKey,
+        isPresented: Binding<Bool>,
+        @ViewBuilder actions: () -> A,
+        @ViewBuilder message: () -> M
+    ) -> some View {
+        alert(title, isPresented: isPresented, actions: actions, message: message)
+    }
+
+    func rawkoonConfirm<T, A: View, M: View>(
+        _ title: LocalizedStringKey,
+        isPresented: Binding<Bool>,
+        presenting data: T?,
+        @ViewBuilder actions: (T) -> A,
+        @ViewBuilder message: (T) -> M
+    ) -> some View {
+        alert(title, isPresented: isPresented, presenting: data, actions: actions, message: message)
     }
 }
 
