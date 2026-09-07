@@ -280,7 +280,7 @@ struct BookRow: View {
 
             Spacer(minLength: 8)
             if book.isRead {
-                StatusBadge(text: "Read", tint: Theme.seed)
+                StatusBadge(verbatim: bookReadStatusText(), tint: Theme.seed)
             }
             if downloaded {
                 StatusBadge(text: "Offline", tint: Theme.seed)

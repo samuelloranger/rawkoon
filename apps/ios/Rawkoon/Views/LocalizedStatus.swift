@@ -51,6 +51,11 @@ enum LocalizedStatus {
     }
 }
 
+/// Whole-book flag; catalog key is not "Read" so French is "Lu", not the ebook verb "Lire".
+func bookReadStatusText() -> String {
+    String(localized: "book.readStatus", defaultValue: "Read")
+}
+
 func statusBadge(_ status: String, tint: Color) -> StatusBadge {
     if let key = LocalizedStatus.key(for: status) {
         StatusBadge(text: key, tint: tint)

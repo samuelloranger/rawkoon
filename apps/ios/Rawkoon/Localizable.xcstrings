@@ -1844,6 +1844,46 @@
         }
       }
     },
+    "Mark as read": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marquer comme lu"
+          }
+        }
+      }
+    },
+    "Mark as read?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marquer comme lu ?"
+          }
+        }
+      }
+    },
+    "Mark as unread": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer le badge lu"
+          }
+        }
+      }
+    },
+    "Marked as read.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marqué comme lu."
+          }
+        }
+      }
+    },
     "Matched %lld • %lld unmatched": {
       "localizations": {
         "fr": {
@@ -2887,6 +2927,22 @@
         }
       }
     },
+    "book.readStatus": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lu"
+          }
+        }
+      }
+    },
     "Reader": {
       "localizations": {
         "fr": {
@@ -3793,6 +3849,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "L'élément de cette notification n'est plus disponible."
+          }
+        }
+      }
+    },
+    "This resets ebook and audiobook progress.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cela réinitialise la progression de l’ebook et de l’audiobook."
           }
         }
       }
@@ -6297,6 +6363,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Échec de la lecture. Actualisez ou réanalysez cette édition."
+          }
+        }
+      }
+    },
+    "Read badge cleared.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Badge lu retiré."
           }
         }
       }

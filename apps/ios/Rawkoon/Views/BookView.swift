@@ -276,7 +276,7 @@ struct BookView: View {
                 }
                 HStack(spacing: 6) {
                     if isRead {
-                        chip(Text("Read"), tint: Theme.seed)
+                        chip(Text(verbatim: bookReadStatusText()), tint: Theme.seed)
                     }
                     if hasAudiobookEdition {
                         chip(
