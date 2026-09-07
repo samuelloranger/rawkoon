@@ -3783,6 +3783,16 @@
         }
       }
     },
+    "Tap to retry": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toucher pour réessayer"
+          }
+        }
+      }
+    },
     "Tests the saved configuration.": {
       "localizations": {
         "fr": {
