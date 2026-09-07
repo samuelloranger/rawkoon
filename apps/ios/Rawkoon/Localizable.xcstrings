@@ -3273,7 +3273,7 @@
         }
       }
     },
-    "Rewind when a book resumes, by how long it was paused — nothing under three seconds, three under fifteen, six under five minutes, ten under an hour, twenty after a night's sleep.": {
+    "Rewind when a book resumes, by how long it was paused — nothing under three seconds, three under fifteen, six under five minutes, ten under an hour, twenty overnight.": {
       "localizations": {
         "fr": {
           "stringUnit": {
