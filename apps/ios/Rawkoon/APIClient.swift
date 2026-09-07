@@ -61,12 +61,17 @@ struct BookListItem: Identifiable, Sendable {
     let audiobookStatus: String?
     let audiobookFileCount: Int
     let hasEbook: Bool
+    let readAt: String?
     var id: Int {
         bookId
     }
 
     var hasAudiobook: Bool {
         audiobookEditionId != nil
+    }
+
+    var isRead: Bool {
+        readAt != nil
     }
 
     /// A playable summary for the audiobook edition, when present.
@@ -262,7 +267,8 @@ actor APIClient {
                     audiobookDurationSecs: audiobook?.durationSecs,
                     audiobookStatus: audiobook?.status,
                     audiobookFileCount: audiobook?.fileCount ?? 0,
-                    hasEbook: ebook != nil
+                    hasEbook: ebook != nil,
+                    readAt: book.readAt
                 )
             }
             allItems.append(contentsOf: pageItems)
@@ -317,6 +323,10 @@ actor APIClient {
     func bookDetail(bookId: Int) async throws -> BookDetailItem {
         let response: BookDetailResponse = try await get("/api/books/\(bookId)")
         return response.item
+    }
+
+    func setBookRead(bookId: Int, read: Bool) async throws {
+        try await putExpectOK("/api/books/\(bookId)/read", body: SetBookReadBody(read: read))
     }
 
     func bookEditionFiles(bookId: Int, kind: String) async throws -> [BookEditionFile] {
@@ -1342,6 +1352,7 @@ private nonisolated struct LibraryBook: Decodable {
     let coverUrl: String?
     let authors: [String]
     let editions: [LibraryEdition]
+    let readAt: String?
 }
 
 private nonisolated struct LibraryEdition: Decodable {
@@ -1361,6 +1372,10 @@ nonisolated struct BookEditionRescanResponse: Decodable, Sendable {
     let refreshed: Int
     let removed: Int
     let directory: String?
+}
+
+private nonisolated struct SetBookReadBody: Encodable {
+    let read: Bool
 }
 
 private nonisolated struct ProgressPayload: Decodable {

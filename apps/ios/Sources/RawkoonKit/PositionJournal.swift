@@ -43,4 +43,13 @@ public enum PositionJournal {
             return latest.atMillis <= entry.atMillis ? entry : latest
         }
     }
+
+    /// Drop every line for the given editions so a local resume cannot PUT a
+    /// wiped server position back.
+    public static func excluding(_ text: String, editionIds: Set<Int>) -> String {
+        parse(text)
+            .filter { !editionIds.contains($0.editionId) }
+            .map { encode($0) }
+            .joined()
+    }
 }

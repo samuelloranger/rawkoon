@@ -3,6 +3,7 @@ export const BOOKS_ENDPOINTS = {
   SEARCH: "/api/books/search",
   ADD: "/api/books",
   DETAIL: (id: number) => `/api/books/${id}`,
+  READ: (id: number) => `/api/books/${id}/read`,
   REFRESH_METADATA: (id: number) => `/api/books/${id}/refresh-metadata`,
   METADATA_SOURCES: "/api/books/metadata-sources",
   OVERRIDES: (id: number) => `/api/books/${id}/overrides`,

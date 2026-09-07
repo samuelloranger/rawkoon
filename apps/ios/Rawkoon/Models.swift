@@ -1625,6 +1625,7 @@ nonisolated struct BookDetailItem: Decodable, Identifiable, Sendable {
     let rating: Double?
     let ratingCount: Int?
     let isbn13: String?
+    let readAt: String?
     let editions: [BookEditionDetail]
 }
 

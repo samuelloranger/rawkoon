@@ -29,6 +29,8 @@ public func mediaPosterMenuItems(inLibrary: Bool, isAdmin: Bool) -> [MediaPoster
 public enum BookCardMenuAction: Equatable, Sendable, Hashable {
     case read
     case play
+    case markRead
+    case markUnread
     case addAudiobook
     case addEbook
     case rescan
@@ -37,9 +39,15 @@ public enum BookCardMenuAction: Equatable, Sendable, Hashable {
 /// Which long-press items a book card should offer.
 ///
 /// Read/Play follow BookView: an edition that exists is playable/readable.
+/// Mark as read is the whole-book flag (not the ebook "Read" action).
 /// Add is admin-only and only for a missing kind. Rescan is admin-only and
 /// only when at least one edition exists to rescan.
-public func bookCardMenuItems(hasAudiobook: Bool, hasEbook: Bool, isAdmin: Bool) -> [BookCardMenuAction] {
+public func bookCardMenuItems(
+    hasAudiobook: Bool,
+    hasEbook: Bool,
+    isAdmin: Bool,
+    isRead: Bool
+) -> [BookCardMenuAction] {
     var items: [BookCardMenuAction] = []
     if hasEbook {
         items.append(.read)
@@ -47,6 +55,7 @@ public func bookCardMenuItems(hasAudiobook: Bool, hasEbook: Bool, isAdmin: Bool)
     if hasAudiobook {
         items.append(.play)
     }
+    items.append(isRead ? .markUnread : .markRead)
     if isAdmin {
         if !hasAudiobook {
             items.append(.addAudiobook)

@@ -9,6 +9,10 @@ import {
   BookProviderUnavailableError,
 } from "@rawkoon/api/services/books";
 import { addBookFromVolume } from "@rawkoon/api/services/books/bookLibrary";
+import {
+  loadReadAtByBookId,
+  setBookRead,
+} from "@rawkoon/api/services/books/setBookRead";
 import type { BookEditionKind } from "@rawkoon/shared/types";
 
 import { bookInclude, mapBook } from "./bookHelpers";
@@ -20,6 +24,7 @@ const KINDS: BookEditionKind[] = ["ebook", "audiobook"];
  *   GET    /api/books
  *   GET    /api/books/search
  *   GET    /api/books/:id
+ *   PUT    /api/books/:id/read
  *   POST   /api/books
  *   DELETE /api/books/:id
  */
@@ -28,7 +33,7 @@ export const bookListRoutes = new Elysia()
 
   .get(
     "/",
-    async ({ query, set }) => {
+    async ({ query, set, user }) => {
       try {
         const { q, kind, status, page, limit, sort_by, sort_dir } = query;
 
@@ -71,7 +76,15 @@ export const bookListRoutes = new Elysia()
         ]);
 
         const has_more = rows.length > take;
-        const items = (has_more ? rows.slice(0, take) : rows).map(mapBook);
+        const listed = has_more ? rows.slice(0, take) : rows;
+        const readAt = await loadReadAtByBookId(
+          prisma,
+          user!.id,
+          listed.map((b) => b.id),
+        );
+        const items = listed.map((b) =>
+          mapBook(b, { readAt: readAt.get(b.id) ?? null }),
+        );
 
         return { items, total, has_more };
       } catch (e) {
@@ -148,15 +161,38 @@ export const bookListRoutes = new Elysia()
 
   .get(
     "/:id",
-    async ({ params, set }) => {
+    async ({ params, set, user }) => {
       const book = await prisma.libraryBook.findUnique({
         where: { id: params.id },
         include: bookInclude,
       });
       if (!book) return notFound(set, "Book not found");
-      return { item: mapBook(book) };
+      const readAt = await loadReadAtByBookId(prisma, user!.id, [book.id]);
+      return { item: mapBook(book, { readAt: readAt.get(book.id) ?? null }) };
     },
     { params: t.Object({ id: t.Numeric() }) },
+  )
+
+  .put(
+    "/:id/read",
+    async ({ params, body, set, user }) => {
+      const result = await setBookRead(prisma, {
+        userId: user!.id,
+        bookId: params.id,
+        read: body.read,
+      });
+      if (!result.ok) return notFound(set, "Book not found");
+      const book = await prisma.libraryBook.findUnique({
+        where: { id: params.id },
+        include: bookInclude,
+      });
+      if (!book) return notFound(set, "Book not found");
+      return { item: mapBook(book, { readAt: result.readAt }) };
+    },
+    {
+      params: t.Object({ id: t.Numeric() }),
+      body: t.Object({ read: t.Boolean() }),
+    },
   )
 
   .post(

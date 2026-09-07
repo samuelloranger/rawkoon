@@ -279,6 +279,9 @@ struct BookRow: View {
             }
 
             Spacer(minLength: 8)
+            if book.isRead {
+                StatusBadge(text: "Read", tint: Theme.seed)
+            }
             if downloaded {
                 StatusBadge(text: "Offline", tint: Theme.seed)
             }
@@ -385,6 +388,14 @@ private func bookCardMenuButton(
     case .play:
         Button { perform(action) } label: {
             Label("Play", systemImage: "play.fill")
+        }
+    case .markRead:
+        Button { perform(action) } label: {
+            Label("Mark as read", systemImage: "checkmark.circle")
+        }
+    case .markUnread:
+        Button { perform(action) } label: {
+            Label("Mark as unread", systemImage: "checkmark.circle.badge.minus")
         }
     case .addAudiobook:
         Button { perform(action) } label: {

@@ -38,6 +38,15 @@ final class PositionJournalTests: XCTestCase {
         XCTAssertNil(PositionJournal.latest(in: "", editionId: 14))
     }
 
+    func testExcludingDropsNamedEditionsAndKeepsTheRest() {
+        let text = PositionJournal.encode(PositionEntry(editionId: 14, positionSecs: 100, atMillis: 1))
+            + PositionJournal.encode(PositionEntry(editionId: 99, positionSecs: 7, atMillis: 2))
+            + PositionJournal.encode(PositionEntry(editionId: 14, positionSecs: 50, atMillis: 3))
+        let kept = PositionJournal.excluding(text, editionIds: [14])
+        XCTAssertNil(PositionJournal.latest(in: kept, editionId: 14))
+        XCTAssertEqual(PositionJournal.latest(in: kept, editionId: 99)?.positionSecs, 7)
+    }
+
     func testLatestPrefersLaterEntryOnSameMillisTie() {
         let text = PositionJournal.encode(PositionEntry(editionId: 14, positionSecs: 100, atMillis: 7))
             + PositionJournal.encode(PositionEntry(editionId: 14, positionSecs: 200, atMillis: 7))

@@ -113,7 +113,10 @@ export function mapBookEdition(e: MappableEdition): BookEdition {
   };
 }
 
-export function mapBook(b: MappableBook): Book {
+export function mapBook(
+  b: MappableBook,
+  opts?: { readAt?: Date | null },
+): Book {
   const overrides =
     b.overrides &&
     typeof b.overrides === "object" &&
@@ -149,6 +152,7 @@ export function mapBook(b: MappableBook): Book {
       (b.metadataFields ?? []).map((f) => [f.field, f.source]),
     ) as Record<string, BookMetadataSource>,
     editions: b.editions.map(mapBookEdition),
+    read_at: opts?.readAt?.toISOString() ?? null,
   };
 }
 

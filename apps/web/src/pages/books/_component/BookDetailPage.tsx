@@ -23,6 +23,7 @@ import { useLibraryEvents } from "@/features/medias/hooks/useLibraryEvents";
 import { PageLayout } from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
 import { EditionOpenActions } from "@/features/books/EditionOpenActions";
+import { MarkBookReadAction, BookReadBadge } from "./BookReadActions";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -782,6 +783,11 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
           <h1 className="font-display text-3xl leading-tight text-neutral-50 sm:text-4xl">
             {book.title}
           </h1>
+          {book.read_at && (
+            <div className="mt-2">
+              <BookReadBadge />
+            </div>
+          )}
           {book.subtitle && (
             <p className="mt-1.5 font-display text-lg text-neutral-300">
               {book.subtitle}
@@ -957,6 +963,7 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
             )}
             {t("books.detail.metadata.refresh")}
           </Button>
+          <MarkBookReadAction book={book} />
           <RemoveBookAction bookId={book.id} title={book.title} />
         </div>
       </div>

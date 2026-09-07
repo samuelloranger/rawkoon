@@ -55,6 +55,25 @@ export function useBook(id: number) {
   });
 }
 
+export function useSetBookRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, read }: { id: number; read: boolean }) =>
+      fetchApi<BookItemResponse>(BOOKS_ENDPOINTS.READ(id), {
+        method: "PUT",
+        body: JSON.stringify({ read }),
+      }),
+    onSuccess: (data, vars) => {
+      qc.setQueryData(queryKeys.books.detail(vars.id), data);
+      void qc.invalidateQueries({ queryKey: queryKeys.books.all });
+      void qc.invalidateQueries({ queryKey: queryKeys.books.progress() });
+      void qc.invalidateQueries({
+        queryKey: queryKeys.books.readingProgress(),
+      });
+    },
+  });
+}
+
 /**
  * Provider search for the add flow. Only fires on an explicit submit, never
  * per keystroke: Google Books is rate-limited and returns 503 under load.

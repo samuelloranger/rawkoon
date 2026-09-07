@@ -59,6 +59,7 @@ struct BookView: View {
     /// cancellation).
     @State private var ebookDownloadTasks: [Int: Task<Void, Never>] = [:]
     @State private var confirmRemoveAudiobook = false
+    @State private var confirmMarkRead = false
     /// The ebook file awaiting a delete confirmation, or nil when none is.
     @State private var ebookFileToRemove: BookEditionFile?
     @State private var ebookFilesError: String?
@@ -106,6 +107,11 @@ struct BookView: View {
 
     private var hasEbookEdition: Bool {
         ebookEdition != nil || book.hasEbook
+    }
+
+    private var isRead: Bool {
+        if let detail { return detail.readAt != nil }
+        return book.isRead
     }
 
     private var titleText: String {
@@ -208,6 +214,18 @@ struct BookView: View {
             Text("Deletes the offline chapters from this iPhone. Playback will need the network until you download them again.")
         }
         .confirmationDialog(
+            "Mark as read?",
+            isPresented: $confirmMarkRead,
+            titleVisibility: .visible
+        ) {
+            Button("Mark as read") {
+                Task { await model.setBookRead(book, read: true) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This resets ebook and audiobook progress.")
+        }
+        .confirmationDialog(
             "Remove downloaded file?",
             isPresented: Binding(
                 get: { ebookFileToRemove != nil },
@@ -257,6 +275,9 @@ struct BookView: View {
                         .foregroundStyle(Theme.faint)
                 }
                 HStack(spacing: 6) {
+                    if isRead {
+                        chip(Text("Read"), tint: Theme.seed)
+                    }
                     if hasAudiobookEdition {
                         chip(
                             Text("Audiobook") + Text(verbatim: " · ")
@@ -273,6 +294,19 @@ struct BookView: View {
                     }
                 }
                 .padding(.top, 2)
+
+                Button {
+                    if isRead {
+                        Task { await model.setBookRead(book, read: false) }
+                    } else {
+                        confirmMarkRead = true
+                    }
+                } label: {
+                    Text(isRead ? "Mark as unread" : "Mark as read")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .font(.subheadline)
+                .padding(.top, 4)
             }
             Spacer(minLength: 0)
         }

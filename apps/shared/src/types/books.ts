@@ -139,6 +139,8 @@ export interface Book {
    */
   metadata_sources: Record<string, BookMetadataSource>;
   editions: BookEdition[];
+  /** When this user marked the whole book read. Null if they have not. */
+  read_at: string | null;
 }
 
 export interface BookListResponse {

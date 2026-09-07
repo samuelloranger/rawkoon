@@ -142,6 +142,7 @@ struct LibraryView: View {
     /// rapid `/api/library/events` bursts can't race the list state.
     @State private var liveReloadTask: Task<Void, Never>?
     @State private var readingBook: BookListItem?
+    @State private var markReadBook: BookListItem?
     @State private var busyMediaIds: Set<Int> = []
 
     @State private var bookKind: BookKindFilter = .all
@@ -296,6 +297,24 @@ struct LibraryView: View {
             if let media = removeCandidate {
                 Task { await removeFromLibrary(media, deleteFiles: deleteFiles) }
             }
+        }
+        .confirmationDialog(
+            "Mark as read?",
+            isPresented: Binding(
+                get: { markReadBook != nil },
+                set: { if !$0 { markReadBook = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Mark as read") {
+                if let book = markReadBook {
+                    Task { await model.setBookRead(book, read: true) }
+                }
+                markReadBook = nil
+            }
+            Button("Cancel", role: .cancel) { markReadBook = nil }
+        } message: {
+            Text("This resets ebook and audiobook progress.")
         }
     }
 
@@ -573,7 +592,8 @@ struct LibraryView: View {
                             menuItems: bookCardMenuItems(
                                 hasAudiobook: book.hasAudiobook,
                                 hasEbook: book.hasEbook,
-                                isAdmin: model.isAdmin
+                                isAdmin: model.isAdmin,
+                                isRead: book.isRead
                             ),
                             onMenuAction: { handleBookMenu($0, book: book) }
                         )
@@ -780,6 +800,14 @@ struct LibraryView: View {
             busyBookIds.insert(book.bookId)
             Task {
                 await playAudiobook(book)
+                busyBookIds.remove(book.bookId)
+            }
+        case .markRead:
+            markReadBook = book
+        case .markUnread:
+            busyBookIds.insert(book.bookId)
+            Task {
+                await model.setBookRead(book, read: false)
                 busyBookIds.remove(book.bookId)
             }
         case .addAudiobook:

@@ -1236,7 +1236,8 @@ final class AppModel {
                 audiobookDurationSecs: audiobook?.totalDurationSecs,
                 audiobookStatus: audiobook != nil ? "downloaded" : nil,
                 audiobookFileCount: audiobook?.fileCount ?? 0,
-                hasEbook: ebook != nil
+                hasEbook: ebook != nil,
+                readAt: nil
             )
         }
     }
@@ -1260,6 +1261,42 @@ final class AppModel {
             isAdmin = user.isAdmin ?? false
             let full = [user.firstName, user.lastName].compactMap(\.self).joined(separator: " ")
             userFirstName = user.firstName ?? (full.isEmpty ? user.name : full)
+        }
+    }
+
+    /// Mark the whole book read (or clear the badge). Marking read wipes this
+    /// user's ebook and audiobook progress on the server and this device.
+    func setBookRead(_ book: BookListItem, read: Bool) async {
+        guard let apiClient else { return }
+        errorMessage = nil
+        do {
+            try await apiClient.setBookRead(bookId: book.bookId, read: read)
+            if read {
+                clearLocalProgress(for: book)
+            }
+            await loadLibrary()
+            bookChangeToken += 1
+            toast(
+                read
+                    ? String(localized: "Marked as read.")
+                    : String(localized: "Read badge cleared."),
+                style: .success
+            )
+        } catch {
+            toast(message(for: error), style: .error)
+        }
+    }
+
+    private func clearLocalProgress(for book: BookListItem) {
+        let editionIds = [book.audiobookEditionId, book.ebookEditionId].compactMap { $0 }
+        for editionId in editionIds {
+            try? readingProgressStore.remove(editionId: editionId)
+            lastProgressPosition[editionId] = nil
+        }
+        let kept = PositionJournal.excluding(readJournal(), editionIds: Set(editionIds))
+        try? kept.write(to: journalURL, atomically: true, encoding: .utf8)
+        if let active = activeEditionId, editionIds.contains(active) {
+            player.seek(to: 0)
         }
     }
 

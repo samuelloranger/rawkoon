@@ -16,6 +16,7 @@ struct ContinueListeningView: View {
     @State private var showingPlayer = false
     @State private var previewDocument: EbookPreviewDocument?
     @State private var readingBook: BookListItem?
+    @State private var markReadBook: BookListItem?
 
     var body: some View {
         // A bare `if` with no else renders nothing at all, and SwiftUI never
@@ -53,6 +54,27 @@ struct ContinueListeningView: View {
             if let book = readingBook {
                 BookView(book: book, preferEbook: true)
             }
+        }
+        .confirmationDialog(
+            "Mark as read?",
+            isPresented: Binding(
+                get: { markReadBook != nil },
+                set: { if !$0 { markReadBook = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Mark as read") {
+                if let book = markReadBook {
+                    Task {
+                        await model.setBookRead(book, read: true)
+                        await load()
+                    }
+                }
+                markReadBook = nil
+            }
+            Button("Cancel", role: .cancel) { markReadBook = nil }
+        } message: {
+            Text("This resets ebook and audiobook progress.")
         }
     }
 
@@ -403,7 +425,8 @@ struct ContinueListeningView: View {
         return bookCardMenuItems(
             hasAudiobook: book.hasAudiobook,
             hasEbook: book.hasEbook,
-            isAdmin: model.isAdmin
+            isAdmin: model.isAdmin,
+            isRead: book.isRead
         )
     }
 
@@ -452,6 +475,13 @@ struct ContinueListeningView: View {
             Task {
                 await rescanBook(book)
                 busyIds.remove(item.id)
+            }
+        case .markRead:
+            markReadBook = book
+        case .markUnread:
+            Task {
+                await model.setBookRead(book, read: false)
+                await load()
             }
         }
     }

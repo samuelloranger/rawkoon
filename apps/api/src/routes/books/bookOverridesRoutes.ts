@@ -8,6 +8,8 @@ import { refreshBookMetadata } from "@rawkoon/api/services/books/refreshBookMeta
 import { serializePerBook } from "@rawkoon/api/services/books/refreshQueue";
 import { parseIsoDate } from "@rawkoon/api/utils/books/isoDate";
 
+import { loadReadAtByBookId } from "@rawkoon/api/services/books/setBookRead";
+
 import { bookInclude, mapBook } from "./bookHelpers";
 
 /**
@@ -70,7 +72,7 @@ const nullableInt = (min: number, max: number) =>
 
 export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
   "/:id/overrides",
-  async ({ params, body, set }) => {
+  async ({ params, body, set, user }) => {
     const id = Number(params.id);
     if (!Number.isInteger(id) || id <= 0)
       return badRequest(set, "Invalid book id");
@@ -257,7 +259,8 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
           `No metadata source supplies ${unrestored.join(", ")}, so it cannot be reverted. Your value was kept.`,
         );
       }
-      return { item: mapBook(item) };
+      const readAt = await loadReadAtByBookId(prisma, user!.id, [item.id]);
+      return { item: mapBook(item, { readAt: readAt.get(item.id) ?? null }) };
     } catch (error) {
       console.error("Failed to update book overrides:", error);
       return serverError(set, "Failed to update overrides");

@@ -31,6 +31,7 @@ import { useBooks } from "../_hooks/useBooks";
 import { AddBookDialog } from "./AddBookDialog";
 import { BookCover } from "./BookCover";
 import { BookGrid } from "./BookGrid";
+import { BookReadBadge, BookReadContextMenu } from "./BookReadActions";
 import { aggregateState, byKindOrder, stateTokens } from "./bookState";
 
 const formatBytes = (raw: string | null): string => {
@@ -142,6 +143,11 @@ function BookRow({ book }: { book: Book }) {
           <p className="truncate font-display text-[17px] leading-snug text-neutral-50">
             {book.title}
           </p>
+          {book.read_at && (
+            <div className="mt-1">
+              <BookReadBadge />
+            </div>
+          )}
           <p className="truncate text-sm text-neutral-300">
             {book.authors.join(", ") || t("books.unknownAuthor")}
           </p>
@@ -387,7 +393,9 @@ export function BooksPage() {
         <ul className="space-y-2">
           {books.map((b) => (
             <li key={b.id}>
-              <BookRow book={b} />
+              <BookReadContextMenu book={b}>
+                <BookRow book={b} />
+              </BookReadContextMenu>
             </li>
           ))}
         </ul>

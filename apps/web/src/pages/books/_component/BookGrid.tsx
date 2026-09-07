@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { BookOpen, Headphones } from "lucide-react";
 import type { Book } from "@rawkoon/shared/types";
 import { BookCover } from "./BookCover";
+import { BookReadBadge, BookReadContextMenu } from "./BookReadActions";
 import { aggregateState, byKindOrder, stateTokens } from "./bookState";
 
 /**
@@ -78,6 +79,7 @@ function BookTile({ book }: { book: Book }) {
         />
 
         <div className="absolute right-1 top-1 flex flex-col items-end gap-1">
+          {book.read_at && <BookReadBadge />}
           {byKindOrder(book.editions).map((e) => (
             <EditionPip key={e.id} kind={e.kind} status={e.status} />
           ))}
@@ -109,7 +111,9 @@ export function BookGrid({ books }: { books: Book[] }) {
     <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
       {books.map((b) => (
         <li key={b.id}>
-          <BookTile book={b} />
+          <BookReadContextMenu book={b}>
+            <BookTile book={b} />
+          </BookReadContextMenu>
         </li>
       ))}
     </ul>

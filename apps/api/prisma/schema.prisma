@@ -41,6 +41,7 @@ model User {
   decidedMediaRequests MediaRequest[] @relation("MediaRequestDecider")
   bookProgress         BookListeningProgress[]
   bookReadingProgress  BookReadingProgress[]
+  bookReadStates       BookReadState[]
 
   @@map("users")
 }
@@ -871,6 +872,7 @@ model LibraryBook {
   externalIds    BookExternalId[]
   metadataFields BookMetadataField[]
   mediaRequests  MediaRequest[]
+  readStates     BookReadState[]
 
   @@index([addedAt], map: "ix_library_books_added_at")
   @@index([listTitle], map: "ix_library_books_list_title")
@@ -1040,6 +1042,23 @@ model BookReadingProgress {
 
   @@unique([userId, editionId], map: "uq_book_reading_progress_user_edition")
   @@map("book_reading_progress")
+}
+
+/// Per-user flag that the whole book is finished.
+///
+/// Separate from edition `finished` on progress rows: those mean "reached the
+/// end of this ebook/audiobook once". This is the badge the user sets, and
+/// marking it wipes that user's progress on every edition of the book.
+model BookReadState {
+  userId String   @map("user_id")
+  bookId Int      @map("book_id")
+  readAt DateTime @map("read_at")
+
+  user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book LibraryBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@id([userId, bookId])
+  @@map("book_read_states")
 }
 
 /// Google Books exposes no author ids, so the name is the key. Homonymous
