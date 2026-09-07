@@ -17,7 +17,7 @@ struct DetailHero: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            AsyncImage(url: model.absoluteURL(backdropPath)) { image in
+            CachedAsyncImage(url: model.absoluteURL(backdropPath), targetSize: CGSize(width: 500, height: 200)) { image in
                 image.resizable().scaledToFill()
             } placeholder: {
                 Theme.raised
@@ -72,7 +72,7 @@ struct DetailHero: View {
             .fill(Theme.raised)
             .frame(width: 84, height: 126)
             .overlay(
-                AsyncImage(url: model.absoluteURL(posterPath)) { image in
+                CachedAsyncImage(url: model.absoluteURL(posterPath), targetSize: CGSize(width: 84, height: 126)) { image in
                     image.resizable().scaledToFill()
                 } placeholder: {
                     LinearGradient(

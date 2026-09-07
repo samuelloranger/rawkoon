@@ -159,7 +159,7 @@ struct ContinueListeningView: View {
             .fill(Theme.base.opacity(0.7))
             .frame(width: 36, height: 54)
             .overlay {
-                AsyncImage(url: coverURL(item)) { image in
+                CachedAsyncImage(url: coverURL(item), targetSize: CGSize(width: 36, height: 54)) { image in
                     image.resizable().scaledToFill()
                 } placeholder: {
                     Image(systemName: "book")

@@ -10,7 +10,7 @@ struct BookCover: View {
 
     var body: some View {
         ZStack(alignment: .leading) {
-            AsyncImage(url: url) { image in
+            CachedAsyncImage(url: url, targetSize: CGSize(width: size, height: size)) { image in
                 image.resizable().scaledToFill()
             } placeholder: {
                 LinearGradient(
@@ -130,7 +130,7 @@ struct MediaPosterCard<Overlay: View>: View {
                 .fill(Theme.raised)
                 .aspectRatio(2.0 / 3.0, contentMode: .fit)
                 .overlay {
-                    AsyncImage(url: posterURL) { image in
+                    CachedAsyncImage(url: posterURL, targetSize: CGSize(width: 160, height: 240)) { image in
                         image.resizable().scaledToFill()
                     } placeholder: {
                         Image(systemName: "photo")

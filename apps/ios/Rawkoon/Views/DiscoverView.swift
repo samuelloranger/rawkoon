@@ -377,7 +377,7 @@ struct DiscoverView: View {
     /// view simply fills it while keeping the 2:3 ratio.
     @ViewBuilder
     private func posterCard(_ item: TmdbSearchItem, fixedWidth: CGFloat?) -> some View {
-        let image = AsyncImage(url: model.absoluteURL(item.posterUrl)) { image in
+        let image = CachedAsyncImage(url: model.absoluteURL(item.posterUrl), targetSize: CGSize(width: 160, height: 240)) { image in
             image.resizable().scaledToFill()
         } placeholder: {
             Theme.raised

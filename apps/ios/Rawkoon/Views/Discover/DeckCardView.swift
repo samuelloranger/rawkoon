@@ -11,7 +11,7 @@ struct DeckCardView: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            AsyncImage(url: posterURL) { image in
+            CachedAsyncImage(url: posterURL, targetSize: CGSize(width: 400, height: 600)) { image in
                 image.resizable().scaledToFill()
             } placeholder: {
                 LinearGradient(

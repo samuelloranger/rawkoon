@@ -63,7 +63,7 @@ struct DetailCastRow: View {
 
     private func castCard(_ member: CastMember) -> some View {
         VStack(spacing: 6) {
-            AsyncImage(url: model.absoluteURL(member.profileUrl)) { image in
+            CachedAsyncImage(url: model.absoluteURL(member.profileUrl), targetSize: CGSize(width: 64, height: 64)) { image in
                 image.resizable().scaledToFill()
             } placeholder: {
                 LinearGradient(

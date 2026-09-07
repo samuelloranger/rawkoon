@@ -171,7 +171,10 @@ struct HomeView: View {
             .fill(Theme.raised)
             .frame(width: RailPoster.width, height: RailPoster.height)
             .overlay {
-                AsyncImage(url: model.absoluteURL(url)) { image in
+                CachedAsyncImage(
+                    url: model.absoluteURL(url),
+                    targetSize: CGSize(width: RailPoster.width, height: RailPoster.height)
+                ) { image in
                     image.resizable().scaledToFill()
                 } placeholder: {
                     Image(systemName: "photo").foregroundStyle(Theme.faint)

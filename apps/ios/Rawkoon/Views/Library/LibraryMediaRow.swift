@@ -48,7 +48,7 @@ struct LibraryMediaRow: View {
             .fill(Theme.well)
             .frame(width: posterWidth, height: posterHeight)
             .overlay {
-                AsyncImage(url: posterURL) { image in
+                CachedAsyncImage(url: posterURL, targetSize: CGSize(width: posterWidth, height: posterHeight)) { image in
                     image.resizable().scaledToFill()
                 } placeholder: {
                     Image(systemName: "photo")

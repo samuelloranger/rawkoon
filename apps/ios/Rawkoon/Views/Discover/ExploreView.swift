@@ -291,7 +291,7 @@ struct ExploreView: View {
     /// with `minimumScaleFactor` as the last-resort guard rail.
     private func posterCard(_ item: TmdbSearchItem) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            AsyncImage(url: model.absoluteURL(item.posterUrl)) { image in
+            CachedAsyncImage(url: model.absoluteURL(item.posterUrl), targetSize: CGSize(width: 160, height: 240)) { image in
                 image.resizable().scaledToFill()
             } placeholder: {
                 Theme.raised
