@@ -15,14 +15,16 @@ private struct LoadedImage: @unchecked Sendable {
 /// (`URLCache`), and downsamples to the display size so a 46pt row never
 /// decodes a 500px poster.
 enum PosterCache {
-    // NSCache is internally synchronized; the URLSession is its own so image
-    // bytes never evict the API client's JSON responses (and vice-versa).
+    /// Decoded images, keyed by URL+size. `NSCache` is internally synchronized,
+    /// so the shared instance is safe to touch from any task.
     nonisolated(unsafe) static let decoded: NSCache<NSString, UIImage> = {
         let cache = NSCache<NSString, UIImage>()
         cache.totalCostLimit = 64 * 1024 * 1024 // ~64 MB of decoded pixels
         return cache
     }()
 
+    /// A dedicated session so image bytes never evict the API client's JSON
+    /// responses (and vice-versa).
     static let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.urlCache = URLCache(
