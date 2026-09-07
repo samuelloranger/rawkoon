@@ -1607,7 +1607,10 @@ nonisolated struct SystemFeatures: Decodable, Sendable {
 }
 
 nonisolated struct ListeningSeriesStat: Decodable, Sendable, Identifiable {
-    var id: String { name }
+    var id: String {
+        name
+    }
+
     let name: String
     let booksTotal: Int
     let booksFinished: Int
@@ -1616,7 +1619,10 @@ nonisolated struct ListeningSeriesStat: Decodable, Sendable, Identifiable {
 }
 
 nonisolated struct ListeningWeekDay: Decodable, Sendable, Identifiable {
-    var id: String { day }
+    var id: String {
+        day
+    }
+
     let day: String
     let seconds: Double
 }

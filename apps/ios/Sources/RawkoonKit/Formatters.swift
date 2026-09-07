@@ -59,8 +59,12 @@ public enum Formatters {
         let total = Int(seconds.rounded(.down))
         let hours = total / 3600
         let minutes = (total % 3600) / 60
-        if hours == 0 && minutes == 0 { return "0h" }
-        if hours == 0 { return "\(minutes)m" }
+        if hours == 0, minutes == 0 {
+            return "0h"
+        }
+        if hours == 0 {
+            return "\(minutes)m"
+        }
         return "\(hours)h \(minutes)m"
     }
 }

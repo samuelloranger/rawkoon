@@ -40,8 +40,6 @@ export function weekdayLabel(ymd: string): string {
   });
 }
 
-export function weekBarMaxSeconds(
-  week: BookListeningStats["week"],
-): number {
+export function weekBarMaxSeconds(week: BookListeningStats["week"]): number {
   return Math.max(...week.map((entry) => entry.seconds), 1);
 }

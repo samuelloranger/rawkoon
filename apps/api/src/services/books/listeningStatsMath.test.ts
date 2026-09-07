@@ -58,7 +58,10 @@ describe("streakDays", () => {
   });
   test("today counts backward", () => {
     expect(
-      streakDays(new Set(["2026-09-04", "2026-09-05", "2026-09-06"]), "2026-09-06"),
+      streakDays(
+        new Set(["2026-09-04", "2026-09-05", "2026-09-06"]),
+        "2026-09-06",
+      ),
     ).toBe(3);
   });
   test("yesterday-only still counts (morning before today's listen)", () => {

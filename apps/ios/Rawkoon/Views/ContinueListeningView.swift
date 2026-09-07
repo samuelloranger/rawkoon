@@ -9,7 +9,7 @@ struct ContinueListeningView: View {
     var refreshToken: Int = 0
     var limit: Int = 6
     /// Home bumps Continue+Listening refresh when the player sheet closes.
-    var onPlaybackDismiss: (() -> Void)? = nil
+    var onPlaybackDismiss: (() -> Void)?
 
     @State private var items: [ContinueItem] = []
     @State private var errorMessage: String?

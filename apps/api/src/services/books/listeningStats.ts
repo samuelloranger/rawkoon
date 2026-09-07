@@ -92,9 +92,7 @@ export async function getListeningStats(
   }
 
   const since =
-    dailyRows.length > 0
-      ? dailyRows[0].day.toISOString().slice(0, 10)
-      : null;
+    dailyRows.length > 0 ? dailyRows[0].day.toISOString().slice(0, 10) : null;
 
   const week = isoWeekDays(todayYmd).map((day) => ({
     day,

@@ -38,7 +38,9 @@ export function ListeningStatsWidget() {
             </p>
           ) : null}
           {stats.data.since === null ? (
-            <p className="text-xs text-neutral-500">{t("listening.hoursHint")}</p>
+            <p className="text-xs text-neutral-500">
+              {t("listening.hoursHint")}
+            </p>
           ) : null}
         </div>
       </button>
