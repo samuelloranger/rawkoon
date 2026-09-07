@@ -18,6 +18,9 @@ const state: {
   volumeConflictId: string | null;
   /** When set, the first update carrying googleVolumeId raises P2002. */
   raceVolumeConflict: boolean;
+  /** The Author row returned for the book's primary author, or null. */
+  author: { id: number; bio: string | null; imageUrl: string | null } | null;
+  authorUpdates: Record<string, unknown>[];
 } = {
   book: null,
   sourceOrder: ["audnexus", "googlebooks"],
@@ -28,6 +31,8 @@ const state: {
   provenanceDeletes: 0,
   volumeConflictId: null,
   raceVolumeConflict: false,
+  author: null,
+  authorUpdates: [],
 };
 
 const bookFixture = () => ({
@@ -114,6 +119,13 @@ mock.module("@rawkoon/api/db", () => ({
       findUnique: () =>
         Promise.resolve({ bookMetadataSourceOrder: state.sourceOrder }),
     },
+    author: {
+      findUnique: () => Promise.resolve(state.author),
+      update: (args: { data: Record<string, unknown> }) => {
+        state.authorUpdates.push(args.data);
+        return Promise.resolve({});
+      },
+    },
     $transaction: (fn: (t: typeof tx) => Promise<unknown>) => fn(tx),
   },
 }));
@@ -135,12 +147,32 @@ beforeEach(() => {
   state.provenanceDeletes = 0;
   state.volumeConflictId = null;
   state.raceVolumeConflict = false;
+  state.author = null;
+  state.authorUpdates = [];
 });
 
-const audnexus = (fields: Record<string, unknown>) => ({
-  source: "audnexus" as const,
-  enrich: () => Promise.resolve(fields),
-});
+const audnexus = (
+  fields: Record<string, unknown>,
+  authorFields?: Record<string, unknown>,
+) => {
+  const stub: {
+    source: "audnexus";
+    enrich: () => Promise<Record<string, unknown>>;
+    enrichAuthorCalls: number;
+    enrichAuthor?: () => Promise<Record<string, unknown>>;
+  } = {
+    source: "audnexus",
+    enrich: () => Promise.resolve(fields),
+    enrichAuthorCalls: 0,
+  };
+  if (authorFields) {
+    stub.enrichAuthor = () => {
+      stub.enrichAuthorCalls++;
+      return Promise.resolve(authorFields);
+    };
+  }
+  return stub;
+};
 const googlebooks = (fields: Record<string, unknown>) => ({
   source: "googlebooks" as const,
   enrich: () => Promise.resolve(fields),
@@ -946,5 +978,51 @@ describe("refreshBookMetadata orphaned columns", () => {
     await refreshBookMetadata(1, { providers: [audnexus({})] });
 
     expect(state.updates.at(-1) ?? {}).not.toHaveProperty("publisher");
+  });
+});
+
+describe("refreshBookMetadata author enrichment", () => {
+  test("fills an empty author's bio and image", async () => {
+    state.author = { id: 7, bio: null, imageUrl: null };
+    await refreshBookMetadata(1, {
+      providers: [
+        audnexus({}, { authorBio: "A life.", authorImageUrl: "http://img" }),
+      ],
+    });
+    expect(state.authorUpdates).toEqual([
+      { bio: "A life.", imageUrl: "http://img" },
+    ]);
+  });
+
+  test("fills only the empty side, never overwriting", async () => {
+    state.author = { id: 7, bio: "kept", imageUrl: null };
+    await refreshBookMetadata(1, {
+      providers: [
+        audnexus({}, { authorBio: "new", authorImageUrl: "http://new" }),
+      ],
+    });
+    expect(state.authorUpdates).toEqual([{ imageUrl: "http://new" }]);
+  });
+
+  test("skips the provider entirely when the author already has both", async () => {
+    state.author = { id: 7, bio: "have", imageUrl: "http://have" };
+    const provider = audnexus({}, { authorBio: "x", authorImageUrl: "y" });
+    await refreshBookMetadata(1, { providers: [provider] });
+    expect(provider.enrichAuthorCalls).toBe(0);
+    expect(state.authorUpdates).toEqual([]);
+  });
+
+  test("writes nothing when the provider returns no author fields", async () => {
+    state.author = { id: 7, bio: null, imageUrl: null };
+    await refreshBookMetadata(1, { providers: [audnexus({}, {})] });
+    expect(state.authorUpdates).toEqual([]);
+  });
+
+  test("does nothing when the primary author row is missing", async () => {
+    state.author = null;
+    await refreshBookMetadata(1, {
+      providers: [audnexus({}, { authorBio: "x", authorImageUrl: "y" })],
+    });
+    expect(state.authorUpdates).toEqual([]);
   });
 });

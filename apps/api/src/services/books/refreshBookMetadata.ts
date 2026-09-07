@@ -6,6 +6,7 @@ import { getBookMetadataProvider, toIsbn13 } from "./googleBooksProvider";
 import { getLocalFileProvider } from "./localFileProvider";
 import { getOpenLibraryProvider } from "./openLibraryProvider";
 import { mergeBookMetadata, MERGEABLE_FIELDS } from "./mergeBookMetadata";
+import { authorProfileFill } from "./authorProfile";
 import {
   BookProviderUnavailableError,
   type BookIdentityProvider,
@@ -551,6 +552,8 @@ export async function refreshBookMetadata(
     written = await runWrites(null);
   }
 
+  await enrichPrimaryAuthor(book.authors, providers);
+
   return {
     ok: true,
     bookId: book.id,
@@ -559,4 +562,49 @@ export async function refreshBookMetadata(
     failedSources,
     usedSources: [...new Set(candidates.map((c) => c.source))],
   };
+}
+
+/**
+ * Fill the book's primary author's bio/image, best-effort.
+ *
+ * Author rows are shared across every book by that author, so this is fill-only
+ * (see authorProfileFill) and runs after the book write rather than inside its
+ * transaction — it must never fail a refresh that already succeeded. Skipped
+ * once the author has both fields, so the network round-trip only happens while
+ * something is still missing. Only Audnexus supplies author data; the source
+ * order already filtered `providers`, so a disabled Audnexus contributes
+ * nothing here either.
+ */
+async function enrichPrimaryAuthor(
+  authors: string[],
+  providers: BookMetadataProvider[],
+): Promise<void> {
+  const name = authors[0];
+  if (!name) return;
+
+  const author = await prisma.author.findUnique({
+    where: { googleAuthorName: name },
+    select: { id: true, bio: true, imageUrl: true },
+  });
+  if (!author) return;
+  if (author.bio && author.imageUrl) return;
+
+  const provider = providers.find((p) => p.enrichAuthor);
+  if (!provider?.enrichAuthor) return;
+
+  let fields: ProviderFields;
+  try {
+    fields = await provider.enrichAuthor(name);
+  } catch (e) {
+    // A provider outage must not fail the book refresh that just succeeded.
+    if (e instanceof BookProviderUnavailableError) return;
+    throw e;
+  }
+
+  const patch = authorProfileFill(author, {
+    bio: fields.authorBio,
+    imageUrl: fields.authorImageUrl,
+  });
+  if (Object.keys(patch).length === 0) return;
+  await prisma.author.update({ where: { id: author.id }, data: patch });
 }

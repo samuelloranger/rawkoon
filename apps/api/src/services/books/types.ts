@@ -85,6 +85,13 @@ export interface BookMatchInput {
 export interface BookMetadataProvider {
   readonly source: BookMetadataSource;
   enrich(book: BookMatchInput): Promise<ProviderFields>;
+  /**
+   * Author bio/image for the book's primary author, in `authorBio` /
+   * `authorImageUrl`. Optional because only Audnexus carries author records and
+   * a book refresh proceeds fine without it — callers use
+   * `provider.enrichAuthor?.(name)`.
+   */
+  enrichAuthor?(authorName: string): Promise<ProviderFields>;
 }
 
 /**

@@ -295,6 +295,20 @@ export class AudnexusProvider implements BookMetadataProvider {
    * region. The image from the requested region is correct and is kept.
    */
   async enrichAuthor(authorName: string): Promise<ProviderFields> {
+    const cacheKey = `books:audnexus:author:${this.region}:${authorName.trim().toLowerCase()}`;
+    const cached = await getJsonCache<ProviderFields>(cacheKey);
+    if (cached) return cached;
+
+    const result = await this.fetchAuthor(authorName);
+    // Cache only a real hit. An empty result is often a transient miss, and
+    // caching it would hide a newly-catalogued author until the TTL expired.
+    if (Object.keys(result).length > 0) {
+      await setJsonCache(cacheKey, result, CACHE_TTL_BOOK);
+    }
+    return result;
+  }
+
+  private async fetchAuthor(authorName: string): Promise<ProviderFields> {
     const list = dedupeAudnexusAuthors(
       await fetchJson(
         `${this.baseUrl}/authors?name=${encodeURIComponent(authorName)}&region=${encodeURIComponent(this.region)}`,
