@@ -1288,7 +1288,7 @@ final class AppModel {
     }
 
     private func clearLocalProgress(for book: BookListItem) {
-        let editionIds = [book.audiobookEditionId, book.ebookEditionId].compactMap { $0 }
+        let editionIds = [book.audiobookEditionId, book.ebookEditionId].compactMap(\.self)
         for editionId in editionIds {
             try? readingProgressStore.remove(editionId: editionId)
             lastProgressPosition[editionId] = nil

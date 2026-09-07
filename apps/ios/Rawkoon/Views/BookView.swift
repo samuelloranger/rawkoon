@@ -110,7 +110,9 @@ struct BookView: View {
     }
 
     private var isRead: Bool {
-        if let detail { return detail.readAt != nil }
+        if let detail {
+            return detail.readAt != nil
+        }
         return book.isRead
     }
 

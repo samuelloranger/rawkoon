@@ -302,7 +302,11 @@ struct LibraryView: View {
             "Mark as read?",
             isPresented: Binding(
                 get: { markReadBook != nil },
-                set: { if !$0 { markReadBook = nil } }
+                set: {
+                    if !$0 {
+                        markReadBook = nil
+                    }
+                }
             ),
             titleVisibility: .visible
         ) {
