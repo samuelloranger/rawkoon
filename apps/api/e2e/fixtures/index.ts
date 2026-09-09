@@ -1,7 +1,10 @@
+import { authFixtures } from "./auth";
 import { authorsFixtures } from "./authors";
 import { bookQualityProfilesFixtures } from "./book-quality-profiles";
 import { customFormatsFixtures } from "./custom-formats";
 import { dashboardFixtures } from "./dashboard";
+import { downloadClientFixtures } from "./download-client";
+import { labbyFixtures } from "./labby";
 import { notificationsFixtures } from "./notifications";
 import { qualityProfilesFixtures } from "./quality-profiles";
 import { releasesFixtures } from "./releases";
@@ -26,6 +29,9 @@ export const registry: FixtureRegistry = {
   ...releasesFixtures,
   ...authorsFixtures,
   ...bookQualityProfilesFixtures,
+  ...labbyFixtures,
+  ...downloadClientFixtures,
+  ...authFixtures,
 };
 
 // Coverage gate: every manifest route must have a fixture, and every fixture key
