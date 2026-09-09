@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { auth } from "@rawkoon/api/auth";
 import { requireUser } from "@rawkoon/api/middleware/auth";
 import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationConfigCache";
@@ -109,13 +110,13 @@ export const dashboardJellyfinRoutes = new Elysia()
       }
     },
     {
-      query: t.Object({
-        itemId: t.String(),
-        preferred: t.Optional(t.String()),
-        parentBackdropItemId: t.Optional(t.String()),
-        backdropTag: t.Optional(t.String()),
-        parentBackdropTag: t.Optional(t.String()),
-        primaryTag: t.Optional(t.String()),
+      query: z.object({
+        itemId: z.string(),
+        preferred: z.string().optional(),
+        parentBackdropItemId: z.string().optional(),
+        backdropTag: z.string().optional(),
+        parentBackdropTag: z.string().optional(),
+        primaryTag: z.string().optional(),
       }),
     },
   )

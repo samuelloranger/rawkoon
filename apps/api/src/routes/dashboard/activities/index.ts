@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { auth } from "@rawkoon/api/auth";
 import { requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
@@ -205,10 +206,10 @@ export const dashboardActivitiesRoutes = new Elysia()
       }
     },
     {
-      query: t.Object({
-        limit: t.Optional(t.String()),
-        service: t.Optional(t.String()),
-        type: t.Optional(t.String()),
+      query: z.object({
+        limit: z.string().optional(),
+        service: z.string().optional(),
+        type: z.string().optional(),
       }),
     },
   );

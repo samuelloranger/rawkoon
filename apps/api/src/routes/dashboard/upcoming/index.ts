@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { auth } from "@rawkoon/api/auth";
 import { requireUser } from "@rawkoon/api/middleware/auth";
 import {
@@ -230,9 +231,9 @@ export const dashboardUpcomingRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        media_type: t.Union([t.Literal("movie"), t.Literal("tv")]),
-        tmdb_id: t.Numeric(),
+      body: z.object({
+        media_type: z.union([z.literal("movie"), z.literal("tv")]),
+        tmdb_id: z.coerce.number(),
       }),
     },
   )
@@ -257,9 +258,9 @@ export const dashboardUpcomingRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        media_type: t.Union([t.Literal("movie"), t.Literal("tv")]),
-        tmdb_id: t.Numeric(),
+      body: z.object({
+        media_type: z.union([z.literal("movie"), z.literal("tv")]),
+        tmdb_id: z.coerce.number(),
       }),
     },
   );
