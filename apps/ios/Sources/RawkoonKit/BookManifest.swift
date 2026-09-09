@@ -57,6 +57,24 @@ public struct ManifestFile: Codable, Equatable, Sendable {
         let ext = URL(string: url)?.pathExtension ?? ""
         return ext.isEmpty ? "bin" : ext
     }
+
+    /// In-file offset for `position` when it stays inside THIS file, else nil —
+    /// the caller must rebuild the queue. The physical-file analogue of
+    /// `BookTimeline.inPlaceSeekOffset`: a scrub across a chapter boundary within
+    /// one file (single-file audiobook) seeks in place instead of reloading the
+    /// whole file. The last instant of the book stays on the file that reaches
+    /// the end; a non-last file never absorbs it (that seek crosses files).
+    public func inPlaceSeekOffset(to position: Double, bookDurationSecs: Double) -> Double? {
+        if position >= startSecs, position < startSecs + durationSecs {
+            return position - startSecs
+        }
+        if position >= bookDurationSecs, startSecs + durationSecs >= bookDurationSecs,
+           position >= startSecs
+        {
+            return durationSecs
+        }
+        return nil
+    }
 }
 
 public struct BookManifest: Codable, Equatable, Sendable {

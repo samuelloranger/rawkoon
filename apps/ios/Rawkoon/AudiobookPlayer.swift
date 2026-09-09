@@ -471,10 +471,13 @@ final class AudiobookPlayer {
         positionSecs = clamped
         updateNowPlayingInfo()
 
-        if let offset = timeline.inPlaceSeekOffset(
-            fromChapterIndex: currentChapterIndex,
-            to: clamped
-        ), player?.currentItem != nil {
+        // In-place when the target stays inside the currently-loaded physical
+        // file, even across a chapter boundary (single-file audiobook): reloading
+        // the whole file to move between its own chapters would stutter.
+        if let currentFile = file(for: player?.currentItem),
+           let offset = currentFile.inPlaceSeekOffset(to: clamped, bookDurationSecs: duration),
+           player?.currentItem != nil
+        {
             seekCurrentItem(to: offset, autoplay: autoplay)
             return
         }
