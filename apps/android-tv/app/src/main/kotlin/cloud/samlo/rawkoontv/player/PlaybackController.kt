@@ -8,6 +8,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import cloud.samlo.rawkoontv.data.ManifestDto
 import cloud.samlo.rawkoontv.data.RawkoonApi
+import cloud.samlo.rawkoontv.data.playbackFiles
 import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +36,7 @@ class PlaybackController(
 ) {
     private var controller: MediaController? = null
     private var map: PositionMap? = null
+    private var marks: ChapterMarks? = null
     private var editionId: Int = -1
     private var totalSecs: Double = 0.0
     private val gate = SyncGate()
@@ -49,7 +51,8 @@ class PlaybackController(
         this.editionId = editionId
         suppressSaves = true
         val manifest: ManifestDto = api.manifest(editionId)
-        map = PositionMap(manifest.chapters)
+        map = PositionMap(manifest.playbackFiles())
+        marks = ChapterMarks(manifest.chapters)
         totalSecs = map!!.totalSecs
         // Authoritative resume point: the server's saved position (fresh),
         // falling back to the value the library passed in.
@@ -58,8 +61,7 @@ class PlaybackController(
         }.getOrNull()
         val resumeAt = serverResume ?: resumeGlobalSecs
         val playlist = buildPlaylist(baseUrl, manifest)
-        val titles = playlist.map { it.title }
-        _state.value = _state.value.copy(chapters = titles, totalSecs = totalSecs)
+        _state.value = _state.value.copy(chapters = marks!!.titles, totalSecs = totalSecs)
         val items = playlist.map { MediaItem.fromUri(it.mediaUri) }
         val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
         val future = MediaController.Builder(context, token).buildAsync()
@@ -75,8 +77,8 @@ class PlaybackController(
                 suppressSaves = false
             } else {
                 c.setMediaItems(items)
-                val pos = map!!.toChapter(resumeAt)
-                c.prepare(); c.seekTo(pos.chapterIndex, (pos.offsetInChapterSecs * 1000).toLong())
+                val pos = map!!.toItem(resumeAt)
+                c.prepare(); c.seekTo(pos.itemIndex, (pos.offsetInItemSecs * 1000).toLong())
                 c.play()
                 PlaybackState.loadedEditionId = editionId
                 attachListener(c)
@@ -120,15 +122,18 @@ class PlaybackController(
     private fun startTicker() {
         scope.launch {
             while (controller != null) {
-                val c = controller ?: break
+                controller ?: break
                 val g = currentGlobal()
                 val remaining = sleepEndMs?.let {
                     ((it - System.currentTimeMillis()) / 1000).toInt().coerceAtLeast(0)
                 }
+                // Marker from the whole-book position, not the media item: one
+                // file can span many chapters (single-file audiobook).
+                val ordinal = marks?.ordinalAt(g) ?: 0
                 _state.value = _state.value.copy(
                     globalSecs = g, totalSecs = totalSecs,
-                    currentChapterIndex = c.currentMediaItemIndex,
-                    chapterTitle = _state.value.chapters.getOrNull(c.currentMediaItemIndex) ?: "",
+                    currentChapterIndex = ordinal,
+                    chapterTitle = _state.value.chapters.getOrNull(ordinal) ?: "",
                     sleepRemainingSecs = remaining,
                 )
                 writeProgress(force = false)
@@ -139,17 +144,25 @@ class PlaybackController(
 
     fun playPause() { controller?.let { if (it.isPlaying) it.pause() else it.play() } }
     fun skip(deltaSecs: Double) = seekGlobal(currentGlobal() + deltaSecs)
-    fun nextChapter() { controller?.seekToNextMediaItem(); writeProgress(true) }
-    fun prevChapter() { controller?.seekToPreviousMediaItem(); writeProgress(true) }
+    // Chapter navigation seeks to chapter BOUNDARIES on the whole-book timeline,
+    // not to media items — one media item can hold many chapters (single-file).
+    fun nextChapter() {
+        val next = marks?.nextBoundaryAfter(currentGlobal()) ?: return
+        seekGlobal(next)
+    }
+    fun prevChapter() {
+        seekGlobal(marks?.prevBoundaryBefore(currentGlobal()) ?: 0.0)
+    }
     fun seekGlobal(secs: Double) {
         val m = map ?: return; val c = controller ?: return
-        val p = m.toChapter(secs)
-        c.seekTo(p.chapterIndex, (p.offsetInChapterSecs * 1000).toLong())
+        val p = m.toItem(secs)
+        c.seekTo(p.itemIndex, (p.offsetInItemSecs * 1000).toLong())
         writeProgress(true)
     }
 
     fun jumpToChapter(index: Int) {
-        controller?.seekTo(index, 0L); writeProgress(true)
+        val m = marks ?: return
+        seekGlobal(m.startOfOrdinal(index))
     }
 
     private val speeds = listOf(1f, 1.25f, 1.5f, 1.75f, 2f)

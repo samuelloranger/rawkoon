@@ -61,7 +61,28 @@ val json = Json { ignoreUnknownKeys = true; isLenient = true }
     val url: String,
 )
 
+// One physical file: the unit of playback. A multi-file book has one file per
+// chapter; a single-file audiobook has one file that many chapters index into.
+// `startSecs` is the whole-book position of the file's t=0.
+@Serializable data class FileDto(
+    val id: Int,
+    @SerialName("start_secs") val startSecs: Double,
+    @SerialName("duration_secs") val durationSecs: Double,
+    val url: String,
+)
+
 @Serializable data class ManifestDto(
     @SerialName("total_duration_secs") val totalDurationSecs: Double,
     val chapters: List<ChapterDto>,
+    val files: List<FileDto> = emptyList(),
 )
+
+// The files to play: the server's files[], or one synthesized per chapter for a
+// manifest that predates the field. A single-file audiobook collapses to one
+// file, so it is played as one media item and chapters become timeline markers.
+fun ManifestDto.playbackFiles(): List<FileDto> =
+    files.ifEmpty {
+        chapters.sortedBy { it.index }.map {
+            FileDto(it.fileId, it.startSecs, it.endSecs - it.startSecs, it.url)
+        }
+    }
