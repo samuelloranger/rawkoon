@@ -73,12 +73,24 @@ export interface BookManifestChapter {
   url: string;
 }
 
+export interface BookManifestFile {
+  id: number;
+  /** Whole-book position (secs) where this file's t=0 sits. */
+  start_secs: number;
+  /** Playable length of the file in secs. */
+  duration_secs: number;
+  size_bytes: number;
+  sha256: string | null;
+  url: string;
+}
+
 export interface BookManifest {
   edition_id: number;
   book_id: number;
   title: string;
   authors: string[];
   total_duration_secs: number;
+  files: BookManifestFile[];
   chapters: BookManifestChapter[];
 }
 
