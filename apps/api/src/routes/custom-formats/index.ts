@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import type { CustomFormat, Prisma } from "@prisma/client";
 import { auth } from "@rawkoon/api/auth";
 import { requireUser } from "@rawkoon/api/middleware/auth";
@@ -64,9 +65,9 @@ export const customFormatsRoutes = new Elysia({
       }
     },
     {
-      body: t.Object({
-        name: t.String({ minLength: 1 }),
-        conditions: t.Array(t.Record(t.String(), t.Any())),
+      body: z.object({
+        name: z.string().min(1),
+        conditions: z.array(z.record(z.string(), z.any())),
       }),
     },
   )
@@ -103,9 +104,9 @@ export const customFormatsRoutes = new Elysia({
       }
     },
     {
-      body: t.Object({
-        name: t.String({ minLength: 1 }),
-        conditions: t.Array(t.Record(t.String(), t.Any())),
+      body: z.object({
+        name: z.string().min(1),
+        conditions: z.array(z.record(z.string(), z.any())),
       }),
     },
   )
