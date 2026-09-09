@@ -489,6 +489,14 @@ test("logged-out call returns 401", async ({ request }) => {
 
 Each domain is one task: author `apps/api/e2e/fixtures/<domain>.ts` implementing the `FixtureRegistry` contract (Task 5) for **every** route the manifest lists under that domain's prefix, wire it into `fixtures/index.ts`, and re-run `bun run e2e:endpoints` until that domain's routes are green (positive + negative + any auth). A domain task is done when the coverage gate no longer lists its routes and all its results pass.
 
+**Learned patterns (from the system + dashboard reference domains, T10):**
+- **Validation status is 400, not 422** — Elysia returns 400 for a failed validator; `VALIDATION_STATUS` is pinned to 400 in `httpClient.ts`. Negative-body checks assert 400.
+- **`public: true`** on a fixture skips the logged-out-401 auth check — use it for unauthenticated routes (health, system/*). Verify against the route: a `.use(requireUser)` router is NOT public.
+- **Deterministic 200 via seeded ids** — where a create/add path would call an external provider, use a seeded id that makes the handler hit an "already exists" short-circuit instead (e.g. `upcoming/add` with the seeded movie's tmdbId 990000001 → `already_exists` 200, no TMDB shaping).
+- **Integrations are seeded** (`seed.ts` `seedExtras`): `tmdb`, `jellyfin`, `prowlarr`, `qbittorrent` rows with sentinel URLs the fetch shim matches. Add more there when a domain needs one; note it in the task.
+- **Binary/proxy endpoints** (image proxies) legitimately return their mocked error status (e.g. jellyfin/image → 404 "Image not found" with a mock that serves no bytes): set `expectedStatus` to that and document why.
+- **External data shape**: if a positive needs a specific provider response, add a canned entry via `mockState.fetchResponses[<host-substring>]` in the fixture or extend `fetchShim.ts` DEFAULT_RESPONSES.
+
 **Contract every fixture task follows:**
 - Key each entry `"METHOD /api/path"` exactly as the manifest prints it (path params as `:name`).
 - `pathParams` pulls ids from `ctx` (seeded in Task 6); if a route needs an id no seed provides, extend `seed.ts` in that task and note it.
