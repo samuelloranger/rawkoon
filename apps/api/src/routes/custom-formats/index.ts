@@ -51,8 +51,10 @@ export const customFormatsRoutes = new Elysia({
             conditions: v.conditions as unknown as Prisma.InputJsonValue,
           },
         });
-        set.status = 201;
-        return { custom_format: mapCustomFormat(row) };
+        return Response.json(
+          { custom_format: mapCustomFormat(row) },
+          { status: 201 },
+        );
       } catch (e: unknown) {
         const isUnique =
           e &&

@@ -147,8 +147,7 @@ export const qualityProfilesRoutes = new Elysia({
             include: qualityProfileFormatsInclude,
           });
         });
-        set.status = 201;
-        return { profile: mapProfile(created) };
+        return Response.json({ profile: mapProfile(created) }, { status: 201 });
       } catch (e: unknown) {
         const code =
           e && typeof e === "object" && "code" in e

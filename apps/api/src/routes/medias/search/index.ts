@@ -403,18 +403,16 @@ export const mediasSearchRoutes = new Elysia()
       }),
     },
   )
-  .get("/search/ai-warm", async ({ set }) => {
+  .get("/search/ai-warm", async () => {
     const record = await getIntegrationConfigRecord("local-ai");
     const config = normalizeLocalAiConfig(record?.config);
 
     if (!record?.enabled || !config) {
-      set.status = 204;
-      return;
+      return new Response(null, { status: 204 });
     }
 
     if (warmInFlight) {
-      set.status = 204;
-      return;
+      return new Response(null, { status: 204 });
     }
 
     // Fire-and-forget: loads the model into VRAM without blocking the caller.
@@ -435,5 +433,5 @@ export const mediasSearchRoutes = new Elysia()
         warmInFlight = false;
       });
 
-    set.status = 204;
+    return new Response(null, { status: 204 });
   });

@@ -77,9 +77,11 @@ export const adminApiKeyRoutes = new Elysia()
         });
         if (!row) return serverError("Failed to create API key");
 
-        set.status = 201;
         // `key` (the plaintext) is returned exactly once and never stored.
-        return { key: created.key, api_key: mapApiKey(row) };
+        return Response.json(
+          { key: created.key, api_key: mapApiKey(row) },
+          { status: 201 },
+        );
       } catch (error) {
         if ((error as { code?: string }).code === "P2002") {
           return badRequest("An API key with this name already exists");

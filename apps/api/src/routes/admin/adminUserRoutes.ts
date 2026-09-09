@@ -102,21 +102,23 @@ export const adminUserRoutes = new Elysia()
           return user;
         });
 
-        set.status = 201;
-        return {
-          success: true,
-          user: {
-            id: newUser.id,
-            email: newUser.email,
-            first_name: newUser.firstName,
-            last_name: newUser.lastName,
-            is_admin: newUser.isAdmin,
-            locale: newUser.locale,
-            created_at: newUser.createdAt
-              ? newUser.createdAt.toISOString()
-              : new Date().toISOString(),
+        return Response.json(
+          {
+            success: true,
+            user: {
+              id: newUser.id,
+              email: newUser.email,
+              first_name: newUser.firstName,
+              last_name: newUser.lastName,
+              is_admin: newUser.isAdmin,
+              locale: newUser.locale,
+              created_at: newUser.createdAt
+                ? newUser.createdAt.toISOString()
+                : new Date().toISOString(),
+            },
           },
-        };
+          { status: 201 },
+        );
       } catch (error) {
         console.error("Error creating user:", error);
         return serverError("Failed to create user");
