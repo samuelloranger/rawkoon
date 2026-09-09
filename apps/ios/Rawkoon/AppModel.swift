@@ -170,21 +170,21 @@ final class AppModel {
             }
             manifests[editionId] = manifest
             var existingBytes: [Int: Int] = [:]
-            for chapter in manifest.chapters {
-                let ext = chapter.fileExtension
-                guard FileStore.exists(editionId: editionId, fileId: chapter.fileId, ext: ext) else {
+            for file in manifest.files {
+                let ext = file.fileExtension
+                guard FileStore.exists(editionId: editionId, fileId: file.id, ext: ext) else {
                     continue
                 }
-                let url = FileStore.chapterURL(editionId: editionId, fileId: chapter.fileId, ext: ext)
+                let url = FileStore.chapterURL(editionId: editionId, fileId: file.id, ext: ext)
                 if let bytes = FileStore.size(url: url) {
-                    existingBytes[chapter.fileId] = bytes
+                    existingBytes[file.id] = bytes
                 }
             }
             // Only surface a plan when files are actually on disk. A manifest-only
             // cache (written at download-start) must not look like an in-flight
             // 0% download after a process kill — there is no live downloader.
             let plan = DownloadPlan.restored(
-                chapters: manifest.chapters,
+                files: manifest.files,
                 existingBytes: existingBytes
             )
             if plan.isComplete {
@@ -684,8 +684,8 @@ final class AppModel {
             // before offline persistence shipped) the first time it is opened
             // online, so it too becomes usable offline.
             if DownloadedStore.readManifest(editionId: editionId) == nil,
-               !fetched.chapters.isEmpty,
-               DownloadedStore.downloadedFileCount(editionId: editionId) >= fetched.chapters.count
+               !fetched.files.isEmpty,
+               DownloadedStore.downloadedFileCount(editionId: editionId) >= fetched.files.count
             {
                 persistDownloadedAudiobook(editionId: editionId)
             }
@@ -939,7 +939,7 @@ final class AppModel {
             Task { await refreshGrants(editionId: editionId) }
         }
 
-        let newCount = verifiedChapterCount(in: plan)
+        let newCount = verifiedFileCount(in: plan)
 
         downloadPlans[editionId] = plan
         verifiedCounts[editionId] = newCount
@@ -968,7 +968,7 @@ final class AppModel {
             title: book?.title ?? manifest.title,
             author: book?.author ?? manifest.authors.first,
             totalDurationSecs: manifest.totalDurationSecs,
-            fileCount: manifest.chapters.count,
+            fileCount: manifest.files.count,
             coverFileName: nil,
             addedAtMillis: Int64(Date().timeIntervalSince1970 * 1000)
         )
@@ -1327,9 +1327,9 @@ final class AppModel {
         }
     }
 
-    private func verifiedChapterCount(in plan: DownloadPlan) -> Int {
-        plan.chapters.reduce(into: 0) { count, chapter in
-            if plan.states[chapter.fileId] == .verified {
+    private func verifiedFileCount(in plan: DownloadPlan) -> Int {
+        plan.files.reduce(into: 0) { count, file in
+            if plan.states[file.id] == .verified {
                 count += 1
             }
         }
