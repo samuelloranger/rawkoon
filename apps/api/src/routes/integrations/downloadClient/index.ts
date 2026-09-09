@@ -1,11 +1,12 @@
 import { Prisma } from "@prisma/client";
+import { z } from "zod";
 import type {
   DownloadClientHookConfig,
   DownloadClientHookStatus,
   DownloadClientIntegration,
   DownloadClientType,
 } from "@rawkoon/shared/types/integrations";
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { auth } from "@rawkoon/api/auth";
 import { prisma } from "@rawkoon/api/db";
 import { badRequest, serverError } from "@rawkoon/api/errors";
@@ -345,18 +346,18 @@ export const downloadClientIntegrationRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        client_type: t.Union([
-          t.Literal("qbittorrent"),
-          t.Literal("transmission"),
-          t.Literal("deluge"),
+      body: z.object({
+        client_type: z.union([
+          z.literal("qbittorrent"),
+          z.literal("transmission"),
+          z.literal("deluge"),
         ]),
-        website_url: t.String(),
-        username: t.String(),
-        password: t.Optional(t.String()),
-        enabled: t.Optional(t.Boolean()),
-        label: t.String(),
-        save_path: t.Optional(t.String()),
+        website_url: z.string(),
+        username: z.string(),
+        password: z.string().optional(),
+        enabled: z.boolean().optional(),
+        label: z.string(),
+        save_path: z.string().optional(),
       }),
     },
   )
@@ -459,10 +460,10 @@ export const downloadClientIntegrationRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        callbackUrl: t.Optional(t.Union([t.String(), t.Null()])),
-        autoConfigure: t.Optional(t.Boolean()),
-        activeHookedSecs: t.Optional(t.Number()),
+      body: z.object({
+        callbackUrl: z.union([z.string(), z.null()]).optional(),
+        autoConfigure: z.boolean().optional(),
+        activeHookedSecs: z.number().optional(),
       }),
     },
   )

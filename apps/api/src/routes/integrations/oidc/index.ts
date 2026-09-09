@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { auth } from "@rawkoon/api/auth";
 import { prisma } from "@rawkoon/api/db";
 import { requireAdmin } from "@rawkoon/api/middleware/auth";
@@ -108,14 +109,14 @@ export const oidcIntegrationRoutes = new Elysia({ prefix: "/oidc" })
       }
     },
     {
-      body: t.Object({
-        slug: t.String(),
-        name: t.String(),
-        discovery_url: t.String(),
-        client_id: t.String(),
-        client_secret: t.String(),
-        enabled: t.Optional(t.Boolean()),
-        icon_url: t.Optional(t.String()),
+      body: z.object({
+        slug: z.string(),
+        name: z.string(),
+        discovery_url: z.string(),
+        client_id: z.string(),
+        client_secret: z.string(),
+        enabled: z.boolean().optional(),
+        icon_url: z.string().optional(),
       }),
     },
   )
@@ -180,13 +181,13 @@ export const oidcIntegrationRoutes = new Elysia({ prefix: "/oidc" })
       }
     },
     {
-      body: t.Object({
-        name: t.Optional(t.String()),
-        discovery_url: t.Optional(t.String()),
-        client_id: t.Optional(t.String()),
-        client_secret: t.Optional(t.String()),
-        enabled: t.Optional(t.Boolean()),
-        icon_url: t.Optional(t.String()),
+      body: z.object({
+        name: z.string().optional(),
+        discovery_url: z.string().optional(),
+        client_id: z.string().optional(),
+        client_secret: z.string().optional(),
+        enabled: z.boolean().optional(),
+        icon_url: z.string().optional(),
       }),
     },
   )

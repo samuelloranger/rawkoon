@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { auth } from "@rawkoon/api/auth";
 import { prisma } from "@rawkoon/api/db";
 import {
@@ -105,10 +106,7 @@ export const googleBooksIntegrationRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        api_key: t.String(),
-        enabled: t.Optional(t.Boolean()),
-      }),
+      body: z.object({ api_key: z.string(), enabled: z.boolean().optional() }),
     },
   )
 
@@ -167,5 +165,5 @@ export const googleBooksIntegrationRoutes = new Elysia()
         };
       }
     },
-    { body: t.Object({ api_key: t.Optional(t.String()) }) },
+    { body: z.object({ api_key: z.string().optional() }) },
   );

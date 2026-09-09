@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { auth } from "@rawkoon/api/auth";
 import { prisma } from "@rawkoon/api/db";
 import {
@@ -105,10 +106,10 @@ export const audnexusIntegrationRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        base_url: t.Optional(t.String()),
-        region: t.Optional(t.String()),
-        enabled: t.Optional(t.Boolean()),
+      body: z.object({
+        base_url: z.string().optional(),
+        region: z.string().optional(),
+        enabled: z.boolean().optional(),
       }),
     },
   )
@@ -160,9 +161,9 @@ export const audnexusIntegrationRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        base_url: t.Optional(t.String()),
-        region: t.Optional(t.String()),
+      body: z.object({
+        base_url: z.string().optional(),
+        region: z.string().optional(),
       }),
     },
   );

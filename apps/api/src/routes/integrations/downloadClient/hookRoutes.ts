@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { rateLimit } from "elysia-rate-limit";
 import { prisma } from "@rawkoon/api/db";
 import { badRequest, unauthorized } from "@rawkoon/api/errors";
@@ -129,5 +130,5 @@ export const downloadClientHookRoutes = new Elysia({
       set.status = 202;
       return result.body;
     },
-    { query: t.Object({ hash: t.Optional(t.String()) }) },
+    { query: z.object({ hash: z.string().optional() }) },
   );

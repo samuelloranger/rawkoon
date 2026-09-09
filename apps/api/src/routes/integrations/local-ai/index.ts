@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { auth } from "@rawkoon/api/auth";
 import { prisma } from "@rawkoon/api/db";
 import { nowUtc } from "@rawkoon/api/utils";
@@ -89,10 +90,10 @@ export const localAiIntegrationRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        base_url: t.String(),
-        model: t.String(),
-        enabled: t.Optional(t.Boolean()),
+      body: z.object({
+        base_url: z.string(),
+        model: z.string(),
+        enabled: z.boolean().optional(),
       }),
     },
   )

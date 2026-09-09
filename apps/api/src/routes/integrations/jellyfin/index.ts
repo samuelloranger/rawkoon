@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { auth } from "@rawkoon/api/auth";
 import { prisma } from "@rawkoon/api/db";
 import { nowUtc } from "@rawkoon/api/utils";
@@ -109,10 +110,10 @@ export const jellyfinIntegrationRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        website_url: t.String(),
-        api_key: t.String(),
-        enabled: t.Optional(t.Boolean()),
+      body: z.object({
+        website_url: z.string(),
+        api_key: z.string(),
+        enabled: z.boolean().optional(),
       }),
     },
   );

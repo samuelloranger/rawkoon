@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { auth } from "@rawkoon/api/auth";
 import { prisma } from "@rawkoon/api/db";
 import {
@@ -94,10 +95,10 @@ export const tmdbIntegrationRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        api_key: t.String(),
-        enabled: t.Optional(t.Boolean()),
-        popularity_threshold: t.Optional(t.Number()),
+      body: z.object({
+        api_key: z.string(),
+        enabled: z.boolean().optional(),
+        popularity_threshold: z.number().optional(),
       }),
     },
   );
