@@ -22,22 +22,17 @@ public enum DownloadEvent: Equatable, Sendable {
 public struct DownloadPlan: Sendable {
     public static let maxAttempts = 3
 
-    public let chapters: [ManifestChapter]
+    public let files: [ManifestFile]
     public private(set) var states: [Int: ChapterState]
     public private(set) var needsFreshGrants = false
 
     private var attempts: [Int: Int] = [:]
-    private let chapterByFileId: [Int: ManifestChapter]
+    private let fileById: [Int: ManifestFile]
 
-    public init(chapters: [ManifestChapter]) {
-        // A manifest can repeat a fileId; keep the first occurrence and drop the
-        // rest so the keyed dictionaries below don't trap on duplicate keys and
-        // progress math counts each chapter once.
-        var seen = Set<Int>()
-        let deduped = chapters.filter { seen.insert($0.fileId).inserted }
-        self.chapters = deduped
-        states = Dictionary(uniqueKeysWithValues: deduped.map { ($0.fileId, .pending) })
-        chapterByFileId = Dictionary(uniqueKeysWithValues: deduped.map { ($0.fileId, $0) })
+    public init(files: [ManifestFile]) {
+        self.files = files
+        states = Dictionary(uniqueKeysWithValues: files.map { ($0.id, .pending) })
+        fileById = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
     }
 
     /// Cleared once the caller has swapped in freshly signed URLs. Without
@@ -50,26 +45,26 @@ public struct DownloadPlan: Sendable {
     public mutating func apply(_ event: DownloadEvent) {
         switch event {
         case let .requested(fileId):
-            guard chapterByFileId[fileId] != nil else { return }
+            guard fileById[fileId] != nil else { return }
             states[fileId] = .pending
             attempts[fileId] = 0
 
         case let .started(fileId):
-            guard chapterByFileId[fileId] != nil else { return }
+            guard fileById[fileId] != nil else { return }
             states[fileId] = .inFlight
 
         case let .completed(fileId, status, bytes, sha256):
-            guard let chapter = chapterByFileId[fileId] else { return }
+            guard let file = fileById[fileId] else { return }
             if status == 401 || status == 403 {
-                // Not the chapter's fault: the grant expired. Requeue without
+                // Not the file's fault: the grant expired. Requeue without
                 // spending an attempt, and tell the caller to refetch.
                 states[fileId] = .pending
                 needsFreshGrants = true
                 return
             }
             guard (200 ... 299).contains(status) else { return fail(fileId) }
-            guard bytes == chapter.sizeBytes else { return fail(fileId) }
-            if let expected = chapter.sha256, expected != sha256 {
+            guard bytes == file.sizeBytes else { return fail(fileId) }
+            if let expected = file.sha256, expected != sha256 {
                 return fail(fileId)
             }
             states[fileId] = .verified
@@ -78,13 +73,13 @@ public struct DownloadPlan: Sendable {
             fail(fileId)
 
         case let .evicted(fileId):
-            guard chapterByFileId[fileId] != nil else { return }
+            guard fileById[fileId] != nil else { return }
             states[fileId] = .evicted
         }
     }
 
     private mutating func fail(_ fileId: Int) {
-        guard chapterByFileId[fileId] != nil else { return }
+        guard fileById[fileId] != nil else { return }
         let n = min((attempts[fileId] ?? 0) + 1, Self.maxAttempts)
         attempts[fileId] = n
         states[fileId] = .failed(attempts: n)
@@ -106,20 +101,20 @@ public struct DownloadPlan: Sendable {
         return false
     }
 
-    /// The next chapters worth starting, in book order.
+    /// The next files worth starting, in book order.
     ///
-    /// Book order matters: a listener starts at chapter 1, so downloading in
+    /// Book order matters: a listener starts at the front, so downloading in
     /// order means they can begin before the book finishes arriving.
     public func nextToStart(limit: Int) -> [Int] {
         guard limit > 0 else { return [] }
         var out: [Int] = []
-        for chapter in chapters.sorted(by: { $0.index < $1.index }) {
+        for file in files.sorted(by: { $0.startSecs < $1.startSecs }) {
             guard out.count < limit else { break }
-            switch states[chapter.fileId] {
+            switch states[file.id] {
             case .pending:
-                out.append(chapter.fileId)
+                out.append(file.id)
             case let .failed(attempts) where attempts < Self.maxAttempts:
-                out.append(chapter.fileId)
+                out.append(file.id)
             default:
                 continue
             }
@@ -128,13 +123,13 @@ public struct DownloadPlan: Sendable {
     }
 
     public var isComplete: Bool {
-        !chapters.isEmpty && chapters.allSatisfy { states[$0.fileId] == .verified }
+        !files.isEmpty && files.allSatisfy { states[$0.id] == .verified }
     }
 
     public func progressFraction() -> Double {
-        guard !chapters.isEmpty else { return 0 }
-        let done = chapters.filter { states[$0.fileId] == .verified }.count
-        return Double(done) / Double(chapters.count)
+        guard !files.isEmpty else { return 0 }
+        let done = files.filter { states[$0.id] == .verified }.count
+        return Double(done) / Double(files.count)
     }
 
     /// Rebuilds a plan from files already on disk after a process kill.
@@ -143,20 +138,20 @@ public struct DownloadPlan: Sendable {
     /// freeze the book screen. A wrong-size file stays pending so the next
     /// download can replace it, rather than consuming a retry attempt.
     public static func restored(
-        chapters: [ManifestChapter],
+        files: [ManifestFile],
         existingBytes: [Int: Int]
     ) -> DownloadPlan {
-        var plan = DownloadPlan(chapters: chapters)
-        for chapter in chapters {
-            guard let bytes = existingBytes[chapter.fileId], bytes == chapter.sizeBytes else {
+        var plan = DownloadPlan(files: files)
+        for file in files {
+            guard let bytes = existingBytes[file.id], bytes == file.sizeBytes else {
                 continue
             }
             plan.apply(
                 .completed(
-                    fileId: chapter.fileId,
+                    fileId: file.id,
                     status: 200,
                     bytes: bytes,
-                    sha256: chapter.sha256
+                    sha256: file.sha256
                 )
             )
         }
