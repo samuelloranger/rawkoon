@@ -9,9 +9,14 @@ import {
   type ReactNode,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { BookManifest, BookManifestChapter } from "@rawkoon/shared/types";
+import type {
+  BookManifest,
+  BookManifestChapter,
+  BookManifestFile,
+} from "@rawkoon/shared/types";
 import { queryKeys } from "@/lib/queryKeys";
 import { createTimeline, type Timeline } from "./timeline";
+import { createFileIndex, type FileIndex } from "./fileIndex";
 import { webDeviceId } from "./deviceId";
 import {
   fetchBookCover,
@@ -33,6 +38,7 @@ type LoadedBook = {
   coverUrl: string | null;
   manifest: BookManifest;
   timeline: Timeline;
+  fileIndex: FileIndex;
 };
 
 export type PlayerContextValue = {
@@ -95,6 +101,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const loadedRef = useRef<LoadedBook | null>(null);
   const chapterIndexRef = useRef<number | null>(null);
+  const currentFileRef = useRef<BookManifestFile | null>(null);
   const pendingOffsetRef = useRef<number | null>(null);
   const wantPlayRef = useRef(false);
   const grantRetriedRef = useRef(false);
@@ -123,12 +130,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setPositionSecs(next);
   }, []);
 
-  const currentChapter = useCallback((): BookManifestChapter | null => {
+  // The chapter is only a timeline marker now; the file is the audio unit. Keep
+  // the exposed chapter index in sync with the whole-book position.
+  const setChapterMarker = useCallback((position: number) => {
     const book = loadedRef.current;
-    if (!book) return null;
-    const idx = chapterIndexRef.current;
-    if (idx == null) return book.timeline.chapterAt(positionRef.current);
-    return book.timeline.chapters.find((c) => c.index === idx) ?? null;
+    const index = book?.timeline.chapterAt(position)?.index ?? null;
+    if (chapterIndexRef.current !== index) {
+      chapterIndexRef.current = index;
+      setChapterIndex(index);
+    }
   }, []);
 
   const flushProgress = useCallback(
@@ -152,32 +162,29 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [qc],
   );
 
-  const applyChapter = useCallback(
+  const applyFile = useCallback(
     (
-      chapter: BookManifestChapter,
+      file: BookManifestFile,
       offsetSecs: number,
       playAfter: boolean,
       force = false,
     ) => {
       const audio = audioRef.current;
       if (!audio) return;
-      const sameChapter =
-        !force &&
-        chapterIndexRef.current === chapter.index &&
-        Boolean(audio.src);
-      if (chapterIndexRef.current !== chapter.index) {
+      const sameFile =
+        !force && currentFileRef.current?.id === file.id && Boolean(audio.src);
+      if (currentFileRef.current?.id !== file.id) {
         grantRetriedRef.current = false;
       }
-      chapterIndexRef.current = chapter.index;
-      setChapterIndex(chapter.index);
+      currentFileRef.current = file;
       wantPlayRef.current = playAfter;
-      if (sameChapter) {
+      if (sameFile) {
         audio.currentTime = offsetSecs;
         if (playAfter) void audio.play().catch(() => setError("play"));
         return;
       }
       pendingOffsetRef.current = offsetSecs;
-      audio.src = chapter.url;
+      audio.src = file.url;
       audio.load();
     },
     [],
@@ -189,19 +196,21 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (!book) return;
       const position = book.timeline.clamp(raw);
       setPosition(position);
-      const chapter = book.timeline.chapterAt(position);
-      if (!chapter) {
-        const last = book.timeline.chapters[book.timeline.chapters.length - 1];
+      setChapterMarker(position);
+      const file = book.fileIndex.fileAt(position);
+      if (!file) {
+        const files = book.fileIndex.files;
+        const last = files[files.length - 1];
         if (!last) return;
-        const offset = Math.max(last.end_secs - last.start_secs - 0.05, 0);
-        applyChapter(last, offset, false);
+        const offset = Math.max(last.duration_secs - 0.05, 0);
+        applyFile(last, offset, false);
         setPlaying(false);
         audioRef.current?.pause();
         return;
       }
-      applyChapter(chapter, position - chapter.start_secs, playAfter);
+      applyFile(file, position - file.start_secs, playAfter);
     },
-    [applyChapter, setPlaying, setPosition],
+    [applyFile, setChapterMarker, setPlaying, setPosition],
   );
 
   const load = useCallback(
@@ -217,6 +226,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         ]);
         if (gen !== loadGenRef.current) return;
         const timeline = createTimeline(manifest.chapters);
+        const fileIndex = createFileIndex(manifest.files);
         const row = progress.progress.find((p) => p.edition_id === editionId);
         const book: LoadedBook = {
           editionId,
@@ -226,6 +236,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           coverUrl: coverUrl ?? row?.cover_url ?? null,
           manifest,
           timeline,
+          fileIndex,
         };
         loadedRef.current = book;
         setLoaded(book);
@@ -305,6 +316,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
     loadedRef.current = null;
     chapterIndexRef.current = null;
+    currentFileRef.current = null;
     setLoaded(null);
     setPlaying(false);
     setPosition(0);
@@ -316,8 +328,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const retryGrantOrError = useCallback(async () => {
     const book = loadedRef.current;
-    const chapter = currentChapter();
-    if (!book || !chapter) return;
+    const file = currentFileRef.current;
+    if (!book || !file) return;
     if (grantRetriedRef.current) {
       setError("chapter");
       setPlaying(false);
@@ -327,21 +339,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     try {
       const manifest = await fetchManifest(book.editionId);
       const timeline = createTimeline(manifest.chapters);
-      const refreshed: LoadedBook = { ...book, manifest, timeline };
+      const fileIndex = createFileIndex(manifest.files);
+      const refreshed: LoadedBook = { ...book, manifest, timeline, fileIndex };
       loadedRef.current = refreshed;
       setLoaded(refreshed);
-      const next = timeline.chapters.find((c) => c.index === chapter.index);
+      const next = fileIndex.fileAt(positionRef.current);
       if (!next) {
         setError("chapter");
         return;
       }
       const offset = Math.max(positionRef.current - next.start_secs, 0);
-      applyChapter(next, offset, playingRef.current, true);
+      applyFile(next, offset, playingRef.current, true);
     } catch {
       setError("chapter");
       setPlaying(false);
     }
-  }, [applyChapter, currentChapter, setPlaying]);
+  }, [applyFile, setPlaying]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -364,10 +377,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     const onTimeUpdate = () => {
       const book = loadedRef.current;
-      const chapter = currentChapter();
-      if (!book || !chapter) return;
-      const position = chapter.start_secs + audio.currentTime;
+      const file = currentFileRef.current;
+      if (!book || !file) return;
+      const position = file.start_secs + audio.currentTime;
       setPosition(position);
+      // The item can span many chapters (single-file book), so advance the
+      // marker as playback crosses chapter boundaries within the file.
+      setChapterMarker(position);
       if (
         playingRef.current &&
         Date.now() - lastPutAtRef.current >= PUT_THROTTLE_MS
@@ -393,7 +409,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const onEnded = () => {
       const book = loadedRef.current;
       if (!book) return;
-      const nextStart = book.timeline.boundaryAfter(positionRef.current);
+      // A file (not a chapter) ended: the <audio> element only fires `ended` at
+      // the physical file's end. Advance to the next file, or finish the book.
+      const nextStart = book.fileIndex.boundaryAfterFile(positionRef.current);
       if (nextStart == null) {
         setPlaying(false);
         setPosition(book.timeline.totalDurationSecs);
@@ -432,7 +450,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       audio.removeEventListener("pause", onPause);
     };
   }, [
-    currentChapter,
+    setChapterMarker,
     flushProgress,
     retryGrantOrError,
     seekInternal,
