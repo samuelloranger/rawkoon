@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { auth } from "@rawkoon/api/auth";
 import { requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
@@ -118,10 +119,10 @@ export const notificationChannelsRoutes = new Elysia({ prefix: "/channels" })
       }
     },
     {
-      body: t.Object({
-        type: t.String(),
-        label: t.String({ minLength: 1, maxLength: 100 }),
-        config: t.Record(t.String(), t.Unknown()),
+      body: z.object({
+        type: z.string(),
+        label: z.string().min(1).max(100),
+        config: z.record(z.string(), z.unknown()),
       }),
     },
   )
@@ -165,10 +166,10 @@ export const notificationChannelsRoutes = new Elysia({ prefix: "/channels" })
       }
     },
     {
-      body: t.Object({
-        label: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
-        enabled: t.Optional(t.Boolean()),
-        config: t.Optional(t.Record(t.String(), t.Unknown())),
+      body: z.object({
+        label: z.string().min(1).max(100).optional(),
+        enabled: z.boolean().optional(),
+        config: z.record(z.string(), z.unknown()).optional(),
       }),
     },
   )

@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { notificationChannelsRoutes } from "./channels";
 import { normalizeNotificationUrl } from "@rawkoon/shared/utils";
@@ -152,10 +153,10 @@ export const notificationsRoutes = new Elysia({ prefix: "/api/notifications" })
       }
     },
     {
-      query: t.Object({
-        page: t.Optional(t.Numeric()),
-        limit: t.Optional(t.Numeric()),
-        read: t.Optional(t.String()),
+      query: z.object({
+        page: z.coerce.number().optional(),
+        limit: z.coerce.number().optional(),
+        read: z.string().optional(),
       }),
     },
   )
@@ -487,24 +488,21 @@ export const notificationsRoutes = new Elysia({ prefix: "/api/notifications" })
       }
     },
     {
-      body: t.Object({
-        subscription: t.Object({
-          endpoint: t.String(),
-          keys: t.Object({
-            p256dh: t.String(),
-            auth: t.String(),
-          }),
+      body: z.object({
+        subscription: z.object({
+          endpoint: z.string(),
+          keys: z.object({ p256dh: z.string(), auth: z.string() }),
         }),
-        device_info: t.Optional(
-          t.Object({
-            deviceName: t.Optional(t.Nullable(t.String())),
-            osName: t.Optional(t.Nullable(t.String())),
-            osVersion: t.Optional(t.Nullable(t.String())),
-            browserName: t.Optional(t.Nullable(t.String())),
-            browserVersion: t.Optional(t.Nullable(t.String())),
-            platform: t.Optional(t.Nullable(t.String())),
-          }),
-        ),
+        device_info: z
+          .object({
+            deviceName: z.string().nullable().optional(),
+            osName: z.string().nullable().optional(),
+            osVersion: z.string().nullable().optional(),
+            browserName: z.string().nullable().optional(),
+            browserVersion: z.string().nullable().optional(),
+            platform: z.string().nullable().optional(),
+          })
+          .optional(),
       }),
     },
   )
@@ -542,15 +540,9 @@ export const notificationsRoutes = new Elysia({ prefix: "/api/notifications" })
       }
     },
     {
-      body: t.Optional(
-        t.Object({
-          subscription: t.Optional(
-            t.Object({
-              endpoint: t.String(),
-            }),
-          ),
-        }),
-      ),
+      body: z
+        .object({ subscription: z.object({ endpoint: z.string() }).optional() })
+        .optional(),
     },
   )
   // POST /api/notifications/test - Send a test push notification
@@ -602,19 +594,16 @@ export const notificationsRoutes = new Elysia({ prefix: "/api/notifications" })
       }
     },
     {
-      body: t.Optional(
-        t.Object({
-          subscription: t.Optional(
-            t.Object({
-              endpoint: t.String(),
-              keys: t.Object({
-                p256dh: t.String(),
-                auth: t.String(),
-              }),
-            }),
-          ),
-        }),
-      ),
+      body: z
+        .object({
+          subscription: z
+            .object({
+              endpoint: z.string(),
+              keys: z.object({ p256dh: z.string(), auth: z.string() }),
+            })
+            .optional(),
+        })
+        .optional(),
     },
   )
   // POST /api/notifications/apns/register - register a native iOS device token
@@ -660,16 +649,16 @@ export const notificationsRoutes = new Elysia({ prefix: "/api/notifications" })
       }
     },
     {
-      body: t.Object({
-        device_token: t.String(),
-        device_info: t.Optional(
-          t.Object({
-            device_name: t.Optional(t.String()),
-            os_version: t.Optional(t.String()),
-            app_version: t.Optional(t.String()),
-            bundle_id: t.Optional(t.String()),
-          }),
-        ),
+      body: z.object({
+        device_token: z.string(),
+        device_info: z
+          .object({
+            device_name: z.string().optional(),
+            os_version: z.string().optional(),
+            app_version: z.string().optional(),
+            bundle_id: z.string().optional(),
+          })
+          .optional(),
       }),
     },
   )
@@ -692,7 +681,7 @@ export const notificationsRoutes = new Elysia({ prefix: "/api/notifications" })
         return serverError(set, "Failed to unregister device");
       }
     },
-    { body: t.Object({ device_token: t.String() }) },
+    { body: z.object({ device_token: z.string() }) },
   )
   // GET /api/notifications/apns/devices - this user's registered iOS devices
   .get("/apns/devices", async ({ user, set }) => {
