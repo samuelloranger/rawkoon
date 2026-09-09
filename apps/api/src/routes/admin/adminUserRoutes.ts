@@ -287,21 +287,23 @@ export const adminUserRoutes = new Elysia()
           throw error;
         }
 
-        set.status = 201;
-        return {
-          success: true,
-          token,
-          invitation: {
-            id: invitation.id,
-            email: invitation.email,
-            status: invitation.status,
-            is_admin: invitation.isAdmin,
-            locale: invitation.locale,
-            expires_at: invitation.expiresAt.toISOString(),
-            created_at: invitation.createdAt.toISOString(),
-            accepted_at: null,
+        return Response.json(
+          {
+            success: true,
+            token,
+            invitation: {
+              id: invitation.id,
+              email: invitation.email,
+              status: invitation.status,
+              is_admin: invitation.isAdmin,
+              locale: invitation.locale,
+              expires_at: invitation.expiresAt.toISOString(),
+              created_at: invitation.createdAt.toISOString(),
+              accepted_at: null,
+            },
           },
-        };
+          { status: 201 },
+        );
       } catch (error) {
         console.error("Error creating invitation:", error);
         return serverError("Failed to create invitation");

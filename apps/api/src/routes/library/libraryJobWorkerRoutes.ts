@@ -156,12 +156,7 @@ export const libraryJobWorkerRoutes = new Elysia()
     }
   })
 
-  .get("/events", ({ request, set }) => {
-    set.headers["Content-Type"] = "text/event-stream";
-    set.headers["Cache-Control"] = "no-cache";
-    set.headers["Connection"] = "keep-alive";
-    set.headers["X-Accel-Buffering"] = "no";
-
+  .get("/events", ({ request }) => {
     const enc = new TextEncoder();
     let closed = false;
     let controller: ReadableStreamDefaultController<Uint8Array>;
@@ -212,7 +207,17 @@ export const libraryJobWorkerRoutes = new Elysia()
 
     send(`data: ${JSON.stringify({ connected: true, ts: Date.now() })}\n\n`);
 
-    return new Response(stream);
+    // Headers go on the Response directly (framework-neutral; Hono has no
+    // `set.headers`). Behavior is unchanged — Elysia 1.4 applies `set.headers`
+    // to a returned Response too.
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    });
   })
 
   .get("/rss-status", async ({ set }) => {

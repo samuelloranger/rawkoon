@@ -155,7 +155,7 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
     },
   )
   // GET /api/users/avatar/:filename - Serve avatar image
-  .get("/avatar/:filename", async ({ params, set }) => {
+  .get("/avatar/:filename", async ({ params }) => {
     const { filename } = params;
 
     if (!filename || !isAllowedFile(filename)) {
@@ -169,10 +169,12 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
         return notFound("Image not found");
       }
 
-      set.headers["Content-Type"] = getContentType(filename);
-      set.headers["Cache-Control"] = "public, max-age=31536000"; // Cache for 1 year
-
-      return imageBuffer;
+      return new Response(new Uint8Array(imageBuffer), {
+        headers: {
+          "Content-Type": getContentType(filename),
+          "Cache-Control": "public, max-age=31536000", // Cache for 1 year
+        },
+      });
     } catch (error) {
       console.error("Error serving avatar:", error);
       return serverError("Failed to serve avatar");
