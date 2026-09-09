@@ -8,6 +8,7 @@ import { dashboardFixtures } from "./dashboard";
 import { downloadClientFixtures } from "./download-client";
 import { integrationsFixtures } from "./integrations";
 import { labbyFixtures } from "./labby";
+import { libraryFixtures } from "./library";
 import { mediasFixtures } from "./medias";
 import { notificationsFixtures } from "./notifications";
 import { qualityProfilesFixtures } from "./quality-profiles";
@@ -40,6 +41,7 @@ export const registry: FixtureRegistry = {
   ...integrationsFixtures,
   ...mediasFixtures,
   ...booksFixtures,
+  ...libraryFixtures,
 };
 
 // Coverage gate: every manifest route must have a fixture, and every fixture key

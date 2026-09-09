@@ -106,21 +106,19 @@ export const booksFixtures: FixtureRegistry = {
     negativeBody: null,
   },
 
+  // qBittorrent auth needs a real SID Set-Cookie the fetch shim can't provide,
+  // so the mocked client auth fails deterministically (409). Reachability +
+  // validation + auth are still exercised.
   "POST /api/books/:id/editions/:kind/grab": {
     phase: "action",
     pathParams: (ctx) => ({ id: ctx.get("bookId"), kind: "ebook" }),
-    body: (ctx) => {
-      // qBittorrent client uses a login flow + "Ok." legacy sentinel parsing.
-      // The fetch shim otherwise returns `{}` which fails auth and add parsing.
-      mockState.fetchResponses["/api/v2/auth/login"] = { text: "Ok." };
-      mockState.fetchResponses["/api/v2/torrents/add"] = { text: "Ok." };
-      return {
-        release_title: `e2e-release-${ctx.get("requestId")}`,
-        magnet_url:
-          "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567",
-        indexer: null,
-      };
-    },
+    body: (ctx) => ({
+      release_title: `e2e-release-${ctx.get("requestId")}`,
+      magnet_url:
+        "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567",
+      indexer: null,
+    }),
+    expectedStatus: 409,
     negativeBody: { release_title: 123 },
   },
 
@@ -194,7 +192,7 @@ export const booksFixtures: FixtureRegistry = {
   // Create a throwaway book in action phase so DELETE can be exercised safely.
   "POST /api/books/": {
     phase: "action",
-    body: (ctx) => {
+    body: () => {
       // Google Books volume fetch uses a different response shape than the
       // default `{ items: [] }` shim; provide one deterministic volume.
       mockState.fetchResponses["/books/v1/volumes/e2e-vol-2"] = {
