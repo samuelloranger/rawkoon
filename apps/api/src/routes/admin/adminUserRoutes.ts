@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { prisma } from "@rawkoon/api/db";
 import { formatIso, sanitizeInput } from "@rawkoon/api/utils";
 import { hashPassword } from "@rawkoon/api/utils/password";
@@ -122,13 +123,13 @@ export const adminUserRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        email: t.String(),
-        password: t.String(),
-        first_name: t.Optional(t.String()),
-        last_name: t.Optional(t.String()),
-        is_admin: t.Optional(t.Boolean()),
-        locale: t.Optional(t.String()),
+      body: z.object({
+        email: z.string(),
+        password: z.string(),
+        first_name: z.string().optional(),
+        last_name: z.string().optional(),
+        is_admin: z.boolean().optional(),
+        locale: z.string().optional(),
       }),
     },
   )
@@ -174,8 +175,8 @@ export const adminUserRoutes = new Elysia()
       }
     },
     {
-      params: t.Object({ id: t.String() }),
-      body: t.Object({ is_admin: t.Boolean() }),
+      params: z.object({ id: z.string() }),
+      body: z.object({ is_admin: z.boolean() }),
     },
   )
 
@@ -217,8 +218,8 @@ export const adminUserRoutes = new Elysia()
       }
     },
     {
-      params: t.Object({ id: t.String() }),
-      body: t.Object({ password: t.String() }),
+      params: z.object({ id: z.string() }),
+      body: z.object({ password: z.string() }),
     },
   )
 
@@ -310,10 +311,10 @@ export const adminUserRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        email: t.String(),
-        is_admin: t.Optional(t.Boolean()),
-        locale: t.Optional(t.String()),
+      body: z.object({
+        email: z.string(),
+        is_admin: z.boolean().optional(),
+        locale: z.string().optional(),
       }),
     },
   )
@@ -390,7 +391,7 @@ export const adminUserRoutes = new Elysia()
         return serverError(set, "Failed to regenerate invitation");
       }
     },
-    { params: t.Object({ id: t.String() }) },
+    { params: z.object({ id: z.string() }) },
   )
 
   // DELETE /api/admin/invitations/:id - Revoke an invitation
@@ -420,7 +421,7 @@ export const adminUserRoutes = new Elysia()
         return serverError(set, "Failed to revoke invitation");
       }
     },
-    { params: t.Object({ id: t.String() }) },
+    { params: z.object({ id: z.string() }) },
   )
 
   // DELETE /api/admin/users/:id - Delete a user
@@ -456,5 +457,5 @@ export const adminUserRoutes = new Elysia()
         return serverError(set, "Failed to delete user");
       }
     },
-    { params: t.Object({ id: t.String() }) },
+    { params: z.object({ id: z.string() }) },
   );

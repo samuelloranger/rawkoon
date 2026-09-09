@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { UAParser } from "ua-parser-js";
 import { prisma } from "@rawkoon/api/db";
 import { requireAdmin } from "@rawkoon/api/middleware/auth";
@@ -63,7 +64,7 @@ export const adminMiscRoutes = new Elysia()
         return serverError(set, "Failed to revoke session");
       }
     },
-    { params: t.Object({ id: t.String() }) },
+    { params: z.object({ id: z.string() }) },
   )
 
   // DELETE /api/admin/sessions/user/:userId - Revoke all sessions for a user
@@ -82,7 +83,7 @@ export const adminMiscRoutes = new Elysia()
         return serverError(set, "Failed to revoke sessions");
       }
     },
-    { params: t.Object({ userId: t.String() }) },
+    { params: z.object({ userId: z.string() }) },
   )
 
   // GET /api/admin/web-push - List all web push subscriptions
@@ -138,5 +139,5 @@ export const adminMiscRoutes = new Elysia()
         return serverError(set, "Failed to delete web push subscription");
       }
     },
-    { params: t.Object({ id: t.String() }) },
+    { params: z.object({ id: z.string() }) },
   );

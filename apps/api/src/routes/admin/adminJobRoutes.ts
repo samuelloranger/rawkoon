@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import type { Job, Queue, JobState } from "bullmq";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import { badRequest, notFound, serverError } from "@rawkoon/api/errors";
@@ -190,9 +191,7 @@ export const adminJobRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        action: t.String(),
-      }),
+      body: z.object({ action: z.string() }),
     },
   )
 
@@ -221,7 +220,7 @@ export const adminJobRoutes = new Elysia()
         return serverError(set, "Failed to retry job");
       }
     },
-    { params: t.Object({ name: t.String(), jobId: t.String() }) },
+    { params: z.object({ name: z.string(), jobId: z.string() }) },
   )
 
   // POST /api/admin/queues/:name/retry-failed - Retry all failed jobs in a queue
@@ -248,7 +247,7 @@ export const adminJobRoutes = new Elysia()
         return serverError(set, "Failed to retry jobs");
       }
     },
-    { params: t.Object({ name: t.String() }) },
+    { params: z.object({ name: z.string() }) },
   )
 
   // DELETE /api/admin/queues/:name/clean - Clean completed/failed jobs from a queue
@@ -280,7 +279,7 @@ export const adminJobRoutes = new Elysia()
         return serverError(set, "Failed to clean queue");
       }
     },
-    { params: t.Object({ name: t.String() }) },
+    { params: z.object({ name: z.string() }) },
   )
 
   // GET /api/admin/jobs/history - Recent job history across all queues

@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { prisma } from "@rawkoon/api/db";
 import { apiKeyApi } from "@rawkoon/api/lib/apiKeyApi";
 import { badRequest, serverError } from "@rawkoon/api/errors";
@@ -89,9 +90,9 @@ export const adminApiKeyRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        name: t.String(),
-        expires_in_days: t.Optional(t.Number()),
+      body: z.object({
+        name: z.string(),
+        expires_in_days: z.number().optional(),
       }),
     },
   )
@@ -106,5 +107,5 @@ export const adminApiKeyRoutes = new Elysia()
         return serverError(set, "Failed to delete API key");
       }
     },
-    { params: t.Object({ id: t.String() }) },
+    { params: z.object({ id: z.string() }) },
   );
