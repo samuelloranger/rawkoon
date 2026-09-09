@@ -15,8 +15,43 @@ import {
 } from "@rawkoon/api/services/books/downloadGrant";
 import { applyListeningCredit } from "@rawkoon/api/services/books/listeningStats";
 import { parseByteRange, type ParsedByteRange } from "@rawkoon/shared/utils";
+import type { BookManifestFile } from "@rawkoon/shared/types";
 
 import { bookIdentityFromEdition } from "./progressIdentity";
+
+type ChapterForGrouping = {
+  startSecs: number;
+  endSecs: number;
+  bookFile: { id: number; sizeBytes: bigint; sha256: string | null };
+};
+
+/**
+ * Group chapters (ordered by index) into physical files. A single-file
+ * audiobook has many chapters on one bookFile; each file is one download unit.
+ */
+export function buildManifestFiles(
+  chapters: ChapterForGrouping[],
+  grantUrlForFile: (fileId: number) => string,
+): BookManifestFile[] {
+  const byId = new Map<number, BookManifestFile>();
+  for (const chapter of chapters) {
+    const id = chapter.bookFile.id;
+    const existing = byId.get(id);
+    if (!existing) {
+      byId.set(id, {
+        id,
+        start_secs: chapter.startSecs,
+        duration_secs: chapter.endSecs - chapter.startSecs,
+        size_bytes: Number(chapter.bookFile.sizeBytes),
+        sha256: chapter.bookFile.sha256,
+        url: grantUrlForFile(id),
+      });
+    } else {
+      existing.duration_secs = chapter.endSecs - existing.start_secs;
+    }
+  }
+  return [...byId.values()];
+}
 
 const GRANT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const CONTENT_CACHE_CONTROL = "private, immutable, max-age=31536000";
@@ -110,6 +145,22 @@ export const bookPlaybackRoutes = new Hono<Env>().get(
 
     const secret = loadConfig().SECRET_KEY;
     const expiresAt = Date.now() + GRANT_TTL_MS;
+    const grantCache = new Map<number, string>();
+    const grantUrlForFile = (fileId: number): string => {
+      const cached = grantCache.get(fileId);
+      if (cached) return cached;
+      const url = `/api/books/files/${fileId}/content?grant=${signGrant(
+        {
+          fileId,
+          variant: "original",
+          grantId: crypto.randomUUID(),
+          expiresAt,
+        },
+        secret,
+      )}`;
+      grantCache.set(fileId, url);
+      return url;
+    };
 
     return ok({
       edition_id: edition.id,
@@ -117,6 +168,7 @@ export const bookPlaybackRoutes = new Hono<Env>().get(
       title: edition.book.title,
       authors: edition.book.authors,
       total_duration_secs: edition.chapters.at(-1)!.endSecs,
+      files: buildManifestFiles(edition.chapters, grantUrlForFile),
       chapters: edition.chapters.map((chapter) => ({
         index: chapter.index,
         title: chapter.title,
@@ -125,15 +177,7 @@ export const bookPlaybackRoutes = new Hono<Env>().get(
         file_id: chapter.bookFile.id,
         size_bytes: Number(chapter.bookFile.sizeBytes),
         sha256: chapter.bookFile.sha256,
-        url: `/api/books/files/${chapter.bookFile.id}/content?grant=${signGrant(
-          {
-            fileId: chapter.bookFile.id,
-            variant: "original",
-            grantId: crypto.randomUUID(),
-            expiresAt,
-          },
-          secret,
-        )}`,
+        url: grantUrlForFile(chapter.bookFile.id),
       })),
     });
   },
