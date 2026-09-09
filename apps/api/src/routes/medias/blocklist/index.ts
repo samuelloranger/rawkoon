@@ -90,5 +90,5 @@ export const mediasBlocklistRoutes = new Elysia()
         return serverError(set, "Failed to delete blocklist entry");
       }
     },
-    { params: z.object({ id: z.number() }) },
+    { params: z.object({ id: z.coerce.number() }) },
   );

@@ -116,6 +116,8 @@ export async function checkAuth(
   try {
     const path = resolvePath(route, fx, ctx);
     // logged-out -> 401 (or 403); admin routes -> 403 as the non-admin user.
+    // Pass query on both sub-requests so query validation doesn't 400 before the
+    // auth guard is reached.
     const loggedOut = await request(route.method, path, {
       query: fx.query,
       body: fx.body ? fx.body(ctx) : undefined,
@@ -125,6 +127,7 @@ export async function checkAuth(
     if (ok && fx.admin) {
       const asUser = await request(route.method, path, {
         cookie: ctx.cookies.user || undefined,
+        query: fx.query,
         body: fx.body ? fx.body(ctx) : undefined,
       });
       ok = asUser.status === 403;
