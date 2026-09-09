@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { Prisma } from "@prisma/client";
 
 import { requireUser } from "@rawkoon/api/middleware/auth";
@@ -93,14 +94,14 @@ export const bookListRoutes = new Elysia()
       }
     },
     {
-      query: t.Object({
-        q: t.Optional(t.String()),
-        kind: t.Optional(t.Union([t.Literal("ebook"), t.Literal("audiobook")])),
-        status: t.Optional(t.String()),
-        page: t.Optional(t.Numeric()),
-        limit: t.Optional(t.Numeric()),
-        sort_by: t.Optional(t.String()),
-        sort_dir: t.Optional(t.String()),
+      query: z.object({
+        q: z.string().optional(),
+        kind: z.union([z.literal("ebook"), z.literal("audiobook")]).optional(),
+        status: z.string().optional(),
+        page: z.coerce.number().optional(),
+        limit: z.coerce.number().optional(),
+        sort_by: z.string().optional(),
+        sort_dir: z.string().optional(),
       }),
     },
   )
@@ -156,7 +157,7 @@ export const bookListRoutes = new Elysia()
         return serverError(set, "Book search failed");
       }
     },
-    { query: t.Object({ q: t.Optional(t.String()) }) },
+    { query: z.object({ q: z.string().optional() }) },
   )
 
   .get(
@@ -170,7 +171,7 @@ export const bookListRoutes = new Elysia()
       const readAt = await loadReadAtByBookId(prisma, user!.id, [book.id]);
       return { item: mapBook(book, { readAt: readAt.get(book.id) ?? null }) };
     },
-    { params: t.Object({ id: t.Numeric() }) },
+    { params: z.object({ id: z.coerce.number() }) },
   )
 
   .put(
@@ -190,8 +191,8 @@ export const bookListRoutes = new Elysia()
       return { item: mapBook(book, { readAt: result.readAt }) };
     },
     {
-      params: t.Object({ id: t.Numeric() }),
-      body: t.Object({ read: t.Boolean() }),
+      params: z.object({ id: z.coerce.number() }),
+      body: z.object({ read: z.boolean() }),
     },
   )
 
@@ -238,18 +239,18 @@ export const bookListRoutes = new Elysia()
       return { item: mapBook(book) };
     },
     {
-      body: t.Object({
-        google_volume_id: t.String(),
-        // Pinned onto the volume and used to derive the stored language, so a
-        // free-form string has no business reaching that far.
-        isbn13: t.Optional(
-          t.Nullable(t.String({ pattern: "^[0-9Xx][0-9Xx -]{8,20}$" })),
-        ),
-        kinds: t.Optional(
-          t.Array(t.Union([t.Literal("ebook"), t.Literal("audiobook")])),
-        ),
-        book_quality_profile_id: t.Optional(t.Nullable(t.Numeric())),
-        monitored: t.Optional(t.Boolean()),
+      body: z.object({
+        google_volume_id: z.string(),
+        isbn13: z
+          .string()
+          .regex(new RegExp("^[0-9Xx][0-9Xx -]{8,20}$"))
+          .nullable()
+          .optional(),
+        kinds: z
+          .array(z.union([z.literal("ebook"), z.literal("audiobook")]))
+          .optional(),
+        book_quality_profile_id: z.coerce.number().nullable().optional(),
+        monitored: z.boolean().optional(),
       }),
     },
   )
@@ -267,5 +268,5 @@ export const bookListRoutes = new Elysia()
       await prisma.libraryBook.delete({ where: { id: params.id } });
       return { deleted: true };
     },
-    { params: t.Object({ id: t.Numeric() }) },
+    { params: z.object({ id: z.coerce.number() }) },
   );

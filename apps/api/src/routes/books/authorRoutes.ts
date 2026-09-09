@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 
 import { requireUser, ensureAdmin } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
@@ -88,7 +89,7 @@ export const authorRoutes = new Elysia({ prefix: "/api/authors" })
       });
       return { authors: authors.map(mapAuthor) };
     },
-    { query: t.Object({ q: t.Optional(t.String()) }) },
+    { query: z.object({ q: z.string().optional() }) },
   )
 
   .patch(
@@ -177,13 +178,13 @@ export const authorRoutes = new Elysia({ prefix: "/api/authors" })
       return { author: mapAuthor(updated) };
     },
     {
-      params: t.Object({ id: t.Numeric() }),
-      body: t.Object({
-        monitored: t.Optional(t.Boolean()),
-        monitor_from: t.Optional(t.Nullable(t.String())),
-        monitor_edition_kinds: t.Optional(t.Array(t.String())),
-        monitor_languages: t.Optional(t.Array(t.String())),
-        book_quality_profile_id: t.Optional(t.Nullable(t.Numeric())),
+      params: z.object({ id: z.coerce.number() }),
+      body: z.object({
+        monitored: z.boolean().optional(),
+        monitor_from: z.string().nullable().optional(),
+        monitor_edition_kinds: z.array(z.string()).optional(),
+        monitor_languages: z.array(z.string()).optional(),
+        book_quality_profile_id: z.coerce.number().nullable().optional(),
       }),
     },
   );

@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 
 import { requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
@@ -35,9 +36,9 @@ export const bookGrabRoutes = new Elysia()
       return { releases, indexer_warnings: indexerWarnings };
     },
     {
-      params: t.Object({
-        id: t.Numeric(),
-        kind: t.Union([t.Literal("ebook"), t.Literal("audiobook")]),
+      params: z.object({
+        id: z.coerce.number(),
+        kind: z.union([z.literal("ebook"), z.literal("audiobook")]),
       }),
     },
   )
@@ -71,15 +72,15 @@ export const bookGrabRoutes = new Elysia()
       return { grabbed: true, release_title: result.releaseTitle };
     },
     {
-      params: t.Object({
-        id: t.Numeric(),
-        kind: t.Union([t.Literal("ebook"), t.Literal("audiobook")]),
+      params: z.object({
+        id: z.coerce.number(),
+        kind: z.union([z.literal("ebook"), z.literal("audiobook")]),
       }),
-      body: t.Object({
-        release_title: t.String(),
-        download_url: t.Optional(t.String()),
-        magnet_url: t.Optional(t.String()),
-        indexer: t.Optional(t.Nullable(t.String())),
+      body: z.object({
+        release_title: z.string(),
+        download_url: z.string().optional(),
+        magnet_url: z.string().optional(),
+        indexer: z.string().nullable().optional(),
       }),
     },
   )
@@ -98,9 +99,9 @@ export const bookGrabRoutes = new Elysia()
       return { grabbed: true, release_title: result.releaseTitle };
     },
     {
-      params: t.Object({
-        id: t.Numeric(),
-        kind: t.Union([t.Literal("ebook"), t.Literal("audiobook")]),
+      params: z.object({
+        id: z.coerce.number(),
+        kind: z.union([z.literal("ebook"), z.literal("audiobook")]),
       }),
     },
   );

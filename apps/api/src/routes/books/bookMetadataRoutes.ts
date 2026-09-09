@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 
 import { requireAdmin, requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
@@ -55,7 +56,7 @@ export const bookMetadataRoutes = new Elysia()
         used_sources: outcome.usedSources,
       };
     },
-    { params: t.Object({ id: t.String() }) },
+    { params: z.object({ id: z.string() }) },
   );
 
 /**
@@ -74,5 +75,5 @@ export const bookMetadataAdminRoutes = new Elysia().use(requireAdmin).put(
     });
     return { order };
   },
-  { body: t.Object({ order: t.Array(t.String()) }) },
+  { body: z.object({ order: z.array(z.string()) }) },
 );

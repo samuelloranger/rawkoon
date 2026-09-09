@@ -1,6 +1,7 @@
 import { stat } from "node:fs/promises";
+import { z } from "zod";
 import { extname } from "node:path";
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 
 import { loadConfig } from "@rawkoon/api/config";
 import { prisma } from "@rawkoon/api/db";
@@ -131,9 +132,7 @@ export const bookPlaybackRoutes = new Elysia().use(requireUser).get(
     };
   },
   {
-    params: t.Object({
-      id: t.Numeric(),
-    }),
+    params: z.object({ id: z.coerce.number() }),
   },
 );
 
@@ -239,12 +238,8 @@ export const bookContentRoutes = new Elysia().get(
     });
   },
   {
-    params: t.Object({
-      fileId: t.Numeric(),
-    }),
-    query: t.Object({
-      grant: t.Optional(t.String()),
-    }),
+    params: z.object({ fileId: z.coerce.number() }),
+    query: z.object({ grant: z.string().optional() }),
   },
 );
 
@@ -344,15 +339,13 @@ export const bookProgressRoutes = new Elysia()
       return { applied: true };
     },
     {
-      params: t.Object({
-        id: t.Numeric(),
-      }),
-      body: t.Object({
-        position_secs: t.Number(),
-        total_duration_secs: t.Number(),
-        finished: t.Optional(t.Boolean()),
-        updated_at: t.String(),
-        device_id: t.Optional(t.String()),
+      params: z.object({ id: z.coerce.number() }),
+      body: z.object({
+        position_secs: z.number(),
+        total_duration_secs: z.number(),
+        finished: z.boolean().optional(),
+        updated_at: z.string(),
+        device_id: z.string().optional(),
       }),
     },
   );
@@ -462,17 +455,17 @@ export const bookReadingProgressRoutes = new Elysia()
       return { applied: true };
     },
     {
-      params: t.Object({ id: t.Numeric() }),
-      body: t.Object({
-        file_id: t.Optional(t.Nullable(t.Numeric())),
-        spine_index: t.Numeric(),
-        spine_path: t.String({ minLength: 1 }),
-        spine_count: t.Numeric({ minimum: 1 }),
-        scroll_fraction: t.Number(),
-        locator: t.Optional(t.Nullable(t.String())),
-        finished: t.Optional(t.Boolean()),
-        updated_at: t.String(),
-        device_id: t.Optional(t.String()),
+      params: z.object({ id: z.coerce.number() }),
+      body: z.object({
+        file_id: z.coerce.number().nullable().optional(),
+        spine_index: z.coerce.number(),
+        spine_path: z.string().min(1),
+        spine_count: z.coerce.number().min(1),
+        scroll_fraction: z.number(),
+        locator: z.string().nullable().optional(),
+        finished: z.boolean().optional(),
+        updated_at: z.string(),
+        device_id: z.string().optional(),
       }),
     },
   );

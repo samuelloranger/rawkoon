@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 
 import { requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
@@ -57,7 +58,7 @@ const OVERRIDE_FIELDS = {
 } as const;
 
 const nullableStr = (max: number) =>
-  t.Optional(t.Union([t.String({ maxLength: max }), t.Null()]));
+  z.union([z.string().max(max), z.null()]).optional();
 
 /**
  * Integer columns must reject fractions at the edge.
@@ -68,7 +69,7 @@ const nullableStr = (max: number) =>
  * introduced it.
  */
 const nullableInt = (min: number, max: number) =>
-  t.Optional(t.Union([t.Integer({ minimum: min, maximum: max }), t.Null()]));
+  z.union([z.number().int().min(min).max(max), z.null()]).optional();
 
 export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
   "/:id/overrides",
@@ -267,24 +268,22 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
     }
   },
   {
-    params: t.Object({ id: t.String() }),
-    body: t.Object({
+    params: z.object({ id: z.string() }),
+    body: z.object({
       title: nullableStr(500),
       subtitle: nullableStr(500),
       series_name: nullableStr(300),
       // Float: half-books exist ("Book 4.5"), matching the column.
-      series_position: t.Optional(
-        t.Union([t.Number({ minimum: 0, maximum: 10_000 }), t.Null()]),
-      ),
-      narrators: t.Optional(t.Union([t.Array(t.String()), t.Null()])),
-      genres: t.Optional(t.Union([t.Array(t.String()), t.Null()])),
+      series_position: z
+        .union([z.number().min(0).max(10_000), z.null()])
+        .optional(),
+      narrators: z.union([z.array(z.string()), z.null()]).optional(),
+      genres: z.union([z.array(z.string()), z.null()]).optional(),
       publisher: nullableStr(300),
       page_count: nullableInt(0, 100_000),
       published_date: nullableStr(40),
       published_year: nullableInt(0, 9999),
-      rating: t.Optional(
-        t.Union([t.Number({ minimum: 0, maximum: 5 }), t.Null()]),
-      ),
+      rating: z.union([z.number().min(0).max(5), z.null()]).optional(),
       rating_count: nullableInt(0, 1_000_000_000),
       language: nullableStr(20),
       overview: nullableStr(20_000),

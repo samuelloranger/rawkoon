@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 
 import { requireUser, ensureAdmin } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
@@ -65,7 +66,7 @@ export const bookQualityProfileRoutes = new Elysia({
       if (!p) return notFound(set, "Book quality profile not found");
       return { profile: mapProfile(p) };
     },
-    { params: t.Object({ id: t.Numeric() }) },
+    { params: z.object({ id: z.coerce.number() }) },
   )
 
   .post(
@@ -111,22 +112,22 @@ export const bookQualityProfileRoutes = new Elysia({
       }
     },
     {
-      body: t.Object({
-        name: t.String(),
-        kind: t.Union([
-          t.Literal("ebook"),
-          t.Literal("audiobook"),
-          t.Literal("both"),
+      body: z.object({
+        name: z.string(),
+        kind: z.union([
+          z.literal("ebook"),
+          z.literal("audiobook"),
+          z.literal("both"),
         ]),
-        allowed_formats: t.Array(t.String()),
-        cutoff_format: t.Optional(t.Nullable(t.String())),
-        prefer_retail: t.Optional(t.Boolean()),
-        max_size_mb: t.Optional(t.Nullable(t.Numeric())),
-        min_seeders: t.Optional(t.Numeric()),
-        min_audio_bitrate: t.Optional(t.Nullable(t.Numeric())),
-        preferred_languages: t.Optional(t.Array(t.String())),
-        prioritized_trackers: t.Optional(t.Array(t.String())),
-        prefer_tracker_over_quality: t.Optional(t.Boolean()),
+        allowed_formats: z.array(z.string()),
+        cutoff_format: z.string().nullable().optional(),
+        prefer_retail: z.boolean().optional(),
+        max_size_mb: z.coerce.number().nullable().optional(),
+        min_seeders: z.coerce.number().optional(),
+        min_audio_bitrate: z.coerce.number().nullable().optional(),
+        preferred_languages: z.array(z.string()).optional(),
+        prioritized_trackers: z.array(z.string()).optional(),
+        prefer_tracker_over_quality: z.boolean().optional(),
       }),
     },
   )
@@ -196,25 +197,25 @@ export const bookQualityProfileRoutes = new Elysia({
       return { profile: mapProfile(updated) };
     },
     {
-      params: t.Object({ id: t.Numeric() }),
-      body: t.Object({
-        name: t.Optional(t.String()),
-        kind: t.Optional(
-          t.Union([
-            t.Literal("ebook"),
-            t.Literal("audiobook"),
-            t.Literal("both"),
-          ]),
-        ),
-        allowed_formats: t.Optional(t.Array(t.String())),
-        cutoff_format: t.Optional(t.Nullable(t.String())),
-        prefer_retail: t.Optional(t.Boolean()),
-        max_size_mb: t.Optional(t.Nullable(t.Numeric())),
-        min_seeders: t.Optional(t.Numeric()),
-        min_audio_bitrate: t.Optional(t.Nullable(t.Numeric())),
-        preferred_languages: t.Optional(t.Array(t.String())),
-        prioritized_trackers: t.Optional(t.Array(t.String())),
-        prefer_tracker_over_quality: t.Optional(t.Boolean()),
+      params: z.object({ id: z.coerce.number() }),
+      body: z.object({
+        name: z.string().optional(),
+        kind: z
+          .union([
+            z.literal("ebook"),
+            z.literal("audiobook"),
+            z.literal("both"),
+          ])
+          .optional(),
+        allowed_formats: z.array(z.string()).optional(),
+        cutoff_format: z.string().nullable().optional(),
+        prefer_retail: z.boolean().optional(),
+        max_size_mb: z.coerce.number().nullable().optional(),
+        min_seeders: z.coerce.number().optional(),
+        min_audio_bitrate: z.coerce.number().nullable().optional(),
+        preferred_languages: z.array(z.string()).optional(),
+        prioritized_trackers: z.array(z.string()).optional(),
+        prefer_tracker_over_quality: z.boolean().optional(),
       }),
     },
   )
@@ -236,5 +237,5 @@ export const bookQualityProfileRoutes = new Elysia({
       await prisma.bookQualityProfile.delete({ where: { id: params.id } });
       return { deleted: true };
     },
-    { params: t.Object({ id: t.Numeric() }) },
+    { params: z.object({ id: z.coerce.number() }) },
   );

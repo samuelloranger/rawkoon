@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 
 import { requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
@@ -96,14 +97,14 @@ export const bookEditionRoutes = new Elysia()
       return { edition: mapBookEdition(updated) };
     },
     {
-      params: t.Object({
-        id: t.Numeric(),
-        kind: t.Union([t.Literal("ebook"), t.Literal("audiobook")]),
+      params: z.object({
+        id: z.coerce.number(),
+        kind: z.union([z.literal("ebook"), z.literal("audiobook")]),
       }),
-      body: t.Object({
-        monitored: t.Optional(t.Boolean()),
-        status: t.Optional(t.String()),
-        book_quality_profile_id: t.Optional(t.Nullable(t.Numeric())),
+      body: z.object({
+        monitored: z.boolean().optional(),
+        status: z.string().optional(),
+        book_quality_profile_id: z.coerce.number().nullable().optional(),
       }),
     },
   )
@@ -151,11 +152,11 @@ export const bookEditionRoutes = new Elysia()
       return { edition: mapBookEdition(created) };
     },
     {
-      params: t.Object({ id: t.Numeric() }),
-      body: t.Object({
-        kind: t.Union([t.Literal("ebook"), t.Literal("audiobook")]),
-        monitored: t.Optional(t.Boolean()),
-        book_quality_profile_id: t.Optional(t.Nullable(t.Numeric())),
+      params: z.object({ id: z.coerce.number() }),
+      body: z.object({
+        kind: z.union([z.literal("ebook"), z.literal("audiobook")]),
+        monitored: z.boolean().optional(),
+        book_quality_profile_id: z.coerce.number().nullable().optional(),
       }),
     },
   )
@@ -200,9 +201,9 @@ export const bookEditionRoutes = new Elysia()
       };
     },
     {
-      params: t.Object({
-        id: t.Numeric(),
-        kind: t.Union([t.Literal("ebook"), t.Literal("audiobook")]),
+      params: z.object({
+        id: z.coerce.number(),
+        kind: z.union([z.literal("ebook"), z.literal("audiobook")]),
       }),
     },
   )
@@ -232,9 +233,9 @@ export const bookEditionRoutes = new Elysia()
       };
     },
     {
-      params: t.Object({
-        id: t.Numeric(),
-        kind: t.Union([t.Literal("ebook"), t.Literal("audiobook")]),
+      params: z.object({
+        id: z.coerce.number(),
+        kind: z.union([z.literal("ebook"), z.literal("audiobook")]),
       }),
     },
   )
@@ -252,5 +253,5 @@ export const bookEditionRoutes = new Elysia()
       await prisma.bookFile.delete({ where: { id: file.id } });
       return { deleted: true };
     },
-    { params: t.Object({ id: t.Numeric(), fileId: t.Numeric() }) },
+    { params: z.object({ id: z.coerce.number(), fileId: z.coerce.number() }) },
   );
