@@ -125,8 +125,8 @@ export const downloadClientHookRoutes = new Elysia({
         },
         liveDeps,
       );
-      if (result.status === 401) return unauthorized(set);
-      if (result.status === 400) return badRequest(set, "Invalid torrent hash");
+      if (result.status === 401) return unauthorized();
+      if (result.status === 400) return badRequest("Invalid torrent hash");
       set.status = 202;
       return result.body;
     },

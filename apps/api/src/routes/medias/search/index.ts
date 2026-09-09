@@ -79,14 +79,13 @@ export async function downloadInteractiveSearchRelease(
 ) {
   const token = body.token.trim();
   if (!token) {
-    return badRequest(set, "Invalid release token");
+    return badRequest("Invalid release token");
   }
 
   try {
     const adapter = await getActiveIndexerManager();
     if (!adapter) {
       return badRequest(
-        set,
         "No indexer manager configured. Enable Prowlarr or Jackett in integration settings.",
       );
     }
@@ -95,7 +94,6 @@ export async function downloadInteractiveSearchRelease(
     const resolved = await adapter.grabRelease(token);
     if (!resolved.success) {
       return notFound(
-        set,
         resolved.error ??
           "Selected release is no longer available. Run the search again.",
       );
@@ -103,11 +101,11 @@ export async function downloadInteractiveSearchRelease(
 
     const downloadUrl = resolved.magnetUrl ?? resolved.downloadUrl;
     if (!downloadUrl) {
-      return badRequest(set, "Release has no download URL");
+      return badRequest("Release has no download URL");
     }
     const releaseTitle = resolved.title?.trim();
     if (!releaseTitle) {
-      return badRequest(set, "Release has no title");
+      return badRequest("Release has no title");
     }
 
     let mediaId = body.library_media_id;
@@ -120,7 +118,6 @@ export async function downloadInteractiveSearchRelease(
     }
     if (mediaId == null) {
       return conflict(
-        set,
         "No library item to attach this download to. Add the title to your library first.",
       );
     }
@@ -130,7 +127,6 @@ export async function downloadInteractiveSearchRelease(
     });
     if (!media) {
       return conflict(
-        set,
         "No library item to attach this download to. Add the title to your library first.",
       );
     }
@@ -155,7 +151,7 @@ export async function downloadInteractiveSearchRelease(
     return { grabbed: false, reason: result.reason };
   } catch (error) {
     console.error("Error downloading release:", error);
-    return serverError(set, "Failed to download release");
+    return serverError("Failed to download release");
   }
 }
 
@@ -185,17 +181,13 @@ export const mediasSearchRoutes = new Elysia()
         query.complete === "true" || query.complete === true;
 
       if (!isSeasonSearch && !isCompleteSearch && searchQuery.length < 2) {
-        return badRequest(
-          set,
-          "Search query must be at least 2 characters long",
-        );
+        return badRequest("Search query must be at least 2 characters long");
       }
 
       try {
         const adapter = await getActiveIndexerManager();
         if (!adapter) {
           return badRequest(
-            set,
             "No indexer manager configured. Enable Prowlarr or Jackett in integration settings.",
           );
         }
@@ -325,7 +317,7 @@ export const mediasSearchRoutes = new Elysia()
         };
       } catch (error) {
         console.error("Error loading interactive search releases:", error);
-        return serverError(set, "Failed to load interactive search releases");
+        return serverError("Failed to load interactive search releases");
       }
     },
     {
@@ -344,14 +336,13 @@ export const mediasSearchRoutes = new Elysia()
       const adapter = await getActiveIndexerManager();
       if (!adapter) {
         return badRequest(
-          set,
           "No indexer manager configured. Enable Prowlarr or Jackett in integration settings.",
         );
       }
       const indexers = await adapter.getIndexers();
       return { indexers };
     } catch {
-      return serverError(set, "Failed to fetch indexers");
+      return serverError("Failed to fetch indexers");
     }
   })
   .post(

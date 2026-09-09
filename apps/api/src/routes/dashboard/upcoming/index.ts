@@ -139,7 +139,7 @@ export const dashboardUpcomingRoutes = new Elysia()
         popularityThreshold,
         region,
       );
-      if (!responsePayload) return badGateway(set, "TMDB request failed");
+      if (!responsePayload) return badGateway("TMDB request failed");
       await setJsonCache(
         `${TMDB_UPCOMING_CACHE_KEY}:${region}`,
         responsePayload,
@@ -148,7 +148,7 @@ export const dashboardUpcomingRoutes = new Elysia()
       return responsePayload;
     } catch (error) {
       console.error("Error getting TMDB upcoming items:", error);
-      return serverError(set, "Failed to get TMDB upcoming items");
+      return serverError("Failed to get TMDB upcoming items");
     }
   })
   .post("/upcoming/refresh", async ({ set }) => {
@@ -172,7 +172,7 @@ export const dashboardUpcomingRoutes = new Elysia()
         popularityThreshold,
         region,
       );
-      if (!responsePayload) return badGateway(set, "TMDB request failed");
+      if (!responsePayload) return badGateway("TMDB request failed");
 
       await setJsonCache(
         `${TMDB_UPCOMING_CACHE_KEY}:${region}`,
@@ -182,7 +182,7 @@ export const dashboardUpcomingRoutes = new Elysia()
       return responsePayload;
     } catch (error) {
       console.error("Error refreshing TMDB upcoming items:", error);
-      return serverError(set, "Failed to refresh TMDB upcoming items");
+      return serverError("Failed to refresh TMDB upcoming items");
     }
   })
   .post(
@@ -224,10 +224,10 @@ export const dashboardUpcomingRoutes = new Elysia()
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         if (msg === "TMDB is not configured") {
-          return badRequest(set, msg);
+          return badRequest(msg);
         }
         console.error("Error adding upcoming item to library:", error);
-        return serverError(set, "Failed to add upcoming item");
+        return serverError("Failed to add upcoming item");
       }
     },
     {
@@ -254,7 +254,7 @@ export const dashboardUpcomingRoutes = new Elysia()
         };
       } catch (error) {
         console.error("Error checking upcoming item status", error);
-        return serverError(set, "Failed to check upcoming item status");
+        return serverError("Failed to check upcoming item status");
       }
     },
     {

@@ -32,7 +32,7 @@ export const localAiIntegrationRoutes = new Elysia()
       };
     } catch (error) {
       console.error("Error fetching Local AI config:", error);
-      return serverError(set, "Failed to fetch Local AI config");
+      return serverError("Failed to fetch Local AI config");
     }
   })
   .put(
@@ -40,13 +40,10 @@ export const localAiIntegrationRoutes = new Elysia()
     async ({ user, body, set }) => {
       const baseUrl = body.base_url.trim().replace(/\/+$/, "");
       if (!baseUrl || !isValidHttpUrl(baseUrl)) {
-        return badRequest(
-          set,
-          "Invalid base_url. Must be a valid http(s) URL.",
-        );
+        return badRequest("Invalid base_url. Must be a valid http(s) URL.");
       }
       if (!body.model.trim()) {
-        return badRequest(set, "model is required");
+        return badRequest("model is required");
       }
 
       try {
@@ -86,7 +83,7 @@ export const localAiIntegrationRoutes = new Elysia()
         };
       } catch (error) {
         console.error("Error saving Local AI config:", error);
-        return serverError(set, "Failed to save Local AI config");
+        return serverError("Failed to save Local AI config");
       }
     },
     {
@@ -135,6 +132,6 @@ export const localAiIntegrationRoutes = new Elysia()
       return { success: true, models, model_available };
     } catch (error) {
       console.error("Error testing Local AI connection:", error);
-      return serverError(set, "Failed to test Local AI connection");
+      return serverError("Failed to test Local AI connection");
     }
   });

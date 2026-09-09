@@ -47,10 +47,7 @@ export const googleBooksIntegrationRoutes = new Elysia()
       };
     } catch (error) {
       console.error("Error fetching Google Books integration config:", error);
-      return serverError(
-        set,
-        "Failed to fetch Google Books integration config",
-      );
+      return serverError("Failed to fetch Google Books integration config");
     }
   })
 
@@ -66,7 +63,7 @@ export const googleBooksIntegrationRoutes = new Elysia()
       // Enabling without a key would leave every book search failing with an
       // authentication error rather than saying what is missing.
       if (!apiKey && enabled) {
-        return badRequest(set, "api_key is required to enable Google Books");
+        return badRequest("api_key is required to enable Google Books");
       }
 
       try {
@@ -102,7 +99,7 @@ export const googleBooksIntegrationRoutes = new Elysia()
         };
       } catch (error) {
         console.error("Error saving Google Books integration config:", error);
-        return serverError(set, "Failed to save Google Books integration");
+        return serverError("Failed to save Google Books integration");
       }
     },
     {
@@ -128,7 +125,7 @@ export const googleBooksIntegrationRoutes = new Elysia()
         const existing = await getIntegrationConfigRecord("googlebooks");
         apiKey = normalizeGoogleBooksConfig(existing?.config)?.api_key ?? "";
       }
-      if (!apiKey) return badRequest(set, "No API key to test");
+      if (!apiKey) return badRequest("No API key to test");
 
       try {
         const res = await fetch(

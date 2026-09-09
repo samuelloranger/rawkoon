@@ -27,22 +27,22 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
     "/me",
     async ({ user, body, set }) => {
       if (!user) {
-        return unauthorized(set, "Unauthorized");
+        return unauthorized("Unauthorized");
       }
 
       try {
         const result = await updateUserProfile(user.id, body);
         if (!result.ok) {
           if (result.status === 401) {
-            return unauthorized(set, result.error);
+            return unauthorized(result.error);
           }
-          return badRequest(set, result.error);
+          return badRequest(result.error);
         }
 
         return { user: mapUser(result.user) };
       } catch (error) {
         console.error("Error updating user profile:", error);
-        return serverError(set, "Failed to update profile");
+        return serverError("Failed to update profile");
       }
     },
     {
@@ -66,7 +66,7 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
   .put(
     "/me/notification-preferences",
     async ({ user, body, set }) => {
-      if (!user) return unauthorized(set, "Unauthorized");
+      if (!user) return unauthorized("Unauthorized");
       try {
         const { updateUserNotificationPreferences } = await import(
           "@rawkoon/api/services/notificationPreferences"
@@ -78,7 +78,7 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
         return { notification_preferences: prefs };
       } catch (error) {
         console.error("Error updating notification preferences:", error);
-        return serverError(set, "Failed to update notification preferences");
+        return serverError("Failed to update notification preferences");
       }
     },
     {
@@ -92,14 +92,14 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
     "/me/password",
     async ({ user, body, set }) => {
       if (!user) {
-        return unauthorized(set, "Unauthorized");
+        return unauthorized("Unauthorized");
       }
 
       const { current_password, new_password } = body;
 
       const [isValid, passwordError] = validatePassword(new_password);
       if (!isValid) {
-        return badRequest(set, passwordError ?? "Invalid password");
+        return badRequest(passwordError ?? "Invalid password");
       }
 
       try {
@@ -109,12 +109,11 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
         });
 
         if (!dbUser) {
-          return unauthorized(set, "User not found");
+          return unauthorized("User not found");
         }
 
         if (!dbUser.passwordHash) {
           return badRequest(
-            set,
             "This account uses passkey authentication and has no password.",
           );
         }
@@ -124,7 +123,7 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
           dbUser.passwordHash,
         );
         if (!isCurrentValid) {
-          return badRequest(set, "Current password is incorrect");
+          return badRequest("Current password is incorrect");
         }
 
         const passwordHash = await hashPassword(new_password);
@@ -145,7 +144,7 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
         return { message: "Password updated successfully" };
       } catch (error) {
         console.error("Error changing password:", error);
-        return serverError(set, "Failed to change password");
+        return serverError("Failed to change password");
       }
     },
     {
@@ -160,14 +159,14 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
     const { filename } = params;
 
     if (!filename || !isAllowedFile(filename)) {
-      return badRequest(set, "Invalid filename");
+      return badRequest("Invalid filename");
     }
 
     try {
       const imageBuffer = await getImage(filename);
 
       if (!imageBuffer) {
-        return notFound(set, "Image not found");
+        return notFound("Image not found");
       }
 
       set.headers["Content-Type"] = getContentType(filename);
@@ -176,7 +175,7 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
       return imageBuffer;
     } catch (error) {
       console.error("Error serving avatar:", error);
-      return serverError(set, "Failed to serve avatar");
+      return serverError("Failed to serve avatar");
     }
   })
   // POST /api/users/me/avatar - Upload avatar
@@ -184,7 +183,7 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
     "/me/avatar",
     async ({ user, body, set }) => {
       if (!user) {
-        return unauthorized(set, "Unauthorized");
+        return unauthorized("Unauthorized");
       }
 
       const { avatar } = body;
@@ -198,13 +197,13 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
         "type" in avatar;
 
       if (!avatar || (!isWebFile && !isReactNativeFile)) {
-        return badRequest(set, "Avatar file is required");
+        return badRequest("Avatar file is required");
       }
 
       try {
         const result = await updateUserAvatarFromUpload(user.id, avatar);
         if (!result.ok) {
-          return badRequest(set, result.message);
+          return badRequest(result.message);
         }
         return {
           message: "Avatar uploaded successfully",
@@ -213,7 +212,7 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
         };
       } catch (error) {
         console.error("[avatar-upload][users] failed:", error);
-        return serverError(set, "Failed to upload avatar");
+        return serverError("Failed to upload avatar");
       }
     },
     {

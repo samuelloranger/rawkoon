@@ -34,7 +34,7 @@ export const tmdbSearchRoutes = new Elysia().use(requireUser).get(
     try {
       const tmdbConfig = await loadEnabledTmdbConfig();
       if (!tmdbConfig) {
-        return badRequest(set, "TMDB is not configured");
+        return badRequest("TMDB is not configured");
       }
 
       const searchUrl = new URL("https://api.themoviedb.org/3/search/multi");
@@ -51,10 +51,7 @@ export const tmdbSearchRoutes = new Elysia().use(requireUser).get(
         headers: { Accept: "application/json" },
       });
       if (!searchRes.ok) {
-        return badGateway(
-          set,
-          `TMDB search failed with status ${searchRes.status}`,
-        );
+        return badGateway(`TMDB search failed with status ${searchRes.status}`);
       }
 
       const searchData = (await searchRes.json()) as Record<string, unknown>;
@@ -88,7 +85,7 @@ export const tmdbSearchRoutes = new Elysia().use(requireUser).get(
       return response;
     } catch (error) {
       console.error("Error searching TMDB medias:", error);
-      return serverError(set, "Failed to search TMDB medias");
+      return serverError("Failed to search TMDB medias");
     }
   },
   {

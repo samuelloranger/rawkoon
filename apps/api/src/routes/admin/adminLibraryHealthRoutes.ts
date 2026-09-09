@@ -56,6 +56,6 @@ export const adminLibraryHealthRoutes = new Elysia()
       };
     } catch (error) {
       console.error("Error fetching library health:", error);
-      return serverError(set, "Failed to fetch library health");
+      return serverError("Failed to fetch library health");
     }
   });

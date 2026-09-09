@@ -112,10 +112,10 @@ describe("PUT /api/integrations/googlebooks", () => {
       user: { id: "admin" },
       body: { api_key: "", enabled: true },
       set,
-    })) as { error?: string };
+    })) as Response;
 
-    expect(set.status).toBe(400);
-    expect(result.error).toContain("api_key");
+    expect(result.status).toBe(400);
+    expect((await result.json()).error).toContain("api_key");
     expect(state.upserts).toEqual([]);
   });
 

@@ -200,15 +200,15 @@ export const adminJobRoutes = new Elysia()
     "/queues/:name/jobs/:jobId/retry",
     async ({ params, set }) => {
       const queue = queueMap[params.name];
-      if (!queue) return badRequest(set, "Queue not found");
+      if (!queue) return badRequest("Queue not found");
 
       try {
         const job = await queue.getJob(params.jobId);
-        if (!job) return notFound(set, "Job not found");
+        if (!job) return notFound("Job not found");
 
         const state = await job.getState();
         if (state !== "failed")
-          return badRequest(set, `Job is ${state}, not failed`);
+          return badRequest(`Job is ${state}, not failed`);
 
         await job.retry(state);
         return {
@@ -217,7 +217,7 @@ export const adminJobRoutes = new Elysia()
         };
       } catch (error) {
         console.error("Error retrying job:", error);
-        return serverError(set, "Failed to retry job");
+        return serverError("Failed to retry job");
       }
     },
     { params: z.object({ name: z.string(), jobId: z.string() }) },
@@ -228,7 +228,7 @@ export const adminJobRoutes = new Elysia()
     "/queues/:name/retry-failed",
     async ({ params, set }) => {
       const queue = queueMap[params.name];
-      if (!queue) return badRequest(set, "Queue not found");
+      if (!queue) return badRequest("Queue not found");
 
       try {
         const failed = await queue.getJobs(["failed"]);
@@ -244,7 +244,7 @@ export const adminJobRoutes = new Elysia()
         };
       } catch (error) {
         console.error("Error retrying failed jobs:", error);
-        return serverError(set, "Failed to retry jobs");
+        return serverError("Failed to retry jobs");
       }
     },
     { params: z.object({ name: z.string() }) },
@@ -255,11 +255,11 @@ export const adminJobRoutes = new Elysia()
     "/queues/:name/clean",
     async ({ params, query, set }) => {
       const queue = queueMap[params.name];
-      if (!queue) return badRequest(set, "Queue not found");
+      if (!queue) return badRequest("Queue not found");
 
       const status = (query.status as string) || "completed";
       if (!["completed", "failed"].includes(status))
-        return badRequest(set, "Status must be completed or failed");
+        return badRequest("Status must be completed or failed");
 
       const grace = parseInt(query.grace as string) || 0;
 
@@ -276,7 +276,7 @@ export const adminJobRoutes = new Elysia()
         };
       } catch (error) {
         console.error("Error cleaning queue:", error);
-        return serverError(set, "Failed to clean queue");
+        return serverError("Failed to clean queue");
       }
     },
     { params: z.object({ name: z.string() }) },

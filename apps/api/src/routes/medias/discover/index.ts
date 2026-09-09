@@ -31,7 +31,7 @@ export const mediasDiscoverRoutes = new Elysia({ prefix: "/discover" })
     try {
       const tmdbConfig = await loadEnabledTmdbConfig();
       if (!tmdbConfig) {
-        return badRequest(set, "TMDB is not configured");
+        return badRequest("TMDB is not configured");
       }
       const q = query as Record<string, string | undefined>;
       const language = resolveLanguage(q);
@@ -54,7 +54,7 @@ export const mediasDiscoverRoutes = new Elysia({ prefix: "/discover" })
       });
     } catch (error) {
       console.error("Error building discover deck:", error);
-      return serverError(set, "Failed to build discover deck");
+      return serverError("Failed to build discover deck");
     }
   })
 
@@ -80,7 +80,7 @@ export const mediasDiscoverRoutes = new Elysia({ prefix: "/discover" })
         });
         return { dismissed: true };
       } catch {
-        return serverError(set, "Failed to dismiss media");
+        return serverError("Failed to dismiss media");
       }
     },
     {
@@ -94,9 +94,9 @@ export const mediasDiscoverRoutes = new Elysia({ prefix: "/discover" })
   // DELETE /api/medias/discover/dismiss/:tmdbId?type=movie|tv
   .delete("/dismiss/:tmdbId", async ({ user, params, query, set }) => {
     const tmdbId = parseInt(params.tmdbId, 10);
-    if (!Number.isFinite(tmdbId)) return badRequest(set, "Invalid tmdbId");
+    if (!Number.isFinite(tmdbId)) return badRequest("Invalid tmdbId");
     if (query.type !== "movie" && query.type !== "tv") {
-      return badRequest(set, "Missing or invalid type query param");
+      return badRequest("Missing or invalid type query param");
     }
     try {
       await prisma.discoverDismissal.deleteMany({
@@ -104,6 +104,6 @@ export const mediasDiscoverRoutes = new Elysia({ prefix: "/discover" })
       });
       return { success: true };
     } catch {
-      return serverError(set, "Failed to undo dismissal");
+      return serverError("Failed to undo dismissal");
     }
   });

@@ -32,7 +32,7 @@ export const settingsRoutes = new Elysia({ prefix: "/api/settings" })
       });
       return { settings: mapSettings(row) };
     } catch {
-      return serverError(set, "Failed to load settings");
+      return serverError("Failed to load settings");
     }
   })
   .patch(
@@ -41,7 +41,7 @@ export const settingsRoutes = new Elysia({ prefix: "/api/settings" })
       try {
         const trimmedCountry = body.country_code?.trim().toUpperCase();
         if (body.country_code && !/^[A-Z]{2}$/.test(trimmedCountry ?? "")) {
-          return badRequest(set, "country_code must be a 2-letter ISO code");
+          return badRequest("country_code must be a 2-letter ISO code");
         }
         const countryCode = trimmedCountry || null;
 
@@ -58,7 +58,6 @@ export const settingsRoutes = new Elysia({ prefix: "/api/settings" })
           const months = body.upcoming_window_months;
           if (![3, 6, 12, 24].includes(months)) {
             return badRequest(
-              set,
               "upcoming_window_months must be one of: 3, 6, 12, 24",
             );
           }
@@ -81,7 +80,7 @@ export const settingsRoutes = new Elysia({ prefix: "/api/settings" })
         });
         return { settings: mapSettings(row) };
       } catch {
-        return serverError(set, "Failed to update settings");
+        return serverError("Failed to update settings");
       }
     },
     {

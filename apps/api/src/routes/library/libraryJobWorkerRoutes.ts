@@ -43,11 +43,11 @@ export const libraryJobWorkerRoutes = new Elysia()
       );
       const state = await job?.getState();
       if (state === "active" || state === "waiting") {
-        return badRequest(set, "A language reindex job is already running");
+        return badRequest("A language reindex job is already running");
       }
       return { job_id: job?.id };
     } catch {
-      return serverError(set, "Failed to enqueue reindex job");
+      return serverError("Failed to enqueue reindex job");
     }
   })
 
@@ -93,7 +93,7 @@ export const libraryJobWorkerRoutes = new Elysia()
           : null,
       };
     } catch {
-      return serverError(set, "Failed to fetch reindex status");
+      return serverError("Failed to fetch reindex status");
     }
   })
 
@@ -103,15 +103,15 @@ export const libraryJobWorkerRoutes = new Elysia()
       const denied = ensureAdmin(user, set);
       if (denied) return denied;
       const fileId = parseInt(params.fileId, 10);
-      if (!Number.isFinite(fileId)) return badRequest(set, "Invalid file id");
+      if (!Number.isFinite(fileId)) return badRequest("Invalid file id");
       if (!body.keep_audio_track_indices.length)
-        return badRequest(set, "At least one audio track must be kept");
+        return badRequest("At least one audio track must be kept");
       try {
         const jobId = `library-remux-file-${fileId}`;
         const existing = await libraryRemuxQueue.getJob(jobId);
         const existingState = existing ? await existing.getState() : null;
         if (existingState === "active" || existingState === "waiting") {
-          return badRequest(set, "A remux job for this file is already queued");
+          return badRequest("A remux job for this file is already queued");
         }
         const job = await libraryRemuxQueue.add(
           "library-remux-file",
@@ -124,7 +124,7 @@ export const libraryJobWorkerRoutes = new Elysia()
         );
         return { job_id: job?.id };
       } catch {
-        return serverError(set, "Failed to enqueue remux job");
+        return serverError("Failed to enqueue remux job");
       }
     },
     {
@@ -137,7 +137,7 @@ export const libraryJobWorkerRoutes = new Elysia()
 
   .get("/files/:fileId/remux/status", async ({ params, set }) => {
     const fileId = parseInt(params.fileId, 10);
-    if (!Number.isFinite(fileId)) return badRequest(set, "Invalid file id");
+    if (!Number.isFinite(fileId)) return badRequest("Invalid file id");
     try {
       const jobId = `library-remux-file-${fileId}`;
       const job = await libraryRemuxQueue.getJob(jobId);
@@ -152,7 +152,7 @@ export const libraryJobWorkerRoutes = new Elysia()
         error: state === "failed" ? (job.failedReason ?? null) : null,
       };
     } catch {
-      return serverError(set, "Failed to fetch remux status");
+      return serverError("Failed to fetch remux status");
     }
   })
 
@@ -252,7 +252,7 @@ export const libraryJobWorkerRoutes = new Elysia()
         next_run_at: nextRunAt,
       };
     } catch {
-      return serverError(set, "Failed to fetch RSS status");
+      return serverError("Failed to fetch RSS status");
     }
   })
 
@@ -280,11 +280,11 @@ export const libraryJobWorkerRoutes = new Elysia()
         );
         const state = await job?.getState();
         if (state === "active" || state === "waiting") {
-          return badRequest(set, "A migration job is already running");
+          return badRequest("A migration job is already running");
         }
         return { job_id: job?.id };
       } catch {
-        return serverError(set, "Failed to enqueue migration job");
+        return serverError("Failed to enqueue migration job");
       }
     },
     {

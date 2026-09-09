@@ -41,7 +41,7 @@ export const mediasWatchlistRoutes = new Elysia({
         })),
       };
     } catch {
-      return serverError(set, "Failed to fetch watchlist");
+      return serverError("Failed to fetch watchlist");
     }
   })
 
@@ -82,7 +82,7 @@ export const mediasWatchlistRoutes = new Elysia({
         });
         return { id: item.id, added: true };
       } catch {
-        return serverError(set, "Failed to add to watchlist");
+        return serverError("Failed to add to watchlist");
       }
     },
     {
@@ -103,8 +103,8 @@ export const mediasWatchlistRoutes = new Elysia({
   // DELETE /api/medias/watchlist/:tmdbId?type=movie|tv
   .delete("/:tmdbId", async ({ user, params, query, set }) => {
     const tmdbId = parseInt(params.tmdbId, 10);
-    if (isNaN(tmdbId)) return badRequest(set, "Invalid tmdbId");
-    if (!query.type) return badRequest(set, "Missing type query param");
+    if (isNaN(tmdbId)) return badRequest("Invalid tmdbId");
+    if (!query.type) return badRequest("Missing type query param");
 
     try {
       await prisma.watchlistItem.deleteMany({
@@ -113,6 +113,6 @@ export const mediasWatchlistRoutes = new Elysia({
 
       return { success: true };
     } catch {
-      return serverError(set, "Failed to remove from watchlist");
+      return serverError("Failed to remove from watchlist");
     }
   });

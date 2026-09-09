@@ -29,7 +29,7 @@ export const tmdbExploreRoutes = new Elysia()
     try {
       const tmdbConfig = await loadEnabledTmdbConfig();
       if (!tmdbConfig) {
-        return badRequest(set, "TMDB is not configured");
+        return badRequest("TMDB is not configured");
       }
 
       const q = query as Record<string, string | undefined>;
@@ -153,7 +153,7 @@ export const tmdbExploreRoutes = new Elysia()
       };
     } catch (error) {
       console.error("Error fetching TMDB explore:", error);
-      return serverError(set, "Failed to fetch TMDB explore");
+      return serverError("Failed to fetch TMDB explore");
     }
   })
 
@@ -161,13 +161,13 @@ export const tmdbExploreRoutes = new Elysia()
     const category = (params as Record<string, string>).category;
     const config = EXPLORE_CATEGORY_PATHS[category];
     if (!config) {
-      return badRequest(set, `Unknown category: ${category}`);
+      return badRequest(`Unknown category: ${category}`);
     }
 
     try {
       const tmdbConfig = await loadEnabledTmdbConfig();
       if (!tmdbConfig) {
-        return badRequest(set, "TMDB is not configured");
+        return badRequest("TMDB is not configured");
       }
 
       const q = query as Record<string, string | undefined>;
@@ -183,7 +183,7 @@ export const tmdbExploreRoutes = new Elysia()
         headers: { Accept: "application/json" },
       });
       if (!res.ok) {
-        return badGateway(set, "TMDB request failed");
+        return badGateway("TMDB request failed");
       }
 
       const data = (await res.json()) as Record<string, unknown>;
@@ -209,7 +209,7 @@ export const tmdbExploreRoutes = new Elysia()
       };
     } catch (error) {
       console.error("Error fetching explore category:", error);
-      return serverError(set, "Failed to fetch category");
+      return serverError("Failed to fetch category");
     }
   })
 
@@ -218,13 +218,13 @@ export const tmdbExploreRoutes = new Elysia()
     async ({ user: _user, set, params, query: queryParams }) => {
       const tmdbId = parseInt(params.tmdbId, 10);
       if (!Number.isFinite(tmdbId) || tmdbId <= 0) {
-        return badRequest(set, "Invalid TMDB ID");
+        return badRequest("Invalid TMDB ID");
       }
 
       const typedQuery = queryParams as Record<string, string | undefined>;
       const mediaType = typedQuery.type;
       if (mediaType !== "movie" && mediaType !== "tv") {
-        return badRequest(set, "Invalid type, must be movie or tv");
+        return badRequest("Invalid type, must be movie or tv");
       }
 
       const language = resolveLanguage(typedQuery);
@@ -238,7 +238,7 @@ export const tmdbExploreRoutes = new Elysia()
 
         const tmdbConfig = await loadEnabledTmdbConfig();
         if (!tmdbConfig) {
-          return badRequest(set, "TMDB is not configured");
+          return badRequest("TMDB is not configured");
         }
 
         const url = new URL(
@@ -274,7 +274,7 @@ export const tmdbExploreRoutes = new Elysia()
         return { items: enrichedItems };
       } catch (error) {
         console.error("Error fetching similar medias:", error);
-        return serverError(set, "Failed to fetch similar medias");
+        return serverError("Failed to fetch similar medias");
       }
     },
     {

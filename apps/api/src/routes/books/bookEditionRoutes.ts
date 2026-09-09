@@ -56,11 +56,10 @@ export const bookEditionRoutes = new Elysia()
         where: { bookId_kind: { bookId: params.id, kind: params.kind } },
         select: { id: true },
       });
-      if (!edition) return notFound(set, "Edition not found");
+      if (!edition) return notFound("Edition not found");
 
       if (body.status && !EDITION_STATUSES.includes(body.status)) {
         return badRequest(
-          set,
           `status must be one of ${EDITION_STATUSES.join(", ")}`,
         );
       }
@@ -70,11 +69,10 @@ export const bookEditionRoutes = new Elysia()
           where: { id: body.book_quality_profile_id },
           select: { id: true, kind: true },
         });
-        if (!profile) return notFound(set, "Book quality profile not found");
+        if (!profile) return notFound("Book quality profile not found");
         // A profile scoped to one kind must not be attached to the other.
         if (profile.kind !== "both" && profile.kind !== params.kind) {
           return badRequest(
-            set,
             `Profile "${profile.id}" is for ${profile.kind} editions, not ${params.kind}`,
           );
         }
@@ -117,7 +115,7 @@ export const bookEditionRoutes = new Elysia()
         where: { id: params.id },
         select: { id: true },
       });
-      if (!book) return notFound(set, "Book not found");
+      if (!book) return notFound("Book not found");
 
       const kind = body.kind as BookEditionKind;
       const existing = await prisma.bookEdition.findUnique({
@@ -125,7 +123,7 @@ export const bookEditionRoutes = new Elysia()
         select: { id: true },
       });
       if (existing) {
-        return badRequest(set, `This book already has an ${kind} edition`);
+        return badRequest(`This book already has an ${kind} edition`);
       }
 
       const profile =
@@ -168,7 +166,7 @@ export const bookEditionRoutes = new Elysia()
         where: { bookId_kind: { bookId: params.id, kind: params.kind } },
         include: { files: { orderBy: { fileName: "asc" } } },
       });
-      if (!edition) return notFound(set, "Edition not found");
+      if (!edition) return notFound("Edition not found");
       const secret = loadConfig().SECRET_KEY;
       const expiresAt = Date.now() + EDITION_FILE_GRANT_TTL_MS;
 
@@ -221,10 +219,10 @@ export const bookEditionRoutes = new Elysia()
         where: { bookId_kind: { bookId: params.id, kind: params.kind } },
         select: { id: true },
       });
-      if (!edition) return notFound(set, "Edition not found");
+      if (!edition) return notFound("Edition not found");
 
       const result = await rescanBookEdition(edition.id);
-      if (result.error) return badRequest(set, result.error);
+      if (result.error) return badRequest(result.error);
       return {
         registered: result.registered,
         refreshed: result.refreshed,
@@ -249,7 +247,7 @@ export const bookEditionRoutes = new Elysia()
         where: { id: params.fileId, edition: { bookId: params.id } },
         select: { id: true },
       });
-      if (!file) return notFound(set, "File not found");
+      if (!file) return notFound("File not found");
       await prisma.bookFile.delete({ where: { id: file.id } });
       return { deleted: true };
     },

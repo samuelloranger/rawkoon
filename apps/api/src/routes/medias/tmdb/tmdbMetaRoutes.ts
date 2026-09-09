@@ -91,7 +91,7 @@ export const tmdbMetaRoutes = new Elysia()
     const q = query as Record<string, string | undefined>;
     const type = q.type;
     if (type !== "movie" && type !== "tv") {
-      return badRequest(set, "Invalid type, must be movie or tv");
+      return badRequest("Invalid type, must be movie or tv");
     }
 
     try {
@@ -102,7 +102,7 @@ export const tmdbMetaRoutes = new Elysia()
       if (cached) return { genres: cached };
 
       const tmdbConfig = await loadEnabledTmdbConfig();
-      if (!tmdbConfig) return badRequest(set, "TMDB is not configured");
+      if (!tmdbConfig) return badRequest("TMDB is not configured");
 
       const url = new URL(`https://api.themoviedb.org/3/genre/${type}/list`);
       url.searchParams.set("api_key", tmdbConfig.api_key);
@@ -110,7 +110,7 @@ export const tmdbMetaRoutes = new Elysia()
       const res = await fetch(url.toString(), {
         headers: { Accept: "application/json" },
       });
-      if (!res.ok) return badGateway(set, "TMDB genres request failed");
+      if (!res.ok) return badGateway("TMDB genres request failed");
 
       const data = (await res.json()) as Record<string, unknown>;
       const genres = Array.isArray(data.genres)
@@ -126,7 +126,7 @@ export const tmdbMetaRoutes = new Elysia()
       return { genres };
     } catch (error) {
       console.error("Error fetching TMDB genres:", error);
-      return serverError(set, "Failed to fetch genres");
+      return serverError("Failed to fetch genres");
     }
   })
 
@@ -134,7 +134,7 @@ export const tmdbMetaRoutes = new Elysia()
     const q = query as Record<string, string | undefined>;
     const type = q.type;
     if (type !== "movie" && type !== "tv") {
-      return badRequest(set, "Invalid type, must be movie or tv");
+      return badRequest("Invalid type, must be movie or tv");
     }
 
     const providerId = q.provider_id ? parseInt(q.provider_id, 10) : null;
@@ -150,7 +150,7 @@ export const tmdbMetaRoutes = new Elysia()
         sortBy as (typeof DISCOVER_VALID_SORTS)[number],
       )
     ) {
-      return badRequest(set, "Invalid sort_by value");
+      return badRequest("Invalid sort_by value");
     }
 
     const startIdx = (page - 1) * DISCOVER_PAGE_SIZE;
@@ -160,7 +160,7 @@ export const tmdbMetaRoutes = new Elysia()
 
     try {
       const tmdbConfig = await loadEnabledTmdbConfig();
-      if (!tmdbConfig) return badRequest(set, "TMDB is not configured");
+      if (!tmdbConfig) return badRequest("TMDB is not configured");
 
       const discoverOpts = {
         language,
@@ -188,7 +188,7 @@ export const tmdbMetaRoutes = new Elysia()
       );
 
       if (tmdbResponses.some((r) => !r.ok))
-        return badGateway(set, "TMDB discover request failed");
+        return badGateway("TMDB discover request failed");
 
       const tmdbDatas = await Promise.all(
         tmdbResponses.map((r) => r.json() as Promise<Record<string, unknown>>),
@@ -221,7 +221,7 @@ export const tmdbMetaRoutes = new Elysia()
       };
     } catch (error) {
       console.error("Error fetching TMDB discover:", error);
-      return serverError(set, "Failed to fetch discover results");
+      return serverError("Failed to fetch discover results");
     }
   })
 
@@ -229,7 +229,7 @@ export const tmdbMetaRoutes = new Elysia()
     "/modal/:mediaType/:tmdbId",
     async ({ user, set, params, query: queryParams }) => {
       const parsed = parseMediaTypeAndTmdbId(params.mediaType, params.tmdbId);
-      if (!parsed.ok) return badRequest(set, "Invalid media type or TMDB ID");
+      if (!parsed.ok) return badRequest("Invalid media type or TMDB ID");
 
       const { mediaType, tmdbId } = parsed;
       const region = await getGlobalTmdbRegion();
@@ -246,7 +246,7 @@ export const tmdbMetaRoutes = new Elysia()
           select: { id: true },
         }),
       ]);
-      if (!tmdbConfig) return badRequest(set, "TMDB is not configured");
+      if (!tmdbConfig) return badRequest("TMDB is not configured");
 
       const [trailer, ratings, credits, details, providers, library_episodes] =
         await Promise.all([

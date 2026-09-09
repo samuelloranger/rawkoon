@@ -113,6 +113,6 @@ export const mediasCollectionsRoutes = new Elysia()
       return { collections };
     } catch (error) {
       console.error("Error fetching missing collections:", error);
-      return serverError(set, "Failed to fetch missing collections");
+      return serverError("Failed to fetch missing collections");
     }
   });

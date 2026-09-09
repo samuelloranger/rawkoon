@@ -41,7 +41,7 @@ export const adminUserRoutes = new Elysia()
       };
     } catch (error) {
       console.error("Error listing users:", error);
-      return serverError(set, "Failed to list users");
+      return serverError("Failed to list users");
     }
   })
 
@@ -51,10 +51,10 @@ export const adminUserRoutes = new Elysia()
     async ({ body, set }) => {
       const emailTrimmed = (body.email || "").trim().toLowerCase();
       if (!emailTrimmed || !validateEmail(emailTrimmed)) {
-        return badRequest(set, "Invalid email format");
+        return badRequest("Invalid email format");
       }
       if (!body.password || body.password.length < 8) {
-        return badRequest(set, "Password must be at least 8 characters");
+        return badRequest("Password must be at least 8 characters");
       }
 
       const sanitizedEmail = sanitizeInput(emailTrimmed);
@@ -62,7 +62,7 @@ export const adminUserRoutes = new Elysia()
         where: { email: sanitizedEmail },
       });
       if (existingUser) {
-        return badRequest(set, "A user with this email already exists");
+        return badRequest("A user with this email already exists");
       }
 
       try {
@@ -119,7 +119,7 @@ export const adminUserRoutes = new Elysia()
         };
       } catch (error) {
         console.error("Error creating user:", error);
-        return serverError(set, "Failed to create user");
+        return serverError("Failed to create user");
       }
     },
     {
@@ -143,17 +143,14 @@ export const adminUserRoutes = new Elysia()
         const userToUpdate = await prisma.user.findFirst({
           where: { id: userId },
         });
-        if (!userToUpdate) return notFound(set, "User not found");
+        if (!userToUpdate) return notFound("User not found");
 
         if (body.is_admin === false && userToUpdate.isAdmin) {
           const adminCount = await prisma.user.count({
             where: { isAdmin: true, id: { not: userId } },
           });
           if (adminCount === 0) {
-            return badRequest(
-              set,
-              "Cannot demote the last remaining admin user",
-            );
+            return badRequest("Cannot demote the last remaining admin user");
           }
         }
 
@@ -171,7 +168,7 @@ export const adminUserRoutes = new Elysia()
         };
       } catch (error) {
         console.error("Error updating user role:", error);
-        return serverError(set, "Failed to update user role");
+        return serverError("Failed to update user role");
       }
     },
     {
@@ -186,14 +183,14 @@ export const adminUserRoutes = new Elysia()
     async ({ params, body, set }) => {
       const userId = params.id;
       if (!body.password || body.password.length < 8) {
-        return badRequest(set, "Password must be at least 8 characters");
+        return badRequest("Password must be at least 8 characters");
       }
 
       try {
         const userToUpdate = await prisma.user.findFirst({
           where: { id: userId },
         });
-        if (!userToUpdate) return notFound(set, "User not found");
+        if (!userToUpdate) return notFound("User not found");
 
         const passwordHash = await hashPassword(body.password);
 
@@ -214,7 +211,7 @@ export const adminUserRoutes = new Elysia()
         return { success: true, message: "Password reset successfully" };
       } catch (error) {
         console.error("Error resetting user password:", error);
-        return serverError(set, "Failed to reset password");
+        return serverError("Failed to reset password");
       }
     },
     {
@@ -231,11 +228,11 @@ export const adminUserRoutes = new Elysia()
         const emailTrimmed = (body.email || "").trim().toLowerCase();
 
         if (!emailTrimmed) {
-          return badRequest(set, "Email is required");
+          return badRequest("Email is required");
         }
 
         if (!validateEmail(emailTrimmed)) {
-          return badRequest(set, "Invalid email format");
+          return badRequest("Invalid email format");
         }
 
         const sanitizedEmail = sanitizeInput(emailTrimmed);
@@ -245,7 +242,7 @@ export const adminUserRoutes = new Elysia()
         });
 
         if (existingUser) {
-          return badRequest(set, "A user with this email already exists");
+          return badRequest("A user with this email already exists");
         }
 
         const existingInvitation = await prisma.invitation.findFirst({
@@ -258,7 +255,6 @@ export const adminUserRoutes = new Elysia()
 
         if (existingInvitation) {
           return badRequest(
-            set,
             "A pending invitation already exists for this email. You can regenerate the link instead.",
           );
         }
@@ -283,7 +279,6 @@ export const adminUserRoutes = new Elysia()
         } catch (error) {
           if ((error as { code?: string }).code === "P2002") {
             return badRequest(
-              set,
               "A pending invitation already exists for this email. You can regenerate the link instead.",
             );
           }
@@ -307,7 +302,7 @@ export const adminUserRoutes = new Elysia()
         };
       } catch (error) {
         console.error("Error creating invitation:", error);
-        return serverError(set, "Failed to create invitation");
+        return serverError("Failed to create invitation");
       }
     },
     {
@@ -357,7 +352,7 @@ export const adminUserRoutes = new Elysia()
       };
     } catch (error) {
       console.error("Error listing invitations:", error);
-      return serverError(set, "Failed to list invitations");
+      return serverError("Failed to list invitations");
     }
   })
 
@@ -366,13 +361,13 @@ export const adminUserRoutes = new Elysia()
     "/invitations/:id/resend",
     async ({ params, set }) => {
       const id = parseInt(params.id, 10);
-      if (isNaN(id)) return badRequest(set, "Invalid invitation ID");
+      if (isNaN(id)) return badRequest("Invalid invitation ID");
 
       try {
         const invitation = await prisma.invitation.findFirst({ where: { id } });
-        if (!invitation) return notFound(set, "Invitation not found");
+        if (!invitation) return notFound("Invitation not found");
         if (invitation.status !== "pending")
-          return badRequest(set, "Can only regenerate pending invitations");
+          return badRequest("Can only regenerate pending invitations");
 
         const token = generateOpaqueToken();
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -382,13 +377,13 @@ export const adminUserRoutes = new Elysia()
           data: { token: hashOpaqueToken(token), expiresAt },
         });
         if (result.count === 0) {
-          return badRequest(set, "Invitation not found or no longer pending");
+          return badRequest("Invitation not found or no longer pending");
         }
 
         return { success: true, token, message: "Invitation link regenerated" };
       } catch (error) {
         console.error("Error regenerating invitation:", error);
-        return serverError(set, "Failed to regenerate invitation");
+        return serverError("Failed to regenerate invitation");
       }
     },
     { params: z.object({ id: z.string() }) },
@@ -399,26 +394,26 @@ export const adminUserRoutes = new Elysia()
     "/invitations/:id",
     async ({ params, set }) => {
       const id = parseInt(params.id, 10);
-      if (isNaN(id)) return badRequest(set, "Invalid invitation ID");
+      if (isNaN(id)) return badRequest("Invalid invitation ID");
 
       try {
         const invitation = await prisma.invitation.findFirst({ where: { id } });
-        if (!invitation) return notFound(set, "Invitation not found");
+        if (!invitation) return notFound("Invitation not found");
         if (invitation.status !== "pending")
-          return badRequest(set, "Can only revoke pending invitations");
+          return badRequest("Can only revoke pending invitations");
 
         const result = await prisma.invitation.updateMany({
           where: { id, status: "pending" },
           data: { status: "revoked" },
         });
         if (result.count === 0) {
-          return badRequest(set, "Invitation not found or no longer pending");
+          return badRequest("Invitation not found or no longer pending");
         }
 
         return { success: true, message: "Invitation revoked" };
       } catch (error) {
         console.error("Error revoking invitation:", error);
-        return serverError(set, "Failed to revoke invitation");
+        return serverError("Failed to revoke invitation");
       }
     },
     { params: z.object({ id: z.string() }) },
@@ -432,12 +427,12 @@ export const adminUserRoutes = new Elysia()
 
       try {
         if (userId === user!.id)
-          return badRequest(set, "Cannot delete your own account");
+          return badRequest("Cannot delete your own account");
 
         const userToDelete = await prisma.user.findFirst({
           where: { id: userId },
         });
-        if (!userToDelete) return notFound(set, "User not found");
+        if (!userToDelete) return notFound("User not found");
 
         const userEmail = userToDelete.email;
         // Self-delete is already blocked by the early return above.
@@ -445,7 +440,7 @@ export const adminUserRoutes = new Elysia()
           where: { id: userId },
         });
         if (result.count === 0) {
-          return notFound(set, "User not found");
+          return notFound("User not found");
         }
 
         return {
@@ -454,7 +449,7 @@ export const adminUserRoutes = new Elysia()
         };
       } catch (error) {
         console.error("Error deleting user:", error);
-        return serverError(set, "Failed to delete user");
+        return serverError("Failed to delete user");
       }
     },
     { params: z.object({ id: z.string() }) },

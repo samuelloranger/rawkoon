@@ -91,7 +91,7 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
       }
       return { settings: mapSettings(row) };
     } catch {
-      return serverError(set, "Failed to load media settings");
+      return serverError("Failed to load media settings");
     }
   })
   .patch(
@@ -127,7 +127,7 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
             body.file_operation !== "hardlink" &&
             body.file_operation !== "move"
           ) {
-            return badRequest(set, "file_operation must be hardlink or move");
+            return badRequest("file_operation must be hardlink or move");
           }
           update.fileOperation = body.file_operation;
         }
@@ -152,7 +152,6 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
             body.active_indexer_manager !== "jackett"
           ) {
             return badRequest(
-              set,
               "active_indexer_manager must be prowlarr, jackett, or null",
             );
           }
@@ -183,7 +182,7 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
         }
         return { settings: mapSettings(row) };
       } catch {
-        return serverError(set, "Failed to update media settings");
+        return serverError("Failed to update media settings");
       }
     },
     {
@@ -221,13 +220,13 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
     "/scan",
     async ({ body, set }) => {
       const key = await getLibraryTmdbApiKey();
-      if (!key) return badRequest(set, "TMDB is not configured");
+      if (!key) return badRequest("TMDB is not configured");
 
       const absPath = resolve(body.path);
       try {
         await stat(absPath);
       } catch {
-        return badRequest(set, "Path does not exist or is not accessible");
+        return badRequest("Path does not exist or is not accessible");
       }
       const videos = await listVideoFilesUnder(absPath);
       const unmatched: string[] = [];

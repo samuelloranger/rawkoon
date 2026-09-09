@@ -42,7 +42,7 @@ export const mediasBlocklistRoutes = new Elysia()
       });
       return { entries: entries.map(formatEntry) };
     } catch {
-      return serverError(set, "Failed to fetch blocklist");
+      return serverError("Failed to fetch blocklist");
     }
   })
   .post(
@@ -61,7 +61,7 @@ export const mediasBlocklistRoutes = new Elysia()
         });
         return { entry: formatEntry(entry) };
       } catch {
-        return serverError(set, "Failed to add blocklist entry");
+        return serverError("Failed to add blocklist entry");
       }
     },
     {
@@ -82,12 +82,12 @@ export const mediasBlocklistRoutes = new Elysia()
         const existing = await prisma.grabBlocklist.findUnique({
           where: { id: params.id },
         });
-        if (!existing) return notFound(set, "Blocklist entry not found");
+        if (!existing) return notFound("Blocklist entry not found");
 
         await prisma.grabBlocklist.delete({ where: { id: params.id } });
         return { success: true };
       } catch {
-        return serverError(set, "Failed to delete blocklist entry");
+        return serverError("Failed to delete blocklist entry");
       }
     },
     { params: z.object({ id: z.coerce.number() }) },

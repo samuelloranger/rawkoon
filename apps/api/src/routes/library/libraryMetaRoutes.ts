@@ -39,7 +39,7 @@ export const libraryMetaRoutes = new Elysia()
     async ({ params, body, set }) => {
       try {
         const id = parseInt(params.id, 10);
-        if (!Number.isFinite(id)) return badRequest(set, "Invalid ID");
+        if (!Number.isFinite(id)) return badRequest("Invalid ID");
         const item = await prisma.libraryMedia.update({
           where: { id },
           data: {
@@ -50,7 +50,7 @@ export const libraryMetaRoutes = new Elysia()
         });
         return { item: mapLibraryMedia(item) };
       } catch {
-        return serverError(set, "Failed to update status");
+        return serverError("Failed to update status");
       }
     },
     {
@@ -71,7 +71,7 @@ export const libraryMetaRoutes = new Elysia()
     async ({ params, body, set }) => {
       try {
         const id = parseInt(params.id, 10);
-        if (!Number.isFinite(id)) return badRequest(set, "Invalid ID");
+        if (!Number.isFinite(id)) return badRequest("Invalid ID");
         const item = await prisma.libraryMedia.update({
           where: { id },
           data: { monitored: body.monitored },
@@ -79,7 +79,7 @@ export const libraryMetaRoutes = new Elysia()
         });
         return { item: mapLibraryMedia(item) };
       } catch {
-        return serverError(set, "Failed to update monitored status");
+        return serverError("Failed to update monitored status");
       }
     },
     { body: z.object({ monitored: z.boolean() }) },
@@ -91,18 +91,18 @@ export const libraryMetaRoutes = new Elysia()
     async ({ params, body, set }) => {
       try {
         const id = parseInt(params.id, 10);
-        if (!Number.isFinite(id)) return badRequest(set, "Invalid ID");
+        if (!Number.isFinite(id)) return badRequest("Invalid ID");
         const existing = await prisma.libraryMedia.findUnique({
           where: { id },
         });
-        if (!existing) return notFound(set, "Library item not found");
+        if (!existing) return notFound("Library item not found");
 
         let newProfile: Awaited<ReturnType<typeof loadProfileWithFormats>> =
           null;
         if (body.quality_profile_id != null) {
           newProfile = await loadProfileWithFormats(body.quality_profile_id);
           if (!newProfile) {
-            return badRequest(set, "Quality profile not found");
+            return badRequest("Quality profile not found");
           }
         }
 
@@ -185,7 +185,7 @@ export const libraryMetaRoutes = new Elysia()
           },
         };
       } catch {
-        return serverError(set, "Failed to update quality profile");
+        return serverError("Failed to update quality profile");
       }
     },
     {
@@ -199,17 +199,16 @@ export const libraryMetaRoutes = new Elysia()
     async ({ params, body, set }) => {
       try {
         const id = parseInt(params.id, 10);
-        if (!Number.isFinite(id)) return badRequest(set, "Invalid ID");
+        if (!Number.isFinite(id)) return badRequest("Invalid ID");
 
         const language = body.search_title_language.trim().toLowerCase();
         const title = body.search_title.trim();
         if (!/^[a-z]{2}$/.test(language)) {
           return badRequest(
-            set,
             "search_title_language must be a 2-letter ISO code",
           );
         }
-        if (!title) return badRequest(set, "search_title is required");
+        if (!title) return badRequest("search_title is required");
 
         const existing = await prisma.libraryMedia.findUnique({
           where: { id },
@@ -220,10 +219,10 @@ export const libraryMetaRoutes = new Elysia()
             title: true,
           },
         });
-        if (!existing) return notFound(set, "Library item not found");
+        if (!existing) return notFound("Library item not found");
 
         const apiKey = await getLibraryTmdbApiKey();
-        if (!apiKey) return badRequest(set, "TMDB is not configured");
+        if (!apiKey) return badRequest("TMDB is not configured");
 
         const mediaType = existing.type === "show" ? "tv" : "movie";
         const path =
@@ -263,7 +262,6 @@ export const libraryMetaRoutes = new Elysia()
         );
         if (!allowed) {
           return badRequest(
-            set,
             "search_title must match a TMDB title for the given language",
           );
         }
@@ -279,7 +277,7 @@ export const libraryMetaRoutes = new Elysia()
         return { item: mapLibraryMedia(item) };
       } catch (e) {
         console.warn("[library] search-title update failed:", e);
-        return serverError(set, "Failed to update search title");
+        return serverError("Failed to update search title");
       }
     },
     {
@@ -298,7 +296,7 @@ export const libraryMetaRoutes = new Elysia()
         const mediaId = parseInt(params.id, 10);
         const season = parseInt(params.season, 10);
         if (!Number.isFinite(mediaId) || !Number.isFinite(season)) {
-          return badRequest(set, "Invalid ID or season");
+          return badRequest("Invalid ID or season");
         }
         const result = await prisma.libraryEpisode.updateMany({
           where: { mediaId, season },
@@ -306,7 +304,7 @@ export const libraryMetaRoutes = new Elysia()
         });
         return { updated: result.count };
       } catch {
-        return serverError(set, "Failed to update season monitored status");
+        return serverError("Failed to update season monitored status");
       }
     },
     { body: z.object({ monitored: z.boolean() }) },
@@ -320,7 +318,7 @@ export const libraryMetaRoutes = new Elysia()
         const mediaId = parseInt(params.id, 10);
         const episodeId = parseInt(params.episodeId, 10);
         if (!Number.isFinite(mediaId) || !Number.isFinite(episodeId)) {
-          return badRequest(set, "Invalid ID or episode ID");
+          return badRequest("Invalid ID or episode ID");
         }
         const ep = await prisma.libraryEpisode.update({
           where: { id: episodeId, mediaId },
@@ -333,7 +331,7 @@ export const libraryMetaRoutes = new Elysia()
           },
         };
       } catch {
-        return serverError(set, "Failed to update episode monitored status");
+        return serverError("Failed to update episode monitored status");
       }
     },
     { body: z.object({ monitored: z.boolean() }) },
@@ -345,12 +343,12 @@ export const libraryMetaRoutes = new Elysia()
     async ({ params, body, set }) => {
       try {
         const id = parseInt(params.id, 10);
-        if (!Number.isFinite(id)) return badRequest(set, "Invalid ID");
+        if (!Number.isFinite(id)) return badRequest("Invalid ID");
         const existing = await prisma.libraryMedia.findUnique({
           where: { id },
           select: { overrides: true },
         });
-        if (!existing) return notFound(set, "Library item not found");
+        if (!existing) return notFound("Library item not found");
 
         // Merge: existing overrides + incoming fields; null values remove the key
         const current = (existing.overrides ?? {}) as Record<string, unknown>;
@@ -370,7 +368,7 @@ export const libraryMetaRoutes = new Elysia()
         });
         return { item: mapLibraryMedia(item) };
       } catch {
-        return serverError(set, "Failed to update overrides");
+        return serverError("Failed to update overrides");
       }
     },
     {
@@ -392,7 +390,7 @@ export const libraryMetaRoutes = new Elysia()
         const mediaId = parseInt(params.id, 10);
         const episodeId = parseInt(params.episodeId, 10);
         if (!Number.isFinite(mediaId) || !Number.isFinite(episodeId)) {
-          return badRequest(set, "Invalid ID or episode ID");
+          return badRequest("Invalid ID or episode ID");
         }
         const ep = await prisma.libraryEpisode.update({
           where: { id: episodeId, mediaId },
@@ -409,7 +407,7 @@ export const libraryMetaRoutes = new Elysia()
           },
         };
       } catch {
-        return serverError(set, "Failed to update episode status");
+        return serverError("Failed to update episode status");
       }
     },
     {

@@ -202,7 +202,7 @@ export const dashboardActivitiesRoutes = new Elysia()
         };
       } catch (err) {
         console.error("Error getting dashboard activity feed:", err);
-        return serverError(set, "Failed to get dashboard activity feed");
+        return serverError("Failed to get dashboard activity feed");
       }
     },
     {

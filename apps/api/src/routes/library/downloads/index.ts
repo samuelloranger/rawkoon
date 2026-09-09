@@ -50,7 +50,7 @@ export const libraryDownloadsRoutes = new Elysia({
         };
       } catch (e) {
         console.warn("[downloads/list]", e);
-        return serverError(set, "Failed to scan downloads folders");
+        return serverError("Failed to scan downloads folders");
       }
     },
     {
@@ -84,7 +84,7 @@ export const libraryDownloadsRoutes = new Elysia({
         };
       } catch (e) {
         console.warn("[downloads/assign]", e);
-        return serverError(set, "Failed to assign download");
+        return serverError("Failed to assign download");
       }
     },
     {

@@ -35,15 +35,15 @@ export const customFormatsRoutes = new Elysia({
       });
       return { custom_formats: rows.map(mapCustomFormat) };
     } catch {
-      return serverError(set, "Failed to list custom formats");
+      return serverError("Failed to list custom formats");
     }
   })
   .post(
     "/",
     async ({ user, body, set }) => {
-      if (!user?.is_admin) return forbidden(set, "Admin access required");
+      if (!user?.is_admin) return forbidden("Admin access required");
       const v = validateFormatConditions(body.conditions);
-      if (!v.ok) return badRequest(set, v.code);
+      if (!v.ok) return badRequest(v.code);
       try {
         const row = await prisma.customFormat.create({
           data: {
@@ -60,8 +60,8 @@ export const customFormatsRoutes = new Elysia({
           "code" in e &&
           (e as { code: string }).code === "P2002";
         if (isUnique)
-          return conflict(set, "A custom format with this name already exists");
-        return serverError(set, "Failed to create custom format");
+          return conflict("A custom format with this name already exists");
+        return serverError("Failed to create custom format");
       }
     },
     {
@@ -74,16 +74,16 @@ export const customFormatsRoutes = new Elysia({
   .put(
     "/:id",
     async ({ user, params, body, set }) => {
-      if (!user?.is_admin) return forbidden(set, "Admin access required");
+      if (!user?.is_admin) return forbidden("Admin access required");
       const id = parseInt(params.id, 10);
-      if (!Number.isFinite(id)) return badRequest(set, "Invalid id");
+      if (!Number.isFinite(id)) return badRequest("Invalid id");
       const v = validateFormatConditions(body.conditions);
-      if (!v.ok) return badRequest(set, v.code);
+      if (!v.ok) return badRequest(v.code);
       try {
         const existing = await prisma.customFormat.findUnique({
           where: { id },
         });
-        if (!existing) return notFound(set, "Custom format not found");
+        if (!existing) return notFound("Custom format not found");
         const row = await prisma.customFormat.update({
           where: { id },
           data: {
@@ -99,8 +99,8 @@ export const customFormatsRoutes = new Elysia({
           "code" in e &&
           (e as { code: string }).code === "P2002";
         if (isUnique)
-          return conflict(set, "A custom format with this name already exists");
-        return serverError(set, "Failed to update custom format");
+          return conflict("A custom format with this name already exists");
+        return serverError("Failed to update custom format");
       }
     },
     {
@@ -111,19 +111,18 @@ export const customFormatsRoutes = new Elysia({
     },
   )
   .delete("/:id", async ({ user, params, set }) => {
-    if (!user?.is_admin) return forbidden(set, "Admin access required");
+    if (!user?.is_admin) return forbidden("Admin access required");
     const id = parseInt(params.id, 10);
-    if (!Number.isFinite(id)) return badRequest(set, "Invalid id");
+    if (!Number.isFinite(id)) return badRequest("Invalid id");
     try {
       const existing = await prisma.customFormat.findUnique({ where: { id } });
-      if (!existing) return notFound(set, "Custom format not found");
+      if (!existing) return notFound("Custom format not found");
 
       const inUse = await prisma.qualityProfileCustomFormat.count({
         where: { customFormatId: id },
       });
       if (inUse > 0) {
         return conflict(
-          set,
           "Cannot delete custom format while quality profiles are using it",
         );
       }
@@ -131,6 +130,6 @@ export const customFormatsRoutes = new Elysia({
       await prisma.customFormat.delete({ where: { id } });
       return { deleted: true };
     } catch {
-      return serverError(set, "Failed to delete custom format");
+      return serverError("Failed to delete custom format");
     }
   });

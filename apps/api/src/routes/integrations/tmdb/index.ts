@@ -31,7 +31,7 @@ export const tmdbIntegrationRoutes = new Elysia()
       };
     } catch (error) {
       console.error("Error fetching TMDB integration config:", error);
-      return serverError(set, "Failed to fetch TMDB integration config");
+      return serverError("Failed to fetch TMDB integration config");
     }
   })
   .put(
@@ -48,7 +48,7 @@ export const tmdbIntegrationRoutes = new Elysia()
       );
 
       if (!apiKey) {
-        return badRequest(set, "api_key is required");
+        return badRequest("api_key is required");
       }
 
       try {
@@ -91,7 +91,7 @@ export const tmdbIntegrationRoutes = new Elysia()
         };
       } catch (error) {
         console.error("Error saving TMDB integration config:", error);
-        return serverError(set, "Failed to save TMDB integration config");
+        return serverError("Failed to save TMDB integration config");
       }
     },
     {

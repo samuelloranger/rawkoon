@@ -39,13 +39,10 @@ export const libraryGrabRoutes = new Elysia()
       try {
         const id = parseInt(params.id, 10);
         const media = await prisma.libraryMedia.findUnique({ where: { id } });
-        if (!media) return notFound(set, "Library item not found");
+        if (!media) return notFound("Library item not found");
         // For shows, episode-level status governs grabs — don't gate on media status
         if (media.type === "movie" && media.status === "downloading") {
-          return badRequest(
-            set,
-            "This item cannot be grabbed in its current state",
-          );
+          return badRequest("This item cannot be grabbed in its current state");
         }
 
         let episodeId = body.episode_id ?? undefined;
@@ -70,7 +67,7 @@ export const libraryGrabRoutes = new Elysia()
           // stale context — reject rather than silently degrade to a
           // season-pack grab.
           if (!requested) {
-            return badRequest(set, "Episode not found for this library item");
+            return badRequest("Episode not found for this library item");
           }
           const resolved = resolveGrabEpisodeId({
             requested,
@@ -80,7 +77,7 @@ export const libraryGrabRoutes = new Elysia()
             ),
           });
           if (!resolved.ok) {
-            return badRequest(set, resolved.reason);
+            return badRequest(resolved.reason);
           }
           episodeId = resolved.episodeId ?? undefined;
         }
@@ -103,7 +100,7 @@ export const libraryGrabRoutes = new Elysia()
         return { grabbed: false, reason: result.reason };
       } catch (err) {
         console.error("Library grab error:", err);
-        return serverError(set, "Grab failed");
+        return serverError("Grab failed");
       }
     },
     {
@@ -127,15 +124,12 @@ export const libraryGrabRoutes = new Elysia()
       try {
         const id = parseInt(params.id, 10);
         const media = await prisma.libraryMedia.findUnique({ where: { id } });
-        if (!media) return notFound(set, "Library item not found");
+        if (!media) return notFound("Library item not found");
         if (media.type !== "movie") {
-          return badRequest(set, "Search is only available for movies");
+          return badRequest("Search is only available for movies");
         }
         if (media.status === "downloading") {
-          return badRequest(
-            set,
-            "This item cannot be grabbed in its current state",
-          );
+          return badRequest("This item cannot be grabbed in its current state");
         }
 
         // Manual search resets counter + status so users can always retry.
@@ -171,7 +165,7 @@ export const libraryGrabRoutes = new Elysia()
         return { grabbed: false, reason: result.reason };
       } catch (err) {
         console.error("Library search error:", err);
-        return serverError(set, "Search failed");
+        return serverError("Search failed");
       }
     },
     {
@@ -190,19 +184,18 @@ export const libraryGrabRoutes = new Elysia()
         const media = await prisma.libraryMedia.findUnique({
           where: { id: mediaId },
         });
-        if (!media) return notFound(set, "Library item not found");
+        if (!media) return notFound("Library item not found");
         if (media.type !== "show") {
-          return badRequest(set, "Episode search only applies to TV shows");
+          return badRequest("Episode search only applies to TV shows");
         }
 
         const ep = await prisma.libraryEpisode.findFirst({
           where: { id: episodeId, mediaId },
         });
-        if (!ep) return notFound(set, "Episode not found");
+        if (!ep) return notFound("Episode not found");
 
         if (ep.status === "downloading") {
           return badRequest(
-            set,
             "This episode cannot be grabbed in its current state",
           );
         }
@@ -244,7 +237,7 @@ export const libraryGrabRoutes = new Elysia()
         return { grabbed: false, reason: result.reason };
       } catch (err) {
         console.error("Library episode search error:", err);
-        return serverError(set, "Search failed");
+        return serverError("Search failed");
       }
     },
     {
@@ -263,7 +256,7 @@ export const libraryGrabRoutes = new Elysia()
       });
       return { retried: result.count };
     } catch {
-      return serverError(set, "Failed to retry skipped episodes");
+      return serverError("Failed to retry skipped episodes");
     }
   })
 
@@ -278,9 +271,9 @@ export const libraryGrabRoutes = new Elysia()
         const media = await prisma.libraryMedia.findUnique({
           where: { id: mediaId },
         });
-        if (!media) return notFound(set, "Library item not found");
+        if (!media) return notFound("Library item not found");
         if (media.type !== "show") {
-          return badRequest(set, "Season search only applies to TV shows");
+          return badRequest("Season search only applies to TV shows");
         }
 
         const downloadingCount = await prisma.libraryEpisode.count({
@@ -288,7 +281,6 @@ export const libraryGrabRoutes = new Elysia()
         });
         if (downloadingCount > 0) {
           return badRequest(
-            set,
             "One or more episodes in this season are already downloading",
           );
         }
@@ -303,7 +295,7 @@ export const libraryGrabRoutes = new Elysia()
           where: { mediaId, season, status: "wanted" },
         });
         if (wantedEpisodes.length === 0) {
-          return badRequest(set, "No wanted episodes in this season");
+          return badRequest("No wanted episodes in this season");
         }
 
         const s = String(season).padStart(2, "0");
@@ -336,7 +328,7 @@ export const libraryGrabRoutes = new Elysia()
         return { grabbed: false, reason: result.reason };
       } catch (err) {
         console.error("Library season search error:", err);
-        return serverError(set, "Search failed");
+        return serverError("Search failed");
       }
     },
     {
@@ -350,7 +342,7 @@ export const libraryGrabRoutes = new Elysia()
     async ({ params, body, set }) => {
       try {
         const id = parseInt(params.id, 10);
-        if (isNaN(id)) return badRequest(set, "Invalid library id");
+        if (isNaN(id)) return badRequest("Invalid library id");
 
         if (body.mode === "manual") {
           return { queued: false, mode: "manual" as const };
@@ -361,7 +353,7 @@ export const libraryGrabRoutes = new Elysia()
           where: { id },
           select: { id: true, type: true, status: true },
         });
-        if (!media) return notFound(set, "Library item not found");
+        if (!media) return notFound("Library item not found");
 
         if (media.type === "movie") {
           await prisma.libraryMedia.update({
@@ -403,7 +395,7 @@ export const libraryGrabRoutes = new Elysia()
           };
         }
       } catch {
-        return serverError(set, "Failed to enqueue upgrade");
+        return serverError("Failed to enqueue upgrade");
       }
     },
     {

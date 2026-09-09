@@ -249,7 +249,7 @@ export const downloadClientIntegrationRoutes = new Elysia()
       };
     } catch (error) {
       console.error("Error fetching download-client config:", error);
-      return serverError(set, "Failed to fetch download-client config");
+      return serverError("Failed to fetch download-client config");
     }
   })
   .put(
@@ -261,13 +261,10 @@ export const downloadClientIntegrationRoutes = new Elysia()
       const savePath = body.save_path?.trim() || undefined;
 
       if (!websiteUrl || !isValidHttpUrl(websiteUrl)) {
-        return badRequest(
-          set,
-          "Invalid website_url. Must be a valid http(s) URL.",
-        );
+        return badRequest("Invalid website_url. Must be a valid http(s) URL.");
       }
       if (body.client_type !== "deluge" && !username) {
-        return badRequest(set, "username is required");
+        return badRequest("username is required");
       }
 
       try {
@@ -279,7 +276,7 @@ export const downloadClientIntegrationRoutes = new Elysia()
         const password = providedPassword
           ? encrypt(providedPassword)
           : stringValue(existingConfig.password);
-        if (!password) return badRequest(set, "password is required");
+        if (!password) return badRequest("password is required");
 
         const enabled = body.enabled ?? existing?.enabled ?? true;
         const config: Prisma.InputJsonValue = {
@@ -342,7 +339,7 @@ export const downloadClientIntegrationRoutes = new Elysia()
         };
       } catch (error) {
         console.error("Error saving download-client config:", error);
-        return serverError(set, "Failed to save download-client config");
+        return serverError("Failed to save download-client config");
       }
     },
     {
@@ -382,7 +379,7 @@ export const downloadClientIntegrationRoutes = new Elysia()
       });
     } catch (error) {
       console.error("Error fetching download-client hook config:", error);
-      return serverError(set, "Failed to fetch download-client hook config");
+      return serverError("Failed to fetch download-client hook config");
     }
   })
   .put(
@@ -399,7 +396,6 @@ export const downloadClientIntegrationRoutes = new Elysia()
             const normalized = normalizeUrl(body.callbackUrl);
             if (!isValidHttpUrl(normalized)) {
               return badRequest(
-                set,
                 "Invalid callbackUrl. Must be a valid http(s) URL.",
               );
             }
@@ -418,10 +414,7 @@ export const downloadClientIntegrationRoutes = new Elysia()
             !Number.isFinite(body.activeHookedSecs) ||
             body.activeHookedSecs < 1
           ) {
-            return badRequest(
-              set,
-              "activeHookedSecs must be a positive number",
-            );
+            return badRequest("activeHookedSecs must be a positive number");
           }
           activeHookedSecs = Math.trunc(body.activeHookedSecs);
         }
@@ -456,7 +449,7 @@ export const downloadClientIntegrationRoutes = new Elysia()
         });
       } catch (error) {
         console.error("Error saving download-client hook config:", error);
-        return serverError(set, "Failed to save download-client hook config");
+        return serverError("Failed to save download-client hook config");
       }
     },
     {
@@ -483,6 +476,6 @@ export const downloadClientIntegrationRoutes = new Elysia()
       });
     } catch (error) {
       console.error("Error rotating download-client hook token:", error);
-      return serverError(set, "Failed to rotate download-client hook token");
+      return serverError("Failed to rotate download-client hook token");
     }
   });

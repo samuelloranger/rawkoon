@@ -100,9 +100,9 @@ export const requestRoutes = new Elysia({ prefix: "/api/requests" })
         // "already requested" instead of showing a generic error; every other
         // rejection reason stays a 400.
         if (result.reason === "already_requested") {
-          return conflict(set, "Already requested");
+          return conflict("Already requested");
         }
-        return badRequest(set, "Already in your library");
+        return badRequest("Already in your library");
       }
       return { id: result.id };
     },
@@ -140,10 +140,10 @@ export const requestRoutes = new Elysia({ prefix: "/api/requests" })
           );
           if (!result.ok) {
             if (result.reason === "not_found")
-              return notFound(set, "Request not found");
+              return notFound("Request not found");
             if (result.reason === "invalid_profile")
-              return badRequest(set, "Quality profile not found");
-            return badRequest(set, "Request is not pending");
+              return badRequest("Quality profile not found");
+            return badRequest("Request is not pending");
           }
           return { ok: true };
         },
@@ -159,8 +159,8 @@ export const requestRoutes = new Elysia({ prefix: "/api/requests" })
           );
           if (!result.ok) {
             return result.reason === "not_found"
-              ? notFound(set, "Request not found")
-              : badRequest(set, "Request is not pending");
+              ? notFound("Request not found")
+              : badRequest("Request is not pending");
           }
           return { ok: true };
         },

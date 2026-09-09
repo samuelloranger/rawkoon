@@ -17,7 +17,7 @@ export const releasesRoutes = new Elysia({ prefix: "/api/releases" })
       return await refreshGitHubReleases({ notifyAdmins: false });
     } catch (error) {
       console.error("Error loading GitHub releases:", error);
-      return serverError(set, "Failed to load GitHub releases");
+      return serverError("Failed to load GitHub releases");
     }
   })
   .post("/refresh", async ({ set }) => {
@@ -25,6 +25,6 @@ export const releasesRoutes = new Elysia({ prefix: "/api/releases" })
       return await refreshGitHubReleases({ notifyAdmins: true });
     } catch (error) {
       console.error("Error refreshing GitHub releases:", error);
-      return serverError(set, "Failed to refresh GitHub releases");
+      return serverError("Failed to refresh GitHub releases");
     }
   });

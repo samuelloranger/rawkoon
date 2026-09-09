@@ -55,7 +55,7 @@ export const libraryJobStatsRoutes = new Elysia()
 
       return { stats };
     } catch {
-      return serverError(set, "Failed to fetch library stats");
+      return serverError("Failed to fetch library stats");
     }
   })
 
@@ -80,7 +80,7 @@ export const libraryJobStatsRoutes = new Elysia()
       });
       return { tags };
     } catch {
-      return serverError(set, "Failed to fetch language tags");
+      return serverError("Failed to fetch language tags");
     }
   })
 
@@ -143,7 +143,7 @@ export const libraryJobStatsRoutes = new Elysia()
           has_more: page * limit < total,
         };
       } catch {
-        return serverError(set, "Failed to fetch download history");
+        return serverError("Failed to fetch download history");
       }
     },
     {
@@ -220,6 +220,6 @@ export const libraryJobStatsRoutes = new Elysia()
         },
       };
     } catch {
-      return serverError(set, "Failed to fetch download history stats");
+      return serverError("Failed to fetch download history stats");
     }
   });

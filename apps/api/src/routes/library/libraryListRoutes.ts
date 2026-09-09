@@ -98,7 +98,7 @@ export const libraryListRoutes = new Elysia()
           has_more,
         };
       } catch {
-        return serverError(set, "Failed to fetch library");
+        return serverError("Failed to fetch library");
       }
     },
     {
@@ -119,15 +119,15 @@ export const libraryListRoutes = new Elysia()
   .get("/item/:id", async ({ params, set }) => {
     try {
       const id = parseInt(params.id, 10);
-      if (!Number.isFinite(id)) return badRequest(set, "Invalid id");
+      if (!Number.isFinite(id)) return badRequest("Invalid id");
       const item = await prisma.libraryMedia.findUnique({
         where: { id },
         include: libraryMediaInclude,
       });
-      if (!item) return notFound(set, "Library item not found");
+      if (!item) return notFound("Library item not found");
       return { item: mapLibraryMedia(item) };
     } catch {
-      return serverError(set, "Failed to fetch library item");
+      return serverError("Failed to fetch library item");
     }
   })
 
@@ -140,7 +140,7 @@ export const libraryListRoutes = new Elysia()
       try {
         const { tmdb_id, type } = body;
         if (type !== "movie" && type !== "show") {
-          return badRequest(set, "type must be 'movie' or 'show'");
+          return badRequest("type must be 'movie' or 'show'");
         }
         try {
           const region = await getGlobalTmdbRegion();
@@ -154,13 +154,13 @@ export const libraryListRoutes = new Elysia()
         } catch (e) {
           const msg = e instanceof Error ? e.message : "";
           if (msg === "TMDB is not configured") {
-            return badRequest(set, msg);
+            return badRequest(msg);
           }
           throw e;
         }
       } catch (err) {
         console.error("Library add error:", err);
-        return serverError(set, "Failed to add item to library");
+        return serverError("Failed to add item to library");
       }
     },
     {
@@ -189,7 +189,7 @@ export const libraryListRoutes = new Elysia()
             },
           },
         });
-        if (!existing) return notFound(set, "Library item not found");
+        if (!existing) return notFound("Library item not found");
 
         if (query.delete_files === "true") {
           const { rm } = await import("node:fs/promises");
@@ -212,7 +212,7 @@ export const libraryListRoutes = new Elysia()
         ]);
         return { success: true };
       } catch {
-        return serverError(set, "Failed to remove library item");
+        return serverError("Failed to remove library item");
       }
     },
     {

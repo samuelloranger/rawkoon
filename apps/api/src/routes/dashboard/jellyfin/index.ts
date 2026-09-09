@@ -21,12 +21,12 @@ export const dashboardJellyfinRoutes = new Elysia()
           await getIntegrationConfigRecord("jellyfin");
 
         if (!jellyfinIntegration?.enabled) {
-          return notFound(set, "Jellyfin integration not enabled");
+          return notFound("Jellyfin integration not enabled");
         }
 
         const config = normalizeJellyfinConfig(jellyfinIntegration.config);
         if (!config) {
-          return notFound(set, "Jellyfin integration not configured");
+          return notFound("Jellyfin integration not configured");
         }
 
         const candidates =
@@ -103,10 +103,10 @@ export const dashboardJellyfinRoutes = new Elysia()
           });
         }
 
-        return notFound(set, "Image not found");
+        return notFound("Image not found");
       } catch (error) {
         console.error("Error proxying Jellyfin image:", error);
-        return serverError(set, "Failed to proxy Jellyfin image");
+        return serverError("Failed to proxy Jellyfin image");
       }
     },
     {
@@ -142,7 +142,7 @@ export const dashboardJellyfinRoutes = new Elysia()
       });
 
       if (!response.ok) {
-        return badGateway(set, "Failed to reach Jellyfin");
+        return badGateway("Failed to reach Jellyfin");
       }
 
       const data = (await response.json()) as unknown;
@@ -154,6 +154,6 @@ export const dashboardJellyfinRoutes = new Elysia()
       };
     } catch (error) {
       console.error("Error getting Jellyfin now-playing sessions:", error);
-      return serverError(set, "Failed to get Jellyfin now-playing sessions");
+      return serverError("Failed to get Jellyfin now-playing sessions");
     }
   });

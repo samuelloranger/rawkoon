@@ -21,7 +21,7 @@ export const libraryAttentionRoutes = new Elysia()
       return await listOpenLibraryAttentionForApi();
     } catch (error) {
       console.error("[library/attention]", error);
-      return serverError(set, "Failed to fetch library attention");
+      return serverError("Failed to fetch library attention");
     }
   })
 
@@ -33,14 +33,13 @@ export const libraryAttentionRoutes = new Elysia()
       if (!u.is_admin) return (set.status = 403), { error: "Forbidden" };
       try {
         const alertId = parseInt(params.alertId, 10);
-        if (!Number.isFinite(alertId))
-          return badRequest(set, "Invalid alert id");
+        if (!Number.isFinite(alertId)) return badRequest("Invalid alert id");
         const ok = await dismissLibraryAttentionAlert(alertId);
-        if (!ok) return badRequest(set, "Alert not found or not open");
+        if (!ok) return badRequest("Alert not found or not open");
         return { success: true };
       } catch (error) {
         console.error("[library/attention/dismiss]", error);
-        return serverError(set, "Failed to dismiss alert");
+        return serverError("Failed to dismiss alert");
       }
     },
     {

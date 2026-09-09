@@ -1,51 +1,29 @@
 /**
- * Simple error response helpers for Elysia route handlers.
- * Each function sets the HTTP status code and returns a consistent { error } shape.
+ * Framework-neutral error response helpers.
+ * Each returns a standard Web `Response` with the `{ error }` shape and correct
+ * status — a plain handler `return errorHelper(msg)` works identically under
+ * Elysia and Hono (both pass through `Response`), with no framework `set`.
  */
 
-type ElysiaSet = { status?: number | string };
+const errorResponse = (status: number, message: string) =>
+  Response.json({ error: message }, { status });
 
-export const badRequest = (set: ElysiaSet, message: string) => {
-  set.status = 400;
-  return { error: message };
-};
+export const badRequest = (message: string) => errorResponse(400, message);
 
-export const unauthorized = (set: ElysiaSet, message = "Unauthorized") => {
-  set.status = 401;
-  return { error: message };
-};
+export const unauthorized = (message = "Unauthorized") =>
+  errorResponse(401, message);
 
-export const forbidden = (set: ElysiaSet, message = "Forbidden") => {
-  set.status = 403;
-  return { error: message };
-};
+export const forbidden = (message = "Forbidden") => errorResponse(403, message);
 
-export const notFound = (set: ElysiaSet, message: string) => {
-  set.status = 404;
-  return { error: message };
-};
+export const notFound = (message: string) => errorResponse(404, message);
 
-export const conflict = (set: ElysiaSet, message: string) => {
-  set.status = 409;
-  return { error: message };
-};
+export const conflict = (message: string) => errorResponse(409, message);
 
-export const unprocessable = (set: ElysiaSet, message: string) => {
-  set.status = 422;
-  return { error: message };
-};
+export const unprocessable = (message: string) => errorResponse(422, message);
 
-export const serverError = (set: ElysiaSet, message: string) => {
-  set.status = 500;
-  return { error: message };
-};
+export const serverError = (message: string) => errorResponse(500, message);
 
-export const badGateway = (set: ElysiaSet, message: string) => {
-  set.status = 502;
-  return { error: message };
-};
+export const badGateway = (message: string) => errorResponse(502, message);
 
-export const serviceUnavailable = (set: ElysiaSet, message: string) => {
-  set.status = 503;
-  return { error: message };
-};
+export const serviceUnavailable = (message: string) =>
+  errorResponse(503, message);

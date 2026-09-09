@@ -82,27 +82,21 @@ export const qualityProfilesRoutes = new Elysia({
       });
       return { profiles: rows.map(mapProfile) };
     } catch {
-      return serverError(set, "Failed to list quality profiles");
+      return serverError("Failed to list quality profiles");
     }
   })
   .post(
     "/",
     async ({ user, body, set }) => {
-      if (!user?.is_admin) return forbidden(set, "Admin access required");
+      if (!user?.is_admin) return forbidden("Admin access required");
       if (!RESOLUTIONS.has(body.min_resolution)) {
-        return badRequest(
-          set,
-          "min_resolution must be 480, 720, 1080, or 2160",
-        );
+        return badRequest("min_resolution must be 480, 720, 1080, or 2160");
       }
       if (
         body.cutoff_resolution != null &&
         !RESOLUTIONS.has(body.cutoff_resolution)
       ) {
-        return badRequest(
-          set,
-          "cutoff_resolution must be 480, 720, 1080, or 2160",
-        );
+        return badRequest("cutoff_resolution must be 480, 720, 1080, or 2160");
       }
       const preferredSearchLanguage = normalizePreferredSearchLanguage(
         body.preferred_search_language,
@@ -112,7 +106,7 @@ export const qualityProfilesRoutes = new Elysia({
         typeof preferredSearchLanguage === "object" &&
         "error" in preferredSearchLanguage
       ) {
-        return badRequest(set, preferredSearchLanguage.error);
+        return badRequest(preferredSearchLanguage.error);
       }
       try {
         const created = await prisma.$transaction(async (tx) => {
@@ -160,11 +154,10 @@ export const qualityProfilesRoutes = new Elysia({
           e && typeof e === "object" && "code" in e
             ? (e as { code: string }).code
             : null;
-        if (code === "P2003")
-          return badRequest(set, "unknown custom_format_id");
+        if (code === "P2003") return badRequest("unknown custom_format_id");
         if (code === "P2002")
-          return conflict(set, "A profile with this name already exists");
-        return serverError(set, "Failed to create quality profile");
+          return conflict("A profile with this name already exists");
+        return serverError("Failed to create quality profile");
       }
     },
     {
@@ -198,23 +191,17 @@ export const qualityProfilesRoutes = new Elysia({
   .put(
     "/:id",
     async ({ user, params, body, set }) => {
-      if (!user?.is_admin) return forbidden(set, "Admin access required");
+      if (!user?.is_admin) return forbidden("Admin access required");
       const id = parseInt(params.id, 10);
-      if (!Number.isFinite(id)) return badRequest(set, "Invalid id");
+      if (!Number.isFinite(id)) return badRequest("Invalid id");
       if (!RESOLUTIONS.has(body.min_resolution)) {
-        return badRequest(
-          set,
-          "min_resolution must be 480, 720, 1080, or 2160",
-        );
+        return badRequest("min_resolution must be 480, 720, 1080, or 2160");
       }
       if (
         body.cutoff_resolution != null &&
         !RESOLUTIONS.has(body.cutoff_resolution)
       ) {
-        return badRequest(
-          set,
-          "cutoff_resolution must be 480, 720, 1080, or 2160",
-        );
+        return badRequest("cutoff_resolution must be 480, 720, 1080, or 2160");
       }
       const preferredSearchLanguage = normalizePreferredSearchLanguage(
         body.preferred_search_language,
@@ -224,7 +211,7 @@ export const qualityProfilesRoutes = new Elysia({
         typeof preferredSearchLanguage === "object" &&
         "error" in preferredSearchLanguage
       ) {
-        return badRequest(set, preferredSearchLanguage.error);
+        return badRequest(preferredSearchLanguage.error);
       }
       try {
         const updated = await prisma.$transaction(async (tx) => {
@@ -272,18 +259,17 @@ export const qualityProfilesRoutes = new Elysia({
             include: qualityProfileFormatsInclude,
           });
         });
-        if (!updated) return notFound(set, "Quality profile not found");
+        if (!updated) return notFound("Quality profile not found");
         return { profile: mapProfile(updated) };
       } catch (e: unknown) {
         const code =
           e && typeof e === "object" && "code" in e
             ? (e as { code: string }).code
             : null;
-        if (code === "P2003")
-          return badRequest(set, "unknown custom_format_id");
+        if (code === "P2003") return badRequest("unknown custom_format_id");
         if (code === "P2002")
-          return conflict(set, "A profile with this name already exists");
-        return serverError(set, "Failed to update quality profile");
+          return conflict("A profile with this name already exists");
+        return serverError("Failed to update quality profile");
       }
     },
     {
@@ -315,26 +301,25 @@ export const qualityProfilesRoutes = new Elysia({
     },
   )
   .delete("/:id", async ({ user, params, set }) => {
-    if (!user?.is_admin) return forbidden(set, "Admin access required");
+    if (!user?.is_admin) return forbidden("Admin access required");
     const id = parseInt(params.id, 10);
-    if (!Number.isFinite(id)) return badRequest(set, "Invalid id");
+    if (!Number.isFinite(id)) return badRequest("Invalid id");
     try {
       const existing = await prisma.qualityProfile.findUnique({
         where: { id },
       });
-      if (!existing) return notFound(set, "Quality profile not found");
+      if (!existing) return notFound("Quality profile not found");
       const inUse = await prisma.libraryMedia.count({
         where: { qualityProfileId: id },
       });
       if (inUse > 0) {
         return conflict(
-          set,
           "Cannot delete profile while library items are assigned to it",
         );
       }
       await prisma.qualityProfile.delete({ where: { id } });
       return { success: true };
     } catch {
-      return serverError(set, "Failed to delete quality profile");
+      return serverError("Failed to delete quality profile");
     }
   });

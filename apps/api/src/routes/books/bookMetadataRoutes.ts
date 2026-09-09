@@ -41,13 +41,13 @@ export const bookMetadataRoutes = new Elysia()
     async ({ params, set }) => {
       const id = Number(params.id);
       if (!Number.isInteger(id) || id <= 0)
-        return badRequest(set, "Invalid book id");
+        return badRequest("Invalid book id");
 
       // Queued alongside override saves: an unqueued refresh could read the
       // old overrides, finish last, and overwrite the columns with a stale
       // snapshot — the disagreement the queue exists to prevent.
       const outcome = await serializePerBook(id, () => refreshBookMetadata(id));
-      if (!outcome.ok) return notFound(set, outcome.reason);
+      if (!outcome.ok) return notFound(outcome.reason);
 
       return {
         book_id: outcome.bookId,

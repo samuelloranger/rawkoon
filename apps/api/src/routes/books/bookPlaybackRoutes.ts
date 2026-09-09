@@ -97,9 +97,9 @@ export const bookPlaybackRoutes = new Elysia().use(requireUser).get(
         },
       },
     });
-    if (!edition) return notFound(set, "Edition not found");
+    if (!edition) return notFound("Edition not found");
     if (!edition.offlineReady || edition.chapters.length === 0) {
-      return badRequest(set, "Edition is not offline-ready");
+      return badRequest("Edition is not offline-ready");
     }
 
     const secret = loadConfig().SECRET_KEY;
@@ -150,10 +150,10 @@ export const bookContentRoutes = new Elysia().get(
   async ({ params, query, request, set }) => {
     const grant = verifyGrant(query.grant ?? "", loadConfig().SECRET_KEY);
     if (!grant || grant.fileId !== params.fileId) {
-      return unauthorized(set, "Invalid or expired download grant");
+      return unauthorized("Invalid or expired download grant");
     }
     // Datasaver files are not generated yet, so only "original" is serveable.
-    if (grant.variant !== "original") return notFound(set, "File not found");
+    if (grant.variant !== "original") return notFound("File not found");
 
     const file = await prisma.bookFile.findUnique({
       where: { id: params.fileId },
@@ -161,18 +161,18 @@ export const bookContentRoutes = new Elysia().get(
         filePath: true,
       },
     });
-    if (!file) return notFound(set, "File not found");
+    if (!file) return notFound("File not found");
 
     const handle = Bun.file(file.filePath);
     const size = handle.size;
     if (size === 0 && !(await handle.exists()))
-      return notFound(set, "File not found");
+      return notFound("File not found");
 
     let mtimeMs = 0;
     try {
       mtimeMs = Math.trunc((await stat(file.filePath)).mtimeMs);
     } catch {
-      return notFound(set, "File not found");
+      return notFound("File not found");
     }
 
     const etag = `"${size}-${mtimeMs}"`;
@@ -283,7 +283,7 @@ export const bookProgressRoutes = new Elysia()
         where: { id: params.id },
         select: { id: true },
       });
-      if (!edition) return notFound(set, "Edition not found");
+      if (!edition) return notFound("Edition not found");
 
       const now = new Date();
       const updatedAt = clampClientTimestamp(body.updated_at, now);
@@ -405,10 +405,10 @@ export const bookReadingProgressRoutes = new Elysia()
         where: { id: params.id },
         select: { id: true },
       });
-      if (!edition) return notFound(set, "Edition not found");
+      if (!edition) return notFound("Edition not found");
 
       if (body.spine_index < 0 || body.spine_index >= body.spine_count) {
-        return badRequest(set, "spine_index is outside the spine");
+        return badRequest("spine_index is outside the spine");
       }
 
       const now = new Date();

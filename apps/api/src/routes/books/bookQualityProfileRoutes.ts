@@ -63,7 +63,7 @@ export const bookQualityProfileRoutes = new Elysia({
       const p = await prisma.bookQualityProfile.findUnique({
         where: { id: params.id },
       });
-      if (!p) return notFound(set, "Book quality profile not found");
+      if (!p) return notFound("Book quality profile not found");
       return { profile: mapProfile(p) };
     },
     { params: z.object({ id: z.coerce.number() }) },
@@ -76,16 +76,16 @@ export const bookQualityProfileRoutes = new Elysia({
       if (denied) return denied;
 
       const name = body.name.trim();
-      if (!name) return badRequest(set, "name is required");
+      if (!name) return badRequest("name is required");
       if (body.allowed_formats.length === 0) {
-        return badRequest(set, "allowed_formats must not be empty");
+        return badRequest("allowed_formats must not be empty");
       }
       const formatError = validateBookProfileFormats(
         body.kind,
         body.allowed_formats,
         body.cutoff_format ?? null,
       );
-      if (formatError) return badRequest(set, formatError);
+      if (formatError) return badRequest(formatError);
 
       try {
         const created = await prisma.bookQualityProfile.create({
@@ -106,7 +106,7 @@ export const bookQualityProfileRoutes = new Elysia({
         return { profile: mapProfile(created) };
       } catch (e) {
         if ((e as { code?: string }).code === "P2002") {
-          return conflict(set, "A profile with that name already exists");
+          return conflict("A profile with that name already exists");
         }
         throw e;
       }
@@ -141,7 +141,7 @@ export const bookQualityProfileRoutes = new Elysia({
       const existing = await prisma.bookQualityProfile.findUnique({
         where: { id: params.id },
       });
-      if (!existing) return notFound(set, "Book quality profile not found");
+      if (!existing) return notFound("Book quality profile not found");
 
       const kind = body.kind ?? existing.kind;
       const formats = body.allowed_formats ?? existing.allowedFormats;
@@ -151,14 +151,14 @@ export const bookQualityProfileRoutes = new Elysia({
           : existing.cutoffFormat;
 
       if (formats.length === 0) {
-        return badRequest(set, "allowed_formats must not be empty");
+        return badRequest("allowed_formats must not be empty");
       }
       const formatError = validateBookProfileFormats(
         kind,
         formats,
         cutoff ?? null,
       );
-      if (formatError) return badRequest(set, formatError);
+      if (formatError) return badRequest(formatError);
 
       const updated = await prisma.bookQualityProfile.update({
         where: { id: params.id },
@@ -230,7 +230,7 @@ export const bookQualityProfileRoutes = new Elysia({
         where: { id: params.id },
         select: { id: true },
       });
-      if (!existing) return notFound(set, "Book quality profile not found");
+      if (!existing) return notFound("Book quality profile not found");
 
       // Editions keep working with no profile (they fall back to defaults),
       // so this is a SetNull rather than a blocked delete.

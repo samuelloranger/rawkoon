@@ -34,7 +34,7 @@ export const jellyfinIntegrationRoutes = new Elysia()
       };
     } catch (error) {
       console.error("Error fetching Jellyfin integration config:", error);
-      return serverError(set, "Failed to fetch Jellyfin integration config");
+      return serverError("Failed to fetch Jellyfin integration config");
     }
   })
   .put(
@@ -52,14 +52,11 @@ export const jellyfinIntegrationRoutes = new Elysia()
       const enabled = body.enabled ?? true;
 
       if (!websiteUrl || !isValidHttpUrl(websiteUrl)) {
-        return badRequest(
-          set,
-          "Invalid website_url. Must be a valid http(s) URL.",
-        );
+        return badRequest("Invalid website_url. Must be a valid http(s) URL.");
       }
 
       if (!apiKey) {
-        return badRequest(set, "api_key is required");
+        return badRequest("api_key is required");
       }
 
       try {
@@ -106,7 +103,7 @@ export const jellyfinIntegrationRoutes = new Elysia()
         };
       } catch (error) {
         console.error("Error saving Jellyfin integration config:", error);
-        return serverError(set, "Failed to save Jellyfin integration config");
+        return serverError("Failed to save Jellyfin integration config");
       }
     },
     {

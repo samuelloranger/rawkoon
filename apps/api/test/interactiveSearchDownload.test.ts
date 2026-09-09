@@ -57,6 +57,9 @@ async function post(body: {
 }) {
   const set: { status?: number | string } = {};
   const payload = await downloadInteractiveSearchRelease(body, set);
+  if (payload instanceof Response) {
+    return { status: payload.status, json: await payload.json() };
+  }
   return { status: (set.status as number | undefined) ?? 200, json: payload };
 }
 

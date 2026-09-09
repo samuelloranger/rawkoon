@@ -40,14 +40,14 @@ export const adminApiKeyRoutes = new Elysia()
       return { api_keys: rows.map(mapApiKey) };
     } catch (error) {
       console.error("Error listing API keys:", error);
-      return serverError(set, "Failed to list API keys");
+      return serverError("Failed to list API keys");
     }
   })
   .post(
     "/api-keys",
     async ({ body, request, set }) => {
       const name = body.name.trim();
-      if (!name) return badRequest(set, "Name is required");
+      if (!name) return badRequest("Name is required");
 
       const days = body.expires_in_days;
       if (
@@ -55,7 +55,6 @@ export const adminApiKeyRoutes = new Elysia()
         (!Number.isInteger(days) || days < 1 || days > MAX_EXPIRY_DAYS)
       ) {
         return badRequest(
-          set,
           `Expiration must be a whole number of days between 1 and ${MAX_EXPIRY_DAYS}`,
         );
       }
@@ -65,7 +64,7 @@ export const adminApiKeyRoutes = new Elysia()
           where: { name },
         });
         if (existing) {
-          return badRequest(set, "An API key with this name already exists");
+          return badRequest("An API key with this name already exists");
         }
 
         // Owned by the acting admin; the plugin generates and hashes the key.
@@ -76,17 +75,17 @@ export const adminApiKeyRoutes = new Elysia()
         const row = await prisma.baApiKey.findUnique({
           where: { id: created.id },
         });
-        if (!row) return serverError(set, "Failed to create API key");
+        if (!row) return serverError("Failed to create API key");
 
         set.status = 201;
         // `key` (the plaintext) is returned exactly once and never stored.
         return { key: created.key, api_key: mapApiKey(row) };
       } catch (error) {
         if ((error as { code?: string }).code === "P2002") {
-          return badRequest(set, "An API key with this name already exists");
+          return badRequest("An API key with this name already exists");
         }
         console.error("Error creating API key:", error);
-        return serverError(set, "Failed to create API key");
+        return serverError("Failed to create API key");
       }
     },
     {
@@ -104,7 +103,7 @@ export const adminApiKeyRoutes = new Elysia()
         return { success: true };
       } catch (error) {
         console.error("Error deleting API key:", error);
-        return serverError(set, "Failed to delete API key");
+        return serverError("Failed to delete API key");
       }
     },
     { params: z.object({ id: z.string() }) },

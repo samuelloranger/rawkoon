@@ -10,6 +10,6 @@ export const labbyRoutes = new Elysia({ prefix: "/api/labby" })
       return await buildLabbySummary();
     } catch (error) {
       console.error("Error building Labby summary:", error);
-      return serverError(set, "Failed to build Labby summary");
+      return serverError("Failed to build Labby summary");
     }
   });

@@ -26,12 +26,12 @@ export const bookGrabRoutes = new Elysia()
         where: { bookId_kind: { bookId: params.id, kind: params.kind } },
         select: { id: true },
       });
-      if (!edition) return notFound(set, "Edition not found");
+      if (!edition) return notFound("Edition not found");
 
       const { releases, indexerWarnings, error } = await searchBookReleases(
         edition.id,
       );
-      if (error) return badRequest(set, error);
+      if (error) return badRequest(error);
 
       return { releases, indexer_warnings: indexerWarnings };
     },
@@ -50,11 +50,11 @@ export const bookGrabRoutes = new Elysia()
         where: { bookId_kind: { bookId: params.id, kind: params.kind } },
         select: { id: true },
       });
-      if (!edition) return notFound(set, "Edition not found");
+      if (!edition) return notFound("Edition not found");
 
       const url = body.download_url?.trim() || body.magnet_url?.trim();
       if (!url) {
-        return badRequest(set, "download_url or magnet_url is required");
+        return badRequest("download_url or magnet_url is required");
       }
 
       const result = await grabBookRelease({
@@ -68,7 +68,7 @@ export const bookGrabRoutes = new Elysia()
       // { error } on failure, and the web client's error extractor reads
       // exactly that field. Returning { reason } instead lost the message and
       // surfaced a bare "HTTP error! status: 409".
-      if (!result.grabbed) return conflict(set, result.reason);
+      if (!result.grabbed) return conflict(result.reason);
       return { grabbed: true, release_title: result.releaseTitle };
     },
     {
@@ -92,10 +92,10 @@ export const bookGrabRoutes = new Elysia()
         where: { bookId_kind: { bookId: params.id, kind: params.kind } },
         select: { id: true },
       });
-      if (!edition) return notFound(set, "Edition not found");
+      if (!edition) return notFound("Edition not found");
 
       const result = await searchAndGrabBook(edition.id);
-      if (!result.grabbed) return conflict(set, result.reason);
+      if (!result.grabbed) return conflict(result.reason);
       return { grabbed: true, release_title: result.releaseTitle };
     },
     {

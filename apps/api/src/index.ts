@@ -179,7 +179,7 @@ export const app = new Elysia()
           // epub.js probed `/api/books/files/1/META-INF/container.xml`, got the
           // shell with a success status, and silently failed to parse it.
           if (isApiPath(new URL(request.url).pathname)) {
-            return notFound(set, "Not found");
+            return notFound("Not found");
           }
 
           const [indexHtml, user] = await Promise.all([

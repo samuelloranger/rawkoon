@@ -46,7 +46,7 @@ export const adminMiscRoutes = new Elysia()
       };
     } catch (error) {
       console.error("Error listing sessions:", error);
-      return serverError(set, "Failed to list sessions");
+      return serverError("Failed to list sessions");
     }
   })
 
@@ -61,7 +61,7 @@ export const adminMiscRoutes = new Elysia()
         return { success: true, message: "Session revoked" };
       } catch (error) {
         console.error("Error revoking session:", error);
-        return serverError(set, "Failed to revoke session");
+        return serverError("Failed to revoke session");
       }
     },
     { params: z.object({ id: z.string() }) },
@@ -80,7 +80,7 @@ export const adminMiscRoutes = new Elysia()
         return { success: true, message: "All sessions revoked" };
       } catch (error) {
         console.error("Error revoking user sessions:", error);
-        return serverError(set, "Failed to revoke sessions");
+        return serverError("Failed to revoke sessions");
       }
     },
     { params: z.object({ userId: z.string() }) },
@@ -120,7 +120,7 @@ export const adminMiscRoutes = new Elysia()
       };
     } catch (error) {
       console.error("Error listing web push subscriptions:", error);
-      return serverError(set, "Failed to list web push subscriptions");
+      return serverError("Failed to list web push subscriptions");
     }
   })
 
@@ -129,14 +129,14 @@ export const adminMiscRoutes = new Elysia()
     "/web-push/:id",
     async ({ params, set }) => {
       const id = parseInt(params.id, 10);
-      if (isNaN(id)) return badRequest(set, "Invalid subscription ID");
+      if (isNaN(id)) return badRequest("Invalid subscription ID");
 
       try {
         await prisma.userSubscription.delete({ where: { id } });
         return { success: true, message: "Web push subscription deleted" };
       } catch (error) {
         console.error("Error deleting web push subscription:", error);
-        return serverError(set, "Failed to delete web push subscription");
+        return serverError("Failed to delete web push subscription");
       }
     },
     { params: z.object({ id: z.string() }) },

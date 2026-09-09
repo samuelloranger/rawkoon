@@ -90,7 +90,7 @@ export const bookListRoutes = new Elysia()
         return { items, total, has_more };
       } catch (e) {
         console.error("[books] list failed:", e);
-        return serverError(set, "Failed to list books");
+        return serverError("Failed to list books");
       }
     },
     {
@@ -112,12 +112,11 @@ export const bookListRoutes = new Elysia()
     "/search",
     async ({ query, set }) => {
       const term = query.q?.trim();
-      if (!term) return badRequest(set, "Query is required");
+      if (!term) return badRequest("Query is required");
 
       const provider = await getBookMetadataProvider();
       if (!provider) {
         return badRequest(
-          set,
           "Google Books is not configured. Add an API key in Integrations.",
         );
       }
@@ -154,7 +153,7 @@ export const bookListRoutes = new Elysia()
           return { error: `Google Books is unavailable: ${e.message}` };
         }
         console.error("[books] provider search failed:", e);
-        return serverError(set, "Book search failed");
+        return serverError("Book search failed");
       }
     },
     { query: z.object({ q: z.string().optional() }) },
@@ -167,7 +166,7 @@ export const bookListRoutes = new Elysia()
         where: { id: params.id },
         include: bookInclude,
       });
-      if (!book) return notFound(set, "Book not found");
+      if (!book) return notFound("Book not found");
       const readAt = await loadReadAtByBookId(prisma, user!.id, [book.id]);
       return { item: mapBook(book, { readAt: readAt.get(book.id) ?? null }) };
     },
@@ -182,12 +181,12 @@ export const bookListRoutes = new Elysia()
         bookId: params.id,
         read: body.read,
       });
-      if (!result.ok) return notFound(set, "Book not found");
+      if (!result.ok) return notFound("Book not found");
       const book = await prisma.libraryBook.findUnique({
         where: { id: params.id },
         include: bookInclude,
       });
-      if (!book) return notFound(set, "Book not found");
+      if (!book) return notFound("Book not found");
       return { item: mapBook(book, { readAt: result.readAt }) };
     },
     {
@@ -203,7 +202,7 @@ export const bookListRoutes = new Elysia()
         body.kinds && body.kinds.length > 0 ? body.kinds : ["ebook"]
       ) as BookEditionKind[];
       if (kinds.some((k) => !KINDS.includes(k))) {
-        return badRequest(set, "kinds must be ebook and/or audiobook");
+        return badRequest("kinds must be ebook and/or audiobook");
       }
 
       let result;
@@ -217,7 +216,7 @@ export const bookListRoutes = new Elysia()
         });
       } catch (e) {
         console.error("[books] add failed:", e);
-        return serverError(set, "Failed to add book");
+        return serverError("Failed to add book");
       }
 
       if (!result.added) {
@@ -226,16 +225,16 @@ export const bookListRoutes = new Elysia()
           return { error: result.reason };
         }
         if (result.reason === "Volume not found") {
-          return notFound(set, result.reason);
+          return notFound(result.reason);
         }
-        return badRequest(set, result.reason);
+        return badRequest(result.reason);
       }
 
       const book = await prisma.libraryBook.findUnique({
         where: { id: result.bookId },
         include: bookInclude,
       });
-      if (!book) return serverError(set, "Failed to add book");
+      if (!book) return serverError("Failed to add book");
       return { item: mapBook(book) };
     },
     {
@@ -262,7 +261,7 @@ export const bookListRoutes = new Elysia()
         where: { id: params.id },
         select: { id: true },
       });
-      if (!existing) return notFound(set, "Book not found");
+      if (!existing) return notFound("Book not found");
       // Editions and files cascade; library files on disk are left alone,
       // matching how removing a library media item behaves.
       await prisma.libraryBook.delete({ where: { id: params.id } });

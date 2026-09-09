@@ -124,7 +124,7 @@ export const searchRoutes = new Elysia({ prefix: "/api/search" })
         };
       } catch (error) {
         console.error("Error in quick search:", error);
-        return serverError(set, "Search failed");
+        return serverError("Search failed");
       }
     },
     {

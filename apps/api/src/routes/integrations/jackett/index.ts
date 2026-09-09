@@ -35,7 +35,7 @@ export const jackettIntegrationRoutes = new Elysia()
       };
     } catch (error) {
       console.error("Error fetching Jackett integration config:", error);
-      return serverError(set, "Failed to fetch Jackett integration config");
+      return serverError("Failed to fetch Jackett integration config");
     }
   })
   .put(
@@ -53,14 +53,11 @@ export const jackettIntegrationRoutes = new Elysia()
       const enabled = body.enabled ?? true;
 
       if (!websiteUrl || !isValidHttpUrl(websiteUrl)) {
-        return badRequest(
-          set,
-          "Invalid website_url. Must be a valid http(s) URL.",
-        );
+        return badRequest("Invalid website_url. Must be a valid http(s) URL.");
       }
 
       if (!apiKey) {
-        return badRequest(set, "api_key is required");
+        return badRequest("api_key is required");
       }
 
       try {
@@ -133,7 +130,7 @@ export const jackettIntegrationRoutes = new Elysia()
         };
       } catch (error) {
         console.error("Error saving Jackett integration config:", error);
-        return serverError(set, "Failed to save Jackett integration config");
+        return serverError("Failed to save Jackett integration config");
       }
     },
     {
@@ -157,6 +154,6 @@ export const jackettIntegrationRoutes = new Elysia()
       return { indexers };
     } catch (error) {
       console.error("Error fetching Jackett indexers:", error);
-      return serverError(set, "Failed to fetch Jackett indexers");
+      return serverError("Failed to fetch Jackett indexers");
     }
   });

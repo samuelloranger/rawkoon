@@ -34,7 +34,7 @@ export const libraryFilesRoutes = new Elysia()
     try {
       const id = parseInt(params.id, 10);
       const media = await prisma.libraryMedia.findUnique({ where: { id } });
-      if (!media) return notFound(set, "Library item not found");
+      if (!media) return notFound("Library item not found");
 
       const episodes = await prisma.libraryEpisode.findMany({
         where: { mediaId: id },
@@ -65,7 +65,7 @@ export const libraryFilesRoutes = new Elysia()
         })),
       };
     } catch {
-      return serverError(set, "Failed to fetch episodes");
+      return serverError("Failed to fetch episodes");
     }
   })
 
@@ -74,7 +74,7 @@ export const libraryFilesRoutes = new Elysia()
     try {
       const id = parseInt(params.id, 10);
       const media = await prisma.libraryMedia.findUnique({ where: { id } });
-      if (!media) return notFound(set, "Library item not found");
+      if (!media) return notFound("Library item not found");
 
       const items = await prisma.downloadHistory.findMany({
         where: { mediaId: id },
@@ -146,7 +146,7 @@ export const libraryFilesRoutes = new Elysia()
         })),
       };
     } catch {
-      return serverError(set, "Failed to fetch download history");
+      return serverError("Failed to fetch download history");
     }
   })
 
@@ -156,12 +156,12 @@ export const libraryFilesRoutes = new Elysia()
     if (denied) return denied;
     try {
       const mediaId = parseInt(params.id, 10);
-      if (!Number.isFinite(mediaId)) return badRequest(set, "Invalid id");
+      if (!Number.isFinite(mediaId)) return badRequest("Invalid id");
 
       const media = await prisma.libraryMedia.findUnique({
         where: { id: mediaId },
       });
-      if (!media) return notFound(set, "Library item not found");
+      if (!media) return notFound("Library item not found");
 
       const staleRows = await prisma.downloadHistory.findMany({
         where: {
@@ -205,7 +205,7 @@ export const libraryFilesRoutes = new Elysia()
       return { deleted: ids.length };
     } catch (err) {
       console.error("Library clear failed downloads error:", err);
-      return serverError(set, "Failed to delete download history");
+      return serverError("Failed to delete download history");
     }
   })
 
@@ -217,7 +217,7 @@ export const libraryFilesRoutes = new Elysia()
       const mediaId = parseInt(params.id, 10);
       const dhId = parseInt(params.dhId, 10);
       if (!Number.isFinite(mediaId) || !Number.isFinite(dhId)) {
-        return badRequest(set, "Invalid id");
+        return badRequest("Invalid id");
       }
 
       const { isRemovableDownloadHistoryEntry } = await import(
@@ -232,10 +232,9 @@ export const libraryFilesRoutes = new Elysia()
           postProcessError: true,
         },
       });
-      if (!dh) return notFound(set, "Download history not found");
+      if (!dh) return notFound("Download history not found");
       if (!isRemovableDownloadHistoryEntry(dh)) {
         return badRequest(
-          set,
           "Only failed downloads or post-processing errors can be removed",
         );
       }
@@ -262,7 +261,7 @@ export const libraryFilesRoutes = new Elysia()
       return { success: true };
     } catch (err) {
       console.error("Library delete download entry error:", err);
-      return serverError(set, "Failed to delete download history");
+      return serverError("Failed to delete download history");
     }
   })
 
@@ -276,7 +275,7 @@ export const libraryFilesRoutes = new Elysia()
         const mediaId = parseInt(params.id, 10);
         const dhId = parseInt(params.dhId, 10);
         if (!Number.isFinite(mediaId) || !Number.isFinite(dhId)) {
-          return badRequest(set, "Invalid id");
+          return badRequest("Invalid id");
         }
 
         const dh = await prisma.downloadHistory.findFirst({
@@ -288,7 +287,7 @@ export const libraryFilesRoutes = new Elysia()
             episodeId: true,
           },
         });
-        if (!dh) return notFound(set, "Download history not found");
+        if (!dh) return notFound("Download history not found");
 
         const { resolveActiveAdapter } = await import(
           "@rawkoon/api/services/downloadClient/registry"
@@ -325,11 +324,11 @@ export const libraryFilesRoutes = new Elysia()
 
         // pause / resume — require a torrent hash
         if (!dh.torrentHash) {
-          return badRequest(set, "Download has no torrent to control");
+          return badRequest("Download has no torrent to control");
         }
         const active = await resolveActiveAdapter();
         if (!active) {
-          return badRequest(set, "Download client is not configured");
+          return badRequest("Download client is not configured");
         }
         if (body.action === "pause") await active.adapter.pause(dh.torrentHash);
         else await active.adapter.resume(dh.torrentHash);
@@ -337,7 +336,7 @@ export const libraryFilesRoutes = new Elysia()
         return { success: true };
       } catch (err) {
         console.error("Library download action error:", err);
-        return serverError(set, "Failed to perform download action");
+        return serverError("Failed to perform download action");
       }
     },
     {
@@ -360,26 +359,25 @@ export const libraryFilesRoutes = new Elysia()
       if (denied) return denied;
       try {
         const dhId = parseInt(params.dhId, 10);
-        if (isNaN(dhId)) return badRequest(set, "Invalid download history id");
+        if (isNaN(dhId)) return badRequest("Invalid download history id");
 
         const dh = await prisma.downloadHistory.findUnique({
           where: { id: dhId },
           select: { id: true, completedAt: true, failed: true },
         });
-        if (!dh) return notFound(set, "Download history not found");
-        if (dh.failed) return badRequest(set, "Download is marked as failed");
-        if (!dh.completedAt)
-          return badRequest(set, "Download not yet completed");
+        if (!dh) return notFound("Download history not found");
+        if (dh.failed) return badRequest("Download is marked as failed");
+        if (!dh.completedAt) return badRequest("Download not yet completed");
 
         // force: an operator retry must run even when a completed job for this
         // row is still retained by the queue.
         const queued = await enqueuePostProcess(dhId, { force: true });
         if (!queued) {
-          return badRequest(set, "Post-processing is disabled");
+          return badRequest("Post-processing is disabled");
         }
         return { queued: true, download_history_id: dhId };
       } catch {
-        return serverError(set, "Failed to queue post-processing");
+        return serverError("Failed to queue post-processing");
       }
     },
   )
@@ -389,7 +387,7 @@ export const libraryFilesRoutes = new Elysia()
     try {
       const id = parseInt(params.id, 10);
       const media = await prisma.libraryMedia.findUnique({ where: { id } });
-      if (!media) return notFound(set, "Library item not found");
+      if (!media) return notFound("Library item not found");
 
       const files = await prisma.mediaFile.findMany({
         where: { mediaId: id },
@@ -439,7 +437,7 @@ export const libraryFilesRoutes = new Elysia()
         })),
       };
     } catch {
-      return serverError(set, "Failed to fetch file info");
+      return serverError("Failed to fetch file info");
     }
   })
 
@@ -450,7 +448,7 @@ export const libraryFilesRoutes = new Elysia()
     try {
       const id = parseInt(params.id, 10);
       const result = await rescanLibraryItem(id);
-      if (!result) return notFound(set, "Library item not found");
+      if (!result) return notFound("Library item not found");
       return {
         rescanned: result.rescanned,
         skipped: result.skipped,
@@ -460,7 +458,7 @@ export const libraryFilesRoutes = new Elysia()
         requeued: result.requeued,
       };
     } catch {
-      return serverError(set, "Failed to rescan files");
+      return serverError("Failed to rescan files");
     }
   })
 
@@ -472,12 +470,12 @@ export const libraryFilesRoutes = new Elysia()
       if (denied) return denied;
       try {
         const fileId = parseInt(params.fileId, 10);
-        if (!Number.isFinite(fileId)) return badRequest(set, "Invalid file id");
+        if (!Number.isFinite(fileId)) return badRequest("Invalid file id");
 
         const file = await prisma.mediaFile.findUnique({
           where: { id: fileId },
         });
-        if (!file) return notFound(set, "File not found");
+        if (!file) return notFound("File not found");
 
         const updated = await prisma.mediaFile.update({
           where: { id: fileId },
@@ -493,7 +491,7 @@ export const libraryFilesRoutes = new Elysia()
           release_group: updated.releaseGroup,
         };
       } catch {
-        return serverError(set, "Failed to update file");
+        return serverError("Failed to update file");
       }
     },
     {
@@ -512,12 +510,12 @@ export const libraryFilesRoutes = new Elysia()
       if (denied) return denied;
       try {
         const fileId = parseInt(params.fileId, 10);
-        if (!Number.isFinite(fileId)) return badRequest(set, "Invalid file id");
+        if (!Number.isFinite(fileId)) return badRequest("Invalid file id");
 
         const file = await prisma.mediaFile.findUnique({
           where: { id: fileId },
         });
-        if (!file) return notFound(set, "File not found");
+        if (!file) return notFound("File not found");
 
         // Delete the DB row first: a stale row pointing at a deleted file is
         // worse than a leftover file on disk. If the fs removal below fails we
@@ -556,7 +554,7 @@ export const libraryFilesRoutes = new Elysia()
 
         return { success: true };
       } catch {
-        return serverError(set, "Failed to delete file");
+        return serverError("Failed to delete file");
       }
     },
     {
@@ -575,14 +573,14 @@ export const libraryFilesRoutes = new Elysia()
         const mediaId = parseInt(params.id, 10);
         const episodeId = parseInt(params.episodeId, 10);
         if (!Number.isFinite(mediaId) || !Number.isFinite(episodeId)) {
-          return badRequest(set, "Invalid id");
+          return badRequest("Invalid id");
         }
 
         const ep = await prisma.libraryEpisode.findFirst({
           where: { id: episodeId, mediaId },
           include: { files: true },
         });
-        if (!ep) return notFound(set, "Episode not found");
+        if (!ep) return notFound("Episode not found");
 
         if (query.delete_file === "true" && ep.files.length > 0) {
           const { rm } = await import("node:fs/promises");
@@ -619,7 +617,7 @@ export const libraryFilesRoutes = new Elysia()
 
         return { success: true };
       } catch {
-        return serverError(set, "Failed to delete episode");
+        return serverError("Failed to delete episode");
       }
     },
     {

@@ -36,7 +36,7 @@ export const oidcIntegrationRoutes = new Elysia({ prefix: "/oidc" })
         })),
       };
     } catch {
-      return serverError(set, "Failed to fetch OIDC providers");
+      return serverError("Failed to fetch OIDC providers");
     }
   })
   .post(
@@ -45,27 +45,26 @@ export const oidcIntegrationRoutes = new Elysia({ prefix: "/oidc" })
       const slug = sanitizeSlug(body.slug);
       if (!SLUG_RE.test(slug)) {
         return badRequest(
-          set,
           "slug must only contain lowercase letters, numbers, and hyphens",
         );
       }
 
       const discoveryUrl = body.discovery_url.trim();
       if (!/^https?:\/\//.test(discoveryUrl)) {
-        return badRequest(set, "discovery_url must be a valid http(s) URL");
+        return badRequest("discovery_url must be a valid http(s) URL");
       }
 
       const clientId = body.client_id.trim();
       const clientSecret = body.client_secret.trim();
       if (!clientId || !clientSecret) {
-        return badRequest(set, "client_id and client_secret are required");
+        return badRequest("client_id and client_secret are required");
       }
 
       const existing = await prisma.oidcProvider.findUnique({
         where: { slug },
       });
       if (existing) {
-        return badRequest(set, `A provider with slug "${slug}" already exists`);
+        return badRequest(`A provider with slug "${slug}" already exists`);
       }
 
       try {
@@ -105,7 +104,7 @@ export const oidcIntegrationRoutes = new Elysia({ prefix: "/oidc" })
           },
         };
       } catch {
-        return serverError(set, "Failed to create OIDC provider");
+        return serverError("Failed to create OIDC provider");
       }
     },
     {
@@ -126,14 +125,14 @@ export const oidcIntegrationRoutes = new Elysia({ prefix: "/oidc" })
       const existing = await prisma.oidcProvider.findUnique({
         where: { id: params.id },
       });
-      if (!existing) return notFound(set, "OIDC provider not found");
+      if (!existing) return notFound("OIDC provider not found");
 
       const discoveryUrl = body.discovery_url?.trim() ?? existing.discoveryUrl;
       if (
         body.discovery_url !== undefined &&
         !/^https?:\/\//.test(discoveryUrl)
       ) {
-        return badRequest(set, "discovery_url must be a valid http(s) URL");
+        return badRequest("discovery_url must be a valid http(s) URL");
       }
 
       const clientSecret = body.client_secret?.trim()
@@ -177,7 +176,7 @@ export const oidcIntegrationRoutes = new Elysia({ prefix: "/oidc" })
           },
         };
       } catch {
-        return serverError(set, "Failed to update OIDC provider");
+        return serverError("Failed to update OIDC provider");
       }
     },
     {
@@ -195,7 +194,7 @@ export const oidcIntegrationRoutes = new Elysia({ prefix: "/oidc" })
     const existing = await prisma.oidcProvider.findUnique({
       where: { id: params.id },
     });
-    if (!existing) return notFound(set, "OIDC provider not found");
+    if (!existing) return notFound("OIDC provider not found");
 
     try {
       await prisma.oidcProvider.delete({ where: { id: params.id } });
@@ -213,6 +212,6 @@ export const oidcIntegrationRoutes = new Elysia({ prefix: "/oidc" })
 
       return { success: true };
     } catch {
-      return serverError(set, "Failed to delete OIDC provider");
+      return serverError("Failed to delete OIDC provider");
     }
   });

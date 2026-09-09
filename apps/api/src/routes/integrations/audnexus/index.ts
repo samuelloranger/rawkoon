@@ -52,7 +52,7 @@ export const audnexusIntegrationRoutes = new Elysia()
       };
     } catch (error) {
       console.error("Error fetching Audnexus integration config:", error);
-      return serverError(set, "Failed to fetch Audnexus integration config");
+      return serverError("Failed to fetch Audnexus integration config");
     }
   })
 
@@ -66,7 +66,7 @@ export const audnexusIntegrationRoutes = new Elysia()
       // The normalizer only rejects a malformed or non-http base URL, which is
       // the one setting that would make every request fail invisibly.
       if (!config) {
-        return badRequest(set, "base_url must be a valid http(s) URL");
+        return badRequest("base_url must be a valid http(s) URL");
       }
       const enabled = body.enabled ?? true;
 
@@ -102,7 +102,7 @@ export const audnexusIntegrationRoutes = new Elysia()
         };
       } catch (error) {
         console.error("Error saving Audnexus integration config:", error);
-        return serverError(set, "Failed to save Audnexus integration");
+        return serverError("Failed to save Audnexus integration");
       }
     },
     {
@@ -130,8 +130,7 @@ export const audnexusIntegrationRoutes = new Elysia()
         base_url: body.base_url ?? "",
         region: body.region ?? "",
       });
-      if (!config)
-        return badRequest(set, "base_url must be a valid http(s) URL");
+      if (!config) return badRequest("base_url must be a valid http(s) URL");
 
       const url = `${config.base_url}/books/${TEST_ASIN}?region=${encodeURIComponent(config.region)}`;
       try {

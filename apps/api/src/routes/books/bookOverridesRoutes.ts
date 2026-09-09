@@ -75,14 +75,13 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
   "/:id/overrides",
   async ({ params, body, set, user }) => {
     const id = Number(params.id);
-    if (!Number.isInteger(id) || id <= 0)
-      return badRequest(set, "Invalid book id");
+    if (!Number.isInteger(id) || id <= 0) return badRequest("Invalid book id");
 
     const existing = await prisma.libraryBook.findUnique({
       where: { id },
       select: { id: true },
     });
-    if (!existing) return notFound(set, "Book not found");
+    if (!existing) return notFound("Book not found");
 
     const patch: Record<string, unknown> = {};
     const removed: string[] = [];
@@ -103,10 +102,7 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
         // in the JSON would make every subsequent refresh throw.
         const parsed = parseIsoDate(value);
         if (!parsed) {
-          return badRequest(
-            set,
-            "published_date must be an ISO date (YYYY-MM-DD)",
-          );
+          return badRequest("published_date must be an ISO date (YYYY-MM-DD)");
         }
         patch[stored] = parsed.toISOString();
         continue;
@@ -122,10 +118,7 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
          */
         const code = value.trim().toLowerCase();
         if (!/^[a-z]{2}$/.test(code)) {
-          return badRequest(
-            set,
-            "language must be a two-letter ISO 639-1 code",
-          );
+          return badRequest("language must be a two-letter ISO 639-1 code");
         }
         patch[stored] = code;
         continue;
@@ -157,7 +150,7 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
     }
 
     if (Object.keys(patch).length === 0 && removed.length === 0) {
-      return badRequest(set, "No override fields supplied");
+      return badRequest("No override fields supplied");
     }
 
     try {
@@ -253,10 +246,9 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
         return { item, unrestored };
       });
 
-      if (!item) return notFound(set, "Book not found");
+      if (!item) return notFound("Book not found");
       if (unrestored.length > 0) {
         return badRequest(
-          set,
           `No metadata source supplies ${unrestored.join(", ")}, so it cannot be reverted. Your value was kept.`,
         );
       }
@@ -264,7 +256,7 @@ export const bookOverridesRoutes = new Elysia().use(requireUser).patch(
       return { item: mapBook(item, { readAt: readAt.get(item.id) ?? null }) };
     } catch (error) {
       console.error("Failed to update book overrides:", error);
-      return serverError(set, "Failed to update overrides");
+      return serverError("Failed to update overrides");
     }
   },
   {

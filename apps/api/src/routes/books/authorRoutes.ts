@@ -102,7 +102,7 @@ export const authorRoutes = new Elysia({ prefix: "/api/authors" })
         where: { id: params.id },
         select: { id: true, monitored: true, monitorFrom: true },
       });
-      if (!author) return notFound(set, "Author not found");
+      if (!author) return notFound("Author not found");
 
       if (body.monitor_edition_kinds) {
         const invalid = body.monitor_edition_kinds.filter(
@@ -110,7 +110,6 @@ export const authorRoutes = new Elysia({ prefix: "/api/authors" })
         );
         if (invalid.length > 0) {
           return badRequest(
-            set,
             "monitor_edition_kinds must contain only ebook and/or audiobook",
           );
         }
@@ -124,10 +123,7 @@ export const authorRoutes = new Elysia({ prefix: "/api/authors" })
           l.trim().toLowerCase(),
         );
         if (normalized.some((l) => !/^[a-z]{2}$/.test(l))) {
-          return badRequest(
-            set,
-            "monitor_languages must contain ISO 639-1 codes",
-          );
+          return badRequest("monitor_languages must contain ISO 639-1 codes");
         }
         monitorLanguages = [...new Set(normalized)];
       }
@@ -137,7 +133,7 @@ export const authorRoutes = new Elysia({ prefix: "/api/authors" })
           where: { id: body.book_quality_profile_id },
           select: { id: true },
         });
-        if (!profile) return notFound(set, "Book quality profile not found");
+        if (!profile) return notFound("Book quality profile not found");
       }
 
       let monitorFrom: Date | null | undefined;
@@ -147,7 +143,7 @@ export const authorRoutes = new Elysia({ prefix: "/api/authors" })
         } else {
           const parsed = new Date(body.monitor_from);
           if (Number.isNaN(parsed.getTime())) {
-            return badRequest(set, "monitor_from must be a valid date");
+            return badRequest("monitor_from must be a valid date");
           }
           monitorFrom = parsed;
         }
