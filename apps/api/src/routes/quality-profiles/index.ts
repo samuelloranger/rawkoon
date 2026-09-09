@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { auth } from "@rawkoon/api/auth";
 import { requireUser } from "@rawkoon/api/middleware/auth";
@@ -167,30 +168,30 @@ export const qualityProfilesRoutes = new Elysia({
       }
     },
     {
-      body: t.Object({
-        name: t.String(),
-        min_resolution: t.Number(),
-        preferred_sources: t.Array(t.String()),
-        preferred_codecs: t.Array(t.String()),
-        preferred_languages: t.Optional(t.Array(t.String())),
-        preferred_search_language: t.Optional(t.Nullable(t.String())),
-        prioritized_trackers: t.Optional(t.Array(t.String())),
-        prefer_tracker_over_quality: t.Optional(t.Boolean()),
-        max_size_gb: t.Optional(t.Nullable(t.Number())),
-        require_hdr: t.Boolean(),
-        prefer_hdr: t.Boolean(),
-        cutoff_resolution: t.Optional(t.Nullable(t.Number())),
-        min_seeders: t.Optional(t.Integer({ minimum: 0 })),
-        custom_formats: t.Optional(
-          t.Array(
-            t.Object({
-              custom_format_id: t.Integer(),
-              score: t.Integer(),
-              required: t.Optional(t.Boolean()),
-              forbidden: t.Optional(t.Boolean()),
+      body: z.object({
+        name: z.string(),
+        min_resolution: z.number(),
+        preferred_sources: z.array(z.string()),
+        preferred_codecs: z.array(z.string()),
+        preferred_languages: z.array(z.string()).optional(),
+        preferred_search_language: z.string().nullable().optional(),
+        prioritized_trackers: z.array(z.string()).optional(),
+        prefer_tracker_over_quality: z.boolean().optional(),
+        max_size_gb: z.number().nullable().optional(),
+        require_hdr: z.boolean(),
+        prefer_hdr: z.boolean(),
+        cutoff_resolution: z.number().nullable().optional(),
+        min_seeders: z.number().int().min(0).optional(),
+        custom_formats: z
+          .array(
+            z.object({
+              custom_format_id: z.number().int(),
+              score: z.number().int(),
+              required: z.boolean().optional(),
+              forbidden: z.boolean().optional(),
             }),
-          ),
-        ),
+          )
+          .optional(),
       }),
     },
   )
@@ -286,30 +287,30 @@ export const qualityProfilesRoutes = new Elysia({
       }
     },
     {
-      body: t.Object({
-        name: t.String(),
-        min_resolution: t.Number(),
-        preferred_sources: t.Array(t.String()),
-        preferred_codecs: t.Array(t.String()),
-        preferred_languages: t.Optional(t.Array(t.String())),
-        preferred_search_language: t.Optional(t.Nullable(t.String())),
-        prioritized_trackers: t.Optional(t.Array(t.String())),
-        prefer_tracker_over_quality: t.Optional(t.Boolean()),
-        max_size_gb: t.Optional(t.Nullable(t.Number())),
-        require_hdr: t.Boolean(),
-        prefer_hdr: t.Boolean(),
-        cutoff_resolution: t.Optional(t.Nullable(t.Number())),
-        min_seeders: t.Optional(t.Integer({ minimum: 0 })),
-        custom_formats: t.Optional(
-          t.Array(
-            t.Object({
-              custom_format_id: t.Integer(),
-              score: t.Integer(),
-              required: t.Optional(t.Boolean()),
-              forbidden: t.Optional(t.Boolean()),
+      body: z.object({
+        name: z.string(),
+        min_resolution: z.number(),
+        preferred_sources: z.array(z.string()),
+        preferred_codecs: z.array(z.string()),
+        preferred_languages: z.array(z.string()).optional(),
+        preferred_search_language: z.string().nullable().optional(),
+        prioritized_trackers: z.array(z.string()).optional(),
+        prefer_tracker_over_quality: z.boolean().optional(),
+        max_size_gb: z.number().nullable().optional(),
+        require_hdr: z.boolean(),
+        prefer_hdr: z.boolean(),
+        cutoff_resolution: z.number().nullable().optional(),
+        min_seeders: z.number().int().min(0).optional(),
+        custom_formats: z
+          .array(
+            z.object({
+              custom_format_id: z.number().int(),
+              score: z.number().int(),
+              required: z.boolean().optional(),
+              forbidden: z.boolean().optional(),
             }),
-          ),
-        ),
+          )
+          .optional(),
       }),
     },
   )
