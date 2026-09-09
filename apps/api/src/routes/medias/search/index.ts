@@ -21,10 +21,12 @@ import {
   isCompleteSeries,
 } from "@rawkoon/api/utils/medias/mappers";
 import {
+  badGateway,
   badRequest,
   conflict,
   notFound,
   serverError,
+  unprocessable,
 } from "@rawkoon/api/errors";
 import { grabRelease } from "@rawkoon/api/services/mediaGrabberGrab";
 import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationConfigCache";
@@ -364,13 +366,11 @@ export const mediasSearchRoutes = new Elysia()
       const config = await loadEnabledLocalAiConfig();
 
       if (!config) {
-        set.status = 404;
-        return { error: "Local AI integration not configured or disabled" };
+        return notFound("Local AI integration not configured or disabled");
       }
 
       if (body.releases.length === 0) {
-        set.status = 422;
-        return { error: "No releases to analyze" };
+        return unprocessable("No releases to analyze");
       }
 
       const result = await pickReleaseWithLocalAi(
@@ -379,8 +379,7 @@ export const mediasSearchRoutes = new Elysia()
         body.releases,
       );
       if (!result) {
-        set.status = 502;
-        return { error: "Could not get response from AI" };
+        return badGateway("Could not get response from AI");
       }
 
       return result;

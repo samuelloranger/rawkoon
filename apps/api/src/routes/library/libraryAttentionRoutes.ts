@@ -2,7 +2,12 @@ import { Elysia } from "elysia";
 import { z } from "zod";
 
 import { resolveUser } from "@rawkoon/api/middleware/auth";
-import { badRequest, serverError } from "@rawkoon/api/errors";
+import {
+  badRequest,
+  forbidden,
+  serverError,
+  unauthorized,
+} from "@rawkoon/api/errors";
 import {
   listOpenLibraryAttentionForApi,
   dismissLibraryAttentionAlert,
@@ -15,8 +20,8 @@ import {
 export const libraryAttentionRoutes = new Elysia()
   .get("/attention", async ({ request, set }) => {
     const u = await resolveUser(request);
-    if (!u) return (set.status = 401), { error: "Unauthorized" };
-    if (!u.is_admin) return (set.status = 403), { error: "Forbidden" };
+    if (!u) return unauthorized();
+    if (!u.is_admin) return forbidden();
     try {
       return await listOpenLibraryAttentionForApi();
     } catch (error) {
@@ -29,8 +34,8 @@ export const libraryAttentionRoutes = new Elysia()
     "/attention/:alertId/dismiss",
     async ({ request, params, set }) => {
       const u = await resolveUser(request);
-      if (!u) return (set.status = 401), { error: "Unauthorized" };
-      if (!u.is_admin) return (set.status = 403), { error: "Forbidden" };
+      if (!u) return unauthorized();
+      if (!u.is_admin) return forbidden();
       try {
         const alertId = parseInt(params.alertId, 10);
         if (!Number.isFinite(alertId)) return badRequest("Invalid alert id");

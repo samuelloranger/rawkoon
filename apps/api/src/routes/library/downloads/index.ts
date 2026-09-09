@@ -70,8 +70,10 @@ export const libraryDownloadsRoutes = new Elysia({
         });
 
         if ("error" in result && "status" in result) {
-          set.status = result.status;
-          return { error: result.error };
+          return Response.json(
+            { error: result.error },
+            { status: result.status },
+          );
         }
 
         const ok = result as {

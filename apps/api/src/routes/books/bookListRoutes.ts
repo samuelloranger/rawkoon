@@ -4,7 +4,12 @@ import { Prisma } from "@prisma/client";
 
 import { requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
-import { badRequest, notFound, serverError } from "@rawkoon/api/errors";
+import {
+  badRequest,
+  notFound,
+  serverError,
+  serviceUnavailable,
+} from "@rawkoon/api/errors";
 import {
   getBookMetadataProvider,
   BookProviderUnavailableError,
@@ -149,8 +154,9 @@ export const bookListRoutes = new Elysia()
         // The provider being unavailable is NOT "no results" — saying otherwise
         // would report a transient 503 as "this book does not exist".
         if (e instanceof BookProviderUnavailableError) {
-          set.status = 503;
-          return { error: `Google Books is unavailable: ${e.message}` };
+          return serviceUnavailable(
+            `Google Books is unavailable: ${e.message}`,
+          );
         }
         console.error("[books] provider search failed:", e);
         return serverError("Book search failed");
@@ -221,8 +227,7 @@ export const bookListRoutes = new Elysia()
 
       if (!result.added) {
         if (result.unavailable) {
-          set.status = 503;
-          return { error: result.reason };
+          return serviceUnavailable(result.reason);
         }
         if (result.reason === "Volume not found") {
           return notFound(result.reason);

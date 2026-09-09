@@ -7,7 +7,12 @@ import { isValidHttpUrl } from "@rawkoon/api/utils/integrations/utils";
 import { normalizeLocalAiConfig } from "@rawkoon/api/utils/integrations/normalizers";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import { requireAdmin } from "@rawkoon/api/middleware/auth";
-import { badRequest, serverError } from "@rawkoon/api/errors";
+import {
+  badGateway,
+  badRequest,
+  notFound,
+  serverError,
+} from "@rawkoon/api/errors";
 import {
   getIntegrationConfigRecord,
   invalidateIntegrationConfigCache,
@@ -99,8 +104,7 @@ export const localAiIntegrationRoutes = new Elysia()
       const record = await getIntegrationConfigRecord("local-ai");
       const config = normalizeLocalAiConfig(record?.config);
       if (!record?.enabled || !config) {
-        set.status = 404;
-        return { error: "Local AI integration not configured or disabled" };
+        return notFound("Local AI integration not configured or disabled");
       }
 
       const res = await fetch(`${config.base_url}/v1/models`, {
@@ -109,8 +113,7 @@ export const localAiIntegrationRoutes = new Elysia()
       }).catch(() => null);
 
       if (!res?.ok) {
-        set.status = 502;
-        return { error: "Could not connect to Local AI server" };
+        return badGateway("Could not connect to Local AI server");
       }
 
       const data = (await res.json().catch(() => null)) as {
@@ -120,11 +123,9 @@ export const localAiIntegrationRoutes = new Elysia()
       const models = data?.data?.map((m) => m.id) ?? [];
 
       if (models.length === 0) {
-        set.status = 502;
-        return {
-          error:
-            "Server reachable but no models are loaded. Make sure the model is pulled.",
-        };
+        return badGateway(
+          "Server reachable but no models are loaded. Make sure the model is pulled.",
+        );
       }
 
       const model_available = models.includes(config.model);

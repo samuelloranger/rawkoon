@@ -186,8 +186,10 @@ export const adminJobRoutes = new Elysia()
         };
       } catch (error) {
         console.error("Error triggering action:", error);
-        set.status = 500;
-        return { success: false, message: "Failed to execute action" };
+        return Response.json(
+          { success: false, message: "Failed to execute action" },
+          { status: 500 },
+        );
       }
     },
     {
