@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { prisma } from "@rawkoon/api/db";
 import { auth } from "@rawkoon/api/auth";
 import { requireUser, requireAdmin } from "@rawkoon/api/middleware/auth";
@@ -106,21 +107,21 @@ export const requestRoutes = new Elysia({ prefix: "/api/requests" })
       return { id: result.id };
     },
     {
-      body: t.Union([
-        t.Object({
-          type: t.Union([t.Literal("movie"), t.Literal("show")]),
-          tmdb_id: t.Number(),
-          title: t.String(),
-          poster_url: t.Optional(t.Union([t.String(), t.Null()])),
-          year: t.Optional(t.Union([t.Number(), t.Null()])),
+      body: z.union([
+        z.object({
+          type: z.union([z.literal("movie"), z.literal("show")]),
+          tmdb_id: z.number(),
+          title: z.string(),
+          poster_url: z.union([z.string(), z.null()]).optional(),
+          year: z.union([z.number(), z.null()]).optional(),
         }),
-        t.Object({
-          type: t.Literal("book"),
-          google_volume_id: t.String(),
-          title: t.String(),
-          author: t.Optional(t.Union([t.String(), t.Null()])),
-          poster_url: t.Optional(t.Union([t.String(), t.Null()])),
-          year: t.Optional(t.Union([t.Number(), t.Null()])),
+        z.object({
+          type: z.literal("book"),
+          google_volume_id: z.string(),
+          title: z.string(),
+          author: z.union([z.string(), z.null()]).optional(),
+          poster_url: z.union([z.string(), z.null()]).optional(),
+          year: z.union([z.number(), z.null()]).optional(),
         }),
       ]),
     },
@@ -146,7 +147,7 @@ export const requestRoutes = new Elysia({ prefix: "/api/requests" })
           }
           return { ok: true };
         },
-        { body: t.Object({ quality_profile_id: t.Number() }) },
+        { body: z.object({ quality_profile_id: z.number() }) },
       )
       .post(
         "/:id/deny",
@@ -163,6 +164,6 @@ export const requestRoutes = new Elysia({ prefix: "/api/requests" })
           }
           return { ok: true };
         },
-        { body: t.Object({ deny_reason: t.Optional(t.String()) }) },
+        { body: z.object({ deny_reason: z.string().optional() }) },
       ),
   );
