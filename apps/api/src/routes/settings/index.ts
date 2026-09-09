@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 
 import { requireAdmin } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
@@ -84,11 +85,11 @@ export const settingsRoutes = new Elysia({ prefix: "/api/settings" })
       }
     },
     {
-      body: t.Object({
-        country_code: t.Optional(t.String({ minLength: 2, maxLength: 2 })),
-        upcoming_window_months: t.Optional(t.Integer()),
-        upcoming_languages: t.Optional(t.String()),
-        books_enabled: t.Optional(t.Boolean()),
+      body: z.object({
+        country_code: z.string().min(2).max(2).optional(),
+        upcoming_window_months: z.number().int().optional(),
+        upcoming_languages: z.string().optional(),
+        books_enabled: z.boolean().optional(),
       }),
     },
   );
