@@ -77,46 +77,49 @@ export const adminFixtures: FixtureRegistry = {
       "SSE stream never terminates; harness would hang reading res.text()",
   },
 
+  // The e2e StubQueue implements getJobs/getJob/getJobSchedulers/clean/count as
+  // empty results, so these read/act on an empty queue deterministically.
   "GET /api/admin/jobs/history": {
     phase: "read",
     admin: true,
-    skipReason:
-      "Depends on BullMQ Queue methods not implemented by the e2e StubQueue (getJobs/getState), so it would throw under mocks",
+    negativeBody: null,
   },
 
   "DELETE /api/admin/queues/:name/clean": {
     phase: "delete",
     admin: true,
-    skipReason:
-      "Depends on BullMQ Queue.clean + stats methods not implemented by the e2e StubQueue, so it would throw under mocks",
+    pathParams: () => ({ name: "scheduled-tasks" }),
+    negativeBody: null,
   },
 
   "GET /api/admin/queues/:name/jobs": {
     phase: "read",
     admin: true,
-    skipReason:
-      "Depends on BullMQ Queue.getJobs + Job.getState not implemented by the e2e StubQueue, so it would throw under mocks",
+    pathParams: () => ({ name: "scheduled-tasks" }),
+    negativeBody: null,
   },
 
+  // getJob returns null under the stub -> the route reports the job is missing (404).
   "POST /api/admin/queues/:name/jobs/:jobId/retry": {
     phase: "action",
     admin: true,
-    skipReason:
-      "Depends on BullMQ Queue.getJob + Job.getState/retry not implemented by the e2e StubQueue, so it would throw under mocks",
+    pathParams: () => ({ name: "scheduled-tasks", jobId: "missing-job" }),
+    expectedStatus: [200, 404],
+    negativeBody: null,
   },
 
   "POST /api/admin/queues/:name/retry-failed": {
     phase: "action",
     admin: true,
-    skipReason:
-      "Depends on BullMQ Queue.getJobs not implemented by the e2e StubQueue, so it would throw under mocks",
+    pathParams: () => ({ name: "scheduled-tasks" }),
+    negativeBody: null,
   },
 
   "GET /api/admin/scheduled-jobs": {
     phase: "read",
     admin: true,
     skipReason:
-      "Depends on BullMQ Queue.getJobSchedulers + queue stats methods not implemented by the e2e StubQueue, so it would throw under mocks",
+      "Aggregates per-queue scheduler state + latest-instance getState beyond the e2e StubQueue's empty results (500 under mocks)",
   },
 
   // Library health

@@ -54,7 +54,22 @@ export function installExternalMocks(): void {
     }
     async close() {}
     async getJobCounts() {
-      return {};
+      return { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 };
+    }
+    async getJobs() {
+      return [];
+    }
+    async getJob() {
+      return null;
+    }
+    async getJobSchedulers() {
+      return [];
+    }
+    async clean() {
+      return [];
+    }
+    async count() {
+      return 0;
     }
     async obliterate() {}
     on() {
