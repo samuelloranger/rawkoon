@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 
 import { requireAdmin } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
@@ -53,12 +54,12 @@ export const libraryMetaRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        status: t.Union([
-          t.Literal("wanted"),
-          t.Literal("downloading"),
-          t.Literal("downloaded"),
-          t.Literal("skipped"),
+      body: z.object({
+        status: z.union([
+          z.literal("wanted"),
+          z.literal("downloading"),
+          z.literal("downloaded"),
+          z.literal("skipped"),
         ]),
       }),
     },
@@ -81,7 +82,7 @@ export const libraryMetaRoutes = new Elysia()
         return serverError(set, "Failed to update monitored status");
       }
     },
-    { body: t.Object({ monitored: t.Boolean() }) },
+    { body: z.object({ monitored: z.boolean() }) },
   )
 
   // PATCH /api/library/:id/quality-profile
@@ -188,9 +189,7 @@ export const libraryMetaRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        quality_profile_id: t.Union([t.Number(), t.Null()]),
-      }),
+      body: z.object({ quality_profile_id: z.union([z.number(), z.null()]) }),
     },
   )
 
@@ -284,9 +283,9 @@ export const libraryMetaRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        search_title_language: t.String({ minLength: 2, maxLength: 2 }),
-        search_title: t.String({ minLength: 1, maxLength: 500 }),
+      body: z.object({
+        search_title_language: z.string().min(2).max(2),
+        search_title: z.string().min(1).max(500),
       }),
     },
   )
@@ -310,7 +309,7 @@ export const libraryMetaRoutes = new Elysia()
         return serverError(set, "Failed to update season monitored status");
       }
     },
-    { body: t.Object({ monitored: t.Boolean() }) },
+    { body: z.object({ monitored: z.boolean() }) },
   )
 
   // PATCH /api/library/:id/episodes/:episodeId/monitored — toggle monitoring for an episode
@@ -337,7 +336,7 @@ export const libraryMetaRoutes = new Elysia()
         return serverError(set, "Failed to update episode monitored status");
       }
     },
-    { body: t.Object({ monitored: t.Boolean() }) },
+    { body: z.object({ monitored: z.boolean() }) },
   )
 
   // PATCH /api/library/:id/overrides — set/clear manual metadata overrides
@@ -375,12 +374,12 @@ export const libraryMetaRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        title: t.Optional(t.Union([t.String(), t.Null()])),
-        sort_title: t.Optional(t.Union([t.String(), t.Null()])),
-        year: t.Optional(t.Union([t.Number(), t.Null()])),
-        overview: t.Optional(t.Union([t.String(), t.Null()])),
-        poster_url: t.Optional(t.Union([t.String(), t.Null()])),
+      body: z.object({
+        title: z.union([z.string(), z.null()]).optional(),
+        sort_title: z.union([z.string(), z.null()]).optional(),
+        year: z.union([z.number(), z.null()]).optional(),
+        overview: z.union([z.string(), z.null()]).optional(),
+        poster_url: z.union([z.string(), z.null()]).optional(),
       }),
     },
   )
@@ -414,12 +413,12 @@ export const libraryMetaRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        status: t.Union([
-          t.Literal("wanted"),
-          t.Literal("downloading"),
-          t.Literal("downloaded"),
-          t.Literal("skipped"),
+      body: z.object({
+        status: z.union([
+          z.literal("wanted"),
+          z.literal("downloading"),
+          z.literal("downloaded"),
+          z.literal("skipped"),
         ]),
       }),
     },

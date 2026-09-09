@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 
 import { serverError } from "@rawkoon/api/errors";
 import { requireAdmin } from "@rawkoon/api/middleware/auth";
@@ -53,9 +54,7 @@ export const libraryDownloadsRoutes = new Elysia({
       }
     },
     {
-      query: t.Object({
-        refresh: t.Optional(t.String()),
-      }),
+      query: z.object({ refresh: z.string().optional() }),
     },
   )
   .post(
@@ -89,12 +88,12 @@ export const libraryDownloadsRoutes = new Elysia({
       }
     },
     {
-      body: t.Object({
-        file_path: t.String({ maxLength: 8192 }),
-        tmdb_id: t.Number({ minimum: 1 }),
-        kind: t.Union([t.Literal("movie"), t.Literal("tv")]),
-        season: t.Optional(t.Integer({ minimum: 0 })),
-        episode: t.Optional(t.Integer({ minimum: 0 })),
+      body: z.object({
+        file_path: z.string().max(8192),
+        tmdb_id: z.number().min(1),
+        kind: z.union([z.literal("movie"), z.literal("tv")]),
+        season: z.number().int().min(0).optional(),
+        episode: z.number().int().min(0).optional(),
       }),
     },
   );

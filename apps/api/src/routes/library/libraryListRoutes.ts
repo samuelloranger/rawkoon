@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { Prisma } from "@prisma/client";
 
 import { requireUser, ensureAdmin } from "@rawkoon/api/middleware/auth";
@@ -101,15 +102,15 @@ export const libraryListRoutes = new Elysia()
       }
     },
     {
-      query: t.Object({
-        type: t.Optional(t.String()),
-        status: t.Optional(t.String()),
-        q: t.Optional(t.String()),
-        language: t.Optional(t.String()),
-        page: t.Optional(t.Numeric()),
-        limit: t.Optional(t.Numeric()),
-        sort_by: t.Optional(t.String()),
-        sort_dir: t.Optional(t.String()),
+      query: z.object({
+        type: z.string().optional(),
+        status: z.string().optional(),
+        q: z.string().optional(),
+        language: z.string().optional(),
+        page: z.coerce.number().optional(),
+        limit: z.coerce.number().optional(),
+        sort_by: z.string().optional(),
+        sort_dir: z.string().optional(),
       }),
     },
   )
@@ -163,9 +164,9 @@ export const libraryListRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        tmdb_id: t.Number(),
-        type: t.Union([t.Literal("movie"), t.Literal("show")]),
+      body: z.object({
+        tmdb_id: z.number(),
+        type: z.union([z.literal("movie"), z.literal("show")]),
       }),
     },
   )
@@ -215,8 +216,6 @@ export const libraryListRoutes = new Elysia()
       }
     },
     {
-      query: t.Object({
-        delete_files: t.Optional(t.String()),
-      }),
+      query: z.object({ delete_files: z.string().optional() }),
     },
   );

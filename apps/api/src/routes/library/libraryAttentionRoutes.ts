@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 
 import { resolveUser } from "@rawkoon/api/middleware/auth";
 import { badRequest, serverError } from "@rawkoon/api/errors";
@@ -43,6 +44,6 @@ export const libraryAttentionRoutes = new Elysia()
       }
     },
     {
-      params: t.Object({ alertId: t.String() }),
+      params: z.object({ alertId: z.string() }),
     },
   );

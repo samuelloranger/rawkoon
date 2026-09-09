@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 
 import { requireAdmin } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
@@ -106,15 +107,15 @@ export const libraryGrabRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        download_url: t.String({ maxLength: 8192 }),
-        release_title: t.String({ maxLength: 500 }),
-        indexer: t.Optional(t.String({ maxLength: 200 })),
-        quality_parsed: t.Optional(t.Any()),
-        size_bytes: t.Optional(t.Union([t.Number(), t.Null()])),
-        episode_id: t.Optional(t.Union([t.Number(), t.Null()])),
-        season: t.Optional(t.Union([t.Number(), t.Null()])),
-        is_upgrade: t.Optional(t.Boolean()),
+      body: z.object({
+        download_url: z.string().max(8192),
+        release_title: z.string().max(500),
+        indexer: z.string().max(200).optional(),
+        quality_parsed: z.any().optional(),
+        size_bytes: z.union([z.number(), z.null()]).optional(),
+        episode_id: z.union([z.number(), z.null()]).optional(),
+        season: z.union([z.number(), z.null()]).optional(),
+        is_upgrade: z.boolean().optional(),
       }),
     },
   )
@@ -174,9 +175,7 @@ export const libraryGrabRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        search_query: t.Optional(t.String({ maxLength: 400 })),
-      }),
+      body: z.object({ search_query: z.string().max(400).optional() }),
     },
   )
 
@@ -249,9 +248,7 @@ export const libraryGrabRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        search_query: t.Optional(t.String({ maxLength: 400 })),
-      }),
+      body: z.object({ search_query: z.string().max(400).optional() }),
     },
   )
 
@@ -343,9 +340,7 @@ export const libraryGrabRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        search_query: t.Optional(t.String({ maxLength: 400 })),
-      }),
+      body: z.object({ search_query: z.string().max(400).optional() }),
     },
   )
 
@@ -412,8 +407,8 @@ export const libraryGrabRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        mode: t.Union([t.Literal("auto"), t.Literal("manual")]),
+      body: z.object({
+        mode: z.union([z.literal("auto"), z.literal("manual")]),
       }),
     },
   );

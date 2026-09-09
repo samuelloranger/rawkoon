@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 
 import { requireUser, ensureAdmin } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
@@ -340,13 +341,13 @@ export const libraryFilesRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        action: t.Union([
-          t.Literal("pause"),
-          t.Literal("resume"),
-          t.Literal("remove"),
+      body: z.object({
+        action: z.union([
+          z.literal("pause"),
+          z.literal("resume"),
+          z.literal("remove"),
         ]),
-        delete_files: t.Optional(t.Boolean()),
+        delete_files: z.boolean().optional(),
       }),
     },
   )
@@ -496,8 +497,8 @@ export const libraryFilesRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        release_group: t.Optional(t.Union([t.String(), t.Null()])),
+      body: z.object({
+        release_group: z.union([z.string(), z.null()]).optional(),
       }),
     },
   )
@@ -559,9 +560,7 @@ export const libraryFilesRoutes = new Elysia()
       }
     },
     {
-      query: t.Object({
-        delete_file: t.Optional(t.String()),
-      }),
+      query: z.object({ delete_file: z.string().optional() }),
     },
   )
 
@@ -624,8 +623,6 @@ export const libraryFilesRoutes = new Elysia()
       }
     },
     {
-      query: t.Object({
-        delete_file: t.Optional(t.String()),
-      }),
+      query: z.object({ delete_file: z.string().optional() }),
     },
   );

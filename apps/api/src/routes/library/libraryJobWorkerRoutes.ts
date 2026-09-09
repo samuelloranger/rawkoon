@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 
 import { badRequest, serverError } from "@rawkoon/api/errors";
 import {
@@ -127,9 +128,9 @@ export const libraryJobWorkerRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        keep_audio_track_indices: t.Array(t.Number(), { minItems: 1 }),
-        keep_subtitle_track_indices: t.Array(t.Number()),
+      body: z.object({
+        keep_audio_track_indices: z.array(z.number()),
+        keep_subtitle_track_indices: z.array(z.number()),
       }),
     },
   )
@@ -287,16 +288,16 @@ export const libraryJobWorkerRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        source: t.Union([
-          t.Literal("radarr"),
-          t.Literal("sonarr"),
-          t.Literal("both"),
+      body: z.object({
+        source: z.union([
+          z.literal("radarr"),
+          z.literal("sonarr"),
+          z.literal("both"),
         ]),
-        radarr_url: t.Optional(t.String()),
-        radarr_api_key: t.Optional(t.String()),
-        sonarr_url: t.Optional(t.String()),
-        sonarr_api_key: t.Optional(t.String()),
+        radarr_url: z.string().optional(),
+        radarr_api_key: z.string().optional(),
+        sonarr_url: z.string().optional(),
+        sonarr_api_key: z.string().optional(),
       }),
     },
   )

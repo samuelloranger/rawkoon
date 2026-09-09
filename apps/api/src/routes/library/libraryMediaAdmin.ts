@@ -1,6 +1,7 @@
 import { basename, extname, resolve } from "node:path";
+import { z } from "zod";
 import { stat } from "node:fs/promises";
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 
 import { requireAdmin } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
@@ -186,33 +187,33 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
       }
     },
     {
-      body: t.Object({
-        movies_library_path: t.Optional(t.Union([t.String(), t.Null()])),
-        shows_library_path: t.Optional(t.Union([t.String(), t.Null()])),
-        downloads_path: t.Optional(t.Union([t.String(), t.Null()])),
-        file_operation: t.Optional(
-          t.Union([t.Literal("hardlink"), t.Literal("move")]),
-        ),
-        movie_template: t.Optional(t.String({ maxLength: 500 })),
-        episode_template: t.Optional(t.String({ maxLength: 500 })),
-        min_seed_ratio: t.Optional(t.Number({ minimum: 0, maximum: 100 })),
-        post_processing_enabled: t.Optional(t.Boolean()),
-        default_movie_quality_profile_id: t.Optional(
-          t.Union([t.Number(), t.Null()]),
-        ),
-        default_show_quality_profile_id: t.Optional(
-          t.Union([t.Number(), t.Null()]),
-        ),
-        active_indexer_manager: t.Optional(
-          t.Union([t.Literal("prowlarr"), t.Literal("jackett"), t.Null()]),
-        ),
-        books_library_path: t.Optional(t.Union([t.String(), t.Null()])),
-        audiobooks_library_path: t.Optional(t.Union([t.String(), t.Null()])),
-        book_template: t.Optional(t.String({ maxLength: 500 })),
-        audiobook_template: t.Optional(t.String({ maxLength: 500 })),
-        default_book_quality_profile_id: t.Optional(
-          t.Union([t.Number(), t.Null()]),
-        ),
+      body: z.object({
+        movies_library_path: z.union([z.string(), z.null()]).optional(),
+        shows_library_path: z.union([z.string(), z.null()]).optional(),
+        downloads_path: z.union([z.string(), z.null()]).optional(),
+        file_operation: z
+          .union([z.literal("hardlink"), z.literal("move")])
+          .optional(),
+        movie_template: z.string().max(500).optional(),
+        episode_template: z.string().max(500).optional(),
+        min_seed_ratio: z.number().min(0).max(100).optional(),
+        post_processing_enabled: z.boolean().optional(),
+        default_movie_quality_profile_id: z
+          .union([z.number(), z.null()])
+          .optional(),
+        default_show_quality_profile_id: z
+          .union([z.number(), z.null()])
+          .optional(),
+        active_indexer_manager: z
+          .union([z.literal("prowlarr"), z.literal("jackett"), z.null()])
+          .optional(),
+        books_library_path: z.union([z.string(), z.null()]).optional(),
+        audiobooks_library_path: z.union([z.string(), z.null()]).optional(),
+        book_template: z.string().max(500).optional(),
+        audiobook_template: z.string().max(500).optional(),
+        default_book_quality_profile_id: z
+          .union([z.number(), z.null()])
+          .optional(),
       }),
     },
   )
@@ -359,9 +360,9 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
       return { matched, unmatched };
     },
     {
-      body: t.Object({
-        path: t.String({ maxLength: 4096 }),
-        type: t.Union([t.Literal("movie"), t.Literal("show")]),
+      body: z.object({
+        path: z.string().max(4096),
+        type: z.union([z.literal("movie"), z.literal("show")]),
       }),
     },
   );

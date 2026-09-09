@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 
 import { prisma } from "@rawkoon/api/db";
 import { requireUser } from "@rawkoon/api/middleware/auth";
@@ -146,18 +147,18 @@ export const libraryJobStatsRoutes = new Elysia()
       }
     },
     {
-      query: t.Object({
-        page: t.Optional(t.Number()),
-        limit: t.Optional(t.Number()),
-        status: t.Optional(
-          t.Union([
-            t.Literal("all"),
-            t.Literal("completed"),
-            t.Literal("failed"),
-            t.Literal("active"),
-          ]),
-        ),
-        days: t.Optional(t.Number()),
+      query: z.object({
+        page: z.number().optional(),
+        limit: z.number().optional(),
+        status: z
+          .union([
+            z.literal("all"),
+            z.literal("completed"),
+            z.literal("failed"),
+            z.literal("active"),
+          ])
+          .optional(),
+        days: z.number().optional(),
       }),
     },
   )
