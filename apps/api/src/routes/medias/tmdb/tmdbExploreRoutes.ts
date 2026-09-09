@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { requireUser } from "@rawkoon/api/middleware/auth";
 import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
 import { badGateway, badRequest, serverError } from "@rawkoon/api/errors";
@@ -277,6 +278,6 @@ export const tmdbExploreRoutes = new Elysia()
       }
     },
     {
-      params: t.Object({ tmdbId: t.String() }),
+      params: z.object({ tmdbId: z.string() }),
     },
   );

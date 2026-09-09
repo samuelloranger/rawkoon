@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { auth } from "@rawkoon/api/auth";
 import { requireAdmin } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
@@ -328,13 +329,13 @@ export const mediasSearchRoutes = new Elysia()
       }
     },
     {
-      query: t.Object({
-        q: t.String(),
-        library_media_id: t.Optional(t.Union([t.String(), t.Number()])),
-        season: t.Optional(t.Union([t.String(), t.Number()])),
-        tmdb_id: t.Optional(t.Union([t.String(), t.Number()])),
-        complete: t.Optional(t.Union([t.String(), t.Boolean()])),
-        media_type: t.Optional(t.Union([t.Literal("movie"), t.Literal("tv")])),
+      query: z.object({
+        q: z.string(),
+        library_media_id: z.union([z.string(), z.number()]).optional(),
+        season: z.union([z.string(), z.number()]).optional(),
+        tmdb_id: z.union([z.string(), z.number()]).optional(),
+        complete: z.union([z.string(), z.boolean()]).optional(),
+        media_type: z.union([z.literal("movie"), z.literal("tv")]).optional(),
       }),
     },
   )
@@ -357,12 +358,12 @@ export const mediasSearchRoutes = new Elysia()
     "/interactive-search/download",
     async ({ set, body }) => downloadInteractiveSearchRelease(body, set),
     {
-      body: t.Object({
-        token: t.String(),
-        library_media_id: t.Optional(t.Number()),
-        episode_id: t.Optional(t.Number()),
-        season: t.Optional(t.Number()),
-        is_upgrade: t.Optional(t.Boolean()),
+      body: z.object({
+        token: z.string(),
+        library_media_id: z.number().optional(),
+        episode_id: z.number().optional(),
+        season: z.number().optional(),
+        is_upgrade: z.boolean().optional(),
       }),
     },
   )
@@ -394,19 +395,19 @@ export const mediasSearchRoutes = new Elysia()
       return result;
     },
     {
-      body: t.Object({
-        media_context: t.Object({
-          title: t.String(),
-          year: t.Nullable(t.Number()),
-          type: t.Union([t.Literal("movie"), t.Literal("tv")]),
+      body: z.object({
+        media_context: z.object({
+          title: z.string(),
+          year: z.number().nullable(),
+          type: z.union([z.literal("movie"), z.literal("tv")]),
         }),
-        releases: t.Array(
-          t.Object({
-            key: t.String(),
-            title: t.String(),
-            size_bytes: t.Nullable(t.Number()),
-            seeders: t.Nullable(t.Number()),
-            score: t.Nullable(t.Number()),
+        releases: z.array(
+          z.object({
+            key: z.string(),
+            title: z.string(),
+            size_bytes: z.number().nullable(),
+            seeders: z.number().nullable(),
+            score: z.number().nullable(),
           }),
         ),
       }),

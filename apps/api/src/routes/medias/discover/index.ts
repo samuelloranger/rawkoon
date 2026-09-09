@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { auth } from "@rawkoon/api/auth";
 import { requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
@@ -83,9 +84,9 @@ export const mediasDiscoverRoutes = new Elysia({ prefix: "/discover" })
       }
     },
     {
-      body: t.Object({
-        tmdb_id: t.Number(),
-        type: t.Union([t.Literal("movie"), t.Literal("tv")]),
+      body: z.object({
+        tmdb_id: z.number(),
+        type: z.union([z.literal("movie"), z.literal("tv")]),
       }),
     },
   )

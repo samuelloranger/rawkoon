@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
 import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
@@ -274,5 +275,5 @@ export const tmdbMetaRoutes = new Elysia()
         library_episodes,
       };
     },
-    { params: t.Object({ mediaType: t.String(), tmdbId: t.String() }) },
+    { params: z.object({ mediaType: z.string(), tmdbId: z.string() }) },
   );

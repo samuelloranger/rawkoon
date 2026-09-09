@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { auth } from "@rawkoon/api/auth";
 import { prisma } from "@rawkoon/api/db";
 import { requireAdmin } from "@rawkoon/api/middleware/auth";
@@ -64,13 +65,13 @@ export const mediasBlocklistRoutes = new Elysia()
       }
     },
     {
-      body: t.Object({
-        release_title: t.String({ minLength: 1 }),
-        torrent_hash: t.Optional(t.String()),
-        indexer: t.Optional(t.String()),
-        media_id: t.Optional(t.Number()),
-        episode_id: t.Optional(t.Number()),
-        reason: t.Optional(t.String()),
+      body: z.object({
+        release_title: z.string().min(1),
+        torrent_hash: z.string().optional(),
+        indexer: z.string().optional(),
+        media_id: z.number().optional(),
+        episode_id: z.number().optional(),
+        reason: z.string().optional(),
       }),
     },
   )
@@ -89,5 +90,5 @@ export const mediasBlocklistRoutes = new Elysia()
         return serverError(set, "Failed to delete blocklist entry");
       }
     },
-    { params: t.Object({ id: t.Number() }) },
+    { params: z.object({ id: z.number() }) },
   );

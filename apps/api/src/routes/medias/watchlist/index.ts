@@ -1,8 +1,9 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
 import { auth } from "@rawkoon/api/auth";
 import { requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
 import { badRequest, serverError } from "@rawkoon/api/errors";
+import { z } from "zod";
 
 function parseYmdToDbDate(ymd: string | null | undefined): Date | null {
   if (ymd == null || ymd === "") return null;
@@ -85,15 +86,16 @@ export const mediasWatchlistRoutes = new Elysia({
       }
     },
     {
-      body: t.Object({
-        tmdb_id: t.Number(),
-        media_type: t.String(),
-        title: t.String(),
-        poster_url: t.Optional(t.Union([t.String(), t.Null()])),
-        overview: t.Optional(t.Union([t.String(), t.Null()])),
-        release_year: t.Optional(t.Union([t.Number(), t.Null()])),
-        vote_average: t.Optional(t.Union([t.Number(), t.Null()])),
-        release_date: t.Optional(t.Union([t.String(), t.Null()])),
+      // Elysia t.Object strips unknown keys at runtime; Zod default strips too (no .strict()).
+      body: z.object({
+        tmdb_id: z.number(),
+        media_type: z.string(),
+        title: z.string(),
+        poster_url: z.union([z.string(), z.null()]).optional(),
+        overview: z.union([z.string(), z.null()]).optional(),
+        release_year: z.union([z.number(), z.null()]).optional(),
+        vote_average: z.union([z.number(), z.null()]).optional(),
+        release_date: z.union([z.string(), z.null()]).optional(),
       }),
     },
   )

@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { requireUser } from "@rawkoon/api/middleware/auth";
 import { badGateway, badRequest, serverError } from "@rawkoon/api/errors";
 import {
@@ -91,12 +92,12 @@ export const tmdbSearchRoutes = new Elysia().use(requireUser).get(
     }
   },
   {
-    query: t.Object({
-      q: t.String(),
-      language: t.Optional(t.String()),
-      kind: t.Optional(
-        t.Union([t.Literal("movie"), t.Literal("tv"), t.Literal("any")]),
-      ),
+    query: z.object({
+      q: z.string(),
+      language: z.string().optional(),
+      kind: z
+        .union([z.literal("movie"), z.literal("tv"), z.literal("any")])
+        .optional(),
     }),
   },
 );
