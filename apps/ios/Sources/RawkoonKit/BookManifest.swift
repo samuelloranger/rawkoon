@@ -41,7 +41,8 @@ public struct ManifestFile: Codable, Equatable, Sendable {
     public let url: String
 
     public init(id: Int, startSecs: Double, durationSecs: Double,
-                sizeBytes: Int, sha256: String?, url: String) {
+                sizeBytes: Int, sha256: String?, url: String)
+    {
         self.id = id
         self.startSecs = startSecs
         self.durationSecs = durationSecs
@@ -69,7 +70,8 @@ public struct BookManifest: Codable, Equatable, Sendable {
 
     public init(editionId: Int, bookId: Int, title: String, authors: [String],
                 totalDurationSecs: Double, files: [ManifestFile],
-                chapters: [ManifestChapter]) {
+                chapters: [ManifestChapter])
+    {
         self.editionId = editionId
         self.bookId = bookId
         self.title = title
