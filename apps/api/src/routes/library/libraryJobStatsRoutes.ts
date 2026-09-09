@@ -148,8 +148,8 @@ export const libraryJobStatsRoutes = new Elysia()
     },
     {
       query: z.object({
-        page: z.number().optional(),
-        limit: z.number().optional(),
+        page: z.coerce.number().optional(),
+        limit: z.coerce.number().optional(),
         status: z
           .union([
             z.literal("all"),
@@ -158,7 +158,7 @@ export const libraryJobStatsRoutes = new Elysia()
             z.literal("active"),
           ])
           .optional(),
-        days: z.number().optional(),
+        days: z.coerce.number().optional(),
       }),
     },
   )
