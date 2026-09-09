@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { auth } from "@rawkoon/api/auth";
 import { prisma } from "@rawkoon/api/db";
 import { hashPassword, verifyPassword } from "@rawkoon/api/utils/password";
@@ -45,19 +46,19 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
       }
     },
     {
-      body: t.Object({
-        first_name: t.Optional(t.Union([t.String(), t.Null()])),
-        last_name: t.Optional(t.Union([t.String(), t.Null()])),
-        locale: t.Optional(t.Union([t.String(), t.Null()])),
-        nav_position: t.Optional(
-          t.Union([
-            t.Literal("left"),
-            t.Literal("right"),
-            t.Literal("top"),
-            t.Literal("bottom"),
-            t.Null(),
-          ]),
-        ),
+      body: z.object({
+        first_name: z.union([z.string(), z.null()]).optional(),
+        last_name: z.union([z.string(), z.null()]).optional(),
+        locale: z.union([z.string(), z.null()]).optional(),
+        nav_position: z
+          .union([
+            z.literal("left"),
+            z.literal("right"),
+            z.literal("top"),
+            z.literal("bottom"),
+            z.null(),
+          ])
+          .optional(),
       }),
     },
   )
@@ -81,8 +82,8 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
       }
     },
     {
-      body: t.Object({
-        notification_preferences: t.Record(t.String(), t.Boolean()),
+      body: z.object({
+        notification_preferences: z.record(z.string(), z.boolean()),
       }),
     },
   )
@@ -148,9 +149,9 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
       }
     },
     {
-      body: t.Object({
-        current_password: t.String(),
-        new_password: t.String(),
+      body: z.object({
+        current_password: z.string(),
+        new_password: z.string(),
       }),
     },
   )
@@ -216,9 +217,7 @@ export const usersRoutes = new Elysia({ prefix: "/api/users" })
       }
     },
     {
-      body: t.Object({
-        avatar: t.Any(), // Accept any type for React Native compatibility
-      }),
+      body: z.object({ avatar: z.any() }),
       type: "multipart/form-data",
     },
   );
