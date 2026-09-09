@@ -85,4 +85,43 @@ final class BookManifestTests: XCTestCase {
         XCTAssertEqual(decoded?.chapters.count, 2)
         XCTAssertEqual(decoded?.chapters[0].fileId, 267)
     }
+
+    func testDecodesFilesArray() throws {
+        let withFiles = """
+        {
+          "edition_id": 65, "book_id": 9, "title": "T", "authors": ["A"],
+          "total_duration_secs": 400,
+          "files": [
+            {"id": 1059, "start_secs": 0, "duration_secs": 400,
+             "size_bytes": 500, "sha256": null, "url": "/f/1059"}
+          ],
+          "chapters": [
+            {"index": 0, "title": "C0", "start_secs": 0, "end_secs": 200,
+             "file_id": 1059, "size_bytes": 500, "sha256": null, "url": "/f/1059"},
+            {"index": 1, "title": "C1", "start_secs": 200, "end_secs": 400,
+             "file_id": 1059, "size_bytes": 500, "sha256": null, "url": "/f/1059"}
+          ]
+        }
+        """.data(using: .utf8)!
+        let d = JSONDecoder()
+        d.keyDecodingStrategy = .convertFromSnakeCase
+        let m = try d.decode(BookManifest.self, from: withFiles)
+        XCTAssertEqual(m.files.count, 1)
+        XCTAssertEqual(m.files[0].id, 1059)
+        XCTAssertEqual(m.files[0].durationSecs, 400, accuracy: 1e-9)
+        XCTAssertEqual(m.chapters.count, 2)
+    }
+
+    /// A manifest written before this change has no `files`; it must synthesize
+    /// one file per chapter so an already-downloaded book still plays.
+    func testLegacyManifestWithoutFilesSynthesizesOnePerChapter() throws {
+        // `json` (top of file) is a two-chapter manifest with no files array.
+        let m = BookManifest.decodePersisted(json)!
+        XCTAssertEqual(m.files.count, 2)
+        XCTAssertEqual(m.files[0].id, 267)
+        XCTAssertEqual(m.files[0].startSecs, 0, accuracy: 1e-9)
+        XCTAssertEqual(m.files[1].id, 268)
+        XCTAssertEqual(m.files[1].startSecs, 504.189388, accuracy: 1e-6)
+        XCTAssertEqual(m.files[1].durationSecs, 1042.860408 - 504.189388, accuracy: 1e-6)
+    }
 }
