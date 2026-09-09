@@ -266,6 +266,11 @@ export const auth = betterAuth({
   advanced: {
     database: {
       generateId: "uuid",
+      // better-auth 1.7.3's schema check doesn't resolve Prisma @@map, so it
+      // reports our snake_case tables (users, ba_sessions, …) as missing and
+      // throws SCHEMA_MISMATCH on every auth call. The tables do exist under
+      // @@map — disable the check to keep auth working.
+      validateSchema: false,
     },
   },
 }) as unknown as Auth;
