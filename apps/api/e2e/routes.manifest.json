@@ -1,0 +1,894 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/admin/api-keys"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/api-keys"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/api-keys/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/invitations"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/invitations"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/invitations/:id"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/invitations/:id/resend"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/jobs/events"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/jobs/history"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/library-health"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/queues/:name/clean"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/queues/:name/jobs"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/queues/:name/jobs/:jobId/retry"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/queues/:name/retry-failed"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/scheduled-jobs"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/sessions"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/sessions/:id"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/sessions/user/:userId"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/trigger-action"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/users"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/users"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/users/:id"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/users/:id/reset-password"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/admin/users/:id/role"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/web-push"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/web-push/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/auth/accept-invitation"
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/accept-invitation"
+  },
+  {
+    "method": "GET",
+    "path": "/api/auth/me"
+  },
+  {
+    "method": "GET",
+    "path": "/api/auth/setup-status"
+  },
+  {
+    "method": "GET",
+    "path": "/api/auth/sso-providers"
+  },
+  {
+    "method": "GET",
+    "path": "/api/authors/"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/authors/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/authors/search"
+  },
+  {
+    "method": "GET",
+    "path": "/api/book-quality-profiles/"
+  },
+  {
+    "method": "POST",
+    "path": "/api/book-quality-profiles/"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/book-quality-profiles/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/book-quality-profiles/:id"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/book-quality-profiles/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/books/"
+  },
+  {
+    "method": "POST",
+    "path": "/api/books/"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/books/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/books/:id"
+  },
+  {
+    "method": "POST",
+    "path": "/api/books/:id/editions"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/books/:id/editions/:kind"
+  },
+  {
+    "method": "POST",
+    "path": "/api/books/:id/editions/:kind/auto"
+  },
+  {
+    "method": "GET",
+    "path": "/api/books/:id/editions/:kind/files"
+  },
+  {
+    "method": "POST",
+    "path": "/api/books/:id/editions/:kind/grab"
+  },
+  {
+    "method": "POST",
+    "path": "/api/books/:id/editions/:kind/rescan"
+  },
+  {
+    "method": "GET",
+    "path": "/api/books/:id/editions/:kind/search"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/books/:id/files/:fileId"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/books/:id/overrides"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/books/:id/read"
+  },
+  {
+    "method": "POST",
+    "path": "/api/books/:id/refresh-metadata"
+  },
+  {
+    "method": "GET",
+    "path": "/api/books/editions/:id/manifest"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/books/editions/:id/progress"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/books/editions/:id/reading-progress"
+  },
+  {
+    "method": "GET",
+    "path": "/api/books/files/:fileId/content"
+  },
+  {
+    "method": "GET",
+    "path": "/api/books/listening-stats"
+  },
+  {
+    "method": "GET",
+    "path": "/api/books/metadata-sources"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/books/metadata-sources"
+  },
+  {
+    "method": "GET",
+    "path": "/api/books/progress"
+  },
+  {
+    "method": "GET",
+    "path": "/api/books/reading-progress"
+  },
+  {
+    "method": "GET",
+    "path": "/api/books/search"
+  },
+  {
+    "method": "GET",
+    "path": "/api/custom-formats/"
+  },
+  {
+    "method": "POST",
+    "path": "/api/custom-formats/"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/custom-formats/:id"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/custom-formats/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/dashboard/activities/feed"
+  },
+  {
+    "method": "GET",
+    "path": "/api/dashboard/downloads/speed"
+  },
+  {
+    "method": "GET",
+    "path": "/api/dashboard/jellyfin/image"
+  },
+  {
+    "method": "GET",
+    "path": "/api/dashboard/jellyfin/now-playing"
+  },
+  {
+    "method": "GET",
+    "path": "/api/dashboard/upcoming"
+  },
+  {
+    "method": "POST",
+    "path": "/api/dashboard/upcoming/add"
+  },
+  {
+    "method": "POST",
+    "path": "/api/dashboard/upcoming/refresh"
+  },
+  {
+    "method": "POST",
+    "path": "/api/dashboard/upcoming/status"
+  },
+  {
+    "method": "POST",
+    "path": "/api/download-client/hook/complete"
+  },
+  {
+    "method": "GET",
+    "path": "/api/health"
+  },
+  {
+    "method": "GET",
+    "path": "/api/integrations/audnexus"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/integrations/audnexus"
+  },
+  {
+    "method": "POST",
+    "path": "/api/integrations/audnexus/test"
+  },
+  {
+    "method": "GET",
+    "path": "/api/integrations/download-client"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/integrations/download-client"
+  },
+  {
+    "method": "GET",
+    "path": "/api/integrations/download-client/hook"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/integrations/download-client/hook"
+  },
+  {
+    "method": "POST",
+    "path": "/api/integrations/download-client/hook/rotate"
+  },
+  {
+    "method": "POST",
+    "path": "/api/integrations/download-client/test"
+  },
+  {
+    "method": "GET",
+    "path": "/api/integrations/googlebooks"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/integrations/googlebooks"
+  },
+  {
+    "method": "POST",
+    "path": "/api/integrations/googlebooks/test"
+  },
+  {
+    "method": "GET",
+    "path": "/api/integrations/jackett"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/integrations/jackett"
+  },
+  {
+    "method": "GET",
+    "path": "/api/integrations/jackett/indexers"
+  },
+  {
+    "method": "GET",
+    "path": "/api/integrations/jellyfin"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/integrations/jellyfin"
+  },
+  {
+    "method": "GET",
+    "path": "/api/integrations/local-ai"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/integrations/local-ai"
+  },
+  {
+    "method": "GET",
+    "path": "/api/integrations/local-ai/test"
+  },
+  {
+    "method": "GET",
+    "path": "/api/integrations/oidc/"
+  },
+  {
+    "method": "POST",
+    "path": "/api/integrations/oidc/"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/integrations/oidc/:id"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/integrations/oidc/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/integrations/prowlarr"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/integrations/prowlarr"
+  },
+  {
+    "method": "GET",
+    "path": "/api/integrations/prowlarr/indexers"
+  },
+  {
+    "method": "GET",
+    "path": "/api/integrations/tmdb"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/integrations/tmdb"
+  },
+  {
+    "method": "GET",
+    "path": "/api/labby/summary"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/"
+  },
+  {
+    "method": "POST",
+    "path": "/api/library/"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/library/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/:id/downloads"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/library/:id/downloads/:dhId"
+  },
+  {
+    "method": "POST",
+    "path": "/api/library/:id/downloads/:dhId/action"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/library/:id/downloads/failed"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/:id/episodes"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/library/:id/episodes/:episodeId"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/library/:id/episodes/:episodeId/monitored"
+  },
+  {
+    "method": "POST",
+    "path": "/api/library/:id/episodes/:episodeId/search"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/library/:id/episodes/:episodeId/status"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/:id/files"
+  },
+  {
+    "method": "POST",
+    "path": "/api/library/:id/grab"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/library/:id/monitored"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/library/:id/overrides"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/library/:id/quality-profile"
+  },
+  {
+    "method": "POST",
+    "path": "/api/library/:id/rescan"
+  },
+  {
+    "method": "POST",
+    "path": "/api/library/:id/search"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/library/:id/search-title"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/library/:id/seasons/:season/monitored"
+  },
+  {
+    "method": "POST",
+    "path": "/api/library/:id/seasons/:season/retry-skipped"
+  },
+  {
+    "method": "POST",
+    "path": "/api/library/:id/seasons/:season/search"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/library/:id/status"
+  },
+  {
+    "method": "POST",
+    "path": "/api/library/:id/upgrade"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/attention"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/library/attention/:alertId/dismiss"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/download-history"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/download-history/stats"
+  },
+  {
+    "method": "POST",
+    "path": "/api/library/downloads/:dhId/retry-post-process"
+  },
+  {
+    "method": "POST",
+    "path": "/api/library/downloads/assign"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/downloads/list"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/events"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/library/files/:fileId"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/library/files/:fileId"
+  },
+  {
+    "method": "POST",
+    "path": "/api/library/files/:fileId/remux"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/files/:fileId/remux/status"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/item/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/language-tags"
+  },
+  {
+    "method": "POST",
+    "path": "/api/library/migrate"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/migrate/status"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/post-processing/settings"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/library/post-processing/settings"
+  },
+  {
+    "method": "POST",
+    "path": "/api/library/reindex-languages"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/reindex-languages/status"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/rss-status"
+  },
+  {
+    "method": "POST",
+    "path": "/api/library/scan"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/stats"
+  },
+  {
+    "method": "GET",
+    "path": "/api/medias/blocklist"
+  },
+  {
+    "method": "POST",
+    "path": "/api/medias/blocklist"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/medias/blocklist/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/medias/collections/missing"
+  },
+  {
+    "method": "GET",
+    "path": "/api/medias/discover"
+  },
+  {
+    "method": "GET",
+    "path": "/api/medias/discover/deck"
+  },
+  {
+    "method": "POST",
+    "path": "/api/medias/discover/dismiss"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/medias/discover/dismiss/:tmdbId"
+  },
+  {
+    "method": "GET",
+    "path": "/api/medias/explore"
+  },
+  {
+    "method": "GET",
+    "path": "/api/medias/explore/:category"
+  },
+  {
+    "method": "GET",
+    "path": "/api/medias/genres"
+  },
+  {
+    "method": "GET",
+    "path": "/api/medias/indexers"
+  },
+  {
+    "method": "GET",
+    "path": "/api/medias/interactive-search"
+  },
+  {
+    "method": "POST",
+    "path": "/api/medias/interactive-search/download"
+  },
+  {
+    "method": "GET",
+    "path": "/api/medias/modal/:mediaType/:tmdbId"
+  },
+  {
+    "method": "POST",
+    "path": "/api/medias/search/ai-pick"
+  },
+  {
+    "method": "GET",
+    "path": "/api/medias/search/ai-warm"
+  },
+  {
+    "method": "GET",
+    "path": "/api/medias/similar/:tmdbId"
+  },
+  {
+    "method": "GET",
+    "path": "/api/medias/streaming-providers"
+  },
+  {
+    "method": "GET",
+    "path": "/api/medias/tmdb-search"
+  },
+  {
+    "method": "GET",
+    "path": "/api/medias/watchlist/"
+  },
+  {
+    "method": "POST",
+    "path": "/api/medias/watchlist/"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/medias/watchlist/:tmdbId"
+  },
+  {
+    "method": "GET",
+    "path": "/api/mobile/auth-callback"
+  },
+  {
+    "method": "GET",
+    "path": "/api/mobile/oauth-start"
+  },
+  {
+    "method": "GET",
+    "path": "/api/notifications/"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/notifications/:id"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/notifications/:id/read"
+  },
+  {
+    "method": "GET",
+    "path": "/api/notifications/apns/devices"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/notifications/apns/devices/:id"
+  },
+  {
+    "method": "POST",
+    "path": "/api/notifications/apns/register"
+  },
+  {
+    "method": "POST",
+    "path": "/api/notifications/apns/unregister"
+  },
+  {
+    "method": "GET",
+    "path": "/api/notifications/channels/"
+  },
+  {
+    "method": "POST",
+    "path": "/api/notifications/channels/"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/notifications/channels/:id"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/notifications/channels/:id"
+  },
+  {
+    "method": "POST",
+    "path": "/api/notifications/channels/:id/test"
+  },
+  {
+    "method": "GET",
+    "path": "/api/notifications/devices"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/notifications/devices/:id"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/notifications/read-all"
+  },
+  {
+    "method": "GET",
+    "path": "/api/notifications/stream"
+  },
+  {
+    "method": "POST",
+    "path": "/api/notifications/subscribe"
+  },
+  {
+    "method": "POST",
+    "path": "/api/notifications/test"
+  },
+  {
+    "method": "GET",
+    "path": "/api/notifications/unread-count"
+  },
+  {
+    "method": "GET",
+    "path": "/api/notifications/unread-ids"
+  },
+  {
+    "method": "POST",
+    "path": "/api/notifications/unsubscribe"
+  },
+  {
+    "method": "GET",
+    "path": "/api/notifications/vapid-public-key"
+  },
+  {
+    "method": "GET",
+    "path": "/api/quality-profiles/"
+  },
+  {
+    "method": "POST",
+    "path": "/api/quality-profiles/"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/quality-profiles/:id"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/quality-profiles/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/releases/"
+  },
+  {
+    "method": "POST",
+    "path": "/api/releases/refresh"
+  },
+  {
+    "method": "GET",
+    "path": "/api/requests/"
+  },
+  {
+    "method": "POST",
+    "path": "/api/requests/"
+  },
+  {
+    "method": "POST",
+    "path": "/api/requests/:id/approve"
+  },
+  {
+    "method": "POST",
+    "path": "/api/requests/:id/deny"
+  },
+  {
+    "method": "GET",
+    "path": "/api/search/quick"
+  },
+  {
+    "method": "GET",
+    "path": "/api/settings/"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/settings/"
+  },
+  {
+    "method": "GET",
+    "path": "/api/system/features"
+  },
+  {
+    "method": "GET",
+    "path": "/api/system/version"
+  },
+  {
+    "method": "GET",
+    "path": "/api/users/avatar/:filename"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/users/me"
+  },
+  {
+    "method": "POST",
+    "path": "/api/users/me/avatar"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/users/me/notification-preferences"
+  },
+  {
+    "method": "POST",
+    "path": "/api/users/me/password"
+  }
+]
