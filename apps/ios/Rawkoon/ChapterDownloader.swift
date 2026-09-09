@@ -15,7 +15,7 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     /// the background session down, because the session identifier has to stay
     /// stable for `handleEventsForBackgroundURLSession` to map back to it.
     private var manifest: BookManifest
-    private var chapterByFileId: [Int: ManifestChapter]
+    private var fileById: [Int: ManifestFile]
     private var plan: DownloadPlan
     private var isRunning = false
     private var hasLoadedExistingTasks = false
@@ -47,8 +47,8 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         self.allowCellular = allowCellular
         self.onState = onState
         sessionIdentifier = Self.sessionIdentifier(editionId: editionId)
-        plan = DownloadPlan(chapters: manifest.chapters)
-        chapterByFileId = Dictionary(uniqueKeysWithValues: manifest.chapters.map { ($0.fileId, $0) })
+        plan = DownloadPlan(files: manifest.files)
+        fileById = Dictionary(uniqueKeysWithValues: manifest.files.map { ($0.id, $0) })
         super.init()
         reconcileExistingFiles()
         loadExistingTasks()
@@ -112,8 +112,8 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     func refreshChapterURLs(from manifest: BookManifest) {
         stateQueue.async {
             self.manifest = manifest
-            self.chapterByFileId = Dictionary(
-                uniqueKeysWithValues: manifest.chapters.map { ($0.fileId, $0) }
+            self.fileById = Dictionary(
+                uniqueKeysWithValues: manifest.files.map { ($0.id, $0) }
             )
             self.plan.acknowledgeFreshGrants()
             self.emitState()
@@ -133,20 +133,20 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     /// every launch, so three launches would permanently fail a chapter that
     /// only ever needed re-downloading. Deleting it leaves the chapter pending.
     private func reconcileExistingFiles() {
-        for chapter in manifest.chapters {
-            let ext = chapter.fileExtension
-            guard FileStore.exists(editionId: editionId, fileId: chapter.fileId, ext: ext) else { continue }
-            let url = FileStore.chapterURL(editionId: editionId, fileId: chapter.fileId, ext: ext)
+        for file in manifest.files {
+            let ext = file.fileExtension
+            guard FileStore.exists(editionId: editionId, fileId: file.id, ext: ext) else { continue }
+            let url = FileStore.chapterURL(editionId: editionId, fileId: file.id, ext: ext)
             guard let bytes = FileStore.size(url: url) else { continue }
-            guard bytes == chapter.sizeBytes else {
+            guard bytes == file.sizeBytes else {
                 FileStore.delete(url: url)
                 continue
             }
             // Only hash when the manifest carries one to compare against.
-            // Digesting every already-downloaded chapter on each launch would
+            // Digesting every already-downloaded file on each launch would
             // read the whole book off disk to answer a question nothing asked.
-            let digest = chapter.sha256 == nil ? nil : Self.sha256Hex(of: url)
-            plan.apply(.completed(fileId: chapter.fileId, status: 200, bytes: bytes, sha256: digest))
+            let digest = file.sha256 == nil ? nil : Self.sha256Hex(of: url)
+            plan.apply(.completed(fileId: file.id, status: 200, bytes: bytes, sha256: digest))
         }
         emitState()
     }
@@ -179,8 +179,8 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         for fileId in candidates {
             guard started < availableSlots else { break }
             guard !activeFileIds.contains(fileId) else { continue }
-            guard let chapter = chapterByFileId[fileId],
-                  let url = resolvedChapterURL(for: chapter)
+            guard let file = fileById[fileId],
+                  let url = resolvedChapterURL(for: file)
             else {
                 plan.apply(.transportFailed(fileId: fileId))
                 emitState()
@@ -231,12 +231,12 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
             return
         }
 
-        guard let chapter = chapterByFileId[fileId] else {
+        guard let file = fileById[fileId] else {
             applyEventAndContinue(.transportFailed(fileId: fileId), fileId: fileId)
             return
         }
 
-        let ext = chapter.fileExtension
+        let ext = file.fileExtension
         var destination = FileStore.chapterURL(editionId: editionId, fileId: fileId, ext: ext)
         let fileManager = FileManager.default
 
@@ -359,11 +359,11 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         return fileId
     }
 
-    private func resolvedChapterURL(for chapter: ManifestChapter) -> URL? {
-        if let resolved = URL(string: chapter.url, relativeTo: baseURL)?.absoluteURL {
+    private func resolvedChapterURL(for file: ManifestFile) -> URL? {
+        if let resolved = URL(string: file.url, relativeTo: baseURL)?.absoluteURL {
             return resolved
         }
-        if let absolute = URL(string: chapter.url), absolute.scheme != nil {
+        if let absolute = URL(string: file.url), absolute.scheme != nil {
             return absolute
         }
         return nil
