@@ -138,6 +138,24 @@ async function seedExtras(ctx: Context, adminId: string): Promise<void> {
       updatedAt: new Date(),
     },
   });
+  await prisma.integration.create({
+    data: {
+      type: "tmdb",
+      enabled: true,
+      config: { api_key: "mock-tmdb-key" },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  });
+  await prisma.integration.create({
+    data: {
+      type: "jellyfin",
+      enabled: true,
+      config: { website_url: "http://mock-jellyfin.local", api_key: "k" },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  });
   const qp = await prisma.qualityProfile.create({
     data: {
       name: "E2E Profile",

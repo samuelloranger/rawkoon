@@ -111,6 +111,7 @@ export async function checkAuth(
   fx: Fixture,
   ctx: Context,
 ): Promise<Result | null> {
+  if (fx.public) return null;
   const start = performance.now();
   try {
     const path = resolvePath(route, fx, ctx);

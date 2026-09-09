@@ -21,6 +21,7 @@ export interface Fixture {
   captures?: (body: unknown, ctx: Context) => void; // stash created ids
   negativeBody?: unknown | null; // invalid body -> expect VALIDATION_STATUS; null = skip
   admin?: boolean; // also assert 403 as the non-admin user
+  public?: boolean; // route needs no auth — skip the logged-out 401 check
   skipReason?: string; // explicit, reviewed opt-out
 }
 

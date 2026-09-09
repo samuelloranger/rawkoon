@@ -3,8 +3,9 @@
 // identically against Elysia and Hono.
 
 // Validation-failure status pinned here so both frameworks are held to the same
-// code for the negative (bad-body) check, rather than each framework's default.
-export const VALIDATION_STATUS = 422;
+// code for the negative (bad-body) check. Elysia returns 400 for a failed
+// validator; if Hono's standard-validator differs, change it here (one place).
+export const VALIDATION_STATUS = 400;
 
 export interface HttpResult {
   status: number;

@@ -1,8 +1,11 @@
+import { dashboardFixtures } from "./dashboard";
+import { systemFixtures } from "./system";
 import { type FixtureRegistry, type Route, routeKey } from "./types";
 
 // Per-domain registries are spread in here as they land (Tasks 10-28).
 export const registry: FixtureRegistry = {
-  // ...domainFixtures
+  ...systemFixtures,
+  ...dashboardFixtures,
 };
 
 // Coverage gate: every manifest route must have a fixture, and every fixture key
