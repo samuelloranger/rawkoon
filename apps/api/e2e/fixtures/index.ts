@@ -1,11 +1,15 @@
+import { authorsFixtures } from "./authors";
+import { bookQualityProfilesFixtures } from "./book-quality-profiles";
 import { customFormatsFixtures } from "./custom-formats";
 import { dashboardFixtures } from "./dashboard";
 import { notificationsFixtures } from "./notifications";
 import { qualityProfilesFixtures } from "./quality-profiles";
+import { releasesFixtures } from "./releases";
 import { requestsFixtures } from "./requests";
 import { searchFixtures } from "./search";
 import { settingsFixtures } from "./settings";
 import { systemFixtures } from "./system";
+import { usersFixtures } from "./users";
 import { type FixtureRegistry, type Route, routeKey } from "./types";
 
 // Per-domain registries are spread in here as they land (Tasks 10-28).
@@ -18,6 +22,10 @@ export const registry: FixtureRegistry = {
   ...searchFixtures,
   ...notificationsFixtures,
   ...requestsFixtures,
+  ...usersFixtures,
+  ...releasesFixtures,
+  ...authorsFixtures,
+  ...bookQualityProfilesFixtures,
 };
 
 // Coverage gate: every manifest route must have a fixture, and every fixture key

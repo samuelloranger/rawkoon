@@ -30,6 +30,7 @@ const DEFAULT_RESPONSES: Record<string, CannedResponse> = {
   "openlibrary.org": { json: { docs: [], numFound: 0 } },
   "api.audible": { json: { products: [], total_results: 0 } },
   "api.audnex.us": { json: {} },
+  "api.github.com": { json: [] },
 };
 
 function bodyFor(urlStr: string): CannedResponse {
