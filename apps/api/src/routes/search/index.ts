@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia } from "elysia";
+import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@rawkoon/api/db";
 import { auth } from "@rawkoon/api/auth";
@@ -127,9 +128,9 @@ export const searchRoutes = new Elysia({ prefix: "/api/search" })
       }
     },
     {
-      query: t.Object({
-        q: t.Optional(t.String()),
-        limit: t.Optional(t.String()),
+      query: z.object({
+        q: z.string().optional(),
+        limit: z.string().optional(),
       }),
     },
   );
