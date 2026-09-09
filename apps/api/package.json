@@ -12,6 +12,9 @@
   "scripts": {
     "dev": "bun --env-file=../../.env --watch src/index.ts",
     "test": "bun test --parallel --isolate test/ src/",
+    "e2e:server": "env -u NODE_ENV bun --preload ./e2e/mocks/preload.ts ./e2e/server.ts",
+    "e2e:manifest": "env -u NODE_ENV bun --preload ./e2e/mocks/preload.ts ./e2e/genManifest.ts",
+    "e2e:endpoints": "env -u NODE_ENV bun --preload ./e2e/mocks/preload.ts ./e2e/run.ts",
     "db:generate": "set -a && . ../../.env && set +a && bunx prisma generate",
     "db:migrate:dev": "set -a && . ../../.env && set +a && bunx prisma migrate dev && bunx prisma generate",
     "db:migrate": "set -a && . ../../.env && set +a && bunx prisma migrate deploy",

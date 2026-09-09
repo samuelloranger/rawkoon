@@ -10,6 +10,15 @@ export interface HttpResult {
   status: number;
   json: unknown;
   text: string;
+  headers: Headers;
+}
+
+// In-process by default (dispatch through the framework seam — no socket, which
+// this sandbox forbids); real HTTP when BASE_URL is set (CI / Playwright).
+let dispatchFn: ((req: Request) => Promise<Response>) | null = null;
+async function getDispatch(): Promise<(req: Request) => Promise<Response>> {
+  if (!dispatchFn) dispatchFn = (await import("./server")).dispatch;
+  return dispatchFn;
 }
 
 export interface RequestOpts {
@@ -36,11 +45,14 @@ export async function request(
   const hasBody = opts.body !== undefined && method !== "GET";
   if (hasBody) headers["content-type"] = "application/json";
 
-  const res = await fetch(url, {
+  const init: RequestInit = {
     method,
     headers,
     body: hasBody ? JSON.stringify(opts.body) : undefined,
-  });
+  };
+  const res = process.env.BASE_URL
+    ? await fetch(url, init)
+    : await (await getDispatch())(new Request(url, init));
   const text = await res.text();
   let json: unknown;
   try {
@@ -48,5 +60,5 @@ export async function request(
   } catch {
     json = undefined;
   }
-  return { status: res.status, json, text };
+  return { status: res.status, json, text, headers: res.headers };
 }

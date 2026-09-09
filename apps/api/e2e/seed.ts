@@ -2,7 +2,7 @@ import { prisma } from "@rawkoon/api/db";
 import { hashPassword } from "@rawkoon/api/utils/password";
 import { assertE2eDatabase } from "./boot";
 import type { Context } from "./context";
-import { baseUrl } from "./httpClient";
+import { request } from "./httpClient";
 
 export const ADMIN = { email: "admin@e2e.test", password: "Password123!" };
 export const USER = { email: "user@e2e.test", password: "Password123!" };
@@ -51,7 +51,8 @@ async function createUser(
   await prisma.baAccount.create({
     data: {
       id: crypto.randomUUID(),
-      accountId: email,
+      // better-auth keys the credential account by the user id, not the email.
+      accountId: user.id,
       providerId: "credential",
       userId: user.id,
       password: pwdHash,
@@ -62,24 +63,19 @@ async function createUser(
   return user.id;
 }
 
-// Cookies are minted over HTTP against the running server (the better-auth route
-// tolerates the model-vs-mapped-table schema check that the direct api throws on),
-// so this runs AFTER the server is up.
+// Cookies are minted through the dispatch client (the better-auth sign-in route
+// tolerates the model-vs-mapped-table schema check that the direct api throws on).
 export async function acquireCookies(ctx: Context): Promise<void> {
-  ctx.cookies.admin = await signInViaHttp(ADMIN.email, ADMIN.password);
-  ctx.cookies.user = await signInViaHttp(USER.email, USER.password);
+  ctx.cookies.admin = await signIn(ADMIN.email, ADMIN.password);
+  ctx.cookies.user = await signIn(USER.email, USER.password);
 }
 
-async function signInViaHttp(email: string, password: string): Promise<string> {
-  const res = await fetch(new URL("/api/auth/sign-in/email", baseUrl()), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email, password }),
+async function signIn(email: string, password: string): Promise<string> {
+  const res = await request("POST", "/api/auth/sign-in/email", {
+    body: { email, password },
   });
   if (res.status !== 200) {
-    throw new Error(
-      `sign-in failed for ${email}: ${res.status} ${await res.text()}`,
-    );
+    throw new Error(`sign-in failed for ${email}: ${res.status} ${res.text}`);
   }
   return extractSessionCookie(res.headers.get("set-cookie"));
 }
