@@ -4,17 +4,19 @@
 
 **Goal:** Build a two-layer harness that proves each of the 261 rawkoon API endpoints still accepts valid input, rejects invalid input, gates auth, and returns the expected status + shape — verifying the `t.`→Zod migration and leaving a durable regression suite.
 
-**Architecture:** An in-process contract sweep imports the Elysia `app` (side-effect-free import: no workers, no listener) with all external service boundaries mocked, seeds a disposable Postgres, enumerates `app.routes`, and drives every route via `app.handle()` with a per-route fixture (valid request → status+shape; invalid body → 422). A thin Playwright layer boots a worker-less e2e server and hits ~12 endpoints over real HTTP with a logged-in cookie for transport/cookie/CORS coverage.
+**Architecture:** A **framework-agnostic HTTP** contract sweep. A worker-less server subprocess (the ONLY file that imports the app) is booted with `bun --preload` mocks against a disposable Postgres; the runner reads a committed `routes.manifest.json` and drives every route over real HTTP (`fetch` against `BASE_URL`) with a per-route fixture (valid request → status+shape; invalid body → configured 422). Nothing but `server.ts`/`genManifest.ts` touches the framework, so the identical suite runs against Elysia today and Hono after migration — parity is the two runs' diff. An optional Playwright layer adds browser-origin CORS/cookie checks.
 
-**Tech Stack:** Bun test runner + `mock.module`, Elysia 1.4 `app.handle()`/`app.routes`, Prisma 7 on a dedicated `rawkoon_e2e` Postgres, better-auth session cookie, Zod (`@rawkoon/shared` response types), Playwright (`apps/web` config + storageState).
+**Tech Stack:** Bun runtime + `bun --preload` `mock.module`, `fetch` HTTP client (no framework import in the runner), Elysia 1.4 only inside `server.ts`/`genManifest.ts`, Prisma 7 on a dedicated `rawkoon_e2e` Postgres, better-auth session cookie, Zod (`@rawkoon/shared` response types), Playwright (`apps/web` config).
 
 **Spec:** `docs/superpowers/specs/2026-09-09-endpoint-verification-harness-design.md`
 
 ## Global Constraints
 
 - **Never touch dev/prod data.** The harness aborts unless `DATABASE_URL`'s database name ends in `_e2e` or `_test`. Copied verbatim into the guard.
-- **Install mocks BEFORE importing `app`.** Routers close over the modules present at import; mocking after import is a no-op.
-- **Import `app`, never run `index.ts` as main.** `initWorkers()`/`app.listen()` live behind `if (import.meta.main)` (`index.ts:204`); the in-process harness must never trip that guard. The Playwright server entry calls `app.listen()` explicitly WITHOUT `initWorkers()`.
+- **Framework-agnostic (load-bearing):** only `server.ts` and `genManifest.ts` may import the app/framework. The runner, `httpClient.ts`, fixtures, `assert.ts`, and manifest loader speak HTTP against `BASE_URL` and read the committed manifest — never `app.handle()`/`app.routes`. This is what lets the same suite prove the Elysia→Hono migration.
+- **Install mocks via `bun --preload` BEFORE the app import in `server.ts`.** The preload runs first; routers then close over the mocked service modules. Mocking after import is a no-op. Verify `--preload` + `mock.module` actually intercepts in a real (non-`bun test`) process in Task 2 before building further.
+- **`server.ts` imports `app` and calls `app.listen()` WITHOUT `initWorkers()`.** `initWorkers()`/`app.listen()` in `index.ts` live behind `if (import.meta.main)` (`index.ts:204`); `server.ts` is a separate entry that starts the listener but never the workers.
+- **Pin the validation-failure status.** Assert a single `VALIDATION_STATUS` constant (422) for negative cases, so Elysia and Hono are held to the same code rather than each framework's default.
 - **API self-import path alias:** import app internals as `@rawkoon/api/<path>` (maps `./src/*`), never relative.
 - **Bun test gotcha:** the api suite is order-dependent; the harness is a *separate* runner (`bun run e2e:endpoints`), not part of `bun test`. Do not add e2e files to the `bun test` globs.
 - **`NODE_ENV=production` is exported in this shell** — e2e scripts must run under `env -u NODE_ENV` where they load app config that branches on it (swagger mount, cookie flags).
@@ -95,11 +97,14 @@ git commit -m "feat(e2e): db-name safety guard"
 
 **Files:**
 - Create: `apps/api/e2e/mocks/externals.ts`
+- Create: `apps/api/e2e/mocks/preload.ts` (one-liner: `import { installExternalMocks } from "./externals"; installExternalMocks();` — this is the `bun --preload` target used by `server.ts` and `genManifest.ts`)
 - Test: `apps/api/e2e/mocks/externals.test.ts`
 
 **Interfaces:**
 - Consumes: nothing from prior tasks.
 - Produces: `installExternalMocks(): void` — calls `mock.module(...)` for every external boundary; safe to call once, before importing `app`. Also `export const mockState` — a mutable object letting fixtures flip a boundary to its failure mode (e.g. `mockState.downloadClientTestConnection = "fail"`).
+
+**Critical probe (framework-agnostic interception):** after implementing, verify `mock.module` intercepts when loaded via `bun --preload` in a real process, not just under `bun test`. Add a throwaway `e2e/mocks/_probe.ts` that imports a mocked service and prints a marker; run `bun --preload e2e/mocks/preload.ts run e2e/mocks/_probe.ts` and confirm the mock (not the real module) ran. If it does NOT intercept, stop and switch to an env-flagged stub seam in the service factories before proceeding — the whole harness depends on this. Delete `_probe.ts` after.
 
 **Reference — boundaries to mock** (from spec §"External mocking"; verify each module path against the tree before writing):
 `services/discover/tmdbProvider`, `services/indexerManager/prowlarrAdapter`, `services/indexerManager/jackettAdapter`, `services/indexerManager` (manager: `getActiveIndexerManager`/`tieredSearch`), `services/mediaGrabberGrab` (`grabRelease`), `services/downloadClient/registry` (adapter `buildAdapter`), `services/books/audnexusProvider`, `services/books/audibleCatalog`, `services/books/googleBooksProvider`, `services/books/openLibraryProvider`, `services/books/bookDownloadHandoff`, `utils/webpush`, `utils/apns`, `services/queueService` (no-op queues — mirror `test/preload.ts:81-112`).
@@ -209,47 +214,53 @@ export function createContext(): Context {
 
 ---
 
-### Task 4: Route enumeration
+### Task 4: Route manifest (generate offline, load framework-neutrally)
 
 **Files:**
-- Create: `apps/api/e2e/enumerate.ts`
-- Test: `apps/api/e2e/enumerate.test.ts`
+- Create: `apps/api/e2e/genManifest.ts` (dev-only generator — the ONLY route file that imports the framework besides `server.ts`)
+- Create: `apps/api/e2e/routes.manifest.json` (committed output)
+- Create: `apps/api/e2e/loadManifest.ts` (runtime reader — NO framework import)
+- Test: `apps/api/e2e/loadManifest.test.ts`
 
 **Interfaces:**
-- Consumes: `installExternalMocks` (Task 2) — must run before importing `app`.
-- Produces: `type Route = { method: string; path: string }`; `enumerateRoutes(): Route[]` — reads `app.routes`, drops the SPA static catch-all and `/api/auth/*`, appends `BETTER_AUTH_ROUTES` (a known const list: `POST /api/auth/sign-in/email`, `POST /api/auth/sign-up/email`, `GET /api/auth/get-session`, `GET /api/auth/setup-status`). `export const BETTER_AUTH_ROUTES: Route[]`.
+- Produces: `type Route = { method: string; path: string }`; `loadManifest(): Route[]` reads `routes.manifest.json` and appends `BETTER_AUTH_ROUTES`; `export const BETTER_AUTH_ROUTES: Route[]` (`POST /api/auth/sign-in/email`, `POST /api/auth/sign-up/email`, `GET /api/auth/get-session`, `GET /api/auth/setup-status`).
+- `genManifest.ts` is run by hand (`bun --preload e2e/mocks/preload.ts run e2e/genManifest.ts`), imports `app` from `@rawkoon/api/index`, maps `app.routes`, drops `path === "/*"` and `/api/auth/*` and non-`/api` static, writes the sorted JSON.
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Generate the manifest first**
+
+Run: `cd apps/api && env -u NODE_ENV bun --preload e2e/mocks/preload.ts run e2e/genManifest.ts`
+Expected: writes `routes.manifest.json` with >200 `{method,path}` entries. Eyeball it: library/books/medias routes present, no `/*`.
+
+- [ ] **Step 2: Write the failing test** (against the committed JSON — framework-free)
 
 ```ts
 import { describe, it, expect } from "bun:test";
-import { installExternalMocks } from "./mocks/externals";
-installExternalMocks();
-const { enumerateRoutes } = await import("./enumerate");
+import { loadManifest } from "./loadManifest";
 
-describe("enumerateRoutes", () => {
-  const routes = enumerateRoutes();
-  it("finds a large number of routes", () => {
+describe("loadManifest", () => {
+  const routes = loadManifest();
+  it("loads >200 routes from the committed manifest", () => {
     expect(routes.length).toBeGreaterThan(200);
   });
-  it("includes a known library route", () => {
+  it("includes a known library GET", () => {
     expect(routes.some((r) => r.path.startsWith("/api/library") && r.method === "GET")).toBe(true);
   });
-  it("does not include the SPA static catch-all", () => {
-    expect(routes.some((r) => r.path === "/*")).toBe(false);
-  });
-  it("includes better-auth sign-in", () => {
+  it("appends better-auth sign-in", () => {
     expect(routes.some((r) => r.path === "/api/auth/sign-in/email")).toBe(true);
+  });
+  it("never contains the SPA catch-all", () => {
+    expect(routes.some((r) => r.path === "/*")).toBe(false);
   });
 });
 ```
 
-- [ ] **Step 2: Run** `cd apps/api && env -u NODE_ENV bun test e2e/enumerate.test.ts` → FAIL.
+- [ ] **Step 3: Run** `cd apps/api && bun test e2e/loadManifest.test.ts` → FAIL (no `loadManifest`). Note this test needs NO `env -u NODE_ENV` and NO mocks — it only reads JSON.
 
-- [ ] **Step 3: Implement** — import `app` from `@rawkoon/api/index`, map `app.routes` to `{ method, path }`, filter out `path === "/*"` / `path.includes("/api/auth/*")` / non-`/api` static, concat `BETTER_AUTH_ROUTES`.
+- [ ] **Step 4: Implement** `loadManifest.ts`: `JSON` import of `routes.manifest.json`, concat `BETTER_AUTH_ROUTES`. Implement `genManifest.ts` as described. Run test → PASS.
 
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(e2e): route enumeration`.
+- [ ] **Step 5: Commit** `feat(e2e): route manifest generator + framework-neutral loader`.
+
+> **Hono migration note:** re-run `genManifest.ts` against the Hono app and `git diff routes.manifest.json`; any change is a parity finding.
 
 ---
 
@@ -318,7 +329,9 @@ describe("coverageReport", () => {
 
 **Interfaces:**
 - Consumes: `Context` (Task 3), `assertE2eDatabase` (Task 1).
-- Produces: `async function resetAndSeed(ctx: Context): Promise<void>` — asserts the e2e DB, `migrate deploy`, truncates all tables, then: creates admin via `POST /api/auth/sign-up/email` (first signup → admin) and stores `ctx.cookies.admin`; creates a non-admin user (direct Prisma `User` + `BaAccount` credential row, mirror `test/auth.test.ts:20-48`) and logs in → `ctx.cookies.user`; runs `seedBaseline` (small) and records the seeded ids (`libraryMediaId`, `libraryEpisodeId`, `bookId`, `editionId`, `authorId`) into `ctx`; creates one `QualityProfile`, one `CustomFormat`, a download-client `Integration`, an indexer `Integration`, one `Request`, notification config — each id into `ctx`.
+- Produces: `async function resetAndSeed(ctx: Context): Promise<void>` — framework-neutral (Prisma + `betterAuth.api`, no `app.handle`, no HTTP). Asserts the e2e DB, `migrate deploy`, truncates all tables, then: creates the admin user + credential account and mints a session via `betterAuth.api` (first user → admin), formats the `better-auth.session_token` cookie into `ctx.cookies.admin`; same for a non-admin user → `ctx.cookies.user`; runs `seedBaseline` (small) recording seeded ids (`libraryMediaId`, `libraryEpisodeId`, `bookId`, `editionId`, `authorId`) into `ctx`; creates one `QualityProfile`, one `CustomFormat`, a download-client `Integration`, an indexer `Integration`, one `Request`, notification config — each id into `ctx`.
+
+> Seeding via `betterAuth.api` + Prisma (both below the framework) keeps seed agnostic. It runs before/independently of the HTTP sweep; the cookies it mints are replayed as `Cookie:` headers over HTTP.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -341,63 +354,67 @@ describe.if(hasE2eDb)("resetAndSeed", () => {
 
 - [ ] **Step 2: Run** (with the e2e DB up):
 `cd apps/api && env -u NODE_ENV DATABASE_URL=postgresql://rawkoon:rawkoon@localhost:5433/rawkoon_e2e bun test e2e/seed.test.ts` → FAIL.
-- [ ] **Step 3: Implement** `resetAndSeed`. Reuse `src/scripts/seedBaseline.ts` exports where possible (import its seeding functions; if not exported, replicate the movie/show/book creation inline). Drive signup/login through `app.handle()` so the auth rows are correct.
+- [ ] **Step 3: Implement** `resetAndSeed`. Reuse `src/scripts/seedBaseline.ts` exports where possible (import its seeding functions; if not exported, replicate the movie/show/book creation inline). Create users + sessions via `betterAuth.api` (framework-neutral) and format the cookie string — NOT `app.handle()`.
 - [ ] **Step 4: Run** → PASS.
 - [ ] **Step 5: Commit** `feat(e2e): reset + seed disposable dataset`.
 
 ---
 
-### Task 7: Request driver + assertions
+### Task 7: HTTP client + request driver + assertions
 
 **Files:**
+- Create: `apps/api/e2e/httpClient.ts`
 - Create: `apps/api/e2e/assert.ts`
-- Test: `apps/api/e2e/assert.test.ts`
+- Test: `apps/api/e2e/httpClient.test.ts`, `apps/api/e2e/assert.test.ts`
 
 **Interfaces:**
-- Consumes: `Fixture`, `Route`, `Context`.
+- Consumes: `Fixture`, `Route`, `Context`. `process.env.BASE_URL`, `VALIDATION_STATUS` (422 constant, defined in `httpClient.ts` and exported).
 - Produces:
-  - `async function driveRoute(route: Route, fx: Fixture, ctx: Context, cookie: string): Promise<Response>` — builds the URL (fill `:params` from `fx.pathParams`, append `fx.query`), attaches `Cookie: cookie` + JSON body from `fx.body`, calls `app.handle`.
-  - `async function checkPositive(route, fx, ctx): Promise<Result>` — drives with admin cookie, asserts status ∈ expected (default 2xx), runs `fx.captures`.
-  - `async function checkNegative(route, fx, ctx): Promise<Result | null>` — if `fx.negativeBody !== null` and the route takes a body, drives with the bad body, asserts 422; else null.
-  - `async function checkAuth(route, fx, ctx): Promise<Result | null>` — logged-out → 401; if `fx.admin`, non-admin cookie → 403.
+  - `httpClient.ts`: `async function request(method: string, path: string, opts?: { cookie?: string; query?: Record<string,string>; body?: unknown }): Promise<{ status: number; json: unknown; text: string }>` — **`fetch(new URL(path, process.env.BASE_URL))`**, no framework import. Fills nothing itself; callers pre-substitute `:params`. `export const VALIDATION_STATUS = 422`.
+  - `assert.ts`:
+    - `substitutePath(path: string, params: Record<string,string>): string` — replaces `:name` segments; throws if a `:param` has no value.
+    - `async function checkPositive(route, fx, ctx): Promise<Result>` — request with admin cookie (substituted path + query + `fx.body(ctx)`), assert status ∈ expected (default 2xx range), run `fx.captures(json, ctx)`.
+    - `async function checkNegative(route, fx, ctx): Promise<Result | null>` — if `fx.negativeBody !== null`, request the bad body, assert `status === VALIDATION_STATUS`; else null.
+    - `async function checkAuth(route, fx, ctx): Promise<Result | null>` — no cookie → 401; if `fx.admin`, non-admin cookie → 403.
   - `type Result = { route: Route; kind: "positive"|"negative"|"auth"; ok: boolean; detail: string; ms: number }`.
 
-- [ ] **Step 1: Write the failing test** (uses a tiny in-memory route via `app.handle` against `/api/health`, which needs no seed):
+- [ ] **Step 1: Write the failing `httpClient` test** (needs a running server — guarded on `BASE_URL`):
 
 ```ts
 import { describe, it, expect } from "bun:test";
-import { installExternalMocks } from "./mocks/externals";
-installExternalMocks();
-import { createContext } from "./context";
-const { checkPositive } = await import("./assert");
+import { request } from "./httpClient";
 
-describe("checkPositive", () => {
-  it("passes for GET /api/health", async () => {
-    const ctx = createContext();
-    const res = await checkPositive({ method: "GET", path: "/api/health" }, {}, ctx);
-    expect(res.ok).toBe(true);
+describe.if(!!process.env.BASE_URL)("request", () => {
+  it("GET /api/health returns 200 over HTTP", async () => {
+    const res = await request("GET", "/api/health");
+    expect(res.status).toBe(200);
   });
 });
 ```
 
-- [ ] **Step 2: Run** `cd apps/api && env -u NODE_ENV bun test e2e/assert.test.ts` → FAIL.
-- [ ] **Step 3: Implement** the driver + three checks. URL building: replace `:name` segments from `fx.pathParams(ctx)`; throw if a `:param` has no value.
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(e2e): request driver + positive/negative/auth checks`.
+- [ ] **Step 2: Run** with a server up:
+`cd apps/api && BASE_URL=http://localhost:3111 bun test e2e/httpClient.test.ts` (start `server.ts` first, Task 9 provides it; until then this test is skipped when `BASE_URL` is unset) → FAIL (no `request`).
+- [ ] **Step 3: Implement** `httpClient.ts` (`fetch`, JSON parse with text fallback) and `assert.ts` (`substitutePath` + three checks, all going through `request`). No `app.handle`, no framework import anywhere in these files.
+- [ ] **Step 4: Run** → PASS (with server up). `substitutePath` has a pure unit test needing no server.
+- [ ] **Step 5: Commit** `feat(e2e): framework-agnostic http client + positive/negative/auth checks`.
 
 ---
 
-### Task 8: Report + runner (green with zero fixtures via coverage gate)
+### Task 8: Worker-less server + report + HTTP runner (green with zero fixtures via coverage gate)
 
 **Files:**
+- Create: `apps/api/e2e/server.ts` (worker-less server entry — the ONLY runtime framework import)
 - Create: `apps/api/e2e/report.ts`
-- Create: `apps/api/e2e/runContract.ts`
-- Modify: `apps/api/package.json` (add `"e2e:endpoints"` script)
+- Create: `apps/api/e2e/run.ts` (entrypoint)
+- Modify: `apps/api/package.json` (add `"e2e:endpoints"`, `"e2e:server"` scripts)
 - Test: `apps/api/e2e/report.test.ts`
 
 **Interfaces:**
-- Consumes: everything above.
-- Produces: `function printReport(results: Result[], coverage): number` (returns exit code); `runContract.ts` is the entrypoint: `installExternalMocks()` → `assertE2eDatabase` → `resetAndSeed` → `enumerateRoutes` → `coverageReport` (fail if any uncovered) → for each route in phase order run `checkPositive`/`checkNegative`/`checkAuth` → `printReport` → `process.exit(code)`.
+- Consumes: everything above, over HTTP.
+- Produces:
+  - `server.ts`: asserts the e2e DB, imports `app` from `@rawkoon/api/index`, `app.listen(E2E_PORT||3111)`, NO `initWorkers()`. Started via `bun --preload e2e/mocks/preload.ts run e2e/server.ts`.
+  - `printReport(results: Result[], coverage): number` (exit code) + writes `results.json`.
+  - `run.ts` entrypoint: `assertE2eDatabase` → `resetAndSeed(ctx)` → **spawn the server subprocess** (`bun --preload mocks/preload.ts run server.ts`) → poll `/api/health` until 200 → `loadManifest()` → `coverageReport` (fail if any uncovered) → for each route in phase order `checkPositive`/`checkNegative`/`checkAuth` over HTTP → `printReport` → kill the server → `process.exit(code)`. `BASE_URL` defaults to the spawned server; if `BASE_URL` is already set (parity run against an external target), skip spawning and sweep that.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -424,23 +441,22 @@ describe("printReport", () => {
 ```
 
 - [ ] **Step 2: Run** `cd apps/api && bun test e2e/report.test.ts` → FAIL.
-- [ ] **Step 3: Implement** `printReport` (table + summary + exit code) and `runContract.ts`. Add to `package.json`: `"e2e:endpoints": "env -u NODE_ENV bun run e2e/runContract.ts"`.
-- [ ] **Step 4: Run** the unit test → PASS. Then run the whole harness against the e2e DB: `DATABASE_URL=...rawkoon_e2e bun run e2e:endpoints`. Expected at this point: **coverage gate fails** listing 261 uncovered routes (proves the gate works). Capture that output in the commit message.
-- [ ] **Step 5: Commit** `feat(e2e): report + contract runner (coverage gate red, 0 fixtures)`.
+- [ ] **Step 3: Implement** `server.ts`, `printReport`, and `run.ts` (spawn+poll+sweep+teardown). Add to `package.json`: `"e2e:server": "env -u NODE_ENV bun --preload e2e/mocks/preload.ts run e2e/server.ts"` and `"e2e:endpoints": "env -u NODE_ENV bun run e2e/run.ts"`.
+- [ ] **Step 4: Run** the unit test → PASS. Then the whole harness against the e2e DB: `DATABASE_URL=...rawkoon_e2e bun run e2e:endpoints`. Expected now: server boots (grep log — NO worker-init line), health passes, then **coverage gate fails** listing 261 uncovered routes (proves the gate works). Capture that output in the commit message.
+- [ ] **Step 5: Commit** `feat(e2e): worker-less server + report + http runner (coverage gate red, 0 fixtures)`.
 
 ---
 
-### Task 9: Playwright transport smoke
+### Task 9: Playwright browser-origin smoke (optional)
 
 **Files:**
-- Create: `apps/api/e2e/server.ts` (worker-less server entry)
 - Create: `apps/api/e2e/smoke.spec.ts`
 - Create: `apps/api/e2e/playwright.config.ts`
 - Modify: `apps/api/package.json` (`"e2e:smoke"` script, add `@playwright/test` devDep if absent)
 
 **Interfaces:**
-- Consumes: the running `server.ts`.
-- Produces: a Playwright project that logs in once (storageState) and hits ~12 endpoints via `request` (APIRequestContext).
+- Consumes: the `server.ts` from Task 8 (booted by Playwright's `webServer` via `bun run e2e:server`, after a seed step).
+- Produces: a Playwright project that hits a few endpoints from a real browser origin via `APIRequestContext`. This is a CORS/cookie wiring sanity, NOT part of the parity proof (the `fetch` sweep in Task 8 is).
 
 - [ ] **Step 1: Write the failing test** (`smoke.spec.ts`):
 
@@ -461,30 +477,20 @@ test("logged-out call returns 401", async ({ request }) => {
 });
 ```
 
-- [ ] **Step 2: Implement** `server.ts`:
-
-```ts
-// apps/api/e2e/server.ts — worker-less boot for the transport smoke
-import { installExternalMocks } from "./mocks/externals";
-installExternalMocks();
-const { app } = await import("@rawkoon/api/index");
-app.listen(process.env.E2E_PORT || 3111);
-```
-
-`playwright.config.ts`: `baseURL: http://localhost:${E2E_PORT||3111}`, a `webServer` that runs `env -u NODE_ENV DATABASE_URL=...rawkoon_e2e bun run e2e/server.ts` (after a seed step), `storageState` from a login setup mirroring `apps/web/e2e/auth.setup.ts` (first-signup admin). `workers: 1`, `fullyParallel: false`.
+- [ ] **Step 2: Implement** `playwright.config.ts` (reuses `server.ts` from Task 8): `baseURL: http://localhost:${E2E_PORT||3111}`, a `webServer` running `bun run e2e:server` (after a seed step; `DATABASE_URL=...rawkoon_e2e`), `storageState` from a login setup that seeds+mints the admin cookie (reuse `resetAndSeed` or mirror `apps/web/e2e/auth.setup.ts`). `workers: 1`, `fullyParallel: false`.
 
 - [ ] **Step 3: Run** `cd apps/api && env -u NODE_ENV bun run e2e:smoke` → tests PASS against the seeded e2e DB.
 - [ ] **Step 4: Verify** the server started no workers (grep the run log for the worker-init line — must be absent).
-- [ ] **Step 5: Commit** `feat(e2e): playwright transport smoke (worker-less server)`.
+- [ ] **Step 5: Commit** `feat(e2e): playwright browser-origin smoke`.
 
 ---
 
 ### Tasks 10–28: Per-domain fixtures (delegated, reviewed)
 
-Each domain is one task: author `apps/api/e2e/fixtures/<domain>.ts` implementing the `FixtureRegistry` contract (Task 5) for **every** route the enumerator lists under that domain's prefix, wire it into `fixtures/index.ts`, and re-run `bun run e2e:endpoints` until that domain's routes are green (positive + negative + any auth). A domain task is done when the coverage gate no longer lists its routes and all its results pass.
+Each domain is one task: author `apps/api/e2e/fixtures/<domain>.ts` implementing the `FixtureRegistry` contract (Task 5) for **every** route the manifest lists under that domain's prefix, wire it into `fixtures/index.ts`, and re-run `bun run e2e:endpoints` until that domain's routes are green (positive + negative + any auth). A domain task is done when the coverage gate no longer lists its routes and all its results pass.
 
 **Contract every fixture task follows:**
-- Key each entry `"METHOD /api/path"` exactly as the enumerator prints it (path params as `:name`).
+- Key each entry `"METHOD /api/path"` exactly as the manifest prints it (path params as `:name`).
 - `pathParams` pulls ids from `ctx` (seeded in Task 6); if a route needs an id no seed provides, extend `seed.ts` in that task and note it.
 - `body` returns a valid payload; cross-check the route's Zod schema in `src/routes/<domain>` for required/optional/coercion so the negative case is meaningful.
 - `negativeBody`: a payload that violates the schema (wrong type / missing required) → must yield 422. `null` only for no-body routes.
@@ -525,7 +531,7 @@ export const requestsFixtures: FixtureRegistry = {
 };
 ```
 
-*(The real route list per domain comes from the enumerator, not from memory. `ctx_qp` above stands for reading the seeded quality-profile id — use `ctx.get("qualityProfileId")`.)*
+*(The real route list per domain comes from the manifest, not from memory. `ctx_qp` above stands for reading the seeded quality-profile id — use `ctx.get("qualityProfileId")`.)*
 
 **Domain task list** (one task each; route counts approximate, confirm from enumerator):
 - Task 10: `system` (2) + `dashboard` (several GET)
@@ -552,25 +558,29 @@ Each Task 10–28 ends with: coverage gate no longer lists that domain, `bun run
 
 ---
 
-### Task 29: Full green + CI wiring
+### Task 29: Full green + parity diff tooling + CI wiring
 
 **Files:**
-- Modify: `apps/api/package.json` (ensure `e2e:endpoints`, `e2e:smoke`, `e2e:db` helper)
+- Create: `apps/api/e2e/diff.ts` (compares two `results.json`)
+- Modify: `apps/api/package.json` (ensure `e2e:endpoints`, `e2e:server`, `e2e:smoke`, add `e2e:diff`)
 - Create: `.github/workflows/e2e.yml` (optional, services: postgres + redis)
-- Modify: `docs/deployment.md` or a new `apps/api/e2e/README.md` documenting how to run it.
+- Create: `apps/api/e2e/README.md` documenting how to run it + the Hono parity flow.
 
 - [ ] **Step 1** Run the full sweep: `DATABASE_URL=...rawkoon_e2e bun run e2e:endpoints` → **261/261 pass, 0 uncovered**. Paste the summary line.
 - [ ] **Step 2** Run `bun run e2e:smoke` → green.
 - [ ] **Step 3** Deliberately break one fixture (wrong `expectedStatus`) and confirm the runner goes red; revert.
-- [ ] **Step 4** Write `apps/api/e2e/README.md`: prerequisites (e2e DB, `dev:services`), the two commands, the DB-name guard, how to add a fixture when a route is added.
-- [ ] **Step 5** (optional) Add `.github/workflows/e2e.yml` with postgres+redis services running `db:migrate:deploy` then `e2e:endpoints`. Commit `ci(e2e): endpoint sweep workflow + docs`.
+- [ ] **Step 4: Parity diff tool.** Implement `diff.ts`: reads two `results.json` files, asserts identical route set + identical `{status, kind, ok}` per route, prints divergences, exits non-zero on any. Add `"e2e:diff": "bun run e2e/diff.ts"`. Test it: copy the baseline `results.json` to two files, tweak one row, confirm `e2e:diff` reports it. This is the tool that proves Elysia≡Hono: run the suite against each, diff the outputs.
+- [ ] **Step 5** Write `apps/api/e2e/README.md`: prerequisites (e2e DB, `dev:services`); the commands; the DB-name guard; **the framework-agnostic contract (only `server.ts`/`genManifest.ts` import the framework)**; **the Hono parity procedure** (swap `server.ts`'s import, regenerate+`git diff` the manifest, run `e2e:endpoints` against both, `e2e:diff` the results); how to add a fixture when a route is added.
+- [ ] **Step 6** (optional) Add `.github/workflows/e2e.yml` with postgres+redis services running `db:migrate:deploy` then `e2e:endpoints`. Commit `ci(e2e): endpoint sweep + parity diff + docs`.
 
 ---
 
 ## Self-Review
 
-**Spec coverage:** safety guard (T1) ✓; external mocks (T2) ✓; context (T3) ✓; enumeration + better-auth routes (T4) ✓; fixture model + coverage gate (T5) ✓; seed incl. admin/non-admin/profiles/integrations (T6) ✓; driver + positive/negative/auth (T7) ✓; report + runner + exit code (T8) ✓; Playwright worker-less smoke (T9) ✓; all-261 fixtures dependency-ordered (T10–28) ✓; full-green + CI + docs (T29) ✓. Every spec section maps to a task.
+**Spec coverage:** safety guard (T1) ✓; external mocks + `--preload` interception probe (T2) ✓; context (T3) ✓; route manifest generate/load + better-auth routes (T4) ✓; fixture model + coverage gate vs manifest (T5) ✓; seed via `betterAuth.api`+Prisma, admin/non-admin/profiles/integrations (T6) ✓; framework-agnostic HTTP client + positive/negative(pinned 422)/auth (T7) ✓; worker-less server + report + spawn/poll/sweep runner (T8) ✓; optional Playwright browser-origin smoke (T9) ✓; all-261 fixtures dependency-ordered (T10–28) ✓; full-green + **parity diff tool** + framework-agnostic/Hono docs + CI (T29) ✓. Every spec section — including the framework-agnostic requirement and the Elysia→Hono parity flow — maps to a task.
 
-**Placeholder scan:** the `ctx_qp` shorthand in the worked example is annotated inline as "use `ctx.get("qualityProfileId")`" — not a plan placeholder but a labelled illustration. Domain route lists are explicitly deferred to the runtime enumerator by design (the spec forbids trusting remembered route lists), with the contract fully specified — this is a deliberate interface, not a TODO.
+**Framework-agnostic check:** the framework is imported only in `server.ts` (T8) and `genManifest.ts` (T4). `httpClient.ts`, `assert.ts`, `run.ts`, `loadManifest.ts`, fixtures, `diff.ts` are HTTP/JSON-only. No `app.handle`/`app.routes` anywhere in the runtime path. ✓
 
-**Type consistency:** `Context.get/set`, `Fixture`, `FixtureRegistry`, `Route`, `Result` names are used identically across T3–T8 and the fixture tasks. `installExternalMocks`/`mockState`, `resetAndSeed`, `enumerateRoutes`/`BETTER_AUTH_ROUTES`, `coverageReport`, `driveRoute`/`checkPositive`/`checkNegative`/`checkAuth`, `printReport` are defined once and consumed by name.
+**Placeholder scan:** the `ctx_qp` shorthand in the worked example is annotated inline as "use `ctx.get("qualityProfileId")`" — a labelled illustration, not a TODO. Per-domain route lists are read from the committed `routes.manifest.json` by design (the spec forbids trusting remembered route lists) with the fixture contract fully specified — a deliberate interface.
+
+**Type consistency:** `Context.get/set`, `Fixture`, `FixtureRegistry`, `Route`, `Result`, `VALIDATION_STATUS` are used identically across T3–T8 and the fixture tasks. `installExternalMocks`/`mockState`, `resetAndSeed`, `loadManifest`/`BETTER_AUTH_ROUTES`, `coverageReport`, `request`/`substitutePath`/`checkPositive`/`checkNegative`/`checkAuth`, `printReport` are each defined once and consumed by name.
