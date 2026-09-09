@@ -254,4 +254,24 @@ final class DownloadPlanTests: XCTestCase {
         XCTAssertEqual(plan.states[100], .verified)
         XCTAssertTrue(plan.isComplete)
     }
+
+    /// A manifest that repeats a fileId used to trap in
+    /// `Dictionary(uniqueKeysWithValues:)`; the plan now keeps the first and
+    /// drops the rest instead of crashing.
+    func testDuplicateFileIdsAreDedupedNotFatal() {
+        let dup = [
+            ManifestChapter(index: 0, title: "C0", startSecs: 0, endSecs: 10,
+                            fileId: 100, sizeBytes: 1000, sha256: nil, url: "u0"),
+            ManifestChapter(index: 1, title: "C1", startSecs: 10, endSecs: 20,
+                            fileId: 100, sizeBytes: 2000, sha256: nil, url: "u1"),
+            ManifestChapter(index: 2, title: "C2", startSecs: 20, endSecs: 30,
+                            fileId: 101, sizeBytes: 1000, sha256: nil, url: "u2"),
+        ]
+        let plan = DownloadPlan(chapters: dup)
+        XCTAssertEqual(plan.chapters.count, 2)
+        XCTAssertEqual(plan.chapters.map(\.fileId), [100, 101])
+        // First occurrence wins: the 1000-byte chapter, not the 2000-byte dup.
+        XCTAssertEqual(plan.chapters.first?.sizeBytes, 1000)
+        XCTAssertEqual(plan.nextToStart(limit: 5), [100, 101])
+    }
 }

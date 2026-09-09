@@ -30,9 +30,14 @@ public struct DownloadPlan: Sendable {
     private let chapterByFileId: [Int: ManifestChapter]
 
     public init(chapters: [ManifestChapter]) {
-        self.chapters = chapters
-        states = Dictionary(uniqueKeysWithValues: chapters.map { ($0.fileId, .pending) })
-        chapterByFileId = Dictionary(uniqueKeysWithValues: chapters.map { ($0.fileId, $0) })
+        // A manifest can repeat a fileId; keep the first occurrence and drop the
+        // rest so the keyed dictionaries below don't trap on duplicate keys and
+        // progress math counts each chapter once.
+        var seen = Set<Int>()
+        let deduped = chapters.filter { seen.insert($0.fileId).inserted }
+        self.chapters = deduped
+        states = Dictionary(uniqueKeysWithValues: deduped.map { ($0.fileId, .pending) })
+        chapterByFileId = Dictionary(uniqueKeysWithValues: deduped.map { ($0.fileId, $0) })
     }
 
     /// Cleared once the caller has swapped in freshly signed URLs. Without
