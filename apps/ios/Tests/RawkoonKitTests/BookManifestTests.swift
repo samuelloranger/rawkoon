@@ -116,7 +116,7 @@ final class BookManifestTests: XCTestCase {
     /// one file per chapter so an already-downloaded book still plays.
     func testLegacyManifestWithoutFilesSynthesizesOnePerChapter() throws {
         // `json` (top of file) is a two-chapter manifest with no files array.
-        let m = BookManifest.decodePersisted(json)!
+        let m = try XCTUnwrap(BookManifest.decodePersisted(json))
         XCTAssertEqual(m.files.count, 2)
         XCTAssertEqual(m.files[0].id, 267)
         XCTAssertEqual(m.files[0].startSecs, 0, accuracy: 1e-9)
