@@ -1,4 +1,10 @@
+import { customFormatsFixtures } from "./custom-formats";
 import { dashboardFixtures } from "./dashboard";
+import { notificationsFixtures } from "./notifications";
+import { qualityProfilesFixtures } from "./quality-profiles";
+import { requestsFixtures } from "./requests";
+import { searchFixtures } from "./search";
+import { settingsFixtures } from "./settings";
 import { systemFixtures } from "./system";
 import { type FixtureRegistry, type Route, routeKey } from "./types";
 
@@ -6,6 +12,12 @@ import { type FixtureRegistry, type Route, routeKey } from "./types";
 export const registry: FixtureRegistry = {
   ...systemFixtures,
   ...dashboardFixtures,
+  ...customFormatsFixtures,
+  ...qualityProfilesFixtures,
+  ...settingsFixtures,
+  ...searchFixtures,
+  ...notificationsFixtures,
+  ...requestsFixtures,
 };
 
 // Coverage gate: every manifest route must have a fixture, and every fixture key
