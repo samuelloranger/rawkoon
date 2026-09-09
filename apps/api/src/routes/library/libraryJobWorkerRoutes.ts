@@ -33,7 +33,7 @@ import { requireUser, ensureAdmin } from "@rawkoon/api/middleware/auth";
 export const libraryJobWorkerRoutes = new Elysia()
   .use(requireUser)
   .post("/reindex-languages", async ({ user, set }) => {
-    const denied = ensureAdmin(user, set);
+    const denied = ensureAdmin(user);
     if (denied) return denied;
     try {
       const job = await libraryReindexLanguagesQueue.add(
@@ -100,7 +100,7 @@ export const libraryJobWorkerRoutes = new Elysia()
   .post(
     "/files/:fileId/remux",
     async ({ params, set, body, user }) => {
-      const denied = ensureAdmin(user, set);
+      const denied = ensureAdmin(user);
       if (denied) return denied;
       const fileId = parseInt(params.fileId, 10);
       if (!Number.isFinite(fileId)) return badRequest("Invalid file id");
@@ -259,7 +259,7 @@ export const libraryJobWorkerRoutes = new Elysia()
   .post(
     "/migrate",
     async ({ body, user, set }) => {
-      const denied = ensureAdmin(user, set);
+      const denied = ensureAdmin(user);
       if (denied) return denied;
 
       const { source, radarr_url, radarr_api_key, sonarr_url, sonarr_api_key } =

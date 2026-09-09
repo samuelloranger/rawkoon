@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { unauthorized } from "@rawkoon/api/errors";
 import { apiKeyApi } from "@rawkoon/api/lib/apiKeyApi";
 
 /**
@@ -6,16 +7,10 @@ import { apiKeyApi } from "@rawkoon/api/lib/apiKeyApi";
  * Used by service consumers (e.g. Labby).
  */
 export const requireApiKey = (app: Elysia) =>
-  app.onBeforeHandle(async ({ request, set }) => {
+  app.onBeforeHandle(async ({ request }) => {
     const key = request.headers.get("x-api-key");
-    if (!key) {
-      set.status = 401;
-      return { error: "Unauthorized" };
-    }
+    if (!key) return unauthorized();
 
     const { valid } = await apiKeyApi.verifyApiKey({ body: { key } });
-    if (!valid) {
-      set.status = 401;
-      return { error: "Unauthorized" };
-    }
+    if (!valid) return unauthorized();
   });

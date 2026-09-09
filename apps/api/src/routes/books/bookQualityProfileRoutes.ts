@@ -72,7 +72,7 @@ export const bookQualityProfileRoutes = new Elysia({
   .post(
     "/",
     async ({ body, set, user }) => {
-      const denied = ensureAdmin(user, set);
+      const denied = ensureAdmin(user);
       if (denied) return denied;
 
       const name = body.name.trim();
@@ -135,7 +135,7 @@ export const bookQualityProfileRoutes = new Elysia({
   .patch(
     "/:id",
     async ({ params, body, set, user }) => {
-      const denied = ensureAdmin(user, set);
+      const denied = ensureAdmin(user);
       if (denied) return denied;
 
       const existing = await prisma.bookQualityProfile.findUnique({
@@ -223,7 +223,7 @@ export const bookQualityProfileRoutes = new Elysia({
   .delete(
     "/:id",
     async ({ params, set, user }) => {
-      const denied = ensureAdmin(user, set);
+      const denied = ensureAdmin(user);
       if (denied) return denied;
 
       const existing = await prisma.bookQualityProfile.findUnique({

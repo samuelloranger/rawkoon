@@ -95,7 +95,7 @@ export const authorRoutes = new Elysia({ prefix: "/api/authors" })
   .patch(
     "/:id",
     async ({ params, body, set, user }) => {
-      const denied = ensureAdmin(user, set);
+      const denied = ensureAdmin(user);
       if (denied) return denied;
 
       const author = await prisma.author.findUnique({

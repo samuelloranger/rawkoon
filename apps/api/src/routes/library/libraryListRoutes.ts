@@ -135,7 +135,7 @@ export const libraryListRoutes = new Elysia()
   .post(
     "/",
     async ({ body, set, user }) => {
-      const denied = ensureAdmin(user, set);
+      const denied = ensureAdmin(user);
       if (denied) return denied;
       try {
         const { tmdb_id, type } = body;
@@ -176,7 +176,7 @@ export const libraryListRoutes = new Elysia()
   .delete(
     "/:id",
     async ({ params, query, set, user }) => {
-      const denied = ensureAdmin(user, set);
+      const denied = ensureAdmin(user);
       if (denied) return denied;
       try {
         const id = parseInt(params.id, 10);

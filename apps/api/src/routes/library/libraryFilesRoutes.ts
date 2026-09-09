@@ -152,7 +152,7 @@ export const libraryFilesRoutes = new Elysia()
 
   // DELETE /api/library/:id/downloads/failed — remove failed / post-process-error grab rows for this media
   .delete("/:id/downloads/failed", async ({ params, set, user }) => {
-    const denied = ensureAdmin(user, set);
+    const denied = ensureAdmin(user);
     if (denied) return denied;
     try {
       const mediaId = parseInt(params.id, 10);
@@ -211,7 +211,7 @@ export const libraryFilesRoutes = new Elysia()
 
   // DELETE /api/library/:id/downloads/:dhId — remove one failed / post-process-error grab row
   .delete("/:id/downloads/:dhId", async ({ params, set, user }) => {
-    const denied = ensureAdmin(user, set);
+    const denied = ensureAdmin(user);
     if (denied) return denied;
     try {
       const mediaId = parseInt(params.id, 10);
@@ -269,7 +269,7 @@ export const libraryFilesRoutes = new Elysia()
   .post(
     "/:id/downloads/:dhId/action",
     async ({ params, body, set, user }) => {
-      const denied = ensureAdmin(user, set);
+      const denied = ensureAdmin(user);
       if (denied) return denied;
       try {
         const mediaId = parseInt(params.id, 10);
@@ -355,7 +355,7 @@ export const libraryFilesRoutes = new Elysia()
   .post(
     "/downloads/:dhId/retry-post-process",
     async ({ params, set, user }) => {
-      const denied = ensureAdmin(user, set);
+      const denied = ensureAdmin(user);
       if (denied) return denied;
       try {
         const dhId = parseInt(params.dhId, 10);
@@ -443,7 +443,7 @@ export const libraryFilesRoutes = new Elysia()
 
   // POST /api/library/:id/rescan — re-scan MediaInfo for all files of a library item
   .post("/:id/rescan", async ({ params, set, user }) => {
-    const denied = ensureAdmin(user, set);
+    const denied = ensureAdmin(user);
     if (denied) return denied;
     try {
       const id = parseInt(params.id, 10);
@@ -466,7 +466,7 @@ export const libraryFilesRoutes = new Elysia()
   .patch(
     "/files/:fileId",
     async ({ params, body, set, user }) => {
-      const denied = ensureAdmin(user, set);
+      const denied = ensureAdmin(user);
       if (denied) return denied;
       try {
         const fileId = parseInt(params.fileId, 10);
@@ -506,7 +506,7 @@ export const libraryFilesRoutes = new Elysia()
   .delete(
     "/files/:fileId",
     async ({ params, query, set, user }) => {
-      const denied = ensureAdmin(user, set);
+      const denied = ensureAdmin(user);
       if (denied) return denied;
       try {
         const fileId = parseInt(params.fileId, 10);
@@ -567,7 +567,7 @@ export const libraryFilesRoutes = new Elysia()
   .delete(
     "/:id/episodes/:episodeId",
     async ({ params, query, set, user }) => {
-      const denied = ensureAdmin(user, set);
+      const denied = ensureAdmin(user);
       if (denied) return denied;
       try {
         const mediaId = parseInt(params.id, 10);
