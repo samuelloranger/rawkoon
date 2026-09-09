@@ -72,7 +72,10 @@ final class AudiobookPlayer {
     private var manifest: BookManifest?
     private var baseURL: URL?
     private var chapters: [ManifestChapter] = []
-    private var itemChapters: [ObjectIdentifier: ManifestChapter] = [:]
+    /// The download+playback unit. A multi-file book has one file per chapter;
+    /// a single-file audiobook has one file that many chapters index into.
+    private var filesById: [Int: ManifestFile] = [:]
+    private var itemFiles: [ObjectIdentifier: ManifestFile] = [:]
     private var timeObserver: Any?
     private var endObserver: NSObjectProtocol?
     private var failedEndObserver: NSObjectProtocol?
@@ -330,6 +333,7 @@ final class AudiobookPlayer {
         self.baseURL = baseURL
         loadArtwork(from: artworkURL)
         chapters = manifest.chapters.sorted { $0.index < $1.index }
+        filesById = Dictionary(uniqueKeysWithValues: manifest.files.map { ($0.id, $0) })
         let timeline = BookTimeline(chapters: chapters)
         self.timeline = timeline
         duration = chapters.last?.endSecs ?? manifest.totalDurationSecs
@@ -362,7 +366,8 @@ final class AudiobookPlayer {
         manifest = nil
         timeline = nil
         chapters = []
-        itemChapters = [:]
+        filesById = [:]
+        itemFiles = [:]
         artwork = nil
         artworkURL = nil
         positionSecs = 0
@@ -692,7 +697,7 @@ final class AudiobookPlayer {
                 return
             }
             isSeeking = false
-            reportUnplayable(chapter(for: item))
+            reportUnplayableFile(file(for: item))
         default:
             isSeeking = true
             isPlaying = autoplay
@@ -715,7 +720,7 @@ final class AudiobookPlayer {
                                 return
                             }
                             self.isSeeking = false
-                            self.reportUnplayable(self.chapter(for: failedItem ?? item))
+                            self.reportUnplayableFile(self.file(for: failedItem ?? item))
                         default:
                             break
                         }
@@ -738,7 +743,9 @@ final class AudiobookPlayer {
         }
 
         let clamped = timeline.clamp(wholeBookPosition)
-        guard let chapter = chapter(forWholeBookPosition: clamped) else {
+        guard let chapter = chapter(forWholeBookPosition: clamped),
+              let file = filesById[chapter.fileId]
+        else {
             tearDownObservers()
             player = nil
             positionSecs = clamped
@@ -748,20 +755,17 @@ final class AudiobookPlayer {
             return
         }
 
-        // Only the chapter being played. Enqueueing the rest of the book with
-        // `.advance` is how an unplayable next chapter skipped to the last
-        // one. The next chapter is started explicitly from `handleItemDidPlayToEnd`.
-        let queueChapters = [chapter]
+        // Only the file being played. A single-file audiobook is one item that
+        // spans many chapters; a multi-file book is one item per file. The next
+        // file is started explicitly from `handleItemDidPlayToEnd`, never with
+        // `.advance`, which is how an unplayable next item skipped to the last.
         var items: [AVPlayerItem] = []
-        var mapping: [ObjectIdentifier: ManifestChapter] = [:]
-        for queueChapter in queueChapters {
-            guard let mediaURL = playbackURL(for: queueChapter, editionId: manifest.editionId) else {
-                continue
-            }
+        var mapping: [ObjectIdentifier: ManifestFile] = [:]
+        if let mediaURL = playbackURL(for: file, editionId: manifest.editionId) {
             let item = AVPlayerItem(url: mediaURL)
             item.audioTimePitchAlgorithm = .spectral
             items.append(item)
-            mapping[ObjectIdentifier(item)] = queueChapter
+            mapping[ObjectIdentifier(item)] = file
         }
 
         guard !items.isEmpty else {
@@ -783,9 +787,12 @@ final class AudiobookPlayer {
         // in `handleItemDidPlayToEnd`.
         queuePlayer.actionAtItemEnd = .pause
         player = queuePlayer
-        itemChapters = mapping
+        itemFiles = mapping
 
-        let offset = max(0, min(clamped - chapter.startSecs, max(chapter.durationSecs, 0)))
+        // Offset within the physical file, not the chapter: for a single-file
+        // book the file's t=0 is the whole book's start, so the offset is
+        // measured from the file, and the chapter is only a timeline marker.
+        let offset = max(0, min(clamped - file.startSecs, max(file.durationSecs, 0)))
         positionSecs = clamped
         setCurrentChapter(chapter)
         isPlaying = autoplay
@@ -865,11 +872,9 @@ final class AudiobookPlayer {
         let clamped = timeline?.clamp(wholeBookPosition(fromCurrentItemTime: rawSeconds)) ?? max(rawSeconds, 0)
         positionSecs = clamped
         advanceSleep()
-        if let chapter = chapter(for: player?.currentItem) {
-            setCurrentChapter(chapter)
-        } else {
-            setCurrentChapter(index: timeline?.chapterIndex(at: clamped))
-        }
+        // The item can span many chapters (single-file book), so the marker is
+        // derived from the whole-book position, not from the item.
+        setCurrentChapter(index: timeline?.chapterIndex(at: clamped))
         if isPlaying, player?.currentItem == nil {
             applyQueueDrained()
         }
@@ -878,22 +883,26 @@ final class AudiobookPlayer {
 
     private func handleCurrentItemChanged() {
         guard !isSeeking, let player else { return }
-        if let chapter = chapter(for: player.currentItem) {
-            setCurrentChapter(chapter)
+        if let file = file(for: player.currentItem) {
             if let currentTime = player.currentItem?.currentTime().seconds, currentTime.isFinite {
-                let clamped = timeline?.clamp(chapter.startSecs + max(currentTime, 0)) ?? max(currentTime, 0)
+                let clamped = timeline?.clamp(file.startSecs + max(currentTime, 0)) ?? max(currentTime, 0)
                 positionSecs = clamped
             }
+            setCurrentChapter(index: timeline?.chapterIndex(at: positionSecs))
         } else if player.currentItem == nil {
             applyQueueDrained()
         }
         updateNowPlayingInfo()
     }
 
-    /// A chapter file ended. The only legal next step is the immediate next
-    /// chapter, or stop — never walking the rest of the playlist.
+    /// A physical file ended. The only legal next step is the first chapter of
+    /// the next file, or stop — never walking the rest of the playlist. The
+    /// advance decision is anchored on the LAST chapter of the ended file, so a
+    /// single-file book (one item, many chapters) correctly finishes the book.
     private func handleItemDidPlayToEnd(_ identifier: ObjectIdentifier) {
-        guard !isSeeking, let ended = itemChapters[identifier] else { return }
+        guard !isSeeking, let endedFile = itemFiles[identifier],
+              let ended = chapters.last(where: { $0.fileId == endedFile.id })
+        else { return }
         setCurrentChapter(ended)
         positionSecs = ended.endSecs
 
@@ -914,11 +923,11 @@ final class AudiobookPlayer {
     }
 
     private func handleItemFailedToPlayToEnd(_ identifier: ObjectIdentifier) {
-        guard !isSeeking, let chapter = itemChapters[identifier] else { return }
+        guard !isSeeking, let file = itemFiles[identifier] else { return }
         if let item = player?.currentItem, recoverFromFailedLocalItem(item) {
             return
         }
-        reportUnplayable(chapter)
+        reportUnplayableFile(file)
     }
 
     private func applyChapterAdvance(_ decision: ChapterAdvanceDecision) {
@@ -927,7 +936,7 @@ final class AudiobookPlayer {
             finishBook()
         case let .playNext(index):
             guard let next = chapter(forIndex: index) else {
-                reportUnplayable(nil)
+                reportUnplayableFile(nil)
                 return
             }
             isPlaying = true
@@ -962,8 +971,8 @@ final class AudiobookPlayer {
     }
 
     private func nextChapterIsPlayable(_ chapter: ManifestChapter) -> Bool {
-        guard let manifest else { return false }
-        return playbackURL(for: chapter, editionId: manifest.editionId) != nil
+        guard let manifest, let file = filesById[chapter.fileId] else { return false }
+        return playbackURL(for: file, editionId: manifest.editionId) != nil
     }
 
     private func stopWithUnplayableChapter(index: Int, title: String) {
@@ -982,7 +991,10 @@ final class AudiobookPlayer {
         updateNowPlayingInfo()
     }
 
-    private func reportUnplayable(_ chapter: ManifestChapter?) {
+    /// Surfaces a file that could not play, labelled by its first chapter so
+    /// the listener sees a chapter title rather than a file id.
+    private func reportUnplayableFile(_ file: ManifestFile?) {
+        let chapter = file.flatMap { f in chapters.first { $0.fileId == f.id } }
         stopWithUnplayableChapter(index: chapter?.index ?? -1, title: chapter?.title ?? "")
     }
 
@@ -1008,44 +1020,42 @@ final class AudiobookPlayer {
     /// reached here, so the player kept preferring a file AVPlayer cannot open
     /// — playback stayed dead until the app was deleted. Drop the bad file and
     /// stream instead.
-    private func playbackURL(for chapter: ManifestChapter, editionId: Int) -> URL? {
-        let ext = chapter.fileExtension
-        if FileStore.exists(editionId: editionId, fileId: chapter.fileId, ext: ext) {
-            let url = FileStore.chapterURL(editionId: editionId, fileId: chapter.fileId, ext: ext)
+    private func playbackURL(for file: ManifestFile, editionId: Int) -> URL? {
+        let ext = file.fileExtension
+        if FileStore.exists(editionId: editionId, fileId: file.id, ext: ext) {
+            let url = FileStore.chapterURL(editionId: editionId, fileId: file.id, ext: ext)
             // Failed to open this session: stream but keep the file — the
             // failure may be transient and it may be the only offline copy.
-            if recoveredFileIds.contains(chapter.fileId) {
-                return resolvedRemoteURL(for: chapter)
+            if recoveredFileIds.contains(file.id) {
+                return resolvedRemoteURL(for: file)
             }
-            if FileStore.size(url: url) == chapter.sizeBytes {
+            if FileStore.size(url: url) == file.sizeBytes {
                 return url
             }
             // Wrong size proves the file is broken, so drop it and stream.
             FileStore.delete(url: url)
         }
-        return resolvedRemoteURL(for: chapter)
+        return resolvedRemoteURL(for: file)
     }
 
-    private func resolvedRemoteURL(for chapter: ManifestChapter) -> URL? {
-        if let resolved = URL(string: chapter.url, relativeTo: baseURL)?.absoluteURL {
+    private func resolvedRemoteURL(for file: ManifestFile) -> URL? {
+        if let resolved = URL(string: file.url, relativeTo: baseURL)?.absoluteURL {
             return resolved
         }
-        if let absolute = URL(string: chapter.url), absolute.scheme != nil {
+        if let absolute = URL(string: file.url), absolute.scheme != nil {
             return absolute
         }
         return nil
     }
 
-    /// A player item that fails is the end of the road for that chapter.
+    /// A player item that fails is the end of the road for that file.
     /// We stop and surface an error rather than walking the playlist.
     private func logItemFailure(_ item: AVPlayerItem) {
-        let chapterIndex = chapter(for: item)?.index ?? -1
-        let fileId = chapter(for: item)?.fileId ?? -1
+        let fileId = file(for: item)?.id ?? -1
         let reason = item.error?.localizedDescription ?? "no error reported"
         Log.playback.error(
             """
-            Chapter item failed to load: \
-            chapterIndex=\(chapterIndex, privacy: .public) \
+            File item failed to load: \
             fileId=\(fileId, privacy: .public) \
             error=\(reason, privacy: .public)
             """
@@ -1059,29 +1069,28 @@ final class AudiobookPlayer {
     /// Returns true when recovery started, so the caller doesn't also finalize.
     private func recoverFromFailedLocalItem(_ item: AVPlayerItem) -> Bool {
         guard
-            let chapter = chapter(for: item),
+            let file = file(for: item),
             let url = (item.asset as? AVURLAsset)?.url,
             url.isFileURL,
-            !recoveredFileIds.contains(chapter.fileId)
+            !recoveredFileIds.contains(file.id)
         else {
             return false
         }
 
-        recoveredFileIds.insert(chapter.fileId)
+        recoveredFileIds.insert(file.id)
         Log.playback.error(
             """
-            Local chapter failed to open; streaming this session and keeping the \
-            file: chapterIndex=\(chapter.index, privacy: .public) \
-            fileId=\(chapter.fileId, privacy: .public)
+            Local file failed to open; streaming this session and keeping the \
+            file: fileId=\(file.id, privacy: .public)
             """
         )
         buildQueue(at: positionSecs, autoplay: isPlaying)
         return true
     }
 
-    private func chapter(for item: AVPlayerItem?) -> ManifestChapter? {
+    private func file(for item: AVPlayerItem?) -> ManifestFile? {
         guard let item else { return nil }
-        return itemChapters[ObjectIdentifier(item)]
+        return itemFiles[ObjectIdentifier(item)]
     }
 
     private func chapter(forWholeBookPosition position: Double) -> ManifestChapter? {
@@ -1096,12 +1105,12 @@ final class AudiobookPlayer {
 
     private func wholeBookPosition(fromCurrentItemTime currentItemTime: Double) -> Double {
         guard
-            let chapter = chapter(for: player?.currentItem),
+            let file = file(for: player?.currentItem),
             currentItemTime.isFinite
         else {
             return currentItemTime
         }
-        return chapter.startSecs + max(currentItemTime, 0)
+        return file.startSecs + max(currentItemTime, 0)
     }
 
     private func applyPitchAlgorithm() {
