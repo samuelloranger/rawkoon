@@ -19,9 +19,6 @@ const state: {
 
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
-    // The auth plugin loads OIDC providers at import time; without this it logs
-    // a caught TypeError that looks like a test failure but is not one.
-    oidcProvider: { findMany: () => Promise.resolve([]) },
     appSettings: {
       findUnique: () => Promise.resolve({ booksEnabled: state.booksEnabled }),
     },
@@ -36,41 +33,29 @@ mock.module("@rawkoon/api/db", () => ({
   },
 }));
 
+// requireUser resolves the session user; stub it so the route runs as a signed-in
+// non-admin without a real better-auth session.
+mock.module("@rawkoon/api/middleware/auth", () => ({
+  resolveUser: () => Promise.resolve({ id: "1", is_admin: false }),
+}));
+
 const { searchRoutes } = await import("@rawkoon/api/routes/search/index");
 
-type Handler = (ctx: {
-  query: { q?: string; limit?: string };
-  user: { id: string; is_admin: boolean };
-  set: { status?: number };
-}) => Promise<{
+// Drive the Hono router through its test client; the prefix is stripped by the
+// edge mount, so paths here are relative to the router root.
+const call = async (
+  q: string,
+): Promise<{
   books?: Array<{
     id: number;
     title: string;
     authors: string[];
     year: number | null;
   }>;
-}>;
-
-/** Pull the GET handler out of the Elysia instance to call it directly. */
-function quickHandler(): Handler {
-  const routes = (
-    searchRoutes as unknown as {
-      routes: Array<{ method: string; path: string; handler: Handler }>;
-    }
-  ).routes;
-  const route = routes.find(
-    (r) => r.method === "GET" && r.path.endsWith("/quick"),
-  );
-  if (!route) throw new Error("GET /quick not registered");
-  return route.handler;
-}
-
-const call = (q: string) =>
-  quickHandler()({
-    query: { q },
-    user: { id: "1", is_admin: false },
-    set: {},
-  });
+}> => {
+  const res = await searchRoutes.request(`/quick?q=${encodeURIComponent(q)}`);
+  return res.json();
+};
 
 describe("GET /api/search/quick — books", () => {
   beforeEach(() => {
