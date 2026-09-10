@@ -34,8 +34,7 @@ function formatEntry(e: {
 
 // Mounted under /api/medias; admin-only.
 export const mediasBlocklistRoutes = new Hono<Env>()
-  .use("*", requireAdmin)
-  .get("/blocklist", async () => {
+  .get("/blocklist", requireAdmin, async () => {
     try {
       const entries = await prisma.grabBlocklist.findMany({
         orderBy: { blockedAt: "desc" },
@@ -48,6 +47,7 @@ export const mediasBlocklistRoutes = new Hono<Env>()
   })
   .post(
     "/blocklist",
+    requireAdmin,
     jsonV(
       z.object({
         release_title: z.string().min(1),
@@ -79,6 +79,7 @@ export const mediasBlocklistRoutes = new Hono<Env>()
   )
   .delete(
     "/blocklist/:id",
+    requireAdmin,
     paramV(z.object({ id: z.coerce.number() })),
     async (c) => {
       const { id } = c.req.valid("param");

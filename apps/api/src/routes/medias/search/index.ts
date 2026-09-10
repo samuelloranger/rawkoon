@@ -170,169 +170,173 @@ const interactiveSearchQuery = z.object({
 
 // Mounted at /api/medias by the medias parent; admin-only.
 export const mediasSearchRoutes = new Hono<Env>()
-  .use("*", requireAdmin)
-  .get("/interactive-search", queryV(interactiveSearchQuery), async (c) => {
-    const query = c.req.valid("query");
-    // Strip diacritics and colons before querying indexers: release names are
-    // almost always ASCII, and colons can be parsed as field separators by some
-    // tracker search engines (e.g. Elasticsearch-backed private trackers).
-    const searchQuery = query.q
-      .trim()
-      .normalize("NFD")
-      .replace(/\p{Mn}/gu, "")
-      .replace(/:/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-    const seasonNumber =
-      query.season != null ? parseInt(String(query.season), 10) : null;
-    const tmdbId =
-      query.tmdb_id != null ? parseInt(String(query.tmdb_id), 10) : null;
-    const isSeasonSearch =
-      seasonNumber != null && Number.isFinite(seasonNumber);
-    const isCompleteSearch =
-      query.complete === "true" || query.complete === true;
+  .get(
+    "/interactive-search",
+    requireAdmin,
+    queryV(interactiveSearchQuery),
+    async (c) => {
+      const query = c.req.valid("query");
+      // Strip diacritics and colons before querying indexers: release names are
+      // almost always ASCII, and colons can be parsed as field separators by some
+      // tracker search engines (e.g. Elasticsearch-backed private trackers).
+      const searchQuery = query.q
+        .trim()
+        .normalize("NFD")
+        .replace(/\p{Mn}/gu, "")
+        .replace(/:/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      const seasonNumber =
+        query.season != null ? parseInt(String(query.season), 10) : null;
+      const tmdbId =
+        query.tmdb_id != null ? parseInt(String(query.tmdb_id), 10) : null;
+      const isSeasonSearch =
+        seasonNumber != null && Number.isFinite(seasonNumber);
+      const isCompleteSearch =
+        query.complete === "true" || query.complete === true;
 
-    if (!isSeasonSearch && !isCompleteSearch && searchQuery.length < 2) {
-      return badRequest("Search query must be at least 2 characters long");
-    }
-
-    try {
-      const adapter = await getActiveIndexerManager();
-      if (!adapter) {
-        return badRequest(
-          "No indexer manager configured. Enable Prowlarr or Jackett in integration settings.",
-        );
+      if (!isSeasonSearch && !isCompleteSearch && searchQuery.length < 2) {
+        return badRequest("Search query must be at least 2 characters long");
       }
 
-      // Determine media type for category filtering
-      const mediaType: "movie" | "tv" | undefined =
-        isSeasonSearch || isCompleteSearch
-          ? "tv"
-          : query.media_type === "movie" || query.media_type === "tv"
-            ? query.media_type
-            : undefined;
+      try {
+        const adapter = await getActiveIndexerManager();
+        if (!adapter) {
+          return badRequest(
+            "No indexer manager configured. Enable Prowlarr or Jackett in integration settings.",
+          );
+        }
 
-      const { releases: searchedReleases, indexerWarnings } =
-        await tieredSearch(adapter, {
-          query: searchQuery,
-          tmdbId,
-          season: isSeasonSearch ? seasonNumber : null,
-          complete: isCompleteSearch,
-          mediaType,
+        // Determine media type for category filtering
+        const mediaType: "movie" | "tv" | undefined =
+          isSeasonSearch || isCompleteSearch
+            ? "tv"
+            : query.media_type === "movie" || query.media_type === "tv"
+              ? query.media_type
+              : undefined;
+
+        const { releases: searchedReleases, indexerWarnings } =
+          await tieredSearch(adapter, {
+            query: searchQuery,
+            tmdbId,
+            season: isSeasonSearch ? seasonNumber : null,
+            complete: isCompleteSearch,
+            mediaType,
+          });
+
+        // TMDb ID validation: when tmdbId is provided, filter out results
+        // where the indexer reports a different tmdbId (keep results with no tmdbId)
+        const rawReleases =
+          tmdbId != null
+            ? searchedReleases.filter(
+                (r) => r.tmdbId == null || r.tmdbId === tmdbId,
+              )
+            : searchedReleases;
+
+        let mapped: InteractiveReleaseItem[] = rawReleases.map((r) => {
+          const downloadToken = adapter.storeReleaseToken(r);
+          return normalizedToInteractive(r, adapter.name, downloadToken);
         });
 
-      // TMDb ID validation: when tmdbId is provided, filter out results
-      // where the indexer reports a different tmdbId (keep results with no tmdbId)
-      const rawReleases =
-        tmdbId != null
-          ? searchedReleases.filter(
-              (r) => r.tmdbId == null || r.tmdbId === tmdbId,
-            )
-          : searchedReleases;
-
-      let mapped: InteractiveReleaseItem[] = rawReleases.map((r) => {
-        const downloadToken = adapter.storeReleaseToken(r);
-        return normalizedToInteractive(r, adapter.name, downloadToken);
-      });
-
-      const lmRaw = query.library_media_id;
-      if (lmRaw != null && lmRaw !== "") {
-        const libId =
-          typeof lmRaw === "number" ? lmRaw : parseInt(String(lmRaw), 10);
-        if (Number.isFinite(libId)) {
-          const media = await prisma.libraryMedia.findUnique({
-            where: { id: libId },
-            include: {
-              qualityProfile: { include: qualityProfileFormatsInclude },
-            },
-          });
-          const qp = media?.qualityProfile;
-          if (qp) {
-            const profile = profileToScoreInput(qp);
-            mapped = mapped.map((r) => {
-              const parsed = parseReleaseTitle(r.title);
-              const breakdown = scoreReleaseDetailed(
-                {
-                  parsed,
-                  rawTitle: r.title,
-                  sizeBytes: r.size_bytes,
-                  indexerName: r.indexer,
-                  seeders: r.seeders,
-                  freeleech: Boolean(r.freeleech),
-                },
-                profile,
-              );
-              const qualityReject = breakdown.rejected;
-              const parsed_quality = {
-                resolution: parsed.resolution,
-                source: parsed.source,
-                codec: parsed.codec,
-                hdr: parsed.hdr,
-              };
-              const rejected = r.rejected || qualityReject;
-              let rejection_reason = r.rejection_reason;
-              if (qualityReject) {
-                const qmsg = breakdown.reasons.map((x) => x.code).join(", ");
-                rejection_reason = rejection_reason
-                  ? `${rejection_reason}; ${qmsg}`
-                  : qmsg;
-              }
-              const score_breakdown: ScoreBreakdownDto = breakdown.rejected
-                ? {
-                    rejected: true,
-                    total: null,
-                    components: [],
-                    matched_formats: [],
-                  }
-                : {
-                    rejected: false,
-                    total: breakdown.total,
-                    components: breakdown.components.map((c) => ({
-                      code: c.code,
-                      value: c.value,
-                      ...(c.params ? { params: c.params } : {}),
-                    })),
-                    matched_formats: breakdown.matchedFormats,
-                  };
-              return {
-                ...r,
-                quality_score: qualityReject ? null : breakdown.total,
-                quality_rejection_reasons: qualityReject
-                  ? breakdown.reasons.map((x) => x.code)
-                  : null,
-                parsed_quality,
-                rejected,
-                rejection_reason,
-                score_breakdown,
-              };
+        const lmRaw = query.library_media_id;
+        if (lmRaw != null && lmRaw !== "") {
+          const libId =
+            typeof lmRaw === "number" ? lmRaw : parseInt(String(lmRaw), 10);
+          if (Number.isFinite(libId)) {
+            const media = await prisma.libraryMedia.findUnique({
+              where: { id: libId },
+              include: {
+                qualityProfile: { include: qualityProfileFormatsInclude },
+              },
             });
-            mapped.sort((a, b) => {
-              const ar = a.rejected ? 1 : 0;
-              const br = b.rejected ? 1 : 0;
-              if (ar !== br) return ar - br;
-              const as = a.quality_score ?? -Number.MAX_SAFE_INTEGER;
-              const bs = b.quality_score ?? -Number.MAX_SAFE_INTEGER;
-              if (as !== bs) return bs - as;
-              return a.title.localeCompare(b.title);
-            });
+            const qp = media?.qualityProfile;
+            if (qp) {
+              const profile = profileToScoreInput(qp);
+              mapped = mapped.map((r) => {
+                const parsed = parseReleaseTitle(r.title);
+                const breakdown = scoreReleaseDetailed(
+                  {
+                    parsed,
+                    rawTitle: r.title,
+                    sizeBytes: r.size_bytes,
+                    indexerName: r.indexer,
+                    seeders: r.seeders,
+                    freeleech: Boolean(r.freeleech),
+                  },
+                  profile,
+                );
+                const qualityReject = breakdown.rejected;
+                const parsed_quality = {
+                  resolution: parsed.resolution,
+                  source: parsed.source,
+                  codec: parsed.codec,
+                  hdr: parsed.hdr,
+                };
+                const rejected = r.rejected || qualityReject;
+                let rejection_reason = r.rejection_reason;
+                if (qualityReject) {
+                  const qmsg = breakdown.reasons.map((x) => x.code).join(", ");
+                  rejection_reason = rejection_reason
+                    ? `${rejection_reason}; ${qmsg}`
+                    : qmsg;
+                }
+                const score_breakdown: ScoreBreakdownDto = breakdown.rejected
+                  ? {
+                      rejected: true,
+                      total: null,
+                      components: [],
+                      matched_formats: [],
+                    }
+                  : {
+                      rejected: false,
+                      total: breakdown.total,
+                      components: breakdown.components.map((c) => ({
+                        code: c.code,
+                        value: c.value,
+                        ...(c.params ? { params: c.params } : {}),
+                      })),
+                      matched_formats: breakdown.matchedFormats,
+                    };
+                return {
+                  ...r,
+                  quality_score: qualityReject ? null : breakdown.total,
+                  quality_rejection_reasons: qualityReject
+                    ? breakdown.reasons.map((x) => x.code)
+                    : null,
+                  parsed_quality,
+                  rejected,
+                  rejection_reason,
+                  score_breakdown,
+                };
+              });
+              mapped.sort((a, b) => {
+                const ar = a.rejected ? 1 : 0;
+                const br = b.rejected ? 1 : 0;
+                if (ar !== br) return ar - br;
+                const as = a.quality_score ?? -Number.MAX_SAFE_INTEGER;
+                const bs = b.quality_score ?? -Number.MAX_SAFE_INTEGER;
+                if (as !== bs) return bs - as;
+                return a.title.localeCompare(b.title);
+              });
+            }
           }
         }
-      }
 
-      return ok({
-        success: true,
-        service: adapter.name,
-        releases: mapped,
-        ...(indexerWarnings.length > 0
-          ? { indexer_warnings: indexerWarnings }
-          : {}),
-      });
-    } catch (error) {
-      console.error("Error loading interactive search releases:", error);
-      return serverError("Failed to load interactive search releases");
-    }
-  })
-  .get("/indexers", async () => {
+        return ok({
+          success: true,
+          service: adapter.name,
+          releases: mapped,
+          ...(indexerWarnings.length > 0
+            ? { indexer_warnings: indexerWarnings }
+            : {}),
+        });
+      } catch (error) {
+        console.error("Error loading interactive search releases:", error);
+        return serverError("Failed to load interactive search releases");
+      }
+    },
+  )
+  .get("/indexers", requireAdmin, async () => {
     try {
       const adapter = await getActiveIndexerManager();
       if (!adapter) {
@@ -348,6 +352,7 @@ export const mediasSearchRoutes = new Hono<Env>()
   })
   .post(
     "/interactive-search/download",
+    requireAdmin,
     jsonV(
       z.object({
         token: z.string(),
@@ -369,6 +374,7 @@ export const mediasSearchRoutes = new Hono<Env>()
   )
   .post(
     "/search/ai-pick",
+    requireAdmin,
     jsonV(
       z.object({
         media_context: z.object({
@@ -411,7 +417,7 @@ export const mediasSearchRoutes = new Hono<Env>()
       return ok(result);
     },
   )
-  .get("/search/ai-warm", async () => {
+  .get("/search/ai-warm", requireAdmin, async () => {
     const record = await getIntegrationConfigRecord("local-ai");
     const config = normalizeLocalAiConfig(record?.config);
 

@@ -11,9 +11,10 @@ import { fetchMediaDetails } from "@rawkoon/api/utils/medias/tmdbFetcherDetails"
 import { fetchCollectionDetails } from "@rawkoon/api/utils/medias/tmdbFetcherEndpoints";
 
 // Mounted under /api/medias; requireUser applied here.
-export const mediasCollectionsRoutes = new Hono<Env>()
-  .use("*", requireUser)
-  .get("/collections/missing", async (c) => {
+export const mediasCollectionsRoutes = new Hono<Env>().get(
+  "/collections/missing",
+  requireUser,
+  async (c) => {
     try {
       const tmdbConfig = await loadTmdbConfig();
       if (!tmdbConfig) return ok({ collections: [] });
@@ -114,4 +115,5 @@ export const mediasCollectionsRoutes = new Hono<Env>()
       console.error("Error fetching missing collections:", error);
       return serverError("Failed to fetch missing collections");
     }
-  });
+  },
+);

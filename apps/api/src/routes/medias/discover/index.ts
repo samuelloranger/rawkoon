@@ -25,10 +25,8 @@ function parseExclude(raw: string | undefined): number[] {
 
 // Mounted at /api/medias/discover by the medias parent (prefix dropped here).
 export const mediasDiscoverRoutes = new Hono<Env>()
-  .use("*", requireUser)
-
   // GET /api/medias/discover/deck
-  .get("/deck", async (c) => {
+  .get("/deck", requireUser, async (c) => {
     try {
       const tmdbConfig = await loadEnabledTmdbConfig();
       if (!tmdbConfig) {
@@ -64,6 +62,7 @@ export const mediasDiscoverRoutes = new Hono<Env>()
   // POST /api/medias/discover/dismiss — idempotent
   .post(
     "/dismiss",
+    requireUser,
     jsonV(
       z.object({
         tmdb_id: z.number(),
@@ -96,7 +95,7 @@ export const mediasDiscoverRoutes = new Hono<Env>()
   )
 
   // DELETE /api/medias/discover/dismiss/:tmdbId?type=movie|tv
-  .delete("/dismiss/:tmdbId", async (c) => {
+  .delete("/dismiss/:tmdbId", requireUser, async (c) => {
     const tmdbId = parseInt(c.req.param("tmdbId"), 10);
     if (!Number.isFinite(tmdbId)) return badRequest("Invalid tmdbId");
     const type = c.req.query("type");

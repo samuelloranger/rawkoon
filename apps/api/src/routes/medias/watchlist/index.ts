@@ -14,10 +14,8 @@ function parseYmdToDbDate(ymd: string | null | undefined): Date | null {
 
 // Mounted at /api/medias/watchlist by the medias parent (prefix dropped here).
 export const mediasWatchlistRoutes = new Hono<Env>()
-  .use("*", requireUser)
-
   // GET /api/medias/watchlist
-  .get("/", async (c) => {
+  .get("/", requireUser, async (c) => {
     try {
       const items = await prisma.watchlistItem.findMany({
         where: { userId: c.get("user").id },
@@ -47,6 +45,7 @@ export const mediasWatchlistRoutes = new Hono<Env>()
   // POST /api/medias/watchlist — add (idempotent)
   .post(
     "/",
+    requireUser,
     jsonV(
       // Elysia t.Object strips unknown keys at runtime; Zod default strips too (no .strict()).
       z.object({
@@ -101,7 +100,7 @@ export const mediasWatchlistRoutes = new Hono<Env>()
   )
 
   // DELETE /api/medias/watchlist/:tmdbId?type=movie|tv
-  .delete("/:tmdbId", async (c) => {
+  .delete("/:tmdbId", requireUser, async (c) => {
     const tmdbId = parseInt(c.req.param("tmdbId"), 10);
     if (isNaN(tmdbId)) return badRequest("Invalid tmdbId");
     const type = c.req.query("type");
