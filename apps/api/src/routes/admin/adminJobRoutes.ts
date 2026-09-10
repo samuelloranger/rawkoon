@@ -1,8 +1,9 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { z } from "zod";
 import type { Job, Queue, JobState } from "bullmq";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
-import { badRequest, notFound, serverError } from "@rawkoon/api/errors";
+import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
 import {
   scheduledTasksQueue,
   expressQueue,
@@ -12,7 +13,7 @@ import {
   SCHEDULED_JOB_NAMES,
 } from "@rawkoon/api/services/queueService";
 import { createJsonSseResponse } from "@rawkoon/api/utils/sse";
-import { requireAdmin } from "@rawkoon/api/middleware/auth";
+import { jsonV } from "@rawkoon/api/middleware/validate";
 
 const queueMap: Record<string, Queue> = {
   "scheduled-tasks": scheduledTasksQueue,
@@ -91,8 +92,9 @@ const actionMap: Record<string, string> = {
   check_author_releases: SCHEDULED_JOB_NAMES.CHECK_AUTHOR_RELEASES,
 };
 
-export const adminJobRoutes = new Elysia()
-  .use(requireAdmin)
+// Mounted under /api/admin (Elysia .mount strips the prefix); requireAdmin is
+// applied once at the admin parent and propagates to these merged routes.
+export const adminJobRoutes = new Hono<Env>()
   // GET /api/admin/scheduled-jobs - List scheduled BullMQ jobs and queue stats
   .get("/scheduled-jobs", async () => {
     const queueStats = [
@@ -101,17 +103,17 @@ export const adminJobRoutes = new Elysia()
       await getQueueStats("Library Migrate", libraryMigrateQueue),
     ];
 
-    return {
+    return ok({
       scheduler_running: true,
       queues: queueStats,
       jobs: await fetchRepeatableJobsList(),
-    };
+    });
   })
 
   // GET /api/admin/jobs/events - SSE endpoint for real-time job updates
-  .get("/jobs/events", ({ request }) => {
+  .get("/jobs/events", (c) => {
     return createJsonSseResponse({
-      request,
+      request: c.req.raw,
       logLabel: "AdminJobs",
       intervalMs: 2000,
       poll: async () => ({ jobs: await fetchRepeatableJobsList() }),
@@ -119,11 +121,11 @@ export const adminJobRoutes = new Elysia()
   })
 
   // GET /api/admin/queues/:name/jobs - Get detailed list of jobs in a specific queue
-  .get("/queues/:name/jobs", async ({ params, query }) => {
-    const queue = queueMap[params.name];
+  .get("/queues/:name/jobs", async (c) => {
+    const queue = queueMap[c.req.param("name")];
     if (!queue) throw new Error("Queue not found");
 
-    const statusStrings = (query.status as string)?.split(",") || [
+    const statusStrings = c.req.query("status")?.split(",") || [
       "active",
       "waiting",
       "completed",
@@ -131,43 +133,46 @@ export const adminJobRoutes = new Elysia()
       "delayed",
     ];
     const states = statusStrings as JobState[];
-    const limit = parseInt(query.limit as string) || 50;
+    const limit = parseInt(c.req.query("limit") ?? "") || 50;
 
     const jobs = await queue.getJobs(states, 0, limit - 1, false);
 
-    return Promise.all(
-      jobs.map(async (job: Job) => {
-        const state = await job.getState();
-        return {
-          id: job.id,
-          name: job.name,
-          data: job.data,
-          opts: job.opts,
-          progress: job.progress,
-          delay: job.delay,
-          timestamp: new Date(job.timestamp).toISOString(),
-          processedOn: job.processedOn
-            ? new Date(job.processedOn).toISOString()
-            : null,
-          finishedOn: job.finishedOn
-            ? new Date(job.finishedOn).toISOString()
-            : null,
-          status: state,
-          returnValue: job.returnvalue,
-          failedReason: job.failedReason,
-          stacktrace: job.stacktrace,
-          attemptsMade: job.attemptsMade,
-        };
-      }),
+    return ok(
+      await Promise.all(
+        jobs.map(async (job: Job) => {
+          const state = await job.getState();
+          return {
+            id: job.id,
+            name: job.name,
+            data: job.data,
+            opts: job.opts,
+            progress: job.progress,
+            delay: job.delay,
+            timestamp: new Date(job.timestamp).toISOString(),
+            processedOn: job.processedOn
+              ? new Date(job.processedOn).toISOString()
+              : null,
+            finishedOn: job.finishedOn
+              ? new Date(job.finishedOn).toISOString()
+              : null,
+            status: state,
+            returnValue: job.returnvalue,
+            failedReason: job.failedReason,
+            stacktrace: job.stacktrace,
+            attemptsMade: job.attemptsMade,
+          };
+        }),
+      ),
     );
   })
 
   // POST /api/admin/trigger-action - Trigger a cron job manually
   .post(
     "/trigger-action",
-    async ({ user, body, set }) => {
-      const adminUser = user!;
-      const { action } = body;
+    jsonV(z.object({ action: z.string() })),
+    async (c) => {
+      const adminUser = c.get("user");
+      const { action } = c.req.valid("json");
       const jobName = actionMap[action] || action;
       const jobData: Record<string, string> = { trigger: "manual" };
 
@@ -180,10 +185,10 @@ export const adminJobRoutes = new Elysia()
 
         await addJob(QUEUE_NAMES.SCHEDULED_TASKS, jobName, jobData);
 
-        return {
+        return ok({
           success: true,
           message: `Job ${jobName} enqueued for immediate execution.`,
-        };
+        });
       } catch (error) {
         console.error("Error triggering action:", error);
         return Response.json(
@@ -192,101 +197,83 @@ export const adminJobRoutes = new Elysia()
         );
       }
     },
-    {
-      body: z.object({ action: z.string() }),
-    },
   )
 
   // POST /api/admin/queues/:name/jobs/:jobId/retry - Retry a single failed job
-  .post(
-    "/queues/:name/jobs/:jobId/retry",
-    async ({ params, set }) => {
-      const queue = queueMap[params.name];
-      if (!queue) return badRequest("Queue not found");
+  .post("/queues/:name/jobs/:jobId/retry", async (c) => {
+    const queue = queueMap[c.req.param("name")];
+    if (!queue) return badRequest("Queue not found");
+    const jobId = c.req.param("jobId");
 
-      try {
-        const job = await queue.getJob(params.jobId);
-        if (!job) return notFound("Job not found");
+    try {
+      const job = await queue.getJob(jobId);
+      if (!job) return notFound("Job not found");
 
-        const state = await job.getState();
-        if (state !== "failed")
-          return badRequest(`Job is ${state}, not failed`);
+      const state = await job.getState();
+      if (state !== "failed") return badRequest(`Job is ${state}, not failed`);
 
-        await job.retry(state);
-        return {
-          success: true,
-          message: `Job ${params.jobId} queued for retry`,
-        };
-      } catch (error) {
-        console.error("Error retrying job:", error);
-        return serverError("Failed to retry job");
-      }
-    },
-    { params: z.object({ name: z.string(), jobId: z.string() }) },
-  )
+      await job.retry(state);
+      return ok({ success: true, message: `Job ${jobId} queued for retry` });
+    } catch (error) {
+      console.error("Error retrying job:", error);
+      return serverError("Failed to retry job");
+    }
+  })
 
   // POST /api/admin/queues/:name/retry-failed - Retry all failed jobs in a queue
-  .post(
-    "/queues/:name/retry-failed",
-    async ({ params, set }) => {
-      const queue = queueMap[params.name];
-      if (!queue) return badRequest("Queue not found");
+  .post("/queues/:name/retry-failed", async (c) => {
+    const queue = queueMap[c.req.param("name")];
+    if (!queue) return badRequest("Queue not found");
 
-      try {
-        const failed = await queue.getJobs(["failed"]);
-        let retried = 0;
-        for (const job of failed) {
-          await job.retry("failed");
-          retried++;
-        }
-        return {
-          success: true,
-          message: `Retried ${retried} failed jobs`,
-          retried,
-        };
-      } catch (error) {
-        console.error("Error retrying failed jobs:", error);
-        return serverError("Failed to retry jobs");
+    try {
+      const failed = await queue.getJobs(["failed"]);
+      let retried = 0;
+      for (const job of failed) {
+        await job.retry("failed");
+        retried++;
       }
-    },
-    { params: z.object({ name: z.string() }) },
-  )
+      return ok({
+        success: true,
+        message: `Retried ${retried} failed jobs`,
+        retried,
+      });
+    } catch (error) {
+      console.error("Error retrying failed jobs:", error);
+      return serverError("Failed to retry jobs");
+    }
+  })
 
   // DELETE /api/admin/queues/:name/clean - Clean completed/failed jobs from a queue
-  .delete(
-    "/queues/:name/clean",
-    async ({ params, query, set }) => {
-      const queue = queueMap[params.name];
-      if (!queue) return badRequest("Queue not found");
+  .delete("/queues/:name/clean", async (c) => {
+    const queue = queueMap[c.req.param("name")];
+    if (!queue) return badRequest("Queue not found");
 
-      const status = (query.status as string) || "completed";
-      if (!["completed", "failed"].includes(status))
-        return badRequest("Status must be completed or failed");
+    const status = c.req.query("status") || "completed";
+    if (!["completed", "failed"].includes(status))
+      return badRequest("Status must be completed or failed");
 
-      const grace = parseInt(query.grace as string) || 0;
+    const grace = parseInt(c.req.query("grace") ?? "") || 0;
 
-      try {
-        const cleaned = await queue.clean(
-          grace,
-          1000,
-          status as "completed" | "failed",
-        );
-        return {
-          success: true,
-          message: `Cleaned ${cleaned.length} ${status} jobs`,
-          cleaned: cleaned.length,
-        };
-      } catch (error) {
-        console.error("Error cleaning queue:", error);
-        return serverError("Failed to clean queue");
-      }
-    },
-    { params: z.object({ name: z.string() }) },
-  )
+    try {
+      const cleaned = await queue.clean(
+        grace,
+        1000,
+        status as "completed" | "failed",
+      );
+      return ok({
+        success: true,
+        message: `Cleaned ${cleaned.length} ${status} jobs`,
+        cleaned: cleaned.length,
+      });
+    } catch (error) {
+      console.error("Error cleaning queue:", error);
+      return serverError("Failed to clean queue");
+    }
+  })
 
   // GET /api/admin/jobs/history - Recent job history across all queues
-  .get("/jobs/history", async ({ query }) => {
-    const limit = parseInt(query.limit as string) || 50;
+  .get("/jobs/history", async (c) => {
+    const limit = parseInt(c.req.query("limit") ?? "") || 50;
 
     const allQueues: { name: string; queue: Queue }[] = [
       { name: "scheduled-tasks", queue: scheduledTasksQueue },
@@ -347,5 +334,5 @@ export const adminJobRoutes = new Elysia()
       return bTime - aTime;
     });
 
-    return { jobs: allJobs.slice(0, limit) };
+    return ok({ jobs: allJobs.slice(0, limit) });
   });

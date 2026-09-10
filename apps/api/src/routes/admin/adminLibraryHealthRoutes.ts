@@ -1,17 +1,17 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { prisma } from "@rawkoon/api/db";
-import { requireAdmin } from "@rawkoon/api/middleware/auth";
+import { ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
 import { formatIso } from "@rawkoon/api/utils";
-import { serverError } from "@rawkoon/api/errors";
 
-export const adminLibraryHealthRoutes = new Elysia()
-  .use(requireAdmin)
+// Mounted under /api/admin; requireAdmin is applied at the admin parent.
+export const adminLibraryHealthRoutes = new Hono<Env>()
   // GET /api/admin/library-health - Latest persisted library integrity checks
-  .get("/library-health", async ({ query, set }) => {
+  .get("/library-health", async (c) => {
     try {
       const limit = Math.min(
         25,
-        Math.max(1, parseInt((query.limit as string) || "5", 10) || 5),
+        Math.max(1, parseInt(c.req.query("limit") || "5", 10) || 5),
       );
       const logs = await prisma.libraryHealthLog.findMany({
         orderBy: { startedAt: "desc" },
@@ -39,7 +39,7 @@ export const adminLibraryHealthRoutes = new Elysia()
           }
         : null;
 
-      return {
+      return ok({
         latest,
         history: logs.slice(1).map((log) => ({
           id: log.id,
@@ -53,7 +53,7 @@ export const adminLibraryHealthRoutes = new Elysia()
           warnings: log.warnings,
           error: log.error,
         })),
-      };
+      });
     } catch (error) {
       console.error("Error fetching library health:", error);
       return serverError("Failed to fetch library health");

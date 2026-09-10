@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { Elysia } from "elysia";
 
 const createdAt = new Date("2026-06-16T00:00:00Z");
 
@@ -35,7 +34,9 @@ mock.module("@rawkoon/api/lib/apiKeyApi", () => ({
 }));
 
 const { adminApiKeyRoutes } = await import("./apiKeyRoutes");
-const app = new Elysia().use(adminApiKeyRoutes);
+// Ported to Hono; drive its routes directly (no requireAdmin here — the guard
+// lives on the admin parent). Router paths are /api-keys, matching the requests.
+const app = { handle: (req: Request) => adminApiKeyRoutes.fetch(req) };
 
 const post = (body: unknown) =>
   app.handle(
