@@ -47,11 +47,9 @@ import {
 import { startResourceSampler } from "./services/perf/perfStore";
 import { checkHealth } from "./services/healthCheck";
 
-// strict:false so a trailing slash matches (`/api/requests/` == `/api/requests`)
-// across every mounted domain router.
+// strict:false: a trailing slash matches (`/api/x/` == `/api/x`).
 export const app = new Hono<Env>({ strict: false });
 
-// cors + perf timing wrap everything (registered first → apply to all routes).
 app.use(
   "*",
   cors({
@@ -73,14 +71,9 @@ if (Bun.env.LOG_LEVEL === "debug") {
 app.onError(honoOnError);
 app.notFound(() => notFound("Not found"));
 
-// Strict auth limiter — counts only sign-in / sign-up / accept-invitation (its
-// skip predicate), registered early so it wraps the auth routes and better-auth
-// delegation but not the domains (which get the global limiter below).
 app.use("*", strictAuthRateLimit);
 
-// Auth routes. better-auth (lib/auth) is framework-agnostic — only the route
-// wiring is Hono. The specific auth.ts routes are registered BEFORE the
-// better-auth catch-all so Hono doesn't swallow them into `/api/auth/*`.
+// Registered before the /api/auth/* catch-all so Hono doesn't swallow them.
 app.route("/", publicAuthRoutes);
 app.route("/", ssoProvidersRoute);
 app.route("/", mobileAuthRoutes);
@@ -88,8 +81,6 @@ app.route("/", protectedAuthRoutes);
 app.all("/api/auth/*", (c) => betterAuthInstance.handler(c.req.raw));
 app.route("/api/download-client", downloadClientHookRoutes);
 
-// Global rate limiting applies to everything registered after this point
-// (domains, health, static) — unauthenticated requests only; see rateLimitCore.
 app.use("*", globalRateLimit);
 
 app
@@ -101,8 +92,6 @@ app
   .route("/api/settings", settingsRoutes)
   .route("/api/admin", adminRoutes)
   .route("/api/integrations", integrationsRoutes)
-  // libraryMediaAdmin + libraryDownloads are folded into libraryRoutes (all three
-  // share /api/library, and only one router can own that prefix).
   .route("/api/library", libraryRoutes)
   .route("/api/books", bookRoutes)
   .route("/api/book-quality-profiles", bookQualityProfileRoutes)
@@ -124,7 +113,6 @@ registerStaticRoutes(app);
 if (import.meta.main) {
   initWorkers();
 
-  // Perf-baseline CPU/RSS sampler (no-op unless PERF_TIMING_ENABLED=true)
   startResourceSampler();
 
   setupScheduledJobs().catch((err) => {
