@@ -1,7 +1,8 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { z } from "zod";
 
-import { badRequest, serverError } from "@rawkoon/api/errors";
+import { badRequest, ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
 import {
   libraryMigrateQueue,
   libraryReindexLanguagesQueue,
@@ -18,7 +19,8 @@ import {
   getRssRunHistory,
 } from "@rawkoon/api/services/rssRunStatus";
 import { libraryEventBus } from "@rawkoon/api/services/libraryEvents";
-import { requireUser, ensureAdmin } from "@rawkoon/api/middleware/auth";
+import { ensureAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
+import { jsonV } from "@rawkoon/api/middleware/validate";
 
 /**
  * POST /api/library/reindex-languages
@@ -30,10 +32,9 @@ import { requireUser, ensureAdmin } from "@rawkoon/api/middleware/auth";
  * POST /api/library/migrate
  * GET /api/library/migrate/status
  */
-export const libraryJobWorkerRoutes = new Elysia()
-  .use(requireUser)
-  .post("/reindex-languages", async ({ user, set }) => {
-    const denied = ensureAdmin(user);
+export const libraryJobWorkerRoutes = new Hono<Env>()
+  .post("/reindex-languages", requireUser, async (c) => {
+    const denied = ensureAdmin(c.get("user"));
     if (denied) return denied;
     try {
       const job = await libraryReindexLanguagesQueue.add(
@@ -45,13 +46,13 @@ export const libraryJobWorkerRoutes = new Elysia()
       if (state === "active" || state === "waiting") {
         return badRequest("A language reindex job is already running");
       }
-      return { job_id: job?.id };
+      return ok({ job_id: job?.id });
     } catch {
       return serverError("Failed to enqueue reindex job");
     }
   })
 
-  .get("/reindex-languages/status", async ({ set }) => {
+  .get("/reindex-languages/status", requireUser, async () => {
     try {
       const [active, waiting, completed, failed] = await Promise.all([
         libraryReindexLanguagesQueue.getJobs(["active"]),
@@ -61,7 +62,7 @@ export const libraryJobWorkerRoutes = new Elysia()
       ]);
       const job = active[0] ?? waiting[0] ?? completed[0] ?? failed[0] ?? null;
       if (!job) {
-        return {
+        return ok({
           state: "unknown",
           job_id: null,
           progress: null,
@@ -69,7 +70,7 @@ export const libraryJobWorkerRoutes = new Elysia()
           error: null,
           started_at: null,
           finished_at: null,
-        };
+        });
       }
       const state = await job.getState();
       const progress =
@@ -79,7 +80,7 @@ export const libraryJobWorkerRoutes = new Elysia()
         typeof progress === "object" && progress !== null
           ? (progress as LibraryReindexLanguagesProgress)
           : null;
-      return {
+      return ok({
         job_id: job.id ?? null,
         state,
         progress: typedProgress,
@@ -91,7 +92,7 @@ export const libraryJobWorkerRoutes = new Elysia()
         finished_at: job.finishedOn
           ? new Date(job.finishedOn).toISOString()
           : null,
-      };
+      });
     } catch {
       return serverError("Failed to fetch reindex status");
     }
@@ -99,11 +100,19 @@ export const libraryJobWorkerRoutes = new Elysia()
 
   .post(
     "/files/:fileId/remux",
-    async ({ params, set, body, user }) => {
-      const denied = ensureAdmin(user);
+    requireUser,
+    jsonV(
+      z.object({
+        keep_audio_track_indices: z.array(z.number()),
+        keep_subtitle_track_indices: z.array(z.number()),
+      }),
+    ),
+    async (c) => {
+      const denied = ensureAdmin(c.get("user"));
       if (denied) return denied;
-      const fileId = parseInt(params.fileId, 10);
+      const fileId = parseInt(c.req.param("fileId"), 10);
       if (!Number.isFinite(fileId)) return badRequest("Invalid file id");
+      const body = c.req.valid("json");
       if (!body.keep_audio_track_indices.length)
         return badRequest("At least one audio track must be kept");
       try {
@@ -122,48 +131,47 @@ export const libraryJobWorkerRoutes = new Elysia()
           } satisfies LibraryRemuxJobData,
           { jobId },
         );
-        return { job_id: job?.id };
+        return ok({ job_id: job?.id });
       } catch {
         return serverError("Failed to enqueue remux job");
       }
     },
-    {
-      body: z.object({
-        keep_audio_track_indices: z.array(z.number()),
-        keep_subtitle_track_indices: z.array(z.number()),
-      }),
-    },
   )
 
-  .get("/files/:fileId/remux/status", async ({ params, set }) => {
-    const fileId = parseInt(params.fileId, 10);
+  .get("/files/:fileId/remux/status", requireUser, async (c) => {
+    const fileId = parseInt(c.req.param("fileId"), 10);
     if (!Number.isFinite(fileId)) return badRequest("Invalid file id");
     try {
       const jobId = `library-remux-file-${fileId}`;
       const job = await libraryRemuxQueue.getJob(jobId);
       if (!job) {
-        return { state: "unknown", job_id: null, result: null, error: null };
+        return ok({
+          state: "unknown",
+          job_id: null,
+          result: null,
+          error: null,
+        });
       }
       const state = await job.getState();
-      return {
+      return ok({
         job_id: job.id ?? null,
         state,
         result: state === "completed" ? (job.returnvalue ?? null) : null,
         error: state === "failed" ? (job.failedReason ?? null) : null,
-      };
+      });
     } catch {
       return serverError("Failed to fetch remux status");
     }
   })
 
-  .get("/events", ({ request }) => {
+  .get("/events", requireUser, (c) => {
     const enc = new TextEncoder();
     let closed = false;
     let controller: ReadableStreamDefaultController<Uint8Array>;
 
     const stream = new ReadableStream<Uint8Array>({
-      start(c) {
-        controller = c;
+      start(ctrl) {
+        controller = ctrl;
       },
       cancel() {
         closed = true;
@@ -193,7 +201,7 @@ export const libraryJobWorkerRoutes = new Elysia()
     libraryEventBus.on("book-update", onBookUpdate);
     const heartbeat = setInterval(() => send(": ping\n\n"), 15_000);
 
-    request.signal.addEventListener("abort", () => {
+    c.req.raw.signal.addEventListener("abort", () => {
       closed = true;
       libraryEventBus.off("update", onUpdate);
       libraryEventBus.off("book-update", onBookUpdate);
@@ -208,8 +216,7 @@ export const libraryJobWorkerRoutes = new Elysia()
     send(`data: ${JSON.stringify({ connected: true, ts: Date.now() })}\n\n`);
 
     // Headers go on the Response directly (framework-neutral; Hono has no
-    // `set.headers`). Behavior is unchanged — Elysia 1.4 applies `set.headers`
-    // to a returned Response too.
+    // `set.headers`).
     return new Response(stream, {
       headers: {
         "Content-Type": "text/event-stream",
@@ -220,7 +227,7 @@ export const libraryJobWorkerRoutes = new Elysia()
     });
   })
 
-  .get("/rss-status", async ({ set }) => {
+  .get("/rss-status", requireUser, async () => {
     try {
       const [lastRun, history, repeatableJobs] = await Promise.all([
         getLastRssRun(),
@@ -250,12 +257,12 @@ export const libraryJobWorkerRoutes = new Elysia()
                 ),
               ).toISOString();
             })();
-      return {
+      return ok({
         server_time: new Date().toISOString(),
         last_run: lastRun,
         history,
         next_run_at: nextRunAt,
-      };
+      });
     } catch {
       return serverError("Failed to fetch RSS status");
     }
@@ -263,19 +270,33 @@ export const libraryJobWorkerRoutes = new Elysia()
 
   .post(
     "/migrate",
-    async ({ body, user, set }) => {
-      const denied = ensureAdmin(user);
+    requireUser,
+    jsonV(
+      z.object({
+        source: z.union([
+          z.literal("radarr"),
+          z.literal("sonarr"),
+          z.literal("both"),
+        ]),
+        radarr_url: z.string().optional(),
+        radarr_api_key: z.string().optional(),
+        sonarr_url: z.string().optional(),
+        sonarr_api_key: z.string().optional(),
+      }),
+    ),
+    async (c) => {
+      const denied = ensureAdmin(c.get("user"));
       if (denied) return denied;
 
       const { source, radarr_url, radarr_api_key, sonarr_url, sonarr_api_key } =
-        body;
+        c.req.valid("json");
 
       try {
         const job = await libraryMigrateQueue.add(
           "library-migrate",
           {
             source,
-            requested_by: user!.id,
+            requested_by: c.get("user").id,
             radarr_url: radarr_url?.trim() || undefined,
             radarr_api_key: radarr_api_key?.trim() || undefined,
             sonarr_url: sonarr_url?.trim() || undefined,
@@ -287,29 +308,16 @@ export const libraryJobWorkerRoutes = new Elysia()
         if (state === "active" || state === "waiting") {
           return badRequest("A migration job is already running");
         }
-        return { job_id: job?.id };
+        return ok({ job_id: job?.id });
       } catch {
         return serverError("Failed to enqueue migration job");
       }
     },
-    {
-      body: z.object({
-        source: z.union([
-          z.literal("radarr"),
-          z.literal("sonarr"),
-          z.literal("both"),
-        ]),
-        radarr_url: z.string().optional(),
-        radarr_api_key: z.string().optional(),
-        sonarr_url: z.string().optional(),
-        sonarr_api_key: z.string().optional(),
-      }),
-    },
   )
 
-  .get("/migrate/status", ({ request }) => {
+  .get("/migrate/status", requireUser, (c) => {
     return createJsonSseResponse({
-      request,
+      request: c.req.raw,
       logLabel: "LibraryMigrate",
       intervalMs: (data) => {
         if ((data as { state?: string })?.state === "active") return 1500;

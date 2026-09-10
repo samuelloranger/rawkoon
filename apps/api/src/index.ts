@@ -17,8 +17,6 @@ import {
 } from "./auth";
 import { adminRoutes } from "./routes/admin";
 import { dashboardRoutes } from "./routes/dashboard";
-import { libraryMediaAdminRoutes } from "./routes/library/libraryMediaAdmin";
-import { libraryDownloadsRoutes } from "./routes/library/downloads";
 import { libraryRoutes } from "./routes/library";
 import {
   bookRoutes,
@@ -143,9 +141,9 @@ export const app = new Elysia()
   .mount("/api/settings", settingsRoutes.fetch)
   .mount("/api/admin", adminRoutes.fetch)
   .mount("/api/integrations", integrationsRoutes.fetch)
-  .use(libraryMediaAdminRoutes)
-  .use(libraryDownloadsRoutes)
-  .use(libraryRoutes)
+  // libraryMediaAdminRoutes + libraryDownloadsRoutes are folded into libraryRoutes
+  // (all three share /api/library; only one Hono app can mount at that prefix).
+  .mount("/api/library", libraryRoutes.fetch)
   .mount("/api/books", bookRoutes.fetch)
   .mount("/api/book-quality-profiles", bookQualityProfileRoutes.fetch)
   .mount("/api/authors", authorRoutes.fetch)

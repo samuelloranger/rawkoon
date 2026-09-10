@@ -1,9 +1,11 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { z } from "zod";
 
 import { prisma } from "@rawkoon/api/db";
-import { requireUser } from "@rawkoon/api/middleware/auth";
-import { serverError } from "@rawkoon/api/errors";
+import { ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { requireUser } from "@rawkoon/api/middleware/hono/auth";
+import { queryV } from "@rawkoon/api/middleware/validate";
 import { buildLibraryStatsResponse } from "./libraryStats";
 
 /**
@@ -12,9 +14,8 @@ import { buildLibraryStatsResponse } from "./libraryStats";
  * GET /api/library/download-history
  * GET /api/library/download-history/stats
  */
-export const libraryJobStatsRoutes = new Elysia()
-  .use(requireUser)
-  .get("/stats", async ({ set }) => {
+export const libraryJobStatsRoutes = new Hono<Env>()
+  .get("/stats", requireUser, async () => {
     try {
       const [typeStatusRows, tmdbStatusRows, files] = await Promise.all([
         prisma.libraryMedia.groupBy({
@@ -53,13 +54,13 @@ export const libraryJobStatsRoutes = new Elysia()
         })),
       });
 
-      return { stats };
+      return ok({ stats });
     } catch {
       return serverError("Failed to fetch library stats");
     }
   })
 
-  .get("/language-tags", async ({ set }) => {
+  .get("/language-tags", requireUser, async () => {
     try {
       const rows = await prisma.$queryRaw<
         { tag: string }[]
@@ -78,7 +79,7 @@ export const libraryJobStatsRoutes = new Elysia()
         if (ai !== bi) return ai - bi;
         return a.localeCompare(b);
       });
-      return { tags };
+      return ok({ tags });
     } catch {
       return serverError("Failed to fetch language tags");
     }
@@ -86,7 +87,24 @@ export const libraryJobStatsRoutes = new Elysia()
 
   .get(
     "/download-history",
-    async ({ query, set }) => {
+    requireUser,
+    queryV(
+      z.object({
+        page: z.coerce.number().optional(),
+        limit: z.coerce.number().optional(),
+        status: z
+          .union([
+            z.literal("all"),
+            z.literal("completed"),
+            z.literal("failed"),
+            z.literal("active"),
+          ])
+          .optional(),
+        days: z.coerce.number().optional(),
+      }),
+    ),
+    async (c) => {
+      const query = c.req.valid("query");
       try {
         const page = Math.max(1, query.page ?? 1);
         const limit = Math.min(100, Math.max(1, query.limit ?? 25));
@@ -119,7 +137,7 @@ export const libraryJobStatsRoutes = new Elysia()
           prisma.downloadHistory.count({ where }),
         ]);
 
-        return {
+        return ok({
           items: items.map((h) => ({
             id: h.id,
             release_title: h.releaseTitle,
@@ -141,29 +159,14 @@ export const libraryJobStatsRoutes = new Elysia()
           page,
           limit,
           has_more: page * limit < total,
-        };
+        });
       } catch {
         return serverError("Failed to fetch download history");
       }
     },
-    {
-      query: z.object({
-        page: z.coerce.number().optional(),
-        limit: z.coerce.number().optional(),
-        status: z
-          .union([
-            z.literal("all"),
-            z.literal("completed"),
-            z.literal("failed"),
-            z.literal("active"),
-          ])
-          .optional(),
-        days: z.coerce.number().optional(),
-      }),
-    },
   )
 
-  .get("/download-history/stats", async ({ set }) => {
+  .get("/download-history/stats", requireUser, async () => {
     try {
       const fourteenDaysAgo = new Date(Date.now() - 14 * 86_400_000);
 
@@ -202,7 +205,7 @@ export const libraryJobStatsRoutes = new Elysia()
         if (dayMap.has(key)) dayMap.set(key, (dayMap.get(key) ?? 0) + 1);
       }
 
-      return {
+      return ok({
         stats: {
           total_grabs: total,
           completed_grabs: completed,
@@ -218,7 +221,7 @@ export const libraryJobStatsRoutes = new Elysia()
             count,
           })),
         },
-      };
+      });
     } catch {
       return serverError("Failed to fetch download history stats");
     }

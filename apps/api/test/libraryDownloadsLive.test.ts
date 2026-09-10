@@ -102,7 +102,7 @@ const baseRow = {
 };
 
 async function getDownloads() {
-  const res = await libraryFilesRoutes.handle(
+  const res = await libraryFilesRoutes.request(
     new Request("http://localhost/1/downloads"),
   );
   return (await res.json()) as { items: Array<Record<string, unknown>> };

@@ -124,7 +124,7 @@ beforeEach(() => {
 });
 
 function post(body: Record<string, unknown>, dhId = 5) {
-  return libraryFilesRoutes.handle(
+  return libraryFilesRoutes.request(
     new Request(`http://localhost/1/downloads/${dhId}/action`, {
       method: "POST",
       headers: { "content-type": "application/json" },

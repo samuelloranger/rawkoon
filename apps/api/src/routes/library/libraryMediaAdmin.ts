@@ -1,11 +1,13 @@
 import { basename, extname, resolve } from "node:path";
 import { z } from "zod";
 import { stat } from "node:fs/promises";
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 
-import { requireAdmin } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
-import { badRequest, serverError } from "@rawkoon/api/errors";
+import { badRequest, ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
+import { jsonV } from "@rawkoon/api/middleware/validate";
 import { TMDB_LANGUAGE_LIBRARY_PERSISTENCE } from "@rawkoon/api/utils/medias/tmdbFetcherTypes";
 import { listVideoFilesUnder } from "@rawkoon/api/utils/medias/fileIdentifier";
 import {
@@ -81,22 +83,53 @@ export function mapSettings(row: {
  * Admin-only library media settings (post-processing) + one-time disk scan.
  * Registered before `libraryRoutes` so paths are not captured as `/:id`.
  */
-export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
-  .use(requireAdmin)
-  .get("/post-processing/settings", async ({ set }) => {
+export const libraryMediaAdminRoutes = new Hono<Env>()
+  .get("/post-processing/settings", requireAdmin, async () => {
     try {
       let row = await prisma.mediaSettings.findUnique({ where: { id: 1 } });
       if (!row) {
         row = await prisma.mediaSettings.create({ data: { id: 1 } });
       }
-      return { settings: mapSettings(row) };
+      return ok({ settings: mapSettings(row) });
     } catch {
       return serverError("Failed to load media settings");
     }
   })
   .patch(
     "/post-processing/settings",
-    async ({ body, set }) => {
+    requireAdmin,
+    jsonV(
+      z.object({
+        movies_library_path: z.union([z.string(), z.null()]).optional(),
+        shows_library_path: z.union([z.string(), z.null()]).optional(),
+        downloads_path: z.union([z.string(), z.null()]).optional(),
+        file_operation: z
+          .union([z.literal("hardlink"), z.literal("move")])
+          .optional(),
+        movie_template: z.string().max(500).optional(),
+        episode_template: z.string().max(500).optional(),
+        min_seed_ratio: z.number().min(0).max(100).optional(),
+        post_processing_enabled: z.boolean().optional(),
+        default_movie_quality_profile_id: z
+          .union([z.number(), z.null()])
+          .optional(),
+        default_show_quality_profile_id: z
+          .union([z.number(), z.null()])
+          .optional(),
+        active_indexer_manager: z
+          .union([z.literal("prowlarr"), z.literal("jackett"), z.null()])
+          .optional(),
+        books_library_path: z.union([z.string(), z.null()]).optional(),
+        audiobooks_library_path: z.union([z.string(), z.null()]).optional(),
+        book_template: z.string().max(500).optional(),
+        audiobook_template: z.string().max(500).optional(),
+        default_book_quality_profile_id: z
+          .union([z.number(), z.null()])
+          .optional(),
+      }),
+    ),
+    async (c) => {
+      const body = c.req.valid("json");
       try {
         const update: {
           moviesLibraryPath?: string | null;
@@ -180,45 +213,23 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
             data: update,
           });
         }
-        return { settings: mapSettings(row) };
+        return ok({ settings: mapSettings(row) });
       } catch {
         return serverError("Failed to update media settings");
       }
     },
-    {
-      body: z.object({
-        movies_library_path: z.union([z.string(), z.null()]).optional(),
-        shows_library_path: z.union([z.string(), z.null()]).optional(),
-        downloads_path: z.union([z.string(), z.null()]).optional(),
-        file_operation: z
-          .union([z.literal("hardlink"), z.literal("move")])
-          .optional(),
-        movie_template: z.string().max(500).optional(),
-        episode_template: z.string().max(500).optional(),
-        min_seed_ratio: z.number().min(0).max(100).optional(),
-        post_processing_enabled: z.boolean().optional(),
-        default_movie_quality_profile_id: z
-          .union([z.number(), z.null()])
-          .optional(),
-        default_show_quality_profile_id: z
-          .union([z.number(), z.null()])
-          .optional(),
-        active_indexer_manager: z
-          .union([z.literal("prowlarr"), z.literal("jackett"), z.null()])
-          .optional(),
-        books_library_path: z.union([z.string(), z.null()]).optional(),
-        audiobooks_library_path: z.union([z.string(), z.null()]).optional(),
-        book_template: z.string().max(500).optional(),
-        audiobook_template: z.string().max(500).optional(),
-        default_book_quality_profile_id: z
-          .union([z.number(), z.null()])
-          .optional(),
-      }),
-    },
   )
   .post(
     "/scan",
-    async ({ body, set }) => {
+    requireAdmin,
+    jsonV(
+      z.object({
+        path: z.string().max(4096),
+        type: z.union([z.literal("movie"), z.literal("show")]),
+      }),
+    ),
+    async (c) => {
+      const body = c.req.valid("json");
       const key = await getLibraryTmdbApiKey();
       if (!key) return badRequest("TMDB is not configured");
 
@@ -356,12 +367,6 @@ export const libraryMediaAdminRoutes = new Elysia({ prefix: "/api/library" })
         }
       }
 
-      return { matched, unmatched };
-    },
-    {
-      body: z.object({
-        path: z.string().max(4096),
-        type: z.union([z.literal("movie"), z.literal("show")]),
-      }),
+      return ok({ matched, unmatched });
     },
   );

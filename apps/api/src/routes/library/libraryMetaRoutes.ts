@@ -1,9 +1,11 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { z } from "zod";
 
-import { requireAdmin } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
-import { badRequest, notFound, serverError } from "@rawkoon/api/errors";
+import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
+import { jsonV } from "@rawkoon/api/middleware/validate";
 import {
   profileToScoreInput,
   loadProfileWithFormats,
@@ -20,78 +22,69 @@ import { buildSearchTitleOptions } from "@rawkoon/api/utils/medias/resolveSearch
 import { TMDB_LANGUAGE_LIBRARY_PERSISTENCE } from "@rawkoon/api/utils/medias/tmdbFetcherTypes";
 import { toStringOrNull } from "@rawkoon/api/utils/medias/mappers";
 
+const statusBody = z.object({
+  status: z.union([
+    z.literal("wanted"),
+    z.literal("downloading"),
+    z.literal("downloaded"),
+    z.literal("skipped"),
+  ]),
+});
+const monitoredBody = z.object({ monitored: z.boolean() });
+
 /**
  * Metadata mutations: status, monitored, quality-profile, and season/episode toggles.
- * PATCH /api/library/:id/status
- * PATCH /api/library/:id/monitored
- * PATCH /api/library/:id/quality-profile
- * PATCH /api/library/:id/seasons/:season/monitored
- * PATCH /api/library/:id/episodes/:episodeId/monitored
- * PATCH /api/library/:id/episodes/:episodeId/status
- * PATCH /api/library/attention/:alertId/dismiss
+ * All admin-only. PATCH /api/library/:id/status | monitored | quality-profile |
+ * search-title | seasons/:season/monitored | episodes/:episodeId/monitored |
+ * overrides | episodes/:episodeId/status
  */
-export const libraryMetaRoutes = new Elysia()
-  .use(requireAdmin)
-
+export const libraryMetaRoutes = new Hono<Env>()
   // PATCH /api/library/:id/status — update status
-  .patch(
-    "/:id/status",
-    async ({ params, body, set }) => {
-      try {
-        const id = parseInt(params.id, 10);
-        if (!Number.isFinite(id)) return badRequest("Invalid ID");
-        const item = await prisma.libraryMedia.update({
-          where: { id },
-          data: {
-            status: body.status,
-            ...(body.status === "wanted" ? { searchAttempts: 0 } : {}),
-          },
-          include: libraryMediaInclude,
-        });
-        return { item: mapLibraryMedia(item) };
-      } catch {
-        return serverError("Failed to update status");
-      }
-    },
-    {
-      body: z.object({
-        status: z.union([
-          z.literal("wanted"),
-          z.literal("downloading"),
-          z.literal("downloaded"),
-          z.literal("skipped"),
-        ]),
-      }),
-    },
-  )
+  .patch("/:id/status", requireAdmin, jsonV(statusBody), async (c) => {
+    try {
+      const id = parseInt(c.req.param("id"), 10);
+      if (!Number.isFinite(id)) return badRequest("Invalid ID");
+      const body = c.req.valid("json");
+      const item = await prisma.libraryMedia.update({
+        where: { id },
+        data: {
+          status: body.status,
+          ...(body.status === "wanted" ? { searchAttempts: 0 } : {}),
+        },
+        include: libraryMediaInclude,
+      });
+      return ok({ item: mapLibraryMedia(item) });
+    } catch {
+      return serverError("Failed to update status");
+    }
+  })
 
   // PATCH /api/library/:id/monitored — toggle monitoring for a movie or show
-  .patch(
-    "/:id/monitored",
-    async ({ params, body, set }) => {
-      try {
-        const id = parseInt(params.id, 10);
-        if (!Number.isFinite(id)) return badRequest("Invalid ID");
-        const item = await prisma.libraryMedia.update({
-          where: { id },
-          data: { monitored: body.monitored },
-          include: libraryMediaInclude,
-        });
-        return { item: mapLibraryMedia(item) };
-      } catch {
-        return serverError("Failed to update monitored status");
-      }
-    },
-    { body: z.object({ monitored: z.boolean() }) },
-  )
+  .patch("/:id/monitored", requireAdmin, jsonV(monitoredBody), async (c) => {
+    try {
+      const id = parseInt(c.req.param("id"), 10);
+      if (!Number.isFinite(id)) return badRequest("Invalid ID");
+      const item = await prisma.libraryMedia.update({
+        where: { id },
+        data: { monitored: c.req.valid("json").monitored },
+        include: libraryMediaInclude,
+      });
+      return ok({ item: mapLibraryMedia(item) });
+    } catch {
+      return serverError("Failed to update monitored status");
+    }
+  })
 
   // PATCH /api/library/:id/quality-profile
   .patch(
     "/:id/quality-profile",
-    async ({ params, body, set }) => {
+    requireAdmin,
+    jsonV(z.object({ quality_profile_id: z.union([z.number(), z.null()]) })),
+    async (c) => {
       try {
-        const id = parseInt(params.id, 10);
+        const id = parseInt(c.req.param("id"), 10);
         if (!Number.isFinite(id)) return badRequest("Invalid ID");
+        const body = c.req.valid("json");
         const existing = await prisma.libraryMedia.findUnique({
           where: { id },
         });
@@ -177,29 +170,34 @@ export const libraryMetaRoutes = new Elysia()
           }
         }
 
-        return {
+        return ok({
           item: {
             ...mapLibraryMedia(item),
             ...(needs_upgrade ? { needs_upgrade: true } : {}),
             ...(affected_episodes !== undefined ? { affected_episodes } : {}),
           },
-        };
+        });
       } catch {
         return serverError("Failed to update quality profile");
       }
-    },
-    {
-      body: z.object({ quality_profile_id: z.union([z.number(), z.null()]) }),
     },
   )
 
   // PATCH /api/library/:id/search-title — set preferred indexer search title
   .patch(
     "/:id/search-title",
-    async ({ params, body, set }) => {
+    requireAdmin,
+    jsonV(
+      z.object({
+        search_title_language: z.string().min(2).max(2),
+        search_title: z.string().min(1).max(500),
+      }),
+    ),
+    async (c) => {
       try {
-        const id = parseInt(params.id, 10);
+        const id = parseInt(c.req.param("id"), 10);
         if (!Number.isFinite(id)) return badRequest("Invalid ID");
+        const body = c.req.valid("json");
 
         const language = body.search_title_language.trim().toLowerCase();
         const title = body.search_title.trim();
@@ -274,76 +272,78 @@ export const libraryMetaRoutes = new Elysia()
           },
           include: libraryMediaInclude,
         });
-        return { item: mapLibraryMedia(item) };
+        return ok({ item: mapLibraryMedia(item) });
       } catch (e) {
         console.warn("[library] search-title update failed:", e);
         return serverError("Failed to update search title");
       }
     },
-    {
-      body: z.object({
-        search_title_language: z.string().min(2).max(2),
-        search_title: z.string().min(1).max(500),
-      }),
-    },
   )
 
-  // PATCH /api/library/:id/seasons/:season/monitored — bulk toggle monitoring for a season
+  // PATCH /api/library/:id/seasons/:season/monitored — bulk toggle a season
   .patch(
     "/:id/seasons/:season/monitored",
-    async ({ params, body, set }) => {
+    requireAdmin,
+    jsonV(monitoredBody),
+    async (c) => {
       try {
-        const mediaId = parseInt(params.id, 10);
-        const season = parseInt(params.season, 10);
+        const mediaId = parseInt(c.req.param("id"), 10);
+        const season = parseInt(c.req.param("season"), 10);
         if (!Number.isFinite(mediaId) || !Number.isFinite(season)) {
           return badRequest("Invalid ID or season");
         }
         const result = await prisma.libraryEpisode.updateMany({
           where: { mediaId, season },
-          data: { monitored: body.monitored },
+          data: { monitored: c.req.valid("json").monitored },
         });
-        return { updated: result.count };
+        return ok({ updated: result.count });
       } catch {
         return serverError("Failed to update season monitored status");
       }
     },
-    { body: z.object({ monitored: z.boolean() }) },
   )
 
-  // PATCH /api/library/:id/episodes/:episodeId/monitored — toggle monitoring for an episode
+  // PATCH /api/library/:id/episodes/:episodeId/monitored — toggle an episode
   .patch(
     "/:id/episodes/:episodeId/monitored",
-    async ({ params, body, set }) => {
+    requireAdmin,
+    jsonV(monitoredBody),
+    async (c) => {
       try {
-        const mediaId = parseInt(params.id, 10);
-        const episodeId = parseInt(params.episodeId, 10);
+        const mediaId = parseInt(c.req.param("id"), 10);
+        const episodeId = parseInt(c.req.param("episodeId"), 10);
         if (!Number.isFinite(mediaId) || !Number.isFinite(episodeId)) {
           return badRequest("Invalid ID or episode ID");
         }
         const ep = await prisma.libraryEpisode.update({
           where: { id: episodeId, mediaId },
-          data: { monitored: body.monitored },
+          data: { monitored: c.req.valid("json").monitored },
         });
-        return {
-          episode: {
-            id: ep.id,
-            monitored: ep.monitored,
-          },
-        };
+        return ok({ episode: { id: ep.id, monitored: ep.monitored } });
       } catch {
         return serverError("Failed to update episode monitored status");
       }
     },
-    { body: z.object({ monitored: z.boolean() }) },
   )
 
   // PATCH /api/library/:id/overrides — set/clear manual metadata overrides
   .patch(
     "/:id/overrides",
-    async ({ params, body, set }) => {
+    requireAdmin,
+    jsonV(
+      z.object({
+        title: z.union([z.string(), z.null()]).optional(),
+        sort_title: z.union([z.string(), z.null()]).optional(),
+        year: z.union([z.number(), z.null()]).optional(),
+        overview: z.union([z.string(), z.null()]).optional(),
+        poster_url: z.union([z.string(), z.null()]).optional(),
+      }),
+    ),
+    async (c) => {
       try {
-        const id = parseInt(params.id, 10);
+        const id = parseInt(c.req.param("id"), 10);
         if (!Number.isFinite(id)) return badRequest("Invalid ID");
+        const body = c.req.valid("json");
         const existing = await prisma.libraryMedia.findUnique({
           where: { id },
           select: { overrides: true },
@@ -366,32 +366,26 @@ export const libraryMetaRoutes = new Elysia()
           data: { overrides: merged as object },
           include: libraryMediaInclude,
         });
-        return { item: mapLibraryMedia(item) };
+        return ok({ item: mapLibraryMedia(item) });
       } catch {
         return serverError("Failed to update overrides");
       }
     },
-    {
-      body: z.object({
-        title: z.union([z.string(), z.null()]).optional(),
-        sort_title: z.union([z.string(), z.null()]).optional(),
-        year: z.union([z.number(), z.null()]).optional(),
-        overview: z.union([z.string(), z.null()]).optional(),
-        poster_url: z.union([z.string(), z.null()]).optional(),
-      }),
-    },
   )
 
-  // PATCH /api/library/:id/episodes/:episodeId/status — reset episode status (e.g. retry skipped)
+  // PATCH /api/library/:id/episodes/:episodeId/status — reset episode status
   .patch(
     "/:id/episodes/:episodeId/status",
-    async ({ params, body, set }) => {
+    requireAdmin,
+    jsonV(statusBody),
+    async (c) => {
       try {
-        const mediaId = parseInt(params.id, 10);
-        const episodeId = parseInt(params.episodeId, 10);
+        const mediaId = parseInt(c.req.param("id"), 10);
+        const episodeId = parseInt(c.req.param("episodeId"), 10);
         if (!Number.isFinite(mediaId) || !Number.isFinite(episodeId)) {
           return badRequest("Invalid ID or episode ID");
         }
+        const body = c.req.valid("json");
         const ep = await prisma.libraryEpisode.update({
           where: { id: episodeId, mediaId },
           data: {
@@ -399,25 +393,15 @@ export const libraryMetaRoutes = new Elysia()
             ...(body.status === "wanted" ? { searchAttempts: 0 } : {}),
           },
         });
-        return {
+        return ok({
           episode: {
             id: ep.id,
             status: ep.status,
             search_attempts: ep.searchAttempts,
           },
-        };
+        });
       } catch {
         return serverError("Failed to update episode status");
       }
-    },
-    {
-      body: z.object({
-        status: z.union([
-          z.literal("wanted"),
-          z.literal("downloading"),
-          z.literal("downloaded"),
-          z.literal("skipped"),
-        ]),
-      }),
     },
   );
