@@ -154,7 +154,12 @@ mock.module("@rawkoon/api/auth", () => ({
 
 const { customFormatsRoutes } = await import("./index");
 
-const app = new Elysia().use(customFormatsRoutes);
+// Ported to Hono; the edge mounts it via WHATWG fetch, so mount it the same way
+// here to keep driving it through the full /api/custom-formats paths.
+const app = new Elysia().mount(
+  "/api/custom-formats",
+  customFormatsRoutes.fetch,
+);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

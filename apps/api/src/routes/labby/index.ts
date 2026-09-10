@@ -1,15 +1,17 @@
-import { Elysia } from "elysia";
-import { requireApiKey } from "@rawkoon/api/middleware/apiKey";
-import { serverError } from "@rawkoon/api/errors";
+import { Hono } from "hono";
+import { notFound, ok, serverError } from "@rawkoon/api/errors";
+import { requireApiKey } from "@rawkoon/api/middleware/hono/apiKey";
 import { buildLabbySummary } from "./summary";
 
-export const labbyRoutes = new Elysia({ prefix: "/api/labby" })
-  .use(requireApiKey)
-  .get("/summary", async ({ set }) => {
+// Mounted at /api/labby by the edge (Elysia .mount strips the prefix).
+export const labbyRoutes = new Hono()
+  .use("*", requireApiKey)
+  .get("/summary", async () => {
     try {
-      return await buildLabbySummary();
+      return ok(await buildLabbySummary());
     } catch (error) {
       console.error("Error building Labby summary:", error);
       return serverError("Failed to build Labby summary");
     }
-  });
+  })
+  .notFound(() => notFound("Not found"));

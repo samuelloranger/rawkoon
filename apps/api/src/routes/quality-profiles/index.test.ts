@@ -247,7 +247,12 @@ mock.module("@rawkoon/api/auth", () => ({
 
 const { qualityProfilesRoutes } = await import("./index");
 
-const app = new Elysia().use(qualityProfilesRoutes);
+// Ported to Hono; mount it the way the edge does so the /api/quality-profiles
+// paths hold through Elysia's .mount prefix-strip.
+const app = new Elysia().mount(
+  "/api/quality-profiles",
+  qualityProfilesRoutes.fetch,
+);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

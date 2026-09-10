@@ -1,16 +1,18 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
-import { auth } from "@rawkoon/api/auth";
-import { requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
 import {
   badRequest,
   conflict,
   forbidden,
   notFound,
+  ok,
   serverError,
 } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { requireUser } from "@rawkoon/api/middleware/hono/auth";
+import { jsonV } from "@rawkoon/api/middleware/validate";
 import { qualityProfileFormatsInclude } from "@rawkoon/api/services/mediaGrabberHelpers";
 
 type ProfileWithFormats = Prisma.QualityProfileGetPayload<{
@@ -69,72 +71,174 @@ function normalizePreferredSearchLanguage(
   return trimmed;
 }
 
-export const qualityProfilesRoutes = new Elysia({
-  prefix: "/api/quality-profiles",
-})
-  .use(auth)
-  .use(requireUser)
-  .get("/", async ({ set }) => {
+const profileBody = z.object({
+  name: z.string(),
+  min_resolution: z.number(),
+  preferred_sources: z.array(z.string()),
+  preferred_codecs: z.array(z.string()),
+  preferred_languages: z.array(z.string()).optional(),
+  preferred_search_language: z.string().nullable().optional(),
+  prioritized_trackers: z.array(z.string()).optional(),
+  prefer_tracker_over_quality: z.boolean().optional(),
+  max_size_gb: z.number().nullable().optional(),
+  require_hdr: z.boolean(),
+  prefer_hdr: z.boolean(),
+  cutoff_resolution: z.number().nullable().optional(),
+  min_seeders: z.number().int().min(0).optional(),
+  custom_formats: z
+    .array(
+      z.object({
+        custom_format_id: z.number().int(),
+        score: z.number().int(),
+        required: z.boolean().optional(),
+        forbidden: z.boolean().optional(),
+      }),
+    )
+    .optional(),
+});
+
+const codeOf = (e: unknown): string | null =>
+  e && typeof e === "object" && "code" in e
+    ? (e as { code: string }).code
+    : null;
+
+// Mounted at /api/quality-profiles by the edge (Elysia .mount strips the prefix).
+export const qualityProfilesRoutes = new Hono<Env>()
+  .use("*", requireUser)
+  .get("/", async () => {
     try {
       const rows = await prisma.qualityProfile.findMany({
         orderBy: { name: "asc" },
         include: qualityProfileFormatsInclude,
       });
-      return { profiles: rows.map(mapProfile) };
+      return ok({ profiles: rows.map(mapProfile) });
     } catch {
       return serverError("Failed to list quality profiles");
     }
   })
-  .post(
-    "/",
-    async ({ user, body, set }) => {
-      if (!user?.is_admin) return forbidden("Admin access required");
-      if (!RESOLUTIONS.has(body.min_resolution)) {
-        return badRequest("min_resolution must be 480, 720, 1080, or 2160");
-      }
-      if (
-        body.cutoff_resolution != null &&
-        !RESOLUTIONS.has(body.cutoff_resolution)
-      ) {
-        return badRequest("cutoff_resolution must be 480, 720, 1080, or 2160");
-      }
-      const preferredSearchLanguage = normalizePreferredSearchLanguage(
-        body.preferred_search_language,
-      );
-      if (
-        preferredSearchLanguage &&
-        typeof preferredSearchLanguage === "object" &&
-        "error" in preferredSearchLanguage
-      ) {
-        return badRequest(preferredSearchLanguage.error);
-      }
-      try {
-        const created = await prisma.$transaction(async (tx) => {
-          const profile = await tx.qualityProfile.create({
-            data: {
-              name: body.name.trim(),
-              minResolution: body.min_resolution,
-              preferredSources: body.preferred_sources,
-              preferredCodecs: body.preferred_codecs,
-              preferredLanguages: body.preferred_languages ?? [],
-              preferredSearchLanguage,
-              prioritizedTrackers: body.prioritized_trackers ?? [],
-              preferTrackerOverQuality:
-                body.prefer_tracker_over_quality ?? false,
-              maxSizeGb: body.max_size_gb ?? null,
-              requireHdr: body.require_hdr,
-              preferHdr: body.prefer_hdr,
-              cutoffResolution: body.cutoff_resolution ?? null,
-              minSeeders: body.min_seeders ?? 0,
-            },
+  .post("/", jsonV(profileBody), async (c) => {
+    if (!c.get("user").is_admin) return forbidden("Admin access required");
+    const body = c.req.valid("json");
+    if (!RESOLUTIONS.has(body.min_resolution)) {
+      return badRequest("min_resolution must be 480, 720, 1080, or 2160");
+    }
+    if (
+      body.cutoff_resolution != null &&
+      !RESOLUTIONS.has(body.cutoff_resolution)
+    ) {
+      return badRequest("cutoff_resolution must be 480, 720, 1080, or 2160");
+    }
+    const preferredSearchLanguage = normalizePreferredSearchLanguage(
+      body.preferred_search_language,
+    );
+    if (
+      preferredSearchLanguage &&
+      typeof preferredSearchLanguage === "object" &&
+      "error" in preferredSearchLanguage
+    ) {
+      return badRequest(preferredSearchLanguage.error);
+    }
+    try {
+      const created = await prisma.$transaction(async (tx) => {
+        const profile = await tx.qualityProfile.create({
+          data: {
+            name: body.name.trim(),
+            minResolution: body.min_resolution,
+            preferredSources: body.preferred_sources,
+            preferredCodecs: body.preferred_codecs,
+            preferredLanguages: body.preferred_languages ?? [],
+            preferredSearchLanguage,
+            prioritizedTrackers: body.prioritized_trackers ?? [],
+            preferTrackerOverQuality: body.prefer_tracker_over_quality ?? false,
+            maxSizeGb: body.max_size_gb ?? null,
+            requireHdr: body.require_hdr,
+            preferHdr: body.prefer_hdr,
+            cutoffResolution: body.cutoff_resolution ?? null,
+            minSeeders: body.min_seeders ?? 0,
+          },
+        });
+        if (
+          body.custom_formats !== undefined &&
+          body.custom_formats.length > 0
+        ) {
+          await tx.qualityProfileCustomFormat.createMany({
+            data: dedupeCustomFormats(body.custom_formats).map((a) => ({
+              qualityProfileId: profile.id,
+              customFormatId: a.custom_format_id,
+              score: a.score,
+              required: a.required ?? false,
+              forbidden: a.forbidden ?? false,
+            })),
           });
-          if (
-            body.custom_formats !== undefined &&
-            body.custom_formats.length > 0
-          ) {
+        }
+        return tx.qualityProfile.findUniqueOrThrow({
+          where: { id: profile.id },
+          include: qualityProfileFormatsInclude,
+        });
+      });
+      return ok({ profile: mapProfile(created) }, 201);
+    } catch (e: unknown) {
+      const code = codeOf(e);
+      if (code === "P2003") return badRequest("unknown custom_format_id");
+      if (code === "P2002")
+        return conflict("A profile with this name already exists");
+      return serverError("Failed to create quality profile");
+    }
+  })
+  .put("/:id", jsonV(profileBody), async (c) => {
+    if (!c.get("user").is_admin) return forbidden("Admin access required");
+    const id = parseInt(c.req.param("id"), 10);
+    if (!Number.isFinite(id)) return badRequest("Invalid id");
+    const body = c.req.valid("json");
+    if (!RESOLUTIONS.has(body.min_resolution)) {
+      return badRequest("min_resolution must be 480, 720, 1080, or 2160");
+    }
+    if (
+      body.cutoff_resolution != null &&
+      !RESOLUTIONS.has(body.cutoff_resolution)
+    ) {
+      return badRequest("cutoff_resolution must be 480, 720, 1080, or 2160");
+    }
+    const preferredSearchLanguage = normalizePreferredSearchLanguage(
+      body.preferred_search_language,
+    );
+    if (
+      preferredSearchLanguage &&
+      typeof preferredSearchLanguage === "object" &&
+      "error" in preferredSearchLanguage
+    ) {
+      return badRequest(preferredSearchLanguage.error);
+    }
+    try {
+      const updated = await prisma.$transaction(async (tx) => {
+        const existing = await tx.qualityProfile.findUnique({ where: { id } });
+        if (!existing) return null;
+        await tx.qualityProfile.update({
+          where: { id },
+          data: {
+            name: body.name.trim(),
+            minResolution: body.min_resolution,
+            preferredSources: body.preferred_sources,
+            preferredCodecs: body.preferred_codecs,
+            preferredLanguages: body.preferred_languages ?? [],
+            preferredSearchLanguage,
+            prioritizedTrackers: body.prioritized_trackers ?? [],
+            preferTrackerOverQuality: body.prefer_tracker_over_quality ?? false,
+            maxSizeGb: body.max_size_gb ?? null,
+            requireHdr: body.require_hdr,
+            preferHdr: body.prefer_hdr,
+            cutoffResolution: body.cutoff_resolution ?? null,
+            minSeeders: body.min_seeders ?? existing.minSeeders,
+          },
+        });
+        if (body.custom_formats !== undefined) {
+          await tx.qualityProfileCustomFormat.deleteMany({
+            where: { qualityProfileId: id },
+          });
+          if (body.custom_formats.length > 0) {
             await tx.qualityProfileCustomFormat.createMany({
               data: dedupeCustomFormats(body.custom_formats).map((a) => ({
-                qualityProfileId: profile.id,
+                qualityProfileId: id,
                 customFormatId: a.custom_format_id,
                 score: a.score,
                 required: a.required ?? false,
@@ -142,166 +246,25 @@ export const qualityProfilesRoutes = new Elysia({
               })),
             });
           }
-          return tx.qualityProfile.findUniqueOrThrow({
-            where: { id: profile.id },
-            include: qualityProfileFormatsInclude,
-          });
+        }
+        return tx.qualityProfile.findUniqueOrThrow({
+          where: { id },
+          include: qualityProfileFormatsInclude,
         });
-        return Response.json({ profile: mapProfile(created) }, { status: 201 });
-      } catch (e: unknown) {
-        const code =
-          e && typeof e === "object" && "code" in e
-            ? (e as { code: string }).code
-            : null;
-        if (code === "P2003") return badRequest("unknown custom_format_id");
-        if (code === "P2002")
-          return conflict("A profile with this name already exists");
-        return serverError("Failed to create quality profile");
-      }
-    },
-    {
-      body: z.object({
-        name: z.string(),
-        min_resolution: z.number(),
-        preferred_sources: z.array(z.string()),
-        preferred_codecs: z.array(z.string()),
-        preferred_languages: z.array(z.string()).optional(),
-        preferred_search_language: z.string().nullable().optional(),
-        prioritized_trackers: z.array(z.string()).optional(),
-        prefer_tracker_over_quality: z.boolean().optional(),
-        max_size_gb: z.number().nullable().optional(),
-        require_hdr: z.boolean(),
-        prefer_hdr: z.boolean(),
-        cutoff_resolution: z.number().nullable().optional(),
-        min_seeders: z.number().int().min(0).optional(),
-        custom_formats: z
-          .array(
-            z.object({
-              custom_format_id: z.number().int(),
-              score: z.number().int(),
-              required: z.boolean().optional(),
-              forbidden: z.boolean().optional(),
-            }),
-          )
-          .optional(),
-      }),
-    },
-  )
-  .put(
-    "/:id",
-    async ({ user, params, body, set }) => {
-      if (!user?.is_admin) return forbidden("Admin access required");
-      const id = parseInt(params.id, 10);
-      if (!Number.isFinite(id)) return badRequest("Invalid id");
-      if (!RESOLUTIONS.has(body.min_resolution)) {
-        return badRequest("min_resolution must be 480, 720, 1080, or 2160");
-      }
-      if (
-        body.cutoff_resolution != null &&
-        !RESOLUTIONS.has(body.cutoff_resolution)
-      ) {
-        return badRequest("cutoff_resolution must be 480, 720, 1080, or 2160");
-      }
-      const preferredSearchLanguage = normalizePreferredSearchLanguage(
-        body.preferred_search_language,
-      );
-      if (
-        preferredSearchLanguage &&
-        typeof preferredSearchLanguage === "object" &&
-        "error" in preferredSearchLanguage
-      ) {
-        return badRequest(preferredSearchLanguage.error);
-      }
-      try {
-        const updated = await prisma.$transaction(async (tx) => {
-          const existing = await tx.qualityProfile.findUnique({
-            where: { id },
-          });
-          if (!existing) return null;
-          await tx.qualityProfile.update({
-            where: { id },
-            data: {
-              name: body.name.trim(),
-              minResolution: body.min_resolution,
-              preferredSources: body.preferred_sources,
-              preferredCodecs: body.preferred_codecs,
-              preferredLanguages: body.preferred_languages ?? [],
-              preferredSearchLanguage,
-              prioritizedTrackers: body.prioritized_trackers ?? [],
-              preferTrackerOverQuality:
-                body.prefer_tracker_over_quality ?? false,
-              maxSizeGb: body.max_size_gb ?? null,
-              requireHdr: body.require_hdr,
-              preferHdr: body.prefer_hdr,
-              cutoffResolution: body.cutoff_resolution ?? null,
-              minSeeders: body.min_seeders ?? existing.minSeeders,
-            },
-          });
-          if (body.custom_formats !== undefined) {
-            await tx.qualityProfileCustomFormat.deleteMany({
-              where: { qualityProfileId: id },
-            });
-            if (body.custom_formats.length > 0) {
-              await tx.qualityProfileCustomFormat.createMany({
-                data: dedupeCustomFormats(body.custom_formats).map((a) => ({
-                  qualityProfileId: id,
-                  customFormatId: a.custom_format_id,
-                  score: a.score,
-                  required: a.required ?? false,
-                  forbidden: a.forbidden ?? false,
-                })),
-              });
-            }
-          }
-          return tx.qualityProfile.findUniqueOrThrow({
-            where: { id },
-            include: qualityProfileFormatsInclude,
-          });
-        });
-        if (!updated) return notFound("Quality profile not found");
-        return { profile: mapProfile(updated) };
-      } catch (e: unknown) {
-        const code =
-          e && typeof e === "object" && "code" in e
-            ? (e as { code: string }).code
-            : null;
-        if (code === "P2003") return badRequest("unknown custom_format_id");
-        if (code === "P2002")
-          return conflict("A profile with this name already exists");
-        return serverError("Failed to update quality profile");
-      }
-    },
-    {
-      body: z.object({
-        name: z.string(),
-        min_resolution: z.number(),
-        preferred_sources: z.array(z.string()),
-        preferred_codecs: z.array(z.string()),
-        preferred_languages: z.array(z.string()).optional(),
-        preferred_search_language: z.string().nullable().optional(),
-        prioritized_trackers: z.array(z.string()).optional(),
-        prefer_tracker_over_quality: z.boolean().optional(),
-        max_size_gb: z.number().nullable().optional(),
-        require_hdr: z.boolean(),
-        prefer_hdr: z.boolean(),
-        cutoff_resolution: z.number().nullable().optional(),
-        min_seeders: z.number().int().min(0).optional(),
-        custom_formats: z
-          .array(
-            z.object({
-              custom_format_id: z.number().int(),
-              score: z.number().int(),
-              required: z.boolean().optional(),
-              forbidden: z.boolean().optional(),
-            }),
-          )
-          .optional(),
-      }),
-    },
-  )
-  .delete("/:id", async ({ user, params, set }) => {
-    if (!user?.is_admin) return forbidden("Admin access required");
-    const id = parseInt(params.id, 10);
+      });
+      if (!updated) return notFound("Quality profile not found");
+      return ok({ profile: mapProfile(updated) });
+    } catch (e: unknown) {
+      const code = codeOf(e);
+      if (code === "P2003") return badRequest("unknown custom_format_id");
+      if (code === "P2002")
+        return conflict("A profile with this name already exists");
+      return serverError("Failed to update quality profile");
+    }
+  })
+  .delete("/:id", async (c) => {
+    if (!c.get("user").is_admin) return forbidden("Admin access required");
+    const id = parseInt(c.req.param("id"), 10);
     if (!Number.isFinite(id)) return badRequest("Invalid id");
     try {
       const existing = await prisma.qualityProfile.findUnique({
@@ -317,8 +280,9 @@ export const qualityProfilesRoutes = new Elysia({
         );
       }
       await prisma.qualityProfile.delete({ where: { id } });
-      return { success: true };
+      return ok({ success: true });
     } catch {
       return serverError("Failed to delete quality profile");
     }
-  });
+  })
+  .notFound(() => notFound("Not found"));

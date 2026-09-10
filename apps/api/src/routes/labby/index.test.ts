@@ -3,7 +3,8 @@ import { Elysia } from "elysia";
 import { buildLabbySummary } from "./summary";
 
 const { labbyRoutes } = await import("./index");
-const app = new Elysia().use(labbyRoutes);
+// Ported to Hono; mount it the way the edge does so the /api/labby paths hold.
+const app = new Elysia().mount("/api/labby", labbyRoutes.fetch);
 
 describe("Labby API", () => {
   it("rejects a missing api key", async () => {
