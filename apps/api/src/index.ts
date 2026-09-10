@@ -135,7 +135,7 @@ export const app = new Elysia()
   .all("/api/auth/*", ({ request }) => betterAuthInstance.handler(request))
   .use(downloadClientHookRoutes)
   .use(globalRateLimit) // Global rate limiting for unauthenticated requests
-  .use(dashboardRoutes)
+  .mount("/api/dashboard", dashboardRoutes.fetch)
   .mount("/api/users", usersRoutes.fetch)
   .use(notificationsRoutes)
   .mount("/api/labby", labbyRoutes.fetch)

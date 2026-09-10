@@ -1,20 +1,20 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
-import { auth } from "@rawkoon/api/auth";
-import { requireUser } from "@rawkoon/api/middleware/auth";
+import { ok } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { requireUser } from "@rawkoon/api/middleware/hono/auth";
 
-export const dashboardDownloadsRoutes = new Elysia()
-  .use(auth)
-  .use(requireUser)
+export const dashboardDownloadsRoutes = new Hono<Env>()
+  .use("*", requireUser)
   .get("/downloads/speed", async () => {
     const active = await resolveActiveAdapter();
     if (!active) {
-      return { enabled: false, connected: false, dl_speed: 0, ul_speed: 0 };
+      return ok({ enabled: false, connected: false, dl_speed: 0, ul_speed: 0 });
     }
 
     try {
       const torrents = await active.adapter.listTorrents();
-      return {
+      return ok({
         enabled: true,
         connected: true,
         dl_speed: torrents.reduce(
@@ -22,8 +22,8 @@ export const dashboardDownloadsRoutes = new Elysia()
           0,
         ),
         ul_speed: 0,
-      };
+      });
     } catch {
-      return { enabled: true, connected: false, dl_speed: 0, ul_speed: 0 };
+      return ok({ enabled: true, connected: false, dl_speed: 0, ul_speed: 0 });
     }
   });

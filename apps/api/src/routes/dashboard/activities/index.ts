@@ -1,10 +1,11 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { z } from "zod";
-import { auth } from "@rawkoon/api/auth";
-import { requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
 import { formatIso } from "@rawkoon/api/utils";
-import { serverError } from "@rawkoon/api/errors";
+import { ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { requireUser } from "@rawkoon/api/middleware/hono/auth";
+import { queryV } from "@rawkoon/api/middleware/validate";
 
 type ActivityRecord = {
   id: number;
@@ -150,66 +151,62 @@ function matchesActivityFilters(
   return true;
 }
 
-export const dashboardActivitiesRoutes = new Elysia()
-  .use(auth)
-  .use(requireUser)
-  .get(
-    "/activities/feed",
-    async ({ query, set }) => {
-      try {
-        const limit = query.limit ? parseInt(query.limit, 10) : 25;
-        const safeLimit =
-          Number.isFinite(limit) && limit > 0 ? Math.min(limit, 250) : 25;
-        const filters = {
-          service: query.service?.trim().toLowerCase() || undefined,
-          type: query.type?.trim() || undefined,
-        };
+const feedQuery = z.object({
+  limit: z.string().optional(),
+  service: z.string().optional(),
+  type: z.string().optional(),
+});
 
-        const recentLogs = await prisma.activityLog.findMany({
-          orderBy: { createdAt: "desc" },
-          take: ACTIVITY_FEED_SOURCE_LIMIT,
-          include: {
-            user: {
-              select: {
-                firstName: true,
-                email: true,
-              },
+export const dashboardActivitiesRoutes = new Hono<Env>()
+  .use("*", requireUser)
+  .get("/activities/feed", queryV(feedQuery), async (c) => {
+    const query = c.req.valid("query");
+    try {
+      const limit = query.limit ? parseInt(query.limit, 10) : 25;
+      const safeLimit =
+        Number.isFinite(limit) && limit > 0 ? Math.min(limit, 250) : 25;
+      const filters = {
+        service: query.service?.trim().toLowerCase() || undefined,
+        type: query.type?.trim() || undefined,
+      };
+
+      const recentLogs = await prisma.activityLog.findMany({
+        orderBy: { createdAt: "desc" },
+        take: ACTIVITY_FEED_SOURCE_LIMIT,
+        include: {
+          user: {
+            select: {
+              firstName: true,
+              email: true,
             },
           },
-        });
+        },
+      });
 
-        const allActivities = sortActivitiesDescending(
-          recentLogs
-            .map(mapActivityLogToActivity)
-            .filter((entry) => entry.completed_at),
-        );
+      const allActivities = sortActivitiesDescending(
+        recentLogs
+          .map(mapActivityLogToActivity)
+          .filter((entry) => entry.completed_at),
+      );
 
-        const filteredActivities = allActivities.filter((activity) =>
-          matchesActivityFilters(activity, filters),
-        );
+      const filteredActivities = allActivities.filter((activity) =>
+        matchesActivityFilters(activity, filters),
+      );
 
-        return {
-          activities: filteredActivities.slice(0, safeLimit),
-          available_services: uniqueSorted(
-            allActivities.map((activity) => activity.service),
-          ),
-          available_types: uniqueSorted(
-            allActivities.map((activity) => activity.type),
-          ),
-          total: filteredActivities.length,
-          limit: safeLimit,
-          has_more: filteredActivities.length > safeLimit,
-        };
-      } catch (err) {
-        console.error("Error getting dashboard activity feed:", err);
-        return serverError("Failed to get dashboard activity feed");
-      }
-    },
-    {
-      query: z.object({
-        limit: z.string().optional(),
-        service: z.string().optional(),
-        type: z.string().optional(),
-      }),
-    },
-  );
+      return ok({
+        activities: filteredActivities.slice(0, safeLimit),
+        available_services: uniqueSorted(
+          allActivities.map((activity) => activity.service),
+        ),
+        available_types: uniqueSorted(
+          allActivities.map((activity) => activity.type),
+        ),
+        total: filteredActivities.length,
+        limit: safeLimit,
+        has_more: filteredActivities.length > safeLimit,
+      });
+    } catch (err) {
+      console.error("Error getting dashboard activity feed:", err);
+      return serverError("Failed to get dashboard activity feed");
+    }
+  });
