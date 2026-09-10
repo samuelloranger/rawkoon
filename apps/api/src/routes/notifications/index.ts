@@ -87,7 +87,6 @@ const apnsRegisterBody = z.object({
 // GET /vapid-public-key. Guards are route-level so they don't leak across the
 // /channels merge.
 export const notificationsRoutes = new Hono<Env>()
-  // GET /api/notifications/stream - SSE stream of this user's new notifications.
   // Drives the in-app banner regardless of push-subscription status.
   .get("/stream", requireUser, (c) => {
     const userId = c.get("user").id;
@@ -153,7 +152,6 @@ export const notificationsRoutes = new Hono<Env>()
       },
     });
   })
-  // GET /api/notifications - Get notifications with pagination
   .get("/", requireUser, queryV(listQuery), async (c) => {
     const user = c.get("user");
     const query = c.req.valid("query");
@@ -204,7 +202,6 @@ export const notificationsRoutes = new Hono<Env>()
       return serverError("Failed to get notifications");
     }
   })
-  // GET /api/notifications/unread-count - Get unread count
   .get("/unread-count", requireUser, async (c) => {
     try {
       const count = await prisma.notification.count({
@@ -217,7 +214,6 @@ export const notificationsRoutes = new Hono<Env>()
       return serverError("Failed to get unread count");
     }
   })
-  // GET /api/notifications/unread-ids - Lightweight endpoint for the SW to check read status
   .get("/unread-ids", requireUser, async (c) => {
     try {
       const unread = await prisma.notification.findMany({
@@ -231,7 +227,6 @@ export const notificationsRoutes = new Hono<Env>()
       return serverError("Failed to get unread IDs");
     }
   })
-  // PUT /api/notifications/:id/read - Mark notification as read
   .put("/:id/read", requireUser, async (c) => {
     const notificationId = parseInt(c.req.param("id"), 10);
     if (isNaN(notificationId)) {
@@ -260,7 +255,6 @@ export const notificationsRoutes = new Hono<Env>()
       return serverError("Failed to mark notification as read");
     }
   })
-  // PUT /api/notifications/read-all - Mark all notifications as read
   .put("/read-all", requireUser, async (c) => {
     try {
       const result = await prisma.notification.updateMany({
@@ -278,7 +272,6 @@ export const notificationsRoutes = new Hono<Env>()
       return serverError("Failed to mark all notifications as read");
     }
   })
-  // DELETE /api/notifications/:id - Delete notification
   .delete("/:id", requireUser, async (c) => {
     const notificationId = parseInt(c.req.param("id"), 10);
     if (isNaN(notificationId)) {
@@ -302,7 +295,6 @@ export const notificationsRoutes = new Hono<Env>()
       return serverError("Failed to delete notification");
     }
   })
-  // GET /api/notifications/devices - Get user's notification devices
   .get("/devices", requireUser, async (c) => {
     try {
       const devices = await prisma.userSubscription.findMany({
@@ -329,7 +321,6 @@ export const notificationsRoutes = new Hono<Env>()
       return serverError("Failed to get devices");
     }
   })
-  // DELETE /api/notifications/devices/:id - Delete notification device
   .delete("/devices/:id", requireUser, async (c) => {
     const deviceId = parseInt(c.req.param("id"), 10);
 
@@ -350,7 +341,6 @@ export const notificationsRoutes = new Hono<Env>()
       return serverError("Failed to delete device");
     }
   })
-  // GET /api/notifications/vapid-public-key - Get VAPID public key (public)
   .get("/vapid-public-key", (_c) => {
     try {
       const publicKey = getVapidPublicKey();
@@ -362,7 +352,6 @@ export const notificationsRoutes = new Hono<Env>()
       );
     }
   })
-  // POST /api/notifications/subscribe - Subscribe to push notifications
   .post("/subscribe", requireUser, jsonV(subscribeBody), async (c) => {
     const user = c.get("user");
     const { subscription, device_info } = c.req.valid("json");
@@ -469,7 +458,6 @@ export const notificationsRoutes = new Hono<Env>()
       return serverError("Failed to subscribe");
     }
   })
-  // POST /api/notifications/unsubscribe - Unsubscribe from push notifications
   .post("/unsubscribe", requireUser, async (c) => {
     const user = c.get("user");
     // The body is optional (missing/empty = no-op success), but a present body
@@ -500,7 +488,6 @@ export const notificationsRoutes = new Hono<Env>()
       return serverError("Failed to unsubscribe");
     }
   })
-  // POST /api/notifications/test - Send a test push notification (admin only)
   .post("/test", requireUser, async (c) => {
     // The optional body is validated first (a malformed one is a 400), matching
     // the original where validation ran before the handler.
@@ -548,7 +535,6 @@ export const notificationsRoutes = new Hono<Env>()
       return serverError("Failed to send test notification");
     }
   })
-  // POST /api/notifications/apns/register - register a native iOS device token
   .post("/apns/register", requireUser, jsonV(apnsRegisterBody), async (c) => {
     const user = c.get("user");
     const { device_token, device_info } = c.req.valid("json");
@@ -585,8 +571,6 @@ export const notificationsRoutes = new Hono<Env>()
       return serverError("Failed to register device");
     }
   })
-  // POST /api/notifications/apns/unregister - drop a token on sign-out
-  //
   // By token rather than by row id: the app knows its own token and has no
   // reason to have listed the devices first.
   .post(
@@ -607,7 +591,6 @@ export const notificationsRoutes = new Hono<Env>()
       }
     },
   )
-  // GET /api/notifications/apns/devices - this user's registered iOS devices
   .get("/apns/devices", requireUser, async (c) => {
     try {
       const devices = await prisma.apnsDevice.findMany({
@@ -627,7 +610,6 @@ export const notificationsRoutes = new Hono<Env>()
       return serverError("Failed to load devices");
     }
   })
-  // DELETE /api/notifications/apns/devices/:id - remove one iOS device token
   .delete("/apns/devices/:id", requireUser, async (c) => {
     const id = parseInt(c.req.param("id"), 10);
     if (Number.isNaN(id)) return badRequest("Invalid device ID");

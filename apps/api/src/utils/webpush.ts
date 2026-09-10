@@ -9,9 +9,6 @@ interface VapidKeys {
 
 let vapidKeys: VapidKeys | null = null;
 
-/**
- * Load VAPID keys from files or environment variables
- */
 function loadVapidKeys(): VapidKeys {
   if (vapidKeys) {
     return vapidKeys;
@@ -28,13 +25,11 @@ function loadVapidKeys(): VapidKeys {
       const publicKeyPem = readFileSync(publicKeyPath, "utf-8").trim();
       const privateKeyPem = readFileSync(privateKeyPath, "utf-8").trim();
 
-      // Convert PEM to base64url format if needed
       const publicKey = convertPemToBase64Url(publicKeyPem);
       const privateKey = convertPrivateKeyPemToBase64Url(privateKeyPem);
 
       vapidKeys = { publicKey, privateKey };
 
-      // Set VAPID details
       webpush.setVapidDetails(
         Bun.env.VAPID_CONTACT_EMAIL || "mailto:admin@localhost",
         publicKey,
@@ -48,7 +43,6 @@ function loadVapidKeys(): VapidKeys {
     }
   }
 
-  // Fallback to environment variables
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
 
@@ -60,7 +54,6 @@ function loadVapidKeys(): VapidKeys {
 
   vapidKeys = { publicKey, privateKey };
 
-  // Set VAPID details
   webpush.setVapidDetails(
     Bun.env.VAPID_CONTACT_EMAIL || "mailto:admin@localhost",
     publicKey,
@@ -70,9 +63,6 @@ function loadVapidKeys(): VapidKeys {
   return vapidKeys;
 }
 
-/**
- * Convert PEM public key to base64url format for web push
- */
 function convertPemToBase64Url(pem: string): string {
   // If already in base64url format (no PEM headers), return as-is
   if (!pem.startsWith("-----BEGIN")) {
@@ -82,7 +72,6 @@ function convertPemToBase64Url(pem: string): string {
   // For EC public keys in PEM format, we need to extract the raw key
   // The PEM contains ASN.1 DER encoded data, and we need just the EC point
 
-  // Remove PEM headers and decode base64
   const pemContents = pem
     .replace(/-----BEGIN.*-----/, "")
     .replace(/-----END.*-----/, "")
@@ -121,16 +110,12 @@ function convertPemToBase64Url(pem: string): string {
     .replace(/=/g, "");
 }
 
-/**
- * Convert PEM private key to base64url format for web push
- */
 function convertPrivateKeyPemToBase64Url(pem: string): string {
   // If already in base64url format, return as-is
   if (!pem.startsWith("-----BEGIN")) {
     return pem;
   }
 
-  // Remove PEM headers and decode base64
   const pemContents = pem
     .replace(/-----BEGIN.*-----/, "")
     .replace(/-----END.*-----/, "")
@@ -157,9 +142,6 @@ function convertPrivateKeyPemToBase64Url(pem: string): string {
   throw new Error("Could not extract private key from PEM");
 }
 
-/**
- * Get the public key in base64url format for the frontend
- */
 export function getVapidPublicKey(): string {
   const keys = loadVapidKeys();
   return keys.publicKey;
@@ -185,15 +167,11 @@ interface PushPayload {
   actions?: Array<{ action: string; title: string }>;
 }
 
-/**
- * Send a web push notification
- */
 export async function sendWebPushNotification(
   subscription: PushSubscription,
   payload: PushPayload,
 ): Promise<{ success: boolean; expired?: boolean; error?: string }> {
   try {
-    // Ensure VAPID keys are loaded
     loadVapidKeys();
 
     const fullPayload = {

@@ -1,7 +1,3 @@
-/**
- * Version service for checking app version changes and notifying users
- */
-
 import { prisma } from "@rawkoon/api/db";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import { getJsonCache, setJsonCache } from "./cache";
@@ -50,7 +46,6 @@ async function sendAppUpdateNotifications(newVersion?: string): Promise<void> {
     const version = newVersion || getAppVersion();
 
     // Standard internal notifications (Web Push, Expo Push)
-    // Get all users who have at least one delivery channel
     const users = await prisma.user.findMany({
       where: {
         OR: [{ userSubscriptions: { some: {} } }],

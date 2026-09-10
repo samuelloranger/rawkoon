@@ -5,9 +5,9 @@ import type { Env } from "@rawkoon/api/honoEnv";
 import { formatIso } from "@rawkoon/api/utils";
 
 // Mounted under /api/admin; requireAdmin is applied at the admin parent.
-export const adminLibraryHealthRoutes = new Hono<Env>()
-  // GET /api/admin/library-health - Latest persisted library integrity checks
-  .get("/library-health", async (c) => {
+export const adminLibraryHealthRoutes = new Hono<Env>().get(
+  "/library-health",
+  async (c) => {
     try {
       const limit = Math.min(
         25,
@@ -58,4 +58,5 @@ export const adminLibraryHealthRoutes = new Hono<Env>()
       console.error("Error fetching library health:", error);
       return serverError("Failed to fetch library health");
     }
-  });
+  },
+);

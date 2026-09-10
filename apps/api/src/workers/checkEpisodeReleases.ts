@@ -88,7 +88,6 @@ export async function checkEpisodeReleases(): Promise<void> {
     }
   }
 
-  // Process season pack searches for eligible seasons.
   for (const [key, groupEps] of seasonGroups) {
     if (!groupEps.every((ep) => packEligibleIds.has(ep.id))) continue;
 
@@ -145,7 +144,6 @@ export async function checkEpisodeReleases(): Promise<void> {
     }
   }
 
-  // Process individual episode searches for non-pack-eligible episodes.
   const individualEpisodes = episodes.filter(
     (ep) => !packEligibleIds.has(ep.id),
   );

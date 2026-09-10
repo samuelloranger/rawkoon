@@ -1,9 +1,14 @@
 # apps/api/e2e — endpoint verification harness
 
-A **framework-agnostic** sweep that drives every API endpoint and asserts it still
-accepts valid input, rejects invalid input (HTTP 400), and gates auth (401/403).
-Built to verify the `t.`→Zod migration and to prove parity across the planned
-**Elysia→Hono** move: the same suite runs against both frameworks.
+A **framework-agnostic** regression sweep that drives every API endpoint and
+asserts it still accepts valid input, rejects invalid input (HTTP 400), and
+gates auth (401/403). One run is **477 checks** across the fixtured routes,
+written to `e2e/results.json`.
+
+It was originally built to verify the `t.`→Zod migration and to prove parity
+across the Elysia→Hono move (the same suite ran against both frameworks); Elysia
+is now fully removed and Hono is the only backend, but the suite remains as the
+standing endpoint regression gate.
 
 Spec/plan: `docs/superpowers/specs|plans/2026-09-09-endpoint-verification-harness.*`.
 
@@ -22,36 +27,24 @@ bun run e2e:endpoints
 The script adds `--preload ./e2e/mocks/preload.ts` (installs external mocks). A
 **DB-name guard** refuses to run unless the database name ends in `_e2e`/`_test`.
 Every run truncates + reseeds a disposable dataset. Exit code is non-zero on any
-failed check or any uncovered/extra route. Results are written to
-`e2e/results.json`.
+failed check or any uncovered/extra route.
 
 `bun run e2e:manifest` regenerates `routes.manifest.json` from the app's route table.
 
 ## How it works (and why in-process)
 
 - **In-process dispatch.** The runner drives routes through `server.ts`'s
-  `dispatch(req) = app.handle(req)` seam (Hono later: `app.fetch(req)`) — real HTTP
-  `fetch` is used instead when `BASE_URL` is set. In-process is the default because
-  this sandbox SIGTERMs any process that binds a listening socket.
+  `dispatch(req) = app.fetch(req)` seam — real HTTP `fetch` is used instead when
+  `BASE_URL` is set. In-process is the default because this sandbox SIGTERMs any
+  process that binds a listening socket.
 - **Framework touch-point is isolated to two files:** `server.ts` (dispatch/listen)
   and `genManifest.ts` (route dump). Everything else — runner, http client,
   fixtures, assertions, manifest loader, mocks, seed — speaks HTTP/JSON only.
 - **External services are mocked** in `mocks/externals.ts`: `ioredis` + `bullmq`
   stubs (no Redis/queue connection), `web-push` stub, and a `globalThis.fetch`
-  shim for the ~14 HTTP providers. Prisma uses the real `rawkoon_e2e` DB.
+  shim for the ~14 HTTP providers. Prisma uses the real disposable `rawkoon_e2e` DB.
 - **Coverage gate:** every route in `routes.manifest.json` must have a fixture; a
   missing fixture fails the run. This keeps "each and every endpoint" honest.
-
-## The Elysia → Hono parity procedure
-
-1. Baseline (Elysia): `bun run e2e:endpoints`, save `results.json` → `results.elysia.json`.
-2. Point `server.ts`'s import at the Hono app and set its `dispatch` to `app.fetch`.
-   Regenerate the manifest and `git diff routes.manifest.json` — any added/dropped
-   route is a parity finding.
-3. Hono run: `bun run e2e:endpoints` → `results.hono.json`.
-4. `bun run e2e:diff results.elysia.json results.hono.json` — must report PARITY OK.
-
-Nothing else changes between the two runs.
 
 ## Adding / editing a fixture
 
@@ -70,7 +63,7 @@ route is added, the coverage gate fails until it has a fixture. Key flags:
 
 ## Migration gotcha this harness caught
 
-Elysia auto-coerces **path/query** params for `t.Number`/`t.Integer`/`t.Boolean`;
-Zod `z.number()` does not. So a `t.Number`→`z.number()` conversion is correct for
-JSON **bodies** but a regression for **params/query** — use `z.coerce.number()`
-there. Fixed in `blocklist/:id` and `libraryJobStats` query params.
+Elysia auto-coerced **path/query** params for `t.Number`/`t.Integer`/`t.Boolean`;
+Zod `z.number()` does not. So a `t.Number`→`z.number()` conversion was correct for
+JSON **bodies** but a regression for **params/query** — those need
+`z.coerce.number()`. Fixed in `blocklist/:id` and `libraryJobStats` query params.

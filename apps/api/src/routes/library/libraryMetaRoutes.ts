@@ -39,7 +39,6 @@ const monitoredBody = z.object({ monitored: z.boolean() });
  * overrides | episodes/:episodeId/status
  */
 export const libraryMetaRoutes = new Hono<Env>()
-  // PATCH /api/library/:id/status — update status
   .patch("/:id/status", requireAdmin, jsonV(statusBody), async (c) => {
     try {
       const id = parseInt(c.req.param("id"), 10);
@@ -59,7 +58,6 @@ export const libraryMetaRoutes = new Hono<Env>()
     }
   })
 
-  // PATCH /api/library/:id/monitored — toggle monitoring for a movie or show
   .patch("/:id/monitored", requireAdmin, jsonV(monitoredBody), async (c) => {
     try {
       const id = parseInt(c.req.param("id"), 10);
@@ -75,7 +73,6 @@ export const libraryMetaRoutes = new Hono<Env>()
     }
   })
 
-  // PATCH /api/library/:id/quality-profile
   .patch(
     "/:id/quality-profile",
     requireAdmin,
@@ -183,7 +180,6 @@ export const libraryMetaRoutes = new Hono<Env>()
     },
   )
 
-  // PATCH /api/library/:id/search-title — set preferred indexer search title
   .patch(
     "/:id/search-title",
     requireAdmin,
@@ -280,7 +276,6 @@ export const libraryMetaRoutes = new Hono<Env>()
     },
   )
 
-  // PATCH /api/library/:id/seasons/:season/monitored — bulk toggle a season
   .patch(
     "/:id/seasons/:season/monitored",
     requireAdmin,
@@ -303,7 +298,6 @@ export const libraryMetaRoutes = new Hono<Env>()
     },
   )
 
-  // PATCH /api/library/:id/episodes/:episodeId/monitored — toggle an episode
   .patch(
     "/:id/episodes/:episodeId/monitored",
     requireAdmin,
@@ -326,7 +320,6 @@ export const libraryMetaRoutes = new Hono<Env>()
     },
   )
 
-  // PATCH /api/library/:id/overrides — set/clear manual metadata overrides
   .patch(
     "/:id/overrides",
     requireAdmin,
@@ -373,7 +366,6 @@ export const libraryMetaRoutes = new Hono<Env>()
     },
   )
 
-  // PATCH /api/library/:id/episodes/:episodeId/status — reset episode status
   .patch(
     "/:id/episodes/:episodeId/status",
     requireAdmin,

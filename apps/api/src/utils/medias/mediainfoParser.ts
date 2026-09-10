@@ -6,8 +6,6 @@ import {
   expandLanguageCode,
 } from "./filenameParser";
 
-// ─── MediaInfo JSON types ─────────────────────────────────────────────────────
-
 export type MediaInfoTrack = {
   "@type": string;
   // General
@@ -36,8 +34,6 @@ export type MediaInfoTrack = {
   Forced?: string;
   HearingImpaired?: string;
 };
-
-// ─── Output types ─────────────────────────────────────────────────────────────
 
 export type AudioTrack = {
   index: number;
@@ -81,8 +77,6 @@ export type MediaFileData = {
   audioTracks: AudioTrack[];
   subtitleTracks: SubtitleTrack[];
 };
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function parseChannelLayout(channelStr: string | undefined): string | null {
   if (!channelStr) return null;
@@ -146,8 +140,6 @@ function parseSourceFromFilename(fileName: string): string | null {
   if (/\bHDCAM\b/i.test(fileName)) return "HDCAM";
   return null;
 }
-
-// ─── Main parser ──────────────────────────────────────────────────────────────
 
 /**
  * Parse a mediainfo JSON string into structured MediaFileData.

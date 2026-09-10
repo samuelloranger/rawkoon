@@ -1,7 +1,5 @@
 import { normalizeLanguageCode } from "@rawkoon/shared";
 
-// ─── Output type ─────────────────────────────────────────────────────────────
-
 export interface FilenameMetadata {
   resolution: number | null;
   source: string | null;
@@ -16,13 +14,9 @@ export interface FilenameMetadata {
   streaming: string | null; // AMZN, NF, DSNP, APLE, etc.
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 const VIDEO_EXT = /\.(mkv|avi|mp4|m4v|wmv|ts|m2ts|mov|flv)$/i;
 const TECHNICAL_TOKENS =
   /^(2160p|1080p|1080i|720p|480p|576p|4K|UHD|WEB|WEB[-.]?DL|WEBRip|BluRay|BDRip|BDRemux|HDRip|DVDRip|HDTV|REMUX|HDLight|x264|x265|H264|H265|HEVC|AVC|AV1|VP9|AAC|AC3|EAC3|DTS|FLAC|TrueHD|MULTI|MULTi|VFF|VFQ|VFI|VF2|VF|FRENCH|TRUEFRENCH|VOSTFR|ATMOS|HDR|HDR10|DV)$/i;
-
-// ─── Individual parsers ───────────────────────────────────────────────────────
 
 export function parseResolution(filename: string): number | null {
   if (/\b(4K|UHD|2160[pi])\b/i.test(filename)) return 2160;
@@ -194,8 +188,6 @@ export function parseReleaseGroup(filename: string): string | null {
   if (TECHNICAL_TOKENS.test(match[1])) return null;
   return match[1];
 }
-
-// ─── Main parser ─────────────────────────────────────────────────────────────
 
 export function parseFilenameMetadata(filename: string): FilenameMetadata {
   return {

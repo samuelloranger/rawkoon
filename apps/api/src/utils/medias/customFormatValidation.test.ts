@@ -1,4 +1,3 @@
-// apps/api/src/utils/medias/customFormatValidation.test.ts
 import { describe, expect, test } from "bun:test";
 import { validateFormatConditions } from "@rawkoon/api/utils/medias/customFormatValidation";
 

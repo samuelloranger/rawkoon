@@ -89,7 +89,6 @@ const patchBody = z.object({
 
 // Mounted at /channels by the notifications root. Guards are route-level.
 export const notificationChannelsRoutes = new Hono<Env>()
-  // GET /api/notifications/channels
   .get("/", requireUser, async (c) => {
     try {
       const channels = await prisma.notificationChannel.findMany({
@@ -102,7 +101,6 @@ export const notificationChannelsRoutes = new Hono<Env>()
     }
   })
 
-  // POST /api/notifications/channels
   .post("/", requireUser, jsonV(createBody), async (c) => {
     const user = c.get("user");
     const body = c.req.valid("json");
@@ -127,7 +125,6 @@ export const notificationChannelsRoutes = new Hono<Env>()
     }
   })
 
-  // PATCH /api/notifications/channels/:id
   .patch("/:id", requireUser, jsonV(patchBody), async (c) => {
     const user = c.get("user");
     const body = c.req.valid("json");
@@ -166,7 +163,6 @@ export const notificationChannelsRoutes = new Hono<Env>()
     }
   })
 
-  // DELETE /api/notifications/channels/:id
   .delete("/:id", requireUser, async (c) => {
     const user = c.get("user");
     const id = parseId(c.req.param("id"));
@@ -186,7 +182,6 @@ export const notificationChannelsRoutes = new Hono<Env>()
     }
   })
 
-  // POST /api/notifications/channels/:id/test
   .post("/:id/test", requireUser, async (c) => {
     const user = c.get("user");
     const id = parseId(c.req.param("id"));

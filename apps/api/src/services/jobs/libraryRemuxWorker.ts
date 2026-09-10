@@ -55,7 +55,6 @@ export async function processLibraryRemuxFileJob(
 
   const resolvedPath = remapPath(file.filePath);
 
-  // Identify current tracks via mkvmerge
   const identProc = Bun.spawn([bin, "-J", resolvedPath], { stderr: "ignore" });
   const identTimeout = setTimeout(() => identProc.kill(), 30_000);
   const identRaw = await new Response(identProc.stdout).text();
@@ -77,13 +76,11 @@ export async function processLibraryRemuxFileJob(
     if (keepAudioIndexSet.has(idx)) keptAudioIds.push(t.id);
   });
 
-  // Map keep_subtitle_track_indices → mkvmerge track IDs
   const keptSubIds: number[] = [];
   subtitleTracks.forEach((t, idx) => {
     if (keepSubIndexSet.has(idx)) keptSubIds.push(t.id);
   });
 
-  // Nothing to do
   if (
     keptAudioIds.length === audioTracks.length &&
     keptSubIds.length === subtitleTracks.length
@@ -142,7 +139,6 @@ export async function processLibraryRemuxFileJob(
     };
   }
 
-  // Re-scan and update DB
   const mi = await scanMediaInfo(file.filePath);
   if (mi) {
     const tags = classifyLanguageTags(

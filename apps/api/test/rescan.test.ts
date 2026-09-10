@@ -3,10 +3,6 @@ import * as realFs from "node:fs/promises";
 import * as shared from "@rawkoon/shared";
 import * as realFilenameParser from "@rawkoon/api/utils/medias/filenameParser";
 
-// ---------------------------------------------------------------------------
-// Mutable state shared across all mock factories
-// ---------------------------------------------------------------------------
-
 type MediaRecord = {
   id: number;
   type: "movie" | "show";
@@ -55,7 +51,6 @@ type State = {
   mediaUpdateArgs: object | null;
   allMediaUpdateArgs: object[];
   enqueuedDhIds: number[]; // IDs passed to enqueueLibraryPostProcess
-  // discovery / rename
   mediaSettings: MediaSettingsRecord | null;
   createdFiles: object[];
   activeDownloadCount: number;
@@ -119,10 +114,7 @@ const readdirMap: Record<string, string[]> = {};
 // rename mock: captures { from, to } for each fs.rename call
 const renameCaptures: Array<{ from: string; to: string }> = [];
 
-// ---------------------------------------------------------------------------
 // Mock modules — MUST be registered before importing the module under test
-// ---------------------------------------------------------------------------
-
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
     libraryMedia: {
@@ -268,15 +260,8 @@ mock.module("@rawkoon/shared", () => ({
   classifyLanguageTags: () => [],
 }));
 
-// ---------------------------------------------------------------------------
-// Import the service — AFTER mock registrations
-// ---------------------------------------------------------------------------
-
+// Import the service AFTER mock registrations
 import { rescanLibraryItem } from "../src/services/library/rescan";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function makeMi(overrides: Partial<MiResult> = {}): MiResult {
   return {
@@ -338,23 +323,15 @@ beforeEach(() => {
   for (const k of Object.keys(readdirMap)) delete readdirMap[k];
   renameCaptures.length = 0;
   qbCompleteHashes.clear();
-  remapFn = (p) => p; // reset to identity
+  remapFn = (p) => p;
 });
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe("rescanLibraryItem", () => {
-  // ── Existence ──────────────────────────────────────────────────────────────
-
   it("1. Media not found → returns null", async () => {
     state.media = null;
     const result = await rescanLibraryItem(999);
     expect(result).toBeNull();
   });
-
-  // ── No-files, movie ────────────────────────────────────────────────────────
 
   it("2. Movie, no files, status 'wanted' → no DB writes", async () => {
     state.media = { id: 1, type: "movie", status: "wanted" };
@@ -401,8 +378,6 @@ describe("rescanLibraryItem", () => {
     expect(result?.mediaReset).toBe(false);
     expect(state.mediaUpdateArgs).toBeNull();
   });
-
-  // ── File-level cases ───────────────────────────────────────────────────────
 
   it("6. Movie, 1 file on disk, MediaInfo succeeds → rescanned:1", async () => {
     const file = makeFile({ id: 1, filePath: "/media/movie.mkv" });
@@ -499,8 +474,6 @@ describe("rescanLibraryItem", () => {
     expect(result?.mediaReset).toBe(false); // 1 file still remains
   });
 
-  // ── Show-specific ──────────────────────────────────────────────────────────
-
   it("10. Show, no files, 3 episodes 'downloaded' → episodesReset:3", async () => {
     state.media = { id: 1, type: "show", status: "downloaded" };
     state.remainingFileCount = 0;
@@ -595,8 +568,6 @@ describe("rescanLibraryItem", () => {
     expect(state.mediaUpdateArgs).toBeNull();
   });
 
-  // ── Imported count (formerly automatic library-folder scan) ───────────────
-
   it("17. imported is always 0 (use Library → Downloads to add files manually)", async () => {
     state.media = { id: 1, type: "movie", status: "downloading" };
     state.remainingFileCount = 1;
@@ -620,8 +591,6 @@ describe("rescanLibraryItem", () => {
     expect(result?.rescanned).toBe(1);
     expect(result?.mediaReset).toBe(false);
   });
-
-  // ── qBittorrent re-queue ───────────────────────────────────────────────────
 
   it("19. Completed DH with torrent still in qBittorrent (completed state) → requeued:1", async () => {
     state.media = {
@@ -698,8 +667,6 @@ describe("rescanLibraryItem", () => {
     expect(result?.mediaReset).toBe(false); // skipped
   });
 
-  // ── Path remapping (statFile must use remapPath) ───────────────────────────
-
   it("24. remapPath identity (no env vars) → statFile receives original path, file found → failed:1", async () => {
     // remapFn is identity by default — verifies existing tests still hold
     const file = makeFile({ id: 1, filePath: "/library/show.mkv" });
@@ -774,10 +741,6 @@ it("27. RescanResult includes renamed field", async () => {
   expect(result).toHaveProperty("renamed");
   expect(result?.renamed).toBe(0);
 });
-
-// ---------------------------------------------------------------------------
-// Discovery (Step 1b)
-// ---------------------------------------------------------------------------
 
 describe("Discovery (Step 1b)", () => {
   it("28. Movie, matching file on disk not yet tracked → imported:1, mediaFile.create called", async () => {
@@ -933,10 +896,6 @@ describe("Discovery (Step 1b)", () => {
     expect(result?.imported).toBe(0);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Rename (Step 1c)
-// ---------------------------------------------------------------------------
 
 describe("Rename (Step 1c)", () => {
   it("34. File name doesn't match template → renamed:1, fs.rename called, DB updated", async () => {

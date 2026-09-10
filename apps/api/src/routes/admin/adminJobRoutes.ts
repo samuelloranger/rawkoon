@@ -95,7 +95,6 @@ const actionMap: Record<string, string> = {
 // Mounted under /api/admin; requireAdmin is
 // applied once at the admin parent and propagates to these merged routes.
 export const adminJobRoutes = new Hono<Env>()
-  // GET /api/admin/scheduled-jobs - List scheduled BullMQ jobs and queue stats
   .get("/scheduled-jobs", async () => {
     const queueStats = [
       await getQueueStats("Scheduled Tasks", scheduledTasksQueue),
@@ -110,7 +109,6 @@ export const adminJobRoutes = new Hono<Env>()
     });
   })
 
-  // GET /api/admin/jobs/events - SSE endpoint for real-time job updates
   .get("/jobs/events", (c) => {
     return createJsonSseResponse({
       request: c.req.raw,
@@ -120,7 +118,6 @@ export const adminJobRoutes = new Hono<Env>()
     });
   })
 
-  // GET /api/admin/queues/:name/jobs - Get detailed list of jobs in a specific queue
   .get("/queues/:name/jobs", async (c) => {
     const queue = queueMap[c.req.param("name")];
     if (!queue) throw new Error("Queue not found");
@@ -166,7 +163,6 @@ export const adminJobRoutes = new Hono<Env>()
     );
   })
 
-  // POST /api/admin/trigger-action - Trigger a cron job manually
   .post(
     "/trigger-action",
     jsonV(z.object({ action: z.string() })),
@@ -199,7 +195,6 @@ export const adminJobRoutes = new Hono<Env>()
     },
   )
 
-  // POST /api/admin/queues/:name/jobs/:jobId/retry - Retry a single failed job
   .post("/queues/:name/jobs/:jobId/retry", async (c) => {
     const queue = queueMap[c.req.param("name")];
     if (!queue) return badRequest("Queue not found");
@@ -220,7 +215,6 @@ export const adminJobRoutes = new Hono<Env>()
     }
   })
 
-  // POST /api/admin/queues/:name/retry-failed - Retry all failed jobs in a queue
   .post("/queues/:name/retry-failed", async (c) => {
     const queue = queueMap[c.req.param("name")];
     if (!queue) return badRequest("Queue not found");
@@ -243,7 +237,6 @@ export const adminJobRoutes = new Hono<Env>()
     }
   })
 
-  // DELETE /api/admin/queues/:name/clean - Clean completed/failed jobs from a queue
   .delete("/queues/:name/clean", async (c) => {
     const queue = queueMap[c.req.param("name")];
     if (!queue) return badRequest("Queue not found");
@@ -271,7 +264,6 @@ export const adminJobRoutes = new Hono<Env>()
     }
   })
 
-  // GET /api/admin/jobs/history - Recent job history across all queues
   .get("/jobs/history", async (c) => {
     const limit = parseInt(c.req.query("limit") ?? "") || 50;
 

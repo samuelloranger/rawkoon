@@ -38,9 +38,6 @@ export function getContentType(filename: string): string {
   }
 }
 
-/**
- * Save uploaded image and create thumbnail on local disk
- */
 export async function saveImageAndCreateThumbnail(file: File): Promise<string> {
   if (!file || !isAllowedFile(file.name)) {
     throw new Error("Invalid file type. Only images are allowed.");
@@ -54,7 +51,6 @@ export async function saveImageAndCreateThumbnail(file: File): Promise<string> {
     const arrayBuffer = await file.arrayBuffer();
     const imageBuffer = Buffer.from(arrayBuffer);
 
-    // Validate with sharp metadata first
     try {
       await sharp(imageBuffer).metadata();
     } catch (e) {
@@ -106,9 +102,6 @@ export async function saveImageAndCreateThumbnail(file: File): Promise<string> {
   }
 }
 
-/**
- * Delete image and thumbnail files from disk
- */
 export async function deleteImageFiles(imageName: string): Promise<void> {
   if (!imageName) return;
 
@@ -116,23 +109,14 @@ export async function deleteImageFiles(imageName: string): Promise<void> {
   await deleteFromStorage(`thumbnail-${imageName}`);
 }
 
-/**
- * Get image from disk
- */
 export async function getImage(filename: string): Promise<Buffer | null> {
   return readFromStorage(filename);
 }
 
-/**
- * Get thumbnail from disk
- */
 export async function getThumbnail(filename: string): Promise<Buffer | null> {
   return readFromStorage(`thumbnail-${filename}`);
 }
 
-/**
- * Get the full URL for an avatar image (served through API)
- */
 export function getAvatarUrl(filename: string): string {
   const baseUrl = getBaseUrl();
   return `${baseUrl}/api/users/avatar/${filename}`;

@@ -29,9 +29,6 @@ export type CreateNotificationOptions = {
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 
-/**
- * Create a notification record and enqueue a push delivery job
- */
 export async function createAndQueueNotification(
   userId: string,
   title: string,

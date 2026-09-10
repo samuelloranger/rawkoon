@@ -393,7 +393,6 @@ export async function postProcessSeasonPack(
     `[postProcess/pack] Processed ${processed} episodes for "${dh.media.title}" (${errors.length} errors)`,
   );
 
-  // Remove torrent if seed ratio met
   const ratio = tor.ratio;
   const min = settings.minSeedRatio;
   const shouldRemove = min <= 0 || (ratio != null && ratio >= min);

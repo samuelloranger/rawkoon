@@ -14,7 +14,6 @@ function parseYmdToDbDate(ymd: string | null | undefined): Date | null {
 
 // Mounted at /api/medias/watchlist by the medias parent (prefix dropped here).
 export const mediasWatchlistRoutes = new Hono<Env>()
-  // GET /api/medias/watchlist
   .get("/", requireUser, async (c) => {
     try {
       const items = await prisma.watchlistItem.findMany({

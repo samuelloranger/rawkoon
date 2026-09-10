@@ -8,8 +8,6 @@ import type {
 } from "@rawkoon/shared/types";
 import { toNumberOrNull, toRecord, toStringOrNull } from "./mappers";
 
-// ── Return types ────────────────────────────────────────────────────────────
-
 export type TrailerResult = {
   key: string | null;
   name: string | null;

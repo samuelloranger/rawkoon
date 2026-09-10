@@ -19,7 +19,7 @@ export async function verifyPassword(
   hash: string,
 ): Promise<boolean> {
   try {
-    // 1. Try Bun native (Argon2 / Bcrypt)
+    // Try Bun native (Argon2 / Bcrypt)
     // specific check to avoid overhead if it's obviously not argon/bcrypt not needed,
     // but verify handles standard formats checking.
     // If it's a werkzeug hash it might throw or return false.
@@ -34,7 +34,7 @@ export async function verifyPassword(
     // ignore and fall through to legacy
   }
 
-  // 2. Handle Werkzeug formats
+  // Handle Werkzeug formats
   // Format: method$salt$hash or method:iterations$salt$hash
 
   if (hash.startsWith("pbkdf2:sha256")) {

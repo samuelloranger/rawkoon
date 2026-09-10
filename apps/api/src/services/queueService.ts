@@ -11,7 +11,6 @@ import {
   recordJobDuration,
 } from "@rawkoon/api/services/perf/perfStore";
 
-// Define queue names
 export const QUEUE_NAMES = {
   EXPRESS: "express",
   SCHEDULED_TASKS: "scheduled-tasks",
@@ -23,7 +22,6 @@ export const QUEUE_NAMES = {
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
 
-// Job names for Scheduled Tasks
 export const SCHEDULED_JOB_NAMES = {
   CLEANUP_NOTIFICATIONS: "cleanup-notifications",
   REFRESH_UPCOMING: "refresh-upcoming",
@@ -41,7 +39,6 @@ export const SCHEDULED_JOB_NAMES = {
   CHECK_AUTHOR_RELEASES: "check-author-releases",
 } as const;
 
-// Job names for Notifications queue
 export const NOTIFICATION_JOB_NAMES = {
   SEND_NOTIFICATION: "send-notification",
 } as const;
@@ -62,7 +59,6 @@ const defaultQueueOptions: QueueOptions = {
   },
 };
 
-// Initialize Queues
 export const expressQueue = new Queue(QUEUE_NAMES.EXPRESS, defaultQueueOptions);
 export const scheduledTasksQueue = new Queue(
   QUEUE_NAMES.SCHEDULED_TASKS,
@@ -174,9 +170,6 @@ function trackJobDurations(worker: Worker, queueName: string): Worker {
   return worker;
 }
 
-/**
- * Initialize Workers
- */
 export function initWorkers() {
   console.log("🚀 Initializing BullMQ workers...");
 

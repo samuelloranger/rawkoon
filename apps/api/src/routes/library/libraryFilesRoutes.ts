@@ -22,7 +22,6 @@ const deleteFileQuery = z.object({ delete_file: z.string().optional() });
  * All routes are requireUser; the mutating ones add an inline ensureAdmin.
  */
 export const libraryFilesRoutes = new Hono<Env>()
-  // GET /api/library/:id/episodes — episodes grouped by season
   .get("/:id/episodes", requireUser, async (c) => {
     try {
       const id = parseInt(c.req.param("id"), 10);
@@ -62,7 +61,6 @@ export const libraryFilesRoutes = new Hono<Env>()
     }
   })
 
-  // GET /api/library/:id/downloads — grab history + live client progress
   .get("/:id/downloads", requireUser, async (c) => {
     try {
       const id = parseInt(c.req.param("id"), 10);
@@ -143,7 +141,6 @@ export const libraryFilesRoutes = new Hono<Env>()
     }
   })
 
-  // DELETE /api/library/:id/downloads/failed — remove failed / error grab rows
   .delete("/:id/downloads/failed", requireUser, async (c) => {
     const denied = ensureAdmin(c.get("user"));
     if (denied) return denied;
@@ -202,7 +199,6 @@ export const libraryFilesRoutes = new Hono<Env>()
     }
   })
 
-  // DELETE /api/library/:id/downloads/:dhId — remove one failed / error grab row
   .delete("/:id/downloads/:dhId", requireUser, async (c) => {
     const denied = ensureAdmin(c.get("user"));
     if (denied) return denied;
@@ -258,7 +254,6 @@ export const libraryFilesRoutes = new Hono<Env>()
     }
   })
 
-  // POST /api/library/:id/downloads/:dhId/action — pause/resume/remove
   .post(
     "/:id/downloads/:dhId/action",
     requireUser,
@@ -346,7 +341,6 @@ export const libraryFilesRoutes = new Hono<Env>()
     },
   )
 
-  // POST /api/library/downloads/:dhId/retry-post-process — re-run post-processing
   .post("/downloads/:dhId/retry-post-process", requireUser, async (c) => {
     const denied = ensureAdmin(c.get("user"));
     if (denied) return denied;
@@ -374,7 +368,6 @@ export const libraryFilesRoutes = new Hono<Env>()
     }
   })
 
-  // GET /api/library/:id/files — file metadata for a library item
   .get("/:id/files", requireUser, async (c) => {
     try {
       const id = parseInt(c.req.param("id"), 10);
@@ -433,7 +426,6 @@ export const libraryFilesRoutes = new Hono<Env>()
     }
   })
 
-  // POST /api/library/:id/rescan — re-scan MediaInfo for all files of an item
   .post("/:id/rescan", requireUser, async (c) => {
     const denied = ensureAdmin(c.get("user"));
     if (denied) return denied;
@@ -454,7 +446,6 @@ export const libraryFilesRoutes = new Hono<Env>()
     }
   })
 
-  // PATCH /api/library/files/:fileId — update editable file fields
   .patch(
     "/files/:fileId",
     requireUser,

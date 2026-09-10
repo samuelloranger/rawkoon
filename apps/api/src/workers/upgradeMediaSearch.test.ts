@@ -1,6 +1,5 @@
 import { describe, it, expect, mock, beforeEach } from "bun:test";
 
-// --- prisma mock ---
 const findUniqueMedia = mock(async () => null as unknown);
 const findUniqueEpisode = mock(async () => null as unknown);
 const updateMedia = mock(async () => ({}));
@@ -19,7 +18,6 @@ mock.module("@rawkoon/api/db", () => ({
   },
 }));
 
-// --- searchAndGrabWithTitleFallback mock ---
 const searchAndGrabWithTitleFallbackMock = mock(async () => ({
   grabbed: true,
 }));

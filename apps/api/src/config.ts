@@ -23,7 +23,6 @@ const databaseUrl =
         );
 
 const envSchema = z.object({
-  // ── Core ──────────────────────────────────────────────
   NODE_ENV: z.string().optional().default("development"),
   API_PORT: portNumber.optional().default(3000),
   SECRET_KEY: z
@@ -50,10 +49,8 @@ const envSchema = z.object({
   LOG_LEVEL: z.string().optional().default("info"),
   TZ: z.string().optional().default("America/New_York"),
 
-  // ── Database ──────────────────────────────────────────
   DATABASE_URL: databaseUrl,
 
-  // ── Valkey (Redis-compatible) ─────────────────────────
   // VALKEY_* is canonical; REDIS_* is kept as a fallback so an environment
   // not yet migrated (e.g. an existing prod .env) keeps working.
   VALKEY_URL: z.string().optional(),
@@ -67,21 +64,17 @@ const envSchema = z.object({
   REDIS_PASSWORD: z.string().optional(),
   REDIS_DB: z.coerce.number().int().min(0).optional(),
 
-  // ── Image Storage ─────────────────────────────────────
   IMAGE_STORAGE_DIR: z.string().optional().default("./data/images"),
 
-  // ── Web Push (VAPID) ──────────────────────────────────
   VAPID_PUBLIC_KEY: z.string().optional(),
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_CONTACT_EMAIL: z.string().optional().default("mailto:admin@localhost"),
 
-  // ── Apple Push (APNs) via relay ───────────────────────
   // The API posts pushes to a relay that holds the APNs signing key (a
   // self-hosted server can't sign for the published app). Defaults to the
   // official relay; override to run your own.
   PUSH_RELAY_URL: z.string().optional(),
 
-  // ── GitHub Releases ───────────────────────────────────
   GITHUB_RELEASES_REPO: githubRepoFullName,
 });
 
@@ -111,8 +104,6 @@ export function loadConfig(): Env {
   cached = result.data;
   return cached;
 }
-
-// ── Derived helpers ───────────────────────────────────────────────────────────
 
 export function getBaseUrl(): string {
   return loadConfig().BASE_URL;

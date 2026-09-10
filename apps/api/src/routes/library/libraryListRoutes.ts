@@ -38,7 +38,6 @@ const listQuery = z.object({
  * GET /api/library/item/:id
  */
 export const libraryListRoutes = new Hono<Env>()
-  // GET /api/library — list library
   .get("/", requireUser, queryV(listQuery), async (c) => {
     const query = c.req.valid("query");
     try {
@@ -112,7 +111,6 @@ export const libraryListRoutes = new Hono<Env>()
     }
   })
 
-  // GET /api/library/item/:id — single library item (integrations)
   .get("/item/:id", requireUser, async (c) => {
     try {
       const id = parseInt(c.req.param("id"), 10);
@@ -128,7 +126,6 @@ export const libraryListRoutes = new Hono<Env>()
     }
   })
 
-  // POST /api/library — add item by TMDB ID
   .post(
     "/",
     requireUser,

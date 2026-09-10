@@ -3,8 +3,6 @@ import { describe, it, expect } from "bun:test";
 // so this import always resolves to the real implementation regardless of parallelism.
 import { parseMediaInfoJson } from "./mediainfoParser";
 
-// ─── Fixtures ─────────────────────────────────────────────────────────────────
-
 const DOLBY_VISION_REMUX = {
   media: {
     track: [
@@ -289,8 +287,6 @@ const MALFORMED_LANGUAGE_CODES = {
     ],
   },
 };
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("scanMediaInfo", () => {
   it("fixture 1: Dolby Vision REMUX — parses HDR, audio, subtitles", () => {

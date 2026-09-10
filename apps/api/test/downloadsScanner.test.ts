@@ -2,8 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test";
 import { mkdir, open, unlink, link, rm, mkdtemp } from "node:fs/promises";
 import { join } from "node:path";
 
-// ── prisma mock ─────────────────────────────────────────────────────────────
-
 type MF = {
   id?: number;
   filePath: string;

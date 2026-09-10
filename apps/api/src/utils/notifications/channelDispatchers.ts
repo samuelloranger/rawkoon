@@ -32,10 +32,6 @@ function escapeHtml(text: string): string {
     .replace(/>/g, "&gt;");
 }
 
-// ---------------------------------------------------------------------------
-// ntfy
-// ---------------------------------------------------------------------------
-
 export function parseNtfyConfig(raw: unknown): NtfyChannelConfig {
   if (!isRecord(raw)) {
     throw new Error("ntfy config must be an object");
@@ -100,10 +96,6 @@ export async function dispatchNtfy(
   if (!res.ok) throw new Error(`ntfy ${res.status}: ${await res.text()}`);
 }
 
-// ---------------------------------------------------------------------------
-// Telegram
-// ---------------------------------------------------------------------------
-
 export function parseTelegramConfig(raw: unknown): TelegramChannelConfig {
   if (!isRecord(raw)) {
     throw new Error("telegram config must be an object");
@@ -148,10 +140,6 @@ export async function dispatchTelegram(
   if (!res.ok) throw new Error(`telegram ${res.status}: ${await res.text()}`);
 }
 
-// ---------------------------------------------------------------------------
-// Discord
-// ---------------------------------------------------------------------------
-
 export function parseDiscordConfig(raw: unknown): DiscordChannelConfig {
   if (!isRecord(raw)) {
     throw new Error("discord config must be an object");
@@ -185,10 +173,6 @@ export async function dispatchDiscord(
   });
   if (!res.ok) throw new Error(`discord ${res.status}: ${await res.text()}`);
 }
-
-// ---------------------------------------------------------------------------
-// Gotify
-// ---------------------------------------------------------------------------
 
 export function parseGotifyConfig(raw: unknown): GotifyChannelConfig {
   if (!isRecord(raw)) {
@@ -234,10 +218,6 @@ export async function dispatchGotify(
   });
   if (!res.ok) throw new Error(`gotify ${res.status}: ${await res.text()}`);
 }
-
-// ---------------------------------------------------------------------------
-// Pushover
-// ---------------------------------------------------------------------------
 
 export function parsePushoverConfig(raw: unknown): PushoverChannelConfig {
   if (!isRecord(raw)) {
@@ -292,10 +272,6 @@ export async function dispatchPushover(
   if (!res.ok) throw new Error(`pushover ${res.status}: ${await res.text()}`);
 }
 
-// ---------------------------------------------------------------------------
-// Slack
-// ---------------------------------------------------------------------------
-
 export function parseSlackConfig(raw: unknown): SlackChannelConfig {
   if (!isRecord(raw)) {
     throw new Error("slack config must be an object");
@@ -347,10 +323,6 @@ export async function dispatchSlack(
   });
   if (!res.ok) throw new Error(`slack ${res.status}: ${await res.text()}`);
 }
-
-// ---------------------------------------------------------------------------
-// Generic Webhook
-// ---------------------------------------------------------------------------
 
 export function parseWebhookConfig(raw: unknown): WebhookChannelConfig {
   if (!isRecord(raw)) {
@@ -421,10 +393,6 @@ export async function dispatchWebhook(
   const res = await safeFetch(resolvedUrl, init);
   if (!res.ok) throw new Error(`webhook ${res.status}: ${await res.text()}`);
 }
-
-// ---------------------------------------------------------------------------
-// Orchestrator
-// ---------------------------------------------------------------------------
 
 // Routes a channel to its provider-specific dispatcher and parses the raw
 // config at the boundary. Accepts raw Prisma rows (config is unknown).

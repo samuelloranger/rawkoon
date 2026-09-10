@@ -1,7 +1,3 @@
-/**
- * Utility functions index - re-exports all utilities for convenient imports
- */
-
 export {
   getTimezone,
   isNightTime,

@@ -25,7 +25,6 @@ function parseExclude(raw: string | undefined): number[] {
 
 // Mounted at /api/medias/discover by the medias parent (prefix dropped here).
 export const mediasDiscoverRoutes = new Hono<Env>()
-  // GET /api/medias/discover/deck
   .get("/deck", requireUser, async (c) => {
     try {
       const tmdbConfig = await loadEnabledTmdbConfig();

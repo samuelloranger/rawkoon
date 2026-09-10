@@ -18,7 +18,6 @@ const validateEmail = (email: string): boolean => {
 
 // Mounted under /api/admin; requireAdmin is applied at the admin parent.
 export const adminUserRoutes = new Hono<Env>()
-  // GET /api/admin/users - List all users
   .get("/users", async () => {
     try {
       const allUsers = await prisma.user.findMany({
@@ -43,7 +42,6 @@ export const adminUserRoutes = new Hono<Env>()
     }
   })
 
-  // POST /api/admin/users - Direct user creation
   .post(
     "/users",
     jsonV(
@@ -135,7 +133,6 @@ export const adminUserRoutes = new Hono<Env>()
     },
   )
 
-  // PATCH /api/admin/users/:id/role - Update user role (promote/demote)
   .patch(
     "/users/:id/role",
     jsonV(z.object({ is_admin: z.boolean() })),
@@ -173,7 +170,6 @@ export const adminUserRoutes = new Hono<Env>()
     },
   )
 
-  // POST /api/admin/users/:id/reset-password - Admin reset user password
   .post(
     "/users/:id/reset-password",
     jsonV(z.object({ password: z.string() })),
@@ -212,7 +208,6 @@ export const adminUserRoutes = new Hono<Env>()
     },
   )
 
-  // POST /api/admin/invitations - Create an invitation link
   .post(
     "/invitations",
     jsonV(
@@ -309,7 +304,6 @@ export const adminUserRoutes = new Hono<Env>()
     },
   )
 
-  // GET /api/admin/invitations - List all invitations
   .get("/invitations", async () => {
     try {
       const invitations = await prisma.invitation.findMany({
@@ -351,7 +345,6 @@ export const adminUserRoutes = new Hono<Env>()
     }
   })
 
-  // POST /api/admin/invitations/:id/resend - Regenerate an invitation link
   .post("/invitations/:id/resend", async (c) => {
     const id = parseInt(c.req.param("id"), 10);
     if (isNaN(id)) return badRequest("Invalid invitation ID");
@@ -384,7 +377,6 @@ export const adminUserRoutes = new Hono<Env>()
     }
   })
 
-  // DELETE /api/admin/invitations/:id - Revoke an invitation
   .delete("/invitations/:id", async (c) => {
     const id = parseInt(c.req.param("id"), 10);
     if (isNaN(id)) return badRequest("Invalid invitation ID");
@@ -410,7 +402,6 @@ export const adminUserRoutes = new Hono<Env>()
     }
   })
 
-  // DELETE /api/admin/users/:id - Delete a user
   .delete("/users/:id", async (c) => {
     const userId = c.req.param("id");
 

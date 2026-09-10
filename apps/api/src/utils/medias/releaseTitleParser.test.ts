@@ -4,7 +4,6 @@ import { parseReleaseTitle } from "@rawkoon/api/utils/medias/filenameParser";
 describe("parseReleaseTitle", () => {
   const cases: { title: string; exp: ReturnType<typeof parseReleaseTitle> }[] =
     [
-      // ── Existing cases ──────────────────────────────────────────────────────────────────────
       {
         title: "Movie.Title.2024.1080p.BluRay.x265.HDR10.DTS-HD-GROUP",
         exp: {

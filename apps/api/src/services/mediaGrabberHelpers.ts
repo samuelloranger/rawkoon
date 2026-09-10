@@ -41,7 +41,6 @@ export function mapAssignedFormats(
   }));
 }
 
-/** Load a quality profile with its custom formats, or null. */
 export async function loadProfileWithFormats(
   id: number,
 ): Promise<QualityProfileWithFormats | null> {

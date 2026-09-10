@@ -150,7 +150,6 @@ export async function markItemDownloaded(dh: {
   }
 }
 
-/** Parse season and episode numbers from a video filename. */
 export function parseSeasonEpisode(
   filename: string,
 ): { season: number; episode: number } | null {

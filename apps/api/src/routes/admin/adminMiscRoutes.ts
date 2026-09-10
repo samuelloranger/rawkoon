@@ -6,7 +6,6 @@ import type { Env } from "@rawkoon/api/honoEnv";
 
 // Mounted under /api/admin; requireAdmin is applied at the admin parent.
 export const adminMiscRoutes = new Hono<Env>()
-  // GET /api/admin/sessions - List all active Better Auth sessions
   .get("/sessions", async () => {
     try {
       const sessions = await prisma.baSession.findMany({
@@ -49,7 +48,6 @@ export const adminMiscRoutes = new Hono<Env>()
     }
   })
 
-  // DELETE /api/admin/sessions/:id - Revoke a specific session
   .delete("/sessions/:id", async (c) => {
     try {
       await prisma.baSession.deleteMany({ where: { id: c.req.param("id") } });
@@ -60,7 +58,6 @@ export const adminMiscRoutes = new Hono<Env>()
     }
   })
 
-  // DELETE /api/admin/sessions/user/:userId - Revoke all sessions for a user
   .delete("/sessions/user/:userId", async (c) => {
     try {
       await prisma.baSession.deleteMany({
@@ -73,7 +70,6 @@ export const adminMiscRoutes = new Hono<Env>()
     }
   })
 
-  // GET /api/admin/web-push - List all web push subscriptions
   .get("/web-push", async () => {
     try {
       const subs = await prisma.userSubscription.findMany({
@@ -111,7 +107,6 @@ export const adminMiscRoutes = new Hono<Env>()
     }
   })
 
-  // DELETE /api/admin/web-push/:id - Delete a web push subscription
   .delete("/web-push/:id", async (c) => {
     const id = parseInt(c.req.param("id"), 10);
     if (isNaN(id)) return badRequest("Invalid subscription ID");

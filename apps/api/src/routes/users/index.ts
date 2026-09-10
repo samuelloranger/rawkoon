@@ -52,7 +52,6 @@ const passwordBody = z.object({
 
 // Mounted at /api/users by the edge.
 export const usersRoutes = new Hono<Env>()
-  // PUT /api/users/me - Update user profile
   .put("/me", jsonV(profileBody), async (c) => {
     const user = await resolveUser(c.req.raw);
     if (!user) return unauthorized("Unauthorized");
@@ -70,7 +69,6 @@ export const usersRoutes = new Hono<Env>()
       return serverError("Failed to update profile");
     }
   })
-  // PUT /api/users/me/notification-preferences
   .put(
     "/me/notification-preferences",
     jsonV(notificationPrefsBody),
@@ -93,7 +91,6 @@ export const usersRoutes = new Hono<Env>()
       }
     },
   )
-  // POST /api/users/me/password - Change password
   .post("/me/password", jsonV(passwordBody), async (c) => {
     const user = await resolveUser(c.req.raw);
     if (!user) return unauthorized("Unauthorized");
@@ -138,7 +135,6 @@ export const usersRoutes = new Hono<Env>()
       return serverError("Failed to change password");
     }
   })
-  // GET /api/users/avatar/:filename - Serve avatar image (public)
   .get("/avatar/:filename", async (c) => {
     const filename = c.req.param("filename");
 
@@ -161,7 +157,6 @@ export const usersRoutes = new Hono<Env>()
       return serverError("Failed to serve avatar");
     }
   })
-  // POST /api/users/me/avatar - Upload avatar (multipart)
   .post("/me/avatar", async (c) => {
     const user = await resolveUser(c.req.raw);
     if (!user) return unauthorized("Unauthorized");

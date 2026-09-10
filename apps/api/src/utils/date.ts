@@ -1,11 +1,3 @@
-/**
- * Date and time utility functions for the API server.
- * These are shared across multiple route handlers.
- */
-
-/**
- * Get timezone from environment variable or default to America/New_York
- */
 export const getTimezone = (): string => {
   return Bun.env.TZ || "America/New_York";
 };
@@ -25,9 +17,6 @@ export function isNightTime(): boolean {
   return currentHour >= 23 || currentHour < 6;
 }
 
-/**
- * Format a date to ISO string, handling various input types
- */
 export const formatIso = (
   date: string | Date | null | undefined,
 ): string | null => {
@@ -36,14 +25,8 @@ export const formatIso = (
   return date.toISOString();
 };
 
-/**
- * Get current UTC timestamp as ISO string
- */
 export const nowUtc = (): string => new Date().toISOString();
 
-/**
- * Get today's date in the local timezone (midnight local time)
- */
 export const todayLocal = (): Date => {
   const now = new Date();
   const formatter = new Intl.DateTimeFormat("en-CA", {
@@ -59,9 +42,6 @@ export const todayLocal = (): Date => {
   return new Date(Date.UTC(year, month - 1, day));
 };
 
-/**
- * Convert UTC datetime to local date (date only, no time)
- */
 export const toLocalDate = (
   utcDateInput: string | Date | null | undefined,
 ): Date | null => {
@@ -81,9 +61,6 @@ export const toLocalDate = (
   return new Date(Date.UTC(year, month - 1, day));
 };
 
-/**
- * Convert UTC date to local timezone (preserving time)
- */
 export const utcToTimezone = (date: Date | string | null): Date | null => {
   if (!date) return null;
   const d = typeof date === "string" ? new Date(date) : date;
@@ -110,9 +87,6 @@ export const utcToTimezone = (date: Date | string | null): Date | null => {
   );
 };
 
-/**
- * Format date in local timezone as YYYY-MM-DD
- */
 export const formatDateInTimezone = (date: Date | string | null): string => {
   if (!date) return "";
   const d = typeof date === "string" ? new Date(date) : date;
@@ -125,9 +99,6 @@ export const formatDateInTimezone = (date: Date | string | null): string => {
   return formatter.format(d);
 };
 
-/**
- * Get number of days in a month
- */
 export const getDaysInMonth = (year: number, month: number): number => {
   return new Date(year, month, 0).getDate();
 };
@@ -140,18 +111,12 @@ export const midnightOf = (ymd: string): Date => {
   return new Date(year, month - 1, day, 0, 0, 0, 0);
 };
 
-/**
- * Add (or subtract) days to a Date, returning a new Date at midnight.
- */
 export const addDaysInTz = (date: Date, days: number): Date => {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;
 };
 
-/**
- * Calculate period boundaries for analytics
- */
 export const calculatePeriodDates = (
   period: string,
   startDateStr?: string,

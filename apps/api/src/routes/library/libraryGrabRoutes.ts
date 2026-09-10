@@ -32,7 +32,6 @@ const searchQueryBody = z.object({
  * seasons/:season/retry-skipped | episodes/:episodeId/search | upgrade
  */
 export const libraryGrabRoutes = new Hono<Env>()
-  // POST /api/library/:id/grab — interactive grab (known download URL → qB + history)
   .post(
     "/:id/grab",
     requireAdmin,
@@ -119,7 +118,6 @@ export const libraryGrabRoutes = new Hono<Env>()
     },
   )
 
-  // POST /api/library/:id/search — manual Prowlarr search + grab (movies)
   .post("/:id/search", requireAdmin, jsonV(searchQueryBody), async (c) => {
     try {
       const id = parseInt(c.req.param("id"), 10);
@@ -170,7 +168,6 @@ export const libraryGrabRoutes = new Hono<Env>()
     }
   })
 
-  // POST /api/library/:id/episodes/:episodeId/search — episode grab (shows)
   .post(
     "/:id/episodes/:episodeId/search",
     requireAdmin,
@@ -242,7 +239,6 @@ export const libraryGrabRoutes = new Hono<Env>()
     },
   )
 
-  // POST /api/library/:id/seasons/:season/retry-skipped — reset skipped episodes
   .post("/:id/seasons/:season/retry-skipped", requireAdmin, async (c) => {
     try {
       const mediaId = parseInt(c.req.param("id"), 10);
@@ -257,7 +253,6 @@ export const libraryGrabRoutes = new Hono<Env>()
     }
   })
 
-  // POST /api/library/:id/seasons/:season/search — auto-grab best season pack
   .post(
     "/:id/seasons/:season/search",
     requireAdmin,
@@ -333,7 +328,6 @@ export const libraryGrabRoutes = new Hono<Env>()
     },
   )
 
-  // POST /api/library/:id/upgrade
   .post(
     "/:id/upgrade",
     requireAdmin,

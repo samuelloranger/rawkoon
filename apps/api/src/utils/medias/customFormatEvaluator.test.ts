@@ -1,4 +1,3 @@
-// apps/api/src/utils/medias/customFormatEvaluator.test.ts
 import { describe, expect, test } from "bun:test";
 import type { ParsedRelease } from "@rawkoon/api/utils/medias/filenameParser";
 import type {
