@@ -1,12 +1,10 @@
-import { existsSync } from "node:fs";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { serveStatic } from "hono/bun";
 
 import { notFound, ok } from "@rawkoon/api/errors";
 import { type Env, honoOnError } from "@rawkoon/api/honoEnv";
-import { isApiPath } from "@rawkoon/api/utils/isApiPath";
 
+import { registerStaticRoutes } from "./staticRoutes";
 import { checkAndNotifyVersionChange } from "./services/versionService";
 import { auth as betterAuthInstance } from "@rawkoon/api/lib/auth";
 import {
@@ -41,7 +39,6 @@ import {
   strictAuthRateLimit,
 } from "./middleware/hono/rateLimit";
 import { requestTiming } from "./middleware/hono/requestTiming";
-import { resolveUser } from "./middleware/auth";
 import {
   closeAllWorkers,
   initWorkers,
@@ -49,26 +46,6 @@ import {
 } from "./services/queueService";
 import { startResourceSampler } from "./services/perf/perfStore";
 import { checkHealth } from "./services/healthCheck";
-
-// The production image copies the built frontend into ./public (see
-// Dockerfile); in dev the directory doesn't exist and Vite serves the SPA.
-const serveStaticEnabled = existsSync("./public/index.html");
-const spaIndexHtmlPromise: Promise<string> = serveStaticEnabled
-  ? Bun.file("./public/index.html").text()
-  : Promise.resolve("");
-
-// U+2028/U+2029 are valid in JSON strings but break inline <script> parsing.
-const LINE_SEP = String.fromCharCode(0x2028);
-const PARA_SEP = String.fromCharCode(0x2029);
-
-function escapeInlineScriptJson(value: unknown): string {
-  return JSON.stringify(value)
-    .replaceAll("<", "\\u003c")
-    .replaceAll(">", "\\u003e")
-    .replaceAll("&", "\\u0026")
-    .replaceAll(LINE_SEP, "\\u2028")
-    .replaceAll(PARA_SEP, "\\u2029");
-}
 
 // strict:false so a trailing slash matches (`/api/requests/` == `/api/requests`)
 // across every mounted domain router.
@@ -142,66 +119,18 @@ app.get("/api/health", async (c) => {
   return ok(health, health.status === "degraded" ? 503 : 200);
 });
 
-if (serveStaticEnabled) {
-  // Pre-compressed .gz assets are served natively by serveStatic (precompressed).
-  const assetStatic = serveStatic({
-    root: "./public",
-    precompressed: true,
-    onFound: (_path, c) => {
-      c.header("Cache-Control", "public, max-age=31536000, immutable");
-    },
-  });
-  app.get("/assets/*", assetStatic);
-
-  // Other real files (favicon, manifest, sw.js) are served statically; the SPA
-  // shell (with bootstrap injection) owns "/" and any *.html, and misses fall
-  // through to it.
-  const otherStatic = serveStatic({ root: "./public" });
-  app.use("*", async (c, next) => {
-    const pathname = new URL(c.req.url).pathname;
-    if (pathname === "/" || pathname.endsWith(".html")) return next();
-    return otherStatic(c, next);
-  });
-
-  app.get("*", async (c) => {
-    // An unmatched /api path is a bug, not a client-side route. Falling through
-    // to the SPA answered 200 with HTML, which hid a real failure: epub.js
-    // probed `/api/books/files/1/META-INF/container.xml`, got the shell with a
-    // success status, and silently failed to parse it.
-    if (isApiPath(new URL(c.req.url).pathname)) {
-      return notFound("Not found");
-    }
-
-    const [indexHtml, user] = await Promise.all([
-      spaIndexHtmlPromise,
-      resolveUser(c.req.raw).catch(() => null),
-    ]);
-
-    const bootScript = `<script>window.__RAWKOON_BOOTSTRAP__=${escapeInlineScriptJson({ user })};</script>`;
-    const html = indexHtml.replace("</body>", `${bootScript}\n</body>`);
-
-    return new Response(html, {
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "no-cache",
-      },
-    });
-  });
-}
+registerStaticRoutes(app);
 
 if (import.meta.main) {
-  // 1. Initialize BullMQ Workers
   initWorkers();
 
-  // 1b. Perf-baseline CPU/RSS sampler (no-op unless PERF_TIMING_ENABLED=true)
+  // Perf-baseline CPU/RSS sampler (no-op unless PERF_TIMING_ENABLED=true)
   startResourceSampler();
 
-  // 2. Setup Scheduled Tasks (Crons)
   setupScheduledJobs().catch((err) => {
     console.error("Failed to setup scheduled jobs:", err);
   });
 
-  // 3. Start Server
   const server = Bun.serve({
     fetch: app.fetch,
     port: Number(process.env.API_PORT || 3000),
@@ -209,7 +138,6 @@ if (import.meta.main) {
   });
   console.log(`🔥 Hono is running at ${server.hostname}:${server.port}`);
 
-  // 4. Post-startup tasks
   checkAndNotifyVersionChange().catch((err) => {
     console.error("Failed to check version change after startup:", err);
   });
