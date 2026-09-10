@@ -38,6 +38,9 @@ const { bookContentRoutes, clampClientTimestamp, sliceForRange } = await import(
 
 const tempDir = mkdtempSync(join(tmpdir(), "book-content-ranges-"));
 
+// bookContentRoutes is Hono now; mount it under the same Elysia+cors edge the
+// real app uses (prefix-less .mount forwards the full path), so this still
+// exercises the @elysiajs/cors sliced-BunFile workaround the handler guards for.
 const app = new Elysia()
   .use(
     cors({
@@ -45,7 +48,7 @@ const app = new Elysia()
       credentials: true,
     }),
   )
-  .use(bookContentRoutes);
+  .mount(bookContentRoutes.fetch);
 
 const grantFor = (fileId: number) =>
   signGrant(

@@ -1,9 +1,11 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { z } from "zod";
 
-import { requireUser } from "@rawkoon/api/middleware/auth";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { requireUser } from "@rawkoon/api/middleware/hono/auth";
+import { jsonV, paramV } from "@rawkoon/api/middleware/validate";
 import { prisma } from "@rawkoon/api/db";
-import { badRequest, notFound } from "@rawkoon/api/errors";
+import { badRequest, notFound, ok } from "@rawkoon/api/errors";
 import { loadConfig } from "@rawkoon/api/config";
 import type { BookEditionKind } from "@rawkoon/shared/types";
 import { signGrant } from "@rawkoon/api/services/books/downloadGrant";
@@ -37,6 +39,11 @@ const editionSelect = {
   files: { select: { id: true, format: true } },
 } as const;
 
+const editionKindParams = z.object({
+  id: z.coerce.number(),
+  kind: z.union([z.literal("ebook"), z.literal("audiobook")]),
+});
+
 /**
  * Per-edition state. Monitoring is per edition kind, so a user can want the
  * audiobook of a title without wanting its ebook.
@@ -46,12 +53,21 @@ const editionSelect = {
  *   GET    /api/books/:id/editions/:kind/files
  *   DELETE /api/books/:id/files/:fileId
  */
-export const bookEditionRoutes = new Elysia()
-  .use(requireUser)
-
+export const bookEditionRoutes = new Hono<Env>()
   .patch(
     "/:id/editions/:kind",
-    async ({ params, body, set }) => {
+    requireUser,
+    paramV(editionKindParams),
+    jsonV(
+      z.object({
+        monitored: z.boolean().optional(),
+        status: z.string().optional(),
+        book_quality_profile_id: z.coerce.number().nullable().optional(),
+      }),
+    ),
+    async (c) => {
+      const params = c.req.valid("param");
+      const body = c.req.valid("json");
       const edition = await prisma.bookEdition.findUnique({
         where: { bookId_kind: { bookId: params.id, kind: params.kind } },
         select: { id: true },
@@ -92,25 +108,25 @@ export const bookEditionRoutes = new Elysia()
         select: editionSelect,
       });
 
-      return { edition: mapBookEdition(updated) };
-    },
-    {
-      params: z.object({
-        id: z.coerce.number(),
-        kind: z.union([z.literal("ebook"), z.literal("audiobook")]),
-      }),
-      body: z.object({
-        monitored: z.boolean().optional(),
-        status: z.string().optional(),
-        book_quality_profile_id: z.coerce.number().nullable().optional(),
-      }),
+      return ok({ edition: mapBookEdition(updated) });
     },
   )
 
   // Add the other edition kind to a book that only has one.
   .post(
     "/:id/editions",
-    async ({ params, body, set }) => {
+    requireUser,
+    paramV(z.object({ id: z.coerce.number() })),
+    jsonV(
+      z.object({
+        kind: z.union([z.literal("ebook"), z.literal("audiobook")]),
+        monitored: z.boolean().optional(),
+        book_quality_profile_id: z.coerce.number().nullable().optional(),
+      }),
+    ),
+    async (c) => {
+      const params = c.req.valid("param");
+      const body = c.req.valid("json");
       const book = await prisma.libraryBook.findUnique({
         where: { id: params.id },
         select: { id: true },
@@ -147,21 +163,16 @@ export const bookEditionRoutes = new Elysia()
         select: editionSelect,
       });
 
-      return { edition: mapBookEdition(created) };
-    },
-    {
-      params: z.object({ id: z.coerce.number() }),
-      body: z.object({
-        kind: z.union([z.literal("ebook"), z.literal("audiobook")]),
-        monitored: z.boolean().optional(),
-        book_quality_profile_id: z.coerce.number().nullable().optional(),
-      }),
+      return ok({ edition: mapBookEdition(created) });
     },
   )
 
   .get(
     "/:id/editions/:kind/files",
-    async ({ params, set }) => {
+    requireUser,
+    paramV(editionKindParams),
+    async (c) => {
+      const params = c.req.valid("param");
       const edition = await prisma.bookEdition.findUnique({
         where: { bookId_kind: { bookId: params.id, kind: params.kind } },
         include: { files: { orderBy: { fileName: "asc" } } },
@@ -170,7 +181,7 @@ export const bookEditionRoutes = new Elysia()
       const secret = loadConfig().SECRET_KEY;
       const expiresAt = Date.now() + EDITION_FILE_GRANT_TTL_MS;
 
-      return {
+      return ok({
         edition_id: edition.id,
         kind: edition.kind,
         files: edition.files.map((f) => ({
@@ -196,13 +207,7 @@ export const bookEditionRoutes = new Elysia()
           language_tags: f.languageTags,
           scanned_at: f.scannedAt.toISOString(),
         })),
-      };
-    },
-    {
-      params: z.object({
-        id: z.coerce.number(),
-        kind: z.union([z.literal("ebook"), z.literal("audiobook")]),
-      }),
+      });
     },
   )
 
@@ -214,7 +219,10 @@ export const bookEditionRoutes = new Elysia()
    */
   .post(
     "/:id/editions/:kind/rescan",
-    async ({ params, set }) => {
+    requireUser,
+    paramV(editionKindParams),
+    async (c) => {
+      const params = c.req.valid("param");
       const edition = await prisma.bookEdition.findUnique({
         where: { bookId_kind: { bookId: params.id, kind: params.kind } },
         select: { id: true },
@@ -223,18 +231,12 @@ export const bookEditionRoutes = new Elysia()
 
       const result = await rescanBookEdition(edition.id);
       if (result.error) return badRequest(result.error);
-      return {
+      return ok({
         registered: result.registered,
         refreshed: result.refreshed,
         removed: result.removed,
         directory: result.directory,
-      };
-    },
-    {
-      params: z.object({
-        id: z.coerce.number(),
-        kind: z.union([z.literal("ebook"), z.literal("audiobook")]),
-      }),
+      });
     },
   )
 
@@ -242,14 +244,16 @@ export const bookEditionRoutes = new Elysia()
   // library media file removal behaves.
   .delete(
     "/:id/files/:fileId",
-    async ({ params, set }) => {
+    requireUser,
+    paramV(z.object({ id: z.coerce.number(), fileId: z.coerce.number() })),
+    async (c) => {
+      const params = c.req.valid("param");
       const file = await prisma.bookFile.findFirst({
         where: { id: params.fileId, edition: { bookId: params.id } },
         select: { id: true },
       });
       if (!file) return notFound("File not found");
       await prisma.bookFile.delete({ where: { id: file.id } });
-      return { deleted: true };
+      return ok({ deleted: true });
     },
-    { params: z.object({ id: z.coerce.number(), fileId: z.coerce.number() }) },
   );

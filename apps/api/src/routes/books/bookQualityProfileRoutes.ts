@@ -1,9 +1,11 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { z } from "zod";
 
-import { requireUser, ensureAdmin } from "@rawkoon/api/middleware/auth";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { ensureAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
+import { jsonV, paramV } from "@rawkoon/api/middleware/validate";
 import { prisma } from "@rawkoon/api/db";
-import { badRequest, conflict, notFound } from "@rawkoon/api/errors";
+import { badRequest, conflict, notFound, ok } from "@rawkoon/api/errors";
 import type { BookQualityProfile } from "@rawkoon/shared/types";
 import { validateBookProfileFormats } from "@rawkoon/shared/utils";
 
@@ -41,40 +43,56 @@ const mapProfile = (p: ProfileRow): BookQualityProfile => ({
   updated_at: p.updatedAt.toISOString(),
 });
 
+const idParam = z.object({ id: z.coerce.number() });
+
 /**
  * Book quality profiles. Reads are open to any user (the library UI needs the
  * names); writes are admin-only, matching how quality-profiles is gated.
+ * Mounted by the edge at /api/book-quality-profiles.
  */
-export const bookQualityProfileRoutes = new Elysia({
-  prefix: "/api/book-quality-profiles",
-})
-  .use(requireUser)
-
-  .get("/", async () => {
+export const bookQualityProfileRoutes = new Hono<Env>()
+  .get("/", requireUser, async () => {
     const profiles = await prisma.bookQualityProfile.findMany({
       orderBy: { name: "asc" },
     });
-    return { profiles: profiles.map(mapProfile) };
+    return ok({ profiles: profiles.map(mapProfile) });
   })
 
-  .get(
-    "/:id",
-    async ({ params, set }) => {
-      const p = await prisma.bookQualityProfile.findUnique({
-        where: { id: params.id },
-      });
-      if (!p) return notFound("Book quality profile not found");
-      return { profile: mapProfile(p) };
-    },
-    { params: z.object({ id: z.coerce.number() }) },
-  )
+  .get("/:id", requireUser, paramV(idParam), async (c) => {
+    const p = await prisma.bookQualityProfile.findUnique({
+      where: { id: c.req.valid("param").id },
+    });
+    if (!p) return notFound("Book quality profile not found");
+    return ok({ profile: mapProfile(p) });
+  })
 
   .post(
     "/",
-    async ({ body, set, user }) => {
-      const denied = ensureAdmin(user);
+    requireUser,
+    jsonV(
+      z.object({
+        name: z.string(),
+        kind: z.union([
+          z.literal("ebook"),
+          z.literal("audiobook"),
+          z.literal("both"),
+        ]),
+        allowed_formats: z.array(z.string()),
+        cutoff_format: z.string().nullable().optional(),
+        prefer_retail: z.boolean().optional(),
+        max_size_mb: z.coerce.number().nullable().optional(),
+        min_seeders: z.coerce.number().optional(),
+        min_audio_bitrate: z.coerce.number().nullable().optional(),
+        preferred_languages: z.array(z.string()).optional(),
+        prioritized_trackers: z.array(z.string()).optional(),
+        prefer_tracker_over_quality: z.boolean().optional(),
+      }),
+    ),
+    async (c) => {
+      const denied = ensureAdmin(c.get("user"));
       if (denied) return denied;
 
+      const body = c.req.valid("json");
       const name = body.name.trim();
       if (!name) return badRequest("name is required");
       if (body.allowed_formats.length === 0) {
@@ -103,7 +121,7 @@ export const bookQualityProfileRoutes = new Elysia({
             preferTrackerOverQuality: body.prefer_tracker_over_quality ?? false,
           },
         });
-        return { profile: mapProfile(created) };
+        return ok({ profile: mapProfile(created) });
       } catch (e) {
         if ((e as { code?: string }).code === "P2002") {
           return conflict("A profile with that name already exists");
@@ -111,15 +129,23 @@ export const bookQualityProfileRoutes = new Elysia({
         throw e;
       }
     },
-    {
-      body: z.object({
-        name: z.string(),
-        kind: z.union([
-          z.literal("ebook"),
-          z.literal("audiobook"),
-          z.literal("both"),
-        ]),
-        allowed_formats: z.array(z.string()),
+  )
+
+  .patch(
+    "/:id",
+    requireUser,
+    paramV(idParam),
+    jsonV(
+      z.object({
+        name: z.string().optional(),
+        kind: z
+          .union([
+            z.literal("ebook"),
+            z.literal("audiobook"),
+            z.literal("both"),
+          ])
+          .optional(),
+        allowed_formats: z.array(z.string()).optional(),
         cutoff_format: z.string().nullable().optional(),
         prefer_retail: z.boolean().optional(),
         max_size_mb: z.coerce.number().nullable().optional(),
@@ -129,15 +155,13 @@ export const bookQualityProfileRoutes = new Elysia({
         prioritized_trackers: z.array(z.string()).optional(),
         prefer_tracker_over_quality: z.boolean().optional(),
       }),
-    },
-  )
-
-  .patch(
-    "/:id",
-    async ({ params, body, set, user }) => {
-      const denied = ensureAdmin(user);
+    ),
+    async (c) => {
+      const denied = ensureAdmin(c.get("user"));
       if (denied) return denied;
 
+      const params = c.req.valid("param");
+      const body = c.req.valid("json");
       const existing = await prisma.bookQualityProfile.findUnique({
         where: { id: params.id },
       });
@@ -194,48 +218,23 @@ export const bookQualityProfileRoutes = new Elysia({
             : {}),
         },
       });
-      return { profile: mapProfile(updated) };
-    },
-    {
-      params: z.object({ id: z.coerce.number() }),
-      body: z.object({
-        name: z.string().optional(),
-        kind: z
-          .union([
-            z.literal("ebook"),
-            z.literal("audiobook"),
-            z.literal("both"),
-          ])
-          .optional(),
-        allowed_formats: z.array(z.string()).optional(),
-        cutoff_format: z.string().nullable().optional(),
-        prefer_retail: z.boolean().optional(),
-        max_size_mb: z.coerce.number().nullable().optional(),
-        min_seeders: z.coerce.number().optional(),
-        min_audio_bitrate: z.coerce.number().nullable().optional(),
-        preferred_languages: z.array(z.string()).optional(),
-        prioritized_trackers: z.array(z.string()).optional(),
-        prefer_tracker_over_quality: z.boolean().optional(),
-      }),
+      return ok({ profile: mapProfile(updated) });
     },
   )
 
-  .delete(
-    "/:id",
-    async ({ params, set, user }) => {
-      const denied = ensureAdmin(user);
-      if (denied) return denied;
+  .delete("/:id", requireUser, paramV(idParam), async (c) => {
+    const denied = ensureAdmin(c.get("user"));
+    if (denied) return denied;
 
-      const existing = await prisma.bookQualityProfile.findUnique({
-        where: { id: params.id },
-        select: { id: true },
-      });
-      if (!existing) return notFound("Book quality profile not found");
+    const params = c.req.valid("param");
+    const existing = await prisma.bookQualityProfile.findUnique({
+      where: { id: params.id },
+      select: { id: true },
+    });
+    if (!existing) return notFound("Book quality profile not found");
 
-      // Editions keep working with no profile (they fall back to defaults),
-      // so this is a SetNull rather than a blocked delete.
-      await prisma.bookQualityProfile.delete({ where: { id: params.id } });
-      return { deleted: true };
-    },
-    { params: z.object({ id: z.coerce.number() }) },
-  );
+    // Editions keep working with no profile (they fall back to defaults),
+    // so this is a SetNull rather than a blocked delete.
+    await prisma.bookQualityProfile.delete({ where: { id: params.id } });
+    return ok({ deleted: true });
+  });

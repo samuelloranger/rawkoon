@@ -81,7 +81,9 @@ mock.module("@rawkoon/api/auth", () => ({
 
 const { bookProgressRoutes } = await import("./bookPlaybackRoutes");
 
-const app = new Elysia({ prefix: "/api/books" }).use(bookProgressRoutes);
+// bookProgressRoutes is Hono now; mount it the way the edge does so the
+// /api/books/editions/:id/progress paths hold (mount strips the prefix).
+const app = new Elysia().mount("/api/books", bookProgressRoutes.fetch);
 
 const USER: NonNullable<FakeUser> = {
   id: "user-id",

@@ -1,9 +1,11 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { z } from "zod";
 
-import { requireUser, ensureAdmin } from "@rawkoon/api/middleware/auth";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { ensureAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
+import { jsonV, paramV, queryV } from "@rawkoon/api/middleware/validate";
 import { prisma } from "@rawkoon/api/db";
-import { badRequest, notFound } from "@rawkoon/api/errors";
+import { badRequest, notFound, ok } from "@rawkoon/api/errors";
 import type { Author, BookEditionKind } from "@rawkoon/shared/types";
 
 const KINDS: BookEditionKind[] = ["ebook", "audiobook"];
@@ -64,40 +66,52 @@ const authorSelect = {
  * Authors are created as a side effect of adding a book, never directly: an
  * author with no books is not something the library has an opinion about.
  */
-export const authorRoutes = new Elysia({ prefix: "/api/authors" })
-  .use(requireUser)
-
-  .get("/", async () => {
+export const authorRoutes = new Hono<Env>()
+  .get("/", requireUser, async () => {
     const authors = await prisma.author.findMany({
       select: authorSelect,
       // Monitored first — the list's job is to show what is being watched.
       orderBy: [{ monitored: "desc" }, { sortName: "asc" }],
     });
-    return { authors: authors.map(mapAuthor) };
+    return ok({ authors: authors.map(mapAuthor) });
   })
 
   .get(
     "/search",
-    async ({ query }) => {
-      const q = query.q?.trim();
-      if (!q) return { authors: [] };
+    requireUser,
+    queryV(z.object({ q: z.string().optional() })),
+    async (c) => {
+      const q = c.req.valid("query").q?.trim();
+      if (!q) return ok({ authors: [] });
       const authors = await prisma.author.findMany({
         where: { googleAuthorName: { contains: q, mode: "insensitive" } },
         select: authorSelect,
         orderBy: [{ monitored: "desc" }, { sortName: "asc" }],
         take: 50,
       });
-      return { authors: authors.map(mapAuthor) };
+      return ok({ authors: authors.map(mapAuthor) });
     },
-    { query: z.object({ q: z.string().optional() }) },
   )
 
   .patch(
     "/:id",
-    async ({ params, body, set, user }) => {
-      const denied = ensureAdmin(user);
+    requireUser,
+    paramV(z.object({ id: z.coerce.number() })),
+    jsonV(
+      z.object({
+        monitored: z.boolean().optional(),
+        monitor_from: z.string().nullable().optional(),
+        monitor_edition_kinds: z.array(z.string()).optional(),
+        monitor_languages: z.array(z.string()).optional(),
+        book_quality_profile_id: z.coerce.number().nullable().optional(),
+      }),
+    ),
+    async (c) => {
+      const denied = ensureAdmin(c.get("user"));
       if (denied) return denied;
 
+      const params = c.req.valid("param");
+      const body = c.req.valid("json");
       const author = await prisma.author.findUnique({
         where: { id: params.id },
         select: { id: true, monitored: true, monitorFrom: true },
@@ -171,16 +185,6 @@ export const authorRoutes = new Elysia({ prefix: "/api/authors" })
         select: authorSelect,
       });
 
-      return { author: mapAuthor(updated) };
-    },
-    {
-      params: z.object({ id: z.coerce.number() }),
-      body: z.object({
-        monitored: z.boolean().optional(),
-        monitor_from: z.string().nullable().optional(),
-        monitor_edition_kinds: z.array(z.string()).optional(),
-        monitor_languages: z.array(z.string()).optional(),
-        book_quality_profile_id: z.coerce.number().nullable().optional(),
-      }),
+      return ok({ author: mapAuthor(updated) });
     },
   );

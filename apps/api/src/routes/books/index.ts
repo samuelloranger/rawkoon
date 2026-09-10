@@ -1,5 +1,6 @@
-import { Elysia } from "elysia";
-import { auth } from "@rawkoon/api/auth";
+import { Hono } from "hono";
+import { notFound } from "@rawkoon/api/errors";
+import { type Env, honoOnError } from "@rawkoon/api/honoEnv";
 
 import { bookListeningStatsRoutes } from "./bookListeningStatsRoutes";
 import { bookListRoutes } from "./bookListRoutes";
@@ -23,26 +24,24 @@ export { authorRoutes } from "./authorRoutes";
 
 /**
  * Books router — thin orchestrator, same shape as routes/library/index.ts.
- *   bookListeningStatsRoutes — GET /listening-stats (before /:id routes)
- *   bookListRoutes    — GET /, GET /search, GET /:id, PUT /:id/read, POST /, DELETE /:id
- *   bookMetadata*     — refresh a book's metadata, read/reorder the sources
- *   bookOverrides     — PATCH /:id/overrides, manual field edits
- *   bookEditionRoutes — PATCH /:id/editions/:kind, POST /:id/editions, files
- *   bookGrabRoutes    — search / grab / auto per edition
+ * Guards live per child (mixed): most are requireUser, bookMetadataAdminRoutes is
+ * requireAdmin, and bookContentRoutes is unguarded (it authenticates via an HMAC
+ * grant token). Mounted at /api/books by the edge (Elysia .mount strips prefix).
  *
  * bookListeningStatsRoutes and bookListRoutes must come before /:id routes:
  * literal /listening-stats and /search must not be swallowed as an :id.
  */
-export const bookRoutes = new Elysia({ prefix: "/api/books" })
-  .use(auth)
-  .use(bookListeningStatsRoutes)
-  .use(bookListRoutes)
-  .use(bookPlaybackRoutes)
-  .use(bookContentRoutes)
-  .use(bookProgressRoutes)
-  .use(bookReadingProgressRoutes)
-  .use(bookMetadataRoutes)
-  .use(bookMetadataAdminRoutes)
-  .use(bookOverridesRoutes)
-  .use(bookEditionRoutes)
-  .use(bookGrabRoutes);
+export const bookRoutes = new Hono<Env>()
+  .route("/", bookListeningStatsRoutes)
+  .route("/", bookListRoutes)
+  .route("/", bookPlaybackRoutes)
+  .route("/", bookContentRoutes)
+  .route("/", bookProgressRoutes)
+  .route("/", bookReadingProgressRoutes)
+  .route("/", bookMetadataRoutes)
+  .route("/", bookMetadataAdminRoutes)
+  .route("/", bookOverridesRoutes)
+  .route("/", bookEditionRoutes)
+  .route("/", bookGrabRoutes)
+  .notFound(() => notFound("Not found"))
+  .onError(honoOnError);

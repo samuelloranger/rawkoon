@@ -1,12 +1,14 @@
 import { stat } from "node:fs/promises";
 import { z } from "zod";
 import { extname } from "node:path";
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 
 import { loadConfig } from "@rawkoon/api/config";
 import { prisma } from "@rawkoon/api/db";
-import { badRequest, notFound, unauthorized } from "@rawkoon/api/errors";
-import { requireUser } from "@rawkoon/api/middleware/auth";
+import { badRequest, notFound, ok, unauthorized } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { requireUser } from "@rawkoon/api/middleware/hono/auth";
+import { jsonV, paramV, queryV } from "@rawkoon/api/middleware/validate";
 import {
   signGrant,
   verifyGrant,
@@ -64,11 +66,15 @@ export const sliceForRange = (range: ParsedByteRange) => ({
   endExclusive: range.end + 1,
 });
 
-export const bookPlaybackRoutes = new Elysia().use(requireUser).get(
+const editionIdParam = z.object({ id: z.coerce.number() });
+
+export const bookPlaybackRoutes = new Hono<Env>().get(
   "/editions/:id/manifest",
-  async ({ params, set }) => {
+  requireUser,
+  paramV(editionIdParam),
+  async (c) => {
     const edition = await prisma.bookEdition.findUnique({
-      where: { id: params.id },
+      where: { id: c.req.valid("param").id },
       select: {
         id: true,
         offlineReady: true,
@@ -105,7 +111,7 @@ export const bookPlaybackRoutes = new Elysia().use(requireUser).get(
     const secret = loadConfig().SECRET_KEY;
     const expiresAt = Date.now() + GRANT_TTL_MS;
 
-    return {
+    return ok({
       edition_id: edition.id,
       book_id: edition.book.id,
       title: edition.book.title,
@@ -129,10 +135,7 @@ export const bookPlaybackRoutes = new Elysia().use(requireUser).get(
           secret,
         )}`,
       })),
-    };
-  },
-  {
-    params: z.object({ id: z.coerce.number() }),
+    });
   },
 );
 
@@ -145,9 +148,13 @@ export const bookPlaybackRoutes = new Elysia().use(requireUser).get(
  * Never redirect from this route: background URLSession follows redirects
  * unconditionally, which can leak bytes to an unsigned target.
  */
-export const bookContentRoutes = new Elysia().get(
+export const bookContentRoutes = new Hono<Env>().get(
   "/files/:fileId/content",
-  async ({ params, query, request, set }) => {
+  paramV(z.object({ fileId: z.coerce.number() })),
+  queryV(z.object({ grant: z.string().optional() })),
+  async (c) => {
+    const params = c.req.valid("param");
+    const query = c.req.valid("query");
     const grant = verifyGrant(query.grant ?? "", loadConfig().SECRET_KEY);
     if (!grant || grant.fileId !== params.fileId) {
       return unauthorized("Invalid or expired download grant");
@@ -177,7 +184,7 @@ export const bookContentRoutes = new Elysia().get(
 
     const etag = `"${size}-${mtimeMs}"`;
     const contentType = contentTypeForPath(file.filePath);
-    const range = parseByteRange(request.headers.get("range"), size);
+    const range = parseByteRange(c.req.raw.headers.get("range"), size);
 
     if (range === "unsatisfiable") {
       return new Response(null, {
@@ -237,17 +244,12 @@ export const bookContentRoutes = new Elysia().get(
       },
     });
   },
-  {
-    params: z.object({ fileId: z.coerce.number() }),
-    query: z.object({ grant: z.string().optional() }),
-  },
 );
 
-export const bookProgressRoutes = new Elysia()
-  .use(requireUser)
-  .get("/progress", async ({ user }) => {
+export const bookProgressRoutes = new Hono<Env>()
+  .get("/progress", requireUser, async (c) => {
     const rows = await prisma.bookListeningProgress.findMany({
-      where: { userId: user!.id },
+      where: { userId: c.get("user").id },
       select: {
         editionId: true,
         positionSecs: true,
@@ -259,7 +261,7 @@ export const bookProgressRoutes = new Elysia()
       orderBy: { updatedAt: "desc" },
     });
 
-    return {
+    return ok({
       progress: rows.flatMap((row) => {
         const identity = bookIdentityFromEdition(row.edition);
         if (!identity) return [];
@@ -274,13 +276,27 @@ export const bookProgressRoutes = new Elysia()
           },
         ];
       }),
-    };
+    });
   })
   .put(
     "/editions/:id/progress",
-    async ({ params, body, user, set }) => {
+    requireUser,
+    paramV(editionIdParam),
+    jsonV(
+      z.object({
+        position_secs: z.number(),
+        total_duration_secs: z.number(),
+        finished: z.boolean().optional(),
+        updated_at: z.string(),
+        device_id: z.string().optional(),
+      }),
+    ),
+    async (c) => {
+      const user = c.get("user");
+      const { id } = c.req.valid("param");
+      const body = c.req.valid("json");
       const edition = await prisma.bookEdition.findUnique({
-        where: { id: params.id },
+        where: { id },
         select: { id: true },
       });
       if (!edition) return notFound("Edition not found");
@@ -290,14 +306,12 @@ export const bookProgressRoutes = new Elysia()
 
       const existing = await prisma.bookListeningProgress.findUnique({
         where: {
-          userId_editionId: {
-            userId: user!.id,
-            editionId: params.id,
-          },
+          userId_editionId: { userId: user.id, editionId: id },
         },
         select: { updatedAt: true, positionSecs: true, receivedAt: true },
       });
-      if (existing && existing.updatedAt > updatedAt) return { applied: false };
+      if (existing && existing.updatedAt > updatedAt)
+        return ok({ applied: false });
 
       const baseData = {
         positionSecs: body.position_secs,
@@ -314,39 +328,26 @@ export const bookProgressRoutes = new Elysia()
 
       await prisma.bookListeningProgress.upsert({
         where: {
-          userId_editionId: {
-            userId: user!.id,
-            editionId: params.id,
-          },
+          userId_editionId: { userId: user.id, editionId: id },
         },
         update: updateData,
         create: {
           ...baseData,
           finished: body.finished ?? false,
-          userId: user!.id,
-          editionId: params.id,
+          userId: user.id,
+          editionId: id,
         },
       });
 
       await applyListeningCredit({
-        userId: user!.id,
+        userId: user.id,
         created: !existing,
         previous: existing,
         newPosition: body.position_secs,
         receivedAt: now,
       });
 
-      return { applied: true };
-    },
-    {
-      params: z.object({ id: z.coerce.number() }),
-      body: z.object({
-        position_secs: z.number(),
-        total_duration_secs: z.number(),
-        finished: z.boolean().optional(),
-        updated_at: z.string(),
-        device_id: z.string().optional(),
-      }),
+      return ok({ applied: true });
     },
   );
 
@@ -357,11 +358,10 @@ export const bookProgressRoutes = new Elysia()
  * clamped to server time on receipt, and an older write is dropped rather than
  * allowed to walk a reader backwards from another device.
  */
-export const bookReadingProgressRoutes = new Elysia()
-  .use(requireUser)
-  .get("/reading-progress", async ({ user }) => {
+export const bookReadingProgressRoutes = new Hono<Env>()
+  .get("/reading-progress", requireUser, async (c) => {
     const rows = await prisma.bookReadingProgress.findMany({
-      where: { userId: user!.id },
+      where: { userId: c.get("user").id },
       select: {
         editionId: true,
         fileId: true,
@@ -377,7 +377,7 @@ export const bookReadingProgressRoutes = new Elysia()
       orderBy: { updatedAt: "desc" },
     });
 
-    return {
+    return ok({
       progress: rows.flatMap((row) => {
         const identity = bookIdentityFromEdition(row.edition);
         if (!identity) return [];
@@ -396,13 +396,31 @@ export const bookReadingProgressRoutes = new Elysia()
           },
         ];
       }),
-    };
+    });
   })
   .put(
     "/editions/:id/reading-progress",
-    async ({ params, body, user, set }) => {
+    requireUser,
+    paramV(editionIdParam),
+    jsonV(
+      z.object({
+        file_id: z.coerce.number().nullable().optional(),
+        spine_index: z.coerce.number(),
+        spine_path: z.string().min(1),
+        spine_count: z.coerce.number().min(1),
+        scroll_fraction: z.number(),
+        locator: z.string().nullable().optional(),
+        finished: z.boolean().optional(),
+        updated_at: z.string(),
+        device_id: z.string().optional(),
+      }),
+    ),
+    async (c) => {
+      const user = c.get("user");
+      const { id } = c.req.valid("param");
+      const body = c.req.valid("json");
       const edition = await prisma.bookEdition.findUnique({
-        where: { id: params.id },
+        where: { id },
         select: { id: true },
       });
       if (!edition) return notFound("Edition not found");
@@ -416,11 +434,12 @@ export const bookReadingProgressRoutes = new Elysia()
 
       const existing = await prisma.bookReadingProgress.findUnique({
         where: {
-          userId_editionId: { userId: user!.id, editionId: params.id },
+          userId_editionId: { userId: user.id, editionId: id },
         },
         select: { updatedAt: true },
       });
-      if (existing && existing.updatedAt > updatedAt) return { applied: false };
+      if (existing && existing.updatedAt > updatedAt)
+        return ok({ applied: false });
 
       const baseData = {
         fileId: body.file_id ?? null,
@@ -438,7 +457,7 @@ export const bookReadingProgressRoutes = new Elysia()
 
       await prisma.bookReadingProgress.upsert({
         where: {
-          userId_editionId: { userId: user!.id, editionId: params.id },
+          userId_editionId: { userId: user.id, editionId: id },
         },
         update: {
           ...baseData,
@@ -447,25 +466,11 @@ export const bookReadingProgressRoutes = new Elysia()
         create: {
           ...baseData,
           finished: body.finished ?? false,
-          userId: user!.id,
-          editionId: params.id,
+          userId: user.id,
+          editionId: id,
         },
       });
 
-      return { applied: true };
-    },
-    {
-      params: z.object({ id: z.coerce.number() }),
-      body: z.object({
-        file_id: z.coerce.number().nullable().optional(),
-        spine_index: z.coerce.number(),
-        spine_path: z.string().min(1),
-        spine_count: z.coerce.number().min(1),
-        scroll_fraction: z.number(),
-        locator: z.string().nullable().optional(),
-        finished: z.boolean().optional(),
-        updated_at: z.string(),
-        device_id: z.string().optional(),
-      }),
+      return ok({ applied: true });
     },
   );
