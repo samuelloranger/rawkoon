@@ -1,9 +1,8 @@
-import { Elysia } from "elysia";
-import { z } from "zod";
-import { requireUser } from "@rawkoon/api/middleware/auth";
+import { Hono } from "hono";
 import { prisma } from "@rawkoon/api/db";
 import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
-import { badGateway, badRequest, serverError } from "@rawkoon/api/errors";
+import { badGateway, badRequest, ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
 import { toStringOrNull } from "@rawkoon/api/utils/medias/mappers";
 import {
   loadTmdbConfig,
@@ -30,10 +29,10 @@ import {
   TMDB_PAGE_SIZE,
 } from "./tmdbRouteHelpers";
 
-export const tmdbMetaRoutes = new Elysia()
-  .use(requireUser)
-  .get("/streaming-providers", async ({ user: _user, set: _set, query }) => {
-    const q = query as Record<string, string | undefined>;
+// Mounted under /api/medias; requireUser applied at the tmdb parent.
+export const tmdbMetaRoutes = new Hono<Env>()
+  .get("/streaming-providers", async (c) => {
+    const q = c.req.query() as Record<string, string | undefined>;
     const region = await getGlobalTmdbRegion();
     const type = q.type === "tv" ? "tv" : "movie";
     const language = resolveLanguage(q);
@@ -43,10 +42,10 @@ export const tmdbMetaRoutes = new Elysia()
       await getJsonCache<{ id: number; name: string; logo_url: string }[]>(
         cacheKey,
       );
-    if (cached) return { providers: cached, region };
+    if (cached) return ok({ providers: cached, region });
 
     const tmdbConfig = await loadEnabledTmdbConfig();
-    if (!tmdbConfig) return { providers: [], region };
+    if (!tmdbConfig) return ok({ providers: [], region });
 
     try {
       const url = new URL(
@@ -58,7 +57,7 @@ export const tmdbMetaRoutes = new Elysia()
       const res = await fetch(url.toString(), {
         headers: { Accept: "application/json" },
       });
-      if (!res.ok) return { providers: [] };
+      if (!res.ok) return ok({ providers: [] });
 
       const data = (await res.json()) as Record<string, unknown>;
       const LOGO_BASE = "https://image.tmdb.org/t/p/w92";
@@ -81,14 +80,14 @@ export const tmdbMetaRoutes = new Elysia()
         );
 
       await setJsonCache(cacheKey, providers, 24 * 60 * 60);
-      return { providers, region };
+      return ok({ providers, region });
     } catch {
-      return { providers: [], region };
+      return ok({ providers: [], region });
     }
   })
 
-  .get("/genres", async ({ user: _user, set, query }) => {
-    const q = query as Record<string, string | undefined>;
+  .get("/genres", async (c) => {
+    const q = c.req.query() as Record<string, string | undefined>;
     const type = q.type;
     if (type !== "movie" && type !== "tv") {
       return badRequest("Invalid type, must be movie or tv");
@@ -99,7 +98,7 @@ export const tmdbMetaRoutes = new Elysia()
       const cacheKey = `medias:genres:${type}:${language}`;
       const cached =
         await getJsonCache<{ id: number; name: string }[]>(cacheKey);
-      if (cached) return { genres: cached };
+      if (cached) return ok({ genres: cached });
 
       const tmdbConfig = await loadEnabledTmdbConfig();
       if (!tmdbConfig) return badRequest("TMDB is not configured");
@@ -123,15 +122,15 @@ export const tmdbMetaRoutes = new Elysia()
         : [];
 
       await setJsonCache(cacheKey, genres, 24 * 60 * 60);
-      return { genres };
+      return ok({ genres });
     } catch (error) {
       console.error("Error fetching TMDB genres:", error);
       return serverError("Failed to fetch genres");
     }
   })
 
-  .get("/discover", async ({ user: _user, set, query }) => {
-    const q = query as Record<string, string | undefined>;
+  .get("/discover", async (c) => {
+    const q = c.req.query() as Record<string, string | undefined>;
     const type = q.type;
     if (type !== "movie" && type !== "tv") {
       return badRequest("Invalid type, must be movie or tv");
@@ -212,68 +211,69 @@ export const tmdbMetaRoutes = new Elysia()
 
       const enrichedBrse = await enrichItemsFromRaw(rawItems);
 
-      return {
+      return ok({
         items: enrichedBrse,
         page,
         region,
         total_pages: totalPages,
         total_results: totalResults,
-      };
+      });
     } catch (error) {
       console.error("Error fetching TMDB discover:", error);
       return serverError("Failed to fetch discover results");
     }
   })
 
-  .get(
-    "/modal/:mediaType/:tmdbId",
-    async ({ user, set, params, query: queryParams }) => {
-      const parsed = parseMediaTypeAndTmdbId(params.mediaType, params.tmdbId);
-      if (!parsed.ok) return badRequest("Invalid media type or TMDB ID");
+  .get("/modal/:mediaType/:tmdbId", async (c) => {
+    const parsed = parseMediaTypeAndTmdbId(
+      c.req.param("mediaType"),
+      c.req.param("tmdbId"),
+    );
+    if (!parsed.ok) return badRequest("Invalid media type or TMDB ID");
 
-      const { mediaType, tmdbId } = parsed;
-      const region = await getGlobalTmdbRegion();
-      const language = toTmdbLanguage(
-        (queryParams as Record<string, string | undefined>).language || "en-US",
-      );
+    const { mediaType, tmdbId } = parsed;
+    const region = await getGlobalTmdbRegion();
+    const language = toTmdbLanguage(c.req.query("language") || "en-US");
 
-      const [tmdbConfig, watchlistItem] = await Promise.all([
-        loadTmdbConfig(),
-        prisma.watchlistItem.findUnique({
-          where: {
-            userId_tmdbId_mediaType: { userId: user!.id, tmdbId, mediaType },
-          },
-          select: { id: true },
-        }),
-      ]);
-      if (!tmdbConfig) return badRequest("TMDB is not configured");
-
-      const [trailer, ratings, credits, details, providers, library_episodes] =
-        await Promise.all([
-          fetchTrailer(tmdbConfig.api_key, mediaType, tmdbId, language),
-          fetchRatings(tmdbConfig.api_key, mediaType, tmdbId, language),
-          fetchCredits(tmdbConfig.api_key, mediaType, tmdbId, language),
-          fetchMediaDetails(tmdbConfig.api_key, mediaType, tmdbId, language),
-          fetchWatchProviders(
-            tmdbConfig.api_key,
-            mediaType,
+    const [tmdbConfig, watchlistItem] = await Promise.all([
+      loadTmdbConfig(),
+      prisma.watchlistItem.findUnique({
+        where: {
+          userId_tmdbId_mediaType: {
+            userId: c.get("user").id,
             tmdbId,
-            region,
-            language,
-          ),
-          fetchModalLibraryEpisodes(mediaType, tmdbId),
-        ]);
+            mediaType,
+          },
+        },
+        select: { id: true },
+      }),
+    ]);
+    if (!tmdbConfig) return badRequest("TMDB is not configured");
 
-      return {
-        watchlist_status: watchlistItem !== null,
-        watchlist_id: watchlistItem?.id ?? null,
-        trailer,
-        ratings,
-        credits,
-        details,
-        providers,
-        library_episodes,
-      };
-    },
-    { params: z.object({ mediaType: z.string(), tmdbId: z.string() }) },
-  );
+    const [trailer, ratings, credits, details, providers, library_episodes] =
+      await Promise.all([
+        fetchTrailer(tmdbConfig.api_key, mediaType, tmdbId, language),
+        fetchRatings(tmdbConfig.api_key, mediaType, tmdbId, language),
+        fetchCredits(tmdbConfig.api_key, mediaType, tmdbId, language),
+        fetchMediaDetails(tmdbConfig.api_key, mediaType, tmdbId, language),
+        fetchWatchProviders(
+          tmdbConfig.api_key,
+          mediaType,
+          tmdbId,
+          region,
+          language,
+        ),
+        fetchModalLibraryEpisodes(mediaType, tmdbId),
+      ]);
+
+    return ok({
+      watchlist_status: watchlistItem !== null,
+      watchlist_id: watchlistItem?.id ?? null,
+      trailer,
+      ratings,
+      credits,
+      details,
+      providers,
+      library_episodes,
+    });
+  });

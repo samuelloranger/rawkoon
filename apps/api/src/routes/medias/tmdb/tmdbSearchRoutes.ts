@@ -1,7 +1,8 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { z } from "zod";
-import { requireUser } from "@rawkoon/api/middleware/auth";
-import { badGateway, badRequest, serverError } from "@rawkoon/api/errors";
+import { badGateway, badRequest, ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { queryV } from "@rawkoon/api/middleware/validate";
 import {
   type TmdbSearchItem,
   mapTmdbSearchItem,
@@ -12,15 +13,23 @@ import {
   loadEnabledTmdbConfig,
 } from "./tmdbRouteHelpers";
 
-export const tmdbSearchRoutes = new Elysia().use(requireUser).get(
+// Mounted under /api/medias; requireUser applied at the tmdb parent.
+export const tmdbSearchRoutes = new Hono<Env>().get(
   "/tmdb-search",
-  async ({ user: _user, set, query }) => {
+  queryV(
+    z.object({
+      q: z.string(),
+      language: z.string().optional(),
+      kind: z
+        .union([z.literal("movie"), z.literal("tv"), z.literal("any")])
+        .optional(),
+    }),
+  ),
+  async (c) => {
+    const query = c.req.valid("query");
     const q = query.q.trim();
     if (q.length < 2) {
-      return {
-        enabled: true,
-        items: [],
-      };
+      return ok({ enabled: true, items: [] });
     }
 
     const response: {
@@ -38,9 +47,7 @@ export const tmdbSearchRoutes = new Elysia().use(requireUser).get(
       }
 
       const searchUrl = new URL("https://api.themoviedb.org/3/search/multi");
-      const language = toTmdbLanguage(
-        (query as Record<string, string | undefined>).language || "en-US",
-      );
+      const language = toTmdbLanguage(query.language || "en-US");
       searchUrl.searchParams.set("api_key", tmdbConfig.api_key);
       searchUrl.searchParams.set("query", q);
       searchUrl.searchParams.set("include_adult", "false");
@@ -82,19 +89,10 @@ export const tmdbSearchRoutes = new Elysia().use(requireUser).get(
       }));
 
       response.items = items;
-      return response;
+      return ok(response);
     } catch (error) {
       console.error("Error searching TMDB medias:", error);
       return serverError("Failed to search TMDB medias");
     }
-  },
-  {
-    query: z.object({
-      q: z.string(),
-      language: z.string().optional(),
-      kind: z
-        .union([z.literal("movie"), z.literal("tv"), z.literal("any")])
-        .optional(),
-    }),
   },
 );

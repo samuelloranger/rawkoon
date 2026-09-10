@@ -1,9 +1,10 @@
-import { Elysia } from "elysia";
-import { auth } from "@rawkoon/api/auth";
-import { requireUser } from "@rawkoon/api/middleware/auth";
-import { prisma } from "@rawkoon/api/db";
-import { badRequest, serverError } from "@rawkoon/api/errors";
+import { Hono } from "hono";
 import { z } from "zod";
+import { prisma } from "@rawkoon/api/db";
+import { badRequest, ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { requireUser } from "@rawkoon/api/middleware/hono/auth";
+import { jsonV } from "@rawkoon/api/middleware/validate";
 
 function parseYmdToDbDate(ymd: string | null | undefined): Date | null {
   if (ymd == null || ymd === "") return null;
@@ -11,20 +12,18 @@ function parseYmdToDbDate(ymd: string | null | undefined): Date | null {
   return new Date(`${ymd}T00:00:00.000Z`);
 }
 
-export const mediasWatchlistRoutes = new Elysia({
-  prefix: "/watchlist",
-})
-  .use(auth)
-  .use(requireUser)
+// Mounted at /api/medias/watchlist by the medias parent (prefix dropped here).
+export const mediasWatchlistRoutes = new Hono<Env>()
+  .use("*", requireUser)
 
   // GET /api/medias/watchlist
-  .get("/", async ({ user, set }) => {
+  .get("/", async (c) => {
     try {
       const items = await prisma.watchlistItem.findMany({
-        where: { userId: user!.id },
+        where: { userId: c.get("user").id },
         orderBy: { addedAt: "desc" },
       });
-      return {
+      return ok({
         items: items.map((item) => ({
           id: item.id,
           tmdb_id: item.tmdbId,
@@ -39,7 +38,7 @@ export const mediasWatchlistRoutes = new Elysia({
             ? item.movieReleaseDate.toISOString().slice(0, 10)
             : null,
         })),
-      };
+      });
     } catch {
       return serverError("Failed to fetch watchlist");
     }
@@ -48,7 +47,21 @@ export const mediasWatchlistRoutes = new Elysia({
   // POST /api/medias/watchlist — add (idempotent)
   .post(
     "/",
-    async ({ user, body, set }) => {
+    jsonV(
+      // Elysia t.Object strips unknown keys at runtime; Zod default strips too (no .strict()).
+      z.object({
+        tmdb_id: z.number(),
+        media_type: z.string(),
+        title: z.string(),
+        poster_url: z.union([z.string(), z.null()]).optional(),
+        overview: z.union([z.string(), z.null()]).optional(),
+        release_year: z.union([z.number(), z.null()]).optional(),
+        vote_average: z.union([z.number(), z.null()]).optional(),
+        release_date: z.union([z.string(), z.null()]).optional(),
+      }),
+    ),
+    async (c) => {
+      const body = c.req.valid("json");
       try {
         const isMovie = body.media_type === "movie";
         const movieDate = isMovie
@@ -57,13 +70,13 @@ export const mediasWatchlistRoutes = new Elysia({
         const item = await prisma.watchlistItem.upsert({
           where: {
             userId_tmdbId_mediaType: {
-              userId: user!.id,
+              userId: c.get("user").id,
               tmdbId: body.tmdb_id,
               mediaType: body.media_type,
             },
           },
           create: {
-            userId: user!.id,
+            userId: c.get("user").id,
             tmdbId: body.tmdb_id,
             mediaType: body.media_type,
             title: body.title,
@@ -80,38 +93,26 @@ export const mediasWatchlistRoutes = new Elysia({
               : {}),
           },
         });
-        return { id: item.id, added: true };
+        return ok({ id: item.id, added: true });
       } catch {
         return serverError("Failed to add to watchlist");
       }
     },
-    {
-      // Elysia t.Object strips unknown keys at runtime; Zod default strips too (no .strict()).
-      body: z.object({
-        tmdb_id: z.number(),
-        media_type: z.string(),
-        title: z.string(),
-        poster_url: z.union([z.string(), z.null()]).optional(),
-        overview: z.union([z.string(), z.null()]).optional(),
-        release_year: z.union([z.number(), z.null()]).optional(),
-        vote_average: z.union([z.number(), z.null()]).optional(),
-        release_date: z.union([z.string(), z.null()]).optional(),
-      }),
-    },
   )
 
   // DELETE /api/medias/watchlist/:tmdbId?type=movie|tv
-  .delete("/:tmdbId", async ({ user, params, query, set }) => {
-    const tmdbId = parseInt(params.tmdbId, 10);
+  .delete("/:tmdbId", async (c) => {
+    const tmdbId = parseInt(c.req.param("tmdbId"), 10);
     if (isNaN(tmdbId)) return badRequest("Invalid tmdbId");
-    if (!query.type) return badRequest("Missing type query param");
+    const type = c.req.query("type");
+    if (!type) return badRequest("Missing type query param");
 
     try {
       await prisma.watchlistItem.deleteMany({
-        where: { userId: user!.id, tmdbId, mediaType: query.type },
+        where: { userId: c.get("user").id, tmdbId, mediaType: type },
       });
 
-      return { success: true };
+      return ok({ success: true });
     } catch {
       return serverError("Failed to remove from watchlist");
     }

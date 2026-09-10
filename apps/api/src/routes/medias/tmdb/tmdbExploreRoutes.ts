@@ -1,8 +1,7 @@
-import { Elysia } from "elysia";
-import { z } from "zod";
-import { requireUser } from "@rawkoon/api/middleware/auth";
+import { Hono } from "hono";
 import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
-import { badGateway, badRequest, serverError } from "@rawkoon/api/errors";
+import { badGateway, badRequest, ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
 import {
   type TmdbSearchItem,
   mapTmdbSearchItem,
@@ -23,16 +22,16 @@ import {
   shuffle,
 } from "./tmdbRouteHelpers";
 
-export const tmdbExploreRoutes = new Elysia()
-  .use(requireUser)
-  .get("/explore", async ({ user: _user, set, query }) => {
+// Mounted under /api/medias; requireUser applied at the tmdb parent.
+export const tmdbExploreRoutes = new Hono<Env>()
+  .get("/explore", async (c) => {
     try {
       const tmdbConfig = await loadEnabledTmdbConfig();
       if (!tmdbConfig) {
         return badRequest("TMDB is not configured");
       }
 
-      const q = query as Record<string, string | undefined>;
+      const q = c.req.query() as Record<string, string | undefined>;
       const language = resolveLanguage(q);
       const region = await getGlobalTmdbRegion();
       const skipCache = q.skipCache === "true";
@@ -139,7 +138,7 @@ export const tmdbExploreRoutes = new Elysia()
         }
       }
 
-      return {
+      return ok({
         trending: normalize(sections.trending),
         popular_movies: normalize(sections.popular_movies),
         popular_shows: normalize(sections.popular_shows),
@@ -150,15 +149,15 @@ export const tmdbExploreRoutes = new Elysia()
         top_rated_movies: normalize(sections.top_rated_movies),
         top_rated_shows: normalize(sections.top_rated_shows),
         recommended,
-      };
+      });
     } catch (error) {
       console.error("Error fetching TMDB explore:", error);
       return serverError("Failed to fetch TMDB explore");
     }
   })
 
-  .get("/explore/:category", async ({ user: _user, set, params, query }) => {
-    const category = (params as Record<string, string>).category;
+  .get("/explore/:category", async (c) => {
+    const category = c.req.param("category");
     const config = EXPLORE_CATEGORY_PATHS[category];
     if (!config) {
       return badRequest(`Unknown category: ${category}`);
@@ -170,7 +169,7 @@ export const tmdbExploreRoutes = new Elysia()
         return badRequest("TMDB is not configured");
       }
 
-      const q = query as Record<string, string | undefined>;
+      const q = c.req.query() as Record<string, string | undefined>;
       const language = resolveLanguage(q);
       const page = parseInt(q.page || "1", 10);
 
@@ -201,83 +200,75 @@ export const tmdbExploreRoutes = new Elysia()
 
       const enrichedNormalized = enrichSearchItems(items, catLibMap);
 
-      return {
+      return ok({
         items: enrichedNormalized,
         page,
         total_pages:
           typeof data.total_pages === "number" ? data.total_pages : 1,
-      };
+      });
     } catch (error) {
       console.error("Error fetching explore category:", error);
       return serverError("Failed to fetch category");
     }
   })
 
-  .get(
-    "/similar/:tmdbId",
-    async ({ user: _user, set, params, query: queryParams }) => {
-      const tmdbId = parseInt(params.tmdbId, 10);
-      if (!Number.isFinite(tmdbId) || tmdbId <= 0) {
-        return badRequest("Invalid TMDB ID");
+  .get("/similar/:tmdbId", async (c) => {
+    const tmdbId = parseInt(c.req.param("tmdbId"), 10);
+    if (!Number.isFinite(tmdbId) || tmdbId <= 0) {
+      return badRequest("Invalid TMDB ID");
+    }
+
+    const mediaType = c.req.query("type");
+    if (mediaType !== "movie" && mediaType !== "tv") {
+      return badRequest("Invalid type, must be movie or tv");
+    }
+
+    const language = resolveLanguage(
+      c.req.query() as Record<string, string | undefined>,
+    );
+
+    try {
+      const cacheKey = `medias:recommendations:${mediaType}:${tmdbId}:${language}`;
+      const cached = await getJsonCache<TmdbSearchItem[]>(cacheKey);
+      if (cached) {
+        return ok({ items: cached });
       }
 
-      const typedQuery = queryParams as Record<string, string | undefined>;
-      const mediaType = typedQuery.type;
-      if (mediaType !== "movie" && mediaType !== "tv") {
-        return badRequest("Invalid type, must be movie or tv");
+      const tmdbConfig = await loadEnabledTmdbConfig();
+      if (!tmdbConfig) {
+        return badRequest("TMDB is not configured");
       }
 
-      const language = resolveLanguage(typedQuery);
-
-      try {
-        const cacheKey = `medias:recommendations:${mediaType}:${tmdbId}:${language}`;
-        const cached = await getJsonCache<TmdbSearchItem[]>(cacheKey);
-        if (cached) {
-          return { items: cached };
-        }
-
-        const tmdbConfig = await loadEnabledTmdbConfig();
-        if (!tmdbConfig) {
-          return badRequest("TMDB is not configured");
-        }
-
-        const url = new URL(
-          `https://api.themoviedb.org/3/${mediaType}/${tmdbId}/recommendations`,
-        );
-        url.searchParams.set("api_key", tmdbConfig.api_key);
-        url.searchParams.set("language", language);
-        const res = await fetch(url.toString(), {
-          headers: { Accept: "application/json" },
-        });
-        const rawResults: unknown[] = [];
-        if (res.ok) {
-          const data = (await res.json()) as Record<string, unknown>;
-          if (Array.isArray(data.results)) rawResults.push(...data.results);
-        }
-
-        const withType = injectMediaType(mediaType)(rawResults);
-
-        const baseItems = withType
-          .map(mapTmdbSearchItem)
-          .filter((item): item is TmdbSearchItem => Boolean(item))
-          .slice(0, 40);
-
-        const simLibMap = await libraryIdMapForTmdbIds(
-          baseItems.map((i) => i.tmdb_id),
-        );
-        const enrichedItems = enrichSearchItems(withType, simLibMap).slice(
-          0,
-          40,
-        );
-
-        await setJsonCache(cacheKey, enrichedItems, 60 * 60);
-        return { items: enrichedItems };
-      } catch (error) {
-        console.error("Error fetching similar medias:", error);
-        return serverError("Failed to fetch similar medias");
+      const url = new URL(
+        `https://api.themoviedb.org/3/${mediaType}/${tmdbId}/recommendations`,
+      );
+      url.searchParams.set("api_key", tmdbConfig.api_key);
+      url.searchParams.set("language", language);
+      const res = await fetch(url.toString(), {
+        headers: { Accept: "application/json" },
+      });
+      const rawResults: unknown[] = [];
+      if (res.ok) {
+        const data = (await res.json()) as Record<string, unknown>;
+        if (Array.isArray(data.results)) rawResults.push(...data.results);
       }
-    },
-    {
-      params: z.object({ tmdbId: z.string() }),
-    },
-  );
+
+      const withType = injectMediaType(mediaType)(rawResults);
+
+      const baseItems = withType
+        .map(mapTmdbSearchItem)
+        .filter((item): item is TmdbSearchItem => Boolean(item))
+        .slice(0, 40);
+
+      const simLibMap = await libraryIdMapForTmdbIds(
+        baseItems.map((i) => i.tmdb_id),
+      );
+      const enrichedItems = enrichSearchItems(withType, simLibMap).slice(0, 40);
+
+      await setJsonCache(cacheKey, enrichedItems, 60 * 60);
+      return ok({ items: enrichedItems });
+    } catch (error) {
+      console.error("Error fetching similar medias:", error);
+      return serverError("Failed to fetch similar medias");
+    }
+  });

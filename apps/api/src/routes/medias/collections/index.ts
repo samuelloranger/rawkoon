@@ -1,8 +1,8 @@
-import { Elysia } from "elysia";
-import { auth } from "@rawkoon/api/auth";
-import { requireUser } from "@rawkoon/api/middleware/auth";
+import { Hono } from "hono";
 import { prisma } from "@rawkoon/api/db";
-import { serverError } from "@rawkoon/api/errors";
+import { ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { requireUser } from "@rawkoon/api/middleware/hono/auth";
 import {
   loadTmdbConfig,
   toTmdbLanguage,
@@ -10,17 +10,16 @@ import {
 import { fetchMediaDetails } from "@rawkoon/api/utils/medias/tmdbFetcherDetails";
 import { fetchCollectionDetails } from "@rawkoon/api/utils/medias/tmdbFetcherEndpoints";
 
-export const mediasCollectionsRoutes = new Elysia()
-  .use(auth)
-  .use(requireUser)
-  .get("/collections/missing", async ({ set, query }) => {
+// Mounted under /api/medias; requireUser applied here.
+export const mediasCollectionsRoutes = new Hono<Env>()
+  .use("*", requireUser)
+  .get("/collections/missing", async (c) => {
     try {
       const tmdbConfig = await loadTmdbConfig();
-      if (!tmdbConfig) return { collections: [] };
+      if (!tmdbConfig) return ok({ collections: [] });
 
-      const language = toTmdbLanguage(
-        (query as Record<string, string | undefined>).language || "en-US",
-      );
+      const q = c.req.query() as Record<string, string | undefined>;
+      const language = toTmdbLanguage(q.language || "en-US");
 
       const ownedMovies = await prisma.libraryMedia.findMany({
         where: { type: "movie" },
@@ -64,7 +63,7 @@ export const mediasCollectionsRoutes = new Elysia()
         }
       }
 
-      if (collectionIds.size === 0) return { collections: [] };
+      if (collectionIds.size === 0) return ok({ collections: [] });
 
       const collectionResults = await Promise.all(
         Array.from(collectionIds).map((id) =>
@@ -73,7 +72,7 @@ export const mediasCollectionsRoutes = new Elysia()
       );
 
       const collections = collectionResults
-        .filter((c): c is NonNullable<typeof c> => c !== null)
+        .filter((cItem): cItem is NonNullable<typeof cItem> => cItem !== null)
         .map((collection) => {
           const movies = collection.parts.map((part) => {
             const already_exists = ownedTmdb.has(part.tmdb_id);
@@ -107,10 +106,10 @@ export const mediasCollectionsRoutes = new Elysia()
             missing_count,
           };
         })
-        .filter((c) => c.missing_count > 0 && c.owned_count > 0)
+        .filter((col) => col.missing_count > 0 && col.owned_count > 0)
         .sort((a, b) => a.name.localeCompare(b.name));
 
-      return { collections };
+      return ok({ collections });
     } catch (error) {
       console.error("Error fetching missing collections:", error);
       return serverError("Failed to fetch missing collections");
