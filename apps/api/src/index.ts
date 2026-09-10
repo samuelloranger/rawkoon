@@ -139,7 +139,7 @@ export const app = new Elysia()
   .use(usersRoutes)
   .use(notificationsRoutes)
   .use(labbyRoutes)
-  .use(releasesRoutes)
+  .mount("/api/releases", releasesRoutes.fetch)
   .use(settingsRoutes)
   .use(adminRoutes)
   .use(integrationsRoutes)
@@ -153,8 +153,8 @@ export const app = new Elysia()
   .use(customFormatsRoutes)
   .use(mediasRoutes)
   .use(requestRoutes)
-  .use(searchRoutes)
   // Ported to Hono — mounted via WHATWG fetch (Elysia .mount strips the prefix).
+  .mount("/api/search", searchRoutes.fetch)
   .mount("/api/system", systemRoutes.fetch)
   .get("/api/health", async ({ set }) => {
     const health = await checkHealth();

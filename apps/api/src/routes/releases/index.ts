@@ -1,30 +1,33 @@
-import { Elysia } from "elysia";
-import { requireAdmin } from "@rawkoon/api/middleware/auth";
-import { serverError } from "@rawkoon/api/errors";
+import { Hono } from "hono";
+import { notFound, ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import {
   getCachedGitHubReleases,
   refreshGitHubReleases,
 } from "@rawkoon/api/services/githubReleases";
 
-export const releasesRoutes = new Elysia({ prefix: "/api/releases" })
-  .use(requireAdmin)
-  .get("/", async ({ set }) => {
+// Mounted at /api/releases by the edge (Elysia .mount strips the prefix).
+export const releasesRoutes = new Hono<Env>()
+  .use("*", requireAdmin)
+  .get("/", async () => {
     try {
       const cached = await getCachedGitHubReleases();
       if (cached.releases.length > 0 || cached.sync.last_error) {
-        return cached;
+        return ok(cached);
       }
-      return await refreshGitHubReleases({ notifyAdmins: false });
+      return ok(await refreshGitHubReleases({ notifyAdmins: false }));
     } catch (error) {
       console.error("Error loading GitHub releases:", error);
       return serverError("Failed to load GitHub releases");
     }
   })
-  .post("/refresh", async ({ set }) => {
+  .post("/refresh", async () => {
     try {
-      return await refreshGitHubReleases({ notifyAdmins: true });
+      return ok(await refreshGitHubReleases({ notifyAdmins: true }));
     } catch (error) {
       console.error("Error refreshing GitHub releases:", error);
       return serverError("Failed to refresh GitHub releases");
     }
-  });
+  })
+  .notFound(() => notFound("Not found"));
