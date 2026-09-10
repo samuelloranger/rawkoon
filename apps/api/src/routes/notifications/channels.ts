@@ -1,9 +1,10 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { z } from "zod";
-import { auth } from "@rawkoon/api/auth";
-import { requireUser } from "@rawkoon/api/middleware/auth";
 import { prisma } from "@rawkoon/api/db";
-import { badRequest, notFound, serverError } from "@rawkoon/api/errors";
+import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { requireUser } from "@rawkoon/api/middleware/hono/auth";
+import { jsonV } from "@rawkoon/api/middleware/validate";
 import {
   dispatchToChannel,
   parseNtfyConfig,
@@ -74,129 +75,125 @@ function validateConfig(type: string, config: unknown): string | null {
   return null;
 }
 
-export const notificationChannelsRoutes = new Elysia({ prefix: "/channels" })
-  .use(auth)
-  .use(requireUser)
+const createBody = z.object({
+  type: z.string(),
+  label: z.string().min(1).max(100),
+  config: z.record(z.string(), z.unknown()),
+});
 
+const patchBody = z.object({
+  label: z.string().min(1).max(100).optional(),
+  enabled: z.boolean().optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
+});
+
+// Mounted at /channels by the notifications root. Guards are route-level.
+export const notificationChannelsRoutes = new Hono<Env>()
   // GET /api/notifications/channels
-  .get("/", async ({ user, set }) => {
+  .get("/", requireUser, async (c) => {
     try {
       const channels = await prisma.notificationChannel.findMany({
-        where: { userId: user!.id },
+        where: { userId: c.get("user").id },
         orderBy: { createdAt: "asc" },
       });
-      return { channels: channels.map(mapChannel) };
+      return ok({ channels: channels.map(mapChannel) });
     } catch {
       return serverError("Failed to fetch notification channels");
     }
   })
 
   // POST /api/notifications/channels
-  .post(
-    "/",
-    async ({ user, body, set }) => {
-      if (!VALID_TYPES.includes(body.type as (typeof VALID_TYPES)[number])) {
-        return badRequest(`type must be one of: ${VALID_TYPES.join(", ")}`);
-      }
-      const configErr = validateConfig(body.type, body.config);
-      if (configErr) return badRequest(configErr);
-      try {
-        const channel = await prisma.notificationChannel.create({
-          data: {
-            userId: user!.id,
-            type: body.type,
-            label: body.label,
-            config: body.config as object,
-            enabled: true,
-          },
-        });
-        return { channel: mapChannel(channel) };
-      } catch {
-        return serverError("Failed to create notification channel");
-      }
-    },
-    {
-      body: z.object({
-        type: z.string(),
-        label: z.string().min(1).max(100),
-        config: z.record(z.string(), z.unknown()),
-      }),
-    },
-  )
+  .post("/", requireUser, jsonV(createBody), async (c) => {
+    const user = c.get("user");
+    const body = c.req.valid("json");
+    if (!VALID_TYPES.includes(body.type as (typeof VALID_TYPES)[number])) {
+      return badRequest(`type must be one of: ${VALID_TYPES.join(", ")}`);
+    }
+    const configErr = validateConfig(body.type, body.config);
+    if (configErr) return badRequest(configErr);
+    try {
+      const channel = await prisma.notificationChannel.create({
+        data: {
+          userId: user.id,
+          type: body.type,
+          label: body.label,
+          config: body.config as object,
+          enabled: true,
+        },
+      });
+      return ok({ channel: mapChannel(channel) });
+    } catch {
+      return serverError("Failed to create notification channel");
+    }
+  })
 
   // PATCH /api/notifications/channels/:id
-  .patch(
-    "/:id",
-    async ({ user, params, body, set }) => {
-      const id = parseId(params.id);
-      if (id === null) return badRequest("Invalid channel id");
-      try {
-        const existing = await prisma.notificationChannel.findFirst({
-          where: { id, userId: user!.id },
-        });
-        if (!existing) return notFound("Channel not found");
-
-        if (body.config !== undefined) {
-          const configErr = validateConfig(existing.type, body.config);
-          if (configErr) return badRequest(configErr);
-        }
-
-        const result = await prisma.notificationChannel.updateMany({
-          where: { id, userId: user!.id },
-          data: {
-            ...(body.label !== undefined ? { label: body.label } : {}),
-            ...(body.enabled !== undefined ? { enabled: body.enabled } : {}),
-            ...(body.config !== undefined
-              ? { config: body.config as object }
-              : {}),
-          },
-        });
-        if (result.count === 0) return notFound("Channel not found");
-
-        const channel = await prisma.notificationChannel.findUnique({
-          where: { id },
-        });
-        if (!channel) return notFound("Channel not found");
-        return { channel: mapChannel(channel) };
-      } catch {
-        return serverError("Failed to update notification channel");
-      }
-    },
-    {
-      body: z.object({
-        label: z.string().min(1).max(100).optional(),
-        enabled: z.boolean().optional(),
-        config: z.record(z.string(), z.unknown()).optional(),
-      }),
-    },
-  )
-
-  // DELETE /api/notifications/channels/:id
-  .delete("/:id", async ({ user, params, set }) => {
-    const id = parseId(params.id);
+  .patch("/:id", requireUser, jsonV(patchBody), async (c) => {
+    const user = c.get("user");
+    const body = c.req.valid("json");
+    const id = parseId(c.req.param("id"));
     if (id === null) return badRequest("Invalid channel id");
     try {
       const existing = await prisma.notificationChannel.findFirst({
-        where: { id, userId: user!.id },
+        where: { id, userId: user.id },
+      });
+      if (!existing) return notFound("Channel not found");
+
+      if (body.config !== undefined) {
+        const configErr = validateConfig(existing.type, body.config);
+        if (configErr) return badRequest(configErr);
+      }
+
+      const result = await prisma.notificationChannel.updateMany({
+        where: { id, userId: user.id },
+        data: {
+          ...(body.label !== undefined ? { label: body.label } : {}),
+          ...(body.enabled !== undefined ? { enabled: body.enabled } : {}),
+          ...(body.config !== undefined
+            ? { config: body.config as object }
+            : {}),
+        },
+      });
+      if (result.count === 0) return notFound("Channel not found");
+
+      const channel = await prisma.notificationChannel.findUnique({
+        where: { id },
+      });
+      if (!channel) return notFound("Channel not found");
+      return ok({ channel: mapChannel(channel) });
+    } catch {
+      return serverError("Failed to update notification channel");
+    }
+  })
+
+  // DELETE /api/notifications/channels/:id
+  .delete("/:id", requireUser, async (c) => {
+    const user = c.get("user");
+    const id = parseId(c.req.param("id"));
+    if (id === null) return badRequest("Invalid channel id");
+    try {
+      const existing = await prisma.notificationChannel.findFirst({
+        where: { id, userId: user.id },
       });
       if (!existing) return notFound("Channel not found");
       const result = await prisma.notificationChannel.deleteMany({
-        where: { id, userId: user!.id },
+        where: { id, userId: user.id },
       });
       if (result.count === 0) return notFound("Channel not found");
-      return { success: true };
+      return ok({ success: true });
     } catch {
       return serverError("Failed to delete notification channel");
     }
   })
 
   // POST /api/notifications/channels/:id/test
-  .post("/:id/test", async ({ user, params, set }) => {
-    const id = parseId(params.id);
+  .post("/:id/test", requireUser, async (c) => {
+    const user = c.get("user");
+    const id = parseId(c.req.param("id"));
     if (id === null) return badRequest("Invalid channel id");
     try {
       const channel = await prisma.notificationChannel.findFirst({
-        where: { id, userId: user!.id },
+        where: { id, userId: user.id },
       });
       if (!channel) return notFound("Channel not found");
 
@@ -205,7 +202,7 @@ export const notificationChannelsRoutes = new Elysia({ prefix: "/channels" })
         body: "If you see this, your notification channel is working.",
         url: `${getBaseUrl().replace(/\/$/, "")}/settings?tab=notifications`,
       });
-      return { success: true };
+      return ok({ success: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Dispatch failed";
       return badRequest(msg);

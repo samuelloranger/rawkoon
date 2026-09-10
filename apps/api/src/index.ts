@@ -137,7 +137,7 @@ export const app = new Elysia()
   .use(globalRateLimit) // Global rate limiting for unauthenticated requests
   .mount("/api/dashboard", dashboardRoutes.fetch)
   .mount("/api/users", usersRoutes.fetch)
-  .use(notificationsRoutes)
+  .mount("/api/notifications", notificationsRoutes.fetch)
   .mount("/api/labby", labbyRoutes.fetch)
   .mount("/api/releases", releasesRoutes.fetch)
   .mount("/api/settings", settingsRoutes.fetch)
