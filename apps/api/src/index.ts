@@ -154,7 +154,8 @@ export const app = new Elysia()
   .use(mediasRoutes)
   .use(requestRoutes)
   .use(searchRoutes)
-  .use(systemRoutes)
+  // Ported to Hono — mounted via WHATWG fetch (Elysia .mount strips the prefix).
+  .mount("/api/system", systemRoutes.fetch)
   .get("/api/health", async ({ set }) => {
     const health = await checkHealth();
     if (health.status === "degraded") set.status = 503;
