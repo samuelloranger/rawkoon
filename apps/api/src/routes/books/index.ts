@@ -31,9 +31,13 @@ export { authorRoutes } from "./authorRoutes";
  * bookListeningStatsRoutes and bookListRoutes must come before /:id routes:
  * literal /listening-stats and /search must not be swallowed as an :id.
  */
+// Hono's .route() merge resolves overlaps by REGISTRATION ORDER (unlike Elysia's
+// static-first router), so every router that owns a literal single-segment path
+// (/progress, /reading-progress, /metadata-sources, …) must be registered BEFORE
+// bookListRoutes, which owns GET/DELETE /:id — otherwise those literals get
+// swallowed as an :id. bookListRoutes is therefore registered last.
 export const bookRoutes = new Hono<Env>()
   .route("/", bookListeningStatsRoutes)
-  .route("/", bookListRoutes)
   .route("/", bookPlaybackRoutes)
   .route("/", bookContentRoutes)
   .route("/", bookProgressRoutes)
@@ -43,5 +47,6 @@ export const bookRoutes = new Hono<Env>()
   .route("/", bookOverridesRoutes)
   .route("/", bookEditionRoutes)
   .route("/", bookGrabRoutes)
+  .route("/", bookListRoutes)
   .notFound(() => notFound("Not found"))
   .onError(honoOnError);

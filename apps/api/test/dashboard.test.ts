@@ -30,7 +30,7 @@ describe("Dashboard API", () => {
       });
     }
 
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -42,7 +42,7 @@ describe("Dashboard API", () => {
 
   it("should return stats when authenticated", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/dashboard/stats", {
         headers: { Cookie: cookies },
       }),
@@ -57,7 +57,7 @@ describe("Dashboard API", () => {
 
   it("should return 401 when unauthenticated", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/dashboard/stats"),
     );
     expect(response.status).toBe(401);

@@ -50,7 +50,7 @@ describe("Authentication", () => {
 
   it("should login successfully with correct credentials", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/auth/sign-in/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -69,7 +69,7 @@ describe("Authentication", () => {
 
   it("should get current user with valid cookie", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/auth/me", {
         headers: { Cookie: cookies },
       }),
@@ -83,7 +83,7 @@ describe("Authentication", () => {
 
   it("should fail login with wrong password", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/auth/sign-in/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

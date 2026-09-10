@@ -30,7 +30,7 @@ describe("Users API", () => {
       });
     }
 
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -42,7 +42,7 @@ describe("Users API", () => {
 
   it("should return 401 when unauthenticated on GET /me", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/users/me"),
     );
     expect(response.status).toBe(401);
@@ -50,7 +50,7 @@ describe("Users API", () => {
 
   it("should return current user profile when authenticated", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/users/me", {
         headers: { Cookie: cookies },
       }),
@@ -64,7 +64,7 @@ describe("Users API", () => {
 
   it("should return 401 when unauthenticated on PUT /me", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/users/me", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -76,7 +76,7 @@ describe("Users API", () => {
 
   it("should update user profile", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/users/me", {
         method: "PUT",
         headers: { "Content-Type": "application/json", Cookie: cookies },
@@ -90,7 +90,7 @@ describe("Users API", () => {
 
   it("should return 401 when unauthenticated on POST /me/password", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/users/me/password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -102,7 +102,7 @@ describe("Users API", () => {
 
   it("should reject password change with wrong current password", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/users/me/password", {
         method: "POST",
         headers: { "Content-Type": "application/json", Cookie: cookies },

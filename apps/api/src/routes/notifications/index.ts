@@ -36,6 +36,23 @@ const listQuery = z.object({
   read: z.string().optional(),
 });
 
+// Optional bodies validated by safeParse in the handlers (a missing body is a
+// no-op; a present-but-malformed one is a 400) — matches the original schemas.
+const unsubscribeBody = z
+  .object({ subscription: z.object({ endpoint: z.string() }).optional() })
+  .optional();
+
+const testBody = z
+  .object({
+    subscription: z
+      .object({
+        endpoint: z.string(),
+        keys: z.object({ p256dh: z.string(), auth: z.string() }),
+      })
+      .optional(),
+  })
+  .optional();
+
 const subscribeBody = z.object({
   subscription: z.object({
     endpoint: z.string(),
@@ -455,12 +472,16 @@ export const notificationsRoutes = new Hono<Env>()
   // POST /api/notifications/unsubscribe - Unsubscribe from push notifications
   .post("/unsubscribe", requireUser, async (c) => {
     const user = c.get("user");
+    // The body is optional (missing/empty = no-op success), but a present body
+    // must match the shape — a malformed one is a 400, matching the original.
+    const parsed = unsubscribeBody.safeParse(
+      await c.req.json().catch(() => undefined),
+    );
+    if (!parsed.success) {
+      return badRequest(parsed.error.issues[0]?.message ?? "Invalid request");
+    }
     try {
-      // Body is optional; a missing/invalid body is a no-op success.
-      const body = (await c.req.json().catch(() => null)) as {
-        subscription?: { endpoint?: string };
-      } | null;
-      const subscription = body?.subscription;
+      const subscription = parsed.data?.subscription;
 
       if (subscription && subscription.endpoint) {
         await prisma.userSubscription.deleteMany({
@@ -481,6 +502,14 @@ export const notificationsRoutes = new Hono<Env>()
   })
   // POST /api/notifications/test - Send a test push notification (admin only)
   .post("/test", requireUser, async (c) => {
+    // The optional body is validated first (a malformed one is a 400), matching
+    // the original where validation ran before the handler.
+    const parsed = testBody.safeParse(
+      await c.req.json().catch(() => undefined),
+    );
+    if (!parsed.success) {
+      return badRequest(parsed.error.issues[0]?.message ?? "Invalid request");
+    }
     // Admin-only, but returns 401 (not 403) to match the original behavior.
     if (!c.get("user").is_admin) {
       return unauthorized("Unauthorized");

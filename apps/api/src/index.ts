@@ -1,12 +1,13 @@
 import { existsSync } from "node:fs";
-import * as nodePath from "node:path";
 import { Elysia } from "elysia";
-import { swagger } from "@elysiajs/swagger";
-import { staticPlugin } from "@elysiajs/static";
-import { notFound } from "@rawkoon/api/errors";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { serveStatic } from "hono/bun";
+
+import { notFound, ok } from "@rawkoon/api/errors";
+import { type Env, honoOnError } from "@rawkoon/api/honoEnv";
 import { isApiPath } from "@rawkoon/api/utils/isApiPath";
 
-import { cors } from "@elysiajs/cors";
 import { checkAndNotifyVersionChange } from "./services/versionService";
 import { auth as betterAuthInstance } from "@rawkoon/api/lib/auth";
 import {
@@ -15,6 +16,7 @@ import {
   ssoProvidersRoute,
   mobileAuthRoutes,
 } from "./auth";
+import { downloadClientHookRoutes } from "./routes/integrations/downloadClient/hookRoutes";
 import { adminRoutes } from "./routes/admin";
 import { dashboardRoutes } from "./routes/dashboard";
 import { libraryRoutes } from "./routes/library";
@@ -29,15 +31,16 @@ import { mediasRoutes } from "./routes/medias";
 import { requestRoutes } from "./routes/requests";
 import { notificationsRoutes } from "./routes/notifications";
 import { integrationsRoutes } from "./routes/integrations";
-import { downloadClientHookRoutes } from "./routes/integrations/downloadClient/hookRoutes";
 import { labbyRoutes } from "./routes/labby";
 import { releasesRoutes } from "./routes/releases";
 import { searchRoutes } from "./routes/search";
 import { settingsRoutes } from "./routes/settings";
 import { systemRoutes } from "./routes/system";
 import { usersRoutes } from "./routes/users";
-import { globalRateLimit, strictAuthRateLimit } from "./middleware/rateLimit";
-import { requestTiming } from "./middleware/requestTiming";
+// Hono edge middleware; the Elysia strict-auth limiter lives in the auth island.
+import { globalRateLimit } from "./middleware/hono/rateLimit";
+import { requestTiming } from "./middleware/hono/requestTiming";
+import { strictAuthRateLimit } from "./middleware/rateLimit";
 import { resolveUser } from "./middleware/auth";
 import {
   closeAllWorkers,
@@ -49,69 +52,29 @@ import { checkHealth } from "./services/healthCheck";
 
 // The production image copies the built frontend into ./public (see
 // Dockerfile); in dev the directory doesn't exist and Vite serves the SPA.
-const serveStatic = existsSync("./public/index.html");
-const spaIndexHtmlPromise: Promise<string> = serveStatic
+const serveStaticEnabled = existsSync("./public/index.html");
+const spaIndexHtmlPromise: Promise<string> = serveStaticEnabled
   ? Bun.file("./public/index.html").text()
   : Promise.resolve("");
+
+// U+2028/U+2029 are valid in JSON strings but break inline <script> parsing.
+const LINE_SEP = String.fromCharCode(0x2028);
+const PARA_SEP = String.fromCharCode(0x2029);
 
 function escapeInlineScriptJson(value: unknown): string {
   return JSON.stringify(value)
     .replaceAll("<", "\\u003c")
     .replaceAll(">", "\\u003e")
     .replaceAll("&", "\\u0026")
-    .replaceAll("\u2028", "\\u2028")
-    .replaceAll("\u2029", "\\u2029");
+    .replaceAll(LINE_SEP, "\\u2028")
+    .replaceAll(PARA_SEP, "\\u2029");
 }
 
-export const app = new Elysia()
-  // Serve pre-compressed .gz assets built by vite-plugin-compression2 when client accepts gzip.
-  .onAfterHandle({ as: "global" }, async ({ request, response, path }) => {
-    if (!(response instanceof Response)) return;
-    if (!path.startsWith("/assets/")) return;
-    // Re-check after normalizing so paths like /assets/../../etc/passwd don't
-    // resolve outside ./public when interpolated into the file path below.
-    const safePath = nodePath.posix.normalize(path);
-    if (!safePath.startsWith("/assets/")) return;
-    const ext = safePath.split(".").pop() ?? "";
-    if (ext !== "js" && ext !== "css") return;
-    if ((request.headers.get("accept-encoding") ?? "").indexOf("gzip") === -1)
-      return;
-    if (response.headers.get("content-encoding")) return;
-
-    const gzFile = Bun.file(`./public${safePath}.gz`);
-    if (!(await gzFile.exists())) return;
-
-    const ct = ext === "css" ? "text/css" : "application/javascript";
-    return new Response(gzFile, {
-      headers: {
-        "Content-Type": ct,
-        "Content-Encoding": "gzip",
-        "Cache-Control": "public, max-age=31536000, immutable",
-        Vary: "Accept-Encoding",
-      },
-    });
-  })
-  .use(
-    cors({
-      origin: Bun.env.CORS_ORIGIN || "http://localhost:5173", // Frontend URL
-      credentials: true,
-    }),
-  )
-  .use(Bun.env.NODE_ENV !== "production" ? swagger() : new Elysia())
-  .use((app) => {
-    console.log("Elysia app initialized");
-    if (Bun.env.LOG_LEVEL === "debug") {
-      app.on("beforeHandle", (context) => {
-        console.log(
-          `Incoming request: ${context.request.method} ${context.path}`,
-        );
-      });
-    }
-    return app;
-  })
-  // Perf-baseline request timing. Inert unless PERF_TIMING_ENABLED=true — off by
-  // default, so a normal run behaves identically.
-  .use(requestTiming)
+// better-auth, the /api/auth/* delegation, the auth.ts routers, and the
+// download-client webhook stay on Elysia (out of scope for the Hono migration).
+// They live in this island, bridged from the Hono edge below. Its onError
+// mirrors the original edge so auth-route error shapes are unchanged.
+const authIsland = new Elysia()
   .onError(({ code, error, set }) => {
     if (code === "NOT_FOUND") {
       set.status = 404;
@@ -131,74 +94,120 @@ export const app = new Elysia()
   .use(mobileAuthRoutes)
   .use(protectedAuthRoutes)
   .all("/api/auth/*", ({ request }) => betterAuthInstance.handler(request))
-  .use(downloadClientHookRoutes)
-  .use(globalRateLimit) // Global rate limiting for unauthenticated requests
-  .mount("/api/dashboard", dashboardRoutes.fetch)
-  .mount("/api/users", usersRoutes.fetch)
-  .mount("/api/notifications", notificationsRoutes.fetch)
-  .mount("/api/labby", labbyRoutes.fetch)
-  .mount("/api/releases", releasesRoutes.fetch)
-  .mount("/api/settings", settingsRoutes.fetch)
-  .mount("/api/admin", adminRoutes.fetch)
-  .mount("/api/integrations", integrationsRoutes.fetch)
-  // libraryMediaAdminRoutes + libraryDownloadsRoutes are folded into libraryRoutes
-  // (all three share /api/library; only one Hono app can mount at that prefix).
-  .mount("/api/library", libraryRoutes.fetch)
-  .mount("/api/books", bookRoutes.fetch)
-  .mount("/api/book-quality-profiles", bookQualityProfileRoutes.fetch)
-  .mount("/api/authors", authorRoutes.fetch)
-  .mount("/api/quality-profiles", qualityProfilesRoutes.fetch)
-  .mount("/api/custom-formats", customFormatsRoutes.fetch)
-  .mount("/api/medias", mediasRoutes.fetch)
-  .mount("/api/requests", requestRoutes.fetch)
-  // Ported to Hono — mounted via WHATWG fetch (Elysia .mount strips the prefix).
-  .mount("/api/search", searchRoutes.fetch)
-  .mount("/api/system", systemRoutes.fetch)
-  .get("/api/health", async ({ set }) => {
-    const health = await checkHealth();
-    if (health.status === "degraded") set.status = 503;
-    return health;
-  })
-  .use((app) => {
-    if (serveStatic) {
-      // On Bun, @elysiajs/static imports .html as modules; Vite's index.html is plain HTML, so those routes
-      // return empty bodies. Ignore *.html here and serve the SPA shell via Bun.file below.
-      app
-        .use(
-          staticPlugin({
-            assets: "./public",
-            prefix: "/",
-            // html served below with bootstrap injection
-            ignorePatterns: [/\.html$/],
-          }),
-        )
-        .get("*", async ({ request, set }) => {
-          // An unmatched /api path is a bug, not a client-side route. Falling
-          // through to the SPA answered 200 with HTML, which hid a real failure:
-          // epub.js probed `/api/books/files/1/META-INF/container.xml`, got the
-          // shell with a success status, and silently failed to parse it.
-          if (isApiPath(new URL(request.url).pathname)) {
-            return notFound("Not found");
-          }
+  .use(downloadClientHookRoutes);
 
-          const [indexHtml, user] = await Promise.all([
-            spaIndexHtmlPromise,
-            resolveUser(request).catch(() => null),
-          ]);
+const bridgeToAuthIsland = (c: { req: { raw: Request } }): Promise<Response> =>
+  authIsland.handle(c.req.raw);
 
-          const bootScript = `<script>window.__RAWKOON_BOOTSTRAP__=${escapeInlineScriptJson({ user })};</script>`;
-          const html = indexHtml.replace("</body>", `${bootScript}\n</body>`);
+// strict:false so a trailing slash matches (`/api/requests/` == `/api/requests`),
+// preserving Elysia's lenient routing across every mounted domain router.
+export const app = new Hono<Env>({ strict: false });
 
-          return new Response(html, {
-            headers: {
-              "Content-Type": "text/html; charset=utf-8",
-              "Cache-Control": "no-cache",
-            },
-          });
-        });
-    }
-    return app;
+// cors + perf timing wrap everything (registered first → apply to all routes).
+app.use(
+  "*",
+  cors({
+    origin: Bun.env.CORS_ORIGIN || "http://localhost:5173",
+    credentials: true,
+  }),
+);
+app.use("*", requestTiming);
+
+if (Bun.env.LOG_LEVEL === "debug") {
+  app.use("*", async (c, next) => {
+    console.log(
+      `Incoming request: ${c.req.method} ${new URL(c.req.url).pathname}`,
+    );
+    await next();
   });
+}
+
+app.onError(honoOnError);
+app.notFound(() => notFound("Not found"));
+
+// Auth + hooks island (registered before the global limiter so it is not also
+// rate-limited by it; the strict auth limiter lives inside the island).
+app.all("/api/auth/*", bridgeToAuthIsland);
+app.all("/api/mobile/*", bridgeToAuthIsland);
+app.all("/api/download-client/*", bridgeToAuthIsland);
+
+// Global rate limiting applies to everything registered after this point
+// (domains, health, static) — unauthenticated requests only; see rateLimitCore.
+app.use("*", globalRateLimit);
+
+app
+  .route("/api/dashboard", dashboardRoutes)
+  .route("/api/users", usersRoutes)
+  .route("/api/notifications", notificationsRoutes)
+  .route("/api/labby", labbyRoutes)
+  .route("/api/releases", releasesRoutes)
+  .route("/api/settings", settingsRoutes)
+  .route("/api/admin", adminRoutes)
+  .route("/api/integrations", integrationsRoutes)
+  // libraryMediaAdmin + libraryDownloads are folded into libraryRoutes (all three
+  // share /api/library, and only one router can own that prefix).
+  .route("/api/library", libraryRoutes)
+  .route("/api/books", bookRoutes)
+  .route("/api/book-quality-profiles", bookQualityProfileRoutes)
+  .route("/api/authors", authorRoutes)
+  .route("/api/quality-profiles", qualityProfilesRoutes)
+  .route("/api/custom-formats", customFormatsRoutes)
+  .route("/api/medias", mediasRoutes)
+  .route("/api/requests", requestRoutes)
+  .route("/api/search", searchRoutes)
+  .route("/api/system", systemRoutes);
+
+app.get("/api/health", async (c) => {
+  const health = await checkHealth();
+  return ok(health, health.status === "degraded" ? 503 : 200);
+});
+
+if (serveStaticEnabled) {
+  // Pre-compressed .gz assets are served natively by serveStatic (precompressed).
+  const assetStatic = serveStatic({
+    root: "./public",
+    precompressed: true,
+    onFound: (_path, c) => {
+      c.header("Cache-Control", "public, max-age=31536000, immutable");
+    },
+  });
+  app.get("/assets/*", assetStatic);
+
+  // Other real files (favicon, manifest, sw.js) are served statically; the SPA
+  // shell (with bootstrap injection) owns "/" and any *.html, and misses fall
+  // through to it.
+  const otherStatic = serveStatic({ root: "./public" });
+  app.use("*", async (c, next) => {
+    const pathname = new URL(c.req.url).pathname;
+    if (pathname === "/" || pathname.endsWith(".html")) return next();
+    return otherStatic(c, next);
+  });
+
+  app.get("*", async (c) => {
+    // An unmatched /api path is a bug, not a client-side route. Falling through
+    // to the SPA answered 200 with HTML, which hid a real failure: epub.js
+    // probed `/api/books/files/1/META-INF/container.xml`, got the shell with a
+    // success status, and silently failed to parse it.
+    if (isApiPath(new URL(c.req.url).pathname)) {
+      return notFound("Not found");
+    }
+
+    const [indexHtml, user] = await Promise.all([
+      spaIndexHtmlPromise,
+      resolveUser(c.req.raw).catch(() => null),
+    ]);
+
+    const bootScript = `<script>window.__RAWKOON_BOOTSTRAP__=${escapeInlineScriptJson({ user })};</script>`;
+    const html = indexHtml.replace("</body>", `${bootScript}\n</body>`);
+
+    return new Response(html, {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-cache",
+      },
+    });
+  });
+}
 
 if (import.meta.main) {
   // 1. Initialize BullMQ Workers
@@ -213,10 +222,12 @@ if (import.meta.main) {
   });
 
   // 3. Start Server
-  app.listen(process.env.API_PORT || 3000);
-  console.log(
-    `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`,
-  );
+  const server = Bun.serve({
+    fetch: app.fetch,
+    port: Number(process.env.API_PORT || 3000),
+    idleTimeout: 0,
+  });
+  console.log(`🔥 Hono is running at ${server.hostname}:${server.port}`);
 
   // 4. Post-startup tasks
   checkAndNotifyVersionChange().catch((err) => {
@@ -230,7 +241,7 @@ if (import.meta.main) {
     console.log(`Received ${signal}, shutting down...`);
     try {
       await closeAllWorkers();
-      await app.stop();
+      server.stop();
     } catch (err) {
       console.error("Shutdown error:", err);
     }

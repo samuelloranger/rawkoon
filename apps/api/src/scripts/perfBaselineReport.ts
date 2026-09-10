@@ -50,8 +50,8 @@ async function main(): Promise<void> {
   if (token) headers.Authorization = `Bearer ${token}`;
 
   // Listen on an ephemeral port so the full HTTP response lifecycle runs.
-  app.listen(0);
-  const port = app.server?.port;
+  const server = Bun.serve({ fetch: app.fetch, port: 0 });
+  const port = server.port;
   if (!port) throw new Error("Failed to start app on an ephemeral port");
   const origin = `http://localhost:${port}`;
 

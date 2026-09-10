@@ -30,7 +30,7 @@ describe("Notifications API", () => {
       });
     }
 
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -42,7 +42,7 @@ describe("Notifications API", () => {
 
   it("should return VAPID public key or 503 without auth", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/notifications/vapid-public-key"),
     );
     expect([200, 503]).toContain(response.status);
@@ -50,7 +50,7 @@ describe("Notifications API", () => {
 
   it("should return 401 when unauthenticated on GET /", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/notifications"),
     );
     expect(response.status).toBe(401);
@@ -58,7 +58,7 @@ describe("Notifications API", () => {
 
   it("should return 401 when unauthenticated on GET /unread-count", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/notifications/unread-count"),
     );
     expect(response.status).toBe(401);
@@ -66,7 +66,7 @@ describe("Notifications API", () => {
 
   it("should return 401 when unauthenticated on PUT /read-all", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/notifications/read-all", {
         method: "PUT",
       }),
@@ -76,7 +76,7 @@ describe("Notifications API", () => {
 
   it("should return notifications list when authenticated", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/notifications", {
         headers: { Cookie: cookies },
       }),
@@ -89,7 +89,7 @@ describe("Notifications API", () => {
 
   it("should return unread count when authenticated", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/notifications/unread-count", {
         headers: { Cookie: cookies },
       }),
@@ -101,7 +101,7 @@ describe("Notifications API", () => {
 
   it("should mark all notifications as read", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/notifications/read-all", {
         method: "PUT",
         headers: { Cookie: cookies },
@@ -114,7 +114,7 @@ describe("Notifications API", () => {
 
   it("should return subscribed devices list when authenticated", async () => {
     if (!hasDb) return;
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/notifications/devices", {
         headers: { Cookie: cookies },
       }),

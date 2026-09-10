@@ -46,7 +46,7 @@ describe("requireUser middleware", () => {
       });
     }
 
-    const res = await app.handle(
+    const res = await app.fetch(
       new Request("http://localhost/api/auth/sign-in/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -61,7 +61,7 @@ describe("requireUser middleware", () => {
   it("returns 401 when no session cookie is present", async () => {
     if (!hasDb) return;
 
-    const res = await app.handle(new Request("http://localhost/api/auth/me"));
+    const res = await app.fetch(new Request("http://localhost/api/auth/me"));
 
     expect(res.status).toBe(401);
   });
@@ -69,7 +69,7 @@ describe("requireUser middleware", () => {
   it("returns 401 when the session cookie references a deleted user", async () => {
     if (!hasDb) return;
 
-    const res = await app.handle(
+    const res = await app.fetch(
       new Request("http://localhost/api/auth/me", {
         headers: { cookie: "better-auth.session_token=invalid-token-xyz" },
       }),
@@ -81,7 +81,7 @@ describe("requireUser middleware", () => {
   it("resolves authenticated user and returns correct UUID id", async () => {
     if (!hasDb || !sessionCookie) return;
 
-    const res = await app.handle(
+    const res = await app.fetch(
       new Request("http://localhost/api/auth/me", {
         headers: { cookie: sessionCookie },
       }),

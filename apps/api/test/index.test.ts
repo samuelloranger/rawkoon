@@ -3,12 +3,12 @@ import { app } from "../src/index";
 
 describe("Elysia Server", () => {
   it("does not expose the constant /health path", async () => {
-    const response = await app.handle(new Request("http://localhost/health"));
+    const response = await app.fetch(new Request("http://localhost/health"));
     expect(response.status).toBe(404);
   });
 
   it("returns db and valkey status on /api/health", async () => {
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/health"),
     );
     const json = (await response.json()) as {
@@ -31,7 +31,7 @@ describe("Elysia Server", () => {
    * with a success status, and failed to parse it instead of reporting an error.
    */
   it("answers an unknown /api path with a 404, not the SPA shell", async () => {
-    const response = await app.handle(
+    const response = await app.fetch(
       new Request("http://localhost/api/books/files/1/META-INF/container.xml"),
     );
 
