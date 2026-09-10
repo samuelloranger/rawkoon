@@ -115,18 +115,37 @@ public struct BookManifest: Codable, Equatable, Sendable {
         files = decoded.isEmpty ? BookManifest.synthesizeFiles(from: chapters) : decoded
     }
 
-    /// Legacy fallback: before `files` existed, each chapter WAS its own file.
+    /// Legacy fallback: before `files` existed, persisted manifests only had
+    /// chapters. A single-file audiobook has many chapters sharing one
+    /// `fileId` — group them into one file per id, or `Dictionary(
+    /// uniqueKeysWithValues:)` downstream (`DownloadPlan.init`) traps on the
+    /// duplicate key at launch (2026-09-10 crash, v1.22.0/446).
     public static func synthesizeFiles(from chapters: [ManifestChapter]) -> [ManifestFile] {
-        chapters.map {
-            ManifestFile(
-                id: $0.fileId,
-                startSecs: $0.startSecs,
-                durationSecs: max($0.endSecs - $0.startSecs, 0),
-                sizeBytes: $0.sizeBytes,
-                sha256: $0.sha256,
-                url: $0.url
-            )
+        var byId: [Int: ManifestFile] = [:]
+        var order: [Int] = []
+        for chapter in chapters {
+            if let existing = byId[chapter.fileId] {
+                byId[chapter.fileId] = ManifestFile(
+                    id: existing.id,
+                    startSecs: existing.startSecs,
+                    durationSecs: max(chapter.endSecs - existing.startSecs, 0),
+                    sizeBytes: existing.sizeBytes,
+                    sha256: existing.sha256,
+                    url: existing.url
+                )
+            } else {
+                byId[chapter.fileId] = ManifestFile(
+                    id: chapter.fileId,
+                    startSecs: chapter.startSecs,
+                    durationSecs: max(chapter.endSecs - chapter.startSecs, 0),
+                    sizeBytes: chapter.sizeBytes,
+                    sha256: chapter.sha256,
+                    url: chapter.url
+                )
+                order.append(chapter.fileId)
+            }
         }
+        return order.compactMap { byId[$0] }
     }
 
     /// On-disk manifests are camelCase (`JSONEncoder` default). The live

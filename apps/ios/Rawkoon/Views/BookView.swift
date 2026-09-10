@@ -680,7 +680,7 @@ struct BookView: View {
                     }
                 } else {
                     VStack(spacing: 4) {
-                        ForEach(filteredChapters, id: \.fileId) { chapter in
+                        ForEach(filteredChapters, id: \.index) { chapter in
                             Button {
                                 Task {
                                     guard let editionId = audiobookEditionId else { return }
