@@ -177,9 +177,9 @@ beforeEach(() => {
 
 describe("requestRoutes", () => {
   it("GET / returns snake_case mapped requests", async () => {
-    const res = await requestRoutes.handle(
-      new Request("http://localhost/api/requests"),
-    );
+    // Ported to Hono; the edge mount strips the /api/requests prefix, so the
+    // router serves this at "/".
+    const res = await requestRoutes.request("/");
     const json = (await res.json()) as {
       requests: Array<Record<string, unknown>>;
     };
@@ -193,13 +193,11 @@ describe("requestRoutes", () => {
   });
 
   it("POST / returns the new id", async () => {
-    const res = await requestRoutes.handle(
-      new Request("http://localhost/api/requests", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tmdb_id: 42, type: "movie", title: "X" }),
-      }),
-    );
+    const res = await requestRoutes.request("/", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tmdb_id: 42, type: "movie", title: "X" }),
+    });
     expect(await res.json()).toEqual({ id: 2 });
   });
 });

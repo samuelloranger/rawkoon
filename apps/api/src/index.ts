@@ -152,7 +152,7 @@ export const app = new Elysia()
   .mount("/api/quality-profiles", qualityProfilesRoutes.fetch)
   .mount("/api/custom-formats", customFormatsRoutes.fetch)
   .use(mediasRoutes)
-  .use(requestRoutes)
+  .mount("/api/requests", requestRoutes.fetch)
   // Ported to Hono — mounted via WHATWG fetch (Elysia .mount strips the prefix).
   .mount("/api/search", searchRoutes.fetch)
   .mount("/api/system", systemRoutes.fetch)
