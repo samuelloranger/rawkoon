@@ -50,7 +50,7 @@ const passwordBody = z.object({
   new_password: z.string(),
 });
 
-// Mounted at /api/users by the edge (Elysia .mount strips the prefix).
+// Mounted at /api/users by the edge.
 export const usersRoutes = new Hono<Env>()
   // PUT /api/users/me - Update user profile
   .put("/me", jsonV(profileBody), async (c) => {

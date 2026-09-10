@@ -6,12 +6,11 @@ import {
 } from "@rawkoon/api/services/perf/perfStore";
 
 /**
- * Hono port of the perf-baseline request-timing plugin. Env-gated: with
- * PERF_TIMING_ENABLED unset it is a pure passthrough (zero per-request work).
+ * Perf-baseline request-timing middleware. Env-gated: with PERF_TIMING_ENABLED
+ * unset it is a pure passthrough (zero per-request work).
  *
- * Aggregates by `c.req.routePath` — Hono's matched route template (e.g.
- * `/api/library/:id`), the equivalent of Elysia's `context.route` — so many
- * distinct ids collapse into one bucket.
+ * Aggregates by the matched route template (e.g. `/api/library/:id`, via
+ * routePath(c)) so many distinct ids collapse into one bucket.
  */
 export const requestTiming = createMiddleware(async (c, next) => {
   if (!PERF_TIMING_ENABLED) {

@@ -8,7 +8,7 @@ import { mediasCollectionsRoutes } from "./collections";
 import { mediasBlocklistRoutes } from "./blocklist";
 import { mediasDiscoverRoutes } from "./discover";
 
-// Mounted at /api/medias by the edge (Elysia .mount strips the prefix). Guards
+// Mounted at /api/medias by the edge. Guards
 // are per-child (mixed requireUser / requireAdmin), so none is hoisted here.
 // watchlist and discover keep their own /watchlist and /discover segments.
 export const mediasRoutes = new Hono<Env>()

@@ -1,6 +1,6 @@
-// Framework-parity diff: compare two results.json runs (e.g. Elysia vs Hono).
+// Framework-parity diff: compare two results.json runs of the API.
 // Asserts the same route set and identical {status-class, kind, ok} per check.
-// Usage: bun run e2e/diff.ts results.elysia.json results.hono.json
+// Usage: bun run e2e/diff.ts results.a.json results.b.json
 interface Row {
   method: string;
   path: string;

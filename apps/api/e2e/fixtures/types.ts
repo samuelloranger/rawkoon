@@ -11,7 +11,7 @@ export interface Route {
 export type Phase = "bootstrap" | "read" | "update" | "action" | "delete";
 
 // One endpoint's test recipe, keyed in a registry by "METHOD /api/path".
-// Everything is HTTP-level values so the same fixture drives Elysia and Hono.
+// Everything is HTTP-level values so the fixture is framework-agnostic.
 export interface Fixture {
   phase?: Phase; // default inferred from method
   pathParams?: (ctx: Context) => Record<string, string>;

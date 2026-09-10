@@ -1,8 +1,7 @@
 /**
- * Framework-neutral error response helpers.
- * Each returns a standard Web `Response` with the `{ error }` shape and correct
- * status — a plain handler `return errorHelper(msg)` works identically under
- * Elysia and Hono (both pass through `Response`), with no framework `set`.
+ * Error response helpers. Each returns a standard Web `Response` with the
+ * `{ error }` shape and correct status, so a handler just does
+ * `return errorHelper(msg)`.
  */
 
 const errorResponse = (status: number, message: string) =>
@@ -10,9 +9,8 @@ const errorResponse = (status: number, message: string) =>
 
 /**
  * Success counterpart to the error helpers. Hono does not auto-serialize a
- * returned POJO the way Elysia does, so success handlers return `ok(body)`
- * instead of a bare object — keeping every return path a Web `Response` and
- * `c.json` out of the handler bodies.
+ * returned POJO, so success handlers return `ok(body)` instead of a bare object
+ * — keeping every return path a Web `Response` and `c.json` out of the handlers.
  */
 export const ok = (body: unknown, status = 200) =>
   Response.json(body, { status });

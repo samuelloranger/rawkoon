@@ -1,9 +1,9 @@
 // The single seam every sweep request goes through: real HTTP against BASE_URL.
 // No framework import, no app.handle — this is what makes the suite run
-// identically against Elysia and Hono.
+// identically regardless of the HTTP framework behind it.
 
 // Validation-failure status pinned here so both frameworks are held to the same
-// code for the negative (bad-body) check. Elysia returns 400 for a failed
+// code for the negative (bad-body) check. The API returns 400 for a failed
 // validator; if Hono's standard-validator differs, change it here (one place).
 export const VALIDATION_STATUS = 400;
 

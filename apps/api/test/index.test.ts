@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { app } from "../src/index";
 
-describe("Elysia Server", () => {
+describe("API Server", () => {
   it("does not expose the constant /health path", async () => {
     const response = await app.fetch(new Request("http://localhost/health"));
     expect(response.status).toBe(404);

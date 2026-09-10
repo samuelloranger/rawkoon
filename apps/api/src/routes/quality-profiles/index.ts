@@ -102,7 +102,7 @@ const codeOf = (e: unknown): string | null =>
     ? (e as { code: string }).code
     : null;
 
-// Mounted at /api/quality-profiles by the edge (Elysia .mount strips the prefix).
+// Mounted at /api/quality-profiles by the edge.
 export const qualityProfilesRoutes = new Hono<Env>()
   .use("*", requireUser)
   .get("/", async () => {

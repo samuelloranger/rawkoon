@@ -1,12 +1,12 @@
 import { auth } from "@rawkoon/api/lib/auth";
 
 /**
- * Framework-neutral rate-limit policy shared by the Elysia limiter
- * (middleware/rateLimit.ts) and the Hono limiter (middleware/hono/rateLimit.ts)
- * during the migration, so both enforce the exact same rules from one source.
+ * Rate-limit policy (windows, maxes, messages, skip predicates, client IP)
+ * shared by the limiters in middleware/hono/rateLimit.ts, so they enforce the
+ * same rules from one source.
  *
  * The `skip` predicates are pure `Request → boolean`; only the key generator
- * needs the connecting IP, which each framework supplies its own way.
+ * needs the connecting IP.
  */
 
 export const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;

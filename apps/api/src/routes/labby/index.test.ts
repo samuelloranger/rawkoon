@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { buildLabbySummary } from "./summary";
 
 const { labbyRoutes } = await import("./index");
-// Ported to Hono; mount it the way the edge does so the /api/labby paths hold.
+// Mount at /api/labby to drive the full /api/labby paths.
 const app = new Hono().route("/api/labby", labbyRoutes);
 
 describe("Labby API", () => {

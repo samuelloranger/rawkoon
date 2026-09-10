@@ -7,7 +7,7 @@
  * storage, no /metrics endpoint, no Prometheus — just a one-shot snapshot to
  * capture a baseline before optimization.
  *
- * It starts the Elysia app on an ephemeral local port IN-PROCESS and fires real
+ * It starts the app on an ephemeral local port IN-PROCESS and fires real
  * HTTP requests at it — so the full response lifecycle runs exactly as in
  * production (the timing hook fires on `onAfterResponse`) — then reads the very
  * ring buffer those requests filled. It forces PERF_TIMING_ENABLED on for its
@@ -129,6 +129,6 @@ main()
     process.exit(1);
   })
   .finally(() => {
-    // app.handle spins up in-process workers/timers; exit explicitly.
+    // The app spins up in-process workers/timers; exit explicitly.
     process.exit(0);
   });

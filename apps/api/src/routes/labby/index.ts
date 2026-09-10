@@ -3,7 +3,7 @@ import { notFound, ok, serverError } from "@rawkoon/api/errors";
 import { requireApiKey } from "@rawkoon/api/middleware/hono/apiKey";
 import { buildLabbySummary } from "./summary";
 
-// Mounted at /api/labby by the edge (Elysia .mount strips the prefix).
+// Mounted at /api/labby by the edge.
 export const labbyRoutes = new Hono()
   .use("*", requireApiKey)
   .get("/summary", async () => {

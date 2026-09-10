@@ -26,14 +26,14 @@ export { authorRoutes } from "./authorRoutes";
  * Books router — thin orchestrator, same shape as routes/library/index.ts.
  * Guards live per child (mixed): most are requireUser, bookMetadataAdminRoutes is
  * requireAdmin, and bookContentRoutes is unguarded (it authenticates via an HMAC
- * grant token). Mounted at /api/books by the edge (Elysia .mount strips prefix).
+ * grant token). Mounted at /api/books by the edge.
  *
  * bookListeningStatsRoutes and bookListRoutes must come before /:id routes:
  * literal /listening-stats and /search must not be swallowed as an :id.
  */
-// Hono's .route() merge resolves overlaps by REGISTRATION ORDER (unlike Elysia's
-// static-first router), so every router that owns a literal single-segment path
-// (/progress, /reading-progress, /metadata-sources, …) must be registered BEFORE
+// Hono's .route() merge resolves a static-vs-:id overlap by REGISTRATION ORDER,
+// so every router that owns a literal single-segment path (/progress,
+// /reading-progress, /metadata-sources, …) must be registered BEFORE
 // bookListRoutes, which owns GET/DELETE /:id — otherwise those literals get
 // swallowed as an :id. bookListRoutes is therefore registered last.
 export const bookRoutes = new Hono<Env>()

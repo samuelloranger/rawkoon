@@ -3,12 +3,10 @@ import { factory } from "@rawkoon/api/honoEnv";
 import { resolveUser } from "@rawkoon/api/middleware/auth";
 
 /**
- * Hono port of the auth guards. Mirror of the Elysia `requireUser` /
- * `requireAdmin` plugins: resolve the session user, short-circuit with a
- * neutral error Response when missing/unauthorized, otherwise stash the user on
- * the typed context for handlers to read via `c.get("user")`.
- *
- * `resolveUser(request)` is framework-neutral and reused verbatim.
+ * Auth guards `requireUser` / `requireAdmin`: resolve the session user,
+ * short-circuit with a neutral error Response when missing/unauthorized,
+ * otherwise stash the user on the typed context for handlers to read via
+ * `c.get("user")`.
  */
 export const requireUser = factory.createMiddleware(async (c, next) => {
   const user = await resolveUser(c.req.raw);

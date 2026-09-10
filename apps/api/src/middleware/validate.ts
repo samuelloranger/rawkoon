@@ -8,8 +8,8 @@ import { badRequest } from "@rawkoon/api/errors";
  * Hono's `sValidator` returns the raw StandardSchema result as `400 { ... }` on
  * failure — a different body than the rest of the API. These wrappers supply a
  * failure hook that returns the neutral `badRequest` helper instead, so an
- * invalid request still answers `400 { error: <message> }` exactly as the old
- * Elysia `VALIDATION` path did.
+ * invalid request still answers `400 { error: <message> }`, the same shape as
+ * every other error.
  */
 
 // Standard Schema reports failures as a flat `readonly Issue[]`.

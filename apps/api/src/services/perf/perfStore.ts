@@ -14,7 +14,7 @@ import { summarize, type PercentileSummary } from "./percentiles";
 
 /** One captured HTTP request. */
 export interface RequestTimingSample {
-  route: string; // Elysia context.route (the matched template, e.g. /api/library/:id)
+  route: string; // the matched route template, e.g. /api/library/:id
   method: string;
   status: number;
   ms: number;

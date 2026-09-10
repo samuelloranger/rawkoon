@@ -7,7 +7,7 @@ import {
   refreshGitHubReleases,
 } from "@rawkoon/api/services/githubReleases";
 
-// Mounted at /api/releases by the edge (Elysia .mount strips the prefix).
+// Mounted at /api/releases by the edge.
 export const releasesRoutes = new Hono<Env>()
   .use("*", requireAdmin)
   .get("/", async () => {

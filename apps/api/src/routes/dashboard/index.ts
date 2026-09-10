@@ -6,7 +6,7 @@ import { dashboardUpcomingRoutes } from "./upcoming";
 import { dashboardJellyfinRoutes } from "./jellyfin";
 import { dashboardDownloadsRoutes } from "./downloads";
 
-// Mounted at /api/dashboard by the edge (Elysia .mount strips the prefix). Each
+// Mounted at /api/dashboard by the edge. Each
 // child carries its own segment + requireUser guard; merge them at the root.
 export const dashboardRoutes = new Hono<Env>()
   .route("/", dashboardActivitiesRoutes)

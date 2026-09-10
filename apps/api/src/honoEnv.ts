@@ -20,10 +20,9 @@ export type Env = {
 export const factory = createFactory<Env>();
 
 /**
- * Shared onError for ported routers. Elysia's global onError swallowed any
- * uncaught throw into a 500 `{ error: "Internal server error" }`; a mounted Hono
- * app catches its own throws, so give each router this handler to keep that
- * exact contract (never leak an internal message to the client).
+ * Shared onError for the routers. A mounted Hono app catches its own throws,
+ * so give each router this handler to keep an uncaught error a neutral 500
+ * `{ error: "Internal server error" }` (never leak an internal message).
  */
 export const honoOnError = (err: Error, _c: Context): Response => {
   console.error("[unhandled]", err);

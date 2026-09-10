@@ -30,7 +30,7 @@ const patchBody = z.object({
   books_enabled: z.boolean().optional(),
 });
 
-// Mounted at /api/settings by the edge (Elysia .mount strips the prefix).
+// Mounted at /api/settings by the edge.
 export const settingsRoutes = new Hono<Env>()
   .use("*", requireAdmin)
   .get("/", async () => {

@@ -77,8 +77,7 @@ mock.module("@rawkoon/api/lib/auth", () => ({
 
 const { bookProgressRoutes } = await import("./bookPlaybackRoutes");
 
-// bookProgressRoutes is Hono now; mount it the way the edge does so the
-// /api/books/editions/:id/progress paths hold (mount strips the prefix).
+// Mount at /api/books to drive the full /api/books/editions/:id/progress paths.
 const app = new Hono().route("/api/books", bookProgressRoutes);
 
 const USER: NonNullable<FakeUser> = {

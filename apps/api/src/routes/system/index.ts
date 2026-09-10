@@ -3,7 +3,7 @@ import { prisma } from "@rawkoon/api/db";
 import { ok, notFound } from "@rawkoon/api/errors";
 import { getAppVersion } from "@rawkoon/api/services/versionService";
 
-// Mounted at /api/system by the edge (Elysia .mount strips the prefix), so
+// Mounted at /api/system by the edge, so
 // routes here are declared relative to it.
 export const systemRoutes = new Hono()
   .get("/version", () => ok({ version: getAppVersion() }))

@@ -70,8 +70,8 @@ function escapeInlineScriptJson(value: unknown): string {
     .replaceAll(PARA_SEP, "\\u2029");
 }
 
-// strict:false so a trailing slash matches (`/api/requests/` == `/api/requests`),
-// preserving Elysia's lenient routing across every mounted domain router.
+// strict:false so a trailing slash matches (`/api/requests/` == `/api/requests`)
+// across every mounted domain router.
 export const app = new Hono<Env>({ strict: false });
 
 // cors + perf timing wrap everything (registered first → apply to all routes).

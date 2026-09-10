@@ -226,8 +226,8 @@ export const bookContentRoutes = new Hono<Env>().get(
 
     const { start, endExclusive } = sliceForRange(range);
     // Defensive: a cors layer re-serving a sliced BunFile handle from byte 0 was
-    // measured to silently send the whole file with a 206 (originally under
-    // @elysiajs/cors). Materializing the chunk here is immune to that, so keep it.
+    // measured to silently send the whole file with a 206. Materializing the
+    // chunk here is immune to that, so keep it.
     const chunk = new Uint8Array(
       await handle.slice(start, endExclusive).arrayBuffer(),
     );

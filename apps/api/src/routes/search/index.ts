@@ -12,7 +12,7 @@ const quickQuery = z.object({
   limit: z.string().optional(),
 });
 
-// Mounted at /api/search by the edge (Elysia .mount strips the prefix).
+// Mounted at /api/search by the edge.
 export const searchRoutes = new Hono<Env>()
   .use("*", requireUser)
   .get("/quick", queryV(quickQuery), async (c) => {

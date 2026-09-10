@@ -76,7 +76,7 @@ const createBody = z.union([
   }),
 ]);
 
-// Mounted at /api/requests by the edge (Elysia .mount strips the prefix).
+// Mounted at /api/requests by the edge.
 export const requestRoutes = new Hono<Env>()
   .use("*", requireUser)
   // GET /api/requests — admins see all, users see their own

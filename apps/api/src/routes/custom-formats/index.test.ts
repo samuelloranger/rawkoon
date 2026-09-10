@@ -149,8 +149,7 @@ mock.module("@rawkoon/api/lib/auth", () => ({
 
 const { customFormatsRoutes } = await import("./index");
 
-// Ported to Hono; the edge mounts it via WHATWG fetch, so mount it the same way
-// here to keep driving it through the full /api/custom-formats paths.
+// Mount at /api/custom-formats to drive it through the full paths.
 const app = new Hono().route("/api/custom-formats", customFormatsRoutes);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

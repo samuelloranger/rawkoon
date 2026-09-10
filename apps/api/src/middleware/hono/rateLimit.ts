@@ -13,10 +13,9 @@ import {
 } from "@rawkoon/api/middleware/rateLimitCore";
 
 /**
- * Hono port of the two rate limiters. Same policy as the Elysia limiters —
- * enforced from the shared rateLimitCore — with the connecting IP pulled via
- * Hono's Bun adapter instead of Elysia's `server.requestIP`. A string `message`
- * makes hono-rate-limiter answer 429 text/plain, matching the Elysia behavior.
+ * The two rate limiters, enforced from the shared rateLimitCore policy, with the
+ * connecting IP pulled via Hono's Bun adapter (getConnInfo). A string `message`
+ * makes hono-rate-limiter answer 429 as text/plain.
  */
 
 function connAddr(c: Context): string | undefined {

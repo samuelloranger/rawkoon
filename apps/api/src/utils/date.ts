@@ -1,5 +1,5 @@
 /**
- * Date and time utility functions for the Elysia server.
+ * Date and time utility functions for the API server.
  * These are shared across multiple route handlers.
  */
 

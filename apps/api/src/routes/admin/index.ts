@@ -8,7 +8,7 @@ import { adminUserRoutes } from "./adminUserRoutes";
 import { adminMiscRoutes } from "./adminMiscRoutes";
 import { adminApiKeyRoutes } from "./apiKeyRoutes";
 
-// Mounted at /api/admin by the edge (Elysia .mount strips the prefix). One
+// Mounted at /api/admin by the edge. One
 // requireAdmin guard here propagates to every merged child; onError keeps an
 // uncaught throw a neutral 500 (some job routes throw).
 export const adminRoutes = new Hono<Env>()

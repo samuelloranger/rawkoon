@@ -12,7 +12,7 @@ import { localAiIntegrationRoutes } from "./local-ai";
 import { googleBooksIntegrationRoutes } from "./googlebooks";
 import { audnexusIntegrationRoutes } from "./audnexus";
 
-// Mounted at /api/integrations by the edge (Elysia .mount strips the prefix).
+// Mounted at /api/integrations by the edge.
 // Every integration is admin-only, so one requireAdmin here propagates to all
 // merged children. oidc carries its own /oidc segment.
 export const integrationsRoutes = new Hono<Env>()

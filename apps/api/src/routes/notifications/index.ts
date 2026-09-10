@@ -82,7 +82,7 @@ const apnsRegisterBody = z.object({
     .optional(),
 });
 
-// Mounted at /api/notifications by the edge (Elysia .mount strips the prefix).
+// Mounted at /api/notifications by the edge.
 // Auth is per-route (requireUser) — every route is guarded EXCEPT the public
 // GET /vapid-public-key. Guards are route-level so they don't leak across the
 // /channels merge.

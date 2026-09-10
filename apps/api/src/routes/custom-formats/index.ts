@@ -36,7 +36,7 @@ const isUniqueViolation = (e: unknown): boolean =>
   "code" in e &&
   (e as { code: string }).code === "P2002";
 
-// Mounted at /api/custom-formats by the edge (Elysia .mount strips the prefix).
+// Mounted at /api/custom-formats by the edge.
 export const customFormatsRoutes = new Hono<Env>()
   .use("*", requireUser)
   .get("/", async () => {

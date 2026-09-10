@@ -92,7 +92,7 @@ const actionMap: Record<string, string> = {
   check_author_releases: SCHEDULED_JOB_NAMES.CHECK_AUTHOR_RELEASES,
 };
 
-// Mounted under /api/admin (Elysia .mount strips the prefix); requireAdmin is
+// Mounted under /api/admin; requireAdmin is
 // applied once at the admin parent and propagates to these merged routes.
 export const adminJobRoutes = new Hono<Env>()
   // GET /api/admin/scheduled-jobs - List scheduled BullMQ jobs and queue stats

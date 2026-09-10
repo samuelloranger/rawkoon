@@ -47,7 +47,7 @@ export const mediasWatchlistRoutes = new Hono<Env>()
     "/",
     requireUser,
     jsonV(
-      // Elysia t.Object strips unknown keys at runtime; Zod default strips too (no .strict()).
+      // Zod strips unknown keys by default (no .strict()), so extra fields are ignored.
       z.object({
         tmdb_id: z.number(),
         media_type: z.string(),

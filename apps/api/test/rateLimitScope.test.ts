@@ -5,8 +5,8 @@
  * authenticated bypass) must stay scoped to its own route: otherwise it caps the
  * whole API — opening a book fires a burst of app, asset and API requests, and
  * everything after the 120th would come back 429, the SPA and its JavaScript
- * included. (Under the old Elysia stack this was elysia-rate-limit's global
- * `scoping` default; on Hono the hook limiter is a route-level middleware.)
+ * included. The hook limiter is therefore a route-level middleware, scoped to
+ * its own route.
  */
 import { describe, it, expect, mock } from "bun:test";
 

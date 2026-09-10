@@ -17,7 +17,7 @@ export { mapLibraryMedia, libraryMediaInclude } from "./libraryHelpers";
  * Main library router — one Hono app mounted at /api/library by the edge. All
  * the /api/library routers are combined here (libraryMediaAdminRoutes and
  * libraryDownloadsRoutes shared the /api/library prefix and used to be mounted
- * separately; they fold in here since three apps cannot .mount at one prefix).
+ * separately; they fold in here since three apps cannot own one prefix).
  * Guards are route-level in each child (mixed requireUser / requireAdmin, plus
  * inline ensureAdmin) so none is hoisted here.
  *   libraryListRoutes  — GET /, POST /, DELETE /:id, GET /item/:id
