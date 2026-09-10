@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { badGateway, badRequest, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
+import { requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { queryV } from "@rawkoon/api/middleware/validate";
 import {
   type TmdbSearchItem,
@@ -13,9 +14,10 @@ import {
   loadEnabledTmdbConfig,
 } from "./tmdbRouteHelpers";
 
-// Mounted under /api/medias; requireUser applied at the tmdb parent.
+// Mounted under /api/medias; requireUser guards each route directly.
 export const tmdbSearchRoutes = new Hono<Env>().get(
   "/tmdb-search",
+  requireUser,
   queryV(
     z.object({
       q: z.string(),

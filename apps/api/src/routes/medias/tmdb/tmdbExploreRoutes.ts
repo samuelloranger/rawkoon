@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
 import { badGateway, badRequest, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
+import { requireUser } from "@rawkoon/api/middleware/hono/auth";
 import {
   type TmdbSearchItem,
   mapTmdbSearchItem,
@@ -22,9 +23,9 @@ import {
   shuffle,
 } from "./tmdbRouteHelpers";
 
-// Mounted under /api/medias; requireUser applied at the tmdb parent.
+// Mounted under /api/medias; requireUser guards each route directly.
 export const tmdbExploreRoutes = new Hono<Env>()
-  .get("/explore", async (c) => {
+  .get("/explore", requireUser, async (c) => {
     try {
       const tmdbConfig = await loadEnabledTmdbConfig();
       if (!tmdbConfig) {
@@ -156,7 +157,7 @@ export const tmdbExploreRoutes = new Hono<Env>()
     }
   })
 
-  .get("/explore/:category", async (c) => {
+  .get("/explore/:category", requireUser, async (c) => {
     const category = c.req.param("category");
     const config = EXPLORE_CATEGORY_PATHS[category];
     if (!config) {
@@ -212,7 +213,7 @@ export const tmdbExploreRoutes = new Hono<Env>()
     }
   })
 
-  .get("/similar/:tmdbId", async (c) => {
+  .get("/similar/:tmdbId", requireUser, async (c) => {
     const tmdbId = parseInt(c.req.param("tmdbId"), 10);
     if (!Number.isFinite(tmdbId) || tmdbId <= 0) {
       return badRequest("Invalid TMDB ID");

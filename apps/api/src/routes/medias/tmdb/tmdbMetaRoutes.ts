@@ -3,6 +3,7 @@ import { prisma } from "@rawkoon/api/db";
 import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
 import { badGateway, badRequest, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
+import { requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { toStringOrNull } from "@rawkoon/api/utils/medias/mappers";
 import {
   loadTmdbConfig,
@@ -29,9 +30,9 @@ import {
   TMDB_PAGE_SIZE,
 } from "./tmdbRouteHelpers";
 
-// Mounted under /api/medias; requireUser applied at the tmdb parent.
+// Mounted under /api/medias; requireUser guards each route directly.
 export const tmdbMetaRoutes = new Hono<Env>()
-  .get("/streaming-providers", async (c) => {
+  .get("/streaming-providers", requireUser, async (c) => {
     const q = c.req.query() as Record<string, string | undefined>;
     const region = await getGlobalTmdbRegion();
     const type = q.type === "tv" ? "tv" : "movie";
@@ -86,7 +87,7 @@ export const tmdbMetaRoutes = new Hono<Env>()
     }
   })
 
-  .get("/genres", async (c) => {
+  .get("/genres", requireUser, async (c) => {
     const q = c.req.query() as Record<string, string | undefined>;
     const type = q.type;
     if (type !== "movie" && type !== "tv") {
@@ -129,7 +130,7 @@ export const tmdbMetaRoutes = new Hono<Env>()
     }
   })
 
-  .get("/discover", async (c) => {
+  .get("/discover", requireUser, async (c) => {
     const q = c.req.query() as Record<string, string | undefined>;
     const type = q.type;
     if (type !== "movie" && type !== "tv") {
@@ -224,7 +225,7 @@ export const tmdbMetaRoutes = new Hono<Env>()
     }
   })
 
-  .get("/modal/:mediaType/:tmdbId", async (c) => {
+  .get("/modal/:mediaType/:tmdbId", requireUser, async (c) => {
     const parsed = parseMediaTypeAndTmdbId(
       c.req.param("mediaType"),
       c.req.param("tmdbId"),

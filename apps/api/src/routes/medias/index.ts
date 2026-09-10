@@ -8,9 +8,10 @@ import { mediasCollectionsRoutes } from "./collections";
 import { mediasBlocklistRoutes } from "./blocklist";
 import { mediasDiscoverRoutes } from "./discover";
 
-// Mounted at /api/medias by the edge. Guards
-// are per-child (mixed requireUser / requireAdmin), so none is hoisted here.
-// watchlist and discover keep their own /watchlist and /discover segments.
+// Mounted at /api/medias by the edge. Guards are route-level in every child
+// (mixed requireUser / requireAdmin), never `.use('*')`, so nothing leaks
+// across these `/`-merged siblings. watchlist and discover keep their own
+// /watchlist and /discover segments.
 export const mediasRoutes = new Hono<Env>()
   .route("/", mediasTmdbRoutes)
   .route("/", mediasSearchRoutes)
