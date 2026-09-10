@@ -6,11 +6,11 @@ import type {
   DownloadClientIntegration,
   DownloadClientType,
 } from "@rawkoon/shared/types/integrations";
-import { Elysia } from "elysia";
-import { auth } from "@rawkoon/api/auth";
+import { Hono } from "hono";
 import { prisma } from "@rawkoon/api/db";
-import { badRequest, serverError } from "@rawkoon/api/errors";
-import { requireAdmin } from "@rawkoon/api/middleware/auth";
+import { badRequest, ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { jsonV } from "@rawkoon/api/middleware/validate";
 import { encrypt } from "@rawkoon/api/services/crypto";
 import {
   getDownloadClientIntegrationConfig,
@@ -220,10 +220,9 @@ const tryApplyQbittorrentAutorun = async (input: {
   }
 };
 
-export const downloadClientIntegrationRoutes = new Elysia()
-  .use(auth)
-  .use(requireAdmin)
-  .get("/download-client", async ({ set }) => {
+// Mounted under /api/integrations; requireAdmin is applied at the parent.
+export const downloadClientIntegrationRoutes = new Hono<Env>()
+  .get("/download-client", async () => {
     try {
       const integration = await prisma.integration.findFirst({
         where: { type: "download-client" },
@@ -234,7 +233,7 @@ export const downloadClientIntegrationRoutes = new Elysia()
         clientType === "transmission" || clientType === "deluge"
           ? clientType
           : "qbittorrent";
-      return {
+      return ok({
         integration: buildDownloadClientIntegrationView({
           enabled: integration?.enabled ?? false,
           config: {
@@ -246,7 +245,7 @@ export const downloadClientIntegrationRoutes = new Elysia()
             save_path: stringValue(config.save_path) || undefined,
           },
         }),
-      };
+      });
     } catch (error) {
       console.error("Error fetching download-client config:", error);
       return serverError("Failed to fetch download-client config");
@@ -254,7 +253,23 @@ export const downloadClientIntegrationRoutes = new Elysia()
   })
   .put(
     "/download-client",
-    async ({ user, body, set }) => {
+    jsonV(
+      z.object({
+        client_type: z.union([
+          z.literal("qbittorrent"),
+          z.literal("transmission"),
+          z.literal("deluge"),
+        ]),
+        website_url: z.string(),
+        username: z.string(),
+        password: z.string().optional(),
+        enabled: z.boolean().optional(),
+        label: z.string(),
+        save_path: z.string().optional(),
+      }),
+    ),
+    async (c) => {
+      const body = c.req.valid("json");
       const websiteUrl = normalizeUrl(body.website_url);
       const username = body.username.trim();
       const label = body.label.trim() || "rawkoon";
@@ -317,13 +332,13 @@ export const downloadClientIntegrationRoutes = new Elysia()
 
         await logActivity({
           type: "integration_updated",
-          userId: user!.id,
+          userId: c.get("user").id,
           payload: {
             integration_type: "download-client",
             client_type: body.client_type,
           },
         });
-        return {
+        return ok({
           success: true,
           integration: buildDownloadClientIntegrationView({
             enabled: integration.enabled,
@@ -336,34 +351,20 @@ export const downloadClientIntegrationRoutes = new Elysia()
               save_path: savePath,
             },
           }),
-        };
+        });
       } catch (error) {
         console.error("Error saving download-client config:", error);
         return serverError("Failed to save download-client config");
       }
     },
-    {
-      body: z.object({
-        client_type: z.union([
-          z.literal("qbittorrent"),
-          z.literal("transmission"),
-          z.literal("deluge"),
-        ]),
-        website_url: z.string(),
-        username: z.string(),
-        password: z.string().optional(),
-        enabled: z.boolean().optional(),
-        label: z.string(),
-        save_path: z.string().optional(),
-      }),
-    },
   )
   .post("/download-client/test", async () => {
     const { clientType, config } = await getDownloadClientIntegrationConfig();
-    if (!clientType || !config) return { ok: false, error: "not configured" };
-    return buildAdapter(clientType, config).testConnection();
+    if (!clientType || !config)
+      return ok({ ok: false, error: "not configured" });
+    return ok(await buildAdapter(clientType, config).testConnection());
   })
-  .get("/download-client/hook", async ({ set }) => {
+  .get("/download-client/hook", async () => {
     try {
       const settings = await readHookSettings();
       const token = await getOrCreateHookToken();
@@ -372,11 +373,13 @@ export const downloadClientIntegrationRoutes = new Elysia()
         autoConfigure: settings.autoConfigure,
         token,
       });
-      return await buildHookConfigResponse({
-        ...settings,
-        token,
-        foreignProgram,
-      });
+      return ok(
+        await buildHookConfigResponse({
+          ...settings,
+          token,
+          foreignProgram,
+        }),
+      );
     } catch (error) {
       console.error("Error fetching download-client hook config:", error);
       return serverError("Failed to fetch download-client hook config");
@@ -384,7 +387,15 @@ export const downloadClientIntegrationRoutes = new Elysia()
   })
   .put(
     "/download-client/hook",
-    async ({ body, set }) => {
+    jsonV(
+      z.object({
+        callbackUrl: z.union([z.string(), z.null()]).optional(),
+        autoConfigure: z.boolean().optional(),
+        activeHookedSecs: z.number().optional(),
+      }),
+    ),
+    async (c) => {
+      const body = c.req.valid("json");
       try {
         const existing = await readHookSettings();
 
@@ -442,25 +453,20 @@ export const downloadClientIntegrationRoutes = new Elysia()
           token,
         });
         const settings = await readHookSettings();
-        return await buildHookConfigResponse({
-          ...settings,
-          token,
-          foreignProgram,
-        });
+        return ok(
+          await buildHookConfigResponse({
+            ...settings,
+            token,
+            foreignProgram,
+          }),
+        );
       } catch (error) {
         console.error("Error saving download-client hook config:", error);
         return serverError("Failed to save download-client hook config");
       }
     },
-    {
-      body: z.object({
-        callbackUrl: z.union([z.string(), z.null()]).optional(),
-        autoConfigure: z.boolean().optional(),
-        activeHookedSecs: z.number().optional(),
-      }),
-    },
   )
-  .post("/download-client/hook/rotate", async ({ set }) => {
+  .post("/download-client/hook/rotate", async () => {
     try {
       const token = await rotateHookToken();
       const settings = await readHookSettings();
@@ -469,11 +475,13 @@ export const downloadClientIntegrationRoutes = new Elysia()
         autoConfigure: settings.autoConfigure,
         token,
       });
-      return await buildHookConfigResponse({
-        ...settings,
-        token,
-        foreignProgram,
-      });
+      return ok(
+        await buildHookConfigResponse({
+          ...settings,
+          token,
+          foreignProgram,
+        }),
+      );
     } catch (error) {
       console.error("Error rotating download-client hook token:", error);
       return serverError("Failed to rotate download-client hook token");

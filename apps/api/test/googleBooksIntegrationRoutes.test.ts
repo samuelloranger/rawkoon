@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
+import { Hono } from "hono";
+import type { Env } from "@rawkoon/api/honoEnv";
 
 // Two behaviours carry the weight here. An empty api_key must KEEP the stored
 // key, because the form never receives the secret back and submitting the page
@@ -52,25 +54,20 @@ const { googleBooksIntegrationRoutes } = await import(
   "@rawkoon/api/routes/integrations/googlebooks"
 );
 
-type Handler = (ctx: {
-  user: { id: string };
-  body: { api_key: string; enabled?: boolean };
-  set: { status?: number };
-}) => Promise<unknown>;
+// The child router is unguarded (requireAdmin lives on the integrations parent);
+// drive it through a harness that injects an admin user on the context.
+const app = new Hono<Env>().use("*", (c, next) => {
+  c.set("user", { id: "admin" } as never);
+  return next();
+});
+app.route("/", googleBooksIntegrationRoutes);
 
-/** Pull the PUT handler out of the Elysia instance to call it directly. */
-function putHandler(): Handler {
-  const routes = (
-    googleBooksIntegrationRoutes as unknown as {
-      routes: Array<{ method: string; path: string; handler: Handler }>;
-    }
-  ).routes;
-  const route = routes.find(
-    (r) => r.method === "PUT" && r.path === "/googlebooks",
-  );
-  if (!route) throw new Error("PUT /googlebooks route not found");
-  return route.handler;
-}
+const putGoogleBooks = (body: { api_key: string; enabled?: boolean }) =>
+  app.request("/googlebooks", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
 
 describe("PUT /api/integrations/googlebooks", () => {
   beforeEach(() => {
@@ -80,70 +77,53 @@ describe("PUT /api/integrations/googlebooks", () => {
 
   it("keeps the stored key when the field is submitted empty", async () => {
     state.stored = { enabled: true, config: { api_key: "enc:existing-key" } };
-    const set: { status?: number } = {};
 
-    await putHandler()({
-      user: { id: "admin" },
-      body: { api_key: "", enabled: true },
-      set,
-    });
+    const res = await putGoogleBooks({ api_key: "", enabled: true });
 
+    expect(res.status).toBe(200);
     expect(state.upserts).toHaveLength(1);
     expect(state.upserts[0]?.config).toEqual({ api_key: "enc:existing-key" });
-    expect(set.status).toBeUndefined();
   });
 
   it("replaces the stored key when a new one is given", async () => {
     state.stored = { enabled: true, config: { api_key: "enc:old" } };
 
-    await putHandler()({
-      user: { id: "admin" },
-      body: { api_key: "  new-key  ", enabled: true },
-      set: {},
-    });
+    await putGoogleBooks({ api_key: "  new-key  ", enabled: true });
 
     expect(state.upserts[0]?.config).toEqual({ api_key: "enc:new-key" });
   });
 
   it("refuses to enable the integration with no key at all", async () => {
-    const set: { status?: number } = {};
+    const res = await putGoogleBooks({ api_key: "", enabled: true });
 
-    const result = (await putHandler()({
-      user: { id: "admin" },
-      body: { api_key: "", enabled: true },
-      set,
-    })) as Response;
-
-    expect(result.status).toBe(400);
-    expect((await result.json()).error).toContain("api_key");
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toContain(
+      "api_key",
+    );
     expect(state.upserts).toEqual([]);
   });
 
   // Turning the integration off with no key is legitimate — that is how an
   // instance is put back to a clean state.
   it("allows disabling with no key", async () => {
-    const set: { status?: number } = {};
+    const res = await putGoogleBooks({ api_key: "", enabled: false });
 
-    await putHandler()({
-      user: { id: "admin" },
-      body: { api_key: "", enabled: false },
-      set,
-    });
-
-    expect(set.status).toBeUndefined();
+    expect(res.status).toBe(200);
     expect(state.upserts[0]?.enabled).toBe(false);
   });
 
   it("never echoes the key back to the client", async () => {
     state.stored = { enabled: true, config: { api_key: "enc:secret" } };
 
-    const result = (await putHandler()({
-      user: { id: "admin" },
-      body: { api_key: "brand-new-secret", enabled: true },
-      set: {},
-    })) as { integration: { api_key: string; has_api_key: boolean } };
+    const res = await putGoogleBooks({
+      api_key: "brand-new-secret",
+      enabled: true,
+    });
+    const json = (await res.json()) as {
+      integration: { api_key: string; has_api_key: boolean };
+    };
 
-    expect(result.integration.api_key).toBe("");
-    expect(result.integration.has_api_key).toBe(true);
+    expect(json.integration.api_key).toBe("");
+    expect(json.integration.has_api_key).toBe(true);
   });
 });

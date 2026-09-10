@@ -1,40 +1,40 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { z } from "zod";
-import { auth } from "@rawkoon/api/auth";
 import { prisma } from "@rawkoon/api/db";
 import { nowUtc } from "@rawkoon/api/utils";
 import { isValidHttpUrl } from "@rawkoon/api/utils/integrations/utils";
 import { normalizeLocalAiConfig } from "@rawkoon/api/utils/integrations/normalizers";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
-import { requireAdmin } from "@rawkoon/api/middleware/auth";
 import {
   badGateway,
   badRequest,
   notFound,
+  ok,
   serverError,
 } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { jsonV } from "@rawkoon/api/middleware/validate";
 import {
   getIntegrationConfigRecord,
   invalidateIntegrationConfigCache,
 } from "@rawkoon/api/services/integrationConfigCache";
 
-export const localAiIntegrationRoutes = new Elysia()
-  .use(auth)
-  .use(requireAdmin)
-  .get("/local-ai", async ({ set }) => {
+// Mounted under /api/integrations; requireAdmin is applied at the parent.
+export const localAiIntegrationRoutes = new Hono<Env>()
+  .get("/local-ai", async () => {
     try {
       const integration = await prisma.integration.findFirst({
         where: { type: "local-ai" },
       });
       const config = normalizeLocalAiConfig(integration?.config);
-      return {
+      return ok({
         integration: {
           type: "local-ai",
           enabled: integration?.enabled ?? false,
           base_url: config?.base_url ?? "",
           model: config?.model ?? "",
         },
-      };
+      });
     } catch (error) {
       console.error("Error fetching Local AI config:", error);
       return serverError("Failed to fetch Local AI config");
@@ -42,7 +42,15 @@ export const localAiIntegrationRoutes = new Elysia()
   })
   .put(
     "/local-ai",
-    async ({ user, body, set }) => {
+    jsonV(
+      z.object({
+        base_url: z.string(),
+        model: z.string(),
+        enabled: z.boolean().optional(),
+      }),
+    ),
+    async (c) => {
+      const body = c.req.valid("json");
       const baseUrl = body.base_url.trim().replace(/\/+$/, "");
       if (!baseUrl || !isValidHttpUrl(baseUrl)) {
         return badRequest("Invalid base_url. Must be a valid http(s) URL.");
@@ -73,11 +81,11 @@ export const localAiIntegrationRoutes = new Elysia()
 
         await logActivity({
           type: "integration_updated",
-          userId: user!.id,
+          userId: c.get("user").id,
           payload: { integration_type: "local-ai" },
         });
 
-        return {
+        return ok({
           success: true,
           integration: {
             type: integration.type,
@@ -85,21 +93,14 @@ export const localAiIntegrationRoutes = new Elysia()
             base_url: baseUrl,
             model: body.model.trim(),
           },
-        };
+        });
       } catch (error) {
         console.error("Error saving Local AI config:", error);
         return serverError("Failed to save Local AI config");
       }
     },
-    {
-      body: z.object({
-        base_url: z.string(),
-        model: z.string(),
-        enabled: z.boolean().optional(),
-      }),
-    },
   )
-  .get("/local-ai/test", async ({ set }) => {
+  .get("/local-ai/test", async () => {
     try {
       const record = await getIntegrationConfigRecord("local-ai");
       const config = normalizeLocalAiConfig(record?.config);
@@ -130,7 +131,7 @@ export const localAiIntegrationRoutes = new Elysia()
 
       const model_available = models.includes(config.model);
 
-      return { success: true, models, model_available };
+      return ok({ success: true, models, model_available });
     } catch (error) {
       console.error("Error testing Local AI connection:", error);
       return serverError("Failed to test Local AI connection");

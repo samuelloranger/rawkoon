@@ -1,6 +1,5 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { z } from "zod";
-import { auth } from "@rawkoon/api/auth";
 import { prisma } from "@rawkoon/api/db";
 import { nowUtc } from "@rawkoon/api/utils";
 import {
@@ -11,27 +10,27 @@ import { normalizeJellyfinConfig } from "@rawkoon/api/utils/integrations/normali
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import { encrypt } from "@rawkoon/api/services/crypto";
 import { invalidateIntegrationConfigCache } from "@rawkoon/api/services/integrationConfigCache";
-import { requireAdmin } from "@rawkoon/api/middleware/auth";
-import { badRequest, serverError } from "@rawkoon/api/errors";
+import { badRequest, ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { jsonV } from "@rawkoon/api/middleware/validate";
 
-export const jellyfinIntegrationRoutes = new Elysia()
-  .use(auth)
-  .use(requireAdmin)
-  .get("/jellyfin", async ({ user: _user, set }) => {
+// Mounted under /api/integrations; requireAdmin is applied at the parent.
+export const jellyfinIntegrationRoutes = new Hono<Env>()
+  .get("/jellyfin", async () => {
     try {
       const integration = await prisma.integration.findFirst({
         where: { type: "jellyfin" },
       });
 
       const config = normalizeJellyfinConfig(integration?.config);
-      return {
+      return ok({
         integration: {
           type: "jellyfin",
           enabled: integration?.enabled || false,
           website_url: config?.website_url || "",
           api_key: "",
         },
-      };
+      });
     } catch (error) {
       console.error("Error fetching Jellyfin integration config:", error);
       return serverError("Failed to fetch Jellyfin integration config");
@@ -39,7 +38,15 @@ export const jellyfinIntegrationRoutes = new Elysia()
   })
   .put(
     "/jellyfin",
-    async ({ user, body, set }) => {
+    jsonV(
+      z.object({
+        website_url: z.string(),
+        api_key: z.string(),
+        enabled: z.boolean().optional(),
+      }),
+    ),
+    async (c) => {
+      const body = c.req.valid("json");
       const websiteUrl = normalizeUrl(body.website_url);
       const existingIntegration = await prisma.integration.findFirst({
         where: { type: "jellyfin" },
@@ -65,19 +72,13 @@ export const jellyfinIntegrationRoutes = new Elysia()
           where: { type: "jellyfin" },
           update: {
             enabled,
-            config: {
-              website_url: websiteUrl,
-              api_key: encrypt(apiKey),
-            },
+            config: { website_url: websiteUrl, api_key: encrypt(apiKey) },
             updatedAt: now,
           },
           create: {
             type: "jellyfin",
             enabled,
-            config: {
-              website_url: websiteUrl,
-              api_key: encrypt(apiKey),
-            },
+            config: { website_url: websiteUrl, api_key: encrypt(apiKey) },
             createdAt: now,
             updatedAt: now,
           },
@@ -88,11 +89,11 @@ export const jellyfinIntegrationRoutes = new Elysia()
 
         await logActivity({
           type: "integration_updated",
-          userId: user!.id,
+          userId: c.get("user").id,
           payload: { integration_type: "jellyfin" },
         });
 
-        return {
+        return ok({
           success: true,
           integration: {
             type: integration.type,
@@ -100,17 +101,10 @@ export const jellyfinIntegrationRoutes = new Elysia()
             website_url: websiteUrl,
             api_key: "",
           },
-        };
+        });
       } catch (error) {
         console.error("Error saving Jellyfin integration config:", error);
         return serverError("Failed to save Jellyfin integration config");
       }
-    },
-    {
-      body: z.object({
-        website_url: z.string(),
-        api_key: z.string(),
-        enabled: z.boolean().optional(),
-      }),
     },
   );

@@ -1,6 +1,5 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { z } from "zod";
-import { auth } from "@rawkoon/api/auth";
 import { prisma } from "@rawkoon/api/db";
 import { nowUtc } from "@rawkoon/api/utils";
 import {
@@ -10,21 +9,21 @@ import {
 import { normalizeProwlarrConfig } from "@rawkoon/api/utils/integrations/normalizers";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import { encrypt } from "@rawkoon/api/services/crypto";
-import { requireAdmin } from "@rawkoon/api/middleware/auth";
-import { badRequest, serverError } from "@rawkoon/api/errors";
+import { badRequest, ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { jsonV } from "@rawkoon/api/middleware/validate";
 import { ProwlarrAdapter } from "@rawkoon/api/services/indexerManager/prowlarrAdapter";
 
-export const prowlarrIntegrationRoutes = new Elysia()
-  .use(auth)
-  .use(requireAdmin)
-  .get("/prowlarr", async ({ set }) => {
+// Mounted under /api/integrations; requireAdmin is applied at the parent.
+export const prowlarrIntegrationRoutes = new Hono<Env>()
+  .get("/prowlarr", async () => {
     try {
       const integration = await prisma.integration.findFirst({
         where: { type: "prowlarr" },
       });
 
       const config = normalizeProwlarrConfig(integration?.config);
-      return {
+      return ok({
         integration: {
           type: "prowlarr",
           enabled: integration?.enabled || false,
@@ -32,7 +31,7 @@ export const prowlarrIntegrationRoutes = new Elysia()
           api_key: "",
           rss_indexers: config?.rss_indexers ?? [],
         },
-      };
+      });
     } catch (error) {
       console.error("Error fetching Prowlarr integration config:", error);
       return serverError("Failed to fetch Prowlarr integration config");
@@ -40,7 +39,16 @@ export const prowlarrIntegrationRoutes = new Elysia()
   })
   .put(
     "/prowlarr",
-    async ({ user, body, set }) => {
+    jsonV(
+      z.object({
+        website_url: z.string(),
+        api_key: z.string(),
+        enabled: z.boolean().optional(),
+        rss_indexers: z.array(z.string().min(1)).optional(),
+      }),
+    ),
+    async (c) => {
+      const body = c.req.valid("json");
       const websiteUrl = normalizeUrl(body.website_url);
       const existingIntegration = await prisma.integration.findFirst({
         where: { type: "prowlarr" },
@@ -115,11 +123,11 @@ export const prowlarrIntegrationRoutes = new Elysia()
 
         await logActivity({
           type: "integration_updated",
-          userId: user!.id,
+          userId: c.get("user").id,
           payload: { integration_type: "prowlarr" },
         });
 
-        return {
+        return ok({
           success: true,
           integration: {
             type: integration.type,
@@ -127,31 +135,23 @@ export const prowlarrIntegrationRoutes = new Elysia()
             website_url: websiteUrl,
             api_key: "",
           },
-        };
+        });
       } catch (error) {
         console.error("Error saving Prowlarr integration config:", error);
         return serverError("Failed to save Prowlarr integration config");
       }
     },
-    {
-      body: z.object({
-        website_url: z.string(),
-        api_key: z.string(),
-        enabled: z.boolean().optional(),
-        rss_indexers: z.array(z.string().min(1)).optional(),
-      }),
-    },
   )
-  .get("/prowlarr/indexers", async ({ set }) => {
+  .get("/prowlarr/indexers", async () => {
     try {
       const integration = await prisma.integration.findFirst({
         where: { type: "prowlarr", enabled: true },
       });
       const config = normalizeProwlarrConfig(integration?.config);
-      if (!config) return { indexers: [] };
+      if (!config) return ok({ indexers: [] });
       const adapter = new ProwlarrAdapter(config);
       const indexers = await adapter.getIndexers();
-      return { indexers };
+      return ok({ indexers });
     } catch (error) {
       console.error("Error fetching Prowlarr indexers:", error);
       return serverError("Failed to fetch Prowlarr indexers");

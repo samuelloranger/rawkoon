@@ -1,4 +1,7 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
+import { notFound } from "@rawkoon/api/errors";
+import { type Env, honoOnError } from "@rawkoon/api/honoEnv";
+import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import { tmdbIntegrationRoutes } from "./tmdb";
 import { downloadClientIntegrationRoutes } from "./downloadClient";
 import { jellyfinIntegrationRoutes } from "./jellyfin";
@@ -9,13 +12,19 @@ import { localAiIntegrationRoutes } from "./local-ai";
 import { googleBooksIntegrationRoutes } from "./googlebooks";
 import { audnexusIntegrationRoutes } from "./audnexus";
 
-export const integrationsRoutes = new Elysia({ prefix: "/api/integrations" })
-  .use(tmdbIntegrationRoutes)
-  .use(downloadClientIntegrationRoutes)
-  .use(jellyfinIntegrationRoutes)
-  .use(prowlarrIntegrationRoutes)
-  .use(jackettIntegrationRoutes)
-  .use(oidcIntegrationRoutes)
-  .use(localAiIntegrationRoutes)
-  .use(googleBooksIntegrationRoutes)
-  .use(audnexusIntegrationRoutes);
+// Mounted at /api/integrations by the edge (Elysia .mount strips the prefix).
+// Every integration is admin-only, so one requireAdmin here propagates to all
+// merged children. oidc carries its own /oidc segment.
+export const integrationsRoutes = new Hono<Env>()
+  .use("*", requireAdmin)
+  .route("/", tmdbIntegrationRoutes)
+  .route("/", downloadClientIntegrationRoutes)
+  .route("/", jellyfinIntegrationRoutes)
+  .route("/", prowlarrIntegrationRoutes)
+  .route("/", jackettIntegrationRoutes)
+  .route("/oidc", oidcIntegrationRoutes)
+  .route("/", localAiIntegrationRoutes)
+  .route("/", googleBooksIntegrationRoutes)
+  .route("/", audnexusIntegrationRoutes)
+  .notFound(() => notFound("Not found"))
+  .onError(honoOnError);

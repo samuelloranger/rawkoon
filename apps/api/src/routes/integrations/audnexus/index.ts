@@ -1,6 +1,5 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { z } from "zod";
-import { auth } from "@rawkoon/api/auth";
 import { prisma } from "@rawkoon/api/db";
 import {
   getIntegrationConfigRecord,
@@ -13,8 +12,9 @@ import {
   normalizeAudnexusConfig,
 } from "@rawkoon/api/utils/integrations/normalizers";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
-import { requireAdmin } from "@rawkoon/api/middleware/auth";
-import { badRequest, serverError } from "@rawkoon/api/errors";
+import { badRequest, ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { jsonV } from "@rawkoon/api/middleware/validate";
 
 /**
  * Audnexus integration.
@@ -34,22 +34,20 @@ import { badRequest, serverError } from "@rawkoon/api/errors";
  */
 const TEST_ASIN = "B00000000X";
 
-export const audnexusIntegrationRoutes = new Elysia()
-  .use(auth)
-  .use(requireAdmin)
-
-  .get("/audnexus", async ({ set }) => {
+// Mounted under /api/integrations; requireAdmin is applied at the parent.
+export const audnexusIntegrationRoutes = new Hono<Env>()
+  .get("/audnexus", async () => {
     try {
       const integration = await getIntegrationConfigRecord("audnexus");
       const config = normalizeAudnexusConfig(integration?.config ?? {});
-      return {
+      return ok({
         integration: {
           type: "audnexus",
           enabled: integration?.enabled ?? false,
           base_url: config?.base_url ?? AUDNEXUS_DEFAULT_BASE_URL,
           region: config?.region ?? AUDNEXUS_DEFAULT_REGION,
         },
-      };
+      });
     } catch (error) {
       console.error("Error fetching Audnexus integration config:", error);
       return serverError("Failed to fetch Audnexus integration config");
@@ -58,7 +56,15 @@ export const audnexusIntegrationRoutes = new Elysia()
 
   .put(
     "/audnexus",
-    async ({ user, body, set }) => {
+    jsonV(
+      z.object({
+        base_url: z.string().optional(),
+        region: z.string().optional(),
+        enabled: z.boolean().optional(),
+      }),
+    ),
+    async (c) => {
+      const body = c.req.valid("json");
       const config = normalizeAudnexusConfig({
         base_url: body.base_url ?? "",
         region: body.region ?? "",
@@ -87,11 +93,11 @@ export const audnexusIntegrationRoutes = new Elysia()
 
         await logActivity({
           type: "integration_updated",
-          userId: user!.id,
+          userId: c.get("user").id,
           payload: { integration_type: "audnexus" },
         });
 
-        return {
+        return ok({
           success: true,
           integration: {
             type: integration.type,
@@ -99,18 +105,11 @@ export const audnexusIntegrationRoutes = new Elysia()
             base_url: config.base_url,
             region: config.region,
           },
-        };
+        });
       } catch (error) {
         console.error("Error saving Audnexus integration config:", error);
         return serverError("Failed to save Audnexus integration");
       }
-    },
-    {
-      body: z.object({
-        base_url: z.string().optional(),
-        region: z.string().optional(),
-        enabled: z.boolean().optional(),
-      }),
     },
   )
 
@@ -125,7 +124,14 @@ export const audnexusIntegrationRoutes = new Elysia()
    */
   .post(
     "/audnexus/test",
-    async ({ body, set }) => {
+    jsonV(
+      z.object({
+        base_url: z.string().optional(),
+        region: z.string().optional(),
+      }),
+    ),
+    async (c) => {
+      const body = c.req.valid("json");
       const config = normalizeAudnexusConfig({
         base_url: body.base_url ?? "",
         region: body.region ?? "",
@@ -138,31 +144,25 @@ export const audnexusIntegrationRoutes = new Elysia()
           headers: { Accept: "application/json" },
           signal: AbortSignal.timeout(15_000),
         });
-        if (res.ok || res.status === 404) return { success: true };
+        if (res.ok || res.status === 404) return ok({ success: true });
         if (res.status === 429) {
-          return {
+          return ok({
             success: false,
             error: "Reachable, but rate-limited right now. Try again shortly.",
-          };
+          });
         }
-        return {
+        return ok({
           success: false,
           error: `Audnexus returned HTTP ${res.status}.`,
-        };
+        });
       } catch (error) {
-        return {
+        return ok({
           success: false,
           error:
             error instanceof Error
               ? `Could not reach Audnexus: ${error.message}`
               : "Could not reach Audnexus.",
-        };
+        });
       }
-    },
-    {
-      body: z.object({
-        base_url: z.string().optional(),
-        region: z.string().optional(),
-      }),
     },
   );

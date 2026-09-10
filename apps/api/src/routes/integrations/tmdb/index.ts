@@ -1,6 +1,5 @@
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { z } from "zod";
-import { auth } from "@rawkoon/api/auth";
 import { prisma } from "@rawkoon/api/db";
 import {
   getIntegrationConfigRecord,
@@ -10,25 +9,25 @@ import { nowUtc } from "@rawkoon/api/utils";
 import { normalizeTmdbConfig } from "@rawkoon/api/utils/integrations/normalizers";
 import { encrypt } from "@rawkoon/api/services/crypto";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
-import { requireAdmin } from "@rawkoon/api/middleware/auth";
-import { badRequest, serverError } from "@rawkoon/api/errors";
+import { badRequest, ok, serverError } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { jsonV } from "@rawkoon/api/middleware/validate";
 
-export const tmdbIntegrationRoutes = new Elysia()
-  .use(auth)
-  .use(requireAdmin)
-  .get("/tmdb", async ({ user: _user, set }) => {
+// Mounted under /api/integrations; requireAdmin is applied at the parent.
+export const tmdbIntegrationRoutes = new Hono<Env>()
+  .get("/tmdb", async () => {
     try {
       const integration = await getIntegrationConfigRecord("tmdb");
       const config = normalizeTmdbConfig(integration?.config);
 
-      return {
+      return ok({
         integration: {
           type: "tmdb",
           enabled: integration?.enabled || false,
           api_key: "",
           popularity_threshold: config?.popularity_threshold ?? 15,
         },
-      };
+      });
     } catch (error) {
       console.error("Error fetching TMDB integration config:", error);
       return serverError("Failed to fetch TMDB integration config");
@@ -36,7 +35,15 @@ export const tmdbIntegrationRoutes = new Elysia()
   })
   .put(
     "/tmdb",
-    async ({ user, body, set }) => {
+    jsonV(
+      z.object({
+        api_key: z.string(),
+        enabled: z.boolean().optional(),
+        popularity_threshold: z.number().optional(),
+      }),
+    ),
+    async (c) => {
+      const body = c.req.valid("json");
       const existingIntegration = await getIntegrationConfigRecord("tmdb");
       const existingConfig = normalizeTmdbConfig(existingIntegration?.config);
       const providedApiKey = body.api_key.trim();
@@ -59,11 +66,7 @@ export const tmdbIntegrationRoutes = new Elysia()
         };
         const integration = await prisma.integration.upsert({
           where: { type: "tmdb" },
-          update: {
-            enabled,
-            config: configPayload,
-            updatedAt: now,
-          },
+          update: { enabled, config: configPayload, updatedAt: now },
           create: {
             type: "tmdb",
             enabled,
@@ -76,11 +79,11 @@ export const tmdbIntegrationRoutes = new Elysia()
 
         await logActivity({
           type: "integration_updated",
-          userId: user!.id,
+          userId: c.get("user").id,
           payload: { integration_type: "tmdb" },
         });
 
-        return {
+        return ok({
           success: true,
           integration: {
             type: integration.type,
@@ -88,17 +91,10 @@ export const tmdbIntegrationRoutes = new Elysia()
             api_key: "",
             popularity_threshold: popularityThreshold,
           },
-        };
+        });
       } catch (error) {
         console.error("Error saving TMDB integration config:", error);
         return serverError("Failed to save TMDB integration config");
       }
-    },
-    {
-      body: z.object({
-        api_key: z.string(),
-        enabled: z.boolean().optional(),
-        popularity_threshold: z.number().optional(),
-      }),
     },
   );
