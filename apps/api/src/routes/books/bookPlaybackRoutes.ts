@@ -225,10 +225,9 @@ export const bookContentRoutes = new Hono<Env>().get(
     }
 
     const { start, endExclusive } = sliceForRange(range);
-    // @elysiajs/cors re-serves sliced BunFile handles from byte 0, so
-    // `handle.slice(...)` or `handle.slice(...).stream()` can silently send the
-    // whole file with status 206. This was measured on real requests, so keep a
-    // materialized body here unless cors no longer rewrites sliced handles.
+    // Defensive: a cors layer re-serving a sliced BunFile handle from byte 0 was
+    // measured to silently send the whole file with a 206 (originally under
+    // @elysiajs/cors). Materializing the chunk here is immune to that, so keep it.
     const chunk = new Uint8Array(
       await handle.slice(start, endExclusive).arrayBuffer(),
     );

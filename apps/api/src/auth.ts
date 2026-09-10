@@ -1,56 +1,59 @@
-import { Elysia, t } from "elysia";
+import { Hono } from "hono";
+import { z } from "zod";
 import { prisma } from "@rawkoon/api/db";
 import { auth as betterAuth } from "@rawkoon/api/lib/auth";
 import { getBaseUrl } from "@rawkoon/api/config";
-import { requireUser, resolveUser } from "@rawkoon/api/middleware/auth";
+import { ok } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
+import { requireUser } from "@rawkoon/api/middleware/hono/auth";
+import { jsonV } from "@rawkoon/api/middleware/validate";
 import { hashPassword } from "@rawkoon/api/utils/password";
 import { mapUser } from "@rawkoon/api/utils/mappers";
 import { opaqueTokenCandidates } from "@rawkoon/api/utils/tokens";
 import { validatePassword } from "@rawkoon/shared/utils";
 
-export const auth = (app: Elysia) =>
-  app.resolve(async ({ request }) => ({ user: await resolveUser(request) }));
+export const publicAuthRoutes = new Hono<Env>()
+  .get("/api/auth/accept-invitation", async (c) => {
+    const token = c.req.query("token");
+    if (!token) {
+      return ok({ valid: false, error: "Token is required" }, 400);
+    }
 
-export const publicAuthRoutes = new Elysia({ name: "auth/public" })
-  .get(
-    "/api/auth/accept-invitation",
-    async ({ query, set }) => {
-      const { token } = query;
-      if (!token) {
-        set.status = 400;
-        return { valid: false, error: "Token is required" };
-      }
+    const invitation = await prisma.invitation.findFirst({
+      where: {
+        token: { in: opaqueTokenCandidates(token) },
+        status: "pending",
+        expiresAt: { gt: new Date() },
+      },
+    });
 
-      const invitation = await prisma.invitation.findFirst({
-        where: {
-          token: { in: opaqueTokenCandidates(token) },
-          status: "pending",
-          expiresAt: { gt: new Date() },
-        },
-      });
+    if (!invitation) {
+      return ok({ valid: false, error: "Invalid or expired invitation" });
+    }
 
-      if (!invitation) {
-        return { valid: false, error: "Invalid or expired invitation" };
-      }
-
-      return { valid: true, email: invitation.email };
-    },
-    { query: t.Object({ token: t.String() }) },
-  )
+    return ok({ valid: true, email: invitation.email });
+  })
   // Public: tells the login screen whether this is a fresh instance with no
   // accounts yet, so it can show the first-run "create administrator" form.
   .get("/api/auth/setup-status", async () => {
     const userCount = await prisma.user.count();
-    return { needs_setup: userCount === 0 };
+    return ok({ needs_setup: userCount === 0 });
   })
   .post(
     "/api/auth/accept-invitation",
-    async ({ body, request, set }) => {
-      const { token, password, first_name, last_name } = body;
+    jsonV(
+      z.object({
+        token: z.string(),
+        password: z.string(),
+        first_name: z.string().optional(),
+        last_name: z.string().optional(),
+      }),
+    ),
+    async (c) => {
+      const { token, password, first_name, last_name } = c.req.valid("json");
       const [passwordValid, passwordError] = validatePassword(password);
       if (!passwordValid) {
-        set.status = 400;
-        return { error: passwordError };
+        return ok({ error: passwordError }, 400);
       }
 
       const invitation = await prisma.invitation.findFirst({
@@ -61,16 +64,14 @@ export const publicAuthRoutes = new Elysia({ name: "auth/public" })
         },
       });
       if (!invitation) {
-        set.status = 400;
-        return { error: "Invalid or expired invitation" };
+        return ok({ error: "Invalid or expired invitation" }, 400);
       }
 
       const existingUser = await prisma.user.findUnique({
         where: { email: invitation.email },
       });
       if (existingUser) {
-        set.status = 400;
-        return { error: "An account with this email already exists" };
+        return ok({ error: "An account with this email already exists" }, 400);
       }
 
       const passwordHash = await hashPassword(password);
@@ -112,16 +113,15 @@ export const publicAuthRoutes = new Elysia({ name: "auth/public" })
         return user;
       });
 
+      // Auto-login: forward better-auth's session cookie on the 201 response.
+      let setCookie: string | null = null;
       try {
         const signIn = await betterAuth.api.signInEmail({
           body: { email: invitation.email, password },
-          headers: request.headers,
+          headers: c.req.raw.headers,
           returnHeaders: true,
         });
-        const setCookie = signIn.headers.get("set-cookie");
-        if (setCookie) {
-          set.headers["set-cookie"] = setCookie;
-        }
+        setCookie = signIn.headers.get("set-cookie");
       } catch (err) {
         console.error(
           "[accept-invitation] auto-login failed, user must log in manually:",
@@ -129,20 +129,18 @@ export const publicAuthRoutes = new Elysia({ name: "auth/public" })
         );
       }
 
-      set.status = 201;
-      return { user: mapUser(newUser) };
-    },
-    {
-      body: t.Object({
-        token: t.String(),
-        password: t.String(),
-        first_name: t.Optional(t.String()),
-        last_name: t.Optional(t.String()),
-      }),
+      const headers: Record<string, string> = {
+        "content-type": "application/json",
+      };
+      if (setCookie) headers["set-cookie"] = setCookie;
+      return new Response(JSON.stringify({ user: mapUser(newUser) }), {
+        status: 201,
+        headers,
+      });
     },
   );
 
-export const ssoProvidersRoute = new Elysia({ name: "auth/sso-providers" }).get(
+export const ssoProvidersRoute = new Hono<Env>().get(
   "/api/auth/sso-providers",
   async () => {
     const providers = await prisma.oidcProvider.findMany({
@@ -150,13 +148,13 @@ export const ssoProvidersRoute = new Elysia({ name: "auth/sso-providers" }).get(
       select: { slug: true, name: true, iconUrl: true },
       orderBy: { createdAt: "asc" },
     });
-    return {
+    return ok({
       providers: providers.map((p) => ({
         slug: p.slug,
         name: p.name,
         icon_url: p.iconUrl ?? null,
       })),
-    };
+    });
   },
 );
 
@@ -170,9 +168,9 @@ export const ssoProvidersRoute = new Elysia({ name: "auth/sso-providers" }).get(
 // browser, and 302s to the provider. After the provider round-trip better-auth
 // lands on `/api/mobile/auth-callback`, which reads the freshly-established
 // session and hands the app a bearer token via the `rawkoon://` scheme.
-export const mobileAuthRoutes = new Elysia({ name: "auth/mobile" })
-  .get("/api/mobile/oauth-start", async ({ query, request }) => {
-    const provider = String((query as Record<string, unknown>).provider ?? "");
+export const mobileAuthRoutes = new Hono<Env>()
+  .get("/api/mobile/oauth-start", async (c) => {
+    const provider = String(c.req.query("provider") ?? "");
     if (!provider) {
       return new Response(JSON.stringify({ error: "provider required" }), {
         status: 400,
@@ -189,7 +187,7 @@ export const mobileAuthRoutes = new Elysia({ name: "auth/mobile" })
           "content-type": "application/json",
           // better-auth requires an Origin it trusts for OAuth start.
           origin: base,
-          cookie: request.headers.get("cookie") ?? "",
+          cookie: c.req.raw.headers.get("cookie") ?? "",
         },
         body: JSON.stringify({
           provider,
@@ -219,11 +217,11 @@ export const mobileAuthRoutes = new Elysia({ name: "auth/mobile" })
       headers.append("set-cookie", cookie);
     return new Response(null, { status: 302, headers });
   })
-  .get("/api/mobile/auth-callback", async ({ request }) => {
+  .get("/api/mobile/auth-callback", async (c) => {
     let token: string | null = null;
     try {
       const session = (await betterAuth.api.getSession({
-        headers: request.headers,
+        headers: c.req.raw.headers,
       })) as {
         session?: { token?: string };
       } | null;
@@ -237,22 +235,18 @@ export const mobileAuthRoutes = new Elysia({ name: "auth/mobile" })
     return new Response(null, { status: 302, headers: { location } });
   });
 
-export const protectedAuthRoutes = new Elysia({ name: "auth/protected" })
-  .use(requireUser)
-  .get("/api/auth/me", async ({ user, set }) => {
-    if (!user) {
-      set.status = 401;
-      return { user: null };
-    }
-
+export const protectedAuthRoutes = new Hono<Env>().get(
+  "/api/auth/me",
+  requireUser,
+  async (c) => {
+    const user = c.get("user");
     const [dbUser, passkeyCount] = await Promise.all([
       prisma.user.findUnique({ where: { id: user.id } }),
       prisma.baPasskey.count({ where: { userId: user.id } }),
     ]);
-    if (!dbUser) {
-      set.status = 401;
-      return { user: null };
-    }
+    // A user resolved by requireUser but gone from the DB (deleted mid-request).
+    if (!dbUser) return ok({ user: null }, 401);
 
-    return { user: mapUser(dbUser, { hasPasskey: passkeyCount > 0 }) };
-  });
+    return ok({ user: mapUser(dbUser, { hasPasskey: passkeyCount > 0 }) });
+  },
+);

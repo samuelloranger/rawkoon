@@ -1,5 +1,4 @@
 import { existsSync } from "node:fs";
-import { Elysia } from "elysia";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serveStatic } from "hono/bun";
@@ -37,10 +36,11 @@ import { searchRoutes } from "./routes/search";
 import { settingsRoutes } from "./routes/settings";
 import { systemRoutes } from "./routes/system";
 import { usersRoutes } from "./routes/users";
-// Hono edge middleware; the Elysia strict-auth limiter lives in the auth island.
-import { globalRateLimit } from "./middleware/hono/rateLimit";
+import {
+  globalRateLimit,
+  strictAuthRateLimit,
+} from "./middleware/hono/rateLimit";
 import { requestTiming } from "./middleware/hono/requestTiming";
-import { strictAuthRateLimit } from "./middleware/rateLimit";
 import { resolveUser } from "./middleware/auth";
 import {
   closeAllWorkers,
@@ -70,35 +70,6 @@ function escapeInlineScriptJson(value: unknown): string {
     .replaceAll(PARA_SEP, "\\u2029");
 }
 
-// better-auth, the /api/auth/* delegation, the auth.ts routers, and the
-// download-client webhook stay on Elysia (out of scope for the Hono migration).
-// They live in this island, bridged from the Hono edge below. Its onError
-// mirrors the original edge so auth-route error shapes are unchanged.
-const authIsland = new Elysia()
-  .onError(({ code, error, set }) => {
-    if (code === "NOT_FOUND") {
-      set.status = 404;
-      return { error: "Not found" };
-    }
-    if (code === "VALIDATION") {
-      set.status = 400;
-      return { error: error.message };
-    }
-    console.error(`[${code}] Unhandled error:`, error);
-    set.status = 500;
-    return { error: "Internal server error" };
-  })
-  .use(strictAuthRateLimit)
-  .use(publicAuthRoutes)
-  .use(ssoProvidersRoute)
-  .use(mobileAuthRoutes)
-  .use(protectedAuthRoutes)
-  .all("/api/auth/*", ({ request }) => betterAuthInstance.handler(request))
-  .use(downloadClientHookRoutes);
-
-const bridgeToAuthIsland = (c: { req: { raw: Request } }): Promise<Response> =>
-  authIsland.handle(c.req.raw);
-
 // strict:false so a trailing slash matches (`/api/requests/` == `/api/requests`),
 // preserving Elysia's lenient routing across every mounted domain router.
 export const app = new Hono<Env>({ strict: false });
@@ -125,11 +96,20 @@ if (Bun.env.LOG_LEVEL === "debug") {
 app.onError(honoOnError);
 app.notFound(() => notFound("Not found"));
 
-// Auth + hooks island (registered before the global limiter so it is not also
-// rate-limited by it; the strict auth limiter lives inside the island).
-app.all("/api/auth/*", bridgeToAuthIsland);
-app.all("/api/mobile/*", bridgeToAuthIsland);
-app.all("/api/download-client/*", bridgeToAuthIsland);
+// Strict auth limiter — counts only sign-in / sign-up / accept-invitation (its
+// skip predicate), registered early so it wraps the auth routes and better-auth
+// delegation but not the domains (which get the global limiter below).
+app.use("*", strictAuthRateLimit);
+
+// Auth routes. better-auth (lib/auth) is framework-agnostic — only the route
+// wiring is Hono. The specific auth.ts routes are registered BEFORE the
+// better-auth catch-all so Hono doesn't swallow them into `/api/auth/*`.
+app.route("/", publicAuthRoutes);
+app.route("/", ssoProvidersRoute);
+app.route("/", mobileAuthRoutes);
+app.route("/", protectedAuthRoutes);
+app.all("/api/auth/*", (c) => betterAuthInstance.handler(c.req.raw));
+app.route("/api/download-client", downloadClientHookRoutes);
 
 // Global rate limiting applies to everything registered after this point
 // (domains, health, static) — unauthenticated requests only; see rateLimitCore.

@@ -1,12 +1,12 @@
 /**
- * A rate limiter mounted inside one router must not police the rest of the app.
+ * A rate limiter mounted for one route must not police the rest of the app.
  *
- * elysia-rate-limit defaults `scoping` to "global", so a limiter declared inside
- * a sub-router registers its `onBeforeHandle` on every route in the application.
  * The download-client hook limiter (120 requests a minute, per IP, with no
- * authenticated bypass) therefore capped the whole API: opening a book fires a
- * burst of app, asset and API requests, and everything after the 120th came
- * back 429 — including the SPA document and its JavaScript.
+ * authenticated bypass) must stay scoped to its own route: otherwise it caps the
+ * whole API — opening a book fires a burst of app, asset and API requests, and
+ * everything after the 120th would come back 429, the SPA and its JavaScript
+ * included. (Under the old Elysia stack this was elysia-rate-limit's global
+ * `scoping` default; on Hono the hook limiter is a route-level middleware.)
  */
 import { describe, it, expect, mock } from "bun:test";
 
@@ -37,22 +37,24 @@ mock.module("@rawkoon/api/db", () => ({
   },
 }));
 
-const { Elysia } = await import("elysia");
+const { Hono } = await import("hono");
 const { downloadClientHookRoutes } = await import(
   "@rawkoon/api/routes/integrations/downloadClient/hookRoutes"
 );
-const { globalRateLimit } = await import("@rawkoon/api/middleware/rateLimit");
+const { globalRateLimit } = await import(
+  "@rawkoon/api/middleware/hono/rateLimit"
+);
 
 const HOOK_LIMIT = 120;
 
 const buildApp = () =>
-  new Elysia()
-    .use(downloadClientHookRoutes)
+  new Hono()
+    .route("/api/download-client", downloadClientHookRoutes)
     // Stands in for every other route in the application.
-    .get("/api/books", () => ({ books: [] }));
+    .get("/api/books", (c) => c.json({ books: [] }));
 
 const call = (app: ReturnType<typeof buildApp>, path: string, ip: string) =>
-  app.handle(
+  app.request(
     new Request(`http://localhost${path}`, {
       headers: { "x-forwarded-for": ip },
     }),
@@ -78,7 +80,7 @@ describe("download-client hook rate limit", () => {
     // requests, and this endpoint rejects a bad token.
     const app = buildApp();
 
-    const hook = await app.handle(
+    const hook = await app.request(
       new Request("http://localhost/api/download-client/hook/complete", {
         method: "POST",
         headers: {
@@ -97,12 +99,12 @@ describe("download-client hook rate limit", () => {
 describe("global rate limit", () => {
   const GLOBAL_LIMIT = 1000;
 
-  const app = new Elysia()
-    .use(globalRateLimit)
-    .get("/api/books", () => ({ books: [] }));
+  const app = new Hono()
+    .use("*", globalRateLimit)
+    .get("/api/books", (c) => c.json({ books: [] }));
 
   const request = (ip: string, cookie?: string) =>
-    app.handle(
+    app.request(
       new Request("http://localhost/api/books", {
         headers: cookie
           ? { "x-forwarded-for": ip, cookie }
@@ -112,13 +114,13 @@ describe("global rate limit", () => {
 
   it("never limits a Bearer session", async () => {
     sessionExists = true;
-    const bearerApp = new Elysia()
-      .use(globalRateLimit)
-      .get("/api/books", () => ({ books: [] }));
+    const bearerApp = new Hono()
+      .use("*", globalRateLimit)
+      .get("/api/books", (c) => c.json({ books: [] }));
     let last = 0;
     for (let i = 0; i < GLOBAL_LIMIT + 50; i++) {
       last = (
-        await bearerApp.handle(
+        await bearerApp.request(
           new Request("http://localhost/api/books", {
             headers: {
               "x-forwarded-for": "203.0.113.50",
@@ -133,13 +135,13 @@ describe("global rate limit", () => {
 
   it("never limits an x-api-key request with a session", async () => {
     sessionExists = true;
-    const keyApp = new Elysia()
-      .use(globalRateLimit)
-      .get("/api/books", () => ({ books: [] }));
+    const keyApp = new Hono()
+      .use("*", globalRateLimit)
+      .get("/api/books", (c) => c.json({ books: [] }));
     let last = 0;
     for (let i = 0; i < GLOBAL_LIMIT + 50; i++) {
       last = (
-        await keyApp.handle(
+        await keyApp.request(
           new Request("http://localhost/api/books", {
             headers: {
               "x-forwarded-for": "203.0.113.51",

@@ -33,7 +33,7 @@ export const globalRateLimit = rateLimiter({
   skip: (c) => globalRateLimitSkip(c.req.raw),
   keyGenerator: (c) => `ip:${clientIp(c.req.raw, connAddr(c))}`,
   message: GLOBAL_RATE_LIMIT_MESSAGE,
-  standardHeaders: false,
+  standardHeaders: true,
 });
 
 export const strictAuthRateLimit = rateLimiter({
@@ -42,5 +42,5 @@ export const strictAuthRateLimit = rateLimiter({
   skip: (c) => strictAuthRateLimitSkip(c.req.raw),
   keyGenerator: (c) => `ip_auth:${clientIp(c.req.raw, connAddr(c))}`,
   message: STRICT_AUTH_RATE_LIMIT_MESSAGE,
-  standardHeaders: false,
+  standardHeaders: true,
 });

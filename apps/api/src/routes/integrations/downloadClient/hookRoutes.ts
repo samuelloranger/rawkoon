@@ -1,8 +1,10 @@
-import { Elysia } from "elysia";
-import { z } from "zod";
-import { rateLimit } from "elysia-rate-limit";
+import { Hono } from "hono";
+import { getConnInfo } from "hono/bun";
+import { rateLimiter } from "hono-rate-limiter";
+import type { Context } from "hono";
 import { prisma } from "@rawkoon/api/db";
-import { badRequest, unauthorized } from "@rawkoon/api/errors";
+import { badRequest, ok, unauthorized } from "@rawkoon/api/errors";
+import type { Env } from "@rawkoon/api/honoEnv";
 import { verifyHookToken } from "@rawkoon/api/services/downloadClient/hookToken";
 import {
   scheduledTasksQueue,
@@ -95,39 +97,46 @@ const liveDeps: HookDeps = {
   },
 };
 
-export const downloadClientHookRoutes = new Elysia({
-  prefix: "/api/download-client",
-})
-  .use(
-    rateLimit({
-      duration: 60 * 1000,
-      max: 120,
-      // elysia-rate-limit scopes its hook globally, so without this the hook
-      // limiter policed every route in the application: 120 requests a minute
-      // per IP, with no authenticated bypass. Opening a book fires a burst of
-      // document, asset and API requests, and everything past the 120th came
-      // back 429 — the SPA and its JavaScript included. Same shape as
-      // strictAuthRateLimit: count only the paths this limiter is for.
-      skip: (req) =>
-        !new URL(req.url).pathname.startsWith("/api/download-client/hook"),
-      generator: (req) =>
-        `hook:${req.headers.get("x-forwarded-for")?.split(",")[0].trim() || req.headers.get("x-real-ip") || "unknown"}`,
-      errorResponse: "Too many requests. Please try again later.",
-    }),
-  )
-  .post(
-    "/hook/complete",
-    async ({ headers, query, set }) => {
-      const result = await handleCompletionHook(
-        {
-          token: headers["x-rawkoon-token"] ?? null,
-          hash: query.hash ?? null,
-        },
-        liveDeps,
-      );
-      if (result.status === 401) return unauthorized();
-      if (result.status === 400) return badRequest("Invalid torrent hash");
-      return Response.json(result.body, { status: 202 });
-    },
-    { query: z.object({ hash: z.string().optional() }) },
+function hookClientIp(c: Context): string {
+  const req = c.req.raw;
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+    req.headers.get("x-real-ip") ||
+    (() => {
+      try {
+        return getConnInfo(c).remote.address;
+      } catch {
+        return undefined;
+      }
+    })() ||
+    "unknown"
   );
+}
+
+// Scoped to the hook route only (120/min per IP), so a book-open burst of SPA
+// asset/API requests is never policed by this limiter.
+const hookRateLimit = rateLimiter<Env>({
+  windowMs: 60 * 1000,
+  limit: 120,
+  keyGenerator: (c) => `hook:${hookClientIp(c)}`,
+  message: "Too many requests. Please try again later.",
+  standardHeaders: true,
+});
+
+// Mounted at /api/download-client by the edge (route paths relative).
+export const downloadClientHookRoutes = new Hono<Env>().post(
+  "/hook/complete",
+  hookRateLimit,
+  async (c) => {
+    const result = await handleCompletionHook(
+      {
+        token: c.req.header("x-rawkoon-token") ?? null,
+        hash: c.req.query("hash") ?? null,
+      },
+      liveDeps,
+    );
+    if (result.status === 401) return unauthorized();
+    if (result.status === 400) return badRequest("Invalid torrent hash");
+    return ok(result.body, 202);
+  },
+);

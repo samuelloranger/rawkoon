@@ -11,7 +11,7 @@
  * pre-loading the entire app because mock.module updates live ESM bindings.
  */
 import { describe, it, expect, beforeEach, mock } from "bun:test";
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 
 // ── In-memory stub state ──────────────────────────────────────────────────────
 
@@ -145,21 +145,13 @@ mock.module("@rawkoon/api/lib/auth", () => ({
   },
 }));
 
-// Stub the Elysia Better Auth plugin (no-op for routes that mount it)
-mock.module("@rawkoon/api/auth", () => ({
-  auth: (app: Elysia) => app,
-}));
-
 // ── Lazy-import the route ─────────────────────────────────────────────────────
 
 const { customFormatsRoutes } = await import("./index");
 
 // Ported to Hono; the edge mounts it via WHATWG fetch, so mount it the same way
 // here to keep driving it through the full /api/custom-formats paths.
-const app = new Elysia().mount(
-  "/api/custom-formats",
-  customFormatsRoutes.fetch,
-);
+const app = new Hono().route("/api/custom-formats", customFormatsRoutes);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -206,7 +198,7 @@ function jsonReq(path: string, method: string, body: unknown) {
 }
 
 async function createFormat(name: string) {
-  const res = await app.handle(
+  const res = await app.request(
     jsonReq("/api/custom-formats", "POST", {
       name,
       conditions: [VALID_CONDITION],
@@ -237,7 +229,7 @@ describe.serial("Custom Formats API", () => {
   });
 
   it("POST valid → 201 returns id and snake_case fields", async () => {
-    const res = await app.handle(
+    const res = await app.request(
       jsonReq("/api/custom-formats", "POST", {
         name: "WEB-DL",
         conditions: [VALID_CONDITION],
@@ -256,7 +248,7 @@ describe.serial("Custom Formats API", () => {
     await createFormat("Zebra");
     await createFormat("Alpha");
 
-    const res = await app.handle(req("/api/custom-formats"));
+    const res = await app.request(req("/api/custom-formats"));
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(Array.isArray(body.custom_formats)).toBe(true);
@@ -268,7 +260,7 @@ describe.serial("Custom Formats API", () => {
   it("PUT :id renames format → 200", async () => {
     const created = await createFormat("Original");
 
-    const res = await app.handle(
+    const res = await app.request(
       jsonReq(`/api/custom-formats/${created.id}`, "PUT", {
         name: "Renamed",
         conditions: [VALID_CONDITION],
@@ -282,7 +274,7 @@ describe.serial("Custom Formats API", () => {
   it("DELETE :id → { deleted: true }", async () => {
     const created = await createFormat("ToDelete");
 
-    const res = await app.handle(
+    const res = await app.request(
       req(`/api/custom-formats/${created.id}`, { method: "DELETE" }),
     );
     expect(res.status).toBe(200);
@@ -298,7 +290,7 @@ describe.serial("Custom Formats API", () => {
       qualityProfileId: 10,
     });
 
-    const res = await app.handle(
+    const res = await app.request(
       req(`/api/custom-formats/${created.id}`, { method: "DELETE" }),
     );
     expect(res.status).toBe(409);
@@ -309,7 +301,7 @@ describe.serial("Custom Formats API", () => {
   });
 
   it("POST with operator_invalid_for_type → 400 with code", async () => {
-    const res = await app.handle(
+    const res = await app.request(
       jsonReq("/api/custom-formats", "POST", {
         name: "Bad",
         conditions: [{ type: "source", operator: "matches", value: "x" }],
@@ -322,13 +314,13 @@ describe.serial("Custom Formats API", () => {
 
   it("returns 401 when unauthenticated", async () => {
     injectedDbUser = null;
-    const res = await app.handle(req("/api/custom-formats"));
+    const res = await app.request(req("/api/custom-formats"));
     expect(res.status).toBe(401);
   });
 
   it("POST returns 403 when non-admin", async () => {
     injectedDbUser = REGULAR_DB_USER;
-    const res = await app.handle(
+    const res = await app.request(
       jsonReq("/api/custom-formats", "POST", {
         name: "Nope",
         conditions: [VALID_CONDITION],
@@ -340,7 +332,7 @@ describe.serial("Custom Formats API", () => {
   it("PUT returns 403 when non-admin", async () => {
     const created = await createFormat("Guarded");
     injectedDbUser = REGULAR_DB_USER;
-    const res = await app.handle(
+    const res = await app.request(
       jsonReq(`/api/custom-formats/${created.id}`, "PUT", {
         name: "Renamed",
         conditions: [VALID_CONDITION],
@@ -352,14 +344,14 @@ describe.serial("Custom Formats API", () => {
   it("DELETE returns 403 when non-admin", async () => {
     const created = await createFormat("GuardedDel");
     injectedDbUser = REGULAR_DB_USER;
-    const res = await app.handle(
+    const res = await app.request(
       req(`/api/custom-formats/${created.id}`, { method: "DELETE" }),
     );
     expect(res.status).toBe(403);
   });
 
   it("DELETE non-existent id → 404", async () => {
-    const res = await app.handle(
+    const res = await app.request(
       req("/api/custom-formats/999999", { method: "DELETE" }),
     );
     expect(res.status).toBe(404);
@@ -367,7 +359,7 @@ describe.serial("Custom Formats API", () => {
 
   it("PUT with invalid conditions → 400 with code", async () => {
     const created = await createFormat("ToBreak");
-    const res = await app.handle(
+    const res = await app.request(
       jsonReq(`/api/custom-formats/${created.id}`, "PUT", {
         name: "ToBreak",
         conditions: [{ type: "source", operator: "matches", value: "x" }],
@@ -380,7 +372,7 @@ describe.serial("Custom Formats API", () => {
   it("POST duplicate name → 409", async () => {
     await createFormat("Dup");
     simulateDuplicate = true;
-    const res = await app.handle(
+    const res = await app.request(
       jsonReq("/api/custom-formats", "POST", {
         name: "Dup",
         conditions: [VALID_CONDITION],

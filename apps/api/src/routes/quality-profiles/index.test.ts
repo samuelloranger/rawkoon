@@ -11,7 +11,7 @@
  * pre-loading the entire app because mock.module updates live ESM bindings.
  */
 import { describe, it, expect, beforeEach, mock } from "bun:test";
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 
 // ── In-memory stub state ──────────────────────────────────────────────────────
 
@@ -239,20 +239,13 @@ mock.module("@rawkoon/api/lib/auth", () => ({
   },
 }));
 
-mock.module("@rawkoon/api/auth", () => ({
-  auth: (app: Elysia) => app,
-}));
-
 // ── Lazy-import the route ─────────────────────────────────────────────────────
 
 const { qualityProfilesRoutes } = await import("./index");
 
 // Ported to Hono; mount it the way the edge does so the /api/quality-profiles
 // paths hold through Elysia's .mount prefix-strip.
-const app = new Elysia().mount(
-  "/api/quality-profiles",
-  qualityProfilesRoutes.fetch,
-);
+const app = new Hono().route("/api/quality-profiles", qualityProfilesRoutes);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -319,7 +312,7 @@ function seedCustomFormat(name: string): CfRow {
 }
 
 async function createProfile(overrides: Record<string, unknown> = {}) {
-  const res = await app.handle(
+  const res = await app.request(
     jsonReq("/api/quality-profiles", "POST", {
       ...BASE_PROFILE,
       ...overrides,
@@ -349,7 +342,7 @@ describe.serial("Quality Profiles API", () => {
   });
 
   it("POST basic profile → 201 with min_seeders default 0 and empty custom_formats", async () => {
-    const res = await app.handle(
+    const res = await app.request(
       jsonReq("/api/quality-profiles", "POST", BASE_PROFILE),
     );
     expect(res.status).toBe(201);
@@ -364,7 +357,7 @@ describe.serial("Quality Profiles API", () => {
   });
 
   it("POST with preferred_search_language → stored and returned", async () => {
-    const res = await app.handle(
+    const res = await app.request(
       jsonReq("/api/quality-profiles", "POST", {
         ...BASE_PROFILE,
         name: "FR Search",
@@ -377,7 +370,7 @@ describe.serial("Quality Profiles API", () => {
   });
 
   it("POST with invalid preferred_search_language → 400", async () => {
-    const res = await app.handle(
+    const res = await app.request(
       jsonReq("/api/quality-profiles", "POST", {
         ...BASE_PROFILE,
         preferred_search_language: "VFQ",
@@ -388,7 +381,7 @@ describe.serial("Quality Profiles API", () => {
 
   it("POST with min_seeders + custom_format assignment → 201, correct values in GET", async () => {
     const fmt = seedCustomFormat("WEB-DL Format");
-    const res = await app.handle(
+    const res = await app.request(
       jsonReq("/api/quality-profiles", "POST", {
         ...BASE_PROFILE,
         name: "Seeded Profile",
@@ -415,7 +408,7 @@ describe.serial("Quality Profiles API", () => {
     expect(p.custom_formats[0].forbidden).toBe(true);
 
     // Verify GET list also reflects the data
-    const listRes = await app.handle(req("/api/quality-profiles"));
+    const listRes = await app.request(req("/api/quality-profiles"));
     expect(listRes.status).toBe(200);
     const listBody = (await listRes.json()) as any;
     const found = listBody.profiles.find((x: any) => x.id === p.id);
@@ -427,7 +420,7 @@ describe.serial("Quality Profiles API", () => {
 
   it("POST with unknown custom_format_id → 400 unknown custom_format_id", async () => {
     simulateFkError = true;
-    const res = await app.handle(
+    const res = await app.request(
       jsonReq("/api/quality-profiles", "POST", {
         ...BASE_PROFILE,
         name: "Bad Format Profile",
@@ -447,7 +440,7 @@ describe.serial("Quality Profiles API", () => {
       custom_formats: [{ custom_format_id: fmt.id, score: 100 }],
     });
 
-    const putRes = await app.handle(
+    const putRes = await app.request(
       jsonReq(`/api/quality-profiles/${profile.id}`, "PUT", {
         ...BASE_PROFILE,
         name: "Update Profile",
@@ -461,7 +454,7 @@ describe.serial("Quality Profiles API", () => {
     expect(putBody.profile.custom_formats.length).toBe(0);
 
     // Confirm via GET list
-    const listRes = await app.handle(req("/api/quality-profiles"));
+    const listRes = await app.request(req("/api/quality-profiles"));
     const listBody = (await listRes.json()) as any;
     const found = listBody.profiles.find((x: any) => x.id === profile.id);
     expect(found.min_seeders).toBe(10);
@@ -476,7 +469,7 @@ describe.serial("Quality Profiles API", () => {
     });
 
     // PUT without custom_formats field
-    const putRes = await app.handle(
+    const putRes = await app.request(
       jsonReq(`/api/quality-profiles/${profile.id}`, "PUT", {
         ...BASE_PROFILE,
         name: "Sticky Profile",
@@ -492,7 +485,7 @@ describe.serial("Quality Profiles API", () => {
   it("POST duplicate name → 409", async () => {
     await createProfile({ name: "Dup" });
     simulateProfileDuplicate = true;
-    const res = await app.handle(
+    const res = await app.request(
       jsonReq("/api/quality-profiles", "POST", {
         ...BASE_PROFILE,
         name: "Dup",
@@ -503,13 +496,13 @@ describe.serial("Quality Profiles API", () => {
 
   it("returns 401 when unauthenticated", async () => {
     injectedDbUser = null;
-    const res = await app.handle(req("/api/quality-profiles"));
+    const res = await app.request(req("/api/quality-profiles"));
     expect(res.status).toBe(401);
   });
 
   it("POST returns 403 when non-admin", async () => {
     injectedDbUser = REGULAR_DB_USER;
-    const res = await app.handle(
+    const res = await app.request(
       jsonReq("/api/quality-profiles", "POST", BASE_PROFILE),
     );
     expect(res.status).toBe(403);

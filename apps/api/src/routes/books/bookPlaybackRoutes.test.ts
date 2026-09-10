@@ -2,8 +2,8 @@ import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { cors } from "@elysiajs/cors";
-import { Elysia } from "elysia";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { parseByteRange } from "@rawkoon/shared/utils";
 import { loadConfig } from "@rawkoon/api/config";
 import { signGrant } from "@rawkoon/api/services/books/downloadGrant";
@@ -38,17 +38,18 @@ const { bookContentRoutes, clampClientTimestamp, sliceForRange } = await import(
 
 const tempDir = mkdtempSync(join(tmpdir(), "book-content-ranges-"));
 
-// bookContentRoutes is Hono now; mount it under the same Elysia+cors edge the
-// real app uses (prefix-less .mount forwards the full path), so this still
-// exercises the @elysiajs/cors sliced-BunFile workaround the handler guards for.
-const app = new Elysia()
+// bookContentRoutes is Hono; mount it under the same hono/cors edge the real app
+// uses so this still exercises the materialized-chunk range handling the handler
+// guards for.
+const app = new Hono()
   .use(
+    "*",
     cors({
       origin: Bun.env.CORS_ORIGIN || "http://localhost:5173",
       credentials: true,
     }),
   )
-  .mount(bookContentRoutes.fetch);
+  .route("/", bookContentRoutes);
 
 const grantFor = (fileId: number) =>
   signGrant(
@@ -125,7 +126,7 @@ describe("sliceForRange", () => {
 describe("bookContentRoutes with global cors", () => {
   test("Range bytes=0-99 returns only 100 bytes end to end", async () => {
     const grant = grantFor(1);
-    const response = await app.handle(
+    const response = await app.request(
       new Request(`http://localhost/files/1/content?grant=${grant}`, {
         headers: { Range: "bytes=0-99" },
       }),
@@ -142,7 +143,7 @@ describe("bookContentRoutes with global cors", () => {
 
   test("no Range returns full file bytes", async () => {
     const grant = grantFor(1);
-    const response = await app.handle(
+    const response = await app.request(
       new Request(`http://localhost/files/1/content?grant=${grant}`),
     );
 
@@ -153,7 +154,7 @@ describe("bookContentRoutes with global cors", () => {
 
   test("unsatisfiable range returns 416", async () => {
     const grant = grantFor(1);
-    const response = await app.handle(
+    const response = await app.request(
       new Request(`http://localhost/files/1/content?grant=${grant}`, {
         headers: { Range: `bytes=${fixtureSize}-` },
       }),

@@ -1,14 +1,14 @@
 import { describe, expect, it } from "bun:test";
-import { Elysia } from "elysia";
+import { Hono } from "hono";
 import { buildLabbySummary } from "./summary";
 
 const { labbyRoutes } = await import("./index");
 // Ported to Hono; mount it the way the edge does so the /api/labby paths hold.
-const app = new Elysia().mount("/api/labby", labbyRoutes.fetch);
+const app = new Hono().route("/api/labby", labbyRoutes);
 
 describe("Labby API", () => {
   it("rejects a missing api key", async () => {
-    const res = await app.handle(
+    const res = await app.request(
       new Request("http://localhost/api/labby/summary"),
     );
     expect(res.status).toBe(401);
