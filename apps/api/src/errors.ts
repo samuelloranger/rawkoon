@@ -8,6 +8,15 @@
 const errorResponse = (status: number, message: string) =>
   Response.json({ error: message }, { status });
 
+/**
+ * Success counterpart to the error helpers. Hono does not auto-serialize a
+ * returned POJO the way Elysia does, so success handlers return `ok(body)`
+ * instead of a bare object — keeping every return path a Web `Response` and
+ * `c.json` out of the handler bodies.
+ */
+export const ok = (body: unknown, status = 200) =>
+  Response.json(body, { status });
+
 export const badRequest = (message: string) => errorResponse(400, message);
 
 export const unauthorized = (message = "Unauthorized") =>
