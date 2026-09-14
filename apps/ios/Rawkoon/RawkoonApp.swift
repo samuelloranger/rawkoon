@@ -197,6 +197,7 @@ private struct RootTabsView: View {
             case "settings": NavigationStack { SettingsView() }
             case "requests": NavigationStack { RequestsView() }
             case "qualityProfiles": NavigationStack { QualityProfilesView() }
+            case "qualityProfileEditor": NavigationStack { QualityProfilesCrudView() }
             case "notifications": NavigationStack { NotificationsSettingsView() }
             case "indexers": NavigationStack { IndexersView() }
             case "users": NavigationStack { UsersView() }

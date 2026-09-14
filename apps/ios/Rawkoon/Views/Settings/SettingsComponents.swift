@@ -411,6 +411,28 @@ struct OrderedMultiSelectRow<T: Hashable>: View {
         self.options = options.map { ($0.value, Text(verbatim: $0.label)) }
     }
 
+    var body: some View {
+        NavigationLink {
+            OrderedMultiSelectList(titleKey: titleKey, selected: $selected, options: options)
+        } label: {
+            HStack {
+                Text(titleKey).foregroundStyle(Theme.text)
+                Spacer()
+                Text("\(selected.count)").foregroundStyle(Theme.muted)
+            }
+        }
+        .listRowBackground(Theme.raised)
+    }
+}
+
+/// The pushed half of `OrderedMultiSelectRow`, split out so a debug screen can
+/// render it directly — `simctl` cannot tap, so a screen behind a NavigationLink
+/// is otherwise unscreenshottable.
+struct OrderedMultiSelectList<T: Hashable>: View {
+    let titleKey: LocalizedStringKey
+    @Binding var selected: [T]
+    let options: [(value: T, label: Text)]
+
     private func label(for value: T) -> Text {
         options.first { $0.value == value }?.label ?? Text(verbatim: "\(value)")
     }
@@ -420,68 +442,59 @@ struct OrderedMultiSelectRow<T: Hashable>: View {
     }
 
     var body: some View {
-        NavigationLink {
-            List {
-                Section {
-                    if selected.isEmpty {
-                        Text("Nothing selected.")
+        List {
+            Section {
+                if selected.isEmpty {
+                    Text("Nothing selected.")
+                        .foregroundStyle(Theme.muted)
+                        .listRowBackground(Theme.raised)
+                }
+                ForEach(selected, id: \.self) { value in
+                    HStack(spacing: 10) {
+                        Text(verbatim: "\((selected.firstIndex(of: value) ?? 0) + 1).")
+                            .font(.footnote.monospacedDigit())
                             .foregroundStyle(Theme.muted)
-                            .listRowBackground(Theme.raised)
+                        label(for: value).foregroundStyle(Theme.text)
                     }
-                    ForEach(selected, id: \.self) { value in
-                        HStack(spacing: 10) {
-                            Text(verbatim: "\((selected.firstIndex(of: value) ?? 0) + 1).")
-                                .font(.footnote.monospacedDigit())
-                                .foregroundStyle(Theme.muted)
-                            label(for: value).foregroundStyle(Theme.text)
+                    .listRowBackground(Theme.raised)
+                }
+                .onMove { selected.move(fromOffsets: $0, toOffset: $1) }
+                .onDelete { selected.remove(atOffsets: $0) }
+            } header: {
+                Text("Priority order")
+            } footer: {
+                Text("First is preferred. Tap Edit to reorder, swipe to remove.")
+            }
+
+            if !available.isEmpty {
+                Section {
+                    ForEach(available, id: \.value) { option in
+                        Button {
+                            selected.append(option.value)
+                        } label: {
+                            HStack {
+                                option.label.foregroundStyle(Theme.text)
+                                Spacer()
+                                Image(systemName: "plus.circle")
+                                    .foregroundStyle(Theme.apricot)
+                            }
                         }
                         .listRowBackground(Theme.raised)
                     }
-                    .onMove { selected.move(fromOffsets: $0, toOffset: $1) }
-                    .onDelete { selected.remove(atOffsets: $0) }
                 } header: {
-                    Text("Priority order")
-                } footer: {
-                    Text("First is preferred. Tap Edit to reorder, swipe to remove.")
+                    Text("Add")
                 }
-
-                if !available.isEmpty {
-                    Section {
-                        ForEach(available, id: \.value) { option in
-                            Button {
-                                selected.append(option.value)
-                            } label: {
-                                HStack {
-                                    option.label.foregroundStyle(Theme.text)
-                                    Spacer()
-                                    Image(systemName: "plus.circle")
-                                        .foregroundStyle(Theme.apricot)
-                                }
-                            }
-                            .listRowBackground(Theme.raised)
-                        }
-                    } header: {
-                        Text("Add")
-                    }
-                }
-            }
-            .scrollContentBackground(.hidden)
-            .background(Theme.base)
-            .navigationTitle(titleKey)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    EditButton().tint(Theme.apricot)
-                }
-            }
-        } label: {
-            HStack {
-                Text(titleKey).foregroundStyle(Theme.text)
-                Spacer()
-                Text("\(selected.count)").foregroundStyle(Theme.muted)
             }
         }
-        .listRowBackground(Theme.raised)
+        .scrollContentBackground(.hidden)
+        .background(Theme.base)
+        .navigationTitle(titleKey)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                EditButton().tint(Theme.apricot)
+            }
+        }
     }
 }
 
