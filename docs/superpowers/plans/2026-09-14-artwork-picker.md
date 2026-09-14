@@ -927,7 +927,7 @@ import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
 import { getLibraryTmdbApiKey } from "@rawkoon/api/utils/medias/libraryHelpers";
 import { fetchTmdbArtwork } from "@rawkoon/api/services/images/tmdbImageProvider";
 import { fetchFanartArtwork } from "@rawkoon/api/services/images/fanartProvider";
-import { fetchTmdbMediaDetails } from "@rawkoon/api/utils/medias/tmdbFetcherDetails";
+import { fetchMediaDetails } from "@rawkoon/api/utils/medias/tmdbFetcherDetails";
 
 const CACHE_TTL_SECONDS = 60 * 60 * 6;
 
@@ -970,7 +970,7 @@ export async function getArtworkCandidates(input: {
   // Shows need a TVDB id for fanart; it rides along on the cached details call.
   const details =
     input.mediaType === "tv"
-      ? await fetchTmdbMediaDetails(apiKey, "tv", input.tmdbId)
+      ? await fetchMediaDetails(apiKey, "tv", input.tmdbId)
       : null;
   const providerId =
     input.mediaType === "movie"
@@ -1029,22 +1029,36 @@ Read `apps/api/src/routes/library/index.ts` first: each sub-router carries its o
 
 `kind` defaults to `"poster"` when absent, and an unrecognized value is a `badRequest` — not a silent fallback, because a typo would otherwise return posters where the caller wanted backdrops.
 
-- [ ] **Step 1: Write the failing cases**
+- [ ] **Step 1: Add the fixture**
 
-Add to the library case file under `apps/api/e2e/` (find it with `rg -l 'api/library' apps/api/e2e`), following the file's existing case shape:
+The sweep is fixture-driven with a coverage gate: every route in
+`apps/api/e2e/routes.manifest.json` must have a fixture or the run fails. So the
+order is route first, then manifest, then fixture — the gate is what proves the
+route is reachable.
 
-- `GET /api/library/:id/images` on a seeded media → 200, body has a `candidates` array.
-- `GET /api/library/:id/images?kind=backdrop` → 200.
-- `GET /api/library/:id/images?kind=nonsense` → 400.
-- `GET /api/library/999999/images` → 404.
-- `GET /api/library/:id/images` unauthenticated → 401.
+Add to `apps/api/e2e/fixtures/library.ts` a `FixtureRegistry` entry keyed
+`"GET /api/library/:id/images"`:
 
-Read `apps/api/e2e/README.md` before writing: the sweep dispatches in-process because the sandbox kills listening sockets, and it has its own seed/mock conventions.
+- `pathParams(ctx)` fills `:id` from a seeded library media id (see `e2e/seed.ts`)
+- `body: null` (no body on a GET)
+- no `admin: true` — the route is `requireUser`, not admin-gated
+- no `public: true` — the logged-out 401 check must run
 
-- [ ] **Step 2: Run the sweep to verify it fails**
+Read `apps/api/e2e/README.md` and `fixtures/types.ts` first; `mocks/externals.ts`
+shims `globalThis.fetch` for outbound providers, so TMDB and fanart calls in the
+sweep hit the mock, not the network.
 
-Run the sweep the way `apps/api/e2e/README.md` documents.
-Expected: FAIL — route not mounted (404 on every case).
+- [ ] **Step 2: Run the sweep to verify the gate fails**
+
+```bash
+cd apps/api && DATABASE_URL=postgresql://rawkoon:<pw>@localhost:5433/rawkoon_e2e \
+  SECRET_KEY=<32+ chars> BETTER_AUTH_SECRET=<32+ chars> \
+  bun run e2e:endpoints
+```
+
+Expected: FAIL — the fixture references a route that is not in the manifest yet
+(or, once the route exists, a 404 until it is mounted). Regenerate the manifest
+with `bun run e2e:manifest` after the route is mounted in Step 3.
 
 - [ ] **Step 3: Write the route**
 
@@ -1103,10 +1117,16 @@ export const libraryImagesRoutes = new Hono<Env>().get(
 
 Mount it in `apps/api/src/routes/library/index.ts` with `.route("/", libraryImagesRoutes)`, placed next to `libraryMetaRoutes`.
 
+Then regenerate the route manifest so the coverage gate sees the new route:
+
+```bash
+cd apps/api && bun run e2e:manifest
+```
+
 - [ ] **Step 4: Run the sweep to verify it passes**
 
-Run the sweep again.
-Expected: PASS on all five cases.
+Run the sweep again with the same env as Step 2.
+Expected: PASS, with the new route covered — valid input 2xx and logged-out 401.
 
 - [ ] **Step 5: Verify by hand**
 
