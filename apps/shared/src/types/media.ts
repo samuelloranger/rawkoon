@@ -254,6 +254,8 @@ export interface TmdbSpokenLanguage {
 
 export interface TmdbExternalIds {
   imdb_id: string | null;
+  /** fanart.tv keys its TV endpoint by TVDB id, not TMDB id. */
+  tvdb_id: number | null;
   facebook_id: string | null;
   instagram_id: string | null;
   twitter_id: string | null;

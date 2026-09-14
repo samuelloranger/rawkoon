@@ -350,6 +350,7 @@ export async function fetchMediaDetails(
     const imdbFallback = toStringOrNull(data.imdb_id);
     const mergedExternal: TmdbExternalIds = {
       imdb_id: extParsed?.imdb_id ?? imdbFallback,
+      tvdb_id: extParsed?.tvdb_id ?? null,
       facebook_id: extParsed?.facebook_id ?? null,
       instagram_id: extParsed?.instagram_id ?? null,
       twitter_id: extParsed?.twitter_id ?? null,
@@ -357,6 +358,7 @@ export async function fetchMediaDetails(
     };
     const hasExternal =
       mergedExternal.imdb_id ||
+      mergedExternal.tvdb_id ||
       mergedExternal.facebook_id ||
       mergedExternal.instagram_id ||
       mergedExternal.twitter_id ||
