@@ -1,3 +1,4 @@
+import RawkoonKit
 import SwiftUI
 
 /// Tab root. Deck-primary Discover (swipe triage of personalized/trending
@@ -294,6 +295,7 @@ struct DiscoverView: View {
                                 posterCard(item, fixedWidth: nil)
                             }
                             .buttonStyle(.plain)
+                            .rawkoonScrollSettle()
                         }
                     }
                     .padding(.horizontal, 16)
@@ -405,6 +407,7 @@ struct DiscoverView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.06), lineWidth: 1)
         )
+        .rawkoonZoomSource(RawkoonZoom.media(tmdbId: item.tmdbId, mediaType: item.mediaType))
 
         VStack(alignment: .leading, spacing: 6) {
             if let fixedWidth {

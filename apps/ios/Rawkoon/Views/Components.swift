@@ -7,6 +7,7 @@ struct BookCover: View {
     let url: URL?
     var size: CGFloat
     var corner: CGFloat = 10
+    var zoomID: RawkoonZoom.ID?
 
     var body: some View {
         ZStack(alignment: .leading) {
@@ -30,6 +31,7 @@ struct BookCover: View {
         .overlay(
             RoundedRectangle(cornerRadius: corner).strokeBorder(.white.opacity(0.06), lineWidth: 1)
         )
+        .rawkoonZoomSource(zoomID)
     }
 }
 
@@ -284,7 +286,7 @@ struct BookRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            BookCover(url: book.coverURL, size: 56, corner: 10)
+            BookCover(url: book.coverURL, size: 56, corner: 10, zoomID: RawkoonZoom.book(book.bookId))
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(book.title)

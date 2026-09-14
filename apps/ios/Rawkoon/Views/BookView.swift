@@ -162,6 +162,7 @@ struct BookView: View {
         .background(Theme.base)
         .navigationTitle(titleText)
         .navigationBarTitleDisplayMode(.inline)
+        .rawkoonZoomDestination(RawkoonZoom.book(book.bookId))
         .onAppear {
             seedManifestFromCache()
         }

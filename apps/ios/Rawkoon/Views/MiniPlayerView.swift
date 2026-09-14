@@ -22,6 +22,7 @@ struct MiniPlayerView: View {
             row(active)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 12)
+                .sensoryFeedback(RawkoonHaptics.feedback(for: .playPause), trigger: model.player.isPlaying)
         }
     }
 
@@ -34,7 +35,7 @@ struct MiniPlayerView: View {
         HStack(spacing: 10) {
             Button(action: onExpand) {
                 HStack(spacing: 10) {
-                    BookCover(url: active.summary.coverURL, size: 38, corner: 9)
+                    BookCover(url: active.summary.coverURL, size: 38, corner: 9, zoomID: RawkoonZoom.audiobook(editionId: active.summary.editionId))
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(active.summary.title)
@@ -59,6 +60,7 @@ struct MiniPlayerView: View {
                 model.player.isPlaying ? model.player.pause() : model.player.play()
             } label: {
                 Image(systemName: model.player.isPlaying ? "pause.fill" : "play.fill")
+                    .contentTransition(.symbolEffect(.replace))
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(Theme.onAccent)
                     .frame(width: 44, height: 44)

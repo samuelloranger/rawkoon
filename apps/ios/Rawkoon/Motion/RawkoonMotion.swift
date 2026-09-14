@@ -22,6 +22,26 @@ extension View {
     func breathingLamp(active: Bool) -> some View {
         modifier(BreathingLamp(isActive: active))
     }
+
+    /// A subtle settle-in as a row scrolls into view; disabled under Reduce Motion.
+    func rawkoonScrollSettle() -> some View {
+        modifier(ScrollSettle())
+    }
+}
+
+private struct ScrollSettle: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    func body(content: Content) -> some View {
+        if reduceMotion {
+            content
+        } else {
+            content.scrollTransition { view, phase in
+                view
+                    .opacity(phase.isIdentity ? 1 : 0)
+                    .scaleEffect(phase.isIdentity ? 1 : 0.96)
+            }
+        }
+    }
 }
 
 private struct RawkoonMotionModifier: ViewModifier {

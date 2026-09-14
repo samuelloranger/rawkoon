@@ -41,9 +41,12 @@ struct PlayerView: View {
             }
             .padding(.horizontal, 24)
         }
-        .presentationDetents([.large])
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .presentationBackground(Theme.base)
+        .rawkoonZoomDestination(RawkoonZoom.audiobook(editionId: summary.editionId))
+        .sensoryFeedback(RawkoonHaptics.feedback(for: .playPause), trigger: model.player.isPlaying)
+        .sensoryFeedback(RawkoonHaptics.feedback(for: .chapterSkip), trigger: model.player.currentChapterIndex)
         .alert(
             "Couldn't play chapter",
             isPresented: Binding(
@@ -205,11 +208,15 @@ struct PlayerView: View {
                 }
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.muted)
+                .contentTransition(.numericText())
+                .rawkoonMotion(RawkoonMotion.gentle, value: Int(sliderPosition))
                 .accessibilityHidden(true)
 
                 Text("\(formatTime(sliderPosition)) of \(formatTime(model.player.duration))")
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(Theme.faint)
+                    .contentTransition(.numericText())
+                    .rawkoonMotion(RawkoonMotion.gentle, value: Int(sliderPosition))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityLabel("Book position")
                     .accessibilityValue("\(formatTime(sliderPosition)) of \(formatTime(model.player.duration))")
@@ -230,6 +237,8 @@ struct PlayerView: View {
                 }
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.muted)
+                .contentTransition(.numericText())
+                .rawkoonMotion(RawkoonMotion.gentle, value: Int(sliderPosition))
                 .accessibilityHidden(true)
             }
         }
@@ -267,6 +276,7 @@ struct PlayerView: View {
                 model.player.isPlaying ? model.player.pause() : model.player.play()
             } label: {
                 Image(systemName: model.player.isPlaying ? "pause.fill" : "play.fill")
+                    .contentTransition(.symbolEffect(.replace))
                     .font(.system(size: 28, weight: .bold))
                     .foregroundStyle(Theme.onAccent)
                     .frame(width: 66, height: 66)
