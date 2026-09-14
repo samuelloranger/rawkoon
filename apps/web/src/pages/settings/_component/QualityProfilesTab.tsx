@@ -1,3 +1,4 @@
+import { sourceLabel } from "./qualityProfileSources";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -132,7 +133,7 @@ export function QualityProfilesTab() {
                           className="rounded-md bg-primary-500/10 px-1.5 py-0.5 text-xs font-medium text-primary-400"
                         >
                           <span className="text-primary-400/60">{i + 1}.</span>{" "}
-                          {s}
+                          {sourceLabel(s)}
                         </span>
                       ))}
                       {p.preferred_codecs.map((c) => (

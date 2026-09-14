@@ -13,6 +13,7 @@ import {
 import type { QualityProfile } from "@rawkoon/shared/types";
 import { cn } from "@/lib/utils";
 import { MultiSelect } from "./QualityProfileMultiSelect";
+import { SOURCE_OPTIONS } from "./qualityProfileSources";
 import { TrackerPrioritySection } from "./QualityProfileTrackerSection";
 import { CustomFormatAssignmentEditor } from "./CustomFormatAssignmentEditor";
 
@@ -29,14 +30,6 @@ const LANGUAGE_RANK_BASE = 300;
 function rankBonus(index: number, base: number, step: number): string {
   return `+${Math.max(0, base - index * step)}`;
 }
-
-const SOURCE_OPTIONS = [
-  { value: "REMUX", label: "REMUX" },
-  { value: "BluRay", label: "Blu-ray" },
-  { value: "WEB-DL", label: "WEB-DL" },
-  { value: "WEBRip", label: "WEBRip" },
-  { value: "HDTV", label: "HDTV" },
-];
 
 const CODEC_OPTIONS = [
   { value: "HEVC", label: "HEVC / x265" },

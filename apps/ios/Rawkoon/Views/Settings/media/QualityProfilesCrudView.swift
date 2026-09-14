@@ -144,7 +144,7 @@ private struct QualityProfileEditorView: View {
     }
 
     private static let sourceOptions: [(value: String, label: LocalizedStringKey)] = [
-        ("REMUX", "REMUX"), ("BluRay", "BluRay"), ("WEB-DL", "WEB-DL"), ("WEBRip", "WEBRip"), ("HDTV", "HDTV"),
+        ("REMUX", "REMUX"), ("BluRay", "Blu-ray"), ("WEB-DL", "WEB-DL"), ("WEBRip", "WEBRip"), ("HDTV", "HDTV"),
     ]
     private static let codecOptions: [(value: String, label: LocalizedStringKey)] = [
         ("HEVC", "HEVC"), ("AVC", "AVC"), ("AV1", "AV1"), ("VP9", "VP9"),

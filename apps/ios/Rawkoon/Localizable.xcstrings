@@ -8437,6 +8437,9 @@
         }
       }
     }
-  },
+,
+    "Blu-ray": {
+      "shouldTranslate": false
+    }  },
   "version": "1.0"
 }
