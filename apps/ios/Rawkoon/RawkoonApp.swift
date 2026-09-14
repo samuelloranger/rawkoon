@@ -147,6 +147,20 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     }
 }
 
+/// Resolves a tab selection against the tabs actually present. `home` only
+/// exists for admins, so a role change can leave `selection` pointing at a
+/// removed tab; iOS 27 requires the selected value stay visible. Validated in
+/// the `TabView(selection:)` getter so it holds during render, not after.
+enum RootTabSelection {
+    nonisolated static func validated(_ selected: String, isAdmin: Bool) -> String {
+        switch selected {
+        case "home": isAdmin ? "home" : "library"
+        case "discover", "library", "activity", "settings": selected
+        default: "library"
+        }
+    }
+}
+
 private struct RootTabsView: View {
     @Environment(AppModel.self) private var model
     @State private var showFullPlayer = false
@@ -209,7 +223,13 @@ private struct RootTabsView: View {
     #endif
 
     private var mainTabs: some View {
-        TabView(selection: $selection) {
+        // Getter resolves against the current admin state so a removed Home tab
+        // can't stay selected mid-render; setter stores the raw pick.
+        let validSelection = Binding(
+            get: { RootTabSelection.validated(selection, isAdmin: model.isAdmin) },
+            set: { selection = $0 }
+        )
+        return TabView(selection: validSelection) {
             if model.isAdmin {
                 Tab("Home", systemImage: "house", value: "home") {
                     NavigationStack {
