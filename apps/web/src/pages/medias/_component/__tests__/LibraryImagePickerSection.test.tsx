@@ -41,14 +41,19 @@ const candidate = (
   source,
 });
 
-const item = (overrides: Partial<LibraryMedia> = {}) =>
+const item = (patch: Partial<LibraryMedia> = {}) =>
   ({
     id: 7,
     title: "X",
     poster_url: null,
     backdrop_url: null,
-    ...overrides,
+    overrides: {},
+    ...patch,
   }) as LibraryMedia;
+
+/** A media whose artwork has been overridden to `url`. */
+const overridden = (url: string) =>
+  item({ poster_url: url, overrides: { poster_url: url } });
 
 const grid = () => screen.getByTestId("artwork-grid");
 
@@ -75,10 +80,7 @@ describe("LibraryImagePickerSection", () => {
 
   it("describes the artwork in use rather than badging every tile", () => {
     render(
-      <LibraryImagePickerSection
-        libraryId={7}
-        item={item({ poster_url: "https://a/3.jpg" })}
-      />,
+      <LibraryImagePickerSection libraryId={7} item={overridden("https://a/3.jpg")} />,
     );
     // The language-neutral fanart candidate is the one in use.
     expect(screen.getByText("fanart.tv")).toBeTruthy();
@@ -139,12 +141,18 @@ describe("LibraryImagePickerSection", () => {
     );
   });
 
+  it("puts the artwork in use first so it is visible without scrolling", () => {
+    render(
+      <LibraryImagePickerSection libraryId={7} item={overridden("https://a/3.jpg")} />,
+    );
+    const cells = within(grid()).getAllByRole("button");
+    expect(cells[0].getAttribute("data-url")).toBe("https://a/3.jpg");
+    expect(cells[0].getAttribute("data-current")).toBe("true");
+  });
+
   it("marks the cell matching the current poster", () => {
     render(
-      <LibraryImagePickerSection
-        libraryId={7}
-        item={item({ poster_url: "https://a/2.jpg" })}
-      />,
+      <LibraryImagePickerSection libraryId={7} item={overridden("https://a/2.jpg")} />,
     );
     const cells = within(grid()).getAllByRole("button");
     const current = cells.filter(
@@ -171,10 +179,7 @@ describe("LibraryImagePickerSection", () => {
     expect(screen.queryByTestId("artwork-reset")).toBeNull();
 
     rerender(
-      <LibraryImagePickerSection
-        libraryId={7}
-        item={item({ poster_url: "https://a/1.jpg" })}
-      />,
+      <LibraryImagePickerSection libraryId={7} item={overridden("https://a/1.jpg")} />,
     );
     fireEvent.click(screen.getByTestId("artwork-reset"));
     expect(mutateAsync).toHaveBeenCalledWith({
@@ -182,6 +187,32 @@ describe("LibraryImagePickerSection", () => {
       kind: "poster",
       url: null,
     });
+  });
+
+  it("marks the stored poster even when it is a different size variant", () => {
+    // The library stores a w500 URL; candidates come back as `original`.
+    render(
+      <LibraryImagePickerSection
+        libraryId={7}
+        item={item({ poster_url: "https://image.tmdb.org/t/p/w500/2.jpg" })}
+      />,
+    );
+    const cells = within(grid()).getAllByRole("button");
+    const current = cells.filter(
+      (c) => c.getAttribute("data-current") === "true",
+    );
+    expect(current).toHaveLength(1);
+    expect(current[0].getAttribute("data-url")).toBe("https://a/2.jpg");
+  });
+
+  it("offers no reset when the artwork is the untouched default", () => {
+    render(
+      <LibraryImagePickerSection
+        libraryId={7}
+        item={item({ poster_url: "https://a/1.jpg" })}
+      />,
+    );
+    expect(screen.queryByTestId("artwork-reset")).toBeNull();
   });
 
   it("renders an empty state rather than a blank grid", () => {

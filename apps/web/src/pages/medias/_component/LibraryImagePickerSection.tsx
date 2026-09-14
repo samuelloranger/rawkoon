@@ -13,6 +13,14 @@ import { useUpdateLibraryArtwork } from "@/features/medias/hooks/useUpdateLibrar
 import { languageDisplayName } from "@/lib/utils/languageDisplayName";
 import { ManagementSection } from "./LibrarySharedUI";
 
+/** Same image regardless of the size variant TMDB served it at. */
+function sameImage(a: string, b: string | null): boolean {
+  if (!b) return false;
+  if (a === b) return true;
+  const file = (u: string) => u.slice(u.lastIndexOf("/") + 1);
+  return file(a) === file(b);
+}
+
 /** Filter values that are not a language code. */
 const ALL = "all";
 const NEUTRAL = "none";
@@ -32,7 +40,17 @@ export function LibraryImagePickerSection({ libraryId, item }: Props) {
   const { data, isLoading } = useArtworkCandidates(libraryId, kind, true);
   const candidates = useMemo(() => data?.candidates ?? [], [data]);
 
-  const currentUrl = kind === "poster" ? item.poster_url : item.backdrop_url;
+  // Two different questions. The override decides whether there is anything to
+  // reset; the displayed image decides which tile is marked in use — and the
+  // stored poster is a w500 URL while candidates are `original`, so the two
+  // are compared by file name rather than by full URL.
+  const overrideField = kind === "poster" ? "poster_url" : "backdrop_url";
+  const overrideUrl =
+    typeof item.overrides?.[overrideField] === "string"
+      ? (item.overrides[overrideField] as string)
+      : null;
+  const displayedUrl =
+    overrideUrl ?? (kind === "poster" ? item.poster_url : null);
 
   const languages = useMemo(() => {
     const codes = new Set<string>();
@@ -51,14 +69,24 @@ export function LibraryImagePickerSection({ libraryId, item }: Props) {
   }, [candidates, i18n.language]);
 
   const visible = useMemo(() => {
-    if (filter === ALL) return candidates;
-    if (filter === NEUTRAL) return candidates.filter((c) => !c.language);
-    return candidates.filter((c) => c.language === filter);
-  }, [candidates, filter]);
+    const matching =
+      filter === ALL
+        ? candidates
+        : filter === NEUTRAL
+          ? candidates.filter((c) => !c.language)
+          : candidates.filter((c) => c.language === filter);
+    // The artwork in use goes first: with 50+ candidates it would otherwise sit
+    // below the fold, and seeing the current choice is the point of opening this.
+    const inUse = matching.findIndex((c) => sameImage(c.url, displayedUrl));
+    if (inUse <= 0) return matching;
+    const reordered = [...matching];
+    const [current] = reordered.splice(inUse, 1);
+    return current ? [current, ...reordered] : reordered;
+  }, [candidates, filter, displayedUrl]);
 
   const selected = useMemo(
-    () => candidates.find((c) => c.url === currentUrl) ?? null,
-    [candidates, currentUrl],
+    () => candidates.find((c) => sameImage(c.url, displayedUrl)) ?? null,
+    [candidates, displayedUrl],
   );
 
   // Details describe one image at a time: whichever is under the pointer, else
@@ -162,7 +190,9 @@ export function LibraryImagePickerSection({ libraryId, item }: Props) {
           <div
             data-testid="artwork-grid"
             onMouseLeave={() => setHovered(null)}
-            className="grid gap-2 rounded-xl border border-border bg-surface-inset p-2"
+            // TMDB routinely returns 50-70 candidates; without a cap the
+            // section swallows the page. Roughly three rows, then scroll.
+            className="grid max-h-80 gap-2 overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface-inset p-2"
             style={{
               gridTemplateColumns: `repeat(auto-fill, minmax(${
                 isPoster ? "104px" : "168px"
@@ -174,7 +204,7 @@ export function LibraryImagePickerSection({ libraryId, item }: Props) {
                 key={c.url}
                 candidate={c}
                 kind={kind}
-                current={c.url === currentUrl}
+                current={sameImage(c.url, displayedUrl)}
                 disabled={updateArtwork.isPending}
                 onPick={() => save(c.url)}
                 onFocus={() => setHovered(c)}
@@ -187,7 +217,7 @@ export function LibraryImagePickerSection({ libraryId, item }: Props) {
           <p className="truncate px-0.5 text-xs text-neutral-500">
             {detailed ? <CandidateDetail candidate={detailed} /> : null}
           </p>
-          {currentUrl ? (
+          {overrideUrl ? (
             <button
               type="button"
               data-testid="artwork-reset"
