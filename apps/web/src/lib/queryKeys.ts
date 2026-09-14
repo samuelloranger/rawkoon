@@ -126,6 +126,7 @@ export const queryKeys = {
     downloadClientHook: () =>
       [...queryKeys.integrations.all, "download-client", "hook"] as const,
     tmdb: () => [...queryKeys.integrations.all, "tmdb"] as const,
+    fanart: () => [...queryKeys.integrations.all, "fanart"] as const,
     localAi: () => [...queryKeys.integrations.all, "local-ai"] as const,
     googleBooks: () => [...queryKeys.integrations.all, "googlebooks"] as const,
     audnexus: () => [...queryKeys.integrations.all, "audnexus"] as const,

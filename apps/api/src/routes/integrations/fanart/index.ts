@@ -18,12 +18,14 @@ export const fanartIntegrationRoutes = new Hono<Env>()
   .get("/fanart", async () => {
     try {
       const integration = await getIntegrationConfigRecord("fanart");
+      const config = normalizeFanartConfig(integration?.config);
 
       return ok({
         integration: {
           type: "fanart",
           enabled: integration?.enabled || false,
           api_key: "",
+          api_key_set: Boolean(config?.api_key),
         },
       });
     } catch (error) {
@@ -80,6 +82,7 @@ export const fanartIntegrationRoutes = new Hono<Env>()
             type: integration.type,
             enabled: integration.enabled,
             api_key: "",
+            api_key_set: true,
           },
         });
       } catch (error) {

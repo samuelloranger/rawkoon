@@ -6,6 +6,7 @@ import { ProwlarrIntegrationSection } from "@/pages/settings/_component/integrat
 import { JackettIntegrationSection } from "@/pages/settings/_component/integrations/JackettIntegrationSection";
 import { DownloadClientIntegrationSection } from "@/pages/settings/_component/integrations/DownloadClientIntegrationSection";
 import { TmdbIntegrationSection } from "@/pages/settings/_component/integrations/TmdbIntegrationSection";
+import { FanartIntegrationSection } from "@/pages/settings/_component/integrations/FanartIntegrationSection";
 import { LocalAiIntegrationSection } from "@/pages/settings/_component/integrations/LocalAiIntegrationSection";
 
 export function IntegrationsTab() {
@@ -30,6 +31,7 @@ export function IntegrationsTab() {
           <div className="space-y-3">
             <JellyfinIntegrationSection />
             <TmdbIntegrationSection />
+            <FanartIntegrationSection />
           </div>
         </div>
         <div className="space-y-3">

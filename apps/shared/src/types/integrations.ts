@@ -51,6 +51,8 @@ export interface FanartIntegration {
   enabled: boolean;
   /** Always "" on read — the stored key is never returned. */
   api_key: string;
+  /** Whether a key is stored, since `api_key` never reveals it. */
+  api_key_set: boolean;
 }
 
 export interface FanartIntegrationUpdateResponse {

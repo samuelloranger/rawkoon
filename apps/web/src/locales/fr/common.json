@@ -1337,6 +1337,13 @@
         "saveProvider": "Enregistrer",
         "cancel": "Annuler",
         "delete": "Supprimer"
+      },
+      "fanart": {
+        "help": "Source supplémentaire facultative d’affiches et d’arrière-plans pour le sélecteur de visuels. Une clé personnelle gratuite de fanart.tv l’active; sans clé, le sélecteur fonctionne quand même avec TMDB seul.",
+        "apiKey": "Clé API",
+        "apiKeyPlaceholder": "Votre clé API personnelle fanart.tv",
+        "apiKeySetPlaceholder": "Une clé est enregistrée — saisissez-en une nouvelle pour la remplacer",
+        "apiKeyHelp": "Obtenez une clé personnelle gratuite sur fanart.tv. Laissez vide pour conserver celle enregistrée."
       }
     },
     "blocklist": {

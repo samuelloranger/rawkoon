@@ -1,4 +1,8 @@
-import type { ArtworkCandidate, ArtworkKind } from "@rawkoon/shared/types";
+import type {
+  ArtworkCandidate,
+  ArtworkKind,
+  ArtworkSource,
+} from "@rawkoon/shared/types";
 import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
 import { getLibraryTmdbApiKey } from "@rawkoon/api/utils/medias/libraryHelpers";
 import { fetchTmdbArtwork } from "@rawkoon/api/services/images/tmdbImageProvider";
@@ -14,7 +18,7 @@ const CACHE_TTL_SECONDS = 60 * 60 * 6;
 export function mergeArtworkCandidates(
   lists: ArtworkCandidate[][],
 ): ArtworkCandidate[] {
-  const bySource = (source: ArtworkCandidate["source"]) =>
+  const bySource = (source: ArtworkSource) =>
     lists
       .flat()
       .filter((c) => c.source === source)
