@@ -1,6 +1,66 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Play Audiobook": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lire le livre audio"
+          }
+        }
+      }
+    },
+    "Play an audiobook from your Rawkoon library.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lire un livre audio de votre bibliothèque Rawkoon."
+          }
+        }
+      }
+    },
+    "Playing %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture de %@."
+          }
+        }
+      }
+    },
+    "Sign in to Rawkoon to play audiobooks.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez-vous à Rawkoon pour écouter des livres audio."
+          }
+        }
+      }
+    },
+    "That audiobook isn't available.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce livre audio n'est pas disponible."
+          }
+        }
+      }
+    },
+    "Couldn't play that audiobook.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de lire ce livre audio."
+          }
+        }
+      }
+    },
     "%@ of %@": {
       "localizations": {
         "fr": {
