@@ -8406,6 +8406,36 @@
           }
         }
       }
+    },
+    "Nothing selected.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune sélection."
+          }
+        }
+      }
+    },
+    "Priority order": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ordre de priorité"
+          }
+        }
+      }
+    },
+    "First is preferred. Tap Edit to reorder, swipe to remove.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le premier est préféré. Touchez Modifier pour réordonner, balayez pour retirer."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
