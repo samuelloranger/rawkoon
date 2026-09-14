@@ -1,6 +1,106 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Resume Audiobook": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprendre le livre audio"
+          }
+        }
+      }
+    },
+    "Resume your most recent Rawkoon audiobook.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprenez votre dernier livre audio Rawkoon."
+          }
+        }
+      }
+    },
+    "You don't have an audiobook in progress.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous n'avez aucun livre audio en cours."
+          }
+        }
+      }
+    },
+    "Resuming your audiobook.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprise de votre livre audio."
+          }
+        }
+      }
+    },
+    "Play Audiobook": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lire le livre audio"
+          }
+        }
+      }
+    },
+    "Play an audiobook from your Rawkoon library.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lire un livre audio de votre bibliothèque Rawkoon."
+          }
+        }
+      }
+    },
+    "Playing %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture de %@."
+          }
+        }
+      }
+    },
+    "Sign in to Rawkoon to play audiobooks.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez-vous à Rawkoon pour écouter des livres audio."
+          }
+        }
+      }
+    },
+    "That audiobook isn't available.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce livre audio n'est pas disponible."
+          }
+        }
+      }
+    },
+    "Couldn't play that audiobook.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de lire ce livre audio."
+          }
+        }
+      }
+    },
     "%@ of %@": {
       "localizations": {
         "fr": {
