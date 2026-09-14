@@ -91,6 +91,7 @@ struct MediaDetailView: View {
             .background(Theme.base)
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
+            .rawkoonZoomDestination(RawkoonZoom.media(tmdbId: tmdbId, mediaType: mediaType))
             .onChange(of: model.libraryChangeToken) { _, _ in
                 guard showManagement, managementItem != nil else { return }
                 liveReloadTask?.cancel()
