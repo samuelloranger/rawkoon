@@ -302,6 +302,8 @@ export const queryKeys = {
       sortDir?: string;
     }) => [...queryKeys.library.all, "infinite", filters] as const,
     item: (id: number) => [...queryKeys.library.all, "item", id] as const,
+    artwork: (id: number, kind: string) =>
+      [...queryKeys.library.all, "artwork", id, kind] as const,
     recentlyAdded: (limit: number) =>
       [...queryKeys.library.all, "recently-added", limit] as const,
     files: (id: number | null) =>
