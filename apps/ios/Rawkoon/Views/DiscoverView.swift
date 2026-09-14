@@ -295,6 +295,7 @@ struct DiscoverView: View {
                                 posterCard(item, fixedWidth: nil)
                             }
                             .buttonStyle(.plain)
+                            .rawkoonScrollSettle()
                         }
                     }
                     .padding(.horizontal, 16)

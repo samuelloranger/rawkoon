@@ -460,6 +460,7 @@ struct LibraryView: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        .rawkoonScrollSettle()
                     }
                 }
                 .padding(.horizontal, 16)
@@ -585,6 +586,7 @@ struct LibraryView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .rawkoonScrollSettle()
                 }
 
                 if mediaHasMore {
@@ -622,6 +624,7 @@ struct LibraryView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .rawkoonScrollSettle()
                 }
             }
             .padding(.horizontal, 16).padding(.top, 4)
