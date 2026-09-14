@@ -60,6 +60,7 @@ struct MiniPlayerView: View {
                 model.player.isPlaying ? model.player.pause() : model.player.play()
             } label: {
                 Image(systemName: model.player.isPlaying ? "pause.fill" : "play.fill")
+                    .contentTransition(.symbolEffect(.replace))
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(Theme.onAccent)
                     .frame(width: 44, height: 44)
