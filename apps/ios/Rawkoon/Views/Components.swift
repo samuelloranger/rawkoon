@@ -7,6 +7,9 @@ struct BookCover: View {
     let url: URL?
     var size: CGFloat
     var corner: CGFloat = 10
+    var zoomID: RawkoonZoom.ID?
+
+    @Environment(\.rawkoonZoomNamespace) private var zoomNamespace
 
     var body: some View {
         ZStack(alignment: .leading) {
@@ -30,6 +33,22 @@ struct BookCover: View {
         .overlay(
             RoundedRectangle(cornerRadius: corner).strokeBorder(.white.opacity(0.06), lineWidth: 1)
         )
+        .modifier(ZoomSource(id: zoomID, namespace: zoomNamespace))
+    }
+}
+
+/// Applies `.matchedTransitionSource` only when both an id and a namespace are
+/// present, so every existing `BookCover` call site is unaffected.
+private struct ZoomSource: ViewModifier {
+    let id: RawkoonZoom.ID?
+    let namespace: Namespace.ID?
+
+    func body(content: Content) -> some View {
+        if let id, let namespace {
+            content.matchedTransitionSource(id: id, in: namespace)
+        } else {
+            content
+        }
     }
 }
 

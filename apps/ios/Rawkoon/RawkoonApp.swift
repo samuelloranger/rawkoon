@@ -5,6 +5,7 @@ import UIKit
 struct RawkoonApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @State private var model = AppModel.shared
+    @Namespace private var zoomNamespace
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -109,6 +110,7 @@ struct RawkoonApp: App {
             // `tabViewBottomAccessory` is a system-hosted tree that does NOT
             // inherit — pass the model explicitly there (see MiniPlayerView).
             // CI greps this file so `.environment(model)` stays below `.overlay`/`.sheet`.
+            .environment(\.rawkoonZoomNamespace, zoomNamespace)
             .environment(model)
         }
     }
