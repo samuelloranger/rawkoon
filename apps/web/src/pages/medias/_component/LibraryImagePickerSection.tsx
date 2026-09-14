@@ -90,7 +90,7 @@ export function LibraryImagePickerSection({ libraryId, item }: Props) {
       icon={Images}
       title={t("library.management.artwork", "Artwork")}
     >
-      <div className="flex flex-col gap-2.5">
+      <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <SegmentedTabs
             variant="chips"
@@ -102,7 +102,6 @@ export function LibraryImagePickerSection({ libraryId, item }: Props) {
               setHovered(null);
             }}
             containerClassName="w-auto"
-            itemClassName="px-2.5 py-1 text-xs"
             // Apricot is reserved for the artwork in use, so the mode tab stays
             // neutral — otherwise the eye lands on the word, not the image.
             activeItemClassName="border-neutral-600 bg-neutral-700/50 text-neutral-100"
@@ -124,7 +123,7 @@ export function LibraryImagePickerSection({ libraryId, item }: Props) {
               aria-label={t("library.management.artworkLanguage", "Language")}
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="focus-ring rounded-lg border border-border bg-neutral-800/80 px-2 py-1 text-xs text-neutral-300"
+              className="focus-ring rounded-full border border-neutral-700 bg-neutral-800/80 px-3 py-1.5 text-sm text-neutral-300"
             >
               <option value={ALL}>
                 {t("library.management.artworkAllLanguages", "All languages")}
@@ -184,8 +183,8 @@ export function LibraryImagePickerSection({ libraryId, item }: Props) {
           </div>
         )}
 
-        <div className="flex min-h-4 items-baseline justify-between gap-3">
-          <p className="truncate text-[11px] text-neutral-500">
+        <div className="flex min-h-6 items-center justify-between gap-3">
+          <p className="truncate px-0.5 text-xs text-neutral-500">
             {detailed ? <CandidateDetail candidate={detailed} /> : null}
           </p>
           {currentUrl ? (
@@ -194,7 +193,7 @@ export function LibraryImagePickerSection({ libraryId, item }: Props) {
               data-testid="artwork-reset"
               disabled={updateArtwork.isPending}
               onClick={() => save(null)}
-              className="focus-ring shrink-0 rounded text-[11px] text-neutral-400 underline-offset-2 hover:text-neutral-200 hover:underline disabled:opacity-60"
+              className="focus-ring -mr-1.5 shrink-0 rounded-md px-1.5 py-1 text-xs text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-200 disabled:opacity-60"
             >
               {t("library.management.artworkReset", "Use default")}
             </button>
