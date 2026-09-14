@@ -301,13 +301,19 @@ export const queryKeys = {
       language?: string;
       sortBy?: string;
       sortDir?: string;
+      titleLanguage?: string;
     }) => [...queryKeys.library.all, "infinite", filters] as const,
     item: (id: number, titleLanguage?: string) =>
       [...queryKeys.library.all, "item", id, titleLanguage] as const,
     artwork: (id: number, kind: string) =>
       [...queryKeys.library.all, "artwork", id, kind] as const,
-    recentlyAdded: (limit: number) =>
-      [...queryKeys.library.all, "recently-added", limit] as const,
+    recentlyAdded: (limit: number, titleLanguage?: string) =>
+      [
+        ...queryKeys.library.all,
+        "recently-added",
+        limit,
+        titleLanguage,
+      ] as const,
     files: (id: number | null) =>
       [...queryKeys.library.all, "files", id] as const,
     episodes: (id: number) =>
