@@ -15,8 +15,8 @@ function ensureProwlarrArrayResponses(): void {
 
 export const mediasFixtures: FixtureRegistry = {
   // Watchlist (requireUser)
-  "GET /api/medias/watchlist/": { phase: "read", negativeBody: null },
-  "POST /api/medias/watchlist/": {
+  "GET /api/medias/watchlist": { phase: "read", negativeBody: null },
+  "POST /api/medias/watchlist": {
     phase: "bootstrap",
     body: (ctx) => {
       // Keep indexer-backed medias endpoints on their happy path if they run later.

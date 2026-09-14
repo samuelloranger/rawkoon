@@ -24,7 +24,7 @@ export const notificationsFixtures: FixtureRegistry = {
     negativeBody: { subscription: { endpoint: 123 } },
   },
 
-  "GET /api/notifications/": {
+  "GET /api/notifications": {
     phase: "read",
     query: { page: "1", limit: "20", read: "false" },
     captures: (body, ctx) => {
@@ -144,9 +144,9 @@ export const notificationsFixtures: FixtureRegistry = {
   },
 
   // Notification channels
-  "GET /api/notifications/channels/": { phase: "read", negativeBody: null },
+  "GET /api/notifications/channels": { phase: "read", negativeBody: null },
 
-  "POST /api/notifications/channels/": {
+  "POST /api/notifications/channels": {
     phase: "bootstrap",
     body: (ctx) => ({
       type: "webhook",

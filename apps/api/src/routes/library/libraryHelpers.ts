@@ -3,6 +3,11 @@
  * Exported for use in libraryListRoutes, libraryMetaRoutes, libraryGrabRoutes, etc.
  */
 
+import {
+  DEFAULT_TITLE_LANGUAGE,
+  type TitleLanguage,
+} from "@rawkoon/shared/constants";
+
 export function computeTotalSizeBytes(
   files: { sizeBytes: bigint }[],
   episodes: { files: { sizeBytes: bigint }[] }[],
@@ -29,42 +34,53 @@ type MappableEpisode = {
   files: { sizeBytes: bigint }[];
 };
 
-export function mapLibraryMedia(item: {
-  id: number;
-  tmdbId: number;
-  type: string;
-  title: string;
-  sortTitle: string | null;
-  year: number | null;
-  status: string;
-  monitored: boolean;
-  posterUrl: string | null;
-  overview: string | null;
-  overrides?: unknown;
-  originalTitle?: string | null;
-  originalLanguage?: string | null;
-  searchTitle?: string | null;
-  searchTitleLanguage?: string | null;
-  digitalReleaseDate: Date | null;
-  qualityProfileId: number | null;
-  searchAttempts: number;
-  qualityProfile: { id: number; name: string } | null;
-  lastGrabbedAt?: Date | null;
-  totalSizeBytes?: bigint | null;
-  downloadHistories?: { grabbedAt: Date }[];
-  addedAt: Date;
-  updatedAt: Date;
-  episodeCount?: number | null;
-  downloadedEpisodeCount?: number | null;
-  seasonCount?: number | null;
-  files?: MappableFile[];
-  episodes?: MappableEpisode[];
-}) {
+export function mapLibraryMedia(
+  item: {
+    id: number;
+    tmdbId: number;
+    type: string;
+    title: string;
+    sortTitle: string | null;
+    year: number | null;
+    status: string;
+    monitored: boolean;
+    posterUrl: string | null;
+    overview: string | null;
+    overrides?: unknown;
+    originalTitle?: string | null;
+    originalLanguage?: string | null;
+    searchTitle?: string | null;
+    searchTitleLanguage?: string | null;
+    digitalReleaseDate: Date | null;
+    qualityProfileId: number | null;
+    searchAttempts: number;
+    qualityProfile: { id: number; name: string } | null;
+    lastGrabbedAt?: Date | null;
+    totalSizeBytes?: bigint | null;
+    downloadHistories?: { grabbedAt: Date }[];
+    addedAt: Date;
+    updatedAt: Date;
+    episodeCount?: number | null;
+    downloadedEpisodeCount?: number | null;
+    seasonCount?: number | null;
+    files?: MappableFile[];
+    episodes?: MappableEpisode[];
+    titles?: { language: string; title: string }[];
+  },
+  titleLanguage: TitleLanguage = DEFAULT_TITLE_LANGUAGE,
+) {
   const files = item.files ?? [];
   const episodes = item.episodes ?? [];
 
   // Parse the overrides JSON (Prisma returns it as unknown)
   const ov = (item.overrides ?? {}) as Record<string, unknown>;
+
+  // English is the stored column, so it needs no lookup; a missing row for any
+  // other locale falls back to it rather than blanking the title.
+  const localizedTitle =
+    titleLanguage === DEFAULT_TITLE_LANGUAGE
+      ? null
+      : (item.titles?.find((t) => t.language === titleLanguage)?.title ?? null);
 
   // Pick the file with the highest resolution (falls back to first file)
   const bestFile = files.length
@@ -104,7 +120,8 @@ export function mapLibraryMedia(item: {
     id: item.id,
     tmdb_id: item.tmdbId,
     type: item.type,
-    title: typeof ov.title === "string" ? ov.title : item.title,
+    title:
+      typeof ov.title === "string" ? ov.title : (localizedTitle ?? item.title),
     sort_title:
       typeof ov.sort_title === "string" ? ov.sort_title : item.sortTitle,
     year: typeof ov.year === "number" ? ov.year : item.year,
@@ -112,6 +129,8 @@ export function mapLibraryMedia(item: {
     monitored: item.monitored,
     poster_url:
       typeof ov.poster_url === "string" ? ov.poster_url : item.posterUrl,
+    // No stored column — a backdrop exists only as an override.
+    backdrop_url: typeof ov.backdrop_url === "string" ? ov.backdrop_url : null,
     overview: typeof ov.overview === "string" ? ov.overview : item.overview,
     overrides: ov,
     original_title: item.originalTitle ?? null,
@@ -149,6 +168,7 @@ export function mapLibraryMedia(item: {
  */
 export const libraryMediaInclude = {
   qualityProfile: { select: { id: true, name: true } },
+  titles: { select: { language: true, title: true } },
   files: {
     select: {
       sizeBytes: true,

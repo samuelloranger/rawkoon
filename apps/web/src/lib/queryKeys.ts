@@ -126,6 +126,7 @@ export const queryKeys = {
     downloadClientHook: () =>
       [...queryKeys.integrations.all, "download-client", "hook"] as const,
     tmdb: () => [...queryKeys.integrations.all, "tmdb"] as const,
+    fanart: () => [...queryKeys.integrations.all, "fanart"] as const,
     localAi: () => [...queryKeys.integrations.all, "local-ai"] as const,
     googleBooks: () => [...queryKeys.integrations.all, "googlebooks"] as const,
     audnexus: () => [...queryKeys.integrations.all, "audnexus"] as const,
@@ -300,10 +301,19 @@ export const queryKeys = {
       language?: string;
       sortBy?: string;
       sortDir?: string;
+      titleLanguage?: string;
     }) => [...queryKeys.library.all, "infinite", filters] as const,
-    item: (id: number) => [...queryKeys.library.all, "item", id] as const,
-    recentlyAdded: (limit: number) =>
-      [...queryKeys.library.all, "recently-added", limit] as const,
+    item: (id: number, titleLanguage?: string) =>
+      [...queryKeys.library.all, "item", id, titleLanguage] as const,
+    artwork: (id: number, kind: string) =>
+      [...queryKeys.library.all, "artwork", id, kind] as const,
+    recentlyAdded: (limit: number, titleLanguage?: string) =>
+      [
+        ...queryKeys.library.all,
+        "recently-added",
+        limit,
+        titleLanguage,
+      ] as const,
     files: (id: number | null) =>
       [...queryKeys.library.all, "files", id] as const,
     episodes: (id: number) =>

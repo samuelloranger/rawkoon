@@ -9,6 +9,7 @@ export const INTEGRATION_ENDPOINTS = {
   DOWNLOAD_CLIENT_HOOK: "/api/integrations/download-client/hook",
   DOWNLOAD_CLIENT_HOOK_ROTATE: "/api/integrations/download-client/hook/rotate",
   TMDB: "/api/integrations/tmdb",
+  FANART: "/api/integrations/fanart",
   OIDC: "/api/integrations/oidc",
   LOCAL_AI: "/api/integrations/local-ai",
   LOCAL_AI_TEST: "/api/integrations/local-ai/test",

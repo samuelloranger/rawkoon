@@ -33,6 +33,10 @@ export interface TmdbIntegrationConfig {
   popularity_threshold: number;
 }
 
+export interface FanartIntegrationConfig {
+  api_key: string;
+}
+
 export interface LocalAiConfig {
   base_url: string;
   model: string;
