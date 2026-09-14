@@ -5,60 +5,28 @@ import SwiftUI
 /// body expands to the full Now Playing sheet; the trailing buttons toggle
 /// play and close the player.
 ///
-/// On iOS 18 it rides above the tab bar via `.safeAreaInset` and draws its own
-/// floating-pill chrome. On iOS 26 it's handed to `tabViewBottomAccessory`,
-/// which already frames the accessory natively — `chromed: false` there drops
-/// this view's own background/shadow so the two don't double-frame each other.
+/// It's handed to `tabViewBottomAccessory`, which frames the accessory natively,
+/// so this view draws no background of its own and uses semantic colors that
+/// adapt to the system material.
 struct MiniPlayerView: View {
-    /// Passed explicitly rather than read from `@Environment`: on iOS 26 the
+    /// Passed explicitly rather than read from `@Environment`: the
     /// `tabViewBottomAccessory` host does not propagate the window's environment
     /// into the accessory, so an `@Environment(AppModel.self)` read there traps on
     /// the missing value. An `@Observable` reference held as a plain property still
     /// tracks its reads in `body`, so reactivity is unchanged.
     let model: AppModel
     let onExpand: () -> Void
-    var chromed: Bool = true
 
     var body: some View {
         if let active = model.activeBook() {
-            if chromed {
-                row(active)
-                    .padding(.leading, 10)
-                    .padding(.trailing, 4)
-                    .padding(.vertical, 7)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18)
-                            .strokeBorder(Theme.borderStrong, lineWidth: 1)
-                    )
-                    .background(
-                        RoundedRectangle(cornerRadius: 18)
-                            .fill(Theme.terracotta.opacity(0.18))
-                    )
-                    .shadow(color: .black.opacity(0.4), radius: 10, y: 4)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 4)
-            } else {
-                row(active)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 12)
-            }
+            row(active)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 12)
         }
-    }
-
-    /// The native `tabViewBottomAccessory` (iOS 26) draws on a light, adaptive
-    /// system material, where the app's dark-surface text tokens go unreadable —
-    /// so the un-chromed variant uses semantic colors that adapt to it. The
-    /// iOS 18 pill keeps the Cozy Dusk tokens against its own dark chrome.
-    private var titleColor: Color {
-        chromed ? Theme.textStrong : .primary
     }
 
     private var subtitleColor: Color {
-        if model.player.playbackError != nil {
-            return Theme.terracotta
-        }
-        return chromed ? Theme.muted : .secondary
+        model.player.playbackError != nil ? Theme.terracotta : .secondary
     }
 
     @ViewBuilder
@@ -71,7 +39,7 @@ struct MiniPlayerView: View {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(active.summary.title)
                             .font(.display(14))
-                            .foregroundStyle(titleColor)
+                            .foregroundStyle(Color.primary)
                             .lineLimit(1)
                         Text(chapterLine(active.manifest))
                             .font(.caption2)
@@ -105,7 +73,7 @@ struct MiniPlayerView: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(chromed ? Theme.muted : .secondary)
+                    .foregroundStyle(Color.secondary)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }

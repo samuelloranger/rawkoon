@@ -235,7 +235,6 @@ private struct RootTabsView: View {
                     NavigationStack {
                         HomeView()
                     }
-                    .modifier(MiniPlayerContentInset(model: model, onExpand: { showFullPlayer = true }))
                 }
                 .customizationID("tab.home")
             }
@@ -244,7 +243,6 @@ private struct RootTabsView: View {
                 NavigationStack {
                     DiscoverView()
                 }
-                .modifier(MiniPlayerContentInset(model: model, onExpand: { showFullPlayer = true }))
             }
             .customizationID("tab.discover")
 
@@ -252,7 +250,6 @@ private struct RootTabsView: View {
                 NavigationStack {
                     LibraryView()
                 }
-                .modifier(MiniPlayerContentInset(model: model, onExpand: { showFullPlayer = true }))
             }
             .customizationID("tab.library")
 
@@ -260,7 +257,6 @@ private struct RootTabsView: View {
                 NavigationStack {
                     ActivityView()
                 }
-                .modifier(MiniPlayerContentInset(model: model, onExpand: { showFullPlayer = true }))
             }
             .customizationID("tab.activity")
 
@@ -268,7 +264,6 @@ private struct RootTabsView: View {
                 NavigationStack {
                     SettingsView()
                 }
-                .modifier(MiniPlayerContentInset(model: model, onExpand: { showFullPlayer = true }))
             }
             .customizationID("tab.settings")
         }
@@ -316,54 +311,24 @@ private struct RootTabsView: View {
 }
 
 private extension View {
-    /// `tabViewBottomAccessory` is iOS 26+; the app's deployment target is 18,
-    /// so pre-26 devices get the mini player from `MiniPlayerContentInset`
-    /// instead (applied per-tab, not here — see that type's doc comment).
-    ///
     /// `active` gates whether the accessory is attached at all: the system
     /// reserves the accessory's slot as soon as `tabViewBottomAccessory` is
     /// present, even if `MiniPlayerView`'s own content is empty, so an idle
     /// (no active book) state must skip attaching it rather than render an
-    /// empty accessory. `chromed: false` hands the system its own framing —
-    /// `MiniPlayerView`'s floating-pill chrome is for the iOS 18 fallback only.
+    /// empty accessory.
     ///
     /// The accessory content is hosted in a tree detached from the `WindowGroup`,
-    /// which on iOS 26 does not propagate its environment — so `MiniPlayerView`
-    /// takes the model as an explicit argument rather than via `@Environment`,
-    /// which trapped on the missing value even when injected here.
+    /// which does not propagate its environment — so `MiniPlayerView` takes the
+    /// model as an explicit argument rather than via `@Environment`, which
+    /// trapped on the missing value even when injected here.
     @ViewBuilder
     func miniPlayerAccessory(model: AppModel, active: Bool, onExpand: @escaping () -> Void) -> some View {
-        if #available(iOS 26.0, *), active {
+        if active {
             tabViewBottomAccessory {
-                MiniPlayerView(model: model, onExpand: onExpand, chromed: false)
+                MiniPlayerView(model: model, onExpand: onExpand)
             }
         } else {
             self
-        }
-    }
-}
-
-/// Insets a single tab's content above the tab bar with the mini player, for
-/// iOS versions before `tabViewBottomAccessory` (iOS 26) exists.
-///
-/// A `.safeAreaInset(edge: .bottom)` applied to the `TabView` itself lays the
-/// bar out against the bottom of the whole tab view, so it sits on top of the
-/// tab bar. Insetting each tab's content keeps it just above the tab bar and
-/// leaves the tab items tappable. On iOS 26+ this is a no-op: the accessory
-/// slot (`miniPlayerAccessory`, applied to the `TabView`) already places it,
-/// and inset here too would double it up.
-private struct MiniPlayerContentInset: ViewModifier {
-    let model: AppModel
-    let onExpand: () -> Void
-
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if #available(iOS 26.0, *) {
-            content
-        } else {
-            content.safeAreaInset(edge: .bottom) {
-                MiniPlayerView(model: model, onExpand: onExpand)
-            }
         }
     }
 }

@@ -4,7 +4,7 @@ options:
   developmentLanguage: en
   knownRegions: [en, fr]
   deploymentTarget:
-    iOS: "18.0"
+    iOS: "27.0"
 packages:
   RawkoonKit:
     path: .
