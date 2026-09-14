@@ -1,10 +1,10 @@
 import type { FixtureRegistry } from "./types";
 
 export const qualityProfilesFixtures: FixtureRegistry = {
-  "GET /api/quality-profiles/": { phase: "read", negativeBody: null },
+  "GET /api/quality-profiles": { phase: "read", negativeBody: null },
 
   // Create a throwaway quality profile so DELETE doesn't remove the shared seeded row.
-  "POST /api/quality-profiles/": {
+  "POST /api/quality-profiles": {
     phase: "bootstrap",
     admin: true,
     expectedStatus: 201,

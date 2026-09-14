@@ -3,7 +3,7 @@ import type { FixtureRegistry } from "./types";
 // Authors live under books routes in the API, but are exposed at /api/authors.
 // All routes requireUser; only PATCH requires admin.
 export const authorsFixtures: FixtureRegistry = {
-  "GET /api/authors/": { phase: "read", negativeBody: null },
+  "GET /api/authors": { phase: "read", negativeBody: null },
 
   // Query is optional, but provide one so the filtered path is exercised.
   "GET /api/authors/search": {

@@ -1,10 +1,10 @@
 import type { FixtureRegistry } from "./types";
 
 export const customFormatsFixtures: FixtureRegistry = {
-  "GET /api/custom-formats/": { phase: "read", negativeBody: null },
+  "GET /api/custom-formats": { phase: "read", negativeBody: null },
 
   // Create a throwaway custom format so PUT/DELETE don't mutate shared seeded rows.
-  "POST /api/custom-formats/": {
+  "POST /api/custom-formats": {
     phase: "bootstrap",
     admin: true,
     expectedStatus: 201,

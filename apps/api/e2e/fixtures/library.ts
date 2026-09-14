@@ -31,7 +31,7 @@ patchStubQueueAddToReturnJobWithGetState(libraryMigrateQueue);
 
 export const libraryFixtures: FixtureRegistry = {
   // ── Core list/item CRUD ────────────────────────────────────────────────────
-  "GET /api/library/": {
+  "GET /api/library": {
     phase: "read",
     query: {
       page: "1",
@@ -44,7 +44,7 @@ export const libraryFixtures: FixtureRegistry = {
   },
 
   // Create a throwaway media row so DELETE /api/library/:id doesn't remove the seeded movie/show.
-  "POST /api/library/": {
+  "POST /api/library": {
     phase: "bootstrap",
     admin: true,
     body: (ctx) => {
@@ -92,6 +92,12 @@ export const libraryFixtures: FixtureRegistry = {
 
   // ── File + episode views ───────────────────────────────────────────────────
   "GET /api/library/:id/files": {
+    phase: "read",
+    pathParams: (ctx) => ({ id: ctx.get("libraryMediaId") }),
+    negativeBody: null,
+  },
+
+  "GET /api/library/:id/images": {
     phase: "read",
     pathParams: (ctx) => ({ id: ctx.get("libraryMediaId") }),
     negativeBody: null,

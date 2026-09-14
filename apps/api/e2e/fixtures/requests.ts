@@ -6,9 +6,9 @@ import type { FixtureRegistry } from "./types";
 // Approving it flips the status away from "pending", so the deny route's
 // deterministic behavior in this sweep is the "not pending" 400 path.
 export const requestsFixtures: FixtureRegistry = {
-  "GET /api/requests/": { phase: "read", negativeBody: null },
+  "GET /api/requests": { phase: "read", negativeBody: null },
 
-  "POST /api/requests/": {
+  "POST /api/requests": {
     phase: "action",
     body: (ctx) => ({
       type: "movie",

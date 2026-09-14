@@ -161,12 +161,12 @@ export const integrationsFixtures: FixtureRegistry = {
   },
 
   // OIDC providers
-  "GET /api/integrations/oidc/": {
+  "GET /api/integrations/oidc": {
     phase: "read",
     admin: true,
     negativeBody: null,
   },
-  "POST /api/integrations/oidc/": {
+  "POST /api/integrations/oidc": {
     phase: "bootstrap",
     admin: true,
     body: (ctx) => ({
@@ -245,5 +245,19 @@ export const integrationsFixtures: FixtureRegistry = {
       popularity_threshold: 15,
     }),
     negativeBody: { api_key: 123, popularity_threshold: "nope" },
+  },
+  "GET /api/integrations/fanart": {
+    phase: "read",
+    admin: true,
+    negativeBody: null,
+  },
+  "PUT /api/integrations/fanart": {
+    phase: "update",
+    admin: true,
+    body: () => ({
+      enabled: true,
+      api_key: "mock-fanart-key",
+    }),
+    negativeBody: { api_key: 123, enabled: "nope" },
   },
 };

@@ -2,7 +2,7 @@ import { mockState } from "../mocks/externals";
 import type { FixtureRegistry } from "./types";
 
 export const booksFixtures: FixtureRegistry = {
-  "GET /api/books/": {
+  "GET /api/books": {
     phase: "read",
     query: {
       q: "E2E",
@@ -190,7 +190,7 @@ export const booksFixtures: FixtureRegistry = {
   },
 
   // Create a throwaway book in action phase so DELETE can be exercised safely.
-  "POST /api/books/": {
+  "POST /api/books": {
     phase: "action",
     body: () => {
       // Google Books volume fetch uses a different response shape than the
