@@ -45,6 +45,8 @@ struct PlayerView: View {
         .presentationDragIndicator(.visible)
         .presentationBackground(Theme.base)
         .rawkoonZoomDestination(RawkoonZoom.audiobook(editionId: summary.editionId))
+        .sensoryFeedback(RawkoonHaptics.feedback(for: .playPause), trigger: model.player.isPlaying)
+        .sensoryFeedback(RawkoonHaptics.feedback(for: .chapterSkip), trigger: model.player.currentChapterIndex)
         .alert(
             "Couldn't play chapter",
             isPresented: Binding(

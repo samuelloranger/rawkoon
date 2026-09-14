@@ -22,6 +22,7 @@ struct MiniPlayerView: View {
             row(active)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 12)
+                .sensoryFeedback(RawkoonHaptics.feedback(for: .playPause), trigger: model.player.isPlaying)
         }
     }
 

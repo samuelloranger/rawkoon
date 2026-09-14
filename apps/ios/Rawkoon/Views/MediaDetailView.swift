@@ -92,6 +92,7 @@ struct MediaDetailView: View {
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .rawkoonZoomDestination(RawkoonZoom.media(tmdbId: tmdbId, mediaType: mediaType))
+            .sensoryFeedback(RawkoonHaptics.feedback(for: .grab), trigger: requested)
             .onChange(of: model.libraryChangeToken) { _, _ in
                 guard showManagement, managementItem != nil else { return }
                 liveReloadTask?.cancel()
