@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, ChevronDown, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, X } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -16,12 +16,18 @@ export function MultiSelect({
   options,
   selected,
   onChange,
+  orderable = false,
+  rankLabel,
 }: {
   label: string;
   placeholder: string;
   options: { value: string; label: string }[];
   selected: string[];
   onChange: (next: string[]) => void;
+  /** Renders the selection as a ranked list — array order is the priority. */
+  orderable?: boolean;
+  /** Per-rank annotation (e.g. the score a position is worth). */
+  rankLabel?: (index: number) => string;
 }) {
   const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
@@ -41,6 +47,14 @@ export function MultiSelect({
     onChange(selected.filter((v) => v !== value));
   };
 
+  const move = (from: number, to: number) => {
+    if (to < 0 || to >= selected.length) return;
+    const next = [...selected];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    onChange(next);
+  };
+
   const labelId = useId();
   const valueId = useId();
 
@@ -53,9 +67,16 @@ export function MultiSelect({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span id={labelId} className="text-sm font-medium text-neutral-300">
-        {label}
-      </span>
+      <div className="flex items-baseline justify-between gap-2">
+        <span id={labelId} className="text-sm font-medium text-neutral-300">
+          {label}
+        </span>
+        {orderable && (
+          <span className="text-xs text-neutral-500">
+            {t("settings.qualityProfiles.orderIsPriority")}
+          </span>
+        )}
+      </div>
       <Popover open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <button
@@ -74,9 +95,19 @@ export function MultiSelect({
               open && "ring-2 ring-primary-500/30 border-primary-600",
             )}
           >
-            {selected.length === 0 ? (
-              <span id={valueId} className="flex-1 text-neutral-500">
-                {placeholder}
+            {selected.length === 0 || orderable ? (
+              <span
+                id={valueId}
+                className={cn(
+                  "flex-1",
+                  selected.length > 0 ? "text-neutral-300" : "text-neutral-500",
+                )}
+              >
+                {selected.length > 0
+                  ? t("settings.qualityProfiles.selectedCount", {
+                      count: selected.length,
+                    })
+                  : placeholder}
               </span>
             ) : (
               <span id={valueId} className="flex flex-1 flex-wrap gap-1">
@@ -158,6 +189,60 @@ export function MultiSelect({
           )}
         </PopoverContent>
       </Popover>
+
+      {orderable && selected.length > 0 && (
+        <div className="flex flex-col gap-1">
+          {selected.map((value, i) => {
+            const opt = options.find((o) => o.value === value);
+            return (
+              <div
+                key={value}
+                className="flex items-center gap-2 rounded-lg border px-3 py-2 border-neutral-700 bg-neutral-800/60"
+              >
+                <span className="w-6 shrink-0 text-center text-xs font-semibold text-neutral-500">
+                  #{i + 1}
+                </span>
+                <span className="flex-1 text-sm text-neutral-200">
+                  {opt?.label ?? value}
+                </span>
+                {rankLabel && (
+                  <span className="text-xs font-medium text-primary-400">
+                    {rankLabel(i)}
+                  </span>
+                )}
+                <div className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    disabled={i === 0}
+                    onClick={() => move(i, i - 1)}
+                    aria-label={t("settings.qualityProfiles.movePriorityUp")}
+                    className="rounded p-1 text-neutral-400 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-neutral-700 hover:text-neutral-300 transition-colors"
+                  >
+                    <ChevronUp size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={i === selected.length - 1}
+                    onClick={() => move(i, i + 1)}
+                    aria-label={t("settings.qualityProfiles.movePriorityDown")}
+                    className="rounded p-1 text-neutral-400 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-neutral-700 hover:text-neutral-300 transition-colors"
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => remove(e, value)}
+                    aria-label={t("settings.qualityProfiles.removeSelection")}
+                    className="rounded p-1 text-neutral-400 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

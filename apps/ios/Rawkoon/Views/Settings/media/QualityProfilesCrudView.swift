@@ -120,9 +120,10 @@ private struct QualityProfileEditorView: View {
     @State private var name = ""
     @State private var minResolution = 1080
     @State private var cutoffResolution: Int? = nil
-    @State private var sources: Set<String> = []
-    @State private var codecs: Set<String> = []
-    @State private var languages: Set<String> = []
+    // Arrays, not Sets: the server scores by position, so order must survive a save.
+    @State private var sources: [String] = []
+    @State private var codecs: [String] = []
+    @State private var languages: [String] = []
     @State private var searchLanguage: String? = nil
     @State private var trackersText = ""
     @State private var preferTracker = false
@@ -142,9 +143,6 @@ private struct QualityProfileEditorView: View {
         [(nil, "None")] + Self.resolutionOptions.map { (Optional($0.value), $0.label) }
     }
 
-    private static let sourceOptions: [(value: String, label: LocalizedStringKey)] = [
-        ("REMUX", "REMUX"), ("BluRay", "BluRay"), ("WEB-DL", "WEB-DL"), ("WEBRip", "WEBRip"), ("HDTV", "HDTV"),
-    ]
     private static let codecOptions: [(value: String, label: LocalizedStringKey)] = [
         ("HEVC", "HEVC"), ("AVC", "AVC"), ("AV1", "AV1"), ("VP9", "VP9"),
     ]
@@ -168,9 +166,9 @@ private struct QualityProfileEditorView: View {
                 PickerRow(title: "Cutoff", selection: $cutoffResolution, options: cutoffOptions)
             }
             Section {
-                MultiSelectRow(title: "Preferred sources", selected: $sources, options: Self.sourceOptions)
-                MultiSelectRow(title: "Preferred codecs", selected: $codecs, options: Self.codecOptions)
-                MultiSelectRow(title: "Preferred languages", selected: $languages, options: Self.languageOptions)
+                OrderedMultiSelectRow(title: "Preferred sources", selected: $sources, options: QualityProfileSources.options)
+                OrderedMultiSelectRow(title: "Preferred codecs", selected: $codecs, options: Self.codecOptions)
+                OrderedMultiSelectRow(title: "Preferred languages", selected: $languages, options: Self.languageOptions)
                 PickerRow(title: "Search title language", selection: $searchLanguage, options: searchLanguageOptions)
             }
             Section {
@@ -253,9 +251,9 @@ private struct QualityProfileEditorView: View {
         name = profile.name
         minResolution = profile.minResolution ?? 1080
         cutoffResolution = profile.cutoffResolution
-        sources = Set(profile.preferredSources ?? [])
-        codecs = Set(profile.preferredCodecs ?? [])
-        languages = Set(profile.preferredLanguages ?? [])
+        sources = profile.preferredSources ?? []
+        codecs = profile.preferredCodecs ?? []
+        languages = profile.preferredLanguages ?? []
         searchLanguage = profile.preferredSearchLanguage
         trackersText = (profile.prioritizedTrackers ?? []).joined(separator: ", ")
         preferTracker = profile.preferTrackerOverQuality ?? false
@@ -283,9 +281,9 @@ private struct QualityProfileEditorView: View {
             name: name.trimmingCharacters(in: .whitespaces),
             minResolution: minResolution,
             cutoffResolution: cutoffResolution,
-            preferredSources: Array(sources),
-            preferredCodecs: Array(codecs),
-            preferredLanguages: Array(languages),
+            preferredSources: sources,
+            preferredCodecs: codecs,
+            preferredLanguages: languages,
             preferredSearchLanguage: searchLanguage,
             prioritizedTrackers: trackers,
             preferTrackerOverQuality: preferTracker,
@@ -313,3 +311,43 @@ private struct QualityProfileEditorView: View {
         saving = false
     }
 }
+
+#if DEBUG
+    /// Opens the editor for the first real profile. Lives here because
+    /// `QualityProfileEditorView` is file-private, and `simctl` cannot tap its way
+    /// in from the list.
+    struct DebugFirstQualityProfile: View {
+        @Environment(AppModel.self) private var model
+
+        @State private var profile: QualityProfile?
+        @State private var formats: [CustomFormatDTO] = []
+        @State private var failed = false
+
+        var body: some View {
+            Group {
+                if let profile {
+                    QualityProfileEditorView(profile: profile, formats: formats)
+                } else if failed {
+                    ContentUnavailableView("No profiles", systemImage: "slider.horizontal.3")
+                } else {
+                    ProgressView().tint(Theme.apricot)
+                }
+            }
+            .task {
+                guard let client = model.api() else {
+                    failed = true
+                    return
+                }
+                do {
+                    formats = await (try? client.customFormats().customFormats) ?? []
+                    profile = try await client.qualityProfiles().profiles.first
+                    if profile == nil {
+                        failed = true
+                    }
+                } catch {
+                    failed = true
+                }
+            }
+        }
+    }
+#endif

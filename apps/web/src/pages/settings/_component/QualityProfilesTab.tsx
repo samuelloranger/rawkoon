@@ -1,3 +1,4 @@
+import { sourceLabel } from "./qualityProfileSources";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -126,12 +127,13 @@ export function QualityProfilesTab() {
                       )}
                     </div>
                     <div className="flex flex-wrap gap-1">
-                      {p.preferred_sources.map((s) => (
+                      {p.preferred_sources.map((s, i) => (
                         <span
                           key={s}
                           className="rounded-md bg-primary-500/10 px-1.5 py-0.5 text-xs font-medium text-primary-400"
                         >
-                          {s}
+                          <span className="text-primary-400/60">{i + 1}.</span>{" "}
+                          {sourceLabel(s)}
                         </span>
                       ))}
                       {p.preferred_codecs.map((c) => (

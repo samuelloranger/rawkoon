@@ -13,18 +13,23 @@ import {
 import type { QualityProfile } from "@rawkoon/shared/types";
 import { cn } from "@/lib/utils";
 import { MultiSelect } from "./QualityProfileMultiSelect";
+import { SOURCE_OPTIONS } from "./qualityProfileSources";
 import { TrackerPrioritySection } from "./QualityProfileTrackerSection";
 import { CustomFormatAssignmentEditor } from "./CustomFormatAssignmentEditor";
 
 // ─── Option definitions ───────────────────────────────────────────────────────
 
-const SOURCE_OPTIONS = [
-  { value: "REMUX", label: "REMUX" },
-  { value: "BluRay", label: "Blu-ray" },
-  { value: "WEB-DL", label: "WEB-DL" },
-  { value: "WEBRip", label: "WEBRip" },
-  { value: "HDTV", label: "HDTV" },
-];
+// Mirrors the indexScore() bases/steps in apps/api/src/utils/medias/releaseScorer.ts
+const RANK_STEP = 100;
+const SOURCE_RANK_BASE = 800;
+const SOURCE_RANK_STEP = 200;
+const CODEC_RANK_BASE = 200;
+const LANGUAGE_RANK_BASE = 300;
+
+/** The score a given rank is worth, as shown next to each ranked row. */
+function rankBonus(index: number, base: number, step: number): string {
+  return `+${Math.max(0, base - index * step)}`;
+}
 
 const CODEC_OPTIONS = [
   { value: "HEVC", label: "HEVC / x265" },
@@ -207,13 +212,16 @@ export function QualityProfileForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      {/* One column on phones — the ranked lists are too tall to sit side by side. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <MultiSelect
           label={t("settings.qualityProfiles.preferredSources")}
           placeholder={t("settings.qualityProfiles.selectSources")}
           options={SOURCE_OPTIONS}
           selected={form.preferred_sources}
           onChange={(v) => set("preferred_sources", v)}
+          orderable
+          rankLabel={(i) => rankBonus(i, SOURCE_RANK_BASE, SOURCE_RANK_STEP)}
         />
         <MultiSelect
           label={t("settings.qualityProfiles.preferredCodecs")}
@@ -221,6 +229,8 @@ export function QualityProfileForm({
           options={CODEC_OPTIONS}
           selected={form.preferred_codecs}
           onChange={(v) => set("preferred_codecs", v)}
+          orderable
+          rankLabel={(i) => rankBonus(i, CODEC_RANK_BASE, RANK_STEP)}
         />
       </div>
 
@@ -230,6 +240,8 @@ export function QualityProfileForm({
         options={LANGUAGE_OPTIONS}
         selected={form.preferred_languages}
         onChange={(v) => set("preferred_languages", v)}
+        orderable
+        rankLabel={(i) => rankBonus(i, LANGUAGE_RANK_BASE, RANK_STEP)}
       />
 
       <div className="flex flex-col gap-1.5">

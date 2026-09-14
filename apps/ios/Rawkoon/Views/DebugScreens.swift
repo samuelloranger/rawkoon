@@ -26,13 +26,32 @@
                 DebugPlayer(chapterCount: 0, resumeAt: 15120)
             case "deck":
                 DebugDeck()
+            case "orderedSources":
+                DebugOrderedSources()
             default:
                 EmptyView()
             }
         }
 
         static func isOffline(_ screen: String) -> Bool {
-            ["player", "playerNoChapters", "deck"].contains(screen)
+            ["player", "playerNoChapters", "deck", "orderedSources"].contains(screen)
+        }
+    }
+
+    /// Renders the ranked source list against synthetic data — no server, no
+    /// credentials. The ordering UI is the whole point of the screen, so a seeded
+    /// selection is enough to review it.
+    struct DebugOrderedSources: View {
+        @State private var sources = ["BluRay", "WEB-DL", "HDTV"]
+
+        var body: some View {
+            NavigationStack {
+                OrderedMultiSelectList(
+                    titleKey: "Preferred sources",
+                    selected: $sources,
+                    options: QualityProfileSources.options.map { ($0.value, Text($0.label)) }
+                )
+            }
         }
     }
 
