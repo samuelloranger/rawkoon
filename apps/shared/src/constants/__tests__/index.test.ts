@@ -3,7 +3,7 @@ import {
   DEFAULT_TITLE_LANGUAGE,
   SUPPORTED_TITLE_LANGUAGES,
   normalizeTitleLanguage,
-} from "./index";
+} from "../index";
 
 describe("normalizeTitleLanguage", () => {
   it("passes through a supported language", () => {

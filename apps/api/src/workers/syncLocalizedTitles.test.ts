@@ -6,14 +6,25 @@ const findMedia = mock(async () => [
 ]);
 const write = mock(async () => {});
 const getKey = mock(async () => "key" as string | null);
-const tmdbFetch = mock(async (path: string) => ({
-  title: path.startsWith("movie") ? "The Godfather" : undefined,
-  name: path.startsWith("tv") ? "Game of Thrones" : undefined,
-  original_title: "The Godfather",
-  original_name: "Game of Thrones",
-  original_language: "en",
-  translations: {},
-}));
+type TmdbDetails = {
+  title?: string;
+  name?: string;
+  original_title: string | null;
+  original_name: string | null;
+  original_language: string | null;
+  translations: unknown;
+};
+
+const tmdbFetch = mock(
+  async (path: string): Promise<TmdbDetails> => ({
+    title: path.startsWith("movie") ? "The Godfather" : undefined,
+    name: path.startsWith("tv") ? "Game of Thrones" : undefined,
+    original_title: "The Godfather",
+    original_name: "Game of Thrones",
+    original_language: "en",
+    translations: {},
+  }),
+);
 
 mock.module("@rawkoon/api/services/localizedTitleSync", () => ({
   findMediaNeedingLocalizedTitles: findMedia,

@@ -1,9 +1,16 @@
 import { describe, expect, it, mock } from "bun:test";
 
-const getRecord = mock(async () => ({
-  enabled: true,
-  config: { api_key: "enc:k" },
-}));
+type IntegrationRecord = {
+  enabled: boolean;
+  config: Record<string, unknown>;
+} | null;
+
+const getRecord = mock(
+  async (): Promise<IntegrationRecord> => ({
+    enabled: true,
+    config: { api_key: "enc:k" },
+  }),
+);
 mock.module("@rawkoon/api/services/integrationConfigCache", () => ({
   getIntegrationConfigRecord: getRecord,
 }));
@@ -112,7 +119,7 @@ describe("fetchFanartArtwork", () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = (async () => {
       throw new Error("network down");
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
     try {
       const out = await fetchFanartArtwork({
         mediaType: "movie",
@@ -128,7 +135,7 @@ describe("fetchFanartArtwork", () => {
   it("returns nothing on a non-2xx response", async () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = (async () =>
-      new Response("not found", { status: 404 })) as typeof fetch;
+      new Response("not found", { status: 404 })) as unknown as typeof fetch;
     try {
       const out = await fetchFanartArtwork({
         mediaType: "movie",
@@ -143,7 +150,8 @@ describe("fetchFanartArtwork", () => {
 
   it("parses a successful response", async () => {
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = (async () => Response.json(movieRaw)) as typeof fetch;
+    globalThis.fetch = (async () =>
+      Response.json(movieRaw)) as unknown as typeof fetch;
     try {
       const out = await fetchFanartArtwork({
         mediaType: "movie",

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const upsert = mock(async () => ({}));
+const upsert = mock(async (_args: unknown): Promise<unknown> => ({}));
 const queryRaw = mock(async () => [{ id: 1, tmdbId: 238, type: "movie" }]);
 
 mock.module("@rawkoon/api/db", () => ({
@@ -31,7 +31,7 @@ describe("writeLocalizedTitles", () => {
     });
 
     expect(upsert).toHaveBeenCalledTimes(2);
-    const args = upsert.mock.calls.map((c) => c[0] as unknown as UpsertArg);
+    const args = upsert.mock.calls.map(([arg]) => arg as unknown as UpsertArg);
     const fr = args.find(
       (a) => a.where.mediaId_language.language === "fr",
     ) as UpsertArg;

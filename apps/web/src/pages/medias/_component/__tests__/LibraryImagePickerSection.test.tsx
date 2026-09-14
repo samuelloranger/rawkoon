@@ -80,7 +80,10 @@ describe("LibraryImagePickerSection", () => {
 
   it("describes the artwork in use rather than badging every tile", () => {
     render(
-      <LibraryImagePickerSection libraryId={7} item={overridden("https://a/3.jpg")} />,
+      <LibraryImagePickerSection
+        libraryId={7}
+        item={overridden("https://a/3.jpg")}
+      />,
     );
     // The language-neutral fanart candidate is the one in use.
     expect(screen.getByText("fanart.tv")).toBeTruthy();
@@ -143,7 +146,10 @@ describe("LibraryImagePickerSection", () => {
 
   it("puts the artwork in use first so it is visible without scrolling", () => {
     render(
-      <LibraryImagePickerSection libraryId={7} item={overridden("https://a/3.jpg")} />,
+      <LibraryImagePickerSection
+        libraryId={7}
+        item={overridden("https://a/3.jpg")}
+      />,
     );
     const cells = within(grid()).getAllByRole("button");
     expect(cells[0].getAttribute("data-url")).toBe("https://a/3.jpg");
@@ -152,7 +158,10 @@ describe("LibraryImagePickerSection", () => {
 
   it("marks the cell matching the current poster", () => {
     render(
-      <LibraryImagePickerSection libraryId={7} item={overridden("https://a/2.jpg")} />,
+      <LibraryImagePickerSection
+        libraryId={7}
+        item={overridden("https://a/2.jpg")}
+      />,
     );
     const cells = within(grid()).getAllByRole("button");
     const current = cells.filter(
@@ -179,7 +188,10 @@ describe("LibraryImagePickerSection", () => {
     expect(screen.queryByTestId("artwork-reset")).toBeNull();
 
     rerender(
-      <LibraryImagePickerSection libraryId={7} item={overridden("https://a/1.jpg")} />,
+      <LibraryImagePickerSection
+        libraryId={7}
+        item={overridden("https://a/1.jpg")}
+      />,
     );
     fireEvent.click(screen.getByTestId("artwork-reset"));
     expect(mutateAsync).toHaveBeenCalledWith({

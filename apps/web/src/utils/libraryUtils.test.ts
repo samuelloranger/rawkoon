@@ -13,6 +13,7 @@ function makeMedia(overrides: Partial<LibraryMedia>): LibraryMedia {
     status: "wanted",
     monitored: true,
     poster_url: null,
+    backdrop_url: null,
     overview: null,
     original_title: null,
     original_language: null,
