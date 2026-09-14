@@ -314,3 +314,43 @@ private struct QualityProfileEditorView: View {
         saving = false
     }
 }
+
+#if DEBUG
+    /// Opens the editor for the first real profile. Lives here because
+    /// `QualityProfileEditorView` is file-private, and `simctl` cannot tap its way
+    /// in from the list.
+    struct DebugFirstQualityProfile: View {
+        @Environment(AppModel.self) private var model
+
+        @State private var profile: QualityProfile?
+        @State private var formats: [CustomFormatDTO] = []
+        @State private var failed = false
+
+        var body: some View {
+            Group {
+                if let profile {
+                    QualityProfileEditorView(profile: profile, formats: formats)
+                } else if failed {
+                    ContentUnavailableView("No profiles", systemImage: "slider.horizontal.3")
+                } else {
+                    ProgressView().tint(Theme.apricot)
+                }
+            }
+            .task {
+                guard let client = model.api() else {
+                    failed = true
+                    return
+                }
+                do {
+                    formats = await (try? client.customFormats().customFormats) ?? []
+                    profile = try await client.qualityProfiles().profiles.first
+                    if profile == nil {
+                        failed = true
+                    }
+                } catch {
+                    failed = true
+                }
+            }
+        }
+    }
+#endif
