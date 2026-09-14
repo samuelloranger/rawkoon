@@ -138,6 +138,13 @@ export async function processScheduledJob(job: Job) {
         await runSyncLibraryAttentionAlerts();
         break;
       }
+      case SCHEDULED_JOB_NAMES.SYNC_LOCALIZED_TITLES: {
+        const { syncLocalizedTitles } = await import(
+          "../../workers/syncLocalizedTitles"
+        );
+        await syncLocalizedTitles();
+        break;
+      }
       default:
         console.warn(`[ScheduledTasksWorker] Unknown job name: ${job.name}`);
         return { success: false, error: "Unknown job name" };
