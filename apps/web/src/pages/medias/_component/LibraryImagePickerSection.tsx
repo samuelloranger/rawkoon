@@ -192,7 +192,10 @@ export function LibraryImagePickerSection({ libraryId, item }: Props) {
             onMouseLeave={() => setHovered(null)}
             // TMDB routinely returns 50-70 candidates; without a cap the
             // section swallows the page. Roughly three rows, then scroll.
-            className="grid max-h-80 gap-2 overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface-inset p-2"
+            // content-start + auto-rows-max: a grid with a definite height may
+            // otherwise stretch or squash its rows to fill it, which crushes the
+            // tiles' aspect ratio instead of overflowing into the scroll area.
+            className="grid max-h-80 auto-rows-max content-start gap-2 overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface-inset p-2"
             style={{
               gridTemplateColumns: `repeat(auto-fill, minmax(${
                 isPoster ? "104px" : "168px"
