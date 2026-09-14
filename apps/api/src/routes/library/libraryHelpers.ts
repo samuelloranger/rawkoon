@@ -112,6 +112,8 @@ export function mapLibraryMedia(item: {
     monitored: item.monitored,
     poster_url:
       typeof ov.poster_url === "string" ? ov.poster_url : item.posterUrl,
+    // No stored column — a backdrop exists only as an override.
+    backdrop_url: typeof ov.backdrop_url === "string" ? ov.backdrop_url : null,
     overview: typeof ov.overview === "string" ? ov.overview : item.overview,
     overrides: ov,
     original_title: item.originalTitle ?? null,
