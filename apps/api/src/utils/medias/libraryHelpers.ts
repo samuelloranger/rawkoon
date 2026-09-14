@@ -3,6 +3,10 @@
  * Used by libraryFromTmdb, libraryMediaAdmin, and the refresh scripts.
  */
 
+import {
+  DEFAULT_TITLE_LANGUAGE,
+  type TitleLanguage,
+} from "@rawkoon/shared/constants";
 import { prisma } from "@rawkoon/api/db";
 import { normalizeTmdbConfig } from "@rawkoon/api/utils/integrations/normalizers";
 import { TMDB_LANGUAGE_LIBRARY_PERSISTENCE } from "@rawkoon/api/utils/medias/tmdbFetcherTypes";
@@ -10,8 +14,19 @@ import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationCon
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
 
-export function sortTitleFromName(name: string): string {
-  return name.replace(/^(the |a |an )/i, "").trim();
+/** Leading articles stripped for A-Z ordering, per stored title language. */
+const SORT_ARTICLE_PATTERNS: Record<TitleLanguage, RegExp> = {
+  en: /^(the|a|an)\s+/i,
+  fr: /^(?:(?:le|la|les|un|une|des)\s+|l['’])/i,
+};
+
+export function sortTitleFromName(
+  name: string,
+  language: TitleLanguage = DEFAULT_TITLE_LANGUAGE,
+): string {
+  const stripped = name.replace(SORT_ARTICLE_PATTERNS[language], "").trim();
+  // A title that is nothing but an article would sort as "" — keep the original.
+  return stripped || name.trim();
 }
 
 export async function getLibraryTmdbApiKey(): Promise<string | null> {
