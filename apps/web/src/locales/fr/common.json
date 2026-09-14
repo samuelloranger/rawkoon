@@ -1883,7 +1883,17 @@
       "resumeDownload": "Reprendre le téléchargement",
       "removeDownload": "Retirer le téléchargement",
       "removeDownloadConfirm": "Retirer ce téléchargement ? Le torrent sera supprimé du client de téléchargement.",
-      "removeDownloadFiles": "Supprimer aussi les fichiers téléchargés du disque"
+      "removeDownloadFiles": "Supprimer aussi les fichiers téléchargés du disque",
+      "artwork": "Visuels",
+      "artworkPoster": "Affiche",
+      "artworkBackdrop": "Arrière-plan",
+      "artworkAllLanguages": "Toutes",
+      "artworkNoLanguage": "Sans texte",
+      "artworkLoading": "Chargement des visuels…",
+      "artworkEmpty": "Aucun visuel trouvé",
+      "artworkReset": "Rétablir par défaut",
+      "artworkUpdated": "Visuel mis à jour",
+      "artworkUpdateFailed": "Échec de la mise à jour du visuel"
     },
     "stats": {
       "title": "Statistiques de la bibliothèque",

@@ -1883,7 +1883,17 @@
       "resumeDownload": "Resume download",
       "removeDownload": "Remove download",
       "removeDownloadConfirm": "Remove this download? The torrent will be removed from the download client.",
-      "removeDownloadFiles": "Also delete downloaded files from disk"
+      "removeDownloadFiles": "Also delete downloaded files from disk",
+      "artwork": "Artwork",
+      "artworkPoster": "Poster",
+      "artworkBackdrop": "Backdrop",
+      "artworkAllLanguages": "All",
+      "artworkNoLanguage": "No text",
+      "artworkLoading": "Loading artwork…",
+      "artworkEmpty": "No artwork found",
+      "artworkReset": "Reset to default",
+      "artworkUpdated": "Artwork updated",
+      "artworkUpdateFailed": "Failed to update artwork"
     },
     "stats": {
       "title": "Library stats",

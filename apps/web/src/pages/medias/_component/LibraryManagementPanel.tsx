@@ -1,6 +1,7 @@
 import type { LibraryMedia, TitleTranslation } from "@rawkoon/shared/types";
 import { LibraryQualityProfileSection } from "./LibraryQualityProfileSection";
 import { LibrarySearchTitleSection } from "./LibrarySearchTitleSection";
+import { LibraryImagePickerSection } from "./LibraryImagePickerSection";
 import { LibraryMediaSection } from "./LibraryMediaSection";
 import { LibraryDownloadHistorySection } from "./LibraryDownloadHistorySection";
 import { LibraryActionsSection } from "./LibraryActionsSection";
@@ -60,6 +61,7 @@ export function LibraryManagementPanel({
         tmdbTitleTranslations={tmdbTitleTranslations}
         tmdbPending={tmdbPending}
       />
+      <LibraryImagePickerSection libraryId={libraryId} item={item} />
       <LibraryMediaSection
         libraryId={libraryId}
         onSearchEpisode={onSearchEpisode}
