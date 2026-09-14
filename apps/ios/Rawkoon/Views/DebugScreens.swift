@@ -44,17 +44,12 @@
     struct DebugOrderedSources: View {
         @State private var sources = ["BluRay", "WEB-DL", "HDTV"]
 
-        private static let options: [(value: String, label: String)] = [
-            ("REMUX", "REMUX"), ("BluRay", "BluRay"), ("WEB-DL", "WEB-DL"),
-            ("WEBRip", "WEBRip"), ("HDTV", "HDTV"),
-        ]
-
         var body: some View {
             NavigationStack {
                 OrderedMultiSelectList(
                     titleKey: "Preferred sources",
                     selected: $sources,
-                    options: Self.options.map { ($0.value, Text(verbatim: $0.label)) }
+                    options: QualityProfileSources.options.map { ($0.value, Text($0.label)) }
                 )
             }
         }

@@ -143,9 +143,6 @@ private struct QualityProfileEditorView: View {
         [(nil, "None")] + Self.resolutionOptions.map { (Optional($0.value), $0.label) }
     }
 
-    private static let sourceOptions: [(value: String, label: LocalizedStringKey)] = [
-        ("REMUX", "REMUX"), ("BluRay", "Blu-ray"), ("WEB-DL", "WEB-DL"), ("WEBRip", "WEBRip"), ("HDTV", "HDTV"),
-    ]
     private static let codecOptions: [(value: String, label: LocalizedStringKey)] = [
         ("HEVC", "HEVC"), ("AVC", "AVC"), ("AV1", "AV1"), ("VP9", "VP9"),
     ]
@@ -169,7 +166,7 @@ private struct QualityProfileEditorView: View {
                 PickerRow(title: "Cutoff", selection: $cutoffResolution, options: cutoffOptions)
             }
             Section {
-                OrderedMultiSelectRow(title: "Preferred sources", selected: $sources, options: Self.sourceOptions)
+                OrderedMultiSelectRow(title: "Preferred sources", selected: $sources, options: QualityProfileSources.options)
                 OrderedMultiSelectRow(title: "Preferred codecs", selected: $codecs, options: Self.codecOptions)
                 OrderedMultiSelectRow(title: "Preferred languages", selected: $languages, options: Self.languageOptions)
                 PickerRow(title: "Search title language", selection: $searchLanguage, options: searchLanguageOptions)
