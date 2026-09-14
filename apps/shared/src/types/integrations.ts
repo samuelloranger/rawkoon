@@ -46,6 +46,18 @@ export interface TmdbIntegration {
   popularity_threshold: number;
 }
 
+export interface FanartIntegration {
+  type: "fanart";
+  enabled: boolean;
+  /** Always "" on read — the stored key is never returned. */
+  api_key: string;
+}
+
+export interface FanartIntegrationUpdateResponse {
+  success: boolean;
+  integration: FanartIntegration;
+}
+
 export interface JellyfinIntegrationUpdateResponse {
   success: boolean;
   integration: JellyfinIntegration;
