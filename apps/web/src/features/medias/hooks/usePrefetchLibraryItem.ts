@@ -53,6 +53,6 @@ export function usePrefetchLibraryItem() {
         });
       }
     },
-    [router, queryClient],
+    [router, queryClient, titleLanguage],
   );
 }
