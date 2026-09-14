@@ -79,6 +79,8 @@ export interface LibraryMedia {
   status: LibraryMediaStatus;
   monitored: boolean;
   poster_url: string | null;
+  /** Override-only; there is no stored backdrop column. */
+  backdrop_url: string | null;
   overview: string | null;
   original_title: string | null;
   original_language: string | null;

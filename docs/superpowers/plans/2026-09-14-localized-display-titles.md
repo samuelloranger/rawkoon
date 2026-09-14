@@ -1475,26 +1475,47 @@ git commit -m "feat(api): serve localized titles from the library list"
 
 Read `apps/api/e2e/README.md` (or the harness entry file) before writing: the sweep dispatches in-process because the sandbox kills listening sockets, and it has its own seed/mock conventions.
 
-- [ ] **Step 1: Write the failing cases**
+The sweep is fixture-driven with a coverage gate: `GET /api/library` already has a
+fixture, and this task adds no new route, so the gate does not change. What is
+needed is seed data plus a unit-level assertion of the localized branch, because
+the sweep asserts status codes and auth — not response ordering.
 
-Add to the library list case file, following the file's existing case shape:
+- [ ] **Step 1: Seed a French title row**
 
-- `GET /api/library?title_language=fr&sort_by=title&sort_dir=asc` → 200, and the first item's `title` is the seeded French title.
-- `GET /api/library?title_language=fr&q=<French substring>` → 200, one item.
-- `GET /api/library?title_language=fr&q=<English substring>` → 200, the same item (English search survives).
-- `GET /api/library?title_language=de` → 200, English titles (unsupported language falls back, never 400).
-- `GET /api/library` with no param → 200, English titles, unchanged from the existing expectation.
+In `apps/api/e2e/seed.ts`, give at least two seeded library media a
+`library_media_titles` row each, chosen so the French A-Z order differs from the
+English one (for example "The Godfather"/"Le Parrain" and "Amelie"/"Le Fabuleux
+Destin d'Amélie Poulain"). Without differing orders the sort assertion cannot
+fail and proves nothing.
 
-Seed at least two media with French title rows whose French A-Z order differs from their English order, so the sort assertion can actually fail.
+- [ ] **Step 2: Run the sweep to confirm no regression**
 
-- [ ] **Step 2: Run the sweep to verify it fails**
+```bash
+cd apps/api && DATABASE_URL=postgresql://rawkoon:<pw>@localhost:5433/rawkoon_e2e \
+  SECRET_KEY=<32+ chars> BETTER_AUTH_SECRET=<32+ chars> \
+  bun run e2e:endpoints
+```
 
-Run the sweep the way `apps/api/e2e/README.md` documents.
-Expected: FAIL on the French cases if the route is wrong; PASS once Task 8 is in.
+Expected: PASS, unchanged check count — the new column and rows must not break
+any existing fixture.
 
-- [ ] **Step 3: Make it pass**
+- [ ] **Step 3: Assert the localized branch directly**
 
-If a case fails, the bug is in Task 7 or 8 — fix it there, not by weakening the case.
+Add a test to `apps/api/src/routes/library/libraryLocalizedListQuery.test.ts`
+that runs `buildLocalizedIdQuery` against the real dev database via
+`prisma.$queryRaw` and asserts the returned id order matches the French sort.
+Gate it on `DATABASE_URL` being present, the way the other integration-mode
+suites in `apps/api` do, so it skips in a unit-only run.
+
+Cases:
+
+- `title_language=fr`, `sort_by=title&sort_dir=asc` → ids in French A-Z order,
+  which differs from the English order
+- `q=<French substring>` → finds the media
+- `q=<English substring>` → finds the same media (English search survives)
+- an unsupported language never reaches this function (`normalizeTitleLanguage`
+  maps it to `en`, which takes the Prisma branch) — assert that in the route test
+  instead, not here
 
 - [ ] **Step 4: Commit**
 

@@ -4,6 +4,7 @@ import { type Env, honoOnError } from "@rawkoon/api/honoEnv";
 
 import { libraryListRoutes } from "./libraryListRoutes";
 import { libraryMetaRoutes } from "./libraryMetaRoutes";
+import { libraryImagesRoutes } from "./libraryImagesRoutes";
 import { libraryGrabRoutes } from "./libraryGrabRoutes";
 import { libraryFilesRoutes } from "./libraryFilesRoutes";
 import { libraryJobRoutes } from "./libraryJobRoutes";
@@ -22,6 +23,7 @@ export { mapLibraryMedia, libraryMediaInclude } from "./libraryHelpers";
  * inline ensureAdmin) so none is hoisted here.
  *   libraryListRoutes  — GET /, POST /, DELETE /:id, GET /item/:id
  *   libraryMetaRoutes  — PATCH /:id/status, monitored, quality-profile, seasons/*, episodes/*
+ *   libraryImagesRoutes— GET /:id/images (poster/backdrop candidates)
  *   libraryGrabRoutes  — POST /:id/grab, search, episodes search, seasons search, upgrade
  *   libraryFilesRoutes — GET /:id/files, rescan, DELETE files/:fileId, downloads actions
  *   libraryJobRoutes   — composes attention, stats, and worker job routes (SSE)
@@ -31,6 +33,7 @@ export { mapLibraryMedia, libraryMediaInclude } from "./libraryHelpers";
 export const libraryRoutes = new Hono<Env>()
   .route("/", libraryListRoutes)
   .route("/", libraryMetaRoutes)
+  .route("/", libraryImagesRoutes)
   .route("/", libraryGrabRoutes)
   .route("/", libraryFilesRoutes)
   .route("/", libraryJobRoutes)

@@ -93,6 +93,36 @@ async function seedLibrary(ctx: Context): Promise<void> {
   const episode = await prisma.libraryEpisode.create({
     data: { mediaId: show.id, season: 1, episode: 1 },
   });
+  // French titles whose A-Z order is the reverse of the English one, so a
+  // localized-sort assertion can actually fail.
+  await prisma.libraryMediaTitle.createMany({
+    data: [
+      {
+        mediaId: movie.id,
+        language: "en",
+        title: "E2E Movie",
+        sortTitle: "E2E Movie",
+      },
+      {
+        mediaId: movie.id,
+        language: "fr",
+        title: "Zoulou E2E",
+        sortTitle: "Zoulou E2E",
+      },
+      {
+        mediaId: show.id,
+        language: "en",
+        title: "E2E Show",
+        sortTitle: "E2E Show",
+      },
+      {
+        mediaId: show.id,
+        language: "fr",
+        title: "Le Amaranthe E2E",
+        sortTitle: "Amaranthe E2E",
+      },
+    ],
+  });
   const author = await prisma.author.create({
     data: { googleAuthorName: "E2E Author", sortName: "E2E Author" },
   });

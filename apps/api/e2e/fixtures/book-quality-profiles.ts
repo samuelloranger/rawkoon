@@ -1,10 +1,10 @@
 import type { FixtureRegistry } from "./types";
 
 export const bookQualityProfilesFixtures: FixtureRegistry = {
-  "GET /api/book-quality-profiles/": { phase: "read", negativeBody: null },
+  "GET /api/book-quality-profiles": { phase: "read", negativeBody: null },
 
   // Create a throwaway book quality profile so :id routes don't mutate/delete shared data.
-  "POST /api/book-quality-profiles/": {
+  "POST /api/book-quality-profiles": {
     phase: "bootstrap",
     admin: true,
     body: (ctx) => ({

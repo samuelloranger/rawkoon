@@ -3,6 +3,7 @@ import { notFound } from "@rawkoon/api/errors";
 import { type Env, honoOnError } from "@rawkoon/api/honoEnv";
 import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import { tmdbIntegrationRoutes } from "./tmdb";
+import { fanartIntegrationRoutes } from "./fanart";
 import { downloadClientIntegrationRoutes } from "./downloadClient";
 import { jellyfinIntegrationRoutes } from "./jellyfin";
 import { prowlarrIntegrationRoutes } from "./prowlarr";
@@ -18,6 +19,7 @@ import { audnexusIntegrationRoutes } from "./audnexus";
 export const integrationsRoutes = new Hono<Env>()
   .use("*", requireAdmin)
   .route("/", tmdbIntegrationRoutes)
+  .route("/", fanartIntegrationRoutes)
   .route("/", downloadClientIntegrationRoutes)
   .route("/", jellyfinIntegrationRoutes)
   .route("/", prowlarrIntegrationRoutes)

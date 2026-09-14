@@ -1,6 +1,7 @@
 import type { LibraryMedia, TitleTranslation } from "@rawkoon/shared/types";
 import { LibraryQualityProfileSection } from "./LibraryQualityProfileSection";
 import { LibrarySearchTitleSection } from "./LibrarySearchTitleSection";
+import { LibraryImagePickerSection } from "./LibraryImagePickerSection";
 import { LibraryMediaSection } from "./LibraryMediaSection";
 import { LibraryDownloadHistorySection } from "./LibraryDownloadHistorySection";
 import { LibraryActionsSection } from "./LibraryActionsSection";
@@ -9,6 +10,7 @@ import { LibraryInfoOverridesSection } from "./LibraryInfoOverridesSection";
 interface LibraryManagementPanelProps {
   libraryId: number;
   item: LibraryMedia;
+  defaultBackdropUrl?: string | null;
   itemStatus?: string;
   itemMonitored?: boolean;
   onDeleted?: () => void;
@@ -31,6 +33,7 @@ interface LibraryManagementPanelProps {
 export function LibraryManagementPanel({
   libraryId,
   item,
+  defaultBackdropUrl = null,
   itemStatus,
   itemMonitored,
   onDeleted,
@@ -59,6 +62,11 @@ export function LibraryManagementPanel({
         tmdbOriginalLanguage={tmdbOriginalLanguage}
         tmdbTitleTranslations={tmdbTitleTranslations}
         tmdbPending={tmdbPending}
+      />
+      <LibraryImagePickerSection
+        libraryId={libraryId}
+        item={item}
+        defaultBackdropUrl={defaultBackdropUrl}
       />
       <LibraryMediaSection
         libraryId={libraryId}

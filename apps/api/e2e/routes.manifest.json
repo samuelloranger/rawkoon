@@ -125,7 +125,7 @@
   },
   {
     "method": "GET",
-    "path": "/api/authors/"
+    "path": "/api/authors"
   },
   {
     "method": "PATCH",
@@ -137,11 +137,11 @@
   },
   {
     "method": "GET",
-    "path": "/api/book-quality-profiles/"
+    "path": "/api/book-quality-profiles"
   },
   {
     "method": "POST",
-    "path": "/api/book-quality-profiles/"
+    "path": "/api/book-quality-profiles"
   },
   {
     "method": "DELETE",
@@ -157,11 +157,11 @@
   },
   {
     "method": "GET",
-    "path": "/api/books/"
+    "path": "/api/books"
   },
   {
     "method": "POST",
-    "path": "/api/books/"
+    "path": "/api/books"
   },
   {
     "method": "DELETE",
@@ -257,11 +257,11 @@
   },
   {
     "method": "GET",
-    "path": "/api/custom-formats/"
+    "path": "/api/custom-formats"
   },
   {
     "method": "POST",
-    "path": "/api/custom-formats/"
+    "path": "/api/custom-formats"
   },
   {
     "method": "DELETE",
@@ -349,6 +349,14 @@
   },
   {
     "method": "GET",
+    "path": "/api/integrations/fanart"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/integrations/fanart"
+  },
+  {
+    "method": "GET",
     "path": "/api/integrations/googlebooks"
   },
   {
@@ -393,11 +401,11 @@
   },
   {
     "method": "GET",
-    "path": "/api/integrations/oidc/"
+    "path": "/api/integrations/oidc"
   },
   {
     "method": "POST",
-    "path": "/api/integrations/oidc/"
+    "path": "/api/integrations/oidc"
   },
   {
     "method": "DELETE",
@@ -433,11 +441,11 @@
   },
   {
     "method": "GET",
-    "path": "/api/library/"
+    "path": "/api/library"
   },
   {
     "method": "POST",
-    "path": "/api/library/"
+    "path": "/api/library"
   },
   {
     "method": "DELETE",
@@ -486,6 +494,10 @@
   {
     "method": "POST",
     "path": "/api/library/:id/grab"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/:id/images"
   },
   {
     "method": "PATCH",
@@ -705,11 +717,11 @@
   },
   {
     "method": "GET",
-    "path": "/api/medias/watchlist/"
+    "path": "/api/medias/watchlist"
   },
   {
     "method": "POST",
-    "path": "/api/medias/watchlist/"
+    "path": "/api/medias/watchlist"
   },
   {
     "method": "DELETE",
@@ -725,7 +737,7 @@
   },
   {
     "method": "GET",
-    "path": "/api/notifications/"
+    "path": "/api/notifications"
   },
   {
     "method": "DELETE",
@@ -753,11 +765,11 @@
   },
   {
     "method": "GET",
-    "path": "/api/notifications/channels/"
+    "path": "/api/notifications/channels"
   },
   {
     "method": "POST",
-    "path": "/api/notifications/channels/"
+    "path": "/api/notifications/channels"
   },
   {
     "method": "DELETE",
@@ -813,11 +825,11 @@
   },
   {
     "method": "GET",
-    "path": "/api/quality-profiles/"
+    "path": "/api/quality-profiles"
   },
   {
     "method": "POST",
-    "path": "/api/quality-profiles/"
+    "path": "/api/quality-profiles"
   },
   {
     "method": "DELETE",
@@ -829,7 +841,7 @@
   },
   {
     "method": "GET",
-    "path": "/api/releases/"
+    "path": "/api/releases"
   },
   {
     "method": "POST",
@@ -837,11 +849,11 @@
   },
   {
     "method": "GET",
-    "path": "/api/requests/"
+    "path": "/api/requests"
   },
   {
     "method": "POST",
-    "path": "/api/requests/"
+    "path": "/api/requests"
   },
   {
     "method": "POST",
@@ -857,11 +869,11 @@
   },
   {
     "method": "GET",
-    "path": "/api/settings/"
+    "path": "/api/settings"
   },
   {
     "method": "PATCH",
-    "path": "/api/settings/"
+    "path": "/api/settings"
   },
   {
     "method": "GET",

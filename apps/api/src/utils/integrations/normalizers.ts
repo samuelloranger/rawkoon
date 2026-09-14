@@ -5,6 +5,7 @@ import type {
   RadarrIntegrationConfig,
   SonarrIntegrationConfig,
   TmdbIntegrationConfig,
+  FanartIntegrationConfig,
   LocalAiConfig,
   GoogleBooksIntegrationConfig,
   AudnexusIntegrationConfig,
@@ -185,6 +186,15 @@ export const normalizeTmdbConfig = (
     api_key: apiKey,
     popularity_threshold: popularityThreshold,
   };
+};
+
+export const normalizeFanartConfig = (
+  config: unknown,
+): FanartIntegrationConfig | null => {
+  if (!config || typeof config !== "object" || Array.isArray(config))
+    return null;
+  const apiKey = normalizeSecret((config as Record<string, unknown>).api_key);
+  return apiKey ? { api_key: apiKey } : null;
 };
 
 export const normalizeLocalAiConfig = (

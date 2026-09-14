@@ -11,6 +11,7 @@ import {
 } from "@rawkoon/api/utils/medias/libraryHelpers";
 import { extractTitleTranslations } from "@rawkoon/api/utils/medias/tmdbFetcherDetails";
 import { resolvePreferredSearchTitle } from "@rawkoon/api/utils/medias/resolveSearchTitles";
+import { writeLocalizedTitles } from "@rawkoon/api/services/localizedTitleSync";
 import { DEFAULT_TMDB_REGION } from "@rawkoon/api/utils/medias/tmdbRegion";
 import { toStringOrNull } from "@rawkoon/api/utils/medias/mappers";
 
@@ -158,7 +159,7 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
       mediaType: "movie",
     });
 
-    return prisma.libraryMedia.upsert({
+    const movie = await prisma.libraryMedia.upsert({
       where: { tmdbId: tmdb_id },
       create: {
         tmdbId: tmdb_id,
@@ -193,6 +194,15 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
       },
       include: libraryMediaInclude,
     });
+
+    await writeLocalizedTitles(movie.id, {
+      englishTitle: details.title,
+      originalTitle: toStringOrNull(details.original_title),
+      originalLanguage: toStringOrNull(details.original_language),
+      translations: extractTitleTranslations(details.translations, "movie"),
+    });
+
+    return movie;
   }
 
   const details = await tmdbApiFetch<{
@@ -275,6 +285,15 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
     tmdbShowId: tmdb_id,
     apiKey: key,
     languageParams: { language: TMDB_LANGUAGE_LIBRARY_PERSISTENCE },
+  });
+
+  await writeLocalizedTitles(media.id, {
+    englishTitle: details.name,
+    originalTitle: toStringOrNull(
+      details.original_name ?? details.original_title,
+    ),
+    originalLanguage: toStringOrNull(details.original_language),
+    translations: extractTitleTranslations(details.translations, "tv"),
   });
 
   return media;

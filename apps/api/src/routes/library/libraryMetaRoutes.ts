@@ -330,6 +330,7 @@ export const libraryMetaRoutes = new Hono<Env>()
         year: z.union([z.number(), z.null()]).optional(),
         overview: z.union([z.string(), z.null()]).optional(),
         poster_url: z.union([z.string(), z.null()]).optional(),
+        backdrop_url: z.union([z.string(), z.null()]).optional(),
       }),
     ),
     async (c) => {

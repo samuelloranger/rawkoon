@@ -53,6 +53,7 @@ export function LibraryItemHero({
   const [posterError, setPosterError] = useState(false);
 
   const backdrop =
+    item.backdrop_url ??
     detailsData?.primary_backdrop_url ??
     detailsData?.media_stills?.backdrops?.[0]?.url ??
     null;

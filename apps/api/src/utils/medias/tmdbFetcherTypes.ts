@@ -107,6 +107,7 @@ export function parseExternalIds(raw: unknown): TmdbExternalIds | null {
   if (!row) return null;
   return {
     imdb_id: toStringOrNull(row.imdb_id),
+    tvdb_id: toNumberOrNull(row.tvdb_id),
     facebook_id: toStringOrNull(row.facebook_id),
     instagram_id: toStringOrNull(row.instagram_id),
     twitter_id: toStringOrNull(row.twitter_id),

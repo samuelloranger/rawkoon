@@ -12,7 +12,16 @@ import { deleteCache } from "@rawkoon/api/services/cache";
 import { TMDB_UPCOMING_CACHE_KEY } from "@rawkoon/api/utils/dashboard/tmdbUpcoming";
 import { getGlobalTmdbRegion } from "@rawkoon/api/utils/medias/tmdbRegion";
 
+import {
+  DEFAULT_TITLE_LANGUAGE,
+  normalizeTitleLanguage,
+} from "@rawkoon/shared/constants";
+
 import { mapLibraryMedia, libraryMediaInclude } from "./libraryHelpers";
+import {
+  buildLocalizedCountQuery,
+  buildLocalizedIdQuery,
+} from "./libraryLocalizedListQuery";
 import {
   parseLibrarySort,
   buildLibraryOrderBy,
@@ -28,6 +37,7 @@ const listQuery = z.object({
   limit: z.coerce.number().optional(),
   sort_by: z.string().optional(),
   sort_dir: z.string().optional(),
+  title_language: z.string().optional(),
 });
 
 /**
@@ -43,6 +53,7 @@ export const libraryListRoutes = new Hono<Env>()
     try {
       const { type, status, q, language, page, limit, sort_by, sort_dir } =
         query;
+      const titleLanguage = normalizeTitleLanguage(query.title_language);
       const titleFilter = q
         ? { title: { contains: q, mode: "insensitive" as const } }
         : {};
@@ -58,11 +69,21 @@ export const libraryListRoutes = new Hono<Env>()
         ...(type ? { type } : {}),
       };
 
-      const countsPromise = prisma.libraryMedia.groupBy({
-        by: ["type"],
-        where: sharedWhere,
-        _count: true,
-      });
+      const countsPromise =
+        titleLanguage !== DEFAULT_TITLE_LANGUAGE && q
+          ? prisma.$queryRaw<{ type: string; _count: number }[]>(
+              buildLocalizedCountQuery({
+                language: titleLanguage,
+                status,
+                q,
+                fileLanguage: language,
+              }),
+            )
+          : prisma.libraryMedia.groupBy({
+              by: ["type"],
+              where: sharedWhere,
+              _count: true,
+            });
 
       const paged = page !== undefined || limit !== undefined;
       const { sortBy, sortDir } = parseLibrarySort(sort_by, sort_dir);
@@ -78,23 +99,63 @@ export const libraryListRoutes = new Hono<Env>()
           include: libraryMediaInclude,
           take: 5000,
         });
-        mappedItems = items.map(mapLibraryMedia);
+        mappedItems = items.map((r) => mapLibraryMedia(r, titleLanguage));
+        if (titleLanguage !== DEFAULT_TITLE_LANGUAGE) {
+          // This path sorts in SQL on the English title; re-sort on what the
+          // caller will actually see.
+          mappedItems.sort((a, b) =>
+            a.title.localeCompare(b.title, titleLanguage, {
+              sensitivity: "base",
+            }),
+          );
+        }
       } else {
         const take = Math.min(Math.max(1, limit ?? 60), 100);
         const skip = (Math.max(1, page ?? 1) - 1) * take;
 
         // All sorts (including former aggregates) use persisted columns +
         // Prisma orderBy so pagination stays skip/take in the database.
-        const rows = await prisma.libraryMedia.findMany({
-          where: typedWhere,
-          orderBy: buildLibraryOrderBy(sortBy, sortDir),
-          include: libraryMediaInclude,
-          take: take + 1,
-          skip,
-        });
-        const sliced = slicePage(rows, take);
-        has_more = sliced.has_more;
-        mappedItems = sliced.items.map(mapLibraryMedia);
+        if (titleLanguage === DEFAULT_TITLE_LANGUAGE) {
+          // English keeps the pure-Prisma path: persisted columns, skip/take.
+          const rows = await prisma.libraryMedia.findMany({
+            where: typedWhere,
+            orderBy: buildLibraryOrderBy(sortBy, sortDir),
+            include: libraryMediaInclude,
+            take: take + 1,
+            skip,
+          });
+          const sliced = slicePage(rows, take);
+          has_more = sliced.has_more;
+          mappedItems = sliced.items.map((r) => mapLibraryMedia(r));
+        } else {
+          // Prisma cannot order by a to-many relation column, so resolve the
+          // page's ids in SQL and hydrate them through the normal include.
+          const idRows = await prisma.$queryRaw<{ id: number }[]>(
+            buildLocalizedIdQuery({
+              language: titleLanguage,
+              type,
+              status,
+              q,
+              fileLanguage: language,
+              sortBy,
+              sortDir,
+              take: take + 1,
+              skip,
+            }),
+          );
+          const sliced = slicePage(idRows, take);
+          has_more = sliced.has_more;
+          const ids = sliced.items.map((r) => r.id);
+          const rows = await prisma.libraryMedia.findMany({
+            where: { id: { in: ids } },
+            include: libraryMediaInclude,
+          });
+          const byId = new Map(rows.map((r) => [r.id, r]));
+          mappedItems = ids
+            .map((id) => byId.get(id))
+            .filter((r): r is (typeof rows)[number] => r !== undefined)
+            .map((r) => mapLibraryMedia(r, titleLanguage));
+        }
       }
 
       const counts = await countsPromise;
@@ -120,7 +181,10 @@ export const libraryListRoutes = new Hono<Env>()
         include: libraryMediaInclude,
       });
       if (!item) return notFound("Library item not found");
-      return ok({ item: mapLibraryMedia(item) });
+      const itemTitleLanguage = normalizeTitleLanguage(
+        c.req.query("title_language"),
+      );
+      return ok({ item: mapLibraryMedia(item, itemTitleLanguage) });
     } catch {
       return serverError("Failed to fetch library item");
     }

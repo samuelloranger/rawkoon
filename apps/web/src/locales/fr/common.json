@@ -1337,6 +1337,13 @@
         "saveProvider": "Enregistrer",
         "cancel": "Annuler",
         "delete": "Supprimer"
+      },
+      "fanart": {
+        "help": "Affiches et arrière-plans supplémentaires pour le sélecteur de visuels",
+        "apiKey": "Clé API",
+        "apiKeyPlaceholder": "Votre clé API personnelle fanart.tv",
+        "apiKeySetPlaceholder": "Une clé est enregistrée — saisissez-en une nouvelle pour la remplacer",
+        "apiKeyHelp": "Obtenez une clé personnelle gratuite sur fanart.tv. Laissez vide pour conserver celle enregistrée."
       }
     },
     "blocklist": {
@@ -1883,7 +1890,19 @@
       "resumeDownload": "Reprendre le téléchargement",
       "removeDownload": "Retirer le téléchargement",
       "removeDownloadConfirm": "Retirer ce téléchargement ? Le torrent sera supprimé du client de téléchargement.",
-      "removeDownloadFiles": "Supprimer aussi les fichiers téléchargés du disque"
+      "removeDownloadFiles": "Supprimer aussi les fichiers téléchargés du disque",
+      "artwork": "Visuels",
+      "artworkPoster": "Affiche",
+      "artworkBackdrop": "Arrière-plan",
+      "artworkAllLanguages": "Toutes les langues",
+      "artworkNoLanguage": "Sans texte",
+      "artworkLoading": "Chargement des visuels…",
+      "artworkEmpty": "Aucun visuel disponible pour ce titre",
+      "artworkReset": "Remettre par défaut",
+      "artworkUpdated": "Visuel mis à jour",
+      "artworkUpdateFailed": "Impossible de changer le visuel",
+      "artworkLanguage": "Langue",
+      "artworkNoneInLanguage": "Aucun visuel dans cette langue"
     },
     "stats": {
       "title": "Statistiques de la bibliothèque",

@@ -271,6 +271,11 @@ export function LibraryItemPage() {
               <LibraryManagementPanel
                 libraryId={item.id}
                 item={item}
+                defaultBackdropUrl={
+                  detailsData?.primary_backdrop_url ??
+                  detailsData?.media_stills?.backdrops?.[0]?.url ??
+                  null
+                }
                 itemStatus={item.status}
                 itemMonitored={item.monitored}
                 focusSeason={search.season ?? null}

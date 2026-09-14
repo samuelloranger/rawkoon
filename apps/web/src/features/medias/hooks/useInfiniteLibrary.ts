@@ -2,6 +2,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useFetcher } from "@/lib/api/context";
 import { queryKeys } from "@/lib/queryKeys";
 import { LIBRARY_ENDPOINTS } from "@/lib/endpoints";
+import { useTitleLanguage } from "@/lib/useTitleLanguage";
 import type { LibraryListResponse } from "@rawkoon/shared/types";
 
 export const LIBRARY_PAGE_SIZE = 60;
@@ -13,13 +14,17 @@ export interface LibraryInfiniteFilters {
   language?: string;
   sortBy?: string;
   sortDir?: string;
+  titleLanguage?: string;
 }
 
 export function useInfiniteLibrary(filters?: LibraryInfiniteFilters) {
   const fetcher = useFetcher();
+  const titleLanguage = useTitleLanguage();
+  // In the key too, or switching locale serves the previous language's titles.
+  const keyFilters = { ...filters, titleLanguage };
 
   return useInfiniteQuery({
-    queryKey: queryKeys.library.infinite(filters),
+    queryKey: queryKeys.library.infinite(keyFilters),
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams();
       params.set("page", String(pageParam));
@@ -30,6 +35,7 @@ export function useInfiniteLibrary(filters?: LibraryInfiniteFilters) {
       if (filters?.language) params.set("language", filters.language);
       if (filters?.sortBy) params.set("sort_by", filters.sortBy);
       if (filters?.sortDir) params.set("sort_dir", filters.sortDir);
+      params.set("title_language", titleLanguage);
       return fetcher<LibraryListResponse>(
         `${LIBRARY_ENDPOINTS.LIST}?${params.toString()}`,
       );

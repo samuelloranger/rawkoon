@@ -4,13 +4,13 @@ import type { FixtureRegistry } from "./types";
 // PATCH uses a Zod body with optional fields — we still send a full valid payload
 // to exercise the update path and a wrong-typed field for the 400 validation check.
 export const settingsFixtures: FixtureRegistry = {
-  "GET /api/settings/": {
+  "GET /api/settings": {
     phase: "read",
     admin: true,
     negativeBody: null,
   },
 
-  "PATCH /api/settings/": {
+  "PATCH /api/settings": {
     phase: "update",
     admin: true,
     body: () => ({

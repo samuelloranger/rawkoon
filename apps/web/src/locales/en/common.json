@@ -1337,6 +1337,13 @@
         "saveProvider": "Save",
         "cancel": "Cancel",
         "delete": "Delete"
+      },
+      "fanart": {
+        "help": "Extra posters and backdrops for the artwork picker",
+        "apiKey": "API key",
+        "apiKeyPlaceholder": "Your fanart.tv personal API key",
+        "apiKeySetPlaceholder": "A key is saved — type a new one to replace it",
+        "apiKeyHelp": "Get a free personal key from fanart.tv. Leave blank to keep the saved one."
       }
     },
     "blocklist": {
@@ -1883,7 +1890,19 @@
       "resumeDownload": "Resume download",
       "removeDownload": "Remove download",
       "removeDownloadConfirm": "Remove this download? The torrent will be removed from the download client.",
-      "removeDownloadFiles": "Also delete downloaded files from disk"
+      "removeDownloadFiles": "Also delete downloaded files from disk",
+      "artwork": "Artwork",
+      "artworkPoster": "Poster",
+      "artworkBackdrop": "Backdrop",
+      "artworkAllLanguages": "All languages",
+      "artworkNoLanguage": "No text",
+      "artworkLoading": "Loading artwork…",
+      "artworkEmpty": "No artwork available for this title",
+      "artworkReset": "Use default",
+      "artworkUpdated": "Artwork updated",
+      "artworkUpdateFailed": "Couldn't change the artwork",
+      "artworkLanguage": "Language",
+      "artworkNoneInLanguage": "No artwork in that language"
     },
     "stats": {
       "title": "Library stats",

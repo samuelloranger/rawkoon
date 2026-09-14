@@ -90,6 +90,7 @@ const actionMap: Record<string, string> = {
     SCHEDULED_JOB_NAMES.SYNC_LIBRARY_ATTENTION_ALERTS,
   check_book_releases: SCHEDULED_JOB_NAMES.CHECK_BOOK_RELEASES,
   check_author_releases: SCHEDULED_JOB_NAMES.CHECK_AUTHOR_RELEASES,
+  sync_localized_titles: SCHEDULED_JOB_NAMES.SYNC_LOCALIZED_TITLES,
 };
 
 // Mounted under /api/admin; requireAdmin is

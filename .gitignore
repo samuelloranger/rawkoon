@@ -97,6 +97,7 @@ apps/ios/build/
 apps/ios/.build/
 apps/ios/Rawkoon/Info.plist
 apps/ios/.impeccable/
+.impeccable/critique/
 
 # Local preview scratch
 preview/

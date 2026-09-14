@@ -15,6 +15,8 @@ import {
 } from "@/lib/endpoints";
 import type { LibraryListResponse } from "@rawkoon/shared/types";
 import { webFetcher } from "@/lib/api/fetcher";
+import i18n from "@/lib/i18n";
+import { normalizeTitleLanguage } from "@rawkoon/shared/constants";
 import { fetchAuthMeUser } from "@/lib/auth/fetchAuthMeUser";
 import { LIBRARY_PAGE_SIZE } from "@/features/medias/hooks/useInfiniteLibrary";
 import { LIBRARY_DEFAULTS } from "@/pages/medias/_component/useLibraryPageState";
@@ -34,17 +36,25 @@ const libraryDefaultFilters = {
   sortDir: LIBRARY_DEFAULTS.sortDir as string,
 };
 
-const libraryInfinitePrefetchArgs = {
-  queryKey: queryKeys.library.infinite(libraryDefaultFilters),
-  queryFn: ({ pageParam }: { pageParam: number }) =>
-    webFetcher<LibraryListResponse>(
-      `${LIBRARY_ENDPOINTS.LIST}?page=${pageParam}&limit=${LIBRARY_PAGE_SIZE}&sort_by=${libraryDefaultFilters.sortBy}&sort_dir=${libraryDefaultFilters.sortDir}`,
-    ),
-  initialPageParam: 1,
-  getNextPageParam: (
-    lastPage: LibraryListResponse,
-    allPages: LibraryListResponse[],
-  ) => (lastPage.has_more ? allPages.length + 1 : undefined),
+// Built per call: the title language is part of both the key and the URL, and
+// it changes when the user switches locale.
+const buildLibraryInfinitePrefetchArgs = () => {
+  const titleLanguage = normalizeTitleLanguage(i18n.language);
+  return {
+    queryKey: queryKeys.library.infinite({
+      ...libraryDefaultFilters,
+      titleLanguage,
+    }),
+    queryFn: ({ pageParam }: { pageParam: number }) =>
+      webFetcher<LibraryListResponse>(
+        `${LIBRARY_ENDPOINTS.LIST}?page=${pageParam}&limit=${LIBRARY_PAGE_SIZE}&sort_by=${libraryDefaultFilters.sortBy}&sort_dir=${libraryDefaultFilters.sortDir}&title_language=${titleLanguage}`,
+      ),
+    initialPageParam: 1,
+    getNextPageParam: (
+      lastPage: LibraryListResponse,
+      allPages: LibraryListResponse[],
+    ) => (lastPage.has_more ? allPages.length + 1 : undefined),
+  };
 };
 
 /**
@@ -249,7 +259,9 @@ export async function prefetchRouteData(
     return;
   }
   if (normalizedRouteId === "/library") {
-    await queryClient.ensureInfiniteQueryData(libraryInfinitePrefetchArgs);
+    await queryClient.ensureInfiniteQueryData(
+      buildLibraryInfinitePrefetchArgs(),
+    );
     return;
   }
   await prefetchQueriesForRoute(queryClient, routeId, params);
@@ -271,7 +283,7 @@ export function prefetchRouteDataOptimistic(
   }
 
   if (normalizedRouteId === "/library") {
-    void queryClient.prefetchInfiniteQuery(libraryInfinitePrefetchArgs);
+    void queryClient.prefetchInfiniteQuery(buildLibraryInfinitePrefetchArgs());
     return;
   }
 

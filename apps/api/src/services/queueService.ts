@@ -37,6 +37,7 @@ export const SCHEDULED_JOB_NAMES = {
   SYNC_LIBRARY_ATTENTION_ALERTS: "sync-library-attention-alerts",
   CHECK_BOOK_RELEASES: "check-book-releases",
   CHECK_AUTHOR_RELEASES: "check-author-releases",
+  SYNC_LOCALIZED_TITLES: "sync-localized-titles",
 } as const;
 
 export const NOTIFICATION_JOB_NAMES = {
@@ -315,6 +316,12 @@ export async function setupScheduledJobs() {
     {
       name: SCHEDULED_JOB_NAMES.SYNC_LIBRARY_ATTENTION_ALERTS,
       pattern: "12 * * * *",
+    },
+    {
+      name: SCHEDULED_JOB_NAMES.SYNC_LOCALIZED_TITLES,
+      // Backstop for the add paths that carry no TMDB translations, and the
+      // heal path after a retitle. Offset off the other library jobs.
+      pattern: "27 * * * *",
     },
     {
       name: SCHEDULED_JOB_NAMES.CHECK_BOOK_RELEASES,
