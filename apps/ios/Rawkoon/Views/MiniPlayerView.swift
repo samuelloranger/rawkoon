@@ -34,7 +34,7 @@ struct MiniPlayerView: View {
         HStack(spacing: 10) {
             Button(action: onExpand) {
                 HStack(spacing: 10) {
-                    BookCover(url: active.summary.coverURL, size: 38, corner: 9)
+                    BookCover(url: active.summary.coverURL, size: 38, corner: 9, zoomID: RawkoonZoom.audiobook(editionId: active.summary.editionId))
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(active.summary.title)

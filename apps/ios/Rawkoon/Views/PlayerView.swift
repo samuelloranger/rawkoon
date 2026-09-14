@@ -41,9 +41,10 @@ struct PlayerView: View {
             }
             .padding(.horizontal, 24)
         }
-        .presentationDetents([.large])
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .presentationBackground(Theme.base)
+        .rawkoonZoomDestination(RawkoonZoom.audiobook(editionId: summary.editionId))
         .alert(
             "Couldn't play chapter",
             isPresented: Binding(
