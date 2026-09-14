@@ -20,6 +20,44 @@ const base = {
   updatedAt: new Date("2026-01-01T00:00:00Z"),
 };
 
+const withTitles = {
+  ...base,
+  titles: [
+    { language: "en", title: "The Godfather" },
+    { language: "fr", title: "Le Parrain" },
+  ],
+};
+
+describe("mapLibraryMedia title language", () => {
+  it("defaults to the English title", () => {
+    expect(mapLibraryMedia(withTitles).title).toBe("The Godfather");
+  });
+
+  it("uses the localized title when asked", () => {
+    expect(mapLibraryMedia(withTitles, "fr").title).toBe("Le Parrain");
+  });
+
+  it("falls back to the English title when the row is missing", () => {
+    const noFr = {
+      ...base,
+      titles: [{ language: "en", title: "The Godfather" }],
+    };
+    expect(mapLibraryMedia(noFr, "fr").title).toBe("The Godfather");
+  });
+
+  it("falls back to the English title when titles were not included", () => {
+    expect(mapLibraryMedia(base, "fr").title).toBe("The Godfather");
+  });
+
+  it("keeps the manual override above the localized title", () => {
+    const overridden = {
+      ...withTitles,
+      overrides: { title: "Godfather, The" },
+    };
+    expect(mapLibraryMedia(overridden, "fr").title).toBe("Godfather, The");
+  });
+});
+
 describe("mapLibraryMedia backdrop override", () => {
   it("is null with no override", () => {
     expect(mapLibraryMedia(base).backdrop_url).toBeNull();
