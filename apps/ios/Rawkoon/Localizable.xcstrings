@@ -1,6 +1,46 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Resume Audiobook": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprendre le livre audio"
+          }
+        }
+      }
+    },
+    "Resume your most recent Rawkoon audiobook.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprenez votre dernier livre audio Rawkoon."
+          }
+        }
+      }
+    },
+    "You don't have an audiobook in progress.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous n'avez aucun livre audio en cours."
+          }
+        }
+      }
+    },
+    "Resuming your audiobook.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprise de votre livre audio."
+          }
+        }
+      }
+    },
     "Play Audiobook": {
       "localizations": {
         "fr": {
