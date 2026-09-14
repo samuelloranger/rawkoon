@@ -18,7 +18,10 @@ import {
 } from "@rawkoon/shared/constants";
 
 import { mapLibraryMedia, libraryMediaInclude } from "./libraryHelpers";
-import { buildLocalizedIdQuery } from "./libraryLocalizedListQuery";
+import {
+  buildLocalizedCountQuery,
+  buildLocalizedIdQuery,
+} from "./libraryLocalizedListQuery";
 import {
   parseLibrarySort,
   buildLibraryOrderBy,
@@ -66,11 +69,21 @@ export const libraryListRoutes = new Hono<Env>()
         ...(type ? { type } : {}),
       };
 
-      const countsPromise = prisma.libraryMedia.groupBy({
-        by: ["type"],
-        where: sharedWhere,
-        _count: true,
-      });
+      const countsPromise =
+        titleLanguage !== DEFAULT_TITLE_LANGUAGE && q
+          ? prisma.$queryRaw<{ type: string; _count: number }[]>(
+              buildLocalizedCountQuery({
+                language: titleLanguage,
+                status,
+                q,
+                fileLanguage: language,
+              }),
+            )
+          : prisma.libraryMedia.groupBy({
+              by: ["type"],
+              where: sharedWhere,
+              _count: true,
+            });
 
       const paged = page !== undefined || limit !== undefined;
       const { sortBy, sortDir } = parseLibrarySort(sort_by, sort_dir);

@@ -6,7 +6,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { buildLocalizedIdQuery } from "../src/routes/library/libraryLocalizedListQuery";
+import {
+  buildLocalizedCountQuery,
+  buildLocalizedIdQuery,
+} from "../src/routes/library/libraryLocalizedListQuery";
 
 const hasDb = !!process.env.DATABASE_URL;
 
@@ -96,6 +99,29 @@ describe("localized library list query", () => {
     expect(fr).toEqual([...en].reverse());
   });
 
+  it("sorts a manually overridden title by the title the user sees", async () => {
+    if (!hasDb) return;
+    await prisma.libraryMedia.update({
+      where: { id: ids[0] as number },
+      data: { overrides: { title: "Aardvark" } },
+    });
+    try {
+      const found = await run({
+        language: "fr",
+        sortBy: "title",
+        sortDir: "asc",
+        take: 100,
+        skip: 0,
+      });
+      expect(found.slice(0, 2)).toEqual([ids[0], ids[1]]);
+    } finally {
+      await prisma.libraryMedia.update({
+        where: { id: ids[0] as number },
+        data: { overrides: {} },
+      });
+    }
+  });
+
   it("finds a media by its French substring", async () => {
     if (!hasDb) return;
     const found = await run({
@@ -107,6 +133,14 @@ describe("localized library list query", () => {
       skip: 0,
     });
     expect(found).toEqual([ids[0] as number]);
+  });
+
+  it("counts matches using the same French title filter as the list", async () => {
+    if (!hasDb) return;
+    const counts = await prisma.$queryRaw<{ type: string; _count: number }[]>(
+      buildLocalizedCountQuery({ language: "fr", q: "Zulu Machin" }),
+    );
+    expect(counts.find((row) => row.type === "movie")?._count).toBe(1);
   });
 
   it("still finds it by its English substring from a French list", async () => {

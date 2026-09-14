@@ -28,9 +28,14 @@ const NEUTRAL = "none";
 interface Props {
   libraryId: number;
   item: LibraryMedia;
+  defaultBackdropUrl?: string | null;
 }
 
-export function LibraryImagePickerSection({ libraryId, item }: Props) {
+export function LibraryImagePickerSection({
+  libraryId,
+  item,
+  defaultBackdropUrl = null,
+}: Props) {
   const { t, i18n } = useTranslation("common");
   const [kind, setKind] = useState<ArtworkKind>("poster");
   const [filter, setFilter] = useState<string>(ALL);
@@ -50,7 +55,7 @@ export function LibraryImagePickerSection({ libraryId, item }: Props) {
       ? (item.overrides[overrideField] as string)
       : null;
   const displayedUrl =
-    overrideUrl ?? (kind === "poster" ? item.poster_url : null);
+    overrideUrl ?? (kind === "poster" ? item.poster_url : defaultBackdropUrl);
 
   const languages = useMemo(() => {
     const codes = new Set<string>();

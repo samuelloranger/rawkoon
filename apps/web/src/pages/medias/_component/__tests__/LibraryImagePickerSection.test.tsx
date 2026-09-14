@@ -96,6 +96,22 @@ describe("LibraryImagePickerSection", () => {
     expect(lastKind).toBe("backdrop");
   });
 
+  it("marks the default backdrop shown in the hero as current", () => {
+    render(
+      <LibraryImagePickerSection
+        libraryId={7}
+        item={item()}
+        defaultBackdropUrl="https://a/2.jpg"
+      />,
+    );
+    fireEvent.click(screen.getByRole("tab", { name: /Backdrop/i }));
+    const current = within(grid())
+      .getAllByRole("button")
+      .filter((cell) => cell.getAttribute("data-current") === "true");
+    expect(current).toHaveLength(1);
+    expect(current[0].getAttribute("data-url")).toBe("https://a/2.jpg");
+  });
+
   it("offers one option per distinct language, plus all and no-text", () => {
     render(<LibraryImagePickerSection libraryId={7} item={item()} />);
     const values = Array.from(

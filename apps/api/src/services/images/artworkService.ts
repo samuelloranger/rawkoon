@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type {
   ArtworkCandidate,
   ArtworkKind,
@@ -8,6 +9,8 @@ import { getLibraryTmdbApiKey } from "@rawkoon/api/utils/medias/libraryHelpers";
 import { fetchTmdbArtwork } from "@rawkoon/api/services/images/tmdbImageProvider";
 import { fetchFanartArtwork } from "@rawkoon/api/services/images/fanartProvider";
 import { fetchMediaDetails } from "@rawkoon/api/utils/medias/tmdbFetcherDetails";
+import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationConfigCache";
+import { normalizeFanartConfig } from "@rawkoon/api/utils/integrations/normalizers";
 
 const CACHE_TTL_SECONDS = 60 * 60 * 6;
 
@@ -40,7 +43,16 @@ export async function getArtworkCandidates(input: {
   mediaType: "movie" | "tv";
   kind: ArtworkKind;
 }): Promise<ArtworkCandidate[]> {
-  const cacheKey = `medias:artwork-v1:${input.mediaType}:${input.tmdbId}:${input.kind}`;
+  const fanartIntegration = await getIntegrationConfigRecord("fanart");
+  const fanartKey = fanartIntegration?.enabled
+    ? normalizeFanartConfig(fanartIntegration.config)?.api_key
+    : null;
+  // A changed or disabled key must not reuse a six-hour candidate list from
+  // the previous integration state. Hash the secret before using it in a key.
+  const fanartVersion = fanartKey
+    ? createHash("sha256").update(fanartKey).digest("hex").slice(0, 16)
+    : "off";
+  const cacheKey = `medias:artwork-v2:${input.mediaType}:${input.tmdbId}:${input.kind}:${fanartVersion}`;
   const cached = await getJsonCache<ArtworkCandidate[]>(cacheKey);
   if (cached) return cached;
 

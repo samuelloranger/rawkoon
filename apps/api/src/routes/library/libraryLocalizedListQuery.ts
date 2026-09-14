@@ -13,7 +13,10 @@ function orderByFragment(
   const dir = sortDir === "asc" ? Prisma.raw("ASC") : Prisma.raw("DESC");
   switch (sortBy) {
     case "title":
-      return Prisma.sql`COALESCE(t.sort_title, m."list_title") ${dir}, m."id" ${dir}`;
+      return Prisma.sql`CASE
+        WHEN m.overrides->>'title' IS NOT NULL THEN m."list_title"
+        ELSE COALESCE(t.sort_title, m."list_title")
+      END ${dir}, m."id" ${dir}`;
     case "year":
       return Prisma.sql`m."list_year" ${dir} NULLS LAST, m."id" ${dir}`;
     case "status":
@@ -37,17 +40,15 @@ function orderByFragment(
  * Prisma cannot order by a to-many relation column, so the page is resolved
  * here and hydrated through the normal include by the caller.
  */
-export function buildLocalizedIdQuery(input: {
+type LocalizedFilters = {
   language: TitleLanguage;
   type?: string;
   status?: string;
   q?: string;
   fileLanguage?: string;
-  sortBy: LibrarySortBy;
-  sortDir: LibrarySortDir;
-  take: number;
-  skip: number;
-}): Prisma.Sql {
+};
+
+function localizedFromWhere(input: LocalizedFilters): Prisma.Sql {
   const conditions: Prisma.Sql[] = [];
   if (input.type) conditions.push(Prisma.sql`m."type" = ${input.type}`);
   if (input.status) conditions.push(Prisma.sql`m."status" = ${input.status}`);
@@ -66,18 +67,38 @@ export function buildLocalizedIdQuery(input: {
       )`,
     );
   }
-
   const where = conditions.length
     ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
     : Prisma.empty;
-
   return Prisma.sql`
-    SELECT m."id"
     FROM library_media m
     LEFT JOIN library_media_titles t
       ON t.media_id = m."id" AND t.language = ${input.language}
     ${where}
+  `;
+}
+
+export function buildLocalizedIdQuery(
+  input: LocalizedFilters & {
+    sortBy: LibrarySortBy;
+    sortDir: LibrarySortDir;
+    take: number;
+    skip: number;
+  },
+): Prisma.Sql {
+  return Prisma.sql`
+    SELECT m."id"
+    ${localizedFromWhere(input)}
     ORDER BY ${orderByFragment(input.sortBy, input.sortDir)}
     LIMIT ${input.take} OFFSET ${input.skip}
+  `;
+}
+
+/** Match the list's localized search when reporting counts by media type. */
+export function buildLocalizedCountQuery(input: LocalizedFilters): Prisma.Sql {
+  return Prisma.sql`
+    SELECT m."type", COUNT(*)::int AS "_count"
+    ${localizedFromWhere(input)}
+    GROUP BY m."type"
   `;
 }
