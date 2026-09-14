@@ -53,58 +53,46 @@ function minResolutionRank(minRes: number): number | null {
   return v === undefined ? null : v;
 }
 
-function sourceAliases(source: string): string[] {
-  const u = source.trim();
-  const lower = u.toLowerCase();
-  const set = new Set<string>([u, lower]);
-  if (lower === "remux" || lower === "bdremux") {
-    set.add("REMUX");
-    set.add("BluRay");
-    set.add("bluray");
-  }
-  if (lower === "bluray" || lower === "blu-ray") {
-    set.add("BluRay");
-    set.add("BDRip");
-  }
-  // HDLight: French compressed-BluRay re-encode — treated as BluRay equivalent for preference matching
-  if (lower === "hdlight") {
-    set.add("HDLight");
-    set.add("BluRay");
-    set.add("bluray");
-  }
-  if (lower === "web-dl" || lower === "webdl") {
-    set.add("WEB-DL");
-    set.add("WEBDL");
-  }
-  if (lower === "webrip") {
-    set.add("WEBRip");
-  }
-  // HDRip: generic re-encode from HD source — mapped to WEBRip tier
-  if (lower === "hdrip") {
-    set.add("HDRip");
-    set.add("WEBRip");
-  }
-  if (lower === "web") {
-    set.add("WEB");
-    set.add("WEB-DL");
-    set.add("WEBRip");
-  }
-  return [...set];
-}
+const DISC_SOURCES = [
+  "bluray",
+  "blu-ray",
+  "bdrip",
+  "brrip",
+  "remux",
+  "bdremux",
+  "hdlight",
+];
+const WEB_SOURCES = ["web", "web-dl", "webdl", "webrip", "hdrip"];
+
+/**
+ * Parsed sources each preference accepts. Deliberately one-way: preferring
+ * BluRay accepts a remux off the same disc, but preferring REMUX must not
+ * accept a plain BluRay — otherwise ranking REMUX above BluRay is a no-op.
+ */
+const SOURCE_ACCEPTS: Record<string, string[]> = {
+  remux: ["remux", "bdremux"],
+  bdremux: ["remux", "bdremux"],
+  bluray: DISC_SOURCES,
+  "blu-ray": DISC_SOURCES,
+  hdlight: ["hdlight"],
+  "web-dl": ["web-dl", "webdl"],
+  webdl: ["web-dl", "webdl"],
+  webrip: ["webrip", "hdrip"],
+  hdrip: ["hdrip"],
+  web: WEB_SOURCES,
+  hdtv: ["hdtv"],
+  dvdrip: ["dvdrip", "dvd"],
+};
 
 function parsedSourceMatchesPreferred(
   parsed: string | null,
   preferred: string,
 ): boolean {
   if (!parsed) return false;
-  const pAli = sourceAliases(parsed);
-  const prefAli = sourceAliases(preferred);
-  for (const a of pAli) {
-    for (const b of prefAli) {
-      if (a.toLowerCase() === b.toLowerCase()) return true;
-    }
-  }
-  return false;
+  const p = parsed.trim().toLowerCase();
+  const pref = preferred.trim().toLowerCase();
+  const accepts = SOURCE_ACCEPTS[pref];
+  return accepts ? accepts.includes(p) : pref === p;
 }
 
 // HEVC/x265 and AVC/x264 are the same codec under different names
@@ -122,9 +110,9 @@ function codecMatches(pref: string, parsed: string): boolean {
   return aliases ? aliases.includes(c) : p === c;
 }
 
-function indexScore(index: number, base: number): number {
+function indexScore(index: number, base: number, step = 100): number {
   if (index < 0) return 0;
-  return Math.max(0, base - index * 100);
+  return Math.max(0, base - index * step);
 }
 
 function languagePreferenceScore(title: string, preferred: string[]): number {
@@ -241,7 +229,9 @@ export function scoreReleaseDetailed(
   const srcIdx = profile.preferredSources.findIndex((pref) =>
     parsedSourceMatchesPreferred(parsed.source, pref),
   );
-  add("preferred_source", indexScore(srcIdx, 500));
+  // 800/200 keeps all five source options distinct while staying under one
+  // resolution tier (1000), so source rank never outranks resolution.
+  add("preferred_source", indexScore(srcIdx, 800, 200));
 
   const codecIdx = profile.preferredCodecs.findIndex((pref) =>
     parsed.codec ? codecMatches(pref, parsed.codec) : false,
@@ -257,7 +247,9 @@ export function scoreReleaseDetailed(
   if (parsed.isProper) add("proper_repack", 150);
   if (freeleech) add("freeleech", 200);
 
-  if (profile.maxSizeGb == null && sizeBytes != null) {
+  // Ranking a source is opting into its size, so the unbounded-profile size
+  // guard only applies to sources the profile never asked for.
+  if (profile.maxSizeGb == null && sizeBytes != null && srcIdx < 0) {
     const gb = sizeBytes / 1e9;
     if (gb > 10) add("size_penalty", -Math.floor(gb - 10) * 50);
   }

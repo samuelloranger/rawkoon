@@ -103,13 +103,14 @@ private struct BookQualityProfileEditorView: View {
 
     @State private var name = ""
     @State private var kind = "both"
-    @State private var allowedFormats: Set<String> = []
+    // Array, not Set: bookGrabber treats allowedFormats[0] as the preferred format.
+    @State private var allowedFormats: [String] = []
     @State private var cutoffFormat: String? = nil
     @State private var preferRetail = true
     @State private var maxSize: Int? = nil
     @State private var minSeeders: Int? = 0
     @State private var minAudioBitrate: Int? = nil
-    @State private var languages: Set<String> = []
+    @State private var languages: [String] = []
     @State private var trackersText = ""
     @State private var preferTracker = false
 
@@ -135,7 +136,7 @@ private struct BookQualityProfileEditorView: View {
     }
 
     private var cutoffOptions: [(value: String?, label: String)] {
-        [(nil, "None")] + Array(allowedFormats).sorted().map { (Optional($0), $0.uppercased()) }
+        [(nil, "None")] + allowedFormats.map { (Optional($0), $0.uppercased()) }
     }
 
     private static let languageOptions: [(value: String, label: LocalizedStringKey)] = [
@@ -148,7 +149,7 @@ private struct BookQualityProfileEditorView: View {
             Section {
                 LabeledTextFieldRow(title: "Name", text: $name, autocaps: true)
                 PickerRow(title: "Kind", selection: $kind, options: Self.kindOptions)
-                MultiSelectRow(title: "Allowed formats", selected: $allowedFormats, options: formatOptions)
+                OrderedMultiSelectRow(title: "Allowed formats", selected: $allowedFormats, options: formatOptions)
                 PickerRow(title: "Cutoff format", selection: $cutoffFormat, options: cutoffOptions)
             }
             Section {
@@ -160,7 +161,7 @@ private struct BookQualityProfileEditorView: View {
                 }
             }
             Section {
-                MultiSelectRow(title: "Preferred languages", selected: $languages, options: Self.languageOptions)
+                OrderedMultiSelectRow(title: "Preferred languages", selected: $languages, options: Self.languageOptions)
                 LabeledTextFieldRow(title: "Prioritized trackers", text: $trackersText, placeholder: "comma-separated")
                 Toggle("Prefer tracker over quality", isOn: $preferTracker)
                     .tint(Theme.apricot).listRowBackground(Theme.raised)
@@ -189,7 +190,7 @@ private struct BookQualityProfileEditorView: View {
 
     private func pruneForKind() {
         let valid = Set(formatsForKind)
-        allowedFormats = allowedFormats.intersection(valid)
+        allowedFormats = allowedFormats.filter { valid.contains($0) }
         if let cutoff = cutoffFormat, !allowedFormats.contains(cutoff) {
             cutoffFormat = nil
         }
@@ -199,13 +200,13 @@ private struct BookQualityProfileEditorView: View {
         guard let profile else { return }
         name = profile.name
         kind = profile.kind ?? "both"
-        allowedFormats = Set(profile.allowedFormats ?? [])
+        allowedFormats = profile.allowedFormats ?? []
         cutoffFormat = profile.cutoffFormat
         preferRetail = profile.preferRetail ?? true
         maxSize = profile.maxSizeMb
         minSeeders = profile.minSeeders ?? 0
         minAudioBitrate = profile.minAudioBitrate
-        languages = Set(profile.preferredLanguages ?? [])
+        languages = profile.preferredLanguages ?? []
         trackersText = (profile.prioritizedTrackers ?? []).joined(separator: ", ")
         preferTracker = profile.preferTrackerOverQuality ?? false
     }
@@ -216,13 +217,13 @@ private struct BookQualityProfileEditorView: View {
         return SaveBookQualityProfileBody(
             name: name.trimmingCharacters(in: .whitespaces),
             kind: kind,
-            allowedFormats: Array(allowedFormats),
+            allowedFormats: allowedFormats,
             cutoffFormat: cutoffFormat,
             preferRetail: preferRetail,
             maxSizeMb: maxSize,
             minSeeders: minSeeders ?? 0,
             minAudioBitrate: kind == "ebook" ? nil : minAudioBitrate,
-            preferredLanguages: Array(languages),
+            preferredLanguages: languages,
             prioritizedTrackers: trackers,
             preferTrackerOverQuality: preferTracker
         )

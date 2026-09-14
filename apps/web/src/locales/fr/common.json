@@ -847,7 +847,13 @@
       "preferTrackerOverQualityHelp": "Le tracker prioritaire l'emporte sur la résolution et la source (+1 500 / +1 000 / +500 pts)",
       "moveTrackerUp": "Monter le tracker",
       "moveTrackerDown": "Descendre le tracker",
-      "removeTracker": "Retirer le tracker"
+      "removeTracker": "Retirer le tracker",
+      "orderIsPriority": "ordre = priorité",
+      "selectedCount_one": "{{count}} sélectionné",
+      "selectedCount_other": "{{count}} sélectionnés",
+      "movePriorityUp": "Monter",
+      "movePriorityDown": "Descendre",
+      "removeSelection": "Retirer"
     },
     "mediaHistory": {
       "title": "Historique média",
