@@ -62,7 +62,9 @@ describe("useLibraryItem", () => {
 
   it("revalidates on mount even when a stale entry is already cached (refetchOnMount:'always')", async () => {
     const client = makeClient();
-    client.setQueryData(queryKeys.library.item(123), {
+    // Must carry the title language, or this seeds a key the hook never reads
+    // and the test silently stops covering the stale-cache path.
+    client.setQueryData(queryKeys.library.item(123, "en"), {
       item: { ...ITEM, status: "wanted" },
     });
 

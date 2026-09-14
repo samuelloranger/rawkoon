@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { MEDIAS_ENDPOINTS, LIBRARY_ENDPOINTS } from "@/lib/endpoints";
 import { webFetcher } from "@/lib/api/fetcher";
+import { useTitleLanguage } from "@/lib/useTitleLanguage";
 import type {
   LibraryItemResponse,
   LibraryMedia,
@@ -18,6 +19,7 @@ import type {
 export function usePrefetchLibraryItem() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const titleLanguage = useTitleLanguage();
 
   return useCallback(
     (item: LibraryMedia) => {
@@ -31,9 +33,11 @@ export function usePrefetchLibraryItem() {
 
       // Prefetch the authoritative by-id payload the detail page reads.
       void queryClient.prefetchQuery({
-        queryKey: queryKeys.library.item(item.id),
+        queryKey: queryKeys.library.item(item.id, titleLanguage),
         queryFn: () =>
-          webFetcher<LibraryItemResponse>(LIBRARY_ENDPOINTS.ITEM(item.id)),
+          webFetcher<LibraryItemResponse>(LIBRARY_ENDPOINTS.ITEM(item.id), {
+            params: { title_language: titleLanguage },
+          }),
         staleTime: 60 * 1000,
       });
 
