@@ -1894,13 +1894,15 @@
       "artwork": "Visuels",
       "artworkPoster": "Affiche",
       "artworkBackdrop": "Arrière-plan",
-      "artworkAllLanguages": "Toutes",
+      "artworkAllLanguages": "Toutes les langues",
       "artworkNoLanguage": "Sans texte",
       "artworkLoading": "Chargement des visuels…",
-      "artworkEmpty": "Aucun visuel trouvé",
-      "artworkReset": "Rétablir par défaut",
+      "artworkEmpty": "Aucun visuel disponible pour ce titre",
+      "artworkReset": "Remettre par défaut",
       "artworkUpdated": "Visuel mis à jour",
-      "artworkUpdateFailed": "Échec de la mise à jour du visuel"
+      "artworkUpdateFailed": "Impossible de changer le visuel",
+      "artworkLanguage": "Langue",
+      "artworkNoneInLanguage": "Aucun visuel dans cette langue"
     },
     "stats": {
       "title": "Statistiques de la bibliothèque",

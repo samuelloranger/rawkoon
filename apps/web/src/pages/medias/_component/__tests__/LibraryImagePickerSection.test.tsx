@@ -73,34 +73,70 @@ describe("LibraryImagePickerSection", () => {
     expect(lastKind).toBe("poster");
   });
 
+  it("describes the artwork in use rather than badging every tile", () => {
+    render(
+      <LibraryImagePickerSection
+        libraryId={7}
+        item={item({ poster_url: "https://a/3.jpg" })}
+      />,
+    );
+    // The language-neutral fanart candidate is the one in use.
+    expect(screen.getByText("fanart.tv")).toBeTruthy();
+    expect(screen.queryAllByText("TMDB")).toHaveLength(0);
+  });
+
   it("switching to the backdrop tab requests backdrops", () => {
     render(<LibraryImagePickerSection libraryId={7} item={item()} />);
-    fireEvent.click(screen.getByTestId("artwork-tab-backdrop"));
+    fireEvent.click(screen.getByRole("tab", { name: /Backdrop/i }));
     expect(lastKind).toBe("backdrop");
   });
 
-  it("lists a chip per distinct language plus all and none", () => {
+  it("offers one option per distinct language, plus all and no-text", () => {
     render(<LibraryImagePickerSection libraryId={7} item={item()} />);
-    expect(screen.getByTestId("artwork-lang-all")).toBeTruthy();
-    expect(screen.getByTestId("artwork-lang-en")).toBeTruthy();
-    expect(screen.getByTestId("artwork-lang-fr")).toBeTruthy();
-    expect(screen.getByTestId("artwork-lang-none")).toBeTruthy();
+    const values = Array.from(
+      screen.getByTestId("artwork-lang-select").querySelectorAll("option"),
+    ).map((o) => o.getAttribute("value"));
+    expect(values).toEqual(["all", "en", "fr", "none"]);
+  });
+
+  it("hides the language filter when there is nothing to filter", () => {
+    candidates = [candidate("https://a/1.jpg", "en")];
+    render(<LibraryImagePickerSection libraryId={7} item={item()} />);
+    expect(screen.queryByTestId("artwork-lang-select")).toBeNull();
   });
 
   it("narrows the grid to the selected language", () => {
     render(<LibraryImagePickerSection libraryId={7} item={item()} />);
-    fireEvent.click(screen.getByTestId("artwork-lang-fr"));
+    fireEvent.change(screen.getByTestId("artwork-lang-select"), {
+      target: { value: "fr" },
+    });
     const cells = within(grid()).getAllByRole("button");
     expect(cells).toHaveLength(1);
     expect(cells[0].getAttribute("data-url")).toBe("https://a/2.jpg");
   });
 
-  it("the none chip shows only language-neutral candidates", () => {
+  it("the no-text option shows only language-neutral candidates", () => {
     render(<LibraryImagePickerSection libraryId={7} item={item()} />);
-    fireEvent.click(screen.getByTestId("artwork-lang-none"));
+    fireEvent.change(screen.getByTestId("artwork-lang-select"), {
+      target: { value: "none" },
+    });
     const cells = within(grid()).getAllByRole("button");
     expect(cells).toHaveLength(1);
     expect(cells[0].getAttribute("data-url")).toBe("https://a/3.jpg");
+  });
+
+  it("says nothing matched the filter, not that there is no artwork", () => {
+    candidates = [
+      candidate("https://a/1.jpg", "en"),
+      candidate("https://a/2.jpg", "fr"),
+    ];
+    render(<LibraryImagePickerSection libraryId={7} item={item()} />);
+    fireEvent.change(screen.getByTestId("artwork-lang-select"), {
+      target: { value: "none" },
+    });
+    expect(screen.getByTestId("artwork-empty").textContent).toContain(
+      "artworkNoneInLanguage",
+    );
   });
 
   it("marks the cell matching the current poster", () => {

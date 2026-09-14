@@ -1894,13 +1894,15 @@
       "artwork": "Artwork",
       "artworkPoster": "Poster",
       "artworkBackdrop": "Backdrop",
-      "artworkAllLanguages": "All",
+      "artworkAllLanguages": "All languages",
       "artworkNoLanguage": "No text",
       "artworkLoading": "Loading artwork…",
-      "artworkEmpty": "No artwork found",
-      "artworkReset": "Reset to default",
+      "artworkEmpty": "No artwork available for this title",
+      "artworkReset": "Use default",
       "artworkUpdated": "Artwork updated",
-      "artworkUpdateFailed": "Failed to update artwork"
+      "artworkUpdateFailed": "Couldn't change the artwork",
+      "artworkLanguage": "Language",
+      "artworkNoneInLanguage": "No artwork in that language"
     },
     "stats": {
       "title": "Library stats",
