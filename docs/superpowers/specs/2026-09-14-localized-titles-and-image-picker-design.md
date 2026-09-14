@@ -92,25 +92,57 @@ applied according to the row's language.
 
 ### 1.2 Write path
 
-Title rows are written everywhere the English title is written today:
+English titles are written from five places, and only one of them has
+translations in hand:
 
-- `services/libraryFromTmdb.ts` — on add
-- `services/libraryTmdbRefresh.ts` — on scheduled refresh
-- `services/libraryIntegrityCollectors.ts` — on integrity repair
+| Site | Has `title_translations`? |
+|---|---|
+| `services/libraryFromTmdb.ts` (add/update) | yes — already appended |
+| `routes/library/libraryMediaAdmin.ts` (library-scan match) | no |
+| `services/jobs/libraryMigrateRadarr.ts` | no |
+| `services/jobs/libraryMigrateSonarr.ts` | no |
+| `scripts/refreshLibraryTitlesFromTmdb.ts` | no |
 
-All three already fetch `title_translations` in the same TMDB call, so no extra
-request is needed. Missing the refresh path is the main correctness trap: a TMDB
-retitle would update `LibraryMedia.title` and leave `library_media_titles` stale.
+(`services/libraryTmdbRefresh.ts` and `services/libraryIntegrityCollectors.ts`
+write episodes, status and dates — not titles. They need no change.)
 
-Backfill runs through the existing `src/scripts/refreshLibraryTitlesFromTmdb.ts`.
+Patching all five is not the design. Instead:
+
+- `libraryFromTmdb` writes title rows inline, from the translations it already
+  has. No extra TMDB request.
+- A scheduled job, `sync-localized-titles`, fills rows for any media that has
+  none and refreshes rows older than the media's `updatedAt`. That covers the
+  four sites that create media without translations, without touching them, and
+  it is also what keeps rows from going stale after a TMDB retitle.
+- The read path uses `COALESCE(t.title, lm.title)` rather than assuming a row
+  exists, so a media the job has not reached yet degrades to its English title
+  instead of disappearing from the list.
+
+Initial population is the same scheduled job, run once on first boot after the
+migration.
 
 ### 1.3 Read path
 
 `GET /api/library` and the media detail routes accept a `titleLanguage` query
-param, defaulting to `en`. `libraryListQuery` LEFT JOINs `library_media_titles`
-on `(media_id, :titleLanguage)` and:
+param, defaulting to `en`.
 
-- orders by `t.sort_title` instead of `lm.list_title`
+The paged list path is `prisma.libraryMedia.findMany` with `orderBy` on persisted
+columns — deliberately, so pagination stays `skip`/`take` in the database. Prisma
+cannot order or filter by a to-many relation's column, so a localized sort cannot
+be expressed through `findMany`.
+
+Rather than convert the whole list route to `$queryRaw`, the localized path
+resolves **ids only** in raw SQL — LEFT JOIN, `WHERE`, `ORDER BY`, `LIMIT`,
+`OFFSET` — and then loads those ids through the existing `findMany` +
+`libraryMediaInclude`, restoring the SQL order in memory. Includes and mapping
+stay single-sourced; raw SQL is confined to one small function.
+
+`titleLanguage === "en"` keeps the current Prisma path exactly, so the default
+install sees no behavior or performance change.
+
+The raw query:
+
+- orders by `COALESCE(t.sort_title, lm.list_title)`
 - matches the search term against `t.title OR lm.title`, so an English search
   still works from a French UI — a superset of today's behavior, not a
   replacement
@@ -138,15 +170,17 @@ Phase 2 is additive and independent of Phase 1. Either can ship first.
 
 ### 2.1 TMDB source
 
-`utils/medias/tmdbFetcherDetails.ts` already appends `images` to the details call
-and `parseImageStills` already builds `media_stills { posters, backdrops, logos }`.
-Two gaps:
+`utils/medias/tmdbFetcherDetails.ts` already appends `images` and builds
+`media_stills { posters, backdrops, logos }` — but that path is wrong for a
+picker: `parseImageStills` caps each list at 12, drops `iso_639_1`, and emits
+`w342`/`w780` display URLs. Widening it would change the shape of an already
+cached, widely consumed response.
 
-- the request omits `include_image_language`, so TMDB returns only images matching
-  the request language. Add `include_image_language=en,fr,null`.
-- `parseImageStills` drops `iso_639_1` and `vote_count`. Both are needed for the
-  language filter and the sort order, so `TmdbImageStill` in
-  `@rawkoon/shared/types` gains `language: string | null` and `vote_count: number | null`.
+The picker gets its own fetcher instead — `services/images/tmdbImageProvider.ts`
+calling `GET /3/{movie|tv}/{id}/images?include_image_language=en,fr,null`
+uncapped, keeping `iso_639_1`, and emitting both a `w342` thumbnail and an
+`original` full URL. `media_stills`, `TmdbImageStill` and the details cache are
+untouched.
 
 ### 2.2 fanart.tv source
 
@@ -227,9 +261,14 @@ and a single-file pass does not predict CI.
 
 ## Risks
 
-- **Stale title rows.** Any future code path that updates `LibraryMedia.title`
-  without updating `library_media_titles` reintroduces English titles silently.
-  The three write sites listed in 1.2 are the complete current set.
+- **Stale title rows.** A code path that updates `LibraryMedia.title` without
+  updating `library_media_titles` leaves a stale localized title behind. The
+  `sync-localized-titles` job is the backstop: it re-resolves any row older than
+  its media's `updatedAt`, so staleness self-heals within one job interval rather
+  than persisting.
+- **Raw SQL in the list path.** The localized branch hand-writes SQL against
+  `library_media`. A future column rename there breaks it at runtime, not at
+  typecheck. Keeping the branch to id resolution only limits the surface.
 - **Query-key cache.** Omitting the language from a query key produces titles from
   the previously active locale with no visible error.
 - **fanart.tv availability.** A third-party dependency on the display path. It is
