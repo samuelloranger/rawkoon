@@ -46,15 +46,41 @@ jobs:
         working-directory: apps/ios
 
   build:
-    runs-on: macos-26
+    runs-on: xcode-27
     needs: [kit, lint]
     steps:
       - uses: actions/checkout@v4
-      - name: Select Xcode 26 (iOS 26 SDK required by App Store)
-        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1 || echo /Applications/Xcode.app)"
+      - name: Record toolchain and simulators
+        run: |
+          sw_vers
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphone || true
+          xcrun simctl list devices available | grep -iA30 'iOS 27' || true
       - run: brew install xcodegen
       - run: xcodegen generate
         working-directory: apps/ios
+      # The runner's exact iOS 27 device set isn't pinned here — resolve one at
+      # runtime so a device-name change on the image doesn't break the test.
+      - name: Resolve an iOS 27 iPhone simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          ids = [d["udid"]
+                 for rt, ds in devices.items() if "iOS-27" in rt
+                 for d in ds if "iPhone" in d["name"]]
+          print(ids[0] if ids else "")')
+          if [ -z "$UDID" ]; then echo "No iOS 27 iPhone simulator on runner" >&2; exit 1; fi
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+      - name: Run app-target tests (iOS 27)
+        working-directory: apps/ios
+        run: |
+          xcodebuild test \
+            -project Rawkoon.xcodeproj -scheme Rawkoon \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -only-testing:RawkoonTests \
+            CODE_SIGNING_ALLOWED=NO
       - name: Build for simulator
         working-directory: apps/ios
         run: |
@@ -64,7 +90,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
   testflight:
-    runs-on: macos-26
+    runs-on: xcode-27
     needs: build
     # A published GitHub release is the ONLY thing that uploads to TestFlight.
     # Not a push to main, not a manual dispatch, not a PR — an upload consumes a
@@ -76,8 +102,6 @@ jobs:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v4
-      - name: Select Xcode 26 (iOS 26 SDK required by App Store)
-        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1 || echo /Applications/Xcode.app)"
       - run: brew install xcodegen
       - name: Resolve release version
         working-directory: apps/ios

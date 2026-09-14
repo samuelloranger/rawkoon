@@ -167,7 +167,7 @@ struct LibraryMediaRow: View {
 }
 
 /// A wrapping row: lays children left to right, breaking to a new line when the
-/// current one is full. iOS 16+ `Layout`, safe on the iOS 18 deployment target,
+/// current one is full. Uses `Layout`
 /// so the meta pills wrap instead of clipping under large Dynamic Type.
 private struct FlowLayout: Layout {
     var spacing: CGFloat = 6
