@@ -60,3 +60,26 @@
 - [ ] Commit the verified path as `feat(ios): surface opted-in books in Spotlight`.
 
 **Stop condition:** Shortcuts and Siri play/resume an authorized audiobook on iOS 27; unsupported devices and signed-out users get a clear result; no private library information survives logout in system search.
+
+---
+
+## Task 3 outcome — assistant schema rejected (2026-09-14)
+
+Adopting `@AppIntent(schema: .audio.playAudio)` / `@AppEntity(schema: .books.audiobook)`
+was attempted and **rejected** after compiling a probe against the iOS 27 SDK.
+The schemas demand a data model Rawkoon does not have:
+
+- `books.audiobook` entity requires `genre`, `purchaseDate`, `seriesTitle`, and
+  `url`, and requires `title` to be optional. Rawkoon has none of genre,
+  purchase date, or series.
+- `audio.playAudio` intent requires `audioEntity`, `playbackAttributes`,
+  `queueLocation`, and `warmupAudioQueueResult` — Apple's audio-queue playback
+  contract, not Rawkoon's single-book server-manifest + `AVQueuePlayer` flow.
+- `.books.playAudiobook` is deprecated at 27.0 in favour of `.audio.playAudio`.
+
+Satisfying either schema means inventing metadata, which this plan forbids
+("Leave unsupported metadata absent rather than inventing it"). The shipped
+approach — custom `AppIntent`s plus an `AppShortcutsProvider` with spoken
+phrases — already meets the stop condition (Siri/Shortcuts play and resume an
+authorised audiobook on iOS 27) without faking data. Revisit only if Rawkoon's
+model gains real genre/series/URL metadata.
