@@ -1339,7 +1339,7 @@
         "delete": "Delete"
       },
       "fanart": {
-        "help": "Optional extra source of posters and backdrops for the artwork picker. A free personal key from fanart.tv enables it; without one the picker still works using TMDB alone.",
+        "help": "Extra posters and backdrops for the artwork picker",
         "apiKey": "API key",
         "apiKeyPlaceholder": "Your fanart.tv personal API key",
         "apiKeySetPlaceholder": "A key is saved — type a new one to replace it",

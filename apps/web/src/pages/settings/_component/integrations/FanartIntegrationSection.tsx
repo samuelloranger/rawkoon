@@ -61,6 +61,7 @@ function FanartIntegrationSectionImpl({
       loading={isLoading}
       saving={saveMutation.isPending}
       isDirty={isDirty}
+      logoUrl="https://fanart.tv/favicon.ico"
     >
       <div>
         <label
