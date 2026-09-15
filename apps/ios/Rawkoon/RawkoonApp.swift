@@ -5,7 +5,6 @@ import UIKit
 struct RawkoonApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @State private var model = AppModel.shared
-    @Namespace private var zoomNamespace
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -110,7 +109,6 @@ struct RawkoonApp: App {
             // `tabViewBottomAccessory` is a system-hosted tree that does NOT
             // inherit — pass the model explicitly there (see MiniPlayerView).
             // CI greps this file so `.environment(model)` stays below `.overlay`/`.sheet`.
-            .environment(\.rawkoonZoomNamespace, zoomNamespace)
             .environment(model)
         }
     }
@@ -167,6 +165,10 @@ private struct RootTabsView: View {
     @Environment(AppModel.self) private var model
     @State private var showFullPlayer = false
     @State private var selection: String
+    /// The zoom namespace lives on a real View, not the App struct: `@Namespace`
+    /// only participates in the view hierarchy when declared on a View, so an
+    /// App-level one leaves the source/destination transitions inert.
+    @Namespace private var zoomNamespace
 
     init() {
         // Library is the household default. Admins are moved to Home in `.task`
@@ -185,6 +187,7 @@ private struct RootTabsView: View {
 
     var body: some View {
         content
+            .environment(\.rawkoonZoomNamespace, zoomNamespace)
     }
 
     @ViewBuilder private var content: some View {
@@ -271,7 +274,7 @@ private struct RootTabsView: View {
         }
         .tabViewStyle(.sidebarAdaptable)
         .tint(Theme.apricot)
-        .miniPlayerAccessory(model: model, active: model.activeBook() != nil, onExpand: { showFullPlayer = true })
+        .miniPlayerAccessory(model: model, onExpand: { showFullPlayer = true })
         .alert(
             "Couldn't play chapter",
             isPresented: Binding(
@@ -313,24 +316,20 @@ private struct RootTabsView: View {
 }
 
 private extension View {
-    /// `active` gates whether the accessory is attached at all: the system
-    /// reserves the accessory's slot as soon as `tabViewBottomAccessory` is
-    /// present, even if `MiniPlayerView`'s own content is empty, so an idle
-    /// (no active book) state must skip attaching it rather than render an
-    /// empty accessory.
+    /// The accessory modifier is applied UNCONDITIONALLY. Toggling it on and off
+    /// (an `if active` around `tabViewBottomAccessory`) changes the TabView's
+    /// view identity when a book starts or stops playing, so SwiftUI rebuilds the
+    /// whole TabView — resetting the navigation stack and snapping the selection
+    /// back to the default tab. `MiniPlayerView` renders nothing when no book is
+    /// active, so the content, not the modifier, carries the empty state.
     ///
     /// The accessory content is hosted in a tree detached from the `WindowGroup`,
     /// which does not propagate its environment — so `MiniPlayerView` takes the
     /// model as an explicit argument rather than via `@Environment`, which
     /// trapped on the missing value even when injected here.
-    @ViewBuilder
-    func miniPlayerAccessory(model: AppModel, active: Bool, onExpand: @escaping () -> Void) -> some View {
-        if active {
-            tabViewBottomAccessory {
-                MiniPlayerView(model: model, onExpand: onExpand)
-            }
-        } else {
-            self
+    func miniPlayerAccessory(model: AppModel, onExpand: @escaping () -> Void) -> some View {
+        tabViewBottomAccessory {
+            MiniPlayerView(model: model, onExpand: onExpand)
         }
     }
 }
