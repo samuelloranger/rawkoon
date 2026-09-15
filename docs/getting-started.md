@@ -30,6 +30,17 @@ Read [Quality profiles](/library/quality-profiles) before making the first
 automated selection, and [Downloads and files](/library/downloads-and-files)
 for the full lifecycle.
 
+## Use the iPhone app
+
+Rawkoon has a native iPhone app for managing the queue on the go and listening
+to audiobooks offline (chapters download to the device; playback survives a
+locked screen). Join the public beta on
+[TestFlight](https://testflight.apple.com/join/wm3Psb2n): install Apple's
+TestFlight app, open the link on your iPhone, then point the app at your
+instance's address and sign in with your Rawkoon account.
+
+The app is a client for your instance — it does not run a server of its own.
+
 ## Learn the library
 
 - [Quality profiles](/library/quality-profiles) decide which releases are
