@@ -458,6 +458,7 @@ struct LibraryView: View {
                                     mediaBadge(for: m)
                                 }
                             }
+                            .rawkoonZoomSource(RawkoonZoom.media(tmdbId: m.tmdbId, mediaType: m.type == "show" ? "tv" : "movie"))
                         }
                         .buttonStyle(.plain)
                         .rawkoonScrollSettle()

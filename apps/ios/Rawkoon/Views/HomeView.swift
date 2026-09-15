@@ -1,3 +1,4 @@
+import RawkoonKit
 import SwiftUI
 
 /// The home screen — admin dashboard: greeting, Continue, Recently Added and
@@ -181,8 +182,11 @@ struct HomeView: View {
             NavigationLink {
                 MediaDetailView(tmdbId: m.tmdbId, mediaType: m.type == "show" ? "tv" : "movie",
                                 title: m.title, posterPath: m.posterUrl, libraryId: m.id)
-            } label: { poster(title: m.title, url: m.posterUrl) }
-                .buttonStyle(.plain)
+            } label: {
+                poster(title: m.title, url: m.posterUrl)
+                    .rawkoonZoomSource(RawkoonZoom.media(tmdbId: m.tmdbId, mediaType: m.type == "show" ? "tv" : "movie"))
+            }
+            .buttonStyle(.plain)
         case let .upcoming(u):
             NavigationLink {
                 MediaDetailView(tmdbId: u.tmdbId ?? 0, mediaType: u.mediaType,
@@ -190,6 +194,7 @@ struct HomeView: View {
             } label: {
                 poster(title: u.title, url: u.posterUrl,
                        date: u.displayDate, episode: u.episodeLabel)
+                    .rawkoonZoomSource(RawkoonZoom.media(tmdbId: u.tmdbId ?? 0, mediaType: u.mediaType))
             }
             .buttonStyle(.plain)
             .disabled(u.tmdbId == nil && u.libraryId == nil)
