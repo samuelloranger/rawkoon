@@ -4,6 +4,7 @@ import SwiftUI
 /// Presented as a sheet from MediaDetailView. Interactive indexer search + grab.
 struct ReleaseSearchView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
 
     let libraryMediaId: Int?
     let tmdbId: Int?
@@ -124,21 +125,37 @@ struct ReleaseSearchView: View {
         VStack(spacing: 0) {
             grabber
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Releases")
-                    .font(.display(22))
-                    .foregroundStyle(Theme.textStrong)
-                Text(searchQuery)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(Theme.faint)
-                    .lineLimit(1)
-                if let service, !service.isEmpty {
-                    Text(service)
-                        .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(Theme.muted)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Releases")
+                        .font(.display(22))
+                        .foregroundStyle(Theme.textStrong)
+                    Text(searchQuery)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.faint)
+                        .lineLimit(1)
+                    if let service, !service.isEmpty {
+                        Text(service)
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(Theme.muted)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                // Catalyst sheets don't swipe-to-dismiss, so a close control is the
+                // only way out on Mac. (Size class is compact inside a sheet even on
+                // Mac, so gate on the platform, not the width.)
+                #if targetEnvironment(macCatalyst)
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(Theme.muted)
+                            .symbolRenderingMode(.hierarchical)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Close")
+                #endif
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)
             .padding(.top, 6)
             .padding(.bottom, 10)

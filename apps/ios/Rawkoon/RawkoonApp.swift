@@ -92,9 +92,11 @@ struct RawkoonApp: App {
             // `.inactive` (a brief transitional state — Control Center, a system
             // alert) intentionally does nothing here; only a real background
             // transition tears the streams down.
+            .onAppear { configureCatalystTitlebar() }
             .onChange(of: scenePhase) { _, newPhase in
                 switch newPhase {
                 case .active:
+                    configureCatalystTitlebar()
                     model.startLiveStreams()
                     Task { await model.refreshUnreadNotificationCount() }
                 case .background:
@@ -111,6 +113,20 @@ struct RawkoonApp: App {
             // CI greps this file so `.environment(model)` stays below `.overlay`/`.sheet`.
             .environment(model)
         }
+    }
+
+    /// Mac Catalyst shows the app name as the window title by default. Hide the
+    /// titlebar text (and its empty toolbar) so the window chrome stays clean —
+    /// the sidebar already carries the Rawkoon lockup.
+    private func configureCatalystTitlebar() {
+        #if targetEnvironment(macCatalyst)
+            for scene in UIApplication.shared.connectedScenes {
+                guard let windowScene = scene as? UIWindowScene,
+                      let titlebar = windowScene.titlebar else { continue }
+                titlebar.titleVisibility = .hidden
+                titlebar.toolbar = nil
+            }
+        #endif
     }
 }
 
@@ -155,7 +171,7 @@ enum RootTabSelection {
     nonisolated static func validated(_ selected: String, isAdmin: Bool) -> String {
         switch selected {
         case "home": isAdmin ? "home" : "library"
-        case "discover", "library", "activity", "settings": selected
+        case "discover", "explore", "library", "books", "activity", "settings": selected
         default: "library"
         }
     }
@@ -163,6 +179,7 @@ enum RootTabSelection {
 
 private struct RootTabsView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.horizontalSizeClass) private var hSizeClass
     @State private var showFullPlayer = false
     @State private var selection: String
     /// The zoom namespace lives on a real View, not the App struct: `@Namespace`
@@ -244,19 +261,50 @@ private struct RootTabsView: View {
                 .customizationID("tab.home")
             }
 
-            Tab("Discover", systemImage: "sparkles.rectangle.stack", value: "discover") {
+            // Library comes first. On Mac/iPad it splits into separate Movies &
+            // Shows and Books pages; phone keeps one Library tab with a toggle.
+            if hSizeClass == .regular {
+                Tab("Movies & Shows", systemImage: "film.stack", value: "library") {
+                    NavigationStack {
+                        LibraryView(forcedSection: .media)
+                    }
+                }
+                .customizationID("tab.library")
+
+                Tab("Books", systemImage: "books.vertical", value: "books") {
+                    NavigationStack {
+                        LibraryView(forcedSection: .books)
+                    }
+                }
+                .customizationID("tab.books")
+            } else {
+                Tab("Library", systemImage: "square.stack", value: "library") {
+                    NavigationStack {
+                        LibraryView()
+                    }
+                }
+                .customizationID("tab.library")
+            }
+
+            // On Mac/iPad the swipe deck and Explore grid are separate pages;
+            // on phone one "Discover" tab holds the deck (Explore is a sheet).
+            Tab(hSizeClass == .regular ? "For You" : "Discover",
+                systemImage: "sparkles.rectangle.stack", value: "discover")
+            {
                 NavigationStack {
                     DiscoverView()
                 }
             }
             .customizationID("tab.discover")
 
-            Tab("Library", systemImage: "square.stack", value: "library") {
-                NavigationStack {
-                    LibraryView()
+            if hSizeClass == .regular {
+                Tab("Explore", systemImage: "square.grid.2x2", value: "explore") {
+                    NavigationStack {
+                        ExploreView(embedded: true)
+                    }
                 }
+                .customizationID("tab.explore")
             }
-            .customizationID("tab.library")
 
             Tab("Activity", systemImage: "arrow.down.circle", value: "activity") {
                 NavigationStack {
@@ -273,6 +321,8 @@ private struct RootTabsView: View {
             .customizationID("tab.settings")
         }
         .tabViewStyle(.sidebarAdaptable)
+        // Sidebar-only brand header (iPad/Mac); the phone tab bar never shows it.
+        .tabViewSidebarHeader { RawkoonSidebarHeader() }
         .tint(Theme.apricot)
         .miniPlayerAccessory(model: model, onExpand: { showFullPlayer = true })
         .alert(
@@ -312,6 +362,25 @@ private struct RootTabsView: View {
                 selection = "home"
             }
         }
+    }
+}
+
+/// Brand lockup shown at the top of the adaptive sidebar (iPad, Mac). Matches
+/// the login lockup: the app mark plus the Fraunces wordmark.
+private struct RawkoonSidebarHeader: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            Image("AppLogo")
+                .resizable()
+                .frame(width: 28, height: 28)
+                .clipShape(RoundedRectangle(cornerRadius: 7))
+            Text("Rawkoon")
+                .font(.display(22, weight: .semibold))
+                .foregroundStyle(Theme.textStrong)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
     }
 }
 

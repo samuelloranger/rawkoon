@@ -12,6 +12,11 @@ struct MediaDetailView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+
+    private var isRegularWidth: Bool {
+        hSizeClass == .regular
+    }
 
     let tmdbId: Int
     let mediaType: String
@@ -80,7 +85,13 @@ struct MediaDetailView: View {
     /// so a burst of SSE events can't run overlapping refreshes.
     @State private var liveReloadTask: Task<Void, Never>?
 
-    private let similarColumns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
+    /// Phone (compact) keeps 3 up; regular width (iPad, Mac) packs more, smaller posters.
+    private var similarColumns: [GridItem] {
+        if isRegularWidth {
+            return [GridItem(.adaptive(minimum: 140, maximum: 180), spacing: 12)]
+        }
+        return Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
+    }
 
     private var showManagement: Bool {
         model.isAdmin && libraryId != nil
@@ -117,6 +128,9 @@ struct MediaDetailView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     mainContent
                 }
+                // Cap to a readable measure and center on iPad/Mac; full-bleed on phone.
+                .frame(maxWidth: isRegularWidth ? 980 : .infinity)
+                .frame(maxWidth: .infinity)
                 .padding(.bottom, 24)
             }
             .task {
@@ -342,12 +356,19 @@ struct MediaDetailView: View {
         if libraryId == nil {
             VStack(alignment: .leading, spacing: 8) {
                 if !requested, !added {
-                    lampButton(
-                        title: model.isAdmin ? "Add to library" : "Request",
-                        systemImage: model.isAdmin ? "plus.circle.fill" : "plus.circle",
-                        busy: requesting
-                    ) {
-                        Task { model.isAdmin ? await submitAdd() : await submitRequest() }
+                    HStack(spacing: 0) {
+                        // On Mac/iPad the lamp sizes to its label and floats right
+                        // instead of stretching the whole content width.
+                        if isRegularWidth {
+                            Spacer(minLength: 0)
+                        }
+                        lampButton(
+                            title: model.isAdmin ? "Add to library" : "Request",
+                            systemImage: model.isAdmin ? "plus.circle.fill" : "plus.circle",
+                            busy: requesting
+                        ) {
+                            Task { model.isAdmin ? await submitAdd() : await submitRequest() }
+                        }
                     }
                 } else if requested {
                     Text("We'll notify you when this is in the library. See Requests in Library.")
@@ -379,7 +400,8 @@ struct MediaDetailView: View {
                     Label(title, systemImage: systemImage)
                 }
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: isRegularWidth ? nil : .infinity)
+            .padding(.horizontal, isRegularWidth ? 20 : 0)
             .frame(minHeight: 44)
         }
         .buttonStyle(.borderedProminent)

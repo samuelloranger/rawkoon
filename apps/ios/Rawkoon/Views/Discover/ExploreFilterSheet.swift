@@ -1,53 +1,40 @@
 import SwiftUI
 
-/// Filter sheet for `ExploreView`: type, streaming provider, genre, sort, and
-/// an original-language toggle. Genres and providers are TMDB lists that
-/// differ by `kind`, so this sheet fetches its own copies and refetches when
-/// the type segment changes — the caller only owns `filters`.
-struct ExploreFilterSheet: View {
+/// The Explore filter controls (type, provider, genre, sort, language). Used
+/// inline in a side panel on Mac/iPad and inside `ExploreFilterSheet` on phone,
+/// so both presentations share one source of truth. Loads its own genre/provider
+/// options and reloads them when the media kind changes.
+struct ExploreFilterControls: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
-
     @Binding var filters: ExploreFilters
 
     @State private var genres: [Genre] = []
     @State private var providers: [StreamingProvider] = []
     @State private var loadingOptions = false
     @State private var optionsError: String?
+    @State private var providersExpanded = false
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    typeSection
-                    if let optionsError {
-                        Text(optionsError)
-                            .font(.footnote)
-                            .foregroundStyle(Theme.terracotta)
-                    }
-                    providerSection
-                    genreSection
-                    sortSection
-                    languageSection
-                }
-                .padding(16)
+        VStack(alignment: .leading, spacing: 24) {
+            typeSection
+            if let optionsError {
+                Text(optionsError)
+                    .font(.footnote)
+                    .foregroundStyle(Theme.terracotta)
             }
-            .background(Theme.base)
-            .navigationTitle("Filters")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Reset") { filters = ExploreFilters(kind: filters.kind) }
-                        .disabled(filters.isDefault)
-                }
-            }
+            genreSection
+            sortSection
+            languageSection
+            providerSection
         }
         .task {
             if genres.isEmpty, providers.isEmpty {
                 await loadOptions()
+            }
+        }
+        .onAppear {
+            if filters.provider != nil {
+                providersExpanded = true
             }
         }
         .onChange(of: filters.kind) { _, _ in
@@ -71,28 +58,36 @@ struct ExploreFilterSheet: View {
         }
     }
 
-    @ViewBuilder
+    /// Collapsible and last: providers are the longest, least-used filter, so
+    /// they stay tucked away until opened. Auto-expands when one is selected so a
+    /// restored filter is visible.
     private var providerSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionTitle("Streaming provider")
-            if loadingOptions, providers.isEmpty {
-                LazyVGrid(columns: optionColumns, spacing: 12) {
-                    ForEach(0 ..< 6, id: \.self) { _ in
-                        ShimmerView(cornerRadius: 12).frame(height: 72)
+        DisclosureGroup(isExpanded: $providersExpanded) {
+            Group {
+                if loadingOptions, providers.isEmpty {
+                    LazyVGrid(columns: optionColumns, spacing: 12) {
+                        ForEach(0 ..< 6, id: \.self) { _ in
+                            ShimmerView(cornerRadius: 12).frame(height: 72)
+                        }
                     }
-                }
-            } else if providers.isEmpty {
-                Text("No providers available in this region.")
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.muted)
-            } else {
-                LazyVGrid(columns: optionColumns, spacing: 12) {
-                    ForEach(providers) { provider in
-                        providerTile(provider)
+                } else if providers.isEmpty {
+                    Text("No providers available in this region.")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.muted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    LazyVGrid(columns: optionColumns, spacing: 12) {
+                        ForEach(providers) { provider in
+                            providerTile(provider)
+                        }
                     }
                 }
             }
+            .padding(.top, 10)
+        } label: {
+            sectionTitle("Streaming provider")
         }
+        .tint(Theme.textStrong)
     }
 
     private var optionColumns: [GridItem] {
@@ -243,6 +238,33 @@ struct ExploreFilterSheet: View {
             providers = try await providersTask
         } catch {
             optionsError = String(localized: "Could not load filter options.")
+        }
+    }
+}
+
+/// Phone presentation: wraps `ExploreFilterControls` in a modal with Close/Reset.
+struct ExploreFilterSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var filters: ExploreFilters
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                ExploreFilterControls(filters: $filters)
+                    .padding(16)
+            }
+            .background(Theme.base)
+            .navigationTitle("Filters")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Reset") { filters = ExploreFilters(kind: filters.kind) }
+                        .disabled(filters.isDefault)
+                }
+            }
         }
     }
 }

@@ -46,6 +46,11 @@ struct ExploreFilters: Equatable {
 struct ExploreView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+
+    /// True when hosted inline (Mac split view) rather than in a sheet: hides the
+    /// Done button, since there's nothing to dismiss.
+    var embedded = false
 
     @State private var filters = ExploreFilters()
     @State private var items: [TmdbSearchItem] = []
@@ -64,35 +69,37 @@ struct ExploreView: View {
     @State private var loadGeneration = 0
 
     private var gridColumns: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
+        if hSizeClass == .regular {
+            return [GridItem(.adaptive(minimum: 150, maximum: 200), spacing: 12)]
+        }
+        return Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                filterBar
-
-                if let error {
-                    refreshErrorBanner(error)
-                }
-
-                content
+        Group {
+            if hSizeClass == .regular {
+                regularLayout
+            } else {
+                gridScroll
             }
-            .padding(.top, 12)
-            .padding(.bottom, 32)
         }
         .background(Theme.base)
         .navigationTitle("Explore")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Done") { dismiss() }
+            if !embedded {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
             }
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showFilters = true
-                } label: {
-                    Label("Filters", systemImage: "line.3.horizontal.decrease.circle")
+            // The inline filter panel on regular width replaces the Filters sheet.
+            if hSizeClass != .regular {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showFilters = true
+                    } label: {
+                        Label("Filters", systemImage: "line.3.horizontal.decrease.circle")
+                    }
                 }
             }
         }
@@ -103,9 +110,6 @@ struct ExploreView: View {
             if items.isEmpty, !loading {
                 await loadFirstPage()
             }
-        }
-        .refreshable {
-            await loadFirstPage()
         }
         .onChange(of: filters) { _, _ in
             loadGeneration += 1
@@ -126,6 +130,40 @@ struct ExploreView: View {
             }
         }
         #endif
+    }
+
+    /// Mac/iPad: the filter controls live inline in a left panel beside the grid.
+    private var regularLayout: some View {
+        HStack(spacing: 0) {
+            ScrollView {
+                ExploreFilterControls(filters: $filters)
+                    .padding(16)
+            }
+            .frame(width: 300)
+
+            Divider().overlay(Theme.border)
+
+            gridScroll
+        }
+    }
+
+    private var gridScroll: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                filterBar
+
+                if let error {
+                    refreshErrorBanner(error)
+                }
+
+                content
+            }
+            .padding(.top, 12)
+            .padding(.bottom, 32)
+        }
+        .refreshable {
+            await loadFirstPage()
+        }
     }
 
     // MARK: Filter bar

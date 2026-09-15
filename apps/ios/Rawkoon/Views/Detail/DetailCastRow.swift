@@ -10,18 +10,20 @@ struct DetailCastRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text("Cast")
                     .font(.display(17))
                     .foregroundStyle(Theme.textStrong)
+                // Director sits under the header, not floated to the far edge —
+                // a wide layout otherwise strands it on the right.
                 if let directors = credits?.directors, !directors.isEmpty {
-                    Spacer()
-                    Text(directors.joined(separator: ", "))
+                    Text("Directed by \(directors.joined(separator: ", "))")
                         .font(.caption)
                         .foregroundStyle(Theme.muted)
                         .lineLimit(1)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)
 
             content
