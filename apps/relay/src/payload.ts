@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-export const pushRequestSchema = z.object({
+// APNs rejects an alert payload over 4 KiB with PayloadTooLarge, so the relay
+// refuses it at validation time instead of spending a round trip to find out.
+export const MAX_APNS_PAYLOAD_BYTES = 4 * 1024;
+
+const pushRequestFields = z.object({
   token: z
     .string()
     .regex(
@@ -13,16 +17,31 @@ export const pushRequestSchema = z.object({
   data: z.record(z.unknown()).optional(),
 });
 
-export type PushRequest = z.infer<typeof pushRequestSchema>;
+// Inferred from the fields, not the refined schema, so the size check below can
+// reference the request type without the two definitions becoming circular.
+export type PushRequest = z.infer<typeof pushRequestFields>;
+
+export const pushRequestSchema = pushRequestFields.refine(
+  (req) => apnsPayloadBytes(req) <= MAX_APNS_PAYLOAD_BYTES,
+  `payload exceeds the APNs limit of ${MAX_APNS_PAYLOAD_BYTES} bytes`,
+);
 
 export function buildApnsPayload(req: PushRequest): Record<string, unknown> {
+  // `data` is caller-controlled, so a supplied `aps` is dropped rather than
+  // merged — it would otherwise override the alert, sound, and content-available.
+  const { aps: _callerAps, ...custom } = req.data ?? {};
   return {
+    ...custom,
     aps: {
       alert: { title: req.title, body: req.body },
       sound: "default",
     },
-    ...(req.data ?? {}),
   };
+}
+
+// The measured value is the body actually sent to Apple, not the request body.
+function apnsPayloadBytes(req: PushRequest): number {
+  return Buffer.byteLength(JSON.stringify(buildApnsPayload(req)), "utf8");
 }
 
 // APNs status the caller can act on. 410 = the app was uninstalled; the relay
