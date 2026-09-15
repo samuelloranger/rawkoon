@@ -13,7 +13,7 @@ fraction of the cost.
 
 Rawkoon will publish one complete OpenAPI 3.1 contract derived from its Hono
 server. It covers every externally reachable HTTP operation, not merely the
-ones used by the current iOS and Android TV apps.
+ones used by the current iOS app.
 
 The server is the sole contract owner. Each Rawkoon-owned operation will have
 one code-first route declaration that defines its method, path, documentation,
@@ -32,7 +32,7 @@ cleanup is a later, explicitly approved breaking-change track.
 - Make request validation, route registration, and contract generation share
   one source of truth for Rawkoon-owned operations.
 - Publish stable operation identifiers and exact request/response schemas for
-  web, iOS, Android TV, scripts, and future clients.
+  web, iOS, scripts, and future clients.
 - Declare authorization, errors, streaming, redirects, binary downloads, and
   range semantics rather than documenting JSON success responses only.
 - Detect undocumented routes, stale documents, and accidental breaking changes
@@ -227,8 +227,6 @@ Generation is downstream of the complete, reviewed artifact:
 - Swift: generate a transport/models package from the committed OpenAPI JSON;
   retain Rawkoon-specific authentication, retry, offline storage, playback,
   and UI logic as a thin adapter around it.
-- Kotlin: generate the corresponding transport/models package; retain Android
-  lifecycle, playback, caching, and UI logic as an adapter.
 - Web TypeScript is not required to switch in the first migration because it
   already shares TypeScript types with the server. It may adopt generated types
   later only where that removes real duplication.

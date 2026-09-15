@@ -108,8 +108,6 @@ Rawkoon is a dim room with one lamp. The ground is warm brown, almost wood, neve
 
 Web and iPhone are the full product. On iOS the structure is native (tabs, stacks, sheets, SF Symbols, SF Pro on every control). Brand lives in the ground, the serif, and Now Playing. On the web, Hanken Grotesk carries the tool UI and Fraunces still owns titles. Do not fork a second identity.
 
-Android TV is a listening-only surface: it reuses the Cozy Dusk palette (warm brown night, one apricot lamp) in a native 10-foot leanback layout with its own focus and remote model. This document specifies web and iPhone; the TV client keeps the same ground and lamp but does not inherit these pointer/touch component rules verbatim.
-
 The visual system is Cozy Dusk: warm brown night, one apricot lamp. Light mode is not a product variant. Cool hues exist only as semantics (in-library, importing). They never become brand.
 
 The phone UI is forced dark at the SwiftUI root (`.preferredColorScheme(.dark)`). Do **not** set `UIUserInterfaceStyle: Dark` in Info.plist — that key is app-wide and also forces the CarPlay scene, which must follow the car's day/night mode (#89).

@@ -6,16 +6,13 @@ web interface ship in the same container.
 
 ## System map
 
-    Browser / iPhone / Android TV
+    Browser / iPhone
       │
       ├── Rawkoon web application
       │     └── same-origin /api requests and server-sent events
       │
       ├── Rawkoon iOS app (`apps/ios`)
       │     └── REST + APNs device token; audiobook chapters download offline
-      │
-      ├── Rawkoon Android TV app (`apps/android-tv`)
-      │     └── REST audiobook player only; browse, resume, chapter navigation
       │
       └── Rawkoon API
             ├── PostgreSQL: users, library, settings, history, integrations
@@ -35,7 +32,6 @@ web interface ship in the same container.
 | <code>apps/api</code> | Hono routes, authentication, database access, integrations, workers, and file operations |
 | <code>apps/shared</code> | Types, pure utilities, and constants used by both applications |
 | <code>apps/ios</code> | Native SwiftUI client (XcodeGen). Linux CI builds RawkoonKit only; full app builds on macOS |
-| <code>apps/android-tv</code> | Native Android TV audiobook player (Kotlin). Playback only — browse, resume, chapter navigation; no acquisition |
 | <code>apps/relay</code> | Hono APNs push relay. Holds the Apple signing key; the API posts to it, it talks to Apple |
 
 The shared workspace has no runtime dependency on the web or API applications.
