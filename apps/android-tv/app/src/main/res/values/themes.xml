@@ -1,6 +1,0 @@
-<resources>
-    <color name="surface_base">#1C1715</color>
-    <style name="Theme.RawkoonTv" parent="@android:style/Theme.DeviceDefault.NoActionBar">
-        <item name="android:windowBackground">@color/surface_base</item>
-    </style>
-</resources>
