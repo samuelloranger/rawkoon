@@ -62,3 +62,4 @@ jobs:
         run: |
           cd apps/web && bun run test --run
           cd ../api && bun run test
+          cd ../relay && bun run test

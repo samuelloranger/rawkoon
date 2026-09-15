@@ -5,17 +5,41 @@ interface Bucket {
   updated: number;
 }
 
+const IDLE_MS = 300_000;
+// Real deployments track a few hundred servers and devices; 10k is ~100x that
+// and caps the map at a couple of MB under a flood of forged keys.
+const DEFAULT_MAX_KEYS = 10_000;
+
 export class RateLimiter {
   private buckets = new Map<string, Bucket>();
+  private readonly maxKeys: number;
+  private readonly now: () => number;
+
   constructor(
     private readonly capacity: number,
     private readonly refillPerSecond: number,
-    private readonly now: () => number = () => Date.now(),
-  ) {}
+    opts: { maxKeys?: number; now?: () => number } = {},
+  ) {
+    this.maxKeys = opts.maxKeys ?? DEFAULT_MAX_KEYS;
+    this.now = opts.now ?? (() => Date.now());
+  }
+
+  get size(): number {
+    return this.buckets.size;
+  }
 
   take(key: string): boolean {
     const now = this.now();
-    const b = this.buckets.get(key) ?? { tokens: this.capacity, updated: now };
+    let b = this.buckets.get(key);
+    if (!b) {
+      if (this.buckets.size >= this.maxKeys) {
+        this.sweep();
+        // Fail closed: under a flood of distinct keys, dropping the request
+        // beats growing the map without bound on a public endpoint.
+        if (this.buckets.size >= this.maxKeys) return false;
+      }
+      b = { tokens: this.capacity, updated: now };
+    }
     const elapsed = (now - b.updated) / 1000;
     b.tokens = Math.min(
       this.capacity,
@@ -34,7 +58,7 @@ export class RateLimiter {
   sweep(): void {
     const now = this.now();
     for (const [key, b] of this.buckets) {
-      if (now - b.updated > 300_000) this.buckets.delete(key);
+      if (now - b.updated > IDLE_MS) this.buckets.delete(key);
     }
   }
 }

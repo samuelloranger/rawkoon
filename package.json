@@ -16,7 +16,7 @@
     "dev:services": "docker compose up db redis -d",
     "docker:down": "docker compose down",
     "docker:rebuild": "docker compose build --no-cache",
-    "test": "bun run --filter @rawkoon/web test && bun run --filter @rawkoon/api test && bun run --filter @rawkoon/shared test",
+    "test": "bun run --filter @rawkoon/web test && bun run --filter @rawkoon/api test && bun run --filter @rawkoon/shared test && bun run --filter @rawkoon/relay test",
     "format": "biome format --write apps/web apps/api apps/shared apps/relay",
     "formatCheck": "biome format apps/web apps/api apps/shared apps/relay",
     "typecheck": "bun run --workspaces --if-present typecheck",
