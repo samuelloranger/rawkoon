@@ -8559,6 +8559,16 @@
           }
         }
       }
+    },
+    "Sign in to your library": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez-vous à votre bibliothèque"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
