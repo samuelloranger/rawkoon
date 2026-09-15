@@ -296,13 +296,24 @@ jobs:
             -archivePath build/Rawkoon-mac.xcarchive \
             MARKETING_VERSION="$MARKETING_VERSION" \
             CURRENT_PROJECT_VERSION="$CURRENT_PROJECT_VERSION"
-      - name: Export pkg
+      # Build the App Store pkg with productbuild instead of `xcodebuild
+      # -exportArchive`. The archived .app is already Apple Distribution-signed
+      # (Release config), and -exportArchive's manual path wrongly validates the
+      # installer cert against the app provisioning profile ("doesn't include
+      # signing certificate 3rd Party Mac Developer Installer") and fails.
+      # productbuild just wraps the signed app and signs the installer pkg.
+      - name: Package + sign App Store pkg
         working-directory: apps/ios
         run: |
-          xcodebuild -exportArchive \
-            -archivePath build/Rawkoon-mac.xcarchive \
-            -exportPath build/export-mac \
-            -exportOptionsPlist ExportOptionsMac.plist
+          APP="$(ls -d build/Rawkoon-mac.xcarchive/Products/Applications/*.app | head -1)"
+          if [ -z "$APP" ]; then echo "No .app in archive" >&2; exit 1; fi
+          INSTALLER_ID="$(security find-identity -v | grep "3rd Party Mac Developer Installer" | head -1 | awk '{print $2}')"
+          if [ -z "$INSTALLER_ID" ]; then echo "No Mac Installer Distribution identity in keychain" >&2; exit 1; fi
+          mkdir -p build/export-mac
+          xcrun productbuild \
+            --sign "$INSTALLER_ID" \
+            --component "$APP" /Applications \
+            build/export-mac/Rawkoon.pkg
       - name: Upload to TestFlight (macOS)
         working-directory: apps/ios
         run: |

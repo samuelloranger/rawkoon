@@ -84,10 +84,14 @@ targets:
         SWIFT_VERSION: "6.0"
         SWIFT_STRICT_CONCURRENCY: complete
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
-        TARGETED_DEVICE_FAMILY: "1,2"
-        # Experimental Mac Catalyst run. Catalyst derives from the iPad idiom
-        # (hence family 2 above). CarPlay sources are #if-guarded out on Catalyst,
-        # and a Mac-only entitlements file drops carplay-audio (invalid on macOS).
+        # iPhone-only on iOS (family 1) so the app stays portrait-only without
+        # tripping Apple's iPad-multitasking rule that demands all four
+        # orientations. Mac Catalyst is built from the macOS SDK and needs the
+        # iPad idiom (family 2), scoped so it never reaches the iOS binary.
+        TARGETED_DEVICE_FAMILY: "1"
+        TARGETED_DEVICE_FAMILY[sdk=macosx*]: "2"
+        # CarPlay sources are #if-guarded out on Catalyst, and a Mac-only
+        # entitlements file drops carplay-audio (invalid on macOS).
         SUPPORTS_MACCATALYST: "YES"
         # NO so the Mac build keeps the iOS bundle id (cloud.samlo.rawkoon) — that
         # unifies it under one App Store Connect record with a macOS platform,
