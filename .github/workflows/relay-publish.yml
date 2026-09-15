@@ -1,0 +1,83 @@
+name: Build and Push Relay Image
+
+# The push relay is separate infrastructure from the Rawkoon server: it is the
+# only piece that holds the APNs signing key, it is internet-facing, and it must
+# never share a blast radius with an instance. So it gets its own image and its
+# own registry entry — docker-publish.yml does not touch it, and cutting a
+# Rawkoon release does not ship it.
+#
+# This workflow publishes only. Unlike the Rawkoon server, the relay is never
+# auto-deployed: a bad image here breaks push for every instance at once and
+# there is no second relay to fail over to, so rolling it out stays a deliberate
+# manual act on the host.
+#
+# Its own tag line (`relay-vX.Y.Z`) keeps that independence honest: the relay
+# changes rarely and on its own schedule, so coupling it to the app's version
+# would mean either shipping it on every app release or never shipping it.
+on:
+  push:
+    tags: ['relay-v*.*.*']
+  # Lets the relay be rebuilt and redeployed without cutting any release.
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/rawkoon-relay
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # The key-holding service is never published untested, even on a manual
+      # dispatch that bypassed the usual CI run on main.
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck relay
+        run: bun run --filter @rawkoon/relay typecheck
+
+      - name: Test relay
+        run: bun run --filter @rawkoon/relay test
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=match,pattern=relay-v(\d+\.\d+\.\d+),group=1
+            type=match,pattern=relay-v(\d+\.\d+),group=1
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/relay/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Deploy instructions
+        run: |
+          echo "Image published. The relay deploys manually by design — no webhook."
+          echo "On the host:"
+          echo "  cd ~/servers/rawkoon-relay && docker compose pull && docker compose up -d"
