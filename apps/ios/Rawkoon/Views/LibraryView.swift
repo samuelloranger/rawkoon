@@ -618,6 +618,7 @@ struct LibraryView: View {
                         BookRow(
                             book: book,
                             downloaded: isDownloaded(book),
+                            progress: progressFraction(book),
                             menuItems: bookCardMenuItems(
                                 hasAudiobook: book.hasAudiobook,
                                 hasEbook: book.hasEbook,
@@ -787,6 +788,18 @@ struct LibraryView: View {
                 uniquingKeysWith: { first, _ in first }
             )
         }
+    }
+
+    /// Audiobook listening fraction for the row's progress bar. Audiobook only:
+    /// ebook `scrollFraction` is per-spine, not whole-book, so a bar from it
+    /// would lie. Nil when nothing is meaningfully in progress or finished.
+    private func progressFraction(_ book: BookListItem) -> Double? {
+        guard
+            let editionId = book.audiobookEditionId,
+            let p = audioProgress[editionId],
+            !p.finished, p.totalDurationSecs > 1, p.positionSecs > 1
+        else { return nil }
+        return min(1, p.positionSecs / p.totalDurationSecs)
     }
 
     private func isDownloaded(_ book: BookListItem) -> Bool {

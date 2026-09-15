@@ -118,6 +118,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     private let placeholder: () -> Placeholder
 
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var uiImage: UIImage?
 
     init(
@@ -145,11 +146,15 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
         let shown = uiImage ?? PosterCache.cached(resolvedURL, maxPixel: maxPixel)
         Group {
             if let shown {
-                content(Image(uiImage: shown))
+                content(Image(uiImage: shown)).transition(.opacity)
             } else {
-                placeholder()
+                placeholder().transition(.opacity)
             }
         }
+        // Crossfade the placeholder → image swap so posters/covers fade in
+        // instead of popping. A synchronous cache hit renders `shown` non-nil on
+        // the first pass, so cached images never animate — only real loads fade.
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.35), value: shown != nil)
         .task(id: resolvedURL) { await load() }
     }
 

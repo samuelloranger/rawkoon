@@ -1,8 +1,11 @@
 import SwiftUI
 
-/// Cozy Dusk hero for a title: backdrop wash, poster, Fraunces title, a mono
-/// meta line, and the watchlist bookmark. No apricot fill lives here — the one
-/// lamp is the primary action below the hero.
+/// Cinematic detail header: a 260pt backdrop wash, the poster, a Fraunces title,
+/// a status pill, a mono meta line, and the tagline. The watchlist action lives
+/// in the navigation toolbar so the artwork and identity stay the only focus
+/// here. The hero is laid out full-width by its container (the scroll VStack has
+/// no horizontal padding), so the backdrop reaches the screen edges without any
+/// negative-padding trick — inner content keeps the 16pt gutter.
 struct DetailHero: View {
     @Environment(AppModel.self) private var model
 
@@ -11,68 +14,68 @@ struct DetailHero: View {
     let backdropPath: String?
     let metaLine: String
     let tagline: String?
-    let inWatchlist: Bool
-    let watchlistPending: Bool
-    let onToggleWatchlist: () -> Void
+    let statusText: String
+    let statusTint: Color
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            CachedAsyncImage(url: model.absoluteURL(backdropPath), targetSize: CGSize(width: 500, height: 200)) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                Theme.raised
-            }
-            .frame(height: 200)
-            .clipped()
+            // The image is an overlay on a fixed-size Rectangle (the same pattern
+            // the poster uses), so layout is driven by the Rectangle, never by
+            // the image. Loading the backdrop can't resize the hero — no flash.
+            Rectangle()
+                .fill(Theme.raised)
+                .frame(maxWidth: .infinity)
+                .frame(height: 260)
+                .overlay {
+                    CachedAsyncImage(url: model.absoluteURL(backdropPath), targetSize: CGSize(width: 600, height: 320)) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Color.clear
+                    }
+                }
+                .clipped()
 
             LinearGradient(
-                colors: [.clear, Theme.base],
+                colors: [.clear, Theme.base.opacity(0.55), Theme.base],
                 startPoint: .top, endPoint: .bottom
             )
-            .frame(height: 200)
+            .frame(maxWidth: .infinity)
+            .frame(height: 260)
 
-            HStack(alignment: .bottom, spacing: 14) {
+            HStack(alignment: .bottom, spacing: 16) {
                 posterThumb
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 7) {
                     Text(title)
-                        .font(.display(22))
+                        .font(.display(26))
                         .foregroundStyle(Theme.textStrong)
                         .lineLimit(3)
+                    StatusBadge(verbatim: statusText, tint: statusTint)
                     Text(metaLine)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.faint)
                     if let tagline, !tagline.isEmpty {
                         Text(tagline)
                             .font(.caption.italic())
-                            .foregroundStyle(Theme.muted)
+                            .foregroundStyle(Theme.text)
                             .lineLimit(2)
                     }
                 }
+                .padding(.bottom, 2)
                 Spacer(minLength: 0)
-                Button(action: onToggleWatchlist) {
-                    Image(systemName: inWatchlist ? "bookmark.fill" : "bookmark")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(inWatchlist ? Theme.terracotta : Theme.textStrong)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Circle())
-                        .background(Theme.base.opacity(0.55), in: Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text(LocalizedStringKey(inWatchlist ? "Remove from watchlist" : "Add to watchlist")))
-                .disabled(watchlistPending)
             }
             .padding(.horizontal, 16)
-            .padding(.bottom, 12)
+            .padding(.bottom, 16)
         }
-        .frame(height: 200)
+        .frame(maxWidth: .infinity)
+        .frame(height: 260)
     }
 
     private var posterThumb: some View {
         RoundedRectangle(cornerRadius: 10)
             .fill(Theme.raised)
-            .frame(width: 84, height: 126)
+            .frame(width: 96, height: 144)
             .overlay(
-                CachedAsyncImage(url: model.absoluteURL(posterPath), targetSize: CGSize(width: 84, height: 126)) { image in
+                CachedAsyncImage(url: model.absoluteURL(posterPath), targetSize: CGSize(width: 192, height: 288)) { image in
                     image.resizable().scaledToFill()
                 } placeholder: {
                     LinearGradient(
@@ -80,7 +83,7 @@ struct DetailHero: View {
                         startPoint: .topLeading, endPoint: .bottomTrailing
                     )
                 }
-                .frame(width: 84, height: 126)
+                .frame(width: 96, height: 144)
                 .clipped()
             )
             .clipShape(RoundedRectangle(cornerRadius: 10))

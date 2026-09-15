@@ -42,25 +42,17 @@ struct HomeView: View {
 
                 if loading, recent.isEmpty {
                     homeSkeleton
+                        .transition(.opacity)
                 } else {
-                    ContinueListeningView(
-                        refreshToken: continueToken,
-                        limit: 3,
-                        onPlaybackDismiss: { continueToken += 1 }
-                    )
-                    ListeningStatsCard(refreshToken: continueToken)
-                        .padding(.horizontal, 16)
-                    if !recent.isEmpty {
-                        rail("Recently added", recent.map(RailItem.library))
-                    }
-                    if !upcoming.isEmpty {
-                        rail("Upcoming", upcoming.map(RailItem.upcoming))
-                    }
-                    widgets
+                    loadedContent
+                        .transition(.opacity)
                 }
             }
             .padding(.vertical, 12)
             .padding(.bottom, 96)
+            // Crossfade skeleton → content instead of a hard cut, so the rails
+            // fade in rather than popping into place on first load.
+            .rawkoonMotion(RawkoonMotion.spring, value: loading)
         }
         .background(Theme.base)
         .navigationDestination(item: $attentionTarget) { route in
@@ -92,6 +84,27 @@ struct HomeView: View {
         .refreshable {
             continueToken += 1
             await load()
+        }
+    }
+
+    /// Everything below the greeting once the first load resolves.
+    @ViewBuilder
+    private var loadedContent: some View {
+        VStack(alignment: .leading, spacing: 26) {
+            ContinueListeningView(
+                refreshToken: continueToken,
+                limit: 3,
+                onPlaybackDismiss: { continueToken += 1 }
+            )
+            ListeningStatsCard(refreshToken: continueToken)
+                .padding(.horizontal, 16)
+            if !recent.isEmpty {
+                rail("Recently added", recent.map(RailItem.library))
+            }
+            if !upcoming.isEmpty {
+                rail("Upcoming", upcoming.map(RailItem.upcoming))
+            }
+            widgets
         }
     }
 
