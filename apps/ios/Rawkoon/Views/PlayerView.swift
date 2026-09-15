@@ -41,7 +41,7 @@ struct PlayerView: View {
             }
             .padding(.horizontal, 24)
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationBackground(Theme.base)
         .rawkoonZoomDestination(RawkoonZoom.audiobook(editionId: summary.editionId))
