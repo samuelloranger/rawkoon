@@ -33,7 +33,9 @@ struct ExploreFilterControls: View {
             }
         }
         .onAppear {
-            if filters.provider != nil { providersExpanded = true }
+            if filters.provider != nil {
+                providersExpanded = true
+            }
         }
         .onChange(of: filters.kind) { _, _ in
             filters.provider = nil

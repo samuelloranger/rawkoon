@@ -12,7 +12,9 @@ struct DiscoverView: View {
     @Namespace private var zoomNamespace
     @Environment(\.horizontalSizeClass) private var hSizeClass
 
-    private var isRegularWidth: Bool { hSizeClass == .regular }
+    private var isRegularWidth: Bool {
+        hSizeClass == .regular
+    }
 
     @State private var query = ""
     @State private var kindFilter: KindFilter = .all
@@ -99,46 +101,46 @@ struct DiscoverView: View {
     var body: some View {
         phoneScroll
             .background(Theme.base)
-        .navigationTitle("Discover")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            // On Mac/iPad Explore lives beside the deck, so the Filter button
-            // (which opens Explore in a sheet) is only needed on phone.
-            if !isRegularWidth {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showExplore = true
-                    } label: {
-                        Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
+            .navigationTitle("Discover")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                // On Mac/iPad Explore lives beside the deck, so the Filter button
+                // (which opens Explore in a sheet) is only needed on phone.
+                if !isRegularWidth {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            showExplore = true
+                        } label: {
+                            Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
+                        }
                     }
                 }
             }
-        }
-        .sheet(isPresented: $showExplore) {
-            NavigationStack {
-                ExploreView()
+            .sheet(isPresented: $showExplore) {
+                NavigationStack {
+                    ExploreView()
+                }
             }
-        }
-        .navigationDestination(item: $openDeckItem) { item in
-            MediaDetailView(
-                tmdbId: item.tmdbId,
-                mediaType: item.mediaType,
-                title: item.title,
-                posterPath: item.posterUrl,
-                libraryId: nil
-            )
-        }
-        .task {
-            if deckItems.isEmpty, !deckLoading {
-                await loadDeck()
+            .navigationDestination(item: $openDeckItem) { item in
+                MediaDetailView(
+                    tmdbId: item.tmdbId,
+                    mediaType: item.mediaType,
+                    title: item.title,
+                    posterPath: item.posterUrl,
+                    libraryId: nil
+                )
             }
-        }
-        .onChange(of: query) { _, _ in
-            scheduleSearch()
-        }
-        .onChange(of: kindFilter) { _, _ in
-            scheduleSearch()
-        }
+            .task {
+                if deckItems.isEmpty, !deckLoading {
+                    await loadDeck()
+                }
+            }
+            .onChange(of: query) { _, _ in
+                scheduleSearch()
+            }
+            .onChange(of: kindFilter) { _, _ in
+                scheduleSearch()
+            }
     }
 
     /// Phone: deck (or search) in one scrolling column; Explore behind the Filter sheet.

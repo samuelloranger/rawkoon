@@ -29,7 +29,9 @@ struct BookView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.horizontalSizeClass) private var hSizeClass
 
-    private var isRegularWidth: Bool { hSizeClass == .regular }
+    private var isRegularWidth: Bool {
+        hSizeClass == .regular
+    }
 
     let book: BookListItem
 

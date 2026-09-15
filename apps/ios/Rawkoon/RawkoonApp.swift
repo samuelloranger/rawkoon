@@ -289,7 +289,8 @@ private struct RootTabsView: View {
             // On Mac/iPad the swipe deck and Explore grid are separate pages;
             // on phone one "Discover" tab holds the deck (Explore is a sheet).
             Tab(hSizeClass == .regular ? "For You" : "Discover",
-                systemImage: "sparkles.rectangle.stack", value: "discover") {
+                systemImage: "sparkles.rectangle.stack", value: "discover")
+            {
                 NavigationStack {
                     DiscoverView()
                 }

@@ -7,7 +7,9 @@ struct LoginView: View {
     @State private var password = ""
     @State private var revealPassword = false
 
-    private var isRegularWidth: Bool { hSizeClass == .regular }
+    private var isRegularWidth: Bool {
+        hSizeClass == .regular
+    }
 
     var body: some View {
         NavigationStack {

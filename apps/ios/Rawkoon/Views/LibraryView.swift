@@ -177,8 +177,8 @@ struct LibraryView: View {
     @State private var audioProgress: [Int: RemoteProgress] = [:]
     @State private var ebookProgress: [Int: ReadingPosition] = [:]
 
-    // Compact (phone) keeps the tuned 3-up grid. Regular width (iPad, Mac) fills
-    // as many ~160pt posters as fit instead of stretching three huge ones.
+    /// Compact (phone) keeps the tuned 3-up grid. Regular width (iPad, Mac) fills
+    /// as many ~160pt posters as fit instead of stretching three huge ones.
     @Environment(\.horizontalSizeClass) private var hSizeClass
 
     private var columns: [GridItem] {
@@ -188,7 +188,9 @@ struct LibraryView: View {
         return Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
     }
 
-    private var isRegularWidth: Bool { hSizeClass == .regular }
+    private var isRegularWidth: Bool {
+        hSizeClass == .regular
+    }
 
     private var density: LibraryDensity {
         LibraryDensity(rawValue: densityRaw) ?? .grid

@@ -14,7 +14,9 @@ struct MediaDetailView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var hSizeClass
 
-    private var isRegularWidth: Bool { hSizeClass == .regular }
+    private var isRegularWidth: Bool {
+        hSizeClass == .regular
+    }
 
     let tmdbId: Int
     let mediaType: String
@@ -83,7 +85,7 @@ struct MediaDetailView: View {
     /// so a burst of SSE events can't run overlapping refreshes.
     @State private var liveReloadTask: Task<Void, Never>?
 
-    // Phone (compact) keeps 3 up; regular width (iPad, Mac) packs more, smaller posters.
+    /// Phone (compact) keeps 3 up; regular width (iPad, Mac) packs more, smaller posters.
     private var similarColumns: [GridItem] {
         if isRegularWidth {
             return [GridItem(.adaptive(minimum: 140, maximum: 180), spacing: 12)]
@@ -357,7 +359,9 @@ struct MediaDetailView: View {
                     HStack(spacing: 0) {
                         // On Mac/iPad the lamp sizes to its label and floats right
                         // instead of stretching the whole content width.
-                        if isRegularWidth { Spacer(minLength: 0) }
+                        if isRegularWidth {
+                            Spacer(minLength: 0)
+                        }
                         lampButton(
                             title: model.isAdmin ? "Add to library" : "Request",
                             systemImage: model.isAdmin ? "plus.circle.fill" : "plus.circle",
