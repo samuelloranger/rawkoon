@@ -282,7 +282,7 @@ struct BookRow: View {
     let book: BookListItem
     let downloaded: Bool
     /// Audiobook listening fraction (0...1) for an in-progress book, else nil.
-    var progress: Double? = nil
+    var progress: Double?
     var menuItems: [BookCardMenuAction] = []
     var onMenuAction: (BookCardMenuAction) -> Void = { _ in }
 
