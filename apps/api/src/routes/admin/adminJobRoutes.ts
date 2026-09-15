@@ -121,7 +121,7 @@ export const adminJobRoutes = new Hono<Env>()
 
   .get("/queues/:name/jobs", async (c) => {
     const queue = queueMap[c.req.param("name")];
-    if (!queue) throw new Error("Queue not found");
+    if (!queue) return notFound("Queue not found");
 
     const statusStrings = c.req.query("status")?.split(",") || [
       "active",
@@ -198,7 +198,7 @@ export const adminJobRoutes = new Hono<Env>()
 
   .post("/queues/:name/jobs/:jobId/retry", async (c) => {
     const queue = queueMap[c.req.param("name")];
-    if (!queue) return badRequest("Queue not found");
+    if (!queue) return notFound("Queue not found");
     const jobId = c.req.param("jobId");
 
     try {
@@ -218,7 +218,7 @@ export const adminJobRoutes = new Hono<Env>()
 
   .post("/queues/:name/retry-failed", async (c) => {
     const queue = queueMap[c.req.param("name")];
-    if (!queue) return badRequest("Queue not found");
+    if (!queue) return notFound("Queue not found");
 
     try {
       const failed = await queue.getJobs(["failed"]);
@@ -240,7 +240,7 @@ export const adminJobRoutes = new Hono<Env>()
 
   .delete("/queues/:name/clean", async (c) => {
     const queue = queueMap[c.req.param("name")];
-    if (!queue) return badRequest("Queue not found");
+    if (!queue) return notFound("Queue not found");
 
     const status = c.req.query("status") || "completed";
     if (!["completed", "failed"].includes(status))
