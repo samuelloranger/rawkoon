@@ -1,6 +1,13 @@
 # Server-derived OpenAPI contract
 
-Status: approved design; implementation not started.
+Status: deferred (2026-09-15). Approved design, implementation not started
+and not scheduled. The full server-derived OpenAPI contract only pays off with
+multiple independent client teams and a repo split; today all clients live in
+one workspace and web already shares TS types with the server. Revisit only if
+the rawkoon-org repo split actually happens (a second, independent API consumer
+is the trigger). Until then the per-endpoint quirks are fixed directly and the
+existing endpoint e2e harness covers accidental-breaking-change detection at a
+fraction of the cost.
 
 ## Decision
 
