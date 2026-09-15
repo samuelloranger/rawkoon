@@ -1,7 +1,7 @@
 import { betterAuth, type Auth } from "better-auth";
 import { genericOAuth, bearer } from "better-auth/plugins";
 import { apiKey } from "@better-auth/api-key";
-import { prismaAdapter } from "@better-auth/prisma-adapter";
+import { prismaAdapter } from "better-auth/adapters/prisma";
 import { passkey } from "@better-auth/passkey";
 import { prisma } from "@rawkoon/api/db";
 import { getBaseUrl, loadConfig } from "@rawkoon/api/config";
@@ -266,11 +266,6 @@ export const auth = betterAuth({
   advanced: {
     database: {
       generateId: "uuid",
-      // better-auth 1.7.3's schema check doesn't resolve Prisma @@map, so it
-      // reports our snake_case tables (users, ba_sessions, …) as missing and
-      // throws SCHEMA_MISMATCH on every auth call. The tables do exist under
-      // @@map — disable the check to keep auth working.
-      validateSchema: false,
     },
   },
 }) as unknown as Auth;
