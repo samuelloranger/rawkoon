@@ -97,10 +97,7 @@ struct MediaDetailView: View {
                 liveReloadTask?.cancel()
                 liveReloadTask = Task { await refreshManagementData() }
             }
-        // Applied to the outermost destination view so the zoom transition is
-        // recognized, not buried under the dialog/sheet wrappers.
         return attachDialogs(attachSheets(base))
-            .rawkoonZoomDestination(RawkoonZoom.media(tmdbId: tmdbId, mediaType: mediaType))
     }
 
     private var scrollBody: some View {
