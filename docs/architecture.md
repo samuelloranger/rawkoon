@@ -6,13 +6,16 @@ web interface ship in the same container.
 
 ## System map
 
-    Browser / iPhone
+    Browser / iPhone / Android TV
       │
       ├── Rawkoon web application
       │     └── same-origin /api requests and server-sent events
       │
       ├── Rawkoon iOS app (`apps/ios`)
       │     └── REST + APNs device token; audiobook chapters download offline
+      │
+      ├── Rawkoon Android TV app (`apps/android-tv`)
+      │     └── REST audiobook player only; browse, resume, chapter navigation
       │
       └── Rawkoon API
             ├── PostgreSQL: users, library, settings, history, integrations
@@ -29,9 +32,10 @@ web interface ship in the same container.
 | Workspace | Responsibility |
 | --- | --- |
 | <code>apps/web</code> | React interface, routing, query cache, translations, and realtime UI |
-| <code>apps/api</code> | Elysia routes, authentication, database access, integrations, workers, and file operations |
+| <code>apps/api</code> | Hono routes, authentication, database access, integrations, workers, and file operations |
 | <code>apps/shared</code> | Types, pure utilities, and constants used by both applications |
 | <code>apps/ios</code> | Native SwiftUI client (XcodeGen). Linux CI builds RawkoonKit only; full app builds on macOS |
+| <code>apps/android-tv</code> | Native Android TV audiobook player (Kotlin). Playback only — browse, resume, chapter navigation; no acquisition |
 | <code>apps/relay</code> | Hono APNs push relay. Holds the Apple signing key; the API posts to it, it talks to Apple |
 
 The shared workspace has no runtime dependency on the web or API applications.
@@ -43,7 +47,7 @@ for the published app, so pushes go through the relay.
 ## A normal request
 
 The browser makes root-relative <code>/api/...</code> calls with the session
-cookie. Elysia authenticates the request where required, runs route-level
+cookie. Hono authenticates the request where required, runs route-level
 validation, then either performs simple database work directly or calls a
 service for a larger workflow.
 

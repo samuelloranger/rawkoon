@@ -39,6 +39,7 @@ In-product:
 - Books: ebook and audiobook editions, same request/grab/quality-profile surface as video.
 - Web: library management plus in-tab audiobook playback and EPUB reading (foreground only).
 - iOS: Home / Discover / Library / Activity / Settings; audiobook playback with chapter downloads, position sync, lock-screen Now Playing. The phone does not play video.
+- Android TV: audiobook player only — browse the library, resume, chapter navigation, remote-friendly controls. It plays what the instance already holds; it does not manage the pipeline.
 
 Terminology that future work must keep: library, request, grab, quality profile, edition, chapter, monitor, Now Playing.
 
@@ -48,7 +49,7 @@ GPL-3.0. Published as `ghcr.io/samuelloranger/rawkoon`. Live docs: https://samlo
 
 - Name: Rawkoon.
 - Logo: `apps/web/public/icon.svg`.
-- Web and iPhone are one product. Native structure on iOS (TabView, NavigationStack, sheets, system controls); the same product in the browser. Do not fork a second identity.
+- Web and iPhone are the full product; Android TV is a listening-only surface of it. Native structure on iOS (TabView, NavigationStack, sheets, system controls) and native leanback on Android TV; the same product in the browser. Do not fork a second identity across any surface.
 
 ## Evidence on Hand
 
@@ -62,4 +63,4 @@ GPL-3.0. Published as `ghcr.io/samuelloranger/rawkoon`. Live docs: https://samlo
 2. The phone is the remote for video and the player for audiobooks.
 3. Design for the admin's job first; household members request and listen, they do not configure.
 4. Stay a media library. Do not add home-hub surfaces (chores, habits, personal events).
-5. One product on two surfaces: native iOS structure, shared Rawkoon identity.
+5. One product, one identity across surfaces: web and iPhone are the whole product, Android TV listens only; native structure on each, shared Rawkoon skin.
