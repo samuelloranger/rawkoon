@@ -4,6 +4,7 @@ import SwiftUI
 /// a release — mirrors the web book-detail flow. Presented as a sheet.
 struct BookReleaseSearchView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
 
     let bookId: Int
     let kind: String // "audiobook" | "ebook"
@@ -24,12 +25,30 @@ struct BookReleaseSearchView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, 10).padding(.bottom, 12)
 
-            Text(kind == "audiobook" ? LocalizedStringKey("Add audiobook") : LocalizedStringKey("Add ebook"))
-                .font(.display(20)).foregroundStyle(Theme.textStrong)
-            Text(title)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(Theme.faint)
-                .padding(.bottom, 12)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(kind == "audiobook" ? LocalizedStringKey("Add audiobook") : LocalizedStringKey("Add ebook"))
+                        .font(.display(20)).foregroundStyle(Theme.textStrong)
+                    Text(title)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.faint)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                // Catalyst sheets don't swipe-to-dismiss — and size class is compact
+                // inside a sheet even on Mac, so gate on the platform, not the width.
+                #if targetEnvironment(macCatalyst)
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(Theme.muted)
+                            .symbolRenderingMode(.hierarchical)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Close")
+                #endif
+            }
+            .padding(.bottom, 12)
 
             content
         }

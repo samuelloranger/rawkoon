@@ -1,3 +1,4 @@
+#if !targetEnvironment(macCatalyst)
 import CarPlay
 import Observation
 import RawkoonKit
@@ -173,3 +174,4 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
             : String(format: "%d:%02d", minutes, secs)
     }
 }
+#endif

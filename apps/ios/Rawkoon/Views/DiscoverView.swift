@@ -10,6 +10,9 @@ struct DiscoverView: View {
     /// this namespace directly, which is the reliable pattern (an environment-
     /// shared namespace does not engage the transition).
     @Namespace private var zoomNamespace
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+
+    private var isRegularWidth: Bool { hSizeClass == .regular }
 
     @State private var query = ""
     @State private var kindFilter: KindFilter = .all
@@ -94,28 +97,20 @@ struct DiscoverView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                searchField
-
-                if isSearching {
-                    kindPicker
-                    searchContent
-                } else {
-                    deckContent
-                }
-            }
-            .padding(.top, 12)
-        }
-        .background(Theme.base)
+        phoneScroll
+            .background(Theme.base)
         .navigationTitle("Discover")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showExplore = true
-                } label: {
-                    Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
+            // On Mac/iPad Explore lives beside the deck, so the Filter button
+            // (which opens Explore in a sheet) is only needed on phone.
+            if !isRegularWidth {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showExplore = true
+                    } label: {
+                        Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
+                    }
                 }
             }
         }
@@ -138,15 +133,34 @@ struct DiscoverView: View {
                 await loadDeck()
             }
         }
-        .refreshable {
-            await loadDeck()
-        }
         .onChange(of: query) { _, _ in
             scheduleSearch()
         }
         .onChange(of: kindFilter) { _, _ in
             scheduleSearch()
         }
+    }
+
+    /// Phone: deck (or search) in one scrolling column; Explore behind the Filter sheet.
+    private var phoneScroll: some View {
+        ScrollView {
+            deckColumn
+        }
+        .refreshable { await loadDeck() }
+    }
+
+    private var deckColumn: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            searchField
+
+            if isSearching {
+                kindPicker
+                searchContent
+            } else {
+                deckContent
+            }
+        }
+        .padding(.top, 12)
     }
 
     // MARK: Search field

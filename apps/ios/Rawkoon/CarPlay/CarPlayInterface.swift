@@ -1,3 +1,4 @@
+#if !targetEnvironment(macCatalyst)
 import CarPlay
 import Foundation
 import ImageIO
@@ -106,3 +107,4 @@ enum CarPlayInterface {
         return UIImage(cgImage: thumbnail)
     }
 }
+#endif

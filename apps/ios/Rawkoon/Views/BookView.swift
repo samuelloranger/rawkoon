@@ -27,6 +27,9 @@ private enum ReleaseSearchLane: String, Identifiable {
 
 struct BookView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+
+    private var isRegularWidth: Bool { hSizeClass == .regular }
 
     let book: BookListItem
 
@@ -160,6 +163,9 @@ struct BookView: View {
                 }
                 .padding(.horizontal, 16)
             }
+            // Cap to a readable measure and center on iPad/Mac; full-bleed on phone.
+            .frame(maxWidth: isRegularWidth ? 980 : .infinity)
+            .frame(maxWidth: .infinity)
             .padding(.bottom, 24)
         }
         .background(Theme.base)

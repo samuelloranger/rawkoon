@@ -1,7 +1,7 @@
 import RawkoonKit
 import SwiftUI
 
-private enum LibrarySection: String, CaseIterable, Identifiable {
+enum LibrarySection: String, CaseIterable, Identifiable {
     case media = "Media"
     case books = "Books"
     var id: String {
@@ -128,6 +128,15 @@ struct LibraryView: View {
 
     @State private var section: LibrarySection = .media
 
+    /// When set (desktop's split Media/Books tabs), the section is fixed and the
+    /// Media/Books segmented toggle is hidden. Nil keeps the phone's single tab.
+    private let forcedSection: LibrarySection?
+
+    init(forcedSection: LibrarySection? = nil) {
+        self.forcedSection = forcedSection
+        _section = State(initialValue: forcedSection ?? .media)
+    }
+
     /// Grid is the default so the first open is byte-identical to today.
     @AppStorage("library.density") private var densityRaw = LibraryDensity.grid.rawValue
 
@@ -168,7 +177,18 @@ struct LibraryView: View {
     @State private var audioProgress: [Int: RemoteProgress] = [:]
     @State private var ebookProgress: [Int: ReadingPosition] = [:]
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
+    // Compact (phone) keeps the tuned 3-up grid. Regular width (iPad, Mac) fills
+    // as many ~160pt posters as fit instead of stretching three huge ones.
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+
+    private var columns: [GridItem] {
+        if hSizeClass == .regular {
+            return [GridItem(.adaptive(minimum: 160, maximum: 220), spacing: 12)]
+        }
+        return Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
+    }
+
+    private var isRegularWidth: Bool { hSizeClass == .regular }
 
     private var density: LibraryDensity {
         LibraryDensity(rawValue: densityRaw) ?? .grid
@@ -180,12 +200,14 @@ struct LibraryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Section", selection: $section) {
-                ForEach(LibrarySection.allCases) { Text($0.title).tag($0) }
+            if forcedSection == nil {
+                Picker("Section", selection: $section) {
+                    ForEach(LibrarySection.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
 
             if model.isOfflineLibrary {
                 offlineBanner
@@ -603,6 +625,7 @@ struct LibraryView: View {
                 }
             }
             .padding(.horizontal, 16).padding(.vertical, 16)
+            .libraryReadingWidth(isRegularWidth)
         }
         .overlay { mediaOverlay }
         .refreshable { await loadMedia(reset: true) }
@@ -638,6 +661,7 @@ struct LibraryView: View {
                 }
             }
             .padding(.horizontal, 16).padding(.top, 4)
+            .libraryReadingWidth(isRegularWidth)
         }
         .overlay {
             if model.loading, model.library.isEmpty {
@@ -1056,6 +1080,19 @@ struct LibraryView: View {
             model.toast(String(localized: "Rescan started."), style: .success)
         } catch {
             model.toast(errorMessage(for: error), style: .error)
+        }
+    }
+}
+
+private extension View {
+    /// On regular width (iPad, Mac) caps a stacked list to a readable measure and
+    /// centers it, so rows don't stretch a wide window. No-op on compact (phone).
+    @ViewBuilder
+    func libraryReadingWidth(_ regular: Bool) -> some View {
+        if regular {
+            frame(maxWidth: 720).frame(maxWidth: .infinity)
+        } else {
+            self
         }
     }
 }
