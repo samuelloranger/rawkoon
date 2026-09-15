@@ -35,15 +35,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+      # Same setup every CI job uses: pinned Bun, cached install, and the dummy
+      # DATABASE_URL that the API's `prisma generate` postinstall needs.
+      - uses: ./.github/actions/setup
 
       # The key-holding service is never published untested, even on a manual
       # dispatch that bypassed the usual CI run on main.
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
       - name: Typecheck relay
         run: bun run --filter @rawkoon/relay typecheck
 
