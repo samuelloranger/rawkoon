@@ -8536,10 +8536,30 @@
           }
         }
       }
-    }
-,
+    },
     "Blu-ray": {
       "shouldTranslate": false
-    }  },
+    },
+    "At a glance": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En un coup d’œil"
+          }
+        }
+      }
+    },
+    "Other files": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autres fichiers"
+          }
+        }
+      }
+    }
+  },
   "version": "1.0"
 }

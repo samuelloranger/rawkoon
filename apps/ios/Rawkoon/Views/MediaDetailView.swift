@@ -91,6 +91,17 @@ struct MediaDetailView: View {
             .background(Theme.base)
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task { await toggleWatchlist() }
+                    } label: {
+                        Image(systemName: inWatchlist ? "bookmark.fill" : "bookmark")
+                    }
+                    .accessibilityLabel(Text(LocalizedStringKey(inWatchlist ? "Remove from watchlist" : "Add to watchlist")))
+                    .disabled(watchlistPending)
+                }
+            }
             .sensoryFeedback(RawkoonHaptics.feedback(for: .grab), trigger: requested)
             .onChange(of: model.libraryChangeToken) { _, _ in
                 guard showManagement, managementItem != nil else { return }
@@ -239,11 +250,9 @@ struct MediaDetailView: View {
                 backdropPath: details?.primaryBackdropUrl,
                 metaLine: metaLine,
                 tagline: details?.tagline,
-                inWatchlist: inWatchlist,
-                watchlistPending: watchlistPending,
-                onToggleWatchlist: { Task { await toggleWatchlist() } }
+                statusText: detailStatusText,
+                statusTint: detailStatusTint
             )
-            statusRow
             primaryAction
             DetailFactsStrip(details: details, ratings: ratings, mediaType: mediaType, loading: loading)
             overview
@@ -267,20 +276,23 @@ struct MediaDetailView: View {
         VStack(alignment: .leading, spacing: 18) {
             ZStack(alignment: .bottomLeading) {
                 ShimmerView(cornerRadius: 0)
-                    .frame(height: 200)
-                HStack(alignment: .bottom, spacing: 14) {
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 260)
+                HStack(alignment: .bottom, spacing: 16) {
                     ShimmerView(cornerRadius: 10)
-                        .frame(width: 84, height: 126)
+                        .frame(width: 96, height: 144)
                     VStack(alignment: .leading, spacing: 8) {
-                        ShimmerView(cornerRadius: 6).frame(width: 180, height: 22)
+                        ShimmerView(cornerRadius: 6).frame(width: 180, height: 26)
+                        ShimmerView(cornerRadius: 4).frame(width: 90, height: 18)
                         ShimmerView(cornerRadius: 4).frame(width: 120, height: 12)
                     }
                     Spacer(minLength: 0)
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 12)
+                .padding(.bottom, 16)
             }
-            .frame(height: 200)
+            .frame(maxWidth: .infinity)
+            .frame(height: 260)
 
             VStack(alignment: .leading, spacing: 8) {
                 ShimmerView(cornerRadius: 4).frame(height: 12)
@@ -305,26 +317,30 @@ struct MediaDetailView: View {
 
     // MARK: Status + primary action (the one lamp)
 
-    private var statusRow: some View {
-        HStack {
-            if libraryId != nil || added {
-                StatusBadge(text: "In library", tint: Theme.seed)
-            } else if requested {
-                StatusBadge(text: "Requested", tint: Theme.seed)
-            } else if inWatchlist {
-                StatusBadge(text: "Watchlist", tint: Theme.muted)
-            } else {
-                StatusBadge(text: "Not added", tint: Theme.muted)
-            }
-            Spacer()
+    /// The status shown as a pill in the hero (was a separate row before the
+    /// hero redesign folded it under the title).
+    private var detailStatusText: String {
+        if libraryId != nil || added {
+            String(localized: "In library")
+        } else if requested {
+            String(localized: "Requested")
+        } else if inWatchlist {
+            String(localized: "Watchlist")
+        } else {
+            String(localized: "Not added")
         }
-        .padding(.horizontal, 16)
     }
 
+    private var detailStatusTint: Color {
+        (libraryId != nil || added || requested) ? Theme.seed : Theme.muted
+    }
+
+    /// The add/request lamp for titles not yet in the library. In-library
+    /// "Search releases" is no longer here — it moved into the Management card.
     @ViewBuilder
     private var primaryAction: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if libraryId == nil {
+        if libraryId == nil {
+            VStack(alignment: .leading, spacing: 8) {
                 if !requested, !added {
                     lampButton(
                         title: model.isAdmin ? "Add to library" : "Request",
@@ -343,23 +359,9 @@ struct MediaDetailView: View {
                         .font(.caption)
                         .foregroundStyle(Theme.terracotta)
                 }
-            } else if model.isAdmin {
-                // In-library, "Search releases" is a management action, not the
-                // screen's one lamp — compact bordered, content-width.
-                HStack(spacing: 10) {
-                    Button {
-                        releaseSearchSeason = nil
-                        showingReleaseSearch = true
-                    } label: {
-                        Label("Search releases", systemImage: "magnifyingglass")
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(Theme.apricot)
-                    Spacer(minLength: 0)
-                }
             }
+            .padding(.horizontal, 16)
         }
-        .padding(.horizontal, 16)
     }
 
     /// The single apricot lamp: the screen's one primary action.
@@ -469,11 +471,36 @@ struct MediaDetailView: View {
     }
 
     private func managementControlsCard(_ item: LibraryMedia) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Management")
-                .font(.sectionTitle)
-                .foregroundStyle(Theme.textStrong)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Management")
+                    .font(.sectionTitle)
+                    .foregroundStyle(Theme.textStrong)
+                Spacer()
+                if applyingManagementChange {
+                    ProgressView().tint(Theme.muted)
+                }
+            }
 
+            // The card's one lamp: searching releases is the primary reason an
+            // admin opens Management.
+            Button {
+                releaseSearchSeason = nil
+                showingReleaseSearch = true
+            } label: {
+                Label("Search releases", systemImage: "magnifyingglass")
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Theme.apricot)
+            .foregroundStyle(Theme.onAccent)
+            .fontWeight(.semibold)
+            .disabled(applyingManagementChange)
+
+            managementDivider
+
+            // Monitoring + quality: what the library tracks and how.
             Toggle("Monitored", isOn: Binding(
                 get: { item.monitored },
                 set: { newValue in Task { await applyMonitoredChange(newValue) } }
@@ -481,62 +508,78 @@ struct MediaDetailView: View {
             .tint(Theme.terracotta)
             .disabled(applyingManagementChange)
 
-            HStack {
-                Text("Status")
-                Spacer()
+            managementFieldRow(label: "Status") {
                 LocalizedStatus.text(item.status)
+                    .font(.subheadline)
                     .foregroundStyle(Theme.muted)
             }
-            .font(.subheadline)
-
             Text("Status is controlled by grabs and scans, not edited manually.")
                 .font(.caption2)
                 .foregroundStyle(Theme.faint)
 
-            Picker("Quality profile", selection: Binding(
-                get: { item.qualityProfileId ?? 0 },
-                set: { newValue in Task { await applyQualityProfileChange(newValue == 0 ? nil : newValue) } }
-            )) {
-                Text("None").tag(0)
-                ForEach(qualityProfiles) { profile in
-                    Text(profile.name).tag(profile.id)
+            managementFieldRow(label: "Quality profile") {
+                Picker("Quality profile", selection: Binding(
+                    get: { item.qualityProfileId ?? 0 },
+                    set: { newValue in Task { await applyQualityProfileChange(newValue == 0 ? nil : newValue) } }
+                )) {
+                    Text("None").tag(0)
+                    ForEach(qualityProfiles) { profile in
+                        Text(profile.name).tag(profile.id)
+                    }
                 }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .tint(Theme.apricot)
+                .disabled(applyingManagementChange)
             }
-            .pickerStyle(.menu)
+
+            managementDivider
+
+            // Maintenance + the one destructive action, kept apart at the bottom.
+            Button {
+                Task { await runRescan() }
+            } label: {
+                Label("Rescan files", systemImage: "arrow.clockwise")
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
+            }
+            .buttonStyle(.bordered)
+            .tint(Theme.muted)
             .disabled(applyingManagementChange)
 
-            HStack(spacing: 10) {
-                Button {
-                    Task { await runRescan() }
-                } label: {
-                    Label("Rescan files", systemImage: "arrow.clockwise")
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .tint(Theme.muted)
-                .disabled(applyingManagementChange)
-
-                Button(role: .destructive) {
-                    pendingRemoveLibraryId = libraryId
-                    pendingRemoveTitle = title
-                    showingRemoveConfirm = true
-                } label: {
-                    Label("Remove from library", systemImage: "trash")
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .tint(Theme.terracotta)
-                .disabled(applyingManagementChange)
+            Button(role: .destructive) {
+                pendingRemoveLibraryId = libraryId
+                pendingRemoveTitle = title
+                showingRemoveConfirm = true
+            } label: {
+                Label("Remove from library", systemImage: "trash")
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
             }
+            .buttonStyle(.bordered)
+            .tint(Theme.terracotta)
+            .disabled(applyingManagementChange)
         }
         .padding(14)
         .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
         .padding(.horizontal, 16)
+    }
+
+    private var managementDivider: some View {
+        Divider().overlay(Theme.border)
+    }
+
+    /// A label on the left, its control/value trailing — the row shape shared by
+    /// the Status and Quality-profile lines.
+    private func managementFieldRow(label: LocalizedStringKey, @ViewBuilder trailing: () -> some View) -> some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .foregroundStyle(Theme.text)
+            Spacer(minLength: 8)
+            trailing()
+        }
     }
 
     private var managementFilesCard: some View {

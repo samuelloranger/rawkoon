@@ -148,20 +148,38 @@ struct BookView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                header
-                lanePicker
-                if let detailError, detail == nil {
-                    errorBanner(detailError)
+                hero
+                VStack(alignment: .leading, spacing: 18) {
+                    lanePicker
+                    if let detailError, detail == nil {
+                        errorBanner(detailError)
+                    }
+                    laneContent
+                    metadataCard
+                    overviewCard
                 }
-                laneContent
-                metadataCard
-                overviewCard
+                .padding(.horizontal, 16)
             }
-            .padding(16)
+            .padding(.bottom, 24)
         }
         .background(Theme.base)
         .navigationTitle(titleText)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    if isRead {
+                        Task { await model.setBookRead(book, read: false) }
+                    } else {
+                        confirmMarkRead = true
+                    }
+                } label: {
+                    Image(systemName: isRead ? "checkmark.circle.fill" : "checkmark.circle")
+                }
+                .accessibilityLabel(Text(LocalizedStringKey(isRead ? "Mark as unread" : "Mark as read")))
+                .tint(isRead ? Theme.seed : Theme.apricot)
+            }
+        }
         .rawkoonZoomDestination(RawkoonZoom.book(book.bookId))
         .onAppear {
             seedManifestFromCache()
@@ -249,68 +267,17 @@ struct BookView: View {
 
     // MARK: Header
 
-    private var header: some View {
-        HStack(alignment: .top, spacing: 14) {
-            BookCover(url: coverURL, size: 96, corner: 12)
-                .shadow(color: .black.opacity(0.5), radius: 12, y: 8)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text(titleText)
-                    .font(.display(20))
-                    .foregroundStyle(Theme.textStrong)
-                    .lineLimit(3)
-                if let subtitleText, !subtitleText.isEmpty {
-                    Text(subtitleText)
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.muted)
-                }
-                if !authorText.isEmpty {
-                    Text(authorText)
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.muted)
-                }
-                if let facts = factsLine {
-                    Text(facts)
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(Theme.faint)
-                }
-                HStack(spacing: 6) {
-                    if isRead {
-                        chip(Text(verbatim: bookReadStatusText()), tint: Theme.seed)
-                    }
-                    if hasAudiobookEdition {
-                        chip(
-                            Text("Audiobook") + Text(verbatim: " · ")
-                                + LocalizedStatus.text(audiobookEdition?.status ?? book.audiobookStatus ?? "wanted"),
-                            tint: Theme.muted
-                        )
-                    }
-                    if hasEbookEdition {
-                        chip(
-                            Text("Ebook") + Text(verbatim: " · ")
-                                + LocalizedStatus.text(ebookEdition?.status ?? "wanted"),
-                            tint: Theme.muted
-                        )
-                    }
-                }
-                .padding(.top, 2)
-
-                Button {
-                    if isRead {
-                        Task { await model.setBookRead(book, read: false) }
-                    } else {
-                        confirmMarkRead = true
-                    }
-                } label: {
-                    Text(isRead ? "Mark as unread" : "Mark as read")
-                        .font(.subheadline.weight(.medium))
-                        .frame(minHeight: 44)
-                }
-                .buttonStyle(.bordered)
-                .tint(Theme.seed)
-                .padding(.top, 4)
+    private var hero: some View {
+        BookHero(
+            title: titleText,
+            subtitle: subtitleText,
+            author: authorText,
+            coverURL: coverURL,
+            metaLine: factsLine
+        ) {
+            if isRead {
+                chip(Text(verbatim: bookReadStatusText()), tint: Theme.seed)
             }
-            Spacer(minLength: 0)
         }
     }
 
@@ -423,6 +390,63 @@ struct BookView: View {
         return rows
     }
 
+    /// Admin-only per-lane management, mirroring the media detail's Management
+    /// card: release search (the card's primary action) plus a rescan. Keeps
+    /// these off the reader/listener action stack above.
+    @ViewBuilder
+    private func bookManagementCard(lane: BookDetailLane) -> some View {
+        if model.isAdmin {
+            let rescanning = lane == .audiobook ? rescanningManifest : rescanningEbook
+            let rescanDisabled = lane == .audiobook
+                ? (rescanningManifest || loadingManifest)
+                : (rescanningEbook || loadingEbookFiles)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Management")
+                    .font(.sectionTitle)
+                    .foregroundStyle(Theme.textStrong)
+
+                Button {
+                    releaseSearchLane = lane == .audiobook ? .audiobook : .ebook
+                } label: {
+                    Label("Search releases", systemImage: "magnifyingglass")
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.apricot)
+                .foregroundStyle(Theme.onAccent)
+                .fontWeight(.semibold)
+
+                Button {
+                    Task {
+                        if lane == .audiobook {
+                            await recoverManifestAfterRescan()
+                        } else {
+                            await rescanEbookEdition()
+                        }
+                    }
+                } label: {
+                    Group {
+                        if rescanning {
+                            ProgressView().tint(Theme.muted)
+                        } else {
+                            Label("Rescan", systemImage: "arrow.clockwise")
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
+                }
+                .buttonStyle(.bordered)
+                .tint(Theme.muted)
+                .disabled(rescanDisabled)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
+        }
+    }
+
     private func chip(_ text: Text, tint: Color) -> some View {
         text
             .font(.system(.caption2, design: .monospaced))
@@ -461,6 +485,7 @@ struct BookView: View {
                 )
                 audiobookActionButtons
                 chaptersList
+                bookManagementCard(lane: .audiobook)
             }
         } else {
             missingEditionCard(
@@ -518,43 +543,6 @@ struct BookView: View {
             .disabled(!canPlayAudiobook)
 
             audiobookDownloadButton
-
-            if model.isAdmin {
-                HStack(spacing: 10) {
-                    Button {
-                        releaseSearchLane = .audiobook
-                    } label: {
-                        Label("Search releases", systemImage: "magnifyingglass")
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
-                            .frame(maxWidth: .infinity)
-                            .frame(minHeight: 44)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(Theme.muted)
-
-                    if manifest == nil {
-                        Button {
-                            Task { await recoverManifestAfterRescan() }
-                        } label: {
-                            Group {
-                                if rescanningManifest {
-                                    ProgressView().tint(Theme.muted)
-                                } else {
-                                    Label("Rescan", systemImage: "arrow.clockwise")
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.85)
-                                }
-                            }
-                            .frame(maxWidth: .infinity)
-                            .frame(minHeight: 44)
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(Theme.muted)
-                        .disabled(rescanningManifest || loadingManifest)
-                    }
-                }
-            }
 
             if let audiobookActionError {
                 Text(audiobookActionError)
@@ -734,6 +722,7 @@ struct BookView: View {
                 )
                 ebookActions
                 ebookFilesCard
+                bookManagementCard(lane: .ebook)
             }
         } else {
             missingEditionCard(
@@ -816,38 +805,6 @@ struct BookView: View {
                 }
             }
 
-            if model.isAdmin {
-                HStack(spacing: 10) {
-                    Button {
-                        releaseSearchLane = .ebook
-                    } label: {
-                        Label("Search releases", systemImage: "magnifyingglass")
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
-                            .frame(maxWidth: .infinity).frame(minHeight: 44)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(Theme.muted)
-
-                    Button {
-                        Task { await rescanEbookEdition() }
-                    } label: {
-                        Group {
-                            if rescanningEbook {
-                                ProgressView().tint(Theme.muted)
-                            } else {
-                                Label("Rescan", systemImage: "arrow.clockwise")
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.85)
-                            }
-                        }
-                        .frame(maxWidth: .infinity).frame(minHeight: 44)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(Theme.muted)
-                    .disabled(rescanningEbook || loadingEbookFiles)
-                }
-            }
             if let ebookFilesError {
                 Text(ebookFilesError)
                     .font(.caption)

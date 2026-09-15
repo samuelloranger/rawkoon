@@ -90,10 +90,15 @@ struct DetailSeasonsSection: View {
             }
 
             if isExpanded {
-                episodeList(episodes, canManage: canManage)
                 let files = filesBySeason[season.seasonNumber] ?? []
-                if !files.isEmpty {
-                    seasonFilesList(files)
+                let filesByEp = Dictionary(grouping: files.filter { $0.episode != nil }, by: { $0.episode! })
+                mergedEpisodeList(episodes, filesByEp: filesByEp, canManage: canManage)
+                let orphans = files.filter { file in
+                    guard let ep = file.episode else { return true }
+                    return !episodes.contains { $0.episode == ep }
+                }
+                if !orphans.isEmpty {
+                    otherFilesList(orphans)
                 }
             }
         }
@@ -144,8 +149,15 @@ struct DetailSeasonsSection: View {
         }
     }
 
+    /// One row per episode: episodes with a matching library file merge that
+    /// file's expandable technical detail in place; episodes without one keep
+    /// the plain info row. Files with no matching episode fall to "Other files".
     @ViewBuilder
-    private func episodeList(_ episodes: [Episode], canManage: Bool) -> some View {
+    private func mergedEpisodeList(
+        _ episodes: [Episode],
+        filesByEp: [Int: [LibraryFileInfo]],
+        canManage: Bool
+    ) -> some View {
         if episodes.isEmpty {
             Text(inLibrary ? "No episode data yet." : "Episode details appear once this is in your library.")
                 .font(.caption)
@@ -153,18 +165,59 @@ struct DetailSeasonsSection: View {
         } else {
             VStack(spacing: 6) {
                 ForEach(episodes.sorted { $0.episode < $1.episode }) { episode in
-                    episodeRow(episode, canManage: canManage)
+                    if let files = filesByEp[episode.episode], !files.isEmpty {
+                        mergedEpisodeRow(episode, files: files, canManage: canManage)
+                    } else {
+                        episodeRow(episode, canManage: canManage)
+                    }
                 }
             }
         }
     }
 
-    /// The season's real files, folded in below its episodes so a series page
-    /// has one season-grouped list instead of a separate Files card. Delete
-    /// stays on the episode row (episode-mode rows carry no delete menu).
-    private func seasonFilesList(_ files: [LibraryFileInfo]) -> some View {
+    /// An episode whose file is present: a slim status header (episode status +
+    /// monitor state) with the file's full expandable detail folded in below.
+    private func mergedEpisodeRow(_ episode: Episode, files: [LibraryFileInfo], canManage: Bool) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Files")
+            HStack(spacing: 6) {
+                Text("E\(String(format: "%02d", episode.episode))")
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(Theme.faint)
+                statusBadge(episode.status, tint: statusTint(episode.status))
+                if !episode.monitored {
+                    Label("Unmonitored", systemImage: "bell.slash")
+                        .labelStyle(.iconOnly)
+                        .font(.system(size: 10))
+                        .foregroundStyle(Theme.faint)
+                }
+                Spacer(minLength: 0)
+            }
+            ForEach(files) { file in
+                DetailFileRow(
+                    file: file,
+                    mode: .episode,
+                    isAdmin: isAdmin,
+                    onChanged: onFileChanged,
+                    onNotice: onFileNotice,
+                    onError: onFileError,
+                    onRequestDelete: {}
+                )
+            }
+        }
+        .padding(10)
+        .background(Theme.well, in: RoundedRectangle(cornerRadius: 10))
+        .contextMenu {
+            if canManage {
+                episodeMenu(episode)
+            }
+        }
+    }
+
+    /// Library files that match no episode (specials, mislabeled grabs) — kept
+    /// visible so nothing on disk is hidden.
+    private func otherFilesList(_ files: [LibraryFileInfo]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Other files")
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(Theme.faint)
                 .padding(.top, 2)

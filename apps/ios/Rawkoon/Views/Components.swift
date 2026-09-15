@@ -281,6 +281,8 @@ struct SpineRow: View {
 struct BookRow: View {
     let book: BookListItem
     let downloaded: Bool
+    /// Audiobook listening fraction (0...1) for an in-progress book, else nil.
+    var progress: Double?
     var menuItems: [BookCardMenuAction] = []
     var onMenuAction: (BookCardMenuAction) -> Void = { _ in }
 
@@ -303,6 +305,15 @@ struct BookRow: View {
                     if book.hasEbook {
                         formatChip("Ebook", tint: Theme.muted)
                     }
+                }
+                if let progress, progress > 0.001, progress < 0.999 {
+                    HStack(spacing: 8) {
+                        DuskProgress(value: progress)
+                        Text(verbatim: "\(Int(progress * 100))%")
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(Theme.apricot)
+                    }
+                    .padding(.top, 2)
                 }
             }
 

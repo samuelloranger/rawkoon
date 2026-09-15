@@ -16,25 +16,51 @@ struct DetailFactsStrip: View {
     }
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                if loading, details == nil {
-                    ForEach(0 ..< 4, id: \.self) { _ in
-                        ShimmerView(cornerRadius: 10)
-                            .frame(width: 70, height: 46)
-                    }
-                } else {
-                    ForEach(facts) { fact in
-                        pill(fact)
-                    }
+        Group {
+            if loading, details == nil {
+                ShimmerView(cornerRadius: 14)
+                    .frame(height: 180)
+            } else if !facts.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("At a glance")
+                        .font(.sectionTitle)
+                        .foregroundStyle(Theme.textStrong)
+                    factGrid
                 }
             }
-            .padding(.horizontal, 16)
         }
+        .padding(.horizontal, 16)
     }
 
-    private func pill(_ fact: Fact) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+    /// Two-column grid of label/value cells with hairline dividers between rows
+    /// and columns — the "At a glance" card that replaced the horizontal strip.
+    private var factGrid: some View {
+        let rows = stride(from: 0, to: facts.count, by: 2).map { start in
+            Array(facts[start ..< min(start + 2, facts.count)])
+        }
+        return VStack(spacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { index, pair in
+                HStack(spacing: 0) {
+                    cell(pair[0])
+                    Divider().overlay(Theme.border)
+                    if pair.count > 1 {
+                        cell(pair[1])
+                    } else {
+                        Color.clear.frame(maxWidth: .infinity)
+                    }
+                }
+                if index < rows.count - 1 {
+                    Divider().overlay(Theme.border)
+                }
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
+    }
+
+    private func cell(_ fact: Fact) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
             Text(fact.label)
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(Theme.faint)
@@ -42,13 +68,10 @@ struct DetailFactsStrip: View {
             Text(verbatim: fact.value)
                 .font(.system(.subheadline, design: .monospaced).weight(.medium))
                 .foregroundStyle(Theme.textStrong)
-                .lineLimit(1)
+                .lineLimit(2)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .frame(minHeight: 46)
-        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border, lineWidth: 1))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
     }
 
     private var facts: [Fact] {
