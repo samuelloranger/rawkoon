@@ -316,19 +316,22 @@ private struct RootTabsView: View {
 }
 
 private extension View {
-    /// The accessory modifier is applied UNCONDITIONALLY. Toggling it on and off
-    /// (an `if active` around `tabViewBottomAccessory`) changes the TabView's
-    /// view identity when a book starts or stops playing, so SwiftUI rebuilds the
-    /// whole TabView — resetting the navigation stack and snapping the selection
-    /// back to the default tab. `MiniPlayerView` renders nothing when no book is
-    /// active, so the content, not the modifier, carries the empty state.
+    /// The accessory modifier is applied UNCONDITIONALLY and toggled with
+    /// `isEnabled`. Wrapping `tabViewBottomAccessory` in an `if active` changes
+    /// the TabView's view identity when a book starts or stops, so SwiftUI
+    /// rebuilds the whole TabView — resetting the navigation stack and snapping
+    /// the selection back to the default tab. But an always-present accessory
+    /// with empty content leaves a ghost capsule above the tab bar. The
+    /// `isEnabled:` overload (iOS 26.2+) is the fix: the modifier stays applied
+    /// (no rebuild) while the accessory is hidden when no book is active (no
+    /// ghost).
     ///
     /// The accessory content is hosted in a tree detached from the `WindowGroup`,
     /// which does not propagate its environment — so `MiniPlayerView` takes the
     /// model as an explicit argument rather than via `@Environment`, which
     /// trapped on the missing value even when injected here.
     func miniPlayerAccessory(model: AppModel, onExpand: @escaping () -> Void) -> some View {
-        tabViewBottomAccessory {
+        tabViewBottomAccessory(isEnabled: model.activeBook() != nil) {
             MiniPlayerView(model: model, onExpand: onExpand)
         }
     }
