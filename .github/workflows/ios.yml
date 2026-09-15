@@ -212,3 +212,116 @@ jobs:
           name: Rawkoon-testflight-xcarchive-${{ github.sha }}
           path: apps/ios/build/Rawkoon.xcarchive
           if-no-files-found: warn
+
+  testflight-mac:
+    runs-on: xcode-27
+    needs: build
+    # Same rule as the iOS lane — only a published release uploads. This lane
+    # archives the Mac Catalyst build and uploads it to the SAME app's macOS
+    # platform (DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER=NO keeps the bundle
+    # id). Dormant until the Mac signing assets exist: set the repo VARIABLE
+    # MAC_TESTFLIGHT_ENABLED=true once the MAC_* secrets below are in place, so
+    # releases don't go red before Mac distribution is set up.
+    if: github.event_name == 'release' && vars.MAC_TESTFLIGHT_ENABLED == 'true'
+    env:
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - name: Resolve release version
+        working-directory: apps/ios
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          MARKETING_VERSION="${TAG#v}"
+          case "$MARKETING_VERSION" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) MARKETING_VERSION="$(python3 -c 'import json; print(json.load(open("../../package.json"))["version"])')" ;;
+          esac
+          if [ -z "$MARKETING_VERSION" ]; then echo "Could not resolve MARKETING_VERSION" >&2; exit 1; fi
+          echo "MARKETING_VERSION=${MARKETING_VERSION}" >> "$GITHUB_ENV"
+          # Same monotonic build number as the iOS lane; platforms track builds separately.
+          echo "CURRENT_PROJECT_VERSION=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+      - name: Install App Store Connect key
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
+          echo "${{ secrets.APP_STORE_CONNECT_KEY_P8_BASE64 }}" | base64 --decode > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+      - run: xcodegen generate
+        working-directory: apps/ios
+      # Mac App Store signing — SEPARATE from the iOS assets. Create in the Apple
+      # Developer portal and add as repo secrets:
+      #   MAC_BUILD_CERTIFICATE_BASE64        base64 of the Mac App Distribution .p12
+      #   MAC_P12_PASSWORD                    its password
+      #   MAC_BUILD_PROVISION_PROFILE_BASE64  base64 of the macOS .provisionprofile
+      # The profile's name must be "Rawkoon Mac AppStore CI" (matches project.yml's
+      # macosx PROVISIONING_PROFILE_SPECIFIER) and cover bundle id cloud.samlo.rawkoon.
+      - name: Install Mac signing certificate and profile
+        env:
+          MAC_BUILD_CERTIFICATE_BASE64: ${{ secrets.MAC_BUILD_CERTIFICATE_BASE64 }}
+          MAC_P12_PASSWORD: ${{ secrets.MAC_P12_PASSWORD }}
+          MAC_BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.MAC_BUILD_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          CERT_PATH="$RUNNER_TEMP/mac-cert.p12"
+          PROFILE_PATH="$RUNNER_TEMP/mac-profile.provisionprofile"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          echo -n "$MAC_BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERT_PATH"
+          echo -n "$MAC_BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PROFILE_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$MAC_P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/"
+      - name: Archive signed Mac Catalyst app
+        working-directory: apps/ios
+        run: |
+          xcodebuild archive \
+            -project Rawkoon.xcodeproj \
+            -scheme Rawkoon \
+            -destination 'generic/platform=macOS,variant=Mac Catalyst' \
+            -archivePath build/Rawkoon-mac.xcarchive \
+            MARKETING_VERSION="$MARKETING_VERSION" \
+            CURRENT_PROJECT_VERSION="$CURRENT_PROJECT_VERSION"
+      - name: Export pkg
+        working-directory: apps/ios
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath build/Rawkoon-mac.xcarchive \
+            -exportPath build/export-mac \
+            -exportOptionsPlist ExportOptionsMac.plist
+      - name: Upload to TestFlight (macOS)
+        working-directory: apps/ios
+        run: |
+          PKG_PATH=""
+          for candidate in build/export-mac/*.pkg; do PKG_PATH="$candidate"; break; done
+          if [ -z "$PKG_PATH" ]; then echo "No pkg produced by export step" >&2; exit 1; fi
+          xcrun altool --upload-app \
+            -f "$PKG_PATH" \
+            -t macos \
+            --apiKey "$APP_STORE_CONNECT_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+      # Auto tester-distribution is intentionally omitted: scripts/asc-distribute.mjs
+      # matches a build by (app, CFBundleVersion), and the iOS and Mac builds share
+      # a run-number version — it could attach the wrong platform's build. Add the
+      # Mac build to a TestFlight group in App Store Connect by hand, or make
+      # asc-distribute platform-aware first.
+      - name: Upload pkg artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rawkoon-testflight-pkg-${{ github.sha }}
+          path: apps/ios/build/export-mac/*.pkg
+          if-no-files-found: warn
+      - name: Upload Mac archive artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rawkoon-testflight-mac-xcarchive-${{ github.sha }}
+          path: apps/ios/build/Rawkoon-mac.xcarchive
+          if-no-files-found: warn
