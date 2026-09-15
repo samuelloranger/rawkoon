@@ -115,6 +115,9 @@ private enum LibraryDensity: String, CaseIterable {
 
 struct LibraryView: View {
     @Environment(AppModel.self) private var model
+    /// Local namespace shared directly by each poster source and its detail
+    /// destination — the reliable pattern for the zoom transition.
+    @Namespace private var zoomNamespace
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// List mutations animate with the app spring, degrading to a crossfade
@@ -437,6 +440,7 @@ struct LibraryView: View {
             LazyVStack(spacing: 16) {
                 LazyVGrid(columns: columns, spacing: 16) {
                     ForEach(media) { m in
+                        let zoomID = RawkoonZoom.media(tmdbId: m.tmdbId, mediaType: m.type == "show" ? "tv" : "movie")
                         NavigationLink {
                             MediaDetailView(
                                 tmdbId: m.tmdbId,
@@ -445,6 +449,7 @@ struct LibraryView: View {
                                 posterPath: m.posterUrl,
                                 libraryId: m.id
                             )
+                            .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
                         } label: {
                             MediaPosterCard(
                                 title: m.title,
@@ -458,6 +463,7 @@ struct LibraryView: View {
                                     mediaBadge(for: m)
                                 }
                             }
+                            .matchedTransitionSource(id: zoomID, in: zoomNamespace)
                         }
                         .buttonStyle(.plain)
                         .rawkoonScrollSettle()
@@ -568,6 +574,7 @@ struct LibraryView: View {
         ScrollView {
             LazyVStack(spacing: 8) {
                 ForEach(media) { m in
+                    let zoomID = RawkoonZoom.media(tmdbId: m.tmdbId, mediaType: m.type == "show" ? "tv" : "movie")
                     NavigationLink {
                         MediaDetailView(
                             tmdbId: m.tmdbId,
@@ -576,6 +583,7 @@ struct LibraryView: View {
                             posterPath: m.posterUrl,
                             libraryId: m.id
                         )
+                        .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
                     } label: {
                         LibraryMediaRow(
                             media: m,
@@ -584,6 +592,7 @@ struct LibraryView: View {
                             menuItems: mediaPosterMenuItems(inLibrary: true, isAdmin: model.isAdmin),
                             onMenuAction: { handleMediaMenu($0, media: m) }
                         )
+                        .matchedTransitionSource(id: zoomID, in: zoomNamespace)
                     }
                     .buttonStyle(.plain)
                     .rawkoonScrollSettle()

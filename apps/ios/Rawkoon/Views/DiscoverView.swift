@@ -6,6 +6,10 @@ import SwiftUI
 /// `ExploreView` grid. Tap → MediaDetailView.
 struct DiscoverView: View {
     @Environment(AppModel.self) private var model
+    /// Local to this view: the zoom source and its destination both reference
+    /// this namespace directly, which is the reliable pattern (an environment-
+    /// shared namespace does not engage the transition).
+    @Namespace private var zoomNamespace
 
     @State private var query = ""
     @State private var kindFilter: KindFilter = .all
@@ -283,6 +287,7 @@ struct DiscoverView: View {
                     }
                     LazyVGrid(columns: searchGridColumns, spacing: 14) {
                         ForEach(searchResults) { item in
+                            let zoomID = RawkoonZoom.media(tmdbId: item.tmdbId, mediaType: item.mediaType)
                             NavigationLink {
                                 MediaDetailView(
                                     tmdbId: item.tmdbId,
@@ -291,8 +296,10 @@ struct DiscoverView: View {
                                     posterPath: item.posterUrl,
                                     libraryId: item.libraryId
                                 )
+                                .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
                             } label: {
                                 posterCard(item, fixedWidth: nil)
+                                    .matchedTransitionSource(id: zoomID, in: zoomNamespace)
                             }
                             .buttonStyle(.plain)
                             .rawkoonScrollSettle()
@@ -407,7 +414,6 @@ struct DiscoverView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.06), lineWidth: 1)
         )
-        .rawkoonZoomSource(RawkoonZoom.media(tmdbId: item.tmdbId, mediaType: item.mediaType))
 
         VStack(alignment: .leading, spacing: 6) {
             if let fixedWidth {

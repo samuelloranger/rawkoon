@@ -1,3 +1,4 @@
+import RawkoonKit
 import SwiftUI
 
 /// The home screen — admin dashboard: greeting, Continue, Recently Added and
@@ -5,6 +6,9 @@ import SwiftUI
 /// Attention, RSS). Widgets self-hide when their integration is off.
 struct HomeView: View {
     @Environment(AppModel.self) private var model
+    /// Local namespace shared directly by each poster source and its detail
+    /// destination — the reliable pattern for the zoom transition.
+    @Namespace private var zoomNamespace
 
     @State private var recent: [LibraryMedia] = []
     @State private var upcoming: [UpcomingItem] = []
@@ -178,18 +182,26 @@ struct HomeView: View {
     private func railCard(_ item: RailItem) -> some View {
         switch item {
         case let .library(m):
+            let zoomID = RawkoonZoom.media(tmdbId: m.tmdbId, mediaType: m.type == "show" ? "tv" : "movie")
             NavigationLink {
                 MediaDetailView(tmdbId: m.tmdbId, mediaType: m.type == "show" ? "tv" : "movie",
                                 title: m.title, posterPath: m.posterUrl, libraryId: m.id)
-            } label: { poster(title: m.title, url: m.posterUrl) }
-                .buttonStyle(.plain)
+                    .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
+            } label: {
+                poster(title: m.title, url: m.posterUrl)
+                    .matchedTransitionSource(id: zoomID, in: zoomNamespace)
+            }
+            .buttonStyle(.plain)
         case let .upcoming(u):
+            let zoomID = RawkoonZoom.media(tmdbId: u.tmdbId ?? 0, mediaType: u.mediaType)
             NavigationLink {
                 MediaDetailView(tmdbId: u.tmdbId ?? 0, mediaType: u.mediaType,
                                 title: u.title, posterPath: u.posterUrl, libraryId: u.libraryId)
+                    .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
             } label: {
                 poster(title: u.title, url: u.posterUrl,
                        date: u.displayDate, episode: u.episodeLabel)
+                    .matchedTransitionSource(id: zoomID, in: zoomNamespace)
             }
             .buttonStyle(.plain)
             .disabled(u.tmdbId == nil && u.libraryId == nil)

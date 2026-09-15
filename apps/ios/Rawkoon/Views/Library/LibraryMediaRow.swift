@@ -60,7 +60,6 @@ struct LibraryMediaRow: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 6).strokeBorder(.white.opacity(0.05), lineWidth: 1)
             )
-            .rawkoonZoomSource(RawkoonZoom.media(tmdbId: media.tmdbId, mediaType: media.type == "show" ? "tv" : "movie"))
     }
 
     private var titleLine: some View {
