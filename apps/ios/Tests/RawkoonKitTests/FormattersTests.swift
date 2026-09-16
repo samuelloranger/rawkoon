@@ -25,6 +25,24 @@ struct FormattersTests {
         #expect(Formatters.durationClock(.nan) == "0:00")
     }
 
+    /// durationTimestamp — pure arithmetic, exact strings safe on Linux
+    @Test func timestampUsesClockShapeAndFloors() {
+        #expect(Formatters.durationTimestamp(3661) == "1:01:01")
+        #expect(Formatters.durationTimestamp(125) == "2:05")
+        #expect(Formatters.durationTimestamp(59) == "0:59")
+        // Floors rather than rounds: the label must not name a point past where
+        // playback actually starts.
+        #expect(Formatters.durationTimestamp(59.9) == "0:59")
+        #expect(Formatters.durationTimestamp(10 * 3600 + 9 * 60 + 8) == "10:09:08")
+    }
+
+    @Test func timestampFallsBackOnInvalid() {
+        #expect(Formatters.durationTimestamp(0) == "0:00")
+        #expect(Formatters.durationTimestamp(-1) == "0:00")
+        #expect(Formatters.durationTimestamp(.nan) == "0:00")
+        #expect(Formatters.durationTimestamp(.infinity) == "0:00")
+    }
+
     /// bytes — assert BEHAVIOR only (ByteCountFormatter differs Linux vs Darwin)
     @Test func bytesEchoReturnsRawOnParseFailure() {
         #expect(Formatters.bytesEcho("not-a-number") == "not-a-number")

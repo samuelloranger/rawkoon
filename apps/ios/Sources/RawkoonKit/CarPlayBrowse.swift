@@ -54,4 +54,13 @@ public enum CarPlayBrowse {
         let library = entries.sorted { $0.libraryOrder < $1.libraryOrder }
         return (continueListening, library)
     }
+
+    /// The row subtitle. Both halves are optional, so the separator is only
+    /// drawn between two parts that exist; the app layer localizes `resumeText`.
+    public static func detailText(resumeText: String?, author: String?) -> String? {
+        let parts = [resumeText, author]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
 }

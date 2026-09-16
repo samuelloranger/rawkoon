@@ -22,6 +22,9 @@ struct EbookPreviewDocument: Identifiable, Sendable {
     let language: String?
     let title: String
     let localURL: URL
+    /// Set when the button offered "Read" rather than "Resume" — a finished book
+    /// reopens at the beginning instead of on its last page.
+    var startFromBeginning = false
 }
 
 private enum ReaderState {
@@ -372,7 +375,9 @@ struct EbookReaderSheet: View {
         guard case .opening = state else { return }
         do {
             let publication = try await Self.openPublication(at: document.localURL)
-            let stored: ReadingPosition? = if let editionId = document.editionId {
+            let stored: ReadingPosition? = if let editionId = document.editionId,
+                                              !document.startFromBeginning
+            {
                 await model.readingPosition(editionId: editionId)
             } else {
                 nil

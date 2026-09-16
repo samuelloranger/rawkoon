@@ -3353,6 +3353,36 @@
         }
       }
     },
+    "Resume from %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprendre à %@"
+          }
+        }
+      }
+    },
+    "Resume from %lld%%": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprendre à %lld %%"
+          }
+        }
+      }
+    },
+    "Resume · %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprendre · %@"
+          }
+        }
+      }
+    },
     "Retry": {
       "localizations": {
         "fr": {

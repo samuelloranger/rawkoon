@@ -38,3 +38,43 @@ final class AudiobookResumeTests: XCTestCase {
         XCTAssertNil(AudiobookResume.editionId(activeEditionId: nil, entries: entries))
     }
 }
+
+final class AudiobookResumeLabelTests: XCTestCase {
+    func testStartedBookResumes() {
+        XCTAssertEqual(
+            AudiobookResume.label(positionSecs: 4325, totalDurationSecs: 33120),
+            .resume(positionSecs: 4325)
+        )
+    }
+
+    func testUnstartedBookPlays() {
+        XCTAssertEqual(AudiobookResume.label(positionSecs: nil, totalDurationSecs: 33120), .play)
+        XCTAssertEqual(AudiobookResume.label(positionSecs: 0, totalDurationSecs: 33120), .play)
+        // Same 1-second floor the Continue card and CarPlay already use.
+        XCTAssertEqual(AudiobookResume.label(positionSecs: 1, totalDurationSecs: 33120), .play)
+    }
+
+    func testFinishedBookPlaysFromTheStart() {
+        XCTAssertEqual(AudiobookResume.label(positionSecs: 33120, totalDurationSecs: 33120), .play)
+        // Within the last second counts as finished — resuming there would end
+        // the book immediately.
+        XCTAssertEqual(AudiobookResume.label(positionSecs: 33119.5, totalDurationSecs: 33120), .play)
+        XCTAssertEqual(AudiobookResume.label(positionSecs: 40000, totalDurationSecs: 33120), .play)
+    }
+
+    func testUnknownOrInvalidDurationPlays() {
+        XCTAssertEqual(AudiobookResume.label(positionSecs: 500, totalDurationSecs: nil), .play)
+        XCTAssertEqual(AudiobookResume.label(positionSecs: 500, totalDurationSecs: 1), .play)
+        XCTAssertEqual(AudiobookResume.label(positionSecs: .nan, totalDurationSecs: 33120), .play)
+        XCTAssertEqual(AudiobookResume.label(positionSecs: 500, totalDurationSecs: .infinity), .play)
+    }
+
+    func testEntryConvenienceMatchesRawNumbers() {
+        let started = CarPlayBrowseEntry(
+            editionId: 1, title: "Book", author: nil,
+            positionSecs: 4325, totalDurationSecs: 33120,
+            updatedAtMillis: nil, libraryOrder: 0
+        )
+        XCTAssertEqual(AudiobookResume.label(for: started), .resume(positionSecs: 4325))
+    }
+}

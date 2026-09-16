@@ -35,8 +35,21 @@
             // Guard against head-unit item limits / artwork memory: cap the library.
             let cappedLibrary = Array(split.library.prefix(200))
 
+            func resumeText(_ entry: CarPlayBrowseEntry) -> String? {
+                guard case let .resume(positionSecs) = AudiobookResume.label(for: entry) else {
+                    return nil
+                }
+                return String(localized: "Resume from \(Formatters.durationTimestamp(positionSecs))")
+            }
+
             func makeItem(_ entry: CarPlayBrowseEntry) -> CPListItem {
-                let item = CPListItem(text: entry.title, detailText: entry.author)
+                let item = CPListItem(
+                    text: entry.title,
+                    detailText: CarPlayBrowse.detailText(
+                        resumeText: resumeText(entry),
+                        author: entry.author
+                    )
+                )
                 item.handler = { _, completion in
                     onSelect(entry.editionId)
                     completion()

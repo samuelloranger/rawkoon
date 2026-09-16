@@ -246,6 +246,9 @@ struct SpineRow: View {
     let title: String
     let downloaded: Bool
     let current: Bool
+    /// Set on the one chapter holding a stored resume point; the row then opens
+    /// there rather than at the chapter's start.
+    var resumeText: String?
 
     var body: some View {
         HStack(spacing: 10) {
@@ -260,6 +263,13 @@ struct SpineRow: View {
                 .foregroundStyle(current ? Theme.textStrong : Theme.muted)
                 .lineLimit(1)
             Spacer(minLength: 0)
+            if let resumeText {
+                Text(resumeText)
+                    .font(.caption2)
+                    .foregroundStyle(Theme.apricot)
+                    .lineLimit(1)
+                    .layoutPriority(1)
+            }
         }
         .padding(.vertical, 2)
     }
