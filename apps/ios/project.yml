@@ -132,7 +132,10 @@ targets:
   RawkoonTests:
     type: bundle.unit-test
     platform: iOS
-    sources: [RawkoonTests]
+    sources:
+      - RawkoonTests
+      - path: ../shared/contracts/sse-contract.v1.json
+        buildPhase: resources
     dependencies:
       - target: Rawkoon
     settings:

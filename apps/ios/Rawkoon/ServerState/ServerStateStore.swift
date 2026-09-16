@@ -20,10 +20,23 @@ final class ServerStateStore {
     private var libraryListTasks: [LibraryListKey: Task<[LibraryMedia], Error>] = [:]
     private var libraryListSnapshots: [UUID: [LibraryListKey: ServerQueryState<[LibraryMedia]>]] = [:]
     private var libraryListOwners: [LibraryListKey: UUID] = [:]
+    private(set) var invalidatedKeys: Set<ServerQueryKey> = []
     private var generation = 0
 
     func libraryList(_ key: LibraryListKey) -> ServerQueryState<[LibraryMedia]> {
         libraryLists[key] ?? ServerQueryState()
+    }
+
+    func isInvalidated(_ key: ServerQueryKey) -> Bool {
+        if invalidatedKeys.contains(key) {
+            return true
+        }
+        switch key {
+        case let .libraryList(listKey):
+            return libraryList(listKey).isInvalidated
+        default:
+            return false
+        }
     }
 
     func seedLibraryList(_ items: [LibraryMedia], for key: LibraryListKey) {
@@ -40,7 +53,9 @@ final class ServerStateStore {
         _ key: LibraryListKey,
         loader: @escaping @Sendable () async throws -> [LibraryMedia]
     ) async throws -> [LibraryMedia] {
-        if let task = libraryListTasks[key] { return try await task.value }
+        if let task = libraryListTasks[key] {
+            return try await task.value
+        }
 
         let loadGeneration = generation
         var state = libraryList(key)
@@ -73,14 +88,34 @@ final class ServerStateStore {
     }
 
     func invalidate(_ key: ServerQueryKey) {
+        invalidatedKeys.insert(key)
         switch key {
-        case .libraryList(let listKey): invalidateLibraryList(listKey)
-        case .libraryItem: invalidateAllLibraryLists()
+        case let .libraryList(listKey):
+            invalidateLibraryList(listKey)
+        case let .libraryItem(id):
+            invalidatedKeys.insert(.libraryItem(id))
+            invalidateAllLibraryLists()
+        case let .bookItem(id):
+            invalidatedKeys.insert(.bookItem(id))
+            invalidatedKeys.insert(.bookList)
+            invalidatedKeys.insert(.progress)
+        case .bookList:
+            invalidatedKeys.insert(.bookList)
+        case .progress:
+            invalidatedKeys.insert(.progress)
+        case .notifications:
+            invalidatedKeys.insert(.notifications)
+        case .unreadCount:
+            invalidatedKeys.insert(.unreadCount)
+        case .discoverDetail, .discoverDeck:
+            break
         }
     }
 
     func invalidateAllLibraryLists() {
-        for key in libraryLists.keys { invalidateLibraryList(key) }
+        for key in libraryLists.keys {
+            invalidateLibraryList(key)
+        }
     }
 
     private func invalidateLibraryList(_ key: LibraryListKey) {
@@ -90,7 +125,7 @@ final class ServerStateStore {
         libraryLists[key] = state
     }
 
-    func beginMutation(_ mutation: ServerMutation) -> ServerMutationToken {
+    func beginMutation(_: ServerMutation) -> ServerMutationToken {
         let token = ServerMutationToken()
         libraryListSnapshots[token.id] = libraryLists
         return token
@@ -120,10 +155,13 @@ final class ServerStateStore {
 
     func clear() {
         generation += 1
-        for task in libraryListTasks.values { task.cancel() }
+        for task in libraryListTasks.values {
+            task.cancel()
+        }
         libraryListTasks = [:]
         libraryLists = [:]
         libraryListSnapshots = [:]
         libraryListOwners = [:]
+        invalidatedKeys.removeAll()
     }
 }

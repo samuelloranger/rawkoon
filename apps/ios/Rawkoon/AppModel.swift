@@ -56,6 +56,8 @@ final class AppModel {
     /// network-error wall, and lists only downloaded books.
     var isOfflineLibrary = false
 
+    let serverStateStore = ServerStateStore()
+
     // MARK: Live updates (spec §T2/T4)
 
     /// Bumped whenever a `.media` event arrives on the foreground-only
@@ -439,8 +441,12 @@ final class AppModel {
                 for try await event in await client.libraryEventsStream() {
                     backoff = 1.0
                     switch event {
-                    case .media: libraryChangeToken += 1
-                    case .book: bookChangeToken += 1
+                    case let .media(id):
+                        SSEEventRegistry.apply(.media(id: id), to: serverStateStore)
+                        libraryChangeToken += 1
+                    case let .book(id):
+                        SSEEventRegistry.apply(.book(id: id), to: serverStateStore)
+                        bookChangeToken += 1
                     }
                 }
             } catch APIError.unauthorized {
@@ -472,6 +478,7 @@ final class AppModel {
             do {
                 for try await notification in await client.notificationStream() {
                     backoff = 1.0
+                    SSEEventRegistry.apply(.notification, to: serverStateStore)
                     unreadNotificationCount += 1
                     syncAppIconBadge()
                     notificationChangeToken += 1
@@ -811,7 +818,8 @@ final class AppModel {
     }
 
     private func makeAPIClient(baseURL: URL, token: String?) -> APIClient {
-        APIClient(baseURL: baseURL, token: token, onUnauthorized: {
+        serverStateStore.clear()
+        return APIClient(baseURL: baseURL, token: token, onUnauthorized: {
             Task { @MainActor in
                 AppModel.shared.handleSessionExpired()
             }
@@ -828,6 +836,7 @@ final class AppModel {
         registeredApnsToken = nil
 
         stopLiveStreams()
+        serverStateStore.clear()
         dismissBanner()
         deepLinkTarget = nil
         unreadNotificationCount = 0
