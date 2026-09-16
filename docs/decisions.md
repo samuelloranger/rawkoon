@@ -115,3 +115,28 @@ audio.
 Two position models (seconds on a book timeline vs spine + locator).
 Revisit only if sharing one model is worth rewriting the player, or if
 the player's own maintenance becomes the burden.
+## ADR-005: macbuild is the authoritative iOS app-test environment
+
+**Status:** accepted (2026-09-16).
+
+### Context
+
+The iOS app depends on Xcode, an iPhone simulator, generated project files,
+and Swift packages that are unavailable in the Linux development environment.
+The existing macOS machine already has the Rawkoon checkout at
+`~/Sites/projets_perso/rawkoon`; using a temporary clone there risks losing
+the local simulator and package state that makes the gate representative.
+
+### Decision
+
+Run iOS app tests through `scripts/test-ios-macbuild.sh` from that existing
+checkout. The script ensures XcodeGen is available, regenerates the project,
+selects an available iPhone simulator dynamically, and accepts an
+`-only-testing` selector (or `--build`).
+
+### Consequences
+
+Every iOS change has a repeatable macOS verification command without baking a
+simulator UUID into the repository. Work in that checkout preserves its
+untracked `HANDOFF.md` and `apps/ios/.swiftpm/` state; implementation commits
+must stage only intended files.
