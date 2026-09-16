@@ -112,12 +112,15 @@ export const adminJobRoutes = new Hono<Env>()
   })
 
   .get("/jobs/events", (c) => {
-    return createContractSseResponse(SSE_ROUTE_DECLARATIONS.adminJobsEvents.ids[0], {
-      request: c.req.raw,
-      logLabel: "AdminJobs",
-      intervalMs: 2000,
-      poll: async () => ({ jobs: await fetchRepeatableJobsList() }),
-    });
+    return createContractSseResponse(
+      SSE_ROUTE_DECLARATIONS.adminJobsEvents.ids[0],
+      {
+        request: c.req.raw,
+        logLabel: "AdminJobs",
+        intervalMs: 2000,
+        poll: async () => ({ jobs: await fetchRepeatableJobsList() }),
+      },
+    );
   })
 
   .get("/queues/:name/jobs", async (c) => {

@@ -16,20 +16,28 @@ const routeConsumers = [
 
 test("every declared SSE route is consumed by its route handler", async () => {
   for (const [relativePath, declaration] of routeConsumers) {
-    const source = await Bun.file(new URL(relativePath, import.meta.url)).text();
+    const source = await Bun.file(
+      new URL(relativePath, import.meta.url),
+    ).text();
     expect(source).toContain(`SSE_ROUTE_DECLARATIONS.${declaration}`);
   }
   expect(registeredSseRouteIDs().sort()).toEqual(contractIDs().sort());
 });
 
 test("models SSE routing from fields actually present on each payload", () => {
-  expect(sseContract.find((entry) => entry.id === "library.handshake")).toMatchObject({
+  expect(
+    sseContract.find((entry) => entry.id === "library.handshake"),
+  ).toMatchObject({
     routing: { type: "required-fields", fields: ["connected", "ts"] },
   });
-  expect(sseContract.find((entry) => entry.id === "notifications.notification")).toMatchObject({
+  expect(
+    sseContract.find((entry) => entry.id === "notifications.notification"),
+  ).toMatchObject({
     routing: { type: "required-fields", fields: ["id", "userId"] },
   });
-  expect(sseContract.find((entry) => entry.id === "notifications.handshake")).toMatchObject({
+  expect(
+    sseContract.find((entry) => entry.id === "notifications.handshake"),
+  ).toMatchObject({
     routing: { type: "required-fields", fields: ["connected"] },
   });
   for (const id of ["library.migrate-status", "admin.jobs-status"]) {

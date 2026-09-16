@@ -1,9 +1,59 @@
 [
-  { "id": "library.media-update", "path": "/api/library/events", "routing": { "type": "payload-field", "field": "kind", "value": "media" }, "payload": { "mediaId": "number", "ts": "number" }, "ios_policy": "invalidate" },
-  { "id": "library.book-update", "path": "/api/library/events", "routing": { "type": "payload-field", "field": "kind", "value": "book" }, "payload": { "bookId": "number", "ts": "number" }, "ios_policy": "invalidate" },
-  { "id": "library.handshake", "path": "/api/library/events", "routing": { "type": "required-fields", "fields": ["connected", "ts"] }, "payload": { "connected": "true", "ts": "number" }, "ios_policy": "progress" },
-  { "id": "notifications.notification", "path": "/api/notifications/stream", "routing": { "type": "required-fields", "fields": ["id", "userId"] }, "payload": { "id": "number", "userId": "string", "title": "string", "body": "string", "type": "string", "url": "string|null", "ts": "number" }, "ios_policy": "patch" },
-  { "id": "notifications.handshake", "path": "/api/notifications/stream", "routing": { "type": "required-fields", "fields": ["connected"] }, "payload": { "connected": "true" }, "ios_policy": "progress" },
-  { "id": "library.migrate-status", "path": "/api/library/migrate/status", "routing": { "type": "endpoint" }, "payload": { "state": "string", "progress": "object|null" }, "ios_policy": "progress" },
-  { "id": "admin.jobs-status", "path": "/api/admin/jobs/events", "routing": { "type": "endpoint" }, "payload": { "jobs": "array" }, "ios_policy": "progress" }
+  {
+    "id": "library.media-update",
+    "path": "/api/library/events",
+    "routing": { "type": "payload-field", "field": "kind", "value": "media" },
+    "payload": { "mediaId": "number", "ts": "number" },
+    "ios_policy": "invalidate"
+  },
+  {
+    "id": "library.book-update",
+    "path": "/api/library/events",
+    "routing": { "type": "payload-field", "field": "kind", "value": "book" },
+    "payload": { "bookId": "number", "ts": "number" },
+    "ios_policy": "invalidate"
+  },
+  {
+    "id": "library.handshake",
+    "path": "/api/library/events",
+    "routing": { "type": "required-fields", "fields": ["connected", "ts"] },
+    "payload": { "connected": "true", "ts": "number" },
+    "ios_policy": "progress"
+  },
+  {
+    "id": "notifications.notification",
+    "path": "/api/notifications/stream",
+    "routing": { "type": "required-fields", "fields": ["id", "userId"] },
+    "payload": {
+      "id": "number",
+      "userId": "string",
+      "title": "string",
+      "body": "string",
+      "type": "string",
+      "url": "string|null",
+      "ts": "number"
+    },
+    "ios_policy": "patch"
+  },
+  {
+    "id": "notifications.handshake",
+    "path": "/api/notifications/stream",
+    "routing": { "type": "required-fields", "fields": ["connected"] },
+    "payload": { "connected": "true" },
+    "ios_policy": "progress"
+  },
+  {
+    "id": "library.migrate-status",
+    "path": "/api/library/migrate/status",
+    "routing": { "type": "endpoint" },
+    "payload": { "state": "string", "progress": "object|null" },
+    "ios_policy": "progress"
+  },
+  {
+    "id": "admin.jobs-status",
+    "path": "/api/admin/jobs/events",
+    "routing": { "type": "endpoint" },
+    "payload": { "jobs": "array" },
+    "ios_policy": "progress"
+  }
 ]

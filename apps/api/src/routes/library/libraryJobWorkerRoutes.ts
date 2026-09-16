@@ -321,57 +321,60 @@ export const libraryJobWorkerRoutes = new Hono<Env>()
   )
 
   .get("/migrate/status", requireUser, (c) => {
-    return createContractSseResponse(SSE_ROUTE_DECLARATIONS.libraryMigrateStatus.ids[0], {
-      request: c.req.raw,
-      logLabel: "LibraryMigrate",
-      intervalMs: (data) => {
-        if ((data as { state?: string })?.state === "active") return 1500;
-        return 3000;
-      },
-      poll: async () => {
-        const [active, waiting, completed, failed] = await Promise.all([
-          libraryMigrateQueue.getJobs(["active"]),
-          libraryMigrateQueue.getJobs(["waiting"]),
-          libraryMigrateQueue.getJobs(["completed"], 0, 1, false),
-          libraryMigrateQueue.getJobs(["failed"], 0, 1, false),
-        ]);
+    return createContractSseResponse(
+      SSE_ROUTE_DECLARATIONS.libraryMigrateStatus.ids[0],
+      {
+        request: c.req.raw,
+        logLabel: "LibraryMigrate",
+        intervalMs: (data) => {
+          if ((data as { state?: string })?.state === "active") return 1500;
+          return 3000;
+        },
+        poll: async () => {
+          const [active, waiting, completed, failed] = await Promise.all([
+            libraryMigrateQueue.getJobs(["active"]),
+            libraryMigrateQueue.getJobs(["waiting"]),
+            libraryMigrateQueue.getJobs(["completed"], 0, 1, false),
+            libraryMigrateQueue.getJobs(["failed"], 0, 1, false),
+          ]);
 
-        const job =
-          active[0] ?? waiting[0] ?? completed[0] ?? failed[0] ?? null;
+          const job =
+            active[0] ?? waiting[0] ?? completed[0] ?? failed[0] ?? null;
 
-        if (!job) {
+          if (!job) {
+            return {
+              state: "unknown",
+              job_id: null,
+              progress: null,
+              result: null,
+              error: null,
+              started_at: null,
+              finished_at: null,
+            };
+          }
+
+          const state = await job.getState();
+          const progress =
+            (job.progress as LibraryMigrateProgress | null | number) ?? null;
+          const typedProgress =
+            typeof progress === "object" && progress !== null
+              ? (progress as LibraryMigrateProgress)
+              : null;
+
           return {
-            state: "unknown",
-            job_id: null,
-            progress: null,
-            result: null,
-            error: null,
-            started_at: null,
-            finished_at: null,
+            job_id: job.id ?? null,
+            state,
+            progress: typedProgress,
+            result: state === "completed" ? (job.returnvalue ?? null) : null,
+            error: state === "failed" ? (job.failedReason ?? null) : null,
+            started_at: job.processedOn
+              ? new Date(job.processedOn).toISOString()
+              : null,
+            finished_at: job.finishedOn
+              ? new Date(job.finishedOn).toISOString()
+              : null,
           };
-        }
-
-        const state = await job.getState();
-        const progress =
-          (job.progress as LibraryMigrateProgress | null | number) ?? null;
-        const typedProgress =
-          typeof progress === "object" && progress !== null
-            ? (progress as LibraryMigrateProgress)
-            : null;
-
-        return {
-          job_id: job.id ?? null,
-          state,
-          progress: typedProgress,
-          result: state === "completed" ? (job.returnvalue ?? null) : null,
-          error: state === "failed" ? (job.failedReason ?? null) : null,
-          started_at: job.processedOn
-            ? new Date(job.processedOn).toISOString()
-            : null,
-          finished_at: job.finishedOn
-            ? new Date(job.finishedOn).toISOString()
-            : null,
-        };
+        },
       },
-    });
+    );
   });
