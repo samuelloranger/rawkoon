@@ -10,7 +10,11 @@ import {
   scheduledTasksQueue,
   SCHEDULED_JOB_NAMES,
 } from "@rawkoon/api/services/queueService";
-import { createJsonSseResponse } from "@rawkoon/api/utils/sse";
+import { createContractSseResponse } from "@rawkoon/api/utils/sse";
+import {
+  assertSseContractIDs,
+  SSE_ROUTE_DECLARATIONS,
+} from "@rawkoon/api/contracts/sseContract";
 import type { LibraryMigrateProgress } from "@rawkoon/api/services/jobs/libraryMigrateTypes";
 import type { LibraryReindexLanguagesProgress } from "@rawkoon/api/services/jobs/libraryReindexLanguagesWorker";
 import type { LibraryRemuxJobData } from "@rawkoon/api/services/jobs/libraryRemuxWorker";
@@ -165,6 +169,7 @@ export const libraryJobWorkerRoutes = new Hono<Env>()
   })
 
   .get("/events", requireUser, (c) => {
+    assertSseContractIDs(SSE_ROUTE_DECLARATIONS.libraryEvents.ids);
     const enc = new TextEncoder();
     let closed = false;
     let controller: ReadableStreamDefaultController<Uint8Array>;
@@ -316,57 +321,60 @@ export const libraryJobWorkerRoutes = new Hono<Env>()
   )
 
   .get("/migrate/status", requireUser, (c) => {
-    return createJsonSseResponse({
-      request: c.req.raw,
-      logLabel: "LibraryMigrate",
-      intervalMs: (data) => {
-        if ((data as { state?: string })?.state === "active") return 1500;
-        return 3000;
-      },
-      poll: async () => {
-        const [active, waiting, completed, failed] = await Promise.all([
-          libraryMigrateQueue.getJobs(["active"]),
-          libraryMigrateQueue.getJobs(["waiting"]),
-          libraryMigrateQueue.getJobs(["completed"], 0, 1, false),
-          libraryMigrateQueue.getJobs(["failed"], 0, 1, false),
-        ]);
+    return createContractSseResponse(
+      SSE_ROUTE_DECLARATIONS.libraryMigrateStatus.ids[0],
+      {
+        request: c.req.raw,
+        logLabel: "LibraryMigrate",
+        intervalMs: (data) => {
+          if ((data as { state?: string })?.state === "active") return 1500;
+          return 3000;
+        },
+        poll: async () => {
+          const [active, waiting, completed, failed] = await Promise.all([
+            libraryMigrateQueue.getJobs(["active"]),
+            libraryMigrateQueue.getJobs(["waiting"]),
+            libraryMigrateQueue.getJobs(["completed"], 0, 1, false),
+            libraryMigrateQueue.getJobs(["failed"], 0, 1, false),
+          ]);
 
-        const job =
-          active[0] ?? waiting[0] ?? completed[0] ?? failed[0] ?? null;
+          const job =
+            active[0] ?? waiting[0] ?? completed[0] ?? failed[0] ?? null;
 
-        if (!job) {
+          if (!job) {
+            return {
+              state: "unknown",
+              job_id: null,
+              progress: null,
+              result: null,
+              error: null,
+              started_at: null,
+              finished_at: null,
+            };
+          }
+
+          const state = await job.getState();
+          const progress =
+            (job.progress as LibraryMigrateProgress | null | number) ?? null;
+          const typedProgress =
+            typeof progress === "object" && progress !== null
+              ? (progress as LibraryMigrateProgress)
+              : null;
+
           return {
-            state: "unknown",
-            job_id: null,
-            progress: null,
-            result: null,
-            error: null,
-            started_at: null,
-            finished_at: null,
+            job_id: job.id ?? null,
+            state,
+            progress: typedProgress,
+            result: state === "completed" ? (job.returnvalue ?? null) : null,
+            error: state === "failed" ? (job.failedReason ?? null) : null,
+            started_at: job.processedOn
+              ? new Date(job.processedOn).toISOString()
+              : null,
+            finished_at: job.finishedOn
+              ? new Date(job.finishedOn).toISOString()
+              : null,
           };
-        }
-
-        const state = await job.getState();
-        const progress =
-          (job.progress as LibraryMigrateProgress | null | number) ?? null;
-        const typedProgress =
-          typeof progress === "object" && progress !== null
-            ? (progress as LibraryMigrateProgress)
-            : null;
-
-        return {
-          job_id: job.id ?? null,
-          state,
-          progress: typedProgress,
-          result: state === "completed" ? (job.returnvalue ?? null) : null,
-          error: state === "failed" ? (job.failedReason ?? null) : null,
-          started_at: job.processedOn
-            ? new Date(job.processedOn).toISOString()
-            : null,
-          finished_at: job.finishedOn
-            ? new Date(job.finishedOn).toISOString()
-            : null,
-        };
+        },
       },
-    });
+    );
   });

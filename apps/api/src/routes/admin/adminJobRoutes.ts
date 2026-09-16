@@ -12,7 +12,8 @@ import {
   addJob,
   SCHEDULED_JOB_NAMES,
 } from "@rawkoon/api/services/queueService";
-import { createJsonSseResponse } from "@rawkoon/api/utils/sse";
+import { SSE_ROUTE_DECLARATIONS } from "@rawkoon/api/contracts/sseContract";
+import { createContractSseResponse } from "@rawkoon/api/utils/sse";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 
 const queueMap: Record<string, Queue> = {
@@ -111,12 +112,15 @@ export const adminJobRoutes = new Hono<Env>()
   })
 
   .get("/jobs/events", (c) => {
-    return createJsonSseResponse({
-      request: c.req.raw,
-      logLabel: "AdminJobs",
-      intervalMs: 2000,
-      poll: async () => ({ jobs: await fetchRepeatableJobsList() }),
-    });
+    return createContractSseResponse(
+      SSE_ROUTE_DECLARATIONS.adminJobsEvents.ids[0],
+      {
+        request: c.req.raw,
+        logLabel: "AdminJobs",
+        intervalMs: 2000,
+        poll: async () => ({ jobs: await fetchRepeatableJobsList() }),
+      },
+    );
   })
 
   .get("/queues/:name/jobs", async (c) => {

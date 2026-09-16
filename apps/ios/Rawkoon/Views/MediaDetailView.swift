@@ -643,7 +643,12 @@ struct MediaDetailView: View {
             file: file,
             mode: mode,
             isAdmin: model.isAdmin,
-            onChanged: { Task { await refreshManagementData() } },
+            onChanged: {
+                if let libraryId {
+                    store.invalidateLibraryRollup(itemID: libraryId)
+                }
+                Task { await refreshManagementData() }
+            },
             onNotice: { managementNotice = $0; managementError = nil },
             onError: { managementError = $0 },
             onRequestDelete: { pendingMovieFileDelete = file }
@@ -853,6 +858,10 @@ struct MediaDetailView: View {
         }
     }
 
+    private var store: ServerStateStore {
+        model.serverStateStore
+    }
+
     private func refreshManagementData() async {
         guard let libraryId, model.isAdmin else { return }
         guard let client = model.api() else {
@@ -875,6 +884,7 @@ struct MediaDetailView: View {
             let downloadsResponse = try await downloadsRequest
 
             managementItem = item
+            store.seedLibraryItem(item)
             qualityProfiles = profileResponse.profiles
             mediaFilesType = filesResponse.mediaType
             mediaFiles = filesResponse.files
@@ -911,7 +921,11 @@ struct MediaDetailView: View {
         applyingManagementChange = true
         defer { applyingManagementChange = false }
         do {
-            managementItem = try await client.updateLibraryMonitored(id: libraryId, monitored: monitored)
+            managementItem = try await store.updateMonitored(
+                id: libraryId,
+                monitored: monitored,
+                request: { try await client.updateLibraryMonitored(id: libraryId, monitored: monitored) }
+            )
             managementNotice = String(localized: "Monitoring updated.")
             managementError = nil
         } catch {
@@ -924,7 +938,11 @@ struct MediaDetailView: View {
         applyingManagementChange = true
         defer { applyingManagementChange = false }
         do {
-            managementItem = try await client.updateLibraryQualityProfile(id: libraryId, qualityProfileId: qualityProfileId)
+            managementItem = try await store.updateQualityProfile(
+                id: libraryId,
+                qualityProfileId: qualityProfileId,
+                request: { try await client.updateLibraryQualityProfile(id: libraryId, qualityProfileId: qualityProfileId) }
+            )
             managementNotice = String(localized: "Quality profile updated.")
             managementError = nil
         } catch {
@@ -967,6 +985,7 @@ struct MediaDetailView: View {
         defer { pendingDownloadActionId = nil }
         do {
             try await client.downloadAction(libraryId: libraryId, downloadHistoryId: downloadHistoryId, action: action)
+            store.invalidateDownloadHistory(itemID: libraryId)
             managementNotice = String(localized: "Download updated.")
             managementError = nil
             await refreshManagementData()
@@ -982,6 +1001,7 @@ struct MediaDetailView: View {
         defer { pendingDownloadActionId = nil }
         do {
             try await client.deleteDownloadEntry(libraryId: libraryId, downloadHistoryId: downloadHistoryId)
+            store.invalidateDownloadHistory(itemID: libraryId)
             managementNotice = String(localized: "Download entry removed.")
             managementError = nil
             await refreshManagementData()
@@ -997,6 +1017,9 @@ struct MediaDetailView: View {
         defer { applyingManagementChange = false }
         do {
             try await client.deleteMovieFile(fileId: file.id)
+            if let libraryId {
+                store.invalidateLibraryRollup(itemID: libraryId)
+            }
             managementNotice = String(localized: "File deleted.")
             managementError = nil
             await refreshManagementData()
@@ -1011,7 +1034,10 @@ struct MediaDetailView: View {
         applyingManagementChange = true
         defer { applyingManagementChange = false }
         do {
-            try await client.removeFromLibrary(id: id, deleteFiles: deleteFiles)
+            try await store.removeLibraryItem(
+                id: id,
+                request: { try await client.removeFromLibrary(id: id, deleteFiles: deleteFiles) }
+            )
             if id == libraryId {
                 dismiss()
             } else {
@@ -1098,6 +1124,7 @@ struct MediaDetailView: View {
         guard let libraryId, let client = model.api() else { return }
         do {
             try await client.deleteEpisodeFile(id: libraryId, episodeId: episode.id)
+            store.invalidateLibraryRollup(itemID: libraryId)
             model.toast(String(localized: "Episode file deleted."), style: .success)
             await reloadEpisodes()
             await refreshManagementData()
@@ -1143,7 +1170,11 @@ struct MediaDetailView: View {
         busySimilarLibraryIds.insert(libraryId)
         do {
             let item = try await client.libraryItem(id: libraryId)
-            _ = try await client.updateLibraryMonitored(id: libraryId, monitored: !item.monitored)
+            _ = try await store.updateMonitored(
+                id: libraryId,
+                monitored: !item.monitored,
+                request: { try await client.updateLibraryMonitored(id: libraryId, monitored: !item.monitored) }
+            )
             await fetchSimilar()
             model.toast(String(localized: "Updated monitoring."), style: .success)
         } catch {
@@ -1227,8 +1258,21 @@ struct MediaDetailView: View {
         requesting = true
         requestError = nil
         defer { requesting = false }
+        let type = mediaType == "tv" ? "show" : "movie"
         do {
-            try await client.addToLibrary(tmdbId: tmdbId, type: mediaType == "tv" ? "show" : "movie")
+            // The store shows an `Adding…` row in Library immediately and swaps in
+            // the server's created item — or drops it again if the add fails.
+            _ = try await model.serverStateStore.addToLibrary(
+                provisional: .provisional(
+                    tmdbId: tmdbId,
+                    type: type,
+                    title: title,
+                    year: yearValue,
+                    posterUrl: posterPath,
+                    overview: details?.overview
+                ),
+                request: { try await client.addToLibrary(tmdbId: tmdbId, type: type) }
+            )
             added = true
             recordLibraryChangeFeedback()
         } catch APIError.unauthorized {

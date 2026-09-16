@@ -560,9 +560,17 @@ struct DiscoverView: View {
             guard let client = model.api() else { return }
             do {
                 if model.isAdmin {
-                    try await client.addToLibrary(
-                        tmdbId: item.tmdbId,
-                        type: item.mediaType == "tv" ? "show" : "movie"
+                    let type = item.mediaType == "tv" ? "show" : "movie"
+                    _ = try await model.serverStateStore.addToLibrary(
+                        provisional: .provisional(
+                            tmdbId: item.tmdbId,
+                            type: type,
+                            title: item.title,
+                            year: item.releaseYear,
+                            posterUrl: item.posterUrl,
+                            overview: item.overview
+                        ),
+                        request: { try await client.addToLibrary(tmdbId: item.tmdbId, type: type) }
                     )
                     await model.loadLibrary()
                 } else {

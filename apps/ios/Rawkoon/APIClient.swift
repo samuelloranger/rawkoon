@@ -256,9 +256,11 @@ actor APIClient {
     }
 
     /// Admin: add a movie/show to the library directly from TMDB.
-    func addToLibrary(tmdbId: Int, type: String) async throws {
+    @discardableResult
+    func addToLibrary(tmdbId: Int, type: String) async throws -> LibraryMedia {
         nonisolated struct Body: Encodable { let tmdbId: Int; let type: String }
-        try await postExpectOK("/api/library", body: Body(tmdbId: tmdbId, type: type))
+        let response: LibraryItemResponse = try await post("/api/library", body: Body(tmdbId: tmdbId, type: type))
+        return response.item
     }
 
     // MARK: Book editions (add an audiobook edition onto an existing book)

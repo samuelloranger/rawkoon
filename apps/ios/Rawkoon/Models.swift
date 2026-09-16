@@ -351,11 +351,12 @@ nonisolated struct LibraryMedia: Decodable, Identifiable, Sendable {
     let title: String
     let year: Int?
     let status: String // wanted / downloading / downloaded / missing …
-    let monitored: Bool
+    // Patched optimistically by `ServerStateStore` before the server confirms.
+    var monitored: Bool
     let posterUrl: String?
     let overview: String?
-    let qualityProfileId: Int?
-    let qualityProfile: LibraryQualityProfileRef?
+    var qualityProfileId: Int?
+    var qualityProfile: LibraryQualityProfileRef?
     let totalSizeBytes: String? // bigint serialized as string
     let episodeCount: Int?
     let downloadedEpisodeCount: Int?
@@ -370,6 +371,40 @@ nonisolated struct LibraryMedia: Decodable, Identifiable, Sendable {
     let lastGrabbedAt: String?
     let addedAt: String?
     let digitalReleaseDate: String?
+    /// Optimistic row standing in for an add the server has not confirmed yet.
+    var isProvisional = false
+
+    /// Listed explicitly so `isProvisional` stays a client-only presentation flag.
+    private enum CodingKeys: String, CodingKey {
+        case id, tmdbId, type, title, year, status, monitored, posterUrl, overview
+        case qualityProfileId, qualityProfile, totalSizeBytes, episodeCount
+        case downloadedEpisodeCount, seasonCount, durationSecs, resolution
+        case videoCodec, hdrFormat, audioFormat, languageTags, lastGrabbedAt
+        case addedAt, digitalReleaseDate
+    }
+}
+
+extension LibraryMedia {
+    /// Placeholder row shown between an add tap and the server's created item.
+    /// The negative id cannot collide with a server id while both are visible.
+    nonisolated static func provisional(
+        tmdbId: Int,
+        type: String,
+        title: String,
+        year: Int?,
+        posterUrl: String?,
+        overview: String?
+    ) -> LibraryMedia {
+        LibraryMedia(
+            id: -tmdbId, tmdbId: tmdbId, type: type, title: title, year: year,
+            status: "wanted", monitored: true, posterUrl: posterUrl, overview: overview,
+            qualityProfileId: nil, qualityProfile: nil, totalSizeBytes: nil,
+            episodeCount: nil, downloadedEpisodeCount: nil, seasonCount: nil,
+            durationSecs: nil, resolution: nil, videoCodec: nil, hdrFormat: nil,
+            audioFormat: nil, languageTags: nil, lastGrabbedAt: nil, addedAt: nil,
+            digitalReleaseDate: nil, isProvisional: true
+        )
+    }
 }
 
 nonisolated struct LibraryQualityProfileRef: Decodable, Sendable {
