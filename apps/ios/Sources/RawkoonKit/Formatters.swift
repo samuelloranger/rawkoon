@@ -29,6 +29,20 @@ public enum Formatters {
         return "\(minutes)m"
     }
 
+    /// Resume-point rendering: h:mm:ss past an hour, m:ss below, "0:00" fallback.
+    /// Floors, so the label never names a point later than where playback starts.
+    public static func durationTimestamp(_ seconds: Double) -> String {
+        guard seconds.isFinite, seconds > 0 else { return "0:00" }
+        let total = Int(seconds.rounded(.down))
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let secs = total % 60
+        if hours > 0 {
+            return "\(hours):\(String(format: "%02d:%02d", minutes, secs))"
+        }
+        return "\(minutes):\(String(format: "%02d", secs))"
+    }
+
     /// `useAll: true` matches ActivityView/DownloadClientView; `false` matches MediaDetailView.
     public static func speed(_ bytesPerSecond: Double, useAll: Bool) -> String {
         let formatter = ByteCountFormatter()

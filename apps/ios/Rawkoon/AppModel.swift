@@ -50,6 +50,10 @@ final class AppModel {
     /// as an alert at the app root, distinct from `errorMessage` (a login failure).
     var authWarning: String?
     var downloadPlans: [Int: DownloadPlan] = [:]
+    /// Last known resume point per audiobook edition, so a button can read
+    /// "Resume from …" before the player is opened. Filled by
+    /// `loadResumePreview(editionId:totalDurationSecs:)`.
+    var resumePreview: [Int: Double] = [:]
     var activeEditionId: Int?
     /// True when `library` was built from the on-device downloaded index because
     /// the server was unreachable — the UI shows an "Offline" hint instead of a
@@ -1037,13 +1041,26 @@ final class AppModel {
         }
     }
 
-    private func resolveResumePosition(editionId: Int, manifest: BookManifest) async -> Double {
+    /// The write a reconciled resume point implies, held rather than performed so
+    /// the decision can also be read without side effects.
+    private enum ResumeEffect {
+        case none
+        case adoptRemote(PositionEntry)
+        case pushLocal(positionSecs: Double, updatedAtMillis: Int64)
+    }
+
+    /// Takes the total rather than the manifest: the button label needs a resume
+    /// point before the manifest has necessarily loaded.
+    private func reconcileResumePosition(
+        editionId: Int,
+        totalDurationSecs: Double
+    ) async -> (positionSecs: Double, effect: ResumeEffect) {
         let localEntry = PositionJournal.latest(in: readJournal(), editionId: editionId)
         let localRecord = localEntry.map {
             ProgressRecord(
                 positionSecs: $0.positionSecs,
-                totalDurationSecs: manifest.totalDurationSecs,
-                finished: $0.positionSecs >= manifest.totalDurationSecs,
+                totalDurationSecs: totalDurationSecs,
+                finished: $0.positionSecs >= totalDurationSecs,
                 updatedAtMillis: $0.atMillis
             )
         }
@@ -1062,27 +1079,60 @@ final class AppModel {
 
         switch SyncReconciler.reconcile(local: localRecord, remote: remoteRecord) {
         case .keepLocal:
-            return localRecord?.positionSecs ?? 0
+            return (localRecord?.positionSecs ?? 0, .none)
         case .takeRemote:
-            guard let remoteRecord else { return localRecord?.positionSecs ?? 0 }
-            let adjusted = SyncReconciler.adjust(remoteRecord, toTotal: manifest.totalDurationSecs)
+            guard let remoteRecord else { return (localRecord?.positionSecs ?? 0, .none) }
+            let adjusted = SyncReconciler.adjust(remoteRecord, toTotal: totalDurationSecs)
             let entry = PositionEntry(
                 editionId: editionId,
                 positionSecs: adjusted.positionSecs,
                 atMillis: adjusted.updatedAtMillis
             )
-            appendJournal(entry)
-            return adjusted.positionSecs
+            return (adjusted.positionSecs, .adoptRemote(entry))
         case .push:
-            guard let localRecord else { return 0 }
+            guard let localRecord else { return (0, .none) }
+            return (
+                localRecord.positionSecs,
+                .pushLocal(
+                    positionSecs: localRecord.positionSecs,
+                    updatedAtMillis: localRecord.updatedAtMillis
+                )
+            )
+        }
+    }
+
+    private func resolveResumePosition(editionId: Int, manifest: BookManifest) async -> Double {
+        let (positionSecs, effect) = await reconcileResumePosition(
+            editionId: editionId,
+            totalDurationSecs: manifest.totalDurationSecs
+        )
+        switch effect {
+        case .none:
+            break
+        case let .adoptRemote(entry):
+            appendJournal(entry)
+        case let .pushLocal(pushed, updatedAtMillis):
             sendProgress(
                 editionId: editionId,
-                positionSecs: localRecord.positionSecs,
+                positionSecs: pushed,
                 totalDurationSecs: manifest.totalDurationSecs,
-                updatedAtMillis: localRecord.updatedAtMillis
+                updatedAtMillis: updatedAtMillis
             )
-            return localRecord.positionSecs
         }
+        resumePreview[editionId] = positionSecs
+        return positionSecs
+    }
+
+    /// Fills `resumePreview` so a book's primary button can name the point it
+    /// will resume at. Deliberately read-only: opening a detail screen must not
+    /// adopt a remote position or push a local one — only starting playback does.
+    func loadResumePreview(editionId: Int, totalDurationSecs: Double) async {
+        guard totalDurationSecs > 1 else { return }
+        let (positionSecs, _) = await reconcileResumePosition(
+            editionId: editionId,
+            totalDurationSecs: totalDurationSecs
+        )
+        resumePreview[editionId] = positionSecs
     }
 
     private func persistPlaybackProgress(force: Bool) {

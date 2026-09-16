@@ -47,3 +47,24 @@ final class CarPlayBrowseTests: XCTestCase {
         XCTAssertTrue(out.library.isEmpty)
     }
 }
+
+final class CarPlayBrowseDetailTextTests: XCTestCase {
+    func testResumeLineLeadsAndAuthorFollows() {
+        XCTAssertEqual(
+            CarPlayBrowse.detailText(resumeText: "Resume from 1:12:05", author: "Ursula K. Le Guin"),
+            "Resume from 1:12:05 · Ursula K. Le Guin"
+        )
+    }
+
+    func testEitherPartAlone() {
+        XCTAssertEqual(CarPlayBrowse.detailText(resumeText: nil, author: "Ursula K. Le Guin"), "Ursula K. Le Guin")
+        XCTAssertEqual(CarPlayBrowse.detailText(resumeText: "Resume from 2:05", author: nil), "Resume from 2:05")
+    }
+
+    func testNilWhenNothingToShow() {
+        XCTAssertNil(CarPlayBrowse.detailText(resumeText: nil, author: nil))
+        // A blank author is the same as none — it must not leave a dangling separator.
+        XCTAssertNil(CarPlayBrowse.detailText(resumeText: nil, author: "   "))
+        XCTAssertEqual(CarPlayBrowse.detailText(resumeText: "Resume from 2:05", author: "  "), "Resume from 2:05")
+    }
+}

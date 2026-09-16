@@ -202,7 +202,9 @@ struct BookView: View {
         .refreshable {
             await refreshAll(forceManifestRefresh: true)
         }
-        .sheet(isPresented: $showingPlayer) {
+        .sheet(isPresented: $showingPlayer, onDismiss: {
+            Task { await loadResumePreview() }
+        }) {
             if let manifest, let summary = audiobookSummary {
                 PlayerView(summary: summary, manifest: manifest)
                     .environment(model)
@@ -506,6 +508,20 @@ struct BookView: View {
         }
     }
 
+    /// Runtime the resume label is measured against: the manifest is
+    /// authoritative, but the detail row answers before it loads.
+    private var audiobookTotalSecs: Double {
+        manifest?.totalDurationSecs ?? audiobookEdition?.durationSecs ?? book.audiobookDurationSecs ?? 0
+    }
+
+    private var audiobookResume: AudiobookResumeLabel {
+        guard let editionId = audiobookEditionId else { return .play }
+        return AudiobookResume.label(
+            positionSecs: model.resumePreview[editionId],
+            totalDurationSecs: audiobookTotalSecs
+        )
+    }
+
     private var audiobookMetrics: [String] {
         let secs = manifest?.totalDurationSecs ?? audiobookEdition?.durationSecs ?? book.audiobookDurationSecs ?? 0
         var parts = [Formatters.durationClock(secs)]
@@ -526,7 +542,12 @@ struct BookView: View {
                     guard let editionId = audiobookEditionId else { return }
                     audiobookActionError = nil
                     loadingPlayer = true
-                    await model.openPlayer(editionId: editionId)
+                    // "Play" has to mean from the start — but only once the
+                    // preview has loaded. Before that the label is a placeholder,
+                    // so the player resolves the position itself.
+                    let previewed = model.resumePreview[editionId] != nil
+                    let resumeAt: Double? = (previewed && audiobookResume == .play) ? 0 : nil
+                    await model.openPlayer(editionId: editionId, resumeAt: resumeAt)
                     loadingPlayer = false
                     if let error = model.errorMessage {
                         audiobookActionError = error
@@ -538,6 +559,11 @@ struct BookView: View {
                 Group {
                     if loadingPlayer {
                         ProgressView().tint(Theme.onAccent)
+                    } else if case let .resume(positionSecs) = audiobookResume {
+                        Label(
+                            String(localized: "Resume from \(Formatters.durationTimestamp(positionSecs))"),
+                            systemImage: "play.fill"
+                        )
                     } else {
                         Label("Play", systemImage: "play.fill")
                     }
@@ -682,7 +708,10 @@ struct BookView: View {
                                 Task {
                                     guard let editionId = audiobookEditionId else { return }
                                     loadingPlayer = true
-                                    await model.openPlayer(editionId: editionId, resumeAt: chapter.startSecs)
+                                    await model.openPlayer(
+                                        editionId: editionId,
+                                        resumeAt: resumePosition(in: chapter) ?? chapter.startSecs
+                                    )
                                     loadingPlayer = false
                                     if model.errorMessage == nil {
                                         showingPlayer = true
@@ -693,7 +722,10 @@ struct BookView: View {
                                     index: chapter.index,
                                     title: chapter.title,
                                     downloaded: isChapterDownloaded(chapter),
-                                    current: isCurrentChapter(chapter)
+                                    current: isCurrentChapter(chapter),
+                                    resumeText: resumePosition(in: chapter).map {
+                                        String(localized: "Resume from \(Formatters.durationTimestamp($0))")
+                                    }
                                 )
                             }
                             .buttonStyle(.plain)
@@ -990,6 +1022,20 @@ struct BookView: View {
     /// chapter list in its idle state (now a spinner; previously the default
     /// "Chapters couldn't load" error) for the whole ebook GET. Starting the
     /// manifest first also avoids a MainActor deadlock from overlapping the two.
+    /// The stored resume point when it falls inside this chapter, so the row can
+    /// offer it instead of the chapter's own start. `endSecs` is exclusive — a
+    /// position exactly on a boundary belongs to the chapter that begins there.
+    private func resumePosition(in chapter: ManifestChapter) -> Double? {
+        guard case let .resume(positionSecs) = audiobookResume else { return nil }
+        guard positionSecs >= chapter.startSecs, positionSecs < chapter.endSecs else { return nil }
+        return positionSecs
+    }
+
+    private func loadResumePreview() async {
+        guard let editionId = audiobookEditionId else { return }
+        await model.loadResumePreview(editionId: editionId, totalDurationSecs: audiobookTotalSecs)
+    }
+
     private func refreshAll(forceManifestRefresh: Bool) async {
         seedManifestFromCache()
         await loadBookDetail()
@@ -1000,6 +1046,9 @@ struct BookView: View {
             manifest = nil
             manifestError = nil
             fetchAttemptedManifest = true
+        }
+        if hasAudiobookEdition {
+            await loadResumePreview()
         }
         if hasEbookEdition {
             await loadEbookFiles()
