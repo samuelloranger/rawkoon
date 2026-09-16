@@ -1874,12 +1874,12 @@
         }
       }
     },
-    "Local AI": {
+    "AI Provider": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "IA locale"
+            "value": "Fournisseur d'IA"
           }
         }
       }

@@ -1,9 +1,9 @@
 import type { NormalizedRelease } from "@rawkoon/api/services/indexerManager/types";
-import type { LocalAiConfig } from "@rawkoon/api/utils/integrations/types";
+import type { AiProviderConfig } from "@rawkoon/api/utils/integrations/types";
 import {
-  pickReleaseWithLocalAi,
-  type LocalAiPickResult,
-} from "@rawkoon/api/services/localAi/client";
+  pickReleaseWithAi,
+  type AiPickResult,
+} from "@rawkoon/api/services/aiProvider/client";
 import type { AiPickMediaContext } from "@rawkoon/api/utils/medias/buildAiPickPrompt";
 import type { QualityProfileScoreInput } from "@rawkoon/api/utils/medias/releaseScorer";
 import {
@@ -29,7 +29,7 @@ function toAiPickReleases(scored: ScoredRelease[]) {
 
 function resolveAiPick(
   scored: ScoredRelease[],
-  aiPick: LocalAiPickResult,
+  aiPick: AiPickResult,
 ): GrabPickResult | null {
   const match = scored.find((s) => s.release.guid === aiPick.release_key);
   if (!match) return null;
@@ -44,7 +44,7 @@ export async function pickReleaseForGrab(opts: {
   candidates: NormalizedRelease[];
   profile: QualityProfileScoreInput | null;
   mediaContext: AiPickMediaContext;
-  aiConfig: LocalAiConfig | null;
+  aiConfig: AiProviderConfig | null;
 }): Promise<GrabPickResult | null> {
   const scored = scoreReleasesForProfile(opts.candidates, opts.profile);
   const classicBest = pickBestScored(scored);
@@ -54,7 +54,7 @@ export async function pickReleaseForGrab(opts: {
     return { ...classicBest, picked_by: "classic" };
   }
 
-  const aiPick = await pickReleaseWithLocalAi(
+  const aiPick = await pickReleaseWithAi(
     opts.aiConfig,
     opts.mediaContext,
     toAiPickReleases(scored),

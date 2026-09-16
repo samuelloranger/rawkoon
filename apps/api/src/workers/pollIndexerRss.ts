@@ -3,12 +3,19 @@ import { getActiveIndexerManager } from "@rawkoon/api/services/indexerManager/fa
 import type { NormalizedRelease } from "@rawkoon/api/services/indexerManager/types";
 import type { RssRunStats } from "@rawkoon/api/services/rssRunStatus";
 import { grabRelease } from "@rawkoon/api/services/mediaGrabberGrab";
-import { loadEnabledLocalAiConfig } from "@rawkoon/api/services/localAi/client";
+import { loadEnabledAiProviderConfig } from "@rawkoon/api/services/aiProvider/client";
 import {
   normalizeTitleForMatch,
   parseReleaseSeasonEpisode,
 } from "@rawkoon/api/utils/medias/filenameParser";
 import { pickReleaseForGrab } from "@rawkoon/api/utils/medias/pickReleaseForGrab";
+import { mapPool } from "@rawkoon/api/utils/medias/fileFingerprint";
+
+/**
+ * Matches used to fan out unbounded, which on a bulk import fired every AI judge
+ * call at once. A hosted provider rate-limits that; bound the burst instead.
+ */
+const GRAB_CONCURRENCY = 3;
 import {
   profileToScoreInput,
   qualityProfileFormatsInclude,
@@ -57,10 +64,10 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
     `[pollIndexerRss] Polling ${adapter.name} RSS for indexers: ${rssIndexers.join(", ")}`,
   );
 
-  const aiConfig = await loadEnabledLocalAiConfig();
+  const aiConfig = await loadEnabledAiProviderConfig();
   if (aiConfig) {
     console.log(
-      "[pollIndexerRss] Local AI enabled — will use AI pick with classic fallback",
+      "[pollIndexerRss] AI Provider enabled — will use AI pick with classic fallback",
     );
   }
 
@@ -353,34 +360,34 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
     return { grabbed: true, ai: best.picked_by === "ai" };
   }
 
-  const [episodeResults, movieResults, seasonPackResults] = await Promise.all([
-    Promise.all(
-      [...episodeCandidates.values()].map(({ match, releases: candidates }) =>
-        processGrabMatch(
-          candidates,
-          match.media.qualityProfileId,
-          tvMediaContext(match.media.title),
-          `${match.media.title} S${match.season}E${match.episode}`,
-          { mediaId: match.media.id, episodeId: match.id },
-          `episode ${match.id}`,
-        ),
-      ),
+  const grabTasks: Array<() => Promise<GrabResult>> = [
+    ...[...episodeCandidates.values()].map(
+      ({ match, releases: candidates }) =>
+        () =>
+          processGrabMatch(
+            candidates,
+            match.media.qualityProfileId,
+            tvMediaContext(match.media.title),
+            `${match.media.title} S${match.season}E${match.episode}`,
+            { mediaId: match.media.id, episodeId: match.id },
+            `episode ${match.id}`,
+          ),
     ),
-    Promise.all(
-      [...movieCandidates.values()].map(({ match, releases: candidates }) =>
-        processGrabMatch(
-          candidates,
-          match.qualityProfileId,
-          movieMediaContext(match.title, match.year),
-          `${match.title} (${match.year})`,
-          { mediaId: match.id },
-          `movie ${match.id}`,
-        ),
-      ),
+    ...[...movieCandidates.values()].map(
+      ({ match, releases: candidates }) =>
+        () =>
+          processGrabMatch(
+            candidates,
+            match.qualityProfileId,
+            movieMediaContext(match.title, match.year),
+            `${match.title} (${match.year})`,
+            { mediaId: match.id },
+            `movie ${match.id}`,
+          ),
     ),
-    Promise.all(
-      [...seasonPackCandidates.values()].map(
-        ({ match, releases: candidates }) =>
+    ...[...seasonPackCandidates.values()].map(
+      ({ match, releases: candidates }) =>
+        () =>
           processGrabMatch(
             candidates,
             match.media.qualityProfileId,
@@ -389,11 +396,12 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
             { mediaId: match.media.id, season: match.season },
             `season pack ${match.mediaId} S${match.season}`,
           ),
-      ),
     ),
-  ]);
+  ];
 
-  const allResults = [...episodeResults, ...movieResults, ...seasonPackResults];
+  const allResults = await mapPool(grabTasks, GRAB_CONCURRENCY, (task) =>
+    task(),
+  );
   const grabbed = allResults.filter((r) => r.grabbed).length;
   const grabbedByAi = allResults.filter((r) => r.ai).length;
 

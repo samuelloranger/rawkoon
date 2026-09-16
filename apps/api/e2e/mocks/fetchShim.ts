@@ -1,6 +1,6 @@
 // Intercept global fetch so NO external network call escapes the harness — every
 // one of the 14 external boundaries (TMDB, indexers, download clients, book
-// providers, Jellyfin, local-ai, APNs relay) goes through global fetch. Requests
+// providers, Jellyfin, ai-provider, APNs relay) goes through global fetch. Requests
 // to localhost/127.0.0.1 pass through untouched (the real e2e server).
 //
 // Canned responses are keyed by hostname substring; unknown external hosts get a

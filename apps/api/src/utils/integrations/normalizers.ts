@@ -6,7 +6,7 @@ import type {
   SonarrIntegrationConfig,
   TmdbIntegrationConfig,
   FanartIntegrationConfig,
-  LocalAiConfig,
+  AiProviderConfig,
   GoogleBooksIntegrationConfig,
   AudnexusIntegrationConfig,
 } from "./types";
@@ -197,15 +197,20 @@ export const normalizeFanartConfig = (
   return apiKey ? { api_key: apiKey } : null;
 };
 
-export const normalizeLocalAiConfig = (
+export const normalizeAiProviderConfig = (
   config: unknown,
-): LocalAiConfig | null => {
+): AiProviderConfig | null => {
   if (!config || typeof config !== "object" || Array.isArray(config))
     return null;
   const cfg = config as Record<string, unknown>;
   if (typeof cfg.base_url !== "string" || !cfg.base_url) return null;
   if (typeof cfg.model !== "string" || !cfg.model) return null;
-  return { base_url: cfg.base_url.replace(/\/+$/, ""), model: cfg.model };
+  const apiKey = normalizeSecret(cfg.api_key);
+  return {
+    base_url: cfg.base_url.replace(/\/+$/, ""),
+    model: cfg.model,
+    ...(apiKey ? { api_key: apiKey } : {}),
+  };
 };
 
 /**
