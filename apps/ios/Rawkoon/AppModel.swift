@@ -446,8 +446,10 @@ final class AppModel {
             guard let client = apiClient else { return }
             do {
                 for try await event in await client.libraryEventsStream() {
-                    backoff = 1.0
                     switch event {
+                    case .handshake:
+                        backoff = 1.0
+                        SSEEventRegistry.apply(.libraryHandshake, to: serverStateStore)
                     case let .media(id):
                         SSEEventRegistry.apply(.media(id: id), to: serverStateStore)
                         libraryChangeToken += 1

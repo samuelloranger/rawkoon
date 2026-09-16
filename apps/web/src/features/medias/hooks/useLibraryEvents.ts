@@ -25,7 +25,11 @@ export function useLibraryEvents() {
           connected?: boolean;
           kind?: "media" | "book";
         };
-        if (payload.connected) return; // initial handshake, ignore
+        if (payload.connected) {
+          queryClient.invalidateQueries({ queryKey: queryKeys.library.all });
+          queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
+          return;
+        }
 
         if (payload.kind === "book") {
           queryClient.invalidateQueries({ queryKey: queryKeys.books.all });

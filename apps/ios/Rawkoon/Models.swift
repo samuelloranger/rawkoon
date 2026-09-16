@@ -1891,4 +1891,5 @@ nonisolated struct LibraryEventDTO: Decodable, Sendable {
 enum LibraryEvent: Sendable {
     case media(id: Int)
     case book(id: Int)
+    case handshake
 }

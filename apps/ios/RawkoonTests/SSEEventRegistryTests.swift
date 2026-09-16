@@ -55,6 +55,18 @@ struct SSEEventRegistryTests {
         #expect(store.isInvalidated(.progress))
     }
 
+    @Test func libraryHandshakeInvalidatesLibraryAndBookFamilies() {
+        let store = ServerStateStore()
+        let key = LibraryListKey.default
+        store.seedLibraryList([movie(id: 1)], for: key)
+
+        SSEEventRegistry.apply(.libraryHandshake, to: store)
+
+        #expect(store.libraryList(key).isInvalidated)
+        #expect(store.isInvalidated(.bookList))
+        #expect(store.isInvalidated(.progress))
+    }
+
     private func movie(id: Int) -> LibraryMedia {
         LibraryMedia(
             id: id, tmdbId: id, type: "movie", title: "Movie \(id)", year: 2026,

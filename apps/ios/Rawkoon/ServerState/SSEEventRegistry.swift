@@ -45,7 +45,9 @@ enum SSEEventRegistry {
         case let .book(id):
             store.invalidate(.bookItem(id))
         case .libraryHandshake:
-            break
+            store.invalidateAllLibraryLists()
+            store.invalidate(.bookList)
+            store.invalidate(.progress)
         case .notification:
             store.invalidate(.notifications)
             store.invalidate(.unreadCount)
