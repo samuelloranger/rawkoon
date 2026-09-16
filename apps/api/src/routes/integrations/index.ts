@@ -9,7 +9,7 @@ import { jellyfinIntegrationRoutes } from "./jellyfin";
 import { prowlarrIntegrationRoutes } from "./prowlarr";
 import { jackettIntegrationRoutes } from "./jackett";
 import { oidcIntegrationRoutes } from "./oidc";
-import { localAiIntegrationRoutes } from "./local-ai";
+import { aiProviderIntegrationRoutes } from "./ai-provider";
 import { googleBooksIntegrationRoutes } from "./googlebooks";
 import { audnexusIntegrationRoutes } from "./audnexus";
 
@@ -25,7 +25,7 @@ export const integrationsRoutes = new Hono<Env>()
   .route("/", prowlarrIntegrationRoutes)
   .route("/", jackettIntegrationRoutes)
   .route("/oidc", oidcIntegrationRoutes)
-  .route("/", localAiIntegrationRoutes)
+  .route("/", aiProviderIntegrationRoutes)
   .route("/", googleBooksIntegrationRoutes)
   .route("/", audnexusIntegrationRoutes)
   .notFound(() => notFound("Not found"))

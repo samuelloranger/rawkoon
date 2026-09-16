@@ -2,14 +2,14 @@ import { describe, it, expect, mock } from "bun:test";
 import type { NormalizedRelease } from "@rawkoon/api/services/indexerManager/types";
 import { pickReleaseForGrab } from "@rawkoon/api/utils/medias/pickReleaseForGrab";
 
-const pickReleaseWithLocalAiMock = mock<
+const pickReleaseWithAiMock = mock<
   (
     ...args: unknown[]
   ) => Promise<{ release_key: string; reasoning: string } | null>
 >(async () => null);
 
-mock.module("@rawkoon/api/services/localAi/client", () => ({
-  pickReleaseWithLocalAi: pickReleaseWithLocalAiMock,
+mock.module("@rawkoon/api/services/aiProvider/client", () => ({
+  pickReleaseWithAi: pickReleaseWithAiMock,
 }));
 
 function release(guid: string, title: string): NormalizedRelease {
@@ -37,7 +37,7 @@ function release(guid: string, title: string): NormalizedRelease {
 
 describe("pickReleaseForGrab", () => {
   it("uses classic pick when AI is disabled", async () => {
-    pickReleaseWithLocalAiMock.mockClear();
+    pickReleaseWithAiMock.mockClear();
     const candidates = [
       release("a", "Movie.2020.720p.WEB-DL.x264-G1"),
       release("b", "Movie.2020.1080p.BluRay.x265-G2"),
@@ -51,11 +51,11 @@ describe("pickReleaseForGrab", () => {
     });
 
     expect(result?.picked_by).toBe("classic");
-    expect(pickReleaseWithLocalAiMock).not.toHaveBeenCalled();
+    expect(pickReleaseWithAiMock).not.toHaveBeenCalled();
   });
 
   it("falls back to classic when AI returns null", async () => {
-    pickReleaseWithLocalAiMock.mockImplementationOnce(async () => null);
+    pickReleaseWithAiMock.mockImplementationOnce(async () => null);
     const candidates = [
       release("a", "Movie.2020.720p.WEB-DL.x264-G1"),
       release("b", "Movie.2020.1080p.BluRay.x265-G2"),
@@ -69,11 +69,11 @@ describe("pickReleaseForGrab", () => {
     });
 
     expect(result?.picked_by).toBe("classic");
-    expect(pickReleaseWithLocalAiMock).toHaveBeenCalled();
+    expect(pickReleaseWithAiMock).toHaveBeenCalled();
   });
 
   it("uses AI pick when AI returns a valid key", async () => {
-    pickReleaseWithLocalAiMock.mockImplementationOnce(async () => ({
+    pickReleaseWithAiMock.mockImplementationOnce(async () => ({
       release_key: "b",
       reasoning: "Better quality",
     }));
@@ -95,7 +95,7 @@ describe("pickReleaseForGrab", () => {
   });
 
   it("skips AI when only one qualifying release", async () => {
-    pickReleaseWithLocalAiMock.mockClear();
+    pickReleaseWithAiMock.mockClear();
     const candidates = [release("a", "Movie.2020.1080p.BluRay.x265-G2")];
 
     const result = await pickReleaseForGrab({
@@ -106,6 +106,6 @@ describe("pickReleaseForGrab", () => {
     });
 
     expect(result?.picked_by).toBe("classic");
-    expect(pickReleaseWithLocalAiMock).not.toHaveBeenCalled();
+    expect(pickReleaseWithAiMock).not.toHaveBeenCalled();
   });
 });

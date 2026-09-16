@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Local AI integration (admin). `GET/PUT /api/integrations/local-ai` + a test
+/// AI Provider integration (admin). `GET/PUT /api/integrations/ai-provider` + a test
 /// that reads the *saved* config. No secret.
-struct LocalAiIntegrationView: View {
+struct AiProviderIntegrationView: View {
     @Environment(AppModel.self) private var model
 
     @State private var loading = true
@@ -38,7 +38,7 @@ struct LocalAiIntegrationView: View {
                 form
             }
         }
-        .navigationTitle("Local AI")
+        .navigationTitle("AI Provider")
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -84,7 +84,7 @@ struct LocalAiIntegrationView: View {
     private func testConnection() async -> TestOutcome {
         guard let client = model.api() else { return .failure(String(localized: "Not signed in.")) }
         do {
-            let result = try await client.testLocalAi()
+            let result = try await client.testAiProvider()
             if let error = result.error {
                 return .failure(error)
             }
@@ -102,7 +102,7 @@ struct LocalAiIntegrationView: View {
         guard let client = model.api() else { loading = false; return }
         loading = true; loadError = nil
         do {
-            let integration = try await client.localAiIntegration().integration
+            let integration = try await client.aiProviderIntegration().integration
             enabled = integration.enabled
             baseURL = integration.baseUrl ?? ""
             modelName = integration.model ?? ""
@@ -117,8 +117,8 @@ struct LocalAiIntegrationView: View {
         guard let client = model.api() else { return }
         saving = true; saveError = nil
         do {
-            try await client.saveLocalAiIntegration(
-                SaveLocalAiBody(enabled: enabled, baseUrl: baseURL, model: modelName)
+            try await client.saveAiProviderIntegration(
+                SaveAiProviderBody(enabled: enabled, baseUrl: baseURL, model: modelName)
             )
             loaded = current
         } catch {

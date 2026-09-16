@@ -629,7 +629,7 @@ struct ReleaseSearchView: View {
         guard let client = model.api() else {
             return
         }
-        aiEnabled = await client.localAiEnabled()
+        aiEnabled = await client.aiProviderEnabled()
         if aiEnabled {
             Task {
                 await client.aiWarm()

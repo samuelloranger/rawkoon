@@ -53,16 +53,16 @@ extension APIClient {
         try await putExpectOK("/api/integrations/jellyfin", body: body)
     }
 
-    func localAiIntegration() async throws -> LocalAiIntegrationResponse {
-        try await get("/api/integrations/local-ai")
+    func aiProviderIntegration() async throws -> AiProviderIntegrationResponse {
+        try await get("/api/integrations/ai-provider")
     }
 
-    func saveLocalAiIntegration(_ body: SaveLocalAiBody) async throws {
-        try await putExpectOK("/api/integrations/local-ai", body: body)
+    func saveAiProviderIntegration(_ body: SaveAiProviderBody) async throws {
+        try await putExpectOK("/api/integrations/ai-provider", body: body)
     }
 
-    func testLocalAi() async throws -> LocalAiTestResponse {
-        try await get("/api/integrations/local-ai/test")
+    func testAiProvider() async throws -> AiProviderTestResponse {
+        try await get("/api/integrations/ai-provider/test")
     }
 
     // MARK: Indexer managers — Prowlarr / Jackett (spec §5 Phase 2)

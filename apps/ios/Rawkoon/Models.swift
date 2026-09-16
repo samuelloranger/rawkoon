@@ -1150,20 +1150,20 @@ nonisolated struct SaveJellyfinBody: Encodable, Sendable {
     let apiKey: String
 }
 
-nonisolated struct LocalAiIntegrationDTO: Decodable, Sendable {
+nonisolated struct AiProviderIntegrationDTO: Decodable, Sendable {
     let enabled: Bool
     let baseUrl: String?
     let model: String?
 }
 
-nonisolated struct LocalAiIntegrationResponse: Decodable, Sendable { let integration: LocalAiIntegrationDTO }
-nonisolated struct SaveLocalAiBody: Encodable, Sendable {
+nonisolated struct AiProviderIntegrationResponse: Decodable, Sendable { let integration: AiProviderIntegrationDTO }
+nonisolated struct SaveAiProviderBody: Encodable, Sendable {
     let enabled: Bool
     let baseUrl: String
     let model: String
 }
 
-nonisolated struct LocalAiTestResponse: Decodable, Sendable {
+nonisolated struct AiProviderTestResponse: Decodable, Sendable {
     let error: String?
     let models: [String]?
     let modelAvailable: Bool?

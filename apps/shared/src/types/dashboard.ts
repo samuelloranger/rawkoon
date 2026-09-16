@@ -107,7 +107,7 @@ interface RssRunResult {
   completed_at: string;
   releases_found: number;
   releases_grabbed: number;
-  /** Grabs where Local AI chose the release (RSS auto-grab only). */
+  /** Grabs where AI Provider chose the release (RSS auto-grab only). */
   releases_grabbed_by_ai: number;
   indexers: RssIndexerStat[];
   error: string | null;

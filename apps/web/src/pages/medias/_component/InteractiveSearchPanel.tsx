@@ -5,7 +5,7 @@ import { useInteractiveSearchState } from "@/features/medias/hooks/useInteractiv
 import { useAddToBlocklist } from "@/features/medias/hooks/useBlocklist";
 import { useCurrentUser } from "@/lib/auth/useAuth";
 import type { InteractiveReleaseItem } from "@rawkoon/shared/types";
-import { useLocalAiIntegration } from "@/pages/settings/useLocalAiIntegration";
+import { useAiProviderIntegration } from "@/pages/settings/useAiProviderIntegration";
 import { useAiPick } from "@/pages/medias/_component/useAiPick";
 import { AiPickBanner } from "@/pages/medias/_component/AiPickBanner";
 import { useFetcher } from "@/lib/api/context";
@@ -39,7 +39,7 @@ export interface InteractiveSearchPanelProps {
 export function InteractiveSearchPanel(props: InteractiveSearchPanelProps) {
   const state = useInteractiveSearchState(props);
 
-  const { data: aiConfig } = useLocalAiIntegration();
+  const { data: aiConfig } = useAiProviderIntegration();
   const aiEnabled = Boolean(aiConfig?.integration?.enabled);
 
   const mediaType =

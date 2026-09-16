@@ -30,7 +30,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
     case general
     case tmdb
     case jellyfin
-    case localAi
+    case aiProvider
     case prowlarr
     case jackett
     case indexers
@@ -58,7 +58,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         switch self {
         case .general:
             .system
-        case .tmdb, .jellyfin, .localAi, .prowlarr, .jackett, .indexers, .downloadClient, .bookProviders:
+        case .tmdb, .jellyfin, .aiProvider, .prowlarr, .jackett, .indexers, .downloadClient, .bookProviders:
             .integrations
         case .mediaLibrary, .arrImport, .qualityProfiles, .customFormats, .books, .bookQualityProfiles:
             .libraryQuality
@@ -80,7 +80,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .general: "General"
         case .tmdb: "TMDB"
         case .jellyfin: "Jellyfin"
-        case .localAi: "Local AI"
+        case .aiProvider: "AI Provider"
         case .prowlarr: "Prowlarr"
         case .jackett: "Jackett"
         case .indexers: "Indexers"
@@ -107,7 +107,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .general: "globe"
         case .tmdb: "film"
         case .jellyfin: "play.rectangle"
-        case .localAi: "brain"
+        case .aiProvider: "brain"
         case .prowlarr: "magnifyingglass.circle"
         case .jackett: "magnifyingglass.circle"
         case .indexers: "magnifyingglass"
@@ -135,7 +135,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .general: ["system", "app", "server"]
         case .tmdb: ["the movie database", "metadata", "discovery"]
         case .jellyfin: ["media server", "streaming"]
-        case .localAi: ["ai", "llm", "recommendations"]
+        case .aiProvider: ["ai", "llm", "recommendations"]
         case .prowlarr: ["indexer", "search", "releases"]
         case .jackett: ["indexer", "search", "releases"]
         case .indexers: ["indexer", "search", "trackers", "torrent", "usenet"]
@@ -175,7 +175,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .general: GeneralSettingsView()
         case .tmdb: TmdbIntegrationView()
         case .jellyfin: JellyfinIntegrationView()
-        case .localAi: LocalAiIntegrationView()
+        case .aiProvider: AiProviderIntegrationView()
         case .prowlarr: IndexerManagerIntegrationView(kind: .prowlarr)
         case .jackett: IndexerManagerIntegrationView(kind: .jackett)
         case .indexers: IndexersView()

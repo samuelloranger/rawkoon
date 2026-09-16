@@ -1120,10 +1120,10 @@ actor APIClient {
         try await post("/api/library/\(libraryId)/grab", body: body)
     }
 
-    /// Whether the Local AI integration is enabled — gates the AI-pick UI.
-    func localAiEnabled() async -> Bool {
+    /// Whether the AI Provider integration is enabled — gates the AI-pick UI.
+    func aiProviderEnabled() async -> Bool {
         do {
-            let response: LocalAiIntegrationResponse = try await get("/api/integrations/local-ai")
+            let response: AiProviderIntegrationResponse = try await get("/api/integrations/ai-provider")
             return response.integration.enabled
         } catch {
             return false
