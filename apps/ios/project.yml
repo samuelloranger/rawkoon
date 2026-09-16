@@ -4,12 +4,7 @@ options:
   developmentLanguage: en
   knownRegions: [en, fr]
   deploymentTarget:
-    # iOS 26.2 is the app's real floor (tabViewBottomAccessory(isEnabled:)). The
-    # target was 27.0, but nothing uses iOS-27 APIs and Apple isn't yet accepting
-    # binaries built with the beta Xcode 27 that GitHub's xcode-27 image ships, so
-    # we build with Xcode 26.6 (GA) on the macos-26 runner. Raise again when the
-    # xcode-27 image carries an RC/GA Xcode.
-    iOS: "26.2"
+    iOS: "27.0"
 packages:
   RawkoonKit:
     path: .
@@ -50,8 +45,6 @@ targets:
         AVInitialRouteSharingPolicy: LongFormAudio
         CFBundleDisplayName: Rawkoon
         ITSAppUsesNonExemptEncryption: false
-        # Required for Mac App Store submission (90242). Ignored on iOS.
-        LSApplicationCategoryType: public.app-category.entertainment
         # Wire the version/build strings to the build settings so CI's
         # MARKETING_VERSION / CURRENT_PROJECT_VERSION overrides actually reach
         # the binary (XcodeGen otherwise bakes literal "1.0"/"1", which made

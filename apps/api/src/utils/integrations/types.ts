@@ -37,9 +37,11 @@ export interface FanartIntegrationConfig {
   api_key: string;
 }
 
-export interface LocalAiConfig {
+export interface AiProviderConfig {
   base_url: string;
   model: string;
+  /** Optional: local servers need no auth, hosted OpenAI-compatible ones do. */
+  api_key?: string;
 }
 
 export interface GoogleBooksIntegrationConfig {

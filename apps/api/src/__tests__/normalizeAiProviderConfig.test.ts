@@ -1,23 +1,23 @@
 import { describe, it, expect } from "bun:test";
-import { normalizeLocalAiConfig } from "@rawkoon/api/utils/integrations/normalizers";
+import { normalizeAiProviderConfig } from "@rawkoon/api/utils/integrations/normalizers";
 
-describe("normalizeLocalAiConfig", () => {
+describe("normalizeAiProviderConfig", () => {
   it("returns null for null input", () => {
-    expect(normalizeLocalAiConfig(null)).toBeNull();
+    expect(normalizeAiProviderConfig(null)).toBeNull();
   });
 
   it("returns null when base_url is missing", () => {
-    expect(normalizeLocalAiConfig({ model: "llama3.2" })).toBeNull();
+    expect(normalizeAiProviderConfig({ model: "llama3.2" })).toBeNull();
   });
 
   it("returns null when model is missing", () => {
     expect(
-      normalizeLocalAiConfig({ base_url: "http://localhost:11434" }),
+      normalizeAiProviderConfig({ base_url: "http://localhost:11434" }),
     ).toBeNull();
   });
 
   it("returns config with trimmed trailing slash on base_url", () => {
-    const result = normalizeLocalAiConfig({
+    const result = normalizeAiProviderConfig({
       base_url: "http://homelab:11434/",
       model: "llama3.2",
     });
@@ -28,7 +28,7 @@ describe("normalizeLocalAiConfig", () => {
   });
 
   it("returns config as-is when valid", () => {
-    const result = normalizeLocalAiConfig({
+    const result = normalizeAiProviderConfig({
       base_url: "http://homelab:11434",
       model: "mistral",
     });

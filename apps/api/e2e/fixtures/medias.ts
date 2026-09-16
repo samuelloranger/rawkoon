@@ -180,7 +180,7 @@ export const mediasFixtures: FixtureRegistry = {
   "POST /api/medias/search/ai-pick": {
     phase: "action",
     admin: true,
-    // 404 when local-ai integration is disabled; 422 when enabled but no releases.
+    // 404 when ai-provider integration is disabled; 422 when enabled but no releases.
     expectedStatus: [404, 422],
     body: () => ({
       media_context: { title: "E2E", year: 2020, type: "movie" },

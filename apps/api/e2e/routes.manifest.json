@@ -389,15 +389,15 @@
   },
   {
     "method": "GET",
-    "path": "/api/integrations/local-ai"
+    "path": "/api/integrations/ai-provider"
   },
   {
     "method": "PUT",
-    "path": "/api/integrations/local-ai"
+    "path": "/api/integrations/ai-provider"
   },
   {
     "method": "GET",
-    "path": "/api/integrations/local-ai/test"
+    "path": "/api/integrations/ai-provider/test"
   },
   {
     "method": "GET",

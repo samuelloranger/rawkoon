@@ -12,14 +12,25 @@ export interface AiPickMediaContext {
   type: string;
 }
 
+/**
+ * Shared by both callers: the RSS auto-grab, where a quality profile scores
+ * every candidate, and interactive search, where releases arrive unscored
+ * unless the search was launched from a media page. The unscored branch is
+ * load-bearing — without it the model is told to rank on a signal that is
+ * absent and forbidden from using the only one it has, so it disobeys to
+ * answer at all.
+ *
+ * Undownloadable releases are filtered in code before this is sent, so the
+ * prompt no longer mentions them.
+ */
 export const AI_SYSTEM_PROMPT =
   "You are a media release selection assistant for a homelab. " +
-  "Given a list of torrent releases, pick the single best one. " +
-  "`score` is the app's quality rating derived from the user's resolution, format, and size preferences (higher is better) — use it as the primary quality signal and do not re-judge quality from the title. " +
+  "Given a list of releases, pick the single best one. " +
+  "`score` is the app's quality rating derived from the user's resolution, format, and size preferences (higher is better). " +
   "Choose in this order: " +
-  "(1) discard any release with 0 seeders (undownloadable); " +
-  "(2) discard releases with the wrong language, wrong season/episode, or low-quality captures (CAM, TS, TELESYNC, HDCAM, WORKPRINT, SCREENER); " +
-  "(3) among those remaining, pick the highest score; " +
+  "(1) discard releases with the wrong language, wrong season/episode, or a low-quality capture (CAM, TS, TELESYNC, HDCAM, WORKPRINT, SCREENER); " +
+  "(2) among those remaining, pick the highest score, and do not second-guess a score from the title; " +
+  "(3) if every release is unscored, rank by seeders, preferring a higher resolution and a non-capture source; " +
   "(4) break ties by seeders. " +
   "release_key MUST be exactly one of the provided keys — never invent one. " +
   'Respond ONLY with valid JSON matching: { "release_key": string, "reasoning": string }. ' +

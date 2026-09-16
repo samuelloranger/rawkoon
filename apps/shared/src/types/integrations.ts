@@ -141,14 +141,16 @@ export interface OidcProvider {
   icon_url: string | null;
 }
 
-export interface LocalAiIntegration {
-  type: "local-ai";
+export interface AiProviderIntegration {
+  type: "ai-provider";
   enabled: boolean;
   base_url: string;
   model: string;
+  /** The key itself is never returned; this only says whether one is stored. */
+  has_api_key: boolean;
 }
 
-export interface LocalAiIntegrationUpdateResponse {
+export interface AiProviderIntegrationUpdateResponse {
   success: boolean;
-  integration: LocalAiIntegration;
+  integration: AiProviderIntegration;
 }
