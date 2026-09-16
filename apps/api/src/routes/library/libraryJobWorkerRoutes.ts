@@ -10,7 +10,8 @@ import {
   scheduledTasksQueue,
   SCHEDULED_JOB_NAMES,
 } from "@rawkoon/api/services/queueService";
-import { createJsonSseResponse } from "@rawkoon/api/utils/sse";
+import { createContractSseResponse } from "@rawkoon/api/utils/sse";
+import { assertSseContractIDs } from "@rawkoon/api/contracts/sseContract";
 import type { LibraryMigrateProgress } from "@rawkoon/api/services/jobs/libraryMigrateTypes";
 import type { LibraryReindexLanguagesProgress } from "@rawkoon/api/services/jobs/libraryReindexLanguagesWorker";
 import type { LibraryRemuxJobData } from "@rawkoon/api/services/jobs/libraryRemuxWorker";
@@ -165,6 +166,11 @@ export const libraryJobWorkerRoutes = new Hono<Env>()
   })
 
   .get("/events", requireUser, (c) => {
+    assertSseContractIDs([
+      "library.media-update",
+      "library.book-update",
+      "library.handshake",
+    ]);
     const enc = new TextEncoder();
     let closed = false;
     let controller: ReadableStreamDefaultController<Uint8Array>;
@@ -316,7 +322,7 @@ export const libraryJobWorkerRoutes = new Hono<Env>()
   )
 
   .get("/migrate/status", requireUser, (c) => {
-    return createJsonSseResponse({
+    return createContractSseResponse("library.migrate-status", {
       request: c.req.raw,
       logLabel: "LibraryMigrate",
       intervalMs: (data) => {

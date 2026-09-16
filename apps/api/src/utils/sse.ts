@@ -1,3 +1,7 @@
+import {
+  assertSseContractIDs,
+  type SSEContractID,
+} from "@rawkoon/api/contracts/sseContract";
 type IntervalMs<T> = number | ((payload: T) => number);
 
 export type CreateJsonSseResponseOptions<T> = {
@@ -120,4 +124,13 @@ export function createJsonSseResponse<T>({
       Connection: "keep-alive",
     },
   });
+}
+
+/** Declares the checked-in contract used by a polling SSE endpoint. */
+export function createContractSseResponse<T>(
+  contractID: SSEContractID,
+  options: CreateJsonSseResponseOptions<T>,
+): Response {
+  assertSseContractIDs([contractID]);
+  return createJsonSseResponse(options);
 }

@@ -12,7 +12,7 @@ import {
   addJob,
   SCHEDULED_JOB_NAMES,
 } from "@rawkoon/api/services/queueService";
-import { createJsonSseResponse } from "@rawkoon/api/utils/sse";
+import { createContractSseResponse } from "@rawkoon/api/utils/sse";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 
 const queueMap: Record<string, Queue> = {
@@ -111,7 +111,7 @@ export const adminJobRoutes = new Hono<Env>()
   })
 
   .get("/jobs/events", (c) => {
-    return createJsonSseResponse({
+    return createContractSseResponse("admin.jobs-status", {
       request: c.req.raw,
       logLabel: "AdminJobs",
       intervalMs: 2000,

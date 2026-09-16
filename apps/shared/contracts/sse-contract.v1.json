@@ -1,0 +1,9 @@
+[
+  { "id": "library.media-update", "path": "/api/library/events", "kind": "media", "payload": { "mediaId": "number", "ts": "number" }, "ios_policy": "invalidate" },
+  { "id": "library.book-update", "path": "/api/library/events", "kind": "book", "payload": { "bookId": "number", "ts": "number" }, "ios_policy": "invalidate" },
+  { "id": "library.handshake", "path": "/api/library/events", "kind": "connected", "payload": { "connected": "true", "ts": "number" }, "ios_policy": "progress" },
+  { "id": "notifications.notification", "path": "/api/notifications/stream", "kind": "notification", "payload": { "id": "number", "userId": "string" }, "ios_policy": "patch" },
+  { "id": "notifications.handshake", "path": "/api/notifications/stream", "kind": "connected", "payload": { "connected": "true" }, "ios_policy": "progress" },
+  { "id": "library.migrate-status", "path": "/api/library/migrate/status", "kind": "snapshot", "payload": { "state": "string", "progress": "object|null" }, "ios_policy": "progress" },
+  { "id": "admin.jobs-status", "path": "/api/admin/jobs/events", "kind": "snapshot", "payload": { "jobs": "array" }, "ios_policy": "progress" }
+]
