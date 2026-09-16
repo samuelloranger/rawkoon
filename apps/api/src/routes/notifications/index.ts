@@ -28,7 +28,10 @@ import {
 import { type Env, honoOnError } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, queryV } from "@rawkoon/api/middleware/validate";
-import { assertSseContractIDs } from "@rawkoon/api/contracts/sseContract";
+import {
+  assertSseContractIDs,
+  SSE_ROUTE_DECLARATIONS,
+} from "@rawkoon/api/contracts/sseContract";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 
 const listQuery = z.object({
@@ -92,10 +95,7 @@ export const notificationsRoutes = new Hono<Env>()
   .get("/stream", requireUser, (c) => {
     const userId = c.get("user").id;
 
-    assertSseContractIDs([
-      "notifications.notification",
-      "notifications.handshake",
-    ]);
+    assertSseContractIDs(SSE_ROUTE_DECLARATIONS.notificationsStream.ids);
     const encoder = new TextEncoder();
     const signal = c.req.raw.signal;
 
