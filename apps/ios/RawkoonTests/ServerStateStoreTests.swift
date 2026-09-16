@@ -25,7 +25,48 @@ struct ServerStateStoreTests {
         #expect(store.libraryList(key).isInvalidated)
     }
 
-    private func movie(id: Int) -> LibraryMedia {
+    @Test func needsLoadWhenNothingIsCached() {
+        let store = ServerStateStore()
+
+        #expect(store.needsLoad(.default))
+    }
+
+    @Test func noLoadWhenFreshDataIsCached() {
+        let store = ServerStateStore()
+        store.seedLibraryList([movie(id: 1)], for: .default)
+
+        #expect(store.needsLoad(.default) == false)
+    }
+
+    @Test func needsLoadAgainOnceTheQueryIsInvalidated() {
+        let store = ServerStateStore()
+        store.seedLibraryList([movie(id: 1)], for: .default)
+
+        SSEEventRegistry.apply(.media(id: 1), to: store)
+
+        #expect(store.needsLoad(.default))
+    }
+
+    @Test func refreshingClearsTheNeedToLoad() async throws {
+        let store = ServerStateStore()
+        store.seedLibraryList([movie(id: 1)], for: .default)
+        SSEEventRegistry.apply(.media(id: 1), to: store)
+
+        try await store.refreshLibraryWindow(.default) { _ in
+            LibraryPage(items: [movie(id: 1)], hasMore: false)
+        }
+
+        #expect(store.needsLoad(.default) == false)
+    }
+
+    @Test func anEmptyLibraryStillLoadsOnAppear() {
+        let store = ServerStateStore()
+        store.seedLibraryList([], for: .default)
+
+        #expect(store.needsLoad(.default))
+    }
+
+    private nonisolated func movie(id: Int) -> LibraryMedia {
         LibraryMedia(
             id: id, tmdbId: id, type: "movie", title: "Movie \(id)", year: 2026,
             status: "wanted", monitored: true, posterUrl: nil, overview: nil,

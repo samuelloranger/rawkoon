@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement, type ReactNode } from "react";
 
@@ -41,6 +41,59 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   mockUseAuth.mockReset();
+});
+
+describe("NotificationToastContainer silent notifications", () => {
+  function emit(payload: unknown) {
+    const stream = FakeEventSource.instances.find(
+      (es) => es.url === "/api/notifications/stream",
+    );
+    act(() => {
+      stream?.onmessage?.({ data: JSON.stringify(payload) } as MessageEvent);
+    });
+  }
+
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue({
+      user: { id: "u1" },
+      isAuthenticated: true,
+      isLoading: false,
+    });
+  });
+
+  it("shows a toast for an ordinary notification", () => {
+    render(createElement(NotificationToastContainer), {
+      wrapper: wrap(new QueryClient()),
+    });
+
+    emit({
+      id: 1,
+      title: "Downloaded",
+      body: "Jungle",
+      type: "library_media_downloaded",
+      url: "/library/2542",
+      metadata: { media_id: 2542 },
+    });
+
+    expect(screen.queryByText("Downloaded")).not.toBeNull();
+  });
+
+  it("stays quiet for a notification the server marked silent", () => {
+    render(createElement(NotificationToastContainer), {
+      wrapper: wrap(new QueryClient()),
+    });
+
+    emit({
+      id: 2,
+      title: "Application mise a jour",
+      body: "v1.28.0",
+      type: "app-update",
+      url: "/",
+      metadata: { silent: true, version: "v1.28.0" },
+    });
+
+    expect(screen.queryByText("Application mise a jour")).toBeNull();
+  });
 });
 
 describe("NotificationToastContainer SSE connection", () => {

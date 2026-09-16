@@ -61,6 +61,11 @@ final class ServerStateStore {
         )
     }
 
+    func needsLoad(_ key: LibraryListKey) -> Bool {
+        let state = libraryList(key)
+        return (state.value?.isEmpty ?? true) || state.isInvalidated
+    }
+
     func pagination(_ key: LibraryListKey) -> LibraryPagination {
         libraryPagination[key] ?? LibraryPagination()
     }
