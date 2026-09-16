@@ -33,6 +33,7 @@ struct LibraryListKey: Hashable, Sendable {
 enum ServerQueryKey: Hashable, Sendable {
     case libraryList(LibraryListKey)
     case libraryItem(Int)
+    case downloadHistory(Int)
     case discoverDetail(tmdbID: Int, type: String)
     case discoverDeck
     case bookList
@@ -42,4 +43,4 @@ enum ServerQueryKey: Hashable, Sendable {
     case unreadCount
 }
 
-enum ServerMutation: Sendable { case removeLibraryItem(Int), addLibraryItem }
+enum ServerMutation: Sendable { case removeLibraryItem(Int), addLibraryItem, updateLibraryItem(Int) }

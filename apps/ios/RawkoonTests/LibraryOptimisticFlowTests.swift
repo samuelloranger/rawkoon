@@ -98,6 +98,116 @@ struct LibraryOptimisticFlowTests {
         #expect(store.libraryList(key).isInvalidated == false)
     }
 
+    @Test func removeRollsBackWithoutResettingLoadedPages() async {
+        let store = ServerStateStore()
+        let key = LibraryListKey.default
+        store.seedLibraryList([movie(id: 1, tmdbId: 1), movie(id: 2, tmdbId: 2)], for: key, pagesLoaded: 2, hasMore: true)
+        let gate = AddGate()
+
+        let remove = Task { try await store.removeLibraryItem(id: 1, request: { _ = try await gate.run() }) }
+        await gate.waitUntilStarted()
+        #expect(store.libraryList(key).value?.map(\.id) == [2])
+
+        gate.finish(.failure(TestError.failed))
+        await #expect(throws: TestError.self) { try await remove.value }
+
+        #expect(store.libraryList(key).value?.map(\.id) == [1, 2])
+        #expect(store.pagination(key).pagesLoaded == 2)
+        #expect(store.pagination(key).hasMore)
+    }
+
+    @Test func monitorPatchUpdatesListAndItemBeforeNetworkReturns() async throws {
+        let store = ServerStateStore()
+        let key = LibraryListKey.default
+        store.seedLibraryList([movie(id: 1, tmdbId: 1)], for: key)
+        store.seedLibraryItem(movie(id: 1, tmdbId: 1))
+        let gate = AddGate()
+
+        let update = Task { try await store.updateMonitored(id: 1, monitored: false, request: gate.run) }
+        await gate.waitUntilStarted()
+
+        #expect(store.libraryList(key).value?.first?.monitored == false)
+        #expect(store.libraryItem(1).value?.monitored == false)
+
+        var confirmed = movie(id: 1, tmdbId: 1)
+        confirmed.monitored = false
+        gate.finish(.success(confirmed))
+        _ = try await update.value
+
+        #expect(store.libraryList(key).value?.first?.monitored == false)
+        #expect(store.isInvalidated(.libraryItem(1)))
+    }
+
+    @Test func failedMonitorChangeRestoresBothCaches() async {
+        let store = ServerStateStore()
+        let key = LibraryListKey.default
+        store.seedLibraryList([movie(id: 1, tmdbId: 1)], for: key)
+        store.seedLibraryItem(movie(id: 1, tmdbId: 1))
+        let gate = AddGate()
+
+        let update = Task { try await store.updateMonitored(id: 1, monitored: false, request: gate.run) }
+        await gate.waitUntilStarted()
+        gate.finish(.failure(TestError.failed))
+        await #expect(throws: TestError.self) { try await update.value }
+
+        #expect(store.libraryList(key).value?.first?.monitored == true)
+        #expect(store.libraryItem(1).value?.monitored == true)
+    }
+
+    @Test func qualityProfilePatchAppliesThenConverges() async throws {
+        let store = ServerStateStore()
+        let key = LibraryListKey.default
+        store.seedLibraryList([movie(id: 1, tmdbId: 1)], for: key)
+        store.seedLibraryItem(movie(id: 1, tmdbId: 1))
+        let gate = AddGate()
+
+        let update = Task { try await store.updateQualityProfile(id: 1, qualityProfileId: 9, request: gate.run) }
+        await gate.waitUntilStarted()
+        #expect(store.libraryItem(1).value?.qualityProfileId == 9)
+
+        var confirmed = movie(id: 1, tmdbId: 1)
+        confirmed.qualityProfileId = 9
+        gate.finish(.success(confirmed))
+        _ = try await update.value
+
+        #expect(store.libraryList(key).value?.first?.qualityProfileId == 9)
+    }
+
+    @Test func downloadAndFileChangesInvalidateWithoutPatching() {
+        let store = ServerStateStore()
+        let key = LibraryListKey.default
+        store.seedLibraryList([movie(id: 1, tmdbId: 1)], for: key)
+
+        store.invalidateDownloadHistory(itemID: 1)
+        #expect(store.isInvalidated(.downloadHistory(1)))
+        #expect(store.isInvalidated(.libraryItem(1)))
+        #expect(store.libraryList(key).isInvalidated)
+        #expect(store.libraryList(key).value?.map(\.id) == [1])
+
+        store.seedLibraryList([movie(id: 1, tmdbId: 1)], for: key)
+        store.invalidateLibraryRollup(itemID: 1)
+        #expect(store.isInvalidated(.libraryItem(1)))
+        #expect(store.libraryList(key).isInvalidated)
+    }
+
+    @Test func sseEventDuringPendingRemoveCannotResurrectTheRow() async throws {
+        let store = ServerStateStore()
+        let key = LibraryListKey.default
+        store.seedLibraryList([movie(id: 1, tmdbId: 1), movie(id: 2, tmdbId: 2)], for: key)
+        let gate = AddGate()
+
+        let remove = Task { try await store.removeLibraryItem(id: 1, request: { _ = try await gate.run() }) }
+        await gate.waitUntilStarted()
+        SSEEventRegistry.apply(.media(id: 1), to: store)
+
+        #expect(store.libraryList(key).value?.map(\.id) == [2])
+        #expect(store.libraryList(key).isInvalidated == false)
+
+        gate.finish(.success(movie(id: 1, tmdbId: 1)))
+        try await remove.value
+        #expect(store.libraryList(key).value?.map(\.id) == [2])
+    }
+
     private nonisolated func provisional(tmdbId: Int) -> LibraryMedia {
         LibraryMedia.provisional(tmdbId: tmdbId, type: "movie", title: "Movie \(tmdbId)", year: 2026, posterUrl: nil, overview: nil)
     }

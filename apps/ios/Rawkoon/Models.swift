@@ -351,11 +351,12 @@ nonisolated struct LibraryMedia: Decodable, Identifiable, Sendable {
     let title: String
     let year: Int?
     let status: String // wanted / downloading / downloaded / missing …
-    let monitored: Bool
+    // Patched optimistically by `ServerStateStore` before the server confirms.
+    var monitored: Bool
     let posterUrl: String?
     let overview: String?
-    let qualityProfileId: Int?
-    let qualityProfile: LibraryQualityProfileRef?
+    var qualityProfileId: Int?
+    var qualityProfile: LibraryQualityProfileRef?
     let totalSizeBytes: String? // bigint serialized as string
     let episodeCount: Int?
     let downloadedEpisodeCount: Int?

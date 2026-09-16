@@ -33,6 +33,9 @@ final class ServerStateStore {
     private var libraryListTasks: [LibraryListKey: Task<[LibraryMedia], Error>] = [:]
     private var libraryListSnapshots: [UUID: [LibraryListKey: ServerQueryState<[LibraryMedia]>]] = [:]
     private var libraryListOwners: [LibraryListKey: UUID] = [:]
+    private(set) var libraryItems: [Int: ServerQueryState<LibraryMedia>] = [:]
+    private var libraryItemSnapshots: [UUID: [Int: ServerQueryState<LibraryMedia>]] = [:]
+    private var libraryItemOwners: [Int: UUID] = [:]
     private(set) var libraryPagination: [LibraryListKey: LibraryPagination] = [:]
     private var libraryWindowTasks: [LibraryListKey: Task<Void, Error>] = [:]
     private(set) var invalidatedKeys: Set<ServerQueryKey> = []
@@ -40,6 +43,20 @@ final class ServerStateStore {
 
     func libraryList(_ key: LibraryListKey) -> ServerQueryState<[LibraryMedia]> {
         libraryLists[key] ?? ServerQueryState()
+    }
+
+    func libraryItem(_ id: Int) -> ServerQueryState<LibraryMedia> {
+        libraryItems[id] ?? ServerQueryState()
+    }
+
+    func seedLibraryItem(_ item: LibraryMedia) {
+        libraryItems[item.id] = ServerQueryState(
+            value: item,
+            errorDescription: nil,
+            isLoading: false,
+            isInvalidated: false,
+            updatedAt: Date()
+        )
     }
 
     func pagination(_ key: LibraryListKey) -> LibraryPagination {
@@ -262,7 +279,11 @@ final class ServerStateStore {
             invalidateLibraryList(listKey)
         case let .libraryItem(id):
             invalidatedKeys.insert(.libraryItem(id))
+            invalidateLibraryItem(id)
             invalidateAllLibraryLists()
+        case let .downloadHistory(id):
+            invalidatedKeys.insert(.downloadHistory(id))
+            invalidate(.libraryItem(id))
         case let .bookItem(id):
             invalidatedKeys.insert(.bookItem(id))
             invalidatedKeys.insert(.bookList)
@@ -286,6 +307,13 @@ final class ServerStateStore {
         }
     }
 
+    private func invalidateLibraryItem(_ id: Int) {
+        guard libraryItemOwners[id] == nil, libraryItems[id] != nil else { return }
+        var state = libraryItem(id)
+        state.isInvalidated = true
+        libraryItems[id] = state
+    }
+
     private func invalidateLibraryList(_ key: LibraryListKey) {
         guard libraryListOwners[key] == nil else { return }
         var state = libraryList(key)
@@ -296,6 +324,7 @@ final class ServerStateStore {
     func beginMutation(_: ServerMutation) -> ServerMutationToken {
         let token = ServerMutationToken()
         libraryListSnapshots[token.id] = libraryLists
+        libraryItemSnapshots[token.id] = libraryItems
         return token
     }
 
@@ -310,15 +339,24 @@ final class ServerStateStore {
 
     func commit(_ token: ServerMutationToken) {
         libraryListSnapshots[token.id] = nil
+        libraryItemSnapshots[token.id] = nil
         libraryListOwners = libraryListOwners.filter { $0.value != token.id }
+        libraryItemOwners = libraryItemOwners.filter { $0.value != token.id }
     }
 
     func rollback(_ token: ServerMutationToken) {
-        guard let snapshots = libraryListSnapshots.removeValue(forKey: token.id) else { return }
-        for (key, snapshot) in snapshots where libraryListOwners[key] == token.id {
-            libraryLists[key] = snapshot
+        if let snapshots = libraryListSnapshots.removeValue(forKey: token.id) {
+            for (key, snapshot) in snapshots where libraryListOwners[key] == token.id {
+                libraryLists[key] = snapshot
+            }
+        }
+        if let snapshots = libraryItemSnapshots.removeValue(forKey: token.id) {
+            for (id, snapshot) in snapshots where libraryItemOwners[id] == token.id {
+                libraryItems[id] = snapshot
+            }
         }
         libraryListOwners = libraryListOwners.filter { $0.value != token.id }
+        libraryItemOwners = libraryItemOwners.filter { $0.value != token.id }
     }
 
     // MARK: Mutations
@@ -346,6 +384,103 @@ final class ServerStateStore {
         }
     }
 
+    /// Removes the row from every cached list straight away and puts it back if
+    /// the request fails, so loaded pages and scroll position never reset.
+    func removeLibraryItem(id: Int, request: @escaping @Sendable () async throws -> Void) async throws {
+        let token = beginMutation(.removeLibraryItem(id))
+        for key in Array(libraryLists.keys) where libraryList(key).value?.contains(where: { $0.id == id }) == true {
+            removeLibraryItemOptimistically(id: id, from: key, token: token)
+        }
+        if libraryItems[id] != nil {
+            libraryItemOwners[id] = token.id
+            libraryItems[id] = nil
+        }
+        do {
+            try await request()
+            commit(token)
+            invalidatedKeys.insert(.libraryItem(id))
+            invalidateAllLibraryLists()
+        } catch {
+            rollback(token)
+            throw error
+        }
+    }
+
+    @discardableResult
+    func updateMonitored(
+        id: Int,
+        monitored: Bool,
+        request: @escaping @Sendable () async throws -> LibraryMedia
+    ) async throws -> LibraryMedia {
+        try await mutateLibraryItem(id: id, request: request) { item in
+            item.monitored = monitored
+        }
+    }
+
+    /// Only the id is patched — the profile's name comes back with the server's
+    /// item, which lands a moment later.
+    @discardableResult
+    func updateQualityProfile(
+        id: Int,
+        qualityProfileId: Int?,
+        request: @escaping @Sendable () async throws -> LibraryMedia
+    ) async throws -> LibraryMedia {
+        try await mutateLibraryItem(id: id, request: request) { item in
+            item.qualityProfileId = qualityProfileId
+            if item.qualityProfile?.id != qualityProfileId {
+                item.qualityProfile = nil
+            }
+        }
+    }
+
+    /// Download and file actions keep their own in-place UI, so nothing is
+    /// patched — the item, its lists and its history just go stale.
+    func invalidateDownloadHistory(itemID: Int) {
+        invalidate(.downloadHistory(itemID))
+    }
+
+    func invalidateLibraryRollup(itemID: Int) {
+        invalidate(.libraryItem(itemID))
+    }
+
+    private func mutateLibraryItem(
+        id: Int,
+        request: @escaping @Sendable () async throws -> LibraryMedia,
+        patch: (inout LibraryMedia) -> Void
+    ) async throws -> LibraryMedia {
+        let token = beginMutation(.updateLibraryItem(id))
+        applyOptimisticPatch(id: id, token: token, patch: patch)
+        do {
+            let item = try await request()
+            commit(token)
+            patchLibraryItem(item)
+            invalidate(.libraryItem(id))
+            return item
+        } catch {
+            rollback(token)
+            throw error
+        }
+    }
+
+    private func applyOptimisticPatch(id: Int, token: ServerMutationToken, patch: (inout LibraryMedia) -> Void) {
+        for key in Array(libraryLists.keys) {
+            var state = libraryList(key)
+            guard var items = state.value, let index = items.firstIndex(where: { $0.id == id }) else { continue }
+            patch(&items[index])
+            state.value = items
+            state.isInvalidated = false
+            libraryLists[key] = state
+            libraryListOwners[key] = token.id
+        }
+        if var state = libraryItems[id], var item = state.value {
+            patch(&item)
+            state.value = item
+            state.isInvalidated = false
+            libraryItems[id] = state
+            libraryItemOwners[id] = token.id
+        }
+    }
+
     /// Replaces a server-confirmed item everywhere it is cached, without
     /// refetching — loaded pages and scroll position stay put.
     func patchLibraryItem(_ item: LibraryMedia) {
@@ -355,6 +490,9 @@ final class ServerStateStore {
             items[index] = item
             state.value = items
             libraryLists[key] = state
+        }
+        if libraryItems[item.id] != nil {
+            seedLibraryItem(item)
         }
     }
 
@@ -426,8 +564,11 @@ final class ServerStateStore {
         libraryWindowTasks = [:]
         libraryPagination = [:]
         libraryLists = [:]
+        libraryItems = [:]
         libraryListSnapshots = [:]
+        libraryItemSnapshots = [:]
         libraryListOwners = [:]
+        libraryItemOwners = [:]
         invalidatedKeys.removeAll()
     }
 }

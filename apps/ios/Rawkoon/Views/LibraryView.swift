@@ -428,6 +428,18 @@ struct LibraryView: View {
         store.pagination(mediaKey).hasMore
     }
 
+    /// Changes worth animating: rows appearing or leaving, and the monitored
+    /// badge flipping. Cheap enough to recompute per body pass at page size.
+    private var mediaAnimationToken: Int {
+        var hasher = Hasher()
+        for item in media {
+            hasher.combine(item.id)
+            hasher.combine(item.monitored)
+            hasher.combine(item.isProvisional)
+        }
+        return hasher.finalize()
+    }
+
     // MARK: Toolbars
 
     private var mediaToolbar: some View {
@@ -559,6 +571,7 @@ struct LibraryView: View {
             .padding(.vertical, 16)
         }
         .overlay { mediaOverlay }
+        .animation(listMotion, value: mediaAnimationToken)
         .refreshable { await loadMedia(reset: true) }
     }
 
@@ -687,6 +700,7 @@ struct LibraryView: View {
             .libraryReadingWidth(isRegularWidth)
         }
         .overlay { mediaOverlay }
+        .animation(listMotion, value: mediaAnimationToken)
         .refreshable { await loadMedia(reset: true) }
     }
 
@@ -1010,11 +1024,13 @@ struct LibraryView: View {
         guard let client = model.api(), !busyMediaIds.contains(media.id) else { return }
         busyMediaIds.insert(media.id)
         do {
-            let updated = try await client.updateLibraryMonitored(id: media.id, monitored: !media.monitored)
-            // In-place swap — no refetch, so scroll and loaded pages stay put.
-            withAnimation(listMotion) {
-                store.patchLibraryItem(updated)
-            }
+            // The store patches every cached copy before the request returns and
+            // restores them if it fails, so scroll and loaded pages stay put.
+            _ = try await store.updateMonitored(
+                id: media.id,
+                monitored: !media.monitored,
+                request: { try await client.updateLibraryMonitored(id: media.id, monitored: !media.monitored) }
+            )
             model.toast(media.monitored ? String(localized: "Unmonitored.") : String(localized: "Monitored."), style: .success)
         } catch {
             model.toast(errorMessage(for: error), style: .error)
@@ -1026,14 +1042,14 @@ struct LibraryView: View {
         guard let client = model.api() else { return }
         busyMediaIds.insert(media.id)
         do {
-            try await client.removeFromLibrary(id: media.id, deleteFiles: deleteFiles)
+            // The row leaves every cached list at once instead of refetching page 1,
+            // which would reset scroll and drop the pages already loaded, and comes
+            // back if the request fails.
+            try await store.removeLibraryItem(
+                id: media.id,
+                request: { try await client.removeFromLibrary(id: media.id, deleteFiles: deleteFiles) }
+            )
             removeCandidate = nil
-            // Optimistic removal — drop the row locally instead of refetching page 1,
-            // which would reset scroll and drop the pages already loaded. Animated so
-            // the remaining cells reflow into the gap.
-            withAnimation(listMotion) {
-                store.deleteLibraryItem(id: media.id)
-            }
             model.toast(String(localized: "Removed from library."), style: .success)
             // Removing the last loaded row while more pages exist would strand the
             // list on an empty view with no sentinel to fire — pull the next page in.
