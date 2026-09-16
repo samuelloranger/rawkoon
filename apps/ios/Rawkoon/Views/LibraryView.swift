@@ -559,6 +559,7 @@ struct LibraryView: View {
                             .matchedTransitionSource(id: zoomID, in: zoomNamespace)
                         }
                         .buttonStyle(.plain)
+                        .disabled(!LibraryRowPresentation(media: m).isInteractive)
                         .rawkoonScrollSettle()
                     }
                 }
@@ -601,7 +602,9 @@ struct LibraryView: View {
 
     @ViewBuilder
     private func mediaBadge(for m: LibraryMedia) -> some View {
-        if m.status == "downloading" {
+        if case .adding = LibraryRowPresentation(media: m).status {
+            StatusBadge(text: "Adding…", tint: Theme.apricot)
+        } else if m.status == "downloading" {
             Circle().fill(Theme.importing).frame(width: 22, height: 22)
                 .overlay(Image(systemName: "arrow.down").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.onAccent))
         } else if m.status == "wanted" || m.status == "missing" {
@@ -689,6 +692,7 @@ struct LibraryView: View {
                         .matchedTransitionSource(id: zoomID, in: zoomNamespace)
                     }
                     .buttonStyle(.plain)
+                    .disabled(!LibraryRowPresentation(media: m).isInteractive)
                     .rawkoonScrollSettle()
                 }
 
@@ -962,6 +966,9 @@ struct LibraryView: View {
     }
 
     private func handleMediaMenu(_ action: MediaPosterMenuAction, media: LibraryMedia) {
+        // A provisional row carries a negative placeholder id — nothing that
+        // addresses the server may run against it.
+        guard LibraryRowPresentation(media: media).isInteractive else { return }
         switch action {
         case .toggleMonitored:
             Task { await toggleMonitored(media) }

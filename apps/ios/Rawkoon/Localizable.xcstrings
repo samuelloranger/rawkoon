@@ -7687,6 +7687,16 @@
         }
       }
     },
+    "Adding\u2026": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajout\u2026"
+          }
+        }
+      }
+    },
     "Added to watchlist": {
       "localizations": {
         "fr": {

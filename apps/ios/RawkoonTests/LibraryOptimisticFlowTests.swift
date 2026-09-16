@@ -208,6 +208,52 @@ struct LibraryOptimisticFlowTests {
         #expect(store.libraryList(key).value?.map(\.id) == [2])
     }
 
+    @Test func overlappingMutationsEachKeepTheirOwnWork() async throws {
+        let store = ServerStateStore()
+        let key = LibraryListKey.default
+        store.seedLibraryList([movie(id: 1, tmdbId: 1)], for: key)
+        let addGate = AddGate()
+        let removeGate = AddGate()
+
+        let add = Task { try await store.addToLibrary(provisional: provisional(tmdbId: 7), request: addGate.run) }
+        await addGate.waitUntilStarted()
+        let remove = Task { try await store.removeLibraryItem(id: 1, request: { _ = try await removeGate.run() }) }
+        await removeGate.waitUntilStarted()
+
+        // The remove patched the same list the add owns; the add must still find
+        // its provisional row when the server answers.
+        addGate.finish(.success(movie(id: 42, tmdbId: 7)))
+        _ = try await add.value
+        #expect(store.libraryList(key).value?.map(\.id) == [42])
+
+        removeGate.finish(.success(movie(id: 1, tmdbId: 1)))
+        try await remove.value
+        #expect(store.libraryList(key).value?.map(\.id) == [42])
+    }
+
+    @Test func rollbackUnderASecondMutationRefetchesInsteadOfClobbering() async throws {
+        let store = ServerStateStore()
+        let key = LibraryListKey.default
+        store.seedLibraryList([movie(id: 1, tmdbId: 1)], for: key)
+        let addGate = AddGate()
+        let removeGate = AddGate()
+
+        let add = Task { try await store.addToLibrary(provisional: provisional(tmdbId: 7), request: addGate.run) }
+        await addGate.waitUntilStarted()
+        let remove = Task { try await store.removeLibraryItem(id: 1, request: { _ = try await removeGate.run() }) }
+        await removeGate.waitUntilStarted()
+
+        // The add fails while the remove is still pending: restoring the add's
+        // snapshot would bring the removed row back, so the list goes stale.
+        addGate.finish(.failure(TestError.failed))
+        await #expect(throws: TestError.self) { try await add.value }
+        #expect(store.libraryList(key).value?.contains { $0.id == 1 } == false)
+        #expect(store.libraryList(key).isInvalidated)
+
+        removeGate.finish(.success(movie(id: 1, tmdbId: 1)))
+        try await remove.value
+    }
+
     private nonisolated func provisional(tmdbId: Int) -> LibraryMedia {
         LibraryMedia.provisional(tmdbId: tmdbId, type: "movie", title: "Movie \(tmdbId)", year: 2026, posterUrl: nil, overview: nil)
     }

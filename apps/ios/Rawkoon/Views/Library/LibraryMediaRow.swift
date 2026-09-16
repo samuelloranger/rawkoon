@@ -29,7 +29,7 @@ struct LibraryMediaRow: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            if isBusy {
+            if presentation.showsSpinner {
                 ProgressView().tint(Theme.apricot)
             }
         }
@@ -39,7 +39,9 @@ struct LibraryMediaRow: View {
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border, lineWidth: 1))
         .contentShape(RoundedRectangle(cornerRadius: 12))
         .contextMenu {
-            ForEach(menuItems, id: \.self) { menuButton($0) }
+            if presentation.isInteractive {
+                ForEach(menuItems, id: \.self) { menuButton($0) }
+            }
         }
     }
 
@@ -81,9 +83,18 @@ struct LibraryMediaRow: View {
         }
     }
 
+    private var presentation: LibraryRowPresentation {
+        LibraryRowPresentation(media: media, isBusy: isBusy)
+    }
+
     private var metaPills: some View {
         FlowLayout(spacing: 6) {
-            statusBadge(media.status, tint: statusTint)
+            switch presentation.status {
+            case .adding:
+                StatusBadge(text: "Adding…", tint: Theme.apricot)
+            case let .server(status):
+                statusBadge(status, tint: statusTint)
+            }
             if let profile = media.qualityProfile?.name, !profile.isEmpty {
                 StatusBadge(verbatim: profile, tint: Theme.muted)
             }

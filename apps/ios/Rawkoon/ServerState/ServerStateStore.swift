@@ -32,10 +32,12 @@ final class ServerStateStore {
     private(set) var libraryLists: [LibraryListKey: ServerQueryState<[LibraryMedia]>] = [:]
     private var libraryListTasks: [LibraryListKey: Task<[LibraryMedia], Error>] = [:]
     private var libraryListSnapshots: [UUID: [LibraryListKey: ServerQueryState<[LibraryMedia]>]] = [:]
-    private var libraryListOwners: [LibraryListKey: UUID] = [:]
+    /// Every live transaction that has patched a key, not just the last one —
+    /// two overlapping mutations must each still find their own work.
+    private var libraryListOwners: [LibraryListKey: Set<UUID>] = [:]
     private(set) var libraryItems: [Int: ServerQueryState<LibraryMedia>] = [:]
     private var libraryItemSnapshots: [UUID: [Int: ServerQueryState<LibraryMedia>]] = [:]
-    private var libraryItemOwners: [Int: UUID] = [:]
+    private var libraryItemOwners: [Int: Set<UUID>] = [:]
     private(set) var libraryPagination: [LibraryListKey: LibraryPagination] = [:]
     private var libraryWindowTasks: [LibraryListKey: Task<Void, Error>] = [:]
     private(set) var invalidatedKeys: Set<ServerQueryKey> = []
@@ -308,14 +310,14 @@ final class ServerStateStore {
     }
 
     private func invalidateLibraryItem(_ id: Int) {
-        guard libraryItemOwners[id] == nil, libraryItems[id] != nil else { return }
+        guard libraryItemOwners[id, default: []].isEmpty, libraryItems[id] != nil else { return }
         var state = libraryItem(id)
         state.isInvalidated = true
         libraryItems[id] = state
     }
 
     private func invalidateLibraryList(_ key: LibraryListKey) {
-        guard libraryListOwners[key] == nil else { return }
+        guard libraryListOwners[key, default: []].isEmpty else { return }
         var state = libraryList(key)
         state.isInvalidated = true
         libraryLists[key] = state
@@ -334,29 +336,57 @@ final class ServerStateStore {
         state.value?.removeAll { $0.id == id }
         state.isInvalidated = false
         libraryLists[key] = state
-        libraryListOwners[key] = token.id
+        libraryListOwners[key, default: []].insert(token.id)
     }
 
     func commit(_ token: ServerMutationToken) {
         libraryListSnapshots[token.id] = nil
         libraryItemSnapshots[token.id] = nil
-        libraryListOwners = libraryListOwners.filter { $0.value != token.id }
-        libraryItemOwners = libraryItemOwners.filter { $0.value != token.id }
+        releaseOwnership(of: token)
     }
 
+    /// Restores what this transaction changed. Where another transaction has
+    /// since patched the same entry, its snapshot would erase that work, so the
+    /// entry is marked stale for a refetch instead of being restored.
     func rollback(_ token: ServerMutationToken) {
         if let snapshots = libraryListSnapshots.removeValue(forKey: token.id) {
-            for (key, snapshot) in snapshots where libraryListOwners[key] == token.id {
-                libraryLists[key] = snapshot
+            for (key, snapshot) in snapshots where libraryListOwners[key, default: []].contains(token.id) {
+                if libraryListOwners[key, default: []].subtracting([token.id]).isEmpty {
+                    libraryLists[key] = snapshot
+                } else {
+                    var state = libraryList(key)
+                    state.isInvalidated = true
+                    libraryLists[key] = state
+                }
             }
         }
         if let snapshots = libraryItemSnapshots.removeValue(forKey: token.id) {
-            for (id, snapshot) in snapshots where libraryItemOwners[id] == token.id {
-                libraryItems[id] = snapshot
+            for (id, snapshot) in snapshots where libraryItemOwners[id, default: []].contains(token.id) {
+                if libraryItemOwners[id, default: []].subtracting([token.id]).isEmpty {
+                    libraryItems[id] = snapshot
+                } else {
+                    var state = libraryItem(id)
+                    state.isInvalidated = true
+                    libraryItems[id] = state
+                }
             }
         }
-        libraryListOwners = libraryListOwners.filter { $0.value != token.id }
-        libraryItemOwners = libraryItemOwners.filter { $0.value != token.id }
+        releaseOwnership(of: token)
+    }
+
+    private func releaseOwnership(of token: ServerMutationToken) {
+        for key in Array(libraryListOwners.keys) {
+            libraryListOwners[key]?.remove(token.id)
+            if libraryListOwners[key]?.isEmpty == true {
+                libraryListOwners[key] = nil
+            }
+        }
+        for id in Array(libraryItemOwners.keys) {
+            libraryItemOwners[id]?.remove(token.id)
+            if libraryItemOwners[id]?.isEmpty == true {
+                libraryItemOwners[id] = nil
+            }
+        }
     }
 
     // MARK: Mutations
@@ -392,7 +422,7 @@ final class ServerStateStore {
             removeLibraryItemOptimistically(id: id, from: key, token: token)
         }
         if libraryItems[id] != nil {
-            libraryItemOwners[id] = token.id
+            libraryItemOwners[id, default: []].insert(token.id)
             libraryItems[id] = nil
         }
         do {
@@ -470,14 +500,14 @@ final class ServerStateStore {
             state.value = items
             state.isInvalidated = false
             libraryLists[key] = state
-            libraryListOwners[key] = token.id
+            libraryListOwners[key, default: []].insert(token.id)
         }
         if var state = libraryItems[id], var item = state.value {
             patch(&item)
             state.value = item
             state.isInvalidated = false
             libraryItems[id] = state
-            libraryItemOwners[id] = token.id
+            libraryItemOwners[id, default: []].insert(token.id)
         }
     }
 
@@ -531,12 +561,12 @@ final class ServerStateStore {
             state.value = items
             state.isInvalidated = false
             libraryLists[key] = state
-            libraryListOwners[key] = token.id
+            libraryListOwners[key, default: []].insert(token.id)
         }
     }
 
     private func replaceProvisional(tmdbId: Int, with item: LibraryMedia, token: ServerMutationToken) {
-        for (key, ownerID) in libraryListOwners where ownerID == token.id {
+        for (key, owners) in libraryListOwners where owners.contains(token.id) {
             var state = libraryList(key)
             guard var items = state.value else { continue }
             if let index = items.firstIndex(where: { $0.isProvisional && $0.tmdbId == tmdbId }) {
