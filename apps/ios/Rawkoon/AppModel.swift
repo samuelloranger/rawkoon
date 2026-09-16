@@ -101,6 +101,28 @@ final class AppModel {
     private var notificationStreamTask: Task<Void, Never>?
     private var bannerDismissTask: Task<Void, Never>?
 
+    private(set) var libraryStreamStatus: SSEStreamStatus = .idle
+    private(set) var notificationStreamStatus: SSEStreamStatus = .idle
+    /// Newest first, capped so a long-open debug screen can't grow unbounded.
+    private(set) var sseDebugLog: [SSEDebugLogEntry] = []
+    private let sseDebugLogLimit = 200
+
+    private func logSSE(_ stream: String, _ summary: String) {
+        sseDebugLog = appendSSELog(
+            sseDebugLog,
+            entry: SSEDebugLogEntry(timestamp: Date(), stream: stream, summary: summary),
+            limit: sseDebugLogLimit
+        )
+    }
+
+    /// Forces both SSE connections closed and immediately reopens them, so the
+    /// SSE debug screen can reproduce the reconnect path on demand instead of
+    /// waiting for a real network drop.
+    func forceReconnectSSE() {
+        stopLiveStreams()
+        startLiveStreams()
+    }
+
     /// Current toast banner, rendered once at the app root by `ToastOverlay`.
     /// Any screen can call `toast(_:style:)` to surface a background action's
     /// result without owning any presentation state itself.
@@ -434,6 +456,8 @@ final class AppModel {
         libraryEventsTask = nil
         notificationStreamTask?.cancel()
         notificationStreamTask = nil
+        libraryStreamStatus = .idle
+        notificationStreamStatus = .idle
     }
 
     /// Consumes `/api/library/events` until cancelled or unauthorized,
@@ -444,16 +468,21 @@ final class AppModel {
         var backoff = 1.0
         while !Task.isCancelled {
             guard let client = apiClient else { return }
+            libraryStreamStatus = .connecting
             do {
                 for try await event in await client.libraryEventsStream() {
                     switch event {
                     case .handshake:
                         backoff = 1.0
+                        libraryStreamStatus = .connected
+                        logSSE("library", "handshake")
                         SSEEventRegistry.apply(.libraryHandshake, to: serverStateStore)
                     case let .media(id):
+                        logSSE("library", "media id=\(id)")
                         SSEEventRegistry.apply(.media(id: id), to: serverStateStore)
                         libraryChangeToken += 1
                     case let .book(id):
+                        logSSE("library", "book id=\(id)")
                         SSEEventRegistry.apply(.book(id: id), to: serverStateStore)
                         bookChangeToken += 1
                     }
@@ -467,7 +496,9 @@ final class AppModel {
                 return
             } catch {
                 Log.sync.debug("library events stream dropped: \(error.localizedDescription, privacy: .public)")
+                logSSE("library", "dropped: \(error.localizedDescription)")
             }
+            libraryStreamStatus = .reconnecting
             if Task.isCancelled {
                 return
             }
@@ -484,9 +515,12 @@ final class AppModel {
         var backoff = 1.0
         while !Task.isCancelled {
             guard let client = apiClient else { return }
+            notificationStreamStatus = .connecting
             do {
                 for try await notification in await client.notificationStream() {
                     backoff = 1.0
+                    notificationStreamStatus = .connected
+                    logSSE("notifications", "id=\(notification.id) title=\(notification.title)")
                     SSEEventRegistry.apply(.notification, to: serverStateStore)
                     LibraryNotification.apply(notification, to: serverStateStore)
                     unreadNotificationCount += 1
@@ -505,7 +539,9 @@ final class AppModel {
                 return
             } catch {
                 Log.sync.debug("notification stream dropped: \(error.localizedDescription, privacy: .public)")
+                logSSE("notifications", "dropped: \(error.localizedDescription)")
             }
+            notificationStreamStatus = .reconnecting
             if Task.isCancelled {
                 return
             }

@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var confirmDeleteDownloads = false
     @State private var confirmLogOut = false
     @State private var settingsSearch = ""
+    @State private var showingSSEDebug = false
 
     private var isSearching: Bool {
         !settingsSearch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -59,6 +60,11 @@ struct SettingsView: View {
                 model.logout()
             }
             Button("Cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: $showingSSEDebug) {
+            NavigationStack {
+                SSEDebugView()
+            }
         }
         .task {
             await model.refreshAdminIfNeeded()
@@ -195,6 +201,14 @@ struct SettingsView: View {
                     Text("Rawkoon \(appVersion ?? "—")")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(Theme.faint)
+                }
+                // Hidden entry point to the SSE debug screen: admin-only, no
+                // visible affordance, so it never shows up in the settings
+                // search results the way a normal admin destination would.
+                .onLongPressGesture(minimumDuration: 1.5) {
+                    if model.isAdmin {
+                        showingSSEDebug = true
+                    }
                 }
             }
             .listRowBackground(Theme.raised)

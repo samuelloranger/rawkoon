@@ -7,6 +7,7 @@ import { adminLibraryHealthRoutes } from "./adminLibraryHealthRoutes";
 import { adminUserRoutes } from "./adminUserRoutes";
 import { adminMiscRoutes } from "./adminMiscRoutes";
 import { adminApiKeyRoutes } from "./apiKeyRoutes";
+import { sseTestRoutes } from "./sseTestRoutes";
 
 // Mounted at /api/admin by the edge. One
 // requireAdmin guard here propagates to every merged child; onError keeps an
@@ -18,5 +19,6 @@ export const adminRoutes = new Hono<Env>()
   .route("/", adminUserRoutes)
   .route("/", adminApiKeyRoutes)
   .route("/", adminMiscRoutes)
+  .route("/", sseTestRoutes)
   .notFound(() => notFound("Not found"))
   .onError(honoOnError);

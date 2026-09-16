@@ -105,6 +105,18 @@ extension APIClient {
         try await postPlainExpectOK("/api/integrations/download-client/hook/rotate", body: EmptyBody())
     }
 
+    // MARK: SSE debug screen (admin-only) — fires a synthetic event on the
+    // real library/book SSE bus so a connected client can watch it arrive.
+
+    struct SSETestTriggerBody: Encodable {
+        let kind: String
+        let id: Int
+    }
+
+    func triggerSSETest(kind: String, id: Int) async throws {
+        try await postPlainExpectOK("/api/admin/sse-test", body: SSETestTriggerBody(kind: kind, id: id))
+    }
+
     // MARK: Books providers — Audnexus / Google Books (spec §5 Phase 2)
 
     func audnexusIntegration() async throws -> AudnexusIntegrationResponse {
@@ -243,6 +255,13 @@ extension APIClient {
 
     func testNotificationChannel(id: Int) async throws {
         try await postExpectOK("/api/notifications/channels/\(id)/test", body: EmptyBody())
+    }
+
+    /// Sends the standard admin test push ("If you see this, notifications are
+    /// working!") to every user with a subscription. Used by the SSE debug
+    /// screen to exercise the notification stream end to end.
+    func sendTestNotification() async throws {
+        try await postExpectOK("/api/notifications/test", body: EmptyBody())
     }
 
     // MARK: Users admin + invitations (spec §5 Phase 5)
