@@ -46,7 +46,7 @@ jobs:
         working-directory: apps/ios
 
   build:
-    runs-on: xcode-27
+    runs-on: macos-26
     needs: [kit, lint]
     steps:
       - uses: actions/checkout@v4
@@ -55,25 +55,25 @@ jobs:
           sw_vers
           xcodebuild -version
           xcodebuild -showsdks | grep -i iphone || true
-          xcrun simctl list devices available | grep -iA30 'iOS 27' || true
+          xcrun simctl list devices available | grep -iA30 'iOS 26' || true
       - run: brew install xcodegen
       - run: xcodegen generate
         working-directory: apps/ios
-      # The runner's exact iOS 27 device set isn't pinned here — resolve one at
+      # The runner's exact iOS 26 device set isn't pinned here — resolve one at
       # runtime so a device-name change on the image doesn't break the test.
-      - name: Resolve an iOS 27 iPhone simulator
+      - name: Resolve an iOS 26 iPhone simulator
         id: sim
         run: |
           UDID=$(xcrun simctl list devices available --json | python3 -c '
           import json, sys
           devices = json.load(sys.stdin)["devices"]
           ids = [d["udid"]
-                 for rt, ds in devices.items() if "iOS-27" in rt
+                 for rt, ds in devices.items() if "iOS-26" in rt
                  for d in ds if "iPhone" in d["name"]]
           print(ids[0] if ids else "")')
-          if [ -z "$UDID" ]; then echo "No iOS 27 iPhone simulator on runner" >&2; exit 1; fi
+          if [ -z "$UDID" ]; then echo "No iOS 26 iPhone simulator on runner" >&2; exit 1; fi
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
-      - name: Run app-target tests (iOS 27)
+      - name: Run app-target tests (iOS 26)
         working-directory: apps/ios
         run: |
           xcodebuild test \
@@ -90,7 +90,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
   testflight:
-    runs-on: xcode-27
+    runs-on: macos-26
     needs: build
     # A published GitHub release is the ONLY thing that uploads to TestFlight.
     # Not a push to main, not a manual dispatch, not a PR — an upload consumes a
@@ -214,7 +214,7 @@ jobs:
           if-no-files-found: warn
 
   testflight-mac:
-    runs-on: xcode-27
+    runs-on: macos-26
     needs: build
     # Same rule as the iOS lane — only a published release uploads. This lane
     # archives the Mac Catalyst build and uploads it to the SAME app's macOS
