@@ -53,6 +53,9 @@ struct MediaDetailView: View {
     @State private var requestError: String?
     @State private var watchlistPending = false
     @State private var inWatchlist = false
+    /// Changes only after a successful user-initiated library action, avoiding
+    /// feedback when the initial detail fetch populates server state.
+    @State private var libraryChangeFeedback = 0
 
     @State private var showingReleaseSearch = false
     /// When set, the release-search sheet opens scoped to a single season.
@@ -114,6 +117,7 @@ struct MediaDetailView: View {
                 }
             }
             .sensoryFeedback(RawkoonHaptics.feedback(for: .grab), trigger: requested)
+            .sensoryFeedback(RawkoonHaptics.feedback(for: .libraryChanged), trigger: libraryChangeFeedback)
             .onChange(of: model.libraryChangeToken) { _, _ in
                 guard showManagement, managementItem != nil else { return }
                 liveReloadTask?.cancel()
@@ -951,6 +955,7 @@ struct MediaDetailView: View {
             managementNotice = deleted == 0 ? String(localized: "No failed downloads to clear.") : String(localized: "Cleared \(deleted) failed downloads.")
             managementError = nil
             await refreshManagementData()
+            recordLibraryChangeFeedback()
         } catch {
             managementError = String(localized: "Could not clear failed downloads.")
         }
@@ -965,6 +970,7 @@ struct MediaDetailView: View {
             managementNotice = String(localized: "Download updated.")
             managementError = nil
             await refreshManagementData()
+            recordLibraryChangeFeedback()
         } catch {
             managementError = String(localized: "Could not update download.")
         }
@@ -979,6 +985,7 @@ struct MediaDetailView: View {
             managementNotice = String(localized: "Download entry removed.")
             managementError = nil
             await refreshManagementData()
+            recordLibraryChangeFeedback()
         } catch {
             managementError = String(localized: "Could not remove download entry.")
         }
@@ -993,6 +1000,7 @@ struct MediaDetailView: View {
             managementNotice = String(localized: "File deleted.")
             managementError = nil
             await refreshManagementData()
+            recordLibraryChangeFeedback()
         } catch {
             managementError = String(localized: "Could not delete file.")
         }
@@ -1171,6 +1179,7 @@ struct MediaDetailView: View {
                 )
                 inWatchlist = true
             }
+            recordLibraryChangeFeedback()
         } catch APIError.unauthorized {
             requestError = String(localized: "Sign in required.")
         } catch {
@@ -1221,6 +1230,7 @@ struct MediaDetailView: View {
         do {
             try await client.addToLibrary(tmdbId: tmdbId, type: mediaType == "tv" ? "show" : "movie")
             added = true
+            recordLibraryChangeFeedback()
         } catch APIError.unauthorized {
             requestError = String(localized: "Admin only.")
         } catch let APIError.http(status) where status == 409 {
@@ -1228,5 +1238,9 @@ struct MediaDetailView: View {
         } catch {
             requestError = String(localized: "Could not add to library.")
         }
+    }
+
+    private func recordLibraryChangeFeedback() {
+        libraryChangeFeedback &+= 1
     }
 }
