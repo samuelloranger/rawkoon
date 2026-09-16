@@ -53,6 +53,32 @@ export async function tmdbApiFetch<T>(
   return res.json() as Promise<T>;
 }
 
+/**
+ * TMDB details fetch with `append_to_response=translations`, falling back to a
+ * plain details fetch if that 500s. Confirmed against the live API: some
+ * titles (e.g. movie 498402) 500 with an `Encoding::CompatibilityError` on
+ * TMDB's own translations serializer while the same endpoint without
+ * `append_to_response` returns 200 — a TMDB-side bug, not ours. Translations
+ * only feed best-effort alt-language search titles, so losing them on a
+ * TMDB-side failure must not block adding the item.
+ */
+export async function tmdbDetailsFetch<T>(
+  path: string,
+  apiKey: string,
+  params: { language: string; append_to_response?: string },
+): Promise<T> {
+  try {
+    return await tmdbApiFetch<T>(path, apiKey, params);
+  } catch (error) {
+    if (!params.append_to_response) throw error;
+    console.warn(
+      `[tmdb] ${path} failed with append_to_response=${params.append_to_response}, retrying without it:`,
+      error,
+    );
+    return await tmdbApiFetch<T>(path, apiKey, { language: params.language });
+  }
+}
+
 /** Full season/episode upsert for a show (matches POST /api/library show upsert). */
 export async function upsertLibraryShowEpisodesFromTmdb(opts: {
   mediaId: number;

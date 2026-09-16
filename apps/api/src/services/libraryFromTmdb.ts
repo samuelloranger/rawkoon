@@ -7,6 +7,7 @@ import {
   pickDigitalRelease,
   sortTitleFromName,
   tmdbApiFetch,
+  tmdbDetailsFetch,
   upsertLibraryShowEpisodesFromTmdb,
 } from "@rawkoon/api/utils/medias/libraryHelpers";
 import { extractTitleTranslations } from "@rawkoon/api/utils/medias/tmdbFetcherDetails";
@@ -117,7 +118,7 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
 
   if (type === "movie") {
     const [details, releaseDatesData] = await Promise.all([
-      tmdbApiFetch<{
+      tmdbDetailsFetch<{
         title: string;
         release_date: string;
         poster_path: string | null;
@@ -205,7 +206,7 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
     return movie;
   }
 
-  const details = await tmdbApiFetch<{
+  const details = await tmdbDetailsFetch<{
     name: string;
     first_air_date: string;
     poster_path: string | null;
