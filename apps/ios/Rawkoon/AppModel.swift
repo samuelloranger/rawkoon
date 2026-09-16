@@ -54,6 +54,9 @@ final class AppModel {
     /// "Resume from …" before the player is opened. Filled by
     /// `loadResumePreview(editionId:totalDurationSecs:)`.
     var resumePreview: [Int: Double] = [:]
+    /// The ebook equivalent: the stored reading position per edition, so a button
+    /// can name the chapter before the reader is opened.
+    var readingResumePreview: [Int: ReadingPosition] = [:]
     var activeEditionId: Int?
     /// True when `library` was built from the on-device downloaded index because
     /// the server was unreachable — the UI shows an "Offline" hint instead of a
@@ -1205,6 +1208,14 @@ final class AppModel {
             winner = local
         }
         return winner
+    }
+
+    /// Fills `readingResumePreview` so a book's Read button can name where it
+    /// will reopen. Unlike the audiobook preview this may mirror a remote
+    /// position into the local store — that is `readingPosition`'s own offline
+    /// cache warm, not a write back to the server.
+    func loadReadingResumePreview(editionId: Int) async {
+        readingResumePreview[editionId] = await readingPosition(editionId: editionId)
     }
 
     /// Persists locally first, then pushes. The local write is what makes the

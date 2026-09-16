@@ -225,7 +225,9 @@ struct BookView: View {
             BookReleaseSearchView(bookId: book.bookId, kind: lane.rawValue, title: titleText)
                 .environment(model)
         }
-        .sheet(item: $previewDocument) { document in
+        .sheet(item: $previewDocument, onDismiss: {
+            Task { await loadReadingResumePreview() }
+        }) { document in
             EbookReaderSheet(document: document)
                 .environment(model)
         }
@@ -522,6 +524,11 @@ struct BookView: View {
         )
     }
 
+    private var ebookResume: EbookResumeLabel {
+        guard let editionId = ebookEditionId else { return .read }
+        return EbookResume.label(model.readingResumePreview[editionId])
+    }
+
     private var audiobookMetrics: [String] {
         let secs = manifest?.totalDurationSecs ?? audiobookEdition?.durationSecs ?? book.audiobookDurationSecs ?? 0
         var parts = [Formatters.durationClock(secs)]
@@ -803,11 +810,22 @@ struct BookView: View {
             Button {
                 Task {
                     guard let file = preferredEbookFile else { return }
-                    await openEbook(file)
+                    // "Read" means from the beginning — a finished book must not
+                    // reopen on its last page.
+                    await openEbook(file, startFromBeginning: ebookResume == .read)
                 }
             } label: {
-                Label("Read", systemImage: "book.pages")
-                    .frame(maxWidth: .infinity).frame(minHeight: 44)
+                Group {
+                    switch ebookResume {
+                    case .read:
+                        Label("Read", systemImage: "book.pages")
+                    case let .resumeChapter(title):
+                        Label(String(localized: "Resume · \(title)"), systemImage: "book.pages")
+                    case let .resumePercent(percent):
+                        Label(String(localized: "Resume from \(percent)%"), systemImage: "book.pages")
+                    }
+                }
+                .frame(maxWidth: .infinity).frame(minHeight: 44)
             }
             .buttonStyle(.borderedProminent)
             .tint(Theme.terracotta)
@@ -1036,6 +1054,11 @@ struct BookView: View {
         await model.loadResumePreview(editionId: editionId, totalDurationSecs: audiobookTotalSecs)
     }
 
+    private func loadReadingResumePreview() async {
+        guard let editionId = ebookEditionId else { return }
+        await model.loadReadingResumePreview(editionId: editionId)
+    }
+
     private func refreshAll(forceManifestRefresh: Bool) async {
         seedManifestFromCache()
         await loadBookDetail()
@@ -1052,6 +1075,7 @@ struct BookView: View {
         }
         if hasEbookEdition {
             await loadEbookFiles()
+            await loadReadingResumePreview()
         } else {
             ebookFiles = []
             ebookFilesError = nil
@@ -1226,7 +1250,7 @@ struct BookView: View {
         }
     }
 
-    private func openEbook(_ file: BookEditionFile) async {
+    private func openEbook(_ file: BookEditionFile, startFromBeginning: Bool = false) async {
         openingEbookFileId = file.id
         ebookFilesError = nil
         defer { openingEbookFileId = nil }
@@ -1243,7 +1267,8 @@ struct BookView: View {
                 // right-to-left.
                 language: detail?.language,
                 title: file.fileName,
-                localURL: localURL
+                localURL: localURL,
+                startFromBeginning: startFromBeginning
             )
         } catch EbookStorageError.missingRemoteURL {
             ebookFilesError = String(localized: "This server version cannot provide ebook download links yet.")
