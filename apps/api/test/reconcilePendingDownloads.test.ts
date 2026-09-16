@@ -249,6 +249,23 @@ describe("reconcilePendingDownloads", () => {
     expect(state.failed).toEqual([]);
   });
 
+  it("keeps the active cadence when the client is unreachable, since pending rows are still live", async () => {
+    // A transient listTorrents() failure is not the same as nothing pending —
+    // treating it as idle backs the poll off to minutes, silently delaying
+    // detection of a torrent that may have already finished.
+    state.listThrows = true;
+    const reconcileState = createReconcileState();
+
+    await reconcilePendingDownloads([pendingRow], {
+      settings,
+      state: reconcileState,
+      listTorrents,
+      outcome,
+    });
+
+    expect(reconcileState.lastReconcileHadActive).toBe(true);
+  });
+
   // Asserted against findPendingTorrent rather than the loop: matching by tag
   // makes the loop persist the discovered hash, and the prisma mock that wins
   // process-wide is whichever test file registered one last.

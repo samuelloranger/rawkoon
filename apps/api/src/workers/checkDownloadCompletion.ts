@@ -269,6 +269,11 @@ export async function reconcilePendingDownloads(
     torrents = await listTorrents();
   } catch (error) {
     console.warn("[reconcilePendingDownloads] listTorrents failed:", error);
+    // `pending.length` is already known > 0 here (checked above), so this is a
+    // transient client-unreachable failure, not an idle period. Keeping
+    // lastReconcileHadActive true stops the idle backoff ramp from firing on a
+    // blip and pushing the next real check out to minutes away.
+    state.lastReconcileHadActive = true;
     return result;
   }
 
