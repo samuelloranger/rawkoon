@@ -59,13 +59,31 @@ export async function syncLibraryShowEpisodes(mediaId: number): Promise<void> {
     "planned",
     "downloaded",
   ];
+
+  // A show only reaches "downloading"/"upgrading" through a show-level grab, and
+  // only that grab's terminal transition clears it. If the row is gone — deleted,
+  // or lost with an older schema — nothing else recomputes the status, so the
+  // show latches there forever. Heal it once no show-level grab is in flight.
+  const isStaleGrabLatch =
+    (media.status === "downloading" || media.status === "upgrading") &&
+    (await prisma.downloadHistory.count({
+      where: { mediaId, episodeId: null, failed: false, completedAt: null },
+    })) === 0;
+
+  const nextStatus = PRODUCTION_STATUSES.includes(media.status)
+    ? resolveDownloadedStatus("show", newTmdbStatus)
+    : isStaleGrabLatch
+      ? // A latched show that never got a file belongs back in the search queue.
+        (media.downloadedEpisodeCount ?? 0) > 0
+        ? resolveDownloadedStatus("show", newTmdbStatus)
+        : "wanted"
+      : null;
+
   await prisma.libraryMedia.update({
     where: { id: mediaId },
     data: {
       tmdbStatus: newTmdbStatus,
-      ...(PRODUCTION_STATUSES.includes(media.status)
-        ? { status: resolveDownloadedStatus("show", newTmdbStatus) }
-        : {}),
+      ...(nextStatus ? { status: nextStatus } : {}),
     },
   });
   await prisma.$executeRaw`
