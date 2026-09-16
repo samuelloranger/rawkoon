@@ -55,7 +55,7 @@
 - Produces `scripts/test-ios-macbuild.sh [RawkoonTests/TestClass]`.
 - The script runs only from `~/Sites/projets_perso/rawkoon` on `macbuild`, installs XcodeGen through Homebrew only when absent, generates `apps/ios/Rawkoon.xcodeproj`, resolves an available iPhone simulator dynamically, and runs the optional `-only-testing` selector or `--build`.
 
-- [ ] **Step 1: Write the harness acceptance command**
+- [x] **Step 1: Write the harness acceptance command**
 
 ```bash
 ssh macbuild 'cd ~/Sites/projets_perso/rawkoon && scripts/test-ios-macbuild.sh RawkoonTests/SmokeTests'
@@ -63,13 +63,13 @@ ssh macbuild 'cd ~/Sites/projets_perso/rawkoon && scripts/test-ios-macbuild.sh R
 
 Expected result: it must print the selected simulator UDID, run the app-target smoke test remotely, and return the remote xcodebuild exit status without touching `HANDOFF.md` or `apps/ios/.swiftpm/`.
 
-- [ ] **Step 2: Run it and verify red**
+- [x] **Step 2: Run it and verify red**
 
 Run: `ssh macbuild 'cd ~/Sites/projets_perso/rawkoon && scripts/test-ios-macbuild.sh RawkoonTests/SmokeTests'`
 
 Expected: FAIL because the script does not exist.
 
-- [ ] **Step 3: Implement the isolated SSH harness**
+- [x] **Step 3: Implement the isolated SSH harness**
 
 ```bash
 #!/usr/bin/env bash
@@ -86,13 +86,13 @@ xcodegen generate
 
 Document that the harness intentionally uses `~/Sites/projets_perso/rawkoon`, the user-designated macbuild checkout, and must preserve its unrelated untracked files.
 
-- [ ] **Step 4: Run harness to green**
+- [x] **Step 4: Run harness to green**
 
 Run: `ssh macbuild 'cd ~/Sites/projets_perso/rawkoon && scripts/test-ios-macbuild.sh RawkoonTests/SmokeTests'`
 
 Expected: PASS through macbuild; the pre-existing untracked files remain present.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/test-ios-macbuild.sh docs/decisions.md
@@ -116,7 +116,7 @@ git commit -m "test(ios): add isolated macbuild harness"
 - Produces `createContractSseResponse(contractID, options)`; no SSE route may create a response without an `SSEContractID`.
 - Consumes the existing `createJsonSseResponse` polling helper and the library event stream.
 
-- [ ] **Step 1: Write the failing API contract test**
+- [x] **Step 1: Write the failing API contract test**
 
 ```ts
 it("declares every SSE route and kind exactly once", () => {
@@ -127,13 +127,13 @@ it("declares every SSE route and kind exactly once", () => {
 
 Include literals for all current flows: library media, library book, library handshake, notification, library-migrate status, remux status, reindex status, and every admin job-status stream currently exposed by the API.
 
-- [ ] **Step 2: Run the focused test and verify it fails**
+- [x] **Step 2: Run the focused test and verify it fails**
 
 Run: `cd apps/api && bun test src/contracts/sseContract.test.ts`
 
 Expected: FAIL because the artifact and `validateSseContract` do not exist.
 
-- [ ] **Step 3: Add the artifact and typed contract module**
+- [x] **Step 3: Add the artifact and typed contract module**
 
 ```ts
 export type SSEContractID = (typeof sseContract)[number]["id"];
@@ -147,17 +147,17 @@ export function validateSseContract(): string[] {
 
 Define each entry in JSON with `id`, `path`, `kind`, a JSON-schema-like payload shape, and one of `patch`, `invalidate`, `progress`.
 
-- [ ] **Step 4: Make each SSE route declare its contract ID**
+- [x] **Step 4: Make each SSE route declare its contract ID**
 
 Wrap the existing library/event-stream, notification-stream, and job-status response creation with `createContractSseResponse`. Preserve heartbeat, abort cleanup, authentication, and wire payloads byte-for-byte; only add the contract declaration.
 
-- [ ] **Step 5: Run API verification**
+- [x] **Step 5: Run API verification**
 
 Run: `cd apps/api && bun test src/contracts/sseContract.test.ts && bun run typecheck`
 
 Expected: PASS; route IDs and artifact IDs match exactly.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/shared/contracts/sse-contract.v1.json apps/api/src/contracts apps/api/src/utils/sse.ts apps/api/src/routes/library/libraryJobWorkerRoutes.ts apps/api/src/routes/notifications/index.ts apps/api/src/routes/admin/adminJobRoutes.ts
@@ -177,7 +177,7 @@ git commit -m "feat(api): publish SSE contract"
 - Produces `@MainActor @Observable final class ServerStateStore` with `state(for:)`, `load(_:loader:)`, `invalidate(_:)`, `clear()`, `beginMutation(_:)`, `commit(_:)`, and `rollback(_:)`.
 - `load` accepts `@Sendable () async throws -> Value`, deduplicates equal keys, and leaves last successful data visible while refresh runs.
 
-- [ ] **Step 1: Write failing Swift tests for cache invariants**
+- [x] **Step 1: Write failing Swift tests for cache invariants**
 
 ```swift
 @Test func equalLoadsShareOneTask() async throws {
@@ -200,23 +200,23 @@ git commit -m "feat(api): publish SSE contract"
 
 Also cover stale-with-value state, invalidate family matching, clear cancellation, and a late SSE update that cannot overwrite an owned mutation.
 
-- [ ] **Step 2: Run on macbuild and verify red**
+- [x] **Step 2: Run on macbuild and verify red**
 
 Run: `ssh macbuild 'cd ~/Sites/projets_perso/rawkoon && scripts/test-ios-macbuild.sh RawkoonTests/ServerStateStoreTests'`
 
 Expected: FAIL because the store, keys, and test fixtures do not exist.
 
-- [ ] **Step 3: Implement typed entries and transaction ownership**
+- [x] **Step 3: Implement typed entries and transaction ownership**
 
 Use separate typed dictionaries for the initial Library/Discover domains; do not use `Any` or string URL keys. Store `value`, `error`, `updatedAt`, `isLoading`, and `Task` per key. A mutation token includes a UUID plus snapshots of every affected typed entry. `rollback` restores only snapshots owned by that token.
 
-- [ ] **Step 4: Run focused macbuild test to green**
+- [x] **Step 4: Run focused macbuild test to green**
 
 Run the exact Task 2 command.
 
 Expected: PASS with all `ServerStateStoreTests` passing.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/ios/Rawkoon/ServerState apps/ios/RawkoonTests/ServerStateStoreTests.swift apps/ios/project.yml
@@ -238,7 +238,7 @@ git commit -m "feat(ios): add server state cache core"
 - Produces `func apply(_ event: SSEContractEvent, to store: ServerStateStore)` with no default drop case.
 - `AppModel` owns one store, clears it with session lifecycle, and forwards each existing stream event into `SSEEventRegistry`.
 
-- [ ] **Step 1: Write failing exhaustive-contract test**
+- [x] **Step 1: Write failing exhaustive-contract test**
 
 ```swift
 @Test func everyBundledSSEContractEntryHasOneHandler() throws {
@@ -249,27 +249,27 @@ git commit -m "feat(ios): add server state cache core"
 
 Add a test that `.media(id:)` invalidates `libraryItem(id)` and Library list keys, while `.book(id:)` invalidates only book/progress families.
 
-- [ ] **Step 2: Run focused macbuild tests and verify red**
+- [x] **Step 2: Run focused macbuild tests and verify red**
 
 Run: `ssh macbuild 'cd ~/Sites/projets_perso/rawkoon && scripts/test-ios-macbuild.sh RawkoonTests/SSEEventRegistryTests'`
 
 Expected: FAIL because the artifact is not bundled and the registry does not exist.
 
-- [ ] **Step 3: Decode the add response and bundle the contract**
+- [x] **Step 3: Decode the add response and bundle the contract**
 
 Change the private `LibraryItemResponse` use at `APIClient.addToLibrary` to return `response.item`. Add the JSON artifact as a test/app resource in `project.yml` and regenerate the project; do not duplicate its event list in Swift.
 
-- [ ] **Step 4: Implement explicit event handlers and AppModel forwarding**
+- [x] **Step 4: Implement explicit event handlers and AppModel forwarding**
 
 Replace `libraryChangeToken += 1` / `bookChangeToken += 1` in `runLibraryEventsLoop` with registry application. Register notification, migration, remux, reindex, and admin job-status stream events according to their artifact policy. Preserve reconnect, heartbeat, authorization logout, and notification banner behavior.
 
-- [ ] **Step 5: Run focused macbuild tests to green**
+- [x] **Step 5: Run focused macbuild tests to green**
 
 Run both Task 2 and Task 3 macbuild test commands.
 
 Expected: PASS; the contract test proves that an added API stream or kind cannot lack iOS registration.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/ios/Rawkoon/APIClient.swift apps/ios/Rawkoon/AppModel.swift apps/ios/Rawkoon/Models.swift apps/ios/Rawkoon/ServerState/SSEEventRegistry.swift apps/ios/RawkoonTests/SSEEventRegistryTests.swift apps/ios/project.yml
@@ -289,7 +289,7 @@ git commit -m "feat(ios): register SSE cache invalidation"
 - Consumes `ServerStateStore.addToLibrary(tmdbID:type:provisional:) async` and `ServerStateStore.libraryList(_:)`.
 - Produces a provisional `LibraryMedia` presentation state that is identifiable by TMDB ID, displays `Adding…`, and cannot duplicate the returned server item.
 
-- [ ] **Step 1: Write failing optimistic-flow tests**
+- [x] **Step 1: Write failing optimistic-flow tests**
 
 ```swift
 @Test func discoverAddShowsProvisionalRowThenReplacesIt() async throws {
@@ -308,21 +308,21 @@ git commit -m "feat(ios): register SSE cache invalidation"
 }
 ```
 
-- [ ] **Step 2: Run focused macbuild tests and verify red**
+- [x] **Step 2: Run focused macbuild tests and verify red**
 
 Run: `ssh macbuild 'cd ~/Sites/projets_perso/rawkoon && scripts/test-ios-macbuild.sh RawkoonTests/LibraryOptimisticFlowTests'`
 
 Expected: FAIL because no optimistic add transaction or provisional presentation exists.
 
-- [ ] **Step 3: Move Library loading to typed query state**
+- [x] **Step 3: Move Library loading to typed query state**
 
 Replace `LibraryView`'s direct `media`, loading, error, and token-driven reload ownership with its `library.list` query state. Keep the current loaded-page merge and sentinel behavior; invalidation refreshes currently loaded pages in place.
 
-- [ ] **Step 4: Route Discover Add through the store**
+- [x] **Step 4: Route Discover Add through the store**
 
 In `MediaDetailView.submitAdd`, call the store transaction rather than `APIClient.addToLibrary` directly. Construct the provisional presentation from the already-rendered TMDB details. Keep current disabled state, localized error copy, haptic success trigger, and `added` display behavior.
 
-- [ ] **Step 5: Run macbuild app-target proof**
+- [x] **Step 5: Run macbuild app-target proof**
 
 Run the Task 4 focused test, then:
 
@@ -332,7 +332,7 @@ Then run the simulator build by calling `ssh macbuild 'cd ~/Sites/projets_perso/
 
 Expected: PASS; the app-target suite and simulator build prove the real target links the new state layer.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/ios/Rawkoon/Views/DiscoverView.swift apps/ios/Rawkoon/Views/MediaDetailView.swift apps/ios/Rawkoon/Views/LibraryView.swift apps/ios/RawkoonTests/LibraryOptimisticFlowTests.swift apps/ios/RawkoonTests/ServerStateStoreTests.swift
@@ -353,7 +353,7 @@ git commit -m "feat(ios): make library adds optimistic"
 - Consumes `removeLibraryItem`, `updateMonitored`, `updateQualityProfile`, `invalidateDownloadHistory`, and `invalidateLibraryRollup` store mutations.
 - Produces no new direct view-to-API mutation path for Library-visible state.
 
-- [ ] **Step 1: Write failing mutation dependency tests**
+- [x] **Step 1: Write failing mutation dependency tests**
 
 ```swift
 @Test func removeRollsBackWithoutResettingLoadedPages() async throws {
@@ -369,19 +369,19 @@ git commit -m "feat(ios): make library adds optimistic"
 
 Cover quality profile, download action/file deletion invalidation, remove rollback, and an SSE event arriving while each mutation is pending.
 
-- [ ] **Step 2: Run focused macbuild test and verify red**
+- [x] **Step 2: Run focused macbuild test and verify red**
 
 Run the Task 4 macbuild focused test command with `-only-testing:RawkoonTests/LibraryOptimisticFlowTests`.
 
 Expected: FAIL because the remaining views still mutate local state or call `APIClient` directly.
 
-- [ ] **Step 3: Route every Library-visible mutation through the store**
+- [x] **Step 3: Route every Library-visible mutation through the store**
 
 Replace direct mutation calls in the listed views with store transactions. Preserve confirmation dialogs, busy controls, current success/error toast text, haptics, and pagination/scroll behavior. Mark affected query families stale after commit and perform no global refresh-token bump.
 
-- [ ] **Step 4: Add CI gates and run full verification on macbuild**
+- [x] **Step 4: Add CI gates and run full verification on macbuild**
 
-Ensure `ios.yml` runs the app-target test suite containing `ServerStateStoreTests`, `SSEEventRegistryTests`, and `LibraryOptimisticFlowTests` before the simulator build. Run:
+Ensure `ios.yml` runs the app-target test suite containing `ServerStateStoreTests`, `SSEEventRegistryTests`, and `LibraryOptimisticFlowTests` before the simulator build. No edit was needed: the `build` job already runs `xcodebuild test -only-testing:RawkoonTests` ahead of the simulator build, and the three suites live in that target. Run:
 
 ```bash
 ssh macbuild 'cd ~/Sites/projets_perso/rawkoon/apps/ios && swiftformat Rawkoon RawkoonTests Sources Tests --lint'
@@ -392,7 +392,7 @@ git diff --check
 
 Expected: all commands exit 0; app target validates logic and wiring on macbuild, API validates SSE completeness, and no whitespace errors remain.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/ios/Rawkoon/Views apps/ios/RawkoonTests/LibraryOptimisticFlowTests.swift .github/workflows/ios.yml
