@@ -1218,8 +1218,21 @@ struct MediaDetailView: View {
         requesting = true
         requestError = nil
         defer { requesting = false }
+        let type = mediaType == "tv" ? "show" : "movie"
         do {
-            try await client.addToLibrary(tmdbId: tmdbId, type: mediaType == "tv" ? "show" : "movie")
+            // The store shows an `Adding…` row in Library immediately and swaps in
+            // the server's created item — or drops it again if the add fails.
+            _ = try await model.serverStateStore.addToLibrary(
+                provisional: .provisional(
+                    tmdbId: tmdbId,
+                    type: type,
+                    title: title,
+                    year: yearValue,
+                    posterUrl: posterPath,
+                    overview: details?.overview
+                ),
+                request: { try await client.addToLibrary(tmdbId: tmdbId, type: type) }
+            )
             added = true
         } catch APIError.unauthorized {
             requestError = String(localized: "Admin only.")
