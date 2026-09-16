@@ -32,11 +32,11 @@ import {
 } from "@rawkoon/api/errors";
 import { grabRelease } from "@rawkoon/api/services/mediaGrabberGrab";
 import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationConfigCache";
-import { normalizeLocalAiConfig } from "@rawkoon/api/utils/integrations/normalizers";
+import { normalizeAiProviderConfig } from "@rawkoon/api/utils/integrations/normalizers";
 import {
-  loadEnabledLocalAiConfig,
-  pickReleaseWithLocalAi,
-} from "@rawkoon/api/services/localAi/client";
+  loadEnabledAiProviderConfig,
+  pickReleaseWithAi,
+} from "@rawkoon/api/services/aiProvider/client";
 
 function normalizedToInteractive(
   r: NormalizedRelease,
@@ -395,17 +395,17 @@ export const mediasSearchRoutes = new Hono<Env>()
     ),
     async (c) => {
       const body = c.req.valid("json");
-      const config = await loadEnabledLocalAiConfig();
+      const config = await loadEnabledAiProviderConfig();
 
       if (!config) {
-        return notFound("Local AI integration not configured or disabled");
+        return notFound("AI Provider integration not configured or disabled");
       }
 
       if (body.releases.length === 0) {
         return unprocessable("No releases to analyze");
       }
 
-      const result = await pickReleaseWithLocalAi(
+      const result = await pickReleaseWithAi(
         config,
         body.media_context,
         body.releases,
@@ -418,8 +418,8 @@ export const mediasSearchRoutes = new Hono<Env>()
     },
   )
   .get("/search/ai-warm", requireAdmin, async () => {
-    const record = await getIntegrationConfigRecord("local-ai");
-    const config = normalizeLocalAiConfig(record?.config);
+    const record = await getIntegrationConfigRecord("ai-provider");
+    const config = normalizeAiProviderConfig(record?.config);
 
     if (!record?.enabled || !config) {
       return new Response(null, { status: 204 });

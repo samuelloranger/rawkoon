@@ -7,7 +7,7 @@ import { JackettIntegrationSection } from "@/pages/settings/_component/integrati
 import { DownloadClientIntegrationSection } from "@/pages/settings/_component/integrations/DownloadClientIntegrationSection";
 import { TmdbIntegrationSection } from "@/pages/settings/_component/integrations/TmdbIntegrationSection";
 import { FanartIntegrationSection } from "@/pages/settings/_component/integrations/FanartIntegrationSection";
-import { LocalAiIntegrationSection } from "@/pages/settings/_component/integrations/LocalAiIntegrationSection";
+import { AiProviderIntegrationSection } from "@/pages/settings/_component/integrations/AiProviderIntegrationSection";
 
 export function IntegrationsTab() {
   const { t } = useTranslation("common");
@@ -56,7 +56,7 @@ export function IntegrationsTab() {
             {t("settings.integrations.groups.other")}
           </h3>
           <div className="space-y-3">
-            <LocalAiIntegrationSection />
+            <AiProviderIntegrationSection />
           </div>
         </div>
       </div>

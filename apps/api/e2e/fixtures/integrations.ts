@@ -131,30 +131,30 @@ export const integrationsFixtures: FixtureRegistry = {
     negativeBody: { website_url: 123, api_key: 456 },
   },
 
-  // Local AI
-  "GET /api/integrations/local-ai": {
+  // AI Provider
+  "GET /api/integrations/ai-provider": {
     phase: "read",
     admin: true,
     negativeBody: null,
   },
-  "PUT /api/integrations/local-ai": {
+  "PUT /api/integrations/ai-provider": {
     phase: "bootstrap",
     admin: true,
     body: () => {
-      // local-ai/test requires at least one model in the response; shape it so
+      // ai-provider/test requires at least one model in the response; shape it so
       // the endpoint returns 200 under the global benign fetch shim.
-      mockState.fetchResponses["mock-local-ai.local"] = {
+      mockState.fetchResponses["mock-ai-provider.local"] = {
         json: { data: [{ id: "e2e-model" }] },
       };
       return {
         enabled: true,
-        base_url: "http://mock-local-ai.local",
+        base_url: "http://mock-ai-provider.local",
         model: "e2e-model",
       };
     },
     negativeBody: { base_url: 123, model: false },
   },
-  "GET /api/integrations/local-ai/test": {
+  "GET /api/integrations/ai-provider/test": {
     phase: "read",
     admin: true,
     negativeBody: null,

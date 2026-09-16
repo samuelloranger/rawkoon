@@ -54,7 +54,7 @@ export async function grabRelease(opts: {
   isUpgrade?: boolean;
   /** Where the grab was initiated (e.g. RSS cron). */
   grabSource?: "rss";
-  /** True when Local AI selected this release over classic scoring. */
+  /** True when AI Provider selected this release over classic scoring. */
   aiPicked?: boolean;
   aiReasoning?: string;
   /**

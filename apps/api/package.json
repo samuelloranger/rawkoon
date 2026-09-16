@@ -37,12 +37,14 @@
     "e2e:diff": "bun run e2e/diff.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.49",
     "@better-auth/api-key": "1.6.33",
     "@better-auth/passkey": "1.6.33",
     "@hono/standard-validator": "^0.4.0",
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
     "@rawkoon/shared": "workspace:*",
+    "ai": "^7.0.102",
     "better-auth": "1.6.33",
     "bullmq": "^6.3.4",
     "hono": "^4.13.7",
