@@ -260,10 +260,7 @@ struct LibraryView: View {
             }
         }
         .task {
-            // Only the first appearance loads — `.task` re-runs when we pop back
-            // from a pushed detail, and a reset there would drop loaded pages and
-            // reset the scroll position. Live edits keep the list fresh instead.
-            if section == .media, media.isEmpty {
+            if section == .media, store.needsLoad(mediaKey) {
                 await loadMedia(reset: true)
             }
             if model.library.isEmpty {
@@ -272,10 +269,12 @@ struct LibraryView: View {
             await loadBookProgress()
         }
         .onChange(of: mediaFilterKey) { _, _ in
+            liveReloadTask?.cancel()
             Task { await loadMedia(reset: true) }
         }
         .onChange(of: section) { _, newSection in
             if newSection == .media {
+                liveReloadTask?.cancel()
                 Task { await loadMedia(reset: true) }
             } else {
                 Task { await loadBookProgress() }
@@ -283,8 +282,6 @@ struct LibraryView: View {
         }
         .onChange(of: store.isInvalidated(.libraryList(mediaKey))) { _, invalidated in
             guard section == .media, invalidated else { return }
-            // Cancel any reload still in flight before starting the next one, so
-            // a burst of SSE events can't run overlapping refreshes.
             liveReloadTask?.cancel()
             liveReloadTask = Task { await reloadLoadedWindow() }
         }
@@ -917,7 +914,6 @@ struct LibraryView: View {
         let loader = mediaPageLoader(for: key, client: client)
         do {
             if reset {
-                liveReloadTask?.cancel()
                 try await store.refreshLibraryWindow(key, loader: loader)
             } else {
                 try await store.loadNextLibraryPage(key, loader: loader)

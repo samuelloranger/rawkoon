@@ -291,6 +291,7 @@ export async function notifyAdminsLibraryGrabbed(opts: {
     },
     {
       imageUrl: media.posterUrl,
+      metadata: { media_id: media.mediaId },
       notifyOptions: { preferenceKey: "library_grabbed" },
       logTag: "notifyAdminsLibraryGrabbed",
     },
@@ -328,6 +329,7 @@ export async function notifyAdminsLibraryDownloadFailed(opts: {
     }),
     {
       imageUrl: media.posterUrl,
+      metadata: { media_id: media.mediaId },
       notifyOptions: { preferenceKey: "library_failed" },
       logTag: "notifyAdminsLibraryDownloadFailed",
     },

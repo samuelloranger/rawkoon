@@ -486,10 +486,13 @@ final class AppModel {
                 for try await notification in await client.notificationStream() {
                     backoff = 1.0
                     SSEEventRegistry.apply(.notification, to: serverStateStore)
+                    LibraryNotification.apply(notification, to: serverStateStore)
                     unreadNotificationCount += 1
                     syncAppIconBadge()
                     notificationChangeToken += 1
-                    showBanner(notification)
+                    if !LibraryNotification.isSilent(notification) {
+                        showBanner(notification)
+                    }
                 }
             } catch APIError.unauthorized {
                 Log.sync.notice("notification stream unauthorized — signing out")

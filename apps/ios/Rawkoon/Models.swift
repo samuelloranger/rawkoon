@@ -1826,6 +1826,9 @@ nonisolated struct SsoProvidersResponse: Decodable, Sendable {
 /// for `external` notifications. Other metadata keys are ignored on decode.
 nonisolated struct NotificationMetadata: Decodable, Sendable {
     let serviceName: String?
+    let mediaId: Int?
+    let bookId: Int?
+    let silent: Bool?
 }
 
 nonisolated struct NotificationDTO: Decodable, Identifiable, Sendable {

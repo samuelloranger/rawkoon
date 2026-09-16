@@ -57,6 +57,7 @@ async function notifyAdmins(opts: {
     url: string;
   };
   imageUrl?: string | null;
+  metadata?: Record<string, unknown>;
   preferenceKey:
     | "book_downloaded"
     | "book_grabbed"
@@ -75,7 +76,7 @@ async function notifyAdmins(opts: {
         msg.body,
         msg.type,
         msg.url,
-        undefined,
+        opts.metadata,
         opts.imageUrl ?? undefined,
         { preferenceKey: opts.preferenceKey },
       );
@@ -104,6 +105,7 @@ export async function notifyAdminsBookGrabbed(
       url: `/books/${ctx.bookId}`,
     }),
     imageUrl: ctx.coverUrl,
+    metadata: { book_id: ctx.bookId },
     preferenceKey: "book_grabbed",
     logTag: "notifyAdminsBookGrabbed",
   });
@@ -126,6 +128,7 @@ export async function notifyAdminsBookDownloaded(
       url: `/books/${ctx.bookId}`,
     }),
     imageUrl: ctx.coverUrl,
+    metadata: { book_id: ctx.bookId },
     preferenceKey: "book_downloaded",
     logTag: "notifyAdminsBookDownloaded",
   });
@@ -149,6 +152,7 @@ export async function notifyAdminsBookImportFailed(
       url: `/books/${ctx.bookId}`,
     }),
     imageUrl: ctx.coverUrl,
+    metadata: { book_id: ctx.bookId },
     preferenceKey: "book_failed",
     logTag: "notifyAdminsBookImportFailed",
   });
@@ -172,6 +176,7 @@ export async function notifyAdminsBookSearchSkipped(
       url: `/books/${ctx.bookId}`,
     }),
     imageUrl: ctx.coverUrl,
+    metadata: { book_id: ctx.bookId },
     preferenceKey: "book_search_skipped",
     logTag: "notifyAdminsBookSearchSkipped",
   });

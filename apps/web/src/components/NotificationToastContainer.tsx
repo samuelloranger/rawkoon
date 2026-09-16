@@ -42,6 +42,7 @@ export function NotificationToastContainer() {
   // Web Push, so it works whether or not this browser has a push subscription.
   const handleNotification = useCallback(
     (notification: StreamNotification) => {
+      if (notification.metadata?.silent === true) return;
       if (seenIds.current.has(notification.id)) return;
       seenIds.current.add(notification.id);
       // Keep the dedup set bounded over long-lived sessions.
