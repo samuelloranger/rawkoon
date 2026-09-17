@@ -416,6 +416,18 @@ actor APIClient {
         try checkStatus(data, response)
     }
 
+    /// The `title_language` the library endpoints localize stored titles in, and
+    /// the TMDB `language` the discover/search endpoints forward. Both follow the
+    /// in-app language override (see `AppLanguage`), which defaults to the device
+    /// locale. Anything but French collapses to English, the server's default.
+    static var titleLanguage: String {
+        AppLanguage.resolvedTitleCode
+    }
+
+    static var tmdbLanguage: String {
+        AppLanguage.resolvedTmdbLanguage
+    }
+
     func makeRequest(path: String, method: String, requiresAuth: Bool = false) throws -> URLRequest {
         guard let url = URL(string: path, relativeTo: baseURL)?.absoluteURL else {
             throw APIError.transport
@@ -789,7 +801,10 @@ actor APIClient {
     }
 
     func tmdbSearch(q: String, kind: String? = nil) async throws -> TmdbSearchResponse {
-        try await get("/api/medias/tmdb-search", query: ["q": q, "kind": kind])
+        try await get(
+            "/api/medias/tmdb-search",
+            query: ["q": q, "kind": kind, "language": Self.tmdbLanguage]
+        )
     }
 
     /// Discover deck (swipe)
@@ -797,7 +812,7 @@ actor APIClient {
         let excludeParam = exclude.isEmpty ? nil : exclude.map(String.init).joined(separator: ",")
         return try await get(
             "/api/medias/discover/deck",
-            query: ["limit": String(limit), "exclude": excludeParam, "language": language]
+            query: ["limit": String(limit), "exclude": excludeParam, "language": language ?? Self.tmdbLanguage]
         )
     }
 
@@ -824,7 +839,7 @@ actor APIClient {
                 "genre_id": genreId.map(String.init),
                 "sort_by": sortBy,
                 "page": String(page),
-                "language": language,
+                "language": language ?? Self.tmdbLanguage,
                 "original_language": originalLanguage,
             ]
         )
@@ -854,7 +869,10 @@ actor APIClient {
 
     /// Detail
     func mediaModal(mediaType: String, tmdbId: Int) async throws -> MediaModalResponse {
-        try await get("/api/medias/modal/\(mediaType)/\(tmdbId)")
+        try await get(
+            "/api/medias/modal/\(mediaType)/\(tmdbId)",
+            query: ["language": Self.tmdbLanguage]
+        )
     }
 
     /// Library (movies / shows)
@@ -867,11 +885,15 @@ actor APIClient {
             "page": page.map(String.init),
             "limit": limit.map(String.init),
             "sort_by": sortBy, "sort_dir": sortDir,
+            "title_language": Self.titleLanguage,
         ])
     }
 
     func libraryItem(id: Int) async throws -> LibraryMedia {
-        let response: LibraryItemResponse = try await get("/api/library/item/\(id)")
+        let response: LibraryItemResponse = try await get(
+            "/api/library/item/\(id)",
+            query: ["title_language": Self.titleLanguage]
+        )
         return response.item
     }
 
@@ -889,6 +911,26 @@ actor APIClient {
             body: UpdateLibraryQualityProfileBody(qualityProfileId: qualityProfileId)
         )
         return response.item
+    }
+
+    /// Admin: set or clear per-media display overrides (title, sort title, year,
+    /// overview, poster, backdrop). A `.clear` field removes the override; an
+    /// omitted field is left untouched (mirrors the web overrides editor).
+    func updateLibraryOverrides(id: Int, body: UpdateLibraryOverridesBody) async throws -> LibraryMedia {
+        let response: LibraryItemResponse = try await patch(
+            "/api/library/\(id)/overrides",
+            body: body
+        )
+        return response.item
+    }
+
+    /// Poster or backdrop candidates (TMDB + fanart) for the artwork picker.
+    func libraryArtworkCandidates(id: Int, kind: String) async throws -> [ArtworkCandidate] {
+        let response: ArtworkCandidatesResponse = try await get(
+            "/api/library/\(id)/images",
+            query: ["kind": kind]
+        )
+        return response.candidates
     }
 
     func rescanLibraryItem(id: Int) async throws -> (
@@ -960,7 +1002,7 @@ actor APIClient {
     func similar(tmdbId: Int, mediaType: String, language: String? = nil) async throws -> [TmdbSearchItem] {
         let response: SimilarResponse = try await get("/api/medias/similar/\(tmdbId)", query: [
             "type": mediaType == "tv" ? "tv" : "movie",
-            "language": language,
+            "language": language ?? Self.tmdbLanguage,
         ])
         return response.items
     }

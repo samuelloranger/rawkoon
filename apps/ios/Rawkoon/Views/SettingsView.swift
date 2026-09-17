@@ -4,6 +4,7 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @AppStorage("download_over") private var downloadOver = "any"
     @AppStorage("smart_rewind") private var smartRewind = false
+    @AppStorage(AppLanguage.storageKey) private var appLanguage = AppLanguage.system.rawValue
 
     @State private var sessionUser: SessionUser?
     @State private var appVersion: String?
@@ -144,6 +145,21 @@ struct SettingsView: View {
                 } label: {
                     Label("Edit profile", systemImage: "person.crop.circle")
                 }
+            }
+            .listRowBackground(Theme.raised)
+
+            Section {
+                Picker("Language", selection: $appLanguage) {
+                    ForEach(AppLanguage.allCases) { language in
+                        Text(language.label).tag(language.rawValue)
+                    }
+                }
+                .pickerStyle(.menu)
+                .tint(Theme.apricot)
+            } header: {
+                Text("Language")
+            } footer: {
+                Text("Sets the app language and the language titles and discovery are shown in. \u{201C}System\u{201D} follows your device.")
             }
             .listRowBackground(Theme.raised)
 

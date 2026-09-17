@@ -4,14 +4,14 @@ import SwiftUI
 /// Pushed from Discover and Library. `mediaType` is TMDB-style ("movie"/"tv").
 /// `libraryId` is non-nil when the title is already in the library.
 ///
-/// One native scroll: info for everyone, and — for admins on in-library titles —
-/// management sections (controls, files, downloads) folded inline. Grabs, file,
-/// and monitor controls are gated on `model.isAdmin` because the server routes
-/// they drive are admin-only.
+/// A hero over an in-content segmented control (Info / Similar / Manage) that
+/// mirrors the web app's detail tabs, so one section shows at a time instead of
+/// one very long page. Manage (controls, files, downloads, overrides, artwork)
+/// shows only for admins on in-library titles, because the server routes it
+/// drives are admin-only.
 struct MediaDetailView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var hSizeClass
 
     private var isRegularWidth: Bool {
@@ -24,7 +24,7 @@ struct MediaDetailView: View {
     let posterPath: String?
     let libraryId: Int?
     /// Set when opened via a notification's `?tab=management` deep link (spec T6)
-    /// — scrolls straight to the management sections once they're available.
+    /// — selects the Manage segment once it's available.
     let focusManagement: Bool
 
     init(
@@ -84,6 +84,50 @@ struct MediaDetailView: View {
     @State private var downloads: [DownloadHistoryItem] = []
     @State private var pendingDownloadActionId: Int?
     @State private var applyingManagementChange = false
+    @State private var showingOverridesEditor = false
+    @State private var showingArtworkPicker = false
+    @State private var detailTab: DetailTab = .info
+
+    /// The detail page's own sections, shown in an in-content segmented control
+    /// under the hero (see `detailTabBar`). Mirrors the web app splitting detail
+    /// into tabs, so only one section shows at a time instead of one very long
+    /// page. Release search stays a sheet (the "Search releases" lamp in Manage),
+    /// matching web.
+    private enum DetailTab: String, CaseIterable, Identifiable {
+        case info, similar, manage
+        var id: String {
+            rawValue
+        }
+
+        var label: LocalizedStringKey {
+            switch self {
+            case .info: "Info"
+            case .similar: "Similar"
+            case .manage: "Manage"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .info: "info.circle"
+            case .similar: "rectangle.stack"
+            case .manage: "slider.horizontal.3"
+            }
+        }
+    }
+
+    /// Manage only exists for admins on in-library titles (same gate as the old
+    /// inline management sections).
+    private var availableTabs: [DetailTab] {
+        showManagement ? [.info, .similar, .manage] : [.info, .similar]
+    }
+
+    /// Guards against a stale `.manage` selection after an admin/library change
+    /// removes that tab mid-view.
+    private var activeTab: DetailTab {
+        availableTabs.contains(detailTab) ? detailTab : .info
+    }
+
     /// In-flight live-event management refresh, cancelled before the next starts
     /// so a burst of SSE events can't run overlapping refreshes.
     @State private var liveReloadTask: Task<Void, Never>?
@@ -127,31 +171,29 @@ struct MediaDetailView: View {
     }
 
     private var scrollBody: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    mainContent
-                }
-                // Cap to a readable measure and center on iPad/Mac; full-bleed on phone.
-                .frame(maxWidth: isRegularWidth ? 980 : .infinity)
-                .frame(maxWidth: .infinity)
-                .padding(.bottom, 24)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                mainContent
             }
-            .task {
-                if details == nil {
-                    await fetchDetails()
-                }
-                if showManagement, managementItem == nil {
-                    await refreshManagementData()
-                }
-                if similarItems.isEmpty, !loadingSimilar {
-                    await fetchSimilar()
-                }
-                if focusManagement, showManagement {
-                    withAnimation(reduceMotion ? RawkoonMotion.reduced : RawkoonMotion.spring) {
-                        proxy.scrollTo("management", anchor: .top)
-                    }
-                }
+            // Cap to a readable measure and center on iPad/Mac; full-bleed on phone.
+            .frame(maxWidth: isRegularWidth ? 980 : .infinity)
+            .frame(maxWidth: .infinity)
+            .padding(.bottom, 24)
+        }
+        .task {
+            if details == nil {
+                await fetchDetails()
+            }
+            if showManagement, managementItem == nil {
+                await refreshManagementData()
+            }
+            if similarItems.isEmpty, !loadingSimilar {
+                await fetchSimilar()
+            }
+            // Deep link "?tab=management" now selects the Manage segment instead
+            // of scrolling a single long page to it.
+            if focusManagement, showManagement {
+                detailTab = .manage
             }
         }
     }
@@ -262,6 +304,8 @@ struct MediaDetailView: View {
             )
             .padding(.top, 28)
         } else {
+            // Hero + primary action stay pinned above the segmented content, the
+            // way the web keeps the title header above its detail tabs.
             DetailHero(
                 title: title,
                 posterPath: posterPath,
@@ -272,19 +316,66 @@ struct MediaDetailView: View {
                 statusTint: detailStatusTint
             )
             primaryAction
-            DetailFactsStrip(details: details, ratings: ratings, mediaType: mediaType, loading: loading)
-            overview
-            DetailCastRow(credits: credits, loading: loading)
-            if DetailWhereToWatch.hasContent(trailer: trailer, providers: providers) {
-                DetailWhereToWatch(trailer: trailer, providers: providers)
+            if availableTabs.count > 1 {
+                detailTabBar
             }
-            if mediaType == "tv" {
-                seasonsSection
+            switch activeTab {
+            case .info:
+                infoSections
+            case .similar:
+                similarSection
+            case .manage:
+                if showManagement {
+                    managementSections
+                }
             }
-            if showManagement {
-                managementSections
+        }
+    }
+
+    /// In-content tab switcher under the hero — an icon + label underline control
+    /// that mirrors the web detail tabs. Deliberately NOT a bottom bar replacing
+    /// the app tab bar: `.toolbar(.hidden, for: .tabBar)` is unreliable across iOS
+    /// versions and a competing bottom strip double-stacks with the tab bar.
+    private var detailTabBar: some View {
+        HStack(spacing: 0) {
+            ForEach(availableTabs) { tab in
+                let isActive = activeTab == tab
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) { detailTab = tab }
+                } label: {
+                    VStack(spacing: 6) {
+                        Label(tab.label, systemImage: tab.systemImage)
+                            .labelStyle(.titleAndIcon)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(isActive ? Theme.textStrong : Theme.muted)
+                            .lineLimit(1)
+                        Capsule()
+                            .fill(isActive ? Theme.apricot : Color.clear)
+                            .frame(height: 2)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(isActive ? .isSelected : [])
             }
-            similarSection
+        }
+        .padding(.horizontal, 16)
+        .overlay(alignment: .bottom) {
+            Divider().overlay(Theme.border)
+        }
+    }
+
+    @ViewBuilder
+    private var infoSections: some View {
+        DetailFactsStrip(details: details, ratings: ratings, mediaType: mediaType, loading: loading)
+        overview
+        DetailCastRow(credits: credits, loading: loading)
+        if DetailWhereToWatch.hasContent(trailer: trailer, providers: providers) {
+            DetailWhereToWatch(trailer: trailer, providers: providers)
+        }
+        if mediaType == "tv" {
+            seasonsSection
         }
     }
 
@@ -561,6 +652,31 @@ struct MediaDetailView: View {
 
             managementDivider
 
+            // Presentation overrides: title/artwork the admin pins over TMDB.
+            Button {
+                showingOverridesEditor = true
+            } label: {
+                Label("Edit info", systemImage: "pencil")
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
+            }
+            .buttonStyle(.bordered)
+            .tint(Theme.apricot)
+            .disabled(applyingManagementChange)
+
+            Button {
+                showingArtworkPicker = true
+            } label: {
+                Label("Change artwork", systemImage: "photo")
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
+            }
+            .buttonStyle(.bordered)
+            .tint(Theme.apricot)
+            .disabled(applyingManagementChange)
+
+            managementDivider
+
             // Maintenance + the one destructive action, kept apart at the bottom.
             Button {
                 Task { await runRescan() }
@@ -590,6 +706,24 @@ struct MediaDetailView: View {
         .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
         .padding(.horizontal, 16)
+        .sheet(isPresented: $showingOverridesEditor) {
+            NavigationStack {
+                LibraryOverridesEditorView(item: item) { updated in
+                    managementItem = updated
+                    managementNotice = String(localized: "Details updated.")
+                }
+                .environment(model)
+            }
+        }
+        .sheet(isPresented: $showingArtworkPicker) {
+            NavigationStack {
+                LibraryArtworkPickerView(item: item) { updated in
+                    managementItem = updated
+                    managementNotice = String(localized: "Artwork updated.")
+                }
+                .environment(model)
+            }
+        }
     }
 
     private var managementDivider: some View {

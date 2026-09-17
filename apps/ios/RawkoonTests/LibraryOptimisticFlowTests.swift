@@ -261,7 +261,7 @@ struct LibraryOptimisticFlowTests {
     private nonisolated func movie(id: Int, tmdbId: Int) -> LibraryMedia {
         LibraryMedia(
             id: id, tmdbId: tmdbId, type: "movie", title: "Movie \(id)", year: 2026,
-            status: "wanted", monitored: true, posterUrl: nil, overview: nil,
+            status: "wanted", monitored: true, posterUrl: nil, backdropUrl: nil, overview: nil, overrides: nil,
             qualityProfileId: nil, qualityProfile: nil, totalSizeBytes: nil,
             episodeCount: nil, downloadedEpisodeCount: nil, seasonCount: nil,
             durationSecs: nil, resolution: nil, videoCodec: nil, hdrFormat: nil,

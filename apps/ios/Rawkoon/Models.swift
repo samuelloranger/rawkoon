@@ -354,7 +354,12 @@ nonisolated struct LibraryMedia: Decodable, Identifiable, Sendable {
     // Patched optimistically by `ServerStateStore` before the server confirms.
     var monitored: Bool
     let posterUrl: String?
+    /// Backdrop exists only as an override server-side (no stored column).
+    let backdropUrl: String?
     let overview: String?
+    /// Per-media display overrides actually set by an admin. Used to prefill the
+    /// overrides editor (empty field = no override) so an unchanged save omits it.
+    let overrides: LibraryMediaOverrides?
     var qualityProfileId: Int?
     var qualityProfile: LibraryQualityProfileRef?
     let totalSizeBytes: String? // bigint serialized as string
@@ -377,6 +382,7 @@ nonisolated struct LibraryMedia: Decodable, Identifiable, Sendable {
     /// Listed explicitly so `isProvisional` stays a client-only presentation flag.
     private enum CodingKeys: String, CodingKey {
         case id, tmdbId, type, title, year, status, monitored, posterUrl, overview
+        case backdropUrl, overrides
         case qualityProfileId, qualityProfile, totalSizeBytes, episodeCount
         case downloadedEpisodeCount, seasonCount, durationSecs, resolution
         case videoCodec, hdrFormat, audioFormat, languageTags, lastGrabbedAt
@@ -397,7 +403,8 @@ extension LibraryMedia {
     ) -> LibraryMedia {
         LibraryMedia(
             id: -tmdbId, tmdbId: tmdbId, type: type, title: title, year: year,
-            status: "wanted", monitored: true, posterUrl: posterUrl, overview: overview,
+            status: "wanted", monitored: true, posterUrl: posterUrl,
+            backdropUrl: nil, overview: overview, overrides: nil,
             qualityProfileId: nil, qualityProfile: nil, totalSizeBytes: nil,
             episodeCount: nil, downloadedEpisodeCount: nil, seasonCount: nil,
             durationSecs: nil, resolution: nil, videoCodec: nil, hdrFormat: nil,
@@ -410,6 +417,63 @@ extension LibraryMedia {
 nonisolated struct LibraryQualityProfileRef: Decodable, Sendable {
     let id: Int
     let name: String
+}
+
+/// The subset of `library_media.overrides` the iOS editor reads and writes.
+nonisolated struct LibraryMediaOverrides: Decodable, Sendable {
+    let title: String?
+    let sortTitle: String?
+    let year: Int?
+    let overview: String?
+    let posterUrl: String?
+    let backdropUrl: String?
+}
+
+/// One override field's intent on a PATCH: `.clear` sends explicit null (removes
+/// the override), `.set` sends a value. Omitting the property entirely (leaving
+/// the body field nil) leaves that override untouched — the three states the
+/// overrides endpoint distinguishes.
+nonisolated enum OverrideValue<T: Encodable & Sendable>: Encodable, Sendable {
+    case clear
+    case set(T)
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .clear: try container.encodeNil()
+        case let .set(value): try container.encode(value)
+        }
+    }
+}
+
+/// Admin PATCH body for `/api/library/:id/overrides`. A nil property is omitted
+/// (untouched); a non-nil `OverrideValue` is `.clear` (null) or `.set`.
+nonisolated struct UpdateLibraryOverridesBody: Encodable, Sendable {
+    var title: OverrideValue<String>?
+    var sortTitle: OverrideValue<String>?
+    var year: OverrideValue<Int>?
+    var overview: OverrideValue<String>?
+    var posterUrl: OverrideValue<String>?
+    var backdropUrl: OverrideValue<String>?
+}
+
+/// Poster/backdrop candidate for the artwork picker (TMDB + fanart merged).
+nonisolated struct ArtworkCandidate: Decodable, Sendable, Identifiable {
+    let url: String
+    let thumbUrl: String
+    let width: Int?
+    let height: Int?
+    let language: String?
+    let vote: Double?
+    let source: String
+
+    var id: String {
+        url
+    }
+}
+
+nonisolated struct ArtworkCandidatesResponse: Decodable, Sendable {
+    let candidates: [ArtworkCandidate]
 }
 
 nonisolated struct LibraryListResponse: Decodable, Sendable {

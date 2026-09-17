@@ -6,6 +6,10 @@ struct RawkoonApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @State private var model = AppModel.shared
     @Environment(\.scenePhase) private var scenePhase
+    /// In-app UI-language override (see `AppLanguage`). Drives the environment
+    /// locale for SwiftUI `Text`, and — via `APIClient` — the language the server
+    /// localizes titles/metadata in.
+    @AppStorage(AppLanguage.storageKey) private var appLanguage = AppLanguage.system.rawValue
 
     init() {
         Appearance.apply()
@@ -32,6 +36,7 @@ struct RawkoonApp: App {
             }
             .tint(Theme.apricot)
             .preferredColorScheme(.dark)
+            .environment(\.locale, AppLanguage.locale(for: AppLanguage(rawValue: appLanguage) ?? .system))
             .overlay {
                 ToastOverlay(toast: model.currentToast)
             }
@@ -93,6 +98,13 @@ struct RawkoonApp: App {
             // alert) intentionally does nothing here; only a real background
             // transition tears the streams down.
             .onAppear { configureCatalystTitlebar() }
+            // Server-localized content (titles, discovery) is language-tagged at
+            // request time, so a language change must refetch the library to pull
+            // titles in the new locale.
+            .onChange(of: appLanguage) {
+                guard model.isLoggedIn else { return }
+                Task { await model.loadLibrary() }
+            }
             .onChange(of: scenePhase) { _, newPhase in
                 switch newPhase {
                 case .active:
