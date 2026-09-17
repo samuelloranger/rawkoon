@@ -1393,6 +1393,21 @@
         "testOk": "Google Books accepted the key.",
         "testFailed": "The test could not be completed."
       },
+      "nyt": {
+        "title": "NYT Books",
+        "description": "Optional. Adds the New York Times bestseller lists as an Explore source.",
+        "getKey": "Get a key",
+        "keyLabel": "API key",
+        "keyStored": "A key is stored — type a new one to replace it",
+        "keyPlaceholder": "Your NYT Books API key",
+        "keyHint": "Stored encrypted. Leave empty to keep the current key.",
+        "save": "Save key",
+        "saved": "Key saved",
+        "saveFailed": "Could not save the key.",
+        "test": "Test key",
+        "testOk": "NYT accepted the key.",
+        "testFailed": "The test could not be completed."
+      },
       "files": {
         "title": "Files",
         "description": "Where imported books and audiobooks are placed.",
