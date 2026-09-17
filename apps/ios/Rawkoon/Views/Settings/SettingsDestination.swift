@@ -29,6 +29,7 @@ enum SettingsGroup: String, CaseIterable, Identifiable {
 enum SettingsDestination: String, CaseIterable, Identifiable {
     case general
     case tmdb
+    case fanart
     case jellyfin
     case aiProvider
     case prowlarr
@@ -58,7 +59,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         switch self {
         case .general:
             .system
-        case .tmdb, .jellyfin, .aiProvider, .prowlarr, .jackett, .indexers, .downloadClient, .bookProviders:
+        case .tmdb, .fanart, .jellyfin, .aiProvider, .prowlarr, .jackett, .indexers, .downloadClient, .bookProviders:
             .integrations
         case .mediaLibrary, .arrImport, .qualityProfiles, .customFormats, .books, .bookQualityProfiles:
             .libraryQuality
@@ -79,6 +80,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         switch self {
         case .general: "General"
         case .tmdb: "TMDB"
+        case .fanart: "fanart.tv"
         case .jellyfin: "Jellyfin"
         case .aiProvider: "AI Provider"
         case .prowlarr: "Prowlarr"
@@ -106,6 +108,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         switch self {
         case .general: "globe"
         case .tmdb: "film"
+        case .fanart: "photo.on.rectangle"
         case .jellyfin: "play.rectangle"
         case .aiProvider: "brain"
         case .prowlarr: "magnifyingglass.circle"
@@ -134,6 +137,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         switch self {
         case .general: ["system", "app", "server"]
         case .tmdb: ["the movie database", "metadata", "discovery"]
+        case .fanart: ["fanart", "artwork", "posters", "backdrops", "metadata"]
         case .jellyfin: ["media server", "streaming"]
         case .aiProvider: ["ai", "llm", "recommendations"]
         case .prowlarr: ["indexer", "search", "releases"]
@@ -174,6 +178,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         switch self {
         case .general: GeneralSettingsView()
         case .tmdb: TmdbIntegrationView()
+        case .fanart: FanartIntegrationView()
         case .jellyfin: JellyfinIntegrationView()
         case .aiProvider: AiProviderIntegrationView()
         case .prowlarr: IndexerManagerIntegrationView(kind: .prowlarr)

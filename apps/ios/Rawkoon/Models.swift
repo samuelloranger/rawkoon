@@ -685,6 +685,7 @@ nonisolated struct DownloadHistoryItem: Decodable, Identifiable, Sendable {
     let episodeId: Int?
     let failReason: String?
     let postProcessError: String?
+    let postProcessDestinationPath: String?
     let live: LiveDownload?
     let aiPicked: Bool?
 }
@@ -1253,6 +1254,7 @@ nonisolated struct AiProviderIntegrationDTO: Decodable, Sendable {
     let enabled: Bool
     let baseUrl: String?
     let model: String?
+    let hasApiKey: Bool?
 }
 
 nonisolated struct AiProviderIntegrationResponse: Decodable, Sendable { let integration: AiProviderIntegrationDTO }
@@ -1260,6 +1262,21 @@ nonisolated struct SaveAiProviderBody: Encodable, Sendable {
     let enabled: Bool
     let baseUrl: String
     let model: String
+    /// Blank keeps the stored key (server behavior); encodes as `api_key`.
+    let apiKey: String
+}
+
+nonisolated struct FanartIntegrationDTO: Decodable, Sendable {
+    let enabled: Bool
+    let apiKeySet: Bool?
+}
+
+nonisolated struct FanartIntegrationResponse: Decodable, Sendable { let integration: FanartIntegrationDTO }
+nonisolated struct SaveFanartBody: Encodable, Sendable {
+    let enabled: Bool
+    /// Blank keeps the stored key; encodes as `api_key`. Server 400s if enabling
+    /// with no key ever stored.
+    let apiKey: String
 }
 
 nonisolated struct AiProviderTestResponse: Decodable, Sendable {

@@ -32,6 +32,7 @@ nonisolated func overlayDownloadProgress(
             episodeId: row.episodeId,
             failReason: row.failReason,
             postProcessError: row.postProcessError,
+            postProcessDestinationPath: row.postProcessDestinationPath,
             live: live,
             aiPicked: row.aiPicked
         )

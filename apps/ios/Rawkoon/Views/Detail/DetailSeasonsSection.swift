@@ -175,6 +175,20 @@ struct DetailSeasonsSection: View {
         }
     }
 
+    /// A short "Sep 12"-style date shown only for an episode that hasn't aired
+    /// yet, mirroring the web episode rows. `airDate` is a day-only ISO string.
+    private func futureAirDateLabel(_ episode: Episode) -> String? {
+        guard let raw = episode.airDate, !raw.isEmpty else { return nil }
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.dateFormat = "yyyy-MM-dd"
+        parser.timeZone = .current
+        guard let date = parser.date(from: raw) else { return nil }
+        let calendar = Calendar.current
+        guard calendar.startOfDay(for: date) > calendar.startOfDay(for: Date()) else { return nil }
+        return date.formatted(.dateTime.month(.abbreviated).day())
+    }
+
     /// An episode whose file is present: a slim status header (episode status +
     /// monitor state) with the file's full expandable detail folded in below.
     private func mergedEpisodeRow(_ episode: Episode, files: [LibraryFileInfo], canManage: Bool) -> some View {
@@ -191,6 +205,11 @@ struct DetailSeasonsSection: View {
                         .foregroundStyle(Theme.faint)
                 }
                 Spacer(minLength: 0)
+                if let air = futureAirDateLabel(episode) {
+                    Text(air)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(Theme.faint)
+                }
             }
             ForEach(files) { file in
                 DetailFileRow(
@@ -258,6 +277,11 @@ struct DetailSeasonsSection: View {
                 }
             }
             Spacer(minLength: 0)
+            if let air = futureAirDateLabel(episode) {
+                Text(air)
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(Theme.faint)
+            }
         }
         .padding(10)
         .background(Theme.well, in: RoundedRectangle(cornerRadius: 10))

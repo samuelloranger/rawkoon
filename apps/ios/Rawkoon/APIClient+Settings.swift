@@ -65,6 +65,14 @@ extension APIClient {
         try await get("/api/integrations/ai-provider/test")
     }
 
+    func fanartIntegration() async throws -> FanartIntegrationResponse {
+        try await get("/api/integrations/fanart")
+    }
+
+    func saveFanartIntegration(_ body: SaveFanartBody) async throws {
+        try await putExpectOK("/api/integrations/fanart", body: body)
+    }
+
     // MARK: Indexer managers — Prowlarr / Jackett (spec §5 Phase 2)
 
     func indexerManager(_ kind: String) async throws -> IndexerManagerResponse {

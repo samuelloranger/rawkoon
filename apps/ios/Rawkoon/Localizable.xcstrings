@@ -8849,6 +8849,102 @@
           }
         }
       }
+    },
+    "Optional local LLM used for metadata assists. Leave the API key blank for a local server.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optional local LLM used for metadata assists. Leave the API key blank for a local server."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LLM local optionnel pour les métadonnées. Laissez la clé API vide pour un serveur local."
+          }
+        }
+      }
+    },
+    "fanart.tv": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fanart.tv"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fanart.tv"
+          }
+        }
+      }
+    },
+    "Higher-quality posters and backdrops. Leave the key blank to keep the stored one.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Higher-quality posters and backdrops. Leave the key blank to keep the stored one."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiches et arrière-plans de meilleure qualité. Laissez la clé vide pour conserver celle enregistrée."
+          }
+        }
+      }
+    },
+    "Free": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Free"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gratuit"
+          }
+        }
+      }
+    },
+    "Forbidden": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forbidden"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interdit"
+          }
+        }
+      }
+    },
+    "Remove download?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove download?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer le téléchargement ?"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

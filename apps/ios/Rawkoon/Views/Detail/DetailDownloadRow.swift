@@ -8,6 +8,8 @@ struct DetailDownloadRow: View {
     let row: DownloadHistoryItem
     let busy: Bool
     let onAction: (String) -> Void
+    /// Active-download removal: the parent confirms and offers "also delete files".
+    let onRemoveActive: () -> Void
     let onDeleteEntry: () -> Void
 
     private var isActive: Bool {
@@ -16,6 +18,19 @@ struct DetailDownloadRow: View {
 
     private var isPaused: Bool {
         row.live?.state.lowercased().contains("pause") == true
+    }
+
+    /// Localized short date+time for when the release was grabbed, matching web.
+    private var grabbedText: String? {
+        guard !row.grabbedAt.isEmpty else { return nil }
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
+        guard let date = withFraction.date(from: row.grabbedAt) ?? plain.date(from: row.grabbedAt) else {
+            return nil
+        }
+        return date.formatted(date: .numeric, time: .shortened)
     }
 
     var body: some View {
@@ -64,6 +79,12 @@ struct DetailDownloadRow: View {
                     .font(.caption2)
                     .foregroundStyle(Theme.terracotta)
                     .lineLimit(2)
+            } else if let destination = row.postProcessDestinationPath, !destination.isEmpty {
+                Text(destination)
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(Theme.faint)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
 
             if row.failed || row.postProcessError != nil || isActive {
@@ -71,7 +92,7 @@ struct DetailDownloadRow: View {
                     Spacer()
                     Button("Remove") {
                         if isActive {
-                            onAction("remove")
+                            onRemoveActive()
                         } else {
                             onDeleteEntry()
                         }
@@ -97,6 +118,9 @@ struct DetailDownloadRow: View {
             parts.append(Text("Completed"))
         } else if row.live != nil {
             parts.append(Text("Active"))
+        }
+        if let grabbed = grabbedText {
+            parts.append(Text(verbatim: grabbed))
         }
         if row.aiPicked == true {
             parts.append(Text("AI pick"))

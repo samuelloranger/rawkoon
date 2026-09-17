@@ -1,8 +1,10 @@
+import RawkoonKit
 import SwiftUI
 
-/// AI Provider integration (admin). `GET/PUT /api/integrations/ai-provider` + a test
-/// that reads the *saved* config. Optional API key for hosted providers.
-struct AiProviderIntegrationView: View {
+/// fanart.tv integration (admin). `GET/PUT /api/integrations/fanart`. The API
+/// never returns the key; an empty `api_key` on save keeps the stored one. The
+/// server rejects enabling with no key ever stored.
+struct FanartIntegrationView: View {
     @Environment(AppModel.self) private var model
 
     @State private var loading = true
@@ -11,25 +13,21 @@ struct AiProviderIntegrationView: View {
     @State private var saveError: String?
 
     @State private var enabled = false
-    @State private var baseURL = ""
-    @State private var modelName = ""
     @State private var apiKeyInput = ""
     @State private var hasApiKey = false
 
     private struct FormValues: Equatable {
         var enabled: Bool
-        var baseURL: String
-        var modelName: String
     }
 
-    @State private var loaded = FormValues(enabled: false, baseURL: "", modelName: "")
+    @State private var loaded = FormValues(enabled: false)
 
     private var current: FormValues {
-        FormValues(enabled: enabled, baseURL: baseURL, modelName: modelName)
+        FormValues(enabled: enabled)
     }
 
     private var isDirty: Bool {
-        current != loaded || !apiKeyInput.isEmpty
+        SettingsDirty.isDirty(loaded: loaded, draft: current, secretEntered: !apiKeyInput.isEmpty)
     }
 
     var body: some View {
@@ -40,7 +38,7 @@ struct AiProviderIntegrationView: View {
                 form
             }
         }
-        .navigationTitle("AI Provider")
+        .navigationTitle("fanart.tv")
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -49,19 +47,9 @@ struct AiProviderIntegrationView: View {
             SettingsStateView(isLoading: loading, error: loadError, retry: { Task { await load() } }) {
                 Section {
                     ToggleRow("Enabled", isOn: $enabled)
-                    LabeledTextFieldRow(title: "Base URL", text: $baseURL,
-                                        placeholder: "http://localhost:8080", keyboard: .URL)
-                    LabeledTextFieldRow(title: "Model", text: $modelName, placeholder: "model name")
                     SecretFieldRow(title: "API key", input: $apiKeyInput, isStored: hasApiKey)
                 } footer: {
-                    Text("Optional local LLM used for metadata assists. Leave the API key blank for a local server.")
-                }
-                Section {
-                    TestConnectionButton {
-                        await testConnection()
-                    }
-                } footer: {
-                    Text("Tests the saved configuration.")
+                    Text("Higher-quality posters and backdrops. Leave the key blank to keep the stored one.")
                 }
                 if let saveError {
                     Section { Text(saveError).foregroundStyle(Theme.terracotta) }
@@ -84,32 +72,13 @@ struct AiProviderIntegrationView: View {
         .task { await load() }
     }
 
-    private func testConnection() async -> TestOutcome {
-        guard let client = model.api() else { return .failure(String(localized: "Not signed in.")) }
-        do {
-            let result = try await client.testAiProvider()
-            if let error = result.error {
-                return .failure(error)
-            }
-            let count = result.models?.count ?? 0
-            if result.modelAvailable == false {
-                return .success(String(localized: "Connected \u{2014} \(count) models (configured model not found)"))
-            }
-            return .success(String(localized: "Connected \u{2014} \(count) models"))
-        } catch {
-            return .failure(settingsErrorMessage(error))
-        }
-    }
-
     private func load() async {
         guard let client = model.api() else { loading = false; return }
         loading = true; loadError = nil
         do {
-            let integration = try await client.aiProviderIntegration().integration
+            let integration = try await client.fanartIntegration().integration
             enabled = integration.enabled
-            baseURL = integration.baseUrl ?? ""
-            modelName = integration.model ?? ""
-            hasApiKey = integration.hasApiKey ?? false
+            hasApiKey = integration.apiKeySet ?? false
             apiKeyInput = ""
             loaded = current
         } catch {
@@ -122,8 +91,8 @@ struct AiProviderIntegrationView: View {
         guard let client = model.api() else { return }
         saving = true; saveError = nil
         do {
-            try await client.saveAiProviderIntegration(
-                SaveAiProviderBody(enabled: enabled, baseUrl: baseURL, model: modelName, apiKey: apiKeyInput)
+            try await client.saveFanartIntegration(
+                SaveFanartBody(enabled: enabled, apiKey: apiKeyInput)
             )
             if !apiKeyInput.isEmpty {
                 hasApiKey = true
