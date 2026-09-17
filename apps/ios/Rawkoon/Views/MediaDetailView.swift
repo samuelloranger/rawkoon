@@ -609,8 +609,8 @@ struct MediaDetailView: View {
     }
 
     private func managementControlsCard(_ item: LibraryMedia) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
                 Text("Management")
                     .font(.sectionTitle)
                     .foregroundStyle(Theme.textStrong)
@@ -618,6 +618,39 @@ struct MediaDetailView: View {
                 if applyingManagementChange {
                     ProgressView().tint(Theme.muted)
                 }
+                // The item's edit / artwork / rescan / remove actions live in one
+                // overflow menu so no single control has to carry a long label.
+                Menu {
+                    Button {
+                        showingOverridesEditor = true
+                    } label: {
+                        Label("Edit info", systemImage: "pencil")
+                    }
+                    Button {
+                        showingArtworkPicker = true
+                    } label: {
+                        Label("Change artwork", systemImage: "photo")
+                    }
+                    Button {
+                        Task { await runRescan() }
+                    } label: {
+                        Label("Rescan files", systemImage: "arrow.clockwise")
+                    }
+                    Divider()
+                    Button(role: .destructive) {
+                        pendingRemoveLibraryId = libraryId
+                        pendingRemoveTitle = title
+                        showingRemoveConfirm = true
+                    } label: {
+                        Label("Remove from library", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title3)
+                        .foregroundStyle(Theme.apricot)
+                }
+                .disabled(applyingManagementChange)
+                .accessibilityLabel("More actions")
             }
 
             // The card's one lamp: searching releases is the primary reason an
@@ -655,73 +688,7 @@ struct MediaDetailView: View {
                 .font(.caption2)
                 .foregroundStyle(Theme.faint)
 
-            managementFieldRow(label: "Quality profile") {
-                Picker("Quality profile", selection: Binding(
-                    get: { item.qualityProfileId ?? 0 },
-                    set: { newValue in Task { await applyQualityProfileChange(newValue == 0 ? nil : newValue) } }
-                )) {
-                    Text("None").tag(0)
-                    ForEach(qualityProfiles) { profile in
-                        Text(profile.name).tag(profile.id)
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .tint(Theme.apricot)
-                .disabled(applyingManagementChange)
-            }
-
-            managementDivider
-
-            // Presentation overrides: title/artwork the admin pins over TMDB.
-            Button {
-                showingOverridesEditor = true
-            } label: {
-                Label("Edit info", systemImage: "pencil")
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 44)
-            }
-            .buttonStyle(.bordered)
-            .tint(Theme.apricot)
-            .disabled(applyingManagementChange)
-
-            Button {
-                showingArtworkPicker = true
-            } label: {
-                Label("Change artwork", systemImage: "photo")
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 44)
-            }
-            .buttonStyle(.bordered)
-            .tint(Theme.apricot)
-            .disabled(applyingManagementChange)
-
-            managementDivider
-
-            // Maintenance + the one destructive action, kept apart at the bottom.
-            Button {
-                Task { await runRescan() }
-            } label: {
-                Label("Rescan files", systemImage: "arrow.clockwise")
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 44)
-            }
-            .buttonStyle(.bordered)
-            .tint(Theme.muted)
-            .disabled(applyingManagementChange)
-
-            Button(role: .destructive) {
-                pendingRemoveLibraryId = libraryId
-                pendingRemoveTitle = title
-                showingRemoveConfirm = true
-            } label: {
-                Label("Remove from library", systemImage: "trash")
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 44)
-            }
-            .buttonStyle(.bordered)
-            .tint(Theme.terracotta)
-            .disabled(applyingManagementChange)
+            qualityProfileField(item)
         }
         .padding(14)
         .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
@@ -761,6 +728,51 @@ struct MediaDetailView: View {
             Spacer(minLength: 8)
             trailing()
         }
+    }
+
+    /// The quality-profile control on its own full-width line so a long profile
+    /// name truncates instead of wrapping the label onto a second row.
+    private func qualityProfileField(_ item: LibraryMedia) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Quality profile")
+                .font(.subheadline)
+                .foregroundStyle(Theme.text)
+            Menu {
+                Picker("Quality profile", selection: Binding(
+                    get: { item.qualityProfileId ?? 0 },
+                    set: { newValue in Task { await applyQualityProfileChange(newValue == 0 ? nil : newValue) } }
+                )) {
+                    Text("None").tag(0)
+                    ForEach(qualityProfiles) { profile in
+                        Text(profile.name).tag(profile.id)
+                    }
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Text(qualityProfileName(for: item))
+                        .foregroundStyle(Theme.text)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.muted)
+                }
+                .padding(.horizontal, 12)
+                .frame(minHeight: 40)
+                .frame(maxWidth: .infinity)
+                .background(Theme.inset, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border, lineWidth: 1))
+            }
+            .tint(Theme.apricot)
+            .disabled(applyingManagementChange)
+        }
+    }
+
+    /// The selected profile's name for the field label, or "None".
+    private func qualityProfileName(for item: LibraryMedia) -> String {
+        guard let id = item.qualityProfileId else { return String(localized: "None") }
+        return qualityProfiles.first(where: { $0.id == id })?.name ?? String(localized: "None")
     }
 
     private var managementFilesCard: some View {

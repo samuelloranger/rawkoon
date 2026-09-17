@@ -302,9 +302,10 @@ struct BookRow: View {
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(book.title)
-                    .font(.display(16))
+                    .font(.display(14))
                     .foregroundStyle(Theme.textStrong)
-                    .lineLimit(2)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 if let author = book.author, !author.isEmpty {
                     Text(author).font(.subheadline).foregroundStyle(Theme.muted).lineLimit(1)
                 }

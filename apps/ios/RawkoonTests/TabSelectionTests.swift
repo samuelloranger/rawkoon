@@ -2,16 +2,13 @@
 import Testing
 
 struct TabSelectionTests {
-    @Test func homeStaysForAdmin() {
+    @Test func homeStaysForEveryone() {
         #expect(RootTabSelection.validated("home", isAdmin: true) == "home")
-    }
-
-    @Test func homeFallsBackWhenNotAdmin() {
-        #expect(RootTabSelection.validated("home", isAdmin: false) == "library")
+        #expect(RootTabSelection.validated("home", isAdmin: false) == "home")
     }
 
     @Test func alwaysVisibleTabsSurvive() {
-        for tab in ["discover", "library", "activity", "settings"] {
+        for tab in ["discover", "library", "books", "settings"] {
             #expect(RootTabSelection.validated(tab, isAdmin: false) == tab)
             #expect(RootTabSelection.validated(tab, isAdmin: true) == tab)
         }
