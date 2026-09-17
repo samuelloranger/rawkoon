@@ -3,3 +3,11 @@
 #
 # Interpolated Text/Button strings are skipped by the script — those need an
 # Xcode extraction pass on macbuild to confirm format-specifier keys.
+
+# SSEDebugView: admin-only hidden debug screen, deliberately English-only.
+Force reconnect both streams
+Emit media event
+Emit book event
+Send test notification
+No events yet.
+SSE Debug
