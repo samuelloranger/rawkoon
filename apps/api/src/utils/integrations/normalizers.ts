@@ -8,6 +8,7 @@ import type {
   FanartIntegrationConfig,
   AiProviderConfig,
   GoogleBooksIntegrationConfig,
+  NytBooksIntegrationConfig,
   AudnexusIntegrationConfig,
 } from "./types";
 import { decrypt } from "@rawkoon/api/services/crypto";
@@ -222,6 +223,21 @@ export const normalizeAiProviderConfig = (
 export const normalizeGoogleBooksConfig = (
   config: unknown,
 ): GoogleBooksIntegrationConfig | null => {
+  if (!config || typeof config !== "object" || Array.isArray(config))
+    return null;
+  const cfg = config as Record<string, unknown>;
+  const apiKey = normalizeSecret(cfg.api_key);
+  if (!apiKey) return null;
+  return { api_key: apiKey };
+};
+
+/**
+ * NYT Books needs an API key: the bestseller endpoints reject unauthenticated
+ * requests, so an unkeyed integration is unusable rather than degraded.
+ */
+export const normalizeNytBooksConfig = (
+  config: unknown,
+): NytBooksIntegrationConfig | null => {
   if (!config || typeof config !== "object" || Array.isArray(config))
     return null;
   const cfg = config as Record<string, unknown>;
