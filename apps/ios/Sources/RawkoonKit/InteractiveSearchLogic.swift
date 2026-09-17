@@ -302,12 +302,12 @@ public extension InteractiveSearchLogic {
             let isPlatform: Bool
         }
 
-        // Library titles are persisted in the English slot, but the stored text
-        // can actually be any language's title — a title added under a
-        // non-English locale, or a foreign film whose English slot falls back to
-        // the original. Detect the real language by matching the stored title
-        // against the original title and the per-language translations, and
-        // label the default option by that language instead of the slot.
+        /// Library titles are persisted in the English slot, but the stored text
+        /// can actually be any language's title — a title added under a
+        /// non-English locale, or a foreign film whose English slot falls back to
+        /// the original. Detect the real language by matching the stored title
+        /// against the original title and the per-language translations, and
+        /// label the default option by that language instead of the slot.
         func normalizeTitle(_ value: String) -> String {
             value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         }
