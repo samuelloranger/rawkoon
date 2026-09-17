@@ -80,7 +80,7 @@ struct LibraryRowPresentationTests {
     private func movie(id: Int, status: String) -> LibraryMedia {
         LibraryMedia(
             id: id, tmdbId: id, type: "movie", title: "Movie \(id)", year: 2026,
-            status: status, monitored: true, posterUrl: nil, overview: nil,
+            status: status, monitored: true, posterUrl: nil, backdropUrl: nil, overview: nil, overrides: nil,
             qualityProfileId: nil, qualityProfile: nil, totalSizeBytes: nil,
             episodeCount: nil, downloadedEpisodeCount: nil, seasonCount: nil,
             durationSecs: nil, resolution: nil, videoCodec: nil, hdrFormat: nil,
