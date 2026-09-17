@@ -73,7 +73,8 @@
                             mediaType: libraryType == "show" ? "tv" : "movie",
                             title: media.title,
                             posterPath: media.posterUrl,
-                            libraryId: media.id
+                            libraryId: media.id,
+                            focusManagement: ProcessInfo.processInfo.environment["RAWKOON_FOCUS_MANAGEMENT"] != nil
                         )
                     } else if failed {
                         Text("No \(libraryType) in library").foregroundStyle(Theme.muted)
