@@ -225,6 +225,42 @@ final class InteractiveSearchLogicTests: XCTestCase {
         XCTAssertEqual(options.map(\.query), ["Up"])
     }
 
+    func testTitleOptionsRelabelsDefaultByOriginalLanguageTranslation() {
+        // Stored title equals the original-language title: label the default by
+        // the original language, not the English persistence slot.
+        let options = L.buildTitleOptions(
+            localized: "Le Jour où je l'ai rencontrée",
+            localizedLanguage: "en",
+            original: nil,
+            originalLanguage: "fr",
+            translations: [.init(languageCode: "fr", title: "Le Jour où je l'ai rencontrée")],
+            suffix: ""
+        )
+        XCTAssertEqual(options.first?.languageCode, "fr")
+        XCTAssertEqual(options.first?.isOriginal, true)
+        XCTAssertEqual(options.first?.query, "Le Jour où je l'ai rencontrée")
+    }
+
+    func testTitleOptionsRelabelsByMatchedTranslationAndKeepsOriginal() {
+        // Real case: an English-original film whose library title was stored as
+        // its French translation. The default must read FR (the text's real
+        // language) and the English original must stay selectable. Shape for
+        // TMDB 64678 "The Art of Getting By" / "Le Jour où je l'ai rencontrée".
+        let options = L.buildTitleOptions(
+            localized: "Le Jour où je l'ai rencontrée",
+            localizedLanguage: "en",
+            original: "The Art of Getting By",
+            originalLanguage: "en",
+            translations: [.init(languageCode: "fr", title: "Le Jour où je l'ai rencontrée")],
+            suffix: ""
+        )
+        XCTAssertEqual(options.first?.languageCode, "fr")
+        XCTAssertEqual(options.first?.isOriginal, false)
+        let en = options.first { $0.query == "The Art of Getting By" }
+        XCTAssertEqual(en?.languageCode, "en")
+        XCTAssertEqual(en?.isOriginal, true)
+    }
+
     func testTitleOptionsPinsEnglishAndFrenchWhenNotCovered() {
         let options = L.buildTitleOptions(
             localized: "El Laberinto del Fauno",

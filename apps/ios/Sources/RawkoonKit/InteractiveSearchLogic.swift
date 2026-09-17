@@ -302,10 +302,38 @@ public extension InteractiveSearchLogic {
             let isPlatform: Bool
         }
 
-        let coveredCodes = Set([platform, originalLang].filter { !$0.isEmpty })
+        // Library titles are persisted in the English slot, but the stored text
+        // can actually be any language's title — a title added under a
+        // non-English locale, or a foreign film whose English slot falls back to
+        // the original. Detect the real language by matching the stored title
+        // against the original title and the per-language translations, and
+        // label the default option by that language instead of the slot.
+        func normalizeTitle(_ value: String) -> String {
+            value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        }
+        let localizedKey = normalizeTitle(localized)
+        var detectedLanguage: String?
+        if !localizedKey.isEmpty {
+            let originalKey = normalizeTitle(original ?? "")
+            if !originalLang.isEmpty, !originalKey.isEmpty, originalKey == localizedKey {
+                detectedLanguage = originalLang
+            } else {
+                for entry in translations {
+                    if normalizeTitle(entry.title) == localizedKey {
+                        detectedLanguage = entry.languageCode.lowercased()
+                        break
+                    }
+                }
+            }
+        }
+        let platformLanguage = (detectedLanguage.map { $0 != platform ? $0 : platform }) ?? platform
+        // The default is the original only when its real language is the original.
+        let localizedIsOriginal = platformLanguage != platform && platformLanguage == originalLang
+
+        let coveredCodes = Set([platformLanguage, originalLang].filter { !$0.isEmpty })
 
         var candidates: [Candidate] = [
-            Candidate(languageCode: platform, title: localized, isOriginal: false, isPlatform: true),
+            Candidate(languageCode: platformLanguage, title: localized, isOriginal: localizedIsOriginal, isPlatform: true),
         ]
         for code in ["en", "fr"] where !coveredCodes.contains(code) {
             candidates.append(Candidate(languageCode: code, title: translationByLang[code], isOriginal: false, isPlatform: false))

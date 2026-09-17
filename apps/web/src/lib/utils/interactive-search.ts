@@ -77,6 +77,36 @@ export function buildTitleOptions(input: {
     }
   }
 
+  // Library titles are persisted in the English slot, but the stored text can
+  // actually be any language's title — a title added under a non-English
+  // locale, or a foreign film whose English slot falls back to the original.
+  // Detect the real language by matching the stored title against the original
+  // title and the per-language translations, and label the default option by
+  // that language instead of mislabeling it as the persistence slot.
+  const normalizeTitle = (value: string) => value.trim().toLocaleLowerCase();
+  const localizedKey = normalizeTitle(input.localized || "");
+  let detectedLanguage: string | null = null;
+  if (localizedKey) {
+    const originalKey = normalizeTitle(input.original ?? "");
+    if (originalLanguage && originalKey && originalKey === localizedKey) {
+      detectedLanguage = originalLanguage;
+    } else {
+      for (const [code, title] of translationByLang) {
+        if (normalizeTitle(title) === localizedKey) {
+          detectedLanguage = code;
+          break;
+        }
+      }
+    }
+  }
+  const platformLanguage =
+    detectedLanguage && detectedLanguage !== platform
+      ? detectedLanguage
+      : platform;
+  // The default is the original only when its real language is the original one.
+  const localizedIsOriginal =
+    platformLanguage !== platform && platformLanguage === originalLanguage;
+
   // Ordered candidates: the platform (localized) title is the default; EN/FR
   // are pinned; the original-language title is offered next — tagged, and kept
   // even when it shares the platform language but differs from the localized
@@ -93,13 +123,15 @@ export function buildTitleOptions(input: {
   // Languages already represented by the platform or original entries; their
   // pinned/common translation slots are skipped so we don't surface a less
   // canonical translation next to the authoritative title.
-  const coveredCodes = new Set([platform, originalLanguage].filter(Boolean));
+  const coveredCodes = new Set(
+    [platformLanguage, originalLanguage].filter(Boolean),
+  );
 
   const candidates: TitleCandidate[] = [
     {
-      languageCode: platform,
+      languageCode: platformLanguage,
       title: input.localized,
-      isOriginal: false,
+      isOriginal: localizedIsOriginal,
       isPlatform: true,
     },
   ];

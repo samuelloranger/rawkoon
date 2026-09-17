@@ -16,7 +16,11 @@ struct ReleaseSearchView: View {
     /// The library (English) title the sheet opened with — the base for the
     /// language/title picker; `searchQuery` may then change to another language.
     let localizedTitle: String
-    /// TMDB original-language code + per-language titles, for the picker (Phase 5).
+    /// TMDB original title + language code + per-language titles, for the picker
+    /// (Phase 5). The original title lets the picker offer the original-language
+    /// entry even when it has no distinct translation row (e.g. an English film
+    /// stored under its French title).
+    let originalTitle: String?
     let originalLanguage: String?
     let titleTranslations: [TitleTranslation]
 
@@ -27,6 +31,7 @@ struct ReleaseSearchView: View {
         mediaType: String,
         availableSeasons: [Int] = [],
         mediaYear: Int? = nil,
+        originalTitle: String? = nil,
         originalLanguage: String? = nil,
         titleTranslations: [TitleTranslation] = []
     ) {
@@ -36,6 +41,7 @@ struct ReleaseSearchView: View {
         self.availableSeasons = availableSeasons.filter { $0 > 0 }.sorted()
         self.mediaYear = mediaYear
         localizedTitle = query
+        self.originalTitle = originalTitle
         self.originalLanguage = originalLanguage
         self.titleTranslations = titleTranslations
         _searchQuery = State(initialValue: query)
@@ -48,7 +54,7 @@ struct ReleaseSearchView: View {
         InteractiveSearchLogic.buildTitleOptions(
             localized: localizedTitle,
             localizedLanguage: "en",
-            original: nil,
+            original: originalTitle,
             originalLanguage: originalLanguage,
             translations: titleTranslations.map {
                 .init(languageCode: $0.languageCode, title: $0.title)
@@ -323,6 +329,15 @@ struct ReleaseSearchView: View {
         !includedTrackers.isEmpty || !excludedTrackers.isEmpty || !includedLanguages.isEmpty
     }
 
+    /// Clears the filters that can hide results — shows rejected releases again
+    /// and drops tracker/language filters. Mirrors the web `resetView`.
+    private func resetView() {
+        hideRejected = false
+        includedTrackers.removeAll()
+        excludedTrackers.removeAll()
+        includedLanguages.removeAll()
+    }
+
     private func filterChipMenu(
         title: LocalizedStringKey,
         activeCount: Int,
@@ -472,6 +487,20 @@ struct ReleaseSearchView: View {
         } else if releases.isEmpty {
             ContentUnavailableView.search
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if filteredAndSortedReleases.isEmpty {
+            // Results came back but the active filters (commonly "Hide rejected")
+            // hide them all — say so and offer a reset, mirroring the web
+            // "No matches" + Reset view empty state instead of a blank sheet.
+            ContentUnavailableView {
+                Label("No matches", systemImage: "line.3.horizontal.decrease.circle")
+            } description: {
+                Text("\(releases.count) results are hidden by your filters.")
+            } actions: {
+                Button("Reset view") { resetView() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.terracotta)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             ScrollView {
                 LazyVStack(spacing: 10) {
