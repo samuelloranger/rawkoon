@@ -132,6 +132,23 @@ private struct QualityProfileEditorView: View {
     @State private var requireHdr = false
     @State private var preferHdr = false
     @State private var scores: [Int: Int] = [:] // customFormatId -> score (included when present)
+    @State private var stances: [Int: FormatStance] = [:] // customFormatId -> required/forbidden/neither
+
+    /// Per-format scoring stance, mutually exclusive (mirrors the web editor).
+    private enum FormatStance: String, CaseIterable, Identifiable {
+        case neither, required, forbidden
+        var id: String {
+            rawValue
+        }
+
+        var label: LocalizedStringKey {
+            switch self {
+            case .neither: "—"
+            case .required: "Required"
+            case .forbidden: "Forbidden"
+            }
+        }
+    }
 
     @State private var saving = false
     @State private var saveError: String?
@@ -222,6 +239,7 @@ private struct QualityProfileEditorView: View {
             Button {
                 if included {
                     scores[format.id] = nil
+                    stances[format.id] = nil
                 } else {
                     scores[format.id] = 0
                 }
@@ -233,6 +251,17 @@ private struct QualityProfileEditorView: View {
             Text(format.name).foregroundStyle(Theme.text)
             Spacer()
             if included {
+                Picker("Stance", selection: Binding(
+                    get: { stances[format.id] ?? .neither },
+                    set: { stances[format.id] = $0 }
+                )) {
+                    ForEach(FormatStance.allCases) { stance in
+                        Text(stance.label).tag(stance)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .tint(Theme.apricot)
                 TextField("0", value: Binding(
                     get: { scores[format.id] ?? 0 },
                     set: { scores[format.id] = $0 }
@@ -262,20 +291,31 @@ private struct QualityProfileEditorView: View {
         requireHdr = profile.requireHdr ?? false
         preferHdr = profile.preferHdr ?? false
         var seededScores: [Int: Int] = [:]
+        var seededStances: [Int: FormatStance] = [:]
         for assignment in profile.customFormats ?? [] {
             if let id = assignment.customFormatId {
                 seededScores[id] = assignment.score ?? 0
+                seededStances[id] = assignment.required == true
+                    ? .required
+                    : (assignment.forbidden == true ? .forbidden : .neither)
             }
         }
         scores = seededScores
+        stances = seededStances
     }
 
     private func body_() -> SaveQualityProfileBody {
         let trackers = trackersText.split(separator: ",")
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
-        let assignments = scores.map {
-            CustomFormatAssignmentBody(customFormatId: $0.key, score: $0.value, required: false, forbidden: false)
+        let assignments = scores.map { id, score -> CustomFormatAssignmentBody in
+            let stance = stances[id] ?? .neither
+            return CustomFormatAssignmentBody(
+                customFormatId: id,
+                score: score,
+                required: stance == .required,
+                forbidden: stance == .forbidden
+            )
         }
         return SaveQualityProfileBody(
             name: name.trimmingCharacters(in: .whitespaces),

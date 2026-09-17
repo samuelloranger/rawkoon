@@ -83,6 +83,7 @@ struct MediaDetailView: View {
     @State private var mediaFilesType = "movie"
     @State private var downloads: [DownloadHistoryItem] = []
     @State private var pendingDownloadActionId: Int?
+    @State private var pendingDownloadRemoveId: Int?
     @State private var applyingManagementChange = false
     @State private var showingOverridesEditor = false
     @State private var showingArtworkPicker = false
@@ -237,6 +238,26 @@ struct MediaDetailView: View {
                 if let targetId {
                     Task { await removeLibraryItem(id: targetId, deleteFiles: deleteFiles) }
                 }
+            }
+            .confirmationDialog(
+                "Remove download?",
+                isPresented: Binding(
+                    get: { pendingDownloadRemoveId != nil },
+                    set: {
+                        if !$0 {
+                            pendingDownloadRemoveId = nil
+                        }
+                    }
+                ),
+                presenting: pendingDownloadRemoveId
+            ) { id in
+                Button("Remove", role: .destructive) {
+                    Task { await performDownloadAction(id, action: "remove") }
+                }
+                Button("Remove and delete files", role: .destructive) {
+                    Task { await performDownloadAction(id, action: "remove", deleteFiles: true) }
+                }
+                Button("Cancel", role: .cancel) {}
             }
             .rawkoonConfirm(
                 "Delete file?",
@@ -823,6 +844,7 @@ struct MediaDetailView: View {
                             row: row,
                             busy: pendingDownloadActionId == row.id,
                             onAction: { action in Task { await performDownloadAction(row.id, action: action) } },
+                            onRemoveActive: { pendingDownloadRemoveId = row.id },
                             onDeleteEntry: { Task { await deleteDownloadEntryAction(row.id) } }
                         )
                     }
@@ -1123,12 +1145,17 @@ struct MediaDetailView: View {
         }
     }
 
-    private func performDownloadAction(_ downloadHistoryId: Int, action: String) async {
+    private func performDownloadAction(_ downloadHistoryId: Int, action: String, deleteFiles: Bool = false) async {
         guard let libraryId, let client = model.api() else { return }
         pendingDownloadActionId = downloadHistoryId
         defer { pendingDownloadActionId = nil }
         do {
-            try await client.downloadAction(libraryId: libraryId, downloadHistoryId: downloadHistoryId, action: action)
+            try await client.downloadAction(
+                libraryId: libraryId,
+                downloadHistoryId: downloadHistoryId,
+                action: action,
+                deleteFiles: deleteFiles
+            )
             store.invalidateDownloadHistory(itemID: libraryId)
             managementNotice = String(localized: "Download updated.")
             managementError = nil

@@ -14,6 +14,7 @@ struct DownloadProgressOverlayTests {
             episodeId: nil,
             failReason: nil,
             postProcessError: nil,
+            postProcessDestinationPath: nil,
             live: live,
             aiPicked: nil
         )

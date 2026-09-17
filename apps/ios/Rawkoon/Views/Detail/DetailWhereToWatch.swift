@@ -14,6 +14,7 @@ struct DetailWhereToWatch: View {
     static func hasContent(trailer: MediaTrailer?, providers: WatchProviders?) -> Bool {
         let hasTrailer = (trailer?.key?.isEmpty == false)
         let hasProviders = !(providers?.streaming ?? []).isEmpty
+            || !(providers?.free ?? []).isEmpty
             || !(providers?.rent ?? []).isEmpty
             || !(providers?.buy ?? []).isEmpty
         return hasTrailer || hasProviders
@@ -34,6 +35,7 @@ struct DetailWhereToWatch: View {
             }
 
             providerGroup("Stream", items: providers?.streaming ?? [])
+            providerGroup("Free", items: providers?.free ?? [])
             providerGroup("Rent", items: providers?.rent ?? [])
             providerGroup("Buy", items: providers?.buy ?? [])
         }
