@@ -9,6 +9,7 @@ import {
   List,
   Plus,
   Search,
+  Trophy,
   UserRound,
 } from "lucide-react";
 import type {
@@ -285,6 +286,13 @@ export function BooksPage() {
             {/* A styled Link, not <Button asChild>: Button never implemented
                 asChild, so the prop reached the DOM and the anchor's icon and
                 label stacked on top of each other. */}
+            <Link
+              to="/books/explore"
+              className="focus-ring inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-lg bg-neutral-800 px-4 text-sm font-medium text-neutral-100 transition-colors hover:bg-neutral-700"
+            >
+              <Trophy className="h-4 w-4" />
+              {t("books.explore.link")}
+            </Link>
             <Link
               to="/books/authors"
               className="focus-ring inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-lg bg-neutral-800 px-4 text-sm font-medium text-neutral-100 transition-colors hover:bg-neutral-700"
