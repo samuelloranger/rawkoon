@@ -105,14 +105,15 @@ extension APIClient {
         try await postPlainExpectOK("/api/integrations/download-client/hook/rotate", body: EmptyBody())
     }
 
-    // MARK: SSE debug screen (admin-only) — fires a synthetic event on the
-    // real library/book SSE bus so a connected client can watch it arrive.
+    // MARK: SSE debug screen (admin-only)
 
     struct SSETestTriggerBody: Encodable {
         let kind: String
         let id: Int
     }
 
+    /// Fires a synthetic event on the real library/book SSE bus so a
+    /// connected client can watch it arrive.
     func triggerSSETest(kind: String, id: Int) async throws {
         try await postPlainExpectOK("/api/admin/sse-test", body: SSETestTriggerBody(kind: kind, id: id))
     }
