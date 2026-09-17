@@ -209,6 +209,7 @@ struct MediaDetailView: View {
                     mediaType: mediaType,
                     availableSeasons: releaseSearchSeason.map { [$0] } ?? (details?.seasons?.map(\.seasonNumber) ?? []),
                     mediaYear: yearValue,
+                    originalTitle: details?.originalTitle,
                     originalLanguage: details?.originalLanguage,
                     titleTranslations: details?.titleTranslations ?? []
                 )

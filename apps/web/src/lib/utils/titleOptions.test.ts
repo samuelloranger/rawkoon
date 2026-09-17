@@ -139,6 +139,61 @@ describe("buildTitleOptions", () => {
       { languageCode: "en", query: "X", isOriginal: false },
     ]);
   });
+  // Regression: a foreign film with no distinct English title has its English
+  // slot filled by the original title, so the English-stored title is really
+  // written in the original language. The default must read as that language
+  // (FR), not "en". Real shape for the QC film "Le Jour où je l'ai rencontrée".
+  it("labels the default by the original language when the stored title is the original title", () => {
+    const options = buildTitleOptions({
+      localized: "Le Jour où je l'ai rencontrée",
+      localizedLanguage: "en",
+      original: "Le Jour où je l'ai rencontrée",
+      originalLanguage: "fr",
+      translations: [
+        { language_code: "fr", title: "Le Jour où je l'ai rencontrée" },
+      ],
+    });
+    expect(options[0].languageCode).toBe("fr");
+    expect(options[0].isOriginal).toBe(true);
+    expect(options[0].query).toBe("Le Jour où je l'ai rencontrée");
+  });
+
+  // Real case: an English-original film whose library title was stored as its
+  // French translation. The default must read FR (the text's real language),
+  // and the English original must stay selectable. Shape for TMDB 64678
+  // ("The Art of Getting By", fr-CA "Le Jour où je l'ai rencontrée").
+  it("labels the default by the matched translation language and still offers the original", () => {
+    const options = buildTitleOptions({
+      localized: "Le Jour où je l'ai rencontrée",
+      localizedLanguage: "en",
+      original: "The Art of Getting By",
+      originalLanguage: "en",
+      translations: [
+        { language_code: "fr", title: "Le Jour où je l'ai rencontrée" },
+      ],
+    });
+    expect(options[0].languageCode).toBe("fr");
+    expect(options[0].isOriginal).toBe(false);
+    const en = options.find((o) => o.query === "The Art of Getting By");
+    expect(en?.languageCode).toBe("en");
+    expect(en?.isOriginal).toBe(true);
+  });
+
+  // The original title may only be reachable through translations (the iOS call
+  // site passes original: null) — the relabel must still fire.
+  it("relabels via the original-language translation when no original_title is given", () => {
+    const options = buildTitleOptions({
+      localized: "Le Jour où je l'ai rencontrée",
+      localizedLanguage: "en",
+      originalLanguage: "fr",
+      translations: [
+        { language_code: "fr", title: "Le Jour où je l'ai rencontrée" },
+      ],
+    });
+    expect(options[0].languageCode).toBe("fr");
+    expect(options[0].isOriginal).toBe(true);
+  });
+
   // Regression: library titles are persisted in English, so an English-titled
   // item viewed in a French UI must still offer TMDB's French title. Real data
   // for "Knowing" (TMDB 13811), whose French title is "Prédictions".

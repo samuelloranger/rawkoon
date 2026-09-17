@@ -8945,6 +8945,36 @@
           }
         }
       }
+    },
+    "No matches": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune correspondance"
+          }
+        }
+      }
+    },
+    "Reset view": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réinitialiser la vue"
+          }
+        }
+      }
+    },
+    "%lld results are hidden by your filters.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld résultats masqués par vos filtres."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
