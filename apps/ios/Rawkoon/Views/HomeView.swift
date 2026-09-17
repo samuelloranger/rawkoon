@@ -1,9 +1,10 @@
 import RawkoonKit
 import SwiftUI
 
-/// The home screen — admin dashboard: greeting, Continue, Recently Added and
+/// The home screen for every user: greeting, Continue, Recently Added and
 /// Upcoming rails, then a widget stack (Now Watching, Downloads, Library
-/// Attention, RSS). Widgets self-hide when their integration is off.
+/// Attention, RSS). The ops widgets (Downloads, RSS) are admin-only; all
+/// widgets also self-hide when their integration is off or has no data.
 struct HomeView: View {
     @Environment(AppModel.self) private var model
     /// Local namespace shared directly by each poster source and its detail
@@ -188,6 +189,12 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, 16)
             }
+            // Pin the rail height instead of inheriting it from the posters'
+            // intrinsic size through the scroll view: an outer `.refreshable`
+            // pull can momentarily collapse a nested horizontal ScrollView to
+            // zero height, hiding the rail until the view is rebuilt. A fixed
+            // height keeps it laid out across the refresh.
+            .frame(height: RailPoster.height)
         }
     }
 
@@ -312,11 +319,14 @@ struct HomeView: View {
             if let np = nowPlaying, np.enabled {
                 nowWatchingWidget(np)
             }
-            downloadsWidget
+            // Downloads and RSS are server-ops widgets: admins only.
+            if model.isAdmin {
+                downloadsWidget
+            }
             if !attention.isEmpty {
                 attentionWidget
             }
-            if let rss {
+            if model.isAdmin, let rss {
                 rssWidget(rss)
             }
         }
@@ -490,12 +500,29 @@ struct HomeView: View {
         async let attnR = client.libraryAttention()
         async let rssR = client.rssStatus()
 
-        recent = await (try? recentR)?.items ?? []
-        upcoming = await (try? upcomingR)?.items ?? []
-        nowPlaying = try? await npR
-        speed = try? await speedR
-        attention = await (try? attnR)?.items ?? []
-        rss = try? await rssR
+        // A failed refetch (a transient error on pull-to-refresh) must not blank
+        // content already on screen: replace each section only when its request
+        // succeeds, so the rails survive a hiccup instead of vanishing until the
+        // view is rebuilt. `(try?)?.items` returns [] for a real empty result and
+        // nil only on failure, so a genuinely empty section still clears.
+        if let items = await (try? recentR)?.items {
+            recent = items
+        }
+        if let items = await (try? upcomingR)?.items {
+            upcoming = items
+        }
+        if let np = try? await npR {
+            nowPlaying = np
+        }
+        if let sp = try? await speedR {
+            speed = sp
+        }
+        if let items = await (try? attnR)?.items {
+            attention = items
+        }
+        if let status = try? await rssR {
+            rss = status
+        }
 
         loading = false
     }

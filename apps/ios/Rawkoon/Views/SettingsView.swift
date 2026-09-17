@@ -165,6 +165,12 @@ struct SettingsView: View {
 
             Section("Requests & Alerts") {
                 NavigationLink {
+                    ActivityView()
+                } label: {
+                    Label("Activity", systemImage: "arrow.down.circle")
+                }
+
+                NavigationLink {
                     RequestsView()
                 } label: {
                     Label("Requests", systemImage: "tray.and.arrow.down")

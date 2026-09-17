@@ -175,15 +175,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     }
 }
 
-/// Resolves a tab selection against the tabs actually present. `home` only
-/// exists for admins, so a role change can leave `selection` pointing at a
-/// removed tab; iOS 27 requires the selected value stay visible. Validated in
-/// the `TabView(selection:)` getter so it holds during render, not after.
+/// Resolves a tab selection against the tabs actually present. `explore` only
+/// exists at regular width, so a stale pick can point at a removed tab; iOS 27
+/// requires the selected value stay visible. Validated in the
+/// `TabView(selection:)` getter so it holds during render, not after.
 enum RootTabSelection {
-    nonisolated static func validated(_ selected: String, isAdmin: Bool) -> String {
+    nonisolated static func validated(_ selected: String, isAdmin _: Bool) -> String {
         switch selected {
-        case "home": isAdmin ? "home" : "library"
-        case "discover", "explore", "library", "books", "activity", "settings": selected
+        case "home", "discover", "explore", "library", "books", "settings": selected
         default: "library"
         }
     }
@@ -200,12 +199,12 @@ private struct RootTabsView: View {
     @Namespace private var zoomNamespace
 
     init() {
-        // Library is the household default. Admins are moved to Home in `.task`
-        // once `isAdmin` is known. Debug `RAWKOON_TAB` still wins.
-        var initial = "library"
+        // Home is the landing tab for everyone (bottom-left). Debug
+        // `RAWKOON_TAB` still wins.
+        var initial = "home"
         #if DEBUG
             if let raw = ProcessInfo.processInfo.environment["RAWKOON_TAB"], let value = Int(raw) {
-                let tags = ["home", "discover", "library", "activity", "settings"]
+                let tags = ["home", "library", "books", "discover", "settings"]
                 if tags.indices.contains(value) {
                     initial = tags[value]
                 }
@@ -257,46 +256,37 @@ private struct RootTabsView: View {
     #endif
 
     private var mainTabs: some View {
-        // Getter resolves against the current admin state so a removed Home tab
-        // can't stay selected mid-render; setter stores the raw pick.
+        // Getter validates the pick so a tab absent at this width (Explore is
+        // regular-only) can't stay selected mid-render; setter stores the raw pick.
         let validSelection = Binding(
             get: { RootTabSelection.validated(selection, isAdmin: model.isAdmin) },
             set: { selection = $0 }
         )
         return TabView(selection: validSelection) {
-            if model.isAdmin {
-                Tab("Home", systemImage: "house", value: "home") {
-                    NavigationStack {
-                        HomeView()
-                    }
+            Tab("Home", systemImage: "house", value: "home") {
+                NavigationStack {
+                    HomeView()
                 }
-                .customizationID("tab.home")
             }
+            .customizationID("tab.home")
 
-            // Library comes first. On Mac/iPad it splits into separate Movies &
-            // Shows and Books pages; phone keeps one Library tab with a toggle.
-            if hSizeClass == .regular {
-                Tab("Movies & Shows", systemImage: "film.stack", value: "library") {
-                    NavigationStack {
-                        LibraryView(forcedSection: .media)
-                    }
+            // Library splits into a Movies & Shows page and a Books page on
+            // every size class; the phone label shortens to fit the tab bar.
+            Tab(hSizeClass == .regular ? "Movies & Shows" : "Media",
+                systemImage: "film.stack", value: "library")
+            {
+                NavigationStack {
+                    LibraryView(forcedSection: .media)
                 }
-                .customizationID("tab.library")
-
-                Tab("Books", systemImage: "books.vertical", value: "books") {
-                    NavigationStack {
-                        LibraryView(forcedSection: .books)
-                    }
-                }
-                .customizationID("tab.books")
-            } else {
-                Tab("Library", systemImage: "square.stack", value: "library") {
-                    NavigationStack {
-                        LibraryView()
-                    }
-                }
-                .customizationID("tab.library")
             }
+            .customizationID("tab.library")
+
+            Tab("Books", systemImage: "books.vertical", value: "books") {
+                NavigationStack {
+                    LibraryView(forcedSection: .books)
+                }
+            }
+            .customizationID("tab.books")
 
             // On Mac/iPad the swipe deck and Explore grid are separate pages;
             // on phone one "Discover" tab holds the deck (Explore is a sheet).
@@ -317,13 +307,6 @@ private struct RootTabsView: View {
                 }
                 .customizationID("tab.explore")
             }
-
-            Tab("Activity", systemImage: "arrow.down.circle", value: "activity") {
-                NavigationStack {
-                    ActivityView()
-                }
-            }
-            .customizationID("tab.activity")
 
             Tab("Settings", systemImage: "gearshape", value: "settings") {
                 NavigationStack {
@@ -361,17 +344,8 @@ private struct RootTabsView: View {
             }
         }
         .task {
-            #if DEBUG
-                let debugTabLocked = ProcessInfo.processInfo.environment["RAWKOON_TAB"] != nil
-            #else
-                let debugTabLocked = false
-            #endif
             if model.library.isEmpty {
                 await model.loadLibrary()
-            }
-            // `isAdmin` is false until refreshAdmin runs inside loadLibrary.
-            if !debugTabLocked, model.isAdmin, selection == "library" {
-                selection = "home"
             }
         }
     }

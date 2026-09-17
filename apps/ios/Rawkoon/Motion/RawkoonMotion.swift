@@ -7,6 +7,9 @@ enum RawkoonMotion {
     static let spring = Animation.spring(response: 0.42, dampingFraction: 0.82)
     static let snappy = Animation.spring(response: 0.3, dampingFraction: 0.9)
     static let gentle = Animation.easeInOut(duration: 0.25)
+    /// A swipe-card fling off-screen: fast start, decelerating exit. Short so the
+    /// next card rises promptly for rapid Tinder-style swiping.
+    static let deckFling = Animation.easeOut(duration: 0.26)
     /// Reduce-Motion replacement: a quick crossfade instead of movement.
     static let reduced = Animation.easeInOut(duration: 0.15)
 }
