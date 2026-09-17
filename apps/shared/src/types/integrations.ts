@@ -130,6 +130,30 @@ export interface GoogleBooksTestResponse {
   error?: string;
 }
 
+export interface NytBooksIntegration {
+  type: "nyt";
+  enabled: boolean;
+  /** Always empty: the stored key is never sent back to the client. */
+  api_key: string;
+  /** Whether a key is stored, so the form can say so without revealing it. */
+  has_api_key: boolean;
+}
+
+export interface NytBooksIntegrationResponse {
+  integration: NytBooksIntegration;
+}
+
+export interface NytBooksIntegrationUpdateResponse {
+  success: boolean;
+  integration: NytBooksIntegration;
+}
+
+/** A failed test names the reason; a transient outage is not a bad key. */
+export interface NytBooksTestResponse {
+  success: boolean;
+  error?: string;
+}
+
 export interface OidcProvider {
   id: string;
   slug: string;
