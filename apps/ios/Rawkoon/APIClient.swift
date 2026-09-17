@@ -745,12 +745,8 @@ actor APIClient {
             let task = Task {
                 do {
                     for try await event in raw {
-                        if event.connected == true {
-                            continuation.yield(.handshake)
-                        } else if let bookId = event.bookId, event.kind == "book" {
-                            continuation.yield(.book(id: bookId))
-                        } else if let mediaId = event.mediaId {
-                            continuation.yield(.media(id: mediaId))
+                        if let mapped = LibraryEvent.from(event) {
+                            continuation.yield(mapped)
                         }
                     }
                     continuation.finish()

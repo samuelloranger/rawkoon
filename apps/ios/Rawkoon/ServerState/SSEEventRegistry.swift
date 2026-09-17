@@ -3,6 +3,7 @@ import Foundation
 enum SSEContractID: String, CaseIterable, Sendable {
     case libraryMediaUpdate = "library.media-update"
     case libraryBookUpdate = "library.book-update"
+    case libraryDownloadProgress = "library.download-progress"
     case libraryHandshake = "library.handshake"
     case notification = "notifications.notification"
     case notificationsHandshake = "notifications.handshake"

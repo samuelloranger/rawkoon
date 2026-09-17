@@ -283,6 +283,27 @@ export interface LibraryDownloadsResponse {
   items: LibraryDownloadHistoryItem[];
 }
 
+/**
+ * One row's live progress in a `download-progress` SSE event. Keyed by the
+ * `download_history` id so a client merges it onto the row it already has.
+ * camelCase because SSE payloads are not snake-cased like REST bodies.
+ */
+export interface DownloadProgressItem {
+  id: number;
+  progress: number;
+  state: string;
+  downloadSpeed: number;
+  etaSeconds: number | null;
+}
+
+/** Server-pushed live download progress for one library media. */
+export interface DownloadProgressEvent {
+  kind: "download-progress";
+  mediaId: number;
+  ts: number;
+  downloads: DownloadProgressItem[];
+}
+
 export interface LibrarySearchResponse {
   grabbed: boolean;
   release_title?: string;

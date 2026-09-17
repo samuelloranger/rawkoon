@@ -1884,6 +1884,24 @@ nonisolated struct LibraryEventDTO: Decodable, Sendable {
     let kind: String?
     let mediaId: Int?
     let bookId: Int?
+    let downloads: [DownloadProgressItemDTO]?
+}
+
+/// One row's pushed live progress inside a `download-progress` SSE event.
+/// camelCase because SSE payloads are not snake-cased.
+nonisolated struct DownloadProgressItemDTO: Decodable, Sendable {
+    let id: Int
+    let progress: Double
+    let state: String
+    let downloadSpeed: Double
+    let etaSeconds: Int?
+}
+
+/// A download row's id paired with its latest live progress — what the detail
+/// view overlays onto the row it already has.
+nonisolated struct DownloadProgressEntry: Sendable {
+    let id: Int
+    let live: LiveDownload
 }
 
 /// A decoded library/book change with the connection handshake already
@@ -1891,5 +1909,39 @@ nonisolated struct LibraryEventDTO: Decodable, Sendable {
 enum LibraryEvent: Sendable {
     case media(id: Int)
     case book(id: Int)
+    case downloadProgress(mediaId: Int, items: [DownloadProgressEntry])
     case handshake
+
+    /// Map a decoded stream DTO to an event, applying the precedence the SSE
+    /// consumer relies on: handshake, then live progress, then book, then the
+    /// bare-`mediaId` media event an older server sends untagged. `nil` for a
+    /// shape that carries nothing actionable.
+    nonisolated static func from(_ dto: LibraryEventDTO) -> LibraryEvent? {
+        if dto.connected == true {
+            return .handshake
+        }
+        if dto.kind == "download-progress", let mediaId = dto.mediaId,
+           let downloads = dto.downloads
+        {
+            let items = downloads.map { item in
+                DownloadProgressEntry(
+                    id: item.id,
+                    live: LiveDownload(
+                        progress: item.progress,
+                        downloadSpeed: item.downloadSpeed,
+                        etaSeconds: item.etaSeconds,
+                        state: item.state
+                    )
+                )
+            }
+            return .downloadProgress(mediaId: mediaId, items: items)
+        }
+        if let bookId = dto.bookId, dto.kind == "book" {
+            return .book(id: bookId)
+        }
+        if let mediaId = dto.mediaId {
+            return .media(id: mediaId)
+        }
+        return nil
+    }
 }

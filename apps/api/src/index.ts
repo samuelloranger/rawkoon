@@ -46,6 +46,7 @@ import {
 } from "./services/queueService";
 import { startResourceSampler } from "./services/perf/perfStore";
 import { checkHealth } from "./services/healthCheck";
+import { startDownloadProgressBroadcaster } from "./workers/downloadProgressBroadcaster";
 
 // strict:false: a trailing slash matches (`/api/x/` == `/api/x`).
 export const app = new Hono<Env>({ strict: false });
@@ -118,6 +119,8 @@ if (import.meta.main) {
   setupScheduledJobs().catch((err) => {
     console.error("Failed to setup scheduled jobs:", err);
   });
+
+  startDownloadProgressBroadcaster();
 
   const server = Bun.serve({
     fetch: app.fetch,

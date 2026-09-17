@@ -684,7 +684,7 @@ struct MediaDetailView: View {
                     .foregroundStyle(Theme.muted)
             } else {
                 VStack(spacing: 8) {
-                    ForEach(downloads) { row in
+                    ForEach(liveDownloads) { row in
                         DetailDownloadRow(
                             row: row,
                             busy: pendingDownloadActionId == row.id,
@@ -860,6 +860,16 @@ struct MediaDetailView: View {
 
     private var store: ServerStateStore {
         model.serverStateStore
+    }
+
+    /// Download rows with server-pushed live progress overlaid. Reading
+    /// `model.downloadProgress` here makes the section re-render on each
+    /// `.downloadProgress` SSE event, so the progress bar tracks the live value
+    /// between fetches — no client poll.
+    private var liveDownloads: [DownloadHistoryItem] {
+        guard let libraryId, let progress = model.downloadProgress[libraryId]
+        else { return downloads }
+        return overlayDownloadProgress(downloads, progress: progress)
     }
 
     private func refreshManagementData() async {
