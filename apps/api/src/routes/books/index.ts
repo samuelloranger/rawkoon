@@ -17,6 +17,7 @@ import {
   bookMetadataRoutes,
 } from "./bookMetadataRoutes";
 import { bookOverridesRoutes } from "./bookOverridesRoutes";
+import { bookDiscoveryRoutes } from "./bookDiscoveryRoutes";
 
 export { mapBook, mapBookEdition, bookInclude } from "./bookHelpers";
 export { bookQualityProfileRoutes } from "./bookQualityProfileRoutes";
@@ -38,6 +39,7 @@ export { authorRoutes } from "./authorRoutes";
 // swallowed as an :id. bookListRoutes is therefore registered last.
 export const bookRoutes = new Hono<Env>()
   .route("/", bookListeningStatsRoutes)
+  .route("/", bookDiscoveryRoutes)
   .route("/", bookPlaybackRoutes)
   .route("/", bookContentRoutes)
   .route("/", bookProgressRoutes)
