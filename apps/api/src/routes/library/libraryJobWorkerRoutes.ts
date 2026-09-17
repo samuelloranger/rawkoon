@@ -202,14 +202,26 @@ export const libraryJobWorkerRoutes = new Hono<Env>()
       send(`data: ${JSON.stringify({ kind: "book", ...payload })}\n\n`);
     }
 
+    function onDownloadProgress(payload: {
+      mediaId: number;
+      downloads: unknown[];
+      ts: number;
+    }) {
+      send(
+        `data: ${JSON.stringify({ kind: "download-progress", ...payload })}\n\n`,
+      );
+    }
+
     libraryEventBus.on("update", onUpdate);
     libraryEventBus.on("book-update", onBookUpdate);
+    libraryEventBus.on("download-progress", onDownloadProgress);
     const heartbeat = setInterval(() => send(": ping\n\n"), 15_000);
 
     c.req.raw.signal.addEventListener("abort", () => {
       closed = true;
       libraryEventBus.off("update", onUpdate);
       libraryEventBus.off("book-update", onBookUpdate);
+      libraryEventBus.off("download-progress", onDownloadProgress);
       clearInterval(heartbeat);
       try {
         controller.close();

@@ -6,7 +6,12 @@ import contractArtifact from "../../../shared/contracts/sse-contract.v1.json" wi
 export const SSE_ROUTE_DECLARATIONS = {
   libraryEvents: {
     path: "/api/library/events",
-    ids: ["library.media-update", "library.book-update", "library.handshake"],
+    ids: [
+      "library.media-update",
+      "library.book-update",
+      "library.download-progress",
+      "library.handshake",
+    ],
   },
   notificationsStream: {
     path: "/api/notifications/stream",

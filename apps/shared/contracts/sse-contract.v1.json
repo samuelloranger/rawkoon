@@ -14,6 +14,17 @@
     "ios_policy": "invalidate"
   },
   {
+    "id": "library.download-progress",
+    "path": "/api/library/events",
+    "routing": {
+      "type": "payload-field",
+      "field": "kind",
+      "value": "download-progress"
+    },
+    "payload": { "mediaId": "number", "downloads": "array", "ts": "number" },
+    "ios_policy": "patch"
+  },
+  {
     "id": "library.handshake",
     "path": "/api/library/events",
     "routing": { "type": "required-fields", "fields": ["connected", "ts"] },

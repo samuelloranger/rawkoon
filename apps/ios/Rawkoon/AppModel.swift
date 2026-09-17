@@ -81,6 +81,13 @@ final class AppModel {
     /// the bell badge updating while the list stays stale.
     private(set) var notificationChangeToken = 0
 
+    /// Latest server-pushed live download progress, `mediaId → (downloadId →
+    /// live)`. Fed by `.downloadProgress` SSE events; `MediaDetailView` overlays
+    /// the inner map onto its download rows so the progress bar tracks the
+    /// pushed value between fetches. iOS has no client-side poll — this stream
+    /// is the live source, mirroring the web app's cache patch.
+    private(set) var downloadProgress: [Int: [Int: LiveDownload]] = [:]
+
     /// Kept live by the notification stream and by `NotificationsListView`'s
     /// own REST calls; drives the Home bell badge.
     var unreadNotificationCount = 0
@@ -458,6 +465,7 @@ final class AppModel {
         notificationStreamTask = nil
         libraryStreamStatus = .idle
         notificationStreamStatus = .idle
+        downloadProgress = [:]
     }
 
     /// Consumes `/api/library/events` until cancelled or unauthorized,
@@ -471,21 +479,10 @@ final class AppModel {
             libraryStreamStatus = .connecting
             do {
                 for try await event in await client.libraryEventsStream() {
-                    switch event {
-                    case .handshake:
+                    if case .handshake = event {
                         backoff = 1.0
-                        libraryStreamStatus = .connected
-                        logSSE("library", "handshake")
-                        SSEEventRegistry.apply(.libraryHandshake, to: serverStateStore)
-                    case let .media(id):
-                        logSSE("library", "media id=\(id)")
-                        SSEEventRegistry.apply(.media(id: id), to: serverStateStore)
-                        libraryChangeToken += 1
-                    case let .book(id):
-                        logSSE("library", "book id=\(id)")
-                        SSEEventRegistry.apply(.book(id: id), to: serverStateStore)
-                        bookChangeToken += 1
                     }
+                    handleLibraryEvent(event)
                 }
             } catch APIError.unauthorized {
                 Log.sync.notice("library events stream unauthorized — signing out")
@@ -505,6 +502,35 @@ final class AppModel {
             try? await Task.sleep(for: .seconds(backoff))
             backoff = min(backoff * 2, 30)
         }
+    }
+
+    /// Apply one decoded library-events SSE event to local state. Split out of
+    /// the reconnect loop so that loop stays a thin transport concern.
+    private func handleLibraryEvent(_ event: LibraryEvent) {
+        switch event {
+        case .handshake:
+            libraryStreamStatus = .connected
+            logSSE("library", "handshake")
+            SSEEventRegistry.apply(.libraryHandshake, to: serverStateStore)
+        case let .media(id):
+            logSSE("library", "media id=\(id)")
+            SSEEventRegistry.apply(.media(id: id), to: serverStateStore)
+            libraryChangeToken += 1
+        case let .book(id):
+            logSSE("library", "book id=\(id)")
+            SSEEventRegistry.apply(.book(id: id), to: serverStateStore)
+            bookChangeToken += 1
+        case let .downloadProgress(mediaId, items):
+            logSSE("library", "download-progress media=\(mediaId) rows=\(items.count)")
+            applyDownloadProgress(mediaId: mediaId, items: items)
+        }
+    }
+
+    /// Store the latest pushed progress for one media. Replaces that media's
+    /// map wholesale — each event carries every active row for the media, so a
+    /// row that dropped out (completed/failed) simply stops appearing.
+    private func applyDownloadProgress(mediaId: Int, items: [DownloadProgressEntry]) {
+        downloadProgress[mediaId] = downloadProgressMap(items)
     }
 
     /// Consumes `/api/notifications/stream` the same way — see

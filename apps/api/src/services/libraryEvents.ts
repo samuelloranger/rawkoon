@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import type { DownloadProgressItem } from "@rawkoon/shared/types";
 
 export interface LibraryUpdateEvent {
   mediaId: number;
@@ -7,6 +8,12 @@ export interface LibraryUpdateEvent {
 
 export interface BookUpdateEvent {
   bookId: number;
+  ts: number;
+}
+
+export interface DownloadProgressUpdateEvent {
+  mediaId: number;
+  downloads: DownloadProgressItem[];
   ts: number;
 }
 
@@ -31,4 +38,21 @@ export function emitBookUpdate(bookId: number): void {
     bookId,
     ts: Date.now(),
   } satisfies BookUpdateEvent);
+}
+
+/**
+ * Live download progress, pushed on the same bus so the one library-events SSE
+ * connection carries it too. Unlike the invalidation events above, this fires
+ * repeatedly while a download runs and carries the numbers directly, so a
+ * client never has to refetch to move the progress bar.
+ */
+export function emitDownloadProgress(
+  mediaId: number,
+  downloads: DownloadProgressItem[],
+): void {
+  libraryEventBus.emit("download-progress", {
+    mediaId,
+    downloads,
+    ts: Date.now(),
+  } satisfies DownloadProgressUpdateEvent);
 }

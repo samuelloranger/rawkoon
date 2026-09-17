@@ -14,10 +14,8 @@ export function useLibraryDownloads(id: number | null) {
     enabled: id !== null,
     staleTime: 0,
     gcTime: 0,
-    refetchInterval: (query) => {
-      const items = query.state.data?.items ?? [];
-      const anyActive = items.some((r) => !r.completed_at && !r.failed);
-      return anyActive ? 3000 : false;
-    },
+    // Live progress arrives over SSE (see useLibraryEvents → download-progress),
+    // which patches this cache in place. The mount fetch seeds the snapshot; no
+    // client-side poll is needed.
   });
 }

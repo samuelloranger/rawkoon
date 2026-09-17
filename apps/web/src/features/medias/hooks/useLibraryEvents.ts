@@ -1,6 +1,11 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import type {
+  DownloadProgressItem,
+  LibraryDownloadsResponse,
+} from "@rawkoon/shared/types";
 import { queryKeys } from "@/lib/queryKeys";
+import { mergeDownloadProgress } from "../lib/mergeDownloadProgress";
 
 /**
  * Opens an SSE connection to /api/library/events and invalidates the affected
@@ -23,11 +28,28 @@ export function useLibraryEvents() {
       try {
         const payload = JSON.parse(e.data as string) as {
           connected?: boolean;
-          kind?: "media" | "book";
+          kind?: "media" | "book" | "download-progress";
+          mediaId?: number;
+          downloads?: DownloadProgressItem[];
         };
         if (payload.connected) {
           queryClient.invalidateQueries({ queryKey: queryKeys.library.all });
           queryClient.invalidateQueries({ queryKey: queryKeys.books.all });
+          return;
+        }
+
+        // Live progress carries the numbers directly: patch the cache in place
+        // rather than invalidate, so the bar moves without a refetch.
+        if (
+          payload.kind === "download-progress" &&
+          typeof payload.mediaId === "number" &&
+          payload.downloads
+        ) {
+          const downloads = payload.downloads;
+          queryClient.setQueryData<LibraryDownloadsResponse>(
+            queryKeys.library.downloads(payload.mediaId),
+            (current) => mergeDownloadProgress(current, downloads),
+          );
           return;
         }
 
