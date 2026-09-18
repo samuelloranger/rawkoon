@@ -28,13 +28,31 @@
                 DebugDeck()
             case "orderedSources":
                 DebugOrderedSources()
+            case "bookDiscoveryDetail":
+                NavigationStack {
+                    DiscoveryBookDetailView(book: BookDiscoveryBook(
+                        rank: 1,
+                        title: "C'était ça ou mourir",
+                        isbn13: "9782764629253",
+                        coverUrl: "https://images.leslibraires.ca/books/9782764629253/front/9782764629253_large.webp",
+                        sourceUrl: "https://www.leslibraires.ca/livres/c-etait-ca-ou-mourir-9782764629253",
+                        author: "Thélyson Orélien",
+                        overview: "Quand mon quartier a brûlé, j'ai ri comme un idiot. Devant l'horreur, plutôt que de pleurer, Jonas Dorléon choisit de rire. Rire et marcher. Prof d'histoire et de géographie à Carrefour-Feuilles, un quartier densément peuplé de Port-au-Prince, Jonas est contraint de quitter sa maison.",
+                        publishedYear: 2026,
+                        volumeId: nil,
+                        alreadyInLibrary: false
+                    ))
+                }
             default:
                 EmptyView()
             }
         }
 
         static func isOffline(_ screen: String) -> Bool {
-            ["player", "playerNoChapters", "deck", "orderedSources"].contains(screen)
+            [
+                "player", "playerNoChapters", "deck", "orderedSources",
+                "bookDiscoveryDetail",
+            ].contains(screen)
         }
     }
 
