@@ -73,9 +73,13 @@ console.log(`internal group ${internal.id} "${internal.attributes?.name}"`);
 //    Apple can take 10-20 min to make a build queryable, so poll generously.
 let build = null;
 for (let attempt = 1; attempt <= 40 && !build; attempt++) {
+  // Filter to the iOS build: the macOS (Catalyst) job uploads the SAME
+  // CFBundleVersion, so without the platform filter this can grab the Mac build
+  // and attach it to the iOS internal group — iOS testers then get no build and
+  // no "ready to test" email.
   const query = BUILD_NUMBER
-    ? `/v1/builds?filter[app]=${app.id}&filter[version]=${encodeURIComponent(BUILD_NUMBER)}&limit=1`
-    : `/v1/builds?filter[app]=${app.id}&sort=-uploadedDate&limit=1`;
+    ? `/v1/builds?filter[app]=${app.id}&filter[version]=${encodeURIComponent(BUILD_NUMBER)}&filter[preReleaseVersion.platform]=IOS&limit=1`
+    : `/v1/builds?filter[app]=${app.id}&filter[preReleaseVersion.platform]=IOS&sort=-uploadedDate&limit=1`;
   build = (await api(query)).json.data?.[0] || null;
   if (!build) {
     console.log(`build ${BUILD_NUMBER ? `#${BUILD_NUMBER}` : "(latest)"} not visible yet (attempt ${attempt}/40), waiting…`);
