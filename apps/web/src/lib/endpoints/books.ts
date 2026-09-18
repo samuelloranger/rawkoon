@@ -31,4 +31,7 @@ export const BOOKS_ENDPOINTS = {
   PUT_READING_PROGRESS: (editionId: number) =>
     `/api/books/editions/${editionId}/reading-progress`,
   LISTENING_STATS: "/api/books/listening-stats",
+  DISCOVERY: "/api/books/discovery",
+  DISCOVERY_SOURCES: "/api/books/discovery/sources",
+  DISCOVERY_ADD: "/api/books/discovery/add",
 } as const;

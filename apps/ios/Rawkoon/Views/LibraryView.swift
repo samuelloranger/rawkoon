@@ -252,10 +252,22 @@ struct LibraryView: View {
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
-                NavigationLink {
-                    RequestsView()
-                } label: {
-                    Label("Requests", systemImage: "tray.and.arrow.down")
+                if section == .books {
+                    NavigationLink {
+                        BookDiscoveryView()
+                    } label: {
+                        Label("Explore books", systemImage: "trophy")
+                    }
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                // Requests are a movie/TV concept only.
+                if section == .media {
+                    NavigationLink {
+                        RequestsView()
+                    } label: {
+                        Label("Requests", systemImage: "tray.and.arrow.down")
+                    }
                 }
             }
         }

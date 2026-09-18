@@ -152,6 +152,18 @@ extension APIClient {
         try await post("/api/integrations/googlebooks/test", body: body)
     }
 
+    func nytBooksIntegration() async throws -> NytBooksIntegrationResponse {
+        try await get("/api/integrations/nyt")
+    }
+
+    func updateNytBooksIntegration(_ body: SaveNytBooksBody) async throws {
+        try await putExpectOK("/api/integrations/nyt", body: body)
+    }
+
+    func testNytBooks(_ body: NytBooksTestBody) async throws -> IntegrationTestResponse {
+        try await post("/api/integrations/nyt/test", body: body)
+    }
+
     // MARK: Media library settings + scan + reindex (spec §5 Phase 3)
 
     func postProcessingSettings() async throws -> PostProcessingSettingsResponseDTO {

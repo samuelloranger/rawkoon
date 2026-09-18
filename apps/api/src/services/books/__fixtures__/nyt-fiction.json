@@ -1,0 +1,49 @@
+{
+  "status": "OK",
+  "results": {
+    "list_name": "Combined Print and E-Book Fiction",
+    "bestsellers_date": "2026-09-06",
+    "published_date": "2026-09-17",
+    "books": [
+      {
+        "rank": 1,
+        "rank_last_week": 0,
+        "weeks_on_list": 1,
+        "primary_isbn13": "9780593798621",
+        "primary_isbn10": "0593798627",
+        "publisher": "Doubleday",
+        "description": "A reclusive novelist is drawn back into the world when a decades-old manuscript resurfaces.",
+        "title": "THE LAST MANUSCRIPT",
+        "author": "Jane Doe",
+        "book_image": "https://storage.googleapis.com/du-prd/books/images/9780593798621.jpg",
+        "amazon_product_url": "https://www.amazon.com/dp/0593798627?tag=NYTBSREV-20"
+      },
+      {
+        "rank": 2,
+        "rank_last_week": 1,
+        "weeks_on_list": 12,
+        "primary_isbn13": "9780316560177",
+        "primary_isbn10": "0316560170",
+        "publisher": "Little, Brown",
+        "description": "A detective confronts a case that mirrors her own buried past.",
+        "title": "COLD HARBOR",
+        "author": "John Smith",
+        "book_image": "https://storage.googleapis.com/du-prd/books/images/9780316560177.jpg",
+        "amazon_product_url": "https://www.amazon.com/dp/0316560170?tag=NYTBSREV-20"
+      },
+      {
+        "rank": 3,
+        "rank_last_week": 2,
+        "weeks_on_list": 5,
+        "primary_isbn13": "9781250881205",
+        "primary_isbn10": "1250881207",
+        "publisher": "St. Martin's",
+        "description": "Two strangers share a train compartment and a secret that will bind them for life.",
+        "title": "THE NIGHT TRAIN",
+        "author": "Alex Rivera",
+        "book_image": "https://storage.googleapis.com/du-prd/books/images/9781250881205.jpg",
+        "amazon_product_url": "https://www.amazon.com/dp/1250881207?tag=NYTBSREV-20"
+      }
+    ]
+  }
+}

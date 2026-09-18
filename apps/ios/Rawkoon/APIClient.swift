@@ -867,6 +867,41 @@ actor APIClient {
         try await postExpectOK("/api/books", body: Body(googleVolumeId: googleVolumeId))
     }
 
+    /// Book discovery (Explore): configured sources and a ranked list.
+    func bookDiscoverySources() async throws -> BookDiscoverySourcesResponse {
+        try await get("/api/books/discovery/sources")
+    }
+
+    func bookDiscovery(source: String, list: String) async throws -> BookDiscoveryResponse {
+        try await get("/api/books/discovery", query: ["source": source, "list": list])
+    }
+
+    /// Add a discovered book. Sends scraped metadata so a title Google Books does
+    /// not index is still created; the server prefers a Google volume when present.
+    func addDiscoveryBook(_ book: BookDiscoveryBook) async throws {
+        nonisolated struct Body: Encodable {
+            let volumeId: String?
+            let isbn13: String?
+            let title: String
+            let author: String?
+            let overview: String?
+            let coverUrl: String?
+            let publishedYear: Int?
+        }
+        try await postExpectOK(
+            "/api/books/discovery/add",
+            body: Body(
+                volumeId: book.volumeId,
+                isbn13: book.isbn13,
+                title: book.title,
+                author: book.author,
+                overview: book.overview,
+                coverUrl: book.coverUrl,
+                publishedYear: book.publishedYear
+            )
+        )
+    }
+
     /// Detail
     func mediaModal(mediaType: String, tmdbId: Int) async throws -> MediaModalResponse {
         try await get(

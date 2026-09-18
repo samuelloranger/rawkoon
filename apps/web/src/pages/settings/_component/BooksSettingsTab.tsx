@@ -27,6 +27,7 @@ import { useBookQualityProfiles } from "@/pages/books/_hooks/useBooks";
 import { SettingsPageHeader } from "@/pages/settings/_component/SettingsPageHeader";
 import { BookQualityProfilesSection } from "@/pages/settings/_component/BookQualityProfilesSection";
 import { AudnexusIntegrationSection } from "@/pages/settings/_component/AudnexusIntegrationSection";
+import { NytBooksIntegrationSection } from "@/pages/settings/_component/NytBooksIntegrationSection";
 import { BookMetadataSourcesSection } from "@/pages/settings/_component/BookMetadataSourcesSection";
 import { ApiError } from "@/lib/api/client";
 
@@ -277,6 +278,24 @@ export function BooksSettingsTab() {
             {t("settings.books.provider.test")}
           </Button>
         </div>
+      </CardSection>
+
+      <CardSection
+        title={t("settings.books.nyt.title")}
+        description={t("settings.books.nyt.description")}
+        actions={
+          <a
+            href="https://developer.nytimes.com/docs/books-product/1/overview"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="focus-ring inline-flex items-center gap-1 rounded text-xs text-primary-300 hover:text-primary-200"
+          >
+            {t("settings.books.nyt.getKey")}
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        }
+      >
+        <NytBooksIntegrationSection />
       </CardSection>
 
       <CardSection

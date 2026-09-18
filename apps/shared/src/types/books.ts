@@ -444,3 +444,43 @@ export interface BookReadingProgressRequest {
   updated_at: string;
   device_id?: string;
 }
+
+/**
+ * Book discovery (Explore). Ranked bestseller lists from pluggable external
+ * sources — the leslibraires Palmarès and NYT Bestsellers — enriched by ISBN
+ * through the metadata provider chain.
+ */
+export type BookDiscoverySourceId = "leslibraires" | "nyt";
+
+export interface BookDiscoveryBook {
+  rank: number;
+  title: string;
+  isbn13: string | null;
+  coverUrl: string | null;
+  sourceUrl: string | null;
+  author: string | null;
+  overview: string | null;
+  publishedYear: number | null;
+  /** Present once enriched — required to add the book to the library. */
+  volumeId: string | null;
+  alreadyInLibrary: boolean;
+}
+
+export interface BookDiscoveryList {
+  id: string;
+  label: string;
+}
+
+export interface BookDiscoveryResponse {
+  source: BookDiscoverySourceId;
+  list: string;
+  items: BookDiscoveryBook[];
+}
+
+export interface BookDiscoverySourcesResponse {
+  sources: {
+    id: BookDiscoverySourceId;
+    label: string;
+    lists: BookDiscoveryList[];
+  }[];
+}

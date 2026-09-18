@@ -51,6 +51,9 @@ export const queryKeys = {
     readingProgress: () => ["books", "reading-progress"] as const,
     listeningStats: () => ["books", "listening-stats"] as const,
     manifest: (editionId: number) => ["books", "manifest", editionId] as const,
+    discoverySources: () => ["books", "discovery", "sources"] as const,
+    discovery: (source: string, list: string) =>
+      ["books", "discovery", source, list] as const,
   },
 
   downloads: {
@@ -129,6 +132,7 @@ export const queryKeys = {
     fanart: () => [...queryKeys.integrations.all, "fanart"] as const,
     aiProvider: () => [...queryKeys.integrations.all, "ai-provider"] as const,
     googleBooks: () => [...queryKeys.integrations.all, "googlebooks"] as const,
+    nytBooks: () => [...queryKeys.integrations.all, "nyt"] as const,
     audnexus: () => [...queryKeys.integrations.all, "audnexus"] as const,
   },
 

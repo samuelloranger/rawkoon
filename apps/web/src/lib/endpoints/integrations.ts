@@ -15,6 +15,8 @@ export const INTEGRATION_ENDPOINTS = {
   AI_PROVIDER_TEST: "/api/integrations/ai-provider/test",
   GOOGLE_BOOKS: "/api/integrations/googlebooks",
   GOOGLE_BOOKS_TEST: "/api/integrations/googlebooks/test",
+  NYT_BOOKS: "/api/integrations/nyt",
+  NYT_BOOKS_TEST: "/api/integrations/nyt/test",
   AUDNEXUS: "/api/integrations/audnexus",
   AUDNEXUS_TEST: "/api/integrations/audnexus/test",
 } as const;

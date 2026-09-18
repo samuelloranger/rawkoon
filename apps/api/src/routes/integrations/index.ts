@@ -11,6 +11,7 @@ import { jackettIntegrationRoutes } from "./jackett";
 import { oidcIntegrationRoutes } from "./oidc";
 import { aiProviderIntegrationRoutes } from "./ai-provider";
 import { googleBooksIntegrationRoutes } from "./googlebooks";
+import { nytBooksIntegrationRoutes } from "./nyt";
 import { audnexusIntegrationRoutes } from "./audnexus";
 
 // Mounted at /api/integrations by the edge.
@@ -27,6 +28,7 @@ export const integrationsRoutes = new Hono<Env>()
   .route("/oidc", oidcIntegrationRoutes)
   .route("/", aiProviderIntegrationRoutes)
   .route("/", googleBooksIntegrationRoutes)
+  .route("/", nytBooksIntegrationRoutes)
   .route("/", audnexusIntegrationRoutes)
   .notFound(() => notFound("Not found"))
   .onError(honoOnError);

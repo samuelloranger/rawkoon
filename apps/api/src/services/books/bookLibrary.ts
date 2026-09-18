@@ -192,3 +192,110 @@ export async function addBookFromVolume(opts: {
 
   return { added: true, bookId, created: !existing };
 }
+
+/**
+ * Add a book straight from scraped metadata, for discovery sources whose titles
+ * Google Books does not index (francophone-Québec palmarès books). There is no
+ * provider volume, so the row is keyed by a synthetic `googleVolumeId` derived
+ * from the ISBN — the column is required and unique, and a real Google id would
+ * only exist if Google had the book, which is exactly the case this handles.
+ * De-duped by ISBN so it never creates a second row for a book already added
+ * through a real Google volume.
+ */
+export async function addBookFromMetadata(opts: {
+  isbn13: string;
+  title: string;
+  author?: string | null;
+  overview?: string | null;
+  coverUrl?: string | null;
+  publishedYear?: number | null;
+  language?: string | null;
+  kinds: BookEditionKind[];
+  bookQualityProfileId?: number | null;
+  monitored?: boolean;
+}): Promise<AddBookOutcome> {
+  const isbn13 = opts.isbn13.trim();
+  const title = opts.title.trim();
+  if (!isbn13) return { added: false, reason: "isbn13 is required" };
+  if (!title) return { added: false, reason: "title is required" };
+
+  const kinds = opts.kinds.length > 0 ? opts.kinds : (["ebook"] as const);
+
+  // If the book already exists (added earlier via a real Google volume or a
+  // previous metadata add), reuse it rather than creating a duplicate row.
+  const byIsbn = await prisma.libraryBook.findFirst({
+    where: { isbn13 },
+    select: { id: true },
+  });
+  const syntheticId = `leslibraires:${isbn13}`;
+
+  const profileByKind = new Map<BookEditionKind, number | null>();
+  for (const kind of kinds) {
+    profileByKind.set(
+      kind,
+      await resolveBookProfileId(kind, opts.bookQualityProfileId),
+    );
+  }
+
+  const bookId = await prisma.$transaction(async (tx) => {
+    const book = byIsbn
+      ? await tx.libraryBook.findUniqueOrThrow({
+          where: { id: byIsbn.id },
+          select: { id: true },
+        })
+      : await tx.libraryBook.upsert({
+          where: { googleVolumeId: syntheticId },
+          create: {
+            googleVolumeId: syntheticId,
+            isbn13,
+            title,
+            sortTitle: title,
+            overview: opts.overview ?? null,
+            coverUrl: opts.coverUrl ?? null,
+            language: opts.language ?? undefined,
+            publishedYear: opts.publishedYear ?? null,
+          },
+          update: {
+            overview: opts.overview ?? null,
+            coverUrl: opts.coverUrl ?? null,
+          },
+        });
+
+    const authorName = opts.author?.trim();
+    if (authorName) {
+      const author = await tx.author.upsert({
+        where: { googleAuthorName: authorName },
+        create: { googleAuthorName: authorName, sortName: authorName },
+        update: {},
+      });
+      await tx.bookAuthor.upsert({
+        where: {
+          authorId_bookId_role: {
+            authorId: author.id,
+            bookId: book.id,
+            role: "author",
+          },
+        },
+        create: { authorId: author.id, bookId: book.id, role: "author" },
+        update: {},
+      });
+    }
+
+    for (const kind of kinds) {
+      await tx.bookEdition.upsert({
+        where: { bookId_kind: { bookId: book.id, kind } },
+        create: {
+          bookId: book.id,
+          kind,
+          monitored: opts.monitored ?? true,
+          bookQualityProfileId: profileByKind.get(kind) ?? null,
+        },
+        update: {},
+      });
+    }
+
+    return book.id;
+  });
+
+  return { added: true, bookId, created: !byIsbn };
+}

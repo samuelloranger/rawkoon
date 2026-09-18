@@ -1393,6 +1393,21 @@
         "testOk": "Google Books a accepté la clé.",
         "testFailed": "Le test n’a pas pu être effectué."
       },
+      "nyt": {
+        "title": "NYT Books",
+        "description": "Facultatif. Ajoute les palmarès du New York Times comme source d’exploration.",
+        "getKey": "Obtenir une clé",
+        "keyLabel": "Clé d’API",
+        "keyStored": "Une clé est enregistrée — saisissez-en une nouvelle pour la remplacer",
+        "keyPlaceholder": "Votre clé d’API NYT Books",
+        "keyHint": "Enregistrée chiffrée. Laissez vide pour conserver la clé actuelle.",
+        "save": "Enregistrer la clé",
+        "saved": "Clé enregistrée",
+        "saveFailed": "Impossible d’enregistrer la clé.",
+        "test": "Tester la clé",
+        "testOk": "NYT a accepté la clé.",
+        "testFailed": "Le test n’a pas pu être effectué."
+      },
       "files": {
         "title": "Fichiers",
         "description": "Où sont placés les livres et livres audio importés.",
@@ -2117,6 +2132,19 @@
     "subtitleEmpty": "Livres numériques et audio",
     "addBook": "Ajouter un livre",
     "authorsLink": "Auteurs",
+    "explore": {
+      "link": "Explorer",
+      "pageTitle": "Explorer les livres",
+      "pageSubtitle": "Palmarès pour découvrir votre prochaine lecture",
+      "inLibrary": "Dans la bibliothèque",
+      "add": "Ajouter à la bibliothèque",
+      "added": "Ajouté",
+      "viewSource": "Voir la source",
+      "empty": "Aucun livre à afficher pour le moment.",
+      "error": "Impossible de charger ce palmarès.",
+      "retry": "Réessayer",
+      "close": "Fermer"
+    },
     "filterPlaceholder": "Filtrer par titre",
     "search": "Rechercher",
     "kindAll": "tous",

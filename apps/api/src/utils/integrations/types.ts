@@ -48,6 +48,10 @@ export interface GoogleBooksIntegrationConfig {
   api_key: string;
 }
 
+export interface NytBooksIntegrationConfig {
+  api_key: string;
+}
+
 /**
  * Audnexus needs no API key: the public instance at api.audnex.us is keyless
  * (verified 2026-08-24 — x-ratelimit-limit 300 per 60s per IP). base_url exists
