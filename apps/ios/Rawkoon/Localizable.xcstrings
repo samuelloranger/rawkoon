@@ -9063,6 +9063,17 @@
           }
         }
       }
+    },
+    "View on %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir sur %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

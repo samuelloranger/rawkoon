@@ -323,6 +323,15 @@ struct DiscoveryBookDetailView: View {
         return h.replacingOccurrences(of: "www.", with: "")
     }
 
+    /// Provider-agnostic external-link label — names the source's own host rather
+    /// than hardcoding leslibraires (NYT points at a different domain).
+    private var sourceLinkLabel: String {
+        if let host = sourceHost {
+            return String(localized: "View on \(host)")
+        }
+        return String(localized: "View source")
+    }
+
     @ViewBuilder
     private var actions: some View {
         VStack(spacing: 12) {
@@ -356,7 +365,7 @@ struct DiscoveryBookDetailView: View {
 
             if let sourceUrl = book.sourceUrl, let url = URL(string: sourceUrl) {
                 Link(destination: url) {
-                    Label("View on leslibraires", systemImage: "arrow.up.right")
+                    Label(sourceLinkLabel, systemImage: "arrow.up.right")
                         .font(.subheadline)
                         .foregroundStyle(Theme.muted)
                 }
