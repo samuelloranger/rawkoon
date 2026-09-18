@@ -252,6 +252,15 @@ struct LibraryView: View {
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
+                if section == .books {
+                    NavigationLink {
+                        BookDiscoveryView()
+                    } label: {
+                        Label("Explore books", systemImage: "trophy")
+                    }
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {
                     RequestsView()
                 } label: {

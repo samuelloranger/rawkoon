@@ -1421,7 +1421,9 @@ nonisolated struct BookDiscoveryBook: Decodable, Sendable, Identifiable {
     let volumeId: String?
     let alreadyInLibrary: Bool
 
-    var id: String { "\(rank)-\(isbn13 ?? title)" }
+    var id: String {
+        "\(rank)-\(isbn13 ?? title)"
+    }
 }
 
 nonisolated struct BookDiscoveryList: Decodable, Sendable, Identifiable, Hashable {

@@ -8975,6 +8975,61 @@
           }
         }
       }
+    },
+    "Explore books": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Explorer les livres"
+          }
+        }
+      }
+    },
+    "View source": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir la source"
+          }
+        }
+      }
+    },
+    "Added to library.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouté à la bibliothèque."
+          }
+        }
+      }
+    },
+    "Save NYT Books": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrer NYT Books"
+          }
+        }
+      }
+    },
+    "NYT Books": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NYT Books"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
