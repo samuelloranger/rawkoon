@@ -1387,9 +1387,62 @@ nonisolated struct GoogleBooksTestBody: Encodable, Sendable {
     let apiKey: String?
 }
 
+nonisolated struct NytBooksIntegrationDTO: Decodable, Sendable {
+    let enabled: Bool
+    let hasApiKey: Bool?
+}
+
+nonisolated struct NytBooksIntegrationResponse: Decodable, Sendable { let integration: NytBooksIntegrationDTO }
+nonisolated struct SaveNytBooksBody: Encodable, Sendable {
+    let apiKey: String?
+    let enabled: Bool
+}
+
+nonisolated struct NytBooksTestBody: Encodable, Sendable {
+    let apiKey: String?
+}
+
 nonisolated struct IntegrationTestResponse: Decodable, Sendable {
     let success: Bool?
     let error: String?
+}
+
+// MARK: Book discovery (Explore — ranked bestseller lists)
+
+nonisolated struct BookDiscoveryBook: Decodable, Sendable, Identifiable {
+    let rank: Int
+    let title: String
+    let isbn13: String?
+    let coverUrl: String?
+    let sourceUrl: String?
+    let author: String?
+    let overview: String?
+    let publishedYear: Int?
+    let volumeId: String?
+    let alreadyInLibrary: Bool
+
+    var id: String { "\(rank)-\(isbn13 ?? title)" }
+}
+
+nonisolated struct BookDiscoveryList: Decodable, Sendable, Identifiable, Hashable {
+    let id: String
+    let label: String
+}
+
+nonisolated struct BookDiscoveryResponse: Decodable, Sendable {
+    let source: String
+    let list: String
+    let items: [BookDiscoveryBook]
+}
+
+nonisolated struct BookDiscoverySourceDTO: Decodable, Sendable, Identifiable {
+    let id: String
+    let label: String
+    let lists: [BookDiscoveryList]
+}
+
+nonisolated struct BookDiscoverySourcesResponse: Decodable, Sendable {
+    let sources: [BookDiscoverySourceDTO]
 }
 
 // MARK: Notification channels (per-user CRUD — spec §5 Phase 4)

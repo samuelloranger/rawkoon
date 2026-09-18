@@ -867,6 +867,15 @@ actor APIClient {
         try await postExpectOK("/api/books", body: Body(googleVolumeId: googleVolumeId))
     }
 
+    /// Book discovery (Explore): configured sources and a ranked list.
+    func bookDiscoverySources() async throws -> BookDiscoverySourcesResponse {
+        try await get("/api/books/discovery/sources")
+    }
+
+    func bookDiscovery(source: String, list: String) async throws -> BookDiscoveryResponse {
+        try await get("/api/books/discovery", query: ["source": source, "list": list])
+    }
+
     /// Detail
     func mediaModal(mediaType: String, tmdbId: Int) async throws -> MediaModalResponse {
         try await get(
