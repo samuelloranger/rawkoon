@@ -1154,8 +1154,10 @@ actor APIClient {
         ])
     }
 
-    func grabByToken(_ token: String) async throws {
-        try await postExpectOK("/api/medias/interactive-search/download", body: GrabTokenBody(token: token))
+    // Returns the grab result: the route replies 200 with `{grabbed:false, reason}`
+    // on a post-validation failure, so the caller must check `grabbed`, not status.
+    func grabByToken(_ token: String) async throws -> LibrarySearchResponse {
+        try await post("/api/medias/interactive-search/download", body: GrabTokenBody(token: token))
     }
 
     func grabByUrl(libraryId: Int, body: GrabUrlBody) async throws -> LibrarySearchResponse {

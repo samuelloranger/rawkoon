@@ -279,31 +279,15 @@ export function useInteractiveSearchState({
           return;
         }
       } else if (isSearchMode && release.download_token) {
+        // The token route grabs internally and replies 200 even on failure, so
+        // trust `grabbed`, not the HTTP status.
         if (interactiveDownloadMutation.isPending) return;
         const res = await interactiveDownloadMutation.mutateAsync({
           token: release.download_token,
         });
-        const resolvedUrl = res.magnet_url ?? res.download_url;
-        if (libId != null && resolvedUrl) {
-          if (libraryGrabMutation.isPending) return;
-          const result = await libraryGrabMutation.mutateAsync({
-            download_url: resolvedUrl,
-            release_title: release.title,
-            indexer: release.indexer,
-            quality_parsed: release.parsed_quality ?? undefined,
-            size_bytes: release.size_bytes,
-            episode_id: episodeId,
-            ...(typeof selectedSeason === "number"
-              ? { season: selectedSeason }
-              : {}),
-            ...(isUpgradeMode ? { is_upgrade: true } : {}),
-          });
-          if (!result.grabbed) {
-            toast.error(
-              result.reason ?? t("medias.interactive.downloadFailed"),
-            );
-            return;
-          }
+        if (!res.grabbed) {
+          toast.error(res.reason ?? t("medias.interactive.downloadFailed"));
+          return;
         }
       } else {
         return;
