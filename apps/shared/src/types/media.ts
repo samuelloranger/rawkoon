@@ -161,10 +161,12 @@ export interface SimilarMediasResponse {
 }
 
 export interface MediaInteractiveDownloadResponse {
-  success: boolean;
-  service: IndexerManagerType;
-  download_url?: string | null;
-  magnet_url?: string | null;
+  // The route grabs internally and replies 200 even on failure, so `grabbed` —
+  // not the HTTP status — is the source of truth; `reason` is set when false.
+  grabbed: boolean;
+  release_title?: string;
+  reason?: string;
+  service?: IndexerManagerType;
 }
 
 interface TmdbStreamingProvider {

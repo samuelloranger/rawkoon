@@ -299,7 +299,13 @@ struct LibraryView: View {
                 libraryMediaId: target.libraryMediaId,
                 tmdbId: target.tmdbId,
                 mediaType: target.mediaType,
-                availableSeasons: []
+                availableSeasons: [],
+                // A grab only invalidates the item, not the list, so refetch the
+                // loaded window here — else the row's status chip stays stale.
+                onGrabbed: {
+                    liveReloadTask?.cancel()
+                    liveReloadTask = Task { await reloadLoadedWindow() }
+                }
             )
             .environment(model)
         }

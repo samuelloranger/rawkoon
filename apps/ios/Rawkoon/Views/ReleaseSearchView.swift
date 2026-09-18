@@ -23,6 +23,9 @@ struct ReleaseSearchView: View {
     let originalTitle: String?
     let originalLanguage: String?
     let titleTranslations: [TitleTranslation]
+    /// Fired after a successful grab so the presenter can refresh its download
+    /// list — the grabbed row otherwise won't appear until the view is reopened.
+    let onGrabbed: (() -> Void)?
 
     init(
         query: String,
@@ -33,8 +36,10 @@ struct ReleaseSearchView: View {
         mediaYear: Int? = nil,
         originalTitle: String? = nil,
         originalLanguage: String? = nil,
-        titleTranslations: [TitleTranslation] = []
+        titleTranslations: [TitleTranslation] = [],
+        onGrabbed: (() -> Void)? = nil
     ) {
+        self.onGrabbed = onGrabbed
         self.libraryMediaId = libraryMediaId
         self.tmdbId = tmdbId
         self.mediaType = mediaType
@@ -957,13 +962,18 @@ struct ReleaseSearchView: View {
                     return
                 }
             } else if let token = release.downloadToken {
-                try await client.grabByToken(token)
+                let result = try await client.grabByToken(token)
+                if !result.grabbed {
+                    grabError = result.reason ?? String(localized: "Grab failed for \"\(release.title)\".")
+                    return
+                }
             } else {
                 grabError = String(localized: "This release can't be grabbed.")
                 return
             }
             grabbedGuids.insert(release.guid)
             grabError = nil
+            onGrabbed?()
             await loadGrabbedTitles()
         } catch APIError.unauthorized {
             adminOnlyNote = String(localized: "Admin only")

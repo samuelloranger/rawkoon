@@ -22,7 +22,9 @@ struct MediaDetailView: View {
     let mediaType: String
     let title: String
     let posterPath: String?
-    let libraryId: Int?
+    /// Mutable so a fresh "Add to library" can reveal the admin tabs/management
+    /// in place — seeded from init, then set to the created item's id on add.
+    @State private var libraryId: Int?
     /// Set when opened via a notification's `?tab=management` deep link (spec T6)
     /// — selects the Manage segment once it's available.
     let focusManagement: Bool
@@ -35,7 +37,7 @@ struct MediaDetailView: View {
         self.mediaType = mediaType
         self.title = title
         self.posterPath = posterPath
-        self.libraryId = libraryId
+        _libraryId = State(initialValue: libraryId)
         self.focusManagement = focusManagement
     }
 
@@ -211,7 +213,8 @@ struct MediaDetailView: View {
                     mediaYear: yearValue,
                     originalTitle: details?.originalTitle,
                     originalLanguage: details?.originalLanguage,
-                    titleTranslations: details?.titleTranslations ?? []
+                    titleTranslations: details?.titleTranslations ?? [],
+                    onGrabbed: { Task { await refreshManagementData() } }
                 )
                 .environment(model)
             }
@@ -221,7 +224,8 @@ struct MediaDetailView: View {
                     libraryMediaId: target.libraryMediaId,
                     tmdbId: target.tmdbId,
                     mediaType: target.mediaType,
-                    availableSeasons: []
+                    availableSeasons: [],
+                    onGrabbed: { Task { await refreshManagementData() } }
                 )
                 .environment(model)
             }
@@ -1446,7 +1450,7 @@ struct MediaDetailView: View {
         do {
             // The store shows an `Adding…` row in Library immediately and swaps in
             // the server's created item — or drops it again if the add fails.
-            _ = try await model.serverStateStore.addToLibrary(
+            let item = try await model.serverStateStore.addToLibrary(
                 provisional: .provisional(
                     tmdbId: tmdbId,
                     type: type,
@@ -1458,7 +1462,14 @@ struct MediaDetailView: View {
                 request: { try await client.addToLibrary(tmdbId: tmdbId, type: type) }
             )
             added = true
+            // Reveal the admin tabs (Manage hosts the grab surface) in place, land
+            // there, and load its data — no reopen needed to grab what was just added.
+            libraryId = item.id
             recordLibraryChangeFeedback()
+            if showManagement {
+                detailTab = .manage
+                await refreshManagementData()
+            }
         } catch APIError.unauthorized {
             requestError = String(localized: "Admin only.")
         } catch let APIError.http(status) where status == 409 {
