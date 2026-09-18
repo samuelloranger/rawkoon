@@ -16,9 +16,10 @@ export interface RankedEntry {
   isbn13: string | null;
   coverUrl: string | null;
   sourceUrl: string | null;
-  /** Filled only when the source itself supplies it (NYT does; leslibraires does not). */
+  /** Filled when the source supplies it (NYT and leslibraires both do). */
   author: string | null;
   overview: string | null;
+  publishedYear: number | null;
 }
 
 /**
@@ -55,8 +56,9 @@ const leslibrairesSource: BookDiscoverySource = {
       isbn13: e.isbn13,
       coverUrl: e.coverUrl ?? palmaresCoverUrl(e.isbn13),
       sourceUrl: e.url,
-      author: null,
-      overview: null,
+      author: e.author,
+      overview: e.overview,
+      publishedYear: e.publishedYear,
     }));
   },
 };

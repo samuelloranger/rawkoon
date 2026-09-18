@@ -33,7 +33,7 @@ async function enrichEntries(entries: RankedEntry[]): Promise<EnrichedBook[]> {
       let volumeId: string | null = null;
       let author = e.author;
       let overview = e.overview;
-      let publishedYear: number | null = null;
+      let publishedYear = e.publishedYear;
       let coverUrl = e.coverUrl;
       if (provider && e.isbn13) {
         const meta = await provider.resolveIsbn(e.isbn13).catch(() => null);
@@ -41,7 +41,7 @@ async function enrichEntries(entries: RankedEntry[]): Promise<EnrichedBook[]> {
           volumeId = meta.volumeId;
           author = author ?? meta.authors[0] ?? null;
           overview = overview ?? meta.overview;
-          publishedYear = meta.publishedYear;
+          publishedYear = publishedYear ?? meta.publishedYear;
           coverUrl = coverUrl ?? meta.coverUrl;
         }
       }

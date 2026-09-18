@@ -63,6 +63,7 @@ export function mapNytList(payload: unknown): RankedEntry[] {
       author: typeof b.author === "string" ? b.author.trim() || null : null,
       overview:
         typeof b.description === "string" ? b.description.trim() || null : null,
+      publishedYear: null,
     });
   }
   entries.sort((a, b) => a.rank - b.rank);

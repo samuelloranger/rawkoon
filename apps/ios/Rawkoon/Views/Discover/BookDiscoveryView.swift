@@ -228,77 +228,151 @@ struct DiscoveryBookDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(alignment: .top, spacing: 16) {
-                    CachedAsyncImage(
-                        url: URL(string: book.coverUrl ?? ""),
-                        targetSize: CGSize(width: 140, height: 210)
-                    ) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
-                        Theme.raised
-                    }
-                    .frame(width: 120, height: 180)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        if let author = book.author {
-                            Text(author).foregroundStyle(Theme.muted)
-                        }
-                        if let year = book.publishedYear {
-                            Text(String(year)).font(.caption).foregroundStyle(Theme.muted)
-                        }
-                        Text("#\(book.rank)").font(.caption).foregroundStyle(Theme.muted)
-                    }
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 16)
-
-                if let overview = book.overview, !overview.isEmpty {
-                    Text(overview)
-                        .font(.callout)
-                        .foregroundStyle(Theme.textStrong)
-                        .padding(.horizontal, 16)
-                }
-
+            VStack(alignment: .leading, spacing: 24) {
+                hero
                 actions
-                    .padding(.horizontal, 16)
+                summary
             }
-            .padding(.vertical, 16)
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 40)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(Theme.base)
         .navigationTitle(book.title)
         .navigationBarTitleDisplayMode(.inline)
     }
 
+    /// A lamp-lit cover, then title/author/meta — the Now Playing "dusk glow"
+    /// language, so a discovered book feels part of the same room as the library.
+    private var hero: some View {
+        VStack(spacing: 14) {
+            CachedAsyncImage(
+                url: URL(string: book.coverUrl ?? ""),
+                targetSize: CGSize(width: 200, height: 300)
+            ) { image in
+                image.resizable().scaledToFill()
+            } placeholder: {
+                Theme.raised.overlay(
+                    Image(systemName: "book.closed")
+                        .font(.system(size: 32))
+                        .foregroundStyle(Theme.faint)
+                )
+            }
+            .frame(width: 156, height: 234)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(.white.opacity(0.06), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.45), radius: 18, x: 0, y: 10)
+            .background(Theme.duskGlow.frame(width: 320, height: 320))
+
+            VStack(spacing: 6) {
+                Text(rankLabel)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.apricot)
+                Text(book.title)
+                    .font(.display(24))
+                    .foregroundStyle(Theme.textStrong)
+                    .multilineTextAlignment(.center)
+                if let author = book.author {
+                    Text(author)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.muted)
+                        .multilineTextAlignment(.center)
+                }
+                if let meta = metaLine {
+                    Text(meta)
+                        .font(.caption)
+                        .foregroundStyle(Theme.faint)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var rankLabel: String {
+        // Numeric interpolation only — no user-facing words to localize.
+        "#\(book.rank)"
+    }
+
+    private var metaLine: String? {
+        var parts: [String] = []
+        if let year = book.publishedYear {
+            parts.append(String(year))
+        }
+        if let host = sourceHost {
+            parts.append(host)
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private var sourceHost: String? {
+        guard let s = book.sourceUrl, let u = URL(string: s), let h = u.host
+        else { return nil }
+        return h.replacingOccurrences(of: "www.", with: "")
+    }
+
     @ViewBuilder
     private var actions: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(spacing: 12) {
             if book.alreadyInLibrary {
                 Label("In library", systemImage: "checkmark.circle.fill")
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(Theme.seed)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Theme.seed.opacity(0.12), in: Capsule())
             } else if let volumeId = book.volumeId {
                 Button {
                     Task { await add(volumeId: volumeId) }
                 } label: {
-                    if adding {
-                        ProgressView().tint(.white)
-                    } else {
-                        Label(added ? "Added" : "Add to library", systemImage: "plus")
+                    HStack(spacing: 8) {
+                        if adding {
+                            ProgressView().tint(Theme.onAccent)
+                        } else {
+                            Image(systemName: added ? "checkmark" : "plus")
+                        }
+                        Text(added ? "Added" : "Add to library")
                     }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.onAccent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Theme.apricot, in: Capsule())
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.apricot)
                 .disabled(adding || added)
             }
 
             if let sourceUrl = book.sourceUrl, let url = URL(string: sourceUrl) {
                 Link(destination: url) {
-                    Label("View source", systemImage: "arrow.up.right.square")
+                    Label("View on leslibraires", systemImage: "arrow.up.right")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.muted)
                 }
-                .foregroundStyle(Theme.muted)
             }
         }
+    }
+
+    @ViewBuilder
+    private var summary: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Summary")
+                .font(.sectionTitle)
+                .foregroundStyle(Theme.textStrong)
+            if let overview = book.overview, !overview.isEmpty {
+                Text(overview)
+                    .font(.callout)
+                    .foregroundStyle(Theme.text)
+                    .lineSpacing(3)
+            } else {
+                Text("No summary yet for this title.")
+                    .font(.callout)
+                    .foregroundStyle(Theme.faint)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func add(volumeId: String) async {

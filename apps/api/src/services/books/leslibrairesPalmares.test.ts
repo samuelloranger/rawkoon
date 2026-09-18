@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   palmaresCoverUrl,
   parsePalmaresHtml,
+  parseProductDetails,
 } from "@rawkoon/api/services/books/leslibrairesPalmares";
 
 const fixture = (name: string): string =>
@@ -19,6 +20,10 @@ describe("parsePalmaresHtml", () => {
       isbn13: "9782764629253",
       url: "https://www.leslibraires.ca/livres/c-etait-ca-ou-mourir-9782764629253",
       coverUrl: palmaresCoverUrl("9782764629253"),
+      // Product-page fields are filled later, in getPalmares — not by the parser.
+      author: null,
+      overview: null,
+      publishedYear: null,
     });
     const ranks = entries.map((e) => e.rank);
     expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
@@ -50,6 +55,27 @@ describe("parsePalmaresHtml", () => {
       name: "Les libraires",
     })}</script>`;
     expect(parsePalmaresHtml(html)).toEqual([]);
+  });
+});
+
+describe("parseProductDetails", () => {
+  it("reads author, synopsis, cover and year from the Product/Book JSON-LD", () => {
+    const d = parseProductDetails(fixture("leslibraires-product.html"));
+    expect(d.author).toBe("Françoise Ega");
+    expect(d.overview).toContain("roman d'apprentissage");
+    expect(d.coverUrl).toBe(
+      "https://images.leslibraires.ca/books/9782898331947/front/9782898331947_large.webp",
+    );
+    expect(d.publishedYear).toBe(2025);
+  });
+
+  it("returns nulls when there is no Book block", () => {
+    expect(parseProductDetails("<html></html>")).toEqual({
+      author: null,
+      overview: null,
+      coverUrl: null,
+      publishedYear: null,
+    });
   });
 });
 
