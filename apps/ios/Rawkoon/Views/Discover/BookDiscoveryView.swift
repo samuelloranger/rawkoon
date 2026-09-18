@@ -302,9 +302,11 @@ struct DiscoveryBookDetailView: View {
         .background(alignment: .top) { backdrop }
     }
 
-    /// The cover, blown up and heavily blurred into an ambient colour wash that
-    /// fills the hero behind the sharp cover and dissolves into the base. Kept
-    /// low-opacity and very soft so it reads as atmosphere, not a second cover.
+    /// The cover, zoomed and heavily blurred into a colour wash that fills the
+    /// hero edge-to-edge behind the sharp cover and dissolves into the base — so
+    /// the space beside the cover reads as atmosphere, not empty padding. Zoomed
+    /// and saturated enough to read as colour, blurred enough not to look like a
+    /// second cover.
     private var backdrop: some View {
         CachedAsyncImage(
             url: URL(string: book.coverUrl ?? ""),
@@ -314,11 +316,13 @@ struct DiscoveryBookDetailView: View {
         } placeholder: {
             Color.clear
         }
-        .blur(radius: 64)
-        .opacity(0.28)
+        .scaleEffect(1.6)
+        .blur(radius: 70)
+        .saturation(1.35)
+        .opacity(0.55)
         .overlay(
             LinearGradient(
-                colors: [Theme.base.opacity(0.35), Theme.base],
+                colors: [Theme.base.opacity(0.15), Theme.base.opacity(0.6), Theme.base],
                 startPoint: .top,
                 endPoint: .bottom
             )
