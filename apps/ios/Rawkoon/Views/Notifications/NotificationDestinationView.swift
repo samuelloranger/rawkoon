@@ -18,7 +18,10 @@ struct NotificationDestinationView: View {
 
     var body: some View {
         content
-            .task { await load() }
+            // Keyed to `destination`: the deep-link sheet can switch target
+            // (banner→push) while this view stays alive; an unkeyed task would
+            // not reload and would show the previous target's detail.
+            .task(id: destination) { await load() }
     }
 
     @ViewBuilder private var content: some View {
