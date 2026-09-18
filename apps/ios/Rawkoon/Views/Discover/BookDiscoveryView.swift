@@ -299,39 +299,6 @@ struct DiscoveryBookDetailView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .background(alignment: .top) { backdrop }
-    }
-
-    /// The cover, zoomed and heavily blurred into a colour wash that fills the
-    /// hero edge-to-edge behind the sharp cover and dissolves into the base — so
-    /// the space beside the cover reads as atmosphere, not empty padding. Zoomed
-    /// and saturated enough to read as colour, blurred enough not to look like a
-    /// second cover.
-    private var backdrop: some View {
-        CachedAsyncImage(
-            url: URL(string: book.coverUrl ?? ""),
-            targetSize: CGSize(width: 400, height: 400)
-        ) { image in
-            image.resizable().scaledToFill()
-        } placeholder: {
-            Color.clear
-        }
-        .scaleEffect(1.6)
-        .blur(radius: 70)
-        .saturation(1.35)
-        .opacity(0.55)
-        .overlay(
-            LinearGradient(
-                colors: [Theme.base.opacity(0.15), Theme.base.opacity(0.6), Theme.base],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-        // Fill the whole hero (no fixed height → no mid-hero seam) and bleed past
-        // the ScrollView's 20pt side padding to the screen edges.
-        .padding(.horizontal, -20)
-        .clipped()
-        .allowsHitTesting(false)
     }
 
     private var rankLabel: String {
