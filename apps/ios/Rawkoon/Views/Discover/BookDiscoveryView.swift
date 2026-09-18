@@ -131,39 +131,48 @@ struct BookDiscoveryView: View {
 
     private func posterCard(_ book: BookDiscoveryBook) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            CachedAsyncImage(
-                url: URL(string: book.coverUrl ?? ""),
-                targetSize: CGSize(width: 140, height: 210)
-            ) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                Theme.raised
-            }
-            .aspectRatio(2.0 / 3.0, contentMode: .fit)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(alignment: .topLeading) {
-                Text("#\(book.rank)")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(.black.opacity(0.7), in: Capsule())
-                    .padding(6)
-            }
-            .overlay(alignment: .topTrailing) {
-                if book.alreadyInLibrary {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Color(hex: 0x10231A))
-                        .frame(width: 22, height: 22)
-                        .background(Theme.seed, in: Circle())
-                        .accessibilityLabel("In library")
+            // A fixed 2:3 tile the cover fills and is cropped to, so every card is
+            // the same size regardless of the cover's own aspect ratio.
+            Color.clear
+                .aspectRatio(2.0 / 3.0, contentMode: .fit)
+                .overlay {
+                    CachedAsyncImage(
+                        url: URL(string: book.coverUrl ?? ""),
+                        targetSize: CGSize(width: 140, height: 210)
+                    ) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Theme.raised.overlay(
+                            Image(systemName: "book.closed")
+                                .font(.system(size: 22))
+                                .foregroundStyle(Theme.faint)
+                        )
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(alignment: .topLeading) {
+                    Text("#\(book.rank)")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.black.opacity(0.7), in: Capsule())
                         .padding(6)
                 }
-            }
-            .overlay(
-                RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.06), lineWidth: 1)
-            )
+                .overlay(alignment: .topTrailing) {
+                    if book.alreadyInLibrary {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(Color(hex: 0x10231A))
+                            .frame(width: 22, height: 22)
+                            .background(Theme.seed, in: Circle())
+                            .accessibilityLabel("In library")
+                            .padding(6)
+                    }
+                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.06), lineWidth: 1)
+                )
 
             Text(book.title)
                 .font(.caption)
