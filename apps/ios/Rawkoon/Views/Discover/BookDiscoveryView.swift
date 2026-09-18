@@ -243,8 +243,9 @@ struct DiscoveryBookDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    /// A lamp-lit cover, then title/author/meta — the Now Playing "dusk glow"
-    /// language, so a discovered book feels part of the same room as the library.
+    /// A blurred cover bleeds full-width behind a sharp cover and title/author —
+    /// the Now Playing "dusk glow" language, so the space beside the cover is
+    /// filled by the art itself rather than left as dead margin.
     private var hero: some View {
         VStack(spacing: 14) {
             CachedAsyncImage(
@@ -266,7 +267,6 @@ struct DiscoveryBookDetailView: View {
                     .strokeBorder(.white.opacity(0.06), lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.45), radius: 18, x: 0, y: 10)
-            .background(Theme.duskGlow.frame(width: 320, height: 320))
 
             VStack(spacing: 6) {
                 Text(rankLabel)
@@ -290,6 +290,35 @@ struct DiscoveryBookDetailView: View {
             }
         }
         .frame(maxWidth: .infinity)
+        .background(alignment: .top) { backdrop }
+    }
+
+    /// The cover, blown up and blurred, bleeding edge-to-edge behind the hero and
+    /// dissolving into the base — fills the margins beside the sharp cover.
+    private var backdrop: some View {
+        CachedAsyncImage(
+            url: URL(string: book.coverUrl ?? ""),
+            targetSize: CGSize(width: 400, height: 400)
+        ) { image in
+            image.resizable().scaledToFill()
+        } placeholder: {
+            Color.clear
+        }
+        .frame(height: 300)
+        .frame(maxWidth: .infinity)
+        .clipped()
+        .blur(radius: 40)
+        .opacity(0.5)
+        .overlay(
+            LinearGradient(
+                colors: [Theme.base.opacity(0.1), Theme.base],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+        // Bleed past the ScrollView's 20pt side padding to the screen edges.
+        .padding(.horizontal, -20)
+        .allowsHitTesting(false)
     }
 
     private var rankLabel: String {
