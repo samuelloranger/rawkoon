@@ -293,8 +293,9 @@ struct DiscoveryBookDetailView: View {
         .background(alignment: .top) { backdrop }
     }
 
-    /// The cover, blown up and blurred, bleeding edge-to-edge behind the hero and
-    /// dissolving into the base — fills the margins beside the sharp cover.
+    /// The cover, blown up and heavily blurred into an ambient colour wash that
+    /// fills the hero behind the sharp cover and dissolves into the base. Kept
+    /// low-opacity and very soft so it reads as atmosphere, not a second cover.
     private var backdrop: some View {
         CachedAsyncImage(
             url: URL(string: book.coverUrl ?? ""),
@@ -304,20 +305,19 @@ struct DiscoveryBookDetailView: View {
         } placeholder: {
             Color.clear
         }
-        .frame(height: 300)
-        .frame(maxWidth: .infinity)
-        .clipped()
-        .blur(radius: 40)
-        .opacity(0.5)
+        .blur(radius: 64)
+        .opacity(0.28)
         .overlay(
             LinearGradient(
-                colors: [Theme.base.opacity(0.1), Theme.base],
+                colors: [Theme.base.opacity(0.35), Theme.base],
                 startPoint: .top,
                 endPoint: .bottom
             )
         )
-        // Bleed past the ScrollView's 20pt side padding to the screen edges.
+        // Fill the whole hero (no fixed height → no mid-hero seam) and bleed past
+        // the ScrollView's 20pt side padding to the screen edges.
         .padding(.horizontal, -20)
+        .clipped()
         .allowsHitTesting(false)
     }
 
