@@ -54,6 +54,18 @@ mock.module("@rawkoon/api/services/books/bookDiscovery", () => ({
   },
 }));
 
+const addCalls: { via: string; arg: unknown }[] = [];
+mock.module("@rawkoon/api/services/books/bookLibrary", () => ({
+  addBookFromVolume: async (opts: unknown) => {
+    addCalls.push({ via: "volume", arg: opts });
+    return { added: true, bookId: 1, created: true };
+  },
+  addBookFromMetadata: async (opts: unknown) => {
+    addCalls.push({ via: "metadata", arg: opts });
+    return { added: true, bookId: 2, created: true };
+  },
+}));
+
 const { bookDiscoveryRoutes } = await import(
   "@rawkoon/api/routes/books/bookDiscoveryRoutes"
 );
@@ -95,5 +107,44 @@ describe("book discovery routes", () => {
     state.fail = true;
     const res = await app.request("/discovery");
     expect(res.status).toBe(503);
+  });
+
+  it("adds via the Google volume when volume_id is present", async () => {
+    addCalls.length = 0;
+    const res = await app.request("/discovery/add", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        volume_id: "vol-1",
+        isbn13: "9780000000001",
+        title: "A",
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(addCalls[0]?.via).toBe("volume");
+  });
+
+  it("adds from metadata when there is no volume_id", async () => {
+    addCalls.length = 0;
+    const res = await app.request("/discovery/add", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        isbn13: "9780000000002",
+        title: "B",
+        author: "Auteur",
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(addCalls[0]?.via).toBe("metadata");
+  });
+
+  it("400s an add with neither volume_id nor isbn13", async () => {
+    const res = await app.request("/discovery/add", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "C" }),
+    });
+    expect(res.status).toBe(400);
   });
 });

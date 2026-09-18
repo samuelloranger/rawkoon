@@ -4,7 +4,7 @@ import { Link } from "@tanstack/react-router";
 import type { BookDiscoveryBook } from "@rawkoon/shared/types";
 import { providerHtmlParagraphs } from "@rawkoon/shared";
 import { Button } from "@/components/ui/button";
-import { useAddBook } from "../_hooks/useBooks";
+import { useAddDiscoveryBook } from "../_hooks/useBookDiscovery";
 
 /** External-link label from the product URL's host. */
 function sourceLabel(url: string, fallback: string): string {
@@ -29,7 +29,7 @@ export function DiscoveryBookSheet({
   onClose: () => void;
 }) {
   const { t } = useTranslation("common");
-  const addBook = useAddBook();
+  const addBook = useAddDiscoveryBook();
   const paragraphs = providerHtmlParagraphs(book.overview);
 
   return (
@@ -96,16 +96,10 @@ export function DiscoveryBookSheet({
             >
               {t("books.explore.inLibrary")}
             </Link>
-          ) : book.volumeId ? (
+          ) : book.isbn13 ? (
             <Button
               disabled={addBook.isPending || addBook.isSuccess}
-              onClick={() =>
-                addBook.mutate({
-                  google_volume_id: book.volumeId as string,
-                  isbn13: book.isbn13,
-                  kinds: ["ebook"],
-                })
-              }
+              onClick={() => addBook.mutate(book)}
             >
               {addBook.isPending ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />

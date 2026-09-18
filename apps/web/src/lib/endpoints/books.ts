@@ -33,4 +33,5 @@ export const BOOKS_ENDPOINTS = {
   LISTENING_STATS: "/api/books/listening-stats",
   DISCOVERY: "/api/books/discovery",
   DISCOVERY_SOURCES: "/api/books/discovery/sources",
+  DISCOVERY_ADD: "/api/books/discovery/add",
 } as const;

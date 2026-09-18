@@ -3,8 +3,8 @@ import { renderWithProviders, screen, fireEvent } from "@/test-utils/render";
 import type { BookDiscoveryBook } from "@rawkoon/shared/types";
 
 const mutate = vi.fn();
-vi.mock("../_hooks/useBooks", () => ({
-  useAddBook: () => ({ mutate, isPending: false, isSuccess: false }),
+vi.mock("../_hooks/useBookDiscovery", () => ({
+  useAddDiscoveryBook: () => ({ mutate, isPending: false, isSuccess: false }),
 }));
 
 import { DiscoveryBookSheet } from "./DiscoveryBookSheet";
@@ -23,22 +23,33 @@ const base: BookDiscoveryBook = {
 };
 
 describe("DiscoveryBookSheet", () => {
-  it("adds by volumeId when enriched", () => {
+  it("adds the whole book (server picks volume vs metadata)", () => {
     mutate.mockClear();
     renderWithProviders(<DiscoveryBookSheet book={base} onClose={vi.fn()} />);
     fireEvent.click(screen.getByText("books.explore.add"));
     expect(mutate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        google_volume_id: "vol-1",
-        isbn13: "9780000000001",
-      }),
+      expect.objectContaining({ isbn13: "9780000000001", volumeId: "vol-1" }),
     );
   });
 
-  it("hides Add and shows the external link when not enriched", () => {
+  it("still offers Add with an ISBN but no Google volume", () => {
+    mutate.mockClear();
     renderWithProviders(
       <DiscoveryBookSheet
         book={{ ...base, volumeId: null }}
+        onClose={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByText("books.explore.add"));
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ isbn13: "9780000000001", volumeId: null }),
+    );
+  });
+
+  it("hides Add when there is no ISBN", () => {
+    renderWithProviders(
+      <DiscoveryBookSheet
+        book={{ ...base, isbn13: null, volumeId: null }}
         onClose={vi.fn()}
       />,
     );

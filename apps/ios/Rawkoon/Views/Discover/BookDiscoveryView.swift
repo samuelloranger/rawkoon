@@ -324,9 +324,9 @@ struct DiscoveryBookDetailView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(Theme.seed.opacity(0.12), in: Capsule())
-            } else if let volumeId = book.volumeId {
+            } else if book.isbn13 != nil {
                 Button {
-                    Task { await add(volumeId: volumeId) }
+                    Task { await add() }
                 } label: {
                     HStack(spacing: 8) {
                         if adding {
@@ -375,12 +375,12 @@ struct DiscoveryBookDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func add(volumeId: String) async {
+    private func add() async {
         guard let client = model.api() else { return }
         adding = true
         defer { adding = false }
         do {
-            try await client.addBook(googleVolumeId: volumeId)
+            try await client.addDiscoveryBook(book)
             added = true
             model.toast(String(localized: "Added to library."), style: .success)
         } catch {
