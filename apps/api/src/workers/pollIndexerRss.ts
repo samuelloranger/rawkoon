@@ -345,19 +345,37 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
 
     logRssMatch(best, label);
 
-    grabRelease({
-      ...grabArgs,
-      downloadUrl: best.downloadUrl,
-      releaseTitle: best.release.title,
-      indexer: best.release.indexer,
-      grabSource: "rss",
-      aiPicked: best.picked_by === "ai",
-      aiReasoning: best.ai_reasoning,
-    }).catch((e) =>
-      console.warn(`[pollIndexerRss] grab failed for ${warnTag}:`, e),
-    );
+    // Await the grab so the run status counts real grabs, not picks: grabRelease
+    // returns grabbed:false (blocklisted, duplicate active target, fetch failure)
+    // without throwing, and reporting a pick as a grab overstates the RSS result.
+    let didGrab = false;
+    try {
+      const result = await grabRelease({
+        ...grabArgs,
+        downloadUrl: best.downloadUrl,
+        releaseTitle: best.release.title,
+        indexer: best.release.indexer,
+        grabSource: "rss",
+        aiPicked: best.picked_by === "ai",
+        aiReasoning: best.ai_reasoning,
+      });
+      didGrab = result.grabbed;
+    } catch (e) {
+      console.warn(`[pollIndexerRss] grab failed for ${warnTag}:`, e);
+    }
 
-    return { grabbed: true, ai: best.picked_by === "ai" };
+    return { grabbed: didGrab, ai: didGrab && best.picked_by === "ai" };
+  }
+
+  // A season pack and its own episodes must not both grab: when a pack release
+  // matched a season in this feed, drop that season's per-episode candidates
+  // (mirrors checkEpisodeReleases' pack/individual mutual exclusion).
+  for (const [id, entry] of episodeCandidates) {
+    if (
+      seasonPackCandidates.has(`${entry.match.mediaId}:${entry.match.season}`)
+    ) {
+      episodeCandidates.delete(id);
+    }
   }
 
   const grabTasks: Array<() => Promise<GrabResult>> = [
