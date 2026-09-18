@@ -634,6 +634,13 @@ final class AppModel {
     /// Ask for notification permission, then register for remote notifications.
     /// Safe to call repeatedly — the system won't re-prompt once decided.
     func requestPushAuthorization() {
+        #if DEBUG
+            // Skip the permission prompt when screenshotting an offline debug
+            // screen — the dialog would cover the view under review.
+            if let screen = DebugScreen.requested, DebugScreen.isOffline(screen) {
+                return
+            }
+        #endif
         Task {
             let center = UNUserNotificationCenter.current()
             let granted = await (try? center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
