@@ -378,6 +378,9 @@ export interface LibraryStats {
   wanted: number;
   returning_series: number;
   storage_used_bytes: number;
+  /** Capacity/free of the library volume; null when the path is unset or unreadable. */
+  disk_total_bytes: number | null;
+  disk_free_bytes: number | null;
   counts_by_status_type: LibraryStatusTypeCount[];
   storage_by_resolution: LibraryResolutionStorage[];
   shows_by_tmdb_status: LibraryTmdbStatusCount[];

@@ -1,6 +1,56 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ free of %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ libre sur %@"
+          }
+        }
+      }
+    },
+    "Disk": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disque"
+          }
+        }
+      }
+    },
+    "Returning": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En cours"
+          }
+        }
+      }
+    },
+    "SD / unknown": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SD / inconnu"
+          }
+        }
+      }
+    },
+    "Storage": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stockage"
+          }
+        }
+      }
+    },
     "Resume Audiobook": {
       "localizations": {
         "fr": {

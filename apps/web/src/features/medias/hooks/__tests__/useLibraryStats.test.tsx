@@ -33,6 +33,8 @@ const STATS = {
   wanted: 8,
   returning_series: 2,
   storage_used_bytes: 1234,
+  disk_total_bytes: null,
+  disk_free_bytes: null,
   counts_by_status_type: [],
   storage_by_resolution: [],
   shows_by_tmdb_status: [],

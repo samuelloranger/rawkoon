@@ -83,6 +83,10 @@ export function buildLibraryStatsResponse(input: {
     wanted,
     returning_series,
     storage_used_bytes,
+    // Disk capacity is filled in by the route (needs the library path + statfs);
+    // the pure builder has no filesystem access.
+    disk_total_bytes: null,
+    disk_free_bytes: null,
     counts_by_status_type,
     storage_by_resolution,
     shows_by_tmdb_status,

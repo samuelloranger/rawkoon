@@ -457,6 +457,11 @@ extension APIClient {
         try await get("/api/library/attention")
     }
 
+    func libraryStats() async throws -> LibraryStats {
+        let response: LibraryStatsResponse = try await get("/api/library/stats")
+        return response.stats
+    }
+
     func rssStatus() async throws -> RssStatusResponse {
         try await get("/api/library/rss-status")
     }
@@ -472,6 +477,10 @@ extension APIClient {
 
 private nonisolated struct LibraryItemResponse: Decodable {
     let item: LibraryMedia
+}
+
+private nonisolated struct LibraryStatsResponse: Decodable {
+    let stats: LibraryStats
 }
 
 private nonisolated struct SimilarResponse: Decodable {

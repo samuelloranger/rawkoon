@@ -1,10 +1,11 @@
 import RawkoonKit
 import SwiftUI
 
-/// The home screen for every user: greeting, Continue, Recently Added and
-/// Upcoming rails, then a widget stack (Now Watching, Downloads, Library
-/// Attention, RSS). The ops widgets (Downloads, RSS) are admin-only; all
-/// widgets also self-hide when their integration is off or has no data.
+/// The home screen for every user: greeting, Continue, Recently Added,
+/// Upcoming and For-You rails, then a widget stack (Now Watching, Downloads,
+/// Library Attention, RSS, Library stats). The ops widgets (Downloads, RSS,
+/// Library stats) are admin-only; all widgets also self-hide when their
+/// integration is off or has no data.
 struct HomeView: View {
     @Environment(AppModel.self) private var model
     /// Local namespace shared directly by each poster source and its detail
@@ -13,10 +14,12 @@ struct HomeView: View {
 
     @State private var recent: [LibraryMedia] = []
     @State private var upcoming: [UpcomingItem] = []
+    @State private var discover: DiscoverDeckResponse?
     @State private var nowPlaying: NowPlayingResponse?
     @State private var speed: SpeedResponse?
     @State private var attention: [AttentionItem] = []
     @State private var rss: RssStatusResponse?
+    @State private var stats: LibraryStats?
     @State private var loading = true
     /// Bumped on pull-to-refresh and when Continue's player sheet dismisses
     /// so Listening reloads with Continue.
@@ -105,6 +108,12 @@ struct HomeView: View {
             if !upcoming.isEmpty {
                 rail("Upcoming", upcoming.map(RailItem.upcoming))
             }
+            if let discover, !discover.items.isEmpty {
+                rail(
+                    discover.source == .personalized ? "For you" : "Trending",
+                    discover.items.map(RailItem.discover)
+                )
+            }
             widgets
         }
     }
@@ -172,10 +181,12 @@ struct HomeView: View {
     private enum RailItem: Identifiable {
         case library(LibraryMedia)
         case upcoming(UpcomingItem)
+        case discover(DiscoverDeckItem)
         var id: String {
             switch self {
             case let .library(m): "l\(m.id)"
             case let .upcoming(u): "u\(u.id)"
+            case let .discover(d): "d\(d.id)"
             }
         }
     }
@@ -208,7 +219,8 @@ struct HomeView: View {
                                 title: m.title, posterPath: m.posterUrl, libraryId: m.id)
                     .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
             } label: {
-                poster(title: m.title, url: m.posterUrl)
+                MediaPosterCard(title: m.title, posterURL: model.absoluteURL(m.posterUrl),
+                                width: RailPoster.width, corner: RailPoster.corner)
                     .matchedTransitionSource(id: zoomID, in: zoomNamespace)
             }
             .buttonStyle(.plain)
@@ -219,12 +231,25 @@ struct HomeView: View {
                                 title: u.title, posterPath: u.posterUrl, libraryId: u.libraryId)
                     .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
             } label: {
-                poster(title: u.title, url: u.posterUrl,
-                       date: u.displayDate, episode: u.episodeLabel)
+                MediaPosterCard(title: u.title, posterURL: model.absoluteURL(u.posterUrl),
+                                date: u.displayDate, episode: u.episodeLabel,
+                                width: RailPoster.width, corner: RailPoster.corner)
                     .matchedTransitionSource(id: zoomID, in: zoomNamespace)
             }
             .buttonStyle(.plain)
             .disabled(u.tmdbId == nil && u.libraryId == nil)
+        case let .discover(d):
+            let zoomID = RawkoonZoom.media(tmdbId: d.tmdbId, mediaType: d.mediaType)
+            NavigationLink {
+                MediaDetailView(tmdbId: d.tmdbId, mediaType: d.mediaType,
+                                title: d.title, posterPath: d.posterUrl, libraryId: nil)
+                    .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
+            } label: {
+                MediaPosterCard(title: d.title, posterURL: model.absoluteURL(d.posterUrl),
+                                width: RailPoster.width, corner: RailPoster.corner)
+                    .matchedTransitionSource(id: zoomID, in: zoomNamespace)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -234,82 +259,6 @@ struct HomeView: View {
         static let width: CGFloat = 140
         static let height: CGFloat = 210
         static let corner: CGFloat = 16
-    }
-
-    private func poster(title: String, url: String?, date: String? = nil, episode: String? = nil) -> some View {
-        let shape = RoundedRectangle(cornerRadius: RailPoster.corner, style: .continuous)
-        return Rectangle()
-            .fill(Theme.raised)
-            .frame(width: RailPoster.width, height: RailPoster.height)
-            .overlay {
-                CachedAsyncImage(
-                    url: model.absoluteURL(url),
-                    targetSize: CGSize(width: RailPoster.width, height: RailPoster.height)
-                ) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    Image(systemName: "photo").foregroundStyle(Theme.faint)
-                }
-                .frame(width: RailPoster.width, height: RailPoster.height)
-                .clipped()
-            }
-            .overlay {
-                LinearGradient(
-                    colors: [.black.opacity(0.55), .black.opacity(0.08), .clear],
-                    startPoint: .bottom,
-                    endPoint: .center
-                )
-                .allowsHitTesting(false)
-            }
-            .overlay(alignment: .bottom) {
-                posterCaption(title: title, date: date, episode: episode)
-            }
-            .clipShape(shape)
-            .overlay(shape.strokeBorder(.white.opacity(0.08), lineWidth: 1))
-            .contentShape(shape)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(posterAccessibilityLabel(title: title, date: date, episode: episode))
-    }
-
-    private func posterCaption(title: String, date: String?, episode: String?) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
-            if date != nil || episode != nil {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    if let date {
-                        Text(date)
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-                    Spacer(minLength: 0)
-                    if let episode {
-                        Text(episode)
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(Theme.apricot)
-                    }
-                }
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.top, 8)
-        .padding(.bottom, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .environment(\.colorScheme, .dark)
-                .overlay(Color.black.opacity(0.32))
-        }
-    }
-
-    private func posterAccessibilityLabel(title: String, date: String?, episode: String?) -> String {
-        [title, date, episode].compactMap(\.self).joined(separator: ", ")
     }
 
     // MARK: Widgets
@@ -328,6 +277,9 @@ struct HomeView: View {
             }
             if model.isAdmin, let rss {
                 rssWidget(rss)
+            }
+            if model.isAdmin, let stats {
+                libraryStatsWidget(stats)
             }
         }
         .padding(.horizontal, 16)
@@ -483,6 +435,122 @@ struct HomeView: View {
         }
     }
 
+    // MARK: Library stats widget (admin)
+
+    private func libraryStatsWidget(_ s: LibraryStats) -> some View {
+        widgetCard("Library", systemImage: "internaldrive") {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 18) {
+                    statFigure("\(s.totalMovies)", "Movies")
+                    statFigure("\(s.totalShows)", "Shows")
+                    statFigure("\(s.downloaded)", "Downloaded")
+                    if s.wanted > 0 {
+                        statFigure("\(s.wanted)", "Wanted")
+                    }
+                    if s.returningSeries > 0 {
+                        statFigure("\(s.returningSeries)", "Returning")
+                    }
+                    Spacer(minLength: 0)
+                }
+                HStack(spacing: 6) {
+                    Text("Storage").font(.caption2).foregroundStyle(Theme.faint)
+                    Text(byteString(s.storageUsedBytes))
+                        .font(.system(.subheadline, design: .monospaced)).foregroundStyle(Theme.text)
+                }
+                let bars = orderedStorageBars(s.storageByResolution)
+                if !bars.isEmpty {
+                    storageBars(bars, total: s.storageUsedBytes)
+                }
+                if let total = s.diskTotalBytes, let free = s.diskFreeBytes, total > 0 {
+                    diskGauge(total: total, free: free)
+                }
+            }
+        }
+    }
+
+    private func statFigure(_ value: String, _ label: LocalizedStringKey) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value).font(.system(.title3, design: .rounded).weight(.semibold)).foregroundStyle(Theme.textStrong)
+            Text(label).font(.caption2).foregroundStyle(Theme.faint)
+        }
+    }
+
+    /// Storage rows with a value, ordered low→high resolution with unknown last.
+    private func orderedStorageBars(_ rows: [StorageByResolution]) -> [StorageByResolution] {
+        rows.filter { $0.sizeBytes > 0 }.sorted { resolutionRank($0.resolution) < resolutionRank($1.resolution) }
+    }
+
+    /// Bars are each resolution's share of total library storage, so their
+    /// widths sum to the whole rather than the largest bucket always filling.
+    private func storageBars(_ rows: [StorageByResolution], total: Int) -> some View {
+        let denom = max(total, 1)
+        return VStack(spacing: 8) {
+            ForEach(rows) { row in
+                VStack(spacing: 4) {
+                    HStack {
+                        Text(resolutionLabel(row.resolution)).font(.caption).foregroundStyle(Theme.muted)
+                        Spacer()
+                        Text(byteString(row.sizeBytes))
+                            .font(.system(.caption, design: .monospaced)).foregroundStyle(Theme.text)
+                    }
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Theme.base)
+                            Capsule().fill(Theme.seed)
+                                .frame(width: max(geo.size.width * CGFloat(row.sizeBytes) / CGFloat(denom), 2))
+                        }
+                    }
+                    .frame(height: 6)
+                }
+            }
+        }
+    }
+
+    /// Volume capacity: used fill over the whole disk, with a "free of total" label.
+    private func diskGauge(total: Int, free: Int) -> some View {
+        let used = max(min(total - free, total), 0)
+        let fraction = CGFloat(used) / CGFloat(max(total, 1))
+        return VStack(spacing: 4) {
+            HStack {
+                Text("Disk").font(.caption).foregroundStyle(Theme.muted)
+                Spacer()
+                Text("\(byteString(free)) free of \(byteString(total))")
+                    .font(.system(.caption, design: .monospaced)).foregroundStyle(Theme.text)
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Theme.base)
+                    Capsule().fill(fraction > 0.9 ? Theme.terracotta : Theme.apricot)
+                        .frame(width: max(geo.size.width * fraction, 2))
+                }
+            }
+            .frame(height: 6)
+        }
+    }
+
+    private func resolutionRank(_ r: String) -> Int {
+        switch r {
+        case "480p": 0
+        case "720p": 1
+        case "1080p": 2
+        case "4k": 3
+        default: 4
+        }
+    }
+
+    private func resolutionLabel(_ r: String) -> String {
+        switch r {
+        case "4k": "4K"
+        case "unknown": String(localized: "SD / unknown")
+        default: r
+        }
+    }
+
+    private func byteString(_ bytes: Int) -> String {
+        let safe = Int64(exactly: bytes) ?? .max
+        return ByteCountFormatter.string(fromByteCount: max(safe, 0), countStyle: .file)
+    }
+
     // MARK: Load
 
     private func load() async {
@@ -495,6 +563,7 @@ struct HomeView: View {
         }
         async let recentR = client.recentlyAdded()
         async let upcomingR = client.upcoming()
+        async let discoverR = client.discoverDeck(exclude: [], limit: 12)
         async let npR = client.nowPlaying()
         async let speedR = client.speed()
         async let attnR = client.libraryAttention()
@@ -511,6 +580,9 @@ struct HomeView: View {
         if let items = await (try? upcomingR)?.items {
             upcoming = items
         }
+        if let deck = try? await discoverR {
+            discover = deck
+        }
         if let np = try? await npR {
             nowPlaying = np
         }
@@ -522,6 +594,9 @@ struct HomeView: View {
         }
         if let status = try? await rssR {
             rss = status
+        }
+        if model.isAdmin, let s = try? await client.libraryStats() {
+            stats = s
         }
 
         loading = false

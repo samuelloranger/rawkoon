@@ -124,30 +124,39 @@ struct DuskProgress: View {
     }
 }
 
-/// A normalized media poster card for grids: a fixed 2:3 poster with a
-/// top-trailing overlay (flag/badge) and a 2-line title caption below. The
-/// reserved title height keeps every card the same height regardless of how
-/// long the title is.
+/// The one media poster card, shared by Home rails, the library grid, and
+/// Similar. A 2:3 poster with the title (and optional date / episode) in a
+/// bottom glass panel — never captioned underneath — plus an optional
+/// top-trailing overlay (flag/badge) and an optional context menu. Pass `width`
+/// for a fixed-size rail card; leave it nil to fill a grid cell.
 struct MediaPosterCard<Overlay: View>: View {
     let title: String
     let posterURL: URL?
+    var date: String?
+    var episode: String?
+    var width: CGFloat?
+    var corner: CGFloat = 16
     var menuItems: [MediaPosterMenuAction] = []
     var onMenuAction: (MediaPosterMenuAction) -> Void = { _ in }
     @ViewBuilder var overlay: Overlay
 
-    /// Reserves space for a 2-line `.caption` title at the standard content
-    /// size; grows with Dynamic Type instead of clipping at larger sizes.
-    @ScaledMetric(relativeTo: .caption) private var captionMinHeight: CGFloat = 34
-
     init(
         title: String,
         posterURL: URL?,
+        date: String? = nil,
+        episode: String? = nil,
+        width: CGFloat? = nil,
+        corner: CGFloat = 16,
         menuItems: [MediaPosterMenuAction] = [],
         onMenuAction: @escaping (MediaPosterMenuAction) -> Void = { _ in },
         @ViewBuilder overlay: () -> Overlay = { EmptyView() }
     ) {
         self.title = title
         self.posterURL = posterURL
+        self.date = date
+        self.episode = episode
+        self.width = width
+        self.corner = corner
         self.menuItems = menuItems
         self.onMenuAction = onMenuAction
         self.overlay = overlay()
@@ -167,32 +176,72 @@ struct MediaPosterCard<Overlay: View>: View {
     }
 
     private var posterStack: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Rectangle()
-                .fill(Theme.raised)
-                .aspectRatio(2.0 / 3.0, contentMode: .fit)
-                .overlay {
-                    CachedAsyncImage(url: posterURL, targetSize: CGSize(width: 160, height: 240)) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
-                        Image(systemName: "photo")
-                            .font(.title3)
-                            .foregroundStyle(Theme.faint)
+        let shape = RoundedRectangle(cornerRadius: corner, style: .continuous)
+        return Rectangle()
+            .fill(Theme.raised)
+            .aspectRatio(2.0 / 3.0, contentMode: .fit)
+            .frame(width: width)
+            .frame(maxWidth: width == nil ? .infinity : nil)
+            .overlay {
+                CachedAsyncImage(url: posterURL, targetSize: CGSize(width: 160, height: 240)) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Image(systemName: "photo")
+                        .font(.title3)
+                        .foregroundStyle(Theme.faint)
+                }
+            }
+            .overlay {
+                LinearGradient(
+                    colors: [.black.opacity(0.55), .black.opacity(0.08), .clear],
+                    startPoint: .bottom,
+                    endPoint: .center
+                )
+                .allowsHitTesting(false)
+            }
+            .overlay(alignment: .bottom) { caption }
+            .overlay(alignment: .topTrailing) { overlay.padding(6) }
+            .clipShape(shape)
+            .overlay(shape.strokeBorder(.white.opacity(0.08), lineWidth: 1))
+            .contentShape(shape)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel([title, date, episode].compactMap(\.self).joined(separator: ", "))
+    }
+
+    private var caption: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+            if date != nil || episode != nil {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    if let date {
+                        Text(date)
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                    Spacer(minLength: 0)
+                    if let episode {
+                        Text(episode)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(Theme.apricot)
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(alignment: .topTrailing) { overlay.padding(6) }
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.05), lineWidth: 1)
-                )
-
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(Theme.textStrong)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-                .frame(minHeight: captionMinHeight, alignment: .top)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .environment(\.colorScheme, .dark)
+                .overlay(Color.black.opacity(0.32))
         }
     }
 }
