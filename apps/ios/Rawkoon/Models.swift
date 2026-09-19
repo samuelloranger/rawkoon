@@ -62,6 +62,8 @@ nonisolated struct LibraryStats: Decodable, Sendable {
     let wanted: Int
     let returningSeries: Int
     let storageUsedBytes: Int
+    let diskTotalBytes: Int?
+    let diskFreeBytes: Int?
     let storageByResolution: [StorageByResolution]
 }
 

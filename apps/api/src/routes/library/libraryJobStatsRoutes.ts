@@ -1,3 +1,4 @@
+import { statfs } from "node:fs/promises";
 import { Hono } from "hono";
 import { z } from "zod";
 
@@ -9,6 +10,30 @@ import { queryV } from "@rawkoon/api/middleware/validate";
 import { buildLibraryStatsResponse } from "./libraryStats";
 
 /**
+ * Capacity/free bytes of the volume holding the library, or nulls when no path
+ * is configured or it can't be read. Movies and shows usually share one volume,
+ * so the movies path (then shows) is enough for a headline figure.
+ */
+async function readDiskUsage(): Promise<{
+  disk_total_bytes: number | null;
+  disk_free_bytes: number | null;
+}> {
+  const settings = await prisma.mediaSettings.findUnique({ where: { id: 1 } });
+  const path =
+    settings?.moviesLibraryPath?.trim() || settings?.showsLibraryPath?.trim();
+  if (!path) return { disk_total_bytes: null, disk_free_bytes: null };
+  try {
+    const fs = await statfs(path);
+    return {
+      disk_total_bytes: Number(fs.blocks * fs.bsize),
+      disk_free_bytes: Number(fs.bavail * fs.bsize),
+    };
+  } catch {
+    return { disk_total_bytes: null, disk_free_bytes: null };
+  }
+}
+
+/**
  * GET /api/library/stats
  * GET /api/library/language-tags
  * GET /api/library/download-history
@@ -17,7 +42,7 @@ import { buildLibraryStatsResponse } from "./libraryStats";
 export const libraryJobStatsRoutes = new Hono<Env>()
   .get("/stats", requireUser, async () => {
     try {
-      const [typeStatusRows, tmdbStatusRows, files] = await Promise.all([
+      const [typeStatusRows, tmdbStatusRows, files, disk] = await Promise.all([
         prisma.libraryMedia.groupBy({
           by: ["type", "status"],
           _count: true,
@@ -36,6 +61,7 @@ export const libraryJobStatsRoutes = new Hono<Env>()
           FROM media_files
           GROUP BY resolution
         `,
+        readDiskUsage(),
       ]);
 
       const stats = buildLibraryStatsResponse({
@@ -54,7 +80,7 @@ export const libraryJobStatsRoutes = new Hono<Env>()
         })),
       });
 
-      return ok({ stats });
+      return ok({ stats: { ...stats, ...disk } });
     } catch {
       return serverError("Failed to fetch library stats");
     }

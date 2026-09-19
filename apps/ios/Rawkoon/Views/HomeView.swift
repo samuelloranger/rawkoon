@@ -520,6 +520,9 @@ struct HomeView: View {
                     if s.wanted > 0 {
                         statFigure("\(s.wanted)", "Wanted")
                     }
+                    if s.returningSeries > 0 {
+                        statFigure("\(s.returningSeries)", "Returning")
+                    }
                     Spacer(minLength: 0)
                 }
                 HStack(spacing: 6) {
@@ -529,7 +532,10 @@ struct HomeView: View {
                 }
                 let bars = orderedStorageBars(s.storageByResolution)
                 if !bars.isEmpty {
-                    storageBars(bars)
+                    storageBars(bars, total: s.storageUsedBytes)
+                }
+                if let total = s.diskTotalBytes, let free = s.diskFreeBytes, total > 0 {
+                    diskGauge(total: total, free: free)
                 }
             }
         }
@@ -547,8 +553,10 @@ struct HomeView: View {
         rows.filter { $0.sizeBytes > 0 }.sorted { resolutionRank($0.resolution) < resolutionRank($1.resolution) }
     }
 
-    private func storageBars(_ rows: [StorageByResolution]) -> some View {
-        let maxSize = max(rows.map(\.sizeBytes).max() ?? 1, 1)
+    /// Bars are each resolution's share of total library storage, so their
+    /// widths sum to the whole rather than the largest bucket always filling.
+    private func storageBars(_ rows: [StorageByResolution], total: Int) -> some View {
+        let denom = max(total, 1)
         return VStack(spacing: 8) {
             ForEach(rows) { row in
                 VStack(spacing: 4) {
@@ -562,12 +570,34 @@ struct HomeView: View {
                         ZStack(alignment: .leading) {
                             Capsule().fill(Theme.base)
                             Capsule().fill(Theme.seed)
-                                .frame(width: max(geo.size.width * CGFloat(row.sizeBytes) / CGFloat(maxSize), 2))
+                                .frame(width: max(geo.size.width * CGFloat(row.sizeBytes) / CGFloat(denom), 2))
                         }
                     }
                     .frame(height: 6)
                 }
             }
+        }
+    }
+
+    /// Volume capacity: used fill over the whole disk, with a "free of total" label.
+    private func diskGauge(total: Int, free: Int) -> some View {
+        let used = max(min(total - free, total), 0)
+        let fraction = CGFloat(used) / CGFloat(max(total, 1))
+        return VStack(spacing: 4) {
+            HStack {
+                Text("Disk").font(.caption).foregroundStyle(Theme.muted)
+                Spacer()
+                Text("\(byteString(free)) free of \(byteString(total))")
+                    .font(.system(.caption, design: .monospaced)).foregroundStyle(Theme.text)
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Theme.base)
+                    Capsule().fill(fraction > 0.9 ? Theme.terracotta : Theme.apricot)
+                        .frame(width: max(geo.size.width * fraction, 2))
+                }
+            }
+            .frame(height: 6)
         }
     }
 

@@ -25,6 +25,8 @@ function makeStats(overrides: Partial<LibraryStats> = {}): LibraryStats {
     wanted: 3,
     returning_series: 2,
     storage_used_bytes: 1024 * 1024 * 1024 * 250, // 250 GB
+    disk_total_bytes: null,
+    disk_free_bytes: null,
     counts_by_status_type: [],
     storage_by_resolution: [
       { resolution: "1080p", size_bytes: 1024 * 1024 * 1024 * 200 },
