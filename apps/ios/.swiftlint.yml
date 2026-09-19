@@ -36,13 +36,16 @@ disabled_rules:
 # a compiler log, never under the plain `swiftlint lint` this CI job invokes.
 # Listing it here would be inert, so it is left out rather than added for show.
 
-# Worst offender at authoring time is MediaDetailView.swift at 1443 lines.
-# 1500 clears that with a 57-line buffer, deliberately small so growth is
-# still visible quickly; Phase 6 (VM-04) ratchets this down once the view is
-# decomposed. No `error:` key: on this SwiftLint version, omitting `error:`
-# fully disables the error-severity threshold for this rule.
+# Ratcheted to 1000 (SwiftLint's own default error bound) now that the biggest
+# non-view files have been decomposed. It is a health target, not just a
+# don't-regrow line: the files still over it are the known backlog — the large
+# SwiftUI views (BookView, ReleaseSearchView, MediaDetailView, LibraryView),
+# AudiobookPlayer, and AppModel — each queued for decomposition. Warning-only
+# (no `error:` key: on this SwiftLint version, omitting `error:` fully disables
+# the error-severity threshold), so these surface as standing warnings without
+# failing CI while the views get split down toward ~600.
 file_length:
-  warning: 1500
+  warning: 1000
 
 # Measured on macbuild (SwiftLint 0.65.1) with a threshold of 1 forcing every
 # type to report: the worst span was 1325 lines (MediaDetailView.swift's

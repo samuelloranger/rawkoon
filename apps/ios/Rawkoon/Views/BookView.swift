@@ -2,7 +2,7 @@ import Foundation
 import RawkoonKit
 import SwiftUI
 
-private enum BookDetailLane: String, CaseIterable, Identifiable {
+enum BookDetailLane: String, CaseIterable, Identifiable {
     case audiobook = "Audiobook"
     case ebook = "Ebook"
     var id: String {
@@ -17,7 +17,7 @@ private enum BookDetailLane: String, CaseIterable, Identifiable {
     }
 }
 
-private enum ReleaseSearchLane: String, Identifiable {
+enum ReleaseSearchLane: String, Identifiable {
     case audiobook
     case ebook
     var id: String {
@@ -26,54 +26,54 @@ private enum ReleaseSearchLane: String, Identifiable {
 }
 
 struct BookView: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.horizontalSizeClass) private var hSizeClass
+    @Environment(AppModel.self) var model
+    @Environment(\.horizontalSizeClass) var hSizeClass
 
-    private var isRegularWidth: Bool {
+    var isRegularWidth: Bool {
         hSizeClass == .regular
     }
 
     let book: BookListItem
 
-    @State private var detail: BookDetailItem?
-    @State private var loadingDetail = false
-    @State private var detailError: String?
-    @State private var activeLane: BookDetailLane
+    @State var detail: BookDetailItem?
+    @State var loadingDetail = false
+    @State var detailError: String?
+    @State var activeLane: BookDetailLane
 
-    @State private var manifest: BookManifest?
-    @State private var loadingManifest = false
+    @State var manifest: BookManifest?
+    @State var loadingManifest = false
     /// False until `fetchManifest` has actually run. The chapter list treats
     /// "not yet attempted" as loading, not as "Chapters couldn't load."
-    @State private var fetchAttemptedManifest = false
-    @State private var rescanningManifest = false
-    @State private var preparingAudiobookDownload = false
-    @State private var loadingPlayer = false
-    @State private var showingPlayer = false
-    @State private var releaseSearchLane: ReleaseSearchLane?
-    @State private var manifestError: String?
-    @State private var audiobookActionError: String?
-    @State private var attemptedAutomaticRecovery = false
+    @State var fetchAttemptedManifest = false
+    @State var rescanningManifest = false
+    @State var preparingAudiobookDownload = false
+    @State var loadingPlayer = false
+    @State var showingPlayer = false
+    @State var releaseSearchLane: ReleaseSearchLane?
+    @State var manifestError: String?
+    @State var audiobookActionError: String?
+    @State var attemptedAutomaticRecovery = false
 
-    @State private var ebookFiles: [BookEditionFile] = []
-    @State private var loadingEbookFiles = false
-    @State private var rescanningEbook = false
-    @State private var openingEbookFileId: Int?
-    @State private var downloadingEbookFileIDs = Set<Int>()
+    @State var ebookFiles: [BookEditionFile] = []
+    @State var loadingEbookFiles = false
+    @State var rescanningEbook = false
+    @State var openingEbookFileId: Int?
+    @State var downloadingEbookFileIDs = Set<Int>()
     /// Live ebook download tasks, kept so a Cancel tap can stop the underlying
     /// URLSession request mid-flight (`session.download(for:)` honors Task
     /// cancellation).
-    @State private var ebookDownloadTasks: [Int: Task<Void, Never>] = [:]
-    @State private var confirmRemoveAudiobook = false
-    @State private var confirmMarkRead = false
+    @State var ebookDownloadTasks: [Int: Task<Void, Never>] = [:]
+    @State var confirmRemoveAudiobook = false
+    @State var confirmMarkRead = false
     /// The ebook file awaiting a delete confirmation, or nil when none is.
-    @State private var ebookFileToRemove: BookEditionFile?
-    @State private var ebookFilesError: String?
-    @State private var previewDocument: EbookPreviewDocument?
-    @State private var addingEditionKind: String?
-    @State private var chapterFilter = ""
+    @State var ebookFileToRemove: BookEditionFile?
+    @State var ebookFilesError: String?
+    @State var previewDocument: EbookPreviewDocument?
+    @State var addingEditionKind: String?
+    @State var chapterFilter = ""
 
     /// Longer than one screen of spine rows; a 3-chapter book does not need a field.
-    private let chapterFilterThreshold = 12
+    let chapterFilterThreshold = 12
 
     init(book: BookListItem, preferEbook: Bool = false) {
         self.book = book
@@ -84,61 +84,61 @@ struct BookView: View {
         }
     }
 
-    private var audiobookEdition: BookEditionDetail? {
+    var audiobookEdition: BookEditionDetail? {
         detail?.editions.first(where: { $0.kind == "audiobook" })
     }
 
-    private var ebookEdition: BookEditionDetail? {
+    var ebookEdition: BookEditionDetail? {
         detail?.editions.first(where: { $0.kind == "ebook" })
     }
 
-    private var audiobookEditionId: Int? {
+    var audiobookEditionId: Int? {
         audiobookEdition?.id ?? book.audiobookEditionId
     }
 
     /// Falls back to the list item so reading progress still resolves when the
     /// detail request failed but the library already knew the edition.
-    private var ebookEditionId: Int? {
+    var ebookEditionId: Int? {
         ebookEdition?.id ?? book.ebookEditionId
     }
 
-    private var ebookStorageEditionId: Int {
+    var ebookStorageEditionId: Int {
         ebookEditionId ?? (1_000_000_000 + book.bookId)
     }
 
-    private var hasAudiobookEdition: Bool {
+    var hasAudiobookEdition: Bool {
         audiobookEditionId != nil
     }
 
-    private var hasEbookEdition: Bool {
+    var hasEbookEdition: Bool {
         ebookEdition != nil || book.hasEbook
     }
 
-    private var isRead: Bool {
+    var isRead: Bool {
         if let detail {
             return detail.readAt != nil
         }
         return book.isRead
     }
 
-    private var titleText: String {
+    var titleText: String {
         detail?.title ?? book.title
     }
 
-    private var subtitleText: String? {
+    var subtitleText: String? {
         detail?.subtitle
     }
 
-    private var authorText: String {
+    var authorText: String {
         let authors = detail?.authors ?? (book.author.map { [$0] } ?? [])
         return authors.joined(separator: ", ")
     }
 
-    private var coverURL: URL? {
+    var coverURL: URL? {
         model.absoluteURL(detail?.coverUrl) ?? book.coverURL
     }
 
-    private var audiobookSummary: LibrarySummary? {
+    var audiobookSummary: LibrarySummary? {
         guard let editionId = audiobookEditionId else { return nil }
         return LibrarySummary(
             editionId: editionId,
@@ -279,7 +279,7 @@ struct BookView: View {
 
     // MARK: Header
 
-    private var hero: some View {
+    var hero: some View {
         BookHero(
             title: titleText,
             subtitle: subtitleText,
@@ -293,7 +293,7 @@ struct BookView: View {
         }
     }
 
-    private var factsLine: String? {
+    var factsLine: String? {
         guard let detail else { return nil }
         var parts: [String] = []
         if let published = formattedPublishedDate(detail.publishedDate, year: detail.publishedYear) {
@@ -307,7 +307,7 @@ struct BookView: View {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
-    private var lanePicker: some View {
+    var lanePicker: some View {
         Picker("Edition", selection: $activeLane) {
             ForEach(BookDetailLane.allCases) { lane in
                 Text(lane.title).tag(lane)
@@ -317,7 +317,7 @@ struct BookView: View {
     }
 
     @ViewBuilder
-    private var laneContent: some View {
+    var laneContent: some View {
         switch activeLane {
         case .audiobook:
             audiobookSection
@@ -326,87 +326,11 @@ struct BookView: View {
         }
     }
 
-    private var overviewCard: some View {
-        Group {
-            if let overview = detail?.overview, !overview.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Overview")
-                        .font(.sectionTitle)
-                        .foregroundStyle(Theme.textStrong)
-                    Text(renderedOverviewText(overview))
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.text)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
-                .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
-            }
-        }
-    }
-
-    private var metadataCard: some View {
-        Group {
-            if !metadataRows.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Book info")
-                        .font(.sectionTitle)
-                        .foregroundStyle(Theme.textStrong)
-                    ForEach(Array(metadataRows.enumerated()), id: \.offset) { entry in
-                        let row = entry.element
-                        HStack(alignment: .top) {
-                            Text(row.label)
-                                .font(.caption)
-                                .foregroundStyle(Theme.faint)
-                            Spacer(minLength: 12)
-                            Text(row.value)
-                                .font(.subheadline)
-                                .foregroundStyle(Theme.text)
-                                .multilineTextAlignment(.trailing)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
-                .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
-            }
-        }
-    }
-
-    private var metadataRows: [(label: String, value: String)] {
-        guard let detail else { return [] }
-        var rows: [(String, String)] = []
-        if let isbn = detail.isbn13, !isbn.isEmpty {
-            rows.append(("ISBN-13", isbn))
-        }
-        if !detail.narrators.isEmpty {
-            rows.append(("Narrators", detail.narrators.joined(separator: ", ")))
-        }
-        if let publisher = detail.publisher, !publisher.isEmpty {
-            rows.append(("Publisher", publisher))
-        }
-        if let pages = detail.pageCount {
-            rows.append(("Pages", String(pages)))
-        }
-        if let rating = detail.rating {
-            if let count = detail.ratingCount {
-                rows.append(("Rating", "\(String(format: "%.1f", rating)) (\(count))"))
-            } else {
-                rows.append(("Rating", String(format: "%.1f", rating)))
-            }
-        }
-        if !detail.genres.isEmpty {
-            rows.append(("Genres", detail.genres.joined(separator: " · ")))
-        }
-        return rows
-    }
-
     /// Admin-only per-lane management, mirroring the media detail's Management
     /// card: release search (the card's primary action) plus a rescan. Keeps
     /// these off the reader/listener action stack above.
     @ViewBuilder
-    private func bookManagementCard(lane: BookDetailLane) -> some View {
+    func bookManagementCard(lane: BookDetailLane) -> some View {
         if model.isAdmin {
             let rescanning = lane == .audiobook ? rescanningManifest : rescanningEbook
             let rescanDisabled = lane == .audiobook
@@ -459,7 +383,7 @@ struct BookView: View {
         }
     }
 
-    private func chip(_ text: Text, tint: Color) -> some View {
+    func chip(_ text: Text, tint: Color) -> some View {
         text
             .font(.system(.caption2, design: .monospaced))
             .foregroundStyle(tint)
@@ -468,7 +392,7 @@ struct BookView: View {
             .overlay(Capsule().strokeBorder(tint.opacity(0.3), lineWidth: 1))
     }
 
-    private func errorBanner(_ message: String) -> some View {
+    func errorBanner(_ message: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Book details couldn't load")
                 .font(.subheadline.weight(.semibold))
@@ -486,7 +410,7 @@ struct BookView: View {
     // MARK: Audiobook
 
     @ViewBuilder
-    private var audiobookSection: some View {
+    var audiobookSection: some View {
         if hasAudiobookEdition {
             VStack(alignment: .leading, spacing: 14) {
                 metricsCard(
@@ -512,11 +436,11 @@ struct BookView: View {
 
     /// Runtime the resume label is measured against: the manifest is
     /// authoritative, but the detail row answers before it loads.
-    private var audiobookTotalSecs: Double {
+    var audiobookTotalSecs: Double {
         manifest?.totalDurationSecs ?? audiobookEdition?.durationSecs ?? book.audiobookDurationSecs ?? 0
     }
 
-    private var audiobookResume: AudiobookResumeLabel {
+    var audiobookResume: AudiobookResumeLabel {
         guard let editionId = audiobookEditionId else { return .play }
         return AudiobookResume.label(
             positionSecs: model.resumePreview[editionId],
@@ -524,12 +448,12 @@ struct BookView: View {
         )
     }
 
-    private var ebookResume: EbookResumeLabel {
+    var ebookResume: EbookResumeLabel {
         guard let editionId = ebookEditionId else { return .read }
         return EbookResume.label(model.readingResumePreview[editionId])
     }
 
-    private var audiobookMetrics: [String] {
+    var audiobookMetrics: [String] {
         let secs = manifest?.totalDurationSecs ?? audiobookEdition?.durationSecs ?? book.audiobookDurationSecs ?? 0
         var parts = [Formatters.durationClock(secs)]
         if let count = manifest?.chapters.count {
@@ -542,7 +466,7 @@ struct BookView: View {
         return parts
     }
 
-    private var audiobookActionButtons: some View {
+    var audiobookActionButtons: some View {
         VStack(spacing: 10) {
             Button {
                 Task {
@@ -594,7 +518,7 @@ struct BookView: View {
     }
 
     @ViewBuilder
-    private var audiobookDownloadButton: some View {
+    var audiobookDownloadButton: some View {
         let plan = audiobookEditionId.flatMap { model.downloadPlans[$0] }
         if preparingAudiobookDownload, plan == nil {
             HStack {
@@ -677,15 +601,15 @@ struct BookView: View {
         }
     }
 
-    private var sortedChapters: [ManifestChapter] {
+    var sortedChapters: [ManifestChapter] {
         (manifest?.chapters ?? []).sorted(by: { $0.index < $1.index })
     }
 
-    private var filteredChapters: [ManifestChapter] {
+    var filteredChapters: [ManifestChapter] {
         filterChapters(sortedChapters, query: chapterFilter)
     }
 
-    private var chaptersList: some View {
+    var chaptersList: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Chapters")
                 .font(.sectionTitle)
@@ -758,7 +682,7 @@ struct BookView: View {
     // MARK: Ebook
 
     @ViewBuilder
-    private var ebookSection: some View {
+    var ebookSection: some View {
         if hasEbookEdition {
             VStack(alignment: .leading, spacing: 14) {
                 metricsCard(
@@ -782,7 +706,7 @@ struct BookView: View {
         }
     }
 
-    private var ebookMetrics: [String] {
+    var ebookMetrics: [String] {
         var parts: [String] = []
         if let count = ebookEdition?.fileCount {
             parts.append(String(localized: "\(count) files"))
@@ -800,7 +724,7 @@ struct BookView: View {
         return parts
     }
 
-    private var ebookActions: some View {
+    var ebookActions: some View {
         VStack(alignment: .leading, spacing: 10) {
             let preferred = preferredEbookFile
             let preferredIsDownloaded = preferred.map(isEbookDownloaded) ?? false
@@ -871,7 +795,7 @@ struct BookView: View {
         }
     }
 
-    private var ebookFilesCard: some View {
+    var ebookFilesCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Files")
                 .font(.sectionTitle)
@@ -963,11 +887,11 @@ struct BookView: View {
     /// Harry Potter editions ship a .mobi beside each .epub) are downloadable
     /// but not readable here, and offering Read on them just produces a "not a
     /// valid EPUB container" error.
-    private func isReadableEbook(_ file: BookEditionFile) -> Bool {
+    func isReadableEbook(_ file: BookEditionFile) -> Bool {
         ebookExtension(for: file) == "epub" || file.format.lowercased() == "epub"
     }
 
-    private var preferredEbookFile: BookEditionFile? {
+    var preferredEbookFile: BookEditionFile? {
         ebookFiles
             .sorted { left, right in
                 ebookFormatRank(left.format) < ebookFormatRank(right.format)
@@ -975,12 +899,12 @@ struct BookView: View {
             .first(where: isReadableEbook)
     }
 
-    private var canPlayAudiobook: Bool {
+    var canPlayAudiobook: Bool {
         guard let manifest else { return false }
         return !manifest.chapters.isEmpty
     }
 
-    private func metricsCard(title: LocalizedStringKey, status: String, accent: Color, metrics: [String]) -> some View {
+    func metricsCard(title: LocalizedStringKey, status: String, accent: Color, metrics: [String]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(title)
@@ -1001,7 +925,7 @@ struct BookView: View {
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
     }
 
-    private func missingEditionCard(
+    func missingEditionCard(
         title: LocalizedStringKey,
         description: LocalizedStringKey,
         buttonTitle: LocalizedStringKey,
@@ -1034,472 +958,5 @@ struct BookView: View {
         .padding(14)
         .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
-    }
-
-    /// Chapters first, then ebook files. Fetching ebooks first used to leave the
-    /// chapter list in its idle state (now a spinner; previously the default
-    /// "Chapters couldn't load" error) for the whole ebook GET. Starting the
-    /// manifest first also avoids a MainActor deadlock from overlapping the two.
-    /// The stored resume point when it falls inside this chapter, so the row can
-    /// offer it instead of the chapter's own start. `endSecs` is exclusive — a
-    /// position exactly on a boundary belongs to the chapter that begins there.
-    private func resumePosition(in chapter: ManifestChapter) -> Double? {
-        guard case let .resume(positionSecs) = audiobookResume else { return nil }
-        guard positionSecs >= chapter.startSecs, positionSecs < chapter.endSecs else { return nil }
-        return positionSecs
-    }
-
-    private func loadResumePreview() async {
-        guard let editionId = audiobookEditionId else { return }
-        await model.loadResumePreview(editionId: editionId, totalDurationSecs: audiobookTotalSecs)
-    }
-
-    private func loadReadingResumePreview() async {
-        guard let editionId = ebookEditionId else { return }
-        await model.loadReadingResumePreview(editionId: editionId)
-    }
-
-    private func refreshAll(forceManifestRefresh: Bool) async {
-        seedManifestFromCache()
-        await loadBookDetail()
-        seedManifestFromCache()
-        if hasAudiobookEdition {
-            await fetchManifest(forceRefresh: forceManifestRefresh)
-        } else {
-            manifest = nil
-            manifestError = nil
-            fetchAttemptedManifest = true
-        }
-        if hasAudiobookEdition {
-            await loadResumePreview()
-        }
-        if hasEbookEdition {
-            await loadEbookFiles()
-            await loadReadingResumePreview()
-        } else {
-            ebookFiles = []
-            ebookFilesError = nil
-        }
-    }
-
-    private func loadBookDetail() async {
-        guard let client = model.api() else { return }
-        loadingDetail = true
-        detailError = nil
-        defer { loadingDetail = false }
-        do {
-            detail = try await client.bookDetail(bookId: book.bookId)
-            alignLaneToAvailableEditions()
-        } catch let apiError as APIError {
-            // A transport failure means we're offline; the screen still works
-            // from the library row and any downloaded files, so don't raise a
-            // network-error wall for it.
-            if case .transport = apiError {
-                detailError = nil
-            } else {
-                detailError = message(for: apiError)
-            }
-        } catch {
-            detailError = String(localized: "Could not load book details.")
-        }
-    }
-
-    private func alignLaneToAvailableEditions() {
-        if activeLane == .audiobook, !hasAudiobookEdition, hasEbookEdition {
-            activeLane = .ebook
-        } else if activeLane == .ebook, !hasEbookEdition, hasAudiobookEdition {
-            activeLane = .audiobook
-        }
-    }
-
-    private func addEdition(kind: String) async {
-        guard let client = model.api() else { return }
-        addingEditionKind = kind
-        defer { addingEditionKind = nil }
-        do {
-            try await client.addBookEdition(bookId: book.bookId, kind: kind)
-            await model.loadLibrary()
-            await loadBookDetail()
-            if kind == "audiobook" {
-                activeLane = .audiobook
-                await fetchManifest(forceRefresh: true)
-            } else {
-                activeLane = .ebook
-                await loadEbookFiles()
-            }
-        } catch let apiError as APIError {
-            if kind == "audiobook" {
-                manifestError = message(for: apiError)
-            } else {
-                ebookFilesError = message(for: apiError)
-            }
-        } catch {
-            if kind == "audiobook" {
-                manifestError = String(localized: "Could not add audiobook edition.")
-            } else {
-                ebookFilesError = String(localized: "Could not add ebook edition.")
-            }
-        }
-    }
-
-    private func seedManifestFromCache() {
-        guard manifest == nil, let editionId = audiobookEditionId else { return }
-        let cached = model.cachedManifest(editionId)
-            ?? DownloadedStore.readManifest(editionId: editionId)
-        guard let cached, !cached.chapters.isEmpty else { return }
-        manifest = cached
-        fetchAttemptedManifest = true
-        loadingManifest = false
-    }
-
-    private func fetchManifest(forceRefresh: Bool = false) async {
-        guard let editionId = audiobookEditionId else {
-            fetchAttemptedManifest = true
-            return
-        }
-        seedManifestFromCache()
-        fetchAttemptedManifest = true
-
-        // Disk/cache is enough to list chapters. Blocking on the network here
-        // is what left a spinner up after a kill even with manifest.json on disk.
-        if !forceRefresh, let existing = manifest, !existing.chapters.isEmpty {
-            loadingManifest = false
-            return
-        }
-
-        loadingManifest = true
-        manifestError = nil
-        defer { loadingManifest = false }
-        do {
-            manifest = try await model.manifest(editionId, forceRefresh: forceRefresh)
-            attemptedAutomaticRecovery = false
-        } catch let apiError as APIError {
-            if manifest == nil {
-                manifestError = message(for: apiError)
-                if
-                    case .http(400) = apiError,
-                    model.isAdmin,
-                    !attemptedAutomaticRecovery,
-                    !forceRefresh
-                {
-                    attemptedAutomaticRecovery = true
-                    await recoverManifestAfterRescan()
-                }
-            }
-        } catch {
-            if manifest == nil {
-                manifestError = String(localized: "Could not load manifest.")
-            }
-        }
-    }
-
-    private func recoverManifestAfterRescan() async {
-        guard let editionId = audiobookEditionId, let client = model.api() else { return }
-        rescanningManifest = true
-        defer { rescanningManifest = false }
-
-        do {
-            _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "audiobook")
-            manifest = try await model.manifest(editionId, forceRefresh: true)
-            manifestError = nil
-            await model.loadLibrary()
-            await loadBookDetail()
-        } catch let apiError as APIError {
-            manifest = nil
-            manifestError = message(for: apiError)
-        } catch {
-            manifest = nil
-            manifestError = String(localized: "Rescan completed, but chapters are still unavailable.")
-        }
-    }
-
-    private func loadEbookFiles() async {
-        guard hasEbookEdition, let client = model.api() else { return }
-        loadingEbookFiles = true
-        ebookFilesError = nil
-        defer { loadingEbookFiles = false }
-        do {
-            ebookFiles = try await client.bookEditionFiles(bookId: book.bookId, kind: "ebook")
-        } catch {
-            // Offline / server unreachable: fall back to the persisted file list
-            // so a downloaded ebook can still be opened. Only when there is no
-            // cached list do we surface an error.
-            if let cached = model.offlineEbookFiles(editionId: ebookStorageEditionId), !cached.isEmpty {
-                ebookFiles = cached
-                ebookFilesError = nil
-            } else {
-                ebookFiles = []
-                ebookFilesError = (error as? APIError).map(message(for:)) ?? String(localized: "Could not load ebook files.")
-            }
-        }
-    }
-
-    private func rescanEbookEdition() async {
-        guard let client = model.api() else { return }
-        rescanningEbook = true
-        defer { rescanningEbook = false }
-        do {
-            _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "ebook")
-            await model.loadLibrary()
-            await loadBookDetail()
-            await loadEbookFiles()
-        } catch let apiError as APIError {
-            ebookFilesError = message(for: apiError)
-        } catch {
-            ebookFilesError = String(localized: "Could not rescan ebook edition.")
-        }
-    }
-
-    private func openEbook(_ file: BookEditionFile, startFromBeginning: Bool = false) async {
-        openingEbookFileId = file.id
-        ebookFilesError = nil
-        defer { openingEbookFileId = nil }
-        do {
-            let localURL = try await ensureLocalEbookFile(file)
-            previewDocument = EbookPreviewDocument(
-                id: file.id,
-                // The real edition id, not ebookStorageEditionId: reading
-                // progress is stored server-side per edition, and the synthetic
-                // fallback id does not exist there.
-                editionId: ebookEditionId,
-                // Rawkoon's language, not the EPUB's: an EPUB can list several
-                // and the reader takes the first, which laid a French novel out
-                // right-to-left.
-                language: detail?.language,
-                title: file.fileName,
-                localURL: localURL,
-                startFromBeginning: startFromBeginning
-            )
-        } catch EbookStorageError.missingRemoteURL {
-            ebookFilesError = String(localized: "This server version cannot provide ebook download links yet.")
-        } catch {
-            ebookFilesError = String(localized: "Read failed. Try refreshing or rescanning this edition.")
-        }
-    }
-
-    /// Starts a cancelable ebook download, tracking the task so a Cancel tap can
-    /// stop it. Runs on the main actor because it mutates view state.
-    private func startEbookDownload(_ file: BookEditionFile) {
-        guard ebookDownloadTasks[file.id] == nil else { return }
-        let task = Task { await downloadEbook(file) }
-        ebookDownloadTasks[file.id] = task
-    }
-
-    /// Cancels an in-flight ebook download. `downloadEbook`'s cleanup clears the
-    /// tracking state and swallows the resulting cancellation quietly.
-    private func cancelEbookDownload(_ file: BookEditionFile) {
-        ebookDownloadTasks[file.id]?.cancel()
-    }
-
-    private func downloadEbook(_ file: BookEditionFile) async {
-        guard !downloadingEbookFileIDs.contains(file.id) else { return }
-        downloadingEbookFileIDs.insert(file.id)
-        ebookFilesError = nil
-        defer {
-            downloadingEbookFileIDs.remove(file.id)
-            ebookDownloadTasks.removeValue(forKey: file.id)
-        }
-        do {
-            _ = try await ensureLocalEbookFile(file)
-            // Persist enough to list and open this ebook offline.
-            model.recordEbookDownloaded(
-                editionId: ebookStorageEditionId,
-                bookId: book.bookId,
-                title: titleText,
-                author: authorText.isEmpty ? nil : authorText,
-                coverURL: coverURL,
-                files: ebookFiles,
-                downloadedFileCount: ebookFiles.filter(isEbookDownloaded).count
-            )
-        } catch EbookStorageError.missingRemoteURL {
-            ebookFilesError = String(localized: "This server version cannot provide ebook download links yet.")
-        } catch {
-            // A user-initiated cancel surfaces as a transport error too; stay
-            // silent rather than crying failure over an intentional stop.
-            guard !Task.isCancelled else { return }
-            ebookFilesError = String(localized: "Download failed. Check your connection and try again.")
-        }
-    }
-
-    /// Deletes an offline ebook file from the device.
-    private func removeEbookDownload(_ file: BookEditionFile) {
-        FileStore.delete(url: localEbookURL(for: file))
-        ebookFileToRemove = nil
-    }
-
-    private func ensureLocalEbookFile(_ file: BookEditionFile) async throws -> URL {
-        let localURL = localEbookURL(for: file)
-        if FileManager.default.fileExists(atPath: localURL.path) {
-            return localURL
-        }
-
-        guard remoteEbookURL(for: file) != nil else {
-            throw EbookStorageError.missingRemoteURL
-        }
-        guard let client = model.api() else {
-            throw APIError.unauthorized
-        }
-
-        let temporaryURL = try await client.downloadFile(path: file.contentUrl ?? "")
-
-        let parent = localURL.deletingLastPathComponent()
-        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
-
-        if FileManager.default.fileExists(atPath: localURL.path) {
-            try FileManager.default.removeItem(at: localURL)
-        }
-
-        try FileManager.default.moveItem(at: temporaryURL, to: localURL)
-        return localURL
-    }
-
-    private func remoteEbookURL(for file: BookEditionFile) -> URL? {
-        guard let contentURL = file.contentUrl else { return nil }
-        return model.absoluteURL(contentURL)
-    }
-
-    private func localEbookURL(for file: BookEditionFile) -> URL {
-        FileStore.chapterURL(
-            editionId: ebookStorageEditionId,
-            fileId: file.id,
-            ext: ebookExtension(for: file)
-        )
-    }
-
-    private func isEbookDownloaded(_ file: BookEditionFile) -> Bool {
-        FileStore.exists(
-            editionId: ebookStorageEditionId,
-            fileId: file.id,
-            ext: ebookExtension(for: file)
-        )
-    }
-
-    private func ebookExtension(for file: BookEditionFile) -> String {
-        // Lowercased on purpose: the library holds both ".epub" and ".EPUB",
-        // and the cached copy must land on one name either way.
-        let ext = URL(fileURLWithPath: file.fileName).pathExtension.lowercased()
-        if !ext.isEmpty {
-            return ext
-        }
-        let normalized = file.format.trimmingCharacters(in: CharacterSet(charactersIn: ".")).lowercased()
-        return normalized.isEmpty ? "epub" : normalized
-    }
-
-    private func ebookFormatRank(_ format: String) -> Int {
-        switch format.lowercased() {
-        case "epub": 0
-        case "azw3": 1
-        case "mobi": 2
-        case "pdf": 3
-        case "cbz": 4
-        default: 99
-        }
-    }
-
-    private func fileMeta(_ file: BookEditionFile) -> String {
-        var parts: [String] = [file.format.uppercased()]
-        if let size = Formatters.bytesStrict(file.sizeBytes) {
-            parts.append(size)
-        }
-        if let bitrate = file.audioBitrate {
-            parts.append("\(bitrate) kbps")
-        }
-        if !file.languageTags.isEmpty {
-            parts.append(file.languageTags.joined(separator: ", ").uppercased())
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    private func renderedOverviewText(_ rawOverview: String) -> String {
-        let trimmed = rawOverview.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.contains("<"), let data = trimmed.data(using: .utf8) else {
-            return trimmed
-        }
-        if let parsed = try? NSAttributedString(
-            data: data,
-            options: [
-                .documentType: NSAttributedString.DocumentType.html,
-                .characterEncoding: String.Encoding.utf8.rawValue,
-            ],
-            documentAttributes: nil
-        ) {
-            return parsed.string
-                .replacingOccurrences(of: "\u{00A0}", with: " ")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        return trimmed
-    }
-
-    private func isChapterDownloaded(_ chapter: ManifestChapter) -> Bool {
-        guard let editionId = audiobookEditionId else { return false }
-        if model.downloadPlans[editionId]?.states[chapter.fileId] == .verified {
-            return true
-        }
-        return FileStore.exists(editionId: editionId, fileId: chapter.fileId, ext: chapterExtension(chapter))
-    }
-
-    private func chapterExtension(_ chapter: ManifestChapter) -> String {
-        let ext = URL(string: chapter.url)?.pathExtension ?? ""
-        return ext.isEmpty ? "bin" : ext
-    }
-
-    private func isCurrentChapter(_ chapter: ManifestChapter) -> Bool {
-        guard let editionId = audiobookEditionId else { return false }
-        return model.activeEditionId == editionId && model.player.currentChapterIndex == chapter.index
-    }
-
-    private func formattedPublishedDate(_ iso: String?, year: Int?) -> String? {
-        if let iso,
-           let date = Self.isoDateFormatter.date(from: iso) ?? Self.isoDateNoFractionFormatter.date(from: iso)
-        {
-            return Self.publishedFormatter.string(from: date)
-        }
-        if let year {
-            return String(year)
-        }
-        return nil
-    }
-
-    private func message(for error: APIError) -> String {
-        switch error {
-        case .unauthorized:
-            String(localized: "Sign in required.")
-        case .forbidden:
-            String(localized: "You don't have permission to do that.")
-        case .http(400):
-            String(localized: "This audiobook is not chapter-ready yet. Run a rescan or grab a chapterized release.")
-        case let .http(status):
-            String(localized: "Server error (\(status)).")
-        case let .server(_, message):
-            message
-        case .decode:
-            String(localized: "Could not parse server response.")
-        case .transport:
-            String(localized: "Network error. Check your connection.")
-        }
-    }
-
-    private static let isoDateFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-
-    private static let isoDateNoFractionFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter
-    }()
-
-    private static let publishedFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .long
-        formatter.timeStyle = .none
-        formatter.locale = .autoupdatingCurrent
-        return formatter
-    }()
-
-    private enum EbookStorageError: Error {
-        case missingRemoteURL
     }
 }

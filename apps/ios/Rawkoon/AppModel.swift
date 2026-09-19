@@ -5,27 +5,6 @@ import RawkoonKit
 import UIKit
 import UserNotifications
 
-/// Runs `operation`, giving up and returning nil after `seconds`.
-///
-/// The losing child is cancelled, but a URLSession call already in flight keeps
-/// running to its own timeout in the background; the point is only that the
-/// caller stops waiting on it.
-private func withDeadline<T: Sendable>(
-    seconds: Double,
-    _ operation: @escaping @Sendable () async -> T?
-) async -> T? {
-    await withTaskGroup(of: T?.self) { group in
-        group.addTask { await operation() }
-        group.addTask {
-            try? await Task.sleep(for: .seconds(seconds))
-            return nil
-        }
-        let first = await group.next() ?? nil
-        group.cancelAll()
-        return first
-    }
-}
-
 @MainActor
 @Observable
 final class AppModel {
@@ -67,36 +46,12 @@ final class AppModel {
 
     // MARK: Live updates (spec §T2/T4)
 
-    /// Bumped whenever a `.media` event arrives on the foreground-only
-    /// `/api/library/events` SSE stream. There is no TanStack Query
-    /// equivalent on iOS, so "invalidate" means "a view watching this token
-    /// via `.onChange` reloads itself" — see `LibraryView`, `MediaDetailView`,
-    /// `ActivityView`.
-    private(set) var libraryChangeToken = 0
-    /// Same idea as `libraryChangeToken`, for `.book` events — see
-    /// `LibraryView`, `BookView`, `ActivityView`.
-    private(set) var bookChangeToken = 0
-    /// Bumped for each notification arriving on the stream, so an open
-    /// `NotificationsListView` refetches (via `.task(id:)`) rather than only
-    /// the bell badge updating while the list stays stale.
-    private(set) var notificationChangeToken = 0
+    /// Owns the SSE consumers and the observable state they feed (change tokens,
+    /// live download progress, stream statuses, debug log, unread count, banner).
+    /// AppModel keeps its previous surface via the passthroughs below, so no view
+    /// call site changed. Wired to `self` in `init`.
+    let liveUpdates = LiveUpdatesCoordinator()
 
-    /// Latest server-pushed live download progress, `mediaId → (downloadId →
-    /// live)`. Fed by `.downloadProgress` SSE events; `MediaDetailView` overlays
-    /// the inner map onto its download rows so the progress bar tracks the
-    /// pushed value between fetches. iOS has no client-side poll — this stream
-    /// is the live source, mirroring the web app's cache patch.
-    private(set) var downloadProgress: [Int: [Int: LiveDownload]] = [:]
-
-    /// Kept live by the notification stream and by `NotificationsListView`'s
-    /// own REST calls; drives the Home bell badge.
-    var unreadNotificationCount = 0
-    /// The most recent live notification, shown as a transient top banner and
-    /// cleared after a few seconds — the iOS analog of the web app's
-    /// `NotificationToastContainer`. `id` lets `NotificationBannerView` key its
-    /// dismiss timer per-notification instead of restarting on unrelated
-    /// re-renders.
-    var bannerNotification: StreamNotificationDTO?
     /// Set from a banner tap or a notification-list row tap (via
     /// `navigate(toNotificationUrl:)`); `RawkoonApp` presents it as a sheet
     /// from the app root, so it works regardless of which tab is active.
@@ -104,30 +59,48 @@ final class AppModel {
     /// see spec T6.
     var deepLinkTarget: NotificationDestination?
 
-    private var libraryEventsTask: Task<Void, Never>?
-    private var notificationStreamTask: Task<Void, Never>?
-    private var bannerDismissTask: Task<Void, Never>?
-
-    private(set) var libraryStreamStatus: SSEStreamStatus = .idle
-    private(set) var notificationStreamStatus: SSEStreamStatus = .idle
-    /// Newest first, capped so a long-open debug screen can't grow unbounded.
-    private(set) var sseDebugLog: [SSEDebugLogEntry] = []
-    private let sseDebugLogLimit = 200
-
-    private func logSSE(_ stream: String, _ summary: String) {
-        sseDebugLog = appendSSELog(
-            sseDebugLog,
-            entry: SSEDebugLogEntry(timestamp: Date(), stream: stream, summary: summary),
-            limit: sseDebugLogLimit
-        )
+    /// Passthroughs to `liveUpdates`, preserving AppModel's prior public surface.
+    /// All are read-only here; the coordinator owns every write.
+    var libraryChangeToken: Int {
+        liveUpdates.libraryChangeToken
     }
 
-    /// Forces both SSE connections closed and immediately reopens them, so the
-    /// SSE debug screen can reproduce the reconnect path on demand instead of
-    /// waiting for a real network drop.
+    var bookChangeToken: Int {
+        liveUpdates.bookChangeToken
+    }
+
+    var notificationChangeToken: Int {
+        liveUpdates.notificationChangeToken
+    }
+
+    var downloadProgress: [Int: [Int: LiveDownload]] {
+        liveUpdates.downloadProgress
+    }
+
+    var unreadNotificationCount: Int {
+        liveUpdates.unreadNotificationCount
+    }
+
+    var bannerNotification: StreamNotificationDTO? {
+        liveUpdates.bannerNotification
+    }
+
+    var libraryStreamStatus: SSEStreamStatus {
+        liveUpdates.libraryStreamStatus
+    }
+
+    var notificationStreamStatus: SSEStreamStatus {
+        liveUpdates.notificationStreamStatus
+    }
+
+    var sseDebugLog: [SSEDebugLogEntry] {
+        liveUpdates.sseDebugLog
+    }
+
+    /// Forces both SSE connections closed and immediately reopens them — see
+    /// `LiveUpdatesCoordinator.forceReconnect`.
     func forceReconnectSSE() {
-        stopLiveStreams()
-        startLiveStreams()
+        liveUpdates.forceReconnect()
     }
 
     /// Current toast banner, rendered once at the app root by `ToastOverlay`.
@@ -138,18 +111,18 @@ final class AppModel {
 
     let player = AudiobookPlayer()
 
-    private static let serverURLKey = "server_url"
-    private static let authTokenKey = "auth_token"
+    static let serverURLKey = "server_url"
+    static let authTokenKey = "auth_token"
     private static let deviceIDKey = "device_id"
 
-    private static let persistFailedWarning = String(localized: "Signed in, but this device couldn't save your login. You may need to sign in again after quitting the app.")
+    static let persistFailedWarning = String(localized: "Signed in, but this device couldn't save your login. You may need to sign in again after quitting the app.")
 
-    private var apiClient: APIClient?
-    private var manifests: [Int: BookManifest] = [:]
-    private var downloaders: [Int: ChapterDownloader] = [:]
+    var apiClient: APIClient?
+    var manifests: [Int: BookManifest] = [:]
+    var downloaders: [Int: ChapterDownloader] = [:]
     private var pendingBackgroundCompletions: [String: () -> Void] = [:]
-    private var verifiedCounts: [Int: Int] = [:]
-    private var lastProgressWriteMillis: [Int: Int64] = [:]
+    var verifiedCounts: [Int: Int] = [:]
+    var lastProgressWriteMillis: [Int: Int64] = [:]
     /// Whether the device currently has a usable network path.
     ///
     /// Starts `true` so a launch never assumes offline before the monitor has
@@ -159,18 +132,19 @@ final class AppModel {
     private(set) var isOnline = true
     private let pathMonitor = NWPathMonitor()
 
-    private let readingProgressStore = ReadingProgressStore(
+    let readingProgressStore = ReadingProgressStore(
         directory: FileStore.booksDirectory()
     )
-    private var lastProgressPosition: [Int: Double] = [:]
+    var lastProgressPosition: [Int: Double] = [:]
 
-    private let journalURL: URL
-    private let deviceID: String
+    let journalURL: URL
+    let deviceID: String
 
     init() {
         serverURL = Keychain.get(Self.serverURLKey) ?? ""
         journalURL = Self.positionLogURL()
         deviceID = Self.resolveDeviceID()
+        liveUpdates.appModel = self
 
         if
             let token = Keychain.get(Self.authTokenKey),
@@ -247,39 +221,6 @@ final class AppModel {
             }
         }
         pathMonitor.start(queue: DispatchQueue(label: "cloud.samlo.rawkoon.path"))
-    }
-
-    func login(server: String, email: String, password: String) async {
-        let normalizedServer = server.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let baseURL = URL(string: normalizedServer) else {
-            errorMessage = String(localized: "Enter a valid server URL.")
-            return
-        }
-
-        loading = true
-        errorMessage = nil
-        defer { loading = false }
-
-        do {
-            let client = APIClient(baseURL: baseURL, token: nil)
-            let token = try await client.login(email: email, password: password)
-
-            let serverSaved = Keychain.set(normalizedServer, for: Self.serverURLKey)
-            let tokenSaved = Keychain.set(token, for: Self.authTokenKey)
-            if !serverSaved || !tokenSaved {
-                authWarning = Self.persistFailedWarning
-            }
-
-            serverURL = normalizedServer
-            apiClient = makeAPIClient(baseURL: baseURL, token: token)
-            isLoggedIn = true
-            try await reloadLibrary()
-            requestPushAuthorization()
-            startLiveStreams()
-            await refreshUnreadNotificationCount()
-        } catch {
-            errorMessage = message(for: error)
-        }
     }
 
     #if DEBUG
@@ -359,55 +300,6 @@ final class AppModel {
         }
     }
 
-    /// Load the enabled OAuth providers for the login screen (public endpoint).
-    func loadSsoProviders() async {
-        let raw = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !raw.isEmpty, let base = URL(string: raw) else { ssoProviders = []; return }
-        let client = apiClient ?? APIClient(baseURL: base, token: nil)
-        ssoProviders = await (try? client.ssoProviders().providers) ?? []
-    }
-
-    /// Sign in through a provider using the native browser OAuth flow.
-    func signInWithProvider(_ slug: String) async {
-        let raw = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard
-            let base = URL(string: raw),
-            let startURL = URL(string: "/api/mobile/oauth-start?provider=\(slug)", relativeTo: base)?.absoluteURL
-        else {
-            errorMessage = String(localized: "Enter a valid server URL.")
-            return
-        }
-        errorMessage = nil
-        guard let callback = await WebAuthCoordinator.shared.start(url: startURL, scheme: "rawkoon") else {
-            return // cancelled
-        }
-        let comps = URLComponents(url: callback, resolvingAgainstBaseURL: false)
-        if let token = comps?.queryItems?.first(where: { $0.name == "token" })?.value, !token.isEmpty {
-            await applyOAuthToken(server: raw, token: token)
-        } else {
-            errorMessage = String(localized: "Sign-in failed. Please try again.")
-        }
-    }
-
-    private func applyOAuthToken(server: String, token: String) async {
-        guard let base = URL(string: server) else {
-            errorMessage = String(localized: "Enter a valid server URL.")
-            return
-        }
-        let serverSaved = Keychain.set(server, for: Self.serverURLKey)
-        let tokenSaved = Keychain.set(token, for: Self.authTokenKey)
-        if !serverSaved || !tokenSaved {
-            authWarning = Self.persistFailedWarning
-        }
-        serverURL = server
-        apiClient = makeAPIClient(baseURL: base, token: token)
-        isLoggedIn = true
-        do { try await reloadLibrary() } catch { errorMessage = message(for: error) }
-        requestPushAuthorization()
-        startLiveStreams()
-        await refreshUnreadNotificationCount()
-    }
-
     func loadLibrary() async {
         loading = true
         errorMessage = nil
@@ -428,204 +320,39 @@ final class AppModel {
 
     // MARK: Live updates (spec §T2/T4)
 
-    /// Starts the library-events and notification SSE consumers if they
-    /// aren't already running. Call when the app becomes active while signed
-    /// in (see `RawkoonApp`'s `scenePhase` handling); a no-op when logged out
-    /// or already running.
+    /// Starts the library-events and notification SSE consumers — see
+    /// `LiveUpdatesCoordinator.start`. Call when the app becomes active while
+    /// signed in (see `RawkoonApp`'s `scenePhase` handling).
     func startLiveStreams() {
-        guard isLoggedIn else { return }
-        if libraryEventsTask == nil {
-            libraryEventsTask = Task { [weak self] in
-                await self?.runLibraryEventsLoop()
-                // The loop also returns on its own (a 401, or the client going
-                // away) — not just on cancellation. Clear the handle on those
-                // natural exits so the next `.active` can start a fresh stream;
-                // skip it when cancelled, since `stopLiveStreams` already nil'd
-                // the handle and a restart may have replaced this task.
-                guard let self, !Task.isCancelled else { return }
-                libraryEventsTask = nil
-            }
-        }
-        if notificationStreamTask == nil {
-            notificationStreamTask = Task { [weak self] in
-                await self?.runNotificationStreamLoop()
-                guard let self, !Task.isCancelled else { return }
-                notificationStreamTask = nil
-            }
-        }
+        liveUpdates.start()
     }
 
-    /// Stops both live streams. Call on background/logout — APNs already
-    /// covers background delivery, so a foreground-only stream has nothing
-    /// left to do off-screen.
+    /// Stops both live streams. Call on background/logout.
     func stopLiveStreams() {
-        libraryEventsTask?.cancel()
-        libraryEventsTask = nil
-        notificationStreamTask?.cancel()
-        notificationStreamTask = nil
-        libraryStreamStatus = .idle
-        notificationStreamStatus = .idle
-        downloadProgress = [:]
+        liveUpdates.stop()
     }
 
-    /// Consumes `/api/library/events` until cancelled or unauthorized,
-    /// reconnecting with exponential backoff (capped at 30s) on any other
-    /// drop — the connection is expected to close periodically (idle
-    /// timeouts, backgrounding at the edge, server restarts).
-    private func runLibraryEventsLoop() async {
-        var backoff = 1.0
-        while !Task.isCancelled {
-            guard let client = apiClient else { return }
-            libraryStreamStatus = .connecting
-            do {
-                for try await event in await client.libraryEventsStream() {
-                    if case .handshake = event {
-                        backoff = 1.0
-                    }
-                    handleLibraryEvent(event)
-                }
-            } catch APIError.unauthorized {
-                Log.sync.notice("library events stream unauthorized — signing out")
-                handleSessionExpired()
-                return
-            } catch APIError.forbidden {
-                Log.sync.notice("library events stream forbidden — not reconnecting")
-                return
-            } catch {
-                Log.sync.debug("library events stream dropped: \(error.localizedDescription, privacy: .public)")
-                logSSE("library", "dropped: \(error.localizedDescription)")
-            }
-            libraryStreamStatus = .reconnecting
-            if Task.isCancelled {
-                return
-            }
-            try? await Task.sleep(for: .seconds(backoff))
-            backoff = min(backoff * 2, 30)
-        }
-    }
-
-    /// Apply one decoded library-events SSE event to local state. Split out of
-    /// the reconnect loop so that loop stays a thin transport concern.
-    private func handleLibraryEvent(_ event: LibraryEvent) {
-        switch event {
-        case .handshake:
-            libraryStreamStatus = .connected
-            logSSE("library", "handshake")
-            SSEEventRegistry.apply(.libraryHandshake, to: serverStateStore)
-        case let .media(id):
-            logSSE("library", "media id=\(id)")
-            SSEEventRegistry.apply(.media(id: id), to: serverStateStore)
-            libraryChangeToken += 1
-        case let .book(id):
-            logSSE("library", "book id=\(id)")
-            SSEEventRegistry.apply(.book(id: id), to: serverStateStore)
-            bookChangeToken += 1
-        case let .downloadProgress(mediaId, items):
-            logSSE("library", "download-progress media=\(mediaId) rows=\(items.count)")
-            applyDownloadProgress(mediaId: mediaId, items: items)
-        }
-    }
-
-    /// Store the latest pushed progress for one media. Replaces that media's
-    /// map wholesale — each event carries every active row for the media, so a
-    /// row that dropped out (completed/failed) simply stops appearing.
-    private func applyDownloadProgress(mediaId: Int, items: [DownloadProgressEntry]) {
-        downloadProgress[mediaId] = downloadProgressMap(items)
-    }
-
-    /// Consumes `/api/notifications/stream` the same way — see
-    /// `runLibraryEventsLoop`. Each event bumps the unread count and shows the
-    /// transient in-app banner; it does not itself update the notification
-    /// list (open `NotificationsListView` refetches on appear/pull-to-refresh).
-    private func runNotificationStreamLoop() async {
-        var backoff = 1.0
-        while !Task.isCancelled {
-            guard let client = apiClient else { return }
-            notificationStreamStatus = .connecting
-            do {
-                for try await notification in await client.notificationStream() {
-                    backoff = 1.0
-                    notificationStreamStatus = .connected
-                    logSSE("notifications", "id=\(notification.id) title=\(notification.title)")
-                    SSEEventRegistry.apply(.notification, to: serverStateStore)
-                    LibraryNotification.apply(notification, to: serverStateStore)
-                    unreadNotificationCount += 1
-                    syncAppIconBadge()
-                    notificationChangeToken += 1
-                    if !LibraryNotification.isSilent(notification) {
-                        showBanner(notification)
-                    }
-                }
-            } catch APIError.unauthorized {
-                Log.sync.notice("notification stream unauthorized — signing out")
-                handleSessionExpired()
-                return
-            } catch APIError.forbidden {
-                Log.sync.notice("notification stream forbidden — not reconnecting")
-                return
-            } catch {
-                Log.sync.debug("notification stream dropped: \(error.localizedDescription, privacy: .public)")
-                logSSE("notifications", "dropped: \(error.localizedDescription)")
-            }
-            notificationStreamStatus = .reconnecting
-            if Task.isCancelled {
-                return
-            }
-            try? await Task.sleep(for: .seconds(backoff))
-            backoff = min(backoff * 2, 30)
-        }
-    }
-
-    /// Shows the transient in-app banner for a live notification, replacing
-    /// whichever one is already shown, and auto-dismisses it a few seconds
-    /// later — the iOS analog of the web app's `NotificationToastContainer`.
-    private func showBanner(_ notification: StreamNotificationDTO) {
-        bannerDismissTask?.cancel()
-        bannerNotification = notification
-        bannerDismissTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(5))
-            guard !Task.isCancelled else { return }
-            self?.dismissBanner()
-        }
-    }
-
-    /// Dismisses the in-app banner early (e.g. on tap).
+    /// Dismisses the in-app notification banner early (e.g. on tap).
     func dismissBanner() {
-        bannerDismissTask?.cancel()
-        bannerDismissTask = nil
-        bannerNotification = nil
+        liveUpdates.dismissBanner()
     }
 
     /// Resolves a notification's `url` to a native destination and pushes it.
-    /// Does nothing when the URL doesn't map to a screen (spec T6) — staying
-    /// on the current screen is the safe fallback, not a web view or a crash.
     func navigate(toNotificationUrl url: String?) {
-        guard let destination = NotificationDestination.resolve(url: url) else { return }
-        deepLinkTarget = destination
+        liveUpdates.navigate(toNotificationUrl: url)
     }
 
     /// Best-effort unread-count refresh — called after sign-in and whenever
     /// `NotificationsListView` changes read state server-side.
     func refreshUnreadNotificationCount() async {
-        guard let client = apiClient else { return }
-        if let response = try? await client.unreadNotificationCount() {
-            unreadNotificationCount = response.unreadCount
-            syncAppIconBadge()
-        }
-    }
-
-    /// Reconciles the app-icon badge with `unreadNotificationCount`. Pure
-    /// mapping lives in `NotificationBadge` (Kit); this just applies it.
-    private func syncAppIconBadge() {
-        let n = NotificationBadge.value(forUnread: unreadNotificationCount)
-        Task { try? await UNUserNotificationCenter.current().setBadgeCount(n) }
+        await liveUpdates.refreshUnreadCount()
     }
 
     // MARK: Push notifications (APNs)
 
     private var pendingApnsToken: String?
     /// Retained after registration so sign-out can unregister it.
-    private var registeredApnsToken: String?
+    var registeredApnsToken: String?
     /// Editions whose grants are being refetched, and how often — a server whose
     /// secret rotated would otherwise refetch forever.
     private var grantRefreshAttempts: [Int: Int] = [:]
@@ -890,55 +617,6 @@ final class AppModel {
         Task { await startDownload(editionId: editionId) }
     }
 
-    /// Authenticated 401 — the Keychain token is stale. Drop the session so
-    /// the next frame shows LoginView rather than retrying forever.
-    func handleSessionExpired() {
-        guard isLoggedIn else { return }
-        Log.auth.notice("session expired (401) — signing out")
-        logout()
-    }
-
-    private func makeAPIClient(baseURL: URL, token: String?) -> APIClient {
-        serverStateStore.clear()
-        return APIClient(baseURL: baseURL, token: token, onUnauthorized: {
-            Task { @MainActor in
-                AppModel.shared.handleSessionExpired()
-            }
-        })
-    }
-
-    func logout() {
-        // Before apiClient is torn down: an APNs token identifies the phone, not
-        // the account, so leaving it registered would deliver this user's
-        // notifications to whoever signs in next.
-        if let token = registeredApnsToken, let client = apiClient {
-            Task { try? await client.unregisterApns(deviceToken: token) }
-        }
-        registeredApnsToken = nil
-
-        stopLiveStreams()
-        serverStateStore.clear()
-        dismissBanner()
-        deepLinkTarget = nil
-        unreadNotificationCount = 0
-        syncAppIconBadge()
-
-        Keychain.delete(Self.serverURLKey)
-        Keychain.delete(Self.authTokenKey)
-
-        apiClient = nil
-        isLoggedIn = false
-        isAdmin = false
-        library = []
-        manifests = [:]
-        downloaders = [:]
-        downloadPlans = [:]
-        verifiedCounts = [:]
-        activeEditionId = nil
-        player.pause()
-        errorMessage = nil
-    }
-
     func deleteDownloads() {
         let editionIDs = Set(library.compactMap(\.audiobookEditionId))
             .union(manifests.keys)
@@ -1043,36 +721,19 @@ final class AppModel {
         }
     }
 
-    /// Snapshots a freshly-completed audiobook into the offline store: its
-    /// manifest, a cached cover (best-effort), and an index record.
+    /// Snapshots a freshly-completed audiobook into the offline store — see
+    /// `OfflineLibraryStore.persistAudiobook`. Reads the manifest and book this
+    /// model already holds and hands them off.
     private func persistDownloadedAudiobook(editionId: Int) {
         guard let manifest = manifests[editionId] else { return }
         let book = library.first { $0.audiobookEditionId == editionId }
-
-        DownloadedStore.writeManifest(manifest, editionId: editionId)
-
-        let entry = DownloadedEdition(
-            editionId: editionId,
-            bookId: manifest.bookId,
-            kind: .audiobook,
-            title: book?.title ?? manifest.title,
-            author: book?.author ?? manifest.authors.first,
-            totalDurationSecs: manifest.totalDurationSecs,
-            fileCount: manifest.files.count,
-            coverFileName: nil,
-            addedAtMillis: Int64(Date().timeIntervalSince1970 * 1000)
-        )
-        DownloadedStore.upsert(entry)
-
-        if let coverURL = book?.coverURL {
-            Task { await cacheCover(from: coverURL, editionId: editionId) }
-        }
+        OfflineLibraryStore.persistAudiobook(editionId: editionId, manifest: manifest, book: book)
     }
 
-    /// Records a downloaded ebook into the offline store: its file list (so the
-    /// Book screen can offer Read offline), an index record, and a cached cover.
-    /// Called by the Book screen after a file finishes downloading; `editionId`
-    /// is the storage id the on-disk file uses.
+    /// Records a downloaded ebook into the offline store — see
+    /// `OfflineLibraryStore.recordEbookDownloaded`. Called by the Book screen
+    /// after a file finishes downloading; `editionId` is the storage id the
+    /// on-disk file uses.
     func recordEbookDownloaded(
         editionId: Int,
         bookId: Int,
@@ -1082,256 +743,20 @@ final class AppModel {
         files: [BookEditionFile],
         downloadedFileCount: Int
     ) {
-        DownloadedStore.writeEbookFiles(files, editionId: editionId)
-        let entry = DownloadedEdition(
-            editionId: editionId,
-            bookId: bookId,
-            kind: .ebook,
-            title: title,
-            author: author,
-            totalDurationSecs: nil,
-            fileCount: max(downloadedFileCount, 1),
-            coverFileName: nil,
-            addedAtMillis: Int64(Date().timeIntervalSince1970 * 1000)
+        OfflineLibraryStore.recordEbookDownloaded(
+            editionId: editionId, bookId: bookId, title: title, author: author,
+            coverURL: coverURL, files: files, downloadedFileCount: downloadedFileCount
         )
-        DownloadedStore.upsert(entry)
-        if let coverURL {
-            Task { await cacheCover(from: coverURL, editionId: editionId) }
-        }
     }
 
-    /// The persisted ebook file list for a downloaded edition, or nil. The Book
-    /// screen falls back to this when the server is unreachable.
+    /// The persisted ebook file list for a downloaded edition, or nil — see
+    /// `OfflineLibraryStore.ebookFiles`. The Book screen falls back to this when
+    /// the server is unreachable.
     func offlineEbookFiles(editionId: Int) -> [BookEditionFile]? {
-        DownloadedStore.readEbookFiles(editionId: editionId)
+        OfflineLibraryStore.ebookFiles(editionId: editionId)
     }
 
-    /// Best-effort cover download for the offline list. Failure is silent — the
-    /// row renders without art.
-    private func cacheCover(from url: URL, editionId: Int) async {
-        guard let (data, _) = try? await URLSession.shared.data(from: url) else { return }
-        let ext = url.pathExtension.isEmpty ? "jpg" : url.pathExtension
-        guard let fileName = DownloadedStore.writeCover(data, editionId: editionId, ext: ext) else { return }
-        // Re-read/patch the index so the record points at the saved cover.
-        let patched = DownloadedStore.readIndex().map { entry -> DownloadedEdition in
-            guard entry.editionId == editionId else { return entry }
-            return DownloadedEdition(
-                editionId: entry.editionId, bookId: entry.bookId, kind: entry.kind,
-                title: entry.title, author: entry.author,
-                totalDurationSecs: entry.totalDurationSecs, fileCount: entry.fileCount,
-                coverFileName: fileName, addedAtMillis: entry.addedAtMillis
-            )
-        }
-        for entry in patched where entry.editionId == editionId {
-            DownloadedStore.upsert(entry)
-        }
-    }
-
-    /// The write a reconciled resume point implies, held rather than performed so
-    /// the decision can also be read without side effects.
-    private enum ResumeEffect {
-        case none
-        case adoptRemote(PositionEntry)
-        case pushLocal(positionSecs: Double, updatedAtMillis: Int64)
-    }
-
-    /// Takes the total rather than the manifest: the button label needs a resume
-    /// point before the manifest has necessarily loaded.
-    private func reconcileResumePosition(
-        editionId: Int,
-        totalDurationSecs: Double
-    ) async -> (positionSecs: Double, effect: ResumeEffect) {
-        let localEntry = PositionJournal.latest(in: readJournal(), editionId: editionId)
-        let localRecord = localEntry.map {
-            ProgressRecord(
-                positionSecs: $0.positionSecs,
-                totalDurationSecs: totalDurationSecs,
-                finished: $0.positionSecs >= totalDurationSecs,
-                updatedAtMillis: $0.atMillis
-            )
-        }
-
-        var remoteRecord: ProgressRecord?
-        if let apiClient,
-           let remote = await (try? apiClient.getProgress())?.first(where: { $0.editionId == editionId })
-        {
-            remoteRecord = ProgressRecord(
-                positionSecs: remote.positionSecs,
-                totalDurationSecs: remote.totalDurationSecs,
-                finished: remote.finished,
-                updatedAtMillis: Int64(remote.updatedAt.timeIntervalSince1970 * 1000)
-            )
-        }
-
-        switch SyncReconciler.reconcile(local: localRecord, remote: remoteRecord) {
-        case .keepLocal:
-            return (localRecord?.positionSecs ?? 0, .none)
-        case .takeRemote:
-            guard let remoteRecord else { return (localRecord?.positionSecs ?? 0, .none) }
-            let adjusted = SyncReconciler.adjust(remoteRecord, toTotal: totalDurationSecs)
-            let entry = PositionEntry(
-                editionId: editionId,
-                positionSecs: adjusted.positionSecs,
-                atMillis: adjusted.updatedAtMillis
-            )
-            return (adjusted.positionSecs, .adoptRemote(entry))
-        case .push:
-            guard let localRecord else { return (0, .none) }
-            return (
-                localRecord.positionSecs,
-                .pushLocal(
-                    positionSecs: localRecord.positionSecs,
-                    updatedAtMillis: localRecord.updatedAtMillis
-                )
-            )
-        }
-    }
-
-    private func resolveResumePosition(editionId: Int, manifest: BookManifest) async -> Double {
-        let (positionSecs, effect) = await reconcileResumePosition(
-            editionId: editionId,
-            totalDurationSecs: manifest.totalDurationSecs
-        )
-        switch effect {
-        case .none:
-            break
-        case let .adoptRemote(entry):
-            appendJournal(entry)
-        case let .pushLocal(pushed, updatedAtMillis):
-            sendProgress(
-                editionId: editionId,
-                positionSecs: pushed,
-                totalDurationSecs: manifest.totalDurationSecs,
-                updatedAtMillis: updatedAtMillis
-            )
-        }
-        resumePreview[editionId] = positionSecs
-        return positionSecs
-    }
-
-    /// Fills `resumePreview` so a book's primary button can name the point it
-    /// will resume at. Deliberately read-only: opening a detail screen must not
-    /// adopt a remote position or push a local one — only starting playback does.
-    func loadResumePreview(editionId: Int, totalDurationSecs: Double) async {
-        guard totalDurationSecs > 1 else { return }
-        let (positionSecs, _) = await reconcileResumePosition(
-            editionId: editionId,
-            totalDurationSecs: totalDurationSecs
-        )
-        resumePreview[editionId] = positionSecs
-    }
-
-    private func persistPlaybackProgress(force: Bool) {
-        guard let editionId = activeEditionId, let manifest = manifests[editionId] else {
-            return
-        }
-
-        let nowMillis = Self.nowMillis()
-        if !force {
-            let elapsed = nowMillis - (lastProgressWriteMillis[editionId] ?? 0)
-            if elapsed < 5000 {
-                return
-            }
-            if let last = lastProgressPosition[editionId], abs(last - player.positionSecs) < 1 {
-                return
-            }
-        }
-
-        let timeline = BookTimeline(chapters: manifest.chapters)
-        let clamped = timeline.clamp(player.positionSecs)
-        let entry = PositionEntry(editionId: editionId, positionSecs: clamped, atMillis: nowMillis)
-        appendJournal(entry)
-
-        lastProgressWriteMillis[editionId] = nowMillis
-        lastProgressPosition[editionId] = clamped
-
-        sendProgress(
-            editionId: editionId,
-            positionSecs: clamped,
-            totalDurationSecs: manifest.totalDurationSecs,
-            updatedAtMillis: nowMillis
-        )
-    }
-
-    // MARK: Reading progress (ebooks)
-
-    /// Where to open an ebook edition, reconciled across this device and the
-    /// server. Same last-write-wins rule as the audiobook position. The caller
-    /// prefers `winner.locator` when it parses; otherwise it runs
-    /// `ReadingProgressReconciler.resolve` against the publication spine.
-    func readingPosition(editionId: Int) async -> ReadingPosition? {
-        let local = readingProgressStore.position(editionId: editionId)
-        var remote: ReadingPosition?
-        // Two separate reasons this must not block the reader.
-        //
-        // With no network path at all the request cannot succeed, so it is not
-        // even attempted. But a path monitor reports "satisfied" whenever an
-        // interface exists, and for a self-hosted server the common case is
-        // having internet while the server itself is unreachable — away from
-        // home, a captive portal, the box rebooting. There the request runs into
-        // URLSession's full 60-second timeout, and the reader sat on
-        // "Opening book…" that whole time for a book already on disk. So it is
-        // also given a short deadline, after which the local position wins.
-        if isOnline, let apiClient {
-            remote = await withDeadline(seconds: 5) {
-                await (try? apiClient.readingProgress())?
-                    .first { $0.editionId == editionId }
-            }
-        }
-
-        let winner: ReadingPosition?
-        switch ReadingProgressReconciler.reconcile(local: local, remote: remote) {
-        case .takeRemote:
-            winner = remote
-            // Mirror it locally so the next open resumes offline too.
-            if let remote {
-                try? readingProgressStore.save(remote)
-            }
-        case .keepLocal, .push:
-            winner = local
-        }
-        return winner
-    }
-
-    /// Fills `readingResumePreview` so a book's Read button can name where it
-    /// will reopen. Unlike the audiobook preview this may mirror a remote
-    /// position into the local store — that is `readingPosition`'s own offline
-    /// cache warm, not a write back to the server.
-    func loadReadingResumePreview(editionId: Int) async {
-        readingResumePreview[editionId] = await readingPosition(editionId: editionId)
-    }
-
-    /// Persists locally first, then pushes. The local write is what makes the
-    /// position survive a crash or an offline session; the push is best-effort.
-    func saveReadingPosition(_ position: ReadingPosition) {
-        try? readingProgressStore.save(position)
-        guard let apiClient else { return }
-        Task { try? await apiClient.putReadingProgress(position, deviceId: deviceID) }
-    }
-
-    private func sendProgress(
-        editionId: Int,
-        positionSecs: Double,
-        totalDurationSecs: Double,
-        updatedAtMillis: Int64
-    ) {
-        guard let apiClient else { return }
-        let finished = positionSecs >= max(totalDurationSecs - 1, 0)
-        let updatedAt = Date(timeIntervalSince1970: Double(updatedAtMillis) / 1000)
-
-        Task {
-            try? await apiClient.putProgress(
-                editionId: editionId,
-                positionSecs: positionSecs,
-                totalDurationSecs: totalDurationSecs,
-                finished: finished,
-                updatedAt: updatedAt,
-                deviceId: deviceID
-            )
-        }
-    }
-
-    private func reloadLibrary() async throws {
+    func reloadLibrary() async throws {
         guard let apiClient else { throw APIError.unauthorized }
         do {
             let fetched = try await apiClient.libraryBooks()
@@ -1386,27 +811,7 @@ final class AppModel {
         }
     }
 
-    private var didRefreshAdminOnce = false
-
-    /// Refresh admin state on a cold Settings open (or after a promotion/demotion),
-    /// since `refreshAdmin()` otherwise only runs on login/library-reload (spec §4.5).
-    /// Only ever *adds* admin rows for real admins.
-    func refreshAdminIfNeeded() async {
-        guard apiClient != nil, !didRefreshAdminOnce else { return }
-        didRefreshAdminOnce = true
-        await refreshAdmin()
-    }
-
-    /// Best-effort: learn whether the signed-in user is an admin, so the UI can
-    /// offer "Add to library" (admin) vs "Request" (non-admin).
-    private func refreshAdmin() async {
-        guard let apiClient else { return }
-        if let user = await (try? apiClient.currentUser())?.user {
-            isAdmin = user.isAdmin ?? false
-            let full = [user.firstName, user.lastName].compactMap(\.self).joined(separator: " ")
-            userFirstName = user.firstName ?? (full.isEmpty ? user.name : full)
-        }
-    }
+    var didRefreshAdminOnce = false
 
     /// Mark the whole book read (or clear the badge). Marking read wipes this
     /// user's ebook and audiobook progress on the server and this device.
@@ -1419,7 +824,7 @@ final class AppModel {
                 clearLocalProgress(for: book)
             }
             await loadLibrary()
-            bookChangeToken += 1
+            liveUpdates.bumpBookChangeToken()
             toast(
                 read
                     ? String(localized: "Marked as read.")
@@ -1444,33 +849,6 @@ final class AppModel {
         }
     }
 
-    private func readJournal() -> String {
-        (try? String(contentsOf: journalURL, encoding: .utf8)) ?? ""
-    }
-
-    private func appendJournal(_ entry: PositionEntry) {
-        let line = PositionJournal.encode(entry)
-        guard !line.isEmpty, let data = line.data(using: .utf8) else {
-            return
-        }
-
-        if !FileManager.default.fileExists(atPath: journalURL.path) {
-            FileManager.default.createFile(atPath: journalURL.path, contents: nil)
-        }
-
-        guard let handle = try? FileHandle(forWritingTo: journalURL) else {
-            return
-        }
-
-        do {
-            try handle.seekToEnd()
-            try handle.write(contentsOf: data)
-            try handle.close()
-        } catch {
-            try? handle.close()
-        }
-    }
-
     private func verifiedFileCount(in plan: DownloadPlan) -> Int {
         plan.files.reduce(into: 0) { count, file in
             if plan.states[file.id] == .verified {
@@ -1479,7 +857,7 @@ final class AppModel {
         }
     }
 
-    private func message(for error: Error) -> String {
+    func message(for error: Error) -> String {
         guard let apiError = error as? APIError else {
             return String(localized: "Unexpected error. Please try again.")
         }
@@ -1506,7 +884,7 @@ final class AppModel {
         return url
     }
 
-    private static func nowMillis() -> Int64 {
+    static func nowMillis() -> Int64 {
         Int64(Date().timeIntervalSince1970 * 1000)
     }
 }
