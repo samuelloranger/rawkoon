@@ -123,7 +123,7 @@ struct ReleaseRow: View {
     /// One quiet, colour-coded data line under the title: pack, quality, flags,
     /// size, seeders (green), score (apricot), then faint provenance. Wraps if long.
     private var footerLine: some View {
-        FlowLayout(spacing: 8) {
+        ReleaseFlowLayout(spacing: 8) {
             if let packLabel {
                 footerRun(packLabel, Theme.apricotSoft)
             }

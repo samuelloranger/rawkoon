@@ -17,7 +17,7 @@ enum BookDetailLane: String, CaseIterable, Identifiable {
     }
 }
 
-private enum ReleaseSearchLane: String, Identifiable {
+enum ReleaseSearchLane: String, Identifiable {
     case audiobook
     case ebook
     var id: String {

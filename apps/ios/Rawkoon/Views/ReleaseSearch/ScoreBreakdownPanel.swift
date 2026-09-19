@@ -15,7 +15,7 @@ struct ScoreBreakdownPanel: View {
                     row(label: ReleaseScoringLabels.componentLabel(component.code), value: component.value)
                 }
                 if !breakdown.matchedFormats.isEmpty {
-                    FlowLayout(spacing: 6) {
+                    ReleaseFlowLayout(spacing: 6) {
                         ForEach(breakdown.matchedFormats, id: \.self) { format in
                             BadgeChip(text: format, fg: Theme.apricotSoft, bg: Theme.apricot.opacity(0.12))
                         }

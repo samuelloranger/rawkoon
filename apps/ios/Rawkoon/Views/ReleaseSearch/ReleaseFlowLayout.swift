@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Left-to-right wrapping layout for the badge strip so chips flow onto new rows
 /// instead of overflowing the card width.
-struct FlowLayout: Layout {
+struct ReleaseFlowLayout: Layout {
     var spacing: CGFloat = 6
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
