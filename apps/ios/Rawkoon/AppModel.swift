@@ -67,36 +67,12 @@ final class AppModel {
 
     // MARK: Live updates (spec §T2/T4)
 
-    /// Bumped whenever a `.media` event arrives on the foreground-only
-    /// `/api/library/events` SSE stream. There is no TanStack Query
-    /// equivalent on iOS, so "invalidate" means "a view watching this token
-    /// via `.onChange` reloads itself" — see `LibraryView`, `MediaDetailView`,
-    /// `ActivityView`.
-    private(set) var libraryChangeToken = 0
-    /// Same idea as `libraryChangeToken`, for `.book` events — see
-    /// `LibraryView`, `BookView`, `ActivityView`.
-    private(set) var bookChangeToken = 0
-    /// Bumped for each notification arriving on the stream, so an open
-    /// `NotificationsListView` refetches (via `.task(id:)`) rather than only
-    /// the bell badge updating while the list stays stale.
-    private(set) var notificationChangeToken = 0
+    /// Owns the SSE consumers and the observable state they feed (change tokens,
+    /// live download progress, stream statuses, debug log, unread count, banner).
+    /// AppModel keeps its previous surface via the passthroughs below, so no view
+    /// call site changed. Wired to `self` in `init`.
+    let liveUpdates = LiveUpdatesCoordinator()
 
-    /// Latest server-pushed live download progress, `mediaId → (downloadId →
-    /// live)`. Fed by `.downloadProgress` SSE events; `MediaDetailView` overlays
-    /// the inner map onto its download rows so the progress bar tracks the
-    /// pushed value between fetches. iOS has no client-side poll — this stream
-    /// is the live source, mirroring the web app's cache patch.
-    private(set) var downloadProgress: [Int: [Int: LiveDownload]] = [:]
-
-    /// Kept live by the notification stream and by `NotificationsListView`'s
-    /// own REST calls; drives the Home bell badge.
-    var unreadNotificationCount = 0
-    /// The most recent live notification, shown as a transient top banner and
-    /// cleared after a few seconds — the iOS analog of the web app's
-    /// `NotificationToastContainer`. `id` lets `NotificationBannerView` key its
-    /// dismiss timer per-notification instead of restarting on unrelated
-    /// re-renders.
-    var bannerNotification: StreamNotificationDTO?
     /// Set from a banner tap or a notification-list row tap (via
     /// `navigate(toNotificationUrl:)`); `RawkoonApp` presents it as a sheet
     /// from the app root, so it works regardless of which tab is active.
@@ -104,30 +80,48 @@ final class AppModel {
     /// see spec T6.
     var deepLinkTarget: NotificationDestination?
 
-    private var libraryEventsTask: Task<Void, Never>?
-    private var notificationStreamTask: Task<Void, Never>?
-    private var bannerDismissTask: Task<Void, Never>?
-
-    private(set) var libraryStreamStatus: SSEStreamStatus = .idle
-    private(set) var notificationStreamStatus: SSEStreamStatus = .idle
-    /// Newest first, capped so a long-open debug screen can't grow unbounded.
-    private(set) var sseDebugLog: [SSEDebugLogEntry] = []
-    private let sseDebugLogLimit = 200
-
-    private func logSSE(_ stream: String, _ summary: String) {
-        sseDebugLog = appendSSELog(
-            sseDebugLog,
-            entry: SSEDebugLogEntry(timestamp: Date(), stream: stream, summary: summary),
-            limit: sseDebugLogLimit
-        )
+    /// Passthroughs to `liveUpdates`, preserving AppModel's prior public surface.
+    /// All are read-only here; the coordinator owns every write.
+    var libraryChangeToken: Int {
+        liveUpdates.libraryChangeToken
     }
 
-    /// Forces both SSE connections closed and immediately reopens them, so the
-    /// SSE debug screen can reproduce the reconnect path on demand instead of
-    /// waiting for a real network drop.
+    var bookChangeToken: Int {
+        liveUpdates.bookChangeToken
+    }
+
+    var notificationChangeToken: Int {
+        liveUpdates.notificationChangeToken
+    }
+
+    var downloadProgress: [Int: [Int: LiveDownload]] {
+        liveUpdates.downloadProgress
+    }
+
+    var unreadNotificationCount: Int {
+        liveUpdates.unreadNotificationCount
+    }
+
+    var bannerNotification: StreamNotificationDTO? {
+        liveUpdates.bannerNotification
+    }
+
+    var libraryStreamStatus: SSEStreamStatus {
+        liveUpdates.libraryStreamStatus
+    }
+
+    var notificationStreamStatus: SSEStreamStatus {
+        liveUpdates.notificationStreamStatus
+    }
+
+    var sseDebugLog: [SSEDebugLogEntry] {
+        liveUpdates.sseDebugLog
+    }
+
+    /// Forces both SSE connections closed and immediately reopens them — see
+    /// `LiveUpdatesCoordinator.forceReconnect`.
     func forceReconnectSSE() {
-        stopLiveStreams()
-        startLiveStreams()
+        liveUpdates.forceReconnect()
     }
 
     /// Current toast banner, rendered once at the app root by `ToastOverlay`.
@@ -171,6 +165,7 @@ final class AppModel {
         serverURL = Keychain.get(Self.serverURLKey) ?? ""
         journalURL = Self.positionLogURL()
         deviceID = Self.resolveDeviceID()
+        liveUpdates.appModel = self
 
         if
             let token = Keychain.get(Self.authTokenKey),
@@ -428,197 +423,32 @@ final class AppModel {
 
     // MARK: Live updates (spec §T2/T4)
 
-    /// Starts the library-events and notification SSE consumers if they
-    /// aren't already running. Call when the app becomes active while signed
-    /// in (see `RawkoonApp`'s `scenePhase` handling); a no-op when logged out
-    /// or already running.
+    /// Starts the library-events and notification SSE consumers — see
+    /// `LiveUpdatesCoordinator.start`. Call when the app becomes active while
+    /// signed in (see `RawkoonApp`'s `scenePhase` handling).
     func startLiveStreams() {
-        guard isLoggedIn else { return }
-        if libraryEventsTask == nil {
-            libraryEventsTask = Task { [weak self] in
-                await self?.runLibraryEventsLoop()
-                // The loop also returns on its own (a 401, or the client going
-                // away) — not just on cancellation. Clear the handle on those
-                // natural exits so the next `.active` can start a fresh stream;
-                // skip it when cancelled, since `stopLiveStreams` already nil'd
-                // the handle and a restart may have replaced this task.
-                guard let self, !Task.isCancelled else { return }
-                libraryEventsTask = nil
-            }
-        }
-        if notificationStreamTask == nil {
-            notificationStreamTask = Task { [weak self] in
-                await self?.runNotificationStreamLoop()
-                guard let self, !Task.isCancelled else { return }
-                notificationStreamTask = nil
-            }
-        }
+        liveUpdates.start()
     }
 
-    /// Stops both live streams. Call on background/logout — APNs already
-    /// covers background delivery, so a foreground-only stream has nothing
-    /// left to do off-screen.
+    /// Stops both live streams. Call on background/logout.
     func stopLiveStreams() {
-        libraryEventsTask?.cancel()
-        libraryEventsTask = nil
-        notificationStreamTask?.cancel()
-        notificationStreamTask = nil
-        libraryStreamStatus = .idle
-        notificationStreamStatus = .idle
-        downloadProgress = [:]
+        liveUpdates.stop()
     }
 
-    /// Consumes `/api/library/events` until cancelled or unauthorized,
-    /// reconnecting with exponential backoff (capped at 30s) on any other
-    /// drop — the connection is expected to close periodically (idle
-    /// timeouts, backgrounding at the edge, server restarts).
-    private func runLibraryEventsLoop() async {
-        var backoff = 1.0
-        while !Task.isCancelled {
-            guard let client = apiClient else { return }
-            libraryStreamStatus = .connecting
-            do {
-                for try await event in await client.libraryEventsStream() {
-                    if case .handshake = event {
-                        backoff = 1.0
-                    }
-                    handleLibraryEvent(event)
-                }
-            } catch APIError.unauthorized {
-                Log.sync.notice("library events stream unauthorized — signing out")
-                handleSessionExpired()
-                return
-            } catch APIError.forbidden {
-                Log.sync.notice("library events stream forbidden — not reconnecting")
-                return
-            } catch {
-                Log.sync.debug("library events stream dropped: \(error.localizedDescription, privacy: .public)")
-                logSSE("library", "dropped: \(error.localizedDescription)")
-            }
-            libraryStreamStatus = .reconnecting
-            if Task.isCancelled {
-                return
-            }
-            try? await Task.sleep(for: .seconds(backoff))
-            backoff = min(backoff * 2, 30)
-        }
-    }
-
-    /// Apply one decoded library-events SSE event to local state. Split out of
-    /// the reconnect loop so that loop stays a thin transport concern.
-    private func handleLibraryEvent(_ event: LibraryEvent) {
-        switch event {
-        case .handshake:
-            libraryStreamStatus = .connected
-            logSSE("library", "handshake")
-            SSEEventRegistry.apply(.libraryHandshake, to: serverStateStore)
-        case let .media(id):
-            logSSE("library", "media id=\(id)")
-            SSEEventRegistry.apply(.media(id: id), to: serverStateStore)
-            libraryChangeToken += 1
-        case let .book(id):
-            logSSE("library", "book id=\(id)")
-            SSEEventRegistry.apply(.book(id: id), to: serverStateStore)
-            bookChangeToken += 1
-        case let .downloadProgress(mediaId, items):
-            logSSE("library", "download-progress media=\(mediaId) rows=\(items.count)")
-            applyDownloadProgress(mediaId: mediaId, items: items)
-        }
-    }
-
-    /// Store the latest pushed progress for one media. Replaces that media's
-    /// map wholesale — each event carries every active row for the media, so a
-    /// row that dropped out (completed/failed) simply stops appearing.
-    private func applyDownloadProgress(mediaId: Int, items: [DownloadProgressEntry]) {
-        downloadProgress[mediaId] = downloadProgressMap(items)
-    }
-
-    /// Consumes `/api/notifications/stream` the same way — see
-    /// `runLibraryEventsLoop`. Each event bumps the unread count and shows the
-    /// transient in-app banner; it does not itself update the notification
-    /// list (open `NotificationsListView` refetches on appear/pull-to-refresh).
-    private func runNotificationStreamLoop() async {
-        var backoff = 1.0
-        while !Task.isCancelled {
-            guard let client = apiClient else { return }
-            notificationStreamStatus = .connecting
-            do {
-                for try await notification in await client.notificationStream() {
-                    backoff = 1.0
-                    notificationStreamStatus = .connected
-                    logSSE("notifications", "id=\(notification.id) title=\(notification.title)")
-                    SSEEventRegistry.apply(.notification, to: serverStateStore)
-                    LibraryNotification.apply(notification, to: serverStateStore)
-                    unreadNotificationCount += 1
-                    syncAppIconBadge()
-                    notificationChangeToken += 1
-                    if !LibraryNotification.isSilent(notification) {
-                        showBanner(notification)
-                    }
-                }
-            } catch APIError.unauthorized {
-                Log.sync.notice("notification stream unauthorized — signing out")
-                handleSessionExpired()
-                return
-            } catch APIError.forbidden {
-                Log.sync.notice("notification stream forbidden — not reconnecting")
-                return
-            } catch {
-                Log.sync.debug("notification stream dropped: \(error.localizedDescription, privacy: .public)")
-                logSSE("notifications", "dropped: \(error.localizedDescription)")
-            }
-            notificationStreamStatus = .reconnecting
-            if Task.isCancelled {
-                return
-            }
-            try? await Task.sleep(for: .seconds(backoff))
-            backoff = min(backoff * 2, 30)
-        }
-    }
-
-    /// Shows the transient in-app banner for a live notification, replacing
-    /// whichever one is already shown, and auto-dismisses it a few seconds
-    /// later — the iOS analog of the web app's `NotificationToastContainer`.
-    private func showBanner(_ notification: StreamNotificationDTO) {
-        bannerDismissTask?.cancel()
-        bannerNotification = notification
-        bannerDismissTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(5))
-            guard !Task.isCancelled else { return }
-            self?.dismissBanner()
-        }
-    }
-
-    /// Dismisses the in-app banner early (e.g. on tap).
+    /// Dismisses the in-app notification banner early (e.g. on tap).
     func dismissBanner() {
-        bannerDismissTask?.cancel()
-        bannerDismissTask = nil
-        bannerNotification = nil
+        liveUpdates.dismissBanner()
     }
 
     /// Resolves a notification's `url` to a native destination and pushes it.
-    /// Does nothing when the URL doesn't map to a screen (spec T6) — staying
-    /// on the current screen is the safe fallback, not a web view or a crash.
     func navigate(toNotificationUrl url: String?) {
-        guard let destination = NotificationDestination.resolve(url: url) else { return }
-        deepLinkTarget = destination
+        liveUpdates.navigate(toNotificationUrl: url)
     }
 
     /// Best-effort unread-count refresh — called after sign-in and whenever
     /// `NotificationsListView` changes read state server-side.
     func refreshUnreadNotificationCount() async {
-        guard let client = apiClient else { return }
-        if let response = try? await client.unreadNotificationCount() {
-            unreadNotificationCount = response.unreadCount
-            syncAppIconBadge()
-        }
-    }
-
-    /// Reconciles the app-icon badge with `unreadNotificationCount`. Pure
-    /// mapping lives in `NotificationBadge` (Kit); this just applies it.
-    private func syncAppIconBadge() {
-        let n = NotificationBadge.value(forUnread: unreadNotificationCount)
-        Task { try? await UNUserNotificationCenter.current().setBadgeCount(n) }
+        await liveUpdates.refreshUnreadCount()
     }
 
     // MARK: Push notifications (APNs)
@@ -920,8 +750,7 @@ final class AppModel {
         serverStateStore.clear()
         dismissBanner()
         deepLinkTarget = nil
-        unreadNotificationCount = 0
-        syncAppIconBadge()
+        liveUpdates.resetUnreadCount()
 
         Keychain.delete(Self.serverURLKey)
         Keychain.delete(Self.authTokenKey)
@@ -1419,7 +1248,7 @@ final class AppModel {
                 clearLocalProgress(for: book)
             }
             await loadLibrary()
-            bookChangeToken += 1
+            liveUpdates.bumpBookChangeToken()
             toast(
                 read
                     ? String(localized: "Marked as read.")
