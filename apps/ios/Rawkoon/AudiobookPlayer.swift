@@ -7,7 +7,7 @@ import UIKit
 
 @Observable
 final class AudiobookPlayer {
-    private(set) var positionSecs: Double = 0 {
+    var positionSecs: Double = 0 {
         didSet { onPositionTick?() }
     }
 
@@ -23,11 +23,11 @@ final class AudiobookPlayer {
 
     private(set) var currentChapterIndex: Int?
     private(set) var currentChapter: ManifestChapter?
-    private(set) var rate: Float = 1.0
+    var rate: Float = 1.0
     private(set) var duration: Double = 0
     /// Set when the next chapter cannot play. Cleared on a new load, seek, or
     /// the listener dismissing the alert. Never used to skip ahead.
-    private(set) var playbackError: String?
+    var playbackError: String?
 
     /// Called on every positionSecs change — AppModel uses it to persist progress
     /// (throttled inside persistPlaybackProgress). Replaces the Combine relay's
@@ -45,33 +45,33 @@ final class AudiobookPlayer {
         case endOfChapter
     }
 
-    private(set) var sleepMode: SleepMode = .off
-    private(set) var sleepRemainingSecs: Double?
+    var sleepMode: SleepMode = .off
+    var sleepRemainingSecs: Double?
 
-    private var sleepEndChapterIndex: Int?
-    private var lastSleepTick: Date?
-    private static let sleepFadeWindow: Double = 8
+    var sleepEndChapterIndex: Int?
+    var lastSleepTick: Date?
+    static let sleepFadeWindow: Double = 8
 
     /// When playback last stopped, for smart rewind. Nil while playing.
-    private var pausedAt: Date?
+    var pausedAt: Date?
     /// Whether an interruption arrived while we were playing, so `.ended` knows
     /// whether resuming is even appropriate.
     private var wasPlayingBeforeInterruption = false
     private var interruptionObserver: NSObjectProtocol?
     /// The remote-command targets this instance registered, so `deinit` can
     /// remove exactly those.
-    private var commandTargets: [(command: MPRemoteCommand, target: Any)] = []
+    var commandTargets: [(command: MPRemoteCommand, target: Any)] = []
     private var resetObserver: NSObjectProtocol?
 
-    private var artworkURL: URL?
-    private var artwork: MPMediaItemArtwork?
-    private var artworkTask: Task<Void, Never>?
+    var artworkURL: URL?
+    var artwork: MPMediaItemArtwork?
+    var artworkTask: Task<Void, Never>?
 
-    private var player: AVQueuePlayer?
-    private var timeline: BookTimeline?
-    private var manifest: BookManifest?
+    var player: AVQueuePlayer?
+    var timeline: BookTimeline?
+    var manifest: BookManifest?
     private var baseURL: URL?
-    private var chapters: [ManifestChapter] = []
+    var chapters: [ManifestChapter] = []
     /// The download+playback unit. A multi-file book has one file per chapter;
     /// a single-file audiobook has one file that many chapters index into.
     private var filesById: [Int: ManifestFile] = [:]
@@ -454,156 +454,6 @@ final class AudiobookPlayer {
         updateNowPlayingInfo()
     }
 
-    func clearPlaybackError() {
-        playbackError = nil
-    }
-
-    func seek(to seconds: Double) {
-        guard let timeline else { return }
-        // Any deliberate move — a scrub, a chapter jump, a skip — replaces
-        // "resume where you stopped", so there is nothing left to rewind to.
-        // Without this, pausing, jumping to a chapter and pressing play would
-        // rewind off the front of the chapter the listener just chose.
-        pausedAt = nil
-        playbackError = nil
-        let clamped = timeline.clamp(seconds)
-        let autoplay = isPlaying
-        positionSecs = clamped
-        updateNowPlayingInfo()
-
-        // In-place when the target stays inside the currently-loaded physical
-        // file, even across a chapter boundary (single-file audiobook): reloading
-        // the whole file to move between its own chapters would stutter.
-        if let currentFile = file(for: player?.currentItem),
-           let offset = currentFile.inPlaceSeekOffset(to: clamped, bookDurationSecs: duration),
-           player?.currentItem != nil
-        {
-            seekCurrentItem(to: offset, autoplay: autoplay)
-            return
-        }
-        buildQueue(at: clamped, autoplay: autoplay)
-    }
-
-    func skipForward(_ seconds: Double = 30) {
-        seek(to: positionSecs + seconds)
-    }
-
-    func skipBackward(_ seconds: Double = 30) {
-        seek(to: positionSecs - seconds)
-    }
-
-    func jumpToChapter(_ chapter: ManifestChapter) {
-        seek(to: chapter.startSecs)
-    }
-
-    /// The manifest's chapters, exposed read-only so CarPlay can build a chapter
-    /// picker. Empty until a book is loaded.
-    var chapterList: [ManifestChapter] {
-        chapters
-    }
-
-    /// The rates the quick-cycle speed button steps through, in order. A tap
-    /// advances to the next one and wraps past the end back to the first — this
-    /// is the CarPlay rate button's ladder, distinct from the phone UI's picker.
-    static let rateLadder: [Float] = [1.0, 1.25, 1.5, 1.75, 2.0]
-
-    /// Advances to the next rate in `rateLadder`. Snaps to the nearest ladder
-    /// entry first, so a rate set from the phone (e.g. 0.8×) still cycles sanely.
-    func cycleRate() {
-        let ladder = Self.rateLadder
-        let nearest = ladder.min(by: { abs($0 - rate) < abs($1 - rate) }) ?? ladder[0]
-        let index = ladder.firstIndex(of: nearest) ?? 0
-        setRate(ladder[(index + 1) % ladder.count])
-    }
-
-    func setRate(_ value: Float) {
-        rate = value
-        applyPitchAlgorithm()
-        // Both: `defaultRate` so the next chapter item starts at this speed,
-        // `rate` so the change is audible immediately rather than at the next
-        // chapter boundary.
-        player?.defaultRate = value
-        if isPlaying {
-            player?.rate = value
-        }
-        updateNowPlayingInfo()
-    }
-
-    func nextChapter() {
-        guard let timeline, let next = timeline.boundary(after: positionSecs) else { return }
-        seek(to: next)
-    }
-
-    func prevChapter() {
-        guard let timeline else { return }
-        if let previous = timeline.boundary(before: positionSecs) {
-            seek(to: previous)
-        } else {
-            seek(to: 0)
-        }
-    }
-
-    // MARK: Sleep timer
-
-    func setSleep(_ mode: SleepMode) {
-        sleepMode = mode
-        sleepEndChapterIndex = nil
-        lastSleepTick = nil
-        resetSleepVolume()
-
-        switch mode {
-        case .off:
-            sleepRemainingSecs = nil
-        case let .minutes(m):
-            sleepRemainingSecs = Double(m * 60)
-            lastSleepTick = Date()
-        case .endOfChapter:
-            sleepRemainingSecs = nil
-            sleepEndChapterIndex = currentChapterIndex
-        }
-    }
-
-    /// Called from the playback tick. Advances the countdown by real elapsed
-    /// time while playing, fades the last few seconds, then pauses.
-    private func advanceSleep() {
-        guard isPlaying else { lastSleepTick = Date(); return }
-
-        switch sleepMode {
-        case .off:
-            return
-        case .endOfChapter:
-            if let target = sleepEndChapterIndex, let current = currentChapterIndex, current > target {
-                fireSleep()
-            }
-        case .minutes:
-            guard var remaining = sleepRemainingSecs else { return }
-            let now = Date()
-            let delta = min(2, max(0, now.timeIntervalSince(lastSleepTick ?? now)))
-            lastSleepTick = now
-            remaining -= delta
-            sleepRemainingSecs = max(0, remaining)
-
-            if remaining <= 0 {
-                fireSleep()
-            } else if remaining <= Self.sleepFadeWindow {
-                player?.volume = Float(max(0, remaining / Self.sleepFadeWindow))
-            }
-        }
-    }
-
-    private func fireSleep() {
-        pause()
-        resetSleepVolume()
-        sleepMode = .off
-        sleepRemainingSecs = nil
-        sleepEndChapterIndex = nil
-        lastSleepTick = nil
-    }
-
-    private func resetSleepVolume() {
-        player?.volume = 1
-    }
-
     private func beginPlayback() {
         guard let player else {
             // Same lie as a failed activation: `play()` has already published
@@ -650,7 +500,7 @@ final class AudiobookPlayer {
     /// Seek the current item. `play()` must not run until this finishes —
     /// AVPlayer treats play() as cancelling an in-flight seek, which leaves
     /// playback at the pre-seek time.
-    private func seekCurrentItem(to offset: Double, autoplay: Bool) {
+    func seekCurrentItem(to offset: Double, autoplay: Bool) {
         guard let player else { return }
         itemStatusObserver = nil
         seekID += 1
@@ -733,7 +583,7 @@ final class AudiobookPlayer {
         }
     }
 
-    private func buildQueue(at wholeBookPosition: Double, autoplay: Bool) {
+    func buildQueue(at wholeBookPosition: Double, autoplay: Bool) {
         guard let timeline, let manifest else { return }
         guard !chapters.isEmpty else {
             tearDownObservers()
@@ -1091,7 +941,7 @@ final class AudiobookPlayer {
         return true
     }
 
-    private func file(for item: AVPlayerItem?) -> ManifestFile? {
+    func file(for item: AVPlayerItem?) -> ManifestFile? {
         guard let item else { return nil }
         return itemFiles[ObjectIdentifier(item)]
     }
@@ -1116,210 +966,10 @@ final class AudiobookPlayer {
         return file.startSecs + max(currentItemTime, 0)
     }
 
-    private func applyPitchAlgorithm() {
+    func applyPitchAlgorithm() {
         player?.currentItem?.audioTimePitchAlgorithm = .spectral
         for item in player?.items() ?? [] {
             item.audioTimePitchAlgorithm = .spectral
-        }
-    }
-
-    private func updateNowPlayingInfo() {
-        guard let manifest else {
-            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
-            return
-        }
-
-        var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
-        info[MPMediaItemPropertyTitle] = currentChapter?.title ?? manifest.title
-        info[MPMediaItemPropertyAlbumTitle] = manifest.title
-        info[MPMediaItemPropertyArtist] = manifest.authors.joined(separator: ", ")
-        info[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.audio.rawValue
-        info[MPMediaItemPropertyPlaybackDuration] = duration
-        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = positionSecs
-        info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? rate : 0
-        // Tells the system this book's normal speed is the listener's chosen
-        // rate, not 1.0, so a rate control on the Lock Screen or in a car reads
-        // against the right baseline.
-        info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = rate
-        if !chapters.isEmpty {
-            info[MPNowPlayingInfoPropertyChapterCount] = chapters.count
-            // Chapter numbering is zero-based and contiguous, which
-            // `ManifestChapter.index` is only in practice — `BookTimeline`
-            // treats it as a domain id and allows gaps. Send the ordinal.
-            if let index = currentChapterIndex,
-               let ordinal = chapters.firstIndex(where: { $0.index == index })
-            {
-                info[MPNowPlayingInfoPropertyChapterNumber] = ordinal
-            }
-        }
-        if let artwork {
-            info[MPMediaItemPropertyArtwork] = artwork
-        } else {
-            info.removeValue(forKey: MPMediaItemPropertyArtwork)
-        }
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
-    }
-
-    /// Fetches the cover for the Lock Screen, Control Center and CarPlay.
-    ///
-    /// `MPMediaItemArtwork` wants a `UIImage`, not a URL, so nothing shows
-    /// until the bytes are in hand — which is why Now Playing was blank while
-    /// the same cover rendered fine in-app through `AsyncImage`.
-    private func loadArtwork(from url: URL?) {
-        guard url != artworkURL || (url != nil && artwork == nil) else { return }
-        artworkTask?.cancel()
-        artworkTask = nil
-        artworkURL = url
-        artwork = nil
-        guard let url else { return }
-
-        artworkTask = Task { [weak self] in
-            let data: Data
-            do {
-                (data, _) = try await URLSession.shared.data(from: url)
-            } catch {
-                Log.playback.error(
-                    """
-                    Artwork fetch failed: \
-                    error=\(error.localizedDescription, privacy: .public)
-                    """
-                )
-                return
-            }
-            guard
-                !Task.isCancelled,
-                let image = UIImage(data: data)
-            else { return }
-            await MainActor.run {
-                guard let self, self.artworkURL == url else { return }
-                self.artwork = Self.makeArtwork(image)
-                self.updateNowPlayingInfo()
-            }
-        }
-    }
-
-    /// Builds the Now Playing artwork in a `nonisolated` context on purpose.
-    ///
-    /// `MPMediaItemArtwork`'s request handler is invoked by `MPNowPlayingInfoCenter`
-    /// on MediaPlayer's own private queue, not the main actor. Created inside a
-    /// `@MainActor` context, the closure inherits main-actor isolation, so under
-    /// Swift 6 the runtime inserts an executor assertion that traps (EXC_BREAKPOINT)
-    /// the moment MediaPlayer asks for the bitmap off-main — which crashed playback
-    /// start as soon as Now Playing requested the cover. A `nonisolated` factory
-    /// keeps the closure free of isolation; it only returns the captured `UIImage`
-    /// (Sendable), so it is safe to call from any queue.
-    private nonisolated static func makeArtwork(_ image: UIImage) -> MPMediaItemArtwork {
-        MPMediaItemArtwork(boundsSize: image.size) { _ in image }
-    }
-
-    /// Wires the Lock Screen, Control Center, headset and car controls.
-    ///
-    /// `togglePlayPauseCommand` is not redundant next to play and pause: a wired
-    /// headset button and many steering-wheel controls send only the toggle, so
-    /// an app that wires the pair alone looks unresponsive in a car.
-    ///
-    /// Commands are enabled by default, so every one this player does not
-    /// implement is disabled explicitly — otherwise a car head unit offers
-    /// buttons that do nothing. Seek forward/backward stay off deliberately:
-    /// they deliver begin/end seeking events for a press-and-hold, not the
-    /// fixed jump that `skipForward`/`skipBackward` already provide.
-    /// `MPRemoteCommandCenter` invokes handlers on its own queue, and every
-    /// transport method here writes `@Published` state that SwiftUI and
-    /// `AppModel`'s progress sink read on the main actor. Hop first.
-    private func addTarget(
-        _ command: MPRemoteCommand,
-        _ handler: @escaping (MPRemoteCommandEvent) -> MPRemoteCommandHandlerStatus
-    ) {
-        commandTargets.append((command, command.addTarget(handler: handler)))
-    }
-
-    private func onMain(_ work: @escaping @MainActor () -> Void) -> MPRemoteCommandHandlerStatus {
-        if Thread.isMainThread {
-            MainActor.assumeIsolated {
-                work()
-            }
-        } else {
-            DispatchQueue.main.async {
-                MainActor.assumeIsolated {
-                    work()
-                }
-            }
-        }
-        return .success
-    }
-
-    private func configureRemoteCommands() {
-        let center = MPRemoteCommandCenter.shared()
-        // Only ever this instance's own targets. `removeTarget(nil)` would
-        // wipe the command center clean, and it is process-global — another
-        // owner's handlers are not ours to unregister.
-        for entry in commandTargets {
-            entry.command.removeTarget(entry.target)
-        }
-        commandTargets.removeAll()
-
-        center.playCommand.isEnabled = true
-        center.pauseCommand.isEnabled = true
-        center.togglePlayPauseCommand.isEnabled = true
-        center.skipForwardCommand.isEnabled = true
-        center.skipBackwardCommand.isEnabled = true
-        center.nextTrackCommand.isEnabled = true
-        center.previousTrackCommand.isEnabled = true
-        center.changePlaybackPositionCommand.isEnabled = true
-        center.changePlaybackRateCommand.isEnabled = true
-        center.skipForwardCommand.preferredIntervals = [30]
-        center.skipBackwardCommand.preferredIntervals = [30]
-        center.changePlaybackRateCommand.supportedPlaybackRates = [0.8, 1.0, 1.25, 1.5, 2.0]
-
-        for unsupported in [
-            center.seekForwardCommand,
-            center.seekBackwardCommand,
-            center.stopCommand,
-            center.changeRepeatModeCommand,
-            center.changeShuffleModeCommand,
-            center.likeCommand,
-            center.dislikeCommand,
-            center.bookmarkCommand,
-            center.ratingCommand,
-            center.enableLanguageOptionCommand,
-            center.disableLanguageOptionCommand,
-        ] {
-            unsupported.isEnabled = false
-        }
-
-        addTarget(center.playCommand) { [weak self] _ in
-            self?.onMain { self?.play() } ?? .commandFailed
-        }
-        addTarget(center.pauseCommand) { [weak self] _ in
-            self?.onMain { self?.pause() } ?? .commandFailed
-        }
-        addTarget(center.skipForwardCommand) { [weak self] _ in
-            self?.onMain { self?.skipForward(30) } ?? .commandFailed
-        }
-        addTarget(center.skipBackwardCommand) { [weak self] _ in
-            self?.onMain { self?.skipBackward(30) } ?? .commandFailed
-        }
-        addTarget(center.togglePlayPauseCommand) { [weak self] _ in
-            guard let self else { return .commandFailed }
-            return onMain { self.isPlaying ? self.pause() : self.play() }
-        }
-        addTarget(center.nextTrackCommand) { [weak self] _ in
-            self?.onMain { self?.nextChapter() } ?? .commandFailed
-        }
-        addTarget(center.previousTrackCommand) { [weak self] _ in
-            self?.onMain { self?.prevChapter() } ?? .commandFailed
-        }
-        addTarget(center.changePlaybackRateCommand) { [weak self] event in
-            guard let event = event as? MPChangePlaybackRateCommandEvent else {
-                return .commandFailed
-            }
-            return self?.onMain { self?.setRate(event.playbackRate) } ?? .commandFailed
-        }
-        addTarget(center.changePlaybackPositionCommand) { [weak self] event in
-            guard let event = event as? MPChangePlaybackPositionCommandEvent else {
-                return .commandFailed
-            }
-            return self?.onMain { self?.seek(to: event.positionTime) } ?? .commandFailed
         }
     }
 }
