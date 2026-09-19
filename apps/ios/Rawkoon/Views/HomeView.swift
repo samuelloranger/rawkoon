@@ -219,7 +219,8 @@ struct HomeView: View {
                                 title: m.title, posterPath: m.posterUrl, libraryId: m.id)
                     .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
             } label: {
-                poster(title: m.title, url: m.posterUrl)
+                MediaPosterCard(title: m.title, posterURL: model.absoluteURL(m.posterUrl),
+                                width: RailPoster.width, corner: RailPoster.corner)
                     .matchedTransitionSource(id: zoomID, in: zoomNamespace)
             }
             .buttonStyle(.plain)
@@ -230,8 +231,9 @@ struct HomeView: View {
                                 title: u.title, posterPath: u.posterUrl, libraryId: u.libraryId)
                     .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
             } label: {
-                poster(title: u.title, url: u.posterUrl,
-                       date: u.displayDate, episode: u.episodeLabel)
+                MediaPosterCard(title: u.title, posterURL: model.absoluteURL(u.posterUrl),
+                                date: u.displayDate, episode: u.episodeLabel,
+                                width: RailPoster.width, corner: RailPoster.corner)
                     .matchedTransitionSource(id: zoomID, in: zoomNamespace)
             }
             .buttonStyle(.plain)
@@ -243,7 +245,8 @@ struct HomeView: View {
                                 title: d.title, posterPath: d.posterUrl, libraryId: nil)
                     .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
             } label: {
-                poster(title: d.title, url: d.posterUrl)
+                MediaPosterCard(title: d.title, posterURL: model.absoluteURL(d.posterUrl),
+                                width: RailPoster.width, corner: RailPoster.corner)
                     .matchedTransitionSource(id: zoomID, in: zoomNamespace)
             }
             .buttonStyle(.plain)
@@ -256,82 +259,6 @@ struct HomeView: View {
         static let width: CGFloat = 140
         static let height: CGFloat = 210
         static let corner: CGFloat = 16
-    }
-
-    private func poster(title: String, url: String?, date: String? = nil, episode: String? = nil) -> some View {
-        let shape = RoundedRectangle(cornerRadius: RailPoster.corner, style: .continuous)
-        return Rectangle()
-            .fill(Theme.raised)
-            .frame(width: RailPoster.width, height: RailPoster.height)
-            .overlay {
-                CachedAsyncImage(
-                    url: model.absoluteURL(url),
-                    targetSize: CGSize(width: RailPoster.width, height: RailPoster.height)
-                ) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    Image(systemName: "photo").foregroundStyle(Theme.faint)
-                }
-                .frame(width: RailPoster.width, height: RailPoster.height)
-                .clipped()
-            }
-            .overlay {
-                LinearGradient(
-                    colors: [.black.opacity(0.55), .black.opacity(0.08), .clear],
-                    startPoint: .bottom,
-                    endPoint: .center
-                )
-                .allowsHitTesting(false)
-            }
-            .overlay(alignment: .bottom) {
-                posterCaption(title: title, date: date, episode: episode)
-            }
-            .clipShape(shape)
-            .overlay(shape.strokeBorder(.white.opacity(0.08), lineWidth: 1))
-            .contentShape(shape)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(posterAccessibilityLabel(title: title, date: date, episode: episode))
-    }
-
-    private func posterCaption(title: String, date: String?, episode: String?) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
-            if date != nil || episode != nil {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    if let date {
-                        Text(date)
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-                    Spacer(minLength: 0)
-                    if let episode {
-                        Text(episode)
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(Theme.apricot)
-                    }
-                }
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.top, 8)
-        .padding(.bottom, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .environment(\.colorScheme, .dark)
-                .overlay(Color.black.opacity(0.32))
-        }
-    }
-
-    private func posterAccessibilityLabel(title: String, date: String?, episode: String?) -> String {
-        [title, date, episode].compactMap(\.self).joined(separator: ", ")
     }
 
     // MARK: Widgets
