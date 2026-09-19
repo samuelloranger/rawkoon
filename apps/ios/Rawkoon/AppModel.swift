@@ -5,27 +5,6 @@ import RawkoonKit
 import UIKit
 import UserNotifications
 
-/// Runs `operation`, giving up and returning nil after `seconds`.
-///
-/// The losing child is cancelled, but a URLSession call already in flight keeps
-/// running to its own timeout in the background; the point is only that the
-/// caller stops waiting on it.
-private func withDeadline<T: Sendable>(
-    seconds: Double,
-    _ operation: @escaping @Sendable () async -> T?
-) async -> T? {
-    await withTaskGroup(of: T?.self) { group in
-        group.addTask { await operation() }
-        group.addTask {
-            try? await Task.sleep(for: .seconds(seconds))
-            return nil
-        }
-        let first = await group.next() ?? nil
-        group.cancelAll()
-        return first
-    }
-}
-
 @MainActor
 @Observable
 final class AppModel {
@@ -132,18 +111,18 @@ final class AppModel {
 
     let player = AudiobookPlayer()
 
-    private static let serverURLKey = "server_url"
-    private static let authTokenKey = "auth_token"
+    static let serverURLKey = "server_url"
+    static let authTokenKey = "auth_token"
     private static let deviceIDKey = "device_id"
 
-    private static let persistFailedWarning = String(localized: "Signed in, but this device couldn't save your login. You may need to sign in again after quitting the app.")
+    static let persistFailedWarning = String(localized: "Signed in, but this device couldn't save your login. You may need to sign in again after quitting the app.")
 
-    private var apiClient: APIClient?
-    private var manifests: [Int: BookManifest] = [:]
-    private var downloaders: [Int: ChapterDownloader] = [:]
+    var apiClient: APIClient?
+    var manifests: [Int: BookManifest] = [:]
+    var downloaders: [Int: ChapterDownloader] = [:]
     private var pendingBackgroundCompletions: [String: () -> Void] = [:]
-    private var verifiedCounts: [Int: Int] = [:]
-    private var lastProgressWriteMillis: [Int: Int64] = [:]
+    var verifiedCounts: [Int: Int] = [:]
+    var lastProgressWriteMillis: [Int: Int64] = [:]
     /// Whether the device currently has a usable network path.
     ///
     /// Starts `true` so a launch never assumes offline before the monitor has
@@ -153,13 +132,13 @@ final class AppModel {
     private(set) var isOnline = true
     private let pathMonitor = NWPathMonitor()
 
-    private let readingProgressStore = ReadingProgressStore(
+    let readingProgressStore = ReadingProgressStore(
         directory: FileStore.booksDirectory()
     )
-    private var lastProgressPosition: [Int: Double] = [:]
+    var lastProgressPosition: [Int: Double] = [:]
 
-    private let journalURL: URL
-    private let deviceID: String
+    let journalURL: URL
+    let deviceID: String
 
     init() {
         serverURL = Keychain.get(Self.serverURLKey) ?? ""
@@ -244,39 +223,6 @@ final class AppModel {
         pathMonitor.start(queue: DispatchQueue(label: "cloud.samlo.rawkoon.path"))
     }
 
-    func login(server: String, email: String, password: String) async {
-        let normalizedServer = server.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let baseURL = URL(string: normalizedServer) else {
-            errorMessage = String(localized: "Enter a valid server URL.")
-            return
-        }
-
-        loading = true
-        errorMessage = nil
-        defer { loading = false }
-
-        do {
-            let client = APIClient(baseURL: baseURL, token: nil)
-            let token = try await client.login(email: email, password: password)
-
-            let serverSaved = Keychain.set(normalizedServer, for: Self.serverURLKey)
-            let tokenSaved = Keychain.set(token, for: Self.authTokenKey)
-            if !serverSaved || !tokenSaved {
-                authWarning = Self.persistFailedWarning
-            }
-
-            serverURL = normalizedServer
-            apiClient = makeAPIClient(baseURL: baseURL, token: token)
-            isLoggedIn = true
-            try await reloadLibrary()
-            requestPushAuthorization()
-            startLiveStreams()
-            await refreshUnreadNotificationCount()
-        } catch {
-            errorMessage = message(for: error)
-        }
-    }
-
     #if DEBUG
         /// Simulator/screenshot convenience: log in from launch environment when
         /// present. Compiled only in Debug, so it never ships in a Release/TestFlight
@@ -354,55 +300,6 @@ final class AppModel {
         }
     }
 
-    /// Load the enabled OAuth providers for the login screen (public endpoint).
-    func loadSsoProviders() async {
-        let raw = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !raw.isEmpty, let base = URL(string: raw) else { ssoProviders = []; return }
-        let client = apiClient ?? APIClient(baseURL: base, token: nil)
-        ssoProviders = await (try? client.ssoProviders().providers) ?? []
-    }
-
-    /// Sign in through a provider using the native browser OAuth flow.
-    func signInWithProvider(_ slug: String) async {
-        let raw = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard
-            let base = URL(string: raw),
-            let startURL = URL(string: "/api/mobile/oauth-start?provider=\(slug)", relativeTo: base)?.absoluteURL
-        else {
-            errorMessage = String(localized: "Enter a valid server URL.")
-            return
-        }
-        errorMessage = nil
-        guard let callback = await WebAuthCoordinator.shared.start(url: startURL, scheme: "rawkoon") else {
-            return // cancelled
-        }
-        let comps = URLComponents(url: callback, resolvingAgainstBaseURL: false)
-        if let token = comps?.queryItems?.first(where: { $0.name == "token" })?.value, !token.isEmpty {
-            await applyOAuthToken(server: raw, token: token)
-        } else {
-            errorMessage = String(localized: "Sign-in failed. Please try again.")
-        }
-    }
-
-    private func applyOAuthToken(server: String, token: String) async {
-        guard let base = URL(string: server) else {
-            errorMessage = String(localized: "Enter a valid server URL.")
-            return
-        }
-        let serverSaved = Keychain.set(server, for: Self.serverURLKey)
-        let tokenSaved = Keychain.set(token, for: Self.authTokenKey)
-        if !serverSaved || !tokenSaved {
-            authWarning = Self.persistFailedWarning
-        }
-        serverURL = server
-        apiClient = makeAPIClient(baseURL: base, token: token)
-        isLoggedIn = true
-        do { try await reloadLibrary() } catch { errorMessage = message(for: error) }
-        requestPushAuthorization()
-        startLiveStreams()
-        await refreshUnreadNotificationCount()
-    }
-
     func loadLibrary() async {
         loading = true
         errorMessage = nil
@@ -455,7 +352,7 @@ final class AppModel {
 
     private var pendingApnsToken: String?
     /// Retained after registration so sign-out can unregister it.
-    private var registeredApnsToken: String?
+    var registeredApnsToken: String?
     /// Editions whose grants are being refetched, and how often — a server whose
     /// secret rotated would otherwise refetch forever.
     private var grantRefreshAttempts: [Int: Int] = [:]
@@ -720,54 +617,6 @@ final class AppModel {
         Task { await startDownload(editionId: editionId) }
     }
 
-    /// Authenticated 401 — the Keychain token is stale. Drop the session so
-    /// the next frame shows LoginView rather than retrying forever.
-    func handleSessionExpired() {
-        guard isLoggedIn else { return }
-        Log.auth.notice("session expired (401) — signing out")
-        logout()
-    }
-
-    private func makeAPIClient(baseURL: URL, token: String?) -> APIClient {
-        serverStateStore.clear()
-        return APIClient(baseURL: baseURL, token: token, onUnauthorized: {
-            Task { @MainActor in
-                AppModel.shared.handleSessionExpired()
-            }
-        })
-    }
-
-    func logout() {
-        // Before apiClient is torn down: an APNs token identifies the phone, not
-        // the account, so leaving it registered would deliver this user's
-        // notifications to whoever signs in next.
-        if let token = registeredApnsToken, let client = apiClient {
-            Task { try? await client.unregisterApns(deviceToken: token) }
-        }
-        registeredApnsToken = nil
-
-        stopLiveStreams()
-        serverStateStore.clear()
-        dismissBanner()
-        deepLinkTarget = nil
-        liveUpdates.resetUnreadCount()
-
-        Keychain.delete(Self.serverURLKey)
-        Keychain.delete(Self.authTokenKey)
-
-        apiClient = nil
-        isLoggedIn = false
-        isAdmin = false
-        library = []
-        manifests = [:]
-        downloaders = [:]
-        downloadPlans = [:]
-        verifiedCounts = [:]
-        activeEditionId = nil
-        player.pause()
-        errorMessage = nil
-    }
-
     func deleteDownloads() {
         let editionIDs = Set(library.compactMap(\.audiobookEditionId))
             .union(manifests.keys)
@@ -907,211 +756,7 @@ final class AppModel {
         OfflineLibraryStore.ebookFiles(editionId: editionId)
     }
 
-    /// The write a reconciled resume point implies, held rather than performed so
-    /// the decision can also be read without side effects.
-    private enum ResumeEffect {
-        case none
-        case adoptRemote(PositionEntry)
-        case pushLocal(positionSecs: Double, updatedAtMillis: Int64)
-    }
-
-    /// Takes the total rather than the manifest: the button label needs a resume
-    /// point before the manifest has necessarily loaded.
-    private func reconcileResumePosition(
-        editionId: Int,
-        totalDurationSecs: Double
-    ) async -> (positionSecs: Double, effect: ResumeEffect) {
-        let localEntry = PositionJournal.latest(in: readJournal(), editionId: editionId)
-        let localRecord = localEntry.map {
-            ProgressRecord(
-                positionSecs: $0.positionSecs,
-                totalDurationSecs: totalDurationSecs,
-                finished: $0.positionSecs >= totalDurationSecs,
-                updatedAtMillis: $0.atMillis
-            )
-        }
-
-        var remoteRecord: ProgressRecord?
-        if let apiClient,
-           let remote = await (try? apiClient.getProgress())?.first(where: { $0.editionId == editionId })
-        {
-            remoteRecord = ProgressRecord(
-                positionSecs: remote.positionSecs,
-                totalDurationSecs: remote.totalDurationSecs,
-                finished: remote.finished,
-                updatedAtMillis: Int64(remote.updatedAt.timeIntervalSince1970 * 1000)
-            )
-        }
-
-        switch SyncReconciler.reconcile(local: localRecord, remote: remoteRecord) {
-        case .keepLocal:
-            return (localRecord?.positionSecs ?? 0, .none)
-        case .takeRemote:
-            guard let remoteRecord else { return (localRecord?.positionSecs ?? 0, .none) }
-            let adjusted = SyncReconciler.adjust(remoteRecord, toTotal: totalDurationSecs)
-            let entry = PositionEntry(
-                editionId: editionId,
-                positionSecs: adjusted.positionSecs,
-                atMillis: adjusted.updatedAtMillis
-            )
-            return (adjusted.positionSecs, .adoptRemote(entry))
-        case .push:
-            guard let localRecord else { return (0, .none) }
-            return (
-                localRecord.positionSecs,
-                .pushLocal(
-                    positionSecs: localRecord.positionSecs,
-                    updatedAtMillis: localRecord.updatedAtMillis
-                )
-            )
-        }
-    }
-
-    private func resolveResumePosition(editionId: Int, manifest: BookManifest) async -> Double {
-        let (positionSecs, effect) = await reconcileResumePosition(
-            editionId: editionId,
-            totalDurationSecs: manifest.totalDurationSecs
-        )
-        switch effect {
-        case .none:
-            break
-        case let .adoptRemote(entry):
-            appendJournal(entry)
-        case let .pushLocal(pushed, updatedAtMillis):
-            sendProgress(
-                editionId: editionId,
-                positionSecs: pushed,
-                totalDurationSecs: manifest.totalDurationSecs,
-                updatedAtMillis: updatedAtMillis
-            )
-        }
-        resumePreview[editionId] = positionSecs
-        return positionSecs
-    }
-
-    /// Fills `resumePreview` so a book's primary button can name the point it
-    /// will resume at. Deliberately read-only: opening a detail screen must not
-    /// adopt a remote position or push a local one — only starting playback does.
-    func loadResumePreview(editionId: Int, totalDurationSecs: Double) async {
-        guard totalDurationSecs > 1 else { return }
-        let (positionSecs, _) = await reconcileResumePosition(
-            editionId: editionId,
-            totalDurationSecs: totalDurationSecs
-        )
-        resumePreview[editionId] = positionSecs
-    }
-
-    private func persistPlaybackProgress(force: Bool) {
-        guard let editionId = activeEditionId, let manifest = manifests[editionId] else {
-            return
-        }
-
-        let nowMillis = Self.nowMillis()
-        if !force {
-            let elapsed = nowMillis - (lastProgressWriteMillis[editionId] ?? 0)
-            if elapsed < 5000 {
-                return
-            }
-            if let last = lastProgressPosition[editionId], abs(last - player.positionSecs) < 1 {
-                return
-            }
-        }
-
-        let timeline = BookTimeline(chapters: manifest.chapters)
-        let clamped = timeline.clamp(player.positionSecs)
-        let entry = PositionEntry(editionId: editionId, positionSecs: clamped, atMillis: nowMillis)
-        appendJournal(entry)
-
-        lastProgressWriteMillis[editionId] = nowMillis
-        lastProgressPosition[editionId] = clamped
-
-        sendProgress(
-            editionId: editionId,
-            positionSecs: clamped,
-            totalDurationSecs: manifest.totalDurationSecs,
-            updatedAtMillis: nowMillis
-        )
-    }
-
-    // MARK: Reading progress (ebooks)
-
-    /// Where to open an ebook edition, reconciled across this device and the
-    /// server. Same last-write-wins rule as the audiobook position. The caller
-    /// prefers `winner.locator` when it parses; otherwise it runs
-    /// `ReadingProgressReconciler.resolve` against the publication spine.
-    func readingPosition(editionId: Int) async -> ReadingPosition? {
-        let local = readingProgressStore.position(editionId: editionId)
-        var remote: ReadingPosition?
-        // Two separate reasons this must not block the reader.
-        //
-        // With no network path at all the request cannot succeed, so it is not
-        // even attempted. But a path monitor reports "satisfied" whenever an
-        // interface exists, and for a self-hosted server the common case is
-        // having internet while the server itself is unreachable — away from
-        // home, a captive portal, the box rebooting. There the request runs into
-        // URLSession's full 60-second timeout, and the reader sat on
-        // "Opening book…" that whole time for a book already on disk. So it is
-        // also given a short deadline, after which the local position wins.
-        if isOnline, let apiClient {
-            remote = await withDeadline(seconds: 5) {
-                await (try? apiClient.readingProgress())?
-                    .first { $0.editionId == editionId }
-            }
-        }
-
-        let winner: ReadingPosition?
-        switch ReadingProgressReconciler.reconcile(local: local, remote: remote) {
-        case .takeRemote:
-            winner = remote
-            // Mirror it locally so the next open resumes offline too.
-            if let remote {
-                try? readingProgressStore.save(remote)
-            }
-        case .keepLocal, .push:
-            winner = local
-        }
-        return winner
-    }
-
-    /// Fills `readingResumePreview` so a book's Read button can name where it
-    /// will reopen. Unlike the audiobook preview this may mirror a remote
-    /// position into the local store — that is `readingPosition`'s own offline
-    /// cache warm, not a write back to the server.
-    func loadReadingResumePreview(editionId: Int) async {
-        readingResumePreview[editionId] = await readingPosition(editionId: editionId)
-    }
-
-    /// Persists locally first, then pushes. The local write is what makes the
-    /// position survive a crash or an offline session; the push is best-effort.
-    func saveReadingPosition(_ position: ReadingPosition) {
-        try? readingProgressStore.save(position)
-        guard let apiClient else { return }
-        Task { try? await apiClient.putReadingProgress(position, deviceId: deviceID) }
-    }
-
-    private func sendProgress(
-        editionId: Int,
-        positionSecs: Double,
-        totalDurationSecs: Double,
-        updatedAtMillis: Int64
-    ) {
-        guard let apiClient else { return }
-        let finished = positionSecs >= max(totalDurationSecs - 1, 0)
-        let updatedAt = Date(timeIntervalSince1970: Double(updatedAtMillis) / 1000)
-
-        Task {
-            try? await apiClient.putProgress(
-                editionId: editionId,
-                positionSecs: positionSecs,
-                totalDurationSecs: totalDurationSecs,
-                finished: finished,
-                updatedAt: updatedAt,
-                deviceId: deviceID
-            )
-        }
-    }
-
-    private func reloadLibrary() async throws {
+    func reloadLibrary() async throws {
         guard let apiClient else { throw APIError.unauthorized }
         do {
             let fetched = try await apiClient.libraryBooks()
@@ -1166,27 +811,7 @@ final class AppModel {
         }
     }
 
-    private var didRefreshAdminOnce = false
-
-    /// Refresh admin state on a cold Settings open (or after a promotion/demotion),
-    /// since `refreshAdmin()` otherwise only runs on login/library-reload (spec §4.5).
-    /// Only ever *adds* admin rows for real admins.
-    func refreshAdminIfNeeded() async {
-        guard apiClient != nil, !didRefreshAdminOnce else { return }
-        didRefreshAdminOnce = true
-        await refreshAdmin()
-    }
-
-    /// Best-effort: learn whether the signed-in user is an admin, so the UI can
-    /// offer "Add to library" (admin) vs "Request" (non-admin).
-    private func refreshAdmin() async {
-        guard let apiClient else { return }
-        if let user = await (try? apiClient.currentUser())?.user {
-            isAdmin = user.isAdmin ?? false
-            let full = [user.firstName, user.lastName].compactMap(\.self).joined(separator: " ")
-            userFirstName = user.firstName ?? (full.isEmpty ? user.name : full)
-        }
-    }
+    var didRefreshAdminOnce = false
 
     /// Mark the whole book read (or clear the badge). Marking read wipes this
     /// user's ebook and audiobook progress on the server and this device.
@@ -1224,33 +849,6 @@ final class AppModel {
         }
     }
 
-    private func readJournal() -> String {
-        (try? String(contentsOf: journalURL, encoding: .utf8)) ?? ""
-    }
-
-    private func appendJournal(_ entry: PositionEntry) {
-        let line = PositionJournal.encode(entry)
-        guard !line.isEmpty, let data = line.data(using: .utf8) else {
-            return
-        }
-
-        if !FileManager.default.fileExists(atPath: journalURL.path) {
-            FileManager.default.createFile(atPath: journalURL.path, contents: nil)
-        }
-
-        guard let handle = try? FileHandle(forWritingTo: journalURL) else {
-            return
-        }
-
-        do {
-            try handle.seekToEnd()
-            try handle.write(contentsOf: data)
-            try handle.close()
-        } catch {
-            try? handle.close()
-        }
-    }
-
     private func verifiedFileCount(in plan: DownloadPlan) -> Int {
         plan.files.reduce(into: 0) { count, file in
             if plan.states[file.id] == .verified {
@@ -1259,7 +857,7 @@ final class AppModel {
         }
     }
 
-    private func message(for error: Error) -> String {
+    func message(for error: Error) -> String {
         guard let apiError = error as? APIError else {
             return String(localized: "Unexpected error. Please try again.")
         }
@@ -1286,7 +884,7 @@ final class AppModel {
         return url
     }
 
-    private static func nowMillis() -> Int64 {
+    static func nowMillis() -> Int64 {
         Int64(Date().timeIntervalSince1970 * 1000)
     }
 }
