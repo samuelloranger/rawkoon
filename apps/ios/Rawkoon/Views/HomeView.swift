@@ -1,10 +1,11 @@
 import RawkoonKit
 import SwiftUI
 
-/// The home screen for every user: greeting, Continue, Recently Added and
-/// Upcoming rails, then a widget stack (Now Watching, Downloads, Library
-/// Attention, RSS). The ops widgets (Downloads, RSS) are admin-only; all
-/// widgets also self-hide when their integration is off or has no data.
+/// The home screen for every user: greeting, Continue, Recently Added,
+/// Upcoming and For-You rails, then a widget stack (Now Watching, Downloads,
+/// Library Attention, RSS, Library stats). The ops widgets (Downloads, RSS,
+/// Library stats) are admin-only; all widgets also self-hide when their
+/// integration is off or has no data.
 struct HomeView: View {
     @Environment(AppModel.self) private var model
     /// Local namespace shared directly by each poster source and its detail
@@ -13,10 +14,12 @@ struct HomeView: View {
 
     @State private var recent: [LibraryMedia] = []
     @State private var upcoming: [UpcomingItem] = []
+    @State private var discover: DiscoverDeckResponse?
     @State private var nowPlaying: NowPlayingResponse?
     @State private var speed: SpeedResponse?
     @State private var attention: [AttentionItem] = []
     @State private var rss: RssStatusResponse?
+    @State private var stats: LibraryStats?
     @State private var loading = true
     /// Bumped on pull-to-refresh and when Continue's player sheet dismisses
     /// so Listening reloads with Continue.
@@ -105,6 +108,12 @@ struct HomeView: View {
             if !upcoming.isEmpty {
                 rail("Upcoming", upcoming.map(RailItem.upcoming))
             }
+            if let discover, !discover.items.isEmpty {
+                rail(
+                    discover.source == .personalized ? "For you" : "Trending",
+                    discover.items.map(RailItem.discover)
+                )
+            }
             widgets
         }
     }
@@ -172,10 +181,12 @@ struct HomeView: View {
     private enum RailItem: Identifiable {
         case library(LibraryMedia)
         case upcoming(UpcomingItem)
+        case discover(DiscoverDeckItem)
         var id: String {
             switch self {
             case let .library(m): "l\(m.id)"
             case let .upcoming(u): "u\(u.id)"
+            case let .discover(d): "d\(d.id)"
             }
         }
     }
@@ -225,6 +236,17 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
             .disabled(u.tmdbId == nil && u.libraryId == nil)
+        case let .discover(d):
+            let zoomID = RawkoonZoom.media(tmdbId: d.tmdbId, mediaType: d.mediaType)
+            NavigationLink {
+                MediaDetailView(tmdbId: d.tmdbId, mediaType: d.mediaType,
+                                title: d.title, posterPath: d.posterUrl, libraryId: nil)
+                    .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
+            } label: {
+                poster(title: d.title, url: d.posterUrl)
+                    .matchedTransitionSource(id: zoomID, in: zoomNamespace)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -328,6 +350,9 @@ struct HomeView: View {
             }
             if model.isAdmin, let rss {
                 rssWidget(rss)
+            }
+            if model.isAdmin, let stats {
+                libraryStatsWidget(stats)
             }
         }
         .padding(.horizontal, 16)
@@ -483,6 +508,92 @@ struct HomeView: View {
         }
     }
 
+    // MARK: Library stats widget (admin)
+
+    private func libraryStatsWidget(_ s: LibraryStats) -> some View {
+        widgetCard("Library", systemImage: "internaldrive") {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 18) {
+                    statFigure("\(s.totalMovies)", "Movies")
+                    statFigure("\(s.totalShows)", "Shows")
+                    statFigure("\(s.downloaded)", "Downloaded")
+                    if s.wanted > 0 {
+                        statFigure("\(s.wanted)", "Wanted")
+                    }
+                    Spacer(minLength: 0)
+                }
+                HStack(spacing: 6) {
+                    Text("Storage").font(.caption2).foregroundStyle(Theme.faint)
+                    Text(byteString(s.storageUsedBytes))
+                        .font(.system(.subheadline, design: .monospaced)).foregroundStyle(Theme.text)
+                }
+                let bars = orderedStorageBars(s.storageByResolution)
+                if !bars.isEmpty {
+                    storageBars(bars)
+                }
+            }
+        }
+    }
+
+    private func statFigure(_ value: String, _ label: LocalizedStringKey) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value).font(.system(.title3, design: .rounded).weight(.semibold)).foregroundStyle(Theme.textStrong)
+            Text(label).font(.caption2).foregroundStyle(Theme.faint)
+        }
+    }
+
+    /// Storage rows with a value, ordered low→high resolution with unknown last.
+    private func orderedStorageBars(_ rows: [StorageByResolution]) -> [StorageByResolution] {
+        rows.filter { $0.sizeBytes > 0 }.sorted { resolutionRank($0.resolution) < resolutionRank($1.resolution) }
+    }
+
+    private func storageBars(_ rows: [StorageByResolution]) -> some View {
+        let maxSize = max(rows.map(\.sizeBytes).max() ?? 1, 1)
+        return VStack(spacing: 8) {
+            ForEach(rows) { row in
+                VStack(spacing: 4) {
+                    HStack {
+                        Text(resolutionLabel(row.resolution)).font(.caption).foregroundStyle(Theme.muted)
+                        Spacer()
+                        Text(byteString(row.sizeBytes))
+                            .font(.system(.caption, design: .monospaced)).foregroundStyle(Theme.text)
+                    }
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Theme.base)
+                            Capsule().fill(Theme.seed)
+                                .frame(width: max(geo.size.width * CGFloat(row.sizeBytes) / CGFloat(maxSize), 2))
+                        }
+                    }
+                    .frame(height: 6)
+                }
+            }
+        }
+    }
+
+    private func resolutionRank(_ r: String) -> Int {
+        switch r {
+        case "480p": 0
+        case "720p": 1
+        case "1080p": 2
+        case "4k": 3
+        default: 4
+        }
+    }
+
+    private func resolutionLabel(_ r: String) -> String {
+        switch r {
+        case "4k": "4K"
+        case "unknown": String(localized: "SD / unknown")
+        default: r
+        }
+    }
+
+    private func byteString(_ bytes: Int) -> String {
+        let safe = Int64(exactly: bytes) ?? .max
+        return ByteCountFormatter.string(fromByteCount: max(safe, 0), countStyle: .file)
+    }
+
     // MARK: Load
 
     private func load() async {
@@ -495,6 +606,7 @@ struct HomeView: View {
         }
         async let recentR = client.recentlyAdded()
         async let upcomingR = client.upcoming()
+        async let discoverR = client.discoverDeck(exclude: [], limit: 12)
         async let npR = client.nowPlaying()
         async let speedR = client.speed()
         async let attnR = client.libraryAttention()
@@ -511,6 +623,9 @@ struct HomeView: View {
         if let items = await (try? upcomingR)?.items {
             upcoming = items
         }
+        if let deck = try? await discoverR {
+            discover = deck
+        }
         if let np = try? await npR {
             nowPlaying = np
         }
@@ -522,6 +637,9 @@ struct HomeView: View {
         }
         if let status = try? await rssR {
             rss = status
+        }
+        if model.isAdmin, let s = try? await client.libraryStats() {
+            stats = s
         }
 
         loading = false

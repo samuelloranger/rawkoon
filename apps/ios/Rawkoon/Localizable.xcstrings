@@ -1,6 +1,26 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "SD / unknown": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SD / inconnu"
+          }
+        }
+      }
+    },
+    "Storage": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stockage"
+          }
+        }
+      }
+    },
     "Resume Audiobook": {
       "localizations": {
         "fr": {

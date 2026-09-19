@@ -51,6 +51,28 @@ nonisolated struct DiscoverDeckResponse: Codable, Sendable {
     let source: DiscoverSource
 }
 
+// MARK: - Library stats (Home ops widget)
+
+/// Only the fields the Home "Library" widget renders; the endpoint also returns
+/// per-status/type and per-tmdb-status breakdowns, ignored here.
+nonisolated struct LibraryStats: Decodable, Sendable {
+    let totalMovies: Int
+    let totalShows: Int
+    let downloaded: Int
+    let wanted: Int
+    let returningSeries: Int
+    let storageUsedBytes: Int
+    let storageByResolution: [StorageByResolution]
+}
+
+nonisolated struct StorageByResolution: Decodable, Identifiable, Sendable {
+    let resolution: String
+    let sizeBytes: Int
+    var id: String {
+        resolution
+    }
+}
+
 // MARK: - Discover filter grid (Explore)
 
 /// Copies server `DISCOVER_VALID_SORTS` (tmdbRouteHelpers.ts) exactly so the UI
