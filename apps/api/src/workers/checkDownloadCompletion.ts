@@ -61,15 +61,17 @@ export function classifyPendingAgainstTorrent(
   nowMs: number,
   settings: ReconcileSettings,
 ): PendingOutcome {
+  // Completion first: a torrent that finished while Rawkoon was down is imported, not condemned.
+  if (torrent.state === "completed" || torrent.progress >= 1) {
+    return { outcome: "complete" };
+  }
   if (nowMs - track.createdAtMs > settings.maxAgeSecs * 1000) {
     return {
       outcome: "fail",
       reason: "exceeded max age with no completion",
-      failKind: "stalled",
+      // A torrent paused on purpose is not the release's fault.
+      failKind: torrent.state === "paused" ? "error" : "stalled",
     };
-  }
-  if (torrent.state === "completed" || torrent.progress >= 1) {
-    return { outcome: "complete" };
   }
   if (torrent.state === "error") {
     return {

@@ -110,6 +110,28 @@ describe("classifyPendingAgainstTorrent", () => {
     expect(aged).toMatchObject({ outcome: "fail", failKind: "stalled" });
   });
 
+  it("completes a finished torrent even when it is past max age", () => {
+    expect(
+      classifyPendingAgainstTorrent(
+        { ...base, state: "completed", progress: 1 },
+        { createdAtMs: now - 2_000_000, lastProgress: 0.9, lastProgressAtMs: now - 10_000 },
+        now,
+        settings,
+      ),
+    ).toEqual({ outcome: "complete" });
+  });
+
+  it("only fails, never condemns, a paused torrent past max age", () => {
+    expect(
+      classifyPendingAgainstTorrent(
+        { ...base, state: "paused" },
+        { createdAtMs: now - 2_000_000, lastProgress: 0.5, lastProgressAtMs: now - 10_000 },
+        now,
+        settings,
+      ),
+    ).toMatchObject({ outcome: "fail", failKind: "error" });
+  });
+
   it("tracks real progress and times out a non-progressing download", () => {
     expect(
       classifyPendingAgainstTorrent(
