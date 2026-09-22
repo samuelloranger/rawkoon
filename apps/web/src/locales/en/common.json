@@ -2012,7 +2012,9 @@
       "keepSeedingHint": "Rawkoon removes it from the client once its seed target is met.",
       "releaseNow": "Remove the torrent now",
       "releaseNowHint": "Frees the space right away.",
-      "hnrWarning": "A private tracker still expects seed time for this torrent. Removing it now can count as a hit-and-run."
+      "hnrWarning": "A private tracker still expects seed time for this torrent. Removing it now can count as a hit-and-run.",
+      "keepSeedingHintRatio": "It still needs ratio {{target}} (now {{ratio}}); Rawkoon removes it from the client once reached.",
+      "releaseNowHintSize": "Removes {{size}} from the client right away."
     },
     "stats": {
       "title": "Library stats",
@@ -2479,7 +2481,7 @@
     "removed": "Removed {{title}} from the download client.",
     "removeError": "Couldn't remove the torrent.",
     "releasedToday": "Released today: {{count}}",
-    "freed": "{{size}} freed",
+    "freed": "{{size}} removed from the client",
     "releasedReason": {
       "target_met": "Target met",
       "manual": "Removed by you",
@@ -2532,7 +2534,7 @@
     "remove_other": "Remove {{count}} torrents",
     "removed_one": "Removed {{count}} torrent.",
     "removed_other": "Removed {{count}} torrents.",
-    "freed": "{{size}} freed.",
+    "freed": "{{size}} removed from the client.",
     "removeError": "Couldn't remove the selected torrents.",
     "empty": {
       "title": "No orphaned torrents",

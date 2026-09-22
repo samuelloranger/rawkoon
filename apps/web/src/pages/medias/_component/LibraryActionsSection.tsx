@@ -8,6 +8,7 @@ import { useToggleMediaMonitored } from "@/features/medias/hooks/useToggleMediaM
 import { useLibraryDownloads } from "@/features/medias/hooks/useLibraryDownloads";
 import { useSeeding } from "@/features/seeding/hooks/useSeeding";
 import { Button } from "@/components/ui/button";
+import { formatBytes } from "@/lib/utils/format";
 import { Card } from "./LibrarySharedUI";
 
 interface LibraryActionsSectionProps {
@@ -46,6 +47,24 @@ export function LibraryActionsSection({
   const owesSeedTime = (seeding?.torrents ?? []).some(
     (s) => heldHashes.has(s.hash) && s.owes_seed_time,
   );
+  const heldTorrents = (seeding?.torrents ?? []).filter((s) =>
+    heldHashes.has(s.hash),
+  );
+  const heldBytes = heldTorrents.reduce((sum, s) => sum + s.size_bytes, 0);
+  const single = heldTorrents.length === 1 ? heldTorrents[0] : null;
+  const keepHint =
+    single && !single.target_met && single.rule.ratio != null
+      ? t("library.management.keepSeedingHintRatio", {
+          ratio: (single.ratio ?? 0).toFixed(2),
+          target: single.rule.ratio.toFixed(1),
+        })
+      : t("library.management.keepSeedingHint");
+  const releaseHint =
+    heldBytes > 0
+      ? t("library.management.releaseNowHintSize", {
+          size: formatBytes(heldBytes),
+        })
+      : t("library.management.releaseNowHint");
   const [releaseNow, setReleaseNow] = useState(false);
 
   if (deleteConfirm === "confirm") {
@@ -75,12 +94,12 @@ export function LibraryActionsSection({
                 {
                   value: false,
                   label: t("library.management.keepSeeding"),
-                  hint: t("library.management.keepSeedingHint"),
+                  hint: keepHint,
                 },
                 {
                   value: true,
                   label: t("library.management.releaseNow"),
-                  hint: t("library.management.releaseNowHint"),
+                  hint: releaseHint,
                 },
               ].map((opt) => (
                 <label

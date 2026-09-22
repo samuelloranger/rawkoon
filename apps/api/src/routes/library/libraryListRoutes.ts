@@ -278,6 +278,11 @@ export const libraryListRoutes = new Hono<Env>()
           );
         }
 
+        // DownloadHistory rows are kept (media_id → NULL) so their torrents keep seeding to target.
+        // Cascade deletes episodes + MediaFile records.
+        await prisma.libraryMedia.delete({ where: { id } });
+
+        // Torrents are touched only after the title is gone, so a failed delete leaves both intact.
         const pending = existing.downloadHistories.filter(
           (dh) => dh.completedAt == null && !dh.failed,
         );
@@ -310,9 +315,6 @@ export const libraryListRoutes = new Hono<Env>()
           }
         }
 
-        // DownloadHistory rows are kept (media_id → NULL) so their torrents keep seeding to target.
-        // Cascade deletes episodes + MediaFile records.
-        await prisma.libraryMedia.delete({ where: { id } });
         return ok({ success: true, released });
       } catch {
         return serverError("Failed to remove library item");

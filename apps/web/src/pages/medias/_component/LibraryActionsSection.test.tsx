@@ -44,7 +44,18 @@ describe("LibraryActionsSection remove", () => {
   beforeEach(() => {
     removeMutateAsync.mockClear();
     seedingMock.mockReturnValue({
-      data: { torrents: [{ hash: "aa", owes_seed_time: true }] },
+      data: {
+        torrents: [
+          {
+            hash: "aa",
+            owes_seed_time: true,
+            target_met: false,
+            ratio: 0.4,
+            rule: { ratio: 10, seed_time_mins: null },
+            size_bytes: 2 * 1024 ** 3,
+          },
+        ],
+      },
     });
   });
 
@@ -81,5 +92,19 @@ describe("LibraryActionsSection remove", () => {
     render(<LibraryActionsSection libraryId={5} />);
     openConfirm();
     expect(screen.queryByText(/^library\.management\.seedingTitle/)).toBeNull();
+  });
+
+  it("says what is still owed and how much space removing frees", () => {
+    downloadsMock.mockReturnValue({ data: HELD });
+    render(<LibraryActionsSection libraryId={5} />);
+    openConfirm();
+    expect(
+      screen.getByText(
+        /^library\.management\.keepSeedingHintRatio ratio:0\.40 target:10\.0/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/^library\.management\.releaseNowHintSize size:2/),
+    ).toBeInTheDocument();
   });
 });

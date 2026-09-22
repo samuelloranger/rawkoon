@@ -2012,7 +2012,9 @@
       "keepSeedingHint": "Rawkoon le retire du client une fois son objectif de partage atteint.",
       "releaseNow": "Retirer le torrent maintenant",
       "releaseNowHint": "Libère l'espace tout de suite.",
-      "hnrWarning": "Un tracker privé attend encore du temps de partage pour ce torrent. Le retirer maintenant peut compter comme un hit-and-run."
+      "hnrWarning": "Un tracker privé attend encore du temps de partage pour ce torrent. Le retirer maintenant peut compter comme un hit-and-run.",
+      "keepSeedingHintRatio": "Il doit encore atteindre le ratio {{target}} (actuellement {{ratio}}); Rawkoon le retire du client une fois atteint.",
+      "releaseNowHintSize": "Retire {{size}} du client tout de suite."
     },
     "stats": {
       "title": "Statistiques de la bibliothèque",
@@ -2479,7 +2481,7 @@
     "removed": "{{title}} a été retiré du client de téléchargement.",
     "removeError": "Impossible de retirer le torrent.",
     "releasedToday": "Libérés aujourd'hui : {{count}}",
-    "freed": "{{size}} libérés",
+    "freed": "{{size}} retirés du client",
     "releasedReason": {
       "target_met": "Objectif atteint",
       "manual": "Retiré par vous",
@@ -2532,7 +2534,7 @@
     "remove_other": "Retirer {{count}} torrents",
     "removed_one": "{{count}} torrent retiré.",
     "removed_other": "{{count}} torrents retirés.",
-    "freed": "{{size}} libérés.",
+    "freed": "{{size}} retirés du client.",
     "removeError": "Impossible de retirer les torrents sélectionnés.",
     "empty": {
       "title": "Aucun torrent orphelin",
