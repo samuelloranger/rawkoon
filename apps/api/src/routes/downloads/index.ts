@@ -14,6 +14,10 @@ import { jsonV, paramV, queryV } from "@rawkoon/api/middleware/validate";
 import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import type { NormalizedTorrent } from "@rawkoon/api/services/downloadClient/types";
 import { listKnownIndexers } from "@rawkoon/api/services/seeding/indexerPrivacy";
+import {
+  loadOwnedHashes,
+  removeOrphanTorrents,
+} from "@rawkoon/api/services/seeding/orphans";
 import { indexerKey } from "@rawkoon/api/services/seeding/seedPolicy";
 import {
   defaultSweepDeps,
@@ -39,17 +43,6 @@ async function listClientTorrents(): Promise<NormalizedTorrent[] | null> {
   const active = await resolveActiveAdapter();
   if (!active) return [];
   return active.adapter.listTorrents().catch(() => null);
-}
-
-async function ownedHashes(): Promise<Set<string>> {
-  const rows = await prisma.downloadHistory.findMany({
-    where: { failed: false, torrentHash: { not: null } },
-    select: { torrentHash: true },
-    distinct: ["torrentHash"],
-  });
-  return new Set(
-    rows.flatMap((r) => (r.torrentHash ? [r.torrentHash.toLowerCase()] : [])),
-  );
 }
 
 const hashParam = z.object({ hash: z.string().regex(/^[0-9a-fA-F]{40}$/) });
@@ -263,7 +256,7 @@ export const downloadsRoutes = new Hono<Env>()
       const torrents = await listClientTorrents();
       if (torrents === null)
         return serviceUnavailable("Download client is unreachable");
-      return ok(buildOrphans(torrents, await ownedHashes()));
+      return ok(buildOrphans(torrents, await loadOwnedHashes()));
     } catch {
       return serverError("Failed to load orphaned torrents");
     }
@@ -283,33 +276,15 @@ export const downloadsRoutes = new Hono<Env>()
     async (c) => {
       const body = c.req.valid("json");
       try {
-        const active = await resolveActiveAdapter();
-        if (!active)
-          return serviceUnavailable("Download client is not configured");
-        const torrents = await active.adapter.listTorrents().catch(() => null);
-        if (!torrents)
-          return serviceUnavailable("Download client is unreachable");
-        // Re-classify server-side so this route can never remove a torrent Rawkoon owns.
-        const { orphans } = buildOrphans(torrents, await ownedHashes());
-        const byHash = new Map(orphans.map((o) => [o.hash, o]));
-        const removed: string[] = [];
-        const refused: string[] = [];
-        let freed = 0;
-        for (const raw of body.hashes) {
-          const orphan = byHash.get(raw.toLowerCase());
-          const torrent = torrents.find(
-            (t) => t.hash.toLowerCase() === raw.toLowerCase(),
+        const result = await removeOrphanTorrents(
+          body.hashes,
+          body.delete_data,
+        );
+        if (!result)
+          return serviceUnavailable(
+            "Download client is not configured or unreachable",
           );
-          if (!orphan || !torrent) {
-            refused.push(raw.toLowerCase());
-            continue;
-          }
-          const deleteData = body.delete_data && !orphan.shares_data;
-          await active.adapter.remove(torrent.hash, deleteData);
-          removed.push(orphan.hash);
-          if (deleteData) freed += orphan.size_bytes;
-        }
-        return ok({ removed, refused, freed_bytes: freed });
+        return ok(result);
       } catch {
         return serverError("Failed to remove orphaned torrents");
       }
