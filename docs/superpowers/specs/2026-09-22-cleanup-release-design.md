@@ -51,10 +51,10 @@ model DownloadHistory {
   // … existing fields
   /// When Rawkoon removed (or stopped tracking) this row's torrent. Null = still owned.
   seedReleasedAt    DateTime? @map("seed_released_at")
-  /// target_met | failed | malware | import_rejected | manual | move_mode | adopted
+  /// target_met | stalled | malware | import_rejected | manual | move_mode | adopted
   seedReleaseReason String?   @map("seed_release_reason")
-
-  @@index([seedReleasedAt, completedAt], map: "ix_download_history_seed_pending")
+  /// Torrent size at release, for the "GB freed" line; null when unknown.
+  seedReleasedBytes BigInt?   @map("seed_released_bytes")
 }
 
 model GrabBlocklist {
@@ -83,7 +83,7 @@ model MediaSettings {
 }
 ```
 
-The `seed_pending` index is partial in SQL (`WHERE seed_released_at IS NULL AND completed_at IS NOT NULL AND failed = false`). It serves the sweep query on a table that only grows, following the precedent of `ix_download_history_active_grabbed_at`.
+The `ix_download_history_seed_pending` index on `(torrent_hash)` is created in the migration SQL only, and documented in a schema comment: Prisma can't express partial indexes and ignores them in drift detection. It is partial (`WHERE seed_released_at IS NULL AND completed_at IS NOT NULL AND failed = false`). It serves the sweep query on a table that only grows, following the precedent of `ix_download_history_active_grabbed_at`.
 
 ## 2. Seed rules
 
@@ -104,8 +104,9 @@ The `seed_pending` index is partial in SQL (`WHERE seed_released_at IS NULL AND 
 Applied to all three adapters (`services/downloadClient/*`).
 
 - `NormalizedTorrent.seedingTimeSecs: number | null`. It maps to qBittorrent `seeding_time`, Transmission `secondsSeeding`, and Deluge `seeding_time`.
-- `NormalizedTorrent.category: string | null`. This is the qBittorrent category. Transmission and Deluge map it from their label.
-- `listFiles(hash): Promise<string[] | null>` returns relative paths, or `null` while metadata is unknown. It maps to qBittorrent `/api/v2/torrents/files`, Transmission `torrent-get ["files"]`, and Deluge `core.get_torrent_status(hash, ["files"])`.
+- `NormalizedTorrent.upSpeed: number` (bytes/s), for the release estimate.
+- `NormalizedTorrent.category: string | null`. This is the qBittorrent category and is `null` for Transmission and Deluge; those two prove ownership through the `rawkoon-dh-N` label alone.
+- `listFiles(hash): Promise<string[] | null>` returns relative paths, or `null` while metadata is unknown. All three clients report an empty file list before metadata arrives, so an empty list maps to `null`. It maps to qBittorrent `/api/v2/torrents/files`, Transmission `torrent-get ["files"]`, and Deluge `core.get_torrent_status(hash, ["files"])`.
 
 ## 4. Queue janitor
 
@@ -141,7 +142,7 @@ rejectRelease(dh: DownloadRef & { torrentHash: string | null; releaseTitle: stri
 - It runs in `reconcilePendingDownloads` on every pending row not yet in `ReconcileState.filesChecked`, **before** the verdict. A small torrent that finished between passes is still caught before completion is recorded.
 - `null` (no metadata yet) means retry on the next pass.
 - A clean result adds the row id to `filesChecked`.
-- A second call at the start of each post-processor covers completions from the download hook that bypass the pass.
+- A second check in `finishPostProcess`, before it dispatches to a post-processor, covers completions from the download hook that bypass the pass.
 - An empty `blockedExtensions` list disables it.
 
 ## 5. Seed sweep
@@ -170,7 +171,7 @@ rejectRelease(dh: DownloadRef & { torrentHash: string | null; releaseTitle: stri
 **Library delete** (`DELETE /api/library/:id`)
 - It no longer calls `downloadHistory.deleteMany`. `onDelete: SetNull` keeps the rows, which then keep seeding until their target.
 - The new optional query `release_torrents=true` evaluates each owned hash with the target treated as met. It removes the torrent (subject to the same ownership and shared-data safeguards) and stamps it `manual`.
-- Book-edition delete paths follow the same rule.
+- Book delete already keeps its rows (the edition cascade sets `book_edition_id` to null), so book torrents also seed to target. Releasing a book torrent early is done from the Seeding view's "Remove now".
 
 **Upgrade.** No new code. The replaced row stays completed and unreleased, so the sweep picks it up.
 
@@ -178,14 +179,14 @@ rejectRelease(dh: DownloadRef & { torrentHash: string | null; releaseTitle: stri
 
 ## 6. Orphans
 
-`classifyOrphans(torrents, knownHashes)` is a pure function. An orphan is a torrent in a `rawkoon-*` category, or tagged `rawkoon-dh-N`, whose hash appears in **no** `DownloadHistory` row. A released row whose torrent is still present counts as owned, not orphaned; the sweep retries its removal.
+`classifyOrphans(torrents, knownHashes)` is a pure function. An orphan is a torrent in a `rawkoon-*` category, or tagged `rawkoon-dh-N`, whose hash appears in no **non-failed** `DownloadHistory` row. So a torrent left behind by a failed download (a client error state, or a rejected release whose removal failed) shows up as an orphan instead of lingering invisibly. A completed, non-failed row whose torrent is still present counts as owned; the sweep handles it.
 
 - `GET /api/downloads/orphans` returns, for each orphan: hash, name, category, size, ratio, `seedingTimeSecs`, `contentPath`, and `sharesData`. The list is computed live, with no table.
 - `POST /api/downloads/orphans/remove { hashes: string[], deleteData: boolean }`:
   - The server **re-classifies** every hash and removes only confirmed orphans.
   - It forces `deleteData = false` for any orphan whose `sharesData` is true.
   - It returns what was removed and what was refused.
-- The health check (`healthCheck.ts`) adds "N orphaned torrents, X GB", linked to `/library/downloads?view=orphans`.
+- The library health card (`LibraryHealthCard`, Settings › Jobs) reads `GET /orphans` and adds "N orphaned torrents, X GB", linked to `/library/downloads?view=orphans`. `healthCheck.ts` is the infrastructure probe behind `/api/health` and is not touched.
 
 ## 7. API surface
 
@@ -209,7 +210,7 @@ This is a new `downloads` route domain (`routes/downloads/index.ts`, mounted at 
 
 ## 8. Live updates
 
-`seed-state` is a new event on the same SSE stream as download progress (see `2026-09-16-sse-download-progress-push-design.md`). Its payload is `{ hash, ratio, seedingTimeSecs, upSpeed, etaSecs, released?: { reason, at, freedBytes } }`.
+`seed-state` is a new event (contract id `library.seed-state`, `ios_policy: "invalidate"`) on the same `/api/library/events` stream as download progress (see `2026-09-16-sse-download-progress-push-design.md`). **Only admin connections subscribe to it.** Its payload is `{ kind: "seed-state", ts, torrents: [{ hash, ratio, seedingTimeSecs, upSpeed, etaSecs, released?: { reason, at, freedBytes } }] }`. It deliberately carries no `mediaId`, so the iOS decoder's `LibraryEvent.from` returns nil for it. iOS gets a no-op `SSEEventRegistry` case so its contract test stays green; this requires a macbuild gate.
 - It is emitted by each sweep pass, by post-import evaluation, and by manual and orphan removals.
 - The web merges it into the `seeding` and `orphans` query caches (keys in `lib/queryKeys.ts`).
 - A released hash animates out of the list into the "Released today" footer.
