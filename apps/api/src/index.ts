@@ -25,6 +25,7 @@ import {
 import { qualityProfilesRoutes } from "./routes/quality-profiles";
 import { customFormatsRoutes } from "./routes/custom-formats";
 import { mediasRoutes } from "./routes/medias";
+import { downloadsRoutes } from "./routes/downloads";
 import { requestRoutes } from "./routes/requests";
 import { notificationsRoutes } from "./routes/notifications";
 import { integrationsRoutes } from "./routes/integrations";
@@ -100,6 +101,7 @@ app
   .route("/api/quality-profiles", qualityProfilesRoutes)
   .route("/api/custom-formats", customFormatsRoutes)
   .route("/api/medias", mediasRoutes)
+  .route("/api/downloads", downloadsRoutes)
   .route("/api/requests", requestRoutes)
   .route("/api/search", searchRoutes)
   .route("/api/system", systemRoutes);

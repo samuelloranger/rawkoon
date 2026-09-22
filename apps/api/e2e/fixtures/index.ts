@@ -6,6 +6,7 @@ import { booksFixtures } from "./books";
 import { customFormatsFixtures } from "./custom-formats";
 import { dashboardFixtures } from "./dashboard";
 import { downloadClientFixtures } from "./download-client";
+import { downloadsFixtures } from "./downloads";
 import { integrationsFixtures } from "./integrations";
 import { labbyFixtures } from "./labby";
 import { libraryFixtures } from "./library";
@@ -36,6 +37,7 @@ export const registry: FixtureRegistry = {
   ...bookQualityProfilesFixtures,
   ...labbyFixtures,
   ...downloadClientFixtures,
+  ...downloadsFixtures,
   ...authFixtures,
   ...adminFixtures,
   ...integrationsFixtures,
