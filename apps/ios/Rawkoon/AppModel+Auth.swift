@@ -127,8 +127,8 @@ extension AppModel {
         downloaders = [:]
         downloadPlans = [:]
         verifiedCounts = [:]
-        activeEditionId = nil
         player.pause()
+        activeEditionId = nil
         errorMessage = nil
     }
 

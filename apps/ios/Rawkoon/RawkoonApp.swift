@@ -112,6 +112,7 @@ struct RawkoonApp: App {
                     model.startLiveStreams()
                     Task { await model.refreshUnreadNotificationCount() }
                 case .background:
+                    model.persistPlaybackProgress(force: true)
                     model.stopLiveStreams()
                 case .inactive:
                     break
