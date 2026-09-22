@@ -281,11 +281,8 @@ export const libraryListRoutes = new Hono<Env>()
         const pending = existing.downloadHistories.filter(
           (dh) => dh.completedAt == null && !dh.failed,
         );
-        const {
-          abandonPendingDownloads,
-          hashesInUseElsewhere,
-          releaseTorrentNow,
-        } = await import("@rawkoon/api/services/seeding/seedSweep");
+        const { abandonPendingDownloads, protectedHashes, releaseTorrentNow } =
+          await import("@rawkoon/api/services/seeding/seedSweep");
         await abandonPendingDownloads(pending);
 
         let released = 0;
@@ -302,7 +299,7 @@ export const libraryListRoutes = new Hono<Env>()
               .map((dh) => (dh.torrentHash as string).toLowerCase()),
           );
           // Never release (and stamp) a torrent another title still owns.
-          const shared = await hashesInUseElsewhere(
+          const shared = await protectedHashes(
             [...held],
             existing.downloadHistories.map((dh) => dh.id),
           );

@@ -291,7 +291,7 @@ describe("abandonPendingDownloads", () => {
         markAbandoned: async (ids) => {
           marked.push(ids);
         },
-        hashesInUseElsewhere: async () => new Set(),
+        protectedHashes: async () => new Set(),
       },
     );
     expect(marked).toEqual([[5, 6]]);
@@ -315,7 +315,7 @@ describe("abandonPendingDownloads", () => {
         },
       }),
       markAbandoned: async () => {},
-      hashesInUseElsewhere: async () => new Set([H1]),
+      protectedHashes: async () => new Set([H1]),
     });
     expect(removed).toEqual([]);
   });

@@ -184,6 +184,21 @@ describe("seedStateForRow", () => {
       )?.state,
     ).toBe("released");
   });
+  it("shows an adopted row as not added by Rawkoon only once it completed", () => {
+    const adopted = {
+      ...base,
+      seedReleasedAt: new Date(),
+      seedReleaseReason: "adopted",
+    };
+    expect(
+      seedStateForRow({ ...adopted, completedAt: null }, t({ progress: 0.3 })),
+    ).toBeNull();
+    expect(seedStateForRow(adopted, t())).toMatchObject({
+      state: "released",
+      reason: "adopted",
+    });
+  });
+
   it("is null for in-flight rows", () => {
     expect(
       seedStateForRow({ ...base, completedAt: null }, t({ progress: 0.2 })),

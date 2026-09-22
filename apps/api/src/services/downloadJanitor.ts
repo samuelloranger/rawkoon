@@ -44,15 +44,12 @@ const defaultDeps: JanitorDeps = {
   createBlocklist: async (data) => {
     await prisma.grabBlocklist.create({ data });
   },
-  hashInUseByOthers: async (hash, excludeId) =>
-    (await prisma.downloadHistory.count({
-      where: {
-        torrentHash: { equals: hash, mode: "insensitive" },
-        id: { not: excludeId },
-        failed: false,
-        seedReleasedAt: null,
-      },
-    })) > 0,
+  hashInUseByOthers: async (hash, excludeId) => {
+    const { protectedHashes } = await import(
+      "@rawkoon/api/services/seeding/seedSweep"
+    );
+    return (await protectedHashes([hash], [excludeId])).size > 0;
+  },
   stampReleased: async (id, reason, bytes) => {
     await prisma.downloadHistory.update({
       where: { id },
@@ -85,7 +82,7 @@ export async function rejectRelease(
     reason: `auto: ${kind} — ${reason}`,
   });
   if (!hash) return;
-  // A season pack re-grabbed as episodes can share one torrent; never pull it from a live row.
+  // Never pull a torrent from a live sibling row, or one the user added (adopted).
   if (await deps.hashInUseByOthers(hash, dh.id)) return;
   const adapter = await deps.resolveAdapter();
   if (!adapter) return;

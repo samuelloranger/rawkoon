@@ -346,27 +346,36 @@ export async function releaseTorrentNow(
 export interface AbandonDeps {
   resolveAdapter: () => Promise<DownloadClientAdapter | null>;
   markAbandoned: (ids: number[]) => Promise<void>;
-  /** Hashes (lowercased) still owned by a live, unreleased row outside `excludeIds`. */
-  hashesInUseElsewhere: (
+  /** Hashes (lowercased) Rawkoon must not remove; see protectedHashes. */
+  protectedHashes: (
     hashes: string[],
     excludeIds: number[],
   ) => Promise<Set<string>>;
 }
 
-/** Hashes still owned by a live, unreleased row outside `excludeIds` (another title's grab). */
-export async function hashesInUseElsewhere(
+/**
+ * Hashes Rawkoon must not remove: owned by a live, unreleased row outside
+ * `excludeIds` (another title's grab), or adopted from the user by any row.
+ */
+export async function protectedHashes(
   hashes: string[],
   excludeIds: number[],
 ): Promise<Set<string>> {
   if (hashes.length === 0) return new Set();
+  const byHash = hashes.map((h) => ({
+    torrentHash: { equals: h, mode: "insensitive" as const },
+  }));
   const rows = await prisma.downloadHistory.findMany({
     where: {
-      id: { notIn: excludeIds },
-      failed: false,
-      seedReleasedAt: null,
-      OR: hashes.map((h) => ({
-        torrentHash: { equals: h, mode: "insensitive" as const },
-      })),
+      AND: [
+        { OR: byHash },
+        {
+          OR: [
+            { id: { notIn: excludeIds }, failed: false, seedReleasedAt: null },
+            { seedReleaseReason: "adopted" },
+          ],
+        },
+      ],
     },
     select: { torrentHash: true },
   });
@@ -388,7 +397,7 @@ const defaultAbandonDeps: AbandonDeps = {
       },
     });
   },
-  hashesInUseElsewhere,
+  protectedHashes,
 };
 
 /** A grab still downloading when its title is removed can never import; stop it instead of letting it finish. */
@@ -404,8 +413,8 @@ export async function abandonPendingDownloads(
     ),
   );
   if (hashes.size === 0) return;
-  // A torrent adopted for several titles must survive while another still needs it.
-  const shared = await deps.hashesInUseElsewhere(
+  // Another title may still need the torrent, or the user added it (adopted).
+  const shared = await deps.protectedHashes(
     [...hashes],
     rows.map((r) => r.id),
   );

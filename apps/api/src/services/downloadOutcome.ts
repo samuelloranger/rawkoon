@@ -272,7 +272,14 @@ export async function adoptDownload(ctx: {
 
   await prisma.downloadHistory.update({
     where: { id: dh.id },
-    data: { torrentHash, failed: false, failReason: null },
+    data: {
+      torrentHash,
+      failed: false,
+      failReason: null,
+      // The user added this torrent; Rawkoon imports it but never removes it.
+      seedReleasedAt: new Date(),
+      seedReleaseReason: "adopted",
+    },
   });
 
   if (completed) {

@@ -236,6 +236,8 @@ export function seedStateForRow(
       seeding_time_secs: null,
     };
   }
+  // Adopted rows are stamped at adoption; say so only once the download is done.
+  if (reason === "adopted" && !row.completedAt) return null;
   if (row.seedReleasedAt)
     return { state: "released", reason, ratio: null, seeding_time_secs: null };
   if (row.completedAt && !row.failed && torrent) {
