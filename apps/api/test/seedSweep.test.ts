@@ -169,6 +169,18 @@ describe("runSeedSweep", () => {
     };
   });
 
+  it("applies move mode only to the torrent just imported, not to older hardlinked ones", async () => {
+    torrents = [t({ ratio: 0 })];
+    const moving = {
+      ...deps,
+      loadContext: async () => ({ ...baseCtx, moveMode: true }),
+    };
+    await runSeedSweep(moving);
+    expect(removed).toEqual([]);
+    await runSeedSweep(moving, { hash: H1 });
+    expect(removed).toEqual([H1]);
+  });
+
   it("does nothing while disabled", async () => {
     deps.isEnabled = async () => false;
     expect(await runSeedSweep(deps)).toEqual([]);

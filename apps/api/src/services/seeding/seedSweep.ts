@@ -257,6 +257,9 @@ export async function runSeedSweep(
   ]);
   const decisions = planSeedReleases(rows, torrents, {
     ...base,
+    // Move mode describes how a torrent was imported, so it only applies to the
+    // one just imported; older rows may be hardlinked imports that still seed.
+    moveMode: base.moveMode && opts.hash != null,
     pendingHashes,
   });
   const items: SeedStateItem[] = [];
