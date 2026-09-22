@@ -291,9 +291,32 @@ describe("abandonPendingDownloads", () => {
         markAbandoned: async (ids) => {
           marked.push(ids);
         },
+        hashesInUseElsewhere: async () => new Set(),
       },
     );
     expect(marked).toEqual([[5, 6]]);
     expect(removed).toEqual([[H1, true]]);
+  });
+
+  it("keeps a torrent another title's live row still owns", async () => {
+    const removed: string[] = [];
+    await abandonPendingDownloads([{ id: 5, torrentHash: H1 }], {
+      resolveAdapter: async () => ({
+        type: "qbittorrent",
+        testConnection: async () => ({ ok: true }),
+        addTorrent: async () => ({ hash: null }),
+        listTorrents: async () => [t({ progress: 0.3, state: "downloading" })],
+        getTorrent: async () => null,
+        listFiles: async () => null,
+        pause: async () => {},
+        resume: async () => {},
+        remove: async (h) => {
+          removed.push(h);
+        },
+      }),
+      markAbandoned: async () => {},
+      hashesInUseElsewhere: async () => new Set([H1]),
+    });
+    expect(removed).toEqual([]);
   });
 });

@@ -346,6 +346,33 @@ export async function releaseTorrentNow(
 export interface AbandonDeps {
   resolveAdapter: () => Promise<DownloadClientAdapter | null>;
   markAbandoned: (ids: number[]) => Promise<void>;
+  /** Hashes (lowercased) still owned by a live, unreleased row outside `excludeIds`. */
+  hashesInUseElsewhere: (
+    hashes: string[],
+    excludeIds: number[],
+  ) => Promise<Set<string>>;
+}
+
+/** Hashes still owned by a live, unreleased row outside `excludeIds` (another title's grab). */
+export async function hashesInUseElsewhere(
+  hashes: string[],
+  excludeIds: number[],
+): Promise<Set<string>> {
+  if (hashes.length === 0) return new Set();
+  const rows = await prisma.downloadHistory.findMany({
+    where: {
+      id: { notIn: excludeIds },
+      failed: false,
+      seedReleasedAt: null,
+      OR: hashes.map((h) => ({
+        torrentHash: { equals: h, mode: "insensitive" as const },
+      })),
+    },
+    select: { torrentHash: true },
+  });
+  return new Set(
+    rows.flatMap((r) => (r.torrentHash ? [r.torrentHash.toLowerCase()] : [])),
+  );
 }
 
 const defaultAbandonDeps: AbandonDeps = {
@@ -361,6 +388,7 @@ const defaultAbandonDeps: AbandonDeps = {
       },
     });
   },
+  hashesInUseElsewhere,
 };
 
 /** A grab still downloading when its title is removed can never import; stop it instead of letting it finish. */
@@ -375,6 +403,13 @@ export async function abandonPendingDownloads(
       r.torrentHash ? [r.torrentHash.trim().toLowerCase()] : [],
     ),
   );
+  if (hashes.size === 0) return;
+  // A torrent adopted for several titles must survive while another still needs it.
+  const shared = await deps.hashesInUseElsewhere(
+    [...hashes],
+    rows.map((r) => r.id),
+  );
+  for (const hash of shared) hashes.delete(hash);
   if (hashes.size === 0) return;
   const adapter = await deps.resolveAdapter();
   if (!adapter) return;
