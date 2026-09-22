@@ -92,6 +92,7 @@ const actionMap: Record<string, string> = {
   check_book_releases: SCHEDULED_JOB_NAMES.CHECK_BOOK_RELEASES,
   check_author_releases: SCHEDULED_JOB_NAMES.CHECK_AUTHOR_RELEASES,
   sync_localized_titles: SCHEDULED_JOB_NAMES.SYNC_LOCALIZED_TITLES,
+  sweep_seeding_torrents: SCHEDULED_JOB_NAMES.SWEEP_SEEDING_TORRENTS,
 };
 
 // Mounted under /api/admin; requireAdmin is

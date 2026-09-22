@@ -1,5 +1,8 @@
 import { EventEmitter } from "node:events";
-import type { DownloadProgressItem } from "@rawkoon/shared/types";
+import type {
+  DownloadProgressItem,
+  SeedStateItem,
+} from "@rawkoon/shared/types";
 
 export interface LibraryUpdateEvent {
   mediaId: number;
@@ -55,4 +58,18 @@ export function emitDownloadProgress(
     downloads,
     ts: Date.now(),
   } satisfies DownloadProgressUpdateEvent);
+}
+
+export interface SeedStateUpdateEvent {
+  torrents: SeedStateItem[];
+  ts: number;
+}
+
+/** Live seeding numbers and releases for the admin Seeding view. */
+export function emitSeedState(torrents: SeedStateItem[]): void {
+  if (torrents.length === 0) return;
+  libraryEventBus.emit("seed-state", {
+    torrents,
+    ts: Date.now(),
+  } satisfies SeedStateUpdateEvent);
 }
