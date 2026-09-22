@@ -8,6 +8,7 @@ import { badRequest, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
+import { normalizeExtension } from "@rawkoon/api/services/seeding/seedPolicy";
 import { TMDB_LANGUAGE_LIBRARY_PERSISTENCE } from "@rawkoon/api/utils/medias/tmdbFetcherTypes";
 import { listVideoFilesUnder } from "@rawkoon/api/utils/medias/fileIdentifier";
 import {
@@ -53,6 +54,11 @@ export function mapSettings(row: {
   bookTemplate?: string;
   audiobookTemplate?: string;
   defaultBookQualityProfileId?: number | null;
+  publicSeedTimeMins?: number | null;
+  privateSeedRatio?: number | null;
+  privateSeedTimeMins?: number | null;
+  seedSweepEnabled?: boolean;
+  blockedExtensions?: string[];
   updatedAt: Date;
 }) {
   return {
@@ -75,6 +81,13 @@ export function mapSettings(row: {
     book_template: row.bookTemplate ?? "",
     audiobook_template: row.audiobookTemplate ?? "",
     default_book_quality_profile_id: row.defaultBookQualityProfileId ?? null,
+    public_seed_time_mins: row.publicSeedTimeMins ?? null,
+    private_seed_ratio:
+      row.privateSeedRatio === undefined ? 1 : row.privateSeedRatio,
+    private_seed_time_mins:
+      row.privateSeedTimeMins === undefined ? 4320 : row.privateSeedTimeMins,
+    seed_sweep_enabled: row.seedSweepEnabled ?? false,
+    blocked_extensions: row.blockedExtensions ?? [],
     updated_at: row.updatedAt.toISOString(),
   };
 }
@@ -126,6 +139,23 @@ export const libraryMediaAdminRoutes = new Hono<Env>()
         default_book_quality_profile_id: z
           .union([z.number(), z.null()])
           .optional(),
+        public_seed_time_mins: z
+          .number()
+          .int()
+          .min(0)
+          .max(525_600)
+          .nullable()
+          .optional(),
+        private_seed_ratio: z.number().min(0).max(100).nullable().optional(),
+        private_seed_time_mins: z
+          .number()
+          .int()
+          .min(0)
+          .max(525_600)
+          .nullable()
+          .optional(),
+        seed_sweep_enabled: z.boolean().optional(),
+        blocked_extensions: z.array(z.string().max(12)).max(100).optional(),
       }),
     ),
     async (c) => {
@@ -148,6 +178,11 @@ export const libraryMediaAdminRoutes = new Hono<Env>()
           bookTemplate?: string;
           audiobookTemplate?: string;
           defaultBookQualityProfileId?: number | null;
+          publicSeedTimeMins?: number | null;
+          privateSeedRatio?: number | null;
+          privateSeedTimeMins?: number | null;
+          seedSweepEnabled?: boolean;
+          blockedExtensions?: string[];
         } = {};
         if (body.movies_library_path !== undefined)
           update.moviesLibraryPath = body.movies_library_path;
@@ -201,6 +236,23 @@ export const libraryMediaAdminRoutes = new Hono<Env>()
         if (body.default_book_quality_profile_id !== undefined)
           update.defaultBookQualityProfileId =
             body.default_book_quality_profile_id;
+        if (body.public_seed_time_mins !== undefined)
+          update.publicSeedTimeMins = body.public_seed_time_mins;
+        if (body.private_seed_ratio !== undefined)
+          update.privateSeedRatio = body.private_seed_ratio;
+        if (body.private_seed_time_mins !== undefined)
+          update.privateSeedTimeMins = body.private_seed_time_mins;
+        if (body.seed_sweep_enabled !== undefined)
+          update.seedSweepEnabled = body.seed_sweep_enabled;
+        if (body.blocked_extensions !== undefined) {
+          const normalized = body.blocked_extensions.map(normalizeExtension);
+          if (normalized.some((e) => e === null)) {
+            return badRequest(
+              "blocked_extensions must be file extensions like exe or .lnk",
+            );
+          }
+          update.blockedExtensions = [...new Set(normalized as string[])];
+        }
 
         let row = await prisma.mediaSettings.findUnique({ where: { id: 1 } });
         if (!row) {

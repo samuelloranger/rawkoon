@@ -23,4 +23,23 @@ describe("mapSettings", () => {
     expect(mapped.audiobooks_library_path ?? null).toBeNull();
     expect(Object.keys(mapped).some((k) => k.includes("shelf"))).toBe(false);
   });
+
+  it("maps the seeding and download-safety settings", () => {
+    const mapped = mapSettings(
+      row({
+        publicSeedTimeMins: null,
+        privateSeedRatio: 1,
+        privateSeedTimeMins: 4320,
+        seedSweepEnabled: false,
+        blockedExtensions: ["exe", "lnk"],
+      }),
+    );
+    expect(mapped).toMatchObject({
+      public_seed_time_mins: null,
+      private_seed_ratio: 1,
+      private_seed_time_mins: 4320,
+      seed_sweep_enabled: false,
+      blocked_extensions: ["exe", "lnk"],
+    });
+  });
 });

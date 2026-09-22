@@ -1,3 +1,5 @@
+import type { BlocklistKind } from "./seeding";
+
 export interface MediaItem {
   id: string;
   media_type: "movie" | "series";
@@ -133,6 +135,8 @@ export interface BlocklistEntry {
   media_id: number | null;
   episode_id: number | null;
   reason: string | null;
+  /** Set when the janitor added it; null = added by a user. */
+  kind: BlocklistKind | null;
   blocked_at: string;
 }
 

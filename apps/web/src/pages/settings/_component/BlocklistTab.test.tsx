@@ -31,6 +31,7 @@ const ENTRY_A: BlocklistEntry = {
   media_id: 42,
   episode_id: null,
   reason: "Bad encode",
+  kind: null,
   blocked_at: "2026-06-01T10:00:00.000Z",
 };
 
