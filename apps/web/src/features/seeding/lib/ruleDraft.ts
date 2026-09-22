@@ -55,3 +55,10 @@ export function ruleSentence(rule: SeedRule, t: T): string {
   if (time) return t("settings.seeding.sentence.time", { time });
   return t("settings.seeding.sentence.none");
 }
+
+/** Short rule label for list rows, where a full sentence would double the punctuation. */
+export function ruleLabel(rule: SeedRule, t: T): string {
+  return rule.ratio == null
+    ? t("settings.seeding.label.none")
+    : t("settings.seeding.label.ratio", { ratio: rule.ratio.toFixed(1) });
+}

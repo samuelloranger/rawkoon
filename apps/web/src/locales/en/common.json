@@ -1533,7 +1533,7 @@
         "indexer": "Indexer",
         "rule": "Rule",
         "held": "Seeding now",
-        "inherited": "{{rule}}, from the {{source}} default",
+        "inherited": "{{rule}} ({{source}} default)",
         "sourcePrivate": "private",
         "sourcePublic": "public",
         "customize": "Customize",
@@ -1546,7 +1546,11 @@
       },
       "save": "Save seeding rules",
       "saved": "Seeding rules saved.",
-      "saveError": "Couldn't save seeding rules."
+      "saveError": "Couldn't save seeding rules.",
+      "label": {
+        "ratio": "Ratio {{ratio}}",
+        "none": "Right after import"
+      }
     },
     "downloadSafety": {
       "title": "Download safety",

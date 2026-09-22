@@ -20,6 +20,7 @@ import {
   draftFromRule,
   type RuleDraft,
   ruleFromDraft,
+  ruleLabel,
   ruleSentence,
 } from "@/features/seeding/lib/ruleDraft";
 import { formatBytes } from "@/lib/utils/format";
@@ -95,33 +96,33 @@ function IndexerRuleRow({ row }: { row: IndexerSeedRuleRow }) {
       : "settings.seeding.indexers.sourcePublic",
   );
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
-      <span className="w-28 shrink-0 font-medium text-neutral-100">
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-3 py-2.5 text-sm">
+      <span className="min-w-0 truncate font-medium text-neutral-100">
         <span className="inline-flex items-center gap-1.5">
           {row.is_private && <Lock size={12} aria-hidden />}
           {row.indexer}
         </span>
       </span>
-      <span className="min-w-48 flex-1 text-sm">
+      <span className="text-right text-xs tabular-nums text-neutral-500">
+        {t("settings.seeding.indexers.heldCount", { count: row.held_count })}
+      </span>
+      <span className="min-w-0 text-xs">
         {editing ? (
           <RuleFields draft={editing} onChange={setEditing} />
         ) : row.override ? (
           <span className="text-primary-300">
-            {ruleSentence(row.effective, t)}
+            {ruleLabel(row.effective, t)}
           </span>
         ) : (
           <span className="text-neutral-500">
             {t("settings.seeding.indexers.inherited", {
-              rule: ruleSentence(row.effective, t),
+              rule: ruleLabel(row.effective, t),
               source: inheritedFrom,
             })}
           </span>
         )}
       </span>
-      <span className="text-xs tabular-nums text-neutral-500">
-        {t("settings.seeding.indexers.heldCount", { count: row.held_count })}
-      </span>
-      <span className="ml-auto flex shrink-0 gap-1">
+      <span className="flex shrink-0 justify-end gap-1">
         {editing ? (
           <>
             <Button

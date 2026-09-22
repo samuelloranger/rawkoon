@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { draftFromRule, ruleFromDraft, ruleSentence } from "./ruleDraft";
+import {
+  draftFromRule,
+  ruleFromDraft,
+  ruleLabel,
+  ruleSentence,
+} from "./ruleDraft";
 
 const t = (key: string, opts?: Record<string, unknown>) =>
   `${key}${opts ? JSON.stringify(opts) : ""}`;
@@ -44,6 +49,17 @@ describe("ruleSentence", () => {
     );
     expect(ruleSentence({ ratio: null, seed_time_mins: null }, t)).toBe(
       "settings.seeding.sentence.none",
+    );
+  });
+});
+
+describe("ruleLabel", () => {
+  it("is a short, punctuation-free label for list rows", () => {
+    expect(ruleLabel({ ratio: 10, seed_time_mins: null }, t)).toBe(
+      'settings.seeding.label.ratio{"ratio":"10.0"}',
+    );
+    expect(ruleLabel({ ratio: null, seed_time_mins: null }, t)).toBe(
+      "settings.seeding.label.none",
     );
   });
 });

@@ -1533,7 +1533,7 @@
         "indexer": "Indexeur",
         "rule": "Règle",
         "held": "En partage",
-        "inherited": "{{rule}}, selon le défaut {{source}}",
+        "inherited": "{{rule}} (défaut {{source}})",
         "sourcePrivate": "privé",
         "sourcePublic": "public",
         "customize": "Personnaliser",
@@ -1546,7 +1546,11 @@
       },
       "save": "Enregistrer les règles de partage",
       "saved": "Règles de partage enregistrées.",
-      "saveError": "Impossible d'enregistrer les règles de partage."
+      "saveError": "Impossible d'enregistrer les règles de partage.",
+      "label": {
+        "ratio": "Ratio {{ratio}}",
+        "none": "Dès l'import"
+      }
     },
     "downloadSafety": {
       "title": "Sécurité des téléchargements",
