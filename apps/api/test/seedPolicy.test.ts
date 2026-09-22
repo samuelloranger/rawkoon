@@ -66,6 +66,17 @@ describe("resolveIndexerRule", () => {
       isPrivate: false,
     });
   });
+  it("treats a target of 0 as no target, never as met immediately", () => {
+    const zero = {
+      ...ctx,
+      overrides: new Map([["quarry", { ratio: 0, seedTimeMins: 4320 }]]),
+    };
+    expect(resolveIndexerRule("Quarry", zero).rule).toEqual({
+      ratio: null,
+      seedTimeMins: 4320,
+    });
+  });
+
   it("treats unknown and null indexers as private", () => {
     expect(resolveIndexerRule("Mystery", ctx).source).toBe("private_default");
     expect(resolveIndexerRule(null, ctx).isPrivate).toBe(true);

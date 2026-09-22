@@ -48,10 +48,34 @@ export function resolveIndexerRule(
   const key = indexerKey(indexer);
   const isPrivate = isIndexerPrivate(indexer, ctx.privacy);
   const override = key ? ctx.overrides.get(key) : undefined;
-  if (override) return { rule: override, source: "override", isPrivate };
+  if (override)
+    return {
+      rule: withoutZeroTargets(override),
+      source: "override",
+      isPrivate,
+    };
   return isPrivate
-    ? { rule: ctx.defaults.privateRule, source: "private_default", isPrivate }
-    : { rule: ctx.defaults.publicRule, source: "public_default", isPrivate };
+    ? {
+        rule: withoutZeroTargets(ctx.defaults.privateRule),
+        source: "private_default",
+        isPrivate,
+      }
+    : {
+        rule: withoutZeroTargets(ctx.defaults.publicRule),
+        source: "public_default",
+        isPrivate,
+      };
+}
+
+/** A 0 target means "no target", like minSeedRatio 0 always did — never "met immediately". */
+function withoutZeroTargets(rule: Rule): Rule {
+  return {
+    ratio: rule.ratio != null && rule.ratio > 0 ? rule.ratio : null,
+    seedTimeMins:
+      rule.seedTimeMins != null && rule.seedTimeMins > 0
+        ? rule.seedTimeMins
+        : null,
+  };
 }
 
 export function isSeedTargetMet(stats: SeedStats, rule: Rule): boolean {
