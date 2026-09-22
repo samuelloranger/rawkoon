@@ -15,11 +15,13 @@ const state: {
   torrents: Torrent[];
   completed: number[];
   failed: Array<{ id: number; reason: string }>;
+  rejected: Array<{ id: number; kind: string; reason: string }>;
   listThrows: boolean;
 } = {
   torrents: [],
   completed: [],
   failed: [],
+  rejected: [],
   listThrows: false,
 };
 
@@ -49,6 +51,10 @@ const outcome = {
   completeDownloadByHash: () => Promise.resolve(null),
   failDownload: (dh: { id: number }, reason: string) => {
     state.failed.push({ id: dh.id, reason });
+    return Promise.resolve();
+  },
+  rejectRelease: (dh: { id: number }, kind: string, reason: string) => {
+    state.rejected.push({ id: dh.id, kind, reason });
     return Promise.resolve();
   },
 };
@@ -86,6 +92,7 @@ describe("reconcilePendingDownloads", () => {
     state.torrents = [];
     state.completed = [];
     state.failed = [];
+    state.rejected = [];
     state.listThrows = false;
   });
 
@@ -96,6 +103,118 @@ describe("reconcilePendingDownloads", () => {
     torrentHash: HASH,
     grabbedAt: new Date(),
   };
+
+  it("rejects a stalled release instead of only failing it", async () => {
+    state.torrents = [torrent({ state: "stalled", progress: 0.1 })];
+    const reconcileState = createReconcileState();
+    const oldRow = {
+      ...pendingRow,
+      grabbedAt: new Date(Date.now() - 10_000_000),
+    };
+    await reconcilePendingDownloads([oldRow], {
+      settings,
+      state: reconcileState,
+      listTorrents,
+      outcome,
+    });
+    expect(state.failed).toEqual([]);
+    expect(state.rejected).toEqual([
+      { id: 1, kind: "stalled", reason: "exceeded max age with no completion" },
+    ]);
+  });
+
+  it("rejects a torrent carrying a blocked file before completing it", async () => {
+    state.torrents = [torrent({ state: "completed", progress: 1 })];
+    const result = await reconcilePendingDownloads([pendingRow], {
+      settings,
+      state: createReconcileState(),
+      listTorrents,
+      outcome,
+      listFiles: async () => ["Example/Example.mkv", "Example/Setup.exe"],
+      blockedExtensions: ["exe"],
+    });
+    expect(state.rejected).toEqual([
+      {
+        id: 1,
+        kind: "malware",
+        reason: "blocked file type: Example/Setup.exe",
+      },
+    ]);
+    expect(state.completed).toEqual([]);
+    expect(result.failed).toBe(1);
+  });
+
+  it("retries the file check while metadata is unknown instead of recording it clean", async () => {
+    const reconcileState = createReconcileState();
+    let calls = 0;
+    const listFiles = async () => {
+      calls += 1;
+      return null;
+    };
+    state.torrents = [torrent()];
+    await reconcilePendingDownloads([pendingRow], {
+      settings,
+      state: reconcileState,
+      listTorrents,
+      outcome,
+      listFiles,
+      blockedExtensions: ["exe"],
+    });
+    await reconcilePendingDownloads([pendingRow], {
+      settings,
+      state: reconcileState,
+      listTorrents,
+      outcome,
+      listFiles,
+      blockedExtensions: ["exe"],
+    });
+    expect(calls).toBe(2);
+    expect(reconcileState.filesChecked.has(1)).toBe(false);
+  });
+
+  it("checks a clean torrent's files only once", async () => {
+    const reconcileState = createReconcileState();
+    let calls = 0;
+    const listFiles = async () => {
+      calls += 1;
+      return ["Example/Example.mkv"];
+    };
+    state.torrents = [torrent()];
+    await reconcilePendingDownloads([pendingRow], {
+      settings,
+      state: reconcileState,
+      listTorrents,
+      outcome,
+      listFiles,
+      blockedExtensions: ["exe"],
+    });
+    await reconcilePendingDownloads([pendingRow], {
+      settings,
+      state: reconcileState,
+      listTorrents,
+      outcome,
+      listFiles,
+      blockedExtensions: ["exe"],
+    });
+    expect(calls).toBe(1);
+  });
+
+  it("skips the file check when no extensions are blocked", async () => {
+    let calls = 0;
+    state.torrents = [torrent()];
+    await reconcilePendingDownloads([pendingRow], {
+      settings,
+      state: createReconcileState(),
+      listTorrents,
+      outcome,
+      listFiles: async () => {
+        calls += 1;
+        return ["a.exe"];
+      },
+      blockedExtensions: [],
+    });
+    expect(calls).toBe(0);
+  });
 
   it("completes a row whose torrent finished", async () => {
     state.torrents = [torrent({ state: "completed", progress: 1 })];
