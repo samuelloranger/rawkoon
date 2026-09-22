@@ -4,6 +4,7 @@ import type {
   NormalizedTorrent,
 } from "@rawkoon/api/services/downloadClient/types";
 import {
+  abandonPendingDownloads,
   planSeedReleases,
   releaseTorrentNow,
   runSeedSweep,
@@ -247,5 +248,40 @@ describe("releaseTorrentNow", () => {
     expect(
       await releaseTorrentNow(H1, deps({ loadRows: async () => [] })),
     ).toEqual({ status: "not_found" });
+  });
+});
+
+describe("abandonPendingDownloads", () => {
+  it("fails pending rows and removes their owned torrents with data", async () => {
+    const removed: Array<[string, boolean]> = [];
+    const marked: number[][] = [];
+    await abandonPendingDownloads(
+      [
+        { id: 5, torrentHash: H1.toUpperCase() },
+        { id: 6, torrentHash: null },
+      ],
+      {
+        resolveAdapter: async () => ({
+          type: "qbittorrent",
+          testConnection: async () => ({ ok: true }),
+          addTorrent: async () => ({ hash: null }),
+          listTorrents: async () => [
+            t({ progress: 0.3, state: "downloading" }),
+          ],
+          getTorrent: async () => null,
+          listFiles: async () => null,
+          pause: async () => {},
+          resume: async () => {},
+          remove: async (h, d) => {
+            removed.push([h, d]);
+          },
+        }),
+        markAbandoned: async (ids) => {
+          marked.push(ids);
+        },
+      },
+    );
+    expect(marked).toEqual([[5, 6]]);
+    expect(removed).toEqual([[H1, true]]);
   });
 });

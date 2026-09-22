@@ -232,10 +232,16 @@ export const libraryListRoutes = new Hono<Env>()
 
   // DELETE /api/library/:id — remove item (cascade deletes episodes + files)
   // ?delete_files=true also removes hardlinked/moved files from disk
+  // ?release_torrents=true removes still-seeding torrents now instead of at their target
   .delete(
     "/:id",
     requireUser,
-    queryV(z.object({ delete_files: z.string().optional() })),
+    queryV(
+      z.object({
+        delete_files: z.string().optional(),
+        release_torrents: z.string().optional(),
+      }),
+    ),
     async (c) => {
       const denied = ensureAdmin(c.get("user"));
       if (denied) return denied;
@@ -246,7 +252,14 @@ export const libraryListRoutes = new Hono<Env>()
           include: {
             files: { select: { filePath: true } },
             downloadHistories: {
-              select: { postProcessDestinationPath: true },
+              select: {
+                id: true,
+                torrentHash: true,
+                completedAt: true,
+                failed: true,
+                seedReleasedAt: true,
+                postProcessDestinationPath: true,
+              },
             },
           },
         });
@@ -265,13 +278,37 @@ export const libraryListRoutes = new Hono<Env>()
           );
         }
 
-        await prisma.$transaction([
-          // Delete download history explicitly (onDelete: SetNull keeps orphans)
-          prisma.downloadHistory.deleteMany({ where: { mediaId: id } }),
-          // Cascade deletes episodes + MediaFile records
-          prisma.libraryMedia.delete({ where: { id } }),
-        ]);
-        return ok({ success: true });
+        const pending = existing.downloadHistories.filter(
+          (dh) => dh.completedAt == null && !dh.failed,
+        );
+        const { abandonPendingDownloads, releaseTorrentNow } = await import(
+          "@rawkoon/api/services/seeding/seedSweep"
+        );
+        await abandonPendingDownloads(pending);
+
+        let released = 0;
+        if (c.req.valid("query").release_torrents === "true") {
+          const held = new Set(
+            existing.downloadHistories
+              .filter(
+                (dh) =>
+                  dh.completedAt != null &&
+                  !dh.failed &&
+                  dh.seedReleasedAt == null &&
+                  dh.torrentHash,
+              )
+              .map((dh) => (dh.torrentHash as string).toLowerCase()),
+          );
+          for (const hash of held) {
+            const result = await releaseTorrentNow(hash).catch(() => null);
+            if (result?.status === "released") released += 1;
+          }
+        }
+
+        // DownloadHistory rows are kept (media_id → NULL) so their torrents keep seeding to target.
+        // Cascade deletes episodes + MediaFile records.
+        await prisma.libraryMedia.delete({ where: { id } });
+        return ok({ success: true, released });
       } catch {
         return serverError("Failed to remove library item");
       }

@@ -121,6 +121,21 @@ describe("completeDownloadByHash", () => {
     expect(result).toBeNull();
   });
 
+  it("does not re-queue a completed row whose library item was removed", async () => {
+    state.rows.push({
+      id: 3,
+      torrentHash: HASH,
+      completedAt: new Date(),
+      failed: false,
+      mediaId: null,
+      episodeId: null,
+      bookId: null,
+      postProcessDestinationPath: null,
+    });
+    const result = await completeDownloadByHash(HASH);
+    expect(result).toBeNull();
+  });
+
   it("returns null when the only matching row is failed=true", async () => {
     state.rows.push({
       id: 1,

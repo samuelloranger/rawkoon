@@ -342,3 +342,49 @@ export async function releaseTorrentNow(
   ]);
   return { status: "released", freedBytes };
 }
+export interface AbandonDeps {
+  resolveAdapter: () => Promise<DownloadClientAdapter | null>;
+  markAbandoned: (ids: number[]) => Promise<void>;
+}
+
+const defaultAbandonDeps: AbandonDeps = {
+  resolveAdapter: async () => (await resolveActiveAdapter())?.adapter ?? null,
+  markAbandoned: async (ids) => {
+    await prisma.downloadHistory.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        failed: true,
+        failReason: "Removed from library",
+        seedReleasedAt: new Date(),
+        seedReleaseReason: "manual",
+      },
+    });
+  },
+};
+
+/** A grab still downloading when its title is removed can never import; stop it instead of letting it finish. */
+export async function abandonPendingDownloads(
+  rows: Array<{ id: number; torrentHash: string | null }>,
+  deps: AbandonDeps = defaultAbandonDeps,
+): Promise<void> {
+  if (rows.length === 0) return;
+  await deps.markAbandoned(rows.map((r) => r.id));
+  const hashes = new Set(
+    rows.flatMap((r) =>
+      r.torrentHash ? [r.torrentHash.trim().toLowerCase()] : [],
+    ),
+  );
+  if (hashes.size === 0) return;
+  const adapter = await deps.resolveAdapter();
+  if (!adapter) return;
+  try {
+    const torrents = await adapter.listTorrents();
+    for (const torrent of torrents) {
+      if (!hashes.has(torrent.hash.toLowerCase()) || !isRawkoonOwned(torrent))
+        continue;
+      await adapter.remove(torrent.hash, !sharesContentPath(torrent, torrents));
+    }
+  } catch (error) {
+    console.warn("[seedSweep] could not remove abandoned torrents:", error);
+  }
+}

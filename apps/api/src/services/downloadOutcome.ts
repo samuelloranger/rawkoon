@@ -221,6 +221,8 @@ export async function completeDownloadByHash(
     orderBy: { id: "desc" },
   });
   if (!completed) return null;
+  // A kept row whose library item was removed only seeds; there is nothing to import.
+  if (completed.mediaId == null && completed.bookEditionId == null) return null;
 
   // force: this is the recovery path for a row whose file never landed. A
   // completed job for the same row may still be retained by the queue, and
