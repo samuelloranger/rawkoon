@@ -8,6 +8,7 @@ import { registerBookChapters } from "@rawkoon/api/services/books/registerBookCh
 import { emitBookUpdate } from "@rawkoon/api/services/libraryEvents";
 import { notifyBookRequestAvailable } from "@rawkoon/api/services/mediaRequests";
 import {
+  isFullyReadable,
   placeFile,
   resolveTorrentContentPath,
 } from "@rawkoon/api/services/postProcessorHelpers";
@@ -582,15 +583,24 @@ export async function postProcessBookDownload(
     return { success: false, reason: "Could not resolve torrent content path" };
   }
 
+  const contentRoot = remapPath(contentBase);
   const result = await postProcessBook({
     editionId: dh.bookEditionId,
-    contentPath: remapPath(contentBase),
+    contentPath: contentRoot,
     releaseTitle: dh.releaseTitle,
     fileOperation: settings.fileOperation === "move" ? "move" : "hardlink",
     isUpgrade: dh.isUpgrade,
   });
 
   if (result.error || !result.destinationPath) {
+    // Only an empty import from a readable tree is the release's fault.
+    if (result.rejectKind && !(await isFullyReadable(contentRoot))) {
+      return {
+        success: false,
+        reason:
+          "Download content is missing or unreadable — check path mappings and permissions",
+      };
+    }
     return {
       success: false,
       reason: result.error ?? "Import produced no files",

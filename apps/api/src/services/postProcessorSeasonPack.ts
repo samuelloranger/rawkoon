@@ -30,6 +30,7 @@ import {
   placeFile,
   qualityStringsFromParsed,
   resolveTorrentContentPath,
+  isFullyReadable,
 } from "@rawkoon/api/services/postProcessorHelpers";
 import {
   parsePartMarker,
@@ -87,13 +88,23 @@ export async function postProcessSeasonPack(
   if (!contentBase)
     return { success: false, reason: "Could not resolve torrent content path" };
 
-  const allVideos = await listVideoFilesUnder(remapPath(contentBase));
-  if (allVideos.length === 0)
+  const contentRoot = remapPath(contentBase);
+  const allVideos = await listVideoFilesUnder(contentRoot);
+  if (allVideos.length === 0) {
+    // Only an empty import from a readable tree is the release's fault.
+    if (!(await isFullyReadable(contentRoot))) {
+      return {
+        success: false,
+        reason:
+          "Download content is missing or unreadable — check path mappings and permissions",
+      };
+    }
     return {
       success: false,
       reason: "No video files found in torrent folder",
       rejectKind: "no_content",
     };
+  }
 
   const episodes = await prisma.libraryEpisode.findMany({
     where: { mediaId: dh.media.id },

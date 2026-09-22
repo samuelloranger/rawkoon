@@ -26,6 +26,7 @@ import {
 } from "@rawkoon/api/utils/medias/fileTemplate";
 import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import {
+  isFullyReadable,
   markItemDownloaded,
   placeFile,
   qualityStringsFromParsed,
@@ -185,8 +186,17 @@ export async function postProcess(downloadHistoryId: number): Promise<
     return { success: false, reason: "Could not resolve torrent content path" };
   }
 
-  const srcVideo = await findVideoFile(remapPath(contentBase));
+  const contentRoot = remapPath(contentBase);
+  const srcVideo = await findVideoFile(contentRoot);
   if (!srcVideo) {
+    // Only an empty import from a readable tree is the release's fault.
+    if (!(await isFullyReadable(contentRoot))) {
+      return {
+        success: false,
+        reason:
+          "Download content is missing or unreadable — check path mappings and permissions",
+      };
+    }
     return {
       success: false,
       reason: "No video file found",
