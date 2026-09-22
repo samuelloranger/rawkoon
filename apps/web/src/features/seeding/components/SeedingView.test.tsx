@@ -102,4 +102,27 @@ describe("SeedingView", () => {
     render(<SeedingView />);
     expect(screen.getByText("seeding.empty.title")).toBeInTheDocument();
   });
+
+  it("splits ready-to-release torrents into a folded section apart from the ones still seeding", () => {
+    useSeedingMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: {
+        enabled: true,
+        torrents: [r("a", { target_met: true, eta_secs: 0 }), r("b")],
+        released_today: [],
+      },
+    });
+    render(<SeedingView />);
+    const ready = screen
+      .getByText(/^seeding\.sections\.ready/)
+      .closest("details");
+    const seeding = screen
+      .getByText(/^seeding\.sections\.seeding/)
+      .closest("details");
+    expect(ready).not.toHaveAttribute("open");
+    expect(seeding).toHaveAttribute("open");
+    expect(ready).toContainElement(screen.getByText("Title a"));
+    expect(seeding).toContainElement(screen.getByText("Title b"));
+  });
 });

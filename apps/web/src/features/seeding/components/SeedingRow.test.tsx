@@ -74,7 +74,7 @@ describe("SeedingRow", () => {
     expect(screen.queryByText(/^seeding\.confirmHnr/)).toBeNull();
   });
 
-  it("offers a seed-time target when an idle torrent only has a ratio target", () => {
+  it("explains an idle torrent without pointing at a seed-time target", () => {
     render(
       <ul>
         <SeedingRow
@@ -87,8 +87,7 @@ describe("SeedingRow", () => {
         />
       </ul>,
     );
-    expect(
-      screen.getByRole("link", { name: "seeding.idleHintLink" }),
-    ).toHaveAttribute("href", expect.stringContaining("/settings"));
+    expect(screen.getByText("seeding.idleHint")).toBeInTheDocument();
+    expect(screen.queryByRole("link")).toBeNull();
   });
 });

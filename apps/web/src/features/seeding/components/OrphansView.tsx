@@ -63,93 +63,91 @@ export function OrphansView() {
     );
   }
 
+  const allSelected = chosen.length === orphans.length;
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 pb-24">
       <p className="max-w-[70ch] text-sm text-neutral-400">
         {t("orphans.explain")}
       </p>
-      <div className="overflow-x-auto rounded-xl border border-neutral-700 bg-neutral-800">
-        <table className="w-full text-left text-sm">
-          <thead className="text-xs text-neutral-500">
-            <tr className="border-b border-neutral-700">
-              <th className="w-10 px-3 py-2.5">
-                <input
-                  type="checkbox"
-                  aria-label={t("orphans.selectAll")}
-                  className="accent-primary-500"
-                  checked={chosen.length === orphans.length}
-                  onChange={(e) =>
-                    setSelected(
-                      e.target.checked
-                        ? new Set(orphans.map((o) => o.hash))
-                        : new Set(),
-                    )
-                  }
-                />
-              </th>
-              <th className="px-3 py-2.5 font-medium">
-                {t("orphans.columns.torrent")}
-              </th>
-              <th className="hidden px-3 py-2.5 font-medium md:table-cell">
-                {t("orphans.columns.category")}
-              </th>
-              <th className="px-3 py-2.5 text-right font-medium">
-                {t("orphans.columns.size")}
-              </th>
-              <th className="hidden px-3 py-2.5 text-right font-medium md:table-cell">
-                {t("orphans.columns.ratio")}
-              </th>
-              <th className="hidden px-3 py-2.5 text-right font-medium md:table-cell">
-                {t("orphans.columns.seeding")}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {orphans.map((o) => (
-              <tr
-                key={o.hash}
-                className={cn(
-                  "border-b border-neutral-700 last:border-0",
-                  selected.has(o.hash) && "bg-primary-400/5",
-                )}
-              >
-                <td className="px-3 py-2.5">
-                  <input
-                    type="checkbox"
-                    aria-label={t("orphans.select", { name: o.name })}
-                    className="accent-primary-500"
-                    checked={selected.has(o.hash)}
-                    onChange={() => toggle(o.hash)}
-                  />
-                </td>
-                <td className="px-3 py-2.5">
-                  <span className="break-all font-mono text-xs text-neutral-200">
-                    {o.name}
+      <div className="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-800">
+        <div className="flex items-center gap-3 border-b border-neutral-700 px-3 py-2.5 text-xs text-neutral-500">
+          <input
+            type="checkbox"
+            aria-label={t("orphans.selectAll")}
+            className="size-4 accent-primary-500"
+            checked={allSelected}
+            onChange={(e) =>
+              setSelected(
+                e.target.checked
+                  ? new Set(orphans.map((o) => o.hash))
+                  : new Set(),
+              )
+            }
+          />
+          <span className="flex-1">{t("orphans.columns.torrent")}</span>
+          <span className="hidden w-28 md:block">
+            {t("orphans.columns.category")}
+          </span>
+          <span className="w-16 text-right">{t("orphans.columns.size")}</span>
+          <span className="hidden w-14 text-right md:block">
+            {t("orphans.columns.ratio")}
+          </span>
+          <span className="hidden w-16 text-right md:block">
+            {t("orphans.columns.seeding")}
+          </span>
+        </div>
+        <ul className="divide-y divide-neutral-700">
+          {orphans.map((o) => (
+            <li
+              key={o.hash}
+              className={cn(
+                "flex items-start gap-3 px-3 py-2.5 md:items-center",
+                selected.has(o.hash) && "bg-primary-400/5",
+              )}
+            >
+              <input
+                type="checkbox"
+                aria-label={t("orphans.select", { name: o.name })}
+                className="mt-0.5 size-4 shrink-0 accent-primary-500 md:mt-0"
+                checked={selected.has(o.hash)}
+                onChange={() => toggle(o.hash)}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="line-clamp-2 break-words text-sm text-neutral-200 [overflow-wrap:anywhere]">
+                  {o.name}
+                </p>
+                <p className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-neutral-500 md:hidden">
+                  <span>{o.category}</span>
+                  <span>
+                    {t("orphans.columns.ratio")} {o.ratio?.toFixed(2) ?? "—"}
                   </span>
-                  {o.shares_data && (
-                    <span className="mt-1 block w-fit rounded-full border border-neutral-600 bg-white/5 px-2 py-0.5 text-[11px] font-semibold text-neutral-400">
-                      {t("orphans.shares")}
-                    </span>
+                  {o.seeding_time_secs != null && (
+                    <span>{formatSeedDuration(o.seeding_time_secs, t)}</span>
                   )}
-                </td>
-                <td className="hidden px-3 py-2.5 text-neutral-400 md:table-cell">
-                  {o.category}
-                </td>
-                <td className="px-3 py-2.5 text-right tabular-nums">
-                  {formatBytes(o.size_bytes)}
-                </td>
-                <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">
-                  {o.ratio?.toFixed(2) ?? "—"}
-                </td>
-                <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">
-                  {o.seeding_time_secs != null
-                    ? formatSeedDuration(o.seeding_time_secs, t)
-                    : "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </p>
+                {o.shares_data && (
+                  <span className="mt-1 inline-block rounded-full border border-neutral-600 bg-white/5 px-2 py-px text-[10px] font-semibold text-neutral-400">
+                    {t("orphans.shares")}
+                  </span>
+                )}
+              </div>
+              <span className="hidden w-28 truncate text-xs text-neutral-400 md:block">
+                {o.category}
+              </span>
+              <span className="w-16 shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-neutral-300">
+                {formatBytes(o.size_bytes)}
+              </span>
+              <span className="hidden w-14 text-right text-xs tabular-nums md:block">
+                {o.ratio?.toFixed(2) ?? "—"}
+              </span>
+              <span className="hidden w-16 text-right text-xs tabular-nums md:block">
+                {o.seeding_time_secs != null
+                  ? formatSeedDuration(o.seeding_time_secs, t)
+                  : "—"}
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
       {chosen.length > 0 && (
         <div
@@ -158,7 +156,8 @@ export function OrphansView() {
             count: chosen.length,
             size: formatBytes(bytes),
           })}
-          className="fixed bottom-5 left-1/2 z-30 flex max-w-[calc(100%-32px)] -translate-x-1/2 flex-wrap items-center gap-3.5 rounded-2xl border border-neutral-600 bg-neutral-800 py-2.5 pl-4 pr-3 shadow-2xl motion-safe:animate-in motion-safe:slide-in-from-bottom-4"
+          style={{ bottom: "calc(var(--safe-bottom) + 12px)" }}
+          className="fixed inset-x-3 z-30 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-neutral-600 bg-neutral-800 px-4 py-3 shadow-2xl motion-safe:animate-in motion-safe:slide-in-from-bottom-4 md:inset-x-auto md:left-1/2 md:max-w-[calc(100%-32px)] md:-translate-x-1/2"
         >
           <span className="font-semibold tabular-nums text-neutral-50">
             {t("orphans.selected", {
@@ -169,7 +168,7 @@ export function OrphansView() {
           <label className="flex items-center gap-2 text-sm text-neutral-400">
             <input
               type="checkbox"
-              className="accent-primary-500"
+              className="size-4 accent-primary-500"
               checked={deleteData}
               onChange={(e) => setDeleteData(e.target.checked)}
               aria-label={t("orphans.deleteData")}
@@ -186,6 +185,7 @@ export function OrphansView() {
             size="sm"
             disabled={remove.isPending}
             onClick={onRemove}
+            className="w-full md:ml-auto md:w-auto"
           >
             {t("orphans.remove", { count: chosen.length })}
           </Button>

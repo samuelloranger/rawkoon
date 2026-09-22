@@ -1507,7 +1507,7 @@
     },
     "seeding": {
       "title": "Seeding",
-      "description": "After import, Rawkoon keeps each torrent seeding until it reaches a target, then removes it from the client. Your library copy is a hardlink, so it stays.",
+      "description": "After import, Rawkoon keeps each torrent seeding until it reaches its ratio, then removes it from the client. Your library copy is a hardlink, so it stays.",
       "enable": "Release torrents automatically",
       "enableHint": "When off, a torrent is only removed at import if it already meets the public ratio.",
       "preview_one": "{{count}} torrent would be released now, {{size}}.",
@@ -1515,10 +1515,7 @@
       "publicTitle": "Public trackers",
       "privateTitle": "Private trackers",
       "ratio": "Ratio",
-      "seedTime": "Seed time",
       "none": "none",
-      "unitHours": "hours",
-      "unitDays": "days",
       "hours_one": "{{count}} hour",
       "hours_other": "{{count}} hours",
       "days_one": "{{count}} day",
@@ -1543,7 +1540,9 @@
         "useDefault": "Use default",
         "save": "Save",
         "cancel": "Cancel",
-        "empty": "No indexers found. Connect Prowlarr or Jackett first."
+        "empty": "No indexers found. Connect Prowlarr or Jackett first.",
+        "heldCount_one": "{{count}} seeding",
+        "heldCount_other": "{{count}} seeding"
       },
       "save": "Save seeding rules",
       "saved": "Seeding rules saved.",
@@ -2445,39 +2444,29 @@
     }
   },
   "seeding": {
-    "summary_one": "Holding {{count}} torrent ({{size}}) until it meets its seed target.",
-    "summary_other": "Holding {{count}} torrents ({{size}}) until they meet their seed targets.",
-    "summaryOwed": "{{count}} still owe seed time on private trackers.",
+    "summaryOwed": "{{count}} still owe seeding on private trackers.",
     "summaryNext": "The next one releases in about {{time}}.",
     "live": "Live",
     "filters": {
       "all": "All",
-      "owed": "Owes seed time",
+      "owed": "Still owes seeding",
       "removed": "From removed titles",
       "idle": "Not uploading"
     },
     "badges": {
       "removed_from_library": "Removed from library",
       "replaced_by_upgrade": "Replaced by an upgrade",
-      "owes": "Owes seed time"
+      "owes": "Still owes seeding"
     },
     "meter": {
-      "ratio": "Ratio",
-      "time": "Time",
-      "noTarget": "no target"
-    },
-    "units": {
-      "hours": "h",
-      "days": "d"
+      "ratio": "Ratio"
     },
     "eta": {
       "met": "Target met. Removing on the next check.",
       "idle": "Not uploading, so it can't reach its ratio.",
-      "ratio": "Releases in about {{time}}, on ratio",
-      "time": "Releases in about {{time}}, on seed time"
+      "ratio": "Releases in about {{time}}, on ratio"
     },
-    "idleHint": "Nobody is downloading from it, so it can't reach its ratio.",
-    "idleHintLink": "Add a seed-time target",
+    "idleHint": "Nobody is downloading from it, so it can't reach its ratio. Remove it if you no longer need it.",
     "removeNow": "Remove now",
     "confirmTitle": "Remove {{title}} from the download client?",
     "confirmBody": "The torrent and its downloaded files are removed. Your library copy stays.",
@@ -2498,7 +2487,6 @@
     },
     "disabled": {
       "title": "Automatic release is off",
-      "description": "Torrents stay in your download client until you remove them.",
       "action": "Turn it on in settings"
     },
     "unreachable": "The download client isn't reachable, so seeding numbers can't be shown.",
@@ -2513,6 +2501,12 @@
     "kind": {
       "ebook": "Ebook",
       "audiobook": "Audiobook"
+    },
+    "summaryShort_one": "{{count}} torrent held, {{size}}.",
+    "summaryShort_other": "{{count}} torrents held, {{size}}.",
+    "sections": {
+      "seeding": "Seeding ({{count}})",
+      "ready": "Ready to release ({{count}})"
     }
   },
   "orphans": {

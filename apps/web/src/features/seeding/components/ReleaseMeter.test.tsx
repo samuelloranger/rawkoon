@@ -30,13 +30,14 @@ const base: SeedingTorrent = {
 };
 
 describe("ReleaseMeter", () => {
-  it("renders the ratio bar with its value and a dashed no-target time row", () => {
+  it("renders only the ratio bar — seed time is no longer a target", () => {
     render(<ReleaseMeter torrent={base} />);
     expect(
       screen.getByRole("progressbar", { name: "seeding.meter.ratio" }),
     ).toHaveAttribute("aria-valuenow", "63");
     expect(screen.getByText("0.63 / 1.0")).toBeInTheDocument();
-    expect(screen.getByText("seeding.meter.noTarget")).toBeInTheDocument();
+    expect(screen.queryByText("seeding.meter.time")).toBeNull();
+    expect(screen.getAllByRole("progressbar")).toHaveLength(1);
   });
   it("explains an unreachable ratio target", () => {
     render(<ReleaseMeter torrent={{ ...base, up_speed: 0, eta_secs: null }} />);

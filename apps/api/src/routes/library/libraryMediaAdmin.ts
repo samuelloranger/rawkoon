@@ -84,8 +84,7 @@ export function mapSettings(row: {
     public_seed_time_mins: row.publicSeedTimeMins ?? null,
     private_seed_ratio:
       row.privateSeedRatio === undefined ? 1 : row.privateSeedRatio,
-    private_seed_time_mins:
-      row.privateSeedTimeMins === undefined ? 4320 : row.privateSeedTimeMins,
+    private_seed_time_mins: row.privateSeedTimeMins ?? null,
     seed_sweep_enabled: row.seedSweepEnabled ?? false,
     blocked_extensions: row.blockedExtensions ?? [],
     updated_at: row.updatedAt.toISOString(),

@@ -1,24 +1,20 @@
 import { useTranslation } from "react-i18next";
-import { Lock } from "lucide-react";
+import { Lock, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { SeedingTorrent } from "@rawkoon/shared/types";
-import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/confirm/ConfirmContext";
 import { useReleaseTorrent } from "@/features/seeding/hooks/useSeeding";
 import { formatBytes } from "@/lib/utils/format";
 import { ReleaseMeter } from "./ReleaseMeter";
 
 const BADGE =
-  "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold";
+  "inline-flex items-center rounded-full border px-1.5 py-px text-[10px] font-semibold";
 
 export function SeedingRow({ torrent }: { torrent: SeedingTorrent }) {
   const { t } = useTranslation("common");
   const { confirm } = useConfirm();
   const release = useReleaseTorrent();
-  const idleRatioOnly =
-    torrent.up_speed === 0 &&
-    torrent.rule.seed_time_mins == null &&
-    !torrent.target_met;
+  const idle = torrent.up_speed === 0 && !torrent.target_met;
 
   const onRemove = () =>
     confirm({
@@ -46,43 +42,53 @@ export function SeedingRow({ torrent }: { torrent: SeedingTorrent }) {
     });
 
   return (
-    <li className="grid grid-cols-[44px_minmax(0,1fr)] gap-x-4 gap-y-3 px-4 py-3.5 md:grid-cols-[44px_minmax(0,1fr)_minmax(250px,320px)_auto] md:items-center">
+    <li className="flex gap-3 px-3 py-3 sm:px-4">
       {torrent.poster_url ? (
         <img
           src={torrent.poster_url}
           alt=""
           loading="lazy"
-          className="h-16 w-11 rounded object-cover"
+          className="h-14 w-10 shrink-0 rounded object-cover"
         />
       ) : (
         <div
           aria-hidden
-          className="grid h-16 w-11 place-items-center rounded bg-neutral-700 font-display text-lg text-neutral-400"
+          className="grid h-14 w-10 shrink-0 place-items-center rounded bg-neutral-700 font-display text-base text-neutral-400"
         >
           {torrent.title.slice(0, 1)}
         </div>
       )}
-      <div className="min-w-0">
-        <p className="truncate font-semibold text-neutral-50">
-          {torrent.title}{" "}
-          <span className="font-normal text-neutral-500">
-            {torrent.kind_label === "ebook" ||
-            torrent.kind_label === "audiobook"
-              ? t(`seeding.kind.${torrent.kind_label}`)
-              : torrent.year}
-          </span>
-        </p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-neutral-400">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start gap-2">
+          <p className="min-w-0 flex-1 truncate text-sm font-semibold text-neutral-50">
+            {torrent.title}{" "}
+            <span className="font-normal text-neutral-500">
+              {torrent.kind_label === "ebook" ||
+              torrent.kind_label === "audiobook"
+                ? t(`seeding.kind.${torrent.kind_label}`)
+                : torrent.year}
+            </span>
+          </p>
+          <button
+            type="button"
+            aria-label={t("seeding.removeNow")}
+            title={t("seeding.removeNow")}
+            disabled={release.isPending}
+            onClick={onRemove}
+            className="focus-ring -mr-1 -mt-1 shrink-0 rounded-md p-1.5 text-neutral-500 hover:bg-white/5 hover:text-neutral-100 disabled:opacity-50"
+          >
+            <Trash2 size={15} aria-hidden />
+          </button>
+        </div>
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-neutral-400">
           <span className="inline-flex items-center gap-1">
-            {torrent.is_private && <Lock size={12} aria-label="private" />}
+            {torrent.is_private && <Lock size={11} aria-label="private" />}
             {torrent.indexer}
           </span>
           <span>{formatBytes(torrent.size_bytes)}</span>
-          <span>
-            {torrent.up_speed > 0
-              ? `↑ ${formatBytes(torrent.up_speed)}/s`
-              : t("seeding.filters.idle")}
-          </span>
+          {torrent.up_speed > 0 && (
+            <span>↑ {formatBytes(torrent.up_speed)}/s</span>
+          )}
           {torrent.badges.map((b) => (
             <span
               key={b}
@@ -99,30 +105,12 @@ export function SeedingRow({ torrent }: { torrent: SeedingTorrent }) {
             </span>
           )}
         </div>
-        {idleRatioOnly && (
-          <p className="mt-1.5 max-w-[52ch] text-xs text-amber-200">
-            {t("seeding.idleHint")}{" "}
-            <a
-              href="/settings?tab=media"
-              className="text-primary-400 underline underline-offset-2"
-            >
-              {t("seeding.idleHintLink")}
-            </a>
+        <ReleaseMeter torrent={torrent} className="mt-2" />
+        {idle && (
+          <p className="mt-1 text-[11px] text-amber-200/90">
+            {t("seeding.idleHint")}
           </p>
         )}
-      </div>
-      <ReleaseMeter torrent={torrent} className="col-span-2 md:col-span-1" />
-      <div className="col-span-2 md:col-span-1 md:text-right">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={release.isPending}
-          onClick={onRemove}
-          className="whitespace-nowrap"
-        >
-          {t("seeding.removeNow")}
-        </Button>
       </div>
     </li>
   );

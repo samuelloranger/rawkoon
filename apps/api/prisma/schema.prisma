@@ -706,7 +706,8 @@ model MediaSettings {
   /// Public default = minSeedRatio + this. Null = no time target.
   publicSeedTimeMins      Int?     @map("public_seed_time_mins")
   privateSeedRatio        Float?   @default(1) @map("private_seed_ratio")
-  privateSeedTimeMins     Int?     @default(4320) @map("private_seed_time_mins")
+  /// Release is ratio-only; kept nullable so an explicit time target stays possible.
+  privateSeedTimeMins     Int?     @map("private_seed_time_mins")
   /// Off until an admin opts in: the first sweep would otherwise release every old torrent at once.
   seedSweepEnabled        Boolean  @default(false) @map("seed_sweep_enabled")
   blockedExtensions       String[] @default(["exe", "scr", "lnk", "bat", "cmd", "com", "msi", "pif", "vbs", "ps1", "jar", "apk"]) @map("blocked_extensions")

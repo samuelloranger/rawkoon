@@ -48,30 +48,6 @@ function RuleFields({
           onChange={(e) => onChange({ ...draft, ratio: e.target.value })}
         />
       </label>
-      <label className="grid gap-1 text-xs text-neutral-500">
-        {t("settings.seeding.seedTime")}
-        <span className="flex">
-          <input
-            inputMode="decimal"
-            className={`${FIELD} rounded-r-none`}
-            placeholder={t("settings.seeding.none")}
-            value={draft.time}
-            aria-label={t("settings.seeding.seedTime")}
-            onChange={(e) => onChange({ ...draft, time: e.target.value })}
-          />
-          <select
-            className="rounded-r-lg border border-l-0 border-neutral-700 bg-neutral-800 px-2 text-sm"
-            value={draft.unit}
-            aria-label={t("settings.seeding.seedTime")}
-            onChange={(e) =>
-              onChange({ ...draft, unit: e.target.value as RuleDraft["unit"] })
-            }
-          >
-            <option value="hours">{t("settings.seeding.unitHours")}</option>
-            <option value="days">{t("settings.seeding.unitDays")}</option>
-          </select>
-        </span>
-      </label>
     </div>
   );
 }
@@ -119,14 +95,14 @@ function IndexerRuleRow({ row }: { row: IndexerSeedRuleRow }) {
       : "settings.seeding.indexers.sourcePublic",
   );
   return (
-    <tr className="border-b border-neutral-700 last:border-0">
-      <td className="px-3 py-2.5">
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
+      <span className="w-28 shrink-0 font-medium text-neutral-100">
         <span className="inline-flex items-center gap-1.5">
           {row.is_private && <Lock size={12} aria-hidden />}
           {row.indexer}
         </span>
-      </td>
-      <td className="px-3 py-2.5">
+      </span>
+      <span className="min-w-48 flex-1 text-sm">
         {editing ? (
           <RuleFields draft={editing} onChange={setEditing} />
         ) : row.override ? (
@@ -141,11 +117,11 @@ function IndexerRuleRow({ row }: { row: IndexerSeedRuleRow }) {
             })}
           </span>
         )}
-      </td>
-      <td className="hidden px-3 py-2.5 text-right tabular-nums md:table-cell">
-        {row.held_count}
-      </td>
-      <td className="whitespace-nowrap px-3 py-2.5 text-right">
+      </span>
+      <span className="text-xs tabular-nums text-neutral-500">
+        {t("settings.seeding.indexers.heldCount", { count: row.held_count })}
+      </span>
+      <span className="ml-auto flex shrink-0 gap-1">
         {editing ? (
           <>
             <Button
@@ -186,13 +162,17 @@ function IndexerRuleRow({ row }: { row: IndexerSeedRuleRow }) {
             type="button"
             size="sm"
             variant="ghost"
-            onClick={() => setEditing(draftFromRule(row.effective))}
+            onClick={() =>
+              setEditing(
+                draftFromRule({ ...row.effective, seed_time_mins: null }),
+              )
+            }
           >
             {t("settings.seeding.indexers.customize")}
           </Button>
         )}
-      </td>
-    </tr>
+      </span>
+    </li>
   );
 }
 
@@ -207,13 +187,13 @@ export function SeedingSettingsSection({
   const [pub, setPub] = useState<RuleDraft>(() =>
     draftFromRule({
       ratio: settings.min_seed_ratio > 0 ? settings.min_seed_ratio : null,
-      seed_time_mins: settings.public_seed_time_mins,
+      seed_time_mins: null,
     }),
   );
   const [priv, setPriv] = useState<RuleDraft>(() =>
     draftFromRule({
       ratio: settings.private_seed_ratio,
-      seed_time_mins: settings.private_seed_time_mins,
+      seed_time_mins: null,
     }),
   );
   const preview = useSeeding({ preview: true, enabled: !enabled });
@@ -302,28 +282,12 @@ export function SeedingSettingsSection({
           {t("settings.seeding.save")}
         </Button>
       </div>
-      <div className="overflow-x-auto rounded-xl border border-neutral-700 bg-neutral-800">
-        <table className="w-full text-left text-sm">
-          <thead className="text-xs text-neutral-500">
-            <tr className="border-b border-neutral-700">
-              <th className="px-3 py-2.5 font-medium">
-                {t("settings.seeding.indexers.indexer")}
-              </th>
-              <th className="px-3 py-2.5 font-medium">
-                {t("settings.seeding.indexers.rule")}
-              </th>
-              <th className="hidden px-3 py-2.5 text-right font-medium md:table-cell">
-                {t("settings.seeding.indexers.held")}
-              </th>
-              <th className="w-28" />
-            </tr>
-          </thead>
-          <tbody>
-            {(rules.data?.indexers ?? []).map((row) => (
-              <IndexerRuleRow key={row.indexer} row={row} />
-            ))}
-          </tbody>
-        </table>
+      <div className="overflow-hidden rounded-xl border border-neutral-700 bg-neutral-800">
+        <ul className="divide-y divide-neutral-700">
+          {(rules.data?.indexers ?? []).map((row) => (
+            <IndexerRuleRow key={row.indexer} row={row} />
+          ))}
+        </ul>
         {rules.data && rules.data.indexers.length === 0 && (
           <p className="px-3 py-4 text-sm text-neutral-500">
             {t("settings.seeding.indexers.empty")}

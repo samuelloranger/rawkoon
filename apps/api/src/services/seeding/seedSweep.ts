@@ -159,7 +159,7 @@ export async function loadSeedContext(): Promise<
       },
       privateRule: {
         ratio: settings ? settings.privateSeedRatio : 1,
-        seedTimeMins: settings ? settings.privateSeedTimeMins : 4320,
+        seedTimeMins: settings?.privateSeedTimeMins ?? null,
       },
     },
     overrides: new Map(

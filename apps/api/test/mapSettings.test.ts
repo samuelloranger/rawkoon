@@ -42,4 +42,8 @@ describe("mapSettings", () => {
       blocked_extensions: ["exe", "lnk"],
     });
   });
+
+  it("defaults to a ratio-only private rule — no seed-time target", () => {
+    expect(mapSettings(row()).private_seed_time_mins).toBeNull();
+  });
 });
