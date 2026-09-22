@@ -1,6 +1,7 @@
 import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
 
-const CACHE_KEY = "seeding:indexer-privacy:v1";
+// v2: Jackett indexers used to all be cached as private.
+const CACHE_KEY = "seeding:indexer-privacy:v2";
 const CACHE_TTL_SECS = 3600;
 
 export interface PrivacyDeps {
