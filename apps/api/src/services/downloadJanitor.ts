@@ -37,6 +37,9 @@ export interface JanitorDeps {
     bytes: bigint | null,
   ) => Promise<void>;
   resolveAdapter: () => Promise<DownloadClientAdapter | null>;
+  /** Record why the row was rejected, even if its torrent cannot be removed. */
+  markRejected: (id: number, kind: RejectKind) => Promise<void>;
+  notifyBookRejected: (editionId: number, reason: string) => Promise<void>;
 }
 
 const defaultDeps: JanitorDeps = {
@@ -61,6 +64,18 @@ const defaultDeps: JanitorDeps = {
     });
   },
   resolveAdapter: async () => (await resolveActiveAdapter())?.adapter ?? null,
+  markRejected: async (id, kind) => {
+    await prisma.downloadHistory.update({
+      where: { id },
+      data: { seedReleaseReason: kind },
+    });
+  },
+  notifyBookRejected: async (editionId, reason) => {
+    const { notifyAdminsBookImportFailed } = await import(
+      "@rawkoon/api/workers/notifyBookEvents"
+    );
+    await notifyAdminsBookImportFailed(editionId, reason);
+  },
 };
 
 /** Condemn a release: fail the row, blocklist it so search skips it, and clear it from the client. */
@@ -72,6 +87,12 @@ export async function rejectRelease(
 ): Promise<void> {
   const hash = dh.torrentHash?.trim().toLowerCase() || null;
   await deps.failDownload(dh, reason);
+  // failDownload only notifies for media rows.
+  if (dh.bookEditionId != null) {
+    await deps
+      .notifyBookRejected(dh.bookEditionId, reason)
+      .catch((e) => console.warn("[downloadJanitor] book notice failed:", e));
+  }
   await deps.createBlocklist({
     torrentHash: hash,
     releaseTitle: dh.releaseTitle,
@@ -81,6 +102,7 @@ export async function rejectRelease(
     kind,
     reason: `auto: ${kind} — ${reason}`,
   });
+  await deps.markRejected(dh.id, kind);
   if (!hash) return;
   // Never pull a torrent from a live sibling row, or one the user added (adopted).
   if (await deps.hashInUseByOthers(hash, dh.id)) return;
@@ -93,10 +115,8 @@ export async function rejectRelease(
       await deps.stampReleased(dh.id, kind, null);
       return;
     }
-    if (!isRawkoonOwned(torrent)) {
-      await deps.stampReleased(dh.id, "adopted", null);
-      return;
-    }
+    // Not Rawkoon's to remove; the row keeps its rejection reason.
+    if (!isRawkoonOwned(torrent)) return;
     await adapter.remove(torrent.hash, !sharesContentPath(torrent, torrents));
     await deps.stampReleased(dh.id, kind, BigInt(torrent.sizeBytes));
   } catch (error) {

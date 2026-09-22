@@ -539,19 +539,13 @@ export async function finishPostProcess(
         const { rejectRelease } = await import(
           "@rawkoon/api/services/downloadJanitor"
         );
-        // rejectRelease → failDownload already notifies admins for media rows.
+        // rejectRelease notifies admins, for media and book rows alike.
         await rejectRelease(
           rejectableFrom(downloadHistoryId, dh),
           "import_rejected",
           result.reason,
         );
         await revertRejectedImport(dh, isUpgrade);
-        if (bookEditionId != null) {
-          const { notifyAdminsBookImportFailed } = await import(
-            "@rawkoon/api/workers/notifyBookEvents"
-          );
-          await notifyAdminsBookImportFailed(bookEditionId, result.reason);
-        }
         return result;
       }
       if (mediaId != null) emitLibraryUpdate(mediaId);

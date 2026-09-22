@@ -75,6 +75,12 @@ beforeEach(() => {
     stampReleased: mock(async () => {
       calls.push("stamp");
     }),
+    markRejected: mock(async () => {
+      calls.push("mark");
+    }),
+    notifyBookRejected: mock(async () => {
+      calls.push("notify-book");
+    }),
     resolveAdapter: async () => adapter(),
   };
 });
@@ -82,7 +88,7 @@ beforeEach(() => {
 describe("rejectRelease", () => {
   it("fails, blocklists with its kind, removes with data, and stamps", async () => {
     await rejectRelease(dh, "stalled", "stalled - no progress", deps);
-    expect(deps.calls).toEqual(["fail", "blocklist", "stamp"]);
+    expect(deps.calls).toEqual(["fail", "blocklist", "mark", "stamp"]);
     expect(deps.createBlocklist).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: "stalled",
@@ -105,14 +111,15 @@ describe("rejectRelease", () => {
     await rejectRelease(dh, "import_rejected", "no video", deps);
     expect(removed).toEqual([]);
     expect(deps.stampReleased).not.toHaveBeenCalled();
-    expect(deps.calls).toEqual(["fail", "blocklist"]);
+    expect(deps.calls).toEqual(["fail", "blocklist", "mark"]);
   });
 
-  it("leaves a torrent Rawkoon did not add, stamping it adopted", async () => {
+  it("leaves a torrent Rawkoon did not add, keeping the rejection on the row", async () => {
     torrents = [t({ category: "radarr", labels: [] })];
     await rejectRelease(dh, "stalled", "x", deps);
     expect(removed).toEqual([]);
-    expect(deps.stampReleased).toHaveBeenCalledWith(7, "adopted", null);
+    expect(deps.markRejected).toHaveBeenCalledWith(7, "stalled");
+    expect(deps.stampReleased).not.toHaveBeenCalled();
   });
 
   it("stamps without bytes when the torrent is already gone", async () => {
@@ -129,5 +136,34 @@ describe("rejectRelease", () => {
     deps.resolveAdapter = async () => a;
     await rejectRelease(dh, "stalled", "x", deps);
     expect(deps.stampReleased).not.toHaveBeenCalled();
+  });
+
+  it("records the rejection on the row even when the client is unreachable", async () => {
+    deps.resolveAdapter = async () => null;
+    await rejectRelease(dh, "malware", "blocked file", deps);
+    expect(deps.markRejected).toHaveBeenCalledWith(7, "malware");
+  });
+
+  it("records the rejection when removing the torrent failed", async () => {
+    const a = adapter();
+    a.remove = async () => {
+      throw new Error("client down");
+    };
+    deps.resolveAdapter = async () => a;
+    await rejectRelease(dh, "stalled", "x", deps);
+    expect(deps.markRejected).toHaveBeenCalledWith(7, "stalled");
+  });
+
+  it("tells admins when a book release is rejected", async () => {
+    await rejectRelease(
+      { ...dh, mediaId: null, bookEditionId: 11 },
+      "malware",
+      "blocked file type: a.exe",
+      deps,
+    );
+    expect(deps.notifyBookRejected).toHaveBeenCalledWith(
+      11,
+      "blocked file type: a.exe",
+    );
   });
 });
