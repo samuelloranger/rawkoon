@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useOrphans } from "@/features/seeding/hooks/useOrphans";
+import { formatBytes } from "@/lib/utils/format";
 import { ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { LibraryHealthLog } from "@rawkoon/shared/types";
@@ -161,6 +164,34 @@ export function LibraryHealthCard({
           )}
         </div>
       )}
+      <OrphanHealthRow />
     </section>
+  );
+}
+
+function OrphanHealthRow() {
+  const { t } = useTranslation("common");
+  const { data } = useOrphans();
+  if (!data || data.orphans.length === 0) return null;
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-neutral-700 pt-3">
+      <div>
+        <p className="text-sm font-semibold text-neutral-100">
+          {t("orphans.health.title", {
+            count: data.orphans.length,
+            size: formatBytes(data.total_bytes),
+          })}
+        </p>
+        <p className="text-xs text-neutral-400">
+          {t("orphans.health.description")}
+        </p>
+      </div>
+      <a
+        href="/library/downloads?view=orphans"
+        className="text-sm text-primary-400 underline underline-offset-2"
+      >
+        {t("orphans.health.action")}
+      </a>
+    </div>
   );
 }

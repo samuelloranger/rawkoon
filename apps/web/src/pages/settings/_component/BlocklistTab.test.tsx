@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { BlocklistEntry } from "@rawkoon/shared/types";
 
 // react-i18next is globally mocked in src/test/setup.ts → t(key) returns key.
@@ -13,7 +13,7 @@ const removeMutateAsync = vi.fn();
 const confirmMock = vi.fn();
 
 vi.mock("@/features/medias/hooks/useBlocklist", () => ({
-  useBlocklist: () => useBlocklistMock(),
+  useBlocklist: (opts?: unknown) => useBlocklistMock(opts),
   useRemoveFromBlocklist: () => ({ mutateAsync: removeMutateAsync }),
 }));
 
@@ -70,5 +70,20 @@ describe("BlocklistTab", () => {
     render(<BlocklistTab />);
 
     expect(screen.getByText("settings.blocklist.empty")).toBeInTheDocument();
+  });
+  it("badges automatic entries by kind and filters by source", () => {
+    useBlocklistMock.mockReturnValue({
+      data: { entries: [{ ...ENTRY_A, kind: "malware" }] },
+      isLoading: false,
+      error: null,
+    });
+    render(<BlocklistTab />);
+    expect(
+      screen.getAllByText("settings.blocklist.kind.malware").length,
+    ).toBeGreaterThan(0);
+    fireEvent.click(
+      screen.getByRole("tab", { name: "settings.blocklist.filter.auto" }),
+    );
+    expect(useBlocklistMock).toHaveBeenLastCalledWith({ source: "auto" });
   });
 });

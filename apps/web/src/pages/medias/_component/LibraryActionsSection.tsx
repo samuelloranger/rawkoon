@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { useRemoveFromLibrary } from "@/features/medias/hooks/useRemoveFromLibrary";
 import { useRetrySkippedMedia } from "@/features/medias/hooks/useRetrySkippedMedia";
 import { useToggleMediaMonitored } from "@/features/medias/hooks/useToggleMediaMonitored";
+import { useLibraryDownloads } from "@/features/medias/hooks/useLibraryDownloads";
+import { useSeeding } from "@/features/seeding/hooks/useSeeding";
 import { Button } from "@/components/ui/button";
 import { Card } from "./LibrarySharedUI";
 
@@ -29,6 +31,22 @@ export function LibraryActionsSection({
     "idle",
   );
   const [deleteFiles, setDeleteFiles] = useState(true);
+  const confirming = deleteConfirm === "confirm";
+  const { data: downloads } = useLibraryDownloads(
+    confirming ? libraryId : null,
+  );
+  const heldHashes = new Set(
+    (downloads?.items ?? [])
+      .filter((i) => i.seed?.state === "seeding" && i.torrent_hash)
+      .map((i) => (i.torrent_hash as string).toLowerCase()),
+  );
+  const { data: seeding } = useSeeding({
+    enabled: confirming && heldHashes.size > 0,
+  });
+  const owesSeedTime = (seeding?.torrents ?? []).some(
+    (s) => heldHashes.has(s.hash) && s.owes_seed_time,
+  );
+  const [releaseNow, setReleaseNow] = useState(false);
 
   if (deleteConfirm === "confirm") {
     return (
@@ -46,6 +64,51 @@ export function LibraryActionsSection({
             />
             {t("library.management.deleteFilesLabel")}
           </label>
+          {heldHashes.size > 0 && (
+            <fieldset className="space-y-1.5">
+              <legend className="text-[11px] text-red-300/80">
+                {t("library.management.seedingTitle", {
+                  count: heldHashes.size,
+                })}
+              </legend>
+              {[
+                {
+                  value: false,
+                  label: t("library.management.keepSeeding"),
+                  hint: t("library.management.keepSeedingHint"),
+                },
+                {
+                  value: true,
+                  label: t("library.management.releaseNow"),
+                  hint: t("library.management.releaseNowHint"),
+                },
+              ].map((opt) => (
+                <label
+                  key={String(opt.value)}
+                  className="flex cursor-pointer items-start gap-2 text-xs text-red-200"
+                >
+                  <input
+                    type="radio"
+                    name={`release-${libraryId}`}
+                    className="mt-0.5"
+                    checked={releaseNow === opt.value}
+                    onChange={() => setReleaseNow(opt.value)}
+                    aria-label={opt.label}
+                  />
+                  <span>
+                    <span className="block font-semibold">{opt.label}</span>
+                    <span className="text-red-300/70">{opt.hint}</span>
+                  </span>
+                </label>
+              ))}
+              {releaseNow && owesSeedTime && (
+                <p className="rounded-md border border-amber-900/70 bg-amber-950/40 px-2 py-1.5 text-[11px] text-amber-200">
+                  {t("library.management.hnrWarning")}
+                </p>
+              )}
+            </fieldset>
+          )}
+
           <div className="flex gap-2">
             <Button
               type="button"
@@ -57,6 +120,7 @@ export function LibraryActionsSection({
                   await removeMutation.mutateAsync({
                     id: libraryId,
                     deleteFiles,
+                    releaseTorrents: releaseNow && heldHashes.size > 0,
                   });
                   onDeleted?.();
                 } catch {

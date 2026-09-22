@@ -1,4 +1,5 @@
 import { Clock, Download, Pause, Play, Sparkles, Trash2 } from "lucide-react";
+import { SeedChip } from "@/features/seeding/components/SeedChip";
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { isRemovableDownloadHistoryEntry } from "@rawkoon/shared";
@@ -221,6 +222,7 @@ export function LibraryDownloadHistorySection({
                       )}
                     </div>
                   </div>
+                  <SeedChip seed={row.seed} />
 
                   <div className="flex items-center gap-3 text-[10px] text-neutral-400">
                     {row.indexer && <span>{row.indexer}</span>}

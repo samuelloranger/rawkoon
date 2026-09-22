@@ -8,6 +8,7 @@ import {
   Download,
   ShieldAlert,
   Package,
+  Sprout,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -24,7 +25,8 @@ export type JobAction =
   | "check_library_download_completion"
   | "sync_library_attention_alerts"
   | "check_library_integrity"
-  | "refresh_github_releases";
+  | "refresh_github_releases"
+  | "sweep_seeding_torrents";
 
 export type JobConfig = {
   action: JobAction;
@@ -109,5 +111,12 @@ export const JOBS: JobConfig[] = [
     Icon: Package,
     labelKey: "settings.jobs.actions.refreshGithubReleases.label",
     descriptionKey: "settings.jobs.actions.refreshGithubReleases.description",
+  },
+  {
+    action: "sweep_seeding_torrents",
+    jobNames: ["sweep-seeding-torrents"],
+    Icon: Sprout,
+    labelKey: "settings.jobs.actions.sweepSeedingTorrents.label",
+    descriptionKey: "settings.jobs.actions.sweepSeedingTorrents.description",
   },
 ];
