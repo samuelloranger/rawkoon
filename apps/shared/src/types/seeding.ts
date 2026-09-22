@@ -16,7 +16,7 @@ export interface SeedRule {
   seed_time_mins: number | null;
 }
 
-export type SeedRuleSource = "override" | "private_default" | "public_default";
+type SeedRuleSource = "override" | "private_default" | "public_default";
 
 export type SeedingBadge = "removed_from_library" | "replaced_by_upgrade";
 
@@ -64,7 +64,7 @@ export interface SeedingResponse {
   would_release_now?: { count: number; bytes: number };
 }
 
-export interface OrphanTorrent {
+interface OrphanTorrent {
   hash: string;
   name: string;
   category: string | null;

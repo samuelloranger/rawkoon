@@ -1,7 +1,7 @@
 import type { SeedRule } from "@rawkoon/shared/types";
 
 type T = (key: string, opts?: Record<string, unknown>) => string;
-export type TimeUnit = "hours" | "days";
+type TimeUnit = "hours" | "days";
 export interface RuleDraft {
   ratio: string;
   time: string;
@@ -37,7 +37,7 @@ export function ruleFromDraft(draft: RuleDraft): SeedRule | null {
   };
 }
 
-export function formatTargetTime(mins: number, t: T): string {
+function formatTargetTime(mins: number, t: T): string {
   return mins % 1440 === 0
     ? t("settings.seeding.days", { count: mins / 1440 })
     : t("settings.seeding.hours", { count: Math.round((mins / 60) * 10) / 10 });
