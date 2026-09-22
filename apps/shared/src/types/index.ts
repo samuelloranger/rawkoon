@@ -17,4 +17,5 @@ export * from "./books";
 export * from "./releases";
 export * from "./settings";
 export * from "./downloads";
+export * from "./seeding";
 export * from "./request";
