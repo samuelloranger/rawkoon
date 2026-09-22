@@ -45,6 +45,20 @@ import {
  * Post-process a season pack / intégrale: find all video files under the torrent
  * folder, match each to a LibraryEpisode by SxxExx, hardlink/move to library.
  */
+/**
+ * How a refused pack is handled. A mismatch is the release's fault (reject it:
+ * blocklist and clear it). A tooling failure (MediaInfo, merge) must keep the
+ * torrent's data — it can be the only copy of a split episode's parts.
+ */
+export function packRefusalPolicy(kind: "mismatch" | "tooling"): {
+  rejectKind: "pack_mismatch" | undefined;
+  legacyBlocklist: boolean;
+} {
+  return kind === "mismatch"
+    ? { rejectKind: "pack_mismatch", legacyBlocklist: false }
+    : { rejectKind: undefined, legacyBlocklist: true };
+}
+
 export async function postProcessSeasonPack(
   downloadHistoryId: number,
   dh: {
@@ -145,21 +159,33 @@ export async function postProcessSeasonPack(
   const mapping = resolveSeasonPackMapping(parsedSources, episodes);
 
   /**
-   * Abandon the whole pack: record why and return a pack_mismatch reject;
-   * finishPostProcess blocklists it through rejectRelease so auto-search does
-   * not loop on the same pack.
+   * Abandon the whole pack. Either way it is blocklisted, or auto-search finds
+   * the same pack again and loops; see packRefusalPolicy for what else happens.
    */
-  const refusePack = async (reason: string) => {
+  const refusePack = async (
+    reason: string,
+    kind: "mismatch" | "tooling",
+  ): Promise<PostProcessFailure> => {
+    const policy = packRefusalPolicy(kind);
     await prisma.downloadHistory.update({
       where: { id: downloadHistoryId },
       data: { postProcessError: reason },
     });
+    if (policy.legacyBlocklist) {
+      await prisma.grabBlocklist.create({
+        data: {
+          torrentHash: hash,
+          releaseTitle: dh.releaseTitle,
+          mediaId: dh.media.id,
+          kind: "import_rejected",
+          reason,
+        },
+      });
+    }
     console.warn(`[postProcess/pack] ${dh.media.title}: ${reason}`);
-    return {
-      success: false as const,
-      reason,
-      rejectKind: "pack_mismatch" as const,
-    };
+    return policy.rejectKind
+      ? { success: false, reason, rejectKind: policy.rejectKind }
+      : { success: false, reason };
   };
 
   if (!mapping.ok) {
@@ -174,6 +200,7 @@ export async function postProcessSeasonPack(
           ? ` Unmatched: ${mapping.unmatched.join(", ")}`
           : ""
       }`,
+      "mismatch",
     );
   }
 
@@ -192,11 +219,13 @@ export async function postProcessSeasonPack(
     if (!miA || !miB) {
       return refusePack(
         `Season pack contains a split episode that MediaInfo cannot read — nothing imported. Could not scan "${miA ? b.fileName : a.fileName}".`,
+        "tooling",
       );
     }
     if (!tracksCompatible(miA, miB)) {
       return refusePack(
         `Season pack contains a split episode whose parts are not mergeable — nothing imported. "${a.fileName}" and "${b.fileName}" have different track layouts.`,
+        "mismatch",
       );
     }
   }
@@ -377,6 +406,7 @@ export async function postProcessSeasonPack(
   if (fatalErrors.length > 0) {
     return refusePack(
       `Season pack partially imported but a split episode could not be merged — ${fatalErrors.join("; ")}`,
+      "tooling",
     );
   }
 
