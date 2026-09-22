@@ -157,17 +157,20 @@ export function buildSeedingTorrents(
 export function buildOrphans(
   torrents: NormalizedTorrent[],
   ownedHashes: ReadonlySet<string>,
+  ownedRowIds: ReadonlySet<number> = new Set(),
 ): OrphansResponse {
-  const orphans = classifyOrphans(torrents, ownedHashes).map((t) => ({
-    hash: t.hash.toLowerCase(),
-    name: t.name,
-    category: t.category,
-    size_bytes: t.sizeBytes,
-    ratio: t.ratio,
-    seeding_time_secs: t.seedingTimeSecs,
-    content_path: t.contentPath,
-    shares_data: sharesContentPath(t, torrents),
-  }));
+  const orphans = classifyOrphans(torrents, ownedHashes, ownedRowIds).map(
+    (t) => ({
+      hash: t.hash.toLowerCase(),
+      name: t.name,
+      category: t.category,
+      size_bytes: t.sizeBytes,
+      ratio: t.ratio,
+      seeding_time_secs: t.seedingTimeSecs,
+      content_path: t.contentPath,
+      shares_data: sharesContentPath(t, torrents),
+    }),
+  );
   return {
     orphans,
     total_bytes: orphans.reduce((sum, o) => sum + o.size_bytes, 0),

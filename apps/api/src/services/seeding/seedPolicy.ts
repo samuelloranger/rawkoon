@@ -25,7 +25,7 @@ export interface SeedProgress {
   met: boolean;
 }
 
-const RAWKOON_TAG = /^rawkoon-dh-\d+$/i;
+const RAWKOON_TAG = /^rawkoon-dh-(\d+)$/i;
 
 export function indexerKey(indexer: string | null | undefined): string | null {
   const key = indexer?.trim().toLowerCase();
@@ -192,12 +192,25 @@ export function sharesContentPath(
   );
 }
 
+/** download_history ids named by a torrent's rawkoon-dh-N tags. */
+export function taggedRowIds(t: Pick<NormalizedTorrent, "labels">): number[] {
+  return t.labels.flatMap((label) => {
+    const m = label.trim().match(RAWKOON_TAG);
+    return m ? [Number(m[1])] : [];
+  });
+}
+
 export function classifyOrphans(
   torrents: readonly NormalizedTorrent[],
   ownedHashes: ReadonlySet<string>,
+  // A live row can own a torrent through its tag when the stored hash differs (v2/hybrid).
+  ownedRowIds: ReadonlySet<number> = new Set(),
 ): NormalizedTorrent[] {
   return torrents.filter(
-    (t) => isRawkoonOwned(t) && !ownedHashes.has(t.hash.toLowerCase()),
+    (t) =>
+      isRawkoonOwned(t) &&
+      !ownedHashes.has(t.hash.toLowerCase()) &&
+      !taggedRowIds(t).some((id) => ownedRowIds.has(id)),
   );
 }
 

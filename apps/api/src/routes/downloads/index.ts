@@ -16,9 +16,13 @@ import type { NormalizedTorrent } from "@rawkoon/api/services/downloadClient/typ
 import { listKnownIndexers } from "@rawkoon/api/services/seeding/indexerPrivacy";
 import {
   loadOwnedHashes,
+  loadOwnedRowIds,
   removeOrphanTorrents,
 } from "@rawkoon/api/services/seeding/orphans";
-import { indexerKey } from "@rawkoon/api/services/seeding/seedPolicy";
+import {
+  indexerKey,
+  taggedRowIds,
+} from "@rawkoon/api/services/seeding/seedPolicy";
 import {
   defaultSweepDeps,
   loadSeedContext,
@@ -256,7 +260,13 @@ export const downloadsRoutes = new Hono<Env>()
       const torrents = await listClientTorrents();
       if (torrents === null)
         return serviceUnavailable("Download client is unreachable");
-      return ok(buildOrphans(torrents, await loadOwnedHashes()));
+      return ok(
+        buildOrphans(
+          torrents,
+          await loadOwnedHashes(),
+          await loadOwnedRowIds(torrents.flatMap(taggedRowIds)),
+        ),
+      );
     } catch {
       return serverError("Failed to load orphaned torrents");
     }

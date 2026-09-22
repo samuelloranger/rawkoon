@@ -1,6 +1,7 @@
 import { prisma } from "@rawkoon/api/db";
 import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import type { DownloadClientAdapter } from "@rawkoon/api/services/downloadClient/types";
+import { taggedRowIds } from "@rawkoon/api/services/seeding/seedPolicy";
 import { buildOrphans } from "@rawkoon/api/services/seeding/seedingView";
 import type { RemoveOrphansResponse } from "@rawkoon/shared/types";
 
@@ -8,6 +9,17 @@ export interface OrphanDeps {
   resolveAdapter: () => Promise<DownloadClientAdapter | null>;
   /** Lowercased hashes referenced by a non-failed download_history row. */
   ownedHashes: () => Promise<Set<string>>;
+  /** The subset of `ids` that are non-failed download_history rows. */
+  ownedRowIds: (ids: number[]) => Promise<Set<number>>;
+}
+
+export async function loadOwnedRowIds(ids: number[]): Promise<Set<number>> {
+  if (ids.length === 0) return new Set();
+  const rows = await prisma.downloadHistory.findMany({
+    where: { id: { in: ids }, failed: false },
+    select: { id: true },
+  });
+  return new Set(rows.map((r) => r.id));
 }
 
 export async function loadOwnedHashes(): Promise<Set<string>> {
@@ -24,6 +36,7 @@ export async function loadOwnedHashes(): Promise<Set<string>> {
 const defaultDeps: OrphanDeps = {
   resolveAdapter: async () => (await resolveActiveAdapter())?.adapter ?? null,
   ownedHashes: loadOwnedHashes,
+  ownedRowIds: loadOwnedRowIds,
 };
 
 /**
@@ -40,7 +53,11 @@ export async function removeOrphanTorrents(
   if (!adapter) return null;
   const torrents = await adapter.listTorrents().catch(() => null);
   if (!torrents) return null;
-  const { orphans } = buildOrphans(torrents, await deps.ownedHashes());
+  const { orphans } = buildOrphans(
+    torrents,
+    await deps.ownedHashes(),
+    await deps.ownedRowIds(torrents.flatMap(taggedRowIds)),
+  );
   const byHash = new Map(orphans.map((o) => [o.hash, o]));
   const removed: string[] = [];
   const refused: string[] = [];

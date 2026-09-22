@@ -179,11 +179,27 @@ describe("ownership and orphans", () => {
   });
   it("treats a torrent nested inside another's folder as sharing data, at path boundaries only", () => {
     const pack = torrent({ hash: "a".repeat(40), contentPath: "/dl/Show.S01" });
-    const episode = torrent({ hash: "b".repeat(40), contentPath: "/dl/Show.S01/Show.S01E02.mkv" });
-    const lookalike = torrent({ hash: "c".repeat(40), contentPath: "/dl/Show.S01.Extras" });
+    const episode = torrent({
+      hash: "b".repeat(40),
+      contentPath: "/dl/Show.S01/Show.S01E02.mkv",
+    });
+    const lookalike = torrent({
+      hash: "c".repeat(40),
+      contentPath: "/dl/Show.S01.Extras",
+    });
     expect(sharesContentPath(pack, [pack, episode])).toBe(true);
     expect(sharesContentPath(episode, [pack, episode])).toBe(true);
     expect(sharesContentPath(pack, [pack, lookalike])).toBe(false);
+  });
+
+  it("does not call a torrent an orphan when a live row owns it through its per-download tag", () => {
+    const tagged = torrent({ hash: "e".repeat(40), labels: ["rawkoon-dh-42"] });
+    const staleTag = torrent({
+      hash: "f".repeat(40),
+      labels: ["rawkoon-dh-7"],
+    });
+    const out = classifyOrphans([tagged, staleTag], new Set(), new Set([42]));
+    expect(out.map((t) => t.hash)).toEqual(["f".repeat(40)]);
   });
 
   it("classifies orphans case-insensitively and ignores foreign torrents", () => {

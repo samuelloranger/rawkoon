@@ -60,9 +60,22 @@ describe("removeOrphanTorrents", () => {
     const res = await removeOrphanTorrents([A, B.toUpperCase(), C], true, {
       resolveAdapter: async () => adapter(list, removed),
       ownedHashes: async () => new Set([A]),
+      ownedRowIds: async () => new Set(),
     });
     expect(removed).toEqual([[B, true]]);
     expect(res).toEqual({ removed: [B], refused: [A, C], freed_bytes: 100 });
+  });
+
+  it("refuses a torrent a live row owns through its rawkoon-dh tag", async () => {
+    const removed: Array<[string, boolean]> = [];
+    const list = [t({ hash: B, labels: ["rawkoon-dh-9"] })];
+    const res = await removeOrphanTorrents([B], true, {
+      resolveAdapter: async () => adapter(list, removed),
+      ownedHashes: async () => new Set(),
+      ownedRowIds: async (ids) => new Set(ids.filter((id) => id === 9)),
+    });
+    expect(removed).toEqual([]);
+    expect(res).toMatchObject({ refused: [B] });
   });
 
   it("keeps the files of an orphan that shares them with another torrent", async () => {
@@ -74,6 +87,7 @@ describe("removeOrphanTorrents", () => {
     const res = await removeOrphanTorrents([B], true, {
       resolveAdapter: async () => adapter(list, removed),
       ownedHashes: async () => new Set(),
+      ownedRowIds: async () => new Set(),
     });
     expect(removed).toEqual([[B, false]]);
     expect(res && "freed_bytes" in res ? res.freed_bytes : -1).toBe(0);
@@ -85,6 +99,7 @@ describe("removeOrphanTorrents", () => {
     const res = await removeOrphanTorrents([B, D], false, {
       resolveAdapter: async () => adapter(list, removed, B),
       ownedHashes: async () => new Set(),
+      ownedRowIds: async () => new Set(),
     });
     expect(removed).toEqual([[D, false]]);
     expect(res).toMatchObject({ removed: [D], refused: [B] });
