@@ -568,13 +568,14 @@ final class AppModel {
                 errorMessage = String(localized: "Enter a valid server URL.")
                 return
             }
-            activeEditionId = editionId
 
             let resumeAt: Double = if let overridePosition {
                 max(0, min(overridePosition, manifest.totalDurationSecs))
             } else {
                 await resolveResumePosition(editionId: editionId, manifest: manifest)
             }
+            persistPlaybackProgress(force: true)
+            activeEditionId = editionId
             player.load(
                 manifest: manifest,
                 baseURL: baseURL,
@@ -590,8 +591,9 @@ final class AppModel {
 
     /// Closes the player: stops audio, drops Now Playing, hides the mini bar.
     func closePlayer() {
-        player.unload()
+        persistPlaybackProgress(force: true)
         activeEditionId = nil
+        player.unload()
     }
 
     func handleBackgroundEvents(identifier: String, completionHandler: @escaping () -> Void) {
