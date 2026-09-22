@@ -316,7 +316,8 @@ export async function releaseTorrentNow(
   const adapter = await deps.resolveAdapter();
   if (!adapter) return { status: "unavailable" };
   const rowIds = rows.map((r) => r.id);
-  const torrents = await adapter.listTorrents();
+  const torrents = await adapter.listTorrents().catch(() => null);
+  if (!torrents) return { status: "unavailable" };
   const torrent = torrents.find((t) => t.hash.toLowerCase() === key);
   if (!torrent) {
     await deps.stamp(rowIds, "manual", null);

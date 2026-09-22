@@ -246,7 +246,9 @@ export const downloadsRoutes = new Hono<Env>()
               "Rawkoon did not add this torrent; remove it in your download client",
             );
           case "unavailable":
-            return serviceUnavailable("Download client is not configured");
+            return serviceUnavailable(
+              "Download client is not configured or unreachable",
+            );
           default:
             return notFound("No seeding torrent with that hash");
         }
@@ -284,7 +286,9 @@ export const downloadsRoutes = new Hono<Env>()
         const active = await resolveActiveAdapter();
         if (!active)
           return serviceUnavailable("Download client is not configured");
-        const torrents = await active.adapter.listTorrents();
+        const torrents = await active.adapter.listTorrents().catch(() => null);
+        if (!torrents)
+          return serviceUnavailable("Download client is unreachable");
         // Re-classify server-side so this route can never remove a torrent Rawkoon owns.
         const { orphans } = buildOrphans(torrents, await ownedHashes());
         const byHash = new Map(orphans.map((o) => [o.hash, o]));

@@ -244,6 +244,18 @@ describe("releaseTorrentNow", () => {
       ),
     ).toEqual({ status: "pending" });
   });
+  it("reports an unreachable client as unavailable instead of throwing", async () => {
+    const down = adapterWith([], []);
+    down.listTorrents = async () => {
+      throw new Error("client down");
+    };
+    expect(
+      await releaseTorrentNow(H1, deps({ resolveAdapter: async () => down })),
+    ).toEqual({
+      status: "unavailable",
+    });
+  });
+
   it("reports unknown hashes", async () => {
     expect(
       await releaseTorrentNow(H1, deps({ loadRows: async () => [] })),
