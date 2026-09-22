@@ -20,6 +20,8 @@ describe("transmissionRowToNormalized", () => {
         isStalled: false,
         labels: ["rawkoon-dh-123"],
         uploadRatio: 0.75,
+        rateUpload: 5,
+        secondsSeeding: 120,
       }),
     ).toEqual({
       hash: "dead",
@@ -31,6 +33,9 @@ describe("transmissionRowToNormalized", () => {
       seeds: 0,
       peers: 5,
       dlSpeed: 2048,
+      upSpeed: 5,
+      seedingTimeSecs: 120,
+      category: null,
       sizeBytes: 100,
       labels: ["rawkoon-dh-123"],
       ratio: 0.75,

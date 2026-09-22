@@ -1,8 +1,16 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { getCurrentUser } from "@/lib/auth";
-import { DownloadsImportPage } from "@/features/downloadsImport/DownloadsImportPage";
+import { DownloadsPage } from "@/features/seeding/components/DownloadsPage";
+
+type DownloadsSearch = { view?: "seeding" | "orphans" };
 
 export const Route = createFileRoute("/library/downloads")({
+  validateSearch: (search: Record<string, unknown>): DownloadsSearch => ({
+    view:
+      search.view === "seeding" || search.view === "orphans"
+        ? search.view
+        : undefined,
+  }),
   beforeLoad: async () => {
     try {
       const user = await getCurrentUser();
@@ -14,5 +22,10 @@ export const Route = createFileRoute("/library/downloads")({
       throw e;
     }
   },
-  component: DownloadsImportPage,
+  component: DownloadsRoute,
 });
+
+function DownloadsRoute() {
+  const { view } = Route.useSearch();
+  return <DownloadsPage view={view ?? "import"} />;
+}

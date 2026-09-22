@@ -15,6 +15,8 @@ describe("delugeRowToNormalized", () => {
         total_wanted: 500,
         label: "rawkoon-dh-123",
         ratio: 2,
+        upload_payload_rate: 7,
+        seeding_time: 3600,
       }),
     ).toEqual({
       hash: "abcd",
@@ -26,9 +28,23 @@ describe("delugeRowToNormalized", () => {
       seeds: 4,
       peers: 1,
       dlSpeed: 0,
+      upSpeed: 7,
+      seedingTimeSecs: 3600,
+      category: null,
       sizeBytes: 500,
       labels: ["rawkoon-dh-123"],
       ratio: 2,
     });
+  });
+
+  it("reports no seed time when Deluge omits it", () => {
+    const t = delugeRowToNormalized("abcd", {
+      name: "X",
+      progress: 50,
+      state: "Downloading",
+    });
+    expect(t.seedingTimeSecs).toBeNull();
+    expect(t.upSpeed).toBe(0);
+    expect(t.category).toBeNull();
   });
 });

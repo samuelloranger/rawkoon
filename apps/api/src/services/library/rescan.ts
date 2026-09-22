@@ -98,7 +98,14 @@ async function rescanLibraryItemInner(
   // failed to unstick the UI.
   const pendingDhs = await prisma.downloadHistory.findMany({
     where: { mediaId, completedAt: null, failed: false },
-    select: { id: true, mediaId: true, episodeId: true, torrentHash: true },
+    select: {
+      id: true,
+      mediaId: true,
+      episodeId: true,
+      torrentHash: true,
+      releaseTitle: true,
+      indexer: true,
+    },
   });
   const pendingReconciled = await reconcilePendingDownloads(pendingDhs, {
     treatMissingAsFailed: true,

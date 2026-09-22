@@ -59,6 +59,11 @@ export const queryKeys = {
   downloads: {
     all: ["downloads"] as const,
     speed: () => [...queryKeys.downloads.all, "speed"] as const,
+    seeding: (preview?: boolean) =>
+      [...queryKeys.downloads.all, "seeding", preview ?? false] as const,
+    orphans: () => [...queryKeys.downloads.all, "orphans"] as const,
+    seedRules: () => [...queryKeys.downloads.all, "seed-rules"] as const,
+    janitorStats: () => [...queryKeys.downloads.all, "janitor-stats"] as const,
   },
 
   dashboard: {
@@ -357,7 +362,8 @@ export const queryKeys = {
 
   blocklist: {
     all: ["blocklist"] as const,
-    list: () => [...queryKeys.blocklist.all, "list"] as const,
+    list: (source?: "auto" | "manual") =>
+      [...queryKeys.blocklist.all, "list", source ?? "all"] as const,
   },
 
   indexerManager: {

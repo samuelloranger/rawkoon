@@ -212,9 +212,16 @@ export const libraryJobWorkerRoutes = new Hono<Env>()
       );
     }
 
+    function onSeedState(payload: { torrents: unknown[]; ts: number }) {
+      send(`data: ${JSON.stringify({ kind: "seed-state", ...payload })}\n\n`);
+    }
+    // Seeding data is admin-only; other users never receive it.
+    const receivesSeedState = c.get("user")?.is_admin === true;
+
     libraryEventBus.on("update", onUpdate);
     libraryEventBus.on("book-update", onBookUpdate);
     libraryEventBus.on("download-progress", onDownloadProgress);
+    if (receivesSeedState) libraryEventBus.on("seed-state", onSeedState);
     const heartbeat = setInterval(() => send(": ping\n\n"), 15_000);
 
     c.req.raw.signal.addEventListener("abort", () => {
@@ -222,6 +229,7 @@ export const libraryJobWorkerRoutes = new Hono<Env>()
       libraryEventBus.off("update", onUpdate);
       libraryEventBus.off("book-update", onBookUpdate);
       libraryEventBus.off("download-progress", onDownloadProgress);
+      libraryEventBus.off("seed-state", onSeedState);
       clearInterval(heartbeat);
       try {
         controller.close();

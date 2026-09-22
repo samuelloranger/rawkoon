@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import type { NormalizedTorrent } from "@rawkoon/api/services/downloadClient/types";
+import { seedStateForRow } from "@rawkoon/api/services/seeding/seedingView";
 import { z } from "zod";
 
 import { prisma } from "@rawkoon/api/db";
@@ -75,10 +77,17 @@ export const libraryFilesRoutes = new Hono<Env>()
         take: MEDIA_HISTORY_LIMIT,
       });
 
-      // Best-effort live progress for rows still downloading.
+      // Best-effort live numbers: progress for in-flight rows, ratio/seed time for held ones.
       const activeHashes = items
         .filter((h) => !h.completedAt && !h.failed && h.torrentHash)
         .map((h) => h.torrentHash as string);
+      const heldHashes = items
+        .filter(
+          (h) =>
+            h.completedAt && !h.failed && !h.seedReleasedAt && h.torrentHash,
+        )
+        .map((h) => h.torrentHash as string);
+      const torrentByHash = new Map<string, NormalizedTorrent>();
 
       const liveByHash = new Map<
         string,
@@ -89,7 +98,7 @@ export const libraryFilesRoutes = new Hono<Env>()
           state: string;
         }
       >();
-      if (activeHashes.length > 0) {
+      if (activeHashes.length + heldHashes.length > 0) {
         const { resolveActiveAdapter } = await import(
           "@rawkoon/api/services/downloadClient/registry"
         );
@@ -97,12 +106,15 @@ export const libraryFilesRoutes = new Hono<Env>()
         if (active) {
           try {
             const torrents = await active.adapter.listTorrents();
-            const wanted = new Set(
+            const inFlight = new Set(
               activeHashes.map((hash) => hash.toLowerCase()),
             );
+            const held = new Set(heldHashes.map((hash) => hash.toLowerCase()));
             for (const torrent of torrents) {
-              if (!wanted.has(torrent.hash.toLowerCase())) continue;
-              liveByHash.set(torrent.hash.toLowerCase(), {
+              const key = torrent.hash.toLowerCase();
+              if (held.has(key)) torrentByHash.set(key, torrent);
+              if (!inFlight.has(key)) continue;
+              liveByHash.set(key, {
                 progress: torrent.progress,
                 download_speed: torrent.dlSpeed,
                 eta_seconds: null,
@@ -129,6 +141,12 @@ export const libraryFilesRoutes = new Hono<Env>()
           post_process_error: h.postProcessError,
           post_process_destination_path: h.postProcessDestinationPath,
           ai_picked: h.aiPicked,
+          seed: seedStateForRow(
+            h,
+            h.torrentHash
+              ? torrentByHash.get(h.torrentHash.toLowerCase())
+              : undefined,
+          ),
           // Only active rows are in liveByHash; completed/failed rows resolve to null.
           live:
             h.torrentHash != null

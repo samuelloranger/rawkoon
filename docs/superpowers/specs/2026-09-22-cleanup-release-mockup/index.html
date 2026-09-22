@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cleanup release mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --base:#1c1715;--raised:#241e1b;--inset:#171311;--deep:#141010;
+  --border:#322a25;--border-strong:#3a2f27;--hair:#463a32;
+  --strong:#f4ece4;--text:#e3d8cf;--muted:#aa9a8c;--faint:#9d8775;
+  --p300:#f0bf93;--p400:#e8a06a;--p500:#df8753;--p600:#cf6a4e;--p900:#71382e;--p950:#4f2419;
+  --amber-bd:rgba(120,53,15,.7);--amber-bg:rgba(69,26,3,.4);--amber-tx:#fde68a;
+  --em-bd:rgba(6,78,59,.6);--em-bg:rgba(2,44,34,.4);--em-tx:#a7f3d0;
+  --red-bd:#7f1d1d;--red-bg:rgba(69,10,10,.4);--red-tx:#fca5a5;
+  --sans:"Hanken Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --display:"Fraunces",ui-serif,Georgia,serif;
+  --mono:"Fira Code",ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html{scrollbar-gutter:stable}
+body{margin:0;background:var(--base);color:var(--text);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:none;box-shadow:0 0 0 2px var(--base),0 0 0 4px var(--p400);border-radius:6px}
+h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:-.01em;color:var(--strong);margin:0}
+
+/* mockup chrome (not part of the product) */
+.mock-bar{position:sticky;top:0;z-index:40;display:flex;gap:6px;align-items:center;padding:8px 16px;background:var(--deep);border-bottom:1px solid var(--border);font-size:12px;color:var(--faint)}
+.mock-bar button{background:none;border:1px solid transparent;border-radius:999px;padding:3px 10px;color:var(--muted)}
+.mock-bar button[aria-pressed=true]{border-color:var(--hair);color:var(--strong);background:var(--raised)}
+
+.page{max-width:1080px;margin:0 auto;padding:28px 16px 140px}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+.head h1{font-size:30px;line-height:1.15}
+.head p{margin:4px 0 0;color:var(--muted)}
+
+.seg{display:inline-flex;padding:3px;border-radius:10px;background:var(--inset);border:1px solid var(--border);gap:2px}
+.seg button{border:0;background:none;padding:6px 14px;border-radius:7px;color:var(--muted);font-weight:500;display:inline-flex;gap:7px;align-items:center}
+.seg button[aria-selected=true]{background:var(--raised);color:var(--strong);box-shadow:0 1px 0 var(--border-strong) inset}
+.count{font-size:11px;font-weight:600;border-radius:999px;padding:0 6px;background:rgba(255,255,255,.07);color:var(--muted);font-variant-numeric:tabular-nums}
+.count.warn{background:var(--amber-bg);color:var(--amber-tx);box-shadow:0 0 0 1px var(--amber-bd) inset}
+
+.btn{border:1px solid var(--border-strong);background:var(--raised);border-radius:8px;padding:6px 12px;font-weight:500;color:var(--text);display:inline-flex;gap:6px;align-items:center}
+.btn:hover{border-color:var(--hair);color:var(--strong)}
+.btn.primary{background:var(--p600);border-color:var(--p600);color:#fff}
+.btn.primary:hover{background:var(--p500);border-color:var(--p500)}
+.btn.danger{background:#9b2c2c;border-color:#9b2c2c;color:#fff}
+.btn.ghost{background:none;border-color:transparent;color:var(--muted)}
+.btn.ghost:hover{color:var(--strong);background:rgba(255,255,255,.04)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+.badge{display:inline-flex;align-items:center;gap:4px;border-radius:999px;border:1px solid var(--hair);padding:0 8px;font-size:11px;font-weight:600;line-height:18px;color:var(--muted);background:rgba(255,255,255,.05);white-space:nowrap}
+.badge.amber{border-color:var(--amber-bd);background:var(--amber-bg);color:var(--amber-tx)}
+.badge.em{border-color:var(--em-bd);background:var(--em-bg);color:var(--em-tx)}
+.badge.red{border-color:var(--red-bd);background:var(--red-bg);color:var(--red-tx)}
+
+/* ---------- seeding ---------- */
+.summary{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:22px 0 12px}
+.summary p{margin:0;font-size:15px;color:var(--text);max-width:68ch}
+.summary strong{color:var(--strong);font-weight:600}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--faint)}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--em-tx);opacity:.8;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.25}}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chip{border:1px solid var(--border-strong);background:none;border-radius:999px;padding:3px 11px;font-size:12.5px;color:var(--muted)}
+.chip[aria-pressed=true]{background:var(--p950);border-color:var(--p900);color:var(--p300)}
+
+.list{border:1px solid var(--border);border-radius:14px;background:var(--raised);overflow:hidden}
+.row{display:grid;grid-template-columns:44px minmax(0,1fr) minmax(250px,320px) 118px;gap:16px;align-items:center;padding:14px 16px;border-top:1px solid var(--border);transition:background .3s}
+.row:first-child{border-top:0}
+.row.flash{background:rgba(232,160,106,.07)}
+.poster{width:44px;height:64px;border-radius:5px;background:linear-gradient(160deg,var(--hair),var(--inset));display:grid;place-items:center;font-family:var(--display);color:var(--faint);font-size:18px}
+.poster.book{height:44px;border-radius:50%}
+.t{min-width:0}
+.t .name{font-weight:600;color:var(--strong);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t .meta{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:3px;font-size:12.5px;color:var(--muted)}
+.t .meta .idx{display:inline-flex;gap:4px;align-items:center}
+.lock{width:12px;height:12px;flex:none}
+.hint{margin-top:6px;font-size:12.5px;color:var(--amber-tx);max-width:52ch}
+.hint button{background:none;border:0;padding:0;color:var(--p400);text-decoration:underline;text-underline-offset:2px;font-size:12.5px}
+
+.meter{display:grid;gap:7px}
+.m{display:grid;grid-template-columns:52px 1fr auto;gap:8px;align-items:center;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums}
+.m .bar{display:block;height:6px;border-radius:99px;background:var(--inset);box-shadow:0 0 0 1px var(--border) inset;overflow:hidden}
+.m .fill{display:block;height:100%;border-radius:99px;background:var(--hair);transition:width .8s cubic-bezier(.2,.7,.2,1)}
+.m.lead{color:var(--text)}
+.m.lead .fill{background:linear-gradient(90deg,var(--p600),var(--p400))}
+.m.none .bar{background:repeating-linear-gradient(90deg,var(--border) 0 4px,transparent 4px 8px);box-shadow:none;height:2px}
+.eta{font-size:12.5px;color:var(--muted)}
+.eta b{color:var(--strong);font-weight:600}
+.eta.done b{color:var(--em-tx)}
+.act{text-align:right}
+.act .btn{white-space:nowrap}
+
+.released{margin-top:14px;border:1px dashed var(--border-strong);border-radius:12px;padding:10px 14px;color:var(--muted);font-size:13px}
+.released summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px}
+.released summary::-webkit-details-marker{display:none}
+.released summary b{color:var(--text);font-weight:600}
+.released ul{margin:10px 0 2px;padding:0;list-style:none;display:grid;gap:6px}
+.released li{display:flex;justify-content:space-between;gap:10px;font-size:12.5px}
+.released li span:last-child{color:var(--faint)}
+.enter{animation:enter .5s ease-out}
+@keyframes enter{from{opacity:0;transform:translateY(-4px)}}
+
+/* ---------- orphans ---------- */
+.explain{margin:22px 0 14px;max-width:70ch;color:var(--muted)}
+.explain strong{color:var(--text);font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:500;color:var(--faint);font-size:12px;padding:10px 12px;border-bottom:1px solid var(--border)}
+td{padding:11px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+td .fname{font-family:var(--mono);font-size:12px;color:var(--text);word-break:break-all}
+tr.sel td{background:rgba(232,160,106,.05)}
+tr.gone{opacity:0;transition:opacity .35s}
+input[type=checkbox]{accent-color:var(--p500);width:15px;height:15px}
+.actionbar{position:fixed;left:50%;bottom:20px;transform:translate(-50%,120%);opacity:0;transition:transform .25s ease,opacity .25s;z-index:30;display:flex;gap:14px;align-items:center;padding:10px 12px 10px 16px;border-radius:14px;background:var(--raised);border:1px solid var(--hair);box-shadow:0 18px 40px rgba(0,0,0,.45);flex-wrap:wrap;max-width:calc(100% - 32px)}
+.actionbar.show{transform:translate(-50%,0);opacity:1}
+.actionbar .n{font-weight:600;color:var(--strong);font-variant-numeric:tabular-nums}
+.actionbar label{display:flex;gap:7px;align-items:center;color:var(--muted);font-size:13px}
+.empty{padding:48px 20px;text-align:center;color:var(--muted)}
+.empty h3{font-size:18px;margin-bottom:4px}
+
+/* ---------- settings ---------- */
+.settings{display:grid;grid-template-columns:200px 1fr;gap:28px}
+.snav{display:grid;gap:2px;align-content:start;font-size:13.5px}
+.snav a{padding:7px 10px;border-radius:7px;color:var(--muted);text-decoration:none}
+.snav a.on{background:var(--raised);color:var(--strong)}
+.sec{margin-bottom:34px}
+.sec h2{font-size:20px}
+.sec > p{margin:4px 0 14px;color:var(--muted);max-width:68ch}
+.rules{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{border:1px solid var(--border);border-radius:12px;background:var(--raised);padding:14px 16px}
+.card h3{font-family:var(--sans);font-size:14px;font-weight:600;display:flex;gap:6px;align-items:center}
+.fields{display:flex;gap:10px;margin:12px 0 10px;flex-wrap:wrap}
+.f{display:grid;gap:4px;font-size:12px;color:var(--faint)}
+.f .in{display:flex;border:1px solid var(--border-strong);border-radius:8px;background:var(--inset);overflow:hidden}
+.f input{width:72px;border:0;background:none;padding:6px 9px;font-variant-numeric:tabular-nums}
+.f input::placeholder{color:var(--faint)}
+.f select{border:0;border-left:1px solid var(--border);background:var(--raised);padding:0 8px}
+.sentence{font-size:13px;color:var(--text);min-height:20px}
+.sentence em{font-style:normal;color:var(--p300)}
+.note{margin-top:10px;font-size:12.5px;color:var(--faint)}
+.ovr{margin-top:14px}
+.ovr td{font-size:13px}
+.ovr .btn{white-space:nowrap}
+.ovr .inh{color:var(--faint)}
+.ovr .own{color:var(--p300)}
+.exts{display:flex;flex-wrap:wrap;gap:6px;padding:8px;border:1px solid var(--border-strong);border-radius:10px;background:var(--inset)}
+.ext{display:inline-flex;gap:4px;align-items:center;font-family:var(--mono);font-size:12px;padding:2px 4px 2px 8px;border-radius:6px;background:var(--raised);border:1px solid var(--border-strong)}
+.ext button{border:0;background:none;color:var(--faint);padding:0 3px;line-height:1}
+.ext button:hover{color:var(--strong)}
+.exts input{flex:1;min-width:120px;border:0;background:none;padding:2px 4px;font-family:var(--mono);font-size:12px}
+.statline{margin-top:10px;font-size:13px;color:var(--muted)}
+.statline a{color:var(--p400)}
+.bl-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:10px 14px;border-top:1px solid var(--border);align-items:center}
+.bl-row:first-child{border-top:0}
+.bl-row .fname{font-family:var(--mono);font-size:12px;color:var(--text);word-break:break-all}
+.bl-row .why{font-size:12.5px;color:var(--muted);margin-top:3px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* ---------- dialog ---------- */
+.scrim{position:fixed;inset:0;background:rgba(10,7,6,.62);display:none;align-items:center;justify-content:center;padding:16px;z-index:60}
+.scrim.open{display:flex}
+.dialog{width:min(480px,100%);background:var(--raised);border:1px solid var(--hair);border-radius:16px;padding:20px 20px 16px;box-shadow:0 24px 60px rgba(0,0,0,.5);animation:pop .18s ease-out}
+@keyframes pop{from{transform:scale(.97);opacity:0}}
+.dialog h2{font-size:19px;margin-bottom:6px}
+.dialog p{margin:0 0 12px;color:var(--muted)}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer}
+.opt:has(input:checked){border-color:var(--p900);background:rgba(207,106,78,.07)}
+.opt input{margin-top:3px;accent-color:var(--p500)}
+.opt b{display:block;color:var(--strong);font-weight:600;font-size:13.5px}
+.opt span{font-size:12.5px;color:var(--muted)}
+.warnbox{border:1px solid var(--amber-bd);background:var(--amber-bg);color:var(--amber-tx);border-radius:10px;padding:9px 12px;font-size:12.5px;margin:4px 0 12px}
+.dfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.group-label{font-size:12px;color:var(--faint);margin:14px 0 6px}
+
+.toast{position:fixed;right:20px;bottom:20px;background:var(--raised);border:1px solid var(--hair);border-radius:10px;padding:10px 14px;box-shadow:0 12px 30px rgba(0,0,0,.4);z-index:70;transform:translateY(20px);opacity:0;transition:.25s;font-size:13px}
+.toast.show{transform:none;opacity:1}
+
+[hidden]{display:none!important}
+@media (max-width:860px){
+  .row{grid-template-columns:44px minmax(0,1fr);gap:10px 14px}
+  .row .meter,.row .act{grid-column:1/-1}
+  .row .act{text-align:left}
+  .settings{grid-template-columns:1fr}
+  .snav{display:none}
+  .rules{grid-template-columns:1fr}
+  .hide-sm{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<nav class="mock-bar" aria-label="Mockup views">
+  Mockup views:
+  <button data-view="downloads" aria-pressed="true">Downloads page</button>
+  <button data-view="settings" aria-pressed="false">Settings › Media</button>
+  <button data-view="remove" aria-pressed="false">Media detail + remove</button>
+</nav>
+
+<!-- ================= DOWNLOADS ================= -->
+<main class="page" id="v-downloads">
+  <div class="head">
+    <div>
+      <h1>Downloads</h1>
+      <p>What's in your download client, and what Rawkoon still needs from it.</p>
+    </div>
+    <div class="seg" role="tablist" aria-label="Downloads views">
+      <button role="tab" aria-selected="false" data-tab="import">Import <span class="count">4</span></button>
+      <button role="tab" aria-selected="true" data-tab="seeding">Seeding <span class="count" id="seedCount">6</span></button>
+      <button role="tab" aria-selected="false" data-tab="orphans">Orphans <span class="count warn" id="orphCount">3</span></button>
+    </div>
+  </div>
+
+  <section id="t-import" hidden>
+    <div class="list"><div class="empty"><h3>Import view</h3>The existing manual import table lives here, unchanged.</div></div>
+  </section>
+
+  <section id="t-seeding">
+    <div class="summary">
+      <p id="sumline"></p>
+      <span class="live" aria-live="polite"><i></i><span id="liveTxt">Live</span></span>
+    </div>
+    <div class="chips" role="group" aria-label="Filter">
+      <button class="chip" aria-pressed="true" data-f="all">All</button>
+      <button class="chip" aria-pressed="false" data-f="owed">Owes seed time</button>
+      <button class="chip" aria-pressed="false" data-f="deleted">From removed titles</button>
+      <button class="chip" aria-pressed="false" data-f="idle">Not uploading</button>
+    </div>
+    <div class="list" id="seedList"></div>
+    <details class="released" id="released" open>
+      <summary><span><b id="relHead">Released today</b></span><span id="relFreed"></span></summary>
+      <ul id="relList"></ul>
+    </details>
+  </section>
+
+  <section id="t-orphans" hidden>
+    <p class="explain">These torrents are in Rawkoon's categories, but <strong>no download in Rawkoon owns them</strong>, so Rawkoon won't remove them on its own. They're usually left over from a reset database or a torrent added by hand.</p>
+    <div class="list">
+      <table>
+        <thead><tr>
+          <th style="width:36px"><input type="checkbox" id="orphAll" aria-label="Select all"></th>
+          <th>Torrent</th><th class="hide-sm">Category</th><th class="num">Size</th><th class="num hide-sm">Ratio</th><th class="num hide-sm">Seeding</th>
+        </tr></thead>
+        <tbody id="orphBody"></tbody>
+      </table>
+      <div class="empty" id="orphEmpty" hidden><h3>No orphaned torrents</h3>Every torrent in Rawkoon's categories belongs to a download Rawkoon tracks.</div>
+    </div>
+  </section>
+</main>
+
+<div class="actionbar" id="actionbar" role="region" aria-label="Selection actions">
+  <span class="n" id="selTxt"></span>
+  <label><input type="checkbox" id="delData" checked> Delete downloaded files</label>
+  <span class="badge amber" id="sharedWarn" hidden>1 shares files, so its files are kept</span>
+  <button class="btn primary" id="removeSel">Remove from client</button>
+</div>
+
+<!-- ================= SETTINGS ================= -->
+<main class="page" id="v-settings" hidden>
+  <div class="head"><div><h1>Settings</h1></div></div>
+  <div class="settings">
+    <nav class="snav" aria-label="Settings"><a>General</a><a>Integrations</a><a class="on">Media</a><a>Books</a><a>Blocklist</a><a>Jobs</a></nav>
+    <div>
+      <section class="sec">
+        <h2>Library health</h2>
+        <div class="list">
+          <div class="bl-row"><div><div style="color:var(--strong);font-weight:600">3 orphaned torrents, 16.8 GB</div><div class="why">In Rawkoon's categories, but no download owns them.</div></div><button class="btn" data-goto-orphans>Review orphans</button></div>
+          <div class="bl-row"><div><div style="color:var(--strong);font-weight:600">All files present</div><div class="why">Last checked 2 hours ago.</div></div><span class="badge em">Healthy</span></div>
+        </div>
+      </section>
+      <section class="sec">
+        <h2>Seeding</h2>
+        <p>After import, Rawkoon keeps each torrent seeding until it reaches a target, then removes it from the client. Your library copy is a hardlink, so it stays.</p>
+        <div class="rules">
+          <div class="card" data-rule="public">
+            <h3>Public trackers</h3>
+            <div class="fields">
+              <label class="f">Ratio<span class="in"><input inputmode="decimal" value="1.0" data-k="ratio" placeholder="none"></span></label>
+              <label class="f">Seed time<span class="in"><input inputmode="numeric" value="" data-k="time" placeholder="none"><select data-k="unit"><option>hours</option><option selected>days</option></select></span></label>
+            </div>
+            <div class="sentence" aria-live="polite"></div>
+          </div>
+          <div class="card" data-rule="private">
+            <h3><svg class="lock" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2"/></svg>Private trackers</h3>
+            <div class="fields">
+              <label class="f">Ratio<span class="in"><input inputmode="decimal" value="1.0" data-k="ratio" placeholder="none"></span></label>
+              <label class="f">Seed time<span class="in"><input inputmode="numeric" value="3" data-k="time" placeholder="none"><select data-k="unit"><option>hours</option><option selected>days</option></select></span></label>
+            </div>
+            <div class="sentence" aria-live="polite"></div>
+          </div>
+        </div>
+        <p class="note">An indexer Rawkoon can't reach counts as private, so a torrent is never removed early by mistake.</p>
+
+        <div class="list ovr">
+          <table>
+            <thead><tr><th>Indexer</th><th>Rule</th><th class="num hide-sm">Seeding now</th><th style="width:110px"></th></tr></thead>
+            <tbody id="ovrBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="sec">
+        <h2>Download safety</h2>
+        <p>Reject a release as soon as its file list contains one of these types. It's blocklisted and removed with its files, and Rawkoon searches again.</p>
+        <div class="exts" id="exts"><input id="extIn" placeholder="Add a file type, like .iso" aria-label="Add a file type"></div>
+        <p class="statline">Last 30 days: <b>2 releases rejected</b> for blocked files, <b>5</b> for stalling. <a href="#" data-goto="blocklist">View them in the blocklist</a></p>
+      </section>
+
+      <section class="sec" id="blocklist">
+        <h2>Blocklist</h2>
+        <p>Releases Rawkoon will never grab again.</p>
+        <div class="chips"><button class="chip" aria-pressed="false">All</button><button class="chip" aria-pressed="true">Added automatically</button><button class="chip" aria-pressed="false">Added by you</button></div>
+        <div class="list">
+          <div class="bl-row"><div><div class="fname">Metropolis.1927.2160p.WEB-DL.DDP5.1-FAKE</div><div class="why"><span class="badge red">Blocked file</span>Contained Metropolis.2160p.exe, 2 hours ago</div></div><button class="btn ghost">Unblock</button></div>
+          <div class="bl-row"><div><div class="fname">The.Kid.1921.1080p.BluRay.x264-OLD</div><div class="why"><span class="badge amber">Stalled</span>No progress for 45 min at 3%, yesterday</div></div><button class="btn ghost">Unblock</button></div>
+          <div class="bl-row"><div><div class="fname">Nanook.of.the.North.1922.COMPLETE.720p</div><div class="why"><span class="badge">Import rejected</span>No video file found, 3 days ago</div></div><button class="btn ghost">Unblock</button></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<!-- ================= REMOVE DIALOG (host page) ================= -->
+<main class="page" id="v-remove" hidden>
+  <div class="head"><div><h1>Nosferatu</h1><p>1922, in your library</p></div><button class="btn" id="openRemove">Remove from library</button></div>
+  <section class="sec">
+    <h2>Download history</h2>
+    <p>Every grab for this title, and what happened to its torrent.</p>
+    <div class="list">
+      <div class="bl-row"><div><div class="fname">Nosferatu.1922.2160p.UHD.BluRay.REMUX.HDR.FLAC-GRP</div><div class="why"><span class="badge em">Seeding</span><span id="hSeed">ratio 0.63 of 1.0, 41 h of 72 h on Nimbus</span></div></div><span class="eta">Imported today</span></div>
+      <div class="bl-row"><div><div class="fname">Nosferatu.1922.1080p.BluRay.x264-OLDGRP</div><div class="why"><span class="badge">Released</span>Target met: ratio 1.0 reached</div></div><span class="eta">Replaced by an upgrade</span></div>
+      <div class="bl-row"><div><div class="fname">Nosferatu.1922.1080p.WEB-DL.AAC-DEAD</div><div class="why"><span class="badge amber">Blocklisted</span>Stalled: no progress for 45 min at 0%</div></div><span class="eta">Searched again</span></div>
+      <div class="bl-row"><div><div class="fname">Nosferatu.1922.2160p.WEB-DL.DDP5.1-FAKE</div><div class="why"><span class="badge red">Blocklisted</span>Blocked file: Nosferatu.2160p.exe</div></div><span class="eta">Removed before import</span></div>
+    </div>
+  </section>
+</main>
+
+<div class="scrim" id="scrim" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+  <div class="dialog">
+    <h2 id="dlgTitle">Remove Nosferatu from your library?</h2>
+    <p>Rawkoon stops tracking it. Nothing is searched or downloaded for it again.</p>
+    <label class="opt"><input type="checkbox" checked><div><b>Delete files from disk</b><span>The movie file in your library folder.</span></div></label>
+    <div class="group-label">1 torrent is still seeding in qBittorrent</div>
+    <label class="opt"><input type="radio" name="rel" value="keep" checked><div><b>Keep seeding until its target is met</b><span>Nimbus asks for 3 days. 41 h done, about 31 h left.</span></div></label>
+    <label class="opt"><input type="radio" name="rel" value="now"><div><b>Remove the torrent now</b><span>Frees 8.4 GB right away.</span></div></label>
+    <div class="warnbox" id="hnr" hidden>Nimbus is a private tracker. Removing this torrent before 3 days of seeding can count as a hit-and-run on your account.</div>
+    <div class="dfoot"><button class="btn ghost" id="cancelDlg">Cancel</button><button class="btn danger" id="confirmDlg">Remove from library</button></div>
+  </div>
+</div>
+
+<div class="scrim" id="relScrim" role="dialog" aria-modal="true" aria-labelledby="relTitle">
+  <div class="dialog">
+    <h2 id="relTitle"></h2>
+    <p id="relBody"></p>
+    <div class="warnbox" id="relWarn" hidden></div>
+    <div class="dfoot"><button class="btn ghost" id="relCancel">Keep seeding</button><button class="btn danger" id="relGo">Remove now</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const LOCK='<svg class="lock" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-label="Private"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2"/></svg>';
+const RULES={public:{ratio:1,time:null},private:{ratio:1,time:72}};
+const OVR={Quarry:{ratio:2,time:168}};
+const IDX={Nimbus:{priv:true},Quarry:{priv:true},Harbor:{priv:false},Lighthouse:{priv:false}};
+// hours seeded, ratio, upload MB/s, size GB
+let rows=[
+ {id:1,title:"Nosferatu",year:1922,idx:"Nimbus",ratio:.62,h:41,up:.9,gb:8.4},
+ {id:2,title:"Metropolis",year:1927,idx:"Harbor",ratio:.93,h:20,up:3.4,gb:11.2},
+ {id:3,title:"The General",year:1926,idx:"Nimbus",ratio:.21,h:71.3,up:.2,gb:6.1,tag:"Removed from library"},
+ {id:4,title:"Sherlock Jr.",year:1924,idx:"Quarry",ratio:1.1,h:74,up:1.4,gb:5.5,tag:"Replaced by an upgrade"},
+ {id:5,title:"Safety Last!",year:1923,idx:"Lighthouse",ratio:.05,h:30,up:0,gb:7.9},
+ {id:6,title:"Frankenstein",year:1818,idx:"Harbor",ratio:.44,h:12,up:.6,gb:.4,book:true,sub:"Audiobook"},
+];
+let released=[{title:"The Kid",why:"Ratio 1.0 reached",gb:4.2},{title:"Häxan",why:"3 days seeded",gb:9.1}];
+let filter="all";
+
+const ruleFor=r=>OVR[r.idx]??(IDX[r.idx].priv?RULES.private:RULES.public);
+const fmtH=h=>h<1?`${Math.round(h*60)} min`:h<48?`${Math.round(h)} h`:`${(h/24).toFixed(h<240?1:0).replace(/\.0$/,"")} days`;
+function progress(r){
+  const ru=ruleFor(r);const out=[];
+  if(ru.ratio!=null){const left=Math.max(0,(ru.ratio-r.ratio)*r.gb*1024/Math.max(r.up,1e-6)/3600);out.push({k:"ratio",pct:Math.min(1,r.ratio/ru.ratio),label:`${r.ratio.toFixed(2)} / ${ru.ratio.toFixed(1)}`,left:r.up>0?left:Infinity});}
+  else out.push({k:"ratio",none:true});
+  if(ru.time!=null){out.push({k:"time",pct:Math.min(1,r.h/ru.time),label:ru.time<96?`${Math.floor(r.h)} h / ${ru.time} h`:`${(r.h/24).toFixed(1)} / ${(ru.time/24).toFixed(0)} days`,left:Math.max(0,ru.time-r.h)});}
+  else out.push({k:"time",none:true});
+  const live=out.filter(o=>!o.none);const lead=live.reduce((a,b)=>a.left<=b.left?a:b,live[0]);
+  return {parts:out,lead,done:lead&&lead.left===0,ru};
+}
+const owed=r=>IDX[r.idx].priv&&!progress(r).done;
+
+function render(){
+  const list=document.getElementById("seedList");
+  const vis=rows.filter(r=>filter==="all"||(filter==="owed"&&owed(r))||(filter==="deleted"&&r.tag)||(filter==="idle"&&r.up===0));
+  list.innerHTML=vis.length?"":`<div class="empty"><h3>Nothing here</h3>No torrents match this filter.</div>`;
+  for(const r of vis){
+    const p=progress(r);
+    const el=document.createElement("div");el.className="row";el.dataset.id=r.id;
+    const meters=p.parts.map(o=>o.none?`<div class="m none"><span>${o.k==="ratio"?"Ratio":"Time"}</span><span class="bar"></span><span>no target</span></div>`
+      :`<div class="m ${o===p.lead?"lead":""}"><span>${o.k==="ratio"?"Ratio":"Time"}</span><span class="bar"><span class="fill" style="width:${(o.pct*100).toFixed(1)}%"></span></span><span>${o.label}</span></div>`).join("");
+    const eta=p.done?`<div class="eta done"><b>Target met.</b> Removing on the next check.</div>`
+      :p.lead.left===Infinity?`<div class="eta">Not uploading, so it can't reach its ratio.</div>`
+      :`<div class="eta">Releases in about <b>${fmtH(p.lead.left)}</b>, on ${p.lead.k==="ratio"?"ratio":"seed time"}</div>`;
+    const hint=r.up===0&&p.ru.time==null?`<div class="hint">No peers have downloaded from it in 6 h. <button data-goto="settings">Add a seed-time target</button> so it can be released.</div>`:"";
+    el.innerHTML=`<div class="poster ${r.book?"book":""}" aria-hidden="true">${r.title[0]}</div>
+      <div class="t"><div class="name">${r.title} <span style="color:var(--faint);font-weight:400">${r.sub??r.year}</span></div>
+        <div class="meta"><span class="idx">${IDX[r.idx].priv?LOCK:""}${r.idx}</span><span>${r.gb} GB</span><span>${r.up?`↑ ${r.up.toFixed(1)} MB/s`:"idle"}</span>${r.tag?`<span class="badge">${r.tag}</span>`:""}${owed(r)?`<span class="badge amber">Owes seed time</span>`:""}</div>${hint}</div>
+      <div class="meter">${meters}${eta}</div>
+      <div class="act"><button class="btn ghost" data-release="${r.id}">Remove now</button></div>`;
+    list.appendChild(el);
+  }
+  const totalGb=rows.reduce((a,r)=>a+r.gb,0).toFixed(1);
+  const nOwed=rows.filter(owed).length;
+  const soonest=rows.map(r=>progress(r).lead.left).filter(x=>x!==Infinity).sort((a,b)=>a-b)[0];
+  document.getElementById("sumline").innerHTML=`Holding <strong>${rows.length} torrents</strong> (${totalGb} GB) until they meet their seed targets. <strong>${nOwed}</strong> still owe seed time on private trackers${soonest!=null?`, and the next one releases in about ${fmtH(soonest)}`:""}.`;
+  document.getElementById("seedCount").textContent=rows.length;
+  const rl=document.getElementById("relList");
+  rl.innerHTML=released.map(x=>`<li class="${x.fresh?"enter":""}"><span>${x.title}</span><span>${x.why}<span style="display:inline-block;min-width:64px;text-align:right">${x.gb} GB</span></span></li>`).join("");
+  released.forEach(x=>x.fresh=false);
+  document.getElementById("relHead").textContent=`Released today: ${released.length}`;
+  document.getElementById("relFreed").textContent=`${released.reduce((a,x)=>a+x.gb,0).toFixed(1)} GB freed`;
+}
+
+function release(id,why){
+  const r=rows.find(x=>x.id===id);if(!r)return;
+  rows=rows.filter(x=>x.id!==id);
+  released.unshift({title:r.title,why,gb:r.gb,fresh:true});
+  render();toast(`Removed ${r.title} from qBittorrent. ${r.gb} GB freed.`);
+}
+
+// simulated SSE: one tick = 1 simulated minute
+setInterval(()=>{
+  if(document.getElementById("v-downloads").hidden)return;
+  for(const r of [...rows]){
+    r.h+=1/60; r.ratio+=r.up*60/(r.gb*1024);
+    const p=progress(r);
+    if(p.done&&!r.pending){r.pending=true;setTimeout(()=>release(r.id,p.lead.k==="ratio"?`Ratio ${p.ru.ratio.toFixed(1)} reached`:`${fmtH(p.ru.time)} seeded`),2500);}
+  }
+  render();
+  document.getElementById("liveTxt").textContent="Live, updated just now";
+},1500);
+
+// release-now dialog
+const relScrim=document.getElementById("relScrim");let relId=null;
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-release]");if(b){
+    const r=rows.find(x=>x.id===+b.dataset.release);const p=progress(r);relId=r.id;
+    document.getElementById("relTitle").textContent=`Remove ${r.title} from qBittorrent?`;
+    document.getElementById("relBody").textContent=`The torrent and its downloaded files are removed. ${r.tag==="Removed from library"?"":"Your library copy stays."}`;
+    const w=document.getElementById("relWarn");
+    if(owed(r)){w.hidden=false;w.textContent=`${r.idx} is a private tracker and this torrent hasn't met its target (${p.parts.find(o=>o.k==="time").label}). Removing it now can count as a hit-and-run.`;}else w.hidden=true;
+    relScrim.classList.add("open");document.getElementById("relCancel").focus();
+  }
+  const g=e.target.closest("[data-goto]");if(g){e.preventDefault();showView("settings");if(g.dataset.goto==="blocklist")document.getElementById("blocklist").scrollIntoView({behavior:"smooth"});}
+});
+document.getElementById("relCancel").onclick=()=>relScrim.classList.remove("open");
+document.getElementById("relGo").onclick=()=>{relScrim.classList.remove("open");release(relId,"Removed by you");};
+
+// filters
+document.querySelectorAll("#t-seeding .chip").forEach(c=>c.onclick=()=>{filter=c.dataset.f;document.querySelectorAll("#t-seeding .chip").forEach(x=>x.setAttribute("aria-pressed",x===c));render();});
+
+// tabs
+document.querySelectorAll(".seg [role=tab]").forEach(t=>t.onclick=()=>{
+  document.querySelectorAll(".seg [role=tab]").forEach(x=>x.setAttribute("aria-selected",x===t));
+  ["import","seeding","orphans"].forEach(k=>document.getElementById("t-"+k).hidden=k!==t.dataset.tab);
+  updateBar();
+});
+
+// orphans
+let orphans=[
+ {h:"a1",name:"Battleship.Potemkin.1925.1080p.BluRay.x264",cat:"rawkoon-movies",gb:9.8,ratio:3.2,seed:"41 days"},
+ {h:"b2",name:"Intolerance.1916.REMASTERED.720p",cat:"rawkoon-movies",gb:6.4,ratio:.8,seed:"12 days",shared:true},
+ {h:"c3",name:"Dracula.Bram.Stoker.Unabridged.m4b",cat:"rawkoon-audiobooks",gb:.6,ratio:1.9,seed:"90 days"},
+];
+const sel=new Set();
+function renderOrph(){
+  const tb=document.getElementById("orphBody");
+  tb.innerHTML=orphans.map(o=>`<tr data-h="${o.h}" class="${sel.has(o.h)?"sel":""}"><td><input type="checkbox" ${sel.has(o.h)?"checked":""} aria-label="Select ${o.name}"></td>
+   <td><div class="fname">${o.name}</div>${o.shared?`<span class="badge" style="margin-top:4px">Shares files with another torrent</span>`:""}</td>
+   <td class="hide-sm" style="color:var(--muted)">${o.cat}</td><td class="num">${o.gb} GB</td><td class="num hide-sm">${o.ratio.toFixed(2)}</td><td class="num hide-sm">${o.seed}</td></tr>`).join("");
+  document.getElementById("orphEmpty").hidden=orphans.length>0;
+  const c=document.getElementById("orphCount");c.textContent=orphans.length;c.className="count"+(orphans.length?" warn":"");
+  document.getElementById("orphAll").checked=orphans.length>0&&sel.size===orphans.length;
+  updateBar();
+}
+function updateBar(){
+  const bar=document.getElementById("actionbar");
+  const onTab=!document.getElementById("t-orphans").hidden&&!document.getElementById("v-downloads").hidden;
+  const chosen=orphans.filter(o=>sel.has(o.h));
+  bar.classList.toggle("show",onTab&&chosen.length>0);
+  document.getElementById("selTxt").textContent=`${chosen.length} selected, ${chosen.reduce((a,o)=>a+o.gb,0).toFixed(1)} GB`;
+  document.getElementById("sharedWarn").hidden=!(chosen.some(o=>o.shared)&&document.getElementById("delData").checked);
+  document.getElementById("removeSel").textContent=`Remove ${chosen.length===1?"torrent":chosen.length+" torrents"}`;
+}
+document.getElementById("orphBody").addEventListener("change",e=>{const h=e.target.closest("tr").dataset.h;e.target.checked?sel.add(h):sel.delete(h);renderOrph();});
+document.getElementById("orphAll").onchange=e=>{orphans.forEach(o=>e.target.checked?sel.add(o.h):sel.delete(o.h));renderOrph();};
+document.getElementById("delData").onchange=updateBar;
+document.getElementById("removeSel").onclick=()=>{
+  const chosen=orphans.filter(o=>sel.has(o.h));const gb=chosen.reduce((a,o)=>a+o.gb,0).toFixed(1);
+  chosen.forEach(o=>document.querySelector(`tr[data-h="${o.h}"]`).classList.add("gone"));
+  setTimeout(()=>{orphans=orphans.filter(o=>!sel.has(o.h));sel.clear();renderOrph();toast(`Removed ${chosen.length} ${chosen.length===1?"torrent":"torrents"}. ${document.getElementById("delData").checked?gb+" GB freed.":"Files kept."}`);},350);
+};
+
+// settings: live rule sentences
+function sentence(card){
+  const v=k=>card.querySelector(`[data-k=${k}]`).value.trim();
+  const ratio=parseFloat(v("ratio"));const t=parseFloat(v("time"));const unit=v("unit");
+  const r=isFinite(ratio)&&ratio>0?`ratio <em>${v("ratio")}</em>`:null;
+  const tm=isFinite(t)&&t>0?`<em>${t} ${t===1?unit.replace(/s$/,""):unit}</em> of seeding`:null;
+  card.querySelector(".sentence").innerHTML=r&&tm?`Release at ${r} or after ${tm}, whichever comes first.`
+    :r?`Release once it reaches ${r}.`:tm?`Release after ${tm}.`:`Release right after import. Nothing is seeded.`;
+  const key=card.dataset.rule;RULES[key]={ratio:r?ratio:null,time:tm?(unit==="days"?t*24:t):null};
+  renderOvr();
+}
+document.querySelectorAll(".card[data-rule]").forEach(c=>{c.addEventListener("input",()=>sentence(c));sentence(c);});
+function ruleTxt(ru){return [ru.ratio!=null?`ratio ${ru.ratio}`:null,ru.time!=null?fmtH(ru.time):null].filter(Boolean).join(" or ")||"right after import";}
+function renderOvr(){
+  const tb=document.getElementById("ovrBody");if(!tb)return;
+  tb.innerHTML=Object.entries(IDX).map(([n,i])=>{
+    const o=OVR[n];const held=rows.filter(r=>r.idx===n).length;
+    const inh=i.priv?RULES.private:RULES.public;
+    return `<tr><td><span class="idx" style="display:inline-flex;gap:5px;align-items:center">${i.priv?LOCK:""}${n}</span></td>
+      <td>${o?`<span class="own">${ruleTxt(o)}</span>`:`<span class="inh">${ruleTxt(inh)}, from the ${i.priv?"private":"public"} default</span>`}</td>
+      <td class="num hide-sm">${held||"none"}</td>
+      <td style="text-align:right"><button class="btn ghost" data-ovr="${n}">${o?"Use default":"Customize"}</button></td></tr>`;}).join("");
+}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-ovr]");if(!b)return;const n=b.dataset.ovr;
+  if(OVR[n]){delete OVR[n];toast(`${n} now uses the default rule.`);}else{OVR[n]={ratio:1.5,time:120};toast(`${n} now has its own rule. Edit it inline in the real build.`);} renderOvr();render();});
+
+// extensions
+let exts=["exe","scr","lnk","bat","cmd","com","msi","pif","vbs","ps1","jar","apk"];
+function renderExts(){const box=document.getElementById("exts");box.querySelectorAll(".ext").forEach(x=>x.remove());
+  const inp=document.getElementById("extIn");exts.forEach(x=>{const s=document.createElement("span");s.className="ext";s.innerHTML=`.${x}<button aria-label="Remove .${x}">×</button>`;s.querySelector("button").onclick=()=>{exts=exts.filter(y=>y!==x);renderExts();};box.insertBefore(s,inp);});}
+document.getElementById("extIn").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===","){e.preventDefault();const v=e.target.value.trim().replace(/^\./,"").toLowerCase();if(v&&!exts.includes(v)){exts.push(v);renderExts();}e.target.value="";}
+  if(e.key==="Backspace"&&!e.target.value&&exts.length){exts.pop();renderExts();}});
+renderExts();
+
+// remove-from-library dialog
+const scrim=document.getElementById("scrim");
+document.getElementById("openRemove").onclick=()=>{scrim.classList.add("open");document.getElementById("cancelDlg").focus();};
+document.getElementById("cancelDlg").onclick=()=>scrim.classList.remove("open");
+document.getElementById("confirmDlg").onclick=()=>{scrim.classList.remove("open");const now=scrim.querySelector("input[name=rel]:checked").value==="now";toast(now?"Removed Nosferatu. Torrent removed, 8.4 GB freed.":"Removed Nosferatu. Its torrent keeps seeding and will be released in about 31 h.");};
+scrim.querySelectorAll("input[name=rel]").forEach(r=>r.onchange=()=>document.getElementById("hnr").hidden=r.value!=="now"||!r.checked);
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){scrim.classList.remove("open");relScrim.classList.remove("open");}});
+
+document.addEventListener("click",e=>{if(e.target.closest("[data-goto-orphans]")){showView("downloads");document.querySelector('[data-tab=orphans]').click();}});
+// view switcher
+function showView(v){["downloads","settings","remove"].forEach(k=>document.getElementById("v-"+k).hidden=k!==v);
+  document.querySelectorAll(".mock-bar button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.view===v));updateBar();window.scrollTo(0,0);}
+document.querySelectorAll(".mock-bar button").forEach(b=>b.onclick=()=>showView(b.dataset.view));
+
+let tt;function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),3200);}
+render();renderOrph();renderOvr();
+const hv=new URLSearchParams(location.search).get("view")||location.hash.slice(1);
+if(hv==="settings"||hv==="remove")showView(hv);
+if(hv==="media")showView("remove");
+if(hv==="orphans"){document.querySelector('[data-tab=orphans]').click();sel.add("a1");sel.add("b2");renderOrph();}
+if(hv==="remove")document.getElementById("openRemove").click();
+</script>
+</body>
+</html>

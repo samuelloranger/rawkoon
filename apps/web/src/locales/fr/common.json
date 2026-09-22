@@ -1068,6 +1068,10 @@
         "refreshGithubReleases": {
           "label": "Actualiser les releases GitHub",
           "description": "Récupérer les releases GitHub publiques, mettre à jour le cache Redis et notifier les admins pour les nouvelles versions."
+        },
+        "sweepSeedingTorrents": {
+          "label": "Libérer les torrents partagés",
+          "description": "Retirer les torrents du client de téléchargement une fois leur objectif de partage atteint."
         }
       }
     },
@@ -1362,6 +1366,16 @@
         "reason": "Raison",
         "blockedAt": "Bloquée le",
         "actions": "Actions"
+      },
+      "filter": {
+        "all": "Toutes",
+        "auto": "Ajoutées automatiquement",
+        "manual": "Ajoutées par vous"
+      },
+      "kind": {
+        "stalled": "Bloqué",
+        "malware": "Fichier bloqué",
+        "import_rejected": "Import rejeté"
       }
     },
     "books": {
@@ -1490,6 +1504,65 @@
       "deleteConfirm": "Supprimer le profil « {{name}} » ? Les éditions qui l'utilisent reviennent aux valeurs par défaut.",
       "deleteSuccess": "Profil supprimé.",
       "deleteError": "Impossible de supprimer le profil."
+    },
+    "seeding": {
+      "title": "Partage",
+      "description": "Après l'import, Rawkoon garde chaque torrent en partage jusqu'à ce qu'il atteigne son ratio, puis le retire du client. La copie de votre bibliothèque est un lien physique, elle reste donc en place.",
+      "enable": "Libérer les torrents automatiquement",
+      "enableHint": "Désactivé, un torrent n'est retiré à l'import que s'il atteint déjà le ratio public.",
+      "preview_one": "{{count}} torrent serait libéré maintenant, {{size}}.",
+      "preview_other": "{{count}} torrents seraient libérés maintenant, {{size}}.",
+      "publicTitle": "Trackers publics",
+      "privateTitle": "Trackers privés",
+      "ratio": "Ratio",
+      "none": "aucun",
+      "hours_one": "{{count}} heure",
+      "hours_other": "{{count}} heures",
+      "days_one": "{{count}} jour",
+      "days_other": "{{count}} jours",
+      "sentence": {
+        "both": "Libérer au ratio {{ratio}} ou après {{time}} de partage, selon ce qui arrive en premier.",
+        "ratio": "Libérer une fois le ratio {{ratio}} atteint.",
+        "time": "Libérer après {{time}} de partage.",
+        "none": "Libérer dès l'import. Rien n'est partagé."
+      },
+      "unknownPrivate": "Un indexeur que Rawkoon ne peut pas joindre est considéré comme privé, pour qu'aucun torrent ne soit retiré trop tôt par erreur.",
+      "moveMode": "Les imports déplacent les fichiers hors du client, donc les torrents sont libérés dès l'import. Passez aux liens physiques pour partager.",
+      "invalid": "Entrez un nombre positif ou nul, ou laissez le champ vide.",
+      "indexers": {
+        "indexer": "Indexeur",
+        "rule": "Règle",
+        "held": "En partage",
+        "inherited": "{{rule}} (défaut {{source}})",
+        "sourcePrivate": "privé",
+        "sourcePublic": "public",
+        "customize": "Personnaliser",
+        "useDefault": "Utiliser le défaut",
+        "save": "Enregistrer",
+        "cancel": "Annuler",
+        "empty": "Aucun indexeur trouvé. Connectez d'abord Prowlarr ou Jackett.",
+        "heldCount_one": "{{count}} en partage",
+        "heldCount_other": "{{count}} en partage"
+      },
+      "save": "Enregistrer les règles de partage",
+      "saved": "Règles de partage enregistrées.",
+      "saveError": "Impossible d'enregistrer les règles de partage.",
+      "label": {
+        "ratio": "Ratio {{ratio}}",
+        "none": "Dès l'import"
+      }
+    },
+    "downloadSafety": {
+      "title": "Sécurité des téléchargements",
+      "description": "Rejeter une version dès que sa liste de fichiers contient l'un de ces types. Elle est ajoutée à la liste de blocage et supprimée avec ses fichiers, puis Rawkoon relance la recherche.",
+      "add": "Ajouter un type de fichier, comme .iso",
+      "remove": "Retirer .{{ext}}",
+      "invalid": "Utilisez une extension de fichier comme exe ou .iso.",
+      "stats": "30 derniers jours : {{malware}} rejetées pour fichiers bloqués, {{stalled}} pour blocage, {{imports}} pour contenu inutilisable.",
+      "statsLink": "Les voir dans la liste de blocage",
+      "save": "Enregistrer les types de fichiers",
+      "saved": "Types de fichiers enregistrés.",
+      "saveError": "Impossible d'enregistrer les types de fichiers."
     }
   },
   "medias": {
@@ -1841,7 +1914,22 @@
       "done": "Terminé",
       "active": "Actif",
       "aiPick": "Sélectionné par l'IA",
-      "paused": "Pause"
+      "paused": "Pause",
+      "seed": {
+        "seeding": "En partage",
+        "seedingDetail": "ratio {{ratio}}, {{time}} de partage",
+        "released": "Libéré",
+        "blocklisted": "Bloqué",
+        "reason": {
+          "target_met": "objectif atteint",
+          "manual": "retiré par vous",
+          "move_mode": "mode déplacement",
+          "adopted": "non ajouté par Rawkoon",
+          "stalled": "bloqué",
+          "malware": "fichier bloqué",
+          "import_rejected": "import rejeté"
+        }
+      }
     },
     "media": {
       "loadingFileInfo": "Chargement des informations du fichier…",
@@ -1917,7 +2005,16 @@
       "artworkUpdated": "Visuel mis à jour",
       "artworkUpdateFailed": "Impossible de changer le visuel",
       "artworkLanguage": "Langue",
-      "artworkNoneInLanguage": "Aucun visuel dans cette langue"
+      "artworkNoneInLanguage": "Aucun visuel dans cette langue",
+      "seedingTitle_one": "1 torrent est encore en partage",
+      "seedingTitle_other": "{{count}} torrents sont encore en partage",
+      "keepSeeding": "Continuer le partage jusqu'à l'objectif",
+      "keepSeedingHint": "Rawkoon le retire du client une fois son objectif de partage atteint.",
+      "releaseNow": "Retirer le torrent maintenant",
+      "releaseNowHint": "Libère l'espace tout de suite.",
+      "hnrWarning": "Un tracker privé attend encore du temps de partage pour ce torrent. Le retirer maintenant peut compter comme un hit-and-run.",
+      "keepSeedingHintRatio": "Il doit encore atteindre le ratio {{target}} (actuellement {{ratio}}); Rawkoon le retire du client une fois atteint.",
+      "releaseNowHintSize": "Retire {{size}} du client tout de suite."
     },
     "stats": {
       "title": "Statistiques de la bibliothèque",
@@ -2341,6 +2438,113 @@
       "theme_light": "Clair",
       "theme_sepia": "Sépia",
       "theme_dark": "Sombre"
+    }
+  },
+  "downloadsPage": {
+    "title": "Téléchargements",
+    "subtitle": "Ce qui se trouve dans votre client de téléchargement, et ce dont Rawkoon a encore besoin.",
+    "tabs": {
+      "import": "Importer",
+      "seeding": "Partage",
+      "orphans": "Orphelins"
+    }
+  },
+  "seeding": {
+    "summaryOwed": "{{count}} doivent encore partager sur des trackers privés.",
+    "summaryNext": "Le prochain sera libéré dans environ {{time}}.",
+    "live": "En direct",
+    "filters": {
+      "all": "Tous",
+      "owed": "Doit encore partager",
+      "removed": "Titres retirés",
+      "idle": "Sans envoi"
+    },
+    "badges": {
+      "removed_from_library": "Retiré de la bibliothèque",
+      "replaced_by_upgrade": "Remplacé par une amélioration",
+      "owes": "Doit encore partager"
+    },
+    "meter": {
+      "ratio": "Ratio"
+    },
+    "eta": {
+      "met": "Objectif atteint. Retrait à la prochaine vérification.",
+      "idle": "Aucun envoi, il ne peut donc pas atteindre son ratio.",
+      "ratio": "Libéré dans environ {{time}}, au ratio"
+    },
+    "idleHint": "Personne ne télécharge depuis ce torrent, il ne peut donc pas atteindre son ratio. Retirez-le si vous n'en avez plus besoin.",
+    "removeNow": "Retirer maintenant",
+    "confirmTitle": "Retirer {{title}} du client de téléchargement?",
+    "confirmBody": "Le torrent et ses fichiers téléchargés sont supprimés. La copie dans votre bibliothèque reste.",
+    "confirmHnr": "{{indexer}} est un tracker privé et ce torrent n'a pas atteint son objectif. Le retirer maintenant peut compter comme un hit-and-run.",
+    "confirmLabel": "Retirer maintenant",
+    "removed": "{{title}} a été retiré du client de téléchargement.",
+    "removeError": "Impossible de retirer le torrent.",
+    "releasedToday": "Libérés aujourd'hui : {{count}}",
+    "freed": "{{size}} retirés du client",
+    "releasedReason": {
+      "target_met": "Objectif atteint",
+      "manual": "Retiré par vous",
+      "move_mode": "Mode déplacement"
+    },
+    "empty": {
+      "title": "Rien en partage",
+      "description": "Les torrents apparaissent ici après l'import, pendant qu'ils partagent vers leur objectif."
+    },
+    "disabled": {
+      "title": "La libération automatique est désactivée",
+      "action": "L'activer dans les réglages"
+    },
+    "unreachable": "Le client de téléchargement est injoignable, les données de partage ne peuvent pas être affichées.",
+    "duration": {
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "hours_one": "{{count}} h",
+      "hours_other": "{{count}} h",
+      "days_one": "{{count}} jour",
+      "days_other": "{{count}} jours"
+    },
+    "kind": {
+      "ebook": "Livre numérique",
+      "audiobook": "Livre audio"
+    },
+    "summaryShort_one": "{{count}} torrent conservé, {{size}}.",
+    "summaryShort_other": "{{count}} torrents conservés, {{size}}.",
+    "sections": {
+      "seeding": "En partage ({{count}})",
+      "ready": "Prêts à libérer ({{count}})"
+    }
+  },
+  "orphans": {
+    "explain": "Ces torrents sont dans les catégories de Rawkoon, mais aucun téléchargement de Rawkoon ne leur correspond, donc Rawkoon ne les retirera pas de lui-même. Ils restent souvent d'une base de données réinitialisée ou d'un torrent ajouté à la main.",
+    "columns": {
+      "torrent": "Torrent",
+      "category": "Catégorie",
+      "size": "Taille",
+      "ratio": "Ratio",
+      "seeding": "Partage"
+    },
+    "selectAll": "Tout sélectionner",
+    "select": "Sélectionner {{name}}",
+    "shares": "Partage des fichiers avec un autre torrent",
+    "selected": "{{count}} sélectionnés, {{size}}",
+    "deleteData": "Supprimer les fichiers téléchargés",
+    "sharedNote": "Les torrents qui partagent des fichiers les conservent.",
+    "remove_one": "Retirer le torrent",
+    "remove_other": "Retirer {{count}} torrents",
+    "removed_one": "{{count}} torrent retiré.",
+    "removed_other": "{{count}} torrents retirés.",
+    "freed": "{{size}} retirés du client.",
+    "removeError": "Impossible de retirer les torrents sélectionnés.",
+    "empty": {
+      "title": "Aucun torrent orphelin",
+      "description": "Chaque torrent des catégories de Rawkoon correspond à un téléchargement suivi par Rawkoon."
+    },
+    "health": {
+      "title_one": "{{count}} torrent orphelin, {{size}}",
+      "title_other": "{{count}} torrents orphelins, {{size}}",
+      "description": "Dans les catégories de Rawkoon, mais aucun téléchargement ne leur correspond.",
+      "action": "Voir les orphelins"
     }
   }
 }

@@ -562,6 +562,12 @@ model DownloadHistory {
   /// Disjoint predicates mean the existing media index — and grabRelease's
   /// P2002 race-close that depends on it — keep working verbatim.
   bookEditionId              Int?      @map("book_edition_id")
+  /// When Rawkoon removed (or stopped tracking) this row's torrent. Null = still owned.
+  seedReleasedAt             DateTime? @map("seed_released_at")
+  /// target_met | stalled | malware | import_rejected | manual | move_mode | adopted
+  seedReleaseReason          String?   @map("seed_release_reason")
+  /// Torrent size at release, for the "GB freed" line; null when unknown.
+  seedReleasedBytes          BigInt?   @map("seed_released_bytes")
 
   media       LibraryMedia?   @relation(fields: [mediaId], references: [id], onDelete: SetNull)
   episode     LibraryEpisode? @relation(fields: [episodeId], references: [id], onDelete: SetNull)
@@ -581,6 +587,9 @@ model DownloadHistory {
   /// preferred the grabbed_at sort index and filtered 44k rows away.
   /// Prisma ignores partial indexes in drift detection, so it survives
   /// `prisma migrate dev` (verified).
+  /// The seed sweep is served by a PARTIAL index created in
+  /// 20260922000000_cleanup_release: (torrent_hash) WHERE seed_released_at IS
+  /// NULL AND completed_at IS NOT NULL AND failed = false.
   /// At most one ACTIVE grab per target is enforced by a PARTIAL UNIQUE index
   /// Prisma cannot express, created in
   /// 20260819000000_prevent_duplicate_active_grabs:
@@ -643,6 +652,8 @@ model GrabBlocklist {
   mediaId      Int?     @map("media_id")
   episodeId    Int?     @map("episode_id")
   reason       String?
+  /// stalled | malware | import_rejected; null = added by a user.
+  kind         String?
   blockedAt    DateTime @default(now()) @map("blocked_at")
 
   media   LibraryMedia?   @relation(fields: [mediaId], references: [id], onDelete: SetNull)
@@ -652,7 +663,19 @@ model GrabBlocklist {
   @@index([torrentHash], map: "ix_grab_blocklist_hash")
   @@index([mediaId], map: "ix_grab_blocklist_media_id")
   @@index([episodeId], map: "ix_grab_blocklist_episode_id")
+  @@index([kind, blockedAt], map: "ix_grab_blocklist_kind_blocked_at")
   @@map("grab_blocklist")
+}
+
+/// Per-indexer seed target override; absent = the public/private default applies.
+model IndexerSeedRule {
+  id           Int      @id @default(autoincrement())
+  indexerName  String   @unique @map("indexer_name")
+  ratio        Float?
+  seedTimeMins Int?     @map("seed_time_mins")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("indexer_seed_rule")
 }
 
 /// Singleton media / library post-processing settings (row id = 1)
@@ -678,6 +701,16 @@ model MediaSettings {
   downloadHookAutoConfigure    Boolean   @default(true) @map("download_hook_auto_configure")
   downloadHookLastSeenAt       DateTime? @map("download_hook_last_seen_at")
   downloadPollActiveHookedSecs Int       @default(120) @map("download_poll_active_hooked_secs")
+
+  // ── Seeding lifecycle ─────────────────────────────
+  /// Public default = minSeedRatio + this. Null = no time target.
+  publicSeedTimeMins      Int?     @map("public_seed_time_mins")
+  privateSeedRatio        Float?   @default(1) @map("private_seed_ratio")
+  /// Release is ratio-only; kept nullable so an explicit time target stays possible.
+  privateSeedTimeMins     Int?     @map("private_seed_time_mins")
+  /// Off until an admin opts in: the first sweep would otherwise release every old torrent at once.
+  seedSweepEnabled        Boolean  @default(false) @map("seed_sweep_enabled")
+  blockedExtensions       String[] @default(["exe", "scr", "lnk", "bat", "cmd", "com", "msi", "pif", "vbs", "ps1", "jar", "apk"]) @map("blocked_extensions")
 
   // ── Books ──────────────────────────────────────────
   booksLibraryPath            String?  @map("books_library_path")

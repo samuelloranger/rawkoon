@@ -4,7 +4,7 @@ import { prisma } from "@rawkoon/api/db";
 import { notFound, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
-import { jsonV, paramV } from "@rawkoon/api/middleware/validate";
+import { jsonV, paramV, queryV } from "@rawkoon/api/middleware/validate";
 import { formatIso } from "@rawkoon/api/utils";
 
 /** Newest blocklist entries returned to the admin blocklist screen. */
@@ -18,6 +18,7 @@ function formatEntry(e: {
   mediaId: number | null;
   episodeId: number | null;
   reason: string | null;
+  kind: string | null;
   blockedAt: Date;
 }) {
   return {
@@ -28,23 +29,36 @@ function formatEntry(e: {
     media_id: e.mediaId,
     episode_id: e.episodeId,
     reason: e.reason,
+    kind: e.kind,
     blocked_at: formatIso(e.blockedAt),
   };
 }
 
 // Mounted under /api/medias; admin-only.
 export const mediasBlocklistRoutes = new Hono<Env>()
-  .get("/blocklist", requireAdmin, async () => {
-    try {
-      const entries = await prisma.grabBlocklist.findMany({
-        orderBy: { blockedAt: "desc" },
-        take: BLOCKLIST_LIMIT,
-      });
-      return ok({ entries: entries.map(formatEntry) });
-    } catch {
-      return serverError("Failed to fetch blocklist");
-    }
-  })
+  .get(
+    "/blocklist",
+    requireAdmin,
+    queryV(z.object({ source: z.enum(["auto", "manual"]).optional() })),
+    async (c) => {
+      const source = c.req.valid("query").source;
+      try {
+        const entries = await prisma.grabBlocklist.findMany({
+          where:
+            source === "auto"
+              ? { kind: { not: null } }
+              : source === "manual"
+                ? { kind: null }
+                : {},
+          orderBy: { blockedAt: "desc" },
+          take: BLOCKLIST_LIMIT,
+        });
+        return ok({ entries: entries.map(formatEntry) });
+      } catch {
+        return serverError("Failed to fetch blocklist");
+      }
+    },
+  )
   .post(
     "/blocklist",
     requireAdmin,

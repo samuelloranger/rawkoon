@@ -1,4 +1,5 @@
 import { basename, extname, join } from "node:path";
+import type { PostProcessFailure } from "@rawkoon/api/services/postProcessFailure";
 import { stat, unlink } from "node:fs/promises";
 
 import { prisma } from "@rawkoon/api/db";
@@ -25,6 +26,7 @@ import {
 } from "@rawkoon/api/utils/medias/fileTemplate";
 import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import {
+  isFullyReadable,
   markItemDownloaded,
   placeFile,
   qualityStringsFromParsed,
@@ -44,7 +46,7 @@ export async function postProcess(downloadHistoryId: number): Promise<
       skipped?: boolean;
       skipReason?: string;
     }
-  | { success: false; reason: string }
+  | PostProcessFailure
 > {
   const [dh, settings] = await Promise.all([
     prisma.downloadHistory.findUnique({
@@ -184,9 +186,22 @@ export async function postProcess(downloadHistoryId: number): Promise<
     return { success: false, reason: "Could not resolve torrent content path" };
   }
 
-  const srcVideo = await findVideoFile(remapPath(contentBase));
+  const contentRoot = remapPath(contentBase);
+  const srcVideo = await findVideoFile(contentRoot);
   if (!srcVideo) {
-    return { success: false, reason: "No video file found" };
+    // Only an empty import from a readable tree is the release's fault.
+    if (!(await isFullyReadable(contentRoot))) {
+      return {
+        success: false,
+        reason:
+          "Download content is missing or unreadable — check path mappings and permissions",
+      };
+    }
+    return {
+      success: false,
+      reason: "No video file found",
+      rejectKind: "no_content",
+    };
   }
 
   const ext = extname(srcVideo) || ".mkv";
@@ -388,7 +403,8 @@ export async function postProcess(downloadHistoryId: number): Promise<
   const ratio = tor.ratio;
   const min = settings.minSeedRatio;
   const shouldRemove = min <= 0 || (ratio != null && ratio >= min);
-  if (shouldRemove) {
+  // Once the seed sweep is on it owns removal, with per-indexer targets.
+  if (shouldRemove && !settings.seedSweepEnabled) {
     await active.adapter
       .remove(hash, false)
       .catch((error) =>

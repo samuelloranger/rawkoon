@@ -9,14 +9,21 @@ import type {
 } from "@rawkoon/shared/types";
 
 export function useBlocklist(options?: {
+  source?: "auto" | "manual";
   staleTime?: number;
   gcTime?: number;
 }) {
   const fetcher = useFetcher();
+  const { source, ...queryOptions } = options ?? {};
   return useQuery({
-    queryKey: queryKeys.blocklist.list(),
-    queryFn: () => fetcher<BlocklistListResponse>(MEDIAS_ENDPOINTS.BLOCKLIST),
-    ...options,
+    queryKey: queryKeys.blocklist.list(source),
+    queryFn: () =>
+      fetcher<BlocklistListResponse>(
+        source
+          ? `${MEDIAS_ENDPOINTS.BLOCKLIST}?source=${source}`
+          : MEDIAS_ENDPOINTS.BLOCKLIST,
+      ),
+    ...queryOptions,
   });
 }
 

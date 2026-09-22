@@ -1,4 +1,12 @@
-import { copyFile, link, mkdir, rename, stat, unlink } from "node:fs/promises";
+import {
+  copyFile,
+  link,
+  mkdir,
+  readdir,
+  rename,
+  stat,
+  unlink,
+} from "node:fs/promises";
 import { dirname, isAbsolute, join } from "node:path";
 
 import { prisma } from "@rawkoon/api/db";
@@ -156,4 +164,29 @@ export function parseSeasonEpisode(
   const m = filename.match(/S(\d{1,2})E(\d{1,3})/i);
   if (!m) return null;
   return { season: parseInt(m[1], 10), episode: parseInt(m[2], 10) };
+}
+
+/**
+ * Whether a content tree could be read end to end. An empty import is only the
+ * release's fault when this holds — a missing mount or a permission error is not.
+ */
+export async function isFullyReadable(
+  root: string,
+  maxEntries = 20_000,
+): Promise<boolean> {
+  const queue = [root];
+  let seen = 0;
+  while (queue.length > 0 && seen < maxEntries) {
+    const current = queue.shift() as string;
+    seen += 1;
+    try {
+      const st = await stat(current);
+      if (!st.isDirectory()) continue;
+      for (const entry of await readdir(current))
+        queue.push(join(current, entry));
+    } catch {
+      return false;
+    }
+  }
+  return true;
 }

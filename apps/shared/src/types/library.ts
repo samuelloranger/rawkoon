@@ -1,4 +1,5 @@
 import type { IndexerManagerType } from "./media";
+import type { DownloadSeedState } from "./seeding";
 
 export type LibraryMediaStatus =
   | "wanted"
@@ -220,6 +221,8 @@ export interface LibraryDownloadHistoryItem {
   post_process_error?: string | null;
   post_process_destination_path?: string | null;
   ai_picked?: boolean;
+  /** Where this row's torrent stands: seeding, released, or blocklisted. */
+  seed?: DownloadSeedState | null;
   live?: {
     progress: number;
     download_speed: number;
@@ -248,6 +251,13 @@ export interface MediaPostProcessingSettings {
   book_template: string;
   audiobook_template: string;
   default_book_quality_profile_id: number | null;
+  /** Public default = min_seed_ratio + this. Null = no time target. */
+  public_seed_time_mins: number | null;
+  private_seed_ratio: number | null;
+  private_seed_time_mins: number | null;
+  /** Off until an admin opts in to automatic torrent release. */
+  seed_sweep_enabled: boolean;
+  blocked_extensions: string[];
   updated_at: string;
 }
 
@@ -272,6 +282,11 @@ export interface UpdateMediaPostProcessingSettingsRequest {
   book_template?: string;
   audiobook_template?: string;
   default_book_quality_profile_id?: number | null;
+  public_seed_time_mins?: number | null;
+  private_seed_ratio?: number | null;
+  private_seed_time_mins?: number | null;
+  seed_sweep_enabled?: boolean;
+  blocked_extensions?: string[];
 }
 
 export interface LibraryScanResponse {

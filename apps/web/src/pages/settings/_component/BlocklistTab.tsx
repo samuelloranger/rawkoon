@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Ban, Trash2 } from "lucide-react";
@@ -8,12 +9,36 @@ import {
   useBlocklist,
   useRemoveFromBlocklist,
 } from "@/features/medias/hooks/useBlocklist";
-import type { BlocklistEntry } from "@rawkoon/shared/types";
+import type { BlocklistEntry, BlocklistKind } from "@rawkoon/shared/types";
+import { SegmentedTabs } from "@/components/ui/segmented-tabs";
+import { cn } from "@/lib/utils";
+
+function KindBadge({ kind, label }: { kind: BlocklistKind; label: string }) {
+  return (
+    <span
+      className={cn(
+        "mr-2 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+        kind === "malware"
+          ? "border-red-900 bg-red-950/40 text-red-300"
+          : kind === "stalled"
+            ? "border-amber-900/70 bg-amber-950/40 text-amber-200"
+            : "border-neutral-700 bg-white/5 text-neutral-400",
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+const SOURCES = ["all", "auto", "manual"] as const;
 
 export function BlocklistTab() {
   const { t, i18n } = useTranslation("common");
   const { confirm } = useConfirm();
-  const { data, isLoading, error } = useBlocklist();
+  const [source, setSource] = useState<(typeof SOURCES)[number]>("all");
+  const { data, isLoading, error } = useBlocklist(
+    source === "all" ? undefined : { source },
+  );
   const removeMut = useRemoveFromBlocklist();
 
   const entries = data?.entries ?? [];
@@ -51,6 +76,18 @@ export function BlocklistTab() {
             <p className="text-xs text-neutral-400 mt-0.5">
               {t("settings.blocklist.description")}
             </p>
+            <div className="mt-3">
+              <SegmentedTabs
+                variant="chips"
+                items={SOURCES.map((id) => ({
+                  id,
+                  label: t(`settings.blocklist.filter.${id}`),
+                }))}
+                value={source}
+                onChange={setSource}
+                ariaLabel={t("settings.blocklist.title")}
+              />
+            </div>
           </div>
           {entries.length > 0 && (
             <span className="rounded-full bg-neutral-700 px-2.5 py-0.5 text-xs font-medium text-neutral-300 tabular-nums">
@@ -107,6 +144,12 @@ export function BlocklistTab() {
                           {entry.indexer ?? "—"}
                         </td>
                         <td className="px-3 py-2.5 text-neutral-400">
+                          {entry.kind && (
+                            <KindBadge
+                              kind={entry.kind}
+                              label={t(`settings.blocklist.kind.${entry.kind}`)}
+                            />
+                          )}
                           {entry.reason ?? "—"}
                         </td>
                         <td className="px-3 py-2.5 text-neutral-400 whitespace-nowrap">
@@ -157,6 +200,12 @@ export function BlocklistTab() {
                         </dt>
                         <dd>{entry.indexer ?? "—"}</dd>
                       </div>
+                      {entry.kind && (
+                        <KindBadge
+                          kind={entry.kind}
+                          label={t(`settings.blocklist.kind.${entry.kind}`)}
+                        />
+                      )}
                       {entry.reason && (
                         <div className="flex gap-2">
                           <dt className="text-neutral-500">

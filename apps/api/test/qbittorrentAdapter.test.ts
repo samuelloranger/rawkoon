@@ -16,6 +16,9 @@ describe("qbRawToNormalized", () => {
         size: 42,
         tags: "rawkoon, rawkoon-dh-123",
         ratio: 1.5,
+        upspeed: 9,
+        seeding_time: 60,
+        category: "rawkoon-movies",
       }),
     ).toEqual({
       hash: "abc123",
@@ -27,9 +30,16 @@ describe("qbRawToNormalized", () => {
       seeds: 2,
       peers: 1,
       dlSpeed: 1000,
+      upSpeed: 9,
+      seedingTimeSecs: 60,
+      category: "rawkoon-movies",
       sizeBytes: 42,
       labels: ["rawkoon", "rawkoon-dh-123"],
       ratio: 1.5,
     });
+  });
+
+  it("maps an empty category to null", () => {
+    expect(qbRawToNormalized("abc", { category: "" }).category).toBeNull();
   });
 });

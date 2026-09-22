@@ -1,10 +1,8 @@
 import { useCallback, useState } from "react";
 import type { DownloadListRow } from "@/features/downloadsImport/hooks/useDownloadsImport";
 import type { TmdbMediaSearchItem } from "@rawkoon/shared/types";
-import { Download, RotateCw, Search } from "lucide-react";
+import { Download, RotateCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { PageLayout } from "@/components/PageLayout";
-import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -13,7 +11,7 @@ import { useStagedQueue } from "@/features/downloadsImport/hooks/useStagedQueue"
 import { DownloadsTable } from "@/features/downloadsImport/components/DownloadsTable";
 import { StagedQueueFooter } from "@/features/downloadsImport/components/StagedQueueFooter";
 
-export function DownloadsImportPage() {
+export function DownloadsImportView() {
   const { t } = useTranslation("common");
   const { data, isLoading, isFetching, error, hardRefresh } =
     useDownloadsImport();
@@ -34,27 +32,22 @@ export function DownloadsImportPage() {
   const stagedCount = Object.keys(queue.stagedByPath).length;
 
   return (
-    <PageLayout className="pb-28">
-      <PageHeader
-        icon={Search}
-        title={t("downloadsImport.title")}
-        subtitle={t("downloadsImport.subtitle")}
-        actions={
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={isFetching}
-            className="gap-1"
-            onClick={() => hardRefresh()}
-          >
-            <RotateCw
-              className={cn("h-3.5 w-3.5", isFetching && "animate-spin")}
-            />
-            {t("downloadsImport.refresh")}
-          </Button>
-        }
-      />
+    <>
+      <div className="mb-3 flex justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={isFetching}
+          className="gap-1"
+          onClick={() => hardRefresh()}
+        >
+          <RotateCw
+            className={cn("h-3.5 w-3.5", isFetching && "animate-spin")}
+          />
+          {t("downloadsImport.refresh")}
+        </Button>
+      </div>
 
       {error && (
         <div className="mb-4 rounded-xl border px-3 py-2 text-sm border-red-900 bg-red-950/40 text-red-300">
@@ -118,6 +111,6 @@ export function DownloadsImportPage() {
         onCancel={queue.cancelRun}
         onDismiss={queue.dismissDone}
       />
-    </PageLayout>
+    </>
   );
 }

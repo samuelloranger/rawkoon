@@ -273,8 +273,18 @@ export const bookListRoutes = new Hono<Env>()
       select: { id: true },
     });
     if (!existing) return notFound("Book not found");
+    // A grab still downloading can never import once its edition is gone.
+    const pending = await prisma.downloadHistory.findMany({
+      where: { bookEdition: { bookId: id }, completedAt: null, failed: false },
+      select: { id: true, torrentHash: true },
+    });
+    const { abandonPendingDownloads } = await import(
+      "@rawkoon/api/services/seeding/seedSweep"
+    );
+    await abandonPendingDownloads(pending);
     // Editions and files cascade; library files on disk are left alone,
-    // matching how removing a library media item behaves.
+    // matching how removing a library media item behaves. Completed grabs keep
+    // their rows (book_edition_id → NULL) so their torrents seed to target.
     await prisma.libraryBook.delete({ where: { id } });
     return ok({ deleted: true });
   });

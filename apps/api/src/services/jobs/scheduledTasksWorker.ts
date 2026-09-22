@@ -145,6 +145,11 @@ export async function processScheduledJob(job: Job) {
         await syncLocalizedTitles();
         break;
       }
+      case SCHEDULED_JOB_NAMES.SWEEP_SEEDING_TORRENTS: {
+        const { runSeedSweep } = await import("../seeding/seedSweep");
+        await runSeedSweep();
+        break;
+      }
       default:
         console.warn(`[ScheduledTasksWorker] Unknown job name: ${job.name}`);
         return { success: false, error: "Unknown job name" };

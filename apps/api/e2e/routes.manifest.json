@@ -309,6 +309,38 @@
   },
   {
     "method": "GET",
+    "path": "/api/downloads/janitor-stats"
+  },
+  {
+    "method": "GET",
+    "path": "/api/downloads/orphans"
+  },
+  {
+    "method": "POST",
+    "path": "/api/downloads/orphans/remove"
+  },
+  {
+    "method": "GET",
+    "path": "/api/downloads/seed-rules"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/downloads/seed-rules/:indexer"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/downloads/seed-rules/:indexer"
+  },
+  {
+    "method": "GET",
+    "path": "/api/downloads/seeding"
+  },
+  {
+    "method": "POST",
+    "path": "/api/downloads/seeding/:hash/release"
+  },
+  {
+    "method": "GET",
     "path": "/api/health"
   },
   {

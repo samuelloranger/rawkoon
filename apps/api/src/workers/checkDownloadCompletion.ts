@@ -6,6 +6,8 @@ import {
   completeDownloadByHash,
   failDownload,
 } from "@rawkoon/api/services/downloadOutcome";
+import { rejectRelease } from "@rawkoon/api/services/downloadJanitor";
+import { findBlockedFile } from "@rawkoon/api/services/seeding/seedPolicy";
 
 /**
  * Reconcile — one pass comparing pending DownloadHistory rows against the
@@ -21,12 +23,14 @@ export type DownloadOutcomeHandlers = {
   completeDownload: typeof completeDownload;
   completeDownloadByHash: typeof completeDownloadByHash;
   failDownload: typeof failDownload;
+  rejectRelease: typeof rejectRelease;
 };
 
 const defaultOutcome: DownloadOutcomeHandlers = {
   completeDownload,
   completeDownloadByHash,
   failDownload,
+  rejectRelease,
 };
 
 export type PendingReconcileResult = {
@@ -48,7 +52,7 @@ export interface ReconcileSettings {
 
 export type PendingOutcome =
   | { outcome: "complete" }
-  | { outcome: "fail"; reason: string }
+  | { outcome: "fail"; reason: string; failKind: "stalled" | "error" }
   | { outcome: "wait"; progressed: boolean };
 
 export function classifyPendingAgainstTorrent(
@@ -57,14 +61,24 @@ export function classifyPendingAgainstTorrent(
   nowMs: number,
   settings: ReconcileSettings,
 ): PendingOutcome {
-  if (nowMs - track.createdAtMs > settings.maxAgeSecs * 1000) {
-    return { outcome: "fail", reason: "exceeded max age with no completion" };
-  }
+  // Completion first: a torrent that finished while Rawkoon was down is imported, not condemned.
   if (torrent.state === "completed" || torrent.progress >= 1) {
     return { outcome: "complete" };
   }
+  if (nowMs - track.createdAtMs > settings.maxAgeSecs * 1000) {
+    return {
+      outcome: "fail",
+      reason: "exceeded max age with no completion",
+      // A torrent paused on purpose is not the release's fault.
+      failKind: torrent.state === "paused" ? "error" : "stalled",
+    };
+  }
   if (torrent.state === "error") {
-    return { outcome: "fail", reason: "download client reported error state" };
+    return {
+      outcome: "fail",
+      reason: "download client reported error state",
+      failKind: "error",
+    };
   }
   const progressed = torrent.progress > track.lastProgress + 1e-9;
   if (progressed) return { outcome: "wait", progressed: true };
@@ -81,6 +95,7 @@ export function classifyPendingAgainstTorrent(
         torrent.state === "stalled"
           ? "stalled - no progress"
           : "no progress before stall timeout",
+      failKind: "stalled",
     };
   }
   return { outcome: "wait", progressed: false };
@@ -128,6 +143,8 @@ export type ReconcileState = {
   nextPollAtMs: number;
   /** Rows seen last pass, so a newly-grabbed row can pre-empt the backoff. */
   knownPendingIds: Set<number>;
+  /** Rows whose file list was already checked clean, so the client is asked once. */
+  filesChecked: Set<number>;
 };
 
 export function createReconcileState(): ReconcileState {
@@ -137,6 +154,7 @@ export function createReconcileState(): ReconcileState {
     idlePasses: 0,
     nextPollAtMs: 0,
     knownPendingIds: new Set(),
+    filesChecked: new Set(),
   };
 }
 
@@ -215,6 +233,73 @@ function getOrInitTrack(
 }
 
 /**
+ * True when at least two live downloads all hit the stall timeout in the same
+ * pass — the signature of a VPN or network drop rather than dead releases.
+ */
+function isMassStall(
+  pending: Array<{
+    id: number;
+    torrentHash: string | null;
+    grabbedAt?: Date | null;
+  }>,
+  torrents: NormalizedTorrent[],
+  state: ReconcileState,
+  nowMs: number,
+  settings: ReconcileSettings,
+): boolean {
+  let live = 0;
+  let stalled = 0;
+  for (const dh of pending) {
+    const match = findPendingTorrent(torrents, dh.id, dh.torrentHash);
+    if (!match || match.state === "paused") continue;
+    const track = getOrInitTrack(
+      state,
+      dh.id,
+      dh.grabbedAt?.getTime() ?? nowMs,
+      match.progress,
+      nowMs,
+    );
+    const verdict = classifyPendingAgainstTorrent(
+      match,
+      track,
+      nowMs,
+      settings,
+    );
+    if (verdict.outcome === "complete") continue;
+    live += 1;
+    if (
+      verdict.outcome === "fail" &&
+      verdict.failKind === "stalled" &&
+      verdict.reason !== "exceeded max age with no completion"
+    ) {
+      stalled += 1;
+    }
+  }
+  return stalled >= 2 && stalled === live;
+}
+
+/** The fields rejectRelease needs, from a pending row that may predate them. */
+function rejectable(dh: {
+  id: number;
+  mediaId: number | null;
+  episodeId: number | null;
+  torrentHash: string | null;
+  releaseTitle?: string;
+  indexer?: string | null;
+  bookEditionId?: number | null;
+}) {
+  return {
+    id: dh.id,
+    mediaId: dh.mediaId,
+    episodeId: dh.episodeId,
+    bookEditionId: dh.bookEditionId ?? null,
+    torrentHash: dh.torrentHash,
+    releaseTitle: dh.releaseTitle ?? "",
+    indexer: dh.indexer ?? null,
+  };
+}
+
+/**
  * Reconcile a set of pending (non-completed, non-failed) download_history rows
  * against normalized download-client state. If `treatMissingAsFailed` is true,
  * rows whose torrent is absent are marked failed and the library status
@@ -228,6 +313,9 @@ export async function reconcilePendingDownloads(
     episodeId: number | null;
     torrentHash: string | null;
     grabbedAt?: Date | null;
+    releaseTitle?: string;
+    indexer?: string | null;
+    bookEditionId?: number | null;
   }>,
   opts: {
     treatMissingAsFailed?: boolean;
@@ -245,6 +333,9 @@ export async function reconcilePendingDownloads(
      * standing up the DB behind what the outcome then *does*.
      */
     outcome?: DownloadOutcomeHandlers;
+    /** File listing for the blocked-extension check; defaults to the active client. */
+    listFiles?: (hash: string) => Promise<string[] | null>;
+    blockedExtensions?: string[];
   } = {},
 ): Promise<PendingReconcileResult> {
   const state = opts.state ?? pollState;
@@ -258,11 +349,14 @@ export async function reconcilePendingDownloads(
   if (!pending.length) return result;
 
   let listTorrents = opts.listTorrents;
+  let listFiles = opts.listFiles;
   if (!listTorrents) {
     const active = await resolveActiveAdapter();
     if (!active) return result;
     listTorrents = () => active.adapter.listTorrents();
+    listFiles ??= (hash) => active.adapter.listFiles(hash);
   }
+  const blocked = opts.blockedExtensions ?? [];
 
   let torrents: NormalizedTorrent[];
   try {
@@ -282,6 +376,7 @@ export async function reconcilePendingDownloads(
     maxAgeSecs: 604800,
   };
   const nowMs = Date.now();
+  const massStall = isMassStall(pending, torrents, state, nowMs, settings);
 
   for (let dh of pending) {
     try {
@@ -297,6 +392,7 @@ export async function reconcilePendingDownloads(
         // The row is gone from the client either way — stop tracking it, or the
         // map grows for every torrent the user ever removed out-of-band.
         state.stallTracks.delete(dh.id);
+        state.filesChecked.delete(dh.id);
         continue;
       }
 
@@ -307,6 +403,24 @@ export async function reconcilePendingDownloads(
           data: { torrentHash },
         });
         dh = { ...dh, torrentHash };
+      }
+
+      if (blocked.length > 0 && listFiles && !state.filesChecked.has(dh.id)) {
+        const files = await listFiles(match.hash).catch(() => null);
+        if (files) {
+          const bad = findBlockedFile(files, blocked);
+          if (bad) {
+            await outcome.rejectRelease(
+              rejectable(dh),
+              "malware",
+              `blocked file type: ${bad}`,
+            );
+            state.stallTracks.delete(dh.id);
+            result.failed += 1;
+            continue;
+          }
+          state.filesChecked.add(dh.id);
+        }
       }
 
       const track = getOrInitTrack(
@@ -335,8 +449,18 @@ export async function reconcilePendingDownloads(
       }
 
       if (verdict.outcome === "fail") {
-        await outcome.failDownload(dh, verdict.reason);
+        // Everything stalling together is a network outage, not a bad release.
+        if (verdict.failKind === "stalled" && !massStall) {
+          await outcome.rejectRelease(
+            rejectable(dh),
+            "stalled",
+            verdict.reason,
+          );
+        } else {
+          await outcome.failDownload(dh, verdict.reason);
+        }
         state.stallTracks.delete(dh.id);
+        state.filesChecked.delete(dh.id);
         result.failed += 1;
         continue;
       }
@@ -349,6 +473,7 @@ export async function reconcilePendingDownloads(
         : null;
       if (completedId == null) await outcome.completeDownload(dh);
       state.stallTracks.delete(dh.id);
+      state.filesChecked.delete(dh.id);
       result.completed += 1;
     } catch (e) {
       console.warn(
@@ -422,8 +547,12 @@ async function runDownloadCompletionPass(): Promise<void> {
         id: true,
         mediaId: true,
         episodeId: true,
+        // Without bookEditionId a failed book grab never reverted its edition.
+        bookEditionId: true,
         torrentHash: true,
         grabbedAt: true,
+        releaseTitle: true,
+        indexer: true,
       },
       orderBy: { grabbedAt: "asc" },
     }),
@@ -454,6 +583,7 @@ async function runDownloadCompletionPass(): Promise<void> {
       stallTimeoutSecs: settings?.downloadStallTimeoutSecs ?? 2700,
       maxAgeSecs: settings?.downloadMaxAgeSecs ?? 604800,
     },
+    blockedExtensions: settings?.blockedExtensions ?? [],
   });
   const activeSecs = selectActiveCadenceSecs({
     hookLastSeenAt: settings?.downloadHookLastSeenAt ?? null,

@@ -3,7 +3,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import type {
   DownloadProgressItem,
   LibraryDownloadsResponse,
+  SeedingResponse,
+  SeedStateEvent,
+  SeedStateItem,
 } from "@rawkoon/shared/types";
+import { mergeSeedState } from "@/features/seeding/lib/mergeSeedState";
 import { queryKeys } from "@/lib/queryKeys";
 import { mergeDownloadProgress } from "../lib/mergeDownloadProgress";
 
@@ -28,9 +32,11 @@ export function useLibraryEvents() {
       try {
         const payload = JSON.parse(e.data as string) as {
           connected?: boolean;
-          kind?: "media" | "book" | "download-progress";
+          kind?: "media" | "book" | "download-progress" | "seed-state";
           mediaId?: number;
           downloads?: DownloadProgressItem[];
+          torrents?: SeedStateItem[];
+          ts?: number;
         };
         if (payload.connected) {
           queryClient.invalidateQueries({ queryKey: queryKeys.library.all });
@@ -50,6 +56,26 @@ export function useLibraryEvents() {
             queryKeys.library.downloads(payload.mediaId),
             (current) => mergeDownloadProgress(current, downloads),
           );
+          return;
+        }
+
+        if (payload.kind === "seed-state" && payload.torrents) {
+          const event: SeedStateEvent = {
+            kind: "seed-state",
+            ts: payload.ts ?? Date.now(),
+            torrents: payload.torrents,
+          };
+          queryClient.setQueriesData<SeedingResponse>(
+            { queryKey: [...queryKeys.downloads.all, "seeding"] },
+            (current) => mergeSeedState(current, event),
+          );
+          if (payload.torrents.some((i) => i.released)) {
+            queryClient.invalidateQueries({ queryKey: queryKeys.library.all });
+            // Orphan removals push releases too; they are not in the seeding list.
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.downloads.orphans(),
+            });
+          }
           return;
         }
 

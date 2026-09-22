@@ -38,6 +38,7 @@ export const SCHEDULED_JOB_NAMES = {
   CHECK_BOOK_RELEASES: "check-book-releases",
   CHECK_AUTHOR_RELEASES: "check-author-releases",
   SYNC_LOCALIZED_TITLES: "sync-localized-titles",
+  SWEEP_SEEDING_TORRENTS: "sweep-seeding-torrents",
 } as const;
 
 export const NOTIFICATION_JOB_NAMES = {
@@ -334,6 +335,11 @@ export async function setupScheduledJobs() {
       // Daily: Google Books is the rate-limited, flaky dependency here, and a
       // newly published title is not time-critical.
       pattern: "50 4 * * *",
+    },
+    {
+      name: SCHEDULED_JOB_NAMES.SWEEP_SEEDING_TORRENTS,
+      // Offset off the RSS poll's :07/:22/... ticks; both list the client's torrents.
+      pattern: "3-59/15 * * * *",
     },
   ];
 

@@ -153,3 +153,20 @@ export const fetchQbittorrentTorrents = async (
     };
   }
 };
+
+/** Relative paths of a torrent's files; empty while metadata is unresolved. */
+export const fetchQbittorrentTorrentFiles = async (
+  config: QbittorrentIntegrationConfig,
+  hash: string,
+): Promise<string[]> => {
+  const payload = await qbFetchJson<unknown>(
+    config,
+    `/api/v2/torrents/files?hash=${encodeURIComponent(hash.trim())}`,
+  );
+  if (!Array.isArray(payload)) return [];
+  return payload
+    .map((entry) => toRecord(entry)?.name)
+    .filter(
+      (name): name is string => typeof name === "string" && name.length > 0,
+    );
+};

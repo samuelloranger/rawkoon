@@ -1,4 +1,5 @@
 import { basename, extname, join } from "node:path";
+import type { PostProcessFailure } from "@rawkoon/api/services/postProcessFailure";
 import { stat, rm } from "node:fs/promises";
 
 import { prisma } from "@rawkoon/api/db";
@@ -29,6 +30,7 @@ import {
   placeFile,
   qualityStringsFromParsed,
   resolveTorrentContentPath,
+  isFullyReadable,
 } from "@rawkoon/api/services/postProcessorHelpers";
 import {
   parsePartMarker,
@@ -43,6 +45,20 @@ import {
  * Post-process a season pack / intégrale: find all video files under the torrent
  * folder, match each to a LibraryEpisode by SxxExx, hardlink/move to library.
  */
+/**
+ * How a refused pack is handled. A mismatch is the release's fault (reject it:
+ * blocklist and clear it). A tooling failure (MediaInfo, merge) must keep the
+ * torrent's data — it can be the only copy of a split episode's parts.
+ */
+export function packRefusalPolicy(kind: "mismatch" | "tooling"): {
+  rejectKind: "pack_mismatch" | undefined;
+  legacyBlocklist: boolean;
+} {
+  return kind === "mismatch"
+    ? { rejectKind: "pack_mismatch", legacyBlocklist: false }
+    : { rejectKind: undefined, legacyBlocklist: true };
+}
+
 export async function postProcessSeasonPack(
   downloadHistoryId: number,
   dh: {
@@ -64,12 +80,13 @@ export async function postProcessSeasonPack(
     episodeTemplate: string | null;
     fileOperation: string | null;
     minSeedRatio: number;
+    seedSweepEnabled: boolean;
   },
   op: "hardlink" | "move",
   adapter: DownloadClientAdapter,
 ): Promise<
   | { success: true; destinationPath: string; episodeCount: number }
-  | { success: false; reason: string }
+  | PostProcessFailure
 > {
   const hash = dh.torrentHash?.trim();
   if (!hash) return { success: false, reason: "Torrent hash unknown" };
@@ -85,9 +102,23 @@ export async function postProcessSeasonPack(
   if (!contentBase)
     return { success: false, reason: "Could not resolve torrent content path" };
 
-  const allVideos = await listVideoFilesUnder(remapPath(contentBase));
-  if (allVideos.length === 0)
-    return { success: false, reason: "No video files found in torrent folder" };
+  const contentRoot = remapPath(contentBase);
+  const allVideos = await listVideoFilesUnder(contentRoot);
+  if (allVideos.length === 0) {
+    // Only an empty import from a readable tree is the release's fault.
+    if (!(await isFullyReadable(contentRoot))) {
+      return {
+        success: false,
+        reason:
+          "Download content is missing or unreadable — check path mappings and permissions",
+      };
+    }
+    return {
+      success: false,
+      reason: "No video files found in torrent folder",
+      rejectKind: "no_content",
+    };
+  }
 
   const episodes = await prisma.libraryEpisode.findMany({
     where: { mediaId: dh.media.id },
@@ -128,26 +159,33 @@ export async function postProcessSeasonPack(
   const mapping = resolveSeasonPackMapping(parsedSources, episodes);
 
   /**
-   * Abandon the whole pack: record why, blocklist the release, import nothing.
-   *
-   * Without the blocklist the episodes stay "wanted", auto-search finds the
-   * same highest-scoring pack, grabs it, refuses it again, and loops forever.
+   * Abandon the whole pack. Either way it is blocklisted, or auto-search finds
+   * the same pack again and loops; see packRefusalPolicy for what else happens.
    */
-  const refusePack = async (reason: string) => {
+  const refusePack = async (
+    reason: string,
+    kind: "mismatch" | "tooling",
+  ): Promise<PostProcessFailure> => {
+    const policy = packRefusalPolicy(kind);
     await prisma.downloadHistory.update({
       where: { id: downloadHistoryId },
       data: { postProcessError: reason },
     });
-    await prisma.grabBlocklist.create({
-      data: {
-        torrentHash: hash,
-        releaseTitle: dh.releaseTitle,
-        mediaId: dh.media.id,
-        reason,
-      },
-    });
+    if (policy.legacyBlocklist) {
+      await prisma.grabBlocklist.create({
+        data: {
+          torrentHash: hash,
+          releaseTitle: dh.releaseTitle,
+          mediaId: dh.media.id,
+          kind: "import_rejected",
+          reason,
+        },
+      });
+    }
     console.warn(`[postProcess/pack] ${dh.media.title}: ${reason}`);
-    return { success: false as const, reason };
+    return policy.rejectKind
+      ? { success: false, reason, rejectKind: policy.rejectKind }
+      : { success: false, reason };
   };
 
   if (!mapping.ok) {
@@ -162,6 +200,7 @@ export async function postProcessSeasonPack(
           ? ` Unmatched: ${mapping.unmatched.join(", ")}`
           : ""
       }`,
+      "mismatch",
     );
   }
 
@@ -180,11 +219,13 @@ export async function postProcessSeasonPack(
     if (!miA || !miB) {
       return refusePack(
         `Season pack contains a split episode that MediaInfo cannot read — nothing imported. Could not scan "${miA ? b.fileName : a.fileName}".`,
+        "tooling",
       );
     }
     if (!tracksCompatible(miA, miB)) {
       return refusePack(
         `Season pack contains a split episode whose parts are not mergeable — nothing imported. "${a.fileName}" and "${b.fileName}" have different track layouts.`,
+        "mismatch",
       );
     }
   }
@@ -365,6 +406,7 @@ export async function postProcessSeasonPack(
   if (fatalErrors.length > 0) {
     return refusePack(
       `Season pack partially imported but a split episode could not be merged — ${fatalErrors.join("; ")}`,
+      "tooling",
     );
   }
 
@@ -396,7 +438,8 @@ export async function postProcessSeasonPack(
   const ratio = tor.ratio;
   const min = settings.minSeedRatio;
   const shouldRemove = min <= 0 || (ratio != null && ratio >= min);
-  if (shouldRemove) {
+  // Once the seed sweep is on it owns removal, with per-indexer targets.
+  if (shouldRemove && !settings.seedSweepEnabled) {
     await adapter
       .remove(hash, false)
       .catch((error) =>

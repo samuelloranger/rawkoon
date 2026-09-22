@@ -70,6 +70,37 @@ function takeDownloadUrl(token: string): {
   };
 }
 
+const JACKETT_PRIVACY: Record<string, string> = {
+  public: "public",
+  "semi-private": "semiPrivate",
+  private: "private",
+};
+
+/**
+ * Configured indexers from Jackett's torznab t=indexers XML. The <type> element
+ * carries public / semi-private / private; a missing one counts as private.
+ */
+export function parseJackettIndexers(xml: string): NormalizedIndexer[] {
+  const blocks = [
+    ...xml.matchAll(/<indexer id="([^"]+)"[^>]*>([\s\S]*?)<\/indexer>/g),
+  ];
+  const indexers: NormalizedIndexer[] = [];
+  for (const [, slug, body] of blocks) {
+    const title = body.match(/<title>([^<]+)<\/title>/)?.[1];
+    if (!title) continue;
+    const type = body.match(/<type>([^<]+)<\/type>/)?.[1]?.trim() ?? "";
+    indexers.push({
+      id: indexers.length,
+      slug,
+      name: title,
+      protocol: "torrent",
+      enabled: true,
+      privacy: JACKETT_PRIVACY[type] ?? "private",
+    });
+  }
+  return indexers.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export class JackettAdapter implements IndexerManagerAdapter {
   readonly name = "jackett" as const;
   private readonly config: IndexerIntegrationConfig;
@@ -212,25 +243,7 @@ export class JackettAdapter implements IndexerManagerAdapter {
     const text = await res.text().catch(() => null);
     if (!text) return [];
 
-    const matches = [
-      ...text.matchAll(
-        /<indexer id="([^"]+)"[^>]*>\s*<title>([^<]+)<\/title>/g,
-      ),
-    ];
-    if (matches.length === 0) return [];
-
-    const indexers: NormalizedIndexer[] = matches.map((m, idx) => ({
-      id: idx,
-      slug: m[1],
-      name: m[2],
-      protocol: "torrent",
-      enabled: true,
-      privacy: "private",
-    }));
-
-    indexers.sort((a, b) => a.name.localeCompare(b.name));
-
-    return indexers;
+    return parseJackettIndexers(text);
   }
 
   async fetchRss(

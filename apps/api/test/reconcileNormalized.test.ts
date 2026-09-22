@@ -16,6 +16,9 @@ const base: NormalizedTorrent = {
   seeds: 1,
   peers: 1,
   dlSpeed: 1,
+  upSpeed: 0,
+  seedingTimeSecs: null,
+  category: null,
   sizeBytes: 10,
   labels: [],
   ratio: null,
@@ -54,6 +57,7 @@ describe("classifyPendingAgainstTorrent", () => {
     ).toEqual({
       outcome: "fail",
       reason: "download client reported error state",
+      failKind: "error",
     });
     expect(
       classifyPendingAgainstTorrent(
@@ -79,6 +83,61 @@ describe("classifyPendingAgainstTorrent", () => {
         settings,
       ).outcome,
     ).toBe("fail");
+  });
+
+  it("tags stall and max-age failures as stalled, so they get blocklisted", () => {
+    const stalled = classifyPendingAgainstTorrent(
+      { ...base, state: "stalled" },
+      {
+        createdAtMs: now - 500_000,
+        lastProgress: 0.5,
+        lastProgressAtMs: now - 200_000,
+      },
+      now,
+      settings,
+    );
+    expect(stalled).toMatchObject({ outcome: "fail", failKind: "stalled" });
+    const aged = classifyPendingAgainstTorrent(
+      { ...base, progress: 0.9 },
+      {
+        createdAtMs: now - 2_000_000,
+        lastProgress: 0.9,
+        lastProgressAtMs: now - 10_000,
+      },
+      now,
+      settings,
+    );
+    expect(aged).toMatchObject({ outcome: "fail", failKind: "stalled" });
+  });
+
+  it("completes a finished torrent even when it is past max age", () => {
+    expect(
+      classifyPendingAgainstTorrent(
+        { ...base, state: "completed", progress: 1 },
+        {
+          createdAtMs: now - 2_000_000,
+          lastProgress: 0.9,
+          lastProgressAtMs: now - 10_000,
+        },
+        now,
+        settings,
+      ),
+    ).toEqual({ outcome: "complete" });
+  });
+
+  it("only fails, never condemns, a paused torrent past max age", () => {
+    expect(
+      classifyPendingAgainstTorrent(
+        { ...base, state: "paused" },
+        {
+          createdAtMs: now - 2_000_000,
+          lastProgress: 0.5,
+          lastProgressAtMs: now - 10_000,
+        },
+        now,
+        settings,
+      ),
+    ).toMatchObject({ outcome: "fail", failKind: "error" });
   });
 
   it("tracks real progress and times out a non-progressing download", () => {

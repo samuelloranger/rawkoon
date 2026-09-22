@@ -11,19 +11,29 @@ export function useRemoveFromLibrary() {
     mutationFn: ({
       id,
       deleteFiles,
+      releaseTorrents,
     }: {
       id: number;
       deleteFiles?: boolean;
+      releaseTorrents?: boolean;
     }) => {
-      const url = deleteFiles
-        ? `${LIBRARY_ENDPOINTS.REMOVE(id)}?delete_files=true`
-        : LIBRARY_ENDPOINTS.REMOVE(id);
-      return fetcher<{ success: boolean }>(url, { method: "DELETE" });
+      const params = new URLSearchParams();
+      if (deleteFiles) params.set("delete_files", "true");
+      if (releaseTorrents) params.set("release_torrents", "true");
+      const qs = params.toString();
+      return fetcher<{ success: boolean; released?: number }>(
+        qs
+          ? `${LIBRARY_ENDPOINTS.REMOVE(id)}?${qs}`
+          : LIBRARY_ENDPOINTS.REMOVE(id),
+        { method: "DELETE" },
+      );
     },
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.library.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.medias.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.downloads.all });
     },
   });
 }

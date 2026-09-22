@@ -27,6 +27,8 @@ const TORRENT_FIELDS = [
   "isStalled",
   "labels",
   "uploadRatio",
+  "rateUpload",
+  "secondsSeeding",
 ];
 
 export function transmissionRowToNormalized(
@@ -48,6 +50,10 @@ export function transmissionRowToNormalized(
     seeds: num(raw.peersSendingToUs),
     peers: num(raw.peersConnected),
     dlSpeed: num(raw.rateDownload),
+    upSpeed: num(raw.rateUpload),
+    seedingTimeSecs:
+      typeof raw.secondsSeeding === "number" ? raw.secondsSeeding : null,
+    category: null,
     sizeBytes: num(raw.sizeWhenDone),
     labels: Array.isArray(raw.labels)
       ? raw.labels.filter((label): label is string => typeof label === "string")
@@ -166,6 +172,16 @@ export function createTransmissionAdapter(
       );
       const row = result.torrents?.[0];
       return row ? transmissionRowToNormalized(row) : null;
+    },
+
+    async listFiles(hash: string) {
+      const result = await rpc<{
+        torrents: Array<{ files?: Array<{ name?: unknown }> }>;
+      }>("torrent-get", { fields: ["files"], ids: [hash] });
+      const names = (result.torrents?.[0]?.files ?? [])
+        .map((f) => f.name)
+        .filter((n): n is string => typeof n === "string" && n.length > 0);
+      return names.length > 0 ? names : null;
     },
 
     async pause(hash: string) {

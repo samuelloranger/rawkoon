@@ -20,6 +20,12 @@ export interface NormalizedTorrent {
   peers: number;
   /** bytes/s */
   dlSpeed: number;
+  /** bytes/s */
+  upSpeed: number;
+  /** Seconds spent seeding since completion; null when the client does not report it. */
+  seedingTimeSecs: number | null;
+  /** qBittorrent category; null for clients without categories. */
+  category: string | null;
   sizeBytes: number;
   labels: string[];
   ratio: number | null;
@@ -48,6 +54,8 @@ export interface DownloadClientAdapter {
   ): Promise<{ hash: string | null; duplicate?: boolean }>;
   listTorrents(): Promise<NormalizedTorrent[]>;
   getTorrent(hash: string): Promise<NormalizedTorrent | null>;
+  /** Relative file paths, or null while the torrent's metadata is still unknown. */
+  listFiles(hash: string): Promise<string[] | null>;
   pause(hash: string): Promise<void>;
   resume(hash: string): Promise<void>;
   remove(hash: string, deleteData: boolean): Promise<void>;
