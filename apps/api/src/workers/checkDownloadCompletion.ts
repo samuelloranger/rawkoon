@@ -232,6 +232,52 @@ function getOrInitTrack(
   return track;
 }
 
+/**
+ * True when at least two live downloads all hit the stall timeout in the same
+ * pass — the signature of a VPN or network drop rather than dead releases.
+ */
+function isMassStall(
+  pending: Array<{
+    id: number;
+    torrentHash: string | null;
+    grabbedAt?: Date | null;
+  }>,
+  torrents: NormalizedTorrent[],
+  state: ReconcileState,
+  nowMs: number,
+  settings: ReconcileSettings,
+): boolean {
+  let live = 0;
+  let stalled = 0;
+  for (const dh of pending) {
+    const match = findPendingTorrent(torrents, dh.id, dh.torrentHash);
+    if (!match || match.state === "paused") continue;
+    const track = getOrInitTrack(
+      state,
+      dh.id,
+      dh.grabbedAt?.getTime() ?? nowMs,
+      match.progress,
+      nowMs,
+    );
+    const verdict = classifyPendingAgainstTorrent(
+      match,
+      track,
+      nowMs,
+      settings,
+    );
+    if (verdict.outcome === "complete") continue;
+    live += 1;
+    if (
+      verdict.outcome === "fail" &&
+      verdict.failKind === "stalled" &&
+      verdict.reason !== "exceeded max age with no completion"
+    ) {
+      stalled += 1;
+    }
+  }
+  return stalled >= 2 && stalled === live;
+}
+
 /** The fields rejectRelease needs, from a pending row that may predate them. */
 function rejectable(dh: {
   id: number;
@@ -330,6 +376,7 @@ export async function reconcilePendingDownloads(
     maxAgeSecs: 604800,
   };
   const nowMs = Date.now();
+  const massStall = isMassStall(pending, torrents, state, nowMs, settings);
 
   for (let dh of pending) {
     try {
@@ -402,7 +449,8 @@ export async function reconcilePendingDownloads(
       }
 
       if (verdict.outcome === "fail") {
-        if (verdict.failKind === "stalled") {
+        // Everything stalling together is a network outage, not a bad release.
+        if (verdict.failKind === "stalled" && !massStall) {
           await outcome.rejectRelease(
             rejectable(dh),
             "stalled",

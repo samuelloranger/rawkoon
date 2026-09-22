@@ -123,6 +123,58 @@ describe("reconcilePendingDownloads", () => {
     ]);
   });
 
+  it("falls back to a plain fail when every live download stalls at once (network outage)", async () => {
+    const H2 = "c".repeat(40);
+    const reconcileState = createReconcileState();
+    const longAgo = Date.now() - 10_000;
+    reconcileState.stallTracks.set(1, {
+      createdAtMs: longAgo,
+      lastProgress: 0.1,
+      lastProgressAtMs: longAgo - 120_000,
+    });
+    reconcileState.stallTracks.set(2, {
+      createdAtMs: longAgo,
+      lastProgress: 0.1,
+      lastProgressAtMs: longAgo - 120_000,
+    });
+    state.torrents = [
+      torrent({ state: "stalled", progress: 0.1 }),
+      torrent({ hash: H2, state: "stalled", progress: 0.1 }),
+    ];
+    await reconcilePendingDownloads(
+      [pendingRow, { ...pendingRow, id: 2, torrentHash: H2 }],
+      { settings, state: reconcileState, listTorrents, outcome },
+    );
+    expect(state.rejected).toEqual([]);
+    expect(state.failed.map((f) => f.id).sort()).toEqual([1, 2]);
+  });
+
+  it("still rejects a lone stalled release while others make progress", async () => {
+    const H2 = "c".repeat(40);
+    const reconcileState = createReconcileState();
+    const longAgo = Date.now() - 10_000;
+    reconcileState.stallTracks.set(1, {
+      createdAtMs: longAgo,
+      lastProgress: 0.1,
+      lastProgressAtMs: longAgo - 120_000,
+    });
+    reconcileState.stallTracks.set(2, {
+      createdAtMs: longAgo,
+      lastProgress: 0.1,
+      lastProgressAtMs: longAgo,
+    });
+    state.torrents = [
+      torrent({ state: "stalled", progress: 0.1 }),
+      torrent({ hash: H2, state: "downloading", progress: 0.6 }),
+    ];
+    await reconcilePendingDownloads(
+      [pendingRow, { ...pendingRow, id: 2, torrentHash: H2 }],
+      { settings, state: reconcileState, listTorrents, outcome },
+    );
+    expect(state.rejected.map((r) => r.id)).toEqual([1]);
+    expect(state.failed).toEqual([]);
+  });
+
   it("rejects a torrent carrying a blocked file before completing it", async () => {
     state.torrents = [torrent({ state: "completed", progress: 1 })];
     const result = await reconcilePendingDownloads([pendingRow], {

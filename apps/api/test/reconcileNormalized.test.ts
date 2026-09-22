@@ -114,7 +114,11 @@ describe("classifyPendingAgainstTorrent", () => {
     expect(
       classifyPendingAgainstTorrent(
         { ...base, state: "completed", progress: 1 },
-        { createdAtMs: now - 2_000_000, lastProgress: 0.9, lastProgressAtMs: now - 10_000 },
+        {
+          createdAtMs: now - 2_000_000,
+          lastProgress: 0.9,
+          lastProgressAtMs: now - 10_000,
+        },
         now,
         settings,
       ),
@@ -125,7 +129,11 @@ describe("classifyPendingAgainstTorrent", () => {
     expect(
       classifyPendingAgainstTorrent(
         { ...base, state: "paused" },
-        { createdAtMs: now - 2_000_000, lastProgress: 0.5, lastProgressAtMs: now - 10_000 },
+        {
+          createdAtMs: now - 2_000_000,
+          lastProgress: 0.5,
+          lastProgressAtMs: now - 10_000,
+        },
         now,
         settings,
       ),
