@@ -1,4 +1,5 @@
 import { basename, extname, join } from "node:path";
+import type { PostProcessFailure } from "@rawkoon/api/services/postProcessFailure";
 import { stat, unlink } from "node:fs/promises";
 
 import { prisma } from "@rawkoon/api/db";
@@ -44,7 +45,7 @@ export async function postProcess(downloadHistoryId: number): Promise<
       skipped?: boolean;
       skipReason?: string;
     }
-  | { success: false; reason: string }
+  | PostProcessFailure
 > {
   const [dh, settings] = await Promise.all([
     prisma.downloadHistory.findUnique({
@@ -186,7 +187,11 @@ export async function postProcess(downloadHistoryId: number): Promise<
 
   const srcVideo = await findVideoFile(remapPath(contentBase));
   if (!srcVideo) {
-    return { success: false, reason: "No video file found" };
+    return {
+      success: false,
+      reason: "No video file found",
+      rejectKind: "no_content",
+    };
   }
 
   const ext = extname(srcVideo) || ".mkv";
@@ -388,7 +393,8 @@ export async function postProcess(downloadHistoryId: number): Promise<
   const ratio = tor.ratio;
   const min = settings.minSeedRatio;
   const shouldRemove = min <= 0 || (ratio != null && ratio >= min);
-  if (shouldRemove) {
+  // Once the seed sweep is on it owns removal, with per-indexer targets.
+  if (shouldRemove && !settings.seedSweepEnabled) {
     await active.adapter
       .remove(hash, false)
       .catch((error) =>

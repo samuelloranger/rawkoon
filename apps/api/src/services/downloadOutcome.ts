@@ -4,6 +4,7 @@ import { triggerJellyfinLibraryScan } from "@rawkoon/api/services/jellyfinLibrar
 import { notifyRequestAvailable } from "@rawkoon/api/services/mediaRequests";
 import { postProcess } from "@rawkoon/api/services/postProcessorSingle";
 import { postProcessBookDownload } from "@rawkoon/api/services/postProcessorBook";
+import type { PostProcessFailure } from "@rawkoon/api/services/postProcessFailure";
 import { emitBookUpdate } from "@rawkoon/api/services/libraryEvents";
 import { resolveDownloadedStatus } from "@rawkoon/api/utils/medias/libraryHelpers";
 import { notifyAdminsMediaDownloaded } from "@rawkoon/api/workers/notifyMediaDownloaded";
@@ -367,7 +368,29 @@ export type PostProcessOutcome =
       skipped?: boolean;
       skipReason?: string;
     }
-  | { success: false; reason: string };
+  | PostProcessFailure;
+
+function rejectableFrom(
+  id: number,
+  dh: {
+    mediaId: number | null;
+    episodeId: number | null;
+    bookEditionId: number | null;
+    torrentHash: string | null;
+    releaseTitle: string;
+    indexer: string | null;
+  },
+) {
+  return {
+    id,
+    mediaId: dh.mediaId,
+    episodeId: dh.episodeId,
+    bookEditionId: dh.bookEditionId,
+    torrentHash: dh.torrentHash,
+    releaseTitle: dh.releaseTitle,
+    indexer: dh.indexer,
+  };
+}
 
 /**
  * The post-process job body: place the download into the library, then record
@@ -392,6 +415,9 @@ export async function finishPostProcess(
         season: true,
         bookEditionId: true,
         isUpgrade: true,
+        torrentHash: true,
+        releaseTitle: true,
+        indexer: true,
       },
     });
     mediaId = dh?.mediaId;
@@ -399,6 +425,43 @@ export async function finishPostProcess(
     episodeId = dh?.episodeId;
     const season = dh?.season;
     const isUpgrade = dh?.isUpgrade ?? false;
+
+    if (dh?.torrentHash) {
+      const [
+        { findBlockedFileInTorrent, rejectRelease },
+        { resolveActiveAdapter },
+      ] = await Promise.all([
+        import("@rawkoon/api/services/downloadJanitor"),
+        import("@rawkoon/api/services/downloadClient/registry"),
+      ]);
+      const [active, blockSettings] = await Promise.all([
+        resolveActiveAdapter(),
+        prisma.mediaSettings.findUnique({
+          where: { id: 1 },
+          select: { blockedExtensions: true },
+        }),
+      ]);
+      const bad = active
+        ? await findBlockedFileInTorrent(
+            dh.torrentHash,
+            blockSettings?.blockedExtensions ?? [],
+            active.adapter,
+          )
+        : null;
+      if (bad) {
+        const reason = `blocked file type: ${bad}`;
+        await prisma.downloadHistory.update({
+          where: { id: downloadHistoryId },
+          data: { postProcessError: reason },
+        });
+        await rejectRelease(
+          rejectableFrom(downloadHistoryId, dh),
+          "malware",
+          reason,
+        );
+        return { success: false, reason };
+      }
+    }
 
     // A row is either a media grab or a book grab (enforced by
     // ck_download_history_single_target), so the foreign key IS the dispatch.
@@ -412,6 +475,24 @@ export async function finishPostProcess(
         where: { id: downloadHistoryId },
         data: { postProcessError: result.reason },
       });
+      if (result.rejectKind && dh) {
+        const { rejectRelease } = await import(
+          "@rawkoon/api/services/downloadJanitor"
+        );
+        // rejectRelease → failDownload already notifies admins for media rows.
+        await rejectRelease(
+          rejectableFrom(downloadHistoryId, dh),
+          "import_rejected",
+          result.reason,
+        );
+        if (bookEditionId != null) {
+          const { notifyAdminsBookImportFailed } = await import(
+            "@rawkoon/api/workers/notifyBookEvents"
+          );
+          await notifyAdminsBookImportFailed(bookEditionId, result.reason);
+        }
+        return result;
+      }
       if (mediaId != null) emitLibraryUpdate(mediaId);
       if (bookEditionId != null) {
         const { notifyAdminsBookImportFailed } = await import(
@@ -459,6 +540,17 @@ export async function finishPostProcess(
         "@rawkoon/api/workers/notifyBookEvents"
       );
       await notifyAdminsBookDownloaded(bookEditionId);
+    }
+    if (dh?.torrentHash) {
+      const { evaluateSeedRelease } = await import(
+        "@rawkoon/api/services/seeding/seedSweep"
+      );
+      await evaluateSeedRelease(dh.torrentHash).catch((e) =>
+        console.warn(
+          `[downloadOutcome] seed release check failed dh=${downloadHistoryId}:`,
+          e,
+        ),
+      );
     }
     await triggerJellyfinLibraryScan();
     return result;

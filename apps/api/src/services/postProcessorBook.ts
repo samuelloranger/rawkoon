@@ -1,4 +1,5 @@
 import { mkdir, readdir, stat, unlink } from "node:fs/promises";
+import type { PostProcessFailure } from "@rawkoon/api/services/postProcessFailure";
 import { sha256File } from "@rawkoon/api/utils/books/fileHash";
 import { basename, dirname, extname, join } from "node:path";
 
@@ -149,6 +150,8 @@ export interface BookImportResult {
   destinationPath: string | null;
   skipped: string[];
   error?: string;
+  /** Set when the download itself holds nothing importable (blocklist it). */
+  rejectKind?: "no_content";
 }
 
 /**
@@ -217,6 +220,7 @@ export async function postProcessBook(opts: {
       destinationPath: null,
       skipped: [],
       error: "No files found in completed download",
+      rejectKind: "no_content",
     };
   }
 
@@ -258,6 +262,7 @@ export async function postProcessBook(opts: {
       destinationPath: null,
       skipped,
       error: "No importable files in completed download",
+      rejectKind: "no_content",
     };
   }
 
@@ -456,7 +461,7 @@ export async function postProcessBookDownload(
       skipped?: boolean;
       skipReason?: string;
     }
-  | { success: false; reason: string }
+  | PostProcessFailure
 > {
   const [dh, settings] = await Promise.all([
     prisma.downloadHistory.findUnique({
@@ -589,6 +594,7 @@ export async function postProcessBookDownload(
     return {
       success: false,
       reason: result.error ?? "Import produced no files",
+      ...(result.rejectKind ? { rejectKind: result.rejectKind } : {}),
     };
   }
   if (result.skipped.length > 0) {

@@ -1,4 +1,5 @@
 import { basename, extname, join } from "node:path";
+import type { PostProcessFailure } from "@rawkoon/api/services/postProcessFailure";
 import { stat, rm } from "node:fs/promises";
 
 import { prisma } from "@rawkoon/api/db";
@@ -64,12 +65,13 @@ export async function postProcessSeasonPack(
     episodeTemplate: string | null;
     fileOperation: string | null;
     minSeedRatio: number;
+    seedSweepEnabled: boolean;
   },
   op: "hardlink" | "move",
   adapter: DownloadClientAdapter,
 ): Promise<
   | { success: true; destinationPath: string; episodeCount: number }
-  | { success: false; reason: string }
+  | PostProcessFailure
 > {
   const hash = dh.torrentHash?.trim();
   if (!hash) return { success: false, reason: "Torrent hash unknown" };
@@ -87,7 +89,11 @@ export async function postProcessSeasonPack(
 
   const allVideos = await listVideoFilesUnder(remapPath(contentBase));
   if (allVideos.length === 0)
-    return { success: false, reason: "No video files found in torrent folder" };
+    return {
+      success: false,
+      reason: "No video files found in torrent folder",
+      rejectKind: "no_content",
+    };
 
   const episodes = await prisma.libraryEpisode.findMany({
     where: { mediaId: dh.media.id },
@@ -128,26 +134,21 @@ export async function postProcessSeasonPack(
   const mapping = resolveSeasonPackMapping(parsedSources, episodes);
 
   /**
-   * Abandon the whole pack: record why, blocklist the release, import nothing.
-   *
-   * Without the blocklist the episodes stay "wanted", auto-search finds the
-   * same highest-scoring pack, grabs it, refuses it again, and loops forever.
+   * Abandon the whole pack: record why and return a pack_mismatch reject;
+   * finishPostProcess blocklists it through rejectRelease so auto-search does
+   * not loop on the same pack.
    */
   const refusePack = async (reason: string) => {
     await prisma.downloadHistory.update({
       where: { id: downloadHistoryId },
       data: { postProcessError: reason },
     });
-    await prisma.grabBlocklist.create({
-      data: {
-        torrentHash: hash,
-        releaseTitle: dh.releaseTitle,
-        mediaId: dh.media.id,
-        reason,
-      },
-    });
     console.warn(`[postProcess/pack] ${dh.media.title}: ${reason}`);
-    return { success: false as const, reason };
+    return {
+      success: false as const,
+      reason,
+      rejectKind: "pack_mismatch" as const,
+    };
   };
 
   if (!mapping.ok) {
@@ -396,7 +397,8 @@ export async function postProcessSeasonPack(
   const ratio = tor.ratio;
   const min = settings.minSeedRatio;
   const shouldRemove = min <= 0 || (ratio != null && ratio >= min);
-  if (shouldRemove) {
+  // Once the seed sweep is on it owns removal, with per-indexer targets.
+  if (shouldRemove && !settings.seedSweepEnabled) {
     await adapter
       .remove(hash, false)
       .catch((error) =>

@@ -28,6 +28,7 @@ mock.module("@rawkoon/api/db", () => ({
         return { id: 1 };
       },
     },
+    mediaSettings: { findUnique: async () => null },
   },
 }));
 
@@ -50,6 +51,18 @@ mock.module("@rawkoon/api/services/postProcessorBook", () => ({
 mock.module("@rawkoon/api/services/libraryEvents", () => ({
   emitLibraryUpdate: () => {},
   emitBookUpdate: () => {},
+  emitSeedState: () => {},
+}));
+
+mock.module("@rawkoon/api/services/seeding/seedSweep", () => ({
+  evaluateSeedRelease: async () => {},
+}));
+mock.module("@rawkoon/api/services/downloadJanitor", () => ({
+  rejectRelease: async () => {},
+  findBlockedFileInTorrent: async () => null,
+}));
+mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
+  resolveActiveAdapter: async () => null,
 }));
 
 mock.module("@rawkoon/api/services/jellyfinLibraryRefresh", () => ({
