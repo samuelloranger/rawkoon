@@ -177,6 +177,15 @@ describe("ownership and orphans", () => {
     expect(sharesContentPath(a, [a, b])).toBe(true);
     expect(sharesContentPath(a, [a])).toBe(false);
   });
+  it("treats a torrent nested inside another's folder as sharing data, at path boundaries only", () => {
+    const pack = torrent({ hash: "a".repeat(40), contentPath: "/dl/Show.S01" });
+    const episode = torrent({ hash: "b".repeat(40), contentPath: "/dl/Show.S01/Show.S01E02.mkv" });
+    const lookalike = torrent({ hash: "c".repeat(40), contentPath: "/dl/Show.S01.Extras" });
+    expect(sharesContentPath(pack, [pack, episode])).toBe(true);
+    expect(sharesContentPath(episode, [pack, episode])).toBe(true);
+    expect(sharesContentPath(pack, [pack, lookalike])).toBe(false);
+  });
+
   it("classifies orphans case-insensitively and ignores foreign torrents", () => {
     const owned = torrent({ hash: "A".repeat(40) });
     const orphan = torrent({ hash: "c".repeat(40) });

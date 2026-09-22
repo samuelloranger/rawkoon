@@ -179,11 +179,16 @@ export function sharesContentPath(
   if (!t.contentPath) return false;
   const mine = normPath(t.contentPath);
   const hash = t.hash.toLowerCase();
+  // Equal, or one inside the other at a path-segment boundary (a cross-seed inside a pack folder).
+  const overlaps = (other: string) =>
+    other === mine ||
+    other.startsWith(`${mine}/`) ||
+    mine.startsWith(`${other}/`);
   return all.some(
     (o) =>
       o.hash.toLowerCase() !== hash &&
       o.contentPath != null &&
-      normPath(o.contentPath) === mine,
+      overlaps(normPath(o.contentPath)),
   );
 }
 
