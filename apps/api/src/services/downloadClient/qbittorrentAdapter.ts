@@ -12,6 +12,7 @@ import {
   pauseQbittorrentTorrent,
   resumeQbittorrentTorrent,
 } from "@rawkoon/api/services/qbittorrent/torrentMutations";
+import { fetchQbittorrentTorrentFiles } from "@rawkoon/api/services/qbittorrent/torrentQueries";
 import { normalizeQbState } from "./stateNormalize";
 import {
   type AddTorrentInput,
@@ -40,6 +41,10 @@ export function qbRawToNormalized(
     seeds: num(raw.num_seeds),
     peers: num(raw.num_leechs),
     dlSpeed: num(raw.dlspeed),
+    upSpeed: num(raw.upspeed),
+    seedingTimeSecs:
+      typeof raw.seeding_time === "number" ? raw.seeding_time : null,
+    category: str(raw.category) || null,
     sizeBytes: num(raw.size),
     labels: str(raw.tags)
       .split(",")
@@ -112,6 +117,11 @@ export function createQbittorrentAdapter(
         if (key.toLowerCase() === wanted) return qbRawToNormalized(key, raw);
       }
       return null;
+    },
+
+    async listFiles(hash: string) {
+      const files = await fetchQbittorrentTorrentFiles(config, hash);
+      return files.length > 0 ? files : null;
     },
 
     async pause(hash: string) {

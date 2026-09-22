@@ -24,6 +24,8 @@ const STATUS_FIELDS = [
   "total_wanted",
   "label",
   "ratio",
+  "upload_payload_rate",
+  "seeding_time",
 ];
 
 export function delugeRowToNormalized(
@@ -42,6 +44,10 @@ export function delugeRowToNormalized(
     seeds: num(raw.num_seeds),
     peers: num(raw.num_peers),
     dlSpeed: num(raw.download_payload_rate),
+    upSpeed: num(raw.upload_payload_rate),
+    seedingTimeSecs:
+      typeof raw.seeding_time === "number" ? raw.seeding_time : null,
+    category: null,
     sizeBytes: num(raw.total_wanted),
     labels: str(raw.label) ? [str(raw.label)] : [],
     ratio: typeof raw.ratio === "number" ? raw.ratio : null,
@@ -175,6 +181,17 @@ export function createDelugeAdapter(
       return result && Object.keys(result).length
         ? delugeRowToNormalized(hash, result)
         : null;
+    },
+
+    async listFiles(hash: string) {
+      const status = await call<{ files?: Array<{ path?: unknown }> }>(
+        "core.get_torrent_status",
+        [hash, ["files"]],
+      );
+      const paths = (status?.files ?? [])
+        .map((f) => f.path)
+        .filter((p): p is string => typeof p === "string" && p.length > 0);
+      return paths.length > 0 ? paths : null;
     },
 
     async pause(hash: string) {
