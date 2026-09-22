@@ -1,7 +1,21 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
+const DH = {
+  mediaId: 42 as number | null,
+  episodeId: null as number | null,
+  season: null,
+  bookEditionId: null as number | null,
+  isUpgrade: false,
+  torrentHash: "ab".repeat(20),
+  releaseTitle: "Some.Release",
+  indexer: "Nimbus",
+};
+
 const state = {
+  dh: { ...DH },
   rejected: [] as Array<{ id: number; kind: string; reason: string }>,
+  reverted: [] as Array<{ model: string; data: unknown }>,
+  processed: 0,
   postProcessFailedCalls: 0,
   evaluated: [] as string[],
   files: null as string[] | null,
@@ -12,26 +26,28 @@ const state = {
   } as Record<string, unknown>,
 };
 
+const revert = (model: string) => async (args: { data: unknown }) => {
+  state.reverted.push({ model, data: args.data });
+  return { count: 1 };
+};
+
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
     downloadHistory: {
-      findUnique: async () => ({
-        mediaId: 42,
-        episodeId: null,
-        season: null,
-        bookEditionId: null,
-        isUpgrade: false,
-        torrentHash: "ab".repeat(20),
-        releaseTitle: "Some.Release",
-        indexer: "Nimbus",
-      }),
+      findUnique: async () => state.dh,
       update: async () => ({ id: 1 }),
     },
     mediaSettings: { findUnique: async () => ({ blockedExtensions: ["exe"] }) },
+    libraryMedia: { updateMany: revert("media") },
+    libraryEpisode: { updateMany: revert("episode") },
+    bookEdition: { updateMany: revert("edition") },
   },
 }));
 mock.module("@rawkoon/api/services/postProcessorSingle", () => ({
-  postProcess: async () => state.result,
+  postProcess: async () => {
+    state.processed += 1;
+    return state.result;
+  },
 }));
 mock.module("@rawkoon/api/services/postProcessorBook", () => ({
   postProcessBookDownload: async () => ({ success: false, reason: "unused" }),
@@ -85,7 +101,10 @@ const { finishPostProcess } = await import(
 );
 
 beforeEach(() => {
+  state.dh = { ...DH };
   state.rejected = [];
+  state.reverted = [];
+  state.processed = 0;
   state.postProcessFailedCalls = 0;
   state.evaluated = [];
   state.files = ["Some/Some.mkv"];
@@ -104,6 +123,7 @@ describe("finishPostProcess rejects", () => {
     ]);
     expect(state.postProcessFailedCalls).toBe(0);
   });
+
   it("keeps environmental failures retryable", async () => {
     state.result = {
       success: false,
@@ -113,15 +133,40 @@ describe("finishPostProcess rejects", () => {
     expect(state.rejected).toEqual([]);
     expect(state.postProcessFailedCalls).toBe(1);
   });
+
   it("rejects a blocked file before importing anything", async () => {
     state.files = ["Some/Some.mkv", "Some/setup.exe"];
     const out = await finishPostProcess(1);
     expect(out.success).toBe(false);
     expect(state.rejected[0]).toMatchObject({ kind: "malware" });
   });
+
   it("evaluates the seed release after a successful import", async () => {
     state.result = { success: true, destinationPath: "/m/Some.mkv" };
     await finishPostProcess(1);
     expect(state.evaluated).toEqual(["ab".repeat(20)]);
+  });
+
+  it("sends a rejected, non-upgrade title back to wanted so search moves on", async () => {
+    await finishPostProcess(1);
+    expect(state.reverted).toContainEqual({
+      model: "media",
+      data: { status: "wanted" },
+    });
+  });
+
+  it("leaves an upgrade's title alone — its old file is still there", async () => {
+    state.dh = { ...DH, isUpgrade: true };
+    await finishPostProcess(1);
+    expect(state.reverted).toEqual([]);
+  });
+
+  it("skips a row whose library item was removed, without notifying", async () => {
+    state.dh = { ...DH, mediaId: null };
+    const out = await finishPostProcess(1);
+    expect(out.success).toBe(true);
+    expect(state.processed).toBe(0);
+    expect(state.postProcessFailedCalls).toBe(0);
+    expect(state.rejected).toEqual([]);
   });
 });

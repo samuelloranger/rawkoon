@@ -379,6 +379,46 @@ export type PostProcessOutcome =
     }
   | PostProcessFailure;
 
+/**
+ * Completion already marked the title downloaded; a rejected import left no
+ * file, so send it back to wanted for search to pick another release. An
+ * upgrade keeps its status — the file it was replacing is still there.
+ */
+async function revertRejectedImport(
+  dh: {
+    mediaId: number | null;
+    episodeId: number | null;
+    bookEditionId: number | null;
+  },
+  isUpgrade: boolean,
+): Promise<void> {
+  if (isUpgrade) return;
+  if (dh.bookEditionId != null) {
+    await prisma.bookEdition.updateMany({
+      where: { id: dh.bookEditionId, status: "downloaded" },
+      data: { status: "wanted" },
+    });
+    return;
+  }
+  if (dh.episodeId != null) {
+    await prisma.libraryEpisode.updateMany({
+      where: { id: dh.episodeId, status: "downloaded" },
+      data: { status: "wanted" },
+    });
+    return;
+  }
+  // Movie or season pack: undo exactly the statuses the completion transition writes.
+  if (dh.mediaId != null) {
+    await prisma.libraryMedia.updateMany({
+      where: {
+        id: dh.mediaId,
+        status: { in: ["downloaded", "returning", "in_production", "planned"] },
+      },
+      data: { status: "wanted" },
+    });
+  }
+}
+
 function rejectableFrom(
   id: number,
   dh: {
@@ -435,6 +475,16 @@ export async function finishPostProcess(
     const season = dh?.season;
     const isUpgrade = dh?.isUpgrade ?? false;
 
+    // Its library item was removed: the row only seeds now, there is nothing to import.
+    if (dh && dh.mediaId == null && dh.bookEditionId == null) {
+      return {
+        success: true,
+        destinationPath: "",
+        skipped: true,
+        skipReason: "library-item-removed",
+      };
+    }
+
     if (dh?.torrentHash) {
       const [
         { findBlockedFileInTorrent, rejectRelease },
@@ -468,6 +518,7 @@ export async function finishPostProcess(
           "malware",
           reason,
         );
+        await revertRejectedImport(dh, isUpgrade);
         return { success: false, reason };
       }
     }
@@ -494,6 +545,7 @@ export async function finishPostProcess(
           "import_rejected",
           result.reason,
         );
+        await revertRejectedImport(dh, isUpgrade);
         if (bookEditionId != null) {
           const { notifyAdminsBookImportFailed } = await import(
             "@rawkoon/api/workers/notifyBookEvents"
