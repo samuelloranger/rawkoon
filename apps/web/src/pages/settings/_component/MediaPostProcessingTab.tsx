@@ -3,6 +3,8 @@ import { Loader } from "@/components/Loader";
 import { useMediaPostProcessingSettings } from "@/features/medias/hooks/useMediaPostProcessingSettings";
 import { useQualityProfilesList } from "@/pages/settings/useQualityProfiles";
 import { MediaPostProcessingSettingsBody } from "./MediaPostProcessingSettingsBody";
+import { DownloadSafetySection } from "./DownloadSafetySection";
+import { SeedingSettingsSection } from "./SeedingSettingsSection";
 
 export function MediaPostProcessingTab() {
   const { t } = useTranslation("common");
@@ -36,10 +38,20 @@ export function MediaPostProcessingTab() {
   }
 
   return (
-    <MediaPostProcessingSettingsBody
-      key={settings.updated_at}
-      settings={settings}
-      profilesData={profilesData}
-    />
+    <div className="space-y-6">
+      <MediaPostProcessingSettingsBody
+        key={settings.updated_at}
+        settings={settings}
+        profilesData={profilesData}
+      />
+      <SeedingSettingsSection
+        key={`seed-${settings.updated_at}`}
+        settings={settings}
+      />
+      <DownloadSafetySection
+        key={`safety-${settings.updated_at}`}
+        settings={settings}
+      />
+    </div>
   );
 }

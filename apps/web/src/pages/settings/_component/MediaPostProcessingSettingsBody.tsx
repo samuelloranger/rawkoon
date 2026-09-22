@@ -72,7 +72,6 @@ export function MediaPostProcessingSettingsBody({
         fileOperation: z.enum(["hardlink", "move"]),
         movieTemplate: z.string(),
         episodeTemplate: z.string(),
-        minSeedRatio: z.number(),
         defaultMovieQualityProfileId: z.string(),
         defaultShowQualityProfileId: z.string(),
         activeIndexerManager: z.string(),
@@ -96,7 +95,6 @@ export function MediaPostProcessingSettingsBody({
       fileOperation: settings.file_operation === "move" ? "move" : "hardlink",
       movieTemplate: settings.movie_template,
       episodeTemplate: settings.episode_template,
-      minSeedRatio: settings.min_seed_ratio,
       defaultMovieQualityProfileId:
         settings.default_movie_quality_profile_id?.toString() ?? "",
       defaultShowQualityProfileId:
@@ -131,7 +129,6 @@ export function MediaPostProcessingSettingsBody({
         file_operation: data.fileOperation,
         movie_template: data.movieTemplate,
         episode_template: data.episodeTemplate,
-        min_seed_ratio: data.minSeedRatio,
         default_movie_quality_profile_id:
           data.defaultMovieQualityProfileId === ""
             ? null
@@ -274,15 +271,6 @@ export function MediaPostProcessingSettingsBody({
               </p>
             )}
           </div>
-
-          <FormInput
-            label={t("settings.mediaLibrary.minSeedRatio")}
-            type="number"
-            min={0}
-            step={0.1}
-            {...register("minSeedRatio", { valueAsNumber: true })}
-            error={errors.minSeedRatio?.message}
-          />
 
           <div>
             <label
