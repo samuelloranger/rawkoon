@@ -71,6 +71,10 @@ export function useLibraryEvents() {
           );
           if (payload.torrents.some((i) => i.released)) {
             queryClient.invalidateQueries({ queryKey: queryKeys.library.all });
+            // Orphan removals push releases too; they are not in the seeding list.
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.downloads.orphans(),
+            });
           }
           return;
         }

@@ -105,6 +105,23 @@ describe("removeOrphanTorrents", () => {
     expect(res).toMatchObject({ removed: [D], refused: [B] });
   });
 
+  it("pushes a live update for the torrents it removed", async () => {
+    const removed: Array<[string, boolean]> = [];
+    const emitted: unknown[][] = [];
+    await removeOrphanTorrents([B], true, {
+      resolveAdapter: async () => adapter([t({ hash: B })], removed),
+      ownedHashes: async () => new Set(),
+      ownedRowIds: async () => new Set(),
+      emit: (items) => {
+        emitted.push(items);
+      },
+    });
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0]).toMatchObject([
+      { hash: B, released: { reason: "manual", freedBytes: 100 } },
+    ]);
+  });
+
   it("reports an unreachable client instead of throwing", async () => {
     const down = adapter([], []);
     down.listTorrents = async () => {

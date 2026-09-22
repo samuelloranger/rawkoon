@@ -3,7 +3,11 @@ import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/regis
 import type { DownloadClientAdapter } from "@rawkoon/api/services/downloadClient/types";
 import { taggedRowIds } from "@rawkoon/api/services/seeding/seedPolicy";
 import { buildOrphans } from "@rawkoon/api/services/seeding/seedingView";
-import type { RemoveOrphansResponse } from "@rawkoon/shared/types";
+import { emitSeedState } from "@rawkoon/api/services/libraryEvents";
+import type {
+  RemoveOrphansResponse,
+  SeedStateItem,
+} from "@rawkoon/shared/types";
 
 export interface OrphanDeps {
   resolveAdapter: () => Promise<DownloadClientAdapter | null>;
@@ -11,6 +15,8 @@ export interface OrphanDeps {
   ownedHashes: () => Promise<Set<string>>;
   /** The subset of `ids` that are non-failed download_history rows. */
   ownedRowIds: (ids: number[]) => Promise<Set<number>>;
+  /** Live update for open Downloads pages; optional so callers can stay silent. */
+  emit?: (items: SeedStateItem[]) => void;
 }
 
 export async function loadOwnedRowIds(ids: number[]): Promise<Set<number>> {
@@ -37,6 +43,7 @@ const defaultDeps: OrphanDeps = {
   resolveAdapter: async () => (await resolveActiveAdapter())?.adapter ?? null,
   ownedHashes: loadOwnedHashes,
   ownedRowIds: loadOwnedRowIds,
+  emit: emitSeedState,
 };
 
 /**
@@ -60,6 +67,7 @@ export async function removeOrphanTorrents(
   );
   const byHash = new Map(orphans.map((o) => [o.hash, o]));
   const removed: string[] = [];
+  const pushed: SeedStateItem[] = [];
   const refused: string[] = [];
   let freed = 0;
   for (const raw of hashes) {
@@ -75,10 +83,23 @@ export async function removeOrphanTorrents(
       await adapter.remove(torrent.hash, withData);
       removed.push(orphan.hash);
       if (withData) freed += orphan.size_bytes;
+      pushed.push({
+        hash: orphan.hash,
+        ratio: orphan.ratio,
+        seedingTimeSecs: orphan.seeding_time_secs,
+        upSpeed: 0,
+        etaSecs: 0,
+        released: {
+          reason: "manual",
+          at: new Date().toISOString(),
+          freedBytes: withData ? orphan.size_bytes : null,
+        },
+      });
     } catch (error) {
       console.warn(`[orphans] could not remove ${key}:`, error);
       refused.push(key);
     }
   }
+  if (pushed.length > 0) deps.emit?.(pushed);
   return { removed, refused, freed_bytes: freed };
 }

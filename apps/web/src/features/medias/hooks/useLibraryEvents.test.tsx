@@ -83,4 +83,33 @@ describe("useLibraryEvents seed-state", () => {
       up_speed: 2,
     });
   });
+
+  it("refreshes the orphan list when a push reports a release", () => {
+    vi.stubGlobal("EventSource", FakeEventSource);
+    const client = new QueryClient();
+    const spy = vi.spyOn(client, "invalidateQueries");
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    renderHook(() => useLibraryEvents(), { wrapper });
+    FakeEventSource.last?.onmessage?.({
+      data: JSON.stringify({
+        kind: "seed-state",
+        ts: 1,
+        torrents: [
+          {
+            hash: "zz",
+            ratio: 1,
+            seedingTimeSecs: 1,
+            upSpeed: 0,
+            etaSecs: 0,
+            released: { reason: "manual", at: "x", freedBytes: 1 },
+          },
+        ],
+      }),
+    });
+    expect(spy).toHaveBeenCalledWith({
+      queryKey: queryKeys.downloads.orphans(),
+    });
+  });
 });
