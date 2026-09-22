@@ -25,6 +25,17 @@
     "ios_policy": "patch"
   },
   {
+    "id": "library.seed-state",
+    "path": "/api/library/events",
+    "routing": {
+      "type": "payload-field",
+      "field": "kind",
+      "value": "seed-state"
+    },
+    "payload": { "torrents": "array", "ts": "number" },
+    "ios_policy": "invalidate"
+  },
+  {
     "id": "library.handshake",
     "path": "/api/library/events",
     "routing": { "type": "required-fields", "fields": ["connected", "ts"] },

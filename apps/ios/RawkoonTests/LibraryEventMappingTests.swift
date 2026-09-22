@@ -37,6 +37,11 @@ struct LibraryEventMappingTests {
         #expect(id == 7)
     }
 
+    @Test func seedStateEventIsIgnored() throws {
+        let dto = try decode(#"{"kind":"seed-state","ts":1,"torrents":[]}"#)
+        #expect(LibraryEvent.from(dto) == nil)
+    }
+
     @Test func downloadProgressDecodesEntries() throws {
         let dto = try decode(#"""
         {"kind":"download-progress","mediaId":10,"ts":1,
