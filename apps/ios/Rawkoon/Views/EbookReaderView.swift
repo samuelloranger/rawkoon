@@ -189,6 +189,7 @@ struct EbookReaderSheet: View {
 
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     @State private var chrome = ReaderChrome()
     @State private var state: ReaderState = .opening
     @State private var preferences = ReaderPreferences.load()
@@ -242,9 +243,16 @@ struct EbookReaderSheet: View {
                 session.navigator.submitPreferences(new.asEPUBPreferences(language: document.language))
             }
         }
-        // Backgrounding or a swipe-to-dismiss never runs the Done button.
+        // A swipe-to-dismiss never runs the Done button.
         .onDisappear {
             if case let .ready(session) = state {
+                session.persist(force: true)
+            }
+        }
+        // Backgrounding does not fire onDisappear (the sheet stays in the
+        // hierarchy), so snapshot here too before a possible termination.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background, case let .ready(session) = state {
                 session.persist(force: true)
             }
         }
