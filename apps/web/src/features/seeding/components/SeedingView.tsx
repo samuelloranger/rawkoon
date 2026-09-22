@@ -89,7 +89,7 @@ export function SeedingView() {
             {t("seeding.disabled.title")}
           </span>
           <a
-            href="/settings?tab=media"
+            href="/settings?tab=media&subtab=library-settings"
             className="shrink-0 text-primary-400 underline underline-offset-2"
           >
             {t("seeding.disabled.action")}

@@ -75,6 +75,9 @@ describe("SeedingView", () => {
     });
     render(<SeedingView />);
     expect(screen.getByText("seeding.disabled.title")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "seeding.disabled.action" }),
+    ).toHaveAttribute("href", "/settings?tab=media&subtab=library-settings");
     expect(screen.getByText("Title a")).toBeInTheDocument();
     expect(screen.getByText("Old")).toBeInTheDocument();
   });
