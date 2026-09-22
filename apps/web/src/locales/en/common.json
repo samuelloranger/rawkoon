@@ -1068,6 +1068,10 @@
         "refreshGithubReleases": {
           "label": "Refresh GitHub Releases",
           "description": "Fetch public GitHub releases, update the Redis cache, and notify admins for new app versions."
+        },
+        "sweepSeedingTorrents": {
+          "label": "Release seeded torrents",
+          "description": "Remove torrents from the download client once their seed target is met."
         }
       }
     },
@@ -1362,6 +1366,16 @@
         "reason": "Reason",
         "blockedAt": "Blocked",
         "actions": "Actions"
+      },
+      "filter": {
+        "all": "All",
+        "auto": "Added automatically",
+        "manual": "Added by you"
+      },
+      "kind": {
+        "stalled": "Stalled",
+        "malware": "Blocked file",
+        "import_rejected": "Import rejected"
       }
     },
     "books": {
@@ -1490,6 +1504,62 @@
       "deleteConfirm": "Delete the profile \"{{name}}\"? Editions using it fall back to the defaults.",
       "deleteSuccess": "Profile deleted.",
       "deleteError": "Could not delete the profile."
+    },
+    "seeding": {
+      "title": "Seeding",
+      "description": "After import, Rawkoon keeps each torrent seeding until it reaches a target, then removes it from the client. Your library copy is a hardlink, so it stays.",
+      "enable": "Release torrents automatically",
+      "enableHint": "When off, a torrent is only removed at import if it already meets the public ratio.",
+      "preview_one": "{{count}} torrent would be released now, {{size}}.",
+      "preview_other": "{{count}} torrents would be released now, {{size}}.",
+      "publicTitle": "Public trackers",
+      "privateTitle": "Private trackers",
+      "ratio": "Ratio",
+      "seedTime": "Seed time",
+      "none": "none",
+      "unitHours": "hours",
+      "unitDays": "days",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "sentence": {
+        "both": "Release at ratio {{ratio}} or after {{time}} of seeding, whichever comes first.",
+        "ratio": "Release once it reaches ratio {{ratio}}.",
+        "time": "Release after {{time}} of seeding.",
+        "none": "Release right after import. Nothing is seeded."
+      },
+      "unknownPrivate": "An indexer Rawkoon can't reach counts as private, so a torrent is never removed early by mistake.",
+      "moveMode": "Imports move files out of the client, so torrents are released right after import. Switch to hardlink to seed.",
+      "invalid": "Use a number of zero or more, or leave the field empty.",
+      "indexers": {
+        "indexer": "Indexer",
+        "rule": "Rule",
+        "held": "Seeding now",
+        "inherited": "{{rule}}, from the {{source}} default",
+        "sourcePrivate": "private",
+        "sourcePublic": "public",
+        "customize": "Customize",
+        "useDefault": "Use default",
+        "save": "Save",
+        "cancel": "Cancel",
+        "empty": "No indexers found. Connect Prowlarr or Jackett first."
+      },
+      "save": "Save seeding rules",
+      "saved": "Seeding rules saved.",
+      "saveError": "Couldn't save seeding rules."
+    },
+    "downloadSafety": {
+      "title": "Download safety",
+      "description": "Reject a release as soon as its file list contains one of these types. It's blocklisted and removed with its files, and Rawkoon searches again.",
+      "add": "Add a file type, like .iso",
+      "remove": "Remove .{{ext}}",
+      "invalid": "Use a file extension like exe or .iso.",
+      "stats": "Last 30 days: {{malware}} rejected for blocked files, {{stalled}} for stalling, {{imports}} for unusable content.",
+      "statsLink": "View them in the blocklist",
+      "save": "Save file types",
+      "saved": "File types saved.",
+      "saveError": "Couldn't save file types."
     }
   },
   "medias": {
@@ -1841,7 +1911,22 @@
       "done": "Done",
       "active": "Active",
       "aiPick": "Selected by AI",
-      "paused": "Paused"
+      "paused": "Paused",
+      "seed": {
+        "seeding": "Seeding",
+        "seedingDetail": "ratio {{ratio}}, {{time}} seeded",
+        "released": "Released",
+        "blocklisted": "Blocklisted",
+        "reason": {
+          "target_met": "target met",
+          "manual": "removed by you",
+          "move_mode": "move mode",
+          "adopted": "not added by Rawkoon",
+          "stalled": "stalled",
+          "malware": "blocked file",
+          "import_rejected": "import rejected"
+        }
+      }
     },
     "media": {
       "loadingFileInfo": "Loading file info…",
@@ -1917,7 +2002,14 @@
       "artworkUpdated": "Artwork updated",
       "artworkUpdateFailed": "Couldn't change the artwork",
       "artworkLanguage": "Language",
-      "artworkNoneInLanguage": "No artwork in that language"
+      "artworkNoneInLanguage": "No artwork in that language",
+      "seedingTitle_one": "1 torrent is still seeding",
+      "seedingTitle_other": "{{count}} torrents are still seeding",
+      "keepSeeding": "Keep seeding until its target is met",
+      "keepSeedingHint": "Rawkoon removes it from the client once its seed target is met.",
+      "releaseNow": "Remove the torrent now",
+      "releaseNowHint": "Frees the space right away.",
+      "hnrWarning": "A private tracker still expects seed time for this torrent. Removing it now can count as a hit-and-run."
     },
     "stats": {
       "title": "Library stats",
@@ -2341,6 +2433,118 @@
       "theme_light": "Light",
       "theme_sepia": "Sepia",
       "theme_dark": "Dark"
+    }
+  },
+  "downloadsPage": {
+    "title": "Downloads",
+    "subtitle": "What's in your download client, and what Rawkoon still needs from it.",
+    "tabs": {
+      "import": "Import",
+      "seeding": "Seeding",
+      "orphans": "Orphans"
+    }
+  },
+  "seeding": {
+    "summary_one": "Holding {{count}} torrent ({{size}}) until it meets its seed target.",
+    "summary_other": "Holding {{count}} torrents ({{size}}) until they meet their seed targets.",
+    "summaryOwed": "{{count}} still owe seed time on private trackers.",
+    "summaryNext": "The next one releases in about {{time}}.",
+    "live": "Live",
+    "filters": {
+      "all": "All",
+      "owed": "Owes seed time",
+      "removed": "From removed titles",
+      "idle": "Not uploading"
+    },
+    "badges": {
+      "removed_from_library": "Removed from library",
+      "replaced_by_upgrade": "Replaced by an upgrade",
+      "owes": "Owes seed time"
+    },
+    "meter": {
+      "ratio": "Ratio",
+      "time": "Time",
+      "noTarget": "no target"
+    },
+    "units": {
+      "hours": "h",
+      "days": "d"
+    },
+    "eta": {
+      "met": "Target met. Removing on the next check.",
+      "idle": "Not uploading, so it can't reach its ratio.",
+      "ratio": "Releases in about {{time}}, on ratio",
+      "time": "Releases in about {{time}}, on seed time"
+    },
+    "idleHint": "Nobody is downloading from it, so it can't reach its ratio.",
+    "idleHintLink": "Add a seed-time target",
+    "removeNow": "Remove now",
+    "confirmTitle": "Remove {{title}} from the download client?",
+    "confirmBody": "The torrent and its downloaded files are removed. Your library copy stays.",
+    "confirmHnr": "{{indexer}} is a private tracker and this torrent hasn't met its target. Removing it now can count as a hit-and-run.",
+    "confirmLabel": "Remove now",
+    "removed": "Removed {{title}} from the download client.",
+    "removeError": "Couldn't remove the torrent.",
+    "releasedToday": "Released today: {{count}}",
+    "freed": "{{size}} freed",
+    "releasedReason": {
+      "target_met": "Target met",
+      "manual": "Removed by you",
+      "move_mode": "Move mode"
+    },
+    "empty": {
+      "title": "Nothing is seeding",
+      "description": "Torrents appear here after import, while they seed toward their targets."
+    },
+    "disabled": {
+      "title": "Automatic release is off",
+      "description": "Torrents stay in your download client until you remove them.",
+      "action": "Turn it on in settings"
+    },
+    "unreachable": "The download client isn't reachable, so seeding numbers can't be shown.",
+    "duration": {
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "hours_one": "{{count}} h",
+      "hours_other": "{{count}} h",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days"
+    },
+    "kind": {
+      "ebook": "Ebook",
+      "audiobook": "Audiobook"
+    }
+  },
+  "orphans": {
+    "explain": "These torrents are in Rawkoon's categories, but no download in Rawkoon owns them, so Rawkoon won't remove them on its own. They're usually left over from a reset database or a torrent added by hand.",
+    "columns": {
+      "torrent": "Torrent",
+      "category": "Category",
+      "size": "Size",
+      "ratio": "Ratio",
+      "seeding": "Seeding"
+    },
+    "selectAll": "Select all",
+    "select": "Select {{name}}",
+    "shares": "Shares files with another torrent",
+    "selected": "{{count}} selected, {{size}}",
+    "deleteData": "Delete downloaded files",
+    "sharedNote": "Torrents that share files keep them.",
+    "remove_one": "Remove torrent",
+    "remove_other": "Remove {{count}} torrents",
+    "removed_one": "Removed {{count}} torrent.",
+    "removed_other": "Removed {{count}} torrents.",
+    "freed": "{{size}} freed.",
+    "removeError": "Couldn't remove the selected torrents.",
+    "empty": {
+      "title": "No orphaned torrents",
+      "description": "Every torrent in Rawkoon's categories belongs to a download Rawkoon tracks."
+    },
+    "health": {
+      "title_one": "{{count}} orphaned torrent, {{size}}",
+      "title_other": "{{count}} orphaned torrents, {{size}}",
+      "description": "In Rawkoon's categories, but no download owns them.",
+      "action": "Review orphans"
     }
   }
 }
