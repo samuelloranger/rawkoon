@@ -95,13 +95,12 @@ extension Color {
 
 enum Appearance {
     /// Applies the Cozy Dusk look to the UIKit-backed bars that SwiftUI wraps:
-    /// large navigation titles in Fraunces, warm-brown bar grounds, apricot tint.
-    /// Call once at launch.
+    /// large navigation titles in Fraunces, apricot tint. Call once at launch.
     static func apply() {
+        // Transparent so iOS 26's Liquid Glass bar and scroll-edge effect show;
+        // an opaque ground hides both.
         let nav = UINavigationBarAppearance()
-        nav.configureWithOpaqueBackground()
-        nav.backgroundColor = UIColor(Theme.base)
-        nav.shadowColor = UIColor(Theme.border)
+        nav.configureWithTransparentBackground()
 
         let strong = UIColor(Theme.textStrong)
         let large = UIFont(name: "Fraunces", size: 34)?.withWeight(.semibold)
@@ -116,14 +115,11 @@ enum Appearance {
         UINavigationBar.appearance().compactAppearance = nav
         UINavigationBar.appearance().tintColor = UIColor(Theme.apricot)
 
-        // Segmented controls stay in the room: raised fill, terracotta hairline
-        // via selected text — apricot is reserved for Play. Fonts scale with
-        // Dynamic Type (via UIFontMetrics) instead of a hard 13pt so labels
-        // don't truncate at larger text sizes.
+        // Segmented controls keep the native glass track and thumb; only the
+        // labels are themed. Fonts scale with Dynamic Type (via UIFontMetrics)
+        // instead of a hard 13pt so labels don't truncate at larger text sizes.
         let segMetrics = UIFontMetrics(forTextStyle: .footnote)
         let seg = UISegmentedControl.appearance()
-        seg.selectedSegmentTintColor = UIColor(Theme.raised)
-        seg.backgroundColor = UIColor(Theme.well)
         seg.setTitleTextAttributes([
             .foregroundColor: UIColor(Theme.textStrong),
             .font: segMetrics.scaledFont(for: .systemFont(ofSize: 13, weight: .semibold)),

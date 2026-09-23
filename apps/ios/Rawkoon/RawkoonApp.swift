@@ -317,6 +317,7 @@ private struct RootTabsView: View {
             .customizationID("tab.settings")
         }
         .tabViewStyle(.sidebarAdaptable)
+        .tabBarMinimizeBehavior(.onScrollDown)
         // Sidebar-only brand header (iPad/Mac); the phone tab bar never shows it.
         .tabViewSidebarHeader { RawkoonSidebarHeader() }
         .tint(Theme.apricot)

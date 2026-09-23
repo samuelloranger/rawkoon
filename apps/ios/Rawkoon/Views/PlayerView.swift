@@ -143,10 +143,12 @@ struct PlayerView: View {
             scrubber
             transport
 
-            HStack(spacing: 12) {
-                rateMenu
-                sleepMenu
-                routeButton
+            GlassEffectContainer(spacing: 12) {
+                HStack(spacing: 12) {
+                    rateMenu
+                    sleepMenu
+                    routeButton
+                }
             }
             .padding(.top, 8)
         }
@@ -183,7 +185,7 @@ struct PlayerView: View {
             .font(.system(size: 15, weight: .semibold))
             .foregroundStyle(Theme.textStrong)
             .frame(width: 44, height: 44)
-            .background(Theme.raised.opacity(0.8), in: Circle())
+            .glassEffect(.regular.interactive(), in: .circle)
             .contentShape(Circle())
     }
 
@@ -280,8 +282,9 @@ struct PlayerView: View {
                     .font(.system(size: 28, weight: .bold))
                     .foregroundStyle(Theme.onAccent)
                     .frame(width: 66, height: 66)
+                    .glassEffect(.regular.tint(Theme.apricot).interactive(), in: .circle)
             }
-            .buttonStyle(PlayFillStyle())
+            .buttonStyle(.plain)
             .shadow(color: Theme.apricot.opacity(0.35), radius: 12, y: 6)
             .accessibilityLabel(Text(LocalizedStringKey(model.player.isPlaying ? "Pause" : "Play")))
 
@@ -347,8 +350,7 @@ struct PlayerView: View {
     private var routeButton: some View {
         RoutePicker()
             .frame(width: 44, height: 44)
-            .background(Theme.raised.opacity(0.8), in: Capsule())
-            .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
+            .glassEffect(.regular.interactive(), in: .capsule)
     }
 
     private func chip(title: LocalizedStringKey, systemImage: String, emphasized: Bool) -> some View {
@@ -372,13 +374,7 @@ struct PlayerView: View {
             .foregroundStyle(emphasized ? Theme.apricot : Theme.textStrong)
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
-            .background(Theme.raised.opacity(0.8), in: Capsule())
-            .overlay(
-                Capsule().strokeBorder(
-                    emphasized ? Theme.apricot.opacity(0.5) : Theme.borderStrong,
-                    lineWidth: 1
-                )
-            )
+            .glassEffect(.regular.tint(emphasized ? Theme.apricot.opacity(0.25) : nil).interactive(), in: .capsule)
     }
 
     private var sleepActive: Bool {
@@ -467,15 +463,4 @@ private struct RoutePicker: UIViewRepresentable {
     }
 
     func updateUIView(_: AVRoutePickerView, context _: Context) {}
-}
-
-/// Apricot at rest, terracotta when pressed — the lamp, then the ember.
-private struct PlayFillStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .background(
-                configuration.isPressed ? Theme.terracotta : Theme.apricot,
-                in: Circle()
-            )
-    }
 }

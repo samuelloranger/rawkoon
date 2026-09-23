@@ -330,23 +330,27 @@ struct LibraryView: View {
             searchField("Search titles", text: $mediaSearch)
                 .padding(.horizontal, 16)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    filterMenu(title: mediaType.title, systemImage: "film") {
-                        ForEach(MediaTypeFilter.allCases) { t in
-                            Button(t.title) { mediaType = t }
+                GlassEffectContainer(spacing: 8) {
+                    HStack(spacing: 8) {
+                        filterMenu(title: mediaType.title, systemImage: "film") {
+                            ForEach(MediaTypeFilter.allCases) { t in
+                                Button(t.title) { mediaType = t }
+                            }
                         }
-                    }
-                    filterMenu(title: mediaStatus.title, systemImage: "line.3.horizontal.decrease") {
-                        ForEach(MediaStatusFilter.allCases) { s in
-                            Button(s.title) { mediaStatus = s }
+                        filterMenu(title: mediaStatus.title, systemImage: "line.3.horizontal.decrease") {
+                            ForEach(MediaStatusFilter.allCases) { s in
+                                Button(s.title) { mediaStatus = s }
+                            }
                         }
-                    }
-                    filterMenu(title: sort.title, systemImage: sortAscending ? "arrow.up" : "arrow.down") {
-                        ForEach(MediaSort.allCases) { s in
-                            Button(s.title) { sort = s }
+                        filterMenu(title: sort.title, systemImage: sortAscending ? "arrow.up" : "arrow.down") {
+                            ForEach(MediaSort.allCases) { s in
+                                Button(s.title) { sort = s }
+                            }
+                            Divider()
+                            Button(LocalizedStringKey(sortAscending ? "Descending" : "Ascending")) {
+                                sortAscending.toggle()
+                            }
                         }
-                        Divider()
-                        Button(LocalizedStringKey(sortAscending ? "Descending" : "Ascending")) { sortAscending.toggle() }
                     }
                 }
                 .padding(.horizontal, 16)
@@ -359,18 +363,20 @@ struct LibraryView: View {
         VStack(spacing: 8) {
             searchField("Search books", text: $bookSearch)
                 .padding(.horizontal, 16)
-            HStack(spacing: 8) {
-                filterMenu(title: bookKind.title, systemImage: "books.vertical") {
-                    ForEach(BookKindFilter.allCases) { k in
-                        Button(k.title) { bookKind = k }
+            GlassEffectContainer(spacing: 8) {
+                HStack(spacing: 8) {
+                    filterMenu(title: bookKind.title, systemImage: "books.vertical") {
+                        ForEach(BookKindFilter.allCases) { k in
+                            Button(k.title) { bookKind = k }
+                        }
                     }
-                }
-                filterMenu(title: bookSort.title, systemImage: "arrow.up.arrow.down") {
-                    ForEach(BookSort.allCases) { s in
-                        Button(s.title) { bookSort = s }
+                    filterMenu(title: bookSort.title, systemImage: "arrow.up.arrow.down") {
+                        ForEach(BookSort.allCases) { s in
+                            Button(s.title) { bookSort = s }
+                        }
                     }
+                    Spacer()
                 }
-                Spacer()
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
@@ -388,8 +394,7 @@ struct LibraryView: View {
             }
             .foregroundStyle(Theme.textStrong)
             .padding(.horizontal, 12).padding(.vertical, 10)
-            .background(Theme.raised, in: Capsule())
-            .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
+            .glassEffect(.regular.interactive(), in: .capsule)
         }
     }
 

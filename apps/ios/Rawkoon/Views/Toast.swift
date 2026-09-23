@@ -68,9 +68,7 @@ struct ToastOverlay: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
-        .shadow(color: .black.opacity(0.35), radius: 12, y: 4)
+        .glassEffect(.regular, in: .rect(cornerRadius: 14))
     }
 
     private func icon(for style: Toast.Style) -> String {

@@ -284,8 +284,7 @@ struct EbookReaderSheet: View {
                 Button("Close") { persistAndDismiss() }
                     .frame(minHeight: 44)
                     .padding(.horizontal, 20)
-                    .background(Theme.raised, in: Capsule())
-                    .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
+                    .glassEffect(.regular.interactive(), in: .capsule)
                     .foregroundStyle(Theme.textStrong)
             }
             .padding(24)
@@ -312,32 +311,36 @@ struct EbookReaderSheet: View {
         }
     }
 
+    /// The container outlives the capsule so the glass can materialize and
+    /// dissolve instead of fading as a flat layer.
     @ViewBuilder private var floatingControls: some View {
-        if case .ready = state, controlsVisible {
+        if case .ready = state {
             VStack {
                 Spacer()
-                HStack(spacing: 22) {
-                    controlButton("chevron.down", "Close the book") { persistAndDismiss() }
-                    controlButton("list.bullet", "Contents") {
-                        revealControls()
-                        showTOC = true
-                    }
-                    controlButton("textformat.size", "Text options") {
-                        revealControls()
-                        showSettings = true
+                GlassEffectContainer {
+                    if controlsVisible {
+                        HStack(spacing: 22) {
+                            controlButton("chevron.down", "Close the book") { persistAndDismiss() }
+                            controlButton("list.bullet", "Contents") {
+                                revealControls()
+                                showTOC = true
+                            }
+                            controlButton("textformat.size", "Text options") {
+                                revealControls()
+                                showSettings = true
+                            }
+                        }
+                        .padding(.horizontal, 22)
+                        .padding(.vertical, 13)
+                        // Heavily tinted: the capsule floats over body text, and a
+                        // see-through layer turned two lines into noise.
+                        .glassEffect(.regular.tint(Theme.raised.opacity(0.85)), in: .capsule)
+                        .glassEffectTransition(.materialize)
                     }
                 }
-                .padding(.horizontal, 22)
-                .padding(.vertical, 13)
-                // Opaque rather than ultraThin: the capsule floats over body
-                // text, and letting the page bleed through it turned two lines
-                // into noise instead of reading as a layer above them.
-                .background(Theme.raised, in: Capsule())
-                .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
-                .shadow(color: .black.opacity(0.5), radius: 14, y: 6)
                 .padding(.bottom, 26)
             }
-            .transition(.opacity)
+            .allowsHitTesting(controlsVisible)
         }
     }
 
