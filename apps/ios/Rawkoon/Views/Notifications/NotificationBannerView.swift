@@ -43,9 +43,7 @@ struct NotificationBannerView: View {
             .buttonStyle(.plain)
         }
         .padding(12)
-        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
-        .shadow(color: .black.opacity(0.35), radius: 12, y: 6)
+        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 14))
         .padding(.horizontal, 16)
     }
 }

@@ -244,15 +244,17 @@ struct SwipeDeck: View {
     }
 
     private var actionBar: some View {
-        HStack(spacing: 28) {
-            actionButton(system: "xmark", label: "Not interested", filled: false) {
-                actOnTop(.dismiss)
-            }
-            actionButton(system: "paperplane.fill", label: LocalizedStringKey(primaryActionTitle), filled: true) {
-                actOnTop(.primary)
-            }
-            actionButton(system: "bookmark", label: "Watchlist", filled: false) {
-                actOnTop(.watchlist)
+        GlassEffectContainer(spacing: 28) {
+            HStack(spacing: 28) {
+                actionButton(system: "xmark", label: "Not interested", filled: false) {
+                    actOnTop(.dismiss)
+                }
+                actionButton(system: "paperplane.fill", label: LocalizedStringKey(primaryActionTitle), filled: true) {
+                    actOnTop(.primary)
+                }
+                actionButton(system: "bookmark", label: "Watchlist", filled: false) {
+                    actOnTop(.watchlist)
+                }
             }
         }
     }
@@ -265,8 +267,7 @@ struct SwipeDeck: View {
                 .font(.system(size: filled ? 22 : 18, weight: .semibold))
                 .foregroundStyle(filled ? Theme.onAccent : Theme.text)
                 .frame(width: 52, height: 52)
-                .background(filled ? AnyShapeStyle(Theme.apricot) : AnyShapeStyle(Theme.raised), in: Circle())
-                .overlay(Circle().strokeBorder(Theme.border, lineWidth: filled ? 0 : 1))
+                .glassEffect(.regular.tint(filled ? Theme.apricot : nil).interactive(), in: .circle)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

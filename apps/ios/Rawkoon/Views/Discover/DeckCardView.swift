@@ -51,7 +51,7 @@ struct DeckCardView: View {
                 .foregroundStyle(Theme.textStrong)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 4)
-                .background(.black.opacity(0.45), in: Capsule())
+                .glassEffect(.clear.tint(.black.opacity(0.3)), in: .capsule)
                 .padding(12)
         }
         .accessibilityElement(children: .ignore)
