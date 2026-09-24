@@ -11,6 +11,7 @@ import {
   revertToWantedIfNoActiveGrabs,
 } from "@rawkoon/api/services/downloadOutcome";
 import { rescanLibraryItem } from "@rawkoon/api/services/library/rescan";
+import { pruneLibraryDirsAfterDelete } from "@rawkoon/api/services/library/pruneLibraryDirs";
 
 /** Newest grabs shown in the library detail history panel. */
 const MEDIA_HISTORY_LIMIT = 200;
@@ -514,6 +515,7 @@ export const libraryFilesRoutes = new Hono<Env>()
             e,
           );
         }
+        await pruneLibraryDirsAfterDelete([file.filePath]);
       }
 
       // If the parent media item now has no files left, reset it to "wanted"
@@ -572,6 +574,7 @@ export const libraryFilesRoutes = new Hono<Env>()
               // ignore — file may already be gone
             }
           }
+          await pruneLibraryDirsAfterDelete(ep.files.map((f) => f.filePath));
         }
 
         if (ep.files.length > 0) {

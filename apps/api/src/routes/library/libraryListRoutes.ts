@@ -9,6 +9,7 @@ import { ensureAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, queryV } from "@rawkoon/api/middleware/validate";
 import { addOrUpdateLibraryFromTmdb } from "@rawkoon/api/services/libraryFromTmdb";
 import { deleteCache } from "@rawkoon/api/services/cache";
+import { pruneLibraryDirsAfterDelete } from "@rawkoon/api/services/library/pruneLibraryDirs";
 import { TMDB_UPCOMING_CACHE_KEY } from "@rawkoon/api/utils/dashboard/tmdbUpcoming";
 import { getGlobalTmdbRegion } from "@rawkoon/api/utils/medias/tmdbRegion";
 
@@ -263,6 +264,7 @@ export const libraryListRoutes = new Hono<Env>()
           await Promise.allSettled(
             [...paths].map((p) => rm(p, { force: true })),
           );
+          await pruneLibraryDirsAfterDelete(paths);
         }
 
         await prisma.$transaction([
