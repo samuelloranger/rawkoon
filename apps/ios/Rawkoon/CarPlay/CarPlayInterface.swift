@@ -24,16 +24,18 @@
         /// Builds the two browse sections from already-loaded model state. Returns
         /// sections (not a whole template) so the delegate can `updateSections` an
         /// existing list in place — a background library refresh must not tear down
-        /// a pushed Now Playing template. `onSelect` receives the tapped edition id.
+        /// a pushed Now Playing template. `onSelect` receives the tapped edition id
+        /// and a completion that ends the row's spinner.
         @MainActor
         static func browseSections(
             entries: [CarPlayBrowseEntry],
             model: AppModel,
-            onSelect: @escaping (Int) -> Void
+            onSelect: @escaping (Int, @escaping () -> Void) -> Void
         ) -> [CPListSection] {
             let split = CarPlayBrowse.sections(entries: entries)
-            // Guard against head-unit item limits / artwork memory: cap the library.
-            let cappedLibrary = Array(split.library.prefix(200))
+            // The head unit's item limit spans both sections; 200 bounds artwork memory.
+            let room = max(CPListTemplate.maximumItemCount - split.continueListening.count, 0)
+            let cappedLibrary = Array(split.library.prefix(min(200, room)))
 
             func resumeText(_ entry: CarPlayBrowseEntry) -> String? {
                 guard case let .resume(positionSecs) = AudiobookResume.label(for: entry) else {
@@ -51,8 +53,7 @@
                     )
                 )
                 item.handler = { _, completion in
-                    onSelect(entry.editionId)
-                    completion()
+                    onSelect(entry.editionId, completion)
                 }
                 loadArtwork(for: entry, into: item, model: model)
                 return item

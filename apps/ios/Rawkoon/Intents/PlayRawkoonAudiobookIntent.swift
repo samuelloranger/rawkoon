@@ -1,12 +1,14 @@
 import AppIntents
 
 /// "Play <audiobook> in Rawkoon" from Shortcuts and Siri. A thin shell over
-/// AudiobookPlaybackAction; opening the app is required because playback runs
-/// in the app's audio session, not the intent process.
-struct PlayRawkoonAudiobookIntent: AppIntent {
+/// AudiobookPlaybackAction; it runs in the app process, whose audio session
+/// plays the book.
+struct PlayRawkoonAudiobookIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Play Audiobook"
     static let description = IntentDescription("Play an audiobook from your Rawkoon library.")
-    static let openAppWhenRun = true
+    /// Audio playback intents may start the app's audio session in the
+    /// background, so Siri in the car does not ask to unlock the phone.
+    static let openAppWhenRun = false
 
     @Parameter(title: "Audiobook")
     var audiobook: RawkoonAudiobookEntity

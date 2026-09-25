@@ -6,7 +6,7 @@ import RawkoonKit
 /// The losing child is cancelled, but a URLSession call already in flight keeps
 /// running to its own timeout in the background; the point is only that the
 /// caller stops waiting on it.
-private func withDeadline<T: Sendable>(
+func withDeadline<T: Sendable>(
     seconds: Double,
     _ operation: @escaping @Sendable () async -> T?
 ) async -> T? {
@@ -240,6 +240,16 @@ extension AppModel {
                 deviceId: deviceID
             )
         }
+    }
+
+    /// Rewrites the journal to one line per edition. Run once at launch, before
+    /// anything appends, since every open reads and parses the whole file.
+    func compactJournal() {
+        let text = readJournal()
+        guard !text.isEmpty else { return }
+        let compacted = PositionJournal.compacted(text)
+        guard compacted.utf8.count < text.utf8.count else { return }
+        try? compacted.write(to: journalURL, atomically: true, encoding: .utf8)
     }
 
     func readJournal() -> String {

@@ -9125,6 +9125,17 @@
         }
       }
     },
+    "Loading audiobooks…": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chargement des livres audio…"
+          }
+        }
+      }
+    },
     "Some chapters couldn't download.": {
       "extractionState": "manual",
       "localizations": {

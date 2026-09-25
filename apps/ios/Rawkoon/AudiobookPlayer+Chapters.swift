@@ -21,6 +21,10 @@ extension AudiobookPlayer {
         let clamped = timeline.clamp(seconds)
         let autoplay = isPlaying
         positionSecs = clamped
+        // "End of chapter" means the chapter being listened to, so a jump re-arms it.
+        if sleepMode == .endOfChapter {
+            sleepEndChapterIndex = timeline.chapterIndex(at: clamped)
+        }
         updateNowPlayingInfo()
 
         // In-place when the target stays inside the currently-loaded physical
@@ -30,7 +34,7 @@ extension AudiobookPlayer {
            let offset = currentFile.inPlaceSeekOffset(to: clamped, bookDurationSecs: duration),
            player?.currentItem != nil
         {
-            seekCurrentItem(to: offset, autoplay: autoplay)
+            seekCurrentItemWhenReady(to: offset, autoplay: autoplay)
             return
         }
         buildQueue(at: clamped, autoplay: autoplay)

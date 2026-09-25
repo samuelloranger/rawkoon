@@ -67,4 +67,14 @@ final class CarPlayBrowseDetailTextTests: XCTestCase {
         XCTAssertNil(CarPlayBrowse.detailText(resumeText: nil, author: "   "))
         XCTAssertEqual(CarPlayBrowse.detailText(resumeText: "Resume from 2:05", author: "  "), "Resume from 2:05")
     }
+
+    /// A long book's chapter list is cut to the head unit's limit around the
+    /// playing chapter, instead of silently losing everything past the limit.
+    func testWindowCentresOnTheCurrentItemWithinTheLimit() {
+        XCTAssertEqual(CarPlayBrowse.window(count: 10, around: 3, limit: 20), 0 ..< 10)
+        XCTAssertEqual(CarPlayBrowse.window(count: 100, around: 50, limit: 12), 44 ..< 56)
+        XCTAssertEqual(CarPlayBrowse.window(count: 100, around: 2, limit: 12), 0 ..< 12)
+        XCTAssertEqual(CarPlayBrowse.window(count: 100, around: 99, limit: 12), 88 ..< 100)
+        XCTAssertEqual(CarPlayBrowse.window(count: 100, around: nil, limit: 12), 0 ..< 12)
+    }
 }

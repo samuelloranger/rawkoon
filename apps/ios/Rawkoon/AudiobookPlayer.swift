@@ -329,6 +329,11 @@ final class AudiobookPlayer {
         wasPlayingBeforeInterruption = false
         playbackError = nil
         recoveredFileIds = []
+        // An end-of-chapter timer names a chapter of the old book; a rebuild of
+        // the same book keeps it.
+        if self.manifest?.editionId != manifest.editionId {
+            setSleep(.off)
+        }
         self.manifest = manifest
         self.baseURL = baseURL
         loadArtwork(from: artworkURL)
@@ -397,6 +402,8 @@ final class AudiobookPlayer {
 
     func play() {
         playbackError = nil
+        // The listener resumed by hand, so no pending interruption resume is owed.
+        wasPlayingBeforeInterruption = false
         isPlaying = true
         if case .minutes = sleepMode {
             lastSleepTick = Date()
@@ -533,6 +540,14 @@ final class AudiobookPlayer {
                 }
             }
         }
+    }
+
+    /// In-place seek that waits for the item: AVFoundation raises on a seek with
+    /// a completion handler before the item is ready to play.
+    func seekCurrentItemWhenReady(to offset: Double, autoplay: Bool) {
+        // Supersedes a status observer still waiting from an earlier seek.
+        seekID += 1
+        seekWhenReady(offset: offset, autoplay: autoplay)
     }
 
     private func seekWhenReady(offset: Double, autoplay: Bool) {

@@ -157,6 +157,7 @@ final class AppModel {
         player.onPositionTick = { [weak self] in self?.persistPlaybackProgress(force: false) }
         player.onPlaybackStopped = { [weak self] in self?.persistPlaybackProgress(force: true) }
         startPathMonitor()
+        compactJournal()
         restoreDownloadedAudiobooks()
     }
 
@@ -206,6 +207,11 @@ final class AppModel {
                 if cameBackOnline {
                     for downloader in downloaders.values {
                         downloader.retryFailedChapters()
+                    }
+                    // A launch that started offline (often CarPlay) holds only the
+                    // downloaded index until something reloads it.
+                    if isOfflineLibrary, isLoggedIn {
+                        Task { await self.loadLibrary() }
                     }
                 }
             }
@@ -297,6 +303,8 @@ final class AppModel {
 
         do {
             try await reloadLibrary()
+            // Siri only matches "Play <title>" against titles it has been handed.
+            RawkoonShortcuts.updateAppShortcutParameters()
         } catch {
             errorMessage = message(for: error)
         }
@@ -346,6 +354,7 @@ final class AppModel {
     /// Editions whose grants are being refetched, and how often — a server whose
     /// secret rotated would otherwise refetch forever.
     private var grantRefreshAttempts: [Int: Int] = [:]
+    private var startingDownloads: Set<Int> = []
     private var grantRefreshInFlight: Set<Int> = []
 
     /// Ask for notification permission, then register for remote notifications.
@@ -413,28 +422,31 @@ final class AppModel {
     /// Flattens the audiobook library + remote progress into the Linux-tested
     /// CarPlay browse model. `libraryOrder` preserves the server's list order.
     func carPlayAudiobooks() async -> [CarPlayBrowseEntry] {
-        let progressByEdition: [Int: RemoteProgress] = if let client = api(),
-                                                          let progress = try? await client.getProgress()
-        {
-            Dictionary(
-                progress.map { ($0.editionId, $0) }, uniquingKeysWith: { first, _ in first }
-            )
-        } else {
-            [:]
+        // A car with a weak signal must not hold the whole list on the server.
+        var remote: [RemoteProgress]?
+        if isOnline, let apiClient {
+            remote = await withDeadline(seconds: 5) { try? await apiClient.getProgress() }
         }
+        let progressByEdition = Dictionary(
+            (remote ?? []).map { ($0.editionId, $0) }, uniquingKeysWith: { first, _ in first }
+        )
+        // Offline, the phone's own journal is the only record of what is in progress.
+        let journal = PositionJournal.latestByEdition(readJournal())
 
         var entries: [CarPlayBrowseEntry] = []
         for (index, book) in library.enumerated() {
             guard let summary = book.audiobookSummary else { continue }
             let progress = progressByEdition[summary.editionId]
+            let local = remote == nil ? journal[summary.editionId] : nil
             entries.append(
                 CarPlayBrowseEntry(
                     editionId: summary.editionId,
                     title: summary.title,
                     author: summary.author,
-                    positionSecs: progress.map { $0.finished ? 0 : $0.positionSecs },
+                    positionSecs: progress.map { $0.finished ? 0 : $0.positionSecs } ?? local?.positionSecs,
                     totalDurationSecs: progress?.totalDurationSecs ?? summary.durationSecs,
-                    updatedAtMillis: progress.map { Int64($0.updatedAt.timeIntervalSince1970 * 1000) },
+                    updatedAtMillis: progress.map { Int64($0.updatedAt.timeIntervalSince1970 * 1000) }
+                        ?? local?.atMillis,
                     libraryOrder: index
                 )
             )
@@ -485,6 +497,7 @@ final class AppModel {
         do {
             let fetched = try await apiClient.manifest(editionId: editionId)
             manifests[editionId] = fetched
+            dropStaleDownload(editionId: editionId, fresh: fetched)
             // Backfill a pre-existing, fully-downloaded audiobook (downloaded
             // before offline persistence shipped) the first time it is opened
             // online, so it too becomes usable offline.
@@ -512,6 +525,11 @@ final class AppModel {
 
     func startDownload(editionId: Int) async {
         errorMessage = nil
+        // The manifest await below is a window where a second call (a re-tap, a
+        // background relaunch) would build a second downloader on the same session id.
+        guard !startingDownloads.contains(editionId) else { return }
+        startingDownloads.insert(editionId)
+        defer { startingDownloads.remove(editionId) }
 
         do {
             // Fresh grants: a restored disk manifest is enough to list chapters
@@ -729,6 +747,24 @@ final class AppModel {
         }
     }
 
+    /// Deletes local chapters a re-import on the server replaced, and takes the
+    /// book off the offline list until it is downloaded again. Skipped while a
+    /// download is running, since that one already works from the fresh manifest.
+    private func dropStaleDownload(editionId: Int, fresh: BookManifest) {
+        guard downloaders[editionId] == nil,
+              let persisted = DownloadedStore.readManifest(editionId: editionId)
+        else { return }
+        let stale = staleLocalFiles(persisted: persisted.files, fresh: fresh.files)
+        guard !stale.isEmpty else { return }
+        for file in stale {
+            FileStore.delete(url: FileStore.chapterURL(editionId: editionId, fileId: file.id, ext: file.fileExtension))
+        }
+        DownloadedStore.forget(editionId: editionId)
+        DownloadedStore.writeManifest(fresh, editionId: editionId)
+        downloadPlans.removeValue(forKey: editionId)
+        verifiedCounts.removeValue(forKey: editionId)
+    }
+
     /// Size of each chapter already on disk, keyed by file id.
     private static func onDiskBytes(editionId: Int, files: [ManifestFile]) -> [Int: Int] {
         var existingBytes: [Int: Int] = [:]
@@ -879,8 +915,12 @@ final class AppModel {
         }
         let kept = PositionJournal.excluding(readJournal(), editionIds: Set(editionIds))
         try? kept.write(to: journalURL, atomically: true, encoding: .utf8)
+        // Closed, not rewound: a playing book would PUT a position within seconds
+        // and recreate the progress row the server just deleted. activeEditionId
+        // goes first so the unload's pause has nothing to save.
         if let active = activeEditionId, editionIds.contains(active) {
-            player.seek(to: 0)
+            activeEditionId = nil
+            player.unload()
         }
     }
 

@@ -53,4 +53,23 @@ final class PositionJournalTests: XCTestCase {
 
         XCTAssertEqual(PositionJournal.latest(in: text, editionId: 14)?.positionSecs, 200)
     }
+
+    /// Compaction keeps each edition's newest line and nothing else.
+    func testCompactionKeepsOnlyTheNewestEntryPerEdition() {
+        let lines = [
+            PositionEntry(editionId: 1, positionSecs: 10, atMillis: 100),
+            PositionEntry(editionId: 2, positionSecs: 50, atMillis: 150),
+            PositionEntry(editionId: 1, positionSecs: 20, atMillis: 200),
+            PositionEntry(editionId: 1, positionSecs: 15, atMillis: 120),
+        ].map(PositionJournal.encode).joined()
+
+        let compacted = PositionJournal.compacted(lines)
+
+        XCTAssertEqual(PositionJournal.parse(compacted), [
+            PositionEntry(editionId: 2, positionSecs: 50, atMillis: 150),
+            PositionEntry(editionId: 1, positionSecs: 20, atMillis: 200),
+        ])
+        XCTAssertEqual(PositionJournal.latest(in: compacted, editionId: 1)?.positionSecs, 20)
+        XCTAssertEqual(PositionJournal.latestByEdition(lines)[2]?.positionSecs, 50)
+    }
 }

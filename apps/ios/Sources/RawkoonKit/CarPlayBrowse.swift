@@ -57,6 +57,15 @@ public enum CarPlayBrowse {
 
     /// The row subtitle. Both halves are optional, so the separator is only
     /// drawn between two parts that exist; the app layer localizes `resumeText`.
+    /// The slice of a long list to show when a head unit caps item counts,
+    /// centred on `current` so the playing chapter stays reachable.
+    public static func window(count: Int, around current: Int?, limit: Int) -> Range<Int> {
+        guard limit > 0, count > limit else { return 0 ..< max(count, 0) }
+        let centre = min(max(current ?? 0, 0), count - 1)
+        let start = min(max(centre - limit / 2, 0), count - limit)
+        return start ..< start + limit
+    }
+
     public static func detailText(resumeText: String?, author: String?) -> String? {
         let parts = [resumeText, author]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
