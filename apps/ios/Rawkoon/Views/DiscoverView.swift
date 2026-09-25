@@ -10,11 +10,6 @@ struct DiscoverView: View {
     /// this namespace directly, which is the reliable pattern (an environment-
     /// shared namespace does not engage the transition).
     @Namespace private var zoomNamespace
-    @Environment(\.horizontalSizeClass) private var hSizeClass
-
-    private var isRegularWidth: Bool {
-        hSizeClass == .regular
-    }
 
     @State private var query = ""
     @State private var kindFilter: KindFilter = .all
@@ -39,8 +34,6 @@ struct DiscoverView: View {
     @State private var isPrefetching = false
     @State private var prefetchedBatch: DiscoverDeckResponse?
     @State private var openDeckItem: DiscoverDeckItem?
-
-    @State private var showExplore = false
 
     @State private var searchResults: [TmdbSearchItem] = []
     @State private var bookResults: [BookSearchHit] = []
@@ -103,24 +96,6 @@ struct DiscoverView: View {
             .background(Theme.base)
             .navigationTitle("Discover")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                // On Mac/iPad Explore lives beside the deck, so the Filter button
-                // (which opens Explore in a sheet) is only needed on phone.
-                if !isRegularWidth {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            showExplore = true
-                        } label: {
-                            Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
-                        }
-                    }
-                }
-            }
-            .sheet(isPresented: $showExplore) {
-                NavigationStack {
-                    ExploreView()
-                }
-            }
             .navigationDestination(item: $openDeckItem) { item in
                 MediaDetailView(
                     tmdbId: item.tmdbId,
