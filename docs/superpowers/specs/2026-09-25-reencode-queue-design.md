@@ -39,7 +39,7 @@ Dispatcher (in-process, started from initWorkers)
     skip if paused, outside run window, or a job is running
     claim next queued row by position  (SELECT … FOR UPDATE SKIP LOCKED)
     run pipeline: preflight → encode → validate → replace → rescan
-  progress: in memory → libraryEventBus "transcode-progress" SSE; row persisted every ~15 s
+  progress: in memory, served by GET /summary and GET /jobs (polled); row persisted every ~15 s
 
 Boot recovery (before first tick)
   running rows → queued (same position)
@@ -73,7 +73,7 @@ Web:
 - `features/transcode/ReencodeModal.tsx` — opened from `LibraryFileDetailBlock` (file) and from the season/show controls in the Management tab.
 - `pages/_component/TranscodeWidget.tsx` — added to `WidgetGrid`, admin-only.
 - `pages/settings/_component/TranscodeTab.tsx` — new admin tab "Re-encode".
-- Hooks: `useTranscodeCapabilities`, `useTranscodeEstimate`, `useTranscodeJobs`, `useTranscodeSettings`, `useTranscodeSummary`, plus an SSE subscription for `transcode-progress`. Query keys in `lib/queryKeys.ts`, endpoints in `lib/endpoints`.
+- Hooks: `useTranscodeCapabilities`, `useTranscodeEstimate`, `useTranscodeJobs`, `useTranscodeSettings`, `useTranscodeSummary`. Live progress is polled (2 s while a job runs on the admin tab, 5 s for the widget), matching the existing remux status polling; no SSE event, so the shared SSE contract and the iOS registry stay untouched. Query keys in `lib/queryKeys.ts`, endpoints in `lib/endpoints`.
 - Strings in `locales/en` and `locales/fr`.
 
 ## Modal
@@ -213,7 +213,7 @@ All under `/api/transcode`, admin-only.
 | GET/PATCH | `/settings` | Pause, window, thresholds, threads |
 | GET | `/summary` | Widget payload: state (running/paused/waiting-window/idle), current job + progress, next 2, queued count + ETA, saved (30 d), failed count |
 
-SSE: `transcode-progress` event on the existing library events stream — `{ jobId, step, progress, fps, speed, etaSecs, currentBytes }`.
+Live progress `{ progress, fps, speed, eta_secs, current_bytes }` is attached as `live` to the running job in `GET /jobs` and `GET /summary`.
 
 ## Home widget
 
