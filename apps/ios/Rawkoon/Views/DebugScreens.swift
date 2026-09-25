@@ -543,7 +543,6 @@
         }
     }
 
-
     /// `RAWKOON_SCREEN=tabBar`: the custom bar's states for screenshot review.
     private struct DebugTabBarStates: View {
         @State private var home = RootTab.home
