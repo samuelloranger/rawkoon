@@ -570,21 +570,29 @@
         private var container: some View {
             PhoneTabsView(selection: $selection, onExpandPlayer: {}) { tab in
                 NavigationStack {
-                    ScrollView {
-                        LazyVStack(spacing: 10) {
-                            ForEach(1 ... 40, id: \.self) { row in
-                                Text(verbatim: "Row \(row)")
-                                    .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-                                    .padding(.horizontal, 14)
-                                    .background(RoundedRectangle(cornerRadius: 14).fill(Theme.raised))
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(spacing: 10) {
+                                ForEach(1 ... 40, id: \.self) { row in
+                                    Text(verbatim: "Row \(row)")
+                                        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+                                        .padding(.horizontal, 14)
+                                        .background(RoundedRectangle(cornerRadius: 14).fill(Theme.raised))
+                                        .id(row)
+                                }
                             }
+                            .padding(.horizontal, 16)
                         }
-                        .padding(.horizontal, 16)
+                        .reportsTabBarScroll()
+                        .background(Theme.base)
+                        .navigationTitle(Text(tab.title))
+                        // Scrolled after layout, the way a user lands at the end.
+                        .task {
+                            guard atBottom else { return }
+                            try? await Task.sleep(for: .milliseconds(500))
+                            withAnimation { proxy.scrollTo(40, anchor: .bottom) }
+                        }
                     }
-                    .defaultScrollAnchor(atBottom ? .bottom : .top)
-                    .reportsTabBarScroll()
-                    .background(Theme.base)
-                    .navigationTitle(Text(tab.title))
                 }
             }
         }
