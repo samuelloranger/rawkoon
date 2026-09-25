@@ -42,7 +42,7 @@ struct ExploreFilters: Equatable {
 }
 
 /// A filterable, paginated TMDB discover grid — the "browse everything"
-/// counterpart to the swipe deck. Pushed from Discover's Filter button.
+/// counterpart to the swipe deck — with the movies, shows and books search on top.
 struct ExploreView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -53,6 +53,7 @@ struct ExploreView: View {
     var embedded = false
 
     @State private var filters = ExploreFilters()
+    @State private var query = ""
     @State private var items: [TmdbSearchItem] = []
     @State private var page = 1
     @State private var totalPages = 1
@@ -150,13 +151,19 @@ struct ExploreView: View {
     private var gridScroll: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                filterBar
+                MediaSearchField(query: $query)
 
-                if let error {
-                    refreshErrorBanner(error)
+                if MediaSearchField.isActive(query) {
+                    MediaSearchResults(query: query)
+                } else {
+                    filterBar
+
+                    if let error {
+                        refreshErrorBanner(error)
+                    }
+
+                    content
                 }
-
-                content
             }
             .padding(.top, 12)
             .padding(.bottom, 32)
