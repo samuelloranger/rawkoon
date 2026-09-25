@@ -556,6 +556,16 @@
         private let playing = ProcessInfo.processInfo.environment["RAWKOON_TABBAR_PLAYING"] != nil
 
         var body: some View {
+            // Rendered once the synthetic book is active, so the list anchors with the final inset.
+            Group {
+                if !playing || model.activeEditionId != nil {
+                    container
+                }
+            }
+            .onAppear(perform: loadPlayingBook)
+        }
+
+        private var container: some View {
             PhoneTabsView(selection: $selection, onExpandPlayer: {}) { tab in
                 NavigationStack {
                     ScrollView {
@@ -575,7 +585,6 @@
                     .navigationTitle(Text(tab.title))
                 }
             }
-            .onAppear(perform: loadPlayingBook)
         }
 
         private func loadPlayingBook() {
