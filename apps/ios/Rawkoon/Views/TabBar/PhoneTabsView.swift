@@ -5,8 +5,8 @@ import UIKit
 
 /// iPhone root: each tab's stack is mounted on first visit and kept alive, so
 /// switching tabs keeps its navigation history and scroll position. The bar and
-/// mini player float over the tabs, and every scroll view gets a matching bottom
-/// content margin so its last row clears them.
+/// mini player float over the tabs; each tab's navigation controller gets a
+/// matching bottom safe-area inset so its lists clear them.
 struct PhoneTabsView<Root: View>: View {
     @Environment(AppModel.self) private var model
     @Binding var selection: RootTab
@@ -20,8 +20,7 @@ struct PhoneTabsView<Root: View>: View {
     /// The bar rides the keyboard otherwise, and a tab switch would leave the
     /// hidden tab's field focused.
     @State private var keyboardShown = false
-    /// Measured height of the bar area. A `safeAreaInset` here does not reach scroll
-    /// views inside the tabs' navigation stacks; content margins do.
+    /// Measured height of the bar area, applied to each tab's navigation controller.
     @State private var chromeHeight: CGFloat = 0
     @State private var containerWidth: CGFloat = 393
 
@@ -41,9 +40,8 @@ struct PhoneTabsView<Root: View>: View {
                 }
             }
         }
+        .background(NavigationBottomInset(bottom: keyboardShown ? 0 : chromeHeight, mountedTabs: visited.count))
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { containerWidth = $0 }
-        .contentMargins(.bottom, keyboardShown ? 0 : chromeHeight, for: .scrollContent)
-        .contentMargins(.bottom, keyboardShown ? 0 : chromeHeight, for: .scrollIndicators)
         .overlay(alignment: .bottom) {
             if !keyboardShown {
                 bottomChrome
