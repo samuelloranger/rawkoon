@@ -1563,6 +1563,9 @@
       "save": "Enregistrer les types de fichiers",
       "saved": "Types de fichiers enregistrés.",
       "saveError": "Impossible d'enregistrer les types de fichiers."
+    },
+    "transcode": {
+      "title": "Réencodage"
     }
   },
   "medias": {
@@ -2634,6 +2637,71 @@
       "failed_other": "{{count}} échecs",
       "manage": "Gérer →",
       "queued": "{{count}} en file"
+    },
+    "admin": {
+      "runWindow": "Plage horaire",
+      "pause": "Mettre en pause",
+      "resume": "Reprendre",
+      "stats": {
+        "queued": "En file",
+        "saved": "Libéré",
+        "afterSeeding": "Libéré après le partage",
+        "failed": "Échecs"
+      },
+      "statsQueuedHint": "~{{time}} · {{size}} en entrée",
+      "statsSavedHint": "{{count}} fichiers · 30 derniers jours",
+      "statsSeedHint": "encore liés en dur",
+      "statsFailedHint": "originaux intacts",
+      "now": "Encodage en cours",
+      "steps": {
+        "queued": "En file",
+        "encode": "Encodage",
+        "validate": "Validation",
+        "replace": "Remplacement",
+        "rescan": "Rescan"
+      },
+      "speed": "Vitesse",
+      "elapsed": "Écoulé",
+      "eta": "Restant",
+      "size": "Taille",
+      "estWas": "Estimé",
+      "cancelJob": "Annuler",
+      "queue": "File",
+      "queueHint": "Glisser pour réordonner · les lots restent groupés",
+      "emptyQueue": "Rien en file. Ouvrez un film ou une série et choisissez Réencoder.",
+      "batch_one": "{{title}} · {{count}} fichier restant",
+      "batch_other": "{{title}} · {{count}} fichiers restants",
+      "moveTop": "Mettre en tête",
+      "remove": "Retirer",
+      "removeAll": "Tout retirer",
+      "history": "Historique",
+      "historyHint": "30 derniers jours",
+      "clearFinished": "Vider les terminés",
+      "cols": {
+        "item": "Élément",
+        "settings": "Réglages",
+        "size": "Taille",
+        "est": "Est.",
+        "result": "Résultat",
+        "beforeAfter": "Avant → après",
+        "saved": "Libéré",
+        "ssim": "SSIM",
+        "took": "Durée"
+      },
+      "result": {
+        "done": "Remplacé",
+        "seeding": "· en partage",
+        "failed": "Échec",
+        "cancelled": "Annulé"
+      },
+      "savedLater": "0 maintenant · {{size}} plus tard",
+      "kept": "{{size}} conservés",
+      "retry": "Réessayer",
+      "advanced": "Avancé",
+      "ssimThreshold": "Seuil SSIM moyen",
+      "ssimClipMin": "SSIM minimum par extrait",
+      "cpuThreads": "Threads CPU (vide = auto)",
+      "actionFailed": "Échec de l'action"
     }
   }
 }

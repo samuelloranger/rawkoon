@@ -1563,6 +1563,9 @@
       "save": "Save file types",
       "saved": "File types saved.",
       "saveError": "Couldn't save file types."
+    },
+    "transcode": {
+      "title": "Re-encode"
     }
   },
   "medias": {
@@ -2634,6 +2637,71 @@
       "failed_other": "{{count}} failed",
       "manage": "Manage →",
       "queued": "{{count}} queued"
+    },
+    "admin": {
+      "runWindow": "Run window",
+      "pause": "Pause queue",
+      "resume": "Resume queue",
+      "stats": {
+        "queued": "Queued",
+        "saved": "Saved",
+        "afterSeeding": "Frees after seeding",
+        "failed": "Failed"
+      },
+      "statsQueuedHint": "~{{time}} · {{size}} in",
+      "statsSavedHint": "{{count}} files · last 30 d",
+      "statsSeedHint": "still hardlinked",
+      "statsFailedHint": "originals untouched",
+      "now": "Now encoding",
+      "steps": {
+        "queued": "Queued",
+        "encode": "Encoding",
+        "validate": "Validating",
+        "replace": "Replacing",
+        "rescan": "Rescan"
+      },
+      "speed": "Speed",
+      "elapsed": "Elapsed",
+      "eta": "ETA",
+      "size": "Size",
+      "estWas": "Est. was",
+      "cancelJob": "Cancel",
+      "queue": "Queue",
+      "queueHint": "Drag to reorder · batches stay grouped",
+      "emptyQueue": "Nothing queued. Open a movie or show and choose Re-encode.",
+      "batch_one": "{{title}} · {{count}} file remaining",
+      "batch_other": "{{title}} · {{count}} files remaining",
+      "moveTop": "Move to top",
+      "remove": "Remove",
+      "removeAll": "Remove all",
+      "history": "History",
+      "historyHint": "Last 30 days",
+      "clearFinished": "Clear finished",
+      "cols": {
+        "item": "Item",
+        "settings": "Settings",
+        "size": "Size",
+        "est": "Est.",
+        "result": "Result",
+        "beforeAfter": "Before → after",
+        "saved": "Saved",
+        "ssim": "SSIM",
+        "took": "Took"
+      },
+      "result": {
+        "done": "Replaced",
+        "seeding": "· seeding",
+        "failed": "Failed",
+        "cancelled": "Cancelled"
+      },
+      "savedLater": "0 now · {{size}} later",
+      "kept": "{{size}} kept",
+      "retry": "Retry",
+      "advanced": "Advanced",
+      "ssimThreshold": "SSIM mean threshold",
+      "ssimClipMin": "SSIM per-clip minimum",
+      "cpuThreads": "CPU threads (empty = auto)",
+      "actionFailed": "Action failed"
     }
   }
 }
