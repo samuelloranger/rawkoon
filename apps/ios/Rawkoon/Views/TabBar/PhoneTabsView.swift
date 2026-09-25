@@ -5,7 +5,8 @@ import UIKit
 
 /// iPhone root: each tab's stack is mounted on first visit and kept alive, so
 /// switching tabs keeps its navigation history and scroll position. The bar and
-/// mini player live in the bottom safe-area inset, so every list clears them.
+/// mini player float over the tabs, and every scroll view gets a matching bottom
+/// content margin so its last row clears them.
 struct PhoneTabsView<Root: View>: View {
     @Environment(AppModel.self) private var model
     @Binding var selection: RootTab
@@ -19,6 +20,9 @@ struct PhoneTabsView<Root: View>: View {
     /// The bar rides the keyboard otherwise, and a tab switch would leave the
     /// hidden tab's field focused.
     @State private var keyboardShown = false
+    /// Measured height of the bar area. A `safeAreaInset` here does not reach scroll
+    /// views inside the tabs' navigation stacks; content margins do.
+    @State private var chromeHeight: CGFloat = 0
 
     var body: some View {
         ZStack {
@@ -36,9 +40,12 @@ struct PhoneTabsView<Root: View>: View {
                 }
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        .contentMargins(.bottom, keyboardShown ? 0 : chromeHeight, for: .scrollContent)
+        .contentMargins(.bottom, keyboardShown ? 0 : chromeHeight, for: .scrollIndicators)
+        .overlay(alignment: .bottom) {
             if !keyboardShown {
                 bottomChrome
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { chromeHeight = $0 }
             }
         }
         .onReceive(keyboardVisibility) { keyboardShown = $0 }
@@ -63,8 +70,8 @@ struct PhoneTabsView<Root: View>: View {
         model.activeBook() != nil
     }
 
-    /// The inset always reserves the expanded height; collapsing only redraws inside
-    /// it, so lists never re-anchor or clamp when the bar changes state.
+    /// Always sized as if expanded; collapsing only redraws inside it, so the lists'
+    /// margins never change and nothing re-anchors or clamps when the bar changes.
     private var bottomChrome: some View {
         ZStack(alignment: .bottomLeading) {
             chromeStack(collapsed: false)
