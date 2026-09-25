@@ -63,30 +63,42 @@ struct PhoneTabsView<Root: View>: View {
         model.activeBook() != nil
     }
 
+    /// The inset always reserves the expanded height; collapsing only redraws inside
+    /// it, so lists never re-anchor or clamp when the bar changes state.
     private var bottomChrome: some View {
+        ZStack(alignment: .bottomLeading) {
+            chromeStack(collapsed: false)
+                .hidden()
+                .accessibilityHidden(true)
+                .allowsHitTesting(false)
+            chromeStack(collapsed: chrome.isCollapsed)
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 4)
+    }
+
+    private func chromeStack(collapsed: Bool) -> some View {
         VStack(spacing: 8) {
-            if hasActiveBook, !chrome.isCollapsed {
+            if hasActiveBook, !collapsed {
                 miniPlayer
             }
             HStack(spacing: 8) {
                 RawkoonTabBar(
                     tabs: RootTab.phone,
                     selection: $selection,
-                    isCollapsed: chrome.isCollapsed,
+                    isCollapsed: collapsed,
                     unreadLabel: NotificationBadge.label(forUnread: model.unreadNotificationCount),
                     initials: model.userInitials,
                     onExpand: { chrome.expand() },
                     onReselect: { stackResets[$0, default: 0] += 1 }
                 )
-                .fixedSize(horizontal: chrome.isCollapsed, vertical: false)
-                if hasActiveBook, chrome.isCollapsed {
+                .fixedSize(horizontal: collapsed, vertical: false)
+                if hasActiveBook, collapsed {
                     miniPlayer
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 4)
     }
 
     private var miniPlayer: some View {
