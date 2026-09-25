@@ -554,6 +554,7 @@
         @State private var selection = RootTab.books
         private let atBottom = ProcessInfo.processInfo.environment["RAWKOON_TABBAR_BOTTOM"] != nil
         private let playing = ProcessInfo.processInfo.environment["RAWKOON_TABBAR_PLAYING"] != nil
+        @State private var insetBottom: Double = -1
 
         var body: some View {
             // Rendered once the synthetic book is active, so the list anchors with the final inset.
@@ -584,6 +585,15 @@
                             .padding(.horizontal, 16)
                         }
                         .reportsTabBarScroll()
+                        .onScrollGeometryChange(for: Double.self) { $0.contentInsets.bottom } action: { _, value in
+                            insetBottom = value
+                        }
+                        .overlay(alignment: .topTrailing) {
+                            Text(verbatim: "inset \(Int(insetBottom))")
+                                .font(.caption.monospaced())
+                                .padding(6)
+                                .background(.red)
+                        }
                         .background(Theme.base)
                         .navigationTitle(Text(tab.title))
                         // Scrolled after layout, the way a user lands at the end.
