@@ -12,8 +12,8 @@ const QUALITY: Record<string, Record<TranscodePreset, number>> = {
   "software:hevc": { high: 20, balanced: 23, small: 26 },
   "software:av1": { high: 26, balanced: 30, small: 35 },
   "vaapi:hevc": { high: 20, balanced: 24, small: 28 },
-  // av1_vaapi QP spans 0-255.
-  "vaapi:av1": { high: 80, balanced: 110, small: 140 },
+  // av1_vaapi quality spans 0-255; values picked to match hevc_vaapi SSIM at each preset.
+  "vaapi:av1": { high: 55, balanced: 70, small: 100 },
 };
 
 const SPEED: Record<string, Record<TranscodeSpeed, string>> = {
@@ -29,7 +29,7 @@ export const ROUGH_KBPS_1080: Record<
   "software:hevc": { high: 5000, balanced: 3200, small: 2000 },
   "software:av1": { high: 3800, balanced: 2400, small: 1500 },
   "vaapi:hevc": { high: 6000, balanced: 4000, small: 2600 },
-  "vaapi:av1": { high: 4800, balanced: 3000, small: 1900 },
+  "vaapi:av1": { high: 8500, balanced: 6000, small: 4000 },
 };
 
 /** Rough 1080p encode fps; scaled by 1080p pixel count / source pixel count. */

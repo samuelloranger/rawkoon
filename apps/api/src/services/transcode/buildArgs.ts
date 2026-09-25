@@ -58,7 +58,7 @@ function videoArgs(i: EncodeArgsInput, n: number): string[] {
       `${kbps * 3}k`,
     );
   } else if (s.encoder === "vaapi") {
-    out.push("-rc_mode", "CQP", "-qp", String(qualityValue(s)));
+    out.push("-rc_mode", "CQP", "-global_quality", String(qualityValue(s)));
   } else {
     out.push("-crf", String(qualityValue(s)));
   }

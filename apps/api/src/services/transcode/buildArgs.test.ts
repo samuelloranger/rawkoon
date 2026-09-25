@@ -167,7 +167,20 @@ describe("buildEncodeArgs", () => {
     expect(j).toContain("-init_hw_device vaapi=va:/dev/dri/renderD128");
     expect(j).toContain("-filter_hw_device va");
     expect(j).toContain("-filter:v:0 format=nv12,hwupload");
-    expect(j).toContain("-c:v:0 hevc_vaapi -rc_mode CQP -qp 24");
+    expect(j).toContain("-c:v:0 hevc_vaapi -rc_mode CQP -global_quality 24");
+  });
+
+  it("vaapi av1 sets quality through global_quality (av1_vaapi ignores -qp)", () => {
+    const a = buildEncodeArgs({
+      ...base,
+      probe: sdrMkv,
+      vaapiDevice: "/dev/dri/renderD128",
+      settings: { ...settings, codec: "av1", encoder: "vaapi" },
+    });
+    expect(a.join(" ")).toContain(
+      "-c:v:0 av1_vaapi -rc_mode CQP -global_quality 70",
+    );
+    expect(a).not.toContain("-qp");
   });
 
   it("target mode sets bitrate with vbv", () => {
