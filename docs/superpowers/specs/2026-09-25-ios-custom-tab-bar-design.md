@@ -43,16 +43,18 @@ Each tab keeps its own `NavigationStack`, as today.
 
 ## Architecture
 
-- **Container.** Keep `TabView(selection:)` as the container, so each tab keeps its navigation stack and scroll position natively. On compact width, hide the system bar and overlay the custom bar. On regular width nothing changes.
-- **Bar component.** The custom bar is a view that takes the selection binding, the tab descriptors, the badge count, the user's initials and the collapsed state. It holds no model state of its own.
-- **Content padding.** Tab content gets a bottom safe-area inset equal to the bar's height, so the last row of any list clears it. The inset follows the bar's current height, expanded or shrunk.
-- **Hiding on pushed screens.** A `.rawkoonTabBarHidden()` modifier, carried by a preference key, hides the bar on pushed screens that need the full height. It replaces today's `.toolbar(.hidden, for: .tabBar)` in `MediaDetailView` and any other callers.
+- **iPhone container.** A keep-alive `ZStack` of seven `NavigationStack`s. Each is mounted on first visit and stays mounted, so a tab switch keeps its navigation history and scroll position.
+  - This replaces the first draft, which kept `TabView` with its bar hidden. The codebase already records `.toolbar(.hidden, for: .tabBar)` as unreliable across iOS versions, and a bar reappearing on a pushed screen would stack two bars.
+- **iPad and Mac:** unchanged `TabView(.sidebarAdaptable)`.
+- **Bar component.** The custom bar is a view that takes the selection binding, the tab descriptors, the badge count, the user's initials and the collapsed state. It holds no model state.
+- **Content padding.** The bar and mini player live in the container's bottom `safeAreaInset`, so every list clears them and the inset tracks the expanded or shrunk height.
+- **No hiding modifier.** No screen hides the tab bar today (the one reference is a comment explaining why `MediaDetailView` does not), so the planned `.rawkoonTabBarHidden()` modifier is dropped.
 
 ## Shrink on scroll
 
 - **Collapsing.** Scrolling down collapses the bar to a small capsule at the bottom left that shows only the active icon.
 - **Expanding.** Scrolling up, reaching the top of the list, or tapping the capsule expands it.
-- **Scroll source.** Each tab's primary scroll view reports scroll offset and direction through a modifier built on `onScrollGeometryChange` (iOS 18).
+- **Scroll source.** Each tab's primary scroll view reports scroll offset and direction through a modifier built on `onScrollGeometryChange` (the deployment target is iOS 26.2).
 - **Decision logic.** The expand/collapse decision is a pure RawkoonKit function: direction, distance threshold, and at-top. It is unit-tested on Linux.
 
 ## Mini player
@@ -69,7 +71,7 @@ Each tab keeps its own `NavigationStack`, as today.
   - the badge label (0, 1–9, "9+");
   - initials from first and last name, including missing names;
   - the tab descriptor order and the selection validation, with `explore` now valid on compact width.
-- **macbuild:** app build, the four CI lint steps, and simulator screenshots of each state for review before any device install: expanded, shrunk, shrunk with the mini player, a pushed screen with the bar hidden, and a notification badge.
+- **macbuild:** app build, the four CI lint steps, and simulator screenshots of each state for review before any device install: expanded, shrunk, shrunk with the mini player, and a notification badge.
 - **Device (operator):** how the scroll collapse and the pill animation feel, which neither CI nor the simulator can judge.
 
 ## Risks
