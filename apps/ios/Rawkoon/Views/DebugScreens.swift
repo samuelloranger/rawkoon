@@ -549,11 +549,15 @@
     /// `RAWKOON_TABBAR_BOTTOM=1` starts the list at its end, which collapses the
     /// bar through the real scroll path and shows whether the last row clears it.
     /// `RAWKOON_TABBAR_PLAYING=1` loads a synthetic audiobook so the mini player shows.
+    /// `RAWKOON_TABBAR_DEMO=1` switches tabs, then scrolls down and back up, for a
+    /// screen recording of the transitions.
     private struct DebugTabContainer: View {
         @Environment(AppModel.self) private var model
         @State private var selection = RootTab.books
+        @State private var demoScrollTarget: Int?
         private let atBottom = ProcessInfo.processInfo.environment["RAWKOON_TABBAR_BOTTOM"] != nil
         private let playing = ProcessInfo.processInfo.environment["RAWKOON_TABBAR_PLAYING"] != nil
+        private let demo = ProcessInfo.processInfo.environment["RAWKOON_TABBAR_DEMO"] != nil
 
         var body: some View {
             // Rendered once the synthetic book is active, so the list anchors with the final inset.
@@ -565,6 +569,21 @@
                 }
             }
             .onAppear(perform: loadPlayingBook)
+            .task { await runDemo() }
+        }
+
+        private func runDemo() async {
+            guard demo else { return }
+            let pause = Duration.milliseconds(1400)
+            try? await Task.sleep(for: .seconds(2))
+            for tab in [RootTab.home, .settings, .books] {
+                withAnimation(.spring(duration: 0.35, bounce: 0.2)) { selection = tab }
+                try? await Task.sleep(for: pause)
+            }
+            for row in [40, 1, 40, 1] {
+                demoScrollTarget = row
+                try? await Task.sleep(for: pause)
+            }
         }
 
         private var container: some View {
@@ -591,6 +610,12 @@
                             guard atBottom else { return }
                             try? await Task.sleep(for: .milliseconds(500))
                             withAnimation { proxy.scrollTo(40, anchor: .bottom) }
+                        }
+                        .onChange(of: demoScrollTarget) { _, row in
+                            guard let row, tab == selection else { return }
+                            withAnimation(.easeInOut(duration: 0.8)) {
+                                proxy.scrollTo(row, anchor: row == 1 ? .top : .bottom)
+                            }
                         }
                     }
                 }
