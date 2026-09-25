@@ -127,6 +127,24 @@ const COPY = {
     en: (p) => `${p.show}: ${p.reason}`,
     fr: (p) => `${p.show} : ${p.reason}`,
   },
+  libraryTranscodeFinishedTitle: {
+    en: () => "Re-encode batch finished",
+    fr: () => "Réencodage terminé",
+  },
+  libraryTranscodeFinishedBody: {
+    en: (p) =>
+      `${p.title}: ${p.done} done, ${p.failed} failed, ${p.saved} freed${p.pending ? `, ${p.pending} after seeding` : ""}`,
+    fr: (p) =>
+      `${p.title} : ${p.done} terminés, ${p.failed} en échec, ${p.saved} libérés${p.pending ? `, ${p.pending} après le partage` : ""}`,
+  },
+  libraryTranscodeFailedTitle: {
+    en: () => "Re-encode failed",
+    fr: () => "Échec du réencodage",
+  },
+  libraryTranscodeFailedBody: {
+    en: (p) => `${p.title}: ${p.reason}`,
+    fr: (p) => `${p.title} : ${p.reason}`,
+  },
   libraryGrabSkippedEpisodeTitle: {
     en: (p) => `${p.code} search gave up`,
     fr: (p) => `Recherche abandonnée ${p.code}`,

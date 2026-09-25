@@ -13,6 +13,8 @@ export type NotificationType =
   | "library_post_process_failed"
   | "library_grab_skipped"
   | "library_attention"
+  | "library_transcode_finished"
+  | "library_transcode_failed"
   | "book_grabbed"
   | "book_downloaded"
   | "book_import_failed"
