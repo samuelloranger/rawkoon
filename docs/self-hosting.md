@@ -148,3 +148,22 @@ Once the containers are up:
    - Your download client (**qBittorrent**, **Transmission**, or **Deluge**).
 
 See [Getting started](/getting-started) to add your first movie or show!
+
+## Re-encoding (optional GPU)
+
+Settings → Admin → Re-encode runs ffmpeg inside the Rawkoon container. CPU encoding (HEVC via x265, AV1 via SVT-AV1) works everywhere. To let it use an Intel or AMD GPU through VA-API, pass the render device and group:
+
+```yaml
+services:
+  rawkoon:
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "${RENDER_GID}"   # getent group render | cut -d: -f3
+```
+
+The modal shows "Detected: VAAPI · renderD128" when it works, or the reason when it doesn't.
+
+Software encodes of 4K sources can use several GB of RAM; give the container at least 4 GB (`deploy.resources.limits.memory`) if you re-encode 4K on the CPU.
+
+Re-encoded files replace the originals only after validation. Files that are still hardlinked to a seeding torrent keep using disk space until that torrent is removed.
