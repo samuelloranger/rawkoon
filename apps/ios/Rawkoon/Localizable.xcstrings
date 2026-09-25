@@ -9125,6 +9125,28 @@
         }
       }
     },
+    "%@ unread": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ non lues"
+          }
+        }
+      }
+    },
+    "Tab bar": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barre d'onglets"
+          }
+        }
+      }
+    },
     "Loading audiobooks…": {
       "extractionState": "manual",
       "localizations": {
