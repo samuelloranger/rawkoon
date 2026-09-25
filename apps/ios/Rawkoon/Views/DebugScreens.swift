@@ -560,6 +560,8 @@
             Group {
                 if !playing || model.activeEditionId != nil {
                     container
+                } else {
+                    Theme.base
                 }
             }
             .onAppear(perform: loadPlayingBook)
