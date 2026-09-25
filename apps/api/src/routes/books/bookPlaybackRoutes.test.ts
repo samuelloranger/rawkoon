@@ -32,9 +32,8 @@ mock.module("@rawkoon/api/db", () => ({
   },
 }));
 
-const { bookContentRoutes, clampClientTimestamp, sliceForRange } = await import(
-  "./bookPlaybackRoutes"
-);
+const { bookContentRoutes, clampClientTimestamp, rangeStream, sliceForRange } =
+  await import("./bookPlaybackRoutes");
 
 const tempDir = mkdtempSync(join(tmpdir(), "book-content-ranges-"));
 
@@ -123,6 +122,26 @@ describe("sliceForRange", () => {
   });
 });
 
+describe("rangeStream", () => {
+  test("streams exactly the requested bytes across chunk boundaries", async () => {
+    const bytes = new Uint8Array(3 * 1024 * 1024 + 17);
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = index % 253;
+    }
+    const start = 1234;
+    const endExclusive = bytes.length - 5;
+
+    const path = join(tempDir, `${crypto.randomUUID()}.mp3`);
+    await Bun.write(path, bytes);
+
+    const body = await new Response(
+      rangeStream(Bun.file(path), start, endExclusive),
+    ).arrayBuffer();
+
+    expect(new Uint8Array(body)).toEqual(bytes.slice(start, endExclusive));
+  });
+});
+
 describe("bookContentRoutes with global cors", () => {
   test("Range bytes=0-99 returns only 100 bytes end to end", async () => {
     const grant = grantFor(1);
@@ -139,6 +158,23 @@ describe("bookContentRoutes with global cors", () => {
     );
     const body = await response.arrayBuffer();
     expect(body.byteLength).toBe(100);
+  });
+
+  test("an open-ended Range from mid-file returns only the tail", async () => {
+    const grant = grantFor(1);
+    const response = await app.request(
+      new Request(`http://localhost/files/1/content?grant=${grant}`, {
+        headers: { Range: "bytes=1000-" },
+      }),
+    );
+
+    expect(response.status).toBe(206);
+    expect(response.headers.get("Content-Range")).toBe(
+      `bytes 1000-${fixtureSize - 1}/${fixtureSize}`,
+    );
+    const body = new Uint8Array(await response.arrayBuffer());
+    expect(body.byteLength).toBe(fixtureSize - 1000);
+    expect(body[0]).toBe(1000 % 251);
   });
 
   test("no Range returns full file bytes", async () => {

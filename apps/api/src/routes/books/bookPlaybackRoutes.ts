@@ -1,6 +1,7 @@
 import { stat } from "node:fs/promises";
 import { z } from "zod";
 import { extname } from "node:path";
+import type { BunFile } from "bun";
 import { Hono } from "hono";
 
 import { loadConfig } from "@rawkoon/api/config";
@@ -100,6 +101,29 @@ export const sliceForRange = (range: ParsedByteRange) => ({
   start: range.start,
   endExclusive: range.end + 1,
 });
+
+const RANGE_CHUNK_BYTES = 1 << 20;
+
+/** Chunked, so a seek never waits for the rest of the file to load into memory. */
+export const rangeStream = (
+  handle: BunFile,
+  start: number,
+  endExclusive: number,
+): ReadableStream<Uint8Array> => {
+  let position = start;
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      if (position >= endExclusive) {
+        controller.close();
+        return;
+      }
+      const next = Math.min(position + RANGE_CHUNK_BYTES, endExclusive);
+      const chunk = await handle.slice(position, next).arrayBuffer();
+      position = next;
+      controller.enqueue(new Uint8Array(chunk));
+    },
+  });
+};
 
 const editionIdParam = z.object({ id: z.coerce.number() });
 
@@ -269,13 +293,7 @@ export const bookContentRoutes = new Hono<Env>().get(
     }
 
     const { start, endExclusive } = sliceForRange(range);
-    // Defensive: a cors layer re-serving a sliced BunFile handle from byte 0 was
-    // measured to silently send the whole file with a 206. Materializing the
-    // chunk here is immune to that, so keep it.
-    const chunk = new Uint8Array(
-      await handle.slice(start, endExclusive).arrayBuffer(),
-    );
-    return new Response(chunk, {
+    return new Response(rangeStream(handle, start, endExclusive), {
       status: 206,
       headers: {
         "Content-Type": contentType,

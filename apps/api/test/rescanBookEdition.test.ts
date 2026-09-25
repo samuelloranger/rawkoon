@@ -36,6 +36,7 @@ const state: {
   }>;
   deletedIds: number[];
   created: Array<Record<string, unknown>>;
+  fileUpdates: Array<Record<string, unknown>>;
 } = {
   edition: null,
   files: [],
@@ -45,6 +46,7 @@ const state: {
   editionUpdates: [],
   deletedIds: [],
   created: [],
+  fileUpdates: [],
 };
 
 const pushEditionUpdate = (args: {
@@ -117,7 +119,10 @@ mock.module("@rawkoon/api/db", () => ({
         state.files.push(row);
         return Promise.resolve(row);
       },
-      update: () => Promise.resolve({}),
+      update: (args: { data: Record<string, unknown> }) => {
+        state.fileUpdates.push(args.data);
+        return Promise.resolve({});
+      },
     },
     $transaction: async (
       arg:
@@ -208,6 +213,7 @@ describe("rescanBookEdition", () => {
     state.editionUpdates = [];
     state.deletedIds = [];
     state.created = [];
+    state.fileUpdates = [];
   });
 
   // The scenario this function exists for: a book was removed (which keeps its
@@ -408,6 +414,40 @@ describe("rescanBookEdition", () => {
     expect(
       state.editionUpdates.some((u) => u.data.offlineReady === false),
     ).toBe(true);
+  });
+
+  // Clients verify downloads against this hash, so a stale one fails every
+  // download of a file that was rewritten in place.
+  it("re-hashes a file whose bytes changed in place", async () => {
+    const { stat } = await import("node:fs/promises");
+    const { createHash } = await import("node:crypto");
+    state.edition = editionFixture({
+      kind: "audiobook",
+      offlineReady: true,
+      bookQualityProfile: { allowedFormats: ["mp3"] },
+    });
+    await mkdir(audiobookDir, { recursive: true });
+    const track = join(audiobookDir, "01.mp3");
+    await writeFile(track, "rewritten");
+    const st = await stat(track);
+    state.files = [
+      {
+        id: 42,
+        editionId: 1,
+        filePath: track,
+        fileName: "01.mp3",
+        sizeBytes: BigInt(st.size + 1024),
+        sha256: "stale",
+        fileDev: String(st.dev),
+        fileIno: String(st.ino),
+        fileMtimeMs: BigInt(Math.trunc(st.mtimeMs)),
+      } as unknown as Row,
+    ];
+
+    await rescanBookEdition(1);
+
+    const expected = createHash("sha256").update("rewritten").digest("hex");
+    expect(state.fileUpdates.some((u) => u.sha256 === expected)).toBe(true);
   });
 
   // The unchanged-file fast path must not drag the timeline down with it.
