@@ -37,7 +37,7 @@ extension AppModel {
         editionId: Int,
         totalDurationSecs: Double
     ) async -> (positionSecs: Double, effect: ResumeEffect) {
-        let localEntry = PositionJournal.latest(in: readJournal(), editionId: editionId)
+        let localEntry = await journalEntries()[editionId]
         let localRecord = localEntry.map {
             ProgressRecord(
                 positionSecs: $0.positionSecs,
@@ -250,6 +250,15 @@ extension AppModel {
         let compacted = PositionJournal.compacted(text)
         guard compacted.utf8.count < text.utf8.count else { return }
         try? compacted.write(to: journalURL, atomically: true, encoding: .utf8)
+    }
+
+    /// Newest journal entry per edition, parsed off the main actor: the file is
+    /// read on every book open, CarPlay refresh and resume lookup.
+    func journalEntries() async -> [Int: PositionEntry] {
+        let url = journalURL
+        return await Task.detached(priority: .userInitiated) {
+            PositionJournal.latestByEdition((try? String(contentsOf: url, encoding: .utf8)) ?? "")
+        }.value
     }
 
     func readJournal() -> String {

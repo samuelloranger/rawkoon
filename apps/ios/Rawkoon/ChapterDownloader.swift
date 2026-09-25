@@ -9,7 +9,9 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     private let stateQueue = DispatchQueue(label: "cloud.samlo.rawkoon.chapter-downloader")
     private let maxConcurrentDownloads = 3
     private let sessionIdentifier: String
-    private let allowCellular: Bool
+    /// Fired once the cancelled session has fully invalidated; a new session with
+    /// the same identifier created before that collides with it.
+    private var onInvalidated: (@Sendable () -> Void)?
 
     /// Not `let`: an expired grant is replaced in place rather than by tearing
     /// the background session down, because the session identifier has to stay
@@ -31,9 +33,11 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         )
         config.sessionSendsLaunchEvents = true
         config.isDiscretionary = false
-        config.allowsCellularAccess = allowCellular
-        config.allowsExpensiveNetworkAccess = allowCellular
-        config.allowsConstrainedNetworkAccess = allowCellular
+        // Cellular is decided per request, so the setting applies to the next
+        // chapter instead of waiting for a new session.
+        config.allowsCellularAccess = true
+        config.allowsExpensiveNetworkAccess = true
+        config.allowsConstrainedNetworkAccess = true
         return URLSession(configuration: config, delegate: self, delegateQueue: nil)
     }()
 
@@ -41,13 +45,11 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         editionId: Int,
         baseURL: URL,
         manifest: BookManifest,
-        allowCellular: Bool,
         onState: @escaping (DownloadPlan) -> Void
     ) {
         self.editionId = editionId
         self.baseURL = baseURL
         self.manifest = manifest
-        self.allowCellular = allowCellular
         self.onState = onState
         sessionIdentifier = Self.sessionIdentifier(editionId: editionId)
         plan = DownloadPlan(files: manifest.files)
@@ -70,11 +72,12 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     /// any partial files afterward, so there is nothing to resume into. The
     /// resulting `NSURLErrorCancelled` is already swallowed in
     /// `didCompleteWithError`, so no spurious failure state is emitted.
-    func cancel() {
+    func cancel(onInvalidated: (@Sendable () -> Void)? = nil) {
         // Serialized on stateQueue so it lands after any in-flight pump rather
         // than racing one: invalidating the session while `pumpIfNeeded` is
         // mid-`downloadTask(with:)` on the same session is undefined.
         stateQueue.sync {
+            self.onInvalidated = onInvalidated
             self.isCancelled = true
             self.isRunning = false
             self.activeFileIds.removeAll()
@@ -161,10 +164,26 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     /// those without spending an attempt.
     func refreshChapterURLs(from manifest: BookManifest) {
         stateQueue.async {
+            let freshIds = Set(manifest.files.map(\.id))
+            let idsChanged = freshIds != Set(self.plan.files.map(\.id))
             self.manifest = manifest
             self.fileById = Dictionary(
                 uniqueKeysWithValues: manifest.files.map { ($0.id, $0) }
             )
+            // Re-imported on the server mid-download: the old ids will never
+            // verify, so start the plan over from what is already on disk.
+            if idsChanged {
+                self.plan = DownloadPlan(files: manifest.files)
+                self.activeFileIds.formIntersection(freshIds)
+                self.session.getAllTasks { tasks in
+                    for task in tasks {
+                        guard let id = self.fileId(from: task.taskDescription), !freshIds.contains(id) else { continue }
+                        task.cancel()
+                    }
+                }
+                FileStore.deleteChapters(editionId: self.editionId, keeping: freshIds)
+                self.reconcileExistingFiles()
+            }
             self.plan.acknowledgeFreshGrants()
             self.emitState()
             self.pumpIfNeeded()
@@ -238,6 +257,10 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
 
             var request = URLRequest(url: url)
             request.httpMethod = "GET"
+            let cellular = Self.allowsCellular()
+            request.allowsCellularAccess = cellular
+            request.allowsExpensiveNetworkAccess = cellular
+            request.allowsConstrainedNetworkAccess = cellular
 
             let task = session.downloadTask(with: request)
             task.taskDescription = "\(editionId)/\(fileId)"
@@ -372,6 +395,16 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
             """
         )
         applyEventAndContinue(.transportFailed(fileId: fileId), fileId: fileId)
+    }
+
+    func urlSession(_: URLSession, didBecomeInvalidWithError _: Error?) {
+        let callback = stateQueue.sync { onInvalidated }
+        callback?()
+    }
+
+    /// The Settings "download over" choice, read when each chapter starts.
+    private static func allowsCellular() -> Bool {
+        UserDefaults.standard.string(forKey: "download_over") != "wifi"
     }
 
     func urlSessionDidFinishEvents(forBackgroundURLSession _: URLSession) {

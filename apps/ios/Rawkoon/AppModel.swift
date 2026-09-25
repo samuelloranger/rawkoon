@@ -138,7 +138,9 @@ final class AppModel {
     var lastProgressPosition: [Int: Double] = [:]
 
     let journalURL: URL
-    let deviceID: String
+    /// Not `let`: before the first unlock the Keychain is unreadable, so the
+    /// launch value can be provisional until protected data becomes available.
+    private(set) var deviceID: String
 
     init() {
         serverURL = Keychain.get(Self.serverURLKey) ?? ""
@@ -157,6 +159,7 @@ final class AppModel {
         player.onPositionTick = { [weak self] in self?.persistPlaybackProgress(force: false) }
         player.onPlaybackStopped = { [weak self] in self?.persistPlaybackProgress(force: true) }
         startPathMonitor()
+        observeProtectedData()
         compactJournal()
         restoreDownloadedAudiobooks()
     }
@@ -355,6 +358,7 @@ final class AppModel {
     /// secret rotated would otherwise refetch forever.
     private var grantRefreshAttempts: [Int: Int] = [:]
     private var startingDownloads: Set<Int> = []
+    private var invalidatingSessions: Set<Int> = []
     private var grantRefreshInFlight: Set<Int> = []
 
     /// Ask for notification permission, then register for remote notifications.
@@ -431,7 +435,7 @@ final class AppModel {
             (remote ?? []).map { ($0.editionId, $0) }, uniquingKeysWith: { first, _ in first }
         )
         // Offline, the phone's own journal is the only record of what is in progress.
-        let journal = PositionJournal.latestByEdition(readJournal())
+        let journal = await journalEntries()
 
         var entries: [CarPlayBrowseEntry] = []
         for (index, book) in library.enumerated() {
@@ -523,18 +527,30 @@ final class AppModel {
         }
     }
 
-    func startDownload(editionId: Int) async {
+    func startDownload(editionId: Int, preferDiskManifest: Bool = false) async {
         errorMessage = nil
         // The manifest await below is a window where a second call (a re-tap, a
         // background relaunch) would build a second downloader on the same session id.
         guard !startingDownloads.contains(editionId) else { return }
         startingDownloads.insert(editionId)
         defer { startingDownloads.remove(editionId) }
+        // A just-cancelled session with this identifier may still be invalidating.
+        for _ in 0 ..< 50 where invalidatingSessions.contains(editionId) {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
 
         do {
             // Fresh grants: a restored disk manifest is enough to list chapters
-            // but its signed URLs may already have expired.
-            let manifest = try await manifest(editionId, forceRefresh: true)
+            // but its signed URLs may already have expired. A background relaunch
+            // takes the disk copy anyway: it must reattach the session before its
+            // time runs out, and an expired grant is refreshed through the 401 path.
+            let diskManifest = preferDiskManifest ? DownloadedStore.readManifest(editionId: editionId) : nil
+            let manifest = if let diskManifest {
+                diskManifest
+            } else {
+                try await manifest(editionId, forceRefresh: true)
+            }
+            manifests[editionId] = manifests[editionId] ?? manifest
             DownloadedStore.writeManifest(manifest, editionId: editionId)
             guard let baseURL = URL(string: serverURL) else {
                 errorMessage = String(localized: "Enter a valid server URL.")
@@ -549,12 +565,10 @@ final class AppModel {
                 return
             }
 
-            let allowCellularDownloads = UserDefaults.standard.string(forKey: "download_over") != "wifi"
             let downloader = ChapterDownloader(
                 editionId: editionId,
                 baseURL: baseURL,
-                manifest: manifest,
-                allowCellular: allowCellularDownloads
+                manifest: manifest
             ) { [weak self] plan in
                 Task { @MainActor in
                     self?.applyDownloadPlan(plan, editionId: editionId)
@@ -638,7 +652,7 @@ final class AppModel {
             completionHandler()
             return
         }
-        Task { await startDownload(editionId: editionId) }
+        Task { await startDownload(editionId: editionId, preferDiskManifest: true) }
     }
 
     func deleteDownloads() {
@@ -670,8 +684,12 @@ final class AppModel {
     /// its plan. A straggling task cannot re-create the directory because the
     /// downloader is cancelled before the files go.
     private func purgeDownload(editionId: Int) {
-        downloaders[editionId]?.cancel()
-        downloaders.removeValue(forKey: editionId)
+        if let downloader = downloaders.removeValue(forKey: editionId) {
+            invalidatingSessions.insert(editionId)
+            downloader.cancel { [weak self] in
+                Task { @MainActor in self?.invalidatingSessions.remove(editionId) }
+            }
+        }
         FileStore.deleteEdition(editionId)
         DownloadedStore.forget(editionId: editionId)
         downloadPlans.removeValue(forKey: editionId)
@@ -799,6 +817,7 @@ final class AppModel {
         guard let manifest = manifests[editionId] else { return }
         let book = library.first { $0.audiobookEditionId == editionId }
         OfflineLibraryStore.persistAudiobook(editionId: editionId, manifest: manifest, book: book)
+        FileStore.deleteChapters(editionId: editionId, keeping: Set(manifest.files.map(\.id)))
     }
 
     /// Records a downloaded ebook into the offline store — see
@@ -833,6 +852,7 @@ final class AppModel {
             let fetched = try await apiClient.libraryBooks()
             library = fetched.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
             isOfflineLibrary = false
+            OfflineLibraryStore.backfillMissingCovers(library: library)
             await refreshAdmin()
         } catch {
             // Offline / server unreachable: serve the downloaded index so the
@@ -937,6 +957,31 @@ final class AppModel {
             return String(localized: "Unexpected error. Please try again.")
         }
         return apiError.userMessage()
+    }
+
+    /// A launch before the first unlock since boot (a background URLSession or
+    /// CarPlay event) cannot read the Keychain, and would otherwise stay logged
+    /// out for the life of the process.
+    private func observeProtectedData() {
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.protectedDataDidBecomeAvailableNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.reloadCredentialsAfterUnlock() }
+        }
+    }
+
+    private func reloadCredentialsAfterUnlock() {
+        deviceID = Self.resolveDeviceID()
+        guard !isLoggedIn,
+              let token = Keychain.get(Self.authTokenKey),
+              let server = Keychain.get(Self.serverURLKey),
+              let baseURL = URL(string: server)
+        else { return }
+        serverURL = server
+        apiClient = makeAPIClient(baseURL: baseURL, token: token)
+        isLoggedIn = true
     }
 
     private static func resolveDeviceID() -> String {

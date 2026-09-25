@@ -94,17 +94,20 @@
                 let url = book.coverURL
             else { return }
             Task {
-                guard
-                    let (data, _) = try? await URLSession.shared.data(from: url),
-                    let image = downsampled(data, maxPixelSize: 360)
-                else { return }
-                await MainActor.run { item.setImage(image) }
+                guard let (data, _) = try? await URLSession.shared.data(from: url) else { return }
+                // Detached: this Task inherits the main actor, and a refresh
+                // decodes up to 200 covers.
+                let image = await Task.detached(priority: .utility) {
+                    downsampled(data, maxPixelSize: 360)
+                }.value
+                guard let image else { return }
+                item.setImage(image)
             }
         }
 
         /// Decodes `data` straight to a thumbnail no larger than `maxPixelSize` on its
         /// long edge (≈120pt at @3x), never allocating the full-size bitmap.
-        private static func downsampled(_ data: Data, maxPixelSize: CGFloat) -> UIImage? {
+        private nonisolated static func downsampled(_ data: Data, maxPixelSize: CGFloat) -> UIImage? {
             let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
             guard let source = CGImageSourceCreateWithData(data as CFData, sourceOptions) else {
                 return nil
