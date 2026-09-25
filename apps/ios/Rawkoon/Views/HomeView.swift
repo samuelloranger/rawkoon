@@ -8,6 +8,7 @@ import SwiftUI
 /// integration is off or has no data.
 struct HomeView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.isActiveRootTab) private var isActiveRootTab
     /// Local namespace shared directly by each poster source and its detail
     /// destination — the reliable pattern for the zoom transition.
     @Namespace private var zoomNamespace
@@ -85,6 +86,12 @@ struct HomeView: View {
             }
         }
         .task { await load() }
+        // Kept-alive iPhone tabs never re-appear, so a revisit refreshes like the old TabView did.
+        .onChange(of: isActiveRootTab) { _, active in
+            if active {
+                Task { await load() }
+            }
+        }
         .task { await model.refreshUnreadNotificationCount() }
         .refreshable {
             continueToken += 1

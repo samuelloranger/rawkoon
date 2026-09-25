@@ -3,7 +3,7 @@
 /// point where the direction last changed, so bounce jitter never flips it.
 public struct TabBarScrollState: Equatable, Sendable {
     public private(set) var isCollapsed = false
-    private var lastOffset: Double = 0
+    private var lastOffset: Double?
     private var anchor: Double
     private var movingDown = true
     private let threshold: Double
@@ -15,13 +15,23 @@ public struct TabBarScrollState: Equatable, Sendable {
         anchor = topSlop
     }
 
-    public mutating func update(offset: Double) {
+    /// `maxOffset` is the list's end; at or past it the list is settling, not scrolling.
+    public mutating func update(offset: Double, maxOffset: Double = .infinity) {
         defer { lastOffset = offset }
+        // A kept-alive list reports where it already is first; that is not a scroll.
+        guard let lastOffset else {
+            anchor = offset
+            return
+        }
         // At rest the next move can only be down, measured from the top zone's edge.
         guard offset > topSlop else {
             isCollapsed = false
             anchor = topSlop
             movingDown = true
+            return
+        }
+        guard offset < maxOffset else {
+            anchor = offset
             return
         }
         guard offset != lastOffset else { return }
@@ -40,6 +50,6 @@ public struct TabBarScrollState: Equatable, Sendable {
 
     public mutating func expand() {
         isCollapsed = false
-        anchor = lastOffset
+        anchor = lastOffset ?? anchor
     }
 }

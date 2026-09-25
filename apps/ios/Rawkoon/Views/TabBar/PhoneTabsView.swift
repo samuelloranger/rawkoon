@@ -1,5 +1,7 @@
+import Combine
 import RawkoonKit
 import SwiftUI
+import UIKit
 
 /// iPhone root: each tab's stack is mounted on first visit and kept alive, so
 /// switching tabs keeps its navigation history and scroll position. The bar and
@@ -12,6 +14,11 @@ struct PhoneTabsView<Root: View>: View {
 
     @State private var chrome = TabBarChrome()
     @State private var visited: Set<RootTab> = []
+    /// Bumped on a re-tap of the shown tab, which rebuilds its stack at the root.
+    @State private var stackResets: [RootTab: Int] = [:]
+    /// The bar rides the keyboard otherwise, and a tab switch would leave the
+    /// hidden tab's field focused.
+    @State private var keyboardShown = false
 
     var body: some View {
         ZStack {
@@ -19,19 +26,37 @@ struct PhoneTabsView<Root: View>: View {
                 if visited.contains(tab) || tab == selection {
                     let shown = tab == selection
                     root(tab)
+                        .id(stackResets[tab, default: 0])
+                        // Only the shown tab may drive the bar; a hidden list reloading must not.
+                        .environment(\.tabBarChrome, shown ? chrome : nil)
+                        .environment(\.isActiveRootTab, shown)
                         .opacity(shown ? 1 : 0)
                         .allowsHitTesting(shown)
                         .accessibilityHidden(!shown)
                 }
             }
         }
-        .environment(\.tabBarChrome, chrome)
-        .safeAreaInset(edge: .bottom, spacing: 0) { bottomChrome }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if !keyboardShown {
+                bottomChrome
+            }
+        }
+        .onReceive(keyboardVisibility) { keyboardShown = $0 }
         .onAppear { visited.insert(selection) }
         .onChange(of: selection) { _, tab in
             visited.insert(tab)
             chrome.reset()
         }
+    }
+
+    private var keyboardVisibility: AnyPublisher<Bool, Never> {
+        let center = NotificationCenter.default
+        return Publishers.Merge(
+            center.publisher(for: UIResponder.keyboardWillShowNotification).map { _ in true },
+            center.publisher(for: UIResponder.keyboardWillHideNotification).map { _ in false }
+        )
+        .receive(on: DispatchQueue.main)
+        .eraseToAnyPublisher()
     }
 
     private var hasActiveBook: Bool {
@@ -50,7 +75,8 @@ struct PhoneTabsView<Root: View>: View {
                     isCollapsed: chrome.isCollapsed,
                     unreadLabel: NotificationBadge.label(forUnread: model.unreadNotificationCount),
                     initials: model.userInitials,
-                    onExpand: { chrome.expand() }
+                    onExpand: { chrome.expand() },
+                    onReselect: { stackResets[$0, default: 0] += 1 }
                 )
                 .fixedSize(horizontal: chrome.isCollapsed, vertical: false)
                 if hasActiveBook, chrome.isCollapsed {
@@ -65,7 +91,6 @@ struct PhoneTabsView<Root: View>: View {
 
     private var miniPlayer: some View {
         MiniPlayerView(model: model, onExpand: onExpandPlayer)
-            .frame(height: 52)
             .frame(maxWidth: .infinity)
             .background(Capsule().fill(Theme.raised))
             .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))

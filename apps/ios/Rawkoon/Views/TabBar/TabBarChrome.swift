@@ -7,8 +7,8 @@ final class TabBarChrome {
     private(set) var isCollapsed = false
     private var scroll = TabBarScrollState()
 
-    func scrolled(to offset: Double) {
-        scroll.update(offset: offset)
+    func scrolled(to offset: Double, maxOffset: Double) {
+        scroll.update(offset: offset, maxOffset: maxOffset)
         sync()
     }
 
@@ -31,6 +31,8 @@ final class TabBarChrome {
 
 extension EnvironmentValues {
     @Entry var tabBarChrome: TabBarChrome?
+    /// False for a kept-alive iPhone tab that is not on screen; true elsewhere.
+    @Entry var isActiveRootTab = true
 }
 
 extension View {
@@ -44,10 +46,20 @@ private struct TabBarScrollReporter: ViewModifier {
     @Environment(\.tabBarChrome) private var chrome
 
     func body(content: Content) -> some View {
-        content.onScrollGeometryChange(for: Double.self) { geometry in
-            geometry.contentOffset.y + geometry.contentInsets.top
-        } action: { _, offset in
-            chrome?.scrolled(to: offset)
+        content.onScrollGeometryChange(for: ScrollSample.self) { geometry in
+            let top = geometry.contentInsets.top
+            return ScrollSample(
+                offset: geometry.contentOffset.y + top,
+                maxOffset: geometry.contentSize.height - geometry.containerSize.height
+                    + geometry.contentInsets.bottom + top
+            )
+        } action: { _, sample in
+            chrome?.scrolled(to: sample.offset, maxOffset: sample.maxOffset)
         }
     }
+}
+
+private struct ScrollSample: Equatable {
+    let offset: Double
+    let maxOffset: Double
 }

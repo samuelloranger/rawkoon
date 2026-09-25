@@ -180,7 +180,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
 private struct RootTabsView: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.horizontalSizeClass) private var hSizeClass
     @State private var showFullPlayer = false
     @State private var selection: RootTab
     /// The zoom namespace lives on a real View, not the App struct: `@Namespace`
@@ -256,8 +255,10 @@ private struct RootTabsView: View {
         }
     }
 
+    /// By device, not size class: an iPad window crossing compact width would
+    /// otherwise swap containers and drop every tab's navigation state.
     private var compact: Bool {
-        hSizeClass != .regular
+        UIDevice.current.userInterfaceIdiom == .phone
     }
 
     private var mainTabs: some View {

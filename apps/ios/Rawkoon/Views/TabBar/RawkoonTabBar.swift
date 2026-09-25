@@ -11,6 +11,8 @@ struct RawkoonTabBar: View {
     let unreadLabel: String?
     let initials: String?
     let onExpand: () -> Void
+    /// A tap on the tab already shown; the container pops it to its root.
+    var onReselect: (RootTab) -> Void = { _ in }
 
     @Namespace private var pill
 
@@ -29,7 +31,7 @@ struct RawkoonTabBar: View {
         .overlay(Capsule().strokeBorder(Color.white.opacity(0.07), lineWidth: 1))
         .shadow(color: .black.opacity(0.45), radius: 16, y: 8)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(Text("Tab bar"))
+        .accessibilityAddTraits(.isTabBar)
     }
 
     private func slot(_ tab: RootTab) -> some View {
@@ -37,7 +39,9 @@ struct RawkoonTabBar: View {
         return Button {
             if isCollapsed {
                 onExpand()
-            } else if !active {
+            } else if active {
+                onReselect(tab)
+            } else {
                 withAnimation(.spring(duration: 0.3)) { selection = tab }
             }
         } label: {

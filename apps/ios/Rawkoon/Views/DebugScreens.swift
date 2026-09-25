@@ -270,7 +270,7 @@
 
         /// Built as JSON and decoded, because RawkoonKit exposes no public
         /// initialiser for these types.
-        private static func syntheticManifest(chapterCount: Int) -> BookManifest? {
+        fileprivate static func syntheticManifest(chapterCount: Int) -> BookManifest? {
             var chapters: [String] = []
             for index in 0 ..< chapterCount {
                 let start = Double(index) * chapterSecs
@@ -548,9 +548,12 @@
     /// `RAWKOON_SCREEN=tabContainer`: the real iPhone container over mock lists.
     /// `RAWKOON_TABBAR_BOTTOM=1` starts the list at its end, which collapses the
     /// bar through the real scroll path and shows whether the last row clears it.
+    /// `RAWKOON_TABBAR_PLAYING=1` loads a synthetic audiobook so the mini player shows.
     private struct DebugTabContainer: View {
+        @Environment(AppModel.self) private var model
         @State private var selection = RootTab.books
         private let atBottom = ProcessInfo.processInfo.environment["RAWKOON_TABBAR_BOTTOM"] != nil
+        private let playing = ProcessInfo.processInfo.environment["RAWKOON_TABBAR_PLAYING"] != nil
 
         var body: some View {
             PhoneTabsView(selection: $selection, onExpandPlayer: {}) { tab in
@@ -572,6 +575,23 @@
                     .navigationTitle(Text(tab.title))
                 }
             }
+            .onAppear(perform: loadPlayingBook)
+        }
+
+        private func loadPlayingBook() {
+            guard playing, model.activeEditionId == nil,
+                  let manifest = DebugPlayer.syntheticManifest(chapterCount: 12),
+                  let baseURL = URL(string: "https://screenshot.invalid")
+            else { return }
+            model.library = [BookListItem(
+                bookId: manifest.bookId, title: manifest.title, author: manifest.authors.first,
+                coverURL: nil, audiobookEditionId: manifest.editionId, ebookEditionId: nil,
+                audiobookDurationSecs: manifest.totalDurationSecs, audiobookStatus: "downloaded",
+                audiobookFileCount: manifest.files.count, hasEbook: false, readAt: nil
+            )]
+            model.manifests[manifest.editionId] = manifest
+            model.activeEditionId = manifest.editionId
+            model.player.load(manifest: manifest, baseURL: baseURL, resumeAt: 1800)
         }
     }
 
