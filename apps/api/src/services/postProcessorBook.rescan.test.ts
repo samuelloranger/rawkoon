@@ -34,6 +34,7 @@ const payload = {
   fileDev: "2049",
   fileIno: "830001",
   fileMtimeMs: 1234567n,
+  sha256: null,
 };
 
 describe("upsertBookFile", () => {

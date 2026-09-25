@@ -412,6 +412,10 @@ export async function postProcessBook(opts: {
     },
   });
 
+  // Without a registered timeline the edition is not offline-ready, so every
+  // manifest request 400s until someone rescans it by hand.
+  if (kind === "audiobook") await registerBookChapters(opts.editionId);
+
   // Push to any open client so the list and detail both update without polling,
   // the same way a movie import does.
   emitBookUpdate(edition.bookId);
@@ -628,6 +632,7 @@ export interface BookFileUpsert {
   fileDev: string;
   fileIno: string;
   fileMtimeMs: bigint;
+  sha256: string | null;
 }
 
 /**
@@ -934,6 +939,7 @@ export async function rescanBookEdition(editionId: number): Promise<{
       fileDev: String(st.dev),
       fileIno: String(st.ino),
       fileMtimeMs: BigInt(Math.trunc(st.mtimeMs)),
+      sha256: await sha256File(keeper.path),
     });
 
     if (existed) refreshed++;
