@@ -450,6 +450,7 @@ model LibraryMedia {
   attentionAlerts   LibraryAttentionAlert[]
   mediaRequests     MediaRequest[]
   titles            LibraryMediaTitle[]
+  transcodeJobs     TranscodeJob[]
 
   @@index([type], map: "ix_library_media_type")
   @@index([status], map: "ix_library_media_status")
@@ -782,6 +783,7 @@ model MediaFile {
 
   media   LibraryMedia?   @relation("MediaFileMedia", fields: [mediaId], references: [id], onDelete: Cascade)
   episode LibraryEpisode? @relation("MediaFileEpisode", fields: [episodeId], references: [id], onDelete: Cascade)
+  transcodeJobs TranscodeJob[]
 
   @@index([mediaId], map: "ix_media_files_media_id")
   @@index([episodeId], map: "ix_media_files_episode_id")
@@ -1248,4 +1250,47 @@ model BookQualityProfileCustomFormat {
   @@unique([bookQualityProfileId, customFormatId], map: "uq_bqp_custom_format")
   @@index([bookQualityProfileId], map: "ix_bqp_custom_format_profile")
   @@map("book_quality_profile_custom_formats")
+}
+
+model TranscodeJob {
+  id             Int           @id @default(autoincrement())
+  mediaFileId    Int?          @map("media_file_id")
+  mediaId        Int?          @map("media_id")
+  batchId        String        @map("batch_id") @db.Uuid
+  title          String
+  position       Float
+  status         String        @default("queued")
+  step           String?
+  settings       Json
+  sourceBytes    BigInt        @map("source_bytes")
+  estimatedBytes BigInt?       @map("estimated_bytes")
+  outputBytes    BigInt?       @map("output_bytes")
+  sourceNlink    Int?          @map("source_nlink")
+  progress       Float?
+  ssimAvg        Float?        @map("ssim_avg")
+  ssimMin        Float?        @map("ssim_min")
+  error          String?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  startedAt      DateTime?     @map("started_at")
+  finishedAt     DateTime?     @map("finished_at")
+  mediaFile      MediaFile?    @relation(fields: [mediaFileId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  media          LibraryMedia? @relation(fields: [mediaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([status, position], map: "ix_transcode_jobs_status_position")
+  @@index([batchId], map: "ix_transcode_jobs_batch_id")
+  @@map("transcode_jobs")
+}
+
+model TranscodeSettings {
+  id            Int      @id @default(1)
+  paused        Boolean  @default(false)
+  windowEnabled Boolean  @default(false) @map("window_enabled")
+  windowStart   String   @default("01:00") @map("window_start")
+  windowEnd     String   @default("08:00") @map("window_end")
+  ssimThreshold Float    @default(0.97) @map("ssim_threshold")
+  ssimClipMin   Float    @default(0.95) @map("ssim_clip_min")
+  cpuThreads    Int?     @map("cpu_threads")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("transcode_settings")
 }
