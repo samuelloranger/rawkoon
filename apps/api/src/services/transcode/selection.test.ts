@@ -98,6 +98,29 @@ describe("exclusionReason", () => {
       }),
     ).toBe("Already 1080p or lower");
   });
+  it("accepts a wide source that does not fit the target box", () => {
+    const scope = parseProbe({
+      format: { duration: "10", size: "10" },
+      streams: [
+        {
+          index: 0,
+          codec_type: "video",
+          codec_name: "hevc",
+          width: 2560,
+          height: 1072,
+        },
+      ],
+    });
+    expect(
+      exclusionReason({
+        path: "/a.mkv",
+        probe: scope,
+        settings: { ...settings, resolution: 1080 },
+        active: false,
+        caps,
+      }),
+    ).toBeNull();
+  });
   it("rejects an unavailable encoder combo", () => {
     expect(
       exclusionReason({

@@ -6,6 +6,7 @@ import {
 } from "@rawkoon/api/services/transcode/outputPath";
 import {
   type PipelineDeps,
+  type PipelineResult,
   runPipeline,
 } from "@rawkoon/api/services/transcode/pipeline";
 import { isInsideWindow } from "@rawkoon/api/services/transcode/queueMath";
@@ -39,6 +40,7 @@ export class TranscodeDispatcher {
     live: TranscodeLiveProgress | null;
   } | null = null;
   private busy: Promise<void> | null = null;
+  private shuttingDown = false;
 
   constructor(
     private repo: TranscodeRepo,
@@ -60,6 +62,8 @@ export class TranscodeDispatcher {
   async stop(): Promise<void> {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+    // A restart re-queues the running job; the pipeline ignores the abort once replace has started.
+    this.shuttingDown = true;
     this.running?.abort.abort();
     await this.busy;
   }
@@ -80,34 +84,91 @@ export class TranscodeDispatcher {
 
   async recover(): Promise<void> {
     for (const job of await this.repo.runningJobs()) {
-      if (job.source) {
-        const src = this.deps.mapPath(job.source.dbPath);
-        const verify = async (p: string) => {
-          try {
-            await this.deps.probe(p);
-            return true;
-          } catch {
-            return false;
-          }
-        };
-        const h =
-          job.settings.resolution === "keep" ? null : job.settings.resolution;
-        await recoverSwap({
-          source: src,
-          final: finalPathFor(src, h),
-          fs: this.deps.fs,
-          verify,
-        }).catch((e) =>
-          console.error(`[transcode] recoverSwap failed for job ${job.id}:`, e),
-        );
-        await this.deps.fs.unlink(tmpPathFor(src)).catch(() => {});
+      try {
+        if (job.source && (await this.recoverFiles(job))) continue;
+        await this.repo.requeue(job.id);
+      } catch (e) {
+        console.error(`[transcode] recovery failed for job ${job.id}:`, e);
       }
-      await this.repo.requeue(job.id);
     }
   }
 
+  /** Returns true when the job's output was already in place and has been registered. */
+  private async recoverFiles(job: ClaimedJob): Promise<boolean> {
+    const source = job.source!;
+    const { fs } = this.deps;
+    const src = this.deps.mapPath(source.dbPath);
+    const tmp = tmpPathFor(src);
+    const h =
+      job.settings.resolution === "keep" ? null : job.settings.resolution;
+    const final = finalPathFor(src, h);
+    const probeOk = async (path: string) => {
+      try {
+        return await this.deps.probe(path);
+      } catch {
+        return null;
+      }
+    };
+    const swap = await recoverSwap({
+      source: src,
+      final,
+      tmp,
+      fs,
+      verify: async (x) => (await probeOk(x)) != null,
+    });
+
+    let swapped = false;
+    if (
+      swap !== "restored-orig" &&
+      (job.step === "replace" || job.step === "rescan") &&
+      (await fs.exists(final))
+    ) {
+      const out = await probeOk(final);
+      if (out?.video?.codec === job.settings.codec) {
+        if (final === src) {
+          const live = await this.deps.fingerprint(src);
+          swapped =
+            swap === "kept-final" ||
+            !live ||
+            live.sizeBytes !== source.sizeBytes;
+        } else {
+          const tmpSize = await fs.size(tmp);
+          const ours =
+            tmpSize != null
+              ? (await fs.size(final)) === tmpSize
+              : !(await fs.exists(src));
+          if (ours) {
+            await fs.unlink(src).catch(() => {});
+            swapped = true;
+          }
+        }
+        if (swapped) {
+          await this.deps.rescan(
+            `${job.mediaFileId}|${finalPathFor(source.dbPath, h)}`,
+          );
+          await this.repo.finish(job.id, {
+            ok: true,
+            outputBytes: out.sizeBytes,
+            nlink: 1,
+            finalDbPath: final,
+          });
+        }
+      }
+    }
+    await fs.unlink(tmp).catch(() => {});
+    return swapped;
+  }
+
   async tick(): Promise<void> {
-    if (this.busy) return;
+    try {
+      await this.tickOnce();
+    } catch (e) {
+      console.error("[transcode] tick failed:", e);
+    }
+  }
+
+  private async tickOnce(): Promise<void> {
+    if (this.busy || this.shuttingDown) return;
     const settings = await this.repo.getSettings();
     if (settings.paused) return;
     if (
@@ -155,8 +216,8 @@ export class TranscodeDispatcher {
           },
           deps,
           {
-            onStep: (step) =>
-              void this.repo.markStep(job.id, step).catch(() => {}),
+            // Awaited so "replace" is durable before the swap; boot recovery keys off it.
+            onStep: (step) => this.repo.markStep(job.id, step).catch(() => {}),
             onProgress: (p) => {
               if (this.running) this.running.live = p;
               if (Date.now() - lastPersist > PERSIST_MS) {
@@ -173,13 +234,33 @@ export class TranscodeDispatcher {
           error: "File no longer in library",
         } as const);
 
-    await this.repo.finish(job.id, result);
+    try {
+      if (!result.ok && result.cancelled && this.shuttingDown) {
+        await this.repo.requeue(job.id);
+        return;
+      }
+      await this.repo.finish(job.id, result);
+    } catch (e) {
+      console.error(
+        `[transcode] could not record the result of job ${job.id}:`,
+        e,
+      );
+      return;
+    }
+    // Notifications enqueue through Valkey, which can block while it is down; never hold the queue for them.
+    void this.notify(job, result).catch((e) =>
+      console.warn("[transcode] notification failed:", e),
+    );
+  }
+
+  private async notify(job: ClaimedJob, result: PipelineResult): Promise<void> {
     if (!result.ok && !result.cancelled)
-      await this.notifier.jobFailed(job, result.error).catch(() => {});
+      await this.notifier.jobFailed(job, result.error);
     if ((await this.repo.batchRemaining(job.batchId)) === 0) {
-      await this.notifier
-        .batchFinished(job, await this.repo.batchSummary(job.batchId))
-        .catch(() => {});
+      await this.notifier.batchFinished(
+        job,
+        await this.repo.batchSummary(job.batchId),
+      );
     }
   }
 }

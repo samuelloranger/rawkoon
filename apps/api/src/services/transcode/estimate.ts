@@ -11,7 +11,7 @@ import {
   isLosslessAudio,
   ROUGH_FPS_1080,
   ROUGH_KBPS_1080,
-  targetHeight,
+  targetDims,
 } from "@rawkoon/api/services/transcode/presets";
 import type { SourceProbe } from "@rawkoon/api/services/transcode/probe";
 
@@ -31,8 +31,8 @@ function outputPixels(probe: SourceProbe, s: TranscodeJobSettings): number {
   const v = probe.video;
   const w = v?.width ?? 1920;
   const h = v?.height ?? 1080;
-  const th = targetHeight(s, probe);
-  return th ? Math.round((w * th) / h) * th : w * h;
+  const dims = targetDims(s, probe);
+  return dims ? dims.width * dims.height : w * h;
 }
 
 function audioBps(probe: SourceProbe, s: TranscodeJobSettings): number {

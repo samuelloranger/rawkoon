@@ -52,6 +52,8 @@ export function describeFailure(r: RunResult): string {
 }
 
 export const runFfmpeg: RunFfmpeg = async (args, opts) => {
+  if (opts.signal?.aborted)
+    return { code: null, signal: null, stderr: "", aborted: true };
   const cmd = opts.nice ? ["nice", "-n", "10", ...args] : args;
   const proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" });
   let aborted = false;

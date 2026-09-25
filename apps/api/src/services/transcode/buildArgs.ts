@@ -5,7 +5,7 @@ import {
   isLosslessAudio,
   qualityValue,
   speedValue,
-  targetHeight,
+  targetDims,
 } from "@rawkoon/api/services/transcode/presets";
 
 export interface EncodeArgsInput {
@@ -31,8 +31,10 @@ function videoArgs(i: EncodeArgsInput, n: number): string[] {
   const v = probe.video!;
   const tenBit =
     s.codec === "av1" || probe.isHdr || (v.pixFmt ?? "").includes("10");
-  const h = targetHeight(s, probe);
-  const scale = h ? `scale=-2:${h}:flags=lanczos` : null;
+  const dims = targetDims(s, probe);
+  const scale = dims
+    ? `scale=${dims.width}:${dims.height}:flags=lanczos`
+    : null;
   const out: string[] = [];
 
   if (s.encoder === "vaapi") {
@@ -99,7 +101,8 @@ export function buildEncodeArgs(i: EncodeArgsInput): string[] {
   if (settings.encoder === "software") args.push("-threads", String(i.threads));
 
   if (i.clip) {
-    args.push("-map", `0:${v.index}`, "-an", "-sn", "-dn");
+    // Clip input is the stream-copied cut, whose only stream is the main video.
+    args.push("-map", "0:v:0", "-an", "-sn", "-dn");
     args.push(...videoArgs(i, 0));
   } else {
     args.push("-map", "0", "-map", "-0:d", "-c", "copy");

@@ -125,7 +125,29 @@ describe("buildEncodeArgs", () => {
       probe: hdrWithCover,
       settings: { ...settings, resolution: 1080 },
     });
-    expect(a.join(" ")).toContain("-filter:v:1 scale=-2:1080:flags=lanczos");
+    expect(a.join(" ")).toContain("-filter:v:1 scale=1920:1080:flags=lanczos");
+  });
+
+  it("fits a wide source inside the box instead of fixing the height", () => {
+    const scope = parseProbe({
+      format: { duration: "100", size: "1000" },
+      streams: [
+        {
+          index: 0,
+          codec_type: "video",
+          codec_name: "hevc",
+          width: 3840,
+          height: 1600,
+          pix_fmt: "yuv420p",
+        },
+      ],
+    });
+    const a = buildEncodeArgs({
+      ...base,
+      probe: scope,
+      settings: { ...settings, resolution: 1080 },
+    });
+    expect(a.join(" ")).toContain("-filter:v:0 scale=1920:800:flags=lanczos");
   });
 
   it("converts lossless audio to eac3, 7.1 down to 5.1", () => {
@@ -213,7 +235,8 @@ describe("buildEncodeArgs", () => {
     });
     const j = a.join(" ");
     expect(j).toContain("-ss 50 -t 10 -i /in.mkv");
-    expect(j).toContain("-map 0:1 -an -sn -dn");
+    // The clip input is the stream-copied cut, whose only stream is the video.
+    expect(j).toContain("-map 0:v:0 -an -sn -dn");
     expect(j).toContain("-c:v:0 libx265");
   });
 });

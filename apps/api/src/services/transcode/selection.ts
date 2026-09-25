@@ -5,6 +5,7 @@ import type {
 } from "@rawkoon/shared/types";
 import { prisma } from "@rawkoon/api/db";
 import type { Capabilities } from "@rawkoon/api/services/transcode/capabilities";
+import { targetDims } from "@rawkoon/api/services/transcode/presets";
 import type { SourceProbe } from "@rawkoon/api/services/transcode/probe";
 
 export const VIDEO_EXTENSIONS = new Set([
@@ -51,7 +52,7 @@ export function exclusionReason(o: {
     return "Dolby Vision profile 5 has no HDR10 fallback";
   if (
     o.settings.resolution !== "keep" &&
-    (o.probe.video.height ?? 0) <= o.settings.resolution
+    targetDims(o.settings, o.probe) == null
   ) {
     return `Already ${o.settings.resolution}p or lower`;
   }

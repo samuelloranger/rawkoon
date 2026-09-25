@@ -65,6 +65,10 @@ function makeDeps(over: Partial<PipelineDeps> = {}) {
       calls.push(`rename ${a} -> ${b}`);
     },
     copyFile: async () => {},
+    link: async (a, b) => {
+      calls.push(`link ${a} -> ${b}`);
+    },
+    size: async () => 400,
     unlink: async (p) => {
       calls.push(`unlink ${p}`);
     },
@@ -234,5 +238,95 @@ describe("runPipeline", () => {
       opts(),
     );
     expect((r as { error: string }).error).toBe("VAAPI device not available");
+  });
+});
+
+describe("runPipeline safety", () => {
+  const mp4Job: PipelineJob = {
+    ...job,
+    source: { ...job.source, dbPath: "/lib/a.mp4" },
+  };
+
+  it("refuses when the new final path already exists, before encoding", async () => {
+    let encodes = 0;
+    const { deps } = makeDeps({
+      run: async (args) => {
+        if (args.includes("-progress")) encodes++;
+        return { code: 0, signal: null, stderr: "", aborted: false };
+      },
+    });
+    deps.fs.exists = async (p) => p === "/lib/a.mkv";
+    const r = await runPipeline(mp4Job, deps, hooks().h as never, opts());
+    expect(r).toMatchObject({ ok: false, error: "Destination already exists" });
+    expect(encodes).toBe(0);
+  });
+
+  it("a cancel during preflight skips the encode", async () => {
+    const ac = new AbortController();
+    let encodes = 0;
+    const { deps } = makeDeps({
+      capabilities: async () => {
+        ac.abort();
+        return {
+          combos: [],
+          vaapiDevice: null,
+          deviceLabel: null,
+          vaapiUnavailableReason: "none",
+        };
+      },
+      run: async (args) => {
+        if (args.includes("-progress")) encodes++;
+        return { code: 0, signal: null, stderr: "", aborted: false };
+      },
+    });
+    const r = await runPipeline(job, deps, hooks().h as never, {
+      ...opts(),
+      signal: ac.signal,
+    });
+    expect(r).toMatchObject({ ok: false, cancelled: true });
+    expect(encodes).toBe(0);
+  });
+
+  it("a cancel during validation does not replace the file", async () => {
+    const ac = new AbortController();
+    const { deps, calls } = makeDeps();
+    const h = {
+      onStep: (s: string) => {
+        if (s === "validate") ac.abort();
+      },
+      onProgress: () => {},
+    };
+    const r = await runPipeline(job, deps, h as never, {
+      ...opts(),
+      signal: ac.signal,
+    });
+    expect(r).toMatchObject({ ok: false, cancelled: true });
+    expect(
+      calls.some((c) => c.startsWith("rename") || c.startsWith("link")),
+    ).toBe(false);
+  });
+
+  it("waits for the replace step to be recorded before swapping", async () => {
+    const order: string[] = [];
+    const { deps } = makeDeps();
+    const inner = deps.fs.rename;
+    deps.fs.rename = async (a, b) => {
+      order.push("rename");
+      return inner(a, b);
+    };
+    const h = {
+      onStep: (s: string) =>
+        s === "replace"
+          ? new Promise<void>((res) =>
+              setTimeout(() => {
+                order.push("step saved");
+                res();
+              }, 20),
+            )
+          : undefined,
+      onProgress: () => {},
+    };
+    await runPipeline(job, deps, h as never, opts());
+    expect(order).toEqual(["step saved", "rename"]);
   });
 });

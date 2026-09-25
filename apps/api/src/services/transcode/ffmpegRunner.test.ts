@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
   describeFailure,
   parseProgressBlock,
+  runFfmpeg,
 } from "@rawkoon/api/services/transcode/ffmpegRunner";
 
 describe("parseProgressBlock", () => {
@@ -47,5 +48,16 @@ describe("describeFailure", () => {
         aborted: false,
       }),
     ).toBe("ffmpeg exited 1: Error while opening encoder");
+  });
+});
+
+describe("runFfmpeg", () => {
+  it("returns aborted without spawning when the signal is already aborted", async () => {
+    const ac = new AbortController();
+    ac.abort();
+    const r = await runFfmpeg(["/nonexistent/ffmpeg-binary"], {
+      signal: ac.signal,
+    });
+    expect(r.aborted).toBe(true);
   });
 });

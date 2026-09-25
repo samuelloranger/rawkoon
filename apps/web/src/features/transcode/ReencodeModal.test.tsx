@@ -134,3 +134,21 @@ describe("ReencodeModal", () => {
     });
   });
 });
+
+describe("ReencodeModal resolution box", () => {
+  it("allows 1080p for a wide source taller than 1080 wide-box but under 1080 high", () => {
+    estimate.source_height = 1072;
+    (estimate as Record<string, unknown>).source_width = 2560;
+    renderWithProviders(
+      <ReencodeModal
+        isOpen
+        onClose={() => {}}
+        selection={{ media_id: 1 }}
+        subtitle="x"
+      />,
+    );
+    expect(screen.getByRole("radio", { name: "1080p" })).not.toBeDisabled();
+    estimate.source_height = 1080;
+    delete (estimate as Record<string, unknown>).source_width;
+  });
+});

@@ -5,7 +5,7 @@ import {
   SAMPLE_SECS,
 } from "@rawkoon/api/services/transcode/estimate";
 import type { RunFfmpeg } from "@rawkoon/api/services/transcode/ffmpegRunner";
-import { targetHeight } from "@rawkoon/api/services/transcode/presets";
+import { targetDims } from "@rawkoon/api/services/transcode/presets";
 import type { SourceProbe } from "@rawkoon/api/services/transcode/probe";
 
 function langs(p: SourceProbe, type: "audio" | "subtitle"): string {
@@ -26,9 +26,15 @@ export function checkStructure(
   }
   if (output.video.codec !== s.codec)
     return `Video codec is ${output.video.codec}, expected ${s.codec}`;
-  const wantH = targetHeight(s, source) ?? source.video?.height ?? null;
-  if (wantH != null && output.video.height !== wantH) {
-    return `Video height is ${output.video.height}, expected ${wantH}`;
+  const want = targetDims(s, source) ?? {
+    width: source.video?.width ?? null,
+    height: source.video?.height ?? null,
+  };
+  if (
+    (want.height != null && output.video.height !== want.height) ||
+    (want.width != null && output.video.width !== want.width)
+  ) {
+    return `Video height/width is ${output.video.width}x${output.video.height}, expected ${want.width}x${want.height}`;
   }
   if (langs(output, "audio") !== langs(source, "audio")) {
     return `Audio tracks differ (${langs(source, "audio")} → ${langs(output, "audio")})`;
@@ -66,6 +72,7 @@ export async function measureSsim(o: {
   sourceProbe: SourceProbe;
   outputProbe: SourceProbe;
   run: RunFfmpeg;
+  signal?: AbortSignal;
 }): Promise<number[]> {
   const sv = o.sourceProbe.video!;
   const ov = o.outputProbe.video!;
@@ -104,7 +111,7 @@ export async function measureSsim(o: {
         "null",
         "-",
       ],
-      { nice: true },
+      { nice: true, signal: o.signal },
     );
     const v = r.code === 0 ? parseSsimAll(r.stderr) : null;
     if (v != null) scores.push(v);

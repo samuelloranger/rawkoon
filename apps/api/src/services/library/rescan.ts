@@ -121,8 +121,21 @@ async function rescanLibraryItemInner(
   // ── Step 1: Process existing MediaFile records ────────────────────────────────
   // Update MediaInfo for valid files; delete records for files gone from disk.
   // Skip MediaInfo when size+mtime fingerprint matches the last scan.
-  const files = await prisma.mediaFile.findMany({ where: { mediaId } });
-  const trackedPaths = new Set(files.map((f) => f.filePath));
+  const allFiles = await prisma.mediaFile.findMany({ where: { mediaId } });
+  const trackedPaths = new Set(allFiles.map((f) => f.filePath));
+  // A file mid re-encode may be briefly absent (renamed aside during a cross-device swap); leave it to the pipeline.
+  const transcoding = new Set(
+    (
+      await prisma.transcodeJob.findMany({
+        where: {
+          status: "running",
+          mediaFileId: { in: allFiles.map((f) => f.id) },
+        },
+        select: { mediaFileId: true },
+      })
+    ).map((j) => j.mediaFileId),
+  );
+  const files = allFiles.filter((f) => !transcoding.has(f.id));
 
   const toDeleteIds: number[] = [];
   const toUpdateOps: Array<() => Promise<unknown>> = [];
@@ -130,7 +143,9 @@ async function rescanLibraryItemInner(
   let skipped = 0;
   let failed = 0;
   const validEpisodeIds = new Set<number>();
-  let hasValidFile = false;
+  let hasValidFile = transcoding.size > 0;
+  for (const f of allFiles)
+    if (transcoding.has(f.id) && f.episodeId) validEpisodeIds.add(f.episodeId);
   // Capture fresh MediaInfo + parsed filename data per file, so Step 1c
   // (rename) sees the post-rescan values rather than the stale row.
   type FreshFileMeta = {
@@ -253,7 +268,8 @@ async function rescanLibraryItemInner(
         for (const entry of entries) {
           if (!entry.isFile()) continue;
           const ext = extname(entry.name);
-          if (!VIDEO_EXTENSIONS.has(ext)) continue;
+          if (!VIDEO_EXTENSIONS.has(ext) || entry.name.startsWith("."))
+            continue;
 
           const stem = entry.name.slice(0, -ext.length);
           const normalized = normalizeForDiscovery(stem);
@@ -391,7 +407,8 @@ async function rescanLibraryItemInner(
             for (const entry of fileEntries) {
               if (!entry.isFile()) continue;
               const ext = extname(entry.name).toLowerCase();
-              if (!VIDEO_EXTENSIONS.has(ext)) continue;
+              if (!VIDEO_EXTENSIONS.has(ext) || entry.name.startsWith("."))
+                continue;
 
               const dbPath = join(dir.db, entry.name);
               if (trackedPaths.has(dbPath)) continue;

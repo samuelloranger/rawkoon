@@ -139,6 +139,12 @@ export function ReencodeModal({
     refined && refined.key === key ? refined.data : (live.data ?? base);
   const outdated = refined != null && refined.key !== key;
   const sourceHeight = est?.source_height ?? null;
+  const sourceWidth = est?.source_width ?? null;
+  // Mirrors the API: a downscale applies only when the source does not already fit the target box.
+  const fits = (bw: number, bh: number) =>
+    sourceHeight != null &&
+    sourceHeight <= bh &&
+    (sourceWidth == null || sourceWidth <= bw);
   const count = est?.files.length ?? 0;
   const seeding = est?.files.filter((f) => f.nlink > 1).length ?? 0;
   const set = <K extends keyof TranscodeJobSettings>(
@@ -270,12 +276,12 @@ export function ReencodeModal({
                   {
                     value: 1080,
                     label: "1080p",
-                    disabled: sourceHeight != null && sourceHeight <= 1080,
+                    disabled: fits(1920, 1080),
                   },
                   {
                     value: 720,
                     label: "720p",
-                    disabled: sourceHeight != null && sourceHeight <= 720,
+                    disabled: fits(1280, 720),
                   },
                 ]}
               />

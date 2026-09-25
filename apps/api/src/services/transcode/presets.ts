@@ -52,13 +52,33 @@ export function speedValue(s: TranscodeJobSettings): string {
   return SPEED[comboKey(s)]?.[s.speed] ?? "";
 }
 
+const BOX: Record<1080 | 720, [number, number]> = {
+  1080: [1920, 1080],
+  720: [1280, 720],
+};
+
+/** Output frame when downscaling: fit inside the target box, keep aspect, even sides. Null = no downscale. */
+export function targetDims(
+  s: TranscodeJobSettings,
+  source: SourceProbe,
+): { width: number; height: number } | null {
+  if (s.resolution === "keep") return null;
+  const w = source.video?.width ?? 0;
+  const h = source.video?.height ?? 0;
+  if (!w || !h) return null;
+  const [bw, bh] = BOX[s.resolution];
+  const ratio = Math.min(bw / w, bh / h);
+  if (ratio >= 1) return null;
+  const even = (n: number) => Math.max(2, Math.round(n / 2) * 2);
+  return { width: even(w * ratio), height: even(h * ratio) };
+}
+
+/** Resolution label for the file name when downscaling (e.g. 1080), else null. */
 export function targetHeight(
   s: TranscodeJobSettings,
   source: SourceProbe,
 ): number | null {
-  if (s.resolution === "keep") return null;
-  const h = source.video?.height ?? 0;
-  return s.resolution < h ? s.resolution : null;
+  return targetDims(s, source) && s.resolution !== "keep" ? s.resolution : null;
 }
 
 const LOSSLESS = new Set(["truehd", "flac", "mlp", "alac"]);

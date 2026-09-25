@@ -229,5 +229,6 @@ export async function estimateSelection(
     refined_clips: refinedFiles * SAMPLE_CLIPS,
     audio_changes: audioChanges,
     source_height: first?.video?.height ?? null,
+    source_width: first?.video?.width ?? null,
   };
 }

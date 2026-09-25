@@ -109,6 +109,7 @@ describe("recoverSwap", () => {
       await recoverSwap({
         source: src,
         final: src,
+        tmp: join(dir, ".a.rawkoon-tmp.mkv"),
         fs: nodeSwapFs,
         verify: ok,
       }),
@@ -122,6 +123,7 @@ describe("recoverSwap", () => {
     const r = await recoverSwap({
       source: src,
       final: src,
+      tmp: join(dir, ".a.rawkoon-tmp.mkv"),
       fs: nodeSwapFs,
       verify: async () => false,
     });
@@ -136,11 +138,114 @@ describe("recoverSwap", () => {
     const r = await recoverSwap({
       source: src,
       final: src,
+      tmp: join(dir, ".a.rawkoon-tmp.mkv"),
       fs: nodeSwapFs,
       verify: ok,
     });
     expect(r).toBe("kept-final");
     expect(await readFile(src, "utf8")).toBe("new");
     expect(await nodeSwapFs.exists(origPathFor(src))).toBe(false);
+  });
+});
+
+const linkExdevFs = (base: SwapFs, failFrom: string): SwapFs => ({
+  ...exdevFs(base, failFrom),
+  link: async (from, to) => {
+    if (from === failFrom) {
+      const e = new Error("cross-device") as NodeJS.ErrnoException;
+      e.code = "EXDEV";
+      throw e;
+    }
+    return base.link(from, to);
+  },
+});
+
+describe("recoverSwap after an interrupted cross-device copy", () => {
+  it("restores the original when the final is a truncated copy that still probes", async () => {
+    const src = join(dir, "a.mkv");
+    const tmp = join(dir, ".a.rawkoon-tmp.mkv");
+    await writeFile(origPathFor(src), "original-bytes");
+    await writeFile(tmp, "complete-encode");
+    await writeFile(src, "compl");
+    const r = await recoverSwap({
+      source: src,
+      final: src,
+      tmp,
+      fs: nodeSwapFs,
+      verify: ok,
+    });
+    expect(r).toBe("restored-orig");
+    expect(await readFile(src, "utf8")).toBe("original-bytes");
+  });
+
+  it("keeps the final when it matches the temp file byte count", async () => {
+    const src = join(dir, "a.mkv");
+    const tmp = join(dir, ".a.rawkoon-tmp.mkv");
+    await writeFile(origPathFor(src), "original-bytes");
+    await writeFile(tmp, "complete-encode");
+    await writeFile(src, "complete-encode");
+    const r = await recoverSwap({
+      source: src,
+      final: src,
+      tmp,
+      fs: nodeSwapFs,
+      verify: ok,
+    });
+    expect(r).toBe("kept-final");
+    expect(await nodeSwapFs.exists(origPathFor(src))).toBe(false);
+  });
+});
+
+describe("swapInPlace never clobbers an existing file at a new final path", () => {
+  it("refuses when the final path already holds another file", async () => {
+    const src = join(dir, "a.mp4");
+    const fin = join(dir, "a.mkv");
+    const tmp = join(dir, ".a.rawkoon-tmp.mkv");
+    await writeFile(src, "old");
+    await writeFile(fin, "other-version");
+    await writeFile(tmp, "new");
+    await expect(
+      swapInPlace({ tmp, source: src, final: fin, fs: nodeSwapFs, verify: ok }),
+    ).rejects.toThrow("Destination already exists");
+    expect(await readFile(fin, "utf8")).toBe("other-version");
+    expect(await readFile(src, "utf8")).toBe("old");
+  });
+
+  it("refuses on the cross-device path too and leaves the other file alone", async () => {
+    const src = join(dir, "a.mp4");
+    const fin = join(dir, "a.mkv");
+    const tmp = join(dir, ".a.rawkoon-tmp.mkv");
+    await writeFile(src, "old");
+    await writeFile(fin, "other-version");
+    await writeFile(tmp, "new");
+    await expect(
+      swapInPlace({
+        tmp,
+        source: src,
+        final: fin,
+        fs: linkExdevFs(nodeSwapFs, tmp),
+        verify: ok,
+      }),
+    ).rejects.toThrow("Destination already exists");
+    expect(await readFile(fin, "utf8")).toBe("other-version");
+    expect(await readFile(src, "utf8")).toBe("old");
+  });
+
+  it("places a new final path across devices without an orig dance", async () => {
+    const src = join(dir, "a.mp4");
+    const fin = join(dir, "a.mkv");
+    const tmp = join(dir, ".a.rawkoon-tmp.mkv");
+    await writeFile(src, "old");
+    await writeFile(tmp, "new");
+    await swapInPlace({
+      tmp,
+      source: src,
+      final: fin,
+      fs: linkExdevFs(nodeSwapFs, tmp),
+      verify: ok,
+    });
+    expect(await readFile(fin, "utf8")).toBe("new");
+    expect(await nodeSwapFs.exists(src)).toBe(false);
+    expect(await nodeSwapFs.exists(tmp)).toBe(false);
   });
 });

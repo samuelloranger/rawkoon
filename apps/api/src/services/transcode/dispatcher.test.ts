@@ -1,30 +1,41 @@
 import { describe, expect, it, mock } from "bun:test";
 import type { TranscodeQueueSettings } from "@rawkoon/shared/types";
 
+type PipelineImpl = (
+  job: unknown,
+  deps: unknown,
+  hooks: any,
+  opts: { signal: AbortSignal },
+) => Promise<unknown>;
+let pipelineImpl: PipelineImpl | null = null;
 mock.module("@rawkoon/api/services/transcode/pipeline", () => ({
-  runPipeline: async (
-    _job: unknown,
-    _deps: unknown,
-    hooks: { onStep: (s: string) => void; onProgress: (p: unknown) => void },
-  ) => {
-    hooks.onStep("encode");
-    hooks.onProgress({
-      progress: 0.4,
-      fps: 10,
-      speed: 1,
-      eta_secs: 5,
-      current_bytes: "1",
-    });
-    return {
-      ok: true,
-      outputBytes: 10n,
-      ssimAvg: 0.99,
-      ssimMin: 0.98,
-      nlink: 1,
-      finalDbPath: "/a.mkv",
-    };
-  },
+  runPipeline: async (...args: Parameters<PipelineImpl>) =>
+    pipelineImpl
+      ? pipelineImpl(...args)
+      : defaultPipeline(...(args as unknown as [unknown, unknown, never])),
 }));
+const defaultPipeline = async (
+  _job: unknown,
+  _deps: unknown,
+  hooks: { onStep: (s: string) => void; onProgress: (p: unknown) => void },
+) => {
+  hooks.onStep("encode");
+  hooks.onProgress({
+    progress: 0.4,
+    fps: 10,
+    speed: 1,
+    eta_secs: 5,
+    current_bytes: "1",
+  });
+  return {
+    ok: true,
+    outputBytes: 10n,
+    ssimAvg: 0.99,
+    ssimMin: 0.98,
+    nlink: 1,
+    finalDbPath: "/a.mkv",
+  };
+};
 
 const { TranscodeDispatcher } = await import(
   "@rawkoon/api/services/transcode/dispatcher"
@@ -196,5 +207,94 @@ describe("TranscodeDispatcher.recover", () => {
     expect(seen).toContain("exists /.a.mkv.rawkoon-orig");
     expect(seen).toContain("unlink /.a.rawkoon-tmp.mkv");
     expect(events).toContain("requeue 7");
+  });
+});
+
+describe("TranscodeDispatcher resilience", () => {
+  const quiet = { jobFailed: async () => {}, batchFinished: async () => {} };
+
+  it("stop during a job requeues it instead of cancelling", async () => {
+    const { repo, events } = makeRepo();
+    pipelineImpl = (_j, _d, _h, opts) =>
+      new Promise((res) =>
+        opts.signal.addEventListener("abort", () =>
+          res({ ok: false, cancelled: true, error: "Cancelled" }),
+        ),
+      );
+    const d = new TranscodeDispatcher(repo as never, {} as never, quiet);
+    const t = d.tick();
+    await new Promise((r) => setTimeout(r, 5));
+    await d.stop();
+    await t;
+    pipelineImpl = null;
+    expect(events).toContain("requeue 7");
+    expect(events).not.toContain("finish 7");
+  });
+
+  it("a failing settings read does not reject the tick", async () => {
+    const { repo } = makeRepo();
+    repo.getSettings = async () => {
+      throw new Error("db down");
+    };
+    await expect(
+      new TranscodeDispatcher(repo as never, {} as never, quiet).tick(),
+    ).resolves.toBeUndefined();
+  });
+
+  it("a failing finish write does not leave the dispatcher busy", async () => {
+    const { repo } = makeRepo({}, 2);
+    repo.finish = async () => {
+      throw new Error("db down");
+    };
+    const d = new TranscodeDispatcher(repo as never, {} as never, quiet);
+    await expect(d.tick()).resolves.toBeUndefined();
+    expect(d.runningJobId()).toBeNull();
+  });
+
+  it("a hanging notifier does not block the queue", async () => {
+    const { repo, events } = makeRepo({}, 2);
+    const hang = {
+      jobFailed: () => new Promise<void>(() => {}),
+      batchFinished: () => new Promise<void>(() => {}),
+    };
+    const d = new TranscodeDispatcher(repo as never, {} as never, hang);
+    await d.tick();
+    await d.tick();
+    expect(events.filter((e) => e === "claim")).toHaveLength(2);
+  });
+
+  it("recovery registers a file that was already swapped instead of requeueing", async () => {
+    const { repo, events } = makeRepo();
+    const rescans: string[] = [];
+    const deps = {
+      mapPath: (x: string) => x,
+      fingerprint: async () => null,
+      probe: async () => ({
+        video: { codec: "hevc" },
+        sizeBytes: 40n,
+        streams: [],
+        durationSecs: 1,
+      }),
+      rescan: async (token: string) => {
+        rescans.push(token);
+      },
+      fs: {
+        exists: async (x: string) => x === "/a.mkv",
+        size: async () => null,
+        unlink: async () => {},
+        rename: async () => {},
+        link: async () => {},
+        copyFile: async () => {},
+        fsync: async () => {},
+      },
+    };
+    await new TranscodeDispatcher(
+      repo as never,
+      deps as never,
+      quiet,
+    ).recover();
+    expect(rescans).toEqual(["2|/a.mkv"]);
+    expect(events).toContain("finish 7");
+    expect(events).not.toContain("requeue 7");
   });
 });

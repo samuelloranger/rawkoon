@@ -87,6 +87,7 @@ export interface TranscodeEstimate {
   /** Lossless audio tracks that the convert toggle would change, first file only. */
   audio_changes: { label: string; to: string }[];
   source_height: number | null;
+  source_width?: number | null;
 }
 
 export interface TranscodeLiveProgress {

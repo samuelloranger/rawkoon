@@ -123,11 +123,13 @@ export async function cancelOrRemove(
   if (row.status === "running")
     return transcodeDispatcher.cancel(id) ? "cancelled" : "not_found";
   if (row.status !== "queued") return "finished";
-  await prisma.transcodeJob.update({
-    where: { id },
+  // Conditional so a claim that lands between the read and this write is not overwritten.
+  const r = await prisma.transcodeJob.updateMany({
+    where: { id, status: "queued" },
     data: { status: "cancelled", finishedAt: new Date() },
   });
-  return "removed";
+  if (r.count === 1) return "removed";
+  return transcodeDispatcher.cancel(id) ? "cancelled" : "finished";
 }
 
 export async function removeBatch(batchId: string): Promise<number> {

@@ -22,6 +22,7 @@ const mk = (o: {
   size?: string;
   codec?: string;
   h?: number;
+  w?: number;
   audio?: string[];
   subs?: string[];
 }) =>
@@ -32,7 +33,7 @@ const mk = (o: {
         index: 0,
         codec_type: "video",
         codec_name: o.codec ?? "hevc",
-        width: 1920,
+        width: o.w ?? 1920,
         height: o.h ?? 1080,
       },
       ...(o.audio ?? ["eng"]).map((l, i) => ({
@@ -113,6 +114,7 @@ describe("checkStructure", () => {
     const uhd = mk({
       size: "1000",
       codec: "h264",
+      w: 3840,
       h: 2160,
       audio: ["fre", "eng"],
       subs: ["fre"],
@@ -124,6 +126,27 @@ describe("checkStructure", () => {
         { ...s, resolution: 1080 },
       ),
     ).toBeNull();
+  });
+  it("fits a wide source inside the 1080p box and checks width too", () => {
+    const scope = mk({
+      size: "1000",
+      codec: "h264",
+      w: 3840,
+      h: 1600,
+      audio: ["fre", "eng"],
+      subs: ["fre"],
+    });
+    const fit = mk({ w: 1920, h: 800, audio: ["fre", "eng"], subs: ["fre"] });
+    const heightOnly = mk({
+      w: 2592,
+      h: 1080,
+      audio: ["fre", "eng"],
+      subs: ["fre"],
+    });
+    expect(checkStructure(scope, fit, { ...s, resolution: 1080 })).toBeNull();
+    expect(
+      checkStructure(scope, heightOnly, { ...s, resolution: 1080 }),
+    ).toContain("2592x1080");
   });
 });
 

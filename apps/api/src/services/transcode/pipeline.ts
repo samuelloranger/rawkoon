@@ -52,7 +52,8 @@ export interface PipelineDeps {
 }
 
 export interface PipelineHooks {
-  onStep(step: TranscodeStep): void;
+  /** Returning a promise makes the pipeline wait (the replace step must be durable before swapping). */
+  onStep(step: TranscodeStep): void | Promise<void>;
   onProgress(p: TranscodeLiveProgress): void;
 }
 
@@ -60,8 +61,9 @@ export type PipelineResult =
   | {
       ok: true;
       outputBytes: bigint;
-      ssimAvg: number;
-      ssimMin: number;
+      /** Absent when recovery registers an output whose scores were never persisted. */
+      ssimAvg?: number;
+      ssimMin?: number;
       nlink: number;
       finalDbPath: string;
     }
@@ -75,6 +77,7 @@ export type PipelineResult =
     };
 
 class StepError extends Error {}
+class CancelledError extends Error {}
 
 function sameFile(src: PipelineSource, live: FileFingerprint | null): boolean {
   if (!live) return false;
@@ -106,7 +109,10 @@ export async function runPipeline(
         }
       : {};
   try {
-    hooks.onStep("preflight");
+    const checkCancel = () => {
+      if (opts.signal.aborted) throw new CancelledError();
+    };
+    await hooks.onStep("preflight");
     if (!sameFile(job.source, await deps.fingerprint(src)))
       throw new StepError("Source changed since queued");
     const probe = await deps.probe(src);
@@ -119,9 +125,15 @@ export async function runPipeline(
     const need = ((job.estimatedBytes ?? job.source.sizeBytes) * 12n) / 10n;
     if ((await deps.freeBytes(dirname(src))) < need)
       throw new StepError("Not enough free space for the output");
+    const h = targetHeight(job.settings, probe);
+    const final = finalPathFor(src, h);
+    const finalDbPath = finalPathFor(job.source.dbPath, h);
+    if (final !== src && (await deps.fs.exists(final)))
+      throw new StepError("Destination already exists");
     nlink = await deps.nlink(src);
+    checkCancel();
 
-    hooks.onStep("encode");
+    await hooks.onStep("encode");
     const started = Date.now();
     const r = await deps.run(
       buildEncodeArgs({
@@ -154,11 +166,11 @@ export async function runPipeline(
         },
       },
     );
-    if (r.aborted)
-      return await cleanup({ ok: false, error: "Cancelled", cancelled: true });
+    if (r.aborted) throw new CancelledError();
     if (r.code !== 0) throw new StepError(describeFailure(r));
 
-    hooks.onStep("validate");
+    await hooks.onStep("validate");
+    checkCancel();
     const out = await deps.probe(tmp);
     const structural = checkStructure(probe, out, job.settings);
     if (structural) throw new StepError(structural);
@@ -168,16 +180,17 @@ export async function runPipeline(
       sourceProbe: probe,
       outputProbe: out,
       run: deps.run,
+      signal: opts.signal,
     });
+    checkCancel();
     const quality = checkSsim(scores, opts.thresholds);
     if (quality) throw new StepError(quality);
 
-    hooks.onStep("replace");
+    checkCancel();
+    await hooks.onStep("replace");
+    // Past this point a cancel is ignored: the swap must run to completion.
     if (!sameFile(job.source, await deps.fingerprint(src)))
       throw new StepError("Source changed during encode");
-    const h = targetHeight(job.settings, probe);
-    const final = finalPathFor(src, h);
-    const finalDbPath = finalPathFor(job.source.dbPath, h);
     await swapInPlace({
       tmp,
       source: src,
@@ -191,9 +204,11 @@ export async function runPipeline(
           return false;
         }
       },
+    }).catch((e: Error) => {
+      throw new StepError(e.message);
     });
 
-    hooks.onStep("rescan");
+    await hooks.onStep("rescan");
     try {
       await deps.rescan(finalDbPath);
     } catch (e) {
@@ -214,6 +229,13 @@ export async function runPipeline(
       ...s,
     };
   } catch (e) {
+    if (e instanceof CancelledError)
+      return await cleanup({
+        ok: false,
+        error: "Cancelled",
+        cancelled: true,
+        nlink,
+      });
     const msg =
       e instanceof StepError
         ? e.message
