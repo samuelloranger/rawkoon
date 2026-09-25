@@ -23,8 +23,6 @@ struct PhoneTabsView<Root: View>: View {
     /// Measured height of the bar area, applied to each tab's navigation controller.
     @State private var chromeHeight: CGFloat = 0
     @State private var containerWidth: CGFloat = 393
-    /// One geometry for the mini player's two spots, so it slides between them.
-    @Namespace private var miniPlayerSpace
 
     var body: some View {
         ZStack {
@@ -76,62 +74,71 @@ struct PhoneTabsView<Root: View>: View {
         model.activeBook() != nil
     }
 
-    /// Always sized as if expanded; collapsing only redraws inside it, so the lists'
-    /// margins never change and nothing re-anchors or clamps when the bar changes.
+    /// One mini player the layout moves between its two spots, so collapsing
+    /// slides and resizes it rather than swapping copies. The height is always the
+    /// expanded one, so the lists' margins never change when the bar does.
     private var bottomChrome: some View {
-        ZStack(alignment: .bottomLeading) {
-            chromeStack(collapsed: false, sizing: true)
-                .hidden()
-                .accessibilityHidden(true)
-                .allowsHitTesting(false)
-            chromeStack(collapsed: chrome.isCollapsed, sizing: false)
+        TabChromeLayout(isCollapsed: chrome.isCollapsed) {
+            RawkoonTabBar(
+                tabs: RootTab.phone,
+                selection: $selection,
+                isCollapsed: chrome.isCollapsed,
+                unreadLabel: NotificationBadge.label(forUnread: model.unreadNotificationCount),
+                initials: model.userInitials,
+                onExpand: { chrome.expand() },
+                onReselect: { stackResets[$0, default: 0] += 1 },
+                horizontalPadding: insets.padding
+            )
+            if hasActiveBook {
+                MiniPlayerView(model: model, onExpand: onExpandPlayer)
+                    .background(Capsule().fill(Theme.raised))
+                    .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
+                    .shadow(color: .black.opacity(0.4), radius: 12, y: 6)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
         .padding(.horizontal, insets.margin)
         .padding(.bottom, 4)
     }
+}
 
-    /// `sizing` is the hidden copy that reserves height; it must not claim the
-    /// mini player's matched geometry.
-    private func chromeStack(collapsed: Bool, sizing: Bool) -> some View {
-        VStack(spacing: 8) {
-            if hasActiveBook, !collapsed {
-                miniPlayer(matched: !sizing)
-            }
-            HStack(spacing: 8) {
-                RawkoonTabBar(
-                    tabs: RootTab.phone,
-                    selection: $selection,
-                    isCollapsed: collapsed,
-                    unreadLabel: NotificationBadge.label(forUnread: model.unreadNotificationCount),
-                    initials: model.userInitials,
-                    onExpand: { chrome.expand() },
-                    onReselect: { stackResets[$0, default: 0] += 1 },
-                    horizontalPadding: insets.padding
-                )
-                .fixedSize(horizontal: collapsed, vertical: false)
-                if hasActiveBook, collapsed {
-                    miniPlayer(matched: !sizing)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+/// The bar, then the mini player when a book is active, placed by `TabBarLayout.chrome`.
+private struct TabChromeLayout: Layout {
+    var isCollapsed: Bool
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
+        let width = proposal.replacingUnspecifiedDimensions().width
+        return CGSize(width: width, height: chrome(width: width, subviews: subviews).height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal _: ProposedViewSize, subviews: Subviews, cache _: inout ()) {
+        let chrome = chrome(width: bounds.width, subviews: subviews)
+        place(subviews[0], at: chrome.bar, in: bounds)
+        if subviews.count > 1, let mini = chrome.miniPlayer {
+            place(subviews[1], at: mini, in: bounds)
         }
     }
 
-    @ViewBuilder
-    private func miniPlayer(matched: Bool) -> some View {
-        let player = MiniPlayerView(model: model, onExpand: onExpandPlayer)
-            .frame(maxWidth: .infinity)
-            .background(Capsule().fill(Theme.raised))
-            .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
-            .shadow(color: .black.opacity(0.4), radius: 12, y: 6)
-        if matched {
-            // Identity transition: the incoming copy starts at the outgoing one's
-            // frame and springs to its own, a slide instead of a crossfade.
-            player
-                .matchedGeometryEffect(id: "miniPlayer", in: miniPlayerSpace)
-                .transition(.identity)
-        } else {
-            player
-        }
+    private func chrome(width: CGFloat, subviews: Subviews) -> TabBarLayout.Chrome {
+        // Collapsed, the bar takes its ideal width: the active slot alone.
+        let bar = subviews[0].sizeThatFits(isCollapsed ? .unspecified : ProposedViewSize(width: width, height: nil))
+        // Measured at full width so its height holds steady while it narrows.
+        let mini: Double? = subviews.count > 1
+            ? Double(subviews[1].sizeThatFits(ProposedViewSize(width: width, height: nil)).height)
+            : nil
+        return TabBarLayout.chrome(
+            width: width,
+            bar: TabBarLayout.Size(width: min(bar.width, width), height: bar.height),
+            miniPlayerHeight: mini,
+            collapsed: isCollapsed
+        )
+    }
+
+    private func place(_ subview: LayoutSubview, at frame: TabBarLayout.Frame, in bounds: CGRect) {
+        subview.place(
+            at: CGPoint(x: bounds.minX + frame.x, y: bounds.minY + frame.y),
+            anchor: .topLeading,
+            proposal: ProposedViewSize(width: frame.width, height: frame.height)
+        )
     }
 }

@@ -16,20 +16,35 @@ struct RawkoonTabBar: View {
     /// Narrowed by the container on small screens so slots stay 44pt wide.
     var horizontalPadding: CGFloat = 5
 
-    @Namespace private var pill
-
     var body: some View {
         HStack(spacing: 0) {
-            if isCollapsed {
-                slot(selection)
-            } else {
-                ForEach(tabs, id: \.self) { tab in
-                    slot(tab)
+            // Every slot stays mounted: collapsing folds the others to zero width, so
+            // the active one slides over instead of being swapped for a new copy.
+            ForEach(tabs, id: \.self) { tab in
+                let folded = isCollapsed && tab != selection
+                slot(tab)
+                    .frame(width: folded ? 0 : nil)
+                    .opacity(folded ? 0 : 1)
+                    .allowsHitTesting(!folded)
+                    .accessibilityHidden(folded)
+            }
+        }
+        // One pill drawn at the active slot's bounds, so a tab change moves and
+        // resizes it rather than fading one out and another in.
+        .backgroundPreferenceValue(ActiveSlotBounds.self) { anchor in
+            GeometryReader { proxy in
+                if let anchor {
+                    let rect = proxy[anchor]
+                    Capsule()
+                        .fill(Theme.tabPill)
+                        .frame(width: rect.width, height: rect.height)
+                        .offset(x: rect.minX, y: rect.minY)
                 }
             }
         }
         .padding(.vertical, 5)
         .padding(.horizontal, horizontalPadding)
+        .clipShape(Capsule())
         .background(Capsule().fill(Theme.tabBar))
         .overlay(Capsule().strokeBorder(Color.white.opacity(0.07), lineWidth: 1))
         .shadow(color: .black.opacity(0.45), radius: 16, y: 8)
@@ -45,21 +60,15 @@ struct RawkoonTabBar: View {
             } else if active {
                 onReselect(tab)
             } else {
-                withAnimation(.spring(duration: 0.3)) { selection = tab }
+                withAnimation(.spring(duration: 0.35, bounce: 0.2)) { selection = tab }
             }
         } label: {
-            ZStack {
-                if active {
-                    Capsule()
-                        .fill(Theme.tabPill)
-                        .matchedGeometryEffect(id: "pill", in: pill)
-                }
-                icon(tab, active: active)
-            }
-            .frame(height: 44)
-            .frame(maxWidth: isCollapsed ? 44 : .infinity)
-            .frame(width: isCollapsed ? 44 : nil)
-            .contentShape(Rectangle())
+            icon(tab, active: active)
+                .frame(height: 44)
+                .frame(maxWidth: isCollapsed ? 44 : .infinity)
+                .frame(width: isCollapsed ? 44 : nil)
+                .contentShape(Rectangle())
+                .anchorPreference(key: ActiveSlotBounds.self, value: .bounds) { active ? $0 : nil }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(tab.title))
@@ -79,6 +88,7 @@ struct RawkoonTabBar: View {
             avatar
         } else {
             Image(systemName: active ? tab.selectedSymbol : tab.symbol)
+                .contentTransition(.symbolEffect(.replace))
                 .font(.system(size: 20, weight: .medium))
                 .foregroundStyle(Theme.textStrong)
                 .overlay(alignment: .topTrailing) {
@@ -120,5 +130,13 @@ struct RawkoonTabBar: View {
                 .overlay(Circle().strokeBorder(Theme.tabBar, lineWidth: 2))
                 .offset(x: 5, y: 4)
         }
+    }
+}
+
+private struct ActiveSlotBounds: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = value ?? nextValue()
     }
 }
