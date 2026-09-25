@@ -6,7 +6,7 @@ import RawkoonKit
 /// The losing child is cancelled, but a URLSession call already in flight keeps
 /// running to its own timeout in the background; the point is only that the
 /// caller stops waiting on it.
-private func withDeadline<T: Sendable>(
+func withDeadline<T: Sendable>(
     seconds: Double,
     _ operation: @escaping @Sendable () async -> T?
 ) async -> T? {
@@ -37,7 +37,7 @@ extension AppModel {
         editionId: Int,
         totalDurationSecs: Double
     ) async -> (positionSecs: Double, effect: ResumeEffect) {
-        let localEntry = PositionJournal.latest(in: readJournal(), editionId: editionId)
+        let localEntry = await journalEntries()[editionId]
         let localRecord = localEntry.map {
             ProgressRecord(
                 positionSecs: $0.positionSecs,
@@ -47,16 +47,35 @@ extension AppModel {
             )
         }
 
+        // Same deadline as the ebook path: a downloaded book must not wait on an
+        // unreachable server before it plays.
+        var remoteProgress: [RemoteProgress]?
+        if isOnline, let apiClient {
+            remoteProgress = await withDeadline(seconds: 5) {
+                try? await apiClient.getProgress()
+            }
+        }
         var remoteRecord: ProgressRecord?
-        if let apiClient,
-           let remote = await (try? apiClient.getProgress())?.first(where: { $0.editionId == editionId })
-        {
+        if let remote = remoteProgress?.first(where: { $0.editionId == editionId }) {
             remoteRecord = ProgressRecord(
                 positionSecs: remote.positionSecs,
                 totalDurationSecs: remote.totalDurationSecs,
                 finished: remote.finished,
                 updatedAtMillis: Int64(remote.updatedAt.timeIntervalSince1970 * 1000)
             )
+        }
+
+        // Marking a book read deletes its server row; pushing the journal's
+        // stale position back would put it in progress again.
+        // A listen after the mark (offline, in the car) is newer than read_at and
+        // still pushes.
+        if remoteProgress != nil, remoteRecord == nil,
+           let readAt = library.first(where: { $0.audiobookEditionId == editionId })?.readAt,
+           let readDate = APIClient.iso8601WithFractionalSeconds.date(from: readAt)
+           ?? ISO8601DateFormatter().date(from: readAt),
+           (localRecord?.updatedAtMillis ?? 0) <= Int64(readDate.timeIntervalSince1970 * 1000)
+        {
+            return (0, .none)
         }
 
         switch SyncReconciler.reconcile(local: localRecord, remote: remoteRecord) {
@@ -102,7 +121,8 @@ extension AppModel {
             )
         }
         resumePreview[editionId] = positionSecs
-        return positionSecs
+        // A finished book replays from the start instead of ending on load.
+        return playStartPosition(positionSecs: positionSecs, durationSecs: manifest.totalDurationSecs)
     }
 
     /// Fills `resumePreview` so a book's primary button can name the point it
@@ -225,6 +245,25 @@ extension AppModel {
                 deviceId: deviceID
             )
         }
+    }
+
+    /// Rewrites the journal to one line per edition. Run once at launch, before
+    /// anything appends, since every open reads and parses the whole file.
+    func compactJournal() {
+        let text = readJournal()
+        guard !text.isEmpty else { return }
+        let compacted = PositionJournal.compacted(text)
+        guard compacted.utf8.count < text.utf8.count else { return }
+        try? compacted.write(to: journalURL, atomically: true, encoding: .utf8)
+    }
+
+    /// Newest journal entry per edition, parsed off the main actor: the file is
+    /// read on every book open, CarPlay refresh and resume lookup.
+    func journalEntries() async -> [Int: PositionEntry] {
+        let url = journalURL
+        return await Task.detached(priority: .userInitiated) {
+            PositionJournal.latestByEdition((try? String(contentsOf: url, encoding: .utf8)) ?? "")
+        }.value
     }
 
     func readJournal() -> String {

@@ -9,6 +9,14 @@
     /// RawkoonKit (`CarPlayBrowse`); this file is the UIKit-bound glue and lives in
     /// the app target because CarPlay types cannot compile on Linux CI.
     enum CarPlayInterface {
+        /// Covers already decoded this connection, so a list refresh does not
+        /// refetch and re-decode every row.
+        private static var artworkCache: [Int: UIImage] = [:]
+
+        static func clearArtworkCache() {
+            artworkCache = [:]
+        }
+
         /// The logged-out / empty / error state. Built as an empty `CPListTemplate`
         /// whose empty-view strings carry the message: `CPInformationTemplate` is a
         /// system template but not an allowed *root* for the CarPlay audio category,
@@ -24,16 +32,18 @@
         /// Builds the two browse sections from already-loaded model state. Returns
         /// sections (not a whole template) so the delegate can `updateSections` an
         /// existing list in place — a background library refresh must not tear down
-        /// a pushed Now Playing template. `onSelect` receives the tapped edition id.
+        /// a pushed Now Playing template. `onSelect` receives the tapped edition id
+        /// and a completion that ends the row's spinner.
         @MainActor
         static func browseSections(
             entries: [CarPlayBrowseEntry],
             model: AppModel,
-            onSelect: @escaping (Int) -> Void
+            onSelect: @escaping (Int, @escaping () -> Void) -> Void
         ) -> [CPListSection] {
             let split = CarPlayBrowse.sections(entries: entries)
-            // Guard against head-unit item limits / artwork memory: cap the library.
-            let cappedLibrary = Array(split.library.prefix(200))
+            // The head unit's item limit spans both sections; 200 bounds artwork memory.
+            let room = max(CPListTemplate.maximumItemCount - split.continueListening.count, 0)
+            let cappedLibrary = Array(split.library.prefix(min(200, room)))
 
             func resumeText(_ entry: CarPlayBrowseEntry) -> String? {
                 guard case let .resume(positionSecs) = AudiobookResume.label(for: entry) else {
@@ -51,8 +61,7 @@
                     )
                 )
                 item.handler = { _, completion in
-                    onSelect(entry.editionId)
-                    completion()
+                    onSelect(entry.editionId, completion)
                 }
                 loadArtwork(for: entry, into: item, model: model)
                 return item
@@ -92,18 +101,26 @@
                 let book = model.library.first(where: { $0.audiobookEditionId == entry.editionId }),
                 let url = book.coverURL
             else { return }
+            if let cached = artworkCache[entry.editionId] {
+                item.setImage(cached)
+                return
+            }
             Task {
-                guard
-                    let (data, _) = try? await URLSession.shared.data(from: url),
-                    let image = downsampled(data, maxPixelSize: 360)
-                else { return }
-                await MainActor.run { item.setImage(image) }
+                guard let (data, _) = try? await URLSession.shared.data(from: url) else { return }
+                // Detached: this Task inherits the main actor, and a refresh
+                // decodes up to 200 covers.
+                let image = await Task.detached(priority: .utility) {
+                    downsampled(data, maxPixelSize: 360)
+                }.value
+                guard let image else { return }
+                artworkCache[entry.editionId] = image
+                item.setImage(image)
             }
         }
 
         /// Decodes `data` straight to a thumbnail no larger than `maxPixelSize` on its
         /// long edge (≈120pt at @3x), never allocating the full-size bitmap.
-        private static func downsampled(_ data: Data, maxPixelSize: CGFloat) -> UIImage? {
+        private nonisolated static func downsampled(_ data: Data, maxPixelSize: CGFloat) -> UIImage? {
             let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
             guard let source = CGImageSourceCreateWithData(data as CFData, sourceOptions) else {
                 return nil

@@ -68,6 +68,18 @@ enum OfflineLibraryStore {
         DownloadedStore.readEbookFiles(editionId: editionId)
     }
 
+    /// Caches covers for downloaded editions that have none, e.g. a download
+    /// that finished during a background launch, before the library had loaded.
+    static func backfillMissingCovers(library: [BookListItem]) {
+        for entry in DownloadedStore.readIndex() where entry.coverFileName == nil {
+            let book = library.first {
+                $0.audiobookEditionId == entry.editionId || $0.ebookEditionId == entry.editionId
+            }
+            guard let coverURL = book?.coverURL else { continue }
+            Task { await cacheCover(from: coverURL, editionId: entry.editionId) }
+        }
+    }
+
     /// Best-effort cover download for the offline list. Failure is silent — the
     /// row renders without art.
     private static func cacheCover(from url: URL, editionId: Int) async {

@@ -68,7 +68,7 @@ final class ChapterAdvanceTests: XCTestCase {
 
     func testQueueDrainingOnTheLastChapterIsANormalFinish() {
         XCTAssertEqual(
-            queueDrainedDecision(endedIndex: 4, lastIndex: 4),
+            queueDrainedDecision(endedIndex: 4, lastIndex: 4, positionSecs: 3598, durationSecs: 3600),
             .treatAsFinished
         )
     }
@@ -78,13 +78,32 @@ final class ChapterAdvanceTests: XCTestCase {
     /// duration.
     func testQueueDrainingMidBookIsAnErrorNotTheLastChapter() {
         XCTAssertEqual(
-            queueDrainedDecision(endedIndex: 16, lastIndex: 60),
+            queueDrainedDecision(endedIndex: 16, lastIndex: 60, positionSecs: 900, durationSecs: 3600),
             .stopWithError
         )
         XCTAssertEqual(
-            queueDrainedDecision(endedIndex: nil, lastIndex: 60),
+            queueDrainedDecision(endedIndex: nil, lastIndex: 60, positionSecs: 900, durationSecs: 3600),
             .stopWithError
         )
+    }
+
+    /// A stream that drops mid-way through the last chapter empties the queue
+    /// too; saving that as "finished" would lose the listener's place.
+    func testQueueDrainingMidwayThroughTheLastChapterIsAnError() {
+        XCTAssertEqual(
+            queueDrainedDecision(endedIndex: 4, lastIndex: 4, positionSecs: 3000, durationSecs: 3600),
+            .stopWithError
+        )
+    }
+
+    /// Play after an error used to restart the book at 0:00 and save it.
+    func testPlayWithoutAnItemResumesWhereTheListenerWas() {
+        XCTAssertEqual(playStartPosition(positionSecs: 1234, durationSecs: 3600), 1234)
+    }
+
+    func testPlayWithoutAnItemReplaysAFinishedBook() {
+        XCTAssertEqual(playStartPosition(positionSecs: 3600, durationSecs: 3600), 0)
+        XCTAssertEqual(playStartPosition(positionSecs: 3597, durationSecs: 3600), 0)
     }
 
     func testUnplayableMessageNamesTheChapter() {

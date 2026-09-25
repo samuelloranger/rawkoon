@@ -116,6 +116,10 @@ extension AppModel {
         deepLinkTarget = nil
         liveUpdates.resetUnreadCount()
 
+        // First, while the client can still send the final position; it also
+        // drops the Now Playing entry a logged-out app could not serve.
+        closePlayer()
+
         Keychain.delete(Self.serverURLKey)
         Keychain.delete(Self.authTokenKey)
 
@@ -127,8 +131,6 @@ extension AppModel {
         downloaders = [:]
         downloadPlans = [:]
         verifiedCounts = [:]
-        player.pause()
-        activeEditionId = nil
         errorMessage = nil
     }
 

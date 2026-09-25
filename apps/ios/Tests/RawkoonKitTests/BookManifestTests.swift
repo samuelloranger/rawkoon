@@ -124,4 +124,17 @@ final class BookManifestTests: XCTestCase {
         XCTAssertEqual(m.files[1].startSecs, 504.189388, accuracy: 1e-6)
         XCTAssertEqual(m.files[1].durationSecs, 1042.860408 - 504.189388, accuracy: 1e-6)
     }
+
+    /// A server re-import changes ids or sizes; the old local copies must go,
+    /// or the book stays listed offline with chapters that cannot play.
+    func testStaleLocalFilesAreThoseRemovedOrResized() {
+        func file(_ id: Int, _ size: Int) -> ManifestFile {
+            ManifestFile(id: id, startSecs: 0, durationSecs: 1, sizeBytes: size, sha256: nil, url: "u")
+        }
+        let persisted = [file(1, 100), file(2, 200), file(3, 300)]
+        let fresh = [file(1, 100), file(2, 250), file(4, 400)]
+
+        XCTAssertEqual(staleLocalFiles(persisted: persisted, fresh: fresh).map(\.id), [2, 3])
+        XCTAssertEqual(staleLocalFiles(persisted: persisted, fresh: persisted), [])
+    }
 }

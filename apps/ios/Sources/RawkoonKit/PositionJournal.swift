@@ -44,6 +44,24 @@ public enum PositionJournal {
         }
     }
 
+    /// The newest entry per edition, from one parse of the journal.
+    public static func latestByEdition(_ text: String) -> [Int: PositionEntry] {
+        var latest: [Int: PositionEntry] = [:]
+        for entry in parse(text) where (latest[entry.editionId]?.atMillis ?? .min) <= entry.atMillis {
+            latest[entry.editionId] = entry
+        }
+        return latest
+    }
+
+    /// One line per edition, oldest first. The journal is append-only, so without
+    /// this every five seconds of listening stays in it forever.
+    public static func compacted(_ text: String) -> String {
+        latestByEdition(text).values
+            .sorted { $0.atMillis < $1.atMillis }
+            .map { encode($0) }
+            .joined()
+    }
+
     /// Drop every line for the given editions so a local resume cannot PUT a
     /// wiped server position back.
     public static func excluding(_ text: String, editionIds: Set<Int>) -> String {

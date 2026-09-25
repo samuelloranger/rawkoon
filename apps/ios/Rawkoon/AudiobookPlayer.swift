@@ -314,7 +314,7 @@ final class AudiobookPlayer {
             return
         }
         if let target = consumeSmartRewindTarget() {
-            seek(to: target)
+            seek(to: target, userInitiated: false)
             return
         }
         beginPlayback()
@@ -329,6 +329,11 @@ final class AudiobookPlayer {
         wasPlayingBeforeInterruption = false
         playbackError = nil
         recoveredFileIds = []
+        // An end-of-chapter timer names a chapter of the old book; a rebuild of
+        // the same book keeps it.
+        if self.manifest?.editionId != manifest.editionId {
+            setSleep(.off)
+        }
         self.manifest = manifest
         self.baseURL = baseURL
         loadArtwork(from: artworkURL)
@@ -397,12 +402,14 @@ final class AudiobookPlayer {
 
     func play() {
         playbackError = nil
+        // The listener resumed by hand, so no pending interruption resume is owed.
+        wasPlayingBeforeInterruption = false
         isPlaying = true
         if case .minutes = sleepMode {
             lastSleepTick = Date()
         }
         if player?.currentItem == nil, duration > 0 {
-            seek(to: 0)
+            seek(to: playStartPosition(positionSecs: positionSecs, durationSecs: duration), userInitiated: false)
             return
         }
         // play() cancels an in-flight seek, which is the race that makes
@@ -418,7 +425,7 @@ final class AudiobookPlayer {
         // `isPlaying` is already true, so the seek autoplays and its completion
         // calls beginPlayback for us — one seek, no audio at the stale position.
         if let target = consumeSmartRewindTarget() {
-            seek(to: target)
+            seek(to: target, userInitiated: false)
             return
         }
         beginPlayback()
@@ -533,6 +540,14 @@ final class AudiobookPlayer {
                 }
             }
         }
+    }
+
+    /// In-place seek that waits for the item: AVFoundation raises on a seek with
+    /// a completion handler before the item is ready to play.
+    func seekCurrentItemWhenReady(to offset: Double, autoplay: Bool) {
+        // Supersedes a status observer still waiting from an earlier seek.
+        seekID += 1
+        seekWhenReady(offset: offset, autoplay: autoplay)
     }
 
     private func seekWhenReady(offset: Double, autoplay: Bool) {
@@ -793,7 +808,7 @@ final class AudiobookPlayer {
                 return
             }
             isPlaying = true
-            seek(to: next.startSecs)
+            seek(to: next.startSecs, userInitiated: false)
         case let .stopWithError(index, title):
             stopWithUnplayableChapter(index: index, title: title)
         }
@@ -802,7 +817,9 @@ final class AudiobookPlayer {
     private func applyQueueDrained() {
         switch queueDrainedDecision(
             endedIndex: currentChapterIndex,
-            lastIndex: chapters.last?.index
+            lastIndex: chapters.last?.index,
+            positionSecs: positionSecs,
+            durationSecs: duration
         ) {
         case .treatAsFinished:
             finishBook()

@@ -44,6 +44,19 @@ nonisolated enum FileStore {
         }
     }
 
+    /// Deletes chapter files (named by file id) that are not in `keeping`, so a
+    /// re-import on the server does not leave the old copies on disk forever.
+    /// Metadata files (manifest, cover, ebook list) have no numeric stem and stay.
+    static func deleteChapters(editionId: Int, keeping ids: Set<Int>) {
+        let directory = editionDirectory(editionId)
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: directory.path) else { return }
+        for name in names {
+            let stem = name.split(separator: ".", maxSplits: 1).first.map(String.init) ?? name
+            guard let id = Int(stem), !ids.contains(id) else { continue }
+            delete(url: directory.appendingPathComponent(name, isDirectory: false))
+        }
+    }
+
     static func deleteEdition(_ editionId: Int) {
         let directory = editionDirectory(editionId)
         guard FileManager.default.fileExists(atPath: directory.path) else { return }

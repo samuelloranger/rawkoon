@@ -16,6 +16,17 @@
         /// place instead of resetting the root (which would tear down a pushed Now
         /// Playing template). Nil while a message template is showing.
         private var browseTemplate: CPListTemplate?
+        /// The edition a tap is opening, so a second tap cannot push Now Playing twice.
+        private var openingEditionId: Int?
+        /// What the list was last built from; playback starting changes nothing it shows.
+        private var lastRefreshKey: RefreshKey?
+
+        private struct RefreshKey: Equatable {
+            let isLoggedIn: Bool
+            let libraryIds: [Int]
+            let activeEditionId: Int?
+            let isPlaying: Bool
+        }
 
         func templateApplicationScene(
             _: CPTemplateApplicationScene,
@@ -25,7 +36,13 @@
             browseTemplate = nil
             Log.playback.info("CarPlay scene connected")
             Task { @MainActor in
+                // A root right away: loading can take seconds on a weak signal.
+                showMessage(String(localized: "Loading audiobooks…"))
+                // Here, not in play(): playback started from the phone or Siri
+                // lands on this Now Playing screen too.
+                configureNowPlayingButtons(model: .shared)
                 await refresh()
+                lastRefreshKey = Self.refreshKey()
                 observeAppState()
             }
         }
@@ -37,6 +54,8 @@
             Log.playback.info("CarPlay scene disconnected")
             interfaceController = nil
             browseTemplate = nil
+            lastRefreshKey = nil
+            CarPlayInterface.clearArtworkCache()
         }
 
         /// Re-renders whenever the app state CarPlay depends on changes — sign-in
@@ -51,13 +70,37 @@
             withObservationTracking {
                 _ = AppModel.shared.isLoggedIn
                 _ = AppModel.shared.library
+                // Continue Listening order and resume labels move while listening.
+                _ = AppModel.shared.activeEditionId
+                _ = AppModel.shared.player.isPlaying
             } onChange: { [weak self] in
                 Task { @MainActor in
                     guard let self, self.interfaceController != nil else { return }
-                    await self.refresh()
+                    let key = Self.refreshKey()
+                    let previous = self.lastRefreshKey
+                    // Pausing moves resume labels; starting playback does not.
+                    let onlyStartedPlaying = key.isPlaying && previous.map {
+                        $0.isLoggedIn == key.isLoggedIn && $0.libraryIds == key.libraryIds
+                            && $0.activeEditionId == key.activeEditionId
+                    } == true
+                    if !onlyStartedPlaying {
+                        await self.refresh()
+                    }
+                    self.lastRefreshKey = key
                     self.observeAppState()
                 }
             }
+        }
+
+        @MainActor
+        private static func refreshKey() -> RefreshKey {
+            let model = AppModel.shared
+            return RefreshKey(
+                isLoggedIn: model.isLoggedIn,
+                libraryIds: model.library.map(\.bookId),
+                activeEditionId: model.activeEditionId,
+                isPlaying: model.player.isPlaying
+            )
         }
 
         @MainActor
@@ -82,9 +125,11 @@
         /// only the first build (or a return from a message state) sets the root.
         @MainActor
         private func showBrowse(entries: [CarPlayBrowseEntry], model: AppModel) {
-            let sections = CarPlayInterface.browseSections(entries: entries, model: model) { [weak self] editionId in
-                self?.play(editionId: editionId, model: model)
+            let onSelect: (Int, @escaping () -> Void) -> Void = { [weak self] editionId, done in
+                guard let self else { return done() }
+                play(editionId: editionId, model: model, done: done)
             }
+            let sections = CarPlayInterface.browseSections(entries: entries, model: model, onSelect: onSelect)
             if let browseTemplate {
                 browseTemplate.updateSections(sections)
             } else {
@@ -102,17 +147,40 @@
             )
         }
 
+        /// `done` ends the row's spinner, so it is held until the book has loaded.
         @MainActor
-        private func play(editionId: Int, model: AppModel) {
+        private func play(editionId: Int, model: AppModel, done: @escaping () -> Void) {
+            guard openingEditionId == nil else { return done() }
+            openingEditionId = editionId
             Task { @MainActor in
+                defer {
+                    openingEditionId = nil
+                    done()
+                }
                 await model.openPlayer(editionId: editionId)
-                guard model.errorMessage == nil else { return }
+                if let error = model.errorMessage {
+                    showAlert(error)
+                    return
+                }
                 model.player.play()
-                configureNowPlayingButtons(model: model)
-                interfaceController?.pushTemplate(
-                    CPNowPlayingTemplate.shared, animated: true, completion: nil
-                )
+                guard let interfaceController,
+                      !interfaceController.templates.contains(where: { $0 === CPNowPlayingTemplate.shared })
+                else { return }
+                interfaceController.pushTemplate(CPNowPlayingTemplate.shared, animated: true, completion: nil)
             }
+        }
+
+        @MainActor
+        private func showAlert(_ text: String) {
+            let alert = CPAlertTemplate(
+                titleVariants: [text],
+                actions: [
+                    CPAlertAction(title: String(localized: "OK"), style: .cancel) { [weak self] _ in
+                        self?.interfaceController?.dismissTemplate(animated: true, completion: nil)
+                    },
+                ]
+            )
+            interfaceController?.presentTemplate(alert, animated: true, completion: nil)
         }
 
         /// The two custom controls on the Now Playing screen. CarPlay owns the
@@ -137,9 +205,16 @@
         /// The current chapter carries the playing indicator.
         @MainActor
         private func showChapters(model: AppModel) {
-            let chapters = model.player.chapterList
-            guard !chapters.isEmpty else { return }
+            let all = model.player.chapterList
+            guard !all.isEmpty else { return }
             let currentIndex = model.player.currentChapterIndex
+            // Head units cap list length; keep the playing chapter in the slice.
+            let window = CarPlayBrowse.window(
+                count: all.count,
+                around: all.firstIndex { $0.index == currentIndex },
+                limit: CPListTemplate.maximumItemCount
+            )
+            let chapters = all[window]
 
             let items = chapters.map { chapter -> CPListItem in
                 let item = CPListItem(

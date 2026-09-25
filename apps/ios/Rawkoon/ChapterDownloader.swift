@@ -9,7 +9,9 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     private let stateQueue = DispatchQueue(label: "cloud.samlo.rawkoon.chapter-downloader")
     private let maxConcurrentDownloads = 3
     private let sessionIdentifier: String
-    private let allowCellular: Bool
+    /// Fired once the cancelled session has fully invalidated; a new session with
+    /// the same identifier created before that collides with it.
+    private var onInvalidated: (@Sendable () -> Void)?
 
     /// Not `let`: an expired grant is replaced in place rather than by tearing
     /// the background session down, because the session identifier has to stay
@@ -18,6 +20,9 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     private var fileById: [Int: ManifestFile]
     private var plan: DownloadPlan
     private var isRunning = false
+    /// Set synchronously by `cancel()`, so a completion already on the delegate
+    /// queue does not move a file into a directory that is being deleted.
+    private var isCancelled = false
     private var hasLoadedExistingTasks = false
     private var activeFileIds: Set<Int> = []
     private var backgroundSessionCompletion: (() -> Void)?
@@ -28,9 +33,11 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         )
         config.sessionSendsLaunchEvents = true
         config.isDiscretionary = false
-        config.allowsCellularAccess = allowCellular
-        config.allowsExpensiveNetworkAccess = allowCellular
-        config.allowsConstrainedNetworkAccess = allowCellular
+        // Cellular is decided per request, so the setting applies to the next
+        // chapter instead of waiting for a new session.
+        config.allowsCellularAccess = true
+        config.allowsExpensiveNetworkAccess = true
+        config.allowsConstrainedNetworkAccess = true
         return URLSession(configuration: config, delegate: self, delegateQueue: nil)
     }()
 
@@ -38,19 +45,18 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         editionId: Int,
         baseURL: URL,
         manifest: BookManifest,
-        allowCellular: Bool,
         onState: @escaping (DownloadPlan) -> Void
     ) {
         self.editionId = editionId
         self.baseURL = baseURL
         self.manifest = manifest
-        self.allowCellular = allowCellular
         self.onState = onState
         sessionIdentifier = Self.sessionIdentifier(editionId: editionId)
         plan = DownloadPlan(files: manifest.files)
         fileById = Dictionary(uniqueKeysWithValues: manifest.files.map { ($0.id, $0) })
         super.init()
-        reconcileExistingFiles()
+        // Queued ahead of loadExistingTasks' own stateQueue hop, so it still runs first.
+        stateQueue.async { self.reconcileExistingFiles() }
         loadExistingTasks()
     }
 
@@ -66,11 +72,13 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     /// any partial files afterward, so there is nothing to resume into. The
     /// resulting `NSURLErrorCancelled` is already swallowed in
     /// `didCompleteWithError`, so no spurious failure state is emitted.
-    func cancel() {
+    func cancel(onInvalidated: (@Sendable () -> Void)? = nil) {
         // Serialized on stateQueue so it lands after any in-flight pump rather
         // than racing one: invalidating the session while `pumpIfNeeded` is
         // mid-`downloadTask(with:)` on the same session is undefined.
-        stateQueue.async {
+        stateQueue.sync {
+            self.onInvalidated = onInvalidated
+            self.isCancelled = true
             self.isRunning = false
             self.activeFileIds.removeAll()
             self.session.invalidateAndCancel()
@@ -82,6 +90,51 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     func retryFailedChapters() {
         stateQueue.async {
             self.plan.retryFailed()
+            self.emitState()
+            self.pumpIfNeeded()
+        }
+    }
+
+    /// Re-derives in-flight chapters from the live task list and the disk, the
+    /// way a relaunch does, so a chapter whose completion was lost cannot hold
+    /// the book short of 100% until the app is killed. Called on foreground.
+    func resync() {
+        stateQueue.async {
+            guard self.hasLoadedExistingTasks else { return }
+            // Snapshot first: a chapter started after the task list is taken
+            // would otherwise look stranded and be downloaded twice.
+            let candidates = Set(self.plan.strandedInFlight(liveFileIds: []))
+            guard !candidates.isEmpty else { return }
+            self.session.getAllTasks { tasks in
+                self.recoverStranded(candidates, tasks: tasks)
+            }
+        }
+    }
+
+    private func recoverStranded(_ candidates: Set<Int>, tasks: [URLSessionTask]) {
+        let live = Set(tasks.compactMap { fileId(from: $0.taskDescription) })
+        stateQueue.async {
+            for fileId in self.plan.strandedInFlight(liveFileIds: live) where candidates.contains(fileId) {
+                self.activeFileIds.remove(fileId)
+                guard let file = self.fileById[fileId] else { continue }
+                let url = FileStore.chapterURL(
+                    editionId: self.editionId, fileId: fileId, ext: file.fileExtension
+                )
+                if let bytes = FileStore.size(url: url), bytes == file.sizeBytes {
+                    let digest = file.sha256 == nil ? nil : Self.sha256Hex(of: url)
+                    self.plan.apply(.completed(fileId: fileId, status: 200, bytes: bytes, sha256: digest))
+                } else {
+                    self.plan.requeue(fileId: fileId)
+                }
+                let editionId = self.editionId
+                Log.download.warning(
+                    """
+                    Recovered stranded chapter: \
+                    editionId=\(editionId, privacy: .public) \
+                    fileId=\(fileId, privacy: .public)
+                    """
+                )
+            }
             self.emitState()
             self.pumpIfNeeded()
         }
@@ -111,13 +164,37 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     /// those without spending an attempt.
     func refreshChapterURLs(from manifest: BookManifest) {
         stateQueue.async {
+            let freshIds = Set(manifest.files.map(\.id))
+            let idsChanged = freshIds != Set(self.plan.files.map(\.id))
             self.manifest = manifest
             self.fileById = Dictionary(
                 uniqueKeysWithValues: manifest.files.map { ($0.id, $0) }
             )
+            // Re-imported on the server mid-download: the old ids will never
+            // verify, so start the plan over from what is already on disk.
+            if idsChanged {
+                self.plan = DownloadPlan(files: manifest.files)
+                self.activeFileIds.formIntersection(freshIds)
+                self.session.getAllTasks { tasks in
+                    for task in tasks {
+                        guard let id = self.fileId(from: task.taskDescription), !freshIds.contains(id) else { continue }
+                        task.cancel()
+                    }
+                }
+                FileStore.deleteChapters(editionId: self.editionId, keeping: freshIds)
+                self.reconcileExistingFiles()
+            }
             self.plan.acknowledgeFreshGrants()
             self.emitState()
             self.pumpIfNeeded()
+        }
+    }
+
+    /// See `DownloadPlan.abandonAwaitingGrants`.
+    func grantRefreshFailed() {
+        stateQueue.async {
+            self.plan.abandonAwaitingGrants()
+            self.emitState()
         }
     }
 
@@ -142,11 +219,9 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
                 FileStore.delete(url: url)
                 continue
             }
-            // Only hash when the manifest carries one to compare against.
-            // Digesting every already-downloaded file on each launch would
-            // read the whole book off disk to answer a question nothing asked.
-            let digest = file.sha256 == nil ? nil : Self.sha256Hex(of: url)
-            plan.apply(.completed(fileId: file.id, status: 200, bytes: bytes, sha256: digest))
+            // Size only, like DownloadPlan.restored: the file was hashed when it
+            // arrived, and re-hashing the whole book here stalled every re-tap.
+            plan.apply(.completed(fileId: file.id, status: 200, bytes: bytes, sha256: file.sha256))
         }
         emitState()
     }
@@ -168,7 +243,8 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
     }
 
     private func pumpIfNeeded() {
-        guard isRunning, hasLoadedExistingTasks else { return }
+        // Waiting on fresh grants: restarting now just re-requests the dead URL.
+        guard isRunning, hasLoadedExistingTasks, !plan.needsFreshGrants else { return }
 
         let availableSlots = max(0, maxConcurrentDownloads - activeFileIds.count)
         guard availableSlots > 0 else { return }
@@ -189,6 +265,10 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
 
             var request = URLRequest(url: url)
             request.httpMethod = "GET"
+            let cellular = Self.allowsCellular()
+            request.allowsCellularAccess = cellular
+            request.allowsExpensiveNetworkAccess = cellular
+            request.allowsConstrainedNetworkAccess = cellular
 
             let task = session.downloadTask(with: request)
             task.taskDescription = "\(editionId)/\(fileId)"
@@ -231,7 +311,12 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
             return
         }
 
-        guard let file = fileById[fileId] else {
+        // fileById is written on stateQueue by a grant refresh; read it there too.
+        let (file, cancelled) = stateQueue.sync { (fileById[fileId], isCancelled) }
+        if cancelled {
+            return
+        }
+        guard let file else {
             applyEventAndContinue(.transportFailed(fileId: fileId), fileId: fileId)
             return
         }
@@ -320,6 +405,16 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         applyEventAndContinue(.transportFailed(fileId: fileId), fileId: fileId)
     }
 
+    func urlSession(_: URLSession, didBecomeInvalidWithError _: Error?) {
+        let callback = stateQueue.sync { onInvalidated }
+        callback?()
+    }
+
+    /// The Settings "download over" choice, read when each chapter starts.
+    private static func allowsCellular() -> Bool {
+        UserDefaults.standard.string(forKey: "download_over") != "wifi"
+    }
+
     func urlSessionDidFinishEvents(forBackgroundURLSession _: URLSession) {
         stateQueue.async {
             let completion = self.backgroundSessionCompletion
@@ -334,6 +429,28 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         stateQueue.async {
             self.activeFileIds.remove(fileId)
             self.plan.apply(event)
+            if case let .completed(_, status, bytes, _) = event,
+               (200 ... 299).contains(status),
+               self.plan.states[fileId] != .verified
+            {
+                let editionId = self.editionId
+                let expected = self.fileById[fileId]?.sizeBytes ?? -1
+                Log.download.error(
+                    """
+                    Chapter failed verification: \
+                    editionId=\(editionId, privacy: .public) \
+                    fileId=\(fileId, privacy: .public) \
+                    bytes=\(bytes, privacy: .public) \
+                    expected=\(expected, privacy: .public)
+                    """
+                )
+                // A size-only reconcile would otherwise accept it on the next launch.
+                if let file = self.fileById[fileId] {
+                    FileStore.delete(url: FileStore.chapterURL(
+                        editionId: editionId, fileId: fileId, ext: file.fileExtension
+                    ))
+                }
+            }
             self.emitState()
             self.pumpIfNeeded()
         }

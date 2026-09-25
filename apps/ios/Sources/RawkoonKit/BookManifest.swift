@@ -160,3 +160,10 @@ public struct BookManifest: Codable, Equatable, Sendable {
         return try? snake.decode(BookManifest.self, from: data)
     }
 }
+
+/// Local chapter files a newer manifest no longer vouches for: gone from it,
+/// or a different size (re-imported in place on the server).
+public func staleLocalFiles(persisted: [ManifestFile], fresh: [ManifestFile]) -> [ManifestFile] {
+    let freshSizes = Dictionary(fresh.map { ($0.id, $0.sizeBytes) }, uniquingKeysWith: { first, _ in first })
+    return persisted.filter { freshSizes[$0.id] != $0.sizeBytes }
+}
