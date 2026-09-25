@@ -26,6 +26,8 @@
                 DebugPlayer(chapterCount: 0, resumeAt: 15120)
             case "deck":
                 DebugDeck()
+            case "tabBar":
+                DebugTabBarStates()
             case "orderedSources":
                 DebugOrderedSources()
             case "bookDiscoveryDetail":
@@ -56,7 +58,7 @@
         static func isOffline(_ screen: String) -> Bool {
             [
                 "player", "playerNoChapters", "deck", "orderedSources",
-                "bookDiscoveryDetail",
+                "bookDiscoveryDetail", "tabBar",
             ].contains(screen)
         }
     }
@@ -541,4 +543,30 @@
         }
     }
 
+
+    /// `RAWKOON_SCREEN=tabBar`: the custom bar's states for screenshot review.
+    private struct DebugTabBarStates: View {
+        @State private var home = RootTab.home
+        @State private var books = RootTab.books
+
+        var body: some View {
+            VStack(spacing: 28) {
+                Spacer()
+                RawkoonTabBar(tabs: RootTab.phone, selection: $home, isCollapsed: false,
+                              unreadLabel: "3", initials: "SL", onExpand: {})
+                RawkoonTabBar(tabs: RootTab.phone, selection: $books, isCollapsed: false,
+                              unreadLabel: "9+", initials: nil, onExpand: {})
+                HStack {
+                    RawkoonTabBar(tabs: RootTab.phone, selection: $books, isCollapsed: true,
+                                  unreadLabel: nil, initials: "SL", onExpand: {})
+                        .fixedSize()
+                    Spacer()
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.base)
+        }
+    }
 #endif
