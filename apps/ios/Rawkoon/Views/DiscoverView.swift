@@ -5,6 +5,7 @@ import SwiftUI
 /// paginated grid live on Explore. Tap → MediaDetailView.
 struct DiscoverView: View {
     @Environment(AppModel.self) private var model
+
     // MARK: Deck
 
     @State private var deckItems: [DiscoverDeckItem] = []
