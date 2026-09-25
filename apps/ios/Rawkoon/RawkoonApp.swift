@@ -188,13 +188,14 @@ private struct RootTabsView: View {
     @Namespace private var zoomNamespace
 
     init() {
-        // Home is the landing tab for everyone. Debug `RAWKOON_TAB` still wins.
+        // Home is the landing tab for everyone. Debug `RAWKOON_TAB` (a tab name or a
+        // legacy index) still wins.
         var initial = RootTab.home
         #if DEBUG
-            if let raw = ProcessInfo.processInfo.environment["RAWKOON_TAB"], let value = Int(raw),
-               RootTab.phone.indices.contains(value)
+            if let raw = ProcessInfo.processInfo.environment["RAWKOON_TAB"],
+               let tab = RootTab.debugSelection(raw)
             {
-                initial = RootTab.phone[value]
+                initial = tab
             }
         #endif
         _selection = State(initialValue: initial)

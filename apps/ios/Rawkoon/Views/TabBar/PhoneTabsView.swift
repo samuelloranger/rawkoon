@@ -23,6 +23,7 @@ struct PhoneTabsView<Root: View>: View {
     /// Measured height of the bar area. A `safeAreaInset` here does not reach scroll
     /// views inside the tabs' navigation stacks; content margins do.
     @State private var chromeHeight: CGFloat = 0
+    @State private var containerWidth: CGFloat = 393
 
     var body: some View {
         ZStack {
@@ -40,6 +41,7 @@ struct PhoneTabsView<Root: View>: View {
                 }
             }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { containerWidth = $0 }
         .contentMargins(.bottom, keyboardShown ? 0 : chromeHeight, for: .scrollContent)
         .contentMargins(.bottom, keyboardShown ? 0 : chromeHeight, for: .scrollIndicators)
         .overlay(alignment: .bottom) {
@@ -66,6 +68,10 @@ struct PhoneTabsView<Root: View>: View {
         .eraseToAnyPublisher()
     }
 
+    private var insets: TabBarLayout.Insets {
+        TabBarLayout.insets(containerWidth: containerWidth, slots: RootTab.phone.count)
+    }
+
     private var hasActiveBook: Bool {
         model.activeBook() != nil
     }
@@ -80,7 +86,7 @@ struct PhoneTabsView<Root: View>: View {
                 .allowsHitTesting(false)
             chromeStack(collapsed: chrome.isCollapsed)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, insets.margin)
         .padding(.bottom, 4)
     }
 
@@ -97,7 +103,8 @@ struct PhoneTabsView<Root: View>: View {
                     unreadLabel: NotificationBadge.label(forUnread: model.unreadNotificationCount),
                     initials: model.userInitials,
                     onExpand: { chrome.expand() },
-                    onReselect: { stackResets[$0, default: 0] += 1 }
+                    onReselect: { stackResets[$0, default: 0] += 1 },
+                    horizontalPadding: insets.padding
                 )
                 .fixedSize(horizontal: collapsed, vertical: false)
                 if hasActiveBook, collapsed {

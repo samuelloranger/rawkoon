@@ -21,8 +21,22 @@ final class RootTabTests: XCTestCase {
         XCTAssertEqual(RootTab.validated("notifications", compact: false), .home)
     }
 
-    func testUnknownValueFallsBackToLibrary() {
-        XCTAssertEqual(RootTab.validated("nope", compact: true), .library)
-        XCTAssertEqual(RootTab.validated("", compact: false), .library)
+    /// Home is the landing tab, so every fallback lands there.
+    func testUnknownValueFallsBackToHome() {
+        XCTAssertEqual(RootTab.validated("nope", compact: true), .home)
+        XCTAssertEqual(RootTab.validated("", compact: false), .home)
+    }
+
+    func testDebugSelectionAcceptsTabNames() {
+        XCTAssertEqual(RootTab.debugSelection("notifications"), .notifications)
+        XCTAssertEqual(RootTab.debugSelection("explore"), .explore)
+    }
+
+    /// Existing screenshot scripts pass the old five-tab indices; they keep their meaning.
+    func testDebugSelectionKeepsTheLegacyIndices() {
+        XCTAssertEqual(RootTab.debugSelection("0"), .home)
+        XCTAssertEqual(RootTab.debugSelection("4"), .settings)
+        XCTAssertNil(RootTab.debugSelection("9"))
+        XCTAssertNil(RootTab.debugSelection("bogus"))
     }
 }

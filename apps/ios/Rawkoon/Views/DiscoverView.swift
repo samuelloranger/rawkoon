@@ -118,11 +118,12 @@ struct DiscoverView: View {
             }
     }
 
-    /// Phone: deck (or search) in one scrolling column; Explore behind the Filter sheet.
+    /// Phone: deck (or search results) in one scrolling column; Explore is its own tab.
     private var phoneScroll: some View {
         ScrollView {
             deckColumn
         }
+        .reportsTabBarScroll()
         .refreshable { await loadDeck() }
     }
 

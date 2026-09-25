@@ -9147,6 +9147,17 @@
         }
       }
     },
+    "Shows all tabs": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiche tous les onglets"
+          }
+        }
+      }
+    },
     "Some chapters couldn't download.": {
       "extractionState": "manual",
       "localizations": {

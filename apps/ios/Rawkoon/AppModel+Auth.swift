@@ -126,6 +126,8 @@ extension AppModel {
         apiClient = nil
         isLoggedIn = false
         isAdmin = false
+        userFirstName = nil
+        userInitials = nil
         library = []
         manifests = [:]
         downloaders = [:]

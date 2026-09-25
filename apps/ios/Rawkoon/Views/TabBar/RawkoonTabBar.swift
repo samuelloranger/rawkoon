@@ -13,6 +13,8 @@ struct RawkoonTabBar: View {
     let onExpand: () -> Void
     /// A tap on the tab already shown; the container pops it to its root.
     var onReselect: (RootTab) -> Void = { _ in }
+    /// Narrowed by the container on small screens so slots stay 44pt wide.
+    var horizontalPadding: CGFloat = 5
 
     @Namespace private var pill
 
@@ -26,7 +28,8 @@ struct RawkoonTabBar: View {
                 }
             }
         }
-        .padding(5)
+        .padding(.vertical, 5)
+        .padding(.horizontal, horizontalPadding)
         .background(Capsule().fill(Theme.tabBar))
         .overlay(Capsule().strokeBorder(Color.white.opacity(0.07), lineWidth: 1))
         .shadow(color: .black.opacity(0.45), radius: 16, y: 8)
@@ -62,6 +65,7 @@ struct RawkoonTabBar: View {
         .accessibilityLabel(Text(tab.title))
         .accessibilityValue(tab == .notifications ? unreadValue : Text(verbatim: ""))
         .accessibilityAddTraits(active ? .isSelected : [])
+        .accessibilityHint(isCollapsed ? Text("Shows all tabs") : Text(verbatim: ""))
     }
 
     private var unreadValue: Text {
