@@ -181,17 +181,7 @@ final class AppModel {
                 continue
             }
             manifests[editionId] = manifest
-            var existingBytes: [Int: Int] = [:]
-            for file in manifest.files {
-                let ext = file.fileExtension
-                guard FileStore.exists(editionId: editionId, fileId: file.id, ext: ext) else {
-                    continue
-                }
-                let url = FileStore.chapterURL(editionId: editionId, fileId: file.id, ext: ext)
-                if let bytes = FileStore.size(url: url) {
-                    existingBytes[file.id] = bytes
-                }
-            }
+            let existingBytes = Self.onDiskBytes(editionId: editionId, files: manifest.files)
             // Only surface a plan when files are actually on disk. A manifest-only
             // cache (written at download-start) must not look like an in-flight
             // 0% download after a process kill — there is no live downloader.
@@ -498,9 +488,12 @@ final class AppModel {
             // Backfill a pre-existing, fully-downloaded audiobook (downloaded
             // before offline persistence shipped) the first time it is opened
             // online, so it too becomes usable offline.
-            if DownloadedStore.readManifest(editionId: editionId) == nil,
+            if !isIndexedAsDownloaded(editionId),
                !fetched.files.isEmpty,
-               DownloadedStore.downloadedFileCount(editionId: editionId) >= fetched.files.count
+               DownloadPlan.restored(
+                   files: fetched.files,
+                   existingBytes: Self.onDiskBytes(editionId: editionId, files: fetched.files)
+               ).isComplete
             {
                 persistDownloadedAudiobook(editionId: editionId)
             }
@@ -530,7 +523,9 @@ final class AppModel {
                 return
             }
             if let existing = downloaders[editionId] {
-                // Re-tap means "try again": clear given-up chapters first.
+                // Re-tap means "try again": fresh grants, given-up chapters cleared.
+                grantRefreshAttempts.removeValue(forKey: editionId)
+                existing.refreshChapterURLs(from: manifest)
                 existing.retryFailedChapters()
                 existing.start()
                 return
@@ -561,6 +556,15 @@ final class AppModel {
 
     func openPlayer(editionId: Int, resumeAt overridePosition: Double? = nil) async {
         errorMessage = nil
+
+        // Reloading the book already playing would pause it and rewind it to a
+        // stale snapshot, so only an explicitly chosen position moves it.
+        if editionId == activeEditionId, player.manifest?.editionId == editionId {
+            if let overridePosition {
+                player.seek(to: overridePosition)
+            }
+            return
+        }
 
         do {
             let manifest = try await manifest(editionId)
@@ -624,15 +628,10 @@ final class AppModel {
             .union(manifests.keys)
             .union(downloadPlans.keys)
 
+        // Through purgeDownload so each live downloader goes too; a surviving one
+        // re-reports its all-verified plan and re-lists the book with no files.
         for editionId in editionIDs {
-            FileStore.deleteEdition(editionId)
-            DownloadedStore.forget(editionId: editionId)
-        }
-
-        downloadPlans = [:]
-        verifiedCounts = [:]
-        if activeEditionId != nil {
-            player.rebuild()
+            purgeDownload(editionId: editionId)
         }
     }
 
@@ -659,7 +658,10 @@ final class AppModel {
         DownloadedStore.forget(editionId: editionId)
         downloadPlans.removeValue(forKey: editionId)
         verifiedCounts.removeValue(forKey: editionId)
-        manifests.removeValue(forKey: editionId)
+        // The playing book keeps streaming, and progress saving needs its manifest.
+        if activeEditionId != editionId {
+            manifests.removeValue(forKey: editionId)
+        }
         // Otherwise a stale attempt count could trip maxGrantRefreshAttempts on
         // the next download of this edition.
         grantRefreshAttempts.removeValue(forKey: editionId)
@@ -686,7 +688,11 @@ final class AppModel {
         defer { grantRefreshInFlight.remove(editionId) }
 
         do {
-            let refreshed = try await manifest(editionId, forceRefresh: true)
+            // Straight to the API: manifest(forceRefresh:) falls back to the disk
+            // copy, whose URLs are the expired ones being replaced.
+            guard let apiClient else { throw APIError.unauthorized }
+            let refreshed = try await apiClient.manifest(editionId: editionId)
+            manifests[editionId] = refreshed
             downloaders[editionId]?.refreshChapterURLs(from: refreshed)
         } catch {
             Log.download.error(
@@ -718,8 +724,35 @@ final class AppModel {
         // to list and play this audiobook without the network. Guard on a
         // missing on-disk manifest so this runs once per completed download, not
         // on every state emission.
-        if plan.isComplete, DownloadedStore.readManifest(editionId: editionId) == nil {
+        if plan.isComplete, !isIndexedAsDownloaded(editionId) {
             persistDownloadedAudiobook(editionId: editionId)
+        }
+    }
+
+    /// Size of each chapter already on disk, keyed by file id.
+    private static func onDiskBytes(editionId: Int, files: [ManifestFile]) -> [Int: Int] {
+        var existingBytes: [Int: Int] = [:]
+        for file in files {
+            let ext = file.fileExtension
+            guard FileStore.exists(editionId: editionId, fileId: file.id, ext: ext) else { continue }
+            let url = FileStore.chapterURL(editionId: editionId, fileId: file.id, ext: ext)
+            if let bytes = FileStore.size(url: url) {
+                existingBytes[file.id] = bytes
+            }
+        }
+        return existingBytes
+    }
+
+    /// The index, not manifest.json, marks a finished download: the manifest is
+    /// written when a download starts.
+    private func isIndexedAsDownloaded(_ editionId: Int) -> Bool {
+        DownloadedStore.readIndex().contains { $0.editionId == editionId && $0.kind == .audiobook }
+    }
+
+    /// Recovers chapters whose completion never arrived; see `ChapterDownloader.resync`.
+    func resyncDownloads() {
+        for downloader in downloaders.values {
+            downloader.resync()
         }
     }
 

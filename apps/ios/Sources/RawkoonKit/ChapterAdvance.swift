@@ -42,11 +42,29 @@ public func chapterAdvanceDecision(
     return .stopWithError(index: next.index, title: next.title)
 }
 
-public func queueDrainedDecision(endedIndex: Int?, lastIndex: Int?) -> QueueDrainedDecision {
-    guard let endedIndex, let lastIndex, endedIndex == lastIndex else {
+/// How close to the end a drained queue has to be to count as a finished book.
+let finishedBookToleranceSecs = 5.0
+
+/// A queue that empties in the last chapter but short of its end lost an item
+/// to a failure, so it is an error rather than a finished book.
+public func queueDrainedDecision(
+    endedIndex: Int?,
+    lastIndex: Int?,
+    positionSecs: Double,
+    durationSecs: Double
+) -> QueueDrainedDecision {
+    guard let endedIndex, let lastIndex, endedIndex == lastIndex,
+          positionSecs >= durationSecs - finishedBookToleranceSecs
+    else {
         return .stopWithError
     }
     return .treatAsFinished
+}
+
+/// Where play() rebuilds from when no item is loaded: the current position,
+/// or the start only for a book that is at its end (a replay).
+public func playStartPosition(positionSecs: Double, durationSecs: Double) -> Double {
+    positionSecs >= durationSecs - finishedBookToleranceSecs ? 0 : max(positionSecs, 0)
 }
 
 public func unplayableChapterMessage(title: String) -> String {

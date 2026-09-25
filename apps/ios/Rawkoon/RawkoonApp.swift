@@ -110,6 +110,7 @@ struct RawkoonApp: App {
                 case .active:
                     configureCatalystTitlebar()
                     model.startLiveStreams()
+                    model.resyncDownloads()
                     Task { await model.refreshUnreadNotificationCount() }
                 case .background:
                     model.persistPlaybackProgress(force: true)

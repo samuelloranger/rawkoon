@@ -107,21 +107,6 @@ nonisolated enum DownloadedStore {
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
-    // MARK: Completeness
-
-    /// Number of downloaded content files under an edition's directory, ignoring
-    /// the metadata files this store writes. Used to detect a pre-existing,
-    /// fully-downloaded audiobook (from before offline persistence shipped) so it
-    /// can be backfilled into the index on its first online open.
-    static func downloadedFileCount(editionId: Int) -> Int {
-        let directory = editionDirectory(editionId)
-        guard let names = try? FileManager.default.contentsOfDirectory(atPath: directory.path) else {
-            return 0
-        }
-        let metadata: Set = ["manifest.json", "ebook-files.json"]
-        return names.filter { !metadata.contains($0) && !$0.hasPrefix("cover") }.count
-    }
-
     // MARK: Teardown
 
     /// Drops an edition from the index. The edition's directory (manifest,

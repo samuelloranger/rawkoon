@@ -402,7 +402,7 @@ final class AudiobookPlayer {
             lastSleepTick = Date()
         }
         if player?.currentItem == nil, duration > 0 {
-            seek(to: 0)
+            seek(to: playStartPosition(positionSecs: positionSecs, durationSecs: duration))
             return
         }
         // play() cancels an in-flight seek, which is the race that makes
@@ -802,7 +802,9 @@ final class AudiobookPlayer {
     private func applyQueueDrained() {
         switch queueDrainedDecision(
             endedIndex: currentChapterIndex,
-            lastIndex: chapters.last?.index
+            lastIndex: chapters.last?.index,
+            positionSecs: positionSecs,
+            durationSecs: duration
         ) {
         case .treatAsFinished:
             finishBook()

@@ -23,6 +23,47 @@ final class DownloadPlanTests: XCTestCase {
         XCTAssertTrue(plan.isComplete)
     }
 
+    /// Leftover tasks from an earlier session are listed asynchronously, so one
+    /// can finish and verify before the listing arrives. The late `.started`
+    /// must not reopen it, or the book stalls one chapter short of 100%.
+    func testALateStartDoesNotReopenAVerifiedChapter() {
+        var plan = DownloadPlan(files: files(2))
+        plan.apply(.completed(fileId: 100, status: 200, bytes: 1000, sha256: nil))
+        plan.apply(.completed(fileId: 101, status: 200, bytes: 1000, sha256: nil))
+        plan.apply(.started(fileId: 101))
+        XCTAssertEqual(plan.states[101], .verified)
+        XCTAssertTrue(plan.isComplete)
+    }
+
+    /// The book screen offers Retry only for this state; before, a chapter that
+    /// gave up left the book at "Downloading N%" with only Cancel.
+    func testAChapterOutOfAttemptsHasGivenUpUntilRetried() {
+        var plan = DownloadPlan(files: files(2))
+        for _ in 0 ..< DownloadPlan.maxAttempts - 1 {
+            plan.apply(.transportFailed(fileId: 100))
+        }
+        XCTAssertFalse(plan.hasGivenUp)
+        plan.apply(.transportFailed(fileId: 100))
+        XCTAssertTrue(plan.hasGivenUp)
+
+        plan.retryFailed()
+        XCTAssertFalse(plan.hasGivenUp)
+    }
+
+    func testStrandedInFlightChaptersAreFoundAndRequeued() {
+        var plan = DownloadPlan(files: files(3))
+        plan.apply(.started(fileId: 100))
+        plan.apply(.started(fileId: 101))
+        plan.apply(.completed(fileId: 102, status: 200, bytes: 1000, sha256: nil))
+        XCTAssertEqual(plan.strandedInFlight(liveFileIds: [100]), [101])
+
+        plan.requeue(fileId: 101)
+        plan.requeue(fileId: 102)
+        XCTAssertEqual(plan.states[101], .pending)
+        XCTAssertEqual(plan.states[102], .verified)
+        XCTAssertEqual(plan.nextToStart(limit: 3), [101])
+    }
+
     /// A background download task reports success for ANY response the server
     /// sent, including an error page. Status must be checked before the bytes
     /// are trusted, or a 401 body lands in the file as if it were audio.

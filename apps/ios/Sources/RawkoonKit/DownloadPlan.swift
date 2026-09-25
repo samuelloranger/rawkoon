@@ -51,6 +51,9 @@ public struct DownloadPlan: Sendable {
 
         case let .started(fileId):
             guard fileById[fileId] != nil else { return }
+            // A leftover task listed after its file already verified must not
+            // reopen it: no completion is coming, so it would sit in flight forever.
+            guard states[fileId] != .verified else { return }
             states[fileId] = .inFlight
 
         case let .completed(fileId, status, bytes, sha256):
@@ -120,6 +123,27 @@ public struct DownloadPlan: Sendable {
             }
         }
         return out
+    }
+
+    /// Chapters marked in flight that have no live transfer behind them.
+    public func strandedInFlight(liveFileIds: Set<Int>) -> [Int] {
+        files.map(\.id).filter { states[$0] == .inFlight && !liveFileIds.contains($0) }
+    }
+
+    /// Puts a stranded in-flight chapter back in the queue without spending an attempt.
+    public mutating func requeue(fileId: Int) {
+        guard states[fileId] == .inFlight else { return }
+        states[fileId] = .pending
+    }
+
+    /// True once a chapter has used every attempt; only a user retry restarts it.
+    public var hasGivenUp: Bool {
+        states.values.contains { state in
+            if case let .failed(attempts) = state {
+                return attempts >= Self.maxAttempts
+            }
+            return false
+        }
     }
 
     public var isComplete: Bool {

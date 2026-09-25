@@ -47,16 +47,30 @@ extension AppModel {
             )
         }
 
+        // Same deadline as the ebook path: a downloaded book must not wait on an
+        // unreachable server before it plays.
+        var remoteProgress: [RemoteProgress]?
+        if isOnline, let apiClient {
+            remoteProgress = await withDeadline(seconds: 5) {
+                try? await apiClient.getProgress()
+            }
+        }
         var remoteRecord: ProgressRecord?
-        if let apiClient,
-           let remote = await (try? apiClient.getProgress())?.first(where: { $0.editionId == editionId })
-        {
+        if let remote = remoteProgress?.first(where: { $0.editionId == editionId }) {
             remoteRecord = ProgressRecord(
                 positionSecs: remote.positionSecs,
                 totalDurationSecs: remote.totalDurationSecs,
                 finished: remote.finished,
                 updatedAtMillis: Int64(remote.updatedAt.timeIntervalSince1970 * 1000)
             )
+        }
+
+        // Marking a book read deletes its server row; pushing the journal's
+        // stale position back would put it in progress again.
+        if remoteProgress != nil, remoteRecord == nil,
+           library.first(where: { $0.audiobookEditionId == editionId })?.isRead == true
+        {
+            return (0, .none)
         }
 
         switch SyncReconciler.reconcile(local: localRecord, remote: remoteRecord) {
@@ -102,7 +116,8 @@ extension AppModel {
             )
         }
         resumePreview[editionId] = positionSecs
-        return positionSecs
+        // A finished book replays from the start instead of ending on load.
+        return playStartPosition(positionSecs: positionSecs, durationSecs: manifest.totalDurationSecs)
     }
 
     /// Fills `resumePreview` so a book's primary button can name the point it

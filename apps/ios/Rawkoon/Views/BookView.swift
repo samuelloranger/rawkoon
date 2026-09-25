@@ -544,6 +544,21 @@ struct BookView: View {
                         .foregroundStyle(Theme.apricot)
                 }
                 DuskProgress(value: plan.progressFraction())
+                if plan.hasGivenUp {
+                    Text("Some chapters couldn't download.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.terracotta)
+                    Button {
+                        if let editionId = audiobookEditionId {
+                            Task { await model.startDownload(editionId: editionId) }
+                        }
+                    } label: {
+                        Label("Retry", systemImage: "arrow.clockwise")
+                            .frame(maxWidth: .infinity).frame(minHeight: 44)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(Theme.apricot)
+                }
                 Button(role: .destructive) {
                     if let editionId = audiobookEditionId {
                         audiobookActionError = nil
