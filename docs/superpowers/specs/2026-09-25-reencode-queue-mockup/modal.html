@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Re-encode modal mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Hanken+Grotesk:wght@400;500;600&family=Fira+Code:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --apricot:#E8A06A; --apricot-soft:#F0BF93; --terracotta:#CF6A4E; --on-accent:#2A1A10;
+    --base:#1C1715; --raised:#241E1B; --inset:#171311; --well:#141010;
+    --border:#322A25; --border-strong:#3A2F27;
+    --text-strong:#F4ECE4; --text:#E3D8CF; --muted:#AA9A8C; --faint:#9D8775;
+    --seed:#86B98A; --importing:#8FB6D6; --warn:#E0B45A;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#0f0c0b;color:var(--text);font:14px/1.5 "Hanken Grotesk",system-ui,sans-serif;min-height:100vh;padding:32px 16px}
+  .note{max-width:1100px;margin:0 auto 20px;color:var(--muted);font-size:13px}
+  .note b{color:var(--apricot)}
+  .stage{display:flex;gap:28px;justify-content:center;flex-wrap:wrap;align-items:flex-start}
+  .modal{width:560px;max-width:100%;background:var(--base);border:1px solid var(--border-strong);border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.6);overflow:hidden}
+  .hd{padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:12px}
+  .hd h2{margin:0;font:600 1.25rem/1.2 Fraunces,Georgia,serif;color:var(--text-strong);letter-spacing:-.01em}
+  .hd .sub{margin-top:4px;color:var(--muted);font-size:13px}
+  .mono{font-family:"Fira Code",monospace;font-size:12px}
+  .x{color:var(--faint);font-size:20px;cursor:pointer;line-height:1}
+  .body{padding:6px 20px 4px}
+  .sec{padding:14px 0;border-bottom:1px solid var(--border)}
+  .sec:last-child{border-bottom:0}
+  .sec h3{margin:0 0 10px;font:500 12px "Fira Code",monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+  .row{display:grid;grid-template-columns:110px 1fr;align-items:center;gap:12px;margin:8px 0}
+  .row label{color:var(--muted);font-size:13px}
+  .seg{display:inline-flex;background:var(--inset);border:1px solid var(--border);border-radius:8px;padding:3px;gap:2px;flex-wrap:wrap}
+  .seg button{all:unset;cursor:pointer;padding:6px 12px;border-radius:6px;color:var(--muted);font-size:13px;font-weight:500}
+  .seg button small{display:block;font-size:11px;font-weight:400;color:var(--faint)}
+  .seg button.on{background:var(--raised);color:var(--text-strong);box-shadow:inset 0 0 0 1px var(--border-strong)}
+  .seg button.on small{color:var(--apricot)}
+  .seg button[disabled]{opacity:.35;cursor:not-allowed}
+  .hint{font-size:12px;color:var(--faint);margin-top:4px}
+  .warn{font-size:12px;color:var(--warn);background:rgba(224,180,90,.08);border:1px solid rgba(224,180,90,.25);border-radius:8px;padding:8px 10px;margin-top:10px}
+  input[type=number]{background:var(--inset);border:1px solid var(--border);border-radius:8px;color:var(--text-strong);padding:7px 10px;width:90px;font:inherit}
+  .unit{color:var(--muted);margin-left:6px}
+  .toggle{display:flex;align-items:flex-start;gap:10px;cursor:pointer}
+  .sw{flex:none;width:34px;height:20px;border-radius:99px;background:var(--border-strong);position:relative;margin-top:2px;transition:.15s}
+  .sw::after{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:var(--text);transition:.15s}
+  .toggle.on .sw{background:var(--terracotta)}
+  .toggle.on .sw::after{left:17px;background:var(--on-accent)}
+  .toggle .t{color:var(--text-strong);font-weight:500}
+  .tracks{margin:8px 0 0 44px;display:grid;gap:4px}
+  .trk{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+  .trk .arrow{color:var(--apricot)}
+  details{margin-top:6px}
+  summary{cursor:pointer;color:var(--muted);font-size:13px;list-style:none}
+  summary::before{content:"▸ ";color:var(--faint)}
+  details[open] summary::before{content:"▾ "}
+  .est{margin:4px 20px 0;background:var(--well);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+  .est .top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .big{font:600 1.6rem/1 Fraunces,Georgia,serif;color:var(--text-strong)}
+  .from{color:var(--faint);text-decoration:line-through;font-size:14px}
+  .pm{color:var(--muted);font-size:12px}
+  .save{margin-left:auto;background:rgba(134,185,138,.12);color:var(--seed);border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600}
+  .bar{height:6px;background:var(--border);border-radius:99px;margin:12px 0 10px;overflow:hidden;display:flex}
+  .bar i{display:block;height:100%}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .kv .k{font-size:11px;color:var(--faint);font-family:"Fira Code",monospace}
+  .kv .v{color:var(--text-strong);font-weight:500}
+  .kv .v.dim{color:var(--muted);font-weight:400}
+  .estsrc{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px dashed var(--border);font-size:12px;color:var(--muted)}
+  .link{color:var(--apricot);cursor:pointer;font-weight:500}
+  .ft{display:flex;justify-content:flex-end;gap:8px;padding:16px 20px 18px}
+  .btn{all:unset;cursor:pointer;padding:9px 16px;border-radius:8px;font-weight:600;font-size:14px}
+  .ghost{color:var(--text)}
+  .primary{background:var(--terracotta);color:var(--on-accent)}
+  .primary:hover{background:#DF8753}
+  .side{width:300px;color:var(--muted);font-size:13px}
+  .side h4{font:600 1.05rem Fraunces,serif;color:var(--text-strong);margin:0 0 8px}
+  .side ol{padding-left:18px;margin:0}
+  .side li{margin-bottom:8px}
+  .side b{color:var(--text)}
+  .hide{display:none}
+</style>
+</head>
+<body>
+<p class="note">Mockup — <b>clickable</b> (segments, toggles, mode switch). Opened from a <b>show</b> here (Management tab → "Re-encode…"); from a single file it's the same modal with one file. Numbers are illustrative.</p>
+
+<div class="stage">
+<div class="modal">
+  <div class="hd">
+    <div>
+      <h2>Re-encode</h2>
+      <div class="sub">Example Show · <span class="mono">60 files</span> · 270 GB · AVC 1080p</div>
+    </div>
+    <div class="x">×</div>
+  </div>
+
+  <div class="body">
+    <!-- VIDEO -->
+    <div class="sec">
+      <h3>Video</h3>
+      <div class="row"><label>Codec</label>
+        <div class="seg" data-g="codec">
+          <button class="on">HEVC<small>widest support</small></button>
+          <button>AV1<small>smallest</small></button>
+        </div>
+      </div>
+      <div class="row"><label>Encoder</label>
+        <div>
+          <div class="seg" data-g="enc">
+            <button data-v="cpu">CPU<small>best size · slow</small></button>
+            <button class="on" data-v="gpu">GPU<small>VAAPI · ~8× faster</small></button>
+          </div>
+          <div class="hint">Detected: Intel Arc (VAAPI) · HEVC, AV1</div>
+        </div>
+      </div>
+      <div class="row"><label>Resolution</label>
+        <div class="seg" data-g="res">
+          <button class="on">Keep<small>1080p</small></button>
+          <button disabled>1080p</button>
+          <button>720p</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIZE -->
+    <div class="sec">
+      <h3>Size</h3>
+      <div class="row"><label>Mode</label>
+        <div class="seg" data-g="mode">
+          <button class="on" data-v="q">Quality<small>size estimated</small></button>
+          <button data-v="t">Target size<small>size exact</small></button>
+        </div>
+      </div>
+      <div id="m-q">
+        <div class="row"><label>Preset</label>
+          <div class="seg" data-g="preset">
+            <button>High</button>
+            <button class="on">Balanced</button>
+            <button>Small</button>
+          </div>
+        </div>
+        <details>
+          <summary>Advanced</summary>
+          <div class="row"><label>Quality value</label><div><input type="number" value="24"><span class="unit mono">QP (GPU) · lower = better</span></div></div>
+          <div class="row"><label>Speed preset</label>
+            <div class="seg" data-g="speed"><button>Slower</button><button class="on">Default</button><button>Faster</button></div>
+          </div>
+        </details>
+      </div>
+      <div id="m-t" class="hide">
+        <div class="row"><label>Per file</label>
+          <div><input type="number" value="1.5" step="0.1"><span class="unit">GB avg / episode</span>
+          <div class="hint">≈ 3.1 Mbps video · audio kept as-is</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUDIO -->
+    <div class="sec">
+      <h3>Audio &amp; subtitles</h3>
+      <div class="toggle" data-t>
+        <span class="sw"></span>
+        <div><div class="t">Convert lossless audio to EAC3</div>
+          <div class="hint">Lossy tracks and all subtitles are always copied untouched.</div></div>
+      </div>
+      <div class="tracks">
+        <div class="trk"><span>FR · DTS-HD MA 5.1</span><span><span class="arrow">→</span> EAC3 640k</span></div>
+        <div class="trk"><span>EN · DTS-HD MA 5.1</span><span><span class="arrow">→</span> EAC3 640k</span></div>
+        <div class="trk"><span>FR · AC3 5.1</span><span>copy</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ESTIMATE -->
+  <div class="est">
+    <div class="top">
+      <span class="big" id="estbig">≈ 148 GB</span>
+      <span class="from">270 GB</span>
+      <span class="pm" id="estpm">±15%</span>
+      <span class="save">−294 GB</span>
+    </div>
+    <div class="bar"><i style="width:14%;background:var(--seed)"></i><i style="width:52%;background:rgba(134,185,138,.35)"></i></div>
+    <div class="grid3">
+      <div class="kv"><div class="k">FREES NOW</div><div class="v">41 GB</div></div>
+      <div class="kv"><div class="k">AFTER SEEDING</div><div class="v dim">+253 GB</div></div>
+      <div class="kv"><div class="k">EST. TIME</div><div class="v">~11 h</div></div>
+    </div>
+    <div class="warn">68 of 60 files are still seeding. Their space frees when the torrents are removed; until then disk use grows by the new files (~105 GB).</div>
+    <div class="estsrc"><span id="src">Rough estimate · bitrate model</span><span class="link" id="resample">Refine estimate</span></div>
+  </div>
+
+  <div class="ft">
+    <button class="btn ghost">Cancel</button>
+    <button class="btn primary">Add 60 files to queue</button>
+  </div>
+</div>
+
+<div class="side">
+  <h4>How it's organised</h4>
+  <ol>
+    <li><b>Video</b> — 3 choices, each a segmented control with a one-line "why". Unavailable options greyed (e.g. GPU when no /dev/dri, 1080p when already 1080p).</li>
+    <li><b>Size</b> — Quality vs Target switch. Quality = 3 presets; raw QP/CRF + speed hidden under Advanced.</li>
+    <li><b>Audio</b> — one toggle, shows exactly which tracks change.</li>
+    <li><b>Estimate card</b> — always visible. Instant rough number on every change (bitrate model), then refined by a background sample encode (~30 s–2 min). "Frees now" vs "after seeding" per your hardlink choice.</li>
+    <li><b>Footer</b> — one primary action; count in label.</li>
+  </ol>
+  <p>Validation (quality score on samples) isn't a setting — it always runs.</p>
+</div>
+</div>
+
+<script>
+document.querySelectorAll('.seg').forEach(s=>s.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b||b.disabled) return;
+  s.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  if(s.dataset.g==='mode'){
+    const t=b.dataset.v==='t';
+    document.getElementById('m-q').classList.toggle('hide',t);
+    document.getElementById('m-t').classList.toggle('hide',!t);
+    document.getElementById('estbig').textContent=t?'144 GB':'≈ 148 GB';
+    document.getElementById('estpm').textContent=t?'±3%':'±15%';
+    document.getElementById('src').textContent=t?'Computed from bitrate × duration':'Rough estimate · bitrate model';
+    document.getElementById('resample').style.display=t?'none':'';
+    return;
+  }
+  if(refined && s.dataset.g!=='mode'){
+    src.innerHTML='<span style="color:var(--warn)">Estimate outdated — settings changed</span>';
+  }
+}));
+let refined=false;
+const src=document.getElementById('src'), rs=document.getElementById('resample');
+rs.addEventListener('click',()=>{
+  src.textContent='Sampling 3 episodes · encoding clip 4/18…';
+  rs.style.opacity=.4;
+  setTimeout(()=>{refined=true;rs.style.opacity=1;rs.textContent='Refine again';
+    src.textContent='Refined · 3 episodes · 18 clips';
+    document.getElementById('estbig').textContent='≈ 151 GB';
+    document.getElementById('estpm').textContent='±8%';},1600);
+});
+document.querySelectorAll('[data-t]').forEach(t=>t.addEventListener('click',()=>t.classList.toggle('on')));
+</script>
+</body>
+</html>
