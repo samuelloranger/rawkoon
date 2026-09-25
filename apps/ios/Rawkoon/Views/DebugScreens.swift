@@ -28,6 +28,8 @@
                 DebugDeck()
             case "tabBar":
                 DebugTabBarStates()
+            case "tabContainer":
+                DebugTabContainer()
             case "orderedSources":
                 DebugOrderedSources()
             case "bookDiscoveryDetail":
@@ -58,7 +60,7 @@
         static func isOffline(_ screen: String) -> Bool {
             [
                 "player", "playerNoChapters", "deck", "orderedSources",
-                "bookDiscoveryDetail", "tabBar",
+                "bookDiscoveryDetail", "tabBar", "tabContainer",
             ].contains(screen)
         }
     }
@@ -540,6 +542,36 @@
                 title: book.title,
                 localURL: localURL
             )
+        }
+    }
+
+    /// `RAWKOON_SCREEN=tabContainer`: the real iPhone container over mock lists.
+    /// `RAWKOON_TABBAR_BOTTOM=1` starts the list at its end, which collapses the
+    /// bar through the real scroll path and shows whether the last row clears it.
+    private struct DebugTabContainer: View {
+        @State private var selection = RootTab.books
+        private let atBottom = ProcessInfo.processInfo.environment["RAWKOON_TABBAR_BOTTOM"] != nil
+
+        var body: some View {
+            PhoneTabsView(selection: $selection, onExpandPlayer: {}) { tab in
+                NavigationStack {
+                    ScrollView {
+                        LazyVStack(spacing: 10) {
+                            ForEach(1 ... 40, id: \.self) { row in
+                                Text(verbatim: "Row \(row)")
+                                    .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+                                    .padding(.horizontal, 14)
+                                    .background(RoundedRectangle(cornerRadius: 14).fill(Theme.raised))
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                    .defaultScrollAnchor(atBottom ? .bottom : .top)
+                    .reportsTabBarScroll()
+                    .background(Theme.base)
+                    .navigationTitle(Text(tab.title))
+                }
+            }
         }
     }
 
