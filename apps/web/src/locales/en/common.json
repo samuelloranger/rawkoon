@@ -2619,6 +2619,21 @@
     "queued_other": "{{count}} files added to the re-encode queue",
     "queueFailed": "Could not add to the queue",
     "refineFailed": "Could not refine the estimate",
-    "dvNote": "Dolby Vision → HDR10"
+    "dvNote": "Dolby Vision → HDR10",
+    "widget": {
+      "title": "Re-encode",
+      "running": "Running",
+      "paused": "Paused",
+      "waits": "Waits for {{time}}",
+      "idle": "Idle",
+      "left": "~{{time}} left",
+      "more": "+ {{count}} more",
+      "total": "~{{time}} total",
+      "saved": "−{{size}} saved · {{count}} done",
+      "failed_one": "{{count}} failed",
+      "failed_other": "{{count}} failed",
+      "manage": "Manage →",
+      "queued": "{{count}} queued"
+    }
   }
 }

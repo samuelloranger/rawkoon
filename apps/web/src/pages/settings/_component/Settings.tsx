@@ -48,7 +48,8 @@ export type Tab =
   | "media"
   | "books"
   | "releases"
-  | "blocklist";
+  | "blocklist"
+  | "transcode";
 
 interface TabItem {
   id: Tab;

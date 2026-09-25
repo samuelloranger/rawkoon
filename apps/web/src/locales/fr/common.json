@@ -2619,6 +2619,21 @@
     "queued_other": "{{count}} fichiers ajoutés à la file de réencodage",
     "queueFailed": "Impossible d'ajouter à la file",
     "refineFailed": "Impossible d'affiner l'estimation",
-    "dvNote": "Dolby Vision → HDR10"
+    "dvNote": "Dolby Vision → HDR10",
+    "widget": {
+      "title": "Réencodage",
+      "running": "En cours",
+      "paused": "En pause",
+      "waits": "Attend {{time}}",
+      "idle": "Inactif",
+      "left": "~{{time}} restant",
+      "more": "+ {{count}} autres",
+      "total": "~{{time}} au total",
+      "saved": "−{{size}} libérés · {{count}} terminés",
+      "failed_one": "{{count}} échec",
+      "failed_other": "{{count}} échecs",
+      "manage": "Gérer →",
+      "queued": "{{count}} en file"
+    }
   }
 }

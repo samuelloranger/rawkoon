@@ -3,6 +3,7 @@ import { NowWatchingWidget } from "@/pages/_component/NowWatchingWidget";
 import { DownloadsPanel } from "@/pages/_component/DownloadsPanel";
 import { LibraryAttentionPanel } from "@/pages/_component/LibraryAttentionPanel";
 import { RssStatusPanel } from "@/pages/_component/RssStatusPanel";
+import { TranscodeWidget } from "@/pages/_component/TranscodeWidget";
 import { ContinueListeningWidget } from "@/features/continue/ContinueListeningWidget";
 import { ListeningStatsWidget } from "@/features/listening/ListeningStatsWidget";
 
@@ -26,6 +27,9 @@ export function WidgetGrid() {
       </CardErrorBoundary>
       <CardErrorBoundary>
         <RssStatusPanel />
+      </CardErrorBoundary>
+      <CardErrorBoundary>
+        <TranscodeWidget />
       </CardErrorBoundary>
     </div>
   );
