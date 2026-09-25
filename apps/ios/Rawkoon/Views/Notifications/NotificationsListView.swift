@@ -91,6 +91,7 @@ struct NotificationsListView: View {
                     loadMoreRow
                 }
             }
+            .reportsTabBarScroll()
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
         }

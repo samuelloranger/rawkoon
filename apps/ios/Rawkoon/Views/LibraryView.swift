@@ -459,6 +459,7 @@ struct LibraryView: View {
             }
             .padding(.vertical, 16)
         }
+        .reportsTabBarScroll()
         .overlay { mediaOverlay }
         .animation(listMotion, value: mediaAnimationToken)
         .refreshable { await loadMedia(reset: true) }
@@ -591,6 +592,7 @@ struct LibraryView: View {
             .padding(.horizontal, 16).padding(.vertical, 16)
             .libraryReadingWidth(isRegularWidth)
         }
+        .reportsTabBarScroll()
         .overlay { mediaOverlay }
         .animation(listMotion, value: mediaAnimationToken)
         .refreshable { await loadMedia(reset: true) }
@@ -628,6 +630,7 @@ struct LibraryView: View {
             .padding(.horizontal, 16).padding(.top, 4)
             .libraryReadingWidth(isRegularWidth)
         }
+        .reportsTabBarScroll()
         .overlay {
             if model.loading, model.library.isEmpty {
                 booksSkeleton

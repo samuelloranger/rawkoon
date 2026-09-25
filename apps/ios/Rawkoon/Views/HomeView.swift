@@ -58,6 +58,7 @@ struct HomeView: View {
             // fade in rather than popping into place on first load.
             .rawkoonMotion(RawkoonMotion.spring, value: loading)
         }
+        .reportsTabBarScroll()
         .background(Theme.base)
         .navigationDestination(item: $attentionTarget) { route in
             MediaDetailView(tmdbId: route.tmdbId, mediaType: route.mediaType,

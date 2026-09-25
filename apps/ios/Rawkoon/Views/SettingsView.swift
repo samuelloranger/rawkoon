@@ -32,6 +32,7 @@ struct SettingsView: View {
                 adminSections
             }
         }
+        .reportsTabBarScroll()
         .searchable(
             text: $settingsSearch,
             placement: .navigationBarDrawer(displayMode: .automatic),
