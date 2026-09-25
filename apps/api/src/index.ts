@@ -17,6 +17,7 @@ import { downloadClientHookRoutes } from "./routes/integrations/downloadClient/h
 import { adminRoutes } from "./routes/admin";
 import { dashboardRoutes } from "./routes/dashboard";
 import { libraryRoutes } from "./routes/library";
+import { transcodeRoutes } from "./routes/transcode";
 import {
   bookRoutes,
   bookQualityProfileRoutes,
@@ -95,6 +96,7 @@ app
   .route("/api/admin", adminRoutes)
   .route("/api/integrations", integrationsRoutes)
   .route("/api/library", libraryRoutes)
+  .route("/api/transcode", transcodeRoutes)
   .route("/api/books", bookRoutes)
   .route("/api/book-quality-profiles", bookQualityProfileRoutes)
   .route("/api/authors", authorRoutes)
