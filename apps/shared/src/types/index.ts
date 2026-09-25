@@ -19,3 +19,4 @@ export * from "./settings";
 export * from "./downloads";
 export * from "./seeding";
 export * from "./request";
+export * from "./transcode";
