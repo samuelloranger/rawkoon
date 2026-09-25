@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.isActiveRootTab) private var isActiveRootTab
     @AppStorage("download_over") private var downloadOver = "any"
     @AppStorage("smart_rewind") private var smartRewind = false
     @AppStorage(AppLanguage.storageKey) private var appLanguage = AppLanguage.system.rawValue
@@ -32,6 +33,7 @@ struct SettingsView: View {
                 adminSections
             }
         }
+        .reportsTabBarScroll()
         .searchable(
             text: $settingsSearch,
             placement: .navigationBarDrawer(displayMode: .automatic),
@@ -71,6 +73,12 @@ struct SettingsView: View {
             await model.refreshAdminIfNeeded()
             await loadAccount()
             await loadVersion()
+        }
+        // Kept-alive iPhone tabs never re-appear, so a revisit refreshes like the old TabView did.
+        .onChange(of: isActiveRootTab) { _, active in
+            if active {
+                Task { await loadAccount() }
+            }
         }
     }
 

@@ -21,6 +21,7 @@ final class AppModel {
     var library: [BookListItem] = []
     var isAdmin = false
     var userFirstName: String?
+    var userInitials: String?
     var ssoProviders: [SsoProvider] = []
     var loading = false
     var errorMessage: String?

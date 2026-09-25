@@ -9125,6 +9125,17 @@
         }
       }
     },
+    "%@ unread": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ non lues"
+          }
+        }
+      }
+    },
     "Loading audiobooks…": {
       "extractionState": "manual",
       "localizations": {
@@ -9132,6 +9143,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Chargement des livres audio…"
+          }
+        }
+      }
+    },
+    "Shows all tabs": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiche tous les onglets"
           }
         }
       }

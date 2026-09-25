@@ -126,6 +126,8 @@ extension AppModel {
         apiClient = nil
         isLoggedIn = false
         isAdmin = false
+        userFirstName = nil
+        userInitials = nil
         library = []
         manifests = [:]
         downloaders = [:]
@@ -151,6 +153,7 @@ extension AppModel {
             isAdmin = user.isAdmin ?? false
             let full = [user.firstName, user.lastName].compactMap(\.self).joined(separator: " ")
             userFirstName = user.firstName ?? (full.isEmpty ? user.name : full)
+            userInitials = UserInitials.from(firstName: user.firstName, lastName: user.lastName, name: user.name)
         }
     }
 }

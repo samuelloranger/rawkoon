@@ -15,6 +15,9 @@ enum Theme {
     static let well = Color(hex: 0x141010) // grooves & tracks
     static let border = Color(hex: 0x322A25)
     static let borderStrong = Color(hex: 0x3A2F27)
+    static let tabBar = Color(hex: 0x2A2320) // floating tab bar
+    static let tabPill = Color(hex: 0xF4ECE4).opacity(0.13) // active tab pill
+    static let badge = Color(hex: 0xE5484D) // unread badge
 
     // MARK: Accent
 

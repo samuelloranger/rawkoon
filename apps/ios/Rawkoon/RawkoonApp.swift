@@ -1,3 +1,4 @@
+import RawkoonKit
 import SwiftUI
 import UIKit
 
@@ -177,39 +178,24 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     }
 }
 
-/// Resolves a tab selection against the tabs actually present. `explore` only
-/// exists at regular width, so a stale pick can point at a removed tab; iOS 27
-/// requires the selected value stay visible. Validated in the
-/// `TabView(selection:)` getter so it holds during render, not after.
-enum RootTabSelection {
-    nonisolated static func validated(_ selected: String, isAdmin _: Bool) -> String {
-        switch selected {
-        case "home", "discover", "explore", "library", "books", "settings": selected
-        default: "library"
-        }
-    }
-}
-
 private struct RootTabsView: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.horizontalSizeClass) private var hSizeClass
     @State private var showFullPlayer = false
-    @State private var selection: String
+    @State private var selection: RootTab
     /// The zoom namespace lives on a real View, not the App struct: `@Namespace`
     /// only participates in the view hierarchy when declared on a View, so an
     /// App-level one leaves the source/destination transitions inert.
     @Namespace private var zoomNamespace
 
     init() {
-        // Home is the landing tab for everyone (bottom-left). Debug
-        // `RAWKOON_TAB` still wins.
-        var initial = "home"
+        // Home is the landing tab for everyone. Debug `RAWKOON_TAB` (a tab name or a
+        // legacy index) still wins.
+        var initial = RootTab.home
         #if DEBUG
-            if let raw = ProcessInfo.processInfo.environment["RAWKOON_TAB"], let value = Int(raw) {
-                let tags = ["home", "library", "books", "discover", "settings"]
-                if tags.indices.contains(value) {
-                    initial = tags[value]
-                }
+            if let raw = ProcessInfo.processInfo.environment["RAWKOON_TAB"],
+               let tab = RootTab.debugSelection(raw)
+            {
+                initial = tab
             }
         #endif
         _selection = State(initialValue: initial)
@@ -257,72 +243,41 @@ private struct RootTabsView: View {
         }
     #endif
 
+    @ViewBuilder
+    private func tabRoot(_ tab: RootTab) -> some View {
+        switch tab {
+        case .home: NavigationStack { HomeView() }
+        case .library: NavigationStack { LibraryView(forcedSection: .media) }
+        case .books: NavigationStack { LibraryView(forcedSection: .books) }
+        case .discover: NavigationStack { DiscoverView() }
+        case .explore: NavigationStack { ExploreView(embedded: true) }
+        case .notifications: NavigationStack { NotificationsListView() }
+        case .settings: NavigationStack { SettingsView() }
+        }
+    }
+
+    /// By device, not size class: an iPad window crossing compact width would
+    /// otherwise swap containers and drop every tab's navigation state.
+    private var compact: Bool {
+        UIDevice.current.userInterfaceIdiom == .phone
+    }
+
     private var mainTabs: some View {
-        // Getter validates the pick so a tab absent at this width (Explore is
-        // regular-only) can't stay selected mid-render; setter stores the raw pick.
+        // Getter validates so a tab absent at this width can't stay selected
+        // mid-render; setter stores the raw pick.
         let validSelection = Binding(
-            get: { RootTabSelection.validated(selection, isAdmin: model.isAdmin) },
+            get: { RootTab.validated(selection.rawValue, compact: compact) },
             set: { selection = $0 }
         )
-        return TabView(selection: validSelection) {
-            Tab("Home", systemImage: "house", value: "home") {
-                NavigationStack {
-                    HomeView()
+        return Group {
+            if compact {
+                PhoneTabsView(selection: validSelection, onExpandPlayer: { showFullPlayer = true }) { tab in
+                    tabRoot(tab)
                 }
+            } else {
+                sidebarTabs(validSelection)
             }
-            .customizationID("tab.home")
-
-            // Library splits into a Movies & Shows page and a Books page on
-            // every size class; the phone label shortens to fit the tab bar.
-            Tab(hSizeClass == .regular ? "Movies & Shows" : "Media",
-                systemImage: "film.stack", value: "library")
-            {
-                NavigationStack {
-                    LibraryView(forcedSection: .media)
-                }
-            }
-            .customizationID("tab.library")
-
-            Tab("Books", systemImage: "books.vertical", value: "books") {
-                NavigationStack {
-                    LibraryView(forcedSection: .books)
-                }
-            }
-            .customizationID("tab.books")
-
-            // On Mac/iPad the swipe deck and Explore grid are separate pages;
-            // on phone one "Discover" tab holds the deck (Explore is a sheet).
-            Tab(hSizeClass == .regular ? "For You" : "Discover",
-                systemImage: "sparkles.rectangle.stack", value: "discover")
-            {
-                NavigationStack {
-                    DiscoverView()
-                }
-            }
-            .customizationID("tab.discover")
-
-            if hSizeClass == .regular {
-                Tab("Explore", systemImage: "square.grid.2x2", value: "explore") {
-                    NavigationStack {
-                        ExploreView(embedded: true)
-                    }
-                }
-                .customizationID("tab.explore")
-            }
-
-            Tab("Settings", systemImage: "gearshape", value: "settings") {
-                NavigationStack {
-                    SettingsView()
-                }
-            }
-            .customizationID("tab.settings")
         }
-        .tabViewStyle(.sidebarAdaptable)
-        .tabBarMinimizeBehavior(.onScrollDown)
-        // Sidebar-only brand header (iPad/Mac); the phone tab bar never shows it.
-        .tabViewSidebarHeader { RawkoonSidebarHeader() }
-        .tint(Theme.apricot)
-        .miniPlayerAccessory(model: model, onExpand: { showFullPlayer = true })
         .alert(
             "Couldn't play chapter",
             isPresented: Binding(
@@ -351,6 +306,29 @@ private struct RootTabsView: View {
                 await model.loadLibrary()
             }
         }
+    }
+
+    private func sidebarTabs(_ selection: Binding<RootTab>) -> some View {
+        TabView(selection: selection) {
+            Tab("Home", systemImage: "house", value: RootTab.home) { tabRoot(.home) }
+                .customizationID("tab.home")
+            Tab("Movies & Shows", systemImage: "film.stack", value: RootTab.library) { tabRoot(.library) }
+                .customizationID("tab.library")
+            Tab("Books", systemImage: "books.vertical", value: RootTab.books) { tabRoot(.books) }
+                .customizationID("tab.books")
+            Tab("For You", systemImage: "sparkles.rectangle.stack", value: RootTab.discover) { tabRoot(.discover) }
+                .customizationID("tab.discover")
+            Tab("Explore", systemImage: "square.grid.2x2", value: RootTab.explore) { tabRoot(.explore) }
+                .customizationID("tab.explore")
+            Tab("Settings", systemImage: "gearshape", value: RootTab.settings) { tabRoot(.settings) }
+                .customizationID("tab.settings")
+        }
+        .tabViewStyle(.sidebarAdaptable)
+        .tabBarMinimizeBehavior(.onScrollDown)
+        // Sidebar-only brand header (iPad/Mac).
+        .tabViewSidebarHeader { RawkoonSidebarHeader() }
+        .tint(Theme.apricot)
+        .miniPlayerAccessory(model: model, onExpand: { showFullPlayer = true })
     }
 }
 
