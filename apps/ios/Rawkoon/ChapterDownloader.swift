@@ -190,6 +190,14 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         }
     }
 
+    /// See `DownloadPlan.abandonAwaitingGrants`.
+    func grantRefreshFailed() {
+        stateQueue.async {
+            self.plan.abandonAwaitingGrants()
+            self.emitState()
+        }
+    }
+
     func setBackgroundSessionCompletion(_ completion: @escaping () -> Void) {
         stateQueue.async {
             self.backgroundSessionCompletion = completion

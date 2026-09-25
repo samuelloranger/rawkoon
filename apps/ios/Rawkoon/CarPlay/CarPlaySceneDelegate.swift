@@ -18,6 +18,15 @@
         private var browseTemplate: CPListTemplate?
         /// The edition a tap is opening, so a second tap cannot push Now Playing twice.
         private var openingEditionId: Int?
+        /// What the list was last built from; playback starting changes nothing it shows.
+        private var lastRefreshKey: RefreshKey?
+
+        private struct RefreshKey: Equatable {
+            let isLoggedIn: Bool
+            let libraryIds: [Int]
+            let activeEditionId: Int?
+            let isPlaying: Bool
+        }
 
         func templateApplicationScene(
             _: CPTemplateApplicationScene,
@@ -33,6 +42,7 @@
                 // lands on this Now Playing screen too.
                 configureNowPlayingButtons(model: .shared)
                 await refresh()
+                lastRefreshKey = Self.refreshKey()
                 observeAppState()
             }
         }
@@ -44,6 +54,8 @@
             Log.playback.info("CarPlay scene disconnected")
             interfaceController = nil
             browseTemplate = nil
+            lastRefreshKey = nil
+            CarPlayInterface.clearArtworkCache()
         }
 
         /// Re-renders whenever the app state CarPlay depends on changes — sign-in
@@ -64,10 +76,31 @@
             } onChange: { [weak self] in
                 Task { @MainActor in
                     guard let self, self.interfaceController != nil else { return }
-                    await self.refresh()
+                    let key = Self.refreshKey()
+                    let previous = self.lastRefreshKey
+                    // Pausing moves resume labels; starting playback does not.
+                    let onlyStartedPlaying = key.isPlaying && previous.map {
+                        $0.isLoggedIn == key.isLoggedIn && $0.libraryIds == key.libraryIds
+                            && $0.activeEditionId == key.activeEditionId
+                    } == true
+                    if !onlyStartedPlaying {
+                        await self.refresh()
+                    }
+                    self.lastRefreshKey = key
                     self.observeAppState()
                 }
             }
+        }
+
+        @MainActor
+        private static func refreshKey() -> RefreshKey {
+            let model = AppModel.shared
+            return RefreshKey(
+                isLoggedIn: model.isLoggedIn,
+                libraryIds: model.library.map(\.bookId),
+                activeEditionId: model.activeEditionId,
+                isPlaying: model.player.isPlaying
+            )
         }
 
         @MainActor

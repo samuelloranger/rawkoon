@@ -441,7 +441,12 @@ final class AppModel {
         for (index, book) in library.enumerated() {
             guard let summary = book.audiobookSummary else { continue }
             let progress = progressByEdition[summary.editionId]
-            let local = remote == nil ? journal[summary.editionId] : nil
+            // A finished book's journal line sits at its end; that is not "in progress".
+            let local = (remote == nil ? journal[summary.editionId] : nil).map { entry in
+                playStartPosition(positionSecs: entry.positionSecs, durationSecs: summary.durationSecs ?? .infinity) == 0
+                    ? PositionEntry(editionId: entry.editionId, positionSecs: 0, atMillis: entry.atMillis)
+                    : entry
+            }
             entries.append(
                 CarPlayBrowseEntry(
                     editionId: summary.editionId,
@@ -591,7 +596,7 @@ final class AppModel {
 
         // Reloading the book already playing would pause it and rewind it to a
         // stale snapshot, so only an explicitly chosen position moves it.
-        if editionId == activeEditionId, player.manifest?.editionId == editionId {
+        if editionId == activeEditionId, player.manifest?.editionId == editionId, player.playbackError == nil {
             if let overridePosition {
                 player.seek(to: overridePosition)
             }
@@ -717,6 +722,7 @@ final class AppModel {
         let attempts = grantRefreshAttempts[editionId] ?? 0
         guard attempts < Self.maxGrantRefreshAttempts else {
             errorMessage = String(localized: "Downloads for this book need a fresh sign-in.")
+            downloaders[editionId]?.grantRefreshFailed()
             return
         }
         grantRefreshInFlight.insert(editionId)
@@ -731,6 +737,7 @@ final class AppModel {
             manifests[editionId] = refreshed
             downloaders[editionId]?.refreshChapterURLs(from: refreshed)
         } catch {
+            downloaders[editionId]?.grantRefreshFailed()
             Log.download.error(
                 """
                 Grant refresh failed: \

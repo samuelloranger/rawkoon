@@ -9,6 +9,14 @@
     /// RawkoonKit (`CarPlayBrowse`); this file is the UIKit-bound glue and lives in
     /// the app target because CarPlay types cannot compile on Linux CI.
     enum CarPlayInterface {
+        /// Covers already decoded this connection, so a list refresh does not
+        /// refetch and re-decode every row.
+        private static var artworkCache: [Int: UIImage] = [:]
+
+        static func clearArtworkCache() {
+            artworkCache = [:]
+        }
+
         /// The logged-out / empty / error state. Built as an empty `CPListTemplate`
         /// whose empty-view strings carry the message: `CPInformationTemplate` is a
         /// system template but not an allowed *root* for the CarPlay audio category,
@@ -93,6 +101,10 @@
                 let book = model.library.first(where: { $0.audiobookEditionId == entry.editionId }),
                 let url = book.coverURL
             else { return }
+            if let cached = artworkCache[entry.editionId] {
+                item.setImage(cached)
+                return
+            }
             Task {
                 guard let (data, _) = try? await URLSession.shared.data(from: url) else { return }
                 // Detached: this Task inherits the main actor, and a refresh
@@ -101,6 +113,7 @@
                     downsampled(data, maxPixelSize: 360)
                 }.value
                 guard let image else { return }
+                artworkCache[entry.editionId] = image
                 item.setImage(image)
             }
         }

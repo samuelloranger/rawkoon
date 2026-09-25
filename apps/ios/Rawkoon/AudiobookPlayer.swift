@@ -314,7 +314,7 @@ final class AudiobookPlayer {
             return
         }
         if let target = consumeSmartRewindTarget() {
-            seek(to: target)
+            seek(to: target, userInitiated: false)
             return
         }
         beginPlayback()
@@ -409,7 +409,7 @@ final class AudiobookPlayer {
             lastSleepTick = Date()
         }
         if player?.currentItem == nil, duration > 0 {
-            seek(to: playStartPosition(positionSecs: positionSecs, durationSecs: duration))
+            seek(to: playStartPosition(positionSecs: positionSecs, durationSecs: duration), userInitiated: false)
             return
         }
         // play() cancels an in-flight seek, which is the race that makes
@@ -425,7 +425,7 @@ final class AudiobookPlayer {
         // `isPlaying` is already true, so the seek autoplays and its completion
         // calls beginPlayback for us — one seek, no audio at the stale position.
         if let target = consumeSmartRewindTarget() {
-            seek(to: target)
+            seek(to: target, userInitiated: false)
             return
         }
         beginPlayback()
@@ -808,7 +808,7 @@ final class AudiobookPlayer {
                 return
             }
             isPlaying = true
-            seek(to: next.startSecs)
+            seek(to: next.startSecs, userInitiated: false)
         case let .stopWithError(index, title):
             stopWithUnplayableChapter(index: index, title: title)
         }

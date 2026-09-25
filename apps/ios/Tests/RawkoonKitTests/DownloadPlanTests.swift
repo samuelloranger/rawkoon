@@ -307,4 +307,21 @@ final class DownloadPlanTests: XCTestCase {
         XCTAssertTrue(plan.isComplete)
         XCTAssertEqual(plan.progressFraction(), 1, accuracy: 1e-9)
     }
+
+    /// A 401 gates pumping until fresh grants arrive; if the refresh fails the
+    /// chapters must surface as given up, not wait silently forever.
+    func testAFailedGrantRefreshGivesUpTheWaitingChapters() {
+        var plan = DownloadPlan(files: files(2))
+        plan.apply(.completed(fileId: 100, status: 200, bytes: 1000, sha256: nil))
+        plan.apply(.completed(fileId: 101, status: 401, bytes: 0, sha256: nil))
+        XCTAssertTrue(plan.needsFreshGrants)
+
+        plan.abandonAwaitingGrants()
+
+        XCTAssertFalse(plan.needsFreshGrants)
+        XCTAssertEqual(plan.states[100], .verified)
+        XCTAssertTrue(plan.hasGivenUp)
+        plan.retryFailed()
+        XCTAssertEqual(plan.nextToStart(limit: 2), [101])
+    }
 }

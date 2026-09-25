@@ -67,8 +67,13 @@ extension AppModel {
 
         // Marking a book read deletes its server row; pushing the journal's
         // stale position back would put it in progress again.
+        // A listen after the mark (offline, in the car) is newer than read_at and
+        // still pushes.
         if remoteProgress != nil, remoteRecord == nil,
-           library.first(where: { $0.audiobookEditionId == editionId })?.isRead == true
+           let readAt = library.first(where: { $0.audiobookEditionId == editionId })?.readAt,
+           let readDate = APIClient.iso8601WithFractionalSeconds.date(from: readAt)
+           ?? ISO8601DateFormatter().date(from: readAt),
+           (localRecord?.updatedAtMillis ?? 0) <= Int64(readDate.timeIntervalSince1970 * 1000)
         {
             return (0, .none)
         }

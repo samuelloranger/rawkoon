@@ -10,7 +10,9 @@ extension AudiobookPlayer {
         playbackError = nil
     }
 
-    func seek(to seconds: Double) {
+    /// `userInitiated` is false for the player's own moves (smart rewind,
+    /// auto-advance, rebuilds), which must not retarget an end-of-chapter timer.
+    func seek(to seconds: Double, userInitiated: Bool = true) {
         guard let timeline else { return }
         // Any deliberate move — a scrub, a chapter jump, a skip — replaces
         // "resume where you stopped", so there is nothing left to rewind to.
@@ -22,7 +24,7 @@ extension AudiobookPlayer {
         let autoplay = isPlaying
         positionSecs = clamped
         // "End of chapter" means the chapter being listened to, so a jump re-arms it.
-        if sleepMode == .endOfChapter {
+        if userInitiated, sleepMode == .endOfChapter {
             sleepEndChapterIndex = timeline.chapterIndex(at: clamped)
         }
         updateNowPlayingInfo()

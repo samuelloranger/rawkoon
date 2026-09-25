@@ -17,7 +17,11 @@ struct ResumeRawkoonAudiobookIntent: AudioPlaybackIntent {
             return .result(dialog: "Sign in to Rawkoon to play audiobooks.")
         }
         // A cold launch has no library yet, so nothing would look in progress.
-        await model.ensureLibraryLoaded()
+        // Bounded like the ebook path: an unreachable server must not hold Siri.
+        _ = await withDeadline(seconds: 5) {
+            await model.ensureLibraryLoaded()
+            return true
+        }
         let entries = await model.carPlayAudiobooks()
         guard let editionId = AudiobookResume.editionId(
             activeEditionId: model.activeEditionId,

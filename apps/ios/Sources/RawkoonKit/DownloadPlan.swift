@@ -136,6 +136,17 @@ public struct DownloadPlan: Sendable {
         states[fileId] = .pending
     }
 
+    /// The grant refresh failed or hit its cap: chapters waiting on it would
+    /// otherwise wait forever, so they give up and the book screen offers Retry.
+    public mutating func abandonAwaitingGrants() {
+        guard needsFreshGrants else { return }
+        needsFreshGrants = false
+        for fileId in states.keys where states[fileId] == .pending {
+            attempts[fileId] = Self.maxAttempts
+            states[fileId] = .failed(attempts: Self.maxAttempts)
+        }
+    }
+
     /// True once a chapter has used every attempt; only a user retry restarts it.
     public var hasGivenUp: Bool {
         states.values.contains { state in
