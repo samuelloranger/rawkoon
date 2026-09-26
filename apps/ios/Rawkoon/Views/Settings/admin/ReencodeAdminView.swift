@@ -72,7 +72,10 @@ struct ReencodeAdminView: View {
         .background(Theme.base)
         .tint(Theme.apricot)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) { EditButton() }
+            // Edit mode only reorders within a batch, so it is useless without one of 2+ jobs.
+            if batches.contains(where: { $0.jobs.count > 1 }) {
+                ToolbarItem(placement: .primaryAction) { EditButton() }
+            }
             ToolbarItem(placement: .secondaryAction) {
                 Button("Clear finished", role: .destructive) { confirmClear = true }
             }
@@ -130,9 +133,9 @@ struct ReencodeAdminView: View {
     }
 
     private var overviewSection: some View {
-        Section("Overview") {
+        Section("Totals") {
             if let s = summary {
-                LabeledContent("Queued", value: "\(s.queuedCount) · ~\(Formatters.durationCompact(Double(s.queuedEtaSecs)) ?? "0m") · \(Formatters.bytesEcho(s.queuedSourceBytes))")
+                LabeledContent("Queued", value: queuedLine(s))
                 LabeledContent("Saved (30 days)", value: Formatters.bytesEcho(s.savedBytes30D))
                 LabeledContent("Frees after seeding", value: Formatters.bytesEcho(s.freesAfterSeedingBytes))
                 LabeledContent("Failed", value: String(s.failedCount))
@@ -330,6 +333,12 @@ struct ReencodeAdminView: View {
         return parts.joined(separator: " · ")
     }
 
+    private func queuedLine(_ s: TranscodeSummary) -> String {
+        guard s.queuedCount > 0 else { return "0" }
+        let eta = Formatters.durationCompact(Double(s.queuedEtaSecs)) ?? "0m"
+        return "\(s.queuedCount) · ~\(eta) · \(Formatters.bytesEcho(s.queuedSourceBytes))"
+    }
+
     private func historyLine(_ job: TranscodeJob) -> String {
         guard job.status == "done", let out = job.outputBytes else {
             return String(localized: "\(Formatters.bytesEcho(job.sourceBytes)) kept")
@@ -425,6 +434,9 @@ struct ReencodeAdminView: View {
         await run(nil, failure: String(localized: "Couldn't update re-encode settings.")) { client in
             settings = try await client.updateTranscodeSettings(p)
         }
+        // The server starts a job right after unpausing or lifting the window; show it without waiting for the poll.
+        try? await Task.sleep(for: .seconds(1))
+        await reloadActive()
     }
 
     private func cancel(_ job: TranscodeJob) async {
