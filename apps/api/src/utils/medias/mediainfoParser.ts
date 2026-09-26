@@ -24,6 +24,7 @@ export type MediaInfoTrack = {
   BitRate_Nominal?: string;
   HDR_Format?: string;
   HDR_Format_Commercial?: string;
+  HDR_Format_Compatibility?: string;
   // Audio/Text
   Language?: string;
   Title?: string;
@@ -99,8 +100,12 @@ function parseChannelLayout(channelStr: string | undefined): string | null {
 function parseHdrFormat(
   hdrFormat: string | undefined,
   hdrCommercial: string | undefined,
+  hdrCompatibility?: string,
 ): string | null {
-  const src = hdrCommercial ?? hdrFormat ?? "";
+  // AV1/x265 encodes often report only "SMPTE ST 2086" plus an HDR10 compatibility field.
+  const src = [hdrCommercial ?? hdrFormat, hdrCompatibility]
+    .filter(Boolean)
+    .join(", ");
   if (!src) return null;
   if (/dolby vision/i.test(src)) return "Dolby Vision";
   if (/hdr10\+|hdr10 plus/i.test(src)) return "HDR10+";
@@ -181,6 +186,7 @@ export function parseMediaInfoJson(
   const hdrFormat = parseHdrFormat(
     video?.HDR_Format,
     video?.HDR_Format_Commercial,
+    video?.HDR_Format_Compatibility,
   );
 
   let resolution: number | null;
