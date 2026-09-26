@@ -269,6 +269,10 @@ export async function updateQueueSettings(
       cpuThreads: p.cpu_threads,
     },
   });
+  // Unpausing or lifting the run window should start work now, not on the next 10 s tick.
+  if (p.paused === false || p.window_enabled === false) {
+    void transcodeDispatcher.tick();
+  }
   return loadQueueSettings();
 }
 
