@@ -95,7 +95,8 @@ struct HomeView: View {
         }
         .task { await model.refreshUnreadNotificationCount() }
         // Re-encode progress: poll only while Home is the visible tab (.task cancels on disappear).
-        .task(id: isActiveRootTab) {
+        // Keyed on isAdmin too: it resolves after Home first appears on a cold launch.
+        .task(id: [isActiveRootTab, model.isAdmin]) {
             guard model.isAdmin, isActiveRootTab else { return }
             while !Task.isCancelled {
                 if let client = model.api(), let summary = try? await client.transcodeSummary() {

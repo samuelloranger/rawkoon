@@ -1,6 +1,7 @@
 @testable import Rawkoon
 import Testing
 
+@MainActor
 struct NotificationDestinationTests {
     @Test func settingsTranscodeTabRoutesToReencode() {
         #expect(NotificationDestination.resolve(url: "/settings?tab=transcode") == .transcode)

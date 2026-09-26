@@ -48,6 +48,7 @@ struct ReencodeEstimateCard: View {
                                 ? LocalizedStringKey("Refine again") : LocalizedStringKey("Refine estimate"),
                             action: onRefine
                         )
+                        .buttonStyle(.borderless)
                         .font(.caption.weight(.semibold)).tint(Theme.apricot).disabled(refining)
                     }
                 }

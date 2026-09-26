@@ -9,7 +9,8 @@ extension APIClient {
     func transcodeEstimate(selection: TranscodeSelection, settings: TranscodeJobSettings, refine: Bool) async throws -> TranscodeEstimate {
         try await postPlainBody(
             "/api/transcode/estimate",
-            body: TranscodeEstimateRequest(selection: selection, settings: settings, refine: refine)
+            body: TranscodeEstimateRequest(selection: selection, settings: settings, refine: refine),
+            slow: true
         )
     }
 

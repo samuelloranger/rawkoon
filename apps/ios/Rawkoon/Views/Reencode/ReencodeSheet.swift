@@ -1,6 +1,12 @@
 import RawkoonKit
 import SwiftUI
 
+/// Restarts an estimate fetch when the settings change or the user taps Retry.
+private struct EstimateKey: Hashable {
+    let settings: TranscodeJobSettings
+    let retry: Int
+}
+
 struct ReencodeTarget: Identifiable {
     let id = UUID()
     let selection: TranscodeSelection
@@ -16,7 +22,8 @@ struct ReencodeSheet: View {
     let onQueued: (Int) -> Void
 
     @State private var settings = TranscodeJobSettings()
-    @State private var gbPerFile = 1.5
+    /// Text-backed so the value is current while typing (a decimal pad has no Return key).
+    @State private var gbText = "1.5"
     @State private var qualityText = ""
     @State private var caps: TranscodeCapabilities?
     /// Quality-mode estimate for the current video/audio choices; also feeds the target-mode bitrate.
@@ -25,6 +32,14 @@ struct ReencodeSheet: View {
     @State private var refined: (settings: TranscodeJobSettings, estimate: TranscodeEstimate)?
     @State private var refining = false
     @State private var submitting = false
+    /// Shown inside the sheet: the app's toast overlay sits under presented sheets.
+    @State private var errorText: String?
+    @State private var estimateFailed = false
+    @State private var retryToken = 0
+
+    private var gbPerFile: Double {
+        Double(gbText.replacingOccurrences(of: ",", with: ".")) ?? 0
+    }
 
     private var qualitySettings: TranscodeJobSettings {
         var s = settings
@@ -82,6 +97,22 @@ struct ReencodeSheet: View {
                         .listRowBackground(Theme.raised)
                     }
                 }
+                if let errorText {
+                    Section {
+                        Text(verbatim: errorText).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                    }
+                }
+                if estimateFailed, shownEstimate == nil {
+                    Section {
+                        HStack {
+                            Text("Couldn't load the estimate.").foregroundStyle(Theme.muted)
+                            Spacer()
+                            Button("Retry") { retryToken += 1 }
+                                .buttonStyle(.borderless)
+                        }
+                        .listRowBackground(Theme.raised)
+                    }
+                }
                 Section {
                     ReencodeEstimateCard(
                         estimate: shownEstimate,
@@ -108,12 +139,12 @@ struct ReencodeSheet: View {
                 }
             }
             .task { await loadCapabilities() }
-            .task(id: qualitySettings) {
+            .task(id: EstimateKey(settings: qualitySettings, retry: retryToken)) {
                 try? await Task.sleep(for: .milliseconds(300))
                 guard !Task.isCancelled else { return }
                 base = await fetch(qualitySettings, refine: false) ?? base
             }
-            .task(id: settings.mode == .target ? effectiveSettings : nil) {
+            .task(id: settings.mode == .target ? EstimateKey(settings: effectiveSettings, retry: retryToken) : nil) {
                 guard settings.mode == .target, base != nil else { return }
                 try? await Task.sleep(for: .milliseconds(300))
                 guard !Task.isCancelled else { return }
@@ -219,7 +250,7 @@ struct ReencodeSheet: View {
                 HStack {
                     Text("GB per file (average)")
                     Spacer()
-                    TextField("GB", value: $gbPerFile, format: .number.precision(.fractionLength(1)))
+                    TextField("GB", text: $gbText)
                         .keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 70)
                 }
                 .listRowBackground(Theme.raised)
@@ -272,7 +303,16 @@ struct ReencodeSheet: View {
 
     private func fetch(_ s: TranscodeJobSettings, refine: Bool) async -> TranscodeEstimate? {
         guard let client = model.api() else { return nil }
-        return try? await client.transcodeEstimate(selection: target.selection, settings: s, refine: refine)
+        do {
+            let estimate = try await client.transcodeEstimate(selection: target.selection, settings: s, refine: refine)
+            estimateFailed = false
+            return estimate
+        } catch {
+            if !refine {
+                estimateFailed = true
+            }
+            return nil
+        }
     }
 
     private func refine() async {
@@ -281,8 +321,9 @@ struct ReencodeSheet: View {
         defer { refining = false }
         if let e = await fetch(s, refine: true) {
             refined = (s, e)
+            errorText = nil
         } else {
-            model.toast(String(localized: "Couldn't refine the estimate."), style: .error)
+            errorText = String(localized: "Couldn't refine the estimate.")
         }
     }
 
@@ -295,7 +336,7 @@ struct ReencodeSheet: View {
             onQueued(r.count)
             dismiss()
         } catch {
-            model.toast(String(localized: "Couldn't add to the re-encode queue."), style: .error)
+            errorText = String(localized: "Couldn't add to the re-encode queue.")
         }
     }
 }

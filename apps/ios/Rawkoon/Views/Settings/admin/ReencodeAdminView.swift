@@ -10,6 +10,7 @@ struct ReencodeBatch: Identifiable {
 /// Settings → Jobs & Releases → Re-encode: queue controls, running job, queue, history.
 struct ReencodeAdminView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.isActiveRootTab) private var isActiveRootTab
 
     @State private var active: [TranscodeJob] = []
     @State private var history: [TranscodeJob] = []
@@ -20,7 +21,6 @@ struct ReencodeAdminView: View {
     @State private var busyIds: Set<Int> = []
     @State private var confirmCancel: TranscodeJob?
     @State private var confirmClear = false
-    @State private var cpuThreadsText = ""
 
     private var running: TranscodeJob? {
         active.first { $0.status == "running" }
@@ -77,7 +77,11 @@ struct ReencodeAdminView: View {
                 Button("Clear finished", role: .destructive) { confirmClear = true }
             }
         }
-        .task { await pollLoop() }
+        // Tabs stay mounted on iPhone, so stop polling when this tab isn't the visible one.
+        .task(id: isActiveRootTab) {
+            guard isActiveRootTab else { return }
+            await pollLoop()
+        }
         .rawkoonConfirm(
             "Cancel this re-encode?",
             isPresented: Binding(get: { confirmCancel != nil }, set: {
@@ -107,6 +111,7 @@ struct ReencodeAdminView: View {
                     Button(settings.paused ? LocalizedStringKey("Resume queue") : LocalizedStringKey("Pause queue")) {
                         Task { await patch(TranscodeSettingsPatch(paused: !settings.paused)) }
                     }
+                    .buttonStyle(.borderless)
                 }
             }
             .listRowBackground(Theme.raised)
@@ -161,6 +166,7 @@ struct ReencodeAdminView: View {
                 }
                 .font(.caption).foregroundStyle(Theme.muted)
                 Button("Cancel re-encode", role: .destructive) { confirmCancel = job }
+                    .buttonStyle(.borderless)
             }
             .listRowBackground(Theme.raised)
         }
@@ -258,12 +264,12 @@ struct ReencodeAdminView: View {
                     ), in: 0.85 ... 0.999, step: 0.005) {
                         LabeledContent("SSIM per-clip minimum", value: String(format: "%.3f", settings.ssimClipMin))
                     }
-                    HStack {
-                        Text("CPU threads")
-                        Spacer()
-                        TextField("Auto", text: $cpuThreadsText)
-                            .keyboardType(.numberPad).multilineTextAlignment(.trailing).frame(width: 70)
-                            .onSubmit { Task { await saveThreads() } }
+                    // 0 means auto; a Stepper works on iPhone where a number pad has no Return key.
+                    Stepper(value: Binding(
+                        get: { settings.cpuThreads ?? 0 },
+                        set: { value in Task { await patch(TranscodeSettingsPatch(cpuThreads: .some(value == 0 ? nil : value))) } }
+                    ), in: 0 ... 64) {
+                        LabeledContent("CPU threads", value: settings.cpuThreads.map(String.init) ?? String(localized: "Auto"))
                     }
                 }
             }
@@ -357,7 +363,6 @@ struct ReencodeAdminView: View {
             history = try await h
             settings = try await s
             summary = try await sum
-            cpuThreadsText = settings?.cpuThreads.map(String.init) ?? ""
             loadError = nil
         } catch {
             loadError = settingsErrorMessage(error)
@@ -370,6 +375,7 @@ struct ReencodeAdminView: View {
         let wasRunning = running?.id
         if let a = try? await client.transcodeJobs(active: true) {
             active = a
+            loadError = nil
         }
         if let s = try? await client.transcodeSummary() {
             summary = s
@@ -395,18 +401,30 @@ struct ReencodeAdminView: View {
         } catch {
             model.toast(failure, style: .error)
         }
-        await reloadAll()
+        await refreshQuietly()
+    }
+
+    /// Refresh after an action without replacing the screen with an error view on a transient failure.
+    private func refreshQuietly() async {
+        guard let client = model.api() else { return }
+        if let a = try? await client.transcodeJobs(active: true) {
+            active = a
+        }
+        if let h = try? await client.transcodeJobs(active: false) {
+            history = h
+        }
+        if let s = try? await client.transcodeSettings() {
+            settings = s
+        }
+        if let sum = try? await client.transcodeSummary() {
+            summary = sum
+        }
     }
 
     private func patch(_ p: TranscodeSettingsPatch) async {
         await run(nil, failure: String(localized: "Couldn't update re-encode settings.")) { client in
             settings = try await client.updateTranscodeSettings(p)
         }
-    }
-
-    private func saveThreads() async {
-        let trimmed = cpuThreadsText.trimmingCharacters(in: .whitespaces)
-        await patch(TranscodeSettingsPatch(cpuThreads: .some(trimmed.isEmpty ? nil : Int(trimmed))))
     }
 
     private func cancel(_ job: TranscodeJob) async {

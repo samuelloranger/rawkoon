@@ -48,6 +48,8 @@ actor APIClient {
     private let downloadSession: URLSession
     /// SSE: request timeout above the 15s server heartbeat, no resource cap.
     private let sseSession: URLSession
+    /// Re-encode estimates sample-encode clips server-side and send nothing until done.
+    private let slowSession: URLSession
     private var token: String?
     /// Fired on an authenticated 401 so `AppModel` can drop the Keychain session.
     private let onUnauthorized: (@Sendable () -> Void)?
@@ -87,6 +89,10 @@ actor APIClient {
         sseSession = URLSession(configuration: Self.ephemeralConfig(
             requestTimeout: 60,
             resourceTimeout: 0
+        ))
+        slowSession = URLSession(configuration: Self.ephemeralConfig(
+            requestTimeout: 300,
+            resourceTimeout: 600
         ))
         self.token = token
         self.onUnauthorized = onUnauthorized
@@ -437,13 +443,29 @@ actor APIClient {
 
     /// POST whose body keeps its own key names (the re-encode settings are camelCase on the wire)
     /// while the response still decodes snake_case.
-    func postPlainBody<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
+    func postPlainBody<T: Decodable>(_ path: String, body: some Encodable, slow: Bool = false) async throws -> T {
         var request = try makeRequest(path: path, method: "POST", requiresAuth: true)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try Self.plainEncoder.encode(body)
-        let (data, response) = try await perform(request)
+        let (data, response) = try await slow ? performSlow(request) : perform(request)
         try checkStatus(data, response)
         return try decodeJSON(data)
+    }
+
+    /// Long-timeout lane for requests the server answers only after minutes of work.
+    private func performSlow(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        do {
+            let (data, response) = try await slowSession.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                throw APIError.transport
+            }
+            return (data, http)
+        } catch let error as APIError {
+            throw error
+        } catch {
+            Log.network.error("slow request failed: \(error.localizedDescription, privacy: .public)")
+            throw APIError.transport
+        }
     }
 
     // MARK: - SSE
