@@ -95,7 +95,13 @@ export function parseProbe(json: unknown): SourceProbe {
       colorTransfer: s.color_transfer ?? null,
       colorSpace: s.color_space ?? null,
       channels: s.channels ?? null,
-      bitRate: num(s.bit_rate),
+      // Matroska often omits bit_rate for lossless audio but keeps mkvmerge statistics tags.
+      bitRate:
+        num(s.bit_rate) ??
+        num(s.tags?.BPS) ??
+        num(
+          Object.entries(s.tags ?? {}).find(([k]) => k.startsWith("BPS-"))?.[1],
+        ),
       language: s.tags?.language ?? null,
       title: s.tags?.title ?? null,
       attachedPic: s.disposition?.attached_pic === 1,

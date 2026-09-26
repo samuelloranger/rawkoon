@@ -94,3 +94,29 @@ describe("parseProbe", () => {
     expect(p.isHdr).toBe(false);
   });
 });
+
+describe("parseProbe audio bitrate", () => {
+  it("falls back to the Matroska BPS statistics tag when bit_rate is missing", () => {
+    const p = parseProbe({
+      format: { duration: "100", size: "1000" },
+      streams: [
+        {
+          index: 0,
+          codec_type: "audio",
+          codec_name: "dts",
+          profile: "DTS-HD MA",
+          channels: 6,
+          tags: { language: "eng", BPS: "3972854" },
+        },
+        {
+          index: 1,
+          codec_type: "audio",
+          codec_name: "truehd",
+          channels: 8,
+          tags: { "BPS-eng": "4100000" },
+        },
+      ],
+    });
+    expect(p.streams.map((s) => s.bitRate)).toEqual([3972854, 4100000]);
+  });
+});
