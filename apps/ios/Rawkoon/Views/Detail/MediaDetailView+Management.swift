@@ -77,6 +77,13 @@ extension MediaDetailView {
                     } label: {
                         Label("Rescan files", systemImage: "arrow.clockwise")
                     }
+                    Button {
+                        if let libraryId {
+                            reencodeTarget = ReencodeTarget(selection: TranscodeSelection(mediaId: libraryId), subtitle: title)
+                        }
+                    } label: {
+                        Label("Re-encode…", systemImage: "gauge.with.dots.needle.67percent")
+                    }
                     Divider()
                     Button(role: .destructive) {
                         pendingRemoveLibraryId = libraryId
@@ -259,7 +266,10 @@ extension MediaDetailView {
             },
             onNotice: { managementNotice = $0; managementError = nil },
             onError: { managementError = $0 },
-            onRequestDelete: { pendingMovieFileDelete = file }
+            onRequestDelete: { pendingMovieFileDelete = file },
+            onReencode: {
+                reencodeTarget = ReencodeTarget(selection: TranscodeSelection(fileIds: [file.id]), subtitle: file.fileName)
+            }
         )
     }
 

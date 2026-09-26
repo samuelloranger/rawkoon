@@ -69,6 +69,7 @@ struct MediaDetailView: View {
     @State var similarMenuDetail: TmdbSearchItem?
     @State var pendingMovieFileDelete: LibraryFileInfo?
     @State var pendingEpisodeDelete: Episode?
+    @State var reencodeTarget: ReencodeTarget?
 
     @State var episodesBySeason: [Int: [Episode]] = [:]
     @State var similarItems: [TmdbSearchItem] = []
@@ -227,6 +228,12 @@ struct MediaDetailView: View {
                     availableSeasons: [],
                     onGrabbed: { Task { await refreshManagementData() } }
                 )
+                .environment(model)
+            }
+            .sheet(item: $reencodeTarget) { target in
+                ReencodeSheet(target: target) { count in
+                    model.toast(String(localized: "\(count) files added to the re-encode queue"), style: .success)
+                }
                 .environment(model)
             }
     }
@@ -551,6 +558,20 @@ struct MediaDetailView: View {
                 },
                 onSeasonRetrySkipped: { season in Task { await seasonRetrySkipped(season) } },
                 onSeasonToggleMonitor: { season, value in Task { await seasonToggleMonitor(season, value) } },
+                onSeasonReencode: { season in
+                    if let libraryId {
+                        reencodeTarget = ReencodeTarget(
+                            selection: TranscodeSelection(mediaId: libraryId, season: season),
+                            subtitle: "\(title) · " + String(localized: "Season \(season)")
+                        )
+                    }
+                },
+                onFileReencode: { file in
+                    reencodeTarget = ReencodeTarget(
+                        selection: TranscodeSelection(fileIds: [file.id]),
+                        subtitle: file.fileName
+                    )
+                },
                 onEpisodeAutoSearch: { episode in Task { await episodeAutoSearch(episode) } },
                 onEpisodeReleaseSearch: { episode in
                     releaseSearchSeason = episode.season
