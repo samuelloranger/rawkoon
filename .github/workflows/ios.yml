@@ -4,10 +4,11 @@ on:
   # carrying `tags` but no `branches` as tag-only, which silently stops branch
   # pushes from building at all.
   #
-  # TestFlight uploads are gated on a published GitHub release and nothing else.
-  # Pushes to main (and every other branch) run kit+lint+build only — they never
-  # upload. A successful upload consumes a (version, build) pair, so it must be a
-  # deliberate act, not a side effect of merging.
+  # TestFlight uploads happen on a published GitHub release, or on a manual
+  # dispatch that explicitly sets testflight=true (a pre-release build of any
+  # branch for internal testers). Pushes to main (and every other branch) run
+  # kit+lint+build only — they never upload. A successful upload consumes a
+  # (version, build) pair, so it must be a deliberate act, not a side effect.
   push:
     branches: ["**"]
     paths: ["apps/ios/**", ".github/workflows/ios.yml"]
@@ -16,6 +17,15 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      testflight:
+        description: "Upload this ref to TestFlight (internal testers)"
+        type: boolean
+        default: false
+      marketing_version:
+        description: "Version for the TestFlight build (default: package.json)"
+        type: string
+        required: false
 jobs:
   kit:
     runs-on: ubuntu-latest
@@ -92,10 +102,9 @@ jobs:
   testflight:
     runs-on: macos-26
     needs: build
-    # A published GitHub release is the ONLY thing that uploads to TestFlight.
-    # Not a push to main, not a manual dispatch, not a PR — an upload consumes a
-    # (version, build) pair and must be deliberate. To ship: cut a release.
-    if: github.event_name == 'release'
+    # Uploads only on a published release or a manual dispatch with testflight=true.
+    # Never on a push or PR — an upload consumes a (version, build) pair.
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.testflight)
     env:
       APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
@@ -108,7 +117,7 @@ jobs:
         run: |
           # The release tag is authoritative for a release build; package.json is
           # the fallback if the tag is not version-shaped.
-          TAG="${{ github.event.release.tag_name }}"
+          TAG="${{ github.event.release.tag_name || inputs.marketing_version }}"
           MARKETING_VERSION="${TAG#v}"
           case "$MARKETING_VERSION" in
             [0-9]*.[0-9]*.[0-9]*) ;;
@@ -196,7 +205,7 @@ jobs:
         env:
           BUNDLE_ID: cloud.samlo.rawkoon
           BUILD_NUMBER: ${{ env.CURRENT_PROJECT_VERSION }}
-          WHATS_NEW: "Release ${{ github.event.release.tag_name }} (${{ github.sha }})"
+          WHATS_NEW: "${{ github.event.release.tag_name && format('Release {0}', github.event.release.tag_name) || format('Pre-release build of {0}', github.ref_name) }} (${{ github.sha }})"
         run: node scripts/asc-distribute.mjs
       - name: Upload IPA artifact
         if: always()
