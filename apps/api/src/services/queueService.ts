@@ -144,6 +144,9 @@ function registerWorker(worker: Worker, queueName: string): Worker {
 }
 
 export async function closeAllWorkers(): Promise<void> {
+  await import("./transcode").then(({ transcodeDispatcher }) =>
+    transcodeDispatcher.stop(),
+  );
   await Promise.all(workers.map((w) => w.close()));
   workers.length = 0;
 }
@@ -269,6 +272,9 @@ export function initWorkers() {
       { connection: valkeyConnection, concurrency: 1 },
     ),
     QUEUE_NAMES.LIBRARY_POST_PROCESS,
+  );
+  void import("./transcode").then(({ transcodeDispatcher }) =>
+    transcodeDispatcher.start(),
   );
 }
 

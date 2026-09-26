@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Re-encode queue mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&family=Fira+Code:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --apricot:#E8A06A; --terracotta:#CF6A4E; --on-accent:#2A1A10;
+    --base:#1C1715; --raised:#241E1B; --inset:#171311; --well:#141010;
+    --border:#322A25; --border-strong:#3A2F27;
+    --text-strong:#F4ECE4; --text:#E3D8CF; --muted:#AA9A8C; --faint:#9D8775;
+    --seed:#86B98A; --importing:#8FB6D6; --warn:#E0B45A; --err:#E07A6A;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--base);color:var(--text);font:14px/1.5 "Hanken Grotesk",system-ui,sans-serif;padding:28px 16px 60px}
+  .wrap{max-width:1100px;margin:0 auto}
+  .note{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .note b{color:var(--apricot)}
+  h1{font:600 1.5rem Fraunces,Georgia,serif;color:var(--text-strong);margin:36px 0 6px;letter-spacing:-.01em}
+  h1 small{font:500 12px "Fira Code",monospace;color:var(--faint);margin-left:8px;letter-spacing:0}
+  .mono{font-family:"Fira Code",monospace;font-size:12px}
+  .kicker{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:var(--muted)}
+  .card{background:var(--raised);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .pill{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:2px 9px;font-size:11px;font-weight:600}
+  .pill.run{background:rgba(134,185,138,.12);color:var(--seed)}
+  .pill.run::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--seed);animation:p 1.4s infinite}
+  .pill.pause{background:rgba(224,180,90,.12);color:var(--warn)}
+  .pill.win{background:rgba(143,182,214,.12);color:var(--importing)}
+  @keyframes p{50%{opacity:.3}}
+  .prog{height:6px;background:var(--inset);border-radius:99px;overflow:hidden}
+  .prog i{display:block;height:100%;background:linear-gradient(90deg,var(--terracotta),var(--apricot));border-radius:99px}
+  .muted{color:var(--muted)} .faint{color:var(--faint)} .strong{color:var(--text-strong)}
+  .seed{color:var(--seed)} .err{color:var(--err)}
+  .btn{all:unset;cursor:pointer;padding:7px 13px;border-radius:8px;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+  .ghost{color:var(--text);border:1px solid var(--border-strong)}
+  .ghost:hover{background:var(--inset)}
+  .primary{background:var(--terracotta);color:var(--on-accent)}
+  .icon{all:unset;cursor:pointer;color:var(--faint);padding:4px 6px;border-radius:6px;font-size:13px}
+  .icon:hover{color:var(--text);background:var(--inset)}
+
+  /* ---------- HOME ---------- */
+  .home{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .ghostcard{background:var(--raised);border:1px dashed var(--border);border-radius:12px;min-height:170px;display:grid;place-items:center;color:var(--faint);font-size:12px}
+  .wh{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border)}
+  .wh .bar{width:3px;height:16px;border-radius:2px;background:var(--apricot)}
+  .wh h3{margin:0;font-size:14px;font-weight:600;color:var(--text-strong);flex:1}
+  .wb{padding:12px 14px}
+  .now{display:flex;gap:10px;align-items:flex-start}
+  .poster{width:34px;height:50px;border-radius:5px;background:linear-gradient(160deg,#5a3a2c,#2b1f1a);flex:none}
+  .now .t{color:var(--text-strong);font-weight:600;font-size:13px;line-height:1.3}
+  .now .s{color:var(--faint);font-size:12px}
+  .meta{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:6px}
+  .next{margin-top:12px;display:grid;gap:4px;font-size:12px}
+  .next div{display:flex;justify-content:space-between;color:var(--muted)}
+  .wf{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-top:1px solid var(--border);font-size:12px}
+  .wf a{color:var(--apricot);text-decoration:none;font-weight:600}
+
+  /* ---------- ADMIN ---------- */
+  .shell{display:grid;grid-template-columns:200px 1fr;gap:24px;margin-top:10px}
+  .nav{font-size:13px}
+  .nav .grp{margin:14px 0 6px}
+  .nav div.i{padding:6px 10px;border-radius:8px;color:var(--muted)}
+  .nav div.i.on{background:var(--raised);color:var(--text-strong);box-shadow:inset 3px 0 0 var(--apricot)}
+  .toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+  .toolbar .sp{flex:1}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .stat{background:var(--raised);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+  .stat .v{font:600 1.3rem Fraunces,serif;color:var(--text-strong);margin-top:2px}
+  .stat .h{font-size:12px;color:var(--faint)}
+  .cur{padding:16px}
+  .cur .top{display:flex;gap:14px;align-items:flex-start}
+  .cur .poster{width:46px;height:68px}
+  .cur .title{font:600 1.05rem Fraunces,serif;color:var(--text-strong)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .chip{background:var(--inset);border:1px solid var(--border);border-radius:99px;padding:1px 8px;font-size:11px;color:var(--muted)}
+  .steps{display:flex;gap:0;margin:16px 0 10px}
+  .step{flex:1;font-size:11px;color:var(--faint);position:relative;padding-top:12px}
+  .step::before{content:"";position:absolute;top:0;left:0;right:4px;height:3px;border-radius:2px;background:var(--border)}
+  .step.done{color:var(--muted)} .step.done::before{background:var(--seed)}
+  .step.act{color:var(--text-strong);font-weight:600} .step.act::before{background:var(--apricot)}
+  .nums{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:12px}
+  .nums .k{font-size:11px;color:var(--faint);font-family:"Fira Code",monospace}
+  .nums .v{color:var(--text-strong);font-weight:500}
+  .sect{display:flex;align-items:center;justify-content:space-between;margin:22px 0 8px}
+  .sect h2{margin:0;font:600 1.05rem Fraunces,serif;color:var(--text-strong)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font:500 11px "Fira Code",monospace;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;padding:9px 12px;border-bottom:1px solid var(--border)}
+  td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text)}
+  tr:last-child td{border-bottom:0}
+  tbody tr:hover td{background:rgba(255,255,255,.015)}
+  .drag{color:var(--faint);cursor:grab;width:18px}
+  .num{font-variant-numeric:tabular-nums}
+  .grpRow td{background:var(--inset);color:var(--muted);font-size:12px}
+  .win{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  .win input{background:var(--inset);border:1px solid var(--border);border-radius:8px;color:var(--text-strong);padding:5px 8px;font:inherit;width:84px}
+  .sw{width:34px;height:20px;border-radius:99px;background:var(--terracotta);position:relative;cursor:pointer;flex:none}
+  .sw::after{content:"";position:absolute;top:3px;left:17px;width:14px;height:14px;border-radius:50%;background:var(--on-accent)}
+  .sw.off{background:var(--border-strong)} .sw.off::after{left:3px;background:var(--text)}
+  .reason{font-size:12px;color:var(--err)}
+  .side{margin-top:8px;font-size:12px;color:var(--faint)}
+  .legend{color:var(--muted);font-size:13px;margin-top:28px;border-top:1px solid var(--border);padding-top:16px}
+  .legend li{margin-bottom:6px} .legend b{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<p class="note">Mockup · <b>1. Home widget</b> (admin-only, sits in the existing widget grid) · <b>2. Settings → Admin → Re-encode</b>. Numbers illustrative. "Pause" button is clickable.</p>
+
+<!-- ================= HOME ================= -->
+<h1>Home <small>widget grid</small></h1>
+<div class="home">
+  <div class="ghostcard">Now watching</div>
+  <div class="ghostcard">Downloads</div>
+
+  <section class="card" id="widget">
+    <div class="wh"><span class="bar"></span><h3>Re-encode</h3><span class="pill run" id="wpill">Running</span></div>
+    <div class="wb">
+      <div class="now">
+        <div class="poster"></div>
+        <div style="flex:1;min-width:0">
+          <div class="t">Example Show</div>
+          <div class="s">S03E07 · AVC → HEVC · GPU</div>
+          <div class="prog" style="margin-top:8px"><i style="width:62%"></i></div>
+          <div class="meta"><span>62% · 214 fps</span><span>~6 min left</span></div>
+        </div>
+      </div>
+      <div class="next">
+        <div><span>Example Show S03E08</span><span class="mono">4.6 GB</span></div>
+        <div><span>Example Show S03E09</span><span class="mono">4.5 GB</span></div>
+        <div class="faint"><span>+ 58 more</span><span class="mono">~9 h total</span></div>
+      </div>
+    </div>
+    <div class="wf"><span class="seed">−187 GB saved · 34 done</span><a href="#admin">Manage →</a></div>
+  </section>
+
+  <div class="ghostcard">Library attention</div>
+  <div class="ghostcard">RSS status</div>
+  <div class="ghostcard" style="border-style:solid;place-items:stretch;padding:0;display:block">
+    <section style="height:100%">
+      <div class="wh"><span class="bar"></span><h3>Re-encode</h3><span class="pill win">Waits for 01:00</span></div>
+      <div class="wb muted" style="font-size:12px">61 queued · ~9 h<br><span class="faint">Outside run window (01:00–08:00)</span></div>
+      <div class="wf"><span class="faint">Other state example</span><a href="#admin">Manage →</a></div>
+    </section>
+  </div>
+</div>
+<p class="side">Hidden entirely when queue is empty and nothing finished in last 24 h. Failed job → red line "1 failed" in footer.</p>
+
+<!-- ================= ADMIN ================= -->
+<h1 id="admin">Settings <small>/ admin / re-encode</small></h1>
+<div class="shell">
+  <nav class="nav">
+    <div class="kicker grp">Account</div>
+    <div class="i">Profile</div><div class="i">Activity</div><div class="i">Notifications</div>
+    <div class="kicker grp">Admin</div>
+    <div class="i">General</div><div class="i">Integrations</div><div class="i">Users</div><div class="i">Jobs</div>
+    <div class="i">Media</div><div class="i on">Re-encode</div><div class="i">Books</div><div class="i">Blocklist</div>
+  </nav>
+
+  <main>
+    <div class="toolbar">
+      <span class="pill run" id="apill">Running</span>
+      <span class="sp"></span>
+      <div class="win"><span class="sw" id="wsw"></span>Run window <input value="01:00"> – <input value="08:00"></div>
+      <button class="btn ghost" id="pause">❚❚ Pause queue</button>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="kicker">Queued</div><div class="v">61</div><div class="h">~9 h · 274 GB in</div></div>
+      <div class="stat"><div class="kicker">Saved</div><div class="v seed">187 GB</div><div class="h">34 files · last 30 d</div></div>
+      <div class="stat"><div class="kicker">Frees after seeding</div><div class="v">142 GB</div><div class="h">24 files still hardlinked</div></div>
+      <div class="stat"><div class="kicker">Failed</div><div class="v err">2</div><div class="h">originals untouched</div></div>
+    </div>
+
+    <!-- current job -->
+    <section class="card cur">
+      <div class="top">
+        <div class="poster"></div>
+        <div style="flex:1;min-width:0">
+          <div class="kicker">Now encoding</div>
+          <div class="title">Example Show — S03E07 · "Episode Title"</div>
+          <div class="chips"><span class="chip">AVC 1080p → HEVC</span><span class="chip">GPU · VAAPI</span><span class="chip">Quality · Balanced</span><span class="chip">Audio copy</span></div>
+        </div>
+        <button class="btn ghost">✕ Cancel</button>
+      </div>
+      <div class="steps">
+        <div class="step done">Queued</div>
+        <div class="step act">Encoding 62%</div>
+        <div class="step">Validating</div>
+        <div class="step">Replacing</div>
+        <div class="step">Rescan</div>
+      </div>
+      <div class="prog"><i style="width:62%"></i></div>
+      <div class="nums">
+        <div><div class="k">SPEED</div><div class="v num">214 fps · 8.9×</div></div>
+        <div><div class="k">ELAPSED</div><div class="v num">4:12</div></div>
+        <div><div class="k">ETA</div><div class="v num">~6 min</div></div>
+        <div><div class="k">SIZE</div><div class="v num">4.6 → ~1.5 GB</div></div>
+        <div><div class="k">EST. WAS</div><div class="v num muted">1.6 GB</div></div>
+      </div>
+    </section>
+
+    <!-- queue -->
+    <div class="sect"><h2>Queue</h2><span class="faint" style="font-size:12px">Drag to reorder · batches stay grouped</span></div>
+    <section class="card">
+      <table>
+        <thead><tr><th></th><th>#</th><th>Item</th><th>Settings</th><th>Size</th><th>Est.</th><th></th></tr></thead>
+        <tbody>
+          <tr class="grpRow"><td></td><td colspan="5">Example Show · 58 files remaining · added 2 h ago</td><td style="text-align:right"><button class="icon">⤒</button><button class="icon">✕ all</button></td></tr>
+          <tr><td class="drag">⋮⋮</td><td class="num faint">1</td><td>Example Show S03E08</td><td class="muted">HEVC · GPU · Balanced</td><td class="num">4.6 GB</td><td class="num seed">~1.5 GB</td><td style="text-align:right"><button class="icon" title="Move to top">⤒</button><button class="icon" title="Remove">✕</button></td></tr>
+          <tr><td class="drag">⋮⋮</td><td class="num faint">2</td><td>Example Show S03E09</td><td class="muted">HEVC · GPU · Balanced</td><td class="num">4.5 GB</td><td class="num seed">~1.5 GB</td><td style="text-align:right"><button class="icon">⤒</button><button class="icon">✕</button></td></tr>
+          <tr><td></td><td class="faint">…</td><td class="faint" colspan="5">55 more</td></tr>
+          <tr><td class="drag">⋮⋮</td><td class="num faint">59</td><td>Example Movie <span class="faint">(2010)</span></td><td class="muted">HEVC · CPU · 4K→1080p · EAC3</td><td class="num">61.5 GB</td><td class="num seed">~7 GB</td><td style="text-align:right"><button class="icon">⤒</button><button class="icon">✕</button></td></tr>
+          <tr><td class="drag">⋮⋮</td><td class="num faint">60</td><td>Another Movie <span class="faint">(2011)</span></td><td class="muted">AV1 · CPU · Target 6 GB</td><td class="num">31.9 GB</td><td class="num seed">6.0 GB</td><td style="text-align:right"><button class="icon">⤒</button><button class="icon">✕</button></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- history -->
+    <div class="sect"><h2>History</h2><span class="faint" style="font-size:12px">Last 30 days · <span style="color:var(--apricot);cursor:pointer">Clear finished</span></span></div>
+    <section class="card">
+      <table>
+        <thead><tr><th>Item</th><th>Result</th><th>Before → after</th><th>Saved</th><th>SSIM</th><th>Took</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>Example Show S03E06</td><td class="seed">Replaced</td><td class="num">4.7 → 1.6 GB</td><td class="num seed">−3.1 GB</td><td class="num">0.986</td><td class="num">10 m</td><td></td></tr>
+          <tr><td>Example Show S03E05</td><td class="seed">Replaced <span class="faint">· seeding</span></td><td class="num">4.6 → 1.5 GB</td><td class="num muted">0 now · 3.1 later</td><td class="num">0.984</td><td class="num">10 m</td><td></td></tr>
+          <tr><td>Another Show S01E03</td><td class="err">Failed</td><td class="num muted">2.7 GB kept</td><td class="num">—</td><td class="num err">0.951</td><td class="num">4 m</td><td style="text-align:right"><button class="icon">↻ Retry</button></td></tr>
+          <tr><td colspan="7" class="reason" style="padding-top:0">Quality check below 0.970 on 2 of 6 samples — original kept, output deleted.</td></tr>
+          <tr><td>Third Movie <span class="faint">(2009)</span></td><td class="muted">Cancelled</td><td class="num muted">18.8 GB kept</td><td class="num">—</td><td class="num">—</td><td class="num">31 m</td><td style="text-align:right"><button class="icon">↻ Retry</button></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <ul class="legend">
+      <li><b>Toolbar</b> — queue state pill, run window (toggle + hours), pause/resume. Pause lets current job finish; Cancel on the card kills it.</li>
+      <li><b>Stat row</b> — queued work, real savings, savings pending on seeding (your hardlink choice), failures.</li>
+      <li><b>Current job</b> — pipeline steps so you see it's validating, not stuck; live fps / ETA / size vs estimate.</li>
+      <li><b>Queue</b> — drag or ⤒ move-to-top per file or whole batch; remove one or all.</li>
+      <li><b>History</b> — before→after, SSIM score, failure reason inline, retry.</li>
+    </ul>
+  </main>
+</div>
+</div>
+<script>
+let paused=false;
+const b=document.getElementById('pause'), ap=document.getElementById('apill'), wp=document.getElementById('wpill');
+b.onclick=()=>{paused=!paused;
+  for(const p of [ap,wp]){p.className='pill '+(paused?'pause':'run');p.textContent=paused?'Paused':'Running';}
+  b.textContent=paused?'▶ Resume queue':'❚❚ Pause queue';};
+document.getElementById('wsw').onclick=e=>e.target.classList.toggle('off');
+</script>
+</body>
+</html>

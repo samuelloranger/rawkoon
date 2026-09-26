@@ -18,6 +18,7 @@ import {
   Eye,
   EyeOff,
   Folder,
+  Gauge,
   Layers,
   RefreshCw,
   Search,
@@ -32,6 +33,7 @@ import {
 } from "@/utils/libraryDisplayUtils";
 import { FileDetailBlock } from "./LibraryFileDetailBlock";
 import { MergedEpisodeRow } from "./LibraryMergedEpisodeRow";
+import { ReencodeModal } from "@/features/transcode/ReencodeModal";
 
 interface LibraryMediaSectionProps {
   libraryId: number;
@@ -65,6 +67,9 @@ export function LibraryMediaSection({
   const toggleEpMonitoredMut = useToggleEpisodeMonitored();
   const toggleSeasonMonitoredMut = useToggleSeasonMonitored();
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [reencode, setReencode] = useState<{ season: number | null } | null>(
+    null,
+  );
   const [expandedSeasons, setExpandedSeasons] = useState<Set<number>>(
     new Set(),
   );
@@ -128,6 +133,14 @@ export function LibraryMediaSection({
             </span>
           )}
         </div>
+        <button
+          type="button"
+          onClick={() => setReencode({ season: null })}
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 transition-colors shrink-0"
+        >
+          <Gauge size={10} />
+          {isShow ? t("transcode.openShow") : t("transcode.openButton")}
+        </button>
         <button
           onClick={() => rescan.mutate()}
           disabled={rescan.isPending}
@@ -313,6 +326,14 @@ export function LibraryMediaSection({
                           <Search size={14} className="mobile-max:size-3" />
                         </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => setReencode({ season: s.season })}
+                        title={t("transcode.openSeason")}
+                        className="rounded-md p-2.5 mobile-max:px-3 mobile-max:py-3 text-neutral-400 hover:text-primary-400 hover:bg-primary-950/30 transition-colors"
+                      >
+                        <Gauge size={14} className="mobile-max:size-3" />
+                      </button>
                       {skippedCount > 0 && (
                         <button
                           type="button"
@@ -589,6 +610,21 @@ export function LibraryMediaSection({
             );
           })}
         </div>
+      )}
+      {reencode && (
+        <ReencodeModal
+          isOpen
+          onClose={() => setReencode(null)}
+          selection={{
+            media_id: libraryId,
+            ...(reencode.season != null ? { season: reencode.season } : {}),
+          }}
+          subtitle={
+            reencode.season != null
+              ? `${t("transcode.openSeason")} ${reencode.season}`
+              : t("transcode.fileCount", { count: files.length })
+          }
+        />
       )}
     </Card>
   );

@@ -8,6 +8,11 @@ services:
       - ./data:/app/data
       - ./vapid_keys:/app/vapid_keys
     restart: unless-stopped
+    # Optional: GPU re-encoding (VA-API). See docs/self-hosting.md.
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # group_add:
+    #   - "${RENDER_GID}"
     depends_on:
       db:
         condition: service_healthy

@@ -301,6 +301,16 @@ export const queryKeys = {
       [...queryKeys.search.all, "quick", query] as const,
   },
 
+  transcode: {
+    all: ["transcode"] as const,
+    capabilities: () => [...queryKeys.transcode.all, "capabilities"] as const,
+    estimate: (selection: unknown, settings: string) =>
+      [...queryKeys.transcode.all, "estimate", selection, settings] as const,
+    jobs: (status: "active" | "history") =>
+      [...queryKeys.transcode.all, "jobs", status] as const,
+    settings: () => [...queryKeys.transcode.all, "settings"] as const,
+    summary: () => [...queryKeys.transcode.all, "summary"] as const,
+  },
   library: {
     all: ["library"] as const,
     infinite: (filters?: {

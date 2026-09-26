@@ -14,6 +14,7 @@ import { RecentActivityTab } from "@/pages/settings/_component/RecentActivityTab
 import { OidcProvidersTab } from "@/pages/settings/_component/OidcProvidersTab";
 import { BlocklistTab } from "@/pages/settings/_component/BlocklistTab";
 import { BooksSettingsTab } from "@/pages/settings/_component/BooksSettingsTab";
+import { TranscodeTab } from "@/pages/settings/_component/TranscodeTab";
 import { useCurrentUser } from "@/lib/auth/useAuth";
 import { cn } from "@/lib/utils";
 import {
@@ -22,6 +23,7 @@ import {
   Puzzle,
   Users,
   Clock,
+  Gauge,
   ShieldCheck,
   History,
   Clapperboard,
@@ -48,7 +50,8 @@ export type Tab =
   | "media"
   | "books"
   | "releases"
-  | "blocklist";
+  | "blocklist"
+  | "transcode";
 
 interface TabItem {
   id: Tab;
@@ -107,6 +110,7 @@ export function Settings() {
           icon: KeyRound,
         },
         { id: "jobs", label: t("settings.jobs.title"), icon: Clock },
+        { id: "transcode", label: t("settings.transcode.title"), icon: Gauge },
         {
           id: "media",
           label: t("settings.media.title"),
@@ -223,6 +227,9 @@ export function Settings() {
           {activeTab === "sessions" && currentUser?.is_admin && <SessionsTab />}
           {activeTab === "api-keys" && currentUser?.is_admin && <ApiKeysTab />}
           {activeTab === "jobs" && currentUser?.is_admin && <JobsTab />}
+          {activeTab === "transcode" && currentUser?.is_admin && (
+            <TranscodeTab />
+          )}
           {activeTab === "media" && currentUser?.is_admin && (
             <MediaSettingsTab />
           )}

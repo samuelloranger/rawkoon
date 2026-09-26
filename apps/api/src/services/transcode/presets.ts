@@ -1,0 +1,101 @@
+import type {
+  TranscodeJobSettings,
+  TranscodePreset,
+  TranscodeSpeed,
+} from "@rawkoon/shared/types";
+import type {
+  ProbeStream,
+  SourceProbe,
+} from "@rawkoon/api/services/transcode/probe";
+
+const QUALITY: Record<string, Record<TranscodePreset, number>> = {
+  "software:hevc": { high: 20, balanced: 23, small: 26 },
+  "software:av1": { high: 26, balanced: 30, small: 35 },
+  "vaapi:hevc": { high: 20, balanced: 24, small: 28 },
+  // av1_vaapi quality spans 0-255; values picked to match hevc_vaapi SSIM at each preset.
+  "vaapi:av1": { high: 55, balanced: 70, small: 100 },
+};
+
+const SPEED: Record<string, Record<TranscodeSpeed, string>> = {
+  "software:hevc": { slower: "slow", default: "medium", faster: "fast" },
+  "software:av1": { slower: "4", default: "6", faster: "8" },
+};
+
+/** Rough 1080p24 video bitrate in kbps per quality preset; scaled by pixels^0.75 and fps. */
+export const ROUGH_KBPS_1080: Record<
+  string,
+  Record<TranscodePreset, number>
+> = {
+  "software:hevc": { high: 5000, balanced: 3200, small: 2000 },
+  "software:av1": { high: 3800, balanced: 2400, small: 1500 },
+  "vaapi:hevc": { high: 6000, balanced: 4000, small: 2600 },
+  "vaapi:av1": { high: 8500, balanced: 6000, small: 4000 },
+};
+
+/** Rough 1080p encode fps; scaled by 1080p pixel count / source pixel count. */
+export const ROUGH_FPS_1080: Record<string, Record<TranscodeSpeed, number>> = {
+  "software:hevc": { slower: 8, default: 18, faster: 35 },
+  "software:av1": { slower: 6, default: 20, faster: 45 },
+  "vaapi:hevc": { slower: 180, default: 220, faster: 260 },
+  "vaapi:av1": { slower: 160, default: 200, faster: 240 },
+};
+
+export function comboKey(s: TranscodeJobSettings): string {
+  return `${s.encoder}:${s.codec}`;
+}
+
+export function qualityValue(s: TranscodeJobSettings): number {
+  return s.quality ?? QUALITY[comboKey(s)][s.preset];
+}
+
+export function speedValue(s: TranscodeJobSettings): string {
+  return SPEED[comboKey(s)]?.[s.speed] ?? "";
+}
+
+const BOX: Record<1080 | 720, [number, number]> = {
+  1080: [1920, 1080],
+  720: [1280, 720],
+};
+
+/** Output frame when downscaling: fit inside the target box, keep aspect, even sides. Null = no downscale. */
+export function targetDims(
+  s: TranscodeJobSettings,
+  source: SourceProbe,
+): { width: number; height: number } | null {
+  if (s.resolution === "keep") return null;
+  const w = source.video?.width ?? 0;
+  const h = source.video?.height ?? 0;
+  if (!w || !h) return null;
+  const [bw, bh] = BOX[s.resolution];
+  const ratio = Math.min(bw / w, bh / h);
+  if (ratio >= 1) return null;
+  const even = (n: number) => Math.max(2, Math.round(n / 2) * 2);
+  return { width: even(w * ratio), height: even(h * ratio) };
+}
+
+/** Resolution label for the file name when downscaling (e.g. 1080), else null. */
+export function targetHeight(
+  s: TranscodeJobSettings,
+  source: SourceProbe,
+): number | null {
+  return targetDims(s, source) && s.resolution !== "keep" ? s.resolution : null;
+}
+
+const LOSSLESS = new Set(["truehd", "flac", "mlp", "alac"]);
+
+export function isLosslessAudio(st: ProbeStream): boolean {
+  if (st.type !== "audio") return false;
+  if (LOSSLESS.has(st.codec) || st.codec.startsWith("pcm_")) return true;
+  return st.codec === "dts" && /MA|HD MA/i.test(st.profile ?? "");
+}
+
+export function eac3BitrateFor(channels: number | null): {
+  kbps: number;
+  channels: number;
+} {
+  const ch = channels ?? 2;
+  // ffmpeg's eac3 encoder tops out at 5.1.
+  if (ch > 6) return { kbps: 768, channels: 6 };
+  if (ch > 2) return { kbps: 640, channels: ch };
+  return { kbps: 224, channels: ch };
+}

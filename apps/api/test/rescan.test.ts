@@ -54,9 +54,11 @@ type State = {
   mediaSettings: MediaSettingsRecord | null;
   createdFiles: object[];
   activeDownloadCount: number;
+  activeTranscodeFileIds: number[];
 };
 
 const state: State = {
+  activeTranscodeFileIds: [],
   media: null,
   files: [],
   remainingFileCount: null,
@@ -117,6 +119,12 @@ const renameCaptures: Array<{ from: string; to: string }> = [];
 // Mock modules — MUST be registered before importing the module under test
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
+    transcodeJob: {
+      findMany: () =>
+        Promise.resolve(
+          state.activeTranscodeFileIds.map((mediaFileId) => ({ mediaFileId })),
+        ),
+    },
     libraryMedia: {
       findUnique: () =>
         Promise.resolve(
@@ -317,6 +325,7 @@ beforeEach(() => {
   state.mediaSettings = null;
   state.createdFiles = [];
   state.activeDownloadCount = 0;
+  state.activeTranscodeFileIds = [];
 
   for (const k of Object.keys(statMap)) delete statMap[k];
   for (const k of Object.keys(scanMap)) delete scanMap[k];
@@ -1138,6 +1147,44 @@ describe("Rename (Step 1c)", () => {
     expect(renameCaptures[0].to).toBe(
       "/movies/The Matrix (1999) [1080p BluRay].mkv",
     );
+  });
+
+  it("30. A file mid re-encode swap is neither rescanned nor deleted", async () => {
+    const file = makeFile({ id: 1, filePath: "/media/busy.mkv" });
+    state.media = { id: 1, type: "movie", status: "downloaded" };
+    state.files = [file];
+    state.activeTranscodeFileIds = [1];
+    scanMap[file.filePath] = null;
+
+    const result = await rescanLibraryItem(1);
+    expect(result?.deleted).toBe(0);
+    expect(state.deletedFileIds).toHaveLength(0);
+  });
+
+  it("31. Re-encode working files on disk are never imported", async () => {
+    state.media = {
+      id: 1,
+      type: "movie",
+      status: "downloaded",
+      title: "The Matrix",
+      year: 1999,
+    };
+    state.remainingFileCount = 1;
+    state.mediaSettings = {
+      moviesLibraryPath: "/movies",
+      showsLibraryPath: null,
+      movieTemplate: "{title} ({year}) [{resolution} {source}]",
+      episodeTemplate: "",
+      fileOperation: "hardlink",
+    };
+    const tmpName = ".The Matrix (1999) [1080p BluRay].rawkoon-tmp.mkv";
+    readdirMap["/movies"] = [tmpName];
+    scanMap[`/movies/${tmpName}`] = makeMi();
+    statMap[`/movies/${tmpName}`] = true;
+
+    const result = await rescanLibraryItem(1);
+    expect(result?.imported).toBe(0);
+    expect(state.createdFiles).toHaveLength(0);
   });
 });
 

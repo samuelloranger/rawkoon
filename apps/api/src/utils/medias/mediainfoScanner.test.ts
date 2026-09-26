@@ -289,6 +289,17 @@ const MALFORMED_LANGUAGE_CODES = {
 };
 
 describe("scanMediaInfo", () => {
+  it("AV1 HDR10 reported as SMPTE ST 2086 with HDR10 compatibility is HDR10", () => {
+    const av1 = structuredClone(WEB_DL_HDR10);
+    const v = av1.media.track[1] as unknown as Record<string, string>;
+    v.Format = "AV1";
+    v.HDR_Format = "SMPTE ST 2086";
+    delete v.HDR_Format_Commercial;
+    v.HDR_Format_Compatibility = "HDR10";
+    const result = parseMediaInfoJson(JSON.stringify(av1), "/media/test.mkv");
+    expect(result!.hdrFormat).toBe("HDR10");
+  });
+
   it("fixture 1: Dolby Vision REMUX — parses HDR, audio, subtitles", () => {
     const result = parseMediaInfoJson(
       JSON.stringify(DOLBY_VISION_REMUX),

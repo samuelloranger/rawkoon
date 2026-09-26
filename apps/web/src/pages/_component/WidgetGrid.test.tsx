@@ -21,6 +21,9 @@ vi.mock("@/pages/_component/LibraryAttentionPanel", () => ({
 vi.mock("@/pages/_component/RssStatusPanel", () => ({
   RssStatusPanel: () => <div data-testid="w-rss" />,
 }));
+vi.mock("@/pages/_component/TranscodeWidget", () => ({
+  TranscodeWidget: () => <div data-testid="w-transcode" />,
+}));
 
 describe("WidgetGrid", () => {
   it("renders every widget", () => {
@@ -32,6 +35,7 @@ describe("WidgetGrid", () => {
       "w-downloads",
       "w-library",
       "w-rss",
+      "w-transcode",
     ]) {
       expect(screen.getByTestId(id)).toBeInTheDocument();
     }

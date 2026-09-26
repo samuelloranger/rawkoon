@@ -54,6 +54,8 @@ const typeConfig: Record<NotificationType, TypeStyle> = {
   library_post_process_failed: failStyle,
   library_grab_skipped: failStyle,
   library_attention: failStyle,
+  library_transcode_finished: libraryStyle,
+  library_transcode_failed: failStyle,
   book_grabbed: grabStyle,
   book_downloaded: bookStyle,
   book_import_failed: failStyle,
