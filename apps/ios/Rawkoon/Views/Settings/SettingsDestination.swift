@@ -49,6 +49,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
     case oidcProviders
     case blocklist
     case jobs
+    case reencode
     case releases
 
     var id: String {
@@ -65,7 +66,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             .libraryQuality
         case .users, .sessions, .apiKeys, .oidcProviders, .blocklist:
             .usersSecurity
-        case .jobs, .releases:
+        case .jobs, .reencode, .releases:
             .jobsReleases
         }
     }
@@ -100,6 +101,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .oidcProviders: "SSO providers"
         case .blocklist: "Blocklist"
         case .jobs: "Jobs"
+        case .reencode: "Re-encode"
         case .releases: "Releases"
         }
     }
@@ -128,6 +130,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .oidcProviders: "person.badge.key"
         case .blocklist: "nosign"
         case .jobs: "clock"
+        case .reencode: "gauge.with.dots.needle.67percent"
         case .releases: "shippingbox"
         }
     }
@@ -157,6 +160,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .oidcProviders: ["sso", "oidc", "single sign-on", "login", "auth"]
         case .blocklist: ["block", "banned", "releases"]
         case .jobs: ["tasks", "scheduled", "queue"]
+        case .reencode: ["re-encode", "transcode", "hevc", "av1", "queue", "compress"]
         case .releases: ["updates", "changelog", "version"]
         }
     }
@@ -198,6 +202,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .oidcProviders: OidcProvidersCrudView()
         case .blocklist: BlocklistAdminView()
         case .jobs: JobsAdminView()
+        case .reencode: ReencodeAdminView()
         case .releases: ReleasesAdminView()
         }
     }

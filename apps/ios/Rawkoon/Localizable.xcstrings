@@ -1,6 +1,366 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Resume queue": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprendre la file"
+          }
+        }
+      }
+    },
+    "Pause queue": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mettre la file en pause"
+          }
+        }
+      }
+    },
+    "Run window": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plage horaire"
+          }
+        }
+      }
+    },
+    "Start": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Début"
+          }
+        }
+      }
+    },
+    "End": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fin"
+          }
+        }
+      }
+    },
+    "Queued": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En file"
+          }
+        }
+      }
+    },
+    "Saved (30 days)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Libéré (30 jours)"
+          }
+        }
+      }
+    },
+    "Frees after seeding": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Libéré après le partage"
+          }
+        }
+      }
+    },
+    "Now encoding": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encodage en cours"
+          }
+        }
+      }
+    },
+    "Encoding": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encodage"
+          }
+        }
+      }
+    },
+    "Validating": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Validation"
+          }
+        }
+      }
+    },
+    "Replacing": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remplacement"
+          }
+        }
+      }
+    },
+    "Cancel re-encode": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler le réencodage"
+          }
+        }
+      }
+    },
+    "Cancel this re-encode?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler ce réencodage ?"
+          }
+        }
+      }
+    },
+    "The original file is kept; the partial output is deleted.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fichier original est conservé ; la sortie partielle est supprimée."
+          }
+        }
+      }
+    },
+    "Nothing queued. Open a movie or show and choose Re-encode.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rien en file. Ouvrez un film ou une série et choisissez Réencoder."
+          }
+        }
+      }
+    },
+    "Move batch to top": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mettre le lot en tête"
+          }
+        }
+      }
+    },
+    "Remove all": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout retirer"
+          }
+        }
+      }
+    },
+    "Move to top": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mettre en tête"
+          }
+        }
+      }
+    },
+    "No finished re-encodes in the last 30 days.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun réencodage terminé ces 30 derniers jours."
+          }
+        }
+      }
+    },
+    "SSIM mean threshold": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seuil SSIM moyen"
+          }
+        }
+      }
+    },
+    "SSIM per-clip minimum": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SSIM minimum par extrait"
+          }
+        }
+      }
+    },
+    "CPU threads": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Threads CPU"
+          }
+        }
+      }
+    },
+    "Auto": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto"
+          }
+        }
+      }
+    },
+    "Clear finished": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vider les terminés"
+          }
+        }
+      }
+    },
+    "Clear finished jobs?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vider les tâches terminées ?"
+          }
+        }
+      }
+    },
+    "Replaced": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remplacé"
+          }
+        }
+      }
+    },
+    "Replaced · seeding": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remplacé · en partage"
+          }
+        }
+      }
+    },
+    "Cancelled": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annulé"
+          }
+        }
+      }
+    },
+    "%@ kept": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ conservés"
+          }
+        }
+      }
+    },
+    "Couldn't update re-encode settings.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de mettre à jour les réglages de réencodage."
+          }
+        }
+      }
+    },
+    "Couldn't cancel.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'annuler."
+          }
+        }
+      }
+    },
+    "Couldn't move.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de déplacer."
+          }
+        }
+      }
+    },
+    "Couldn't remove.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de retirer."
+          }
+        }
+      }
+    },
+    "Couldn't retry.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de réessayer."
+          }
+        }
+      }
+    },
+    "Couldn't clear history.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de vider l'historique."
+          }
+        }
+      }
+    },
     "%lld queued": {
       "localizations": {
         "fr": {

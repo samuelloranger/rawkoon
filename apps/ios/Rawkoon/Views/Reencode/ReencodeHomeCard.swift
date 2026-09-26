@@ -106,10 +106,3 @@ struct ReencodeStateBadge: View {
         }
     }
 }
-
-/// Stub until the admin screen lands (next commit).
-struct ReencodeAdminView: View {
-    var body: some View {
-        EmptyView()
-    }
-}
