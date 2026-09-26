@@ -21,6 +21,7 @@ struct HomeView: View {
     @State private var attention: [AttentionItem] = []
     @State private var rss: RssStatusResponse?
     @State private var stats: LibraryStats?
+    @State private var reencodeSummary: TranscodeSummary?
     @State private var loading = true
     /// Bumped on pull-to-refresh and when Continue's player sheet dismisses
     /// so Listening reloads with Continue.
@@ -93,6 +94,16 @@ struct HomeView: View {
             }
         }
         .task { await model.refreshUnreadNotificationCount() }
+        // Re-encode progress: poll only while Home is the visible tab (.task cancels on disappear).
+        .task(id: isActiveRootTab) {
+            guard model.isAdmin, isActiveRootTab else { return }
+            while !Task.isCancelled {
+                if let client = model.api(), let summary = try? await client.transcodeSummary() {
+                    reencodeSummary = summary
+                }
+                try? await Task.sleep(for: .seconds(5))
+            }
+        }
         .refreshable {
             continueToken += 1
             await load()
@@ -279,6 +290,9 @@ struct HomeView: View {
             // Downloads and RSS are server-ops widgets: admins only.
             if model.isAdmin {
                 downloadsWidget
+            }
+            if model.isAdmin, let reencodeSummary, reencodeSummary.show {
+                ReencodeHomeCard(summary: reencodeSummary)
             }
             if !attention.isEmpty {
                 attentionWidget

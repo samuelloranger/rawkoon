@@ -1,6 +1,116 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%lld queued": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld en file"
+          }
+        }
+      }
+    },
+    "+ %lld more": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+ %lld autres"
+          }
+        }
+      }
+    },
+    "−%@ saved · %lld done": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "−%@ libérés · %lld terminés"
+          }
+        }
+      }
+    },
+    "%lld failed": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld failed"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld failed"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld échec"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld échecs"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "~%@ left": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "~%@ restant"
+          }
+        }
+      }
+    },
+    "Running": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En cours"
+          }
+        }
+      }
+    },
+    "Waits for %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attend %@"
+          }
+        }
+      }
+    },
+    "Idle": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inactif"
+          }
+        }
+      }
+    },
     "Re-encode": {
       "localizations": {
         "fr": {
