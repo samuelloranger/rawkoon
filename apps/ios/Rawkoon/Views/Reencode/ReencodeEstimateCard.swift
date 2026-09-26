@@ -32,8 +32,9 @@ struct ReencodeEstimateCard: View {
                     figure("Est. time", "~" + (Formatters.durationCompact(Double(estimate.etaSecs)) ?? "0m"), strong: true)
                 }
                 let seeding = estimate.files.filter { $0.nlink > 1 }.count
+                let growth = Formatters.bytesEcho(estimate.temporaryGrowthBytes)
                 if seeding > 0 {
-                    Text("\(seeding) files are still seeding. Their space frees when the torrents are removed; until then disk use grows by about \(Formatters.bytesEcho(estimate.temporaryGrowthBytes)).")
+                    Text("\(seeding) files are still seeding. Their space frees when the torrents are removed; until then disk use grows by about \(growth).")
                         .font(.caption).foregroundStyle(Theme.apricotSoft)
                         .padding(10)
                         .background(Theme.apricot.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
