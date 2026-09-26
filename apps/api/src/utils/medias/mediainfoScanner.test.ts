@@ -291,7 +291,7 @@ const MALFORMED_LANGUAGE_CODES = {
 describe("scanMediaInfo", () => {
   it("AV1 HDR10 reported as SMPTE ST 2086 with HDR10 compatibility is HDR10", () => {
     const av1 = structuredClone(WEB_DL_HDR10);
-    const v = av1.media.track[1] as Record<string, string>;
+    const v = av1.media.track[1] as unknown as Record<string, string>;
     v.Format = "AV1";
     v.HDR_Format = "SMPTE ST 2086";
     delete v.HDR_Format_Commercial;
