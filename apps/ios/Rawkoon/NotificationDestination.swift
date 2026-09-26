@@ -16,6 +16,8 @@ enum NotificationDestination: Identifiable, Equatable, Sendable {
     case book(bookId: Int)
     /// `/requests`.
     case requests
+    /// `/settings?tab=transcode` (re-encode finished / failed).
+    case transcode
 
     var id: String {
         switch self {
@@ -25,6 +27,8 @@ enum NotificationDestination: Identifiable, Equatable, Sendable {
             "book-\(bookId)"
         case .requests:
             "requests"
+        case .transcode:
+            "transcode"
         }
     }
 
@@ -56,6 +60,9 @@ enum NotificationDestination: Identifiable, Equatable, Sendable {
             return .book(bookId: bookId)
         case "requests":
             return .requests
+        case "settings":
+            let tab = components.queryItems?.first(where: { $0.name == "tab" })?.value
+            return tab == "transcode" ? .transcode : nil
         default:
             // Includes "notifications" (the list itself) and anything unknown.
             return nil
