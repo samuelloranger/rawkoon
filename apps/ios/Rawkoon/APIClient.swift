@@ -435,6 +435,17 @@ actor APIClient {
         try checkStatus(data, response)
     }
 
+    /// POST whose body keeps its own key names (the re-encode settings are camelCase on the wire)
+    /// while the response still decodes snake_case.
+    func postPlainBody<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
+        var request = try makeRequest(path: path, method: "POST", requiresAuth: true)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try Self.plainEncoder.encode(body)
+        let (data, response) = try await perform(request)
+        try checkStatus(data, response)
+        return try decodeJSON(data)
+    }
+
     // MARK: - SSE
 
     /// Consumes a JSON-over-SSE stream at `path`, yielding a decoded value per
