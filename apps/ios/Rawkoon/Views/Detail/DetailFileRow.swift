@@ -18,6 +18,8 @@ struct DetailFileRow: View {
     let onNotice: (String) -> Void
     let onError: (String) -> Void
     let onRequestDelete: () -> Void
+    /// Opens the re-encode sheet for this file; nil hides the action.
+    var onReencode: (() -> Void)?
 
     @State private var expanded = false
     @State private var remuxOpen = false
@@ -44,6 +46,13 @@ struct DetailFileRow: View {
         }
         .rawkoonMotion(RawkoonMotion.snappy, value: expanded)
         .contextMenu {
+            if isAdmin, let onReencode {
+                Button {
+                    onReencode()
+                } label: {
+                    Label("Re-encode…", systemImage: "gauge.with.dots.needle.67percent")
+                }
+            }
             // Movie files delete via the generic file route; episode files are
             // deleted from the seasons section, which has the episode id.
             if isAdmin, mode == .movie {
@@ -112,6 +121,16 @@ struct DetailFileRow: View {
                         .foregroundStyle(Theme.faint)
                 }
                 Spacer()
+                if isAdmin, let onReencode {
+                    Button {
+                        onReencode()
+                    } label: {
+                        Label("Re-encode…", systemImage: "gauge.with.dots.needle.67percent")
+                            .font(.caption.weight(.medium))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.apricot)
+                }
                 if canRemux, !remuxOpen {
                     Button {
                         openRemux()

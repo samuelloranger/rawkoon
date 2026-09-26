@@ -18,6 +18,8 @@ struct DetailSeasonsSection: View {
     let onSeasonReleaseSearch: (Int) -> Void
     let onSeasonRetrySkipped: (Int) -> Void
     let onSeasonToggleMonitor: (Int, Bool) -> Void
+    let onSeasonReencode: (Int) -> Void
+    let onFileReencode: (LibraryFileInfo) -> Void
 
     let onEpisodeAutoSearch: (Episode) -> Void
     let onEpisodeReleaseSearch: (Episode) -> Void
@@ -130,6 +132,11 @@ struct DetailSeasonsSection: View {
             } label: {
                 Label("Retry skipped", systemImage: "arrow.clockwise")
             }
+            Button {
+                onSeasonReencode(season.seasonNumber)
+            } label: {
+                Label("Re-encode season…", systemImage: "gauge.with.dots.needle.67percent")
+            }
             if !episodes.isEmpty {
                 Button {
                     onSeasonToggleMonitor(season.seasonNumber, !monitored)
@@ -219,7 +226,8 @@ struct DetailSeasonsSection: View {
                     onChanged: onFileChanged,
                     onNotice: onFileNotice,
                     onError: onFileError,
-                    onRequestDelete: {}
+                    onRequestDelete: {},
+                    onReencode: { onFileReencode(file) }
                 )
             }
         }
@@ -248,7 +256,8 @@ struct DetailSeasonsSection: View {
                     onChanged: onFileChanged,
                     onNotice: onFileNotice,
                     onError: onFileError,
-                    onRequestDelete: {}
+                    onRequestDelete: {},
+                    onReencode: { onFileReencode(file) }
                 )
             }
         }

@@ -47,6 +47,8 @@ struct NotificationDestinationView: View {
             }
         case .requests:
             RequestsView()
+        case .transcode:
+            ReencodeAdminView()
         }
     }
 
@@ -85,7 +87,7 @@ struct NotificationDestinationView: View {
                 await model.loadLibrary()
                 bookItem = model.library.first { $0.bookId == bookId }
             }
-        case .requests:
+        case .requests, .transcode:
             break
         }
     }
