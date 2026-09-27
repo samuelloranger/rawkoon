@@ -175,10 +175,16 @@ struct MediaDetailView: View {
                 liveReloadTask?.cancel()
                 liveReloadTask = Task { await refreshManagementData() }
             }
-            // A screen opened offline with nothing saved fills in once the connection returns.
-            .onChange(of: model.isOffline) { _, offline in
-                guard !offline, details == nil, !loading else { return }
-                Task { await fetchDetails() }
+            // Painted from saved data while the server was out of reach: refetch once it's back.
+            .onChange(of: model.reconnectToken) { _, _ in
+                guard !loading else { return }
+                Task {
+                    await fetchDetails()
+                    await fetchSimilar()
+                    if showManagement, managementItem != nil {
+                        await refreshManagementData()
+                    }
+                }
             }
         return attachDialogs(attachSheets(base))
     }

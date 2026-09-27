@@ -107,6 +107,13 @@ public final class ResponseCache: @unchecked Sendable {
         totalBytes = 0
     }
 
+    /// Bytes of saved bodies on disk, for the Settings storage row.
+    public func diskUsage() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return currentTotal()
+    }
+
     /// Stops this instance writing for good; reads still work until the wipe.
     public func invalidate() {
         lock.lock()

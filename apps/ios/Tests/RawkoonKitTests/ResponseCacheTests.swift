@@ -136,6 +136,16 @@ struct ResponseCacheTests {
         #expect(reopened.entry(for: "b") != nil)
     }
 
+    @Test func diskUsageTracksStoredBytes() {
+        let (cache, _) = makeCache()
+        #expect(cache.diskUsage() == 0)
+        cache.store(Data(repeating: 1, count: 100), etag: nil, for: "a")
+        cache.store(Data(repeating: 2, count: 50), etag: nil, for: "b")
+        #expect(cache.diskUsage() == 150)
+        cache.remove("a")
+        #expect(cache.diskUsage() == 50)
+    }
+
     @Test func removeDropsOneEntry() {
         let (cache, _) = makeCache()
         cache.store(Data("x".utf8), etag: nil, for: "a")

@@ -49,6 +49,9 @@ final class AppModel {
     /// When the server last confirmed `library`; nil while it is only the saved
     /// copy painted at launch, so screens know to refresh it once.
     var libraryFetchedAt: Date?
+    /// Bumped whenever the server is reachable again (network back, or the live
+    /// stream reconnecting after a drop), so screens painted from saved data refetch.
+    var reconnectToken = 0
     /// The in-flight library load — Home, Library and the root all ask for one on
     /// launch, and every page of the library should be fetched once.
     private var libraryTask: Task<Void, Never>?
@@ -141,6 +144,9 @@ final class AppModel {
     /// captive portal or a down server still has to be handled by whatever
     /// waits on the request.
     private(set) var isOnline = true
+    /// Cellular, a personal hotspot, or Low Data Mode: background prefetching waits.
+    private(set) var isOnExpensiveNetwork = false
+    var prefetchTask: Task<Void, Never>?
     private let pathMonitor = NWPathMonitor()
 
     let readingProgressStore = ReadingProgressStore(
@@ -221,10 +227,12 @@ final class AppModel {
         #endif
         pathMonitor.pathUpdateHandler = { path in
             let online = path.status == .satisfied
+            let expensive = path.isExpensive || path.isConstrained
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 let cameBackOnline = online && !isOnline
                 isOnline = online
+                isOnExpensiveNetwork = expensive
                 // Reconnected: un-latch stranded downloads, refresh what the
                 // offline launch painted from disk, and resend offline progress.
                 if cameBackOnline {
@@ -327,6 +335,9 @@ final class AppModel {
                 try await reloadLibrary()
                 // Siri only matches "Play <title>" against titles it has been handed.
                 RawkoonShortcuts.updateAppShortcutParameters()
+                if libraryFetchedAt != nil {
+                    Task { await prefetchForOffline() }
+                }
             } catch {
                 errorMessage = message(for: error)
             }

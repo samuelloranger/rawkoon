@@ -201,6 +201,10 @@ struct BookView: View {
         .task(id: model.bookChangeToken) {
             await refreshAll(forceManifestRefresh: false)
         }
+        // Painted from saved data while the server was out of reach: refetch once it's back.
+        .onChange(of: model.reconnectToken) { _, _ in
+            Task { await refreshAll(forceManifestRefresh: false) }
+        }
         .refreshable {
             await refreshAll(forceManifestRefresh: true)
         }

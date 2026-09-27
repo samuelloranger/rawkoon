@@ -35,6 +35,7 @@ targets:
       path: Rawkoon/Info.plist
       properties:
         UIBackgroundModes: [audio, fetch, remote-notification]
+        BGTaskSchedulerPermittedIdentifiers: [cloud.samlo.rawkoon.refresh]
         # CarPlay scene ONLY. We do not declare UIWindowSceneSessionRoleApplication:
         # omitting it lets SwiftUI keep managing the phone WindowGroup. Declaring a
         # UIKit window SceneDelegate here would drag the phone UI off SwiftUI.

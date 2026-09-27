@@ -156,6 +156,14 @@ struct LibraryView: View {
                 Task { await loadBookProgress() }
             }
         }
+        .onChange(of: model.reconnectToken) { _, _ in
+            Task {
+                if section == .media {
+                    await loadMedia(reset: true)
+                }
+                await loadBookProgress()
+            }
+        }
         .onChange(of: mediaFilterKey) { _, _ in
             liveReloadTask?.cancel()
             hydrateMediaFromCache()
@@ -813,6 +821,9 @@ struct LibraryView: View {
     /// so a filter change, pull-to-refresh or live event never collapses the list
     /// to page 1 — which would drop the pages scrolled past and reset the offset.
     private func loadMedia(reset: Bool) async {
+        if applyOfflineSearch() {
+            return
+        }
         guard let client = model.api() else { return }
         let key = mediaKey
         let loader = mediaPageLoader(for: key, client: client)
@@ -833,6 +844,30 @@ struct LibraryView: View {
     private func hydrateMediaFromCache() {
         let key = mediaKey
         guard let client = model.api(), store.libraryList(key).value == nil else { return }
+        if let saved = savedPages(for: key, client: client) {
+            store.hydrateLibraryList(key, items: saved.items, pagesLoaded: saved.pages, hasMore: saved.hasMore)
+        }
+    }
+
+    /// Offline, a search filters the saved list for the same type and status
+    /// instead of asking the server; the server search runs once back online.
+    private func applyOfflineSearch() -> Bool {
+        let key = mediaKey
+        guard model.isOffline, let query = key.query, !query.isEmpty, let client = model.api() else { return false }
+        let base = LibraryListKey(
+            type: key.type, status: key.status, query: nil, page: key.page,
+            limit: key.limit, sortBy: key.sortBy, sortDirection: key.sortDirection
+        )
+        let source = store.libraryList(base).value ?? savedPages(for: base, client: client)?.items ?? []
+        let matches = source.filter { $0.title.localizedStandardContains(query) }
+        store.seedLibraryList(matches, for: key, pagesLoaded: 1, hasMore: false)
+        return true
+    }
+
+    private func savedPages(
+        for key: LibraryListKey,
+        client: APIClient
+    ) -> (items: [LibraryMedia], pages: Int, hasMore: Bool)? {
         var items: [LibraryMedia] = []
         var pages = 0
         var hasMore = false
@@ -854,8 +889,7 @@ struct LibraryView: View {
                 break
             }
         }
-        guard pages > 0 else { return }
-        store.hydrateLibraryList(key, items: items, pagesLoaded: pages, hasMore: hasMore)
+        return pages > 0 ? (items, pages, hasMore) : nil
     }
 
     private func mediaPageLoader(

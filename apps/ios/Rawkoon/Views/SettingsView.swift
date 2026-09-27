@@ -10,6 +10,8 @@ struct SettingsView: View {
     @State private var sessionUser: SessionUser?
     @State private var appVersion: String?
     @State private var confirmDeleteDownloads = false
+    @State private var confirmClearSavedData = false
+    @State private var savedDataBytes = 0
     @State private var confirmLogOut = false
     @State private var settingsSearch = ""
     @State private var showingSSEDebug = false
@@ -56,6 +58,18 @@ struct SettingsView: View {
             Text("Removes offline audiobook chapters from this iPhone. Playback will need the network until they download again.")
         }
         .rawkoonConfirm(
+            "Clear saved data?",
+            isPresented: $confirmClearSavedData
+        ) {
+            Button("Clear Saved Data", role: .destructive) {
+                model.clearSavedData()
+                savedDataBytes = model.savedDataBytes
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Screens will need the network again until they reload. Downloads and your sign-in are kept.")
+        }
+        .rawkoonConfirm(
             "Log out of Rawkoon?",
             isPresented: $confirmLogOut
         ) {
@@ -79,6 +93,12 @@ struct SettingsView: View {
         .onChange(of: isActiveRootTab) { _, active in
             if active {
                 Task { await loadAccount() }
+            }
+        }
+        .onChange(of: model.reconnectToken) { _, _ in
+            Task {
+                await loadAccount()
+                await loadVersion()
             }
         }
     }
@@ -226,6 +246,30 @@ struct SettingsView: View {
                 }
             }
             .listRowBackground(Theme.raised)
+
+            Section {
+                LabeledContent("Saved data") {
+                    Text(ByteCountFormatter.string(fromByteCount: Int64(savedDataBytes), countStyle: .file))
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(Theme.faint)
+                }
+                if let synced = model.libraryFetchedAt {
+                    LabeledContent("Last synced") {
+                        Text(synced, style: .relative)
+                            .font(.caption)
+                            .foregroundStyle(Theme.faint)
+                    }
+                }
+                Button("Clear Saved Data", role: .destructive) {
+                    confirmClearSavedData = true
+                }
+            } header: {
+                Text("Offline")
+            } footer: {
+                Text("Screens you've opened, and recent titles fetched ahead of time on Wi-Fi, stay viewable without a connection.")
+            }
+            .listRowBackground(Theme.raised)
+            .onAppear { savedDataBytes = model.savedDataBytes }
 
             Section("About") {
                 LabeledContent("Version") {

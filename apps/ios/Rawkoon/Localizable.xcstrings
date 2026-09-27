@@ -10368,6 +10368,66 @@
           }
         }
       }
+    },
+    "Clear Saved Data": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Effacer les données enregistrées"
+          }
+        }
+      }
+    },
+    "Clear saved data?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Effacer les données enregistrées ?"
+          }
+        }
+      }
+    },
+    "Screens will need the network again until they reload. Downloads and your sign-in are kept.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les écrans auront de nouveau besoin du réseau jusqu'à leur rechargement. Tes téléchargements et ta connexion sont conservés."
+          }
+        }
+      }
+    },
+    "Screens you've opened, and recent titles fetched ahead of time on Wi-Fi, stay viewable without a connection.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les écrans que tu as ouverts, et les titres récents préchargés en Wi-Fi, restent consultables sans connexion."
+          }
+        }
+      }
+    },
+    "Saved data": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Données enregistrées"
+          }
+        }
+      }
+    },
+    "Last synced": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dernière synchro"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -121,6 +121,7 @@ struct RawkoonApp: App {
                 case .background:
                     model.persistPlaybackProgress(force: true)
                     model.stopLiveStreams()
+                    model.scheduleBackgroundRefresh()
                 case .inactive:
                     break
                 @unknown default:
@@ -162,6 +163,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     /// for finished downloads may never render anything.
     @MainActor private var appModel: AppModel {
         AppModel.shared
+    }
+
+    func application(
+        _: UIApplication,
+        didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
+        AppModel.registerBackgroundRefresh()
+        return true
     }
 
     func application(_: UIApplication,

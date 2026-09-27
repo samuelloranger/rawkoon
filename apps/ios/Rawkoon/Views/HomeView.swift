@@ -99,6 +99,10 @@ struct HomeView: View {
             }
         }
         .task { await model.refreshUnreadNotificationCount() }
+        .onChange(of: model.reconnectToken) { _, _ in
+            continueToken += 1
+            Task { await load() }
+        }
         // Re-encode progress: poll only while Home is the visible tab (.task cancels on disappear).
         // Keyed on isAdmin too: it resolves after Home first appears on a cold launch.
         .task(id: [isActiveRootTab, model.isAdmin, model.isOffline]) {
