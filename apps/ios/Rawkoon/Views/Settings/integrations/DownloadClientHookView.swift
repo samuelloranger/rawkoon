@@ -61,6 +61,7 @@ struct DownloadClientHookView: View {
                 }
                 Section {
                     Button("Rotate secret", role: .destructive) { confirmRotate = true }
+                        .requiresConnection(model.isOffline)
                         .listRowBackground(Theme.raised)
                 }
                 if let saveError {
@@ -77,7 +78,7 @@ struct DownloadClientHookView: View {
                 if saving {
                     ProgressView().tint(Theme.apricot)
                 } else {
-                    Button("Save") { Task { await save() } }.disabled(!isDirty)
+                    Button("Save") { Task { await save() } }.disabled(!isDirty).requiresConnection(model.isOffline)
                 }
             }
         }

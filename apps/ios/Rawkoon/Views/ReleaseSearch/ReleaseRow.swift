@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ReleaseRow: View {
     @Environment(\.openURL) private var openURL
+    @Environment(AppModel.self) private var model
 
     let release: ReleaseItem
     let isGrabbing: Bool
@@ -253,6 +254,7 @@ struct ReleaseRow: View {
                 .frame(minHeight: 44)
                 .background(Theme.terracotta, in: Capsule())
             }
+            .requiresConnection(model.isOffline)
         }
     }
 
@@ -281,6 +283,7 @@ struct ReleaseRow: View {
             .tint(Theme.muted)
             .controlSize(.small)
             .frame(minHeight: 44)
+            .requiresConnection(model.isOffline)
         }
     }
 

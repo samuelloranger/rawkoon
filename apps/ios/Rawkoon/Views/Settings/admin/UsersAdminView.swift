@@ -47,14 +47,17 @@ struct UsersAdminView: View {
                     .swipeActions {
                         Button("Delete", role: .destructive) { Task { await delete(user) } }
                             .disabled(busyIds.contains(user.id))
+                            .requiresConnection(model.isOffline)
                         Button(LocalizedStringKey(user.isAdmin ? "Make user" : "Make admin")) {
                             Task { await toggleRole(user) }
                         }
                         .tint(Theme.apricot)
                         .disabled(busyIds.contains(user.id))
+                        .requiresConnection(model.isOffline)
                         Button("Reset") { resetUser = user; newPassword = "" }
                             .tint(Theme.terracotta)
                             .disabled(busyIds.contains(user.id))
+                            .requiresConnection(model.isOffline)
                     }
                     .overlay(alignment: .trailing) {
                         if busyIds.contains(user.id) {
@@ -83,6 +86,7 @@ struct UsersAdminView: View {
             SecureField("New password (min 8)", text: $newPassword)
             Button("Reset") { Task { await resetPassword() } }
                 .disabled(resettingPassword)
+                .requiresConnection(model.isOffline)
             Button("Cancel", role: .cancel) { resetUser = nil }
         } message: {
             Text("Sets a new password and signs the user out everywhere.")
@@ -217,7 +221,7 @@ private struct ProvisioningSheet: View {
                 if working {
                     ProgressView().tint(Theme.apricot)
                 } else {
-                    Button("Submit") { Task { await submit() } }.disabled(email.isEmpty)
+                    Button("Submit") { Task { await submit() } }.disabled(email.isEmpty).requiresConnection(model.isOffline)
                 }
             }
         }
@@ -277,9 +281,11 @@ private struct InvitationsView: View {
                     .swipeActions {
                         Button("Revoke", role: .destructive) { Task { await revoke(invitation) } }
                             .disabled(busyIds.contains(invitation.id))
+                            .requiresConnection(model.isOffline)
                         Button("Resend") { Task { await resend(invitation) } }
                             .tint(Theme.apricot)
                             .disabled(busyIds.contains(invitation.id))
+                            .requiresConnection(model.isOffline)
                     }
                     .overlay(alignment: .trailing) {
                         if busyIds.contains(invitation.id) {

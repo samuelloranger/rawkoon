@@ -15,6 +15,8 @@ struct BookDiscoveryView: View {
     @State private var loading = false
     @State private var error: String?
     @State private var loadGeneration = 0
+    /// The source/list the grid's items belong to, so a switch never shows another list's books.
+    @State private var itemsKey: String?
 
     private var gridColumns: [GridItem] {
         if hSizeClass == .regular {
@@ -64,6 +66,16 @@ struct BookDiscoveryView: View {
                 await loadSources()
             }
         }
+        .onChange(of: model.isOffline) { _, offline in
+            guard !offline, error != nil else { return }
+            Task {
+                if sources.isEmpty {
+                    await loadSources()
+                } else {
+                    await loadList()
+                }
+            }
+        }
     }
 
     private var sourceBinding: Binding<String> {
@@ -91,6 +103,13 @@ struct BookDiscoveryView: View {
     private var content: some View {
         if loading, items.isEmpty {
             skeletonGrid
+        } else if items.isEmpty, error != nil, model.isOffline {
+            ContentUnavailableView(
+                "You're offline",
+                systemImage: "wifi.slash",
+                description: Text("This will load when you're back online.")
+            )
+            .padding(.top, 16)
         } else if items.isEmpty, let error {
             ContentUnavailableView(
                 "Couldn't load this list",
@@ -186,23 +205,45 @@ struct BookDiscoveryView: View {
 
     private func loadSources() async {
         guard let client = model.api() else { return }
+        if sources.isEmpty, let cached = client.cached(Endpoints.bookDiscoverySources) {
+            applySources(cached.value.sources)
+            paintListFromCache(client: client)
+        }
         loading = true
         defer { loading = false }
         do {
             let fetched = try await client.bookDiscoverySources().sources
-            sources = fetched
-            if source == nil {
-                source = fetched.first?.id
-                list = fetched.first?.lists.first?.id
-            }
+            applySources(fetched)
             await loadList()
         } catch {
-            self.error = settingsErrorMessage(error)
+            if sources.isEmpty {
+                self.error = settingsErrorMessage(error)
+            } else {
+                await loadList()
+            }
         }
+    }
+
+    private func applySources(_ fetched: [BookDiscoverySourceDTO]) {
+        sources = fetched
+        if source == nil {
+            source = fetched.first?.id
+            list = fetched.first?.lists.first?.id
+        }
+    }
+
+    /// Swaps in the saved copy of the selected list when the grid holds another list (or none).
+    private func paintListFromCache(client: APIClient) {
+        guard let source, let list else { return }
+        let key = "\(source)/\(list)"
+        guard itemsKey != key else { return }
+        items = client.cached(Endpoints.bookDiscovery(source: source, list: list))?.value.items ?? []
+        itemsKey = key
     }
 
     private func loadList() async {
         guard let client = model.api(), let source, let list else { return }
+        paintListFromCache(client: client)
         loadGeneration += 1
         let gen = loadGeneration
         loading = true
@@ -218,8 +259,8 @@ struct BookDiscoveryView: View {
                 items = response.items
             }
         } catch {
+            // The grid already holds this list's saved books (or none); keep them.
             if gen == loadGeneration {
-                items = []
                 self.error = settingsErrorMessage(error)
             }
         }
@@ -352,7 +393,7 @@ struct DiscoveryBookDetailView: View {
                         } else {
                             Image(systemName: added ? "checkmark" : "plus")
                         }
-                        Text(added ? "Added" : "Add to library")
+                        Text(added ? LocalizedStringKey("Added") : LocalizedStringKey("Add to library"))
                     }
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.onAccent)
@@ -361,6 +402,7 @@ struct DiscoveryBookDetailView: View {
                     .background(Theme.apricot, in: Capsule())
                 }
                 .disabled(adding || added)
+                .requiresConnection(model.isOffline)
             }
 
             if let sourceUrl = book.sourceUrl, let url = URL(string: sourceUrl) {

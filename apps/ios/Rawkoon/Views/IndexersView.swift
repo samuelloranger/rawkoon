@@ -8,6 +8,7 @@ struct IndexersView: View {
     @State private var loading = false
     @State private var errorMessage: String?
     @State private var unauthorized = false
+    @State private var hasLoaded = false
 
     var body: some View {
         ScrollView {
@@ -94,7 +95,6 @@ struct IndexersView: View {
     }
 
     private func load() async {
-        loading = true
         errorMessage = nil
         unauthorized = false
         defer { loading = false }
@@ -104,17 +104,28 @@ struct IndexersView: View {
             return
         }
 
+        if !hasLoaded, let cached = client.cached(Endpoints.indexers) {
+            indexers = cached.value.indexers
+            hasLoaded = true
+        }
+        loading = !hasLoaded
+
         do {
             let response = try await client.indexers()
             indexers = response.indexers
+            hasLoaded = true
         } catch APIError.unauthorized {
             unauthorized = true
         } catch APIError.forbidden {
             unauthorized = true
         } catch let error as APIError {
-            errorMessage = message(for: error)
+            if !hasLoaded {
+                errorMessage = message(for: error)
+            }
         } catch {
-            errorMessage = String(localized: "Network error. Check your connection.")
+            if !hasLoaded {
+                errorMessage = String(localized: "Can't reach the server. Try again in a moment.")
+            }
         }
     }
 

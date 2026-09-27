@@ -48,6 +48,9 @@ struct NotificationsSettingsView: View {
 
     @State private var prefs: [String: Bool] = Dictionary(uniqueKeysWithValues: NotificationsSettingsView.allKeys.map { ($0, true) })
     @State private var isLoading = true
+    /// Until the server's (or the saved) answer is in, the all-on defaults are
+    /// placeholders, not the user's choices.
+    @State private var prefsLoaded = false
     @State private var saveError: String?
 
     var body: some View {
@@ -59,6 +62,18 @@ struct NotificationsSettingsView: View {
                         ProgressView().tint(Theme.apricot)
                         Spacer()
                     }
+                }
+                .listRowBackground(Theme.raised)
+            } else if !prefsLoaded {
+                Section {
+                    Text("Couldn't load your notification preferences.")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.muted)
+                    Button("Try again") {
+                        isLoading = true
+                        Task { await loadPrefs() }
+                    }
+                    .requiresConnection(model.isOffline)
                 }
                 .listRowBackground(Theme.raised)
             }
@@ -119,19 +134,29 @@ struct NotificationsSettingsView: View {
                 Task { await savePrefs(key: row.key, previousValue: previousValue) }
             }
         ))
+        .disabled(!prefsLoaded)
+        .requiresConnection(model.isOffline)
     }
 
     private func loadPrefs() async {
         defer { isLoading = false }
         guard let client = model.api() else { return }
-        let session = try? await client.currentUser()
-        guard let user = session?.user else { return }
-        guard let serverPrefs = user.notificationPreferences else { return }
+        if !prefsLoaded, let user = client.cached(Endpoints.currentUser)?.value.user {
+            apply(user)
+            isLoading = false
+        }
+        if let user = try? await client.currentUser().user {
+            apply(user)
+        }
+    }
+
+    private func apply(_ user: SessionUser) {
         for key in NotificationsSettingsView.allKeys {
-            if let value = serverPrefs[key] {
+            if let value = user.notificationPreferences?[key] {
                 prefs[key] = value
             }
         }
+        prefsLoaded = true
     }
 
     private func savePrefs(key: String, previousValue: Bool) async {

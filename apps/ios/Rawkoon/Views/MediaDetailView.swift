@@ -48,6 +48,9 @@ struct MediaDetailView: View {
     @State var ratings: MediaRatings?
     @State var loading = false
     @State var errorMessage: String?
+    /// The details fetch had no answer and nothing was saved: show the hero and a calm note.
+    @State var detailsUnreachable = false
+    @State var didInitialLoad = false
 
     @State var requesting = false
     @State var requested = false
@@ -162,6 +165,7 @@ struct MediaDetailView: View {
                     }
                     .accessibilityLabel(Text(LocalizedStringKey(inWatchlist ? "Remove from watchlist" : "Add to watchlist")))
                     .disabled(watchlistPending)
+                    .requiresConnection(model.isOffline)
                 }
             }
             .sensoryFeedback(RawkoonHaptics.feedback(for: .grab), trigger: requested)
@@ -170,6 +174,17 @@ struct MediaDetailView: View {
                 guard showManagement, managementItem != nil else { return }
                 liveReloadTask?.cancel()
                 liveReloadTask = Task { await refreshManagementData() }
+            }
+            // Painted from saved data while the server was out of reach: refetch once it's back.
+            .onChange(of: model.reconnectToken) { _, _ in
+                guard !loading else { return }
+                Task {
+                    await fetchDetails()
+                    await fetchSimilar()
+                    if showManagement, managementItem != nil {
+                        await refreshManagementData()
+                    }
+                }
             }
         return attachDialogs(attachSheets(base))
     }
@@ -184,16 +199,20 @@ struct MediaDetailView: View {
             .frame(maxWidth: .infinity)
             .padding(.bottom, 24)
         }
+        .onAppear(perform: hydrateFromCache)
         .task {
-            if details == nil {
+            // Saved copies painted on appear, so the first open always refetches;
+            // a revisit only retries what is still missing.
+            if !didInitialLoad || details == nil {
                 await fetchDetails()
             }
-            if showManagement, managementItem == nil {
+            if showManagement, !didInitialLoad || managementItem == nil {
                 await refreshManagementData()
             }
-            if similarItems.isEmpty, !loadingSimilar {
+            if !didInitialLoad || similarItems.isEmpty, !loadingSimilar {
                 await fetchSimilar()
             }
+            didInitialLoad = true
             // Deep link "?tab=management" now selects the Manage segment instead
             // of scrolling a single long page to it.
             if focusManagement, showManagement {
@@ -329,6 +348,21 @@ struct MediaDetailView: View {
     var mainContent: some View {
         if loading, details == nil {
             detailSkeleton
+        } else if details == nil, detailsUnreachable {
+            // Offline with nothing saved: keep the identity the caller passed in.
+            DetailHero(
+                title: title,
+                posterPath: posterPath,
+                backdropPath: nil,
+                metaLine: "",
+                tagline: nil,
+                statusText: detailStatusText,
+                statusTint: detailStatusTint
+            )
+            Text("Details will load when you're back online.")
+                .font(.subheadline)
+                .foregroundStyle(Theme.muted)
+                .padding(.horizontal, 16)
         } else if let errorMessage, details == nil {
             ContentUnavailableView(
                 "Couldn't load details",
@@ -497,6 +531,7 @@ struct MediaDetailView: View {
                         ) {
                             Task { model.isAdmin ? await submitAdd() : await submitRequest() }
                         }
+                        .requiresConnection(model.isOffline)
                     }
                 } else if requested {
                     Text("We'll notify you when this is in the library. See Requests in Library.")
@@ -602,7 +637,7 @@ struct MediaDetailView: View {
 
     @ViewBuilder
     var similarBody: some View {
-        if loadingSimilar {
+        if loadingSimilar, similarItems.isEmpty {
             LazyVGrid(columns: similarColumns, spacing: 14) {
                 ForEach(0 ..< 6, id: \.self) { _ in
                     VStack(alignment: .leading, spacing: 6) {

@@ -26,6 +26,7 @@ struct SSEDebugView: View {
                     model.forceReconnectSSE()
                 }
                 .disabled(busy)
+                .requiresConnection(model.isOffline)
             }
 
             Section("Trigger a test event") {
@@ -38,6 +39,7 @@ struct SSEDebugView: View {
                     trigger(kind: "media", rawId: mediaId)
                 }
                 .disabled(busy || Int(mediaId) == nil)
+                .requiresConnection(model.isOffline)
 
                 LabeledContent("Book id") {
                     TextField("id", text: $bookId)
@@ -48,11 +50,13 @@ struct SSEDebugView: View {
                     trigger(kind: "book", rawId: bookId)
                 }
                 .disabled(busy || Int(bookId) == nil)
+                .requiresConnection(model.isOffline)
 
                 Button("Send test notification") {
                     sendTestNotification()
                 }
                 .disabled(busy)
+                .requiresConnection(model.isOffline)
 
                 if let errorMessage {
                     Text(errorMessage)

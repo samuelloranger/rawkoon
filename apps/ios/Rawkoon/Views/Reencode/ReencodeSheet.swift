@@ -109,6 +109,7 @@ struct ReencodeSheet: View {
                             Spacer()
                             Button("Retry") { retryToken += 1 }
                                 .buttonStyle(.borderless)
+                                .requiresConnection(model.isOffline)
                         }
                         .listRowBackground(Theme.raised)
                     }
@@ -119,7 +120,7 @@ struct ReencodeSheet: View {
                         mode: settings.mode,
                         outdated: outdated,
                         refining: refining,
-                        canRefine: eligibleCount > 0,
+                        canRefine: eligibleCount > 0 && !model.isOffline,
                         onRefine: { Task { await refine() } }
                     )
                 }
@@ -136,9 +137,20 @@ struct ReencodeSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add \(eligibleCount) files") { Task { await submit() } }
                         .disabled(eligibleCount == 0 || submitting)
+                        .requiresConnection(model.isOffline)
                 }
             }
             .task { await loadCapabilities() }
+            // Estimates that failed offline retry on their own once the connection is back.
+            .onChange(of: model.isOffline) { _, offline in
+                guard !offline else { return }
+                if caps == nil {
+                    Task { await loadCapabilities() }
+                }
+                if estimateFailed {
+                    retryToken += 1
+                }
+            }
             .task(id: EstimateKey(settings: qualitySettings, retry: retryToken)) {
                 try? await Task.sleep(for: .milliseconds(300))
                 guard !Task.isCancelled else { return }

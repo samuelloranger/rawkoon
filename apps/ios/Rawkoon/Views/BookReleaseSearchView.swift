@@ -56,12 +56,21 @@ struct BookReleaseSearchView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Theme.base)
         .task { await start() }
+        .onChange(of: model.isOffline) { _, offline in
+            guard !offline, releases.isEmpty, !loading else { return }
+            Task { await start() }
+        }
     }
 
     @ViewBuilder
     private var content: some View {
         if loading {
             centered { ProgressView().tint(Theme.apricot); Text("Searching…").foregroundStyle(Theme.muted) }
+        } else if model.isOffline, releases.isEmpty {
+            centered {
+                ContentUnavailableView("Offline", systemImage: "wifi.slash",
+                                       description: Text("Release search needs a connection."))
+            }
         } else if let errorMessage, releases.isEmpty {
             centered {
                 ContentUnavailableView("Search failed", systemImage: "wifi.slash", description: Text(errorMessage))
@@ -144,6 +153,7 @@ struct BookReleaseSearchView: View {
                 .frame(minHeight: 44)
                 .background(Theme.terracotta, in: Capsule())
                 .disabled(release.downloadUrl == nil && release.magnetUrl == nil)
+                .requiresConnection(model.isOffline)
         }
     }
 
@@ -168,6 +178,10 @@ struct BookReleaseSearchView: View {
 
     private func start() async {
         guard let client = model.api() else { errorMessage = String(localized: "Not logged in."); loading = false; return }
+        // Offline, both calls would only fail; the search runs once the connection is back.
+        guard !model.isOffline else { loading = false; return }
+        loading = true
+        errorMessage = nil
         // Ensure the edition exists (400 if it already does — that's fine).
         try? await client.addBookEdition(bookId: bookId, kind: kind)
         do {

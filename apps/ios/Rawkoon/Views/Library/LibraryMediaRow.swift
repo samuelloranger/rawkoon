@@ -154,8 +154,13 @@ struct LibraryMediaRow: View {
 
     /// Mirrors the private `mediaPosterMenuButton` in Components.swift; the row
     /// needs its own context menu since that builder isn't visible here.
-    @ViewBuilder
     private func menuButton(_ action: MediaPosterMenuAction) -> some View {
+        menuButtonContent(action)
+            .disabled(action.requiresConnection && AppModel.shared.isOffline)
+    }
+
+    @ViewBuilder
+    private func menuButtonContent(_ action: MediaPosterMenuAction) -> some View {
         switch action {
         case .toggleMonitored:
             Button { onMenuAction(action) } label: {

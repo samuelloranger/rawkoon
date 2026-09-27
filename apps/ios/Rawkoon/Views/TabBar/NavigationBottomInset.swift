@@ -2,11 +2,13 @@ import SwiftUI
 import UIKit
 
 /// Gives every tab's navigation controller a bottom safe-area inset, as
-/// UITabBarController does for its own bar. SwiftUI safe-area modifiers do not
+/// UITabBarController does for its own bar, and a top one while the offline
+/// strip is showing so navigation bars sit below it. SwiftUI safe-area modifiers do not
 /// cross into a NavigationStack, and content margins leak into horizontal rows
 /// and sheets; a UIKit inset reaches the root and pushed screens and nothing else.
 struct NavigationBottomInset: UIViewControllerRepresentable {
     let bottom: CGFloat
+    var top: CGFloat = 0
     /// Changes when a tab is first mounted, so its new stack gets the inset too.
     let mountedTabs: Int
 
@@ -16,11 +18,13 @@ struct NavigationBottomInset: UIViewControllerRepresentable {
 
     func updateUIViewController(_ probe: Probe, context _: Context) {
         probe.bottom = bottom
+        probe.top = top
         probe.apply()
     }
 
     final class Probe: UIViewController {
         var bottom: CGFloat = 0
+        var top: CGFloat = 0
 
         override func viewDidAppear(_ animated: Bool) {
             super.viewDidAppear(animated)
@@ -36,8 +40,10 @@ struct NavigationBottomInset: UIViewControllerRepresentable {
             }
             for navigation in Self.navigationControllers(in: root)
                 where navigation.additionalSafeAreaInsets.bottom != bottom
+                || navigation.additionalSafeAreaInsets.top != top
             {
                 navigation.additionalSafeAreaInsets.bottom = bottom
+                navigation.additionalSafeAreaInsets.top = top
             }
         }
 

@@ -64,50 +64,80 @@ extension APIClient {
     /// All books, merged: audiobooks and ebooks in one list (like the web app).
     func libraryBooks() async throws -> [BookListItem] {
         var page = 1
-        let limit = 100
         var allItems: [BookListItem] = []
 
         while true {
             let request = try makeRequest(
-                path: pathWithQuery("/api/books", [
-                    "page": String(page),
-                    "limit": String(limit),
-                ]),
+                path: pathWithQuery("/api/books", Self.bookPageQuery(page)),
                 method: "GET",
                 requiresAuth: true
             )
             let (data, response) = try await perform(request)
             try checkStatus(data, response)
-            let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
-            let payload: LibraryResponse = try decodeJSON(data, decoder: decoder)
-
-            let pageItems = payload.items.map { book in
-                let audiobook = book.editions.first { $0.kind == "audiobook" }
-                let ebook = book.editions.first { $0.kind == "ebook" }
-                return BookListItem(
-                    bookId: book.id,
-                    title: book.title,
-                    author: book.authors.first,
-                    coverURL: resolveURL(book.coverUrl),
-                    audiobookEditionId: audiobook?.id,
-                    ebookEditionId: ebook?.id,
-                    audiobookDurationSecs: audiobook?.durationSecs,
-                    audiobookStatus: audiobook?.status,
-                    audiobookFileCount: audiobook?.fileCount ?? 0,
-                    hasEbook: ebook != nil,
-                    readAt: book.readAt
-                )
-            }
+            let (pageItems, hasMore) = try bookPage(from: data)
             allItems.append(contentsOf: pageItems)
 
-            if payload.hasMore != true || pageItems.isEmpty {
+            if !hasMore || pageItems.isEmpty {
                 break
             }
             page += 1
         }
 
         return allItems
+    }
+
+    /// The whole library as last fetched, stitched from the cached pages — or nil
+    /// when any page is missing, since a partial list would hide books.
+    nonisolated func cachedLibraryBooks() -> Cached<[BookListItem]>? {
+        var page = 1
+        var allItems: [BookListItem] = []
+        var oldest = Date.distantFuture
+        while true {
+            guard
+                let entry = cachedEntry("/api/books", query: Self.bookPageQuery(page)),
+                let decoded = try? bookPage(from: entry.data)
+            else { return nil }
+            allItems.append(contentsOf: decoded.items)
+            oldest = min(oldest, entry.fetchedAt)
+            if !decoded.hasMore || decoded.items.isEmpty {
+                return Cached(value: allItems, fetchedAt: oldest)
+            }
+            page += 1
+        }
+    }
+
+    private nonisolated static func bookPageQuery(_ page: Int) -> [String: String?] {
+        ["page": String(page), "limit": "100"]
+    }
+
+    private nonisolated func bookPage(from data: Data) throws -> (items: [BookListItem], hasMore: Bool) {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let payload: LibraryResponse
+        do {
+            payload = try decoder.decode(LibraryResponse.self, from: data)
+        } catch {
+            Log.network.error("decode LibraryResponse failed: \(String(describing: error), privacy: .public)")
+            throw APIError.decode
+        }
+        let items = payload.items.map { book in
+            let audiobook = book.editions.first { $0.kind == "audiobook" }
+            let ebook = book.editions.first { $0.kind == "ebook" }
+            return BookListItem(
+                bookId: book.id,
+                title: book.title,
+                author: book.authors.first,
+                coverURL: resolveURL(book.coverUrl),
+                audiobookEditionId: audiobook?.id,
+                ebookEditionId: ebook?.id,
+                audiobookDurationSecs: audiobook?.durationSecs,
+                audiobookStatus: audiobook?.status,
+                audiobookFileCount: audiobook?.fileCount ?? 0,
+                hasEbook: ebook != nil,
+                readAt: book.readAt
+            )
+        }
+        return (items, payload.hasMore == true)
     }
 
     // MARK: Book editions (add an audiobook edition onto an existing book)
@@ -158,8 +188,19 @@ extension APIClient {
 
     func readingProgress() async throws -> [ReadingPosition] {
         let payload: ReadingProgressResponse = try await get("/api/books/reading-progress")
-        return payload.progress.compactMap { row in
-            guard let updatedAt = Self.parseISO8601(row.updatedAt) else { return nil }
+        return Self.readingPositions(from: payload)
+    }
+
+    nonisolated func cachedReadingProgress() -> Cached<[ReadingPosition]>? {
+        guard let cached: Cached<ReadingProgressResponse> = cached("/api/books/reading-progress") else {
+            return nil
+        }
+        return Cached(value: Self.readingPositions(from: cached.value), fetchedAt: cached.fetchedAt)
+    }
+
+    private nonisolated static func readingPositions(from payload: ReadingProgressResponse) -> [ReadingPosition] {
+        payload.progress.compactMap { row in
+            guard let updatedAt = parseISO8601(row.updatedAt) else { return nil }
             return ReadingPosition(
                 editionId: row.editionId,
                 fileId: row.fileId,
@@ -197,19 +238,36 @@ extension APIClient {
         let request = try makeRequest(path: "/api/books/progress", method: "GET", requiresAuth: true)
         let (data, response) = try await perform(request)
         try checkStatus(data, response)
+        return try Self.remoteProgress(from: data)
+    }
 
+    nonisolated func cachedProgress() -> Cached<[RemoteProgress]>? {
+        guard
+            let entry = cachedEntry("/api/books/progress"),
+            let progress = try? Self.remoteProgress(from: entry.data)
+        else { return nil }
+        return Cached(value: progress, fetchedAt: entry.fetchedAt)
+    }
+
+    private nonisolated static func remoteProgress(from data: Data) throws -> [RemoteProgress] {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             let value = try container.decode(String.self)
-            guard let parsed = Self.parseISO8601(value) else {
+            guard let parsed = parseISO8601(value) else {
                 throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid date: \(value)")
             }
             return parsed
         }
 
-        let payload: ProgressResponse = try decodeJSON(data, decoder: decoder)
+        let payload: ProgressResponse
+        do {
+            payload = try decoder.decode(ProgressResponse.self, from: data)
+        } catch {
+            Log.network.error("decode ProgressResponse failed: \(String(describing: error), privacy: .public)")
+            throw APIError.decode
+        }
 
         return payload.progress.map {
             RemoteProgress(
@@ -308,7 +366,7 @@ extension APIClient {
     }
 
     func listeningStats() async throws -> ListeningStats {
-        try await get("/api/books/listening-stats")
+        try await get(Endpoints.listeningStats)
     }
 }
 

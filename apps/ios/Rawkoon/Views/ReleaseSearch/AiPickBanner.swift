@@ -5,6 +5,8 @@ import SwiftUI
 /// `ReleaseSearchView`; this view renders it and reports actions back through
 /// the closures (retry, grab, dismiss) so the parent stays the single owner.
 struct AiPickBanner: View {
+    @Environment(AppModel.self) private var model
+
     let aiPickLoading: Bool
     let aiPickError: String?
     let aiPickedRelease: ReleaseItem?
@@ -53,6 +55,7 @@ struct AiPickBanner: View {
                         .frame(minHeight: 44)
                     }
                     .buttonStyle(.plain)
+                    .requiresConnection(model.isOffline)
                 }
             }
         } else if let release = aiPickedRelease {
@@ -113,6 +116,7 @@ struct AiPickBanner: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(grabbingGuid != nil)
+                    .requiresConnection(model.isOffline)
                     Button {
                         onDismiss()
                     } label: {

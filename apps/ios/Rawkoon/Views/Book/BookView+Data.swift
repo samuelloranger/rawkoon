@@ -49,8 +49,18 @@ extension BookView {
         }
     }
 
+    /// The last saved detail, so editions and metadata show before (or without) the network.
+    func seedDetailFromCache() {
+        guard detail == nil, let client = model.api(),
+              let cached: Cached<BookDetailResponse> = client.cached("/api/books/\(book.bookId)")
+        else { return }
+        detail = cached.value.item
+        alignLaneToAvailableEditions()
+    }
+
     func loadBookDetail() async {
         guard let client = model.api() else { return }
+        seedDetailFromCache()
         loadingDetail = true
         detailError = nil
         defer { loadingDetail = false }
@@ -61,7 +71,7 @@ extension BookView {
             // A transport failure means we're offline; the screen still works
             // from the library row and any downloaded files, so don't raise a
             // network-error wall for it.
-            if case .transport = apiError {
+            if apiError.isNetworkFailure {
                 detailError = nil
             } else {
                 detailError = message(for: apiError)

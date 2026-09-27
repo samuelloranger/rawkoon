@@ -141,10 +141,17 @@ struct LibraryView: View {
             }
         }
         .task {
+            #if DEBUG
+                // Screenshot-only: the simulator can't type into the search field.
+                if let preset = ProcessInfo.processInfo.environment["RAWKOON_LIBRARY_SEARCH"], mediaSearch.isEmpty {
+                    mediaSearch = preset
+                }
+            #endif
+            hydrateMediaFromCache()
             if section == .media, store.needsLoad(mediaKey) {
                 await loadMedia(reset: true)
             }
-            if model.library.isEmpty {
+            if model.needsLibraryRefresh {
                 await loadBooks()
             }
             await loadBookProgress()
@@ -155,8 +162,17 @@ struct LibraryView: View {
                 Task { await loadBookProgress() }
             }
         }
+        .onChange(of: model.reconnectToken) { _, _ in
+            Task {
+                if section == .media {
+                    await loadMedia(reset: true)
+                }
+                await loadBookProgress()
+            }
+        }
         .onChange(of: mediaFilterKey) { _, _ in
             liveReloadTask?.cancel()
+            hydrateMediaFromCache()
             Task { await loadMedia(reset: true) }
         }
         .onChange(of: section) { _, newSection in
@@ -773,8 +789,9 @@ struct LibraryView: View {
     /// a failure just leaves the list in latest-added order.
     private func loadBookProgress() async {
         guard let client = model.api() else { return }
-        let audio = try? await client.getProgress()
-        let ebook = try? await client.readingProgress()
+        // Offline, the saved progress keeps the bars and the Recent sort.
+        let audio = await (try? client.getProgress()) ?? client.cachedProgress()?.value
+        let ebook = await (try? client.readingProgress()) ?? client.cachedReadingProgress()?.value
         if let audio {
             audioProgress = Dictionary(
                 audio.map { ($0.editionId, $0) },
@@ -810,6 +827,9 @@ struct LibraryView: View {
     /// so a filter change, pull-to-refresh or live event never collapses the list
     /// to page 1 — which would drop the pages scrolled past and reset the offset.
     private func loadMedia(reset: Bool) async {
+        if applyOfflineSearch() {
+            return
+        }
         guard let client = model.api() else { return }
         let key = mediaKey
         let loader = mediaPageLoader(for: key, client: client)
@@ -823,6 +843,59 @@ struct LibraryView: View {
             // The store publishes the failure on the query state; the list keeps
             // whatever it already had.
         }
+    }
+
+    /// Paints a list this launch hasn't fetched from the pages saved last time,
+    /// so the grid opens full — offline, or while the refetch is in flight.
+    private func hydrateMediaFromCache() {
+        let key = mediaKey
+        guard let client = model.api(), store.libraryList(key).value == nil else { return }
+        if let saved = savedPages(for: key, client: client) {
+            store.hydrateLibraryList(key, items: saved.items, pagesLoaded: saved.pages, hasMore: saved.hasMore)
+        }
+    }
+
+    /// Offline, a search filters the saved list for the same type and status
+    /// instead of asking the server; the server search runs once back online.
+    private func applyOfflineSearch() -> Bool {
+        let key = mediaKey
+        guard model.isOffline, let query = key.query, !query.isEmpty, let client = model.api() else { return false }
+        let base = LibraryListKey(
+            type: key.type, status: key.status, query: nil, page: key.page,
+            limit: key.limit, sortBy: key.sortBy, sortDirection: key.sortDirection
+        )
+        let source = store.libraryList(base).value ?? savedPages(for: base, client: client)?.items ?? []
+        let matches = source.filter { $0.title.localizedStandardContains(query) }
+        store.seedLibraryList(matches, for: key, pagesLoaded: 1, hasMore: false)
+        return true
+    }
+
+    private func savedPages(
+        for key: LibraryListKey,
+        client: APIClient
+    ) -> (items: [LibraryMedia], pages: Int, hasMore: Bool)? {
+        var items: [LibraryMedia] = []
+        var pages = 0
+        var hasMore = false
+        while let cached = client.cached(Endpoints.libraryList(
+            type: key.type,
+            status: key.status,
+            q: key.query,
+            page: pages + 1,
+            limit: key.limit,
+            sortBy: key.sortBy ?? "added_at",
+            sortDir: key.sortDirection ?? "desc"
+        )) {
+            for item in cached.value.items where !items.contains(where: { $0.id == item.id }) {
+                items.append(item)
+            }
+            pages += 1
+            hasMore = cached.value.hasMore == true
+            if !hasMore {
+                break
+            }
+        }
+        return pages > 0 ? (items, pages, hasMore) : nil
     }
 
     private func mediaPageLoader(
@@ -865,7 +938,8 @@ struct LibraryView: View {
     private func handleMediaMenu(_ action: MediaPosterMenuAction, media: LibraryMedia) {
         // A provisional row carries a negative placeholder id — nothing that
         // addresses the server may run against it.
-        guard LibraryRowPresentation(media: media).isInteractive else { return }
+        guard LibraryRowPresentation(media: media).isInteractive,
+              !(action.requiresConnection && model.isOffline) else { return }
         switch action {
         case .toggleMonitored:
             Task { await toggleMonitored(media) }
@@ -885,7 +959,7 @@ struct LibraryView: View {
     }
 
     private func handleBookMenu(_ action: BookCardMenuAction, book: BookListItem) {
-        guard !busyBookIds.contains(book.bookId) else { return }
+        guard !busyBookIds.contains(book.bookId), !(action.requiresConnection && model.isOffline) else { return }
         switch action {
         case .read:
             readingBook = book

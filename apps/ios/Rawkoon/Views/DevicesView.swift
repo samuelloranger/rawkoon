@@ -93,6 +93,7 @@ struct DevicesView: View {
         ) { item in
             Button("Remove", role: .destructive) { Task { await remove(item) } }
                 .disabled(removing)
+                .requiresConnection(model.isOffline)
             Button("Cancel", role: .cancel) { pending = nil }
         } message: { _ in
             Text("It will stop receiving notifications.")
@@ -127,7 +128,7 @@ struct DevicesView: View {
                 .foregroundStyle(Theme.muted)
         }
         .swipeActions {
-            Button("Remove", role: .destructive, action: onDelete)
+            Button("Remove", role: .destructive, action: OfflineFeedback.gate(model.isOffline, onDelete))
         }
     }
 
@@ -153,6 +154,12 @@ struct DevicesView: View {
             loading = false
             return
         }
+        if apns.isEmpty, let cached = client.cached(Endpoints.apnsDevices) {
+            apns = cached.value.devices
+        }
+        if web.isEmpty, let cached = client.cached(Endpoints.webPushDevices) {
+            web = cached.value.devices
+        }
         // Load independently so one failing list doesn't blank the other.
         var failed = false
         do {
@@ -165,7 +172,8 @@ struct DevicesView: View {
         } catch {
             failed = true
         }
-        if failed {
+        // Offline, the strip already says the list is the saved copy.
+        if failed, !model.isOffline {
             model.toast(String(localized: "Couldn't refresh all devices."), style: .error)
         }
         loading = false

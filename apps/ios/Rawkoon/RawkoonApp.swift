@@ -39,7 +39,7 @@ struct RawkoonApp: App {
             .preferredColorScheme(.dark)
             .environment(\.locale, AppLanguage.locale(for: AppLanguage(rawValue: appLanguage) ?? .system))
             .overlay {
-                ToastOverlay(toast: model.currentToast)
+                ToastOverlay(toast: model.currentToast, bottomInset: toastBottomInset)
             }
             .alert(
                 "Login not saved",
@@ -88,6 +88,11 @@ struct RawkoonApp: App {
                 #if DEBUG
                     await model.debugAutologinIfNeeded()
                     await model.debugStartDownloadIfRequested()
+                    // Screenshot-only: the simulator can't tap, so show the blocked-action toast directly.
+                    if ProcessInfo.processInfo.environment["RAWKOON_DEMO_OFFLINE_TOAST"] == "1" {
+                        try? await Task.sleep(for: .seconds(4))
+                        OfflineFeedback.explain()
+                    }
                 #endif
                 if model.isLoggedIn {
                     model.requestPushAuthorization()
@@ -116,6 +121,7 @@ struct RawkoonApp: App {
                 case .background:
                     model.persistPlaybackProgress(force: true)
                     model.stopLiveStreams()
+                    model.scheduleBackgroundRefresh()
                 case .inactive:
                     break
                 @unknown default:
@@ -128,6 +134,13 @@ struct RawkoonApp: App {
             // CI greps this file so `.environment(model)` stays below `.overlay`/`.sheet`.
             .environment(model)
         }
+    }
+
+    /// On iPhone the tab bar floats over the bottom edge, with the mini player
+    /// above it while a book is loaded.
+    private var toastBottomInset: CGFloat {
+        guard model.isLoggedIn, UIDevice.current.userInterfaceIdiom == .phone else { return 12 }
+        return model.activeBook() == nil ? 84 : 148
     }
 
     /// Mac Catalyst shows the app name as the window title by default. Hide the
@@ -150,6 +163,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     /// for finished downloads may never render anything.
     @MainActor private var appModel: AppModel {
         AppModel.shared
+    }
+
+    func application(
+        _: UIApplication,
+        didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
+        AppModel.registerBackgroundRefresh()
+        return true
     }
 
     func application(_: UIApplication,
@@ -275,7 +296,9 @@ private struct RootTabsView: View {
                     tabRoot(tab)
                 }
             } else {
+                // The phone container insets its own navigation bars for the strip.
                 sidebarTabs(validSelection)
+                    .offlineStrip(isOffline: model.isOffline)
             }
         }
         .alert(
@@ -302,7 +325,7 @@ private struct RootTabsView: View {
             }
         }
         .task {
-            if model.library.isEmpty {
+            if model.needsLibraryRefresh {
                 await model.loadLibrary()
             }
         }

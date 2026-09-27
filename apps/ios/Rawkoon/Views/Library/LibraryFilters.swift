@@ -72,7 +72,7 @@ nonisolated func libraryErrorMessage(for error: Error) -> String {
     guard let apiError = error as? APIError else { return String(localized: "Unexpected error.") }
     return apiError.userMessage(
         unauthorized: String(localized: "Sign in required."),
-        transport: String(localized: "Network error.")
+        transport: String(localized: "Can't reach the server.")
     )
 }
 

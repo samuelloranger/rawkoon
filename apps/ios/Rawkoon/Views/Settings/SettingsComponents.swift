@@ -504,6 +504,7 @@ enum TestOutcome: Equatable {
 }
 
 struct TestConnectionButton: View {
+    @Environment(AppModel.self) private var model
     private let title: Text
     let action: () async -> TestOutcome
     @State private var state: TestState = .idle
@@ -540,6 +541,7 @@ struct TestConnectionButton: View {
             }
             .tint(Theme.apricot)
             .disabled(state == .running)
+            .requiresConnection(model.isOffline)
 
             switch state {
             case let .ok(message):

@@ -127,7 +127,6 @@ struct DownloadClientView: View {
     }
 
     private func load() async {
-        loading = true
         errorMessage = nil
         unauthorized = false
         defer { loading = false }
@@ -136,6 +135,11 @@ struct DownloadClientView: View {
             errorMessage = String(localized: "Not signed in.")
             return
         }
+
+        if integration == nil, let cached = client.cached(Endpoints.downloadClient) {
+            integration = cached.value.integration
+        }
+        loading = integration == nil
 
         do {
             let response = try await client.downloadClient()
@@ -147,10 +151,14 @@ struct DownloadClientView: View {
             unauthorized = true
             return
         } catch let error as APIError {
-            errorMessage = message(for: error)
+            if integration == nil {
+                errorMessage = message(for: error)
+            }
             return
         } catch {
-            errorMessage = String(localized: "Network error. Check your connection.")
+            if integration == nil {
+                errorMessage = String(localized: "Can't reach the server. Try again in a moment.")
+            }
             return
         }
 

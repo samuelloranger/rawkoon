@@ -83,6 +83,7 @@ struct LibraryOverridesEditorView: View {
                     ProgressView().tint(Theme.muted)
                 } else {
                     Button("Save") { Task { await save() } }
+                        .requiresConnection(model.isOffline)
                 }
             }
         }
@@ -212,6 +213,7 @@ struct LibraryArtworkPickerView: View {
                 if currentUrl != nil {
                     Button("Use default") { Task { await apply(url: nil) } }
                         .disabled(saving)
+                        .requiresConnection(model.isOffline)
                 }
             }
         }
@@ -242,6 +244,7 @@ struct LibraryArtworkPickerView: View {
         }
         .buttonStyle(.plain)
         .disabled(saving)
+        .requiresConnection(model.isOffline)
     }
 
     private func load() async {

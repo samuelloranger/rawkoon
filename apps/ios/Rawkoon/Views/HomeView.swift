@@ -23,6 +23,10 @@ struct HomeView: View {
     @State private var stats: LibraryStats?
     @State private var reencodeSummary: TranscodeSummary?
     @State private var loading = true
+    /// When the last full refresh finished, so switching back to Home within a
+    /// few seconds doesn't refetch every rail.
+    @State private var lastLoadedAt: Date?
+    @State private var hydrated = false
     /// Bumped on pull-to-refresh and when Continue's player sheet dismisses
     /// so Listening reloads with Continue.
     @State private var continueToken = 0
@@ -86,18 +90,23 @@ struct HomeView: View {
                 .accessibilityLabel("Notifications")
             }
         }
+        .onAppear(perform: hydrateFromCache)
         .task { await load() }
         // Kept-alive iPhone tabs never re-appear, so a revisit refreshes like the old TabView did.
         .onChange(of: isActiveRootTab) { _, active in
-            if active {
+            if active, Date().timeIntervalSince(lastLoadedAt ?? .distantPast) > 30 {
                 Task { await load() }
             }
         }
         .task { await model.refreshUnreadNotificationCount() }
+        .onChange(of: model.reconnectToken) { _, _ in
+            continueToken += 1
+            Task { await load() }
+        }
         // Re-encode progress: poll only while Home is the visible tab (.task cancels on disappear).
         // Keyed on isAdmin too: it resolves after Home first appears on a cold launch.
-        .task(id: [isActiveRootTab, model.isAdmin]) {
-            guard model.isAdmin, isActiveRootTab else { return }
+        .task(id: [isActiveRootTab, model.isAdmin, model.isOffline]) {
+            guard model.isAdmin, isActiveRootTab, !model.isOffline else { return }
             while !Task.isCancelled {
                 if let client = model.api(), let summary = try? await client.transcodeSummary() {
                     reencodeSummary = summary
@@ -152,8 +161,12 @@ struct HomeView: View {
         .padding(.horizontal, 16)
     }
 
+    /// With no name known yet the greeting stands alone rather than addressing
+    /// a placeholder.
     private var greetingLine: Text {
-        let name = model.userFirstName ?? String(localized: "there")
+        guard let name = model.userFirstName, !name.isEmpty else {
+            return Text(timeGreeting)
+        }
         return Text(timeGreeting) + Text(verbatim: ", ") + Text(verbatim: name)
     }
 
@@ -392,7 +405,9 @@ struct HomeView: View {
                 attentionRowContent(item, busy: resolvingAttentionId == mediaId)
             }
             .buttonStyle(.plain)
+            // Opening resolves the item from the server; the row still reads fine offline.
             .disabled(resolvingAttentionId != nil)
+            .requiresConnection(model.isOffline)
         } else {
             attentionRowContent(item, busy: false)
         }
@@ -576,13 +591,43 @@ struct HomeView: View {
 
     // MARK: Load
 
+    /// Paints every rail from the last saved responses before the first frame,
+    /// so Home opens full — offline, or while the refetch below is in flight.
+    private func hydrateFromCache() {
+        guard !hydrated, let client = model.api() else { return }
+        hydrated = true
+        if recent.isEmpty, let cached = client.cached(Endpoints.recentlyAdded()) {
+            recent = cached.value.items
+        }
+        if upcoming.isEmpty, let cached = client.cached(Endpoints.upcoming) {
+            upcoming = cached.value.items
+        }
+        if discover == nil, let cached = client.cached(Endpoints.discoverDeck(limit: 12)) {
+            discover = cached.value
+        }
+        if attention.isEmpty, let cached = client.cached(Endpoints.libraryAttention) {
+            attention = cached.value.items
+        }
+        if rss == nil, let cached = client.cached(Endpoints.rssStatus) {
+            rss = cached.value
+        }
+        if stats == nil {
+            stats = client.cachedLibraryStats()
+        }
+        if !recent.isEmpty || !upcoming.isEmpty || discover != nil {
+            loading = false
+        }
+    }
+
     private func load() async {
         guard let client = model.api() else {
             loading = false
             return
         }
-        if model.library.isEmpty {
-            await model.loadLibrary()
+        // Books refresh on their own; the rails below don't read them, so they
+        // no longer wait on every page of the library.
+        if model.needsLibraryRefresh {
+            Task { await model.loadLibrary() }
         }
         async let recentR = client.recentlyAdded()
         async let upcomingR = client.upcoming()
@@ -591,6 +636,8 @@ struct HomeView: View {
         async let speedR = client.speed()
         async let attnR = client.libraryAttention()
         async let rssR = client.rssStatus()
+        let isAdmin = model.isAdmin
+        async let statsR: LibraryStats? = isAdmin ? client.libraryStats() : nil
 
         // A failed refetch (a transient error on pull-to-refresh) must not blank
         // content already on screen: replace each section only when its request
@@ -599,6 +646,7 @@ struct HomeView: View {
         // nil only on failure, so a genuinely empty section still clears.
         if let items = await (try? recentR)?.items {
             recent = items
+            loading = false
         }
         if let items = await (try? upcomingR)?.items {
             upcoming = items
@@ -618,10 +666,11 @@ struct HomeView: View {
         if let status = try? await rssR {
             rss = status
         }
-        if model.isAdmin, let s = try? await client.libraryStats() {
+        if let s = try? await statsR {
             stats = s
         }
 
         loading = false
+        lastLoadedAt = Date()
     }
 }

@@ -4,6 +4,33 @@ import SwiftUI
 extension MediaDetailView {
     // MARK: Networking
 
+    /// Paints details, similar titles, episodes and management from the last
+    /// saved responses, so the screen has content before (or without) the network.
+    func hydrateFromCache() {
+        guard let client = model.api() else { return }
+        if details == nil, let cached = client.cached(Endpoints.mediaModal(mediaType: mediaType, tmdbId: tmdbId)) {
+            applyModal(cached.value)
+        }
+        if similarItems.isEmpty, let cached = client.cached(Endpoints.similar(tmdbId: tmdbId, mediaType: mediaType)) {
+            similarItems = cached.value.items
+        }
+        if mediaType == "tv", let libraryId, episodesBySeason.isEmpty,
+           let cached = client.cached(Endpoints.libraryEpisodes(id: libraryId))
+        {
+            applyEpisodes(cached.value)
+        }
+        hydrateManagementFromCache(client: client)
+    }
+
+    func applyModal(_ response: MediaModalResponse) {
+        details = response.details
+        credits = response.credits
+        trailer = response.trailer
+        providers = response.providers
+        ratings = response.ratings
+        inWatchlist = response.watchlistStatus == true
+    }
+
     func fetchDetails() async {
         guard let client = model.api() else {
             errorMessage = String(localized: "Not logged in.")
@@ -15,12 +42,8 @@ extension MediaDetailView {
 
         do {
             let response = try await client.mediaModal(mediaType: mediaType, tmdbId: tmdbId)
-            details = response.details
-            credits = response.credits
-            trailer = response.trailer
-            providers = response.providers
-            ratings = response.ratings
-            inWatchlist = response.watchlistStatus == true
+            applyModal(response)
+            detailsUnreachable = false
 
             if mediaType == "tv", let libraryId {
                 await reloadEpisodes(client: client, libraryId: libraryId)
@@ -28,7 +51,12 @@ extension MediaDetailView {
         } catch APIError.unauthorized {
             errorMessage = String(localized: "Sign in required.")
         } catch {
-            errorMessage = String(localized: "Could not load details.")
+            // Saved details stay on screen; only an empty screen reports the failure.
+            if (error as? APIError)?.isNetworkFailure == true {
+                detailsUnreachable = details == nil
+            } else {
+                errorMessage = String(localized: "Could not load details.")
+            }
         }
     }
 
@@ -37,16 +65,25 @@ extension MediaDetailView {
             similarError = String(localized: "Not logged in.")
             return
         }
+        if similarItems.isEmpty, let cached = client.cached(Endpoints.similar(tmdbId: tmdbId, mediaType: mediaType)) {
+            similarItems = cached.value.items
+        }
         loadingSimilar = true
         similarError = nil
         defer { loadingSimilar = false }
 
         do {
             similarItems = try await client.similar(tmdbId: tmdbId, mediaType: mediaType)
-        } catch APIError.unauthorized {
-            similarError = String(localized: "Sign in required.")
         } catch {
-            similarError = String(localized: "Could not load similar titles.")
+            // A failed refresh keeps the titles already shown.
+            guard similarItems.isEmpty else { return }
+            if case APIError.unauthorized = error {
+                similarError = String(localized: "Sign in required.")
+            } else if let apiError = error as? APIError, apiError.isNetworkFailure {
+                similarError = apiError.userMessage()
+            } else {
+                similarError = String(localized: "Could not load similar titles.")
+            }
         }
     }
 
@@ -70,45 +107,84 @@ extension MediaDetailView {
             managementError = String(localized: "Not logged in.")
             return
         }
+        hydrateManagementFromCache(client: client)
         managementLoading = true
         managementError = nil
         defer { managementLoading = false }
 
+        async let itemRequest = client.libraryItem(id: libraryId)
+        async let profileRequest = client.qualityProfiles()
+        async let filesRequest = client.libraryFiles(id: libraryId)
+        async let downloadsRequest = client.downloads(libraryId: libraryId)
+
+        // Each part lands on its own, so one failing request can't blank the rest.
+        var failure: Error?
         do {
-            async let itemRequest = client.libraryItem(id: libraryId)
-            async let profileRequest = client.qualityProfiles()
-            async let filesRequest = client.libraryFiles(id: libraryId)
-            async let downloadsRequest = client.downloads(libraryId: libraryId)
-
             let item = try await itemRequest
-            let profileResponse = try await profileRequest
-            let filesResponse = try await filesRequest
-            let downloadsResponse = try await downloadsRequest
-
             managementItem = item
             store.seedLibraryItem(item)
+        } catch { failure = error }
+        do {
+            let profileResponse = try await profileRequest
             qualityProfiles = profileResponse.profiles
+        } catch { failure = failure ?? error }
+        do {
+            let filesResponse = try await filesRequest
             mediaFilesType = filesResponse.mediaType
             mediaFiles = filesResponse.files
+        } catch { failure = failure ?? error }
+        do {
+            let downloadsResponse = try await downloadsRequest
             downloads = downloadsResponse.items
-        } catch APIError.unauthorized {
+        } catch { failure = failure ?? error }
+
+        guard let failure else { return }
+        let apiError = failure as? APIError
+        if case .unauthorized? = apiError {
             managementError = String(localized: "Admin only.")
-        } catch {
+        } else if apiError?.isNetworkFailure == true {
+            // Offline with saved data: the strip already says so.
+            if managementItem == nil {
+                managementError = apiError?.userMessage()
+            }
+        } else {
             managementError = String(localized: "Could not load management data.")
+        }
+    }
+
+    /// Seeds the Manage tab from the store and the saved responses.
+    func hydrateManagementFromCache(client: APIClient) {
+        guard let libraryId, model.isAdmin else { return }
+        if managementItem == nil {
+            managementItem = store.libraryItem(libraryId).value ?? client.cachedLibraryItem(id: libraryId)?.value
+        }
+        if qualityProfiles.isEmpty, let cached = client.cached(Endpoints.qualityProfiles) {
+            qualityProfiles = cached.value.profiles
+        }
+        if mediaFiles.isEmpty, let cached = client.cached(Endpoints.libraryFiles(id: libraryId)) {
+            mediaFilesType = cached.value.mediaType
+            mediaFiles = cached.value.files
+        }
+        if downloads.isEmpty, let cached = client.cached(Endpoints.libraryDownloads(id: libraryId)) {
+            downloads = cached.value.items
         }
     }
 
     func reloadEpisodes(client: APIClient, libraryId: Int) async {
         do {
             let response = try await client.libraryEpisodes(id: libraryId)
-            var map: [Int: [Episode]] = [:]
-            for season in response.seasons {
-                map[season.season] = season.episodes
-            }
-            episodesBySeason = map
+            applyEpisodes(response)
         } catch {
             // Non-fatal: seasons still render with episode counts from TMDB.
         }
+    }
+
+    func applyEpisodes(_ response: EpisodesResponse) {
+        var map: [Int: [Episode]] = [:]
+        for season in response.seasons {
+            map[season.season] = season.episodes
+        }
+        episodesBySeason = map
     }
 
     func reloadEpisodes() async {

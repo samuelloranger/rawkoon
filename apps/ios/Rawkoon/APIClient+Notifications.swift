@@ -18,11 +18,7 @@ extension APIClient {
     func notifications(
         page: Int? = nil, limit: Int? = nil, read: Bool? = nil
     ) async throws -> NotificationsResponseDTO {
-        try await get("/api/notifications", query: [
-            "page": page.map(String.init),
-            "limit": limit.map(String.init),
-            "read": read.map { $0 ? "true" : "false" },
-        ])
+        try await get(Endpoints.notifications(page: page, limit: limit, read: read))
     }
 
     func unreadNotificationCount() async throws -> UnreadCountResponseDTO {

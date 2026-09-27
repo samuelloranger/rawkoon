@@ -72,6 +72,8 @@ struct ReleaseSearchView: View {
     @State private var indexerWarnings: [IndexerWarning] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+    /// The query/season/complete combination `releases` was fetched for.
+    @State private var releasesKey: String?
     @State private var grabError: String?
     @State private var adminOnlyNote: String?
     @State private var grabbingGuid: String?
@@ -186,6 +188,16 @@ struct ReleaseSearchView: View {
                 warningStrip
             }
 
+            // A failed refresh keeps the earlier results; say so above them.
+            if let errorMessage, !releases.isEmpty {
+                Text(errorMessage)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.terracotta)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+            }
+
             if let grabError {
                 Text(grabError)
                     .font(.subheadline)
@@ -213,9 +225,13 @@ struct ReleaseSearchView: View {
         }
         .background(Theme.base)
         .task {
-            await resolveAiGate()
-            await loadGrabbedTitles()
-            await search()
+            // Offline, the search would only fail; it runs once the connection is back.
+            guard !model.isOffline else { return }
+            await initialLoad()
+        }
+        .onChange(of: model.isOffline) { _, offline in
+            guard !offline, releases.isEmpty, !isLoading else { return }
+            Task { await initialLoad() }
         }
         .onChange(of: selectedSeason) { _, _ in
             Task { await search() }
@@ -226,6 +242,12 @@ struct ReleaseSearchView: View {
             }
             Task { await search() }
         }
+    }
+
+    private func initialLoad() async {
+        await resolveAiGate()
+        await loadGrabbedTitles()
+        await search()
     }
 
     private var grabber: some View {
@@ -261,6 +283,7 @@ struct ReleaseSearchView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(Theme.terracotta)
                 .disabled(isLoading)
+                .requiresConnection(model.isOffline)
             }
 
             HStack(spacing: 8) {
@@ -492,6 +515,13 @@ struct ReleaseSearchView: View {
                     .foregroundStyle(Theme.muted)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if model.isOffline, releases.isEmpty {
+            ContentUnavailableView {
+                Label("Offline", systemImage: "wifi.slash")
+            } description: {
+                Text("Release search needs a connection.")
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let errorMessage, releases.isEmpty {
             ContentUnavailableView {
                 Label("Search failed", systemImage: "exclamationmark.triangle")
@@ -629,6 +659,7 @@ struct ReleaseSearchView: View {
             errorMessage = String(localized: "Not connected.")
             return
         }
+        guard !model.isOffline else { return }
         let trimmedQuery = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedQuery.count < 2, selectedSeason == nil, !completeSeries {
             errorMessage = String(localized: "Search query must be at least 2 characters.")
@@ -642,6 +673,11 @@ struct ReleaseSearchView: View {
         adminOnlyNote = nil
         indexerWarnings = []
         defer { isLoading = false }
+        // Kept on a failed refresh of the same search; another season's rows would be grabbable by mistake.
+        let searchKey = "\(trimmedQuery)|\(selectedSeason.map(String.init) ?? "")|\(completeSeries)"
+        if searchKey != releasesKey {
+            releases = []
+        }
         do {
             let response = try await client.interactiveSearch(
                 q: trimmedQuery,
@@ -652,6 +688,7 @@ struct ReleaseSearchView: View {
                 mediaType: mediaType
             )
             releases = response.releases
+            releasesKey = searchKey
             service = response.service
             indexerWarnings = response.indexerWarnings ?? []
         } catch APIError.unauthorized {
@@ -659,7 +696,6 @@ struct ReleaseSearchView: View {
             releases = []
         } catch {
             errorMessage = String(localized: "Couldn't load releases. Check the server.")
-            releases = []
         }
         // Fire-and-forget so the AI banner loads on its own timeline, decoupled
         // from the main search spinner (parity with the web's separate query).

@@ -64,6 +64,7 @@ struct BooksSettingsView: View {
                     }
                     .tint(Theme.apricot)
                     .disabled(togglingEnabled)
+                    .requiresConnection(model.isOffline)
                     .listRowBackground(Theme.raised)
                 } header: { Text("General") }
 
@@ -105,6 +106,7 @@ struct BooksSettingsView: View {
             }
             Button("Save order") { Task { await saveOrder() } }
                 .disabled(savingOrder)
+                .requiresConnection(model.isOffline)
                 .listRowBackground(Theme.raised)
             if let orderError {
                 Text(orderError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
@@ -125,6 +127,7 @@ struct BooksSettingsView: View {
             PickerRow(title: "Default book profile", selection: $defaultBookProfile, options: profileOptions)
             Button("Save files") { Task { await saveFiles() } }
                 .disabled(savingFiles)
+                .requiresConnection(model.isOffline)
                 .listRowBackground(Theme.raised)
             if let filesError {
                 Text(filesError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
@@ -165,7 +168,7 @@ struct BooksSettingsView: View {
             do {
                 profiles = try await client.bookQualityProfiles().profiles
             } catch {
-                profiles = []
+                // Keep the last list; a failed refetch is not an empty one.
                 model.toast(String(localized: "Couldn't load quality profiles."), style: .error)
             }
             booksEnabled = general.booksEnabled ?? false

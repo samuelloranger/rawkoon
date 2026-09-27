@@ -56,6 +56,7 @@ struct ReleasesAdminView: View {
                     ProgressView().tint(Theme.apricot)
                 } else {
                     Button("Refresh") { Task { await refresh() } }
+                        .requiresConnection(model.isOffline)
                 }
             }
         }
@@ -137,6 +138,7 @@ struct JobsAdminView: View {
                         }
                     }
                     .disabled(running != nil)
+                    .requiresConnection(model.isOffline)
                     .listRowBackground(Theme.raised)
                 }
             } header: {

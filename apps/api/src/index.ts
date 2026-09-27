@@ -41,6 +41,8 @@ import {
   strictAuthRateLimit,
 } from "./middleware/hono/rateLimit";
 import { requestTiming } from "./middleware/hono/requestTiming";
+import { compressJson } from "@rawkoon/api/middleware/hono/compressJson";
+import { conditionalGet } from "@rawkoon/api/middleware/hono/conditionalGet";
 import {
   closeAllWorkers,
   initWorkers,
@@ -70,6 +72,10 @@ if (Bun.env.LOG_LEVEL === "debug") {
     await next();
   });
 }
+
+// Before all routes so it wraps them; only 200 JSON is rewritten (401/403/429 untouched).
+app.use("/api/*", compressJson);
+app.use("/api/*", conditionalGet);
 
 app.onError(honoOnError);
 app.notFound(() => notFound("Not found"));

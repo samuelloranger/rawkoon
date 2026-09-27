@@ -108,6 +108,7 @@ struct GeneralSettingsView: View {
                 } else {
                     Button("Save") { Task { await save() } }
                         .disabled(!isDirty || !isValid)
+                        .requiresConnection(model.isOffline)
                 }
             }
         }

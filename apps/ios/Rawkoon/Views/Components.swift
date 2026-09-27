@@ -472,8 +472,17 @@ extension View {
     }
 }
 
-@ViewBuilder
+/// Greyed rather than hidden offline, so the menu keeps its shape and says why.
 private func mediaPosterMenuButton(
+    _ action: MediaPosterMenuAction,
+    perform: @escaping (MediaPosterMenuAction) -> Void
+) -> some View {
+    mediaPosterMenuButtonContent(action, perform: perform)
+        .disabled(action.requiresConnection && AppModel.shared.isOffline)
+}
+
+@ViewBuilder
+private func mediaPosterMenuButtonContent(
     _ action: MediaPosterMenuAction,
     perform: @escaping (MediaPosterMenuAction) -> Void
 ) -> some View {
@@ -497,8 +506,16 @@ private func mediaPosterMenuButton(
     }
 }
 
-@ViewBuilder
 private func bookCardMenuButton(
+    _ action: BookCardMenuAction,
+    perform: @escaping (BookCardMenuAction) -> Void
+) -> some View {
+    bookCardMenuButtonContent(action, perform: perform)
+        .disabled(action.requiresConnection && AppModel.shared.isOffline)
+}
+
+@ViewBuilder
+private func bookCardMenuButtonContent(
     _ action: BookCardMenuAction,
     perform: @escaping (BookCardMenuAction) -> Void
 ) -> some View {

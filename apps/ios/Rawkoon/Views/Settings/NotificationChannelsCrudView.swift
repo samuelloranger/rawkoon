@@ -54,6 +54,7 @@ struct NotificationChannelsCrudView: View {
     @State private var loadError: String?
     @State private var busyIds: Set<Int> = []
     @State private var loadGen = 0
+    @State private var hasLoaded = false
 
     var body: some View {
         Form {
@@ -75,9 +76,11 @@ struct NotificationChannelsCrudView: View {
                     .swipeActions {
                         Button("Delete", role: .destructive) { Task { await delete(channel) } }
                             .disabled(busyIds.contains(channel.id))
+                            .requiresConnection(model.isOffline)
                         Button("Test") { Task { await test(channel) } }
                             .tint(Theme.apricot)
                             .disabled(busyIds.contains(channel.id))
+                            .requiresConnection(model.isOffline)
                     }
                     .overlay(alignment: .trailing) {
                         if busyIds.contains(channel.id) {
@@ -102,14 +105,23 @@ struct NotificationChannelsCrudView: View {
 
     private func load() async {
         guard let client = model.api() else { loading = false; return }
-        loading = true; loadError = nil
+        if !hasLoaded, let cached = client.cached(Endpoints.notificationChannels) {
+            channels = cached.value.channels
+            hasLoaded = true
+        }
+        loading = !hasLoaded; loadError = nil
         do {
             let gen = loadGen
             let fetched = try await client.notificationChannels().channels
             if gen == loadGen {
                 channels = fetched
             }
-        } catch { loadError = settingsErrorMessage(error) }
+            hasLoaded = true
+        } catch {
+            if !hasLoaded {
+                loadError = settingsErrorMessage(error)
+            }
+        }
         loading = false
     }
 
@@ -195,7 +207,7 @@ private struct ChannelEditorView: View {
                 if saving {
                     ProgressView().tint(Theme.apricot)
                 } else {
-                    Button("Save") { Task { await save() } }.disabled(label.isEmpty)
+                    Button("Save") { Task { await save() } }.disabled(label.isEmpty).requiresConnection(model.isOffline)
                 }
             }
         }

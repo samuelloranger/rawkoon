@@ -40,6 +40,7 @@ struct SessionsAdminView: View {
                         .swipeActions {
                             Button("Revoke", role: .destructive) { Task { await revoke(session) } }
                                 .disabled(busySessionIds.contains(session.id))
+                                .requiresConnection(model.isOffline)
                         }
                         .overlay(alignment: .trailing) {
                             if busySessionIds.contains(session.id) {
@@ -63,6 +64,7 @@ struct SessionsAdminView: View {
                         .swipeActions {
                             Button("Delete", role: .destructive) { Task { await deleteSub(sub) } }
                                 .disabled(busySubscriptionIds.contains(sub.id))
+                                .requiresConnection(model.isOffline)
                         }
                         .overlay(alignment: .trailing) {
                             if busySubscriptionIds.contains(sub.id) {
@@ -99,9 +101,7 @@ struct SessionsAdminView: View {
                     subscriptions = fetchedSubs
                 }
             } catch {
-                if gen == loadGen {
-                    subscriptions = []
-                }
+                // Keep the last list; a failed refetch is not an empty one.
                 model.toast(String(localized: "Couldn't load web-push subscriptions."), style: .error)
             }
         } catch {
@@ -187,6 +187,7 @@ struct ApiKeysAdminView: View {
                     .swipeActions {
                         Button("Revoke", role: .destructive) { Task { await revoke(key) } }
                             .disabled(busyIds.contains(key.id))
+                            .requiresConnection(model.isOffline)
                     }
                     .overlay(alignment: .trailing) {
                         if busyIds.contains(key.id) {
@@ -286,7 +287,7 @@ private struct CreateApiKeySheet: View {
                 if working {
                     ProgressView().tint(Theme.apricot)
                 } else if createdKey == nil {
-                    Button("Create") { Task { await create() } }.disabled(name.isEmpty)
+                    Button("Create") { Task { await create() } }.disabled(name.isEmpty).requiresConnection(model.isOffline)
                 }
             }
         }
@@ -344,6 +345,7 @@ struct BlocklistAdminView: View {
                     .swipeActions {
                         Button("Unblock", role: .destructive) { Task { await unblock(entry) } }
                             .disabled(busyIds.contains(entry.id))
+                            .requiresConnection(model.isOffline)
                     }
                     .overlay(alignment: .trailing) {
                         if busyIds.contains(entry.id) {

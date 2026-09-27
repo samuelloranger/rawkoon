@@ -30,14 +30,21 @@ struct NotificationsListView: View {
                             Task { await markAllAsRead() }
                         }
                         .disabled(markingAllAsRead || !notifications.contains { !$0.read })
+                        .requiresConnection(model.isOffline)
                     }
                 }
             }
+            .onAppear(perform: hydrateFromCache)
             // Keyed on the live token so a notification arriving while the list
             // is open refetches it (and cancels an in-flight load), instead of
             // only the bell badge updating while the list stays stale.
             .task(id: model.notificationChangeToken) { await load(reset: true) }
             .refreshable { await load(reset: true) }
+            .onChange(of: model.isOffline) { _, offline in
+                if !offline {
+                    Task { await load(reset: true) }
+                }
+            }
             .rawkoonConfirm(
                 "Delete this notification?",
                 isPresented: Binding(
@@ -54,6 +61,7 @@ struct NotificationsListView: View {
                         Task { await delete(id: id) }
                     }
                 }
+                .requiresConnection(model.isOffline)
                 Button("Cancel", role: .cancel) {}
             }
     }
@@ -61,6 +69,12 @@ struct NotificationsListView: View {
     @ViewBuilder private var content: some View {
         if loading, notifications.isEmpty {
             ProgressView().tint(Theme.muted).frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if model.isOffline, errorMessage != nil, notifications.isEmpty {
+            ContentUnavailableView(
+                "You're offline",
+                systemImage: "wifi.slash",
+                description: Text("This will load when you're back online.")
+            )
         } else if let errorMessage, notifications.isEmpty {
             ContentUnavailableView(
                 "Couldn't load notifications",
@@ -80,14 +94,15 @@ struct NotificationsListView: View {
                         .listRowBackground(Theme.raised)
                         .listRowSeparator(.hidden)
                         .swipeActions(edge: .trailing) {
-                            Button(role: .destructive) {
+                            Button(role: .destructive, action: OfflineFeedback.gate(model.isOffline) {
                                 pendingDeleteId = notification.id
-                            } label: {
+                            }) {
                                 Label("Delete", systemImage: "trash")
                             }
                         }
                 }
-                if hasMore {
+                // The sentinel would spin forever offline; it comes back with the connection.
+                if hasMore, !model.isOffline {
                     loadMoreRow
                 }
             }
@@ -143,6 +158,16 @@ struct NotificationsListView: View {
 
     // MARK: Networking
 
+    /// Paints the first page from the last saved response, the same page `load` fetches.
+    private func hydrateFromCache() {
+        guard notifications.isEmpty, let client = model.api(),
+              let cached = client.cached(Endpoints.notifications(page: 1, limit: limit))
+        else { return }
+        notifications = cached.value.notifications
+        hasMore = (cached.value.pagination?.page ?? 1) < (cached.value.pagination?.pages ?? 1)
+        loading = false
+    }
+
     private func load(reset: Bool) async {
         guard let client = model.api() else {
             loading = false
@@ -179,7 +204,8 @@ struct NotificationsListView: View {
     }
 
     private func open(_ notification: NotificationDTO) async {
-        if !notification.read {
+        // Offline the read flag can't reach the server, so the row stays unread.
+        if !notification.read, !model.isOffline {
             markReadLocally(notification.id)
             if let client = model.api() {
                 try? await client.markNotificationRead(id: notification.id)
@@ -204,18 +230,42 @@ struct NotificationsListView: View {
         guard let client = model.api() else { return }
         markingAllAsRead = true
         defer { markingAllAsRead = false }
-        try? await client.markAllNotificationsRead()
-        for notification in notifications where !notification.read {
+        let unread = notifications.filter { !$0.read }
+        for notification in unread {
             markReadLocally(notification.id)
+        }
+        do {
+            try await client.markAllNotificationsRead()
+        } catch {
+            // Put back only the rows this call flipped; a live reload may have replaced the rest.
+            for original in unread {
+                if let index = notifications.firstIndex(where: { $0.id == original.id }) {
+                    notifications[index] = original
+                }
+            }
+            model.toast(message(for: error), style: .error)
         }
         await model.refreshUnreadNotificationCount()
     }
 
     private func delete(id: Int) async {
-        guard let client = model.api() else { return }
-        notifications.removeAll { $0.id == id }
-        try? await client.deleteNotification(id: id)
+        guard let client = model.api(),
+              let index = notifications.firstIndex(where: { $0.id == id })
+        else { return }
+        let removed = notifications.remove(at: index)
+        do {
+            try await client.deleteNotification(id: id)
+        } catch {
+            if !notifications.contains(where: { $0.id == id }) {
+                notifications.insert(removed, at: min(index, notifications.count))
+            }
+            model.toast(message(for: error), style: .error)
+        }
         await model.refreshUnreadNotificationCount()
+    }
+
+    private func message(for error: Error) -> String {
+        (error as? APIError)?.userMessage() ?? String(localized: "Can't reach the server. Try again in a moment.")
     }
 
     private func relativeTime(_ isoString: String) -> String? {

@@ -56,6 +56,7 @@ struct BooksProviderView: View {
                     TestConnectionButton(title: "Test Audnexus") { await testAudnexus() }
                     Button("Save Audnexus") { Task { await saveAudnexus() } }
                         .disabled(audnexusSaving)
+                        .requiresConnection(model.isOffline)
                         .listRowBackground(Theme.raised)
                     if let audnexusError {
                         Text(audnexusError).foregroundStyle(Theme.terracotta)
@@ -70,6 +71,7 @@ struct BooksProviderView: View {
                     TestConnectionButton(title: "Test Google Books") { await testGoogleBooks() }
                     Button("Save Google Books") { Task { await saveGoogleBooks() } }
                         .disabled(googleSaving)
+                        .requiresConnection(model.isOffline)
                         .listRowBackground(Theme.raised)
                     if let googleError {
                         Text(googleError).foregroundStyle(Theme.terracotta)
@@ -86,6 +88,7 @@ struct BooksProviderView: View {
                     TestConnectionButton(title: "Test NYT Books") { await testNyt() }
                     Button("Save NYT Books") { Task { await saveNyt() } }
                         .disabled(nytSaving)
+                        .requiresConnection(model.isOffline)
                         .listRowBackground(Theme.raised)
                     if let nytError {
                         Text(nytError).foregroundStyle(Theme.terracotta)

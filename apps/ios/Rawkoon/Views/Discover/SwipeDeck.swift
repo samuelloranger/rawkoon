@@ -175,9 +175,15 @@ struct SwipeDeck: View {
                 }
 
                 // Decide from the predicted end point so a fast flick commits even
-                // over a short distance, the way a real card toss does.
+                // over a short distance, the way a real card toss does. Every
+                // action posts to the server, so offline the card springs back.
                 if let action = committedAction(for: value.predictedEndTranslation) {
-                    flingAway(action, item: item, toward: value.predictedEndTranslation)
+                    if model.isOffline {
+                        springBack()
+                        OfflineFeedback.explain()
+                    } else {
+                        flingAway(action, item: item, toward: value.predictedEndTranslation)
+                    }
                 } else {
                     springBack()
                 }
@@ -265,13 +271,15 @@ struct SwipeDeck: View {
         Button(action: action) {
             Image(systemName: system)
                 .font(.system(size: filled ? 22 : 18, weight: .semibold))
-                .foregroundStyle(filled ? Theme.onAccent : Theme.text)
+                .foregroundStyle(model.isOffline ? Theme.faint : filled ? Theme.onAccent : Theme.text)
                 .frame(width: 52, height: 52)
-                .glassEffect(.regular.tint(filled ? Theme.apricot : nil).interactive(), in: .circle)
+                // Glass ignores opacity, so the offline state drops the accent tint instead.
+                .glassEffect(.regular.tint(filled && !model.isOffline ? Theme.apricot : nil).interactive(), in: .circle)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
         .disabled(items.isEmpty)
+        .requiresConnection(model.isOffline)
     }
 
     private func actOnTop(_ action: Action) {

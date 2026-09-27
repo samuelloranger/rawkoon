@@ -6,6 +6,7 @@ struct QualityProfilesView: View {
     @State private var profiles: [QualityProfile] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @State private var hasLoaded = false
 
     var body: some View {
         Group {
@@ -91,7 +92,6 @@ struct QualityProfilesView: View {
     }
 
     private func load() async {
-        isLoading = true
         errorMessage = nil
 
         guard let client = model.api() else {
@@ -100,13 +100,24 @@ struct QualityProfilesView: View {
             return
         }
 
+        if !hasLoaded, let cached = client.cached(Endpoints.qualityProfiles) {
+            profiles = cached.value.profiles
+            hasLoaded = true
+        }
+        isLoading = !hasLoaded
+
         do {
             let response = try await client.qualityProfiles()
             profiles = response.profiles
+            hasLoaded = true
         } catch let error as APIError {
-            errorMessage = message(for: error)
+            if !hasLoaded {
+                errorMessage = message(for: error)
+            }
         } catch {
-            errorMessage = String(localized: "Network error. Check your connection.")
+            if !hasLoaded {
+                errorMessage = String(localized: "Can't reach the server. Try again in a moment.")
+            }
         }
 
         isLoading = false

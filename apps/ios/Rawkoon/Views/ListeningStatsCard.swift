@@ -35,6 +35,10 @@ struct ListeningStatsCard: View {
             }
         }
         .task(id: refreshToken) { await load() }
+        .onChange(of: model.isOffline) { _, offline in
+            guard !offline, stats == nil, booksEnabled else { return }
+            Task { await load() }
+        }
     }
 
     private func card(_ stats: ListeningStats) -> some View {
@@ -86,6 +90,7 @@ struct ListeningStatsCard: View {
             errorMessage = nil
             return
         }
+        hydrateFromCache(client: client)
         do {
             let features = try await client.systemFeatures()
             guard features.booksEnabled else {
@@ -98,8 +103,20 @@ struct ListeningStatsCard: View {
             stats = try await client.listeningStats()
             errorMessage = nil
         } catch {
-            stats = nil
-            errorMessage = String(localized: "Couldn't load listening stats.")
+            // A failed refresh keeps the last stats on the card.
+            guard stats == nil else { return }
+            errorMessage = model.isOffline
+                ? String(localized: "This will load when you're back online.")
+                : String(localized: "Couldn't load listening stats.")
+        }
+    }
+
+    /// Paints the card from the saved features + stats, honoring a saved "books off".
+    private func hydrateFromCache(client: APIClient) {
+        guard stats == nil, let features = client.cached(Endpoints.systemFeatures)?.value else { return }
+        booksEnabled = features.booksEnabled
+        if features.booksEnabled, let cached = client.cached(Endpoints.listeningStats) {
+            stats = cached.value
         }
     }
 }

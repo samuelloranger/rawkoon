@@ -18,6 +18,7 @@ struct ReencodeAdminView: View {
     @State private var summary: TranscodeSummary?
     @State private var loading = true
     @State private var loadError: String?
+    @State private var hasLoaded = false
     @State private var busyIds: Set<Int> = []
     @State private var confirmCancel: TranscodeJob?
     @State private var confirmClear = false
@@ -74,15 +75,24 @@ struct ReencodeAdminView: View {
         .toolbar {
             // Edit mode only reorders within a batch, so it is useless without one of 2+ jobs.
             if batches.contains(where: { $0.jobs.count > 1 }) {
-                ToolbarItem(placement: .primaryAction) { EditButton() }
+                ToolbarItem(placement: .primaryAction) { EditButton().requiresConnection(model.isOffline) }
             }
             ToolbarItem(placement: .secondaryAction) {
                 Button("Clear finished", role: .destructive) { confirmClear = true }
+                    .requiresConnection(model.isOffline)
             }
         }
-        // Tabs stay mounted on iPhone, so stop polling when this tab isn't the visible one.
-        .task(id: isActiveRootTab) {
+        // Tabs stay mounted on iPhone, so stop polling when this tab isn't the visible one,
+        // and while offline, where every poll would fail.
+        .task(id: isActiveRootTab && !model.isOffline) {
             guard isActiveRootTab else { return }
+            guard !model.isOffline else {
+                if !hasLoaded {
+                    loadError = settingsErrorMessage(APIError.offline)
+                    loading = false
+                }
+                return
+            }
             await pollLoop()
         }
         .rawkoonConfirm(
@@ -115,6 +125,7 @@ struct ReencodeAdminView: View {
                         Task { await patch(TranscodeSettingsPatch(paused: !settings.paused)) }
                     }
                     .buttonStyle(.borderless)
+                    .requiresConnection(model.isOffline)
                 }
             }
             .listRowBackground(Theme.raised)
@@ -123,6 +134,7 @@ struct ReencodeAdminView: View {
                     get: { settings.windowEnabled },
                     set: { value in Task { await patch(TranscodeSettingsPatch(windowEnabled: value)) } }
                 ))
+                .requiresConnection(model.isOffline)
                 .listRowBackground(Theme.raised)
                 if settings.windowEnabled {
                     timeRow("Start", settings.windowStart) { value in Task { await patch(TranscodeSettingsPatch(windowStart: value)) } }
@@ -170,6 +182,7 @@ struct ReencodeAdminView: View {
                 .font(.caption).foregroundStyle(Theme.muted)
                 Button("Cancel re-encode", role: .destructive) { confirmCancel = job }
                     .buttonStyle(.borderless)
+                    .requiresConnection(model.isOffline)
             }
             .listRowBackground(Theme.raised)
         }
@@ -201,6 +214,7 @@ struct ReencodeAdminView: View {
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
+                    .requiresConnection(model.isOffline)
                 }
             }
         }
@@ -215,7 +229,9 @@ struct ReencodeAdminView: View {
         .listRowBackground(Theme.raised)
         .swipeActions {
             Button("Remove", role: .destructive) { Task { await cancel(job) } }
+                .requiresConnection(model.isOffline)
             Button("Move to top") { Task { await moveTop(job) } }.tint(Theme.apricot)
+                .requiresConnection(model.isOffline)
         }
         .overlay(alignment: .trailing) {
             if busyIds.contains(job.id) {
@@ -245,6 +261,7 @@ struct ReencodeAdminView: View {
                 .swipeActions {
                     if job.status == "failed" || job.status == "cancelled" {
                         Button("Retry") { Task { await retry(job) } }.tint(Theme.apricot)
+                            .requiresConnection(model.isOffline)
                     }
                 }
             }
@@ -255,25 +272,28 @@ struct ReencodeAdminView: View {
         Section {
             DisclosureGroup("Advanced") {
                 if let settings {
-                    Stepper(value: Binding(
-                        get: { settings.ssimThreshold },
-                        set: { value in Task { await patch(TranscodeSettingsPatch(ssimThreshold: value)) } }
-                    ), in: 0.9 ... 0.999, step: 0.005) {
-                        LabeledContent("SSIM mean threshold", value: String(format: "%.3f", settings.ssimThreshold))
+                    Group {
+                        Stepper(value: Binding(
+                            get: { settings.ssimThreshold },
+                            set: { value in Task { await patch(TranscodeSettingsPatch(ssimThreshold: value)) } }
+                        ), in: 0.9 ... 0.999, step: 0.005) {
+                            LabeledContent("SSIM mean threshold", value: String(format: "%.3f", settings.ssimThreshold))
+                        }
+                        Stepper(value: Binding(
+                            get: { settings.ssimClipMin },
+                            set: { value in Task { await patch(TranscodeSettingsPatch(ssimClipMin: value)) } }
+                        ), in: 0.85 ... 0.999, step: 0.005) {
+                            LabeledContent("SSIM per-clip minimum", value: String(format: "%.3f", settings.ssimClipMin))
+                        }
+                        // 0 means auto; a Stepper works on iPhone where a number pad has no Return key.
+                        Stepper(value: Binding(
+                            get: { settings.cpuThreads ?? 0 },
+                            set: { value in Task { await patch(TranscodeSettingsPatch(cpuThreads: .some(value == 0 ? nil : value))) } }
+                        ), in: 0 ... 64) {
+                            LabeledContent("CPU threads", value: settings.cpuThreads.map(String.init) ?? String(localized: "Auto"))
+                        }
                     }
-                    Stepper(value: Binding(
-                        get: { settings.ssimClipMin },
-                        set: { value in Task { await patch(TranscodeSettingsPatch(ssimClipMin: value)) } }
-                    ), in: 0.85 ... 0.999, step: 0.005) {
-                        LabeledContent("SSIM per-clip minimum", value: String(format: "%.3f", settings.ssimClipMin))
-                    }
-                    // 0 means auto; a Stepper works on iPhone where a number pad has no Return key.
-                    Stepper(value: Binding(
-                        get: { settings.cpuThreads ?? 0 },
-                        set: { value in Task { await patch(TranscodeSettingsPatch(cpuThreads: .some(value == 0 ? nil : value))) } }
-                    ), in: 0 ... 64) {
-                        LabeledContent("CPU threads", value: settings.cpuThreads.map(String.init) ?? String(localized: "Auto"))
-                    }
+                    .requiresConnection(model.isOffline)
                 }
             }
             .listRowBackground(Theme.raised)
@@ -292,6 +312,7 @@ struct ReencodeAdminView: View {
                 onChange(TranscodeMath.hhmm(fromMinutes: (c.hour ?? 0) * 60 + (c.minute ?? 0)))
             }
         ), displayedComponents: .hourAndMinute)
+            .requiresConnection(model.isOffline)
             .listRowBackground(Theme.raised)
     }
 
@@ -373,8 +394,11 @@ struct ReencodeAdminView: View {
             settings = try await s
             summary = try await sum
             loadError = nil
+            hasLoaded = true
         } catch {
-            loadError = settingsErrorMessage(error)
+            if !hasLoaded {
+                loadError = settingsErrorMessage(error)
+            }
         }
         loading = false
     }

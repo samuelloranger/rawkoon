@@ -7,6 +7,8 @@ import SwiftUI
 /// grabs/monitor/status/delete controls are admin-gated because the underlying
 /// routes 403 for viewers.
 struct DetailSeasonsSection: View {
+    @Environment(AppModel.self) private var model
+
     let seasons: [SeasonSummary]
     let episodesBySeason: [Int: [Episode]]
     /// Real library files keyed by season number (empty when not admin/in-library).
@@ -122,21 +124,25 @@ struct DetailSeasonsSection: View {
             } label: {
                 Label("Auto search season", systemImage: "sparkle.magnifyingglass")
             }
+            .requiresConnection(model.isOffline)
             Button {
                 onSeasonReleaseSearch(season.seasonNumber)
             } label: {
                 Label("Search releases…", systemImage: "magnifyingglass")
             }
+            .requiresConnection(model.isOffline)
             Button {
                 onSeasonRetrySkipped(season.seasonNumber)
             } label: {
                 Label("Retry skipped", systemImage: "arrow.clockwise")
             }
+            .requiresConnection(model.isOffline)
             Button {
                 onSeasonReencode(season.seasonNumber)
             } label: {
                 Label("Re-encode season…", systemImage: "gauge.with.dots.needle.67percent")
             }
+            .requiresConnection(model.isOffline)
             if !episodes.isEmpty {
                 Button {
                     onSeasonToggleMonitor(season.seasonNumber, !monitored)
@@ -146,6 +152,7 @@ struct DetailSeasonsSection: View {
                         systemImage: monitored ? "bell.slash" : "bell"
                     )
                 }
+                .requiresConnection(model.isOffline)
             }
         } label: {
             Image(systemName: "ellipsis.circle")
@@ -308,11 +315,13 @@ struct DetailSeasonsSection: View {
         } label: {
             Label("Auto search", systemImage: "sparkle.magnifyingglass")
         }
+        .requiresConnection(model.isOffline)
         Button {
             onEpisodeReleaseSearch(episode)
         } label: {
             Label("Search releases…", systemImage: "magnifyingglass")
         }
+        .requiresConnection(model.isOffline)
         Button {
             onEpisodeToggleMonitor(episode)
         } label: {
@@ -321,12 +330,14 @@ struct DetailSeasonsSection: View {
                 systemImage: episode.monitored ? "bell.slash" : "bell"
             )
         }
+        .requiresConnection(model.isOffline)
         if episode.status != "wanted" {
             Button {
                 onEpisodeRetry(episode)
             } label: {
                 Label("Retry (mark wanted)", systemImage: "arrow.clockwise")
             }
+            .requiresConnection(model.isOffline)
         }
         if episode.status == "downloaded" {
             Button(role: .destructive) {
@@ -334,6 +345,7 @@ struct DetailSeasonsSection: View {
             } label: {
                 Label("Delete file", systemImage: "trash")
             }
+            .requiresConnection(model.isOffline)
         }
     }
 
