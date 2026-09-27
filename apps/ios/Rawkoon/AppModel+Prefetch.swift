@@ -11,9 +11,9 @@ extension AppModel {
 
     private static let lastPrefetchKey = "offline_prefetch_at"
     /// Recent titles are what gets opened on a plane; the long tail is left to the network.
-    private static let prefetchMediaLimit = 100
-    private static let prefetchBookLimit = 100
-    private static let prefetchImageLimit = 40
+    private nonisolated static let prefetchMediaLimit = 100
+    private nonisolated static let prefetchBookLimit = 100
+    private nonisolated static let prefetchImageLimit = 40
 
     /// Warms saved detail pages and artwork for recent library titles. Skipped on
     /// cellular and in Low Data Mode, and at most every 6 hours unless forced.
