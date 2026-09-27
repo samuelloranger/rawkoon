@@ -47,6 +47,8 @@ extension AppModel {
         scale: CGFloat,
         absolute: @escaping @Sendable (String?) -> URL?
     ) async {
+        // Books run alongside movies and shows so a short session still covers both.
+        async let bookPass: Void = prefetchBookDetails(client: client, books: books)
         let recent = await (try? client.get(Endpoints.libraryList(
             page: 1, limit: prefetchMediaLimit, sortBy: "added_at", sortDir: "desc"
         )))?.items ?? []
@@ -85,12 +87,7 @@ extension AppModel {
             }
         }
 
-        for book in books where !Task.isCancelled {
-            let path = "/api/books/\(book.bookId)"
-            if isStale(client.cachedEntry(path)) {
-                _ = try? await client.bookDetail(bookId: book.bookId)
-            }
-        }
+        await bookPass
         for book in books.prefix(prefetchImageLimit) {
             if let cover = book.coverURL {
                 images.append((cover, bookCoverSize))
@@ -99,6 +96,14 @@ extension AppModel {
 
         for (url, size) in images where !Task.isCancelled {
             await PosterCache.prefetch(url, targetSize: size, scale: scale)
+        }
+    }
+
+    private nonisolated static func prefetchBookDetails(client: APIClient, books: [BookListItem]) async {
+        for book in books where !Task.isCancelled {
+            if isStale(client.cachedEntry("/api/books/\(book.bookId)")) {
+                _ = try? await client.bookDetail(bookId: book.bookId)
+            }
         }
     }
 
