@@ -39,7 +39,7 @@ struct RawkoonApp: App {
             .preferredColorScheme(.dark)
             .environment(\.locale, AppLanguage.locale(for: AppLanguage(rawValue: appLanguage) ?? .system))
             .overlay {
-                ToastOverlay(toast: model.currentToast)
+                ToastOverlay(toast: model.currentToast, bottomInset: toastBottomInset)
             }
             .alert(
                 "Login not saved",
@@ -133,6 +133,13 @@ struct RawkoonApp: App {
             // CI greps this file so `.environment(model)` stays below `.overlay`/`.sheet`.
             .environment(model)
         }
+    }
+
+    /// On iPhone the tab bar floats over the bottom edge, with the mini player
+    /// above it while a book is loaded.
+    private var toastBottomInset: CGFloat {
+        guard model.isLoggedIn, UIDevice.current.userInterfaceIdiom == .phone else { return 12 }
+        return model.activeBook() == nil ? 84 : 148
     }
 
     /// Mac Catalyst shows the app name as the window title by default. Hide the

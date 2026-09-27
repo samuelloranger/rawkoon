@@ -32,6 +32,8 @@ struct Toast: Equatable, Identifiable {
 /// whatever is currently on screen.
 struct ToastOverlay: View {
     let toast: Toast?
+    /// Clearance for the floating tab bar (and mini player) so a toast never covers them.
+    var bottomInset: CGFloat = 12
 
     var body: some View {
         VStack {
@@ -40,7 +42,7 @@ struct ToastOverlay: View {
                 content(for: toast)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
+                    .padding(.bottom, bottomInset)
                     .allowsHitTesting(toast.action != nil)
             }
         }
