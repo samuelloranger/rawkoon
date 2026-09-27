@@ -116,7 +116,9 @@
 
         private func load() async {
             guard let client = model.api() else { return }
-            media = try? await client.libraryList(type: libraryType).items.first
+            // Falls back to the saved list so the offline screenshot run has a title to open.
+            media = await (try? client.libraryList(type: libraryType, limit: 1))?.items.first
+                ?? client.cached(Endpoints.libraryList(type: libraryType, limit: 1))?.value.items.first
             if media == nil {
                 failed = true
             }
