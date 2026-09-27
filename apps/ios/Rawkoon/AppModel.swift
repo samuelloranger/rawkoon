@@ -39,9 +39,19 @@ final class AppModel {
     var readingResumePreview: [Int: ReadingPosition] = [:]
     var activeEditionId: Int?
     /// True when `library` was built from the on-device downloaded index because
-    /// the server was unreachable — the UI shows an "Offline" hint instead of a
-    /// network-error wall, and lists only downloaded books.
+    /// the server was unreachable and no saved copy of the full library existed —
+    /// the UI shows an "Offline" hint instead of a network-error wall, and lists
+    /// only downloaded books.
     var isOfflineLibrary = false
+    /// The in-flight `/api/auth/me` fetch, so launch, Settings and a reconnect
+    /// share one request.
+    var profileTask: Task<Void, Never>?
+    /// When the server last confirmed `library`; nil while it is only the saved
+    /// copy painted at launch, so screens know to refresh it once.
+    var libraryFetchedAt: Date?
+    /// The in-flight library load — Home, Library and the root all ask for one on
+    /// launch, and every page of the library should be fetched once.
+    private var libraryTask: Task<Void, Never>?
 
     let serverStateStore = ServerStateStore()
 
@@ -155,6 +165,7 @@ final class AppModel {
         {
             apiClient = makeAPIClient(baseURL: baseURL, token: token)
             isLoggedIn = true
+            hydrateFromCache()
         }
 
         player.onPositionTick = { [weak self] in self?.persistPlaybackProgress(force: false) }
@@ -207,16 +218,10 @@ final class AppModel {
                 guard let self else { return }
                 let cameBackOnline = online && !isOnline
                 isOnline = online
-                // Reconnected: un-latch downloads the dead zone stranded.
+                // Reconnected: un-latch stranded downloads, refresh what the
+                // offline launch painted from disk, and resend offline progress.
                 if cameBackOnline {
-                    for downloader in downloaders.values {
-                        downloader.retryFailedChapters()
-                    }
-                    // A launch that started offline (often CarPlay) holds only the
-                    // downloaded index until something reloads it.
-                    if isOfflineLibrary, isLoggedIn {
-                        Task { await self.loadLibrary() }
-                    }
+                    handleReconnect()
                 }
             }
         }
@@ -243,6 +248,7 @@ final class AppModel {
                 serverURL = server
                 apiClient = makeAPIClient(baseURL: baseURL, token: token)
                 isLoggedIn = true
+                hydrateFromCache()
                 try? await reloadLibrary()
                 return
             }
@@ -301,17 +307,32 @@ final class AppModel {
     }
 
     func loadLibrary() async {
-        loading = true
-        errorMessage = nil
-        defer { loading = false }
-
-        do {
-            try await reloadLibrary()
-            // Siri only matches "Play <title>" against titles it has been handed.
-            RawkoonShortcuts.updateAppShortcutParameters()
-        } catch {
-            errorMessage = message(for: error)
+        if let libraryTask {
+            return await libraryTask.value
         }
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            loading = true
+            errorMessage = nil
+            defer { loading = false }
+
+            do {
+                try await reloadLibrary()
+                // Siri only matches "Play <title>" against titles it has been handed.
+                RawkoonShortcuts.updateAppShortcutParameters()
+            } catch {
+                errorMessage = message(for: error)
+            }
+        }
+        libraryTask = task
+        await task.value
+        libraryTask = nil
+    }
+
+    /// True until the server has confirmed the library this launch — the saved
+    /// copy painted at launch still wants one refresh.
+    var needsLibraryRefresh: Bool {
+        libraryFetchedAt == nil
     }
 
     /// The configured API client, or nil when logged out. Manage-lane screens
@@ -421,6 +442,9 @@ final class AppModel {
     func ensureLibraryLoaded() async {
         if library.isEmpty {
             await loadLibrary()
+        } else if needsLibraryRefresh {
+            // The saved copy is enough to browse; don't hold the car on the refresh.
+            Task { await loadLibrary() }
         }
     }
 
@@ -856,16 +880,27 @@ final class AppModel {
 
     func reloadLibrary() async throws {
         guard let apiClient else { throw APIError.unauthorized }
+        // Alongside, not after: the greeting and admin rows must not wait on
+        // every page of the library.
+        Task { await refreshAdmin() }
         do {
             let fetched = try await apiClient.libraryBooks()
-            library = fetched.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            library = Self.sortedLibrary(fetched)
+            libraryFetchedAt = Date()
             isOfflineLibrary = false
             OfflineLibraryStore.backfillMissingCovers(library: library)
-            await refreshAdmin()
         } catch {
-            // Offline / server unreachable: serve the downloaded index so the
-            // library shows what can actually be used without the network.
-            // Only when nothing is downloaded do we surface the error.
+            // Server unreachable: keep the full library already on screen, else
+            // the last saved copy of it, and only then fall back to the
+            // downloaded index. A failed refresh must never shrink the list.
+            if !library.isEmpty, !isOfflineLibrary {
+                return
+            }
+            if let cached = apiClient.cachedLibraryBooks(), !cached.value.isEmpty {
+                library = Self.sortedLibrary(cached.value)
+                isOfflineLibrary = false
+                return
+            }
             let downloaded = DownloadedStore.readIndex()
             guard !downloaded.isEmpty else { throw error }
             library = Self.offlineLibrary(from: downloaded)
@@ -990,6 +1025,7 @@ final class AppModel {
         serverURL = server
         apiClient = makeAPIClient(baseURL: baseURL, token: token)
         isLoggedIn = true
+        hydrateFromCache()
     }
 
     private static func resolveDeviceID() -> String {

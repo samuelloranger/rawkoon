@@ -141,10 +141,11 @@ struct LibraryView: View {
             }
         }
         .task {
+            hydrateMediaFromCache()
             if section == .media, store.needsLoad(mediaKey) {
                 await loadMedia(reset: true)
             }
-            if model.library.isEmpty {
+            if model.needsLibraryRefresh {
                 await loadBooks()
             }
             await loadBookProgress()
@@ -157,6 +158,7 @@ struct LibraryView: View {
         }
         .onChange(of: mediaFilterKey) { _, _ in
             liveReloadTask?.cancel()
+            hydrateMediaFromCache()
             Task { await loadMedia(reset: true) }
         }
         .onChange(of: section) { _, newSection in
@@ -823,6 +825,36 @@ struct LibraryView: View {
             // The store publishes the failure on the query state; the list keeps
             // whatever it already had.
         }
+    }
+
+    /// Paints a list this launch hasn't fetched from the pages saved last time,
+    /// so the grid opens full — offline, or while the refetch is in flight.
+    private func hydrateMediaFromCache() {
+        let key = mediaKey
+        guard let client = model.api(), store.libraryList(key).value == nil else { return }
+        var items: [LibraryMedia] = []
+        var pages = 0
+        var hasMore = false
+        while let cached = client.cached(Endpoints.libraryList(
+            type: key.type,
+            status: key.status,
+            q: key.query,
+            page: pages + 1,
+            limit: key.limit,
+            sortBy: key.sortBy ?? "added_at",
+            sortDir: key.sortDirection ?? "desc"
+        )) {
+            for item in cached.value.items where !items.contains(where: { $0.id == item.id }) {
+                items.append(item)
+            }
+            pages += 1
+            hasMore = cached.value.hasMore == true
+            if !hasMore {
+                break
+            }
+        }
+        guard pages > 0 else { return }
+        store.hydrateLibraryList(key, items: items, pagesLoaded: pages, hasMore: hasMore)
     }
 
     private func mediaPageLoader(

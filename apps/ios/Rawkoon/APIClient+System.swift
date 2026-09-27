@@ -24,7 +24,7 @@ extension APIClient {
     }
 
     func systemVersion() async throws -> SystemVersion {
-        try await get("/api/system/version")
+        try await get(Endpoints.systemVersion)
     }
 
     func systemFeatures() async throws -> SystemFeatures {

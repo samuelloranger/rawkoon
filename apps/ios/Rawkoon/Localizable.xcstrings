@@ -8767,16 +8767,6 @@
         }
       }
     },
-    "there": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Utilisateur"
-          }
-        }
-      }
-    },
     "%lld results": {
       "localizations": {
         "en": {

@@ -53,11 +53,7 @@ extension APIClient {
 
     /// Discover deck (swipe)
     func discoverDeck(exclude: [Int], limit: Int = 20, language: String? = nil) async throws -> DiscoverDeckResponse {
-        let excludeParam = exclude.isEmpty ? nil : exclude.map(String.init).joined(separator: ",")
-        return try await get(
-            "/api/medias/discover/deck",
-            query: ["limit": String(limit), "exclude": excludeParam, "language": language ?? Self.tmdbLanguage]
-        )
+        try await get(Endpoints.discoverDeck(exclude: exclude, limit: limit, language: language))
     }
 
     func dismissDiscover(tmdbId: Int, type: String) async throws {
@@ -104,10 +100,7 @@ extension APIClient {
 
     /// Detail
     func mediaModal(mediaType: String, tmdbId: Int) async throws -> MediaModalResponse {
-        try await get(
-            "/api/medias/modal/\(mediaType)/\(tmdbId)",
-            query: ["language": Self.tmdbLanguage]
-        )
+        try await get(Endpoints.mediaModal(mediaType: mediaType, tmdbId: tmdbId))
     }
 
     /// Library (movies / shows)
@@ -115,13 +108,9 @@ extension APIClient {
         type: String? = nil, status: String? = nil, q: String? = nil, page: Int? = nil, limit: Int? = nil,
         sortBy: String? = nil, sortDir: String? = nil
     ) async throws -> LibraryListResponse {
-        try await get("/api/library", query: [
-            "type": type, "status": status, "q": q,
-            "page": page.map(String.init),
-            "limit": limit.map(String.init),
-            "sort_by": sortBy, "sort_dir": sortDir,
-            "title_language": Self.titleLanguage,
-        ])
+        try await get(Endpoints.libraryList(
+            type: type, status: status, q: q, page: page, limit: limit, sortBy: sortBy, sortDir: sortDir
+        ))
     }
 
     func libraryItem(id: Int) async throws -> LibraryMedia {
@@ -130,6 +119,14 @@ extension APIClient {
             query: ["title_language": Self.titleLanguage]
         )
         return response.item
+    }
+
+    nonisolated func cachedLibraryItem(id: Int) -> Cached<LibraryMedia>? {
+        guard let cached: Cached<LibraryItemResponse> = cached(
+            "/api/library/item/\(id)",
+            query: ["title_language": Self.titleLanguage]
+        ) else { return nil }
+        return Cached(value: cached.value.item, fetchedAt: cached.fetchedAt)
     }
 
     func updateLibraryMonitored(id: Int, monitored: Bool) async throws -> LibraryMedia {
@@ -433,20 +430,16 @@ extension APIClient {
     }
 
     func activityFeed(limit: Int = 50, service: String? = nil, type: String? = nil) async throws -> ActivityFeedResponse {
-        try await get("/api/dashboard/activities/feed", query: [
-            "limit": String(limit),
-            "service": service,
-            "type": type,
-        ])
+        try await get(Endpoints.activityFeed(limit: limit, service: service, type: type))
     }
 
     func upcoming() async throws -> UpcomingResponse {
-        try await get("/api/dashboard/upcoming")
+        try await get(Endpoints.upcoming)
     }
 
     /// Home widgets
     func recentlyAdded(limit: Int = 24) async throws -> LibraryListResponse {
-        try await libraryList(limit: limit, sortBy: "added_at", sortDir: "desc")
+        try await get(Endpoints.recentlyAdded(limit: limit))
     }
 
     func nowPlaying() async throws -> NowPlayingResponse {
@@ -454,7 +447,7 @@ extension APIClient {
     }
 
     func libraryAttention() async throws -> LibraryAttentionResponse {
-        try await get("/api/library/attention")
+        try await get(Endpoints.libraryAttention)
     }
 
     func libraryStats() async throws -> LibraryStats {
@@ -462,8 +455,13 @@ extension APIClient {
         return response.stats
     }
 
+    nonisolated func cachedLibraryStats() -> LibraryStats? {
+        let cached: Cached<LibraryStatsResponse>? = cached("/api/library/stats")
+        return cached?.value.stats
+    }
+
     func rssStatus() async throws -> RssStatusResponse {
-        try await get("/api/library/rss-status")
+        try await get(Endpoints.rssStatus)
     }
 
     func approveRequest(id: Int, qualityProfileId: Int) async throws {

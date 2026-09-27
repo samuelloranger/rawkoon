@@ -94,11 +94,16 @@ extension AppModel {
 
     func makeAPIClient(baseURL: URL, token: String?) -> APIClient {
         serverStateStore.clear()
-        return APIClient(baseURL: baseURL, token: token, onUnauthorized: {
-            Task { @MainActor in
-                AppModel.shared.handleSessionExpired()
+        return APIClient(
+            baseURL: baseURL,
+            token: token,
+            responseCache: Self.makeResponseCache(server: baseURL.absoluteString),
+            onUnauthorized: {
+                Task { @MainActor in
+                    AppModel.shared.handleSessionExpired()
+                }
             }
-        })
+        )
     }
 
     func logout() {
@@ -122,6 +127,9 @@ extension AppModel {
 
         Keychain.delete(Self.serverURLKey)
         Keychain.delete(Self.authTokenKey)
+        profileTask?.cancel()
+        profileTask = nil
+        wipeResponseCache()
 
         apiClient = nil
         isLoggedIn = false
@@ -129,6 +137,7 @@ extension AppModel {
         userFirstName = nil
         userInitials = nil
         library = []
+        libraryFetchedAt = nil
         manifests = [:]
         downloaders = [:]
         downloadPlans = [:]
@@ -146,14 +155,22 @@ extension AppModel {
     }
 
     /// Best-effort: learn whether the signed-in user is an admin, so the UI can
-    /// offer "Add to library" (admin) vs "Request" (non-admin).
+    /// offer "Add to library" (admin) vs "Request" (non-admin). Concurrent callers
+    /// share one request; a failure keeps the profile painted from the cache.
     func refreshAdmin() async {
+        if let profileTask {
+            return await profileTask.value
+        }
         guard let apiClient else { return }
-        if let user = await (try? apiClient.currentUser())?.user {
-            isAdmin = user.isAdmin ?? false
-            let full = [user.firstName, user.lastName].compactMap(\.self).joined(separator: " ")
-            userFirstName = user.firstName ?? (full.isEmpty ? user.name : full)
-            userInitials = UserInitials.from(firstName: user.firstName, lastName: user.lastName, name: user.name)
+        let task = Task { @MainActor [weak self] in
+            if let user = await (try? apiClient.currentUser())?.user {
+                self?.applyUser(user)
+            }
+        }
+        profileTask = task
+        await task.value
+        if profileTask == task {
+            profileTask = nil
         }
     }
 }

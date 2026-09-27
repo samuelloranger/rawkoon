@@ -98,6 +98,20 @@ final class ServerStateStore {
         libraryPagination[key] = LibraryPagination(pagesLoaded: pagesLoaded, hasMore: hasMore)
     }
 
+    /// Seeds a list nothing has loaded yet from its saved pages, marked stale so
+    /// the next load refreshes it in place instead of starting from a skeleton.
+    func hydrateLibraryList(_ key: LibraryListKey, items: [LibraryMedia], pagesLoaded: Int, hasMore: Bool) {
+        guard libraryLists[key]?.value == nil else { return }
+        libraryLists[key] = ServerQueryState(
+            value: items,
+            errorDescription: nil,
+            isLoading: false,
+            isInvalidated: true,
+            updatedAt: nil
+        )
+        libraryPagination[key] = LibraryPagination(pagesLoaded: pagesLoaded, hasMore: hasMore)
+    }
+
     // MARK: Windowed Library loading
 
     /// Loads pages `1...pages` and replaces the cached window in place. Equal

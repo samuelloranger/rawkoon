@@ -226,6 +226,14 @@ struct ContinueListeningView: View {
             errorMessage = nil
             return
         }
+        // The saved copy paints first, so the rail never waits on the network.
+        if items.isEmpty {
+            let cachedAudio = client.cachedProgress()?.value
+            let cachedEbook = client.cachedReadingProgress()?.value
+            if cachedAudio != nil || cachedEbook != nil {
+                items = buildItems(audiobookProgress: cachedAudio ?? [], ebookProgress: cachedEbook ?? [])
+            }
+        }
         if model.library.isEmpty {
             await model.loadLibrary()
         }
@@ -233,13 +241,18 @@ struct ContinueListeningView: View {
         async let ebookProgressR = client.readingProgress()
         let audiobookProgress = try? await audiobookProgressR
         let ebookProgress = try? await ebookProgressR
+        // Both failed: keep what is on screen rather than blanking the rail.
+        guard audiobookProgress != nil || ebookProgress != nil else {
+            if items.isEmpty {
+                errorMessage = String(localized: "Could not load continue progress.")
+            }
+            return
+        }
         items = buildItems(
-            audiobookProgress: audiobookProgress ?? [],
-            ebookProgress: ebookProgress ?? []
+            audiobookProgress: audiobookProgress ?? client.cachedProgress()?.value ?? [],
+            ebookProgress: ebookProgress ?? client.cachedReadingProgress()?.value ?? []
         )
-        errorMessage = (audiobookProgress == nil && ebookProgress == nil)
-            ? String(localized: "Could not load continue progress.")
-            : nil
+        errorMessage = nil
     }
 
     private func buildItems(

@@ -278,6 +278,7 @@ private struct RootTabsView: View {
                 sidebarTabs(validSelection)
             }
         }
+        .offlineStrip(isOffline: model.isOffline)
         .alert(
             "Couldn't play chapter",
             isPresented: Binding(
@@ -302,7 +303,7 @@ private struct RootTabsView: View {
             }
         }
         .task {
-            if model.library.isEmpty {
+            if model.needsLibraryRefresh {
                 await model.loadLibrary()
             }
         }
