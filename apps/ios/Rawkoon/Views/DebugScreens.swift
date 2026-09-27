@@ -116,9 +116,17 @@
 
         private func load() async {
             guard let client = model.api() else { return }
-            // Falls back to the saved list so the offline screenshot run has a title to open.
-            media = await (try? client.libraryList(type: libraryType, limit: 1))?.items.first
-                ?? client.cached(Endpoints.libraryList(type: libraryType, limit: 1))?.value.items.first
+            // An index picks from the prefetched recent list, to show a never-opened title offline.
+            if let raw = ProcessInfo.processInfo.environment["RAWKOON_DETAIL_INDEX"], let index = Int(raw) {
+                let recent = client.cached(Endpoints.libraryList(
+                    page: 1, limit: 100, sortBy: "added_at", sortDir: "desc"
+                ))?.value.items.filter { $0.type == libraryType } ?? []
+                media = recent.indices.contains(index) ? recent[index] : nil
+            } else {
+                // Falls back to the saved list so the offline screenshot run has a title to open.
+                media = await (try? client.libraryList(type: libraryType, limit: 1))?.items.first
+                    ?? client.cached(Endpoints.libraryList(type: libraryType, limit: 1))?.value.items.first
+            }
             if media == nil {
                 failed = true
             }

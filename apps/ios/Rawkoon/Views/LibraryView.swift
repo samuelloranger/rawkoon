@@ -141,6 +141,12 @@ struct LibraryView: View {
             }
         }
         .task {
+            #if DEBUG
+                // Screenshot-only: the simulator can't type into the search field.
+                if let preset = ProcessInfo.processInfo.environment["RAWKOON_LIBRARY_SEARCH"], mediaSearch.isEmpty {
+                    mediaSearch = preset
+                }
+            #endif
             hydrateMediaFromCache()
             if section == .media, store.needsLoad(mediaKey) {
                 await loadMedia(reset: true)
