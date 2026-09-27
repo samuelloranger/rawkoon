@@ -399,6 +399,9 @@ final class AppModel {
             if let screen = DebugScreen.requested, DebugScreen.isOffline(screen) {
                 return
             }
+            if ProcessInfo.processInfo.environment["RAWKOON_SCREENSHOT"] == "1" {
+                return
+            }
         #endif
         Task {
             let center = UNUserNotificationCenter.current()
