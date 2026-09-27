@@ -49,8 +49,18 @@ extension BookView {
         }
     }
 
+    /// The last saved detail, so editions and metadata show before (or without) the network.
+    func seedDetailFromCache() {
+        guard detail == nil, let client = model.api(),
+              let cached: Cached<BookDetailResponse> = client.cached("/api/books/\(book.bookId)")
+        else { return }
+        detail = cached.value.item
+        alignLaneToAvailableEditions()
+    }
+
     func loadBookDetail() async {
         guard let client = model.api() else { return }
+        seedDetailFromCache()
         loadingDetail = true
         detailError = nil
         defer { loadingDetail = false }

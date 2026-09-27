@@ -72,11 +72,13 @@ extension MediaDetailView {
                     } label: {
                         Label("Change artwork", systemImage: "photo")
                     }
+                    .disabled(model.isOffline)
                     Button {
                         Task { await runRescan() }
                     } label: {
                         Label("Rescan files", systemImage: "arrow.clockwise")
                     }
+                    .disabled(model.isOffline)
                     Button {
                         if let libraryId {
                             reencodeTarget = ReencodeTarget(selection: TranscodeSelection(mediaId: libraryId), subtitle: title)
@@ -84,6 +86,7 @@ extension MediaDetailView {
                     } label: {
                         Label("Re-encode…", systemImage: "gauge.with.dots.needle.67percent")
                     }
+                    .disabled(model.isOffline)
                     Divider()
                     Button(role: .destructive) {
                         pendingRemoveLibraryId = libraryId
@@ -92,6 +95,7 @@ extension MediaDetailView {
                     } label: {
                         Label("Remove from library", systemImage: "trash")
                     }
+                    .disabled(model.isOffline)
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .font(.title3)
@@ -116,6 +120,7 @@ extension MediaDetailView {
             .foregroundStyle(Theme.onAccent)
             .fontWeight(.semibold)
             .disabled(applyingManagementChange)
+            .requiresConnection(model.isOffline)
 
             managementDivider
 
@@ -126,6 +131,7 @@ extension MediaDetailView {
             ))
             .tint(Theme.terracotta)
             .disabled(applyingManagementChange)
+            .requiresConnection(model.isOffline)
 
             managementFieldRow(label: "Status") {
                 LocalizedStatus.text(item.status)
@@ -214,6 +220,7 @@ extension MediaDetailView {
             }
             .tint(Theme.apricot)
             .disabled(applyingManagementChange)
+            .requiresConnection(model.isOffline)
         }
     }
 
@@ -294,6 +301,7 @@ extension MediaDetailView {
                 .buttonStyle(.plain)
                 .foregroundStyle(Theme.apricot)
                 .disabled(applyingManagementChange)
+                .requiresConnection(model.isOffline)
             }
 
             if downloads.isEmpty {

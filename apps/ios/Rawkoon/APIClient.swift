@@ -183,7 +183,7 @@ actor APIClient {
     /// Current session user (better-auth). Best-effort: used to show name/email
     /// and gate admin-only settings rows.
     func currentUser() async throws -> SessionResponse {
-        try await get(Endpoints.me)
+        try await get(Endpoints.currentUser)
     }
 
     /// The `title_language` the library endpoints localize stored titles in, and
@@ -219,20 +219,20 @@ actor APIClient {
     }
 
     func perform(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
-        let cacheKey = cacheKey(for: request)
+        let key = cacheKey(for: request)
         var request = request
-        let cached = cacheKey.flatMap { responseCache?.entry(for: $0) }
+        let cached = key.flatMap { responseCache?.entry(for: $0) }
         if let etag = cached?.etag {
             request.setValue(etag, forHTTPHeaderField: "If-None-Match")
         }
         let (data, http) = try await send(request)
-        guard let cacheKey, let responseCache else { return (data, http) }
+        guard let key, let responseCache else { return (data, http) }
         if http.statusCode == 304, let cached {
-            responseCache.markRevalidated(cacheKey)
+            responseCache.markRevalidated(key)
             return (cached.data, Self.revalidatedResponse(from: http))
         }
         if http.statusCode == 200 {
-            responseCache.store(data, etag: http.value(forHTTPHeaderField: "ETag"), for: cacheKey)
+            responseCache.store(data, etag: http.value(forHTTPHeaderField: "ETag"), for: key)
         }
         return (data, http)
     }

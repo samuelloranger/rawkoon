@@ -70,6 +70,7 @@ struct SettingsView: View {
             }
         }
         .task {
+            hydrateFromCache()
             await model.refreshAdminIfNeeded()
             await loadAccount()
             await loadVersion()
@@ -261,6 +262,18 @@ struct SettingsView: View {
             return composedName
         }
         return user.name
+    }
+
+    /// The account rows and server version paint from the last saved answers,
+    /// so offline they show the known values instead of vanishing.
+    private func hydrateFromCache() {
+        guard let client = model.api() else { return }
+        if sessionUser == nil, let cached = client.cached(Endpoints.currentUser) {
+            sessionUser = cached.value.user
+        }
+        if appVersion == nil, let cached = client.cached(Endpoints.systemVersion) {
+            appVersion = cached.value.version
+        }
     }
 
     private func loadAccount() async {

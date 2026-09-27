@@ -401,7 +401,8 @@ struct HomeView: View {
                 attentionRowContent(item, busy: resolvingAttentionId == mediaId)
             }
             .buttonStyle(.plain)
-            .disabled(resolvingAttentionId != nil)
+            // Opening resolves the item from the server; the row still reads fine offline.
+            .disabled(resolvingAttentionId != nil || model.isOffline)
         } else {
             attentionRowContent(item, busy: false)
         }

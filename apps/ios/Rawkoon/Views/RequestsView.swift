@@ -63,7 +63,13 @@ struct RequestsView: View {
         .background(Theme.base)
         .navigationTitle("Requests")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear(perform: hydrateFromCache)
         .task { await load() }
+        .onChange(of: model.isOffline) { _, offline in
+            if !offline {
+                Task { await load() }
+            }
+        }
         .sheet(item: $approvingRequest) { request in
             ProfilePickerSheet(options: profileOptions) { option in
                 Task { await approve(request: request, profileId: option.id) }
@@ -86,6 +92,7 @@ struct RequestsView: View {
                 }
                 denyTarget = nil
             }
+            .disabled(model.isOffline)
             Button("Cancel", role: .cancel) {
                 denyTarget = nil
             }
@@ -97,6 +104,13 @@ struct RequestsView: View {
         if loading, requests.isEmpty {
             ProgressView().tint(Theme.apricot)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if model.isOffline, errorMessage != nil, requests.isEmpty {
+            ContentUnavailableView(
+                "You're offline",
+                systemImage: "wifi.slash",
+                description: Text("This will load when you're back online.")
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let errorMessage, requests.isEmpty {
             ContentUnavailableView(
                 "Couldn't load requests",
@@ -154,10 +168,12 @@ struct RequestsView: View {
                 Button("Deny", role: .destructive) {
                     denyTarget = req
                 }
+                .disabled(model.isOffline)
                 Button("Approve") {
                     Task { await beginApprove(request: req) }
                 }
                 .tint(Theme.seed)
+                .disabled(model.isOffline)
             }
         }
     }
@@ -208,6 +224,7 @@ struct RequestsView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Approve")
+                .requiresConnection(model.isOffline)
 
                 Button {
                     denyTarget = req
@@ -220,6 +237,7 @@ struct RequestsView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Deny")
+                .requiresConnection(model.isOffline)
             }
         } else {
             statusBadge(req.status, tint: badgeTint(req.status))
@@ -246,6 +264,11 @@ struct RequestsView: View {
     }
 
     // MARK: - Networking
+
+    private func hydrateFromCache() {
+        guard requests.isEmpty, let cached = model.api()?.cached(Endpoints.requests) else { return }
+        requests = cached.value.requests
+    }
 
     private func load() async {
         guard let client = model.api() else { return }
@@ -356,6 +379,7 @@ private struct ApprovalProfileOption: Identifiable {
 private struct ProfilePickerSheet: View {
     let options: [ApprovalProfileOption]
     let onSelect: (ApprovalProfileOption) -> Void
+    @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -380,6 +404,7 @@ private struct ProfilePickerSheet: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .requiresConnection(model.isOffline)
                     .listRowBackground(Theme.raised)
                 }
             }

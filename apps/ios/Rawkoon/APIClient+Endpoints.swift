@@ -20,7 +20,7 @@ extension APIClient {
 
 /// The browsing endpoints screens paint from the cache before refetching.
 nonisolated enum Endpoints {
-    static let me = Endpoint<SessionResponse>(path: "/api/auth/me")
+    static let currentUser = Endpoint<SessionResponse>(path: "/api/auth/me")
     static let upcoming = Endpoint<UpcomingResponse>(path: "/api/dashboard/upcoming")
     static let libraryAttention = Endpoint<LibraryAttentionResponse>(path: "/api/library/attention")
     static let rssStatus = Endpoint<RssStatusResponse>(path: "/api/library/rss-status")
@@ -44,7 +44,9 @@ nonisolated enum Endpoints {
         libraryList(limit: limit, sortBy: "added_at", sortDir: "desc")
     }
 
-    static func discoverDeck(exclude: [Int] = [], limit: Int = 20, language: String? = nil) -> Endpoint<DiscoverDeckResponse> {
+    static func discoverDeck(
+        exclude: [Int] = [], limit: Int = 20, language: String? = nil
+    ) -> Endpoint<DiscoverDeckResponse> {
         let excludeParam = exclude.isEmpty ? nil : exclude.map(String.init).joined(separator: ",")
         return Endpoint(
             path: "/api/medias/discover/deck",
@@ -56,7 +58,9 @@ nonisolated enum Endpoints {
         Endpoint(path: "/api/medias/modal/\(mediaType)/\(tmdbId)", query: ["language": APIClient.tmdbLanguage])
     }
 
-    static func activityFeed(limit: Int = 50, service: String? = nil, type: String? = nil) -> Endpoint<ActivityFeedResponse> {
+    static func activityFeed(
+        limit: Int = 50, service: String? = nil, type: String? = nil
+    ) -> Endpoint<ActivityFeedResponse> {
         Endpoint(path: "/api/dashboard/activities/feed", query: [
             "limit": String(limit),
             "service": service,
@@ -64,7 +68,9 @@ nonisolated enum Endpoints {
         ])
     }
 
-    static func notifications(page: Int? = nil, limit: Int? = nil, read: Bool? = nil) -> Endpoint<NotificationsResponseDTO> {
+    static func notifications(
+        page: Int? = nil, limit: Int? = nil, read: Bool? = nil
+    ) -> Endpoint<NotificationsResponseDTO> {
         Endpoint(path: "/api/notifications", query: [
             "page": page.map(String.init),
             "limit": limit.map(String.init),

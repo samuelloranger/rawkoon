@@ -44,7 +44,7 @@ struct CustomFormatsCrudView: View {
                     .listRowBackground(Theme.raised)
                     .swipeActions {
                         Button("Delete", role: .destructive) { Task { await delete(format) } }
-                            .disabled(busyIds.contains(format.id))
+                            .disabled(busyIds.contains(format.id) || model.isOffline)
                     }
                     .overlay(alignment: .trailing) {
                         if busyIds.contains(format.id) {
@@ -155,7 +155,7 @@ private struct CustomFormatEditorView: View {
                 if saving {
                     ProgressView().tint(Theme.apricot)
                 } else {
-                    Button("Save") { Task { await save() } }.disabled(name.isEmpty || conditions.isEmpty)
+                    Button("Save") { Task { await save() } }.disabled(name.isEmpty || conditions.isEmpty || model.isOffline)
                 }
             }
         }

@@ -8,6 +8,7 @@ struct UsersView: View {
     @State private var loading = false
     @State private var errorText: String?
     @State private var isForbidden = false
+    @State private var hasLoaded = false
 
     var body: some View {
         Group {
@@ -120,7 +121,6 @@ struct UsersView: View {
     }
 
     private func load() async {
-        loading = true
         errorText = nil
         isForbidden = false
         defer { loading = false }
@@ -130,17 +130,28 @@ struct UsersView: View {
             return
         }
 
+        if !hasLoaded, let cached = client.cached(Endpoints.adminUsers) {
+            users = cached.value.users
+            hasLoaded = true
+        }
+        loading = !hasLoaded
+
         do {
             let response = try await client.adminUsers()
             users = response.users
+            hasLoaded = true
         } catch APIError.unauthorized {
             isForbidden = true
         } catch APIError.forbidden {
             isForbidden = true
         } catch let error as APIError {
-            errorText = error.userMessage()
+            if !hasLoaded {
+                errorText = error.userMessage()
+            }
         } catch {
-            errorText = String(localized: "Network error. Check your connection.")
+            if !hasLoaded {
+                errorText = String(localized: "Network error. Check your connection.")
+            }
         }
     }
 }

@@ -5,6 +5,8 @@ import SwiftUI
 /// progress for active grabs, failure/post-process reasons, and pause / resume /
 /// remove controls. Actions are performed by the parent (admin-gated).
 struct DetailDownloadRow: View {
+    @Environment(AppModel.self) private var model
+
     let row: DownloadHistoryItem
     let busy: Bool
     let onAction: (String) -> Void
@@ -55,6 +57,7 @@ struct DetailDownloadRow: View {
                     .font(.caption)
                     .buttonStyle(.plain)
                     .foregroundStyle(Theme.apricot)
+                    .requiresConnection(model.isOffline)
                 }
             }
 
@@ -100,6 +103,7 @@ struct DetailDownloadRow: View {
                     .font(.caption)
                     .buttonStyle(.plain)
                     .foregroundStyle(Theme.terracotta)
+                    .requiresConnection(model.isOffline)
                 }
             }
         }

@@ -7,7 +7,7 @@ extension APIClient {
 
     /// This user's registered iOS (APNS) devices.
     func apnsDevices() async throws -> ApnsDevicesResponse {
-        try await get("/api/notifications/apns/devices")
+        try await get(Endpoints.apnsDevices)
     }
 
     /// Remove one iOS device token (400 if not the caller's or already gone).
@@ -17,7 +17,7 @@ extension APIClient {
 
     /// This user's registered web-push devices (browsers).
     func webPushDevices() async throws -> WebPushDevicesResponse {
-        try await get("/api/notifications/devices")
+        try await get(Endpoints.webPushDevices)
     }
 
     /// Remove one web-push device.
@@ -259,7 +259,7 @@ extension APIClient {
     // MARK: Notification channels (per-user CRUD — spec §5 Phase 4)
 
     func notificationChannels() async throws -> NotificationChannelsResponse {
-        try await get("/api/notifications/channels")
+        try await get(Endpoints.notificationChannels)
     }
 
     func createNotificationChannel(_ body: CreateChannelBody) async throws {

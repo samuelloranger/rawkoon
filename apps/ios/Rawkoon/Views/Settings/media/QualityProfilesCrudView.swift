@@ -44,7 +44,7 @@ struct QualityProfilesCrudView: View {
                     .listRowBackground(Theme.raised)
                     .swipeActions {
                         Button("Delete", role: .destructive) { Task { await delete(profile) } }
-                            .disabled(busyIds.contains(profile.id))
+                            .disabled(busyIds.contains(profile.id) || model.isOffline)
                     }
                     .overlay(alignment: .trailing) {
                         if busyIds.contains(profile.id) {
@@ -226,7 +226,7 @@ private struct QualityProfileEditorView: View {
                 if saving {
                     ProgressView().tint(Theme.apricot)
                 } else {
-                    Button("Save") { Task { await save() } }.disabled(name.isEmpty)
+                    Button("Save") { Task { await save() } }.disabled(name.isEmpty || model.isOffline)
                 }
             }
         }

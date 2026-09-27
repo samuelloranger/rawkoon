@@ -186,10 +186,12 @@ struct BookView: View {
                 }
                 .accessibilityLabel(Text(LocalizedStringKey(isRead ? "Mark as unread" : "Mark as read")))
                 .tint(isRead ? Theme.seed : Theme.apricot)
+                .requiresConnection(model.isOffline)
             }
         }
         .rawkoonZoomDestination(RawkoonZoom.book(book.bookId))
         .onAppear {
+            seedDetailFromCache()
             seedManifestFromCache()
         }
         // `.task(id:)` covers both the initial load and live `/api/library/events`
@@ -352,6 +354,7 @@ struct BookView: View {
                 .tint(Theme.apricot)
                 .foregroundStyle(Theme.onAccent)
                 .fontWeight(.semibold)
+                .requiresConnection(model.isOffline)
 
                 Button {
                     Task {
@@ -375,6 +378,7 @@ struct BookView: View {
                 .buttonStyle(.bordered)
                 .tint(Theme.muted)
                 .disabled(rescanDisabled)
+                .requiresConnection(model.isOffline)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
@@ -558,6 +562,7 @@ struct BookView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(Theme.apricot)
+                    .requiresConnection(model.isOffline)
                 }
                 Button(role: .destructive) {
                     if let editionId = audiobookEditionId {
@@ -613,6 +618,7 @@ struct BookView: View {
             }
             .buttonStyle(.bordered)
             .tint(Theme.apricot)
+            .requiresConnection(model.isOffline)
         }
     }
 
@@ -795,6 +801,7 @@ struct BookView: View {
                     .buttonStyle(.bordered)
                     .tint(Theme.muted)
                     .disabled(downloadingEbookFileIDs.contains(preferred.id) || loadingEbookFiles)
+                    .requiresConnection(model.isOffline)
                 } else {
                     Text("This server does not expose secure ebook file downloads yet. Update Rawkoon on the server, then retry.")
                         .font(.caption)
@@ -873,6 +880,7 @@ struct BookView: View {
                                     .tint(Theme.muted)
                                     .lineLimit(1)
                                     .disabled(!canFetchRemote)
+                                    .requiresConnection(model.isOffline)
                                 }
 
                                 if isReadableEbook(file) {
@@ -968,6 +976,7 @@ struct BookView: View {
             .tint(tint)
             .foregroundStyle(Theme.onAccent)
             .disabled(addingEditionKind != nil)
+            .requiresConnection(model.isOffline)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)

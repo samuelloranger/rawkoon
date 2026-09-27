@@ -7,6 +7,7 @@ struct ProfileView: View {
 
     @State private var loading = true
     @State private var loadError: String?
+    @State private var hasProfile = false
 
     @State private var email = ""
     @State private var firstName = ""
@@ -40,7 +41,7 @@ struct ProfileView: View {
                     LabeledTextFieldRow(title: "First name", text: $firstName, autocaps: true)
                     LabeledTextFieldRow(title: "Last name", text: $lastName, autocaps: true)
                     Button("Save name") { Task { await saveName() } }
-                        .disabled(!nameDirty || savingName)
+                        .disabled(!nameDirty || savingName || model.isOffline)
                         .listRowBackground(Theme.raised)
                     if let nameError {
                         Text(nameError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
@@ -52,7 +53,7 @@ struct ProfileView: View {
                     SecretFieldRow(title: "New password (min 8)", input: $newPassword)
                     SecretFieldRow(title: "Confirm new password", input: $confirmPassword)
                     Button("Change password") { Task { await changePassword() } }
-                        .disabled(!passwordValid || changingPassword)
+                        .disabled(!passwordValid || changingPassword || model.isOffline)
                         .listRowBackground(Theme.raised)
                     if passwordDone {
                         Text("Password updated.").foregroundStyle(Theme.apricot).listRowBackground(Theme.raised)
@@ -78,18 +79,32 @@ struct ProfileView: View {
 
     private func load() async {
         guard let client = model.api() else { loading = false; return }
-        loading = true; loadError = nil
+        if !hasProfile, let cached = client.cached(Endpoints.currentUser) {
+            apply(cached.value.user)
+        }
+        loading = !hasProfile; loadError = nil
         do {
             let user = try await client.currentUser().user
-            email = user?.email ?? ""
-            firstName = user?.firstName ?? ""
-            lastName = user?.lastName ?? ""
-            loadedFirst = firstName
-            loadedLast = lastName
+            apply(user)
         } catch {
-            loadError = settingsErrorMessage(error, admin: false)
+            if !hasProfile {
+                loadError = settingsErrorMessage(error, admin: false)
+            }
         }
         loading = false
+    }
+
+    /// A refetch landing mid-edit keeps what the user typed.
+    private func apply(_ user: SessionUser?) {
+        let keepEdits = hasProfile && nameDirty
+        email = user?.email ?? ""
+        if !keepEdits {
+            firstName = user?.firstName ?? ""
+            lastName = user?.lastName ?? ""
+        }
+        loadedFirst = user?.firstName ?? ""
+        loadedLast = user?.lastName ?? ""
+        hasProfile = true
     }
 
     private func saveName() async {

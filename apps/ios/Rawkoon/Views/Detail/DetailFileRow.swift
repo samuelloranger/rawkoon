@@ -52,6 +52,7 @@ struct DetailFileRow: View {
                 } label: {
                     Label("Re-encode…", systemImage: "gauge.with.dots.needle.67percent")
                 }
+                .disabled(model.isOffline)
             }
             // Movie files delete via the generic file route; episode files are
             // deleted from the seasons section, which has the episode id.
@@ -61,6 +62,7 @@ struct DetailFileRow: View {
                 } label: {
                     Label("Delete file", systemImage: "trash")
                 }
+                .disabled(model.isOffline)
             }
         }
     }
@@ -130,6 +132,7 @@ struct DetailFileRow: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(Theme.apricot)
+                    .requiresConnection(model.isOffline)
                 }
                 if canRemux, !remuxOpen {
                     Button {
@@ -140,6 +143,7 @@ struct DetailFileRow: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(Theme.apricot)
+                    .requiresConnection(model.isOffline)
                 }
             }
             .padding(.top, 2)
@@ -272,6 +276,7 @@ struct DetailFileRow: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(Theme.apricot)
                     .disabled(remuxKeepAudio.isEmpty)
+                    .requiresConnection(model.isOffline)
                     Button("Cancel") { closeRemux() }
                         .font(.caption)
                         .buttonStyle(.plain)

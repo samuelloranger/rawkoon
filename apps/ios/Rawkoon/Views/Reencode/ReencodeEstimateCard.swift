@@ -3,6 +3,7 @@ import SwiftUI
 
 /// Always-visible summary at the bottom of the re-encode sheet.
 struct ReencodeEstimateCard: View {
+    @Environment(AppModel.self) private var model
     let estimate: TranscodeEstimate?
     let mode: TranscodeMode
     let outdated: Bool
@@ -49,7 +50,7 @@ struct ReencodeEstimateCard: View {
                             action: onRefine
                         )
                         .buttonStyle(.borderless)
-                        .font(.caption.weight(.semibold)).tint(Theme.apricot).disabled(refining)
+                        .font(.caption.weight(.semibold)).tint(Theme.apricot).disabled(refining || model.isOffline)
                     }
                 }
             }

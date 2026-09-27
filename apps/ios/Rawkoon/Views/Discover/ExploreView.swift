@@ -120,6 +120,10 @@ struct ExploreView: View {
             loadMoreError = nil
             Task { await loadFirstPage() }
         }
+        .onChange(of: model.isOffline) { _, offline in
+            guard !offline, items.isEmpty || error != nil else { return }
+            Task { await loadFirstPage() }
+        }
         #if DEBUG
         .onAppear {
             // `simctl` has no tap injection, so the filter sheet — normally
@@ -158,7 +162,8 @@ struct ExploreView: View {
                 } else {
                     filterBar
 
-                    if let error {
+                    // Offline, the app-wide strip already says why nothing refreshed.
+                    if let error, !model.isOffline {
                         refreshErrorBanner(error)
                     }
 
@@ -248,6 +253,13 @@ struct ExploreView: View {
     private var content: some View {
         if loading, items.isEmpty {
             skeletonGrid
+        } else if items.isEmpty, error != nil, model.isOffline {
+            ContentUnavailableView(
+                "You're offline",
+                systemImage: "wifi.slash",
+                description: Text("This will load when you're back online.")
+            )
+            .padding(.top, 16)
         } else if items.isEmpty, error != nil {
             ContentUnavailableView(
                 "Couldn't load Explore",
@@ -316,7 +328,7 @@ struct ExploreView: View {
         if loadingMore {
             ProgressView().tint(Theme.muted)
                 .padding(.vertical, 16)
-        } else if let loadMoreError, page < totalPages {
+        } else if let loadMoreError, page < totalPages, !model.isOffline {
             Button {
                 Task { await loadMore(force: true) }
             } label: {
@@ -378,10 +390,24 @@ struct ExploreView: View {
             genreId: filters.genre?.id,
             sortBy: filters.sort.rawValue,
             page: page,
-            originalLanguage: filters.originalLanguageOnly
-                ? Locale.current.language.languageCode?.identifier
-                : nil
+            originalLanguage: originalLanguageFilter
         )
+    }
+
+    /// The saved copy of the page `fetchPage` would request with the same filters.
+    private func cachedPage(client: APIClient, page: Int) -> DiscoverMediasResponse? {
+        client.cached(Endpoints.discoverGrid(
+            type: filters.kind.apiValue,
+            providerId: filters.provider?.id,
+            genreId: filters.genre?.id,
+            sortBy: filters.sort.rawValue,
+            page: page,
+            originalLanguage: originalLanguageFilter
+        ))?.value
+    }
+
+    private var originalLanguageFilter: String? {
+        filters.originalLanguageOnly ? Locale.current.language.languageCode?.identifier : nil
     }
 
     private func loadFirstPage() async {
@@ -390,6 +416,12 @@ struct ExploreView: View {
             return
         }
         let generation = loadGeneration
+        if items.isEmpty, let cached = cachedPage(client: client, page: 1) {
+            items = cached.items
+            page = cached.page
+            totalPages = cached.totalPages
+            totalResults = cached.totalResults
+        }
         loading = true
         error = nil
         defer {
@@ -436,7 +468,15 @@ struct ExploreView: View {
             totalResults = response.totalResults
         } catch let apiError as APIError {
             guard generation == loadGeneration else { return }
-            loadMoreError = message(for: apiError)
+            // Offline, the next page may still be saved from an earlier scroll.
+            if apiError.isNetworkFailure, let cached = cachedPage(client: client, page: page + 1) {
+                items.append(contentsOf: cached.items)
+                page = cached.page
+                totalPages = cached.totalPages
+                totalResults = cached.totalResults
+            } else {
+                loadMoreError = message(for: apiError)
+            }
         } catch {
             guard generation == loadGeneration else { return }
             loadMoreError = String(localized: "Network error.")

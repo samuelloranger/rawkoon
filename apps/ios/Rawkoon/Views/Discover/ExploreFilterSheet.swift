@@ -20,7 +20,7 @@ struct ExploreFilterControls: View {
             if let optionsError {
                 Text(optionsError)
                     .font(.footnote)
-                    .foregroundStyle(Theme.terracotta)
+                    .foregroundStyle(model.isOffline ? Theme.muted : Theme.terracotta)
             }
             genreSection
             sortSection
@@ -40,6 +40,10 @@ struct ExploreFilterControls: View {
         .onChange(of: filters.kind) { _, _ in
             filters.provider = nil
             filters.genre = nil
+            Task { await loadOptions() }
+        }
+        .onChange(of: model.isOffline) { _, offline in
+            guard !offline, optionsError != nil else { return }
             Task { await loadOptions() }
         }
     }
@@ -231,12 +235,28 @@ struct ExploreFilterControls: View {
             optionsError = String(localized: "Not signed in.")
             return
         }
+        let kind = filters.kind.apiValue
+        // Called for a new kind: the saved options for it (or none) replace the previous kind's.
+        genres = client.cached(Endpoints.genres(type: kind))?.value.genres ?? []
+        providers = client.cached(Endpoints.streamingProviders(type: kind))?.value.providers ?? []
+
+        async let genresTask = client.genres(type: kind)
+        async let providersTask = client.streamingProviders(type: kind)
+        var failure: Error?
         do {
-            async let genresTask = client.genres(type: filters.kind.apiValue)
-            async let providersTask = client.streamingProviders(type: filters.kind.apiValue)
             genres = try await genresTask
+        } catch {
+            failure = error
+        }
+        do {
             providers = try await providersTask
         } catch {
+            failure = failure ?? error
+        }
+        guard failure != nil, genres.isEmpty || providers.isEmpty else { return }
+        if model.isOffline {
+            optionsError = String(localized: "You're offline. This needs a connection.")
+        } else {
             optionsError = String(localized: "Could not load filter options.")
         }
     }

@@ -8,19 +8,19 @@ import RawkoonKit
 
 extension APIClient {
     func qualityProfiles() async throws -> QualityProfilesResponse {
-        try await get("/api/quality-profiles")
+        try await get(Endpoints.qualityProfiles)
     }
 
     func indexers() async throws -> IndexersResponse {
-        try await get("/api/medias/indexers")
+        try await get(Endpoints.indexers)
     }
 
     func downloadClient() async throws -> DownloadClientResponse {
-        try await get("/api/integrations/download-client")
+        try await get(Endpoints.downloadClient)
     }
 
     func adminUsers() async throws -> AdminUsersResponse {
-        try await get("/api/admin/users")
+        try await get(Endpoints.adminUsers)
     }
 
     func systemVersion() async throws -> SystemVersion {

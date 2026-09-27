@@ -186,7 +186,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rien en file. Ouvrez un film ou une série et choisissez Réencoder."
+            "value": "Rien en file. Ouvre un film ou une série et choisis Réencoder."
           }
         }
       }
@@ -1166,7 +1166,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reprenez votre dernier livre audio Rawkoon."
+            "value": "Reprends ton dernier livre audio Rawkoon."
           }
         }
       }
@@ -1176,7 +1176,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vous n'avez aucun livre audio en cours."
+            "value": "Tu n'as aucun livre audio en cours."
           }
         }
       }
@@ -1186,7 +1186,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reprise de votre livre audio."
+            "value": "Reprise de ton livre audio."
           }
         }
       }
@@ -1206,7 +1206,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lire un livre audio de votre bibliothèque Rawkoon."
+            "value": "Lire un livre audio de ta bibliothèque Rawkoon."
           }
         }
       }
@@ -1226,7 +1226,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Connectez-vous à Rawkoon pour écouter des livres audio."
+            "value": "Connecte-toi à Rawkoon pour écouter des livres audio."
           }
         }
       }
@@ -1626,7 +1626,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une clé est enregistrée. Laissez vide pour la conserver."
+            "value": "Une clé est enregistrée. Laisse vide pour la conserver."
           }
         }
       }
@@ -1706,7 +1706,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ajoutez une clé pour activer Google Books."
+            "value": "Ajoute une clé pour activer Google Books."
           }
         }
       }
@@ -1756,7 +1756,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ajoutez ou retirez des clés d'accès depuis l'application web."
+            "value": "Ajoute ou retire des clés d'accès depuis l'application web."
           }
         }
       }
@@ -1776,7 +1776,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ajoutez ce titre à votre bibliothèque pour lancer des recherches de sorties."
+            "value": "Ajoute ce titre à ta bibliothèque pour lancer des recherches de sorties."
           }
         }
       }
@@ -1946,7 +1946,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les livres ajoutés sur votre serveur apparaissent ici."
+            "value": "Les livres ajoutés sur ton serveur apparaissent ici."
           }
         }
       }
@@ -2006,7 +2006,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Revenez bientôt pour de nouvelles sorties."
+            "value": "Reviens bientôt pour de nouvelles sorties."
           }
         }
       }
@@ -2026,7 +2026,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choisissez au moins une langue."
+            "value": "Choisis au moins une langue."
           }
         }
       }
@@ -2126,7 +2126,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copiez maintenant — elle ne sera plus affichée"
+            "value": "Copie-la maintenant — elle ne sera plus affichée"
           }
         }
       }
@@ -2336,7 +2336,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Supprime %@ de cet iPhone. Vous pouvez le retélécharger à tout moment."
+            "value": "Supprime %@ de cet iPhone. Tu peux le retélécharger à tout moment."
           }
         }
       }
@@ -2346,7 +2346,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Supprime les chapitres hors ligne de cet iPhone. La lecture nécessitera le réseau jusqu'à ce que vous les retéléchargiez."
+            "value": "Supprime les chapitres hors ligne de cet iPhone. La lecture nécessitera le réseau jusqu'à ce que tu les retélécharges."
           }
         }
       }
@@ -2426,7 +2426,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Source de découverte pour les films et séries. Laissez la clé vide pour conserver celle enregistrée."
+            "value": "Source de découverte pour les films et séries. Laisse la clé vide pour conserver celle enregistrée."
           }
         }
       }
@@ -2649,7 +2649,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sources activées, par ordre de priorité. Balayez pour désactiver."
+            "value": "Sources activées, par ordre de priorité. Balaie pour désactiver."
           }
         }
       }
@@ -2789,7 +2789,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les heures commencent maintenant — écoutez et elles s'accumuleront."
+            "value": "Les heures commencent maintenant — écoute et elles s'accumuleront."
           }
         }
       }
@@ -2989,7 +2989,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Laissez l'expiration vide pour une clé qui n'expire jamais."
+            "value": "Laisse l'expiration vide pour une clé qui n'expire jamais."
           }
         }
       }
@@ -3159,7 +3159,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Serveur média pour la synchro de la bibliothèque. Laissez la clé vide pour conserver celle enregistrée."
+            "value": "Serveur média pour la synchro de la bibliothèque. Laisse la clé vide pour conserver celle enregistrée."
           }
         }
       }
@@ -3429,7 +3429,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucun fichier de livre numérique importé. Recherchez des sorties ou réanalysez cette édition."
+            "value": "Aucun fichier de livre numérique importé. Recherche des sorties ou réanalyse cette édition."
           }
         }
       }
@@ -3509,7 +3509,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucune demande en attente. Demandez un titre depuis Découvrir."
+            "value": "Aucune demande en attente. Demande un titre depuis Découvrir."
           }
         }
       }
@@ -4089,7 +4089,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tirez pour actualiser, lancez une analyse ou vérifiez le serveur."
+            "value": "Tire pour actualiser, lance une analyse ou vérifie le serveur."
           }
         }
       }
@@ -4658,7 +4658,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enregistrez et activez la connexion pour choisir les indexeurs RSS."
+            "value": "Enregistre et active la connexion pour choisir les indexeurs RSS."
           }
         }
       }
@@ -4728,7 +4728,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Recherchez et récupérez des sorties depuis vos indexeurs configurés."
+            "value": "Recherche et récupère des sorties depuis tes indexeurs configurés."
           }
         }
       }
@@ -5158,7 +5158,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce serveur n'expose pas encore de téléchargements sécurisés de livres numériques. Mettez Rawkoon à jour sur le serveur, puis réessayez."
+            "value": "Ce serveur n'expose pas encore de téléchargements sécurisés de livres numériques. Mets Rawkoon à jour sur le serveur, puis réessaie."
           }
         }
       }
@@ -5188,7 +5188,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Essayez un autre titre."
+            "value": "Essaie un autre titre."
           }
         }
       }
@@ -5198,7 +5198,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Réessayez plus tard."
+            "value": "Réessaie plus tard."
           }
         }
       }
@@ -5278,7 +5278,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nous vous préviendrons lorsque ce sera en bibliothèque. Voir les Demandes dans Bibliothèque."
+            "value": "On te préviendra lorsque ce sera en bibliothèque. Voir les Demandes dans Bibliothèque."
           }
         }
       }
@@ -5328,7 +5328,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vous avez besoin d'un accès admin pour voir les utilisateurs."
+            "value": "Tu as besoin d'un accès admin pour voir les utilisateurs."
           }
         }
       }
@@ -5338,7 +5338,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vous êtes à jour."
+            "value": "Tu es à jour."
           }
         }
       }
@@ -5361,7 +5361,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "« %@ » sera retiré de votre bibliothèque. Supprimer les fichiers les retire aussi du disque."
+            "value": "« %@ » sera retiré de ta bibliothèque. Supprimer les fichiers les retire aussi du disque."
           }
         }
       }
@@ -5371,7 +5371,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "•••••• (enregistré — laissez vide pour conserver)"
+            "value": "•••••• (enregistré — laisse vide pour conserver)"
           }
         }
       }
@@ -6612,7 +6612,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible d'ouvrir ce livre numérique pour l'instant. Tirez pour actualiser et réessayer."
+            "value": "Impossible d'ouvrir ce livre numérique pour l'instant. Tire pour actualiser et réessayer."
           }
         }
       }
@@ -6772,7 +6772,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible de terminer. Vérifiez le courriel et réessayez."
+            "value": "Impossible de terminer. Vérifie le courriel et réessaie."
           }
         }
       }
@@ -6842,7 +6842,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible de charger les releases. Vérifiez le serveur."
+            "value": "Impossible de charger les releases. Vérifie le serveur."
           }
         }
       }
@@ -6952,7 +6952,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible d'enregistrer votre nom."
+            "value": "Impossible d'enregistrer ton nom."
           }
         }
       }
@@ -6962,7 +6962,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible d'enregistrer vos préférences de notifications."
+            "value": "Impossible d'enregistrer tes préférences de notifications."
           }
         }
       }
@@ -6972,7 +6972,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible d'enregistrer. Vérifiez les champs et réessayez."
+            "value": "Impossible d'enregistrer. Vérifie les champs et réessaie."
           }
         }
       }
@@ -6982,7 +6982,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible d'enregistrer. Vérifiez les valeurs et réessayez."
+            "value": "Impossible d'enregistrer. Vérifie les valeurs et réessaie."
           }
         }
       }
@@ -7142,7 +7142,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Échec du téléchargement. Vérifiez votre connexion et réessayez."
+            "value": "Échec du téléchargement. Vérifie ta connexion et réessaie."
           }
         }
       }
@@ -7192,7 +7192,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Entrez une URL de serveur valide."
+            "value": "Entre une URL de serveur valide."
           }
         }
       }
@@ -7462,7 +7462,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erreur réseau. Vérifiez votre connexion."
+            "value": "Erreur réseau. Vérifie ta connexion."
           }
         }
       }
@@ -7552,7 +7552,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrez Rawkoon sur votre téléphone pour vous connecter."
+            "value": "Ouvre Rawkoon sur ton téléphone pour te connecter."
           }
         }
       }
@@ -7652,7 +7652,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Échec de la lecture. Actualisez ou réanalysez cette édition."
+            "value": "Échec de la lecture. Actualise ou réanalyse cette édition."
           }
         }
       }
@@ -7772,7 +7772,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Échec de la connexion. Veuillez réessayer."
+            "value": "Échec de la connexion. Réessaie."
           }
         }
       }
@@ -7782,7 +7782,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Connecté, mais cet appareil n'a pas pu enregistrer votre connexion. Vous devrez peut-être vous reconnecter après avoir quitté l'app."
+            "value": "Connecté, mais cet appareil n'a pas pu enregistrer ta connexion. Tu devras peut-être te reconnecter après avoir quitté l'app."
           }
         }
       }
@@ -7802,7 +7802,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une erreur est survenue. Tirez pour réessayer."
+            "value": "Une erreur est survenue. Tire pour réessayer."
           }
         }
       }
@@ -7932,7 +7932,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce livre audio n'est pas encore découpé en chapitres. Lancez une réanalyse ou récupérez une version chapitrée."
+            "value": "Ce livre audio n'est pas encore découpé en chapitres. Lance une réanalyse ou récupère une version chapitrée."
           }
         }
       }
@@ -8002,7 +8002,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Non autorisé. Vérifiez vos identifiants."
+            "value": "Non autorisé. Vérifie tes identifiants."
           }
         }
       }
@@ -8032,7 +8032,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erreur inattendue. Veuillez réessayer."
+            "value": "Erreur inattendue. Réessaie."
           }
         }
       }
@@ -8192,7 +8192,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ajoutez une édition audio, puis cherchez des releases pour écouter et télécharger les chapitres hors ligne."
+            "value": "Ajoute une édition audio, puis cherche des releases pour écouter et télécharger les chapitres hors ligne."
           }
         }
       }
@@ -8202,7 +8202,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ajoutez une édition numérique pour lire les fichiers directement dans Rawkoon."
+            "value": "Ajoute une édition numérique pour lire les fichiers directement dans Rawkoon."
           }
         }
       }
@@ -8942,7 +8942,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible de charger la suite — %@. Touchez pour réessayer."
+            "value": "Impossible de charger la suite — %@. Touche pour réessayer."
           }
         }
       }
@@ -8972,7 +8972,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les détails des épisodes apparaissent une fois le titre dans votre bibliothèque."
+            "value": "Les détails des épisodes apparaissent une fois le titre dans ta bibliothèque."
           }
         }
       }
@@ -9182,7 +9182,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Demandé — nous vous préviendrons"
+            "value": "Demandé — on te préviendra"
           }
         }
       }
@@ -9282,7 +9282,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Essayez un autre fournisseur, genre ou tri."
+            "value": "Essaie un autre fournisseur, genre ou tri."
           }
         }
       }
@@ -9322,7 +9322,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vous n'avez pas la permission de faire ça."
+            "value": "Tu n'as pas la permission de faire ça."
           }
         }
       }
@@ -9332,7 +9332,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "votre langue"
+            "value": "ta langue"
           }
         }
       }
@@ -9362,7 +9362,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pour vous"
+            "value": "Pour toi"
           }
         }
       }
@@ -9712,7 +9712,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le premier est préféré. Touchez Modifier pour réordonner, balayez pour retirer."
+            "value": "Le premier est préféré. Touche Modifier pour réordonner, balaie pour retirer."
           }
         }
       }
@@ -9745,7 +9745,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Connectez-vous à votre bibliothèque"
+            "value": "Connecte-toi à ta bibliothèque"
           }
         }
       }
@@ -9761,7 +9761,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Laissez un champ vide pour revenir à la valeur par défaut de TMDB."
+            "value": "Laisse un champ vide pour revenir à la valeur par défaut de TMDB."
           }
         }
       }
@@ -9889,7 +9889,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Réessayez plus tard."
+            "value": "Réessaie plus tard."
           }
         }
       }
@@ -9953,7 +9953,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Définit la langue de l’application et celle des titres et de la découverte. « Système » suit votre appareil."
+            "value": "Définit la langue de l’application et celle des titres et de la découverte. « Système » suit ton appareil."
           }
         }
       }
@@ -10001,7 +10001,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "LLM local optionnel pour les métadonnées. Laissez la clé API vide pour un serveur local."
+            "value": "LLM local optionnel pour les métadonnées. Laisse la clé API vide pour un serveur local."
           }
         }
       }
@@ -10033,7 +10033,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Affiches et arrière-plans de meilleure qualité. Laissez la clé vide pour conserver celle enregistrée."
+            "value": "Affiches et arrière-plans de meilleure qualité. Laisse la clé vide pour conserver celle enregistrée."
           }
         }
       }
@@ -10111,7 +10111,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld résultats masqués par vos filtres."
+            "value": "%lld résultats masqués par tes filtres."
           }
         }
       }
@@ -10255,6 +10255,116 @@
           "stringUnit": {
             "state": "translated",
             "value": "Certains chapitres n'ont pas pu être téléchargés."
+          }
+        }
+      }
+    },
+    "You're offline. This needs a connection.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu es hors ligne. Cette action nécessite une connexion."
+          }
+        }
+      }
+    },
+    "This will load when you're back online.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ça va se charger dès que tu seras de nouveau en ligne."
+          }
+        }
+      }
+    },
+    "Release search needs a connection.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La recherche de versions nécessite une connexion."
+          }
+        }
+      }
+    },
+    "Added": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouté"
+          }
+        }
+      }
+    },
+    "Search needs a connection.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La recherche nécessite une connexion."
+          }
+        }
+      }
+    },
+    "Details will load when you're back online.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les détails vont s'afficher dès que tu seras de nouveau en ligne."
+          }
+        }
+      }
+    },
+    "You're offline": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu es hors ligne"
+          }
+        }
+      }
+    },
+    "Can't reach the server": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de joindre le serveur"
+          }
+        }
+      }
+    },
+    "This will open once the connection is back.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ça va s'ouvrir dès le retour de la connexion."
+          }
+        }
+      }
+    },
+    "Couldn't load your notification preferences.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger tes préférences de notification."
+          }
+        }
+      }
+    },
+    "Offline · showing saved data": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hors ligne · données enregistrées"
           }
         }
       }

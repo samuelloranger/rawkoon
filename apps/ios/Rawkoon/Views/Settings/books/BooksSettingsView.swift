@@ -63,7 +63,7 @@ struct BooksSettingsView: View {
                         Text("Books enabled").foregroundStyle(Theme.text)
                     }
                     .tint(Theme.apricot)
-                    .disabled(togglingEnabled)
+                    .disabled(togglingEnabled || model.isOffline)
                     .listRowBackground(Theme.raised)
                 } header: { Text("General") }
 
@@ -104,7 +104,7 @@ struct BooksSettingsView: View {
                 .listRowBackground(Theme.raised)
             }
             Button("Save order") { Task { await saveOrder() } }
-                .disabled(savingOrder)
+                .disabled(savingOrder || model.isOffline)
                 .listRowBackground(Theme.raised)
             if let orderError {
                 Text(orderError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
@@ -124,7 +124,7 @@ struct BooksSettingsView: View {
             LabeledTextFieldRow(title: "Audiobook template", text: $audiobookTemplate, mono: true)
             PickerRow(title: "Default book profile", selection: $defaultBookProfile, options: profileOptions)
             Button("Save files") { Task { await saveFiles() } }
-                .disabled(savingFiles)
+                .disabled(savingFiles || model.isOffline)
                 .listRowBackground(Theme.raised)
             if let filesError {
                 Text(filesError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
@@ -165,7 +165,7 @@ struct BooksSettingsView: View {
             do {
                 profiles = try await client.bookQualityProfiles().profiles
             } catch {
-                profiles = []
+                // Keep the last list; a failed refetch is not an empty one.
                 model.toast(String(localized: "Couldn't load quality profiles."), style: .error)
             }
             booksEnabled = general.booksEnabled ?? false

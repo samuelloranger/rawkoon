@@ -52,15 +52,27 @@ enum PosterCache {
         if let hit = decoded.object(forKey: cacheKey) {
             return LoadedImage(image: hit)
         }
+        let data: Data
         do {
-            let (data, _) = try await session.data(from: url)
-            try Task.checkCancellation()
-            guard let image = downsample(data: data, maxPixel: maxPixel) else { return nil }
-            decoded.setObject(image, forKey: cacheKey, cost: cost(image))
-            return LoadedImage(image: image)
+            data = try await session.data(for: URLRequest(url: url, cachePolicy: policy(for: url))).0
         } catch {
-            return nil
+            // Offline or server down: any stored copy beats a blank tile, however old.
+            guard
+                !(error is CancellationError),
+                let stored = try? await session.data(for: URLRequest(url: url, cachePolicy: .returnCacheDataDontLoad))
+            else { return nil }
+            data = stored.0
         }
+        guard !Task.isCancelled, let image = downsample(data: data, maxPixel: maxPixel) else { return nil }
+        decoded.setObject(image, forKey: cacheKey, cost: cost(image))
+        return LoadedImage(image: image)
+    }
+
+    /// TMDB never changes the image behind a URL, so a stored copy needs no
+    /// revalidation; self-hosted artwork can be replaced in place, so it keeps
+    /// the server's cache headers.
+    private static func policy(for url: URL) -> URLRequest.CachePolicy {
+        url.host == "image.tmdb.org" ? .returnCacheDataElseLoad : .useProtocolCachePolicy
     }
 
     private static func downsample(data: Data, maxPixel: CGFloat) -> UIImage? {

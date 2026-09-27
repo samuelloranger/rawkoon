@@ -36,7 +36,7 @@ extension AppModel {
     /// network.
     func hydrateFromCache() {
         guard let apiClient else { return }
-        if userFirstName == nil, let cached = apiClient.cached(Endpoints.me),
+        if userFirstName == nil, let cached = apiClient.cached(Endpoints.currentUser),
            let user = cached.value.user
         {
             applyUser(user)

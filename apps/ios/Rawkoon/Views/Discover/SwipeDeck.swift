@@ -175,8 +175,9 @@ struct SwipeDeck: View {
                 }
 
                 // Decide from the predicted end point so a fast flick commits even
-                // over a short distance, the way a real card toss does.
-                if let action = committedAction(for: value.predictedEndTranslation) {
+                // over a short distance, the way a real card toss does. Every
+                // action posts to the server, so offline the card springs back.
+                if !model.isOffline, let action = committedAction(for: value.predictedEndTranslation) {
                     flingAway(action, item: item, toward: value.predictedEndTranslation)
                 } else {
                     springBack()
@@ -272,6 +273,7 @@ struct SwipeDeck: View {
         .buttonStyle(.plain)
         .accessibilityLabel(label)
         .disabled(items.isEmpty)
+        .requiresConnection(model.isOffline)
     }
 
     private func actOnTop(_ action: Action) {

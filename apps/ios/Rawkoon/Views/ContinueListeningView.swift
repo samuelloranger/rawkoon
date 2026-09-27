@@ -459,12 +459,13 @@ struct ContinueListeningView: View {
             hasAudiobook: book.hasAudiobook,
             hasEbook: book.hasEbook,
             isAdmin: model.isAdmin,
-            isRead: book.isRead
+            isRead: book.isRead,
+            isOffline: model.isOffline
         )
     }
 
     private func handleMenu(_ action: BookCardMenuAction, item: ContinueItem) {
-        guard let book = libraryBook(for: item) else { return }
+        guard let book = libraryBook(for: item), !(action.requiresConnection && model.isOffline) else { return }
         switch action {
         case .read:
             if case .ebook = item {

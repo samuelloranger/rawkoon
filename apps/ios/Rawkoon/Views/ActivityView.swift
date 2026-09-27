@@ -60,6 +60,8 @@ struct ActivityView: View {
     @State private var loadingCalendar = false
     @State private var calendarError: String?
 
+    @State private var hydrated = false
+
     var body: some View {
         VStack(spacing: 0) {
             Picker("Lane", selection: $lane) {
@@ -86,9 +88,16 @@ struct ActivityView: View {
         .background(Theme.base)
         .navigationTitle("Activity")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear(perform: hydrateFromCache)
         .task { await loadSpeed() }
         .task(id: lane) { await loadCurrentLane() }
         .refreshable { await loadCurrentLane() }
+        .onChange(of: model.isOffline) { _, offline in
+            guard !offline else { return }
+            liveReloadTask?.cancel()
+            loadMoreTask?.cancel()
+            liveReloadTask = Task { await loadCurrentLane() }
+        }
         .onChange(of: model.libraryChangeToken) { _, _ in
             liveReloadTask?.cancel()
             loadMoreTask?.cancel()
@@ -178,7 +187,7 @@ struct ActivityView: View {
                 }
             }
             .padding(16)
-        } else if let queueError {
+        } else if let queueError, queueRows.isEmpty {
             errorView(queueError)
         } else if queueRows.isEmpty {
             ContentUnavailableView(
@@ -310,6 +319,29 @@ struct ActivityView: View {
         return "\(minutes)m"
     }
 
+    private static func queueRows(
+        media list: [LibraryMedia],
+        downloads: [Int: [DownloadHistoryItem]]
+    ) -> [QueueRow] {
+        list.flatMap { media in
+            (downloads[media.id] ?? []).compactMap { item in
+                item.live.map { live in
+                    QueueRow(
+                        id: "\(media.id)-\(item.id)",
+                        mediaTitle: media.title,
+                        releaseTitle: item.releaseTitle,
+                        live: live
+                    )
+                }
+            }
+        }
+    }
+
+    private nonisolated static func cachedDownloads(client: APIClient, libraryId: Int) -> [DownloadHistoryItem] {
+        let cached: Cached<DownloadsResponse>? = client.cached("/api/library/\(libraryId)/downloads")
+        return cached?.value.items ?? []
+    }
+
     private func loadQueue() async {
         loadingQueue = true
         queueError = nil
@@ -323,12 +355,16 @@ struct ActivityView: View {
         do {
             let list = try await client.libraryList(status: "downloading")
             // Fetch every media's downloads concurrently instead of one round-trip
-            // per media; a per-media failure yields an empty list rather than
-            // aborting the whole queue.
+            // per media; a per-media failure falls back to that media's saved
+            // downloads rather than aborting the whole queue.
             let byId = try await withThrowingTaskGroup(of: (Int, [DownloadHistoryItem]).self) { group in
                 for media in list.items {
                     group.addTask {
-                        await (media.id, (try? client.downloads(libraryId: media.id))?.items ?? [])
+                        do {
+                            return try await (media.id, client.downloads(libraryId: media.id).items)
+                        } catch {
+                            return (media.id, Self.cachedDownloads(client: client, libraryId: media.id))
+                        }
                     }
                 }
                 var map: [Int: [DownloadHistoryItem]] = [:]
@@ -337,21 +373,7 @@ struct ActivityView: View {
                 }
                 return map
             }
-            var rows: [QueueRow] = []
-            for media in list.items {
-                for item in byId[media.id] ?? [] {
-                    guard let live = item.live else { continue }
-                    rows.append(
-                        QueueRow(
-                            id: "\(media.id)-\(item.id)",
-                            mediaTitle: media.title,
-                            releaseTitle: item.releaseTitle,
-                            live: live
-                        )
-                    )
-                }
-            }
-            queueRows = rows
+            queueRows = Self.queueRows(media: list.items, downloads: byId)
         } catch let error as APIError {
             queueError = message(for: error)
         } catch is CancellationError {
@@ -373,7 +395,7 @@ struct ActivityView: View {
 
             if loadingHistory, activities.isEmpty {
                 historySkeleton
-            } else if let historyError {
+            } else if let historyError, activities.isEmpty {
                 errorView(historyError)
             } else if activities.isEmpty {
                 ContentUnavailableView(
@@ -545,6 +567,9 @@ struct ActivityView: View {
     /// live-reload task slot so it cancels any in-flight reload cleanly.
     private func applyHistoryFilter() {
         historyLimit = Self.historyPageSize
+        if let client = model.api() {
+            paintHistoryFromCache(client: client)
+        }
         liveReloadTask?.cancel()
         loadMoreTask?.cancel()
         liveReloadTask = Task { await loadHistory() }
@@ -569,18 +594,34 @@ struct ActivityView: View {
             if Task.isCancelled {
                 return
             }
-            activities = feed.activities
-            historyHasMore = feed.hasMore == true
-            if let services = feed.availableServices {
-                availableServices = services
-            }
-            if let types = feed.availableTypes {
-                availableTypes = types
-            }
+            applyFeed(feed)
         } catch let error as APIError {
             historyError = message(for: error)
         } catch {
             historyError = String(localized: "Network error. Check your connection.")
+        }
+    }
+
+    private func applyFeed(_ feed: ActivityFeedResponse) {
+        activities = feed.activities
+        historyHasMore = feed.hasMore == true
+        if let services = feed.availableServices {
+            availableServices = services
+        }
+        if let types = feed.availableTypes {
+            availableTypes = types
+        }
+    }
+
+    /// Swaps in the saved feed for the current filters. Offline with nothing
+    /// saved, the rows are cleared so another filter's rows don't pose as these.
+    private func paintHistoryFromCache(client: APIClient) {
+        let endpoint = Endpoints.activityFeed(limit: historyLimit, service: serviceFilter, type: typeFilter)
+        if let cached = client.cached(endpoint) {
+            applyFeed(cached.value)
+        } else if model.isOffline {
+            activities = []
+            historyHasMore = false
         }
     }
 
@@ -599,14 +640,7 @@ struct ActivityView: View {
                 return
             }
             historyLimit = nextLimit
-            activities = feed.activities
-            historyHasMore = feed.hasMore == true
-            if let services = feed.availableServices {
-                availableServices = services
-            }
-            if let types = feed.availableTypes {
-                availableTypes = types
-            }
+            applyFeed(feed)
         } catch {
             // Keep the rows already on screen if a page fails to load.
         }
@@ -616,10 +650,10 @@ struct ActivityView: View {
 
     @ViewBuilder
     private var calendarContent: some View {
-        if loadingCalendar {
+        if loadingCalendar, upcomingItems.isEmpty {
             ProgressView().tint(Theme.apricot)
                 .frame(maxWidth: .infinity, minHeight: 420)
-        } else if let calendarError {
+        } else if let calendarError, upcomingItems.isEmpty {
             errorView(calendarError)
         } else if upcomingItems.isEmpty {
             ContentUnavailableView(
@@ -690,6 +724,26 @@ struct ActivityView: View {
 
     // MARK: Shared
 
+    /// Paints every lane from the last saved responses, so Activity opens full —
+    /// offline, or while the refetch is in flight.
+    private func hydrateFromCache() {
+        guard !hydrated, let client = model.api() else { return }
+        hydrated = true
+        if queueRows.isEmpty, let list = client.cached(Endpoints.libraryList(status: "downloading")) {
+            let downloads = Dictionary(
+                list.value.items.map { ($0.id, Self.cachedDownloads(client: client, libraryId: $0.id)) },
+                uniquingKeysWith: { first, _ in first }
+            )
+            queueRows = Self.queueRows(media: list.value.items, downloads: downloads)
+        }
+        if activities.isEmpty {
+            paintHistoryFromCache(client: client)
+        }
+        if upcomingItems.isEmpty, let cached = client.cached(Endpoints.upcoming) {
+            upcomingItems = cached.value.items
+        }
+    }
+
     private func loadSpeed() async {
         guard let client = model.api() else { return }
         speed = try? await client.speed()
@@ -703,13 +757,24 @@ struct ActivityView: View {
         }
     }
 
+    /// Offline with nothing saved reads as a pause, not a failure.
+    @ViewBuilder
     private func errorView(_ text: String) -> some View {
-        ContentUnavailableView(
-            "Something went wrong",
-            systemImage: "exclamationmark.triangle",
-            description: Text(text)
-        )
-        .frame(maxWidth: .infinity, minHeight: 420)
+        if model.isOffline {
+            ContentUnavailableView(
+                "You're offline",
+                systemImage: "wifi.slash",
+                description: Text("This will load when you're back online.")
+            )
+            .frame(maxWidth: .infinity, minHeight: 420)
+        } else {
+            ContentUnavailableView(
+                "Something went wrong",
+                systemImage: "exclamationmark.triangle",
+                description: Text(text)
+            )
+            .frame(maxWidth: .infinity, minHeight: 420)
+        }
     }
 
     private func message(for error: APIError) -> String {

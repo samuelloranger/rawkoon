@@ -51,6 +51,8 @@ struct MediaSearchResults: View {
     @State private var searchError: String?
     @State private var addingVolumeId: String?
     @State private var requestingVolumeId: String?
+    /// What the results on screen were searched for.
+    @State private var resultsKey: SearchKey?
 
     /// Reserves space for a 2-line caption at the standard content size; grows
     /// with Dynamic Type instead of clipping the title at larger sizes.
@@ -98,13 +100,19 @@ struct MediaSearchResults: View {
         let kind: KindFilter
     }
 
+    /// The task key: the connection is part of it so the search runs again once it's back.
+    private struct SearchTrigger: Equatable {
+        let key: SearchKey
+        let offline: Bool
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             kindPicker
             searchContent
         }
         // Debounced; a new key cancels the pending search before it runs.
-        .task(id: SearchKey(query: trimmedQuery, kind: kindFilter)) {
+        .task(id: SearchTrigger(key: SearchKey(query: trimmedQuery, kind: kindFilter), offline: model.isOffline)) {
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
             await runSearch(query: trimmedQuery, kind: kindFilter)
@@ -141,6 +149,13 @@ struct MediaSearchResults: View {
             }
             .padding(.horizontal, 16)
             .allowsHitTesting(false)
+        } else if model.isOffline, searchResults.isEmpty, bookResults.isEmpty {
+            ContentUnavailableView(
+                "You're offline",
+                systemImage: "wifi.slash",
+                description: Text("Search needs a connection.")
+            )
+            .padding(.top, 16)
         } else if let searchError {
             ContentUnavailableView(
                 "Search failed",
@@ -235,6 +250,7 @@ struct MediaSearchResults: View {
                 .background(Theme.terracotta, in: Capsule())
                 .foregroundStyle(Theme.onAccent)
                 .disabled(addingVolumeId != nil)
+                .requiresConnection(model.isOffline)
             } else {
                 Button {
                     Task { await requestBook(hit) }
@@ -251,6 +267,7 @@ struct MediaSearchResults: View {
                 .background(Theme.terracotta, in: Capsule())
                 .foregroundStyle(Theme.onAccent)
                 .disabled(requestingVolumeId != nil)
+                .requiresConnection(model.isOffline)
             }
         }
     }
@@ -337,6 +354,16 @@ struct MediaSearchResults: View {
     // MARK: Search data
 
     private func runSearch(query: String, kind: KindFilter) async {
+        // Searching offline would only fail; results for another query or kind go.
+        guard !model.isOffline else {
+            if resultsKey != SearchKey(query: query, kind: kind) {
+                searchResults = []
+                bookResults = []
+                resultsKey = nil
+            }
+            searchError = nil
+            return
+        }
         loadingSearch = true
         searchError = nil
         defer { loadingSearch = false }
@@ -378,6 +405,7 @@ struct MediaSearchResults: View {
 
         searchResults = tmdb
         bookResults = books
+        resultsKey = SearchKey(query: query, kind: kind)
         if tmdb.isEmpty, books.isEmpty {
             searchError = firstError
         } else {

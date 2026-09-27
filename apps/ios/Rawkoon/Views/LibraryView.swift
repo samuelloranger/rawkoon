@@ -444,7 +444,7 @@ struct LibraryView: View {
                             MediaPosterCard(
                                 title: m.title,
                                 posterURL: model.absoluteURL(m.posterUrl),
-                                menuItems: mediaPosterMenuItems(inLibrary: true, isAdmin: model.isAdmin),
+                                menuItems: mediaPosterMenuItems(inLibrary: true, isAdmin: model.isAdmin, isOffline: model.isOffline),
                                 onMenuAction: { handleMediaMenu($0, media: m) }
                             ) {
                                 if busyMediaIds.contains(m.id) {
@@ -584,7 +584,7 @@ struct LibraryView: View {
                             media: m,
                             posterURL: model.absoluteURL(m.posterUrl),
                             isBusy: busyMediaIds.contains(m.id),
-                            menuItems: mediaPosterMenuItems(inLibrary: true, isAdmin: model.isAdmin),
+                            menuItems: mediaPosterMenuItems(inLibrary: true, isAdmin: model.isAdmin, isOffline: model.isOffline),
                             onMenuAction: { handleMediaMenu($0, media: m) }
                         )
                         .matchedTransitionSource(id: zoomID, in: zoomNamespace)
@@ -622,7 +622,8 @@ struct LibraryView: View {
                                 hasAudiobook: book.hasAudiobook,
                                 hasEbook: book.hasEbook,
                                 isAdmin: model.isAdmin,
-                                isRead: book.isRead
+                                isRead: book.isRead,
+                                isOffline: model.isOffline
                             ),
                             onMenuAction: { handleBookMenu($0, book: book) }
                         )
@@ -897,7 +898,8 @@ struct LibraryView: View {
     private func handleMediaMenu(_ action: MediaPosterMenuAction, media: LibraryMedia) {
         // A provisional row carries a negative placeholder id — nothing that
         // addresses the server may run against it.
-        guard LibraryRowPresentation(media: media).isInteractive else { return }
+        guard LibraryRowPresentation(media: media).isInteractive,
+              !(action.requiresConnection && model.isOffline) else { return }
         switch action {
         case .toggleMonitored:
             Task { await toggleMonitored(media) }
@@ -917,7 +919,7 @@ struct LibraryView: View {
     }
 
     private func handleBookMenu(_ action: BookCardMenuAction, book: BookListItem) {
-        guard !busyBookIds.contains(book.bookId) else { return }
+        guard !busyBookIds.contains(book.bookId), !(action.requiresConnection && model.isOffline) else { return }
         switch action {
         case .read:
             readingBook = book

@@ -55,7 +55,7 @@ struct BooksProviderView: View {
                                         placeholder: "https://api.audnex.us", keyboard: .URL)
                     TestConnectionButton(title: "Test Audnexus") { await testAudnexus() }
                     Button("Save Audnexus") { Task { await saveAudnexus() } }
-                        .disabled(audnexusSaving)
+                        .disabled(audnexusSaving || model.isOffline)
                         .listRowBackground(Theme.raised)
                     if let audnexusError {
                         Text(audnexusError).foregroundStyle(Theme.terracotta)
@@ -69,7 +69,7 @@ struct BooksProviderView: View {
                     SecretFieldRow(title: "API key", input: $googleKeyInput, isStored: googleHasKey)
                     TestConnectionButton(title: "Test Google Books") { await testGoogleBooks() }
                     Button("Save Google Books") { Task { await saveGoogleBooks() } }
-                        .disabled(googleSaving)
+                        .disabled(googleSaving || model.isOffline)
                         .listRowBackground(Theme.raised)
                     if let googleError {
                         Text(googleError).foregroundStyle(Theme.terracotta)
@@ -85,7 +85,7 @@ struct BooksProviderView: View {
                     SecretFieldRow(title: "API key", input: $nytKeyInput, isStored: nytHasKey)
                     TestConnectionButton(title: "Test NYT Books") { await testNyt() }
                     Button("Save NYT Books") { Task { await saveNyt() } }
-                        .disabled(nytSaving)
+                        .disabled(nytSaving || model.isOffline)
                         .listRowBackground(Theme.raised)
                     if let nytError {
                         Text(nytError).foregroundStyle(Theme.terracotta)

@@ -67,7 +67,7 @@ struct ArrLibraryImportView: View {
             }
             Section {
                 Button("Start import") { Task { await start() } }
-                    .disabled(starting || isRunning)
+                    .disabled(starting || isRunning || model.isOffline)
                     .listRowBackground(Theme.raised)
                 if let startError {
                     Text(startError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)

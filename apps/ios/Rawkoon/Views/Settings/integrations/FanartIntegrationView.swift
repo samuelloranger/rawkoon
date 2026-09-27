@@ -65,7 +65,7 @@ struct FanartIntegrationView: View {
                 if saving {
                     ProgressView().tint(Theme.apricot)
                 } else {
-                    Button("Save") { Task { await save() } }.disabled(!isDirty)
+                    Button("Save") { Task { await save() } }.disabled(!isDirty || model.isOffline)
                 }
             }
         }

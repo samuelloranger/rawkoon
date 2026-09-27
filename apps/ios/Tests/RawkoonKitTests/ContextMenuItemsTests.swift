@@ -43,4 +43,27 @@ final class ContextMenuItemsTests: XCTestCase {
         XCTAssertTrue(items.contains(.markUnread))
         XCTAssertFalse(items.contains(.markRead))
     }
+
+    func testOfflineMediaMenuKeepsOnlyOpenDetails() {
+        XCTAssertEqual(mediaPosterMenuItems(inLibrary: true, isAdmin: true, isOffline: true), [.openDetails])
+        XCTAssertEqual(
+            mediaPosterMenuItems(inLibrary: true, isAdmin: true),
+            [.toggleMonitored, .searchReleases, .openDetails, .removeFromLibrary]
+        )
+    }
+
+    func testOfflineBookMenuKeepsReadAndPlay() {
+        let items = bookCardMenuItems(
+            hasAudiobook: true, hasEbook: false, isAdmin: true, isRead: false, isOffline: true
+        )
+        XCTAssertEqual(items, [.play])
+        XCTAssertTrue(items.allSatisfy { !$0.requiresConnection })
+    }
+
+    func testOfflineBookMenuWithBothEditions() {
+        let items = bookCardMenuItems(
+            hasAudiobook: true, hasEbook: true, isAdmin: false, isRead: true, isOffline: true
+        )
+        XCTAssertEqual(items, [.read, .play])
+    }
 }

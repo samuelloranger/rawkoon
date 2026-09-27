@@ -46,8 +46,13 @@ struct DiscoverView: View {
             }
             .task {
                 if deckItems.isEmpty, !deckLoading {
+                    hydrateDeckFromCache()
                     await loadDeck()
                 }
+            }
+            .onChange(of: model.isOffline) { _, offline in
+                guard !offline, deckItems.isEmpty, !deckLoading else { return }
+                Task { await loadDeck() }
             }
     }
 
@@ -92,6 +97,13 @@ struct DiscoverView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, 28)
                 .allowsHitTesting(false)
+        } else if model.isOffline, deckError != nil {
+            ContentUnavailableView(
+                "You're offline",
+                systemImage: "wifi.slash",
+                description: Text("This will load when you're back online.")
+            )
+            .padding(.top, 16)
         } else if let deckError {
             ContentUnavailableView(
                 "Couldn't load Discover",
@@ -118,6 +130,19 @@ struct DiscoverView: View {
 
     // MARK: Deck data
 
+    /// Paints the first deck the view would fetch from its saved copy. Its cards
+    /// stay out of `excludedTmdbIds`, so the refetch asks for (and refreshes) the
+    /// same first deck instead of skipping past it.
+    private func hydrateDeckFromCache() {
+        guard let client = model.api(),
+              let cached = client.cached(Endpoints.discoverDeck(exclude: Array(excludedTmdbIds)))
+        else { return }
+        deckItems = cached.value.items
+        deckSource = cached.value.source
+        actionsRemaining = cached.value.items.count
+        deckBatch += 1
+    }
+
     private func loadDeck() async {
         deckLoading = true
         deckError = nil
@@ -129,7 +154,17 @@ struct DiscoverView: View {
         }
         do {
             let response = try await client.discoverDeck(exclude: Array(excludedTmdbIds))
-            applyBatch(response)
+            // Cards already swiped off the saved deck while this was in flight stay gone.
+            let consumed = Set(deckItems.prefix(deckItems.count - actionsRemaining).map(\.tmdbId))
+            let fresh = response.items.filter { !consumed.contains($0.tmdbId) }
+            if consumed.isEmpty, fresh.map(\.tmdbId) == deckItems.map(\.tmdbId) {
+                // The saved deck came back unchanged: keep the cards in place.
+                deckSource = response.source
+                excludedTmdbIds.formUnion(fresh.map(\.tmdbId))
+                prefetchedBatch = nil
+            } else {
+                applyBatch(DiscoverDeckResponse(items: fresh, source: response.source))
+            }
         } catch let error as APIError {
             deckError = message(for: error)
         } catch {
