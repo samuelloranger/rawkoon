@@ -129,6 +129,7 @@ extension AppModel {
         Keychain.delete(Self.authTokenKey)
         profileTask?.cancel()
         profileTask = nil
+        apiClient?.responseCache?.invalidate()
         wipeResponseCache()
 
         apiClient = nil

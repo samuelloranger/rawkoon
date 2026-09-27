@@ -116,6 +116,26 @@ struct ResponseCacheTests {
         #expect(cache.entry(for: "k")?.data == Data("y".utf8))
     }
 
+    @Test func invalidatedCacheIgnoresLateWrites() {
+        let (cache, _) = makeCache()
+        cache.invalidate()
+        cache.removeAll()
+        cache.store(Data("late".utf8), etag: nil, for: "k")
+        #expect(cache.entry(for: "k") == nil)
+    }
+
+    @Test func firstStoreOfALaunchCountsExistingBytesOnce() {
+        let clock = TestClock()
+        let (seed, dir) = makeCache(maxEntryBytes: 400, maxTotalBytes: 1000, clock: clock)
+        seed.store(Data(repeating: 1, count: 400), etag: nil, for: "a")
+        clock.advance(1)
+        // A fresh instance learns the total lazily; 400 + 400 is under the cap.
+        let reopened = ResponseCache(directory: dir, maxEntryBytes: 400, maxTotalBytes: 1000, now: { clock.now() })
+        reopened.store(Data(repeating: 2, count: 400), etag: nil, for: "b")
+        #expect(reopened.entry(for: "a") != nil)
+        #expect(reopened.entry(for: "b") != nil)
+    }
+
     @Test func removeDropsOneEntry() {
         let (cache, _) = makeCache()
         cache.store(Data("x".utf8), etag: nil, for: "a")

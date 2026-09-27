@@ -21,8 +21,6 @@ nonisolated extension Endpoints {
     static func libraryDownloads(id: Int) -> Endpoint<DownloadsResponse> {
         Endpoint(path: "/api/library/\(id)/downloads")
     }
-
-    static let qualityProfiles = Endpoint<QualityProfilesResponse>(path: "/api/quality-profiles")
 }
 
 /// Mirrors the private `SimilarResponse` the live fetch decodes.

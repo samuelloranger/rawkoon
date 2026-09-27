@@ -212,6 +212,13 @@ final class AppModel {
     }
 
     private func startPathMonitor() {
+        #if DEBUG
+            // The simulator shares the Mac's network, so offline screenshots need a switch.
+            if ProcessInfo.processInfo.environment["RAWKOON_FORCE_OFFLINE"] == "1" {
+                isOnline = false
+                return
+            }
+        #endif
         pathMonitor.pathUpdateHandler = { path in
             let online = path.status == .satisfied
             Task { @MainActor [weak self] in

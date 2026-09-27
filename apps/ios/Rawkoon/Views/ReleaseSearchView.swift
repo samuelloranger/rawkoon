@@ -72,6 +72,8 @@ struct ReleaseSearchView: View {
     @State private var indexerWarnings: [IndexerWarning] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+    /// The query/season/complete combination `releases` was fetched for.
+    @State private var releasesKey: String?
     @State private var grabError: String?
     @State private var adminOnlyNote: String?
     @State private var grabbingGuid: String?
@@ -671,6 +673,11 @@ struct ReleaseSearchView: View {
         adminOnlyNote = nil
         indexerWarnings = []
         defer { isLoading = false }
+        // Kept on a failed refresh of the same search; another season's rows would be grabbable by mistake.
+        let searchKey = "\(trimmedQuery)|\(selectedSeason.map(String.init) ?? "")|\(completeSeries)"
+        if searchKey != releasesKey {
+            releases = []
+        }
         do {
             let response = try await client.interactiveSearch(
                 q: trimmedQuery,
@@ -681,6 +688,7 @@ struct ReleaseSearchView: View {
                 mediaType: mediaType
             )
             releases = response.releases
+            releasesKey = searchKey
             service = response.service
             indexerWarnings = response.indexerWarnings ?? []
         } catch APIError.unauthorized {

@@ -31,6 +31,9 @@ public final class ResponseCache: @unchecked Sendable {
     private let lock = NSLock()
     /// Nil until first needed, so construction never touches the disk.
     private var totalBytes: Int?
+    /// Set on sign-out: requests still in flight must not write the old
+    /// account's responses back after the wipe.
+    private var isInvalidated = false
 
     public init(
         directory: URL,
@@ -60,6 +63,8 @@ public final class ResponseCache: @unchecked Sendable {
         }
         lock.lock()
         defer { lock.unlock() }
+        guard !isInvalidated else { return }
+        let before = currentTotal()
         ensureDirectory()
         let previous = readMeta(key)?.bytes ?? 0
         let meta = Meta(key: key, etag: etag, fetchedAt: now(), bytes: data.count)
@@ -70,7 +75,7 @@ public final class ResponseCache: @unchecked Sendable {
             removeFiles(key)
             return
         }
-        let total = currentTotal() - previous + data.count
+        let total = before - previous + data.count
         totalBytes = total
         if total > maxTotalBytes {
             evict()
@@ -81,7 +86,7 @@ public final class ResponseCache: @unchecked Sendable {
     public func markRevalidated(_ key: String) {
         lock.lock()
         defer { lock.unlock() }
-        guard let meta = readMeta(key) else { return }
+        guard !isInvalidated, let meta = readMeta(key) else { return }
         let refreshed = Meta(key: key, etag: meta.etag, fetchedAt: now(), bytes: meta.bytes)
         try? JSONEncoder().encode(refreshed).write(to: metaURL(key), options: .atomic)
     }
@@ -100,6 +105,13 @@ public final class ResponseCache: @unchecked Sendable {
         defer { lock.unlock() }
         try? FileManager.default.removeItem(at: directory)
         totalBytes = 0
+    }
+
+    /// Stops this instance writing for good; reads still work until the wipe.
+    public func invalidate() {
+        lock.lock()
+        isInvalidated = true
+        lock.unlock()
     }
 
     // MARK: Private (callers hold `lock`)

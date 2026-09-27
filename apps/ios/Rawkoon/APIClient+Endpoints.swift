@@ -47,7 +47,8 @@ nonisolated enum Endpoints {
     static func discoverDeck(
         exclude: [Int] = [], limit: Int = 20, language: String? = nil
     ) -> Endpoint<DiscoverDeckResponse> {
-        let excludeParam = exclude.isEmpty ? nil : exclude.map(String.init).joined(separator: ",")
+        // Sorted so a Set-built exclusion list always maps to the same cache key.
+        let excludeParam = exclude.isEmpty ? nil : exclude.sorted().map(String.init).joined(separator: ",")
         return Endpoint(
             path: "/api/medias/discover/deck",
             query: ["limit": String(limit), "exclude": excludeParam, "language": language ?? APIClient.tmdbLanguage]
