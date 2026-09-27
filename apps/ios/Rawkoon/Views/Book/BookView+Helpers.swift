@@ -126,6 +126,8 @@ extension BookView {
             String(localized: "Could not parse server response.")
         case .transport:
             String(localized: "Network error. Check your connection.")
+        case .offline:
+            String(localized: "You're offline. This needs a connection.")
         }
     }
 

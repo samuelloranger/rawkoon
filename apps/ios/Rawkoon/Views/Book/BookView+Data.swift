@@ -61,7 +61,7 @@ extension BookView {
             // A transport failure means we're offline; the screen still works
             // from the library row and any downloaded files, so don't raise a
             // network-error wall for it.
-            if case .transport = apiError {
+            if apiError.isNetworkFailure {
                 detailError = nil
             } else {
                 detailError = message(for: apiError)
