@@ -124,25 +124,25 @@ struct DetailSeasonsSection: View {
             } label: {
                 Label("Auto search season", systemImage: "sparkle.magnifyingglass")
             }
-            .disabled(model.isOffline)
+            .requiresConnection(model.isOffline)
             Button {
                 onSeasonReleaseSearch(season.seasonNumber)
             } label: {
                 Label("Search releases…", systemImage: "magnifyingglass")
             }
-            .disabled(model.isOffline)
+            .requiresConnection(model.isOffline)
             Button {
                 onSeasonRetrySkipped(season.seasonNumber)
             } label: {
                 Label("Retry skipped", systemImage: "arrow.clockwise")
             }
-            .disabled(model.isOffline)
+            .requiresConnection(model.isOffline)
             Button {
                 onSeasonReencode(season.seasonNumber)
             } label: {
                 Label("Re-encode season…", systemImage: "gauge.with.dots.needle.67percent")
             }
-            .disabled(model.isOffline)
+            .requiresConnection(model.isOffline)
             if !episodes.isEmpty {
                 Button {
                     onSeasonToggleMonitor(season.seasonNumber, !monitored)
@@ -152,7 +152,7 @@ struct DetailSeasonsSection: View {
                         systemImage: monitored ? "bell.slash" : "bell"
                     )
                 }
-                .disabled(model.isOffline)
+                .requiresConnection(model.isOffline)
             }
         } label: {
             Image(systemName: "ellipsis.circle")
@@ -315,13 +315,13 @@ struct DetailSeasonsSection: View {
         } label: {
             Label("Auto search", systemImage: "sparkle.magnifyingglass")
         }
-        .disabled(model.isOffline)
+        .requiresConnection(model.isOffline)
         Button {
             onEpisodeReleaseSearch(episode)
         } label: {
             Label("Search releases…", systemImage: "magnifyingglass")
         }
-        .disabled(model.isOffline)
+        .requiresConnection(model.isOffline)
         Button {
             onEpisodeToggleMonitor(episode)
         } label: {
@@ -330,14 +330,14 @@ struct DetailSeasonsSection: View {
                 systemImage: episode.monitored ? "bell.slash" : "bell"
             )
         }
-        .disabled(model.isOffline)
+        .requiresConnection(model.isOffline)
         if episode.status != "wanted" {
             Button {
                 onEpisodeRetry(episode)
             } label: {
                 Label("Retry (mark wanted)", systemImage: "arrow.clockwise")
             }
-            .disabled(model.isOffline)
+            .requiresConnection(model.isOffline)
         }
         if episode.status == "downloaded" {
             Button(role: .destructive) {
@@ -345,7 +345,7 @@ struct DetailSeasonsSection: View {
             } label: {
                 Label("Delete file", systemImage: "trash")
             }
-            .disabled(model.isOffline)
+            .requiresConnection(model.isOffline)
         }
     }
 

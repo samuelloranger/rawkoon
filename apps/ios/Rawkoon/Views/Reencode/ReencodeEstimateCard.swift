@@ -50,7 +50,7 @@ struct ReencodeEstimateCard: View {
                             action: onRefine
                         )
                         .buttonStyle(.borderless)
-                        .font(.caption.weight(.semibold)).tint(Theme.apricot).disabled(refining || model.isOffline)
+                        .font(.caption.weight(.semibold)).tint(Theme.apricot).disabled(refining).requiresConnection(model.isOffline)
                     }
                 }
             }

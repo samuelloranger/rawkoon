@@ -540,7 +540,8 @@ struct TestConnectionButton: View {
                 }
             }
             .tint(Theme.apricot)
-            .disabled(state == .running || model.isOffline)
+            .disabled(state == .running)
+            .requiresConnection(model.isOffline)
 
             switch state {
             case let .ok(message):

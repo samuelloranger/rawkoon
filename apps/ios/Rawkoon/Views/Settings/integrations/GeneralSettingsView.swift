@@ -107,7 +107,8 @@ struct GeneralSettingsView: View {
                     ProgressView().tint(Theme.apricot)
                 } else {
                     Button("Save") { Task { await save() } }
-                        .disabled(!isDirty || !isValid || model.isOffline)
+                        .disabled(!isDirty || !isValid)
+                        .requiresConnection(model.isOffline)
                 }
             }
         }

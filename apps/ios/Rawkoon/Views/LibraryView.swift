@@ -444,7 +444,7 @@ struct LibraryView: View {
                             MediaPosterCard(
                                 title: m.title,
                                 posterURL: model.absoluteURL(m.posterUrl),
-                                menuItems: mediaPosterMenuItems(inLibrary: true, isAdmin: model.isAdmin, isOffline: model.isOffline),
+                                menuItems: mediaPosterMenuItems(inLibrary: true, isAdmin: model.isAdmin),
                                 onMenuAction: { handleMediaMenu($0, media: m) }
                             ) {
                                 if busyMediaIds.contains(m.id) {
@@ -584,7 +584,7 @@ struct LibraryView: View {
                             media: m,
                             posterURL: model.absoluteURL(m.posterUrl),
                             isBusy: busyMediaIds.contains(m.id),
-                            menuItems: mediaPosterMenuItems(inLibrary: true, isAdmin: model.isAdmin, isOffline: model.isOffline),
+                            menuItems: mediaPosterMenuItems(inLibrary: true, isAdmin: model.isAdmin),
                             onMenuAction: { handleMediaMenu($0, media: m) }
                         )
                         .matchedTransitionSource(id: zoomID, in: zoomNamespace)
@@ -622,8 +622,7 @@ struct LibraryView: View {
                                 hasAudiobook: book.hasAudiobook,
                                 hasEbook: book.hasEbook,
                                 isAdmin: model.isAdmin,
-                                isRead: book.isRead,
-                                isOffline: model.isOffline
+                                isRead: book.isRead
                             ),
                             onMenuAction: { handleBookMenu($0, book: book) }
                         )

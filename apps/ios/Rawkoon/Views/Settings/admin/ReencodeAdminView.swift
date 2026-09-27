@@ -75,11 +75,11 @@ struct ReencodeAdminView: View {
         .toolbar {
             // Edit mode only reorders within a batch, so it is useless without one of 2+ jobs.
             if batches.contains(where: { $0.jobs.count > 1 }) {
-                ToolbarItem(placement: .primaryAction) { EditButton().disabled(model.isOffline) }
+                ToolbarItem(placement: .primaryAction) { EditButton().requiresConnection(model.isOffline) }
             }
             ToolbarItem(placement: .secondaryAction) {
                 Button("Clear finished", role: .destructive) { confirmClear = true }
-                    .disabled(model.isOffline)
+                    .requiresConnection(model.isOffline)
             }
         }
         // Tabs stay mounted on iPhone, so stop polling when this tab isn't the visible one,
@@ -125,7 +125,7 @@ struct ReencodeAdminView: View {
                         Task { await patch(TranscodeSettingsPatch(paused: !settings.paused)) }
                     }
                     .buttonStyle(.borderless)
-                    .disabled(model.isOffline)
+                    .requiresConnection(model.isOffline)
                 }
             }
             .listRowBackground(Theme.raised)
@@ -134,7 +134,7 @@ struct ReencodeAdminView: View {
                     get: { settings.windowEnabled },
                     set: { value in Task { await patch(TranscodeSettingsPatch(windowEnabled: value)) } }
                 ))
-                .disabled(model.isOffline)
+                .requiresConnection(model.isOffline)
                 .listRowBackground(Theme.raised)
                 if settings.windowEnabled {
                     timeRow("Start", settings.windowStart) { value in Task { await patch(TranscodeSettingsPatch(windowStart: value)) } }
@@ -182,7 +182,7 @@ struct ReencodeAdminView: View {
                 .font(.caption).foregroundStyle(Theme.muted)
                 Button("Cancel re-encode", role: .destructive) { confirmCancel = job }
                     .buttonStyle(.borderless)
-                    .disabled(model.isOffline)
+                    .requiresConnection(model.isOffline)
             }
             .listRowBackground(Theme.raised)
         }
@@ -214,7 +214,7 @@ struct ReencodeAdminView: View {
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
-                    .disabled(model.isOffline)
+                    .requiresConnection(model.isOffline)
                 }
             }
         }
@@ -229,9 +229,9 @@ struct ReencodeAdminView: View {
         .listRowBackground(Theme.raised)
         .swipeActions {
             Button("Remove", role: .destructive) { Task { await cancel(job) } }
-                .disabled(model.isOffline)
+                .requiresConnection(model.isOffline)
             Button("Move to top") { Task { await moveTop(job) } }.tint(Theme.apricot)
-                .disabled(model.isOffline)
+                .requiresConnection(model.isOffline)
         }
         .overlay(alignment: .trailing) {
             if busyIds.contains(job.id) {
@@ -261,7 +261,7 @@ struct ReencodeAdminView: View {
                 .swipeActions {
                     if job.status == "failed" || job.status == "cancelled" {
                         Button("Retry") { Task { await retry(job) } }.tint(Theme.apricot)
-                            .disabled(model.isOffline)
+                            .requiresConnection(model.isOffline)
                     }
                 }
             }
@@ -293,7 +293,7 @@ struct ReencodeAdminView: View {
                             LabeledContent("CPU threads", value: settings.cpuThreads.map(String.init) ?? String(localized: "Auto"))
                         }
                     }
-                    .disabled(model.isOffline)
+                    .requiresConnection(model.isOffline)
                 }
             }
             .listRowBackground(Theme.raised)
@@ -312,7 +312,7 @@ struct ReencodeAdminView: View {
                 onChange(TranscodeMath.hhmm(fromMinutes: (c.hour ?? 0) * 60 + (c.minute ?? 0)))
             }
         ), displayedComponents: .hourAndMinute)
-            .disabled(model.isOffline)
+            .requiresConnection(model.isOffline)
             .listRowBackground(Theme.raised)
     }
 

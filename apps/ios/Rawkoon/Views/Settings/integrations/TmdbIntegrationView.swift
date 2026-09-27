@@ -66,7 +66,7 @@ struct TmdbIntegrationView: View {
                 if saving {
                     ProgressView().tint(Theme.apricot)
                 } else {
-                    Button("Save") { Task { await save() } }.disabled(!isDirty || model.isOffline)
+                    Button("Save") { Task { await save() } }.disabled(!isDirty).requiresConnection(model.isOffline)
                 }
             }
         }

@@ -177,8 +177,13 @@ struct SwipeDeck: View {
                 // Decide from the predicted end point so a fast flick commits even
                 // over a short distance, the way a real card toss does. Every
                 // action posts to the server, so offline the card springs back.
-                if !model.isOffline, let action = committedAction(for: value.predictedEndTranslation) {
-                    flingAway(action, item: item, toward: value.predictedEndTranslation)
+                if let action = committedAction(for: value.predictedEndTranslation) {
+                    if model.isOffline {
+                        springBack()
+                        OfflineFeedback.explain()
+                    } else {
+                        flingAway(action, item: item, toward: value.predictedEndTranslation)
+                    }
                 } else {
                     springBack()
                 }

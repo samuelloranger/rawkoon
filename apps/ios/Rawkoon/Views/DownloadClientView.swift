@@ -157,7 +157,7 @@ struct DownloadClientView: View {
             return
         } catch {
             if integration == nil {
-                errorMessage = String(localized: "Network error. Check your connection.")
+                errorMessage = String(localized: "Can't reach the server. Try again in a moment.")
             }
             return
         }

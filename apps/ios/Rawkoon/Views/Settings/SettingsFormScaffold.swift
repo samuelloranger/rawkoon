@@ -40,7 +40,7 @@ func settingsErrorMessage(_ error: Error, admin: Bool = true) -> String {
     case .forbidden:
         return admin ? String(localized: "Admin only.") : String(localized: "You don't have permission to do that.")
     case .transport:
-        return String(localized: "Network error. Check your connection.")
+        return String(localized: "Can't reach the server. Try again in a moment.")
     case .offline:
         return String(localized: "You're offline. This needs a connection.")
     case .http:

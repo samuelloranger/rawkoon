@@ -7447,22 +7447,22 @@
         }
       }
     },
-    "Network error.": {
+    "Can't reach the server.": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erreur réseau."
+            "value": "Impossible de joindre le serveur."
           }
         }
       }
     },
-    "Network error. Check your connection.": {
+    "Can't reach the server. Try again in a moment.": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erreur réseau. Vérifie ta connexion."
+            "value": "Impossible de joindre le serveur. Réessaie dans un instant."
           }
         }
       }
@@ -10359,12 +10359,12 @@
         }
       }
     },
-    "Offline · showing saved data": {
+    "Offline · actions paused": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hors ligne · données enregistrées"
+            "value": "Hors ligne · actions en pause"
           }
         }
       }

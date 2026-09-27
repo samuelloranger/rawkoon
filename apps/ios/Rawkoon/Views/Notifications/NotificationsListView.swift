@@ -61,7 +61,7 @@ struct NotificationsListView: View {
                         Task { await delete(id: id) }
                     }
                 }
-                .disabled(model.isOffline)
+                .requiresConnection(model.isOffline)
                 Button("Cancel", role: .cancel) {}
             }
     }
@@ -94,12 +94,11 @@ struct NotificationsListView: View {
                         .listRowBackground(Theme.raised)
                         .listRowSeparator(.hidden)
                         .swipeActions(edge: .trailing) {
-                            Button(role: .destructive) {
+                            Button(role: .destructive, action: OfflineFeedback.gate(model.isOffline) {
                                 pendingDeleteId = notification.id
-                            } label: {
+                            }) {
                                 Label("Delete", systemImage: "trash")
                             }
-                            .disabled(model.isOffline)
                         }
                 }
                 // The sentinel would spin forever offline; it comes back with the connection.
@@ -266,7 +265,7 @@ struct NotificationsListView: View {
     }
 
     private func message(for error: Error) -> String {
-        (error as? APIError)?.userMessage() ?? String(localized: "Network error. Check your connection.")
+        (error as? APIError)?.userMessage() ?? String(localized: "Can't reach the server. Try again in a moment.")
     }
 
     private func relativeTime(_ isoString: String) -> String? {

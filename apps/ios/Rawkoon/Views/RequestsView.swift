@@ -92,7 +92,7 @@ struct RequestsView: View {
                 }
                 denyTarget = nil
             }
-            .disabled(model.isOffline)
+            .requiresConnection(model.isOffline)
             Button("Cancel", role: .cancel) {
                 denyTarget = nil
             }
@@ -165,15 +165,13 @@ struct RequestsView: View {
         .padding(.vertical, 4)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if model.isAdmin, req.status == "pending" {
-                Button("Deny", role: .destructive) {
+                Button("Deny", role: .destructive, action: OfflineFeedback.gate(model.isOffline) {
                     denyTarget = req
-                }
-                .disabled(model.isOffline)
-                Button("Approve") {
+                })
+                Button("Approve", action: OfflineFeedback.gate(model.isOffline) {
                     Task { await beginApprove(request: req) }
-                }
+                })
                 .tint(Theme.seed)
-                .disabled(model.isOffline)
             }
         }
     }

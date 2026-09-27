@@ -92,7 +92,8 @@ struct DevicesView: View {
             presenting: pending
         ) { item in
             Button("Remove", role: .destructive) { Task { await remove(item) } }
-                .disabled(removing || model.isOffline)
+                .disabled(removing)
+                .requiresConnection(model.isOffline)
             Button("Cancel", role: .cancel) { pending = nil }
         } message: { _ in
             Text("It will stop receiving notifications.")
@@ -127,8 +128,7 @@ struct DevicesView: View {
                 .foregroundStyle(Theme.muted)
         }
         .swipeActions {
-            Button("Remove", role: .destructive, action: onDelete)
-                .disabled(model.isOffline)
+            Button("Remove", role: .destructive, action: OfflineFeedback.gate(model.isOffline, onDelete))
         }
     }
 

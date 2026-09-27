@@ -383,7 +383,7 @@ struct MediaSearchResults: View {
             } catch let error as APIError {
                 firstError = message(for: error)
             } catch {
-                firstError = String(localized: "Network error. Check your connection.")
+                firstError = String(localized: "Can't reach the server. Try again in a moment.")
             }
             guard !Task.isCancelled else { return }
         }
@@ -397,7 +397,7 @@ struct MediaSearchResults: View {
                 }
             } catch {
                 if firstError == nil {
-                    firstError = String(localized: "Network error. Check your connection.")
+                    firstError = String(localized: "Can't reach the server. Try again in a moment.")
                 }
             }
             guard !Task.isCancelled else { return }
@@ -444,7 +444,7 @@ struct MediaSearchResults: View {
         } catch let error as APIError {
             model.toast(message(for: error), style: .error)
         } catch {
-            model.toast(String(localized: "Network error. Check your connection."), style: .error)
+            model.toast(String(localized: "Can't reach the server. Try again in a moment."), style: .error)
         }
     }
 

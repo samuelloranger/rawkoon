@@ -168,7 +168,7 @@ struct DiscoverView: View {
         } catch let error as APIError {
             deckError = message(for: error)
         } catch {
-            deckError = String(localized: "Network error. Check your connection.")
+            deckError = String(localized: "Can't reach the server. Try again in a moment.")
         }
     }
 
@@ -239,7 +239,7 @@ struct DiscoverView: View {
             } catch let error as APIError {
                 model.toast(message(for: error), style: .error)
             } catch {
-                model.toast(String(localized: "Network error. Check your connection."), style: .error)
+                model.toast(String(localized: "Can't reach the server. Try again in a moment."), style: .error)
             }
         }
     }
@@ -277,7 +277,7 @@ struct DiscoverView: View {
             } catch let error as APIError {
                 model.toast(message(for: error), style: .error)
             } catch {
-                model.toast(String(localized: "Network error. Check your connection."), style: .error)
+                model.toast(String(localized: "Can't reach the server. Try again in a moment."), style: .error)
             }
         }
     }

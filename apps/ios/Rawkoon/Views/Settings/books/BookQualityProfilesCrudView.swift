@@ -41,7 +41,8 @@ struct BookQualityProfilesCrudView: View {
                     .listRowBackground(Theme.raised)
                     .swipeActions {
                         Button("Delete", role: .destructive) { Task { await delete(profile) } }
-                            .disabled(busyIds.contains(profile.id) || model.isOffline)
+                            .disabled(busyIds.contains(profile.id))
+                            .requiresConnection(model.isOffline)
                     }
                     .overlay(alignment: .trailing) {
                         if busyIds.contains(profile.id) {
@@ -180,7 +181,7 @@ private struct BookQualityProfileEditorView: View {
                 if saving {
                     ProgressView().tint(Theme.apricot)
                 } else {
-                    Button("Save") { Task { await save() } }.disabled(name.isEmpty || allowedFormats.isEmpty || model.isOffline)
+                    Button("Save") { Task { await save() } }.disabled(name.isEmpty || allowedFormats.isEmpty).requiresConnection(model.isOffline)
                 }
             }
         }

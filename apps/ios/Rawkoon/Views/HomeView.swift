@@ -402,7 +402,8 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
             // Opening resolves the item from the server; the row still reads fine offline.
-            .disabled(resolvingAttentionId != nil || model.isOffline)
+            .disabled(resolvingAttentionId != nil)
+            .requiresConnection(model.isOffline)
         } else {
             attentionRowContent(item, busy: false)
         }

@@ -25,7 +25,7 @@ enum APIError: Error, Sendable {
     func userMessage(
         unauthorized: String = String(localized: "Unauthorized. Check your credentials."),
         forbidden: String = String(localized: "You don't have permission to do that."),
-        transport: String = String(localized: "Network error. Check your connection.")
+        transport: String = String(localized: "Can't reach the server. Try again in a moment.")
     ) -> String {
         switch self {
         case .unauthorized: unauthorized

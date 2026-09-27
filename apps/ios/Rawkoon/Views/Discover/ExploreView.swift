@@ -441,7 +441,7 @@ struct ExploreView: View {
             error = message(for: apiError)
         } catch {
             guard generation == loadGeneration else { return }
-            self.error = String(localized: "Network error. Check your connection.")
+            self.error = String(localized: "Can't reach the server. Try again in a moment.")
         }
     }
 
@@ -479,7 +479,7 @@ struct ExploreView: View {
             }
         } catch {
             guard generation == loadGeneration else { return }
-            loadMoreError = String(localized: "Network error.")
+            loadMoreError = String(localized: "Can't reach the server.")
         }
     }
 

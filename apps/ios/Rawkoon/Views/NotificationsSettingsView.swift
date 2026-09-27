@@ -73,7 +73,7 @@ struct NotificationsSettingsView: View {
                         isLoading = true
                         Task { await loadPrefs() }
                     }
-                    .disabled(model.isOffline)
+                    .requiresConnection(model.isOffline)
                 }
                 .listRowBackground(Theme.raised)
             }
@@ -134,7 +134,8 @@ struct NotificationsSettingsView: View {
                 Task { await savePrefs(key: row.key, previousValue: previousValue) }
             }
         ))
-        .disabled(!prefsLoaded || model.isOffline)
+        .disabled(!prefsLoaded)
+        .requiresConnection(model.isOffline)
     }
 
     private func loadPrefs() async {

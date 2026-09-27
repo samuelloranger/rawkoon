@@ -16,9 +16,8 @@ public enum MediaPosterMenuAction: Equatable, Sendable, Hashable {
 ///
 /// Admin-only actions match what 403s on the server. Search and Open details
 /// are reachable today from MediaDetailView for any signed-in user. Offline,
-/// server-only items are left out: the menus render plain actions, with no
-/// disabled state to show.
-public func mediaPosterMenuItems(inLibrary: Bool, isAdmin: Bool, isOffline: Bool = false) -> [MediaPosterMenuAction] {
+/// the menu greys out the items whose `requiresConnection` is true.
+public func mediaPosterMenuItems(inLibrary: Bool, isAdmin: Bool) -> [MediaPosterMenuAction] {
     var items: [MediaPosterMenuAction] = []
     if inLibrary, isAdmin {
         items.append(.toggleMonitored)
@@ -30,7 +29,7 @@ public func mediaPosterMenuItems(inLibrary: Bool, isAdmin: Bool, isOffline: Bool
     if inLibrary, isAdmin {
         items.append(.removeFromLibrary)
     }
-    return isOffline ? items.filter { !$0.requiresConnection } : items
+    return items
 }
 
 public enum BookCardMenuAction: Equatable, Sendable, Hashable {
@@ -57,14 +56,13 @@ public enum BookCardMenuAction: Equatable, Sendable, Hashable {
 /// Read/Play follow BookView: an edition that exists is playable/readable.
 /// Mark as read is the whole-book flag (not the ebook "Read" action).
 /// Add is admin-only and only for a missing kind. Rescan is admin-only and
-/// only when at least one edition exists to rescan. Offline, server-only items
-/// are left out.
+/// only when at least one edition exists to rescan. Offline, the menu greys out
+/// the items whose `requiresConnection` is true.
 public func bookCardMenuItems(
     hasAudiobook: Bool,
     hasEbook: Bool,
     isAdmin: Bool,
-    isRead: Bool,
-    isOffline: Bool = false
+    isRead: Bool
 ) -> [BookCardMenuAction] {
     var items: [BookCardMenuAction] = []
     if hasEbook {
@@ -85,5 +83,5 @@ public func bookCardMenuItems(
             items.append(.rescan)
         }
     }
-    return isOffline ? items.filter { !$0.requiresConnection } : items
+    return items
 }

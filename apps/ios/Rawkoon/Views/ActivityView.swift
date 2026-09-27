@@ -382,7 +382,7 @@ struct ActivityView: View {
             if Task.isCancelled {
                 return
             }
-            queueError = String(localized: "Network error. Check your connection.")
+            queueError = String(localized: "Can't reach the server. Try again in a moment.")
         }
     }
 
@@ -598,7 +598,7 @@ struct ActivityView: View {
         } catch let error as APIError {
             historyError = message(for: error)
         } catch {
-            historyError = String(localized: "Network error. Check your connection.")
+            historyError = String(localized: "Can't reach the server. Try again in a moment.")
         }
     }
 
@@ -718,7 +718,7 @@ struct ActivityView: View {
         } catch let error as APIError {
             calendarError = message(for: error)
         } catch {
-            calendarError = String(localized: "Network error. Check your connection.")
+            calendarError = String(localized: "Can't reach the server. Try again in a moment.")
         }
     }
 

@@ -42,7 +42,8 @@ struct OidcProvidersCrudView: View {
                     .listRowBackground(Theme.raised)
                     .swipeActions {
                         Button("Delete", role: .destructive) { Task { await delete(provider) } }
-                            .disabled(busyIds.contains(provider.id) || model.isOffline)
+                            .disabled(busyIds.contains(provider.id))
+                            .requiresConnection(model.isOffline)
                     }
                     .overlay(alignment: .trailing) {
                         if busyIds.contains(provider.id) {
@@ -157,7 +158,7 @@ private struct OidcProviderEditorView: View {
                 if saving {
                     ProgressView().tint(Theme.apricot)
                 } else {
-                    Button("Save") { Task { await save() } }.disabled(name.isEmpty || slug.isEmpty || model.isOffline)
+                    Button("Save") { Task { await save() } }.disabled(name.isEmpty || slug.isEmpty).requiresConnection(model.isOffline)
                 }
             }
         }

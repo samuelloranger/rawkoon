@@ -39,7 +39,8 @@ struct SessionsAdminView: View {
                         .listRowBackground(Theme.raised)
                         .swipeActions {
                             Button("Revoke", role: .destructive) { Task { await revoke(session) } }
-                                .disabled(busySessionIds.contains(session.id) || model.isOffline)
+                                .disabled(busySessionIds.contains(session.id))
+                                .requiresConnection(model.isOffline)
                         }
                         .overlay(alignment: .trailing) {
                             if busySessionIds.contains(session.id) {
@@ -62,7 +63,8 @@ struct SessionsAdminView: View {
                         .listRowBackground(Theme.raised)
                         .swipeActions {
                             Button("Delete", role: .destructive) { Task { await deleteSub(sub) } }
-                                .disabled(busySubscriptionIds.contains(sub.id) || model.isOffline)
+                                .disabled(busySubscriptionIds.contains(sub.id))
+                                .requiresConnection(model.isOffline)
                         }
                         .overlay(alignment: .trailing) {
                             if busySubscriptionIds.contains(sub.id) {
@@ -184,7 +186,8 @@ struct ApiKeysAdminView: View {
                     .listRowBackground(Theme.raised)
                     .swipeActions {
                         Button("Revoke", role: .destructive) { Task { await revoke(key) } }
-                            .disabled(busyIds.contains(key.id) || model.isOffline)
+                            .disabled(busyIds.contains(key.id))
+                            .requiresConnection(model.isOffline)
                     }
                     .overlay(alignment: .trailing) {
                         if busyIds.contains(key.id) {
@@ -284,7 +287,7 @@ private struct CreateApiKeySheet: View {
                 if working {
                     ProgressView().tint(Theme.apricot)
                 } else if createdKey == nil {
-                    Button("Create") { Task { await create() } }.disabled(name.isEmpty || model.isOffline)
+                    Button("Create") { Task { await create() } }.disabled(name.isEmpty).requiresConnection(model.isOffline)
                 }
             }
         }
@@ -341,7 +344,8 @@ struct BlocklistAdminView: View {
                     .listRowBackground(Theme.raised)
                     .swipeActions {
                         Button("Unblock", role: .destructive) { Task { await unblock(entry) } }
-                            .disabled(busyIds.contains(entry.id) || model.isOffline)
+                            .disabled(busyIds.contains(entry.id))
+                            .requiresConnection(model.isOffline)
                     }
                     .overlay(alignment: .trailing) {
                         if busyIds.contains(entry.id) {

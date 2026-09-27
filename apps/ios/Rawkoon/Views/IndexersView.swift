@@ -124,7 +124,7 @@ struct IndexersView: View {
             }
         } catch {
             if !hasLoaded {
-                errorMessage = String(localized: "Network error. Check your connection.")
+                errorMessage = String(localized: "Can't reach the server. Try again in a moment.")
             }
         }
     }

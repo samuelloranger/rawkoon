@@ -150,7 +150,7 @@ struct UsersView: View {
             }
         } catch {
             if !hasLoaded {
-                errorText = String(localized: "Network error. Check your connection.")
+                errorText = String(localized: "Can't reach the server. Try again in a moment.")
             }
         }
     }

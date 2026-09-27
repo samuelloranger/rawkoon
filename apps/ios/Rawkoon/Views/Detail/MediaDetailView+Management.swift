@@ -72,13 +72,13 @@ extension MediaDetailView {
                     } label: {
                         Label("Change artwork", systemImage: "photo")
                     }
-                    .disabled(model.isOffline)
+                    .requiresConnection(model.isOffline)
                     Button {
                         Task { await runRescan() }
                     } label: {
                         Label("Rescan files", systemImage: "arrow.clockwise")
                     }
-                    .disabled(model.isOffline)
+                    .requiresConnection(model.isOffline)
                     Button {
                         if let libraryId {
                             reencodeTarget = ReencodeTarget(selection: TranscodeSelection(mediaId: libraryId), subtitle: title)
@@ -86,7 +86,7 @@ extension MediaDetailView {
                     } label: {
                         Label("Re-encode…", systemImage: "gauge.with.dots.needle.67percent")
                     }
-                    .disabled(model.isOffline)
+                    .requiresConnection(model.isOffline)
                     Divider()
                     Button(role: .destructive) {
                         pendingRemoveLibraryId = libraryId
@@ -95,7 +95,7 @@ extension MediaDetailView {
                     } label: {
                         Label("Remove from library", systemImage: "trash")
                     }
-                    .disabled(model.isOffline)
+                    .requiresConnection(model.isOffline)
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .font(.title3)

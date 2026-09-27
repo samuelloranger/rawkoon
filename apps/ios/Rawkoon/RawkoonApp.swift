@@ -88,6 +88,11 @@ struct RawkoonApp: App {
                 #if DEBUG
                     await model.debugAutologinIfNeeded()
                     await model.debugStartDownloadIfRequested()
+                    // Screenshot-only: the simulator can't tap, so show the blocked-action toast directly.
+                    if ProcessInfo.processInfo.environment["RAWKOON_DEMO_OFFLINE_TOAST"] == "1" {
+                        try? await Task.sleep(for: .seconds(4))
+                        OfflineFeedback.explain()
+                    }
                 #endif
                 if model.isLoggedIn {
                     model.requestPushAuthorization()

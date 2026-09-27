@@ -41,7 +41,8 @@ struct ProfileView: View {
                     LabeledTextFieldRow(title: "First name", text: $firstName, autocaps: true)
                     LabeledTextFieldRow(title: "Last name", text: $lastName, autocaps: true)
                     Button("Save name") { Task { await saveName() } }
-                        .disabled(!nameDirty || savingName || model.isOffline)
+                        .disabled(!nameDirty || savingName)
+                        .requiresConnection(model.isOffline)
                         .listRowBackground(Theme.raised)
                     if let nameError {
                         Text(nameError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
@@ -53,7 +54,8 @@ struct ProfileView: View {
                     SecretFieldRow(title: "New password (min 8)", input: $newPassword)
                     SecretFieldRow(title: "Confirm new password", input: $confirmPassword)
                     Button("Change password") { Task { await changePassword() } }
-                        .disabled(!passwordValid || changingPassword || model.isOffline)
+                        .disabled(!passwordValid || changingPassword)
+                        .requiresConnection(model.isOffline)
                         .listRowBackground(Theme.raised)
                     if passwordDone {
                         Text("Password updated.").foregroundStyle(Theme.apricot).listRowBackground(Theme.raised)

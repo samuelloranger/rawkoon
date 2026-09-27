@@ -75,10 +75,12 @@ struct NotificationChannelsCrudView: View {
                     .listRowBackground(Theme.raised)
                     .swipeActions {
                         Button("Delete", role: .destructive) { Task { await delete(channel) } }
-                            .disabled(busyIds.contains(channel.id) || model.isOffline)
+                            .disabled(busyIds.contains(channel.id))
+                            .requiresConnection(model.isOffline)
                         Button("Test") { Task { await test(channel) } }
                             .tint(Theme.apricot)
-                            .disabled(busyIds.contains(channel.id) || model.isOffline)
+                            .disabled(busyIds.contains(channel.id))
+                            .requiresConnection(model.isOffline)
                     }
                     .overlay(alignment: .trailing) {
                         if busyIds.contains(channel.id) {
@@ -205,7 +207,7 @@ private struct ChannelEditorView: View {
                 if saving {
                     ProgressView().tint(Theme.apricot)
                 } else {
-                    Button("Save") { Task { await save() } }.disabled(label.isEmpty || model.isOffline)
+                    Button("Save") { Task { await save() } }.disabled(label.isEmpty).requiresConnection(model.isOffline)
                 }
             }
         }

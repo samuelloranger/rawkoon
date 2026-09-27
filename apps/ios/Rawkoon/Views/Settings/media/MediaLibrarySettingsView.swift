@@ -120,7 +120,8 @@ struct MediaLibrarySettingsView: View {
                     LabeledTextFieldRow(title: "Scan path", text: $scanPath, keyboard: .URL, mono: true)
                     PickerRow(title: "Type", selection: $scanType, options: Self.scanTypeOptions)
                     Button("Run scan") { Task { await runScan() } }
-                        .disabled(scanning || scanPath.isEmpty || model.isOffline)
+                        .disabled(scanning || scanPath.isEmpty)
+                        .requiresConnection(model.isOffline)
                         .listRowBackground(Theme.raised)
                     if scanning {
                         ProgressView().tint(Theme.apricot).listRowBackground(Theme.raised)
@@ -137,7 +138,8 @@ struct MediaLibrarySettingsView: View {
 
                 Section {
                     AsyncButton("Reindex languages", action: startReindex)
-                        .disabled(reindexActive || model.isOffline)
+                        .disabled(reindexActive)
+                        .requiresConnection(model.isOffline)
                         .listRowBackground(Theme.raised)
                     if let status = reindexStatus, let state = status.state, state != "unknown" {
                         Text(reindexStatusLine(status)).font(.footnote).foregroundStyle(Theme.muted)
@@ -159,7 +161,7 @@ struct MediaLibrarySettingsView: View {
                 if saving {
                     ProgressView().tint(Theme.apricot)
                 } else {
-                    Button("Save") { Task { await save() } }.disabled(!isDirty || model.isOffline)
+                    Button("Save") { Task { await save() } }.disabled(!isDirty).requiresConnection(model.isOffline)
                 }
             }
         }
