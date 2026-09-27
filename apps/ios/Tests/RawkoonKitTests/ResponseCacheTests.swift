@@ -170,7 +170,6 @@ struct ResponseCachePolicyTests {
         #expect(!ResponseCachePolicy.isCacheable(path: "/api/books/editions/63/manifest"))
         #expect(!ResponseCachePolicy.isCacheable(path: "/api/books/search?q=dune"))
         #expect(!ResponseCachePolicy.isCacheable(path: "/api/books/9/editions/audiobook/search"))
-        #expect(!ResponseCachePolicy.isCacheable(path: "/api/notifications/unread-count"))
     }
 }
 

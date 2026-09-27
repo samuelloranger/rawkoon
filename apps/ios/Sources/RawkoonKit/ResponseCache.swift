@@ -209,7 +209,6 @@ public enum ResponseCachePolicy {
         "/api/transcode/jobs",
         "/api/library/migrate",
         "/api/books/editions/",
-        "/api/notifications/unread-count",
     ]
 
     public static func isCacheable(path: String) -> Bool {

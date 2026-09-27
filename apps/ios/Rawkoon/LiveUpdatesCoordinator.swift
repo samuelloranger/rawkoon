@@ -262,6 +262,11 @@ final class LiveUpdatesCoordinator {
         if let response = try? await client.unreadNotificationCount() {
             unreadNotificationCount = response.unreadCount
             syncAppIconBadge()
+        } else if unreadNotificationCount == 0,
+                  let cached: Cached<UnreadCountResponseDTO> = client.cached("/api/notifications/unread-count")
+        {
+            // Offline launch: the last known count beats a badge that silently vanished.
+            unreadNotificationCount = cached.value.unreadCount
         }
     }
 

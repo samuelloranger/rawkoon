@@ -776,8 +776,9 @@ struct LibraryView: View {
     /// a failure just leaves the list in latest-added order.
     private func loadBookProgress() async {
         guard let client = model.api() else { return }
-        let audio = try? await client.getProgress()
-        let ebook = try? await client.readingProgress()
+        // Offline, the saved progress keeps the bars and the Recent sort.
+        let audio = await (try? client.getProgress()) ?? client.cachedProgress()?.value
+        let ebook = await (try? client.readingProgress()) ?? client.cachedReadingProgress()?.value
         if let audio {
             audioProgress = Dictionary(
                 audio.map { ($0.editionId, $0) },

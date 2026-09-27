@@ -266,9 +266,10 @@ struct SwipeDeck: View {
         Button(action: action) {
             Image(systemName: system)
                 .font(.system(size: filled ? 22 : 18, weight: .semibold))
-                .foregroundStyle(filled ? Theme.onAccent : Theme.text)
+                .foregroundStyle(model.isOffline ? Theme.faint : filled ? Theme.onAccent : Theme.text)
                 .frame(width: 52, height: 52)
-                .glassEffect(.regular.tint(filled ? Theme.apricot : nil).interactive(), in: .circle)
+                // Glass ignores opacity, so the offline state drops the accent tint instead.
+                .glassEffect(.regular.tint(filled && !model.isOffline ? Theme.apricot : nil).interactive(), in: .circle)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
