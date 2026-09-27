@@ -275,10 +275,11 @@ private struct RootTabsView: View {
                     tabRoot(tab)
                 }
             } else {
+                // The phone container insets its own navigation bars for the strip.
                 sidebarTabs(validSelection)
+                    .offlineStrip(isOffline: model.isOffline)
             }
         }
-        .offlineStrip(isOffline: model.isOffline)
         .alert(
             "Couldn't play chapter",
             isPresented: Binding(

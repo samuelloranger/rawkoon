@@ -23,6 +23,7 @@ struct PhoneTabsView<Root: View>: View {
     /// Measured height of the bar area, applied to each tab's navigation controller.
     @State private var chromeHeight: CGFloat = 0
     @State private var containerWidth: CGFloat = 393
+    @State private var offlineStripHeight: CGFloat = 0
 
     var body: some View {
         ZStack {
@@ -40,7 +41,19 @@ struct PhoneTabsView<Root: View>: View {
                 }
             }
         }
-        .background(NavigationBottomInset(bottom: keyboardShown ? 0 : chromeHeight, mountedTabs: visited.count))
+        .background(NavigationBottomInset(
+            bottom: keyboardShown ? 0 : chromeHeight,
+            top: model.isOffline ? offlineStripHeight : 0,
+            mountedTabs: visited.count
+        ))
+        .overlay(alignment: .top) {
+            if model.isOffline {
+                OfflineStrip()
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { offlineStripHeight = $0 }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .rawkoonMotion(RawkoonMotion.spring, value: model.isOffline)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { containerWidth = $0 }
         .overlay(alignment: .bottom) {
             if !keyboardShown {

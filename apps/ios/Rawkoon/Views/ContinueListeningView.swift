@@ -244,7 +244,9 @@ struct ContinueListeningView: View {
         // Both failed: keep what is on screen rather than blanking the rail.
         guard audiobookProgress != nil || ebookProgress != nil else {
             if items.isEmpty {
-                errorMessage = String(localized: "Could not load continue progress.")
+                errorMessage = model.isOffline
+                    ? String(localized: "This will load when you're back online.")
+                    : String(localized: "Could not load continue progress.")
             }
             return
         }
