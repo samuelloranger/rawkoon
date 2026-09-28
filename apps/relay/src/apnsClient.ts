@@ -14,6 +14,8 @@ export interface ApnsSendOptions {
   payload: Record<string, unknown>;
   topic: string;
   collapseId?: string;
+  pushType?: "alert" | "liveactivity";
+  priority?: 5 | 10;
 }
 
 // APNs speaks HTTP/2 only, so this cannot use fetch. One session is kept open
@@ -48,8 +50,8 @@ export class ApnsClient {
         ":path": `/3/device/${opts.token}`,
         authorization: `bearer ${this.tokens.get()}`,
         "apns-topic": opts.topic,
-        "apns-push-type": "alert",
-        "apns-priority": "10",
+        "apns-push-type": opts.pushType ?? "alert",
+        "apns-priority": String(opts.priority ?? 10),
         ...(opts.collapseId ? { "apns-collapse-id": opts.collapseId } : {}),
         "content-type": "application/json",
         "content-length": Buffer.byteLength(body),

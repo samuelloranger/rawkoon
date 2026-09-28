@@ -647,12 +647,14 @@ struct HomeView: View {
         if let items = await (try? recentR)?.items {
             recent = items
             loading = false
+            Task { await WidgetSnapshotWriter.shared.updateRecent(items, model: model) }
         }
         if let items = await (try? upcomingR)?.items {
             upcoming = items
         }
         if let deck = try? await discoverR {
             discover = deck
+            Task { await WidgetSnapshotWriter.shared.updateSuggestion(deck, model: model) }
         }
         if let np = try? await npR {
             nowPlaying = np

@@ -10,6 +10,11 @@ options:
     # we build with Xcode 26.6 (GA) on the macos-26 runner. Raise again when the
     # xcode-27 image carries an RC/GA Xcode.
     iOS: "26.2"
+settings:
+  base:
+    # Project-level so the app and its widget extension, which must match, share one version.
+    MARKETING_VERSION: "1.12.2"
+    CURRENT_PROJECT_VERSION: "1"
 packages:
   RawkoonKit:
     path: .
@@ -22,7 +27,9 @@ targets:
   Rawkoon:
     type: application
     platform: iOS
-    sources: [Rawkoon]
+    sources:
+      - Rawkoon
+      - WidgetSupport/WidgetSnapshot.swift
     dependencies:
       - package: RawkoonKit
       - package: Readium
@@ -31,10 +38,17 @@ targets:
         product: ReadiumStreamer
       - package: Readium
         product: ReadiumNavigator
+      - target: RawkoonWidgets
+        embed: true
+        platformFilter: iOS
     info:
       path: Rawkoon/Info.plist
       properties:
         UIBackgroundModes: [audio, fetch, remote-notification]
+        NSSupportsLiveActivities: true
+        CFBundleURLTypes:
+          - CFBundleURLName: cloud.samlo.rawkoon.widgets
+            CFBundleURLSchemes: [rawkoon]
         BGTaskSchedulerPermittedIdentifiers: [cloud.samlo.rawkoon.refresh]
         # CarPlay scene ONLY. We do not declare UIWindowSceneSessionRoleApplication:
         # omitting it lets SwiftUI keep managing the phone WindowGroup. Declaring a
@@ -90,8 +104,6 @@ targets:
         # (Text("…"), Button("…"), .navigationTitle("…"), …) into
         # Rawkoon/Localizable.xcstrings at build time. English-only for now.
         SWIFT_EMIT_LOC_STRINGS: "YES"
-        MARKETING_VERSION: "1.12.2"
-        CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "6.0"
         SWIFT_STRICT_CONCURRENCY: complete
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
@@ -147,6 +159,37 @@ targets:
         SWIFT_VERSION: "6.0"
         GENERATE_INFOPLIST_FILE: true
         PRODUCT_BUNDLE_IDENTIFIER: cloud.samlo.rawkoon.tests
+  RawkoonWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - RawkoonWidgets
+      - WidgetSupport/WidgetSnapshot.swift
+    info:
+      path: RawkoonWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Rawkoon Widgets
+        # An extension must carry its parent app's version and build, or App Store Connect rejects it.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        NSSupportsLiveActivities: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cloud.samlo.rawkoon.widgets
+        SWIFT_EMIT_LOC_STRINGS: "YES"
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        APPLICATION_EXTENSION_API_ONLY: YES
+        CODE_SIGN_ENTITLEMENTS: RawkoonWidgets/RawkoonWidgets.entitlements
+        DEVELOPMENT_TEAM: SSU33B2E5B
+      configs:
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "Apple Distribution"
+          PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]: "Rawkoon Widgets AppStore CI"
 schemes:
   Rawkoon:
     build:

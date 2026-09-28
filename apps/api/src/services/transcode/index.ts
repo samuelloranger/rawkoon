@@ -3,6 +3,7 @@ import { statFileFingerprint } from "@rawkoon/api/utils/medias/fileFingerprint";
 import { remapPath } from "@rawkoon/api/utils/medias/mediainfoScanner";
 import { detectCapabilities } from "@rawkoon/api/services/transcode/capabilities";
 import { TranscodeDispatcher } from "@rawkoon/api/services/transcode/dispatcher";
+import { transcodeLiveActivity } from "@rawkoon/api/services/transcode/liveActivity";
 import { runFfmpeg } from "@rawkoon/api/services/transcode/ffmpegRunner";
 import { transcodeNotifier } from "@rawkoon/api/services/transcode/notify";
 import type { PipelineDeps } from "@rawkoon/api/services/transcode/pipeline";
@@ -33,4 +34,7 @@ export const transcodeDispatcher = new TranscodeDispatcher(
   prismaTranscodeRepo,
   transcodeDeps,
   transcodeNotifier,
+  undefined,
+  undefined,
+  transcodeLiveActivity,
 );

@@ -54,3 +54,64 @@ export function classifyApnsStatus(
   if (status === 429 || status >= 500) return "retry";
   return "rejected";
 }
+
+const liveState = z.object({
+  progress: z.number().min(0).max(1),
+  step: z.enum(["preflight", "encode", "validate", "replace", "rescan"]),
+  etaSeconds: z.number().int().nonnegative().nullable(),
+  status: z.enum(["running", "done", "failed", "cancelled"]),
+});
+
+// A finished or failed re-encode stays on the lock screen long enough to be seen.
+export const RESULT_VISIBLE_SECS = 15 * 60;
+
+const activityToken = z.string().regex(/^[0-9a-fA-F]{64,512}$/);
+
+export const liveActivityRequestSchema = z.discriminatedUnion("event", [
+  z.object({
+    event: z.literal("start"),
+    token: activityToken,
+    state: liveState,
+    attributes: z.object({
+      jobId: z.number().int().positive(),
+      title: z.string().min(1).max(160),
+      codec: z.string().min(1).max(16),
+    }),
+  }),
+  z.object({
+    event: z.enum(["update", "end"]),
+    token: activityToken,
+    state: liveState,
+  }),
+]);
+
+export type LiveActivityRequest = z.infer<typeof liveActivityRequestSchema>;
+
+export function buildLiveActivityPayload(
+  req: LiveActivityRequest,
+  timestamp: number = Math.floor(Date.now() / 1000),
+): Record<string, unknown> {
+  const aps: Record<string, unknown> = {
+    timestamp,
+    event: req.event,
+    "content-state": req.state,
+  };
+  if (req.event === "start") {
+    // iOS 18+ returns an update token for a remotely started activity only
+    // when the start payload explicitly asks for one.
+    aps["input-push-token"] = 1;
+    aps["attributes-type"] = "ReencodeActivityAttributes";
+    aps.attributes = req.attributes;
+    // loc-key resolves against the app's string catalog, so the banner follows the phone's language.
+    aps.alert = {
+      title: { "loc-key": "Re-encode started" },
+      body: req.attributes.title,
+    };
+  }
+  if (req.event === "end")
+    aps["dismissal-date"] =
+      req.state.status === "cancelled"
+        ? timestamp
+        : timestamp + RESULT_VISIBLE_SECS;
+  return { aps };
+}

@@ -50,7 +50,7 @@ jobs:
         working-directory: apps/ios
       - run: python3 scripts/check-env-inject.py
         working-directory: apps/ios
-      - run: swiftformat Rawkoon RawkoonTests Sources Tests --lint
+      - run: swiftformat Rawkoon RawkoonTests RawkoonWidgets WidgetSupport Sources Tests --lint
         working-directory: apps/ios
       - run: swiftlint lint
         working-directory: apps/ios
@@ -148,13 +148,20 @@ jobs:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
           BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          WIDGET_PROVISION_PROFILE_BASE64: ${{ secrets.WIDGET_PROVISION_PROFILE_BASE64 }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           CERT_PATH="$RUNNER_TEMP/cert.p12"
           PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
+          WIDGET_PROFILE_PATH="$RUNNER_TEMP/widget-profile.mobileprovision"
           KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          if [ -z "$WIDGET_PROVISION_PROFILE_BASE64" ]; then
+            echo "WIDGET_PROVISION_PROFILE_BASE64 is required for Rawkoon Widgets" >&2
+            exit 1
+          fi
           echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERT_PATH"
           echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PROFILE_PATH"
+          echo -n "$WIDGET_PROVISION_PROFILE_BASE64" | base64 --decode -o "$WIDGET_PROFILE_PATH"
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
@@ -163,6 +170,7 @@ jobs:
           security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/"
+          cp "$WIDGET_PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/"
       # Signing settings live on the app target in project.yml, not here: an
       # xcodebuild command-line setting applies to every target in the project,
       # and SPM package targets reject a provisioning profile.

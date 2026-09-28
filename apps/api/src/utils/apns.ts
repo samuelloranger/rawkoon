@@ -74,3 +74,47 @@ export async function sendPushViaRelay(
     };
   }
 }
+
+export interface ReencodeLiveState {
+  progress: number;
+  step: "preflight" | "encode" | "validate" | "replace" | "rescan";
+  etaSeconds: number | null;
+  status: "running" | "done" | "failed" | "cancelled";
+}
+
+export type LiveActivityPush =
+  | {
+      event: "start";
+      token: string;
+      state: ReencodeLiveState;
+      attributes: { jobId: number; title: string; codec: string };
+    }
+  | { event: "update" | "end"; token: string; state: ReencodeLiveState };
+
+export async function sendLiveActivityViaRelay(
+  push: LiveActivityPush,
+): Promise<{ success: boolean; expired?: boolean; error?: string }> {
+  const base = relayUrl();
+  if (!base) return { success: false, error: "Push relay not configured" };
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    const response = await fetch(`${base}/liveactivity`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(push),
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
+    if (response.status === 200) return { success: true };
+    if (response.status === 410) return { success: false, expired: true };
+    return {
+      success: false,
+      error: `relay ${response.status} ${await response.text().catch(() => "")}`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}

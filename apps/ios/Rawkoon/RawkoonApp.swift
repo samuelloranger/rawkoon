@@ -97,6 +97,7 @@ struct RawkoonApp: App {
                 if model.isLoggedIn {
                     model.registerForPushIfAuthorized()
                     model.startLiveStreams()
+                    ReencodeActivityCoordinator.shared.start(model: model)
                     await model.refreshUnreadNotificationCount()
                 }
             }
@@ -110,6 +111,13 @@ struct RawkoonApp: App {
             .onChange(of: appLanguage) {
                 guard model.isLoggedIn else { return }
                 Task { await model.loadLibrary() }
+            }
+            .onChange(of: model.isAdmin) { _, isAdmin in
+                if isAdmin {
+                    ReencodeActivityCoordinator.shared.start(model: model)
+                } else {
+                    ReencodeActivityCoordinator.shared.stop(model: model)
+                }
             }
             .onChange(of: scenePhase) { _, newPhase in
                 switch newPhase {
@@ -170,6 +178,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         AppModel.registerBackgroundRefresh()
+        Task { @MainActor in
+            if appModel.isLoggedIn {
+                ReencodeActivityCoordinator.shared.start(model: appModel)
+            }
+        }
         return true
     }
 
@@ -299,6 +312,14 @@ private struct RootTabsView: View {
                 // The phone container insets its own navigation bars for the strip.
                 sidebarTabs(validSelection)
                     .offlineStrip(isOffline: model.isOffline)
+            }
+        }
+        .onOpenURL { url in
+            guard url.scheme == "rawkoon" else { return }
+            switch url.host {
+            case "home": selection = .home
+            case "discover": selection = .discover
+            default: break
             }
         }
         .alert(

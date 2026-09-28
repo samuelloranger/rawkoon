@@ -263,6 +263,43 @@ describe("TranscodeDispatcher resilience", () => {
     expect(events.filter((e) => e === "claim")).toHaveLength(2);
   });
 
+  it("a job that fails fast ends its Live Activity only after start settles", async () => {
+    const { repo, notifier } = makeRepo();
+    const calls: string[] = [];
+    let releaseStart = () => {};
+    const activity = {
+      start: () =>
+        new Promise<void>((resolve) => {
+          releaseStart = () => {
+            calls.push("start");
+            resolve();
+          };
+        }),
+      update: async () => {},
+      end: async (_: unknown, status: string) => {
+        calls.push(`end ${status}`);
+      },
+    };
+    const claim = repo.claimNext;
+    repo.claimNext = async () => {
+      const job = await claim();
+      return job ? { ...job, source: null as never } : null;
+    };
+    const d = new TranscodeDispatcher(
+      repo as never,
+      deps,
+      notifier as never,
+      undefined,
+      undefined,
+      activity,
+    );
+    await d.tick();
+    expect(calls).toEqual([]);
+    releaseStart();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls).toEqual(["start", "end failed"]);
+  });
+
   it("recovery registers a file that was already swapped instead of requeueing", async () => {
     const { repo, events } = makeRepo();
     const rescans: string[] = [];

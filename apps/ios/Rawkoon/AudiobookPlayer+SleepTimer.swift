@@ -22,6 +22,7 @@ extension AudiobookPlayer {
             sleepRemainingSecs = nil
             sleepEndChapterIndex = currentChapterIndex
         }
+        updateSleepLiveActivity()
     }
 
     /// Called from the playback tick. Advances the countdown by real elapsed
@@ -59,6 +60,20 @@ extension AudiobookPlayer {
         sleepRemainingSecs = nil
         sleepEndChapterIndex = nil
         lastSleepTick = nil
+        sleepLiveActivity.end()
+    }
+
+    func updateSleepLiveActivity() {
+        guard case .minutes = sleepMode else {
+            sleepLiveActivity.end()
+            return
+        }
+        sleepLiveActivity.sync(
+            bookTitle: manifest?.title,
+            chapterTitle: currentChapter?.title,
+            remaining: sleepRemainingSecs,
+            isPlaying: isPlaying
+        )
     }
 
     private func resetSleepVolume() {

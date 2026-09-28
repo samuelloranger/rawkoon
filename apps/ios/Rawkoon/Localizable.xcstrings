@@ -10458,6 +10458,17 @@
           }
         }
       }
+    },
+    "Re-encode started": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réencodage lancé"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

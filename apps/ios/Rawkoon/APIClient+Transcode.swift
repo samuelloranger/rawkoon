@@ -71,4 +71,31 @@ extension APIClient {
     func transcodeSummary() async throws -> TranscodeSummary {
         try await get("/api/transcode/summary")
     }
+
+    func registerReencodePushToStart(installationId: String, token: String) async throws {
+        try await postExpectOK("/api/transcode/live-activity/register", body: ReencodeStartRegistration(
+            installationId: installationId, startToken: token
+        ))
+    }
+
+    func registerReencodeActivityToken(installationId: String, jobId: Int, token: String) async throws {
+        try await postExpectOK("/api/transcode/live-activity/token", body: ReencodeTokenRegistration(
+            installationId: installationId, jobId: jobId, activityToken: token
+        ))
+    }
+
+    func unregisterReencodePushToStart(installationId: String) async throws {
+        try await deleteExpectOK("/api/transcode/live-activity/devices/\(installationId)")
+    }
+}
+
+private nonisolated struct ReencodeStartRegistration: Encodable {
+    let installationId: String
+    let startToken: String
+}
+
+private nonisolated struct ReencodeTokenRegistration: Encodable {
+    let installationId: String
+    let jobId: Int
+    let activityToken: String
 }
