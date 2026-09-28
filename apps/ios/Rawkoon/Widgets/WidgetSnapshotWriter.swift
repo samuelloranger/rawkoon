@@ -150,8 +150,8 @@ final class WidgetSnapshotWriter {
               let image = UIImage(data: data)
         else { return nil }
         // Aspect-fill crop, so a backdrop drawn into a poster frame (or the reverse) is never squashed.
-        let scale = max(size.width / image.size.width, size.height / image.size.height)
-        let drawn = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let fill = max(size.width / image.size.width, size.height / image.size.height)
+        let drawn = CGSize(width: image.size.width * fill, height: image.size.height * fill)
         let origin = CGPoint(x: (size.width - drawn.width) / 2, y: (size.height - drawn.height) / 2)
         // Below the screen's 3x keeps the shared snapshot small; widget artwork never needs it.
         let format = UIGraphicsImageRendererFormat()
