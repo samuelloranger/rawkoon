@@ -7,9 +7,12 @@ function decodePart(part: string): Record<string, unknown> {
   return JSON.parse(atob(b64));
 }
 
-function b64urlToBytes(part: string): Uint8Array {
-  const b64 = part.replace(/-/g, "+").replace(/_/g, "/");
-  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+// Built on a plain ArrayBuffer: WebCrypto's BufferSource rejects a SharedArrayBuffer-backed view.
+function b64urlToBytes(part: string): Uint8Array<ArrayBuffer> {
+  const binary = atob(part.replace(/-/g, "+").replace(/_/g, "/"));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 
 describe("signApnsJwt", () => {
