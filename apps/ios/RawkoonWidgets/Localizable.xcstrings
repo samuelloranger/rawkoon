@@ -311,6 +311,36 @@
           }
         }
       }
+    },
+    "What to watch": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À regarder"
+          }
+        }
+      }
+    },
+    "Open Rawkoon to pick something to watch": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvre Rawkoon pour choisir quoi regarder"
+          }
+        }
+      }
+    },
+    "A title from your library, changing every six hours.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un titre de ta bibliothèque, qui change toutes les six heures."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

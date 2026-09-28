@@ -184,6 +184,7 @@ extension AppModel {
         if let deckResult {
             await WidgetSnapshotWriter.shared.updateSuggestion(deckResult, model: self)
         }
+        await WidgetSnapshotWriter.shared.updateWatch(model: self)
         if let features = try? await apiClient.systemFeatures() {
             let listening = features.booksEnabled ? try? await apiClient.listeningStats() : nil
             WidgetSnapshotWriter.shared.updateListening(listening)

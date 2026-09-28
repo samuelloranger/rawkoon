@@ -43,6 +43,8 @@ final class AppModel {
     /// the UI shows an "Offline" hint instead of a network-error wall, and lists
     /// only downloaded books.
     var isOfflineLibrary = false
+    /// A title a widget tap asked to open; Home pushes its detail and clears it.
+    var pendingMediaLink: MediaLink?
     /// The in-flight `/api/auth/me` fetch, so launch, Settings and a reconnect
     /// share one request.
     var profileTask: Task<Void, Never>?
@@ -1082,5 +1084,29 @@ final class AppModel {
 
     static func nowMillis() -> Int64 {
         Int64(Date().timeIntervalSince1970 * 1000)
+    }
+}
+
+/// A library title to open from outside the app, such as a widget tap.
+struct MediaLink: Hashable {
+    let libraryId: Int
+    let tmdbId: Int
+    let mediaType: String
+    let title: String
+
+    init?(url: URL) {
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        func value(_ name: String) -> String? {
+            items.first { $0.name == name }?.value
+        }
+        guard url.host == "media",
+              let library = value("library").flatMap(Int.init),
+              let tmdb = value("tmdb").flatMap(Int.init),
+              let type = value("type"), type == "movie" || type == "tv"
+        else { return nil }
+        libraryId = library
+        tmdbId = tmdb
+        mediaType = type
+        title = value("title") ?? ""
     }
 }

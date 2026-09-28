@@ -24,15 +24,48 @@ nonisolated struct WidgetSuggestion: Codable, Sendable {
     let personalized: Bool
 }
 
+/// A library title the What to watch widget can put forward, with what a tap needs to open it.
+nonisolated struct WidgetWatchPick: Codable, Sendable {
+    let libraryId: Int
+    let tmdbId: Int
+    let mediaType: String
+    let media: WidgetMedia
+
+    var url: URL? {
+        var components = URLComponents()
+        components.scheme = "rawkoon"
+        components.host = "media"
+        components.queryItems = [
+            URLQueryItem(name: "library", value: String(libraryId)),
+            URLQueryItem(name: "tmdb", value: String(tmdbId)),
+            URLQueryItem(name: "type", value: mediaType),
+            URLQueryItem(name: "title", value: media.title),
+        ]
+        return components.url
+    }
+}
+
 nonisolated struct WidgetSnapshot: Codable, Sendable {
     var updatedAt: Date
     var listening: WidgetListening?
     var recent: [WidgetMedia]
     var suggestion: WidgetSuggestion?
     var suggestionDay: Date?
+    /// Optional so a snapshot written before this widget existed still decodes.
+    var watch: [WidgetWatchPick]?
+    var watchRolledAt: Date?
 
     static var empty: WidgetSnapshot {
         WidgetSnapshot(updatedAt: .distantPast, listening: nil, recent: [], suggestion: nil, suggestionDay: nil)
+    }
+
+    static let watchSlot: TimeInterval = 6 * 60 * 60
+
+    /// The pick for the six-hour slot holding `date`; the pool rotates even when the app stays closed.
+    func watchPick(at date: Date) -> WidgetWatchPick? {
+        guard let pool = watch, !pool.isEmpty else { return nil }
+        let slot = Int(date.timeIntervalSince1970 / Self.watchSlot)
+        return pool[slot % pool.count]
     }
 }
 
