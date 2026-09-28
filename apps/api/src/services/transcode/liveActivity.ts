@@ -3,7 +3,10 @@ import {
   type ReencodeLiveState,
   sendLiveActivityViaRelay,
 } from "@rawkoon/api/utils/apns";
-import type { TranscodeLiveProgress, TranscodeStep } from "@rawkoon/shared/types";
+import type {
+  TranscodeLiveProgress,
+  TranscodeStep,
+} from "@rawkoon/shared/types";
 import type { ClaimedJob } from "./repo";
 
 const MIN_UPDATE_MS = 15_000;
@@ -53,7 +56,9 @@ async function startOnDevice(
       where: { id: device.id },
       data: { currentJobId: null },
     });
-    console.warn(`[transcode] Live Activity start failed on ${device.id}: ${result.error}`);
+    console.warn(
+      `[transcode] Live Activity start failed on ${device.id}: ${result.error}`,
+    );
   }
 }
 
@@ -66,15 +71,21 @@ export const transcodeLiveActivity = {
       },
       select: { id: true, startToken: true },
     });
-    await Promise.allSettled(devices.map((device) => startOnDevice(device, job)));
+    await Promise.allSettled(
+      devices.map((device) => startOnDevice(device, job)),
+    );
   },
 
-  async startForInstallation(installationId: string, job: ClaimedJob): Promise<void> {
+  async startForInstallation(
+    installationId: string,
+    job: ClaimedJob,
+  ): Promise<void> {
     const device = await prisma.liveActivityDevice.findUnique({
       where: { installationId },
       select: { id: true, startToken: true, currentJobId: true },
     });
-    if (device && device.currentJobId !== job.id) await startOnDevice(device, job);
+    if (device && device.currentJobId !== job.id)
+      await startOnDevice(device, job);
   },
 
   async update(
@@ -85,28 +96,45 @@ export const transcodeLiveActivity = {
     const now = Date.now();
     const value = state(step, progress);
     const devices = await prisma.liveActivityDevice.findMany({
-      where: { currentJobId: job.id, activityToken: { not: null }, user: { isAdmin: true } },
+      where: {
+        currentJobId: job.id,
+        activityToken: { not: null },
+        user: { isAdmin: true },
+      },
     });
-    await Promise.allSettled(devices.map(async (device) => {
-      if (!device.activityToken) return;
-      const stepChanged = device.lastStep !== step;
-      const changedEnough = Math.abs(value.progress - (device.lastProgress ?? 0)) >= MIN_PROGRESS_DELTA;
-      const oldEnough = !device.lastSentAt || now - device.lastSentAt.getTime() >= MIN_UPDATE_MS;
-      if (!stepChanged && !(changedEnough && oldEnough)) return;
-      const result = await sendLiveActivityViaRelay({
-        event: "update", token: device.activityToken, state: value,
-      });
-      if (result.success) {
-        await prisma.liveActivityDevice.update({
-          where: { id: device.id },
-          data: { lastStep: step, lastProgress: value.progress, lastSentAt: new Date(now) },
+    await Promise.allSettled(
+      devices.map(async (device) => {
+        if (!device.activityToken) return;
+        const stepChanged = device.lastStep !== step;
+        const changedEnough =
+          Math.abs(value.progress - (device.lastProgress ?? 0)) >=
+          MIN_PROGRESS_DELTA;
+        const oldEnough =
+          !device.lastSentAt ||
+          now - device.lastSentAt.getTime() >= MIN_UPDATE_MS;
+        if (!stepChanged && !(changedEnough && oldEnough)) return;
+        const result = await sendLiveActivityViaRelay({
+          event: "update",
+          token: device.activityToken,
+          state: value,
         });
-      } else if (result.expired) {
-        await prisma.liveActivityDevice.update({
-          where: { id: device.id }, data: { activityToken: null },
-        });
-      }
-    }));
+        if (result.success) {
+          await prisma.liveActivityDevice.update({
+            where: { id: device.id },
+            data: {
+              lastStep: step,
+              lastProgress: value.progress,
+              lastSentAt: new Date(now),
+            },
+          });
+        } else if (result.expired) {
+          await prisma.liveActivityDevice.update({
+            where: { id: device.id },
+            data: { activityToken: null },
+          });
+        }
+      }),
+    );
   },
 
   async end(
@@ -116,20 +144,36 @@ export const transcodeLiveActivity = {
     const devices = await prisma.liveActivityDevice.findMany({
       where: { currentJobId: job.id },
     });
-    await Promise.allSettled(devices.map(async (device) => {
-      if (device.activityToken) {
-        await sendLiveActivityViaRelay({
-          event: "end",
-          token: device.activityToken,
-          state: state("rescan", { progress: status === "done" ? 1 : device.lastProgress ?? 0,
-            fps: null, speed: null, eta_secs: null, current_bytes: null }, status),
+    await Promise.allSettled(
+      devices.map(async (device) => {
+        if (device.activityToken) {
+          await sendLiveActivityViaRelay({
+            event: "end",
+            token: device.activityToken,
+            state: state(
+              "rescan",
+              {
+                progress: status === "done" ? 1 : (device.lastProgress ?? 0),
+                fps: null,
+                speed: null,
+                eta_secs: null,
+                current_bytes: null,
+              },
+              status,
+            ),
+          });
+        }
+        await prisma.liveActivityDevice.update({
+          where: { id: device.id },
+          data: {
+            currentJobId: null,
+            activityToken: null,
+            lastProgress: null,
+            lastStep: null,
+            lastSentAt: null,
+          },
         });
-      }
-      await prisma.liveActivityDevice.update({
-        where: { id: device.id },
-        data: { currentJobId: null, activityToken: null, lastProgress: null,
-          lastStep: null, lastSentAt: null },
-      });
-    }));
+      }),
+    );
   },
 };

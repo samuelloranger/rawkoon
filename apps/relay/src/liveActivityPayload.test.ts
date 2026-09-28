@@ -12,7 +12,9 @@ const state = {
 describe("ActivityKit relay payload", () => {
   test("start includes the attributes type and ActivityKit content state", () => {
     const req = liveActivityRequestSchema.parse({
-      event: "start", token, state,
+      event: "start",
+      token,
+      state,
       attributes: { jobId: 8, title: "A film", codec: "av1" },
     });
     expect(buildLiveActivityPayload(req, 123).aps).toEqual({
@@ -29,25 +31,47 @@ describe("ActivityKit relay payload", () => {
   test("end supplies dismissal-date without mutable attributes", () => {
     const req = liveActivityRequestSchema.parse({ event: "end", token, state });
     expect(buildLiveActivityPayload(req, 456).aps).toEqual({
-      timestamp: 456, event: "end", "content-state": state,
+      timestamp: 456,
+      event: "end",
+      "content-state": state,
       "dismissal-date": 456,
     });
   });
 
   test("rejects arbitrary APS injection and invalid progress", () => {
-    expect(liveActivityRequestSchema.safeParse({
-      event: "update", token, state: { ...state, progress: 2 },
-    }).success).toBe(false);
-    expect(liveActivityRequestSchema.safeParse({
-      event: "start", token, state, attributes: {
-        jobId: 8, title: "A film", codec: "av1", aps: { alert: "hijack" },
-      },
-    }).success).toBe(true);
+    expect(
+      liveActivityRequestSchema.safeParse({
+        event: "update",
+        token,
+        state: { ...state, progress: 2 },
+      }).success,
+    ).toBe(false);
+    expect(
+      liveActivityRequestSchema.safeParse({
+        event: "start",
+        token,
+        state,
+        attributes: {
+          jobId: 8,
+          title: "A film",
+          codec: "av1",
+          aps: { alert: "hijack" },
+        },
+      }).success,
+    ).toBe(true);
     const req = liveActivityRequestSchema.parse({
-      event: "start", token, state, attributes: {
-        jobId: 8, title: "A film", codec: "av1", aps: { alert: "hijack" },
+      event: "start",
+      token,
+      state,
+      attributes: {
+        jobId: 8,
+        title: "A film",
+        codec: "av1",
+        aps: { alert: "hijack" },
       },
     });
-    expect(JSON.stringify(buildLiveActivityPayload(req))).not.toContain("hijack");
+    expect(JSON.stringify(buildLiveActivityPayload(req))).not.toContain(
+      "hijack",
+    );
   });
 });

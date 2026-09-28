@@ -61,7 +61,10 @@ mock.module("@rawkoon/api/db", () => ({
 }));
 
 mock.module("@rawkoon/api/services/transcode/liveActivity", () => ({
-  transcodeLiveActivity: { startForInstallation: async () => {}, update: async () => {} },
+  transcodeLiveActivity: {
+    startForInstallation: async () => {},
+    update: async () => {},
+  },
 }));
 mock.module("@rawkoon/api/services/transcode/index", () => ({
   transcodeDispatcher: { live: () => null },
@@ -149,18 +152,30 @@ describe("transcode routes", () => {
 
   it("registers only valid ActivityKit tokens and a matching job token", async () => {
     const installationId = "ab203277-2b1b-4a3b-b134-1b4d8154a330";
-    expect((await post("/api/transcode/live-activity/register", {
-      installation_id: installationId,
-      start_token: "a".repeat(64),
-    })).status).toBe(200);
-    expect((await post("/api/transcode/live-activity/token", {
-      installation_id: installationId,
-      job_id: 8,
-      activity_token: "b".repeat(64),
-    })).status).toBe(200);
-    expect((await post("/api/transcode/live-activity/register", {
-      installation_id: installationId,
-      start_token: "not-hex",
-    })).status).toBe(400);
+    expect(
+      (
+        await post("/api/transcode/live-activity/register", {
+          installation_id: installationId,
+          start_token: "a".repeat(64),
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await post("/api/transcode/live-activity/token", {
+          installation_id: installationId,
+          job_id: 8,
+          activity_token: "b".repeat(64),
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await post("/api/transcode/live-activity/register", {
+          installation_id: installationId,
+          start_token: "not-hex",
+        })
+      ).status,
+    ).toBe(400);
   });
 });

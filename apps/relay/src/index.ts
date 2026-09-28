@@ -212,9 +212,11 @@ app.post("/liveactivity", async (c) => {
   if (ip === null) return c.json({ error: "untrusted_peer" }, 403);
   if (!perIp.take(ip)) return c.json({ error: "rate_limited" }, 429);
   const declared = Number(c.req.header("content-length") ?? 0);
-  if (declared > MAX_BODY_BYTES) return c.json({ error: "payload_too_large" }, 413);
+  if (declared > MAX_BODY_BYTES)
+    return c.json({ error: "payload_too_large" }, 413);
   const raw = await c.req.text().catch(() => "");
-  if (raw.length > MAX_BODY_BYTES) return c.json({ error: "payload_too_large" }, 413);
+  if (raw.length > MAX_BODY_BYTES)
+    return c.json({ error: "payload_too_large" }, 413);
   let body: unknown;
   try {
     body = JSON.parse(raw);
@@ -226,7 +228,9 @@ app.post("/liveactivity", async (c) => {
   const req = parsed.data;
   if (!perToken.take(req.token)) return c.json({ error: "rate_limited" }, 429);
   const payload = buildLiveActivityPayload(req);
-  if (Buffer.byteLength(JSON.stringify(payload), "utf8") > MAX_APNS_PAYLOAD_BYTES) {
+  if (
+    Buffer.byteLength(JSON.stringify(payload), "utf8") > MAX_APNS_PAYLOAD_BYTES
+  ) {
     return c.json({ error: "payload_too_large" }, 413);
   }
 
@@ -239,10 +243,14 @@ app.post("/liveactivity", async (c) => {
       priority: req.event === "start" ? 10 : 5,
     });
     switch (classifyApnsStatus(result.status)) {
-      case "ok": return c.json({ ok: true });
-      case "unregistered": return c.json({ error: "unregistered" }, 410);
-      case "retry": return c.json({ error: "upstream_busy", reason: result.reason }, 503);
-      default: return c.json({ error: "rejected", reason: result.reason }, 400);
+      case "ok":
+        return c.json({ ok: true });
+      case "unregistered":
+        return c.json({ error: "unregistered" }, 410);
+      case "retry":
+        return c.json({ error: "upstream_busy", reason: result.reason }, 503);
+      default:
+        return c.json({ error: "rejected", reason: result.reason }, 400);
     }
   } catch (error) {
     console.warn("liveactivity transport error:", error);
