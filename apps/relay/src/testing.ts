@@ -5,13 +5,13 @@ export async function generateP8(): Promise<{
   pem: string;
   publicKey: CryptoKey;
 }> {
-  const pair = await crypto.subtle.generateKey(
+  const pair = (await crypto.subtle.generateKey(
     { name: "ECDSA", namedCurve: "P-256" },
     true,
     ["sign", "verify"],
-  );
+  )) as CryptoKeyPair;
   const der = new Uint8Array(
-    await crypto.subtle.exportKey("pkcs8", pair.privateKey),
+    (await crypto.subtle.exportKey("pkcs8", pair.privateKey)) as ArrayBuffer,
   );
   let binary = "";
   for (const byte of der) binary += String.fromCharCode(byte);
