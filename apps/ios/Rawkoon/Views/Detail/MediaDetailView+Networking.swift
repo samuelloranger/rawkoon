@@ -44,6 +44,7 @@ extension MediaDetailView {
             let response = try await client.mediaModal(mediaType: mediaType, tmdbId: tmdbId)
             applyModal(response)
             detailsUnreachable = false
+            await fetchMissingPoster(client: client)
 
             if mediaType == "tv", let libraryId {
                 await reloadEpisodes(client: client, libraryId: libraryId)
@@ -89,6 +90,17 @@ extension MediaDetailView {
 
     var store: ServerStateStore {
         model.serverStateStore
+    }
+
+    var resolvedPosterPath: String? {
+        posterPath ?? managementItem?.posterUrl ?? fetchedPosterPath
+    }
+
+    func fetchMissingPoster(client: APIClient) async {
+        guard resolvedPosterPath == nil, let libraryId,
+              let item = try? await client.libraryItem(id: libraryId)
+        else { return }
+        fetchedPosterPath = item.posterUrl
     }
 
     /// Download rows with server-pushed live progress overlaid. Reading
