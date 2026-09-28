@@ -14,6 +14,7 @@
       "!**/node_modules",
       "!**/dist",
       "!**/routeTree.gen.ts",
+      "!**/worker-configuration.d.ts",
       "!**/*.css",
       "!apps/web/playwright-report",
       "!apps/web/test-results"

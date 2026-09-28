@@ -25,8 +25,7 @@ export class ApnsClient {
   constructor(
     private readonly tokens: ApnsTokenCache,
     private readonly host: string = APNS_PROD,
-    private readonly fetchImpl: typeof fetch = (input, init) =>
-      fetch(input, init),
+    private readonly fetchImpl: typeof fetch = fetch,
   ) {}
 
   async send(opts: ApnsSendOptions): Promise<ApnsResult> {

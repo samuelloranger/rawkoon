@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { createApp, type Env } from "./index";
+import { createApp } from "./index";
 import { fakeEnv, generateP8, limiter } from "./testing";
 
 const TOKEN = "a".repeat(64);

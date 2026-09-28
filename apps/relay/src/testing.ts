@@ -1,5 +1,5 @@
-// Test helpers: a throwaway APNs-shaped key and a fake Worker env.
-import type { Env, RateLimit } from "./index";
+// Test helpers: a throwaway APNs-shaped key and a fake Worker env. Env and
+// RateLimit are the global Workers types from worker-configuration.d.ts.
 
 export async function generateP8(): Promise<{
   pem: string;

@@ -41,7 +41,7 @@ export function buildApnsPayload(req: PushRequest): Record<string, unknown> {
 
 // The measured value is the body actually sent to Apple, not the request body.
 function apnsPayloadBytes(req: PushRequest): number {
-  return Buffer.byteLength(JSON.stringify(buildApnsPayload(req)), "utf8");
+  return new TextEncoder().encode(JSON.stringify(buildApnsPayload(req))).length;
 }
 
 // APNs status the caller can act on. 410 = the app was uninstalled; the relay

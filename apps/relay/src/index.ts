@@ -7,23 +7,19 @@ import {
   pushRequestSchema,
 } from "./payload";
 
-// Cloudflare's Rate Limiting binding; declared here rather than pulling in the
-// full workers-types package, whose globals clash with bun-types in the tests.
-export interface RateLimit {
-  limit(options: { key: string }): Promise<{ success: boolean }>;
-}
-
-// Every value here is deployment config — never a default that could silently
-// point production at the wrong Apple environment or the wrong app.
-export interface Env {
-  APNS_KEY_ID: string;
-  APNS_TEAM_ID: string;
-  APNS_BUNDLE_ID: string;
-  /** Contents of the .p8 key, stored as a Worker secret. */
-  APNS_PRIVATE_KEY: string;
-  APNS_ENV?: string;
-  PER_IP: RateLimit;
-  PER_TOKEN: RateLimit;
+// Bindings come from worker-configuration.d.ts (`wrangler types`); the APNs
+// values are Worker secrets, which the config can't describe, so they're added
+// here. Each is deployment config — never a default that could silently point
+// production at the wrong Apple environment or the wrong app.
+declare global {
+  interface Env {
+    APNS_KEY_ID: string;
+    APNS_TEAM_ID: string;
+    APNS_BUNDLE_ID: string;
+    /** Contents of the .p8 key. */
+    APNS_PRIVATE_KEY: string;
+    APNS_ENV?: string;
+  }
 }
 
 const MAX_BODY_BYTES = 8 * 1024;
@@ -42,9 +38,7 @@ function required(env: Env, name: keyof Env): string {
   return value;
 }
 
-export function createApp(
-  fetchImpl: typeof fetch = (input, init) => fetch(input, init),
-) {
+export function createApp(fetchImpl: typeof fetch = fetch) {
   // One per isolate, so the signed JWT is reused across requests as Apple asks.
   let relay: Relay | null = null;
   const relayFor = (env: Env): Relay => {

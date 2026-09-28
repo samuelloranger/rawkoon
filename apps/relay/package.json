@@ -5,8 +5,9 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "types": "wrangler types",
     "test": "bun test src/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "wrangler types --check && tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
     "hono": "^4.6.3",
