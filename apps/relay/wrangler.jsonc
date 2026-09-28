@@ -1,0 +1,26 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "rawkoon-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-26",
+  // No account_id or routes here: CI passes the account, and the public hostname
+  // is attached to the deployed Worker as a custom domain by its operator.
+  "workers_dev": true,
+  // Off on purpose: persisted invocation logs would record request metadata,
+  // client IPs included, and the relay promises to keep no logs.
+  "observability": { "enabled": false },
+  // Same budgets the in-process limiter had: a device needs a handful of pushes
+  // a minute, a server stuck in a loop needs stopping.
+  "ratelimits": [
+    {
+      "name": "PER_IP",
+      "namespace_id": "1001",
+      "simple": { "limit": 60, "period": 60 }
+    },
+    {
+      "name": "PER_TOKEN",
+      "namespace_id": "1002",
+      "simple": { "limit": 10, "period": 60 }
+    }
+  ]
+}

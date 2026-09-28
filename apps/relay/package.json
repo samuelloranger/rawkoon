@@ -3,16 +3,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --watch src/index.ts",
-    "start": "bun src/index.ts",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "types": "wrangler types",
     "test": "bun test src/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "wrangler types --check && tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
     "hono": "^4.6.3",
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "bun-types": "^1.4.0"
+    "bun-types": "^1.4.0",
+    "wrangler": "^4.143.0"
   }
 }
