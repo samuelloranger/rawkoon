@@ -134,7 +134,7 @@ final class WidgetSnapshotWriter {
 
     private func artwork(
         for url: URL?, serverURL: String, size: CGSize = CGSize(width: 90, height: 135),
-        scale _: CGFloat = 2, quality: CGFloat = 0.7
+        scale: CGFloat = 2, quality: CGFloat = 0.7
     ) async -> Data? {
         guard let url, url.scheme == "https" || url.scheme == "http" else { return nil }
         var request = URLRequest(url: url)
