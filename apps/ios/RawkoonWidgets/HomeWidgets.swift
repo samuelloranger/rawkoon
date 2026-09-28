@@ -36,6 +36,7 @@ private struct HomeProvider: TimelineProvider {
 
 private struct WidgetHeading: View {
     let title: LocalizedStringKey
+    @Environment(\.widgetFamily) private var family
 
     var body: some View {
         HStack {
@@ -44,11 +45,16 @@ private struct WidgetHeading: View {
                 .textCase(.uppercase)
                 .tracking(1.1)
                 .foregroundStyle(WidgetPalette.apricot)
-            Spacer(minLength: 2)
-            Image(systemName: "play.circle.fill")
-                .font(.system(size: 17))
-                .foregroundStyle(WidgetPalette.apricot)
-                .accessibilityHidden(true)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+            // A small widget needs the width for its heading.
+            if family != .systemSmall {
+                Spacer(minLength: 2)
+                Image(systemName: "play.circle.fill")
+                    .font(.system(size: 17))
+                    .foregroundStyle(WidgetPalette.apricot)
+                    .accessibilityHidden(true)
+            }
         }
     }
 }
@@ -178,7 +184,7 @@ private struct RecentWidgetView: View {
             } else if family == .systemSmall {
                 PosterRail(items: Array(snapshot.recent.prefix(3)), visible: 2.5, spacing: 8)
             } else {
-                PosterRail(items: Array(snapshot.recent.prefix(6)), visible: 4.6, spacing: 12)
+                PosterRail(items: Array(snapshot.recent.prefix(6)), visible: 4.2, spacing: 12)
             }
         }
         .containerBackground(WidgetPalette.surface, for: .widget)
@@ -224,6 +230,7 @@ private struct WatchWidgetView: View {
                 .textCase(.uppercase)
                 .tracking(1.1)
                 .foregroundStyle(WidgetPalette.apricot)
+                .shadow(color: .black.opacity(0.6), radius: 3)
             Spacer(minLength: 0)
             if let pick = entry.pick {
                 Text(pick.media.title)
@@ -250,8 +257,8 @@ private struct WatchWidgetView: View {
                         // Darkens the top for the heading and the bottom for the title.
                         LinearGradient(
                             stops: [
-                                .init(color: .black.opacity(0.55), location: 0),
-                                .init(color: .black.opacity(0.05), location: 0.35),
+                                .init(color: .black.opacity(0.7), location: 0),
+                                .init(color: .black.opacity(0.05), location: 0.4),
                                 .init(color: .black.opacity(0.85), location: 1),
                             ],
                             startPoint: .top, endPoint: .bottom
