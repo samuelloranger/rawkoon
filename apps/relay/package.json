@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --watch src/index.ts",
-    "start": "bun src/index.ts",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
     "test": "bun test src/",
     "typecheck": "tsc --noEmit"
   },
@@ -13,6 +13,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "bun-types": "^1.4.0"
+    "bun-types": "^1.4.0",
+    "wrangler": "^4.143.0"
   }
 }

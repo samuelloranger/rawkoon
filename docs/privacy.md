@@ -40,12 +40,13 @@ cached screens, and deleting the app removes all of it.
 Apple only accepts a notification signed with the app publisher's credentials,
 so a self-hosted server can't reach Apple directly. It sends each notification
 through the Rawkoon push relay, which forwards it to Apple Push Notification
-service.
+service. The relay runs on Cloudflare Workers, so Cloudflare carries that
+traffic.
 
 The relay receives the device push token and the notification's title and body.
-It doesn't store them or write them to its logs. For rate limiting, it keeps
-counts per token and per IP address in memory for a short time. Server operators
-can run their own relay instead by setting `PUSH_RELAY_URL`.
+It doesn't store them or write them to its logs. For rate limiting, Cloudflare
+keeps short-lived counts per token and per IP address. Server operators can run
+their own relay instead by setting `PUSH_RELAY_URL`.
 
 ## Other network requests
 

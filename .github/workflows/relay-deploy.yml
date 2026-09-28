@@ -1,0 +1,46 @@
+name: Deploy Relay
+
+# The push relay is separate infrastructure from the Rawkoon server: it is the
+# only piece that holds the APNs signing key, it is internet-facing, and a bad
+# deploy breaks push for every instance at once. So it ships on its own tag line
+# (`relay-vX.Y.Z`), never with an app release, and `wrangler rollback` is the
+# way back.
+on:
+  push:
+    tags: ['relay-v*.*.*']
+  workflow_dispatch:
+
+concurrency:
+  group: relay-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Same setup every CI job uses: pinned Bun, cached install, and the dummy
+      # DATABASE_URL that the API's `prisma generate` postinstall needs.
+      - uses: ./.github/actions/setup
+
+      # The key-holding service is never deployed untested, even on a manual
+      # dispatch that bypassed the usual CI run on main.
+      - name: Typecheck relay
+        run: bun run --filter @rawkoon/relay typecheck
+
+      - name: Test relay
+        run: bun run --filter @rawkoon/relay test
+
+      # Secrets on the Worker (APNS_*) are managed with `wrangler secret put`
+      # and persist across deploys; CI only ships code and bindings.
+      - name: Deploy
+        working-directory: apps/relay
+        run: bunx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
