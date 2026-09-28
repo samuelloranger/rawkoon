@@ -31,14 +31,21 @@ final class WidgetSnapshotWriter {
 
     func updateRecent(_ items: [LibraryMedia], model: AppModel) async {
         let current = generation
+        let cached = Dictionary(
+            WidgetSnapshotStore.read().recent.compactMap { media in media.artworkKey.map { ($0, media.artwork) } },
+            uniquingKeysWith: { first, _ in first }
+        )
         var media: [WidgetMedia] = []
         for item in items.prefix(3) {
             let detail = item.type == "show" ? String(localized: "Series") : String(localized: "Movie")
-            await media.append(WidgetMedia(
-                title: item.title,
-                detail: detail,
-                artwork: artwork(for: model.absoluteURL(item.posterUrl), serverURL: model.serverURL)
-            ))
+            let url = model.absoluteURL(item.posterUrl)
+            let key = url?.absoluteString
+            let data: Data? = if let key, let hit = cached[key] ?? nil {
+                hit
+            } else {
+                await artwork(for: url, serverURL: model.serverURL)
+            }
+            media.append(WidgetMedia(title: item.title, detail: detail, artwork: data, artworkKey: key))
         }
         guard current == generation, model.isLoggedIn else { return }
         var snapshot = WidgetSnapshotStore.read()
@@ -60,7 +67,8 @@ final class WidgetSnapshotWriter {
                 media: WidgetMedia(
                     title: first.title,
                     detail: detail,
-                    artwork: artwork(for: model.absoluteURL(first.posterUrl), serverURL: model.serverURL)
+                    artwork: artwork(for: model.absoluteURL(first.posterUrl), serverURL: model.serverURL),
+                    artworkKey: model.absoluteURL(first.posterUrl)?.absoluteString
                 ),
                 personalized: deck.source == .personalized
             )

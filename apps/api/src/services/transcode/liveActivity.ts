@@ -29,8 +29,12 @@ async function startOnDevice(
   device: { id: number; startToken: string },
   job: ClaimedJob,
 ): Promise<void> {
-  await prisma.liveActivityDevice.update({
-    where: { id: device.id },
+  // One atomic claim, so concurrent registrations never start two activities for one job.
+  const claimed = await prisma.liveActivityDevice.updateMany({
+    where: {
+      id: device.id,
+      OR: [{ currentJobId: null }, { currentJobId: { not: job.id } }],
+    },
     data: {
       currentJobId: job.id,
       activityToken: null,
@@ -39,6 +43,7 @@ async function startOnDevice(
       lastSentAt: null,
     },
   });
+  if (!claimed.count) return;
   const result = await sendLiveActivityViaRelay({
     event: "start",
     token: device.startToken,
@@ -52,8 +57,8 @@ async function startOnDevice(
   if (result.expired) {
     await prisma.liveActivityDevice.delete({ where: { id: device.id } });
   } else if (!result.success) {
-    await prisma.liveActivityDevice.update({
-      where: { id: device.id },
+    await prisma.liveActivityDevice.updateMany({
+      where: { id: device.id, currentJobId: job.id },
       data: { currentJobId: null },
     });
     console.warn(
@@ -82,10 +87,9 @@ export const transcodeLiveActivity = {
   ): Promise<void> {
     const device = await prisma.liveActivityDevice.findUnique({
       where: { installationId },
-      select: { id: true, startToken: true, currentJobId: true },
+      select: { id: true, startToken: true },
     });
-    if (device && device.currentJobId !== job.id)
-      await startOnDevice(device, job);
+    if (device) await startOnDevice(device, job);
   },
 
   async update(

@@ -66,7 +66,9 @@ import Foundation
         }
 
         private func observe(_ activity: Activity<ReencodeActivityAttributes>, model: AppModel) {
-            guard tokenTasks[activity.id] == nil else { return }
+            guard tokenTasks[activity.id] == nil,
+                  activity.activityState == .active || activity.activityState == .stale
+            else { return }
             tokenTasks[activity.id] = Task { @MainActor in
                 if let token = activity.pushToken {
                     await registerActivityToken(token, activity: activity, model: model)
@@ -85,11 +87,35 @@ import Foundation
             model: AppModel
         ) async {
             guard model.isLoggedIn, model.isAdmin, let client = model.api() else { return }
-            try? await client.registerReencodeActivityToken(
-                installationId: model.deviceID,
-                jobId: activity.attributes.jobId,
-                token: token.map { String(format: "%02x", $0) }.joined()
-            )
+            do {
+                try await client.registerReencodeActivityToken(
+                    installationId: model.deviceID,
+                    jobId: activity.attributes.jobId,
+                    token: token.map { String(format: "%02x", $0) }.joined()
+                )
+            } catch let error as APIError where error.isStaleActivity {
+                // The server already finished this job, so no push will ever end this activity.
+                await ReencodeActivityHandle(value: activity).end()
+            } catch {}
+        }
+    }
+
+    /// ActivityKit's Activity is safe across its async methods but the SDK doesn't mark it Sendable.
+    private struct ReencodeActivityHandle: @unchecked Sendable {
+        let value: Activity<ReencodeActivityAttributes>
+
+        func end() async {
+            await value.end(nil, dismissalPolicy: .immediate)
+        }
+    }
+
+    private extension APIError {
+        /// The server answers 409 when the activity's job is no longer current for this device.
+        var isStaleActivity: Bool {
+            switch self {
+            case .server(status: 409, _), .http(409): true
+            default: false
+            }
         }
     }
 #else

@@ -62,6 +62,9 @@ const liveState = z.object({
   status: z.enum(["running", "done", "failed", "cancelled"]),
 });
 
+// A finished or failed re-encode stays on the lock screen long enough to be seen.
+export const RESULT_VISIBLE_SECS = 15 * 60;
+
 const activityToken = z.string().regex(/^[0-9a-fA-F]{64,512}$/);
 
 export const liveActivityRequestSchema = z.discriminatedUnion("event", [
@@ -99,11 +102,16 @@ export function buildLiveActivityPayload(
     aps["input-push-token"] = 1;
     aps["attributes-type"] = "ReencodeActivityAttributes";
     aps.attributes = req.attributes;
+    // loc-key resolves against the app's string catalog, so the banner follows the phone's language.
     aps.alert = {
-      title: "Re-encode started",
+      title: { "loc-key": "Re-encode started" },
       body: req.attributes.title,
     };
   }
-  if (req.event === "end") aps["dismissal-date"] = timestamp;
+  if (req.event === "end")
+    aps["dismissal-date"] =
+      req.state.status === "cancelled"
+        ? timestamp
+        : timestamp + RESULT_VISIBLE_SECS;
   return { aps };
 }

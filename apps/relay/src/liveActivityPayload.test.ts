@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { buildLiveActivityPayload, liveActivityRequestSchema } from "./payload";
+import {
+  buildLiveActivityPayload,
+  liveActivityRequestSchema,
+  RESULT_VISIBLE_SECS,
+} from "./payload";
 
 const token = "a".repeat(64);
 const state = {
@@ -24,18 +28,36 @@ describe("ActivityKit relay payload", () => {
       "input-push-token": 1,
       "attributes-type": "ReencodeActivityAttributes",
       attributes: { jobId: 8, title: "A film", codec: "av1" },
-      alert: { title: "Re-encode started", body: "A film" },
+      alert: { title: { "loc-key": "Re-encode started" }, body: "A film" },
     });
   });
 
-  test("end supplies dismissal-date without mutable attributes", () => {
-    const req = liveActivityRequestSchema.parse({ event: "end", token, state });
+  test("end keeps a result visible without mutable attributes", () => {
+    const done = { ...state, progress: 1, status: "done" } as const;
+    const req = liveActivityRequestSchema.parse({
+      event: "end",
+      token,
+      state: done,
+    });
     expect(buildLiveActivityPayload(req, 456).aps).toEqual({
       timestamp: 456,
       event: "end",
-      "content-state": state,
-      "dismissal-date": 456,
+      "content-state": done,
+      "dismissal-date": 456 + RESULT_VISIBLE_SECS,
     });
+  });
+
+  test("a cancelled activity is dismissed immediately", () => {
+    const req = liveActivityRequestSchema.parse({
+      event: "end",
+      token,
+      state: { ...state, status: "cancelled" },
+    });
+    const aps = buildLiveActivityPayload(req, 456).aps as Record<
+      string,
+      unknown
+    >;
+    expect(aps["dismissal-date"]).toBe(456);
   });
 
   test("rejects arbitrary APS injection and invalid progress", () => {

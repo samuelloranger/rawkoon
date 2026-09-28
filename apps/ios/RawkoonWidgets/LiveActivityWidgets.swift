@@ -30,6 +30,56 @@ import WidgetKit
         }
     }
 
+    private extension ReencodeActivityAttributes.ContentState {
+        var isRunning: Bool {
+            status == "running"
+        }
+
+        var isEncoding: Bool {
+            isRunning && step == "encode"
+        }
+
+        var label: LocalizedStringKey {
+            switch status {
+            case "done": "Finished"
+            case "failed": "Failed"
+            case "cancelled": "Cancelled"
+            default:
+                switch step {
+                case "encode": "Converting"
+                case "validate": "Checking quality"
+                case "replace": "Replacing file"
+                case "rescan": "Updating library"
+                default: "Preparing"
+                }
+            }
+        }
+
+        var symbol: String {
+            switch status {
+            case "done": "checkmark.circle.fill"
+            case "failed": "exclamationmark.triangle.fill"
+            case "cancelled": "xmark.circle"
+            default: "gauge.with.dots.needle.67percent"
+            }
+        }
+    }
+
+    private struct ReencodeStatus: View {
+        let state: ReencodeActivityAttributes.ContentState
+
+        var body: some View {
+            if state.isRunning {
+                Text(state.progress, format: .percent.precision(.fractionLength(0)))
+                    .monospacedDigit()
+            } else {
+                Image(systemName: state.symbol)
+                    .foregroundStyle(state.status == "failed" ? LivePalette.terracotta : LivePalette.apricot)
+                    .accessibilityLabel(Text(state.label))
+            }
+        }
+    }
+
     struct ReencodeLiveWidget: Widget {
         var body: some WidgetConfiguration {
             ActivityConfiguration(for: ReencodeActivityAttributes.self) { context in
@@ -40,20 +90,26 @@ import WidgetKit
                             .tracking(0.8)
                             .foregroundStyle(LivePalette.apricot)
                         Spacer()
-                        Image(systemName: "gauge.with.dots.needle.67percent")
-                            .foregroundStyle(LivePalette.apricot)
+                        Image(systemName: context.state.symbol)
+                            .foregroundStyle(
+                                context.state.status == "failed" ? LivePalette.terracotta : LivePalette.apricot
+                            )
+                            .accessibilityHidden(true)
                     }
-                    Text(context.state.step == "validate" ? "Checking quality" : context.attributes.title)
+                    Text(context.attributes.title)
                         .font(.system(.headline, design: .serif, weight: .semibold))
                         .foregroundStyle(LivePalette.strong)
                         .lineLimit(1)
-                    Text("\(context.attributes.codec.uppercased()) · \(context.state.step == "validate" ? "Validation" : "Converting")")
-                        .font(.caption2)
-                        .foregroundStyle(LivePalette.muted)
-                    if context.state.step != "validate" {
+                    HStack(spacing: 0) {
+                        Text(verbatim: "\(context.attributes.codec.uppercased()) · ")
+                        Text(context.state.label)
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(LivePalette.muted)
+                    if context.state.isEncoding {
                         LiveProgress(value: context.state.progress)
                         HStack {
-                            Text("\(Int((context.state.progress * 100).rounded()))%")
+                            Text(context.state.progress, format: .percent.precision(.fractionLength(0)))
                             Spacer()
                             if let eta = context.state.etaSeconds {
                                 Text("~\(max(1, eta / 60)) min left")
@@ -61,10 +117,6 @@ import WidgetKit
                         }
                         .font(.caption2.monospacedDigit())
                         .foregroundStyle(LivePalette.muted)
-                    } else {
-                        Text("Conversion finished · result pending")
-                            .font(.caption2)
-                            .foregroundStyle(LivePalette.muted)
                     }
                 }
                 .padding(15)
@@ -77,14 +129,17 @@ import WidgetKit
                             .foregroundStyle(LivePalette.apricot)
                     }
                     DynamicIslandExpandedRegion(.trailing) {
-                        Text(context.state.step == "validate" ? "Checking" : "\(Int((context.state.progress * 100).rounded()))%")
+                        ReencodeStatus(state: context.state)
                             .foregroundStyle(LivePalette.strong)
                     }
                     DynamicIslandExpandedRegion(.bottom) {
                         VStack(alignment: .leading, spacing: 7) {
                             Text(context.attributes.title).lineLimit(1)
-                            if context.state.step != "validate" {
+                            if context.state.isEncoding {
                                 LiveProgress(value: context.state.progress)
+                            } else {
+                                Text(context.state.label)
+                                    .foregroundStyle(LivePalette.muted)
                             }
                         }
                         .font(.caption)
@@ -93,10 +148,10 @@ import WidgetKit
                     Image(systemName: "gauge.with.dots.needle.67percent")
                         .foregroundStyle(LivePalette.apricot)
                 } compactTrailing: {
-                    Text(context.state.step == "validate" ? "✓" : "\(Int((context.state.progress * 100).rounded()))%")
-                        .font(.caption2.monospacedDigit())
+                    ReencodeStatus(state: context.state)
+                        .font(.caption2)
                 } minimal: {
-                    Image(systemName: "gauge.with.dots.needle.67percent")
+                    Image(systemName: context.state.symbol)
                         .foregroundStyle(LivePalette.apricot)
                 }
                 .keylineTint(LivePalette.apricot)
@@ -113,8 +168,11 @@ import WidgetKit
                      countsDown: true, showsHours: false)
                     .monospacedDigit()
             } else {
-                Text("\(max(0, Int(state.remainingSeconds / 60))) min")
-                    .monospacedDigit()
+                Text(
+                    Duration.seconds(max(0, state.remainingSeconds)),
+                    format: .units(allowed: [.hours, .minutes], width: .abbreviated, fractionalPart: .hide(rounded: .up))
+                )
+                .monospacedDigit()
             }
         }
     }

@@ -2,16 +2,11 @@ import Foundation
 #if !targetEnvironment(macCatalyst)
     import ActivityKit
 
-    /// ActivityKit publishes Activity references for asynchronous updates but the
-    /// Xcode 27 SDK has not annotated the reference as Sendable yet.
-    extension Activity: @unchecked Sendable {}
-
     /// The countdown is owned by playback, not by PlayerView: remote commands and
     /// background audio can pause or finish it after the sheet disappears.
     @MainActor
     final class SleepLiveActivityController {
-        /// ActivityKit's Activity reference is safe to use across its async update
-        /// methods but is not annotated Sendable in the SDK.
+        /// ActivityKit's Activity is safe across its async methods but the SDK doesn't mark it Sendable.
         private struct ActivityHandle: @unchecked Sendable {
             let value: Activity<SleepActivityAttributes>
 
@@ -30,7 +25,7 @@ import Foundation
             // A process restart cannot restore a running audiobook sleep timer.
             Task {
                 for existing in Activity<SleepActivityAttributes>.activities {
-                    await existing.end(nil, dismissalPolicy: .immediate)
+                    await ActivityHandle(value: existing).end()
                 }
             }
         }

@@ -228,9 +228,13 @@ export class TranscodeDispatcher {
     let lastPersist = 0;
     let lastActivityUpdate = 0;
     let currentStep: TranscodeStep = "preflight";
-    void this.activityNotifier
-      ?.start(job)
-      .catch((e) => console.warn("[transcode] Live Activity start failed:", e));
+    // end() waits on this: a job that fails fast must not end before start() claims the devices.
+    const activityStarted =
+      this.activityNotifier
+        ?.start(job)
+        .catch((e) =>
+          console.warn("[transcode] Live Activity start failed:", e),
+        ) ?? Promise.resolve();
     // PipelineDeps.rescan takes one argument; the file id travels in the token (split in index.ts).
     const deps: PipelineDeps = {
       ...this.deps,
@@ -294,8 +298,13 @@ export class TranscodeDispatcher {
       );
       return;
     }
-    void this.activityNotifier
-      ?.end(job, result.ok ? "done" : result.cancelled ? "cancelled" : "failed")
+    const status = result.ok
+      ? "done"
+      : result.cancelled
+        ? "cancelled"
+        : "failed";
+    void activityStarted
+      .then(() => this.activityNotifier?.end(job, status))
       .catch((e) => console.warn("[transcode] Live Activity end failed:", e));
     // Notifications enqueue through Valkey, which can block while it is down; never hold the queue for them.
     void this.notify(job, result).catch((e) =>

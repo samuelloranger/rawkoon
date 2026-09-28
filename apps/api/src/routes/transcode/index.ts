@@ -1,7 +1,13 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import type { TranscodeJobStatus } from "@rawkoon/shared/types";
-import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
+import {
+  badRequest,
+  conflict,
+  notFound,
+  ok,
+  serverError,
+} from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { prisma } from "@rawkoon/api/db";
 import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
@@ -121,8 +127,9 @@ export const transcodeRoutes = new Hono<Env>()
         },
         data: { activityToken: activity_token, lastSentAt: null },
       });
+      // 409 tells the phone to end an activity the server no longer tracks.
       if (!updated.count)
-        return badRequest("Activity is not current for this device");
+        return conflict("Activity is not current for this device");
       const job = (await prismaTranscodeRepo.runningJobs()).find(
         (candidate) => candidate.id === job_id,
       );

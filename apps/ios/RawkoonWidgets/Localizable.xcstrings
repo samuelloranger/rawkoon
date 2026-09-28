@@ -1,0 +1,317 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Listening · 7 days": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Écoute · 7 jours"
+          }
+        }
+      }
+    },
+    "This week": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette semaine"
+          }
+        }
+      }
+    },
+    "Today: %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aujourd'hui : %@"
+          }
+        }
+      }
+    },
+    "Open Rawkoon to load listening stats": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvre Rawkoon pour charger tes statistiques d'écoute"
+          }
+        }
+      }
+    },
+    "Recently added": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouts récents"
+          }
+        }
+      }
+    },
+    "Open Rawkoon to load new additions": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvre Rawkoon pour charger les nouveautés"
+          }
+        }
+      }
+    },
+    "For you": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pour toi"
+          }
+        }
+      }
+    },
+    "Trending": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tendances"
+          }
+        }
+      }
+    },
+    "Discover": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Découvrir"
+          }
+        }
+      }
+    },
+    "Open Rawkoon to find a suggestion": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvre Rawkoon pour trouver une suggestion"
+          }
+        }
+      }
+    },
+    "Listening this week": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Écoute cette semaine"
+          }
+        }
+      }
+    },
+    "Your audiobook listening across seven days.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ton écoute de livres audio sur sept jours."
+          }
+        }
+      }
+    },
+    "The latest additions to your library.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les derniers ajouts à ta bibliothèque."
+          }
+        }
+      }
+    },
+    "Suggestion of the day": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggestion du jour"
+          }
+        }
+      }
+    },
+    "A title to discover in Rawkoon.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un titre à découvrir dans Rawkoon."
+          }
+        }
+      }
+    },
+    "RAWKOON · RE-ENCODE": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RAWKOON · RÉENCODAGE"
+          }
+        }
+      }
+    },
+    "Preparing": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparation"
+          }
+        }
+      }
+    },
+    "Converting": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conversion"
+          }
+        }
+      }
+    },
+    "Checking quality": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérification de la qualité"
+          }
+        }
+      }
+    },
+    "Replacing file": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remplacement du fichier"
+          }
+        }
+      }
+    },
+    "Updating library": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mise à jour de la bibliothèque"
+          }
+        }
+      }
+    },
+    "Finished": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminé"
+          }
+        }
+      }
+    },
+    "Failed": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échoué"
+          }
+        }
+      }
+    },
+    "Cancelled": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annulé"
+          }
+        }
+      }
+    },
+    "~%lld min left": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "~%lld min restantes"
+          }
+        }
+      }
+    },
+    "Re-encode": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réencodage"
+          }
+        }
+      }
+    },
+    "Re-encode started": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réencodage lancé"
+          }
+        }
+      }
+    },
+    "RAWKOON · SLEEP TIMER": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RAWKOON · MINUTERIE D'ARRÊT"
+          }
+        }
+      }
+    },
+    "Stops in": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrêt dans"
+          }
+        }
+      }
+    },
+    "Paused ·": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En pause ·"
+          }
+        }
+      }
+    },
+    "Sleep timer": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minuterie d'arrêt"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

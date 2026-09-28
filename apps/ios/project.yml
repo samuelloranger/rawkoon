@@ -10,6 +10,11 @@ options:
     # we build with Xcode 26.6 (GA) on the macos-26 runner. Raise again when the
     # xcode-27 image carries an RC/GA Xcode.
     iOS: "26.2"
+settings:
+  base:
+    # Project-level so the app and its widget extension, which must match, share one version.
+    MARKETING_VERSION: "1.12.2"
+    CURRENT_PROJECT_VERSION: "1"
 packages:
   RawkoonKit:
     path: .
@@ -99,8 +104,6 @@ targets:
         # (Text("…"), Button("…"), .navigationTitle("…"), …) into
         # Rawkoon/Localizable.xcstrings at build time. English-only for now.
         SWIFT_EMIT_LOC_STRINGS: "YES"
-        MARKETING_VERSION: "1.12.2"
-        CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "6.0"
         SWIFT_STRICT_CONCURRENCY: complete
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
@@ -166,12 +169,16 @@ targets:
       path: RawkoonWidgets/Info.plist
       properties:
         CFBundleDisplayName: Rawkoon Widgets
+        # An extension must carry its parent app's version and build, or App Store Connect rejects it.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
         NSSupportsLiveActivities: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: cloud.samlo.rawkoon.widgets
+        SWIFT_EMIT_LOC_STRINGS: "YES"
         SWIFT_VERSION: "6.0"
         SWIFT_STRICT_CONCURRENCY: complete
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor

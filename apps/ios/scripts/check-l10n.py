@@ -17,8 +17,11 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SWIFT_ROOT = ROOT / "Rawkoon"
-CATALOG = ROOT / "Rawkoon" / "Localizable.xcstrings"
+# Each target resolves strings against its own bundle's catalog.
+TARGETS = [
+    (ROOT / "Rawkoon", ROOT / "Rawkoon" / "Localizable.xcstrings"),
+    (ROOT / "RawkoonWidgets", ROOT / "RawkoonWidgets" / "Localizable.xcstrings"),
+]
 IGNORE_FILE = ROOT / "scripts" / "l10n-ignore.txt"
 
 CALL_RE = re.compile(
@@ -78,11 +81,31 @@ def candidate_keys(literal: str) -> set[str]:
 
 
 def main() -> int:
-    keys = catalog_keys(CATALOG)
     ignored = ignore_keys(IGNORE_FILE)
     missing: list[tuple[str, int, str]] = []
+    total = 0
+    for swift_root, catalog in TARGETS:
+        keys = catalog_keys(catalog)
+        total += len(keys)
+        missing += missing_in(swift_root, keys, ignored)
 
-    for swift in sorted(SWIFT_ROOT.rglob("*.swift")):
+    if missing:
+        print("l10n: user-facing literals missing from Localizable.xcstrings:", file=sys.stderr)
+        for rel, line, literal in missing:
+            print(f"  {rel}:{line}: {literal!r}", file=sys.stderr)
+        print(
+            f"{len(missing)} missing. Add the key to the catalog or scripts/l10n-ignore.txt.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"l10n: ok ({total} catalog keys)")
+    return 0
+
+
+def missing_in(swift_root: Path, keys: set[str], ignored: set[str]) -> list[tuple[str, int, str]]:
+    missing: list[tuple[str, int, str]] = []
+    for swift in sorted(swift_root.rglob("*.swift")):
         text = swift.read_text()
         rel = swift.relative_to(ROOT)
         for match in CALL_RE.finditer(text):
@@ -97,19 +120,7 @@ def main() -> int:
                 continue
             line = text.count("\n", 0, match.start()) + 1
             missing.append((str(rel), line, literal))
-
-    if missing:
-        print("l10n: user-facing literals missing from Localizable.xcstrings:", file=sys.stderr)
-        for rel, line, literal in missing:
-            print(f"  {rel}:{line}: {literal!r}", file=sys.stderr)
-        print(
-            f"{len(missing)} missing. Add the key to the catalog or scripts/l10n-ignore.txt.",
-            file=sys.stderr,
-        )
-        return 1
-
-    print(f"l10n: ok ({len(keys)} catalog keys)")
-    return 0
+    return missing
 
 
 if __name__ == "__main__":

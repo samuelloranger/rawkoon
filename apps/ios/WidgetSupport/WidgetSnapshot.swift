@@ -9,6 +9,8 @@ nonisolated struct WidgetMedia: Codable, Sendable {
     let title: String
     let detail: String
     let artwork: Data?
+    /// The poster URL the artwork came from, so an unchanged poster is not downloaded again.
+    var artworkKey: String?
 }
 
 nonisolated struct WidgetListening: Codable, Sendable {
