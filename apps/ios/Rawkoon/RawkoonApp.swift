@@ -319,6 +319,10 @@ private struct RootTabsView: View {
             switch url.host {
             case "home": selection = .home
             case "discover": selection = .discover
+            case "media":
+                guard let link = MediaLink(url: url) else { return }
+                selection = .home
+                model.pendingMediaLink = link
             default: break
             }
         }

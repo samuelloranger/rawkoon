@@ -244,6 +244,7 @@ struct RawkoonWidgetsBundle: WidgetBundle {
         ListeningHomeWidget()
         RecentHomeWidget()
         SuggestionHomeWidget()
+        WatchHomeWidget()
         #if !targetEnvironment(macCatalyst)
             ReencodeLiveWidget()
             SleepLiveWidget()

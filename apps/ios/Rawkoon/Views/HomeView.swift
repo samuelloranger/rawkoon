@@ -66,6 +66,12 @@ struct HomeView: View {
         }
         .reportsTabBarScroll()
         .background(Theme.base)
+        .onChange(of: model.pendingMediaLink, initial: true) { _, link in
+            guard let link else { return }
+            model.pendingMediaLink = nil
+            attentionTarget = AttentionRoute(id: link.libraryId, tmdbId: link.tmdbId, mediaType: link.mediaType,
+                                             title: link.title, posterUrl: nil)
+        }
         .navigationDestination(item: $attentionTarget) { route in
             MediaDetailView(tmdbId: route.tmdbId, mediaType: route.mediaType,
                             title: route.title, posterPath: route.posterUrl, libraryId: route.id)
@@ -647,7 +653,10 @@ struct HomeView: View {
         if let items = await (try? recentR)?.items {
             recent = items
             loading = false
-            Task { await WidgetSnapshotWriter.shared.updateRecent(items, model: model) }
+            Task {
+                await WidgetSnapshotWriter.shared.updateRecent(items, model: model)
+                await WidgetSnapshotWriter.shared.updateWatch(model: model)
+            }
         }
         if let items = await (try? upcomingR)?.items {
             upcoming = items

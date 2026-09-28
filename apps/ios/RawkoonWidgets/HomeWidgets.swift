@@ -135,6 +135,37 @@ private struct ListeningWidgetView: View {
     }
 }
 
+/// A poster row sized so the last poster is cut by the widget's right edge, like the app's rails.
+private struct PosterRail: View {
+    let items: [WidgetMedia]
+    /// How many posters span the widget, counting the partial one.
+    let visible: CGFloat
+    let spacing: CGFloat
+    @Environment(\.widgetContentMargins) private var margins
+
+    var body: some View {
+        GeometryReader { proxy in
+            let titleHeight: CGFloat = 16
+            let reach = proxy.size.width + margins.trailing
+            let byWidth = (reach - spacing * visible.rounded(.down)) / visible
+            let width = max(1, min(byWidth, (proxy.size.height - titleHeight) * 2 / 3))
+            HStack(alignment: .top, spacing: spacing) {
+                ForEach(Array(items.enumerated()), id: \.offset) { _, media in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Artwork(data: media.artwork)
+                            .frame(width: width, height: width * 3 / 2)
+                        Text(media.title)
+                            .font(.caption2)
+                            .foregroundStyle(WidgetPalette.strong)
+                            .lineLimit(1)
+                            .frame(width: width, alignment: .leading)
+                    }
+                }
+            }
+        }
+    }
+}
+
 private struct RecentWidgetView: View {
     let snapshot: WidgetSnapshot
     @Environment(\.widgetFamily) private var family
@@ -145,35 +176,92 @@ private struct RecentWidgetView: View {
             if snapshot.recent.isEmpty {
                 empty("Open Rawkoon to load new additions")
             } else if family == .systemSmall {
-                HStack(spacing: 6) {
-                    ForEach(Array(snapshot.recent.prefix(2).enumerated()), id: \.offset) { _, media in
-                        Artwork(data: media.artwork)
-                            .accessibilityLabel(Text(verbatim: media.title))
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                PosterRail(items: Array(snapshot.recent.prefix(3)), visible: 2.5, spacing: 8)
             } else {
-                HStack(alignment: .top, spacing: 0) {
-                    ForEach(Array(snapshot.recent.prefix(4).enumerated()), id: \.offset) { index, media in
-                        if index > 0 {
-                            Spacer(minLength: 8)
-                        }
-                        // The overlay is proposed the poster's width, so the title never runs past it.
-                        Artwork(data: media.artwork)
-                            .padding(.bottom, 18)
-                            .overlay(alignment: .bottomLeading) {
-                                Text(media.title)
-                                    .font(.caption2)
-                                    .foregroundStyle(WidgetPalette.strong)
-                                    .lineLimit(1)
-                            }
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                PosterRail(items: Array(snapshot.recent.prefix(6)), visible: 4.6, spacing: 12)
             }
         }
         .containerBackground(WidgetPalette.surface, for: .widget)
         .widgetURL(URL(string: "rawkoon://home"))
+    }
+}
+
+private struct WatchEntry: TimelineEntry {
+    let date: Date
+    let pick: WidgetWatchPick?
+}
+
+/// One entry per six-hour slot for the next day, so the pick changes without the app running.
+private struct WatchProvider: TimelineProvider {
+    func placeholder(in _: Context) -> WatchEntry {
+        WatchEntry(date: .now, pick: nil)
+    }
+
+    func getSnapshot(in _: Context, completion: @escaping (WatchEntry) -> Void) {
+        completion(WatchEntry(date: .now, pick: WidgetSnapshotStore.read().watchPick(at: .now)))
+    }
+
+    func getTimeline(in _: Context, completion: @escaping (Timeline<WatchEntry>) -> Void) {
+        let snapshot = WidgetSnapshotStore.read()
+        let slot = WidgetSnapshot.watchSlot
+        let start = Date(timeIntervalSince1970: (Date.now.timeIntervalSince1970 / slot).rounded(.down) * slot)
+        let entries = (0 ..< 4).map { index in
+            let date = index == 0 ? Date.now : start.addingTimeInterval(Double(index) * slot)
+            return WatchEntry(date: date, pick: snapshot.watchPick(at: date))
+        }
+        completion(Timeline(entries: entries, policy: .atEnd))
+    }
+}
+
+private struct WatchWidgetView: View {
+    let entry: WatchEntry
+    @Environment(\.widgetFamily) private var family
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("What to watch")
+                .font(.system(size: 11, weight: .semibold))
+                .textCase(.uppercase)
+                .tracking(1.1)
+                .foregroundStyle(WidgetPalette.apricot)
+            Spacer(minLength: 0)
+            if let pick = entry.pick {
+                Text(pick.media.title)
+                    .font(.system(family == .systemSmall ? .subheadline : .title3, design: .serif, weight: .semibold))
+                    .foregroundStyle(WidgetPalette.strong)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                Text(pick.media.detail)
+                    .font(.caption2)
+                    .foregroundStyle(WidgetPalette.strong.opacity(0.75))
+            } else {
+                Text("Open Rawkoon to pick something to watch")
+                    .font(.caption)
+                    .foregroundStyle(WidgetPalette.muted)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .containerBackground(for: .widget) {
+            if let data = entry.pick?.media.artwork, let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .overlay {
+                        // Darkens the top for the heading and the bottom for the title.
+                        LinearGradient(
+                            stops: [
+                                .init(color: .black.opacity(0.55), location: 0),
+                                .init(color: .black.opacity(0.05), location: 0.35),
+                                .init(color: .black.opacity(0.85), location: 1),
+                            ],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                    }
+            } else {
+                WidgetPalette.surface
+            }
+        }
+        .widgetURL(entry.pick?.url ?? URL(string: "rawkoon://home"))
     }
 }
 
@@ -267,6 +355,18 @@ struct SuggestionHomeWidget: Widget {
         }
         .configurationDisplayName("Suggestion of the day")
         .description("A title to discover in Rawkoon.")
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+struct WatchHomeWidget: Widget {
+    let kind = "cloud.samlo.rawkoon.watch"
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: WatchProvider()) { entry in
+            WatchWidgetView(entry: entry)
+        }
+        .configurationDisplayName("What to watch")
+        .description("A title from your library, changing every six hours.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }

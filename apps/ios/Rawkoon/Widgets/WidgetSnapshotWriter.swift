@@ -36,7 +36,7 @@ final class WidgetSnapshotWriter {
             uniquingKeysWith: { first, _ in first }
         )
         var media: [WidgetMedia] = []
-        for item in items.prefix(4) {
+        for item in items.prefix(6) {
             let detail = item.type == "show" ? String(localized: "Series") : String(localized: "Movie")
             let url = model.absoluteURL(item.posterUrl)
             let key = url?.absoluteString
@@ -82,6 +82,45 @@ final class WidgetSnapshotWriter {
         save(snapshot)
     }
 
+    /// Draws a fresh pool of library titles once a day; the widget rotates through it every six hours.
+    func updateWatch(model: AppModel) async {
+        let current = generation
+        let previous = WidgetSnapshotStore.read()
+        if let pool = previous.watch, !pool.isEmpty,
+           let rolled = previous.watchRolledAt, Date().timeIntervalSince(rolled) < 24 * 60 * 60
+        {
+            return
+        }
+        guard let client = model.api(), let head = try? await client.libraryList(page: 1, limit: 1) else { return }
+        let total = (head.movieCount ?? 0) + (head.showCount ?? 0)
+        var picks: [WidgetWatchPick] = []
+        // One-item pages at random offsets: the list API has no random order.
+        for index in Array(0 ..< total).shuffled().prefix(16) {
+            guard picks.count < 4 else { break }
+            guard let item = try? await client.libraryList(page: index + 1, limit: 1).items.first,
+                  item.status == "downloaded" || item.status == "upgrading" || (item.downloadedEpisodeCount ?? 0) > 0
+            else { continue }
+            let kind = item.type == "show" ? String(localized: "Series") : String(localized: "Movie")
+            let url = model.absoluteURL(item.backdropUrl ?? item.posterUrl)
+            await picks.append(WidgetWatchPick(
+                libraryId: item.id,
+                tmdbId: item.tmdbId,
+                mediaType: item.type == "show" ? "tv" : "movie",
+                media: WidgetMedia(
+                    title: item.title,
+                    detail: item.year.map { "\($0) · \(kind)" } ?? kind,
+                    artwork: artwork(for: url, serverURL: model.serverURL, size: CGSize(width: 364, height: 205)),
+                    artworkKey: url?.absoluteString
+                )
+            ))
+        }
+        guard current == generation, model.isLoggedIn else { return }
+        var snapshot = WidgetSnapshotStore.read()
+        snapshot.watch = picks
+        snapshot.watchRolledAt = picks.isEmpty ? nil : Date()
+        save(snapshot)
+    }
+
     private func save(_ snapshot: WidgetSnapshot) {
         var next = snapshot
         next.updatedAt = Date()
@@ -90,7 +129,9 @@ final class WidgetSnapshotWriter {
         }
     }
 
-    private func artwork(for url: URL?, serverURL: String) async -> Data? {
+    private func artwork(
+        for url: URL?, serverURL: String, size: CGSize = CGSize(width: 90, height: 135)
+    ) async -> Data? {
         guard let url, url.scheme == "https" || url.scheme == "http" else { return nil }
         var request = URLRequest(url: url)
         request.timeoutInterval = 7
@@ -104,9 +145,15 @@ final class WidgetSnapshotWriter {
               data.count < 3_000_000,
               let image = UIImage(data: data)
         else { return nil }
-        let size = CGSize(width: 90, height: 135)
-        let rendered = UIGraphicsImageRenderer(size: size).image { _ in
-            image.draw(in: CGRect(origin: .zero, size: size))
+        // Aspect-fill crop, so a backdrop drawn into a poster frame (or the reverse) is never squashed.
+        let scale = max(size.width / image.size.width, size.height / image.size.height)
+        let drawn = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let origin = CGPoint(x: (size.width - drawn.width) / 2, y: (size.height - drawn.height) / 2)
+        // 2x keeps the shared snapshot small; widget artwork never needs the full 3x.
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 2
+        let rendered = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            image.draw(in: CGRect(origin: origin, size: drawn))
         }
         return rendered.jpegData(compressionQuality: 0.7)
     }
