@@ -109,7 +109,10 @@ final class WidgetSnapshotWriter {
                 media: WidgetMedia(
                     title: item.title,
                     detail: item.year.map { "\($0) · \(kind)" } ?? kind,
-                    artwork: artwork(for: url, serverURL: model.serverURL, size: CGSize(width: 364, height: 205)),
+                    artwork: artwork(
+                        for: url, serverURL: model.serverURL,
+                        size: CGSize(width: 364, height: 205), scale: 1.5, quality: 0.6
+                    ),
                     artworkKey: url?.absoluteString
                 )
             ))
@@ -130,7 +133,8 @@ final class WidgetSnapshotWriter {
     }
 
     private func artwork(
-        for url: URL?, serverURL: String, size: CGSize = CGSize(width: 90, height: 135)
+        for url: URL?, serverURL: String, size: CGSize = CGSize(width: 90, height: 135),
+        scale _: CGFloat = 2, quality: CGFloat = 0.7
     ) async -> Data? {
         guard let url, url.scheme == "https" || url.scheme == "http" else { return nil }
         var request = URLRequest(url: url)
@@ -149,12 +153,12 @@ final class WidgetSnapshotWriter {
         let scale = max(size.width / image.size.width, size.height / image.size.height)
         let drawn = CGSize(width: image.size.width * scale, height: image.size.height * scale)
         let origin = CGPoint(x: (size.width - drawn.width) / 2, y: (size.height - drawn.height) / 2)
-        // 2x keeps the shared snapshot small; widget artwork never needs the full 3x.
+        // Below the screen's 3x keeps the shared snapshot small; widget artwork never needs it.
         let format = UIGraphicsImageRendererFormat()
-        format.scale = 2
+        format.scale = scale
         let rendered = UIGraphicsImageRenderer(size: size, format: format).image { _ in
             image.draw(in: CGRect(origin: origin, size: drawn))
         }
-        return rendered.jpegData(compressionQuality: 0.7)
+        return rendered.jpegData(compressionQuality: quality)
     }
 }
