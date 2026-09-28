@@ -34,6 +34,7 @@ export default defineConfig({
           { text: "Media metadata", link: "/library/metadata" },
           { text: "Books and audiobooks", link: "/library/books" },
           { text: "Downloads and files", link: "/library/downloads-and-files" },
+          { text: "Privacy policy", link: "/privacy" },
         ],
       },
       {
