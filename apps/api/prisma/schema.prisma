@@ -28,6 +28,7 @@ model User {
   notifications        Notification[]
   userSubscriptions    UserSubscription[]
   apnsDevices          ApnsDevice[]
+  liveActivityDevices LiveActivityDevice[]
   activityLogs         ActivityLog[]
   notificationChannels NotificationChannel[]
   invitationsSent      Invitation[]          @relation("InvitationInviter")
@@ -167,6 +168,26 @@ model ApnsDevice {
   @@unique([userId, deviceToken], map: "uq_apns_devices_user_token")
   @@index([userId], map: "ix_apns_devices_user_id")
   @@map("apns_devices")
+}
+
+model LiveActivityDevice {
+  id             Int       @id @default(autoincrement())
+  userId         String    @map("user_id")
+  installationId String    @unique(map: "uq_live_activity_devices_installation") @map("installation_id")
+  startToken     String    @map("start_token")
+  currentJobId   Int?      @map("current_job_id")
+  activityToken  String?   @map("activity_token")
+  lastProgress   Float?    @map("last_progress")
+  lastStep       String?   @map("last_step")
+  lastSentAt     DateTime? @map("last_sent_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "ix_live_activity_devices_user")
+  @@index([currentJobId], map: "ix_live_activity_devices_job")
+  @@map("live_activity_devices")
 }
 
 model ActivityLog {

@@ -175,7 +175,19 @@ extension AppModel {
         async let progress = try? apiClient.getProgress()
         async let reading = try? apiClient.readingProgress()
         async let notifications = try? apiClient.get(Endpoints.notifications(page: 1, limit: 25))
-        _ = await (recent, upcoming, deck, grid, progress, reading, notifications)
+        let (recentResult, _, deckResult, _, _, _, _) = await (
+            recent, upcoming, deck, grid, progress, reading, notifications
+        )
+        if let items = recentResult?.items {
+            await WidgetSnapshotWriter.shared.updateRecent(items, model: self)
+        }
+        if let deckResult {
+            await WidgetSnapshotWriter.shared.updateSuggestion(deckResult, model: self)
+        }
+        if let features = try? await apiClient.systemFeatures() {
+            let listening = features.booksEnabled ? try? await apiClient.listeningStats() : nil
+            WidgetSnapshotWriter.shared.updateListening(listening)
+        }
         await refreshUnreadNotificationCount()
     }
 }

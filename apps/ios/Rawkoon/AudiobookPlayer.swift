@@ -13,6 +13,9 @@ final class AudiobookPlayer {
 
     private(set) var isPlaying = false {
         didSet {
+            if oldValue != isPlaying {
+                updateSleepLiveActivity()
+            }
             // Combine sink was .dropFirst().removeDuplicates(), fired on !isPlaying:
             // i.e. only on an actual playing→paused transition.
             if oldValue, !isPlaying {
@@ -51,6 +54,7 @@ final class AudiobookPlayer {
     var sleepEndChapterIndex: Int?
     var lastSleepTick: Date?
     static let sleepFadeWindow: Double = 8
+    let sleepLiveActivity = SleepLiveActivityController()
 
     /// When playback last stopped, for smart rewind. Nil while playing.
     var pausedAt: Date?

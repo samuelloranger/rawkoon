@@ -16,6 +16,8 @@
 	<dict>
 		<key>cloud.samlo.rawkoon</key>
 		<string>Rawkoon AppStore CI</string>
+		<key>cloud.samlo.rawkoon.widgets</key>
+		<string>Rawkoon Widgets AppStore CI</string>
 	</dict>
 	<key>uploadSymbols</key>
 	<true/>

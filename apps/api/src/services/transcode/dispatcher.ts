@@ -1,5 +1,5 @@
 import { cpus } from "node:os";
-import type { TranscodeLiveProgress } from "@rawkoon/shared/types";
+import type { TranscodeLiveProgress, TranscodeStep } from "@rawkoon/shared/types";
 import {
   finalPathFor,
   tmpPathFor,
@@ -29,6 +29,12 @@ export interface TranscodeNotifier {
   ): Promise<void>;
 }
 
+export interface TranscodeActivityNotifier {
+  start(job: ClaimedJob): Promise<void>;
+  update(job: ClaimedJob, step: TranscodeStep, progress: TranscodeLiveProgress | null): Promise<void>;
+  end(job: ClaimedJob, status: "done" | "failed" | "cancelled"): Promise<void>;
+}
+
 const TICK_MS = 10_000;
 const PERSIST_MS = 15_000;
 
@@ -48,6 +54,7 @@ export class TranscodeDispatcher {
     private notifier: TranscodeNotifier,
     private now: () => Date = () => new Date(),
     private defaultThreads: () => number = () => Math.max(1, cpus().length - 2),
+    private activityNotifier?: TranscodeActivityNotifier,
   ) {}
 
   start(): void {
@@ -85,8 +92,14 @@ export class TranscodeDispatcher {
   async recover(): Promise<void> {
     for (const job of await this.repo.runningJobs()) {
       try {
-        if (job.source && (await this.recoverFiles(job))) continue;
+        if (job.source && (await this.recoverFiles(job))) {
+          void this.activityNotifier?.end(job, "done")
+            .catch((e) => console.warn("[transcode] Live Activity recovery end failed:", e));
+          continue;
+        }
         await this.repo.requeue(job.id);
+        void this.activityNotifier?.end(job, "cancelled")
+          .catch((e) => console.warn("[transcode] Live Activity recovery end failed:", e));
       } catch (e) {
         console.error(`[transcode] recovery failed for job ${job.id}:`, e);
       }
@@ -200,6 +213,11 @@ export class TranscodeDispatcher {
     const abort = new AbortController();
     this.running = { id: job.id, abort, live: null };
     let lastPersist = 0;
+    let lastActivityUpdate = 0;
+    let currentStep: TranscodeStep = "preflight";
+    void this.activityNotifier?.start(job).catch((e) =>
+      console.warn("[transcode] Live Activity start failed:", e),
+    );
     // PipelineDeps.rescan takes one argument; the file id travels in the token (split in index.ts).
     const deps: PipelineDeps = {
       ...this.deps,
@@ -217,12 +235,22 @@ export class TranscodeDispatcher {
           deps,
           {
             // Awaited so "replace" is durable before the swap; boot recovery keys off it.
-            onStep: (step) => this.repo.markStep(job.id, step).catch(() => {}),
+            onStep: async (step) => {
+              currentStep = step;
+              await this.repo.markStep(job.id, step).catch(() => {});
+              void this.activityNotifier?.update(job, step, this.running?.live ?? null)
+                .catch((e) => console.warn("[transcode] Live Activity step failed:", e));
+            },
             onProgress: (p) => {
               if (this.running) this.running.live = p;
               if (Date.now() - lastPersist > PERSIST_MS) {
                 lastPersist = Date.now();
                 void this.repo.saveProgress(job.id, p.progress).catch(() => {});
+              }
+              if (Date.now() - lastActivityUpdate >= 15_000) {
+                lastActivityUpdate = Date.now();
+                void this.activityNotifier?.update(job, currentStep, p)
+                  .catch((e) => console.warn("[transcode] Live Activity update failed:", e));
               }
             },
           },
@@ -247,6 +275,9 @@ export class TranscodeDispatcher {
       );
       return;
     }
+    void this.activityNotifier?.end(
+      job, result.ok ? "done" : result.cancelled ? "cancelled" : "failed",
+    ).catch((e) => console.warn("[transcode] Live Activity end failed:", e));
     // Notifications enqueue through Valkey, which can block while it is down; never hold the queue for them.
     void this.notify(job, result).catch((e) =>
       console.warn("[transcode] notification failed:", e),

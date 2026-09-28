@@ -29,6 +29,7 @@ extension AppModel {
             try await reloadLibrary()
             registerForPushIfAuthorized()
             startLiveStreams()
+            ReencodeActivityCoordinator.shared.start(model: self)
             await refreshUnreadNotificationCount()
         } catch {
             errorMessage = message(for: error)
@@ -81,6 +82,7 @@ extension AppModel {
         do { try await reloadLibrary() } catch { errorMessage = message(for: error) }
         registerForPushIfAuthorized()
         startLiveStreams()
+        ReencodeActivityCoordinator.shared.start(model: self)
         await refreshUnreadNotificationCount()
     }
 
@@ -107,6 +109,8 @@ extension AppModel {
     }
 
     func logout() {
+        WidgetSnapshotWriter.shared.clear()
+        ReencodeActivityCoordinator.shared.stop(model: self)
         // Before apiClient is torn down: an APNs token identifies the phone, not
         // the account, so leaving it registered would deliver this user's
         // notifications to whoever signs in next.

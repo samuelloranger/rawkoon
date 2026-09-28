@@ -97,10 +97,12 @@ struct ListeningStatsCard: View {
                 booksEnabled = false
                 stats = nil
                 errorMessage = nil
+                WidgetSnapshotWriter.shared.updateListening(nil)
                 return
             }
             booksEnabled = true
             stats = try await client.listeningStats()
+            WidgetSnapshotWriter.shared.updateListening(stats)
             errorMessage = nil
         } catch {
             // A failed refresh keeps the last stats on the card.

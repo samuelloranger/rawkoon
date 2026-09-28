@@ -46,6 +46,25 @@ mock.module("@rawkoon/api/services/transcode/capabilities", () => ({
 }));
 mock.module("@rawkoon/api/services/transcode/repo", () => ({
   loadQueueSettings: async () => ({ paused: false }),
+  prismaTranscodeRepo: { runningJobs: async () => [] },
+}));
+
+mock.module("@rawkoon/api/db", () => ({
+  prisma: {
+    liveActivityDevice: {
+      findUnique: async () => null,
+      upsert: async () => ({}),
+      updateMany: async () => ({ count: 1 }),
+      deleteMany: async () => ({ count: 1 }),
+    },
+  },
+}));
+
+mock.module("@rawkoon/api/services/transcode/liveActivity", () => ({
+  transcodeLiveActivity: { startForInstallation: async () => {}, update: async () => {} },
+}));
+mock.module("@rawkoon/api/services/transcode/index", () => ({
+  transcodeDispatcher: { live: () => null },
 }));
 
 const { transcodeRoutes } = await import("@rawkoon/api/routes/transcode");
@@ -126,5 +145,22 @@ describe("transcode routes", () => {
       body: JSON.stringify({ window_start: "25:00" }),
     });
     expect(r.status).toBe(400);
+  });
+
+  it("registers only valid ActivityKit tokens and a matching job token", async () => {
+    const installationId = "ab203277-2b1b-4a3b-b134-1b4d8154a330";
+    expect((await post("/api/transcode/live-activity/register", {
+      installation_id: installationId,
+      start_token: "a".repeat(64),
+    })).status).toBe(200);
+    expect((await post("/api/transcode/live-activity/token", {
+      installation_id: installationId,
+      job_id: 8,
+      activity_token: "b".repeat(64),
+    })).status).toBe(200);
+    expect((await post("/api/transcode/live-activity/register", {
+      installation_id: installationId,
+      start_token: "not-hex",
+    })).status).toBe(400);
   });
 });

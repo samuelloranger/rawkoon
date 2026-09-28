@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { TranscodeJobStatus } from "@rawkoon/shared/types";
 import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
+import { prisma } from "@rawkoon/api/db";
 import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 import { detectCapabilities } from "@rawkoon/api/services/transcode/capabilities";
@@ -20,6 +21,9 @@ import {
   updateQueueSettings,
 } from "@rawkoon/api/services/transcode/queueApi";
 import { loadQueueSettings } from "@rawkoon/api/services/transcode/repo";
+import { prismaTranscodeRepo } from "@rawkoon/api/services/transcode/repo";
+import { transcodeLiveActivity } from "@rawkoon/api/services/transcode/liveActivity";
+import { transcodeDispatcher } from "@rawkoon/api/services/transcode/index";
 import {
   enqueueBodySchema,
   estimateBodySchema,
@@ -35,6 +39,9 @@ const STATUSES = new Set<TranscodeJobStatus>([
   "cancelled",
 ]);
 
+const liveToken = z.string().regex(/^[0-9a-fA-F]{64,512}$/);
+const installation = z.string().uuid();
+
 function idParam(raw: string): number | null {
   const n = Number.parseInt(raw, 10);
   return Number.isFinite(n) && n > 0 ? n : null;
@@ -47,6 +54,62 @@ function idParam(raw: string): number | null {
  */
 export const transcodeRoutes = new Hono<Env>()
   .use("*", requireAdmin)
+
+  .post("/live-activity/register", jsonV(z.object({
+    installation_id: installation,
+    start_token: liveToken,
+  })), async (c) => {
+    const user = c.get("user");
+    const { installation_id, start_token } = c.req.valid("json");
+    const existing = await prisma.liveActivityDevice.findUnique({
+      where: { installationId: installation_id },
+    });
+    await prisma.liveActivityDevice.upsert({
+      where: { installationId: installation_id },
+      create: { installationId: installation_id, userId: user.id, startToken: start_token },
+      update: {
+        userId: user.id,
+        startToken: start_token,
+        ...(existing?.userId !== user.id
+          ? { currentJobId: null, activityToken: null, lastProgress: null,
+              lastStep: null, lastSentAt: null }
+          : {}),
+      },
+    });
+    const job = (await prismaTranscodeRepo.runningJobs())[0];
+    if (job) void transcodeLiveActivity.startForInstallation(installation_id, job)
+      .catch((error) => console.warn("[transcode] Live Activity registration:", error));
+    return ok({ registered: true });
+  })
+
+  .post("/live-activity/token", jsonV(z.object({
+    installation_id: installation,
+    job_id: z.number().int().positive(),
+    activity_token: liveToken,
+  })), async (c) => {
+    const user = c.get("user");
+    const { installation_id, job_id, activity_token } = c.req.valid("json");
+    const updated = await prisma.liveActivityDevice.updateMany({
+      where: { installationId: installation_id, userId: user.id, currentJobId: job_id },
+      data: { activityToken: activity_token, lastSentAt: null },
+    });
+    if (!updated.count) return badRequest("Activity is not current for this device");
+    const job = (await prismaTranscodeRepo.runningJobs()).find((candidate) => candidate.id === job_id);
+    if (job) {
+      const step = job.step === "encode" || job.step === "validate" ||
+        job.step === "replace" || job.step === "rescan" ? job.step : "preflight";
+      void transcodeLiveActivity.update(job, step, transcodeDispatcher.live(job.id))
+        .catch((error) => console.warn("[transcode] Live Activity update:", error));
+    }
+    return ok({ registered: true });
+  })
+
+  .delete("/live-activity/devices/:installationId", async (c) => {
+    await prisma.liveActivityDevice.deleteMany({
+      where: { installationId: c.req.param("installationId"), userId: c.get("user").id },
+    });
+    return ok({ removed: true });
+  })
 
   .get("/capabilities", async () => {
     const c = await detectCapabilities();
