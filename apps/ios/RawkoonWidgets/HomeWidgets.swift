@@ -57,23 +57,25 @@ private struct Artwork: View {
     let data: Data?
 
     var body: some View {
-        Group {
-            if let data, let image = UIImage(data: data) {
-                Image(uiImage: image).resizable().scaledToFill()
-            } else {
-                LinearGradient(
-                    colors: [WidgetPalette.terracotta, WidgetPalette.well],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                )
-                .overlay {
-                    Image(systemName: "film")
-                        .foregroundStyle(WidgetPalette.strong.opacity(0.55))
+        // A 2:3 frame fitted to the space offered, so a poster never grows past the widget's height.
+        Color.clear
+            .aspectRatio(2 / 3, contentMode: .fit)
+            .overlay {
+                if let data, let image = UIImage(data: data) {
+                    Image(uiImage: image).resizable().scaledToFill()
+                } else {
+                    LinearGradient(
+                        colors: [WidgetPalette.terracotta, WidgetPalette.well],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    )
+                    .overlay {
+                        Image(systemName: "film")
+                            .foregroundStyle(WidgetPalette.strong.opacity(0.55))
+                    }
                 }
             }
-        }
-        .aspectRatio(2 / 3, contentMode: .fill)
-        .clipShape(RoundedRectangle(cornerRadius: 7))
-        .overlay(alignment: .leading) { Rectangle().fill(.black.opacity(0.18)).frame(width: 4) }
+            .clipShape(RoundedRectangle(cornerRadius: 7))
+            .overlay(alignment: .leading) { Rectangle().fill(.black.opacity(0.18)).frame(width: 4) }
     }
 }
 
@@ -135,25 +137,39 @@ private struct ListeningWidgetView: View {
 
 private struct RecentWidgetView: View {
     let snapshot: WidgetSnapshot
+    @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: family == .systemSmall ? 8 : 10) {
             WidgetHeading(title: "Recently added")
             if snapshot.recent.isEmpty {
                 empty("Open Rawkoon to load new additions")
-            } else {
-                HStack(spacing: 10) {
-                    ForEach(Array(snapshot.recent.prefix(3).enumerated()), id: \.offset) { _, media in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Artwork(data: media.artwork)
-                                .frame(maxWidth: .infinity)
-                            Text(media.title)
-                                .font(.caption2)
-                                .foregroundStyle(WidgetPalette.strong)
-                                .lineLimit(1)
-                        }
+            } else if family == .systemSmall {
+                HStack(spacing: 6) {
+                    ForEach(Array(snapshot.recent.prefix(2).enumerated()), id: \.offset) { _, media in
+                        Artwork(data: media.artwork)
+                            .accessibilityLabel(Text(verbatim: media.title))
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            } else {
+                HStack(alignment: .top, spacing: 0) {
+                    ForEach(Array(snapshot.recent.prefix(4).enumerated()), id: \.offset) { index, media in
+                        if index > 0 {
+                            Spacer(minLength: 8)
+                        }
+                        // The overlay is proposed the poster's width, so the title never runs past it.
+                        Artwork(data: media.artwork)
+                            .padding(.bottom, 18)
+                            .overlay(alignment: .bottomLeading) {
+                                Text(media.title)
+                                    .font(.caption2)
+                                    .foregroundStyle(WidgetPalette.strong)
+                                    .lineLimit(1)
+                            }
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
         }
         .containerBackground(WidgetPalette.surface, for: .widget)
@@ -177,14 +193,14 @@ private struct SuggestionWidgetView: View {
             WidgetHeading(title: todaysSuggestion?.personalized == true ? "For you" : "Trending")
             if let suggestion = todaysSuggestion {
                 if family == .systemSmall {
-                    Artwork(data: suggestion.media.artwork).frame(width: 43, height: 64)
+                    Artwork(data: suggestion.media.artwork).frame(maxWidth: 43, maxHeight: 64, alignment: .leading)
                     Text(suggestion.media.title)
                         .font(.system(.caption, design: .serif, weight: .semibold))
                         .foregroundStyle(WidgetPalette.strong)
                         .lineLimit(2)
                 } else {
                     HStack(alignment: .top, spacing: 14) {
-                        Artwork(data: suggestion.media.artwork).frame(width: 73, height: 109)
+                        Artwork(data: suggestion.media.artwork).frame(maxWidth: 73)
                         VStack(alignment: .leading, spacing: 7) {
                             Text(suggestion.media.title)
                                 .font(.system(.headline, design: .serif, weight: .semibold))
@@ -239,7 +255,7 @@ struct RecentHomeWidget: Widget {
         }
         .configurationDisplayName("Recently added")
         .description("The latest additions to your library.")
-        .supportedFamilies([.systemMedium])
+        .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
 

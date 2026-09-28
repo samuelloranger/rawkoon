@@ -36,7 +36,7 @@ final class WidgetSnapshotWriter {
             uniquingKeysWith: { first, _ in first }
         )
         var media: [WidgetMedia] = []
-        for item in items.prefix(3) {
+        for item in items.prefix(4) {
             let detail = item.type == "show" ? String(localized: "Series") : String(localized: "Movie")
             let url = model.absoluteURL(item.posterUrl)
             let key = url?.absoluteString
