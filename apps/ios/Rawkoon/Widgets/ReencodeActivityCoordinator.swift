@@ -101,7 +101,7 @@ import Foundation
     }
 
     /// ActivityKit's Activity is safe across its async methods but the SDK doesn't mark it Sendable.
-    private struct ReencodeActivityHandle: @unchecked Sendable {
+    private nonisolated struct ReencodeActivityHandle: @unchecked Sendable {
         let value: Activity<ReencodeActivityAttributes>
 
         func end() async {

@@ -7,7 +7,7 @@ import Foundation
     @MainActor
     final class SleepLiveActivityController {
         /// ActivityKit's Activity is safe across its async methods but the SDK doesn't mark it Sendable.
-        private struct ActivityHandle: @unchecked Sendable {
+        private nonisolated struct ActivityHandle: @unchecked Sendable {
             let value: Activity<SleepActivityAttributes>
 
             func update(_ content: ActivityContent<SleepActivityAttributes.ContentState>) async {
