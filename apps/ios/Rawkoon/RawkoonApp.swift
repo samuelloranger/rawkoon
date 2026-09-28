@@ -95,7 +95,7 @@ struct RawkoonApp: App {
                     }
                 #endif
                 if model.isLoggedIn {
-                    model.requestPushAuthorization()
+                    model.registerForPushIfAuthorized()
                     model.startLiveStreams()
                     await model.refreshUnreadNotificationCount()
                 }

@@ -1,15 +1,13 @@
 import SwiftUI
 
 /// Admin-only diagnostic screen for the two live SSE connections
-/// (`/api/library/events`, `/api/notifications/stream`). Reached via a hidden
-/// long-press on the Settings version row — never listed as a normal
-/// destination. Lets an admin watch connection state and raw events live,
+/// (`/api/library/events`, `/api/notifications/stream`), listed under the
+/// admin System settings. Lets an admin watch connection state and raw events live,
 /// force a reconnect to reproduce the drop/reconnect path on demand, and fire
 /// synthetic test events through the real SSE bus (server-side, so the same
 /// trigger works from a plain authenticated curl call too).
 struct SSEDebugView: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
 
     @State private var mediaId = "1"
     @State private var bookId = "1"
@@ -84,11 +82,6 @@ struct SSEDebugView: View {
         }
         .navigationTitle("SSE Debug")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Done") { dismiss() }
-            }
-        }
     }
 
     @ViewBuilder

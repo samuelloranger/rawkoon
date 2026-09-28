@@ -77,9 +77,12 @@ targets:
         # can stay portrait-only.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
-        # An empty UILaunchScreen dict satisfies the launch-screen requirement
-        # for MinimumOSVersion >= 14 without a storyboard.
-        UILaunchScreen: {}
+        # The launch screen paints Theme.base so a light-mode phone doesn't
+        # flash white before the dark first screen.
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        # Shown in the Local Network prompt when the server is on the LAN.
+        NSLocalNetworkUsageDescription: Rawkoon connects to your Rawkoon server when it's on your local network.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: cloud.samlo.rawkoon

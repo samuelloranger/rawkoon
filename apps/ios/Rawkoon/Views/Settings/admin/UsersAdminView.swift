@@ -73,6 +73,7 @@ struct UsersAdminView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showProvision = true } label: { Image(systemName: "person.badge.plus") }
+                    .accessibilityLabel("Add user")
             }
         }
         .sheet(isPresented: $showProvision) {

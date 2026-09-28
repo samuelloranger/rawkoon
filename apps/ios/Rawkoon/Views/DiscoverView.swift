@@ -274,6 +274,7 @@ struct DiscoverView: View {
                         author: nil
                     ))
                 }
+                model.requestPushAuthorization()
             } catch let error as APIError {
                 model.toast(message(for: error), style: .error)
             } catch {

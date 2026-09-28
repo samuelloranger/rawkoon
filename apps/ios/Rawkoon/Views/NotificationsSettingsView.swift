@@ -121,6 +121,7 @@ struct NotificationsSettingsView: View {
         .navigationTitle("Notifications")
         .navigationBarTitleDisplayMode(.inline)
         .task {
+            model.requestPushAuthorization()
             await loadPrefs()
         }
     }

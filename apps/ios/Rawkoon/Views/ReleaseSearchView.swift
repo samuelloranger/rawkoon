@@ -280,6 +280,7 @@ struct ReleaseSearchView: View {
                             .font(.system(size: 13, weight: .semibold))
                     }
                 }
+                .accessibilityLabel("Search")
                 .buttonStyle(.borderedProminent)
                 .tint(Theme.terracotta)
                 .disabled(isLoading)
@@ -965,8 +966,13 @@ struct ReleaseSearchView: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(Theme.faint)
+                        // A 44pt hit area without growing the field.
+                        .padding(12)
+                        .contentShape(Rectangle())
+                        .padding(-12)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Clear")
             }
         }
         .padding(.horizontal, 12)

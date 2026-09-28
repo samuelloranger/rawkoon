@@ -27,7 +27,7 @@ extension AppModel {
             apiClient = makeAPIClient(baseURL: baseURL, token: token)
             isLoggedIn = true
             try await reloadLibrary()
-            requestPushAuthorization()
+            registerForPushIfAuthorized()
             startLiveStreams()
             await refreshUnreadNotificationCount()
         } catch {
@@ -79,7 +79,7 @@ extension AppModel {
         apiClient = makeAPIClient(baseURL: base, token: token)
         isLoggedIn = true
         do { try await reloadLibrary() } catch { errorMessage = message(for: error) }
-        requestPushAuthorization()
+        registerForPushIfAuthorized()
         startLiveStreams()
         await refreshUnreadNotificationCount()
     }

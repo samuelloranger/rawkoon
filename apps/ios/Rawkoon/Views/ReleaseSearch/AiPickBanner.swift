@@ -126,6 +126,7 @@ struct AiPickBanner: View {
                             .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Close")
                 }
             }
         }

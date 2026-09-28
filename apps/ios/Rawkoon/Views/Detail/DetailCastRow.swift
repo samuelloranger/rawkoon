@@ -4,6 +4,7 @@ import SwiftUI
 /// placeholders while credits load; a quiet empty state when a title has none.
 struct DetailCastRow: View {
     @Environment(AppModel.self) private var model
+    @ScaledMetric(relativeTo: .caption2) private var characterSize: CGFloat = 10
 
     let credits: MediaCredits?
     let loading: Bool
@@ -83,7 +84,7 @@ struct DetailCastRow: View {
                 .lineLimit(1)
             if let character = member.character, !character.isEmpty {
                 Text(character)
-                    .font(.system(size: 10))
+                    .font(.system(size: characterSize))
                     .foregroundStyle(Theme.faint)
                     .lineLimit(1)
             }

@@ -106,10 +106,15 @@ enum Appearance {
         nav.configureWithTransparentBackground()
 
         let strong = UIColor(Theme.textStrong)
-        let large = UIFont(name: "Fraunces", size: 34)?.withWeight(.semibold)
-            ?? UIFont.systemFont(ofSize: 34, weight: .semibold)
-        let inline = UIFont(name: "Fraunces", size: 17)?.withWeight(.semibold)
-            ?? UIFont.systemFont(ofSize: 17, weight: .semibold)
+        // Scaled like the segmented labels below, so titles follow Dynamic Type.
+        let large = UIFontMetrics(forTextStyle: .largeTitle).scaledFont(
+            for: UIFont(name: "Fraunces", size: 34)?.withWeight(.semibold)
+                ?? UIFont.systemFont(ofSize: 34, weight: .semibold)
+        )
+        let inline = UIFontMetrics(forTextStyle: .headline).scaledFont(
+            for: UIFont(name: "Fraunces", size: 17)?.withWeight(.semibold)
+                ?? UIFont.systemFont(ofSize: 17, weight: .semibold)
+        )
         nav.largeTitleTextAttributes = [.foregroundColor: strong, .font: large]
         nav.titleTextAttributes = [.foregroundColor: strong, .font: inline]
 

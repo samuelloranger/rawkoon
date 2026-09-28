@@ -1,0 +1,24 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NSLocalNetworkUsageDescription" : {
+      "comment" : "Local Network permission prompt",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rawkoon connects to your Rawkoon server when it's on your local network."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rawkoon se connecte à ton serveur Rawkoon lorsqu'il est sur ton réseau local."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

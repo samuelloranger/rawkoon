@@ -10428,6 +10428,36 @@
           }
         }
       }
+    },
+    "Privacy policy": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Politique de confidentialité"
+          }
+        }
+      }
+    },
+    "Support": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assistance"
+          }
+        }
+      }
+    },
+    "Live updates": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mises à jour en direct"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

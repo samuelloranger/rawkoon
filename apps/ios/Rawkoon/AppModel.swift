@@ -401,6 +401,17 @@ final class AppModel {
     private var invalidatingSessions: Set<Int> = []
     private var grantRefreshInFlight: Set<Int> = []
 
+    /// Launch and sign-in only re-register a device the user already allowed;
+    /// the prompt waits for a request or the notification settings (HIG).
+    func registerForPushIfAuthorized() {
+        Task {
+            let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+            if status == .authorized || status == .provisional || status == .ephemeral {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
+        }
+    }
+
     /// Ask for notification permission, then register for remote notifications.
     /// Safe to call repeatedly — the system won't re-prompt once decided.
     func requestPushAuthorization() {

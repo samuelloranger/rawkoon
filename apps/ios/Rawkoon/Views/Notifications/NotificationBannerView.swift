@@ -39,8 +39,13 @@ struct NotificationBannerView: View {
                 Image(systemName: "xmark")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Theme.faint)
+                    // A 44pt hit area without growing the banner.
+                    .padding(17)
+                    .contentShape(Rectangle())
+                    .padding(-17)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Close")
         }
         .padding(12)
         .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 14))

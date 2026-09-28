@@ -20,7 +20,12 @@ struct MediaSearchField: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(Theme.faint)
+                        // A 44pt hit area without growing the field.
+                        .padding(12)
+                        .contentShape(Rectangle())
+                        .padding(-12)
                 }
+                .accessibilityLabel("Clear")
             }
         }
         .padding(.horizontal, 12)
@@ -419,6 +424,7 @@ struct MediaSearchResults: View {
         defer { addingVolumeId = nil }
         do {
             try await client.addBook(googleVolumeId: hit.googleVolumeId)
+            model.requestPushAuthorization()
             await model.loadLibrary()
             await runSearch(query: trimmedQuery, kind: kindFilter)
         } catch {
@@ -441,6 +447,7 @@ struct MediaSearchResults: View {
                 author: hit.authors.isEmpty ? nil : hit.authors.joined(separator: ", ")
             ))
             model.toast(String(localized: "Requested — we'll notify you"), style: .success)
+            model.requestPushAuthorization()
         } catch let error as APIError {
             model.toast(message(for: error), style: .error)
         } catch {

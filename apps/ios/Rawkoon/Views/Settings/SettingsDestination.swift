@@ -28,6 +28,7 @@ enum SettingsGroup: String, CaseIterable, Identifiable {
 /// and the existing view it pushes. Replaces the 22 inline `NavigationLink`s.
 enum SettingsDestination: String, CaseIterable, Identifiable {
     case general
+    case liveUpdates
     case tmdb
     case fanart
     case jellyfin
@@ -58,7 +59,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
 
     var group: SettingsGroup {
         switch self {
-        case .general:
+        case .general, .liveUpdates:
             .system
         case .tmdb, .fanart, .jellyfin, .aiProvider, .prowlarr, .jackett, .indexers, .downloadClient, .bookProviders:
             .integrations
@@ -80,6 +81,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
     var titleKey: String {
         switch self {
         case .general: "General"
+        case .liveUpdates: "Live updates"
         case .tmdb: "TMDB"
         case .fanart: "fanart.tv"
         case .jellyfin: "Jellyfin"
@@ -109,6 +111,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .general: "globe"
+        case .liveUpdates: "dot.radiowaves.left.and.right"
         case .tmdb: "film"
         case .fanart: "photo.on.rectangle"
         case .jellyfin: "play.rectangle"
@@ -139,6 +142,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
     var keywords: [String] {
         switch self {
         case .general: ["system", "app", "server"]
+        case .liveUpdates: ["sse", "stream", "events", "diagnostics", "debug", "reconnect"]
         case .tmdb: ["the movie database", "metadata", "discovery"]
         case .fanart: ["fanart", "artwork", "posters", "backdrops", "metadata"]
         case .jellyfin: ["media server", "streaming"]
@@ -181,6 +185,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
     var destination: some View {
         switch self {
         case .general: GeneralSettingsView()
+        case .liveUpdates: SSEDebugView()
         case .tmdb: TmdbIntegrationView()
         case .fanart: FanartIntegrationView()
         case .jellyfin: JellyfinIntegrationView()

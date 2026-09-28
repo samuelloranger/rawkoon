@@ -333,6 +333,7 @@ extension MediaDetailView {
         do {
             _ = try await client.createRequest(body)
             requested = true
+            model.requestPushAuthorization()
         } catch APIError.unauthorized {
             requestError = String(localized: "Sign in required.")
         } catch let APIError.http(status) where status == 409 {
@@ -367,6 +368,7 @@ extension MediaDetailView {
                 request: { try await client.addToLibrary(tmdbId: tmdbId, type: type) }
             )
             added = true
+            model.requestPushAuthorization()
             // Reveal the admin tabs (Manage hosts the grab surface) in place, land
             // there, and load its data — no reopen needed to grab what was just added.
             libraryId = item.id
