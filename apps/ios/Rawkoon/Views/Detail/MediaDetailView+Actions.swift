@@ -295,7 +295,7 @@ extension MediaDetailView {
                     tmdbId: tmdbId,
                     mediaType: mediaType,
                     title: title,
-                    posterURL: posterPath,
+                    posterURL: resolvedPosterPath,
                     overview: details?.overview,
                     releaseYear: yearValue,
                     voteAverage: details?.voteAverage,
@@ -324,7 +324,7 @@ extension MediaDetailView {
             tmdbId: tmdbId,
             type: mediaType == "tv" ? "show" : "movie",
             title: title,
-            posterUrl: posterPath,
+            posterUrl: resolvedPosterPath,
             year: yearValue,
             googleVolumeId: nil,
             author: nil
@@ -362,7 +362,7 @@ extension MediaDetailView {
                     type: type,
                     title: title,
                     year: yearValue,
-                    posterUrl: posterPath,
+                    posterUrl: resolvedPosterPath,
                     overview: details?.overview
                 ),
                 request: { try await client.addToLibrary(tmdbId: tmdbId, type: type) }

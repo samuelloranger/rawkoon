@@ -81,6 +81,8 @@ struct MediaDetailView: View {
     @State var similarError: String?
 
     @State var managementItem: LibraryMedia?
+    /// Fetched when the caller opened the title without a poster, like a widget tap.
+    @State var fetchedPosterPath: String?
     @State var managementLoading = false
     @State var managementError: String?
     @State var managementNotice: String?
@@ -352,7 +354,7 @@ struct MediaDetailView: View {
             // Offline with nothing saved: keep the identity the caller passed in.
             DetailHero(
                 title: title,
-                posterPath: posterPath,
+                posterPath: resolvedPosterPath,
                 backdropPath: nil,
                 metaLine: "",
                 tagline: nil,
@@ -375,7 +377,7 @@ struct MediaDetailView: View {
             // way the web keeps the title header above its detail tabs.
             DetailHero(
                 title: title,
-                posterPath: posterPath,
+                posterPath: resolvedPosterPath,
                 backdropPath: details?.primaryBackdropUrl,
                 metaLine: metaLine,
                 tagline: details?.tagline,
