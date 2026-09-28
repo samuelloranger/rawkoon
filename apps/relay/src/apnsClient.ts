@@ -25,11 +25,14 @@ export class ApnsClient {
   constructor(
     private readonly tokens: ApnsTokenCache,
     private readonly host: string = APNS_PROD,
-    private readonly fetchImpl: typeof fetch = fetch,
+    private readonly fetchImpl: typeof fetch = (input, init) =>
+      fetch(input, init),
   ) {}
 
   async send(opts: ApnsSendOptions): Promise<ApnsResult> {
-    const res = await this.fetchImpl(`${this.host}/3/device/${opts.token}`, {
+    // Called unbound: Workers throw "Illegal invocation" when fetch runs with any other `this`.
+    const send = this.fetchImpl;
+    const res = await send(`${this.host}/3/device/${opts.token}`, {
       method: "POST",
       headers: {
         authorization: `bearer ${await this.tokens.get()}`,

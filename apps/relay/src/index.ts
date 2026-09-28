@@ -42,7 +42,9 @@ function required(env: Env, name: keyof Env): string {
   return value;
 }
 
-export function createApp(fetchImpl: typeof fetch = fetch) {
+export function createApp(
+  fetchImpl: typeof fetch = (input, init) => fetch(input, init),
+) {
   // One per isolate, so the signed JWT is reused across requests as Apple asks.
   let relay: Relay | null = null;
   const relayFor = (env: Env): Relay => {
