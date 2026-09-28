@@ -278,8 +278,13 @@ private func searchFieldStack(
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .foregroundStyle(Theme.faint)
+                    // A 44pt hit area without growing the field.
+                    .padding(12)
+                    .contentShape(Rectangle())
+                    .padding(-12)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Clear")
         }
     }
     .padding(.horizontal, 12)

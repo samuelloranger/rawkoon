@@ -203,6 +203,7 @@ struct ApiKeysAdminView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showCreate = true } label: { Image(systemName: "plus") }
+                    .accessibilityLabel("New API key")
             }
         }
         .sheet(isPresented: $showCreate) {

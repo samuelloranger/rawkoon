@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ListeningStatsView: View {
     let stats: ListeningStats
+    @ScaledMetric(relativeTo: .caption2) private var weekdaySize: CGFloat = 10
 
     var body: some View {
         ScrollView {
@@ -58,7 +59,7 @@ struct ListeningStatsView: View {
                 }
             }
             Text(weekday)
-                .font(.system(size: 10))
+                .font(.system(size: weekdaySize))
                 .foregroundStyle(Theme.faint)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)

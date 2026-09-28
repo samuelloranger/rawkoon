@@ -443,6 +443,7 @@ struct DiscoveryBookDetailView: View {
             try await client.addDiscoveryBook(book)
             added = true
             model.toast(String(localized: "Added to library."), style: .success)
+            model.requestPushAuthorization()
         } catch {
             model.toast(settingsErrorMessage(error), style: .error)
         }

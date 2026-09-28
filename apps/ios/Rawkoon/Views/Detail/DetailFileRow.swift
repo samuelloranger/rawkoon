@@ -10,6 +10,7 @@ struct DetailFileRow: View {
     enum Mode { case movie, episode }
 
     @Environment(AppModel.self) private var model
+    @ScaledMetric(relativeTo: .caption2) private var badgeSize: CGFloat = 9
 
     let file: LibraryFileInfo
     let mode: Mode
@@ -218,7 +219,7 @@ struct DetailFileRow: View {
 
     private func trackBadge(_ text: String, color: Color) -> some View {
         Text(text)
-            .font(.system(size: 9, weight: .semibold))
+            .font(.system(size: badgeSize, weight: .semibold))
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
             .background(color.opacity(0.15), in: Capsule())
