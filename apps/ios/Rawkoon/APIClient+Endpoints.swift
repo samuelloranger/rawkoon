@@ -40,6 +40,14 @@ nonisolated enum Endpoints {
         ])
     }
 
+    static func libraryRandom(limit: Int, exclude: [Int] = []) -> Endpoint<LibraryRandomResponse> {
+        Endpoint(path: "/api/library/random", query: [
+            "limit": String(limit),
+            "exclude": exclude.isEmpty ? nil : exclude.map(String.init).joined(separator: ","),
+            "title_language": APIClient.titleLanguage,
+        ])
+    }
+
     static func recentlyAdded(limit: Int = 24) -> Endpoint<LibraryListResponse> {
         libraryList(limit: limit, sortBy: "added_at", sortDir: "desc")
     }

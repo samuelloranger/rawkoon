@@ -113,6 +113,11 @@ extension APIClient {
         ))
     }
 
+    /// Random titles with something downloaded, avoiding `exclude` while enough others remain.
+    func libraryRandom(limit: Int, exclude: [Int] = []) async throws -> [LibraryMedia] {
+        try await get(Endpoints.libraryRandom(limit: limit, exclude: exclude)).items
+    }
+
     func libraryItem(id: Int) async throws -> LibraryMedia {
         let response: LibraryItemResponse = try await get(
             "/api/library/item/\(id)",
