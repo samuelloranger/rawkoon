@@ -41,9 +41,32 @@ const listQuery = z.object({
   title_language: z.string().optional(),
 });
 
+const randomQuery = z.object({
+  limit: z.coerce.number().optional(),
+  exclude: z.string().optional(),
+  title_language: z.string().optional(),
+});
+
+const watchableWhere = Prisma.sql`(status IN ('downloaded', 'upgrading') OR downloaded_episode_count > 0)`;
+
+async function randomWatchableIds(
+  take: number,
+  exclude: number[],
+): Promise<number[]> {
+  const notIn =
+    exclude.length > 0
+      ? Prisma.sql`AND id NOT IN (${Prisma.join(exclude)})`
+      : Prisma.empty;
+  const rows = await prisma.$queryRaw<{ id: number }[]>(
+    Prisma.sql`SELECT id FROM library_media WHERE ${watchableWhere} ${notIn} ORDER BY random() LIMIT ${take}`,
+  );
+  return rows.map((r) => r.id);
+}
+
 /**
  * Core CRUD: list, add, delete, and single-item fetch.
  * GET /api/library
+ * GET /api/library/random
  * POST /api/library
  * DELETE /api/library/:id
  * GET /api/library/item/:id
@@ -170,6 +193,38 @@ export const libraryListRoutes = new Hono<Env>()
       });
     } catch {
       return serverError("Failed to fetch library");
+    }
+  })
+
+  // Random titles with something playable; `exclude` is tried first, then topped up when too few remain.
+  .get("/random", requireUser, queryV(randomQuery), async (c) => {
+    const query = c.req.valid("query");
+    try {
+      const take = Math.min(Math.max(1, query.limit ?? 6), 24);
+      const exclude = (query.exclude ?? "")
+        .split(",")
+        .map((v) => Number.parseInt(v, 10))
+        .filter((v) => Number.isInteger(v) && v > 0)
+        .slice(0, 200);
+      const ids = await randomWatchableIds(take, exclude);
+      if (ids.length < take && exclude.length > 0) {
+        const more = await randomWatchableIds(take - ids.length, ids);
+        ids.push(...more);
+      }
+      const rows = await prisma.libraryMedia.findMany({
+        where: { id: { in: ids } },
+        include: libraryMediaInclude,
+      });
+      const byId = new Map(rows.map((r) => [r.id, r]));
+      const titleLanguage = normalizeTitleLanguage(query.title_language);
+      return ok({
+        items: ids
+          .map((id) => byId.get(id))
+          .filter((r): r is (typeof rows)[number] => r !== undefined)
+          .map((r) => mapLibraryMedia(r, titleLanguage)),
+      });
+    } catch {
+      return serverError("Failed to fetch random library items");
     }
   })
 

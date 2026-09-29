@@ -82,24 +82,22 @@ final class WidgetSnapshotWriter {
         save(snapshot)
     }
 
-    /// Draws a fresh pool of library titles once a day; the widget rotates through it every six hours.
+    /// Draws a fresh pool of library titles each calendar day; the widget rotates through it every six hours.
     func updateWatch(model: AppModel) async {
         let current = generation
         let previous = WidgetSnapshotStore.read()
         if let pool = previous.watch, !pool.isEmpty,
-           let rolled = previous.watchRolledAt, Date().timeIntervalSince(rolled) < 24 * 60 * 60
+           let rolled = previous.watchRolledAt, Calendar.current.isDateInToday(rolled)
         {
             return
         }
-        guard let client = model.api(), let head = try? await client.libraryList(page: 1, limit: 1) else { return }
-        let total = (head.movieCount ?? 0) + (head.showCount ?? 0)
+        // Six six-hour slots span 36h, so the same hour tomorrow never lands on the same pick.
+        let previousIds = (previous.watch ?? []).map(\.libraryId)
+        guard let client = model.api(),
+              let items = try? await client.libraryRandom(limit: 6, exclude: previousIds)
+        else { return }
         var picks: [WidgetWatchPick] = []
-        // One-item pages at random offsets: the list API has no random order.
-        for index in Array(0 ..< total).shuffled().prefix(16) {
-            guard picks.count < 4 else { break }
-            guard let item = try? await client.libraryList(page: index + 1, limit: 1).items.first,
-                  item.status == "downloaded" || item.status == "upgrading" || (item.downloadedEpisodeCount ?? 0) > 0
-            else { continue }
+        for item in items {
             let kind = item.type == "show" ? String(localized: "Series") : String(localized: "Movie")
             let url = model.absoluteURL(item.backdropUrl ?? item.posterUrl)
             await picks.append(WidgetWatchPick(

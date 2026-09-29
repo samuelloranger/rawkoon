@@ -292,6 +292,10 @@ nonisolated struct LibraryListResponse: Decodable, Sendable {
     let hasMore: Bool?
 }
 
+nonisolated struct LibraryRandomResponse: Decodable, Sendable {
+    let items: [LibraryMedia]
+}
+
 /// Response shared by the item/season/episode manual-search endpoints
 /// (`libraryGrabRoutes.ts` — `LibrarySearchResponse` in `library.ts`).
 nonisolated struct LibrarySearchResponse: Decodable, Sendable {
