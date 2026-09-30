@@ -5,6 +5,7 @@ import {
   badRequest,
   conflict,
   notFound,
+  serviceUnavailable,
   ok,
   serverError,
 } from "@rawkoon/api/errors";
@@ -236,6 +237,8 @@ export const transcodeRoutes = new Hono<Env>()
     if (!id) return badRequest("Invalid job id");
     const r = await freeSeededSource(id);
     if (r.status === "not_found") return notFound("Job not found");
+    if (r.status === "unavailable")
+      return serviceUnavailable("Download client is unreachable");
     if (r.status === "not_done")
       return badRequest("Only a finished re-encode can free its source");
     return ok({
