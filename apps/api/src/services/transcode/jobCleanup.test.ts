@@ -9,6 +9,7 @@ import {
 
 function freeDeps(over: Partial<FreeSourceDeps> = {}) {
   const released: string[] = [];
+  const marked: number[] = [];
   const deps: FreeSourceDeps = {
     loadJob: async () => ({ status: "done", mediaId: 5, episodeId: null }),
     heldHashes: async () => ["aa", "bb"],
@@ -16,13 +17,16 @@ function freeDeps(over: Partial<FreeSourceDeps> = {}) {
       { hash: "aa", isPrivate: true, targetMet: false },
       { hash: "bb", isPrivate: false, targetMet: false },
     ],
+    markFreed: async (id) => {
+      marked.push(id);
+    },
     release: async (hash) => {
       released.push(hash);
       return { status: "released", freedBytes: 100 };
     },
     ...over,
   };
-  return { deps, released };
+  return { deps, released, marked };
 }
 
 describe("freeSeededSource", () => {
@@ -49,6 +53,36 @@ describe("freeSeededSource", () => {
       freedBytes: 0,
       skipped: 1,
     });
+  });
+  it("marks the history row as no longer sharing once everything is released", async () => {
+    const { deps, marked } = freeDeps();
+    await freeSeededSource(4, deps);
+    expect(marked).toEqual([4]);
+  });
+  it("marks a row whose torrents are already gone", async () => {
+    const { deps, marked } = freeDeps({
+      release: async () => ({ status: "not_found" }),
+    });
+    expect(await freeSeededSource(4, deps)).toMatchObject({
+      status: "ok",
+      torrents: 0,
+      skipped: 0,
+    });
+    expect(marked).toEqual([4]);
+  });
+  it("keeps the row as sharing while a torrent is left in place", async () => {
+    const { deps, marked } = freeDeps({
+      release: async () => ({ status: "adopted" }),
+    });
+    await freeSeededSource(4, deps);
+    expect(marked).toEqual([]);
+  });
+  it("reports an unreachable download client instead of nothing to free", async () => {
+    const { deps, marked } = freeDeps({
+      release: async () => ({ status: "unavailable" }),
+    });
+    expect(await freeSeededSource(4, deps)).toEqual({ status: "unavailable" });
+    expect(marked).toEqual([]);
   });
   it("only applies to a finished re-encode", async () => {
     const { deps, released } = freeDeps({

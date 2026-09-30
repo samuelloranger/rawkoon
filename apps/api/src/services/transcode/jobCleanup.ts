@@ -17,6 +17,7 @@ import { remapPath } from "@rawkoon/api/utils/medias/mediainfoScanner";
 
 export type FreeSourceResult =
   | { status: "ok"; torrents: number; freedBytes: number; skipped: number }
+  | { status: "unavailable" }
   | { status: "not_found" }
   | { status: "not_done" };
 
@@ -41,6 +42,8 @@ export interface FreeSourceDeps {
   heldHashes(mediaId: number, episodeId: number | null): Promise<string[]>;
   inspect(mediaId: number, episodeId: number | null): Promise<HeldTorrent[]>;
   release(hash: string): Promise<ManualReleaseResult>;
+  /** Nothing holds the old file any more, so the history row stops saying it is sharing. */
+  markFreed(jobId: number): Promise<void>;
 }
 
 async function heldRows(mediaId: number, episodeId: number | null) {
@@ -118,6 +121,12 @@ const defaultFreeDeps: FreeSourceDeps = {
     });
   },
   release: (hash) => releaseTorrentNow(hash),
+  markFreed: async (jobId) => {
+    await prisma.transcodeJob.update({
+      where: { id: jobId },
+      data: { sourceNlink: 1 },
+    });
+  },
 };
 
 /** What Free space would remove, so the confirmation can warn about private trackers. */
@@ -159,10 +168,16 @@ export async function freeSeededSource(
     if (r.status === "released") {
       torrents++;
       freedBytes += r.freedBytes ?? 0;
-    } else {
+    } else if (r.status === "unavailable") {
+      // Not "nothing to free": the client is down, so nothing was checked.
+      return { status: "unavailable" };
+    } else if (r.status !== "not_found") {
+      // Adopted (the user's own) or still downloading: left in place.
       skipped++;
     }
   }
+  // Only claim the space is free when no torrent was left holding it.
+  if (skipped === 0) await deps.markFreed(jobId);
   return { status: "ok", torrents, freedBytes, skipped };
 }
 
