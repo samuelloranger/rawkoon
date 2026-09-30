@@ -6,6 +6,8 @@ import {
 } from "@tanstack/react-query";
 import type {
   TranscodeCapabilities,
+  TranscodeDiscardResponse,
+  TranscodeFreeSourceResponse,
   TranscodeEstimate,
   TranscodeJobSettings,
   TranscodeJobsResponse,
@@ -149,6 +151,17 @@ export function useTranscodeJobAction() {
     isPending: run.isPending,
     cancel: (id: number) =>
       run.mutateAsync({ url: TRANSCODE_ENDPOINTS.JOB(id), method: "DELETE" }),
+    freeSource: (id: number) =>
+      run.mutateAsync({
+        url: TRANSCODE_ENDPOINTS.JOB_FREE_SOURCE(id),
+        method: "POST",
+        body: {},
+      }) as Promise<TranscodeFreeSourceResponse>,
+    discard: (id: number) =>
+      run.mutateAsync({
+        url: TRANSCODE_ENDPOINTS.HISTORY_ITEM(id),
+        method: "DELETE",
+      }) as Promise<TranscodeDiscardResponse>,
     retry: (id: number) =>
       run.mutateAsync({
         url: TRANSCODE_ENDPOINTS.JOB_RETRY(id),

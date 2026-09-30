@@ -2666,6 +2666,22 @@
       "size": "Taille",
       "estWas": "Estimé",
       "cancelJob": "Annuler",
+      "freeSource": {
+        "button": "Libérer l'espace",
+        "title": "Libérer l'espace de l'ancien fichier ?",
+        "description": "Ceci retire le torrent de {{title}} du client de téléchargement et supprime l'ancien fichier, donc il cesse d'être partagé. La copie réencodée de votre bibliothèque n'est pas touchée.",
+        "confirm": "Retirer le torrent et le fichier",
+        "done_one": "{{count}} torrent retiré, {{size}} libérés.",
+        "done_other": "{{count}} torrents retirés, {{size}} libérés.",
+        "nothing": "Aucun torrent ne retient plus l'ancien fichier."
+      },
+      "discard": {
+        "button": "Supprimer",
+        "title": "Supprimer ce réencodage échoué ?",
+        "description": "Ceci retire {{title}} de l'historique et supprime le fichier partiel qu'il a laissé. Votre fichier de bibliothèque n'est pas touché.",
+        "confirm": "Supprimer",
+        "done": "Supprimé."
+      },
       "queue": "File",
       "queueHint": "Glisser pour réordonner · les lots restent groupés",
       "emptyQueue": "Rien en file. Ouvrez un film ou une série et choisissez Réencoder.",
