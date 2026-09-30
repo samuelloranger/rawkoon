@@ -92,3 +92,9 @@ nonisolated struct TranscodeFreeSourceDTO: Decodable, Sendable {
     let freedBytes: Int64
     let skipped: Int
 }
+
+/// Reply of `GET /api/transcode/jobs/:id/free-source`.
+nonisolated struct TranscodeFreeSourcePreviewDTO: Decodable, Sendable {
+    let torrents: Int
+    let privateUnmet: Int
+}

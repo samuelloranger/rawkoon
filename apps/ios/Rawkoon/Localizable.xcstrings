@@ -10887,6 +10887,17 @@
           }
         }
       }
+    },
+    "%lld torrent(s) on a private tracker haven't reached their seed target yet. Removing them now can cost ratio or count as a hit-and-run.\n\nThis removes the torrent for %@ from the download client and deletes the old file, so it stops sharing. The re-encoded copy in your library is not touched.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld torrent(s) d’un tracker privé n’ont pas encore atteint leur cible de partage. Les retirer maintenant peut coûter du ratio ou compter comme un hit-and-run.\n\nCeci retire le torrent de %@ du client de téléchargement et supprime l’ancien fichier, donc il cesse d’être partagé. La copie réencodée de votre bibliothèque n’est pas touchée."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

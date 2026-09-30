@@ -23,6 +23,7 @@ struct ReencodeAdminView: View {
     @State private var confirmCancel: TranscodeJob?
     @State private var confirmClear = false
     @State private var confirmFree: TranscodeJob?
+    @State private var privateUnmet = 0
     @State private var confirmDiscard: TranscodeJob?
 
     private var running: TranscodeJob? {
@@ -121,7 +122,11 @@ struct ReencodeAdminView: View {
         ) { job in
             Button("Remove torrent and file", role: .destructive) { Task { await freeSource(job) } }
         } message: { job in
-            Text("This removes the torrent for \(job.title) from the download client and deletes the old file, so it stops sharing. The re-encoded copy in your library is not touched.")
+            if privateUnmet > 0 {
+                Text("\(privateUnmet) torrent(s) on a private tracker haven't reached their seed target yet. Removing them now can cost ratio or count as a hit-and-run.\n\nThis removes the torrent for \(job.title) from the download client and deletes the old file, so it stops sharing. The re-encoded copy in your library is not touched.")
+            } else {
+                Text("This removes the torrent for \(job.title) from the download client and deletes the old file, so it stops sharing. The re-encoded copy in your library is not touched.")
+            }
         }
         .rawkoonConfirm(
             "Delete this failed re-encode?",
@@ -294,7 +299,7 @@ struct ReencodeAdminView: View {
                             .requiresConnection(model.isOffline)
                     }
                     if job.status == "done", (job.sourceNlink ?? 1) > 1 {
-                        Button("Free space") { confirmFree = job }.tint(Theme.terracotta)
+                        Button("Free space") { Task { await askFree(job) } }.tint(Theme.terracotta)
                             .requiresConnection(model.isOffline)
                     }
                 }
@@ -526,6 +531,15 @@ struct ReencodeAdminView: View {
 
     private func retry(_ job: TranscodeJob) async {
         await run(job.id, failure: String(localized: "Couldn't retry.")) { try await $0.retryTranscodeJob(id: job.id) }
+    }
+
+    /// Fetches what would go first, so the confirmation can warn about private trackers.
+    private func askFree(_ job: TranscodeJob) async {
+        privateUnmet = 0
+        if let client = model.api(), let preview = try? await client.transcodeFreeSourcePreview(id: job.id) {
+            privateUnmet = preview.privateUnmet
+        }
+        confirmFree = job
     }
 
     private func freeSource(_ job: TranscodeJob) async {

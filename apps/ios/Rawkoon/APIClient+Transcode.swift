@@ -47,6 +47,11 @@ extension APIClient {
         try await postExpectOK("/api/transcode/jobs/\(id)/retry", body: Empty())
     }
 
+    /// What Free space would remove, for the private-tracker warning.
+    func transcodeFreeSourcePreview(id: Int) async throws -> TranscodeFreeSourcePreviewDTO {
+        try await get("/api/transcode/jobs/\(id)/free-source")
+    }
+
     /// Removes the torrents still holding a finished job's old file, and that file.
     func freeTranscodeSource(id: Int) async throws -> TranscodeFreeSourceDTO {
         nonisolated struct Empty: Encodable {}
