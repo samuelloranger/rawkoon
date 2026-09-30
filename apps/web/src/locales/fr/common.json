@@ -789,6 +789,7 @@
       "tabs": {
         "qualityProfiles": "Profils de qualité",
         "librarySettings": "Paramètres de la bibliothèque",
+        "seeding": "Partage",
         "history": "Historique",
         "import": "Importation",
         "customFormats": "Formats personnalisés"
@@ -1507,6 +1508,11 @@
     },
     "seeding": {
       "title": "Partage",
+      "viewTorrents": "Voir les torrents en partage",
+      "statusOn": "La libération automatique est activée",
+      "statusOff": "La libération automatique est désactivée",
+      "shared_one": "{{count}} torrent en partage",
+      "shared_other": "{{count}} torrents en partage",
       "description": "Après l'import, Rawkoon garde chaque torrent en partage jusqu'à ce qu'il atteigne son ratio, puis le retire du client. La copie de votre bibliothèque est un lien physique, elle reste donc en place.",
       "enable": "Libérer les torrents automatiquement",
       "enableHint": "Désactivé, un torrent n'est retiré à l'import que s'il atteint déjà le ratio public.",
@@ -2453,6 +2459,7 @@
     }
   },
   "seeding": {
+    "rulesLink": "Règles de partage",
     "summaryOwed": "{{count}} doivent encore partager sur des trackers privés.",
     "summaryNext": "Le prochain sera libéré dans environ {{time}}.",
     "live": "En direct",

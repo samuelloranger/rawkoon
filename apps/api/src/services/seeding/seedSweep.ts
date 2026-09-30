@@ -138,6 +138,25 @@ export function planSeedReleases(
   return decisions;
 }
 
+/** What one sweep would release right now; move mode is excluded because the real sweep only applies it to a just-imported torrent. */
+export function previewSeedRelease(
+  rows: SweepRow[],
+  torrents: NormalizedTorrent[],
+  ctx: SweepContext,
+): { count: number; bytes: number } {
+  const releases = planSeedReleases(rows, torrents, {
+    ...ctx,
+    moveMode: false,
+  }).filter((d) => d.action === "release");
+  return {
+    count: releases.length,
+    bytes: releases.reduce(
+      (sum, d) => sum + (d.action === "release" ? d.torrent.sizeBytes : 0),
+      0,
+    ),
+  };
+}
+
 export async function loadSeedContext(): Promise<
   RuleContext & { moveMode: boolean }
 > {

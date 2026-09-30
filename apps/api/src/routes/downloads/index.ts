@@ -26,7 +26,7 @@ import {
 import {
   defaultSweepDeps,
   loadSeedContext,
-  planSeedReleases,
+  previewSeedRelease,
   releaseTorrentNow,
 } from "@rawkoon/api/services/seeding/seedSweep";
 import {
@@ -194,7 +194,7 @@ export const downloadsRoutes = new Hono<Env>()
         let wouldReleaseNow: { count: number; bytes: number } | undefined;
         if (c.req.valid("query").preview === "1") {
           const pendingHashes = await defaultSweepDeps.loadPendingHashes();
-          const plan = planSeedReleases(
+          wouldReleaseNow = previewSeedRelease(
             held.map((h) => ({
               id: h.id,
               torrentHash: h.torrentHash,
@@ -203,15 +203,6 @@ export const downloadsRoutes = new Hono<Env>()
             torrents,
             { ...ctx, pendingHashes },
           );
-          const releases = plan.filter((d) => d.action === "release");
-          wouldReleaseNow = {
-            count: releases.length,
-            bytes: releases.reduce(
-              (sum, d) =>
-                sum + (d.action === "release" ? d.torrent.sizeBytes : 0),
-              0,
-            ),
-          };
         }
 
         return ok({

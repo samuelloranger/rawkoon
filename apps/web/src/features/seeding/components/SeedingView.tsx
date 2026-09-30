@@ -89,10 +89,20 @@ export function SeedingView() {
             {t("seeding.disabled.title")}
           </span>
           <a
-            href="/settings?tab=media&subtab=library-settings"
+            href="/settings?tab=media&subtab=seeding"
             className="shrink-0 text-primary-400 underline underline-offset-2"
           >
             {t("seeding.disabled.action")}
+          </a>
+        </div>
+      )}
+      {data.enabled && (
+        <div className="flex justify-end text-xs">
+          <a
+            href="/settings?tab=media&subtab=seeding"
+            className="text-primary-400 underline underline-offset-2"
+          >
+            {t("seeding.rulesLink")}
           </a>
         </div>
       )}

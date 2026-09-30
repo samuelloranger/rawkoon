@@ -6,6 +6,7 @@ import type {
 import {
   abandonPendingDownloads,
   planSeedReleases,
+  previewSeedRelease,
   releaseTorrentNow,
   runSeedSweep,
   type SweepContext,
@@ -330,5 +331,27 @@ describe("abandonPendingDownloads", () => {
       protectedHashes: async () => new Set([H1]),
     });
     expect(removed).toEqual([]);
+  });
+});
+
+describe("previewSeedRelease", () => {
+  const rows = [
+    { id: 1, torrentHash: H1, indexer: "Harbor" },
+    { id: 2, torrentHash: H2, indexer: "Harbor" },
+  ];
+  const torrents = [
+    t({ hash: H1, ratio: 1.5 }),
+    t({ hash: H2, ratio: 0.1, sizeBytes: 2 * GB }),
+  ];
+  it("counts only torrents whose target is met", () => {
+    expect(previewSeedRelease(rows, torrents, baseCtx)).toEqual({
+      count: 1,
+      bytes: GB,
+    });
+  });
+  it("does not treat every held torrent as released in move mode", () => {
+    expect(
+      previewSeedRelease(rows, torrents, { ...baseCtx, moveMode: true }),
+    ).toEqual({ count: 1, bytes: GB });
   });
 });
