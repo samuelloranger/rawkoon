@@ -31,6 +31,11 @@ import { prismaTranscodeRepo } from "@rawkoon/api/services/transcode/repo";
 import { transcodeLiveActivity } from "@rawkoon/api/services/transcode/liveActivity";
 import { transcodeDispatcher } from "@rawkoon/api/services/transcode/index";
 import {
+  discardFailedJob,
+  freeSeededSource,
+  previewFreeSource,
+} from "@rawkoon/api/services/transcode/jobCleanup";
+import {
   enqueueBodySchema,
   estimateBodySchema,
   moveBodySchema,
@@ -216,6 +221,30 @@ export const transcodeRoutes = new Hono<Env>()
       : notFound("Queued job not found");
   })
 
+  .get("/jobs/:id/free-source", async (c) => {
+    const id = idParam(c.req.param("id"));
+    if (!id) return badRequest("Invalid job id");
+    const r = await previewFreeSource(id);
+    if (r.status === "not_found") return notFound("Job not found");
+    if (r.status === "not_done")
+      return badRequest("Only a finished re-encode can free its source");
+    return ok({ torrents: r.torrents, private_unmet: r.privateUnmet });
+  })
+
+  .post("/jobs/:id/free-source", async (c) => {
+    const id = idParam(c.req.param("id"));
+    if (!id) return badRequest("Invalid job id");
+    const r = await freeSeededSource(id);
+    if (r.status === "not_found") return notFound("Job not found");
+    if (r.status === "not_done")
+      return badRequest("Only a finished re-encode can free its source");
+    return ok({
+      torrents: r.torrents,
+      freed_bytes: r.freedBytes,
+      skipped: r.skipped,
+    });
+  })
+
   .post("/jobs/:id/retry", async (c) => {
     const id = idParam(c.req.param("id"));
     if (!id) return badRequest("Invalid job id");
@@ -233,6 +262,18 @@ export const transcodeRoutes = new Hono<Env>()
     jsonV(z.object({ top: z.literal(true) })),
     async (c) => ok({ moved: await moveBatchTop(c.req.param("batchId")) }),
   )
+
+  .delete("/history/:id", async (c) => {
+    const id = idParam(c.req.param("id"));
+    if (!id) return badRequest("Invalid job id");
+    const r = await discardFailedJob(id);
+    if (r.status === "not_found") return notFound("Job not found");
+    if (r.status === "not_failed")
+      return badRequest("Only a failed or cancelled re-encode can be deleted");
+    if (r.status === "busy")
+      return conflict("Another job is encoding this file right now");
+    return ok({ freed_bytes: r.freedBytes });
+  })
 
   .delete("/history", async () => ok({ removed: await clearHistory() }))
 

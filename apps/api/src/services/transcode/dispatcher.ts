@@ -49,6 +49,7 @@ export class TranscodeDispatcher {
   private timer: ReturnType<typeof setInterval> | null = null;
   private running: {
     id: number;
+    mediaFileId: number | null;
     abort: AbortController;
     live: TranscodeLiveProgress | null;
   } | null = null;
@@ -84,6 +85,11 @@ export class TranscodeDispatcher {
 
   runningJobId(): number | null {
     return this.running?.id ?? null;
+  }
+
+  /** The library file the running job is writing next to, if any. */
+  encodingFileId(): number | null {
+    return this.running?.mediaFileId ?? null;
   }
 
   live(jobId: number): TranscodeLiveProgress | null {
@@ -224,7 +230,12 @@ export class TranscodeDispatcher {
     thresholds: { avg: number; min: number },
   ): Promise<void> {
     const abort = new AbortController();
-    this.running = { id: job.id, abort, live: null };
+    this.running = {
+      id: job.id,
+      mediaFileId: job.mediaFileId,
+      abort,
+      live: null,
+    };
     let lastPersist = 0;
     let lastActivityUpdate = 0;
     let currentStep: TranscodeStep = "preflight";

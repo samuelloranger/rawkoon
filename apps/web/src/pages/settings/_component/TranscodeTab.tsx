@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/confirm/ConfirmContext";
 import type { TranscodeJob, TranscodeStep } from "@rawkoon/shared/types";
 import { Switch } from "@/components/ui/switch";
 import { formatBytes, formatDuration } from "@/features/transcode/format";
@@ -78,6 +79,61 @@ export function TranscodeTab() {
     }
     return out;
   }, [queued]);
+
+  const { confirm } = useConfirm();
+
+  const freeSource = async (id: number, title: string) => {
+    // The private-tracker warning needs the server's view of what would go.
+    const preview = await act.previewFreeSource(id).catch(() => null);
+    confirm({
+      variant: "destructive",
+      title: t("transcode.admin.freeSource.title"),
+      description: (
+        <>
+          <p>{t("transcode.admin.freeSource.description", { title })}</p>
+          {preview && preview.private_unmet > 0 && (
+            <p className="mt-2 font-medium text-amber-200">
+              {t("transcode.admin.freeSource.privateWarning", {
+                count: preview.private_unmet,
+              })}
+            </p>
+          )}
+        </>
+      ),
+      confirmLabel: t("transcode.admin.freeSource.confirm"),
+      onConfirm: async () => {
+        try {
+          const r = await act.freeSource(id);
+          toast.success(
+            r.torrents > 0
+              ? t("transcode.admin.freeSource.done", {
+                  count: r.torrents,
+                  size: formatBytes(r.freed_bytes),
+                })
+              : t("transcode.admin.freeSource.nothing"),
+          );
+        } catch {
+          toast.error(t("transcode.admin.actionFailed"));
+        }
+      },
+    });
+  };
+
+  const discard = (id: number, title: string) =>
+    confirm({
+      variant: "destructive",
+      title: t("transcode.admin.discard.title"),
+      description: t("transcode.admin.discard.description", { title }),
+      confirmLabel: t("transcode.admin.discard.confirm"),
+      onConfirm: async () => {
+        try {
+          await act.discard(id);
+          toast.success(t("transcode.admin.discard.done"));
+        } catch {
+          toast.error(t("transcode.admin.actionFailed"));
+        }
+      },
+    });
 
   const safe = (p: Promise<unknown>) =>
     p.catch(() => toast.error(t("transcode.admin.actionFailed")));
@@ -490,6 +546,15 @@ export function TranscodeTab() {
                       {took != null ? formatDuration(took) : "–"}
                     </td>
                     <td className="px-2 text-right">
+                      {j.status === "done" && seeding && (
+                        <button
+                          type="button"
+                          onClick={() => freeSource(j.id, j.title)}
+                          className="rounded px-1.5 py-1 text-neutral-400 hover:bg-neutral-950"
+                        >
+                          {t("transcode.admin.freeSource.button")}
+                        </button>
+                      )}
                       {(j.status === "failed" || j.status === "cancelled") && (
                         <button
                           type="button"
@@ -497,6 +562,15 @@ export function TranscodeTab() {
                           className="rounded px-1.5 py-1 text-neutral-400 hover:bg-neutral-950"
                         >
                           ↻ {t("transcode.admin.retry")}
+                        </button>
+                      )}
+                      {(j.status === "failed" || j.status === "cancelled") && (
+                        <button
+                          type="button"
+                          onClick={() => discard(j.id, j.title)}
+                          className="rounded px-1.5 py-1 text-red-400 hover:bg-neutral-950"
+                        >
+                          {t("transcode.admin.discard.button")}
                         </button>
                       )}
                     </td>

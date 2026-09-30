@@ -157,3 +157,19 @@ export interface TranscodeSummary {
 export interface TranscodeJobsResponse {
   jobs: TranscodeJob[];
 }
+
+export interface TranscodeFreeSourceResponse {
+  torrents: number;
+  freed_bytes: number;
+  skipped: number;
+}
+
+export interface TranscodeDiscardResponse {
+  freed_bytes: number;
+}
+
+export interface TranscodeFreeSourcePreview {
+  torrents: number;
+  /** Held torrents on a private tracker whose seed target is not reached yet. */
+  private_unmet: number;
+}
