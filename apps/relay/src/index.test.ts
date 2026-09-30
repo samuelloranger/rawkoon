@@ -171,6 +171,102 @@ describe("POST /push", () => {
   });
 });
 
+function liveActivity(env: Env, fetchImpl: typeof fetch, body: unknown) {
+  return createApp(fetchImpl).request(
+    "/liveactivity",
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "cf-connecting-ip": "203.0.113.7",
+      },
+      body: JSON.stringify(body),
+    },
+    env,
+  );
+}
+
+const liveState = {
+  progress: 0.4,
+  step: "encode",
+  etaSeconds: 120,
+  status: "running",
+};
+
+describe("POST /liveactivity", () => {
+  test("starts an activity on the liveactivity topic and push type", async () => {
+    const { sent, fetchImpl } = apnsStub(
+      () => new Response(null, { status: 200 }),
+    );
+    const res = await liveActivity(fakeEnv(pem), fetchImpl, {
+      event: "start",
+      token: TOKEN,
+      state: liveState,
+      attributes: { jobId: 7, title: "A title", codec: "hevc" },
+    });
+    expect(res.status).toBe(200);
+    const headers = sent[0]?.init.headers as Record<string, string>;
+    expect(headers["apns-topic"]).toBe(
+      "com.example.app.push-type.liveactivity",
+    );
+    expect(headers["apns-push-type"]).toBe("liveactivity");
+    expect(headers["apns-priority"]).toBe("10");
+    const aps = JSON.parse(String(sent[0]?.init.body)).aps;
+    expect(aps.event).toBe("start");
+    expect(aps["attributes-type"]).toBe("ReencodeActivityAttributes");
+  });
+
+  test("sends updates at low priority", async () => {
+    const { sent, fetchImpl } = apnsStub(
+      () => new Response(null, { status: 200 }),
+    );
+    await liveActivity(fakeEnv(pem), fetchImpl, {
+      event: "update",
+      token: TOKEN,
+      state: liveState,
+    });
+    const headers = sent[0]?.init.headers as Record<string, string>;
+    expect(headers["apns-priority"]).toBe("5");
+  });
+
+  test("rejects a caller-shaped body and an unknown event", async () => {
+    const { sent, fetchImpl } = apnsStub(
+      () => new Response(null, { status: 200 }),
+    );
+    for (const body of [
+      { event: "start", token: TOKEN, state: liveState },
+      { event: "nope", token: TOKEN, state: liveState },
+      { token: TOKEN, aps: { alert: "x" } },
+    ]) {
+      const res = await liveActivity(fakeEnv(pem), fetchImpl, body);
+      expect(res.status).toBe(400);
+    }
+    expect(sent).toHaveLength(0);
+  });
+
+  test("refuses a request that did not come through the edge", async () => {
+    const res = await createApp().request(
+      "/liveactivity",
+      { method: "POST", body: "{}" },
+      fakeEnv(pem),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  test("maps an unregistered token to 410", async () => {
+    const { fetchImpl } = apnsStub(
+      () => new Response('{"reason":"Unregistered"}', { status: 410 }),
+    );
+    const res = await liveActivity(fakeEnv(pem), fetchImpl, {
+      event: "update",
+      token: TOKEN,
+      state: liveState,
+    });
+    expect(res.status).toBe(410);
+    expect((await res.json()) as unknown).toEqual({ error: "unregistered" });
+  });
+});
+
 describe("GET /health", () => {
   test("is healthy while the key signs", async () => {
     const res = await createApp().request("/health", {}, fakeEnv(pem));

@@ -18,6 +18,7 @@ Rate Limiting binding.
   - `400 { error: "rejected", reason }` APNs rejected the request
   - `403` the request didn't come through Cloudflare's edge
   - `429` / `503` / `502` rate-limited / upstream busy / upstream unavailable
+- `POST /liveactivity` — body `{ event: start|update|end, token, state, attributes? }` (`attributes` on `start` only); sent on the `<bundle>.push-type.liveactivity` topic with the same status contract as `/push`
 
 ## Config
 

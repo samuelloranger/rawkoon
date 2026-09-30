@@ -13,6 +13,8 @@ export interface ApnsSendOptions {
   payload: Record<string, unknown>;
   topic: string;
   collapseId?: string;
+  pushType?: "alert" | "liveactivity";
+  priority?: 5 | 10;
 }
 
 const TIMEOUT_MS = 10_000;
@@ -36,8 +38,8 @@ export class ApnsClient {
       headers: {
         authorization: `bearer ${await this.tokens.get()}`,
         "apns-topic": opts.topic,
-        "apns-push-type": "alert",
-        "apns-priority": "10",
+        "apns-push-type": opts.pushType ?? "alert",
+        "apns-priority": String(opts.priority ?? 10),
         ...(opts.collapseId ? { "apns-collapse-id": opts.collapseId } : {}),
         "content-type": "application/json",
       },
