@@ -307,7 +307,7 @@ public extension InteractiveSearchLogic {
         // non-English locale, or a foreign film whose English slot falls back to
         // the original. Detect the real language by matching the stored title
         // against the original title and the per-language translations, and
-        /// label the default option by that language instead of the slot.
+        // label the default option by that language instead of the slot.
         func normalizeTitle(_ value: String) -> String {
             value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         }
