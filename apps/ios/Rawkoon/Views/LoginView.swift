@@ -11,6 +11,10 @@ struct LoginView: View {
         hSizeClass == .regular
     }
 
+    private var fieldsReady: Bool {
+        !email.isEmpty && !password.isEmpty && !model.serverURL.isEmpty
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -173,8 +177,8 @@ struct LoginView: View {
             .background(Theme.apricot, in: RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
-        .disabled(model.loading || email.isEmpty || password.isEmpty || model.serverURL.isEmpty)
-        .opacity(email.isEmpty || password.isEmpty || model.serverURL.isEmpty ? 0.6 : 1)
+        .disabled(model.loading || !fieldsReady)
+        .opacity(fieldsReady ? 1 : 0.6)
     }
 
     private func ssoBlock(_ model: AppModel) -> some View {
@@ -281,10 +285,14 @@ struct LoginView: View {
                         }
                     }
                     .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
+                    .foregroundStyle(Theme.onAccent)
+                    .background(Theme.apricot, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-                .disabled(model.loading || email.isEmpty || password.isEmpty || model.serverURL.isEmpty)
-                .listRowBackground(Theme.apricot)
-                .foregroundStyle(Theme.onAccent)
+                .buttonStyle(.plain)
+                .disabled(model.loading || !fieldsReady)
+                .opacity(fieldsReady ? 1 : 0.6)
+                .listRowBackground(Color.clear)
             }
 
             if !model.ssoProviders.isEmpty {
