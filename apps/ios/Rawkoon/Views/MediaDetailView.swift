@@ -716,10 +716,8 @@ struct MediaDetailView: View {
         }
         if mediaType == "tv" {
             parts.append("\(details?.numberOfSeasons ?? 0) seasons")
-        } else if let runtime = details?.runtime, runtime > 0 {
-            let hours = runtime / 60
-            let minutes = runtime % 60
-            parts.append(hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m")
+        } else if let runtime = Formatters.runtimeMinutes(details?.runtime) {
+            parts.append(runtime)
         }
         if let genres = details?.genres, !genres.isEmpty {
             parts.append(genres.map(\.name).joined(separator: ", "))

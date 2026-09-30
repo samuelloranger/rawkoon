@@ -219,7 +219,7 @@
             let items = chapters.map { chapter -> CPListItem in
                 let item = CPListItem(
                     text: chapter.title,
-                    detailText: Self.chapterLength(chapter.durationSecs)
+                    detailText: Formatters.durationTimestampRounded(chapter.durationSecs)
                 )
                 item.isPlaying = chapter.index == currentIndex
                 item.handler = { [weak self] _, completion in
@@ -235,18 +235,6 @@
                 sections: [CPListSection(items: items)]
             )
             interfaceController?.pushTemplate(template, animated: true, completion: nil)
-        }
-
-        /// A chapter's length as `H:MM:SS` (dropping a leading zero hour → `M:SS`),
-        /// for the picker's detail line.
-        private static func chapterLength(_ seconds: Double) -> String {
-            let total = Int(seconds.rounded())
-            let hours = total / 3600
-            let minutes = (total % 3600) / 60
-            let secs = total % 60
-            return hours > 0
-                ? String(format: "%d:%02d:%02d", hours, minutes, secs)
-                : String(format: "%d:%02d", minutes, secs)
         }
     }
 #endif

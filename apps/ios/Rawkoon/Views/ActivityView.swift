@@ -268,8 +268,8 @@ struct ActivityView: View {
                     .foregroundStyle(Theme.apricotSoft)
                 Text("\(Int(row.live.progress * 100))%")
                     .foregroundStyle(Theme.muted)
-                if let eta = row.live.etaSeconds {
-                    Text("ETA \(formatETA(eta))")
+                if let eta = Formatters.etaSeconds(row.live.etaSeconds) {
+                    Text("ETA \(eta)")
                         .foregroundStyle(Theme.faint)
                 }
                 Spacer()
@@ -309,14 +309,6 @@ struct ActivityView: View {
             return Theme.importing
         }
         return Theme.muted
-    }
-
-    private func formatETA(_ seconds: Int) -> String {
-        let minutes = seconds / 60
-        if minutes >= 60 {
-            return "\(minutes / 60)h \(minutes % 60)m"
-        }
-        return "\(minutes)m"
     }
 
     private static func queueRows(

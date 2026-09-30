@@ -12,3 +12,4 @@ export * from "./languageTags";
 export * from "./byteRange";
 export * from "./bookFormats";
 export * from "./bookMetadataSources";
+export * from "./duration";

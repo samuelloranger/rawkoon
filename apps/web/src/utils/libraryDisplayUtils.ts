@@ -1,11 +1,8 @@
 import type { LibraryFileInfo } from "@rawkoon/shared/types";
+import { formatDurationCompactSeconds } from "@rawkoon/shared/utils";
 
 export function formatDuration(secs: number | null): string | null {
-  if (!secs) return null;
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+  return formatDurationCompactSeconds(secs);
 }
 
 export function formatResolution(

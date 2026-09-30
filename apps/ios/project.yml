@@ -165,6 +165,8 @@ targets:
     sources:
       - RawkoonWidgets
       - WidgetSupport/WidgetSnapshot.swift
+    dependencies:
+      - package: RawkoonKit
     info:
       path: RawkoonWidgets/Info.plist
       properties:

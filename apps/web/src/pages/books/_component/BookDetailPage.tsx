@@ -14,6 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import {
+  formatDurationCompactSeconds,
   providerHtmlParagraphs,
   type BookEdition,
   type BookEditionKind,
@@ -74,13 +75,6 @@ const formatBytes = (raw: string | null): string => {
   if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
   // Same rule as the list, so one book does not report two different sizes.
   return mb >= 10 ? `${Math.round(mb)} MB` : `${mb.toFixed(1)} MB`;
-};
-
-const formatDuration = (secs: number | null): string => {
-  if (!secs) return "—";
-  const h = Math.floor(secs / 3600);
-  const m = Math.round((secs % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
 
 /** Radix Select has no empty value, so "no profile" needs a sentinel. */
@@ -463,7 +457,9 @@ function EditionPanel({
                     {t("books.edition.duration")}
                   </dt>
                   <dd className="mt-0.5 text-neutral-200">
-                    {formatDuration(edition.duration_secs)}
+                    {formatDurationCompactSeconds(edition.duration_secs, {
+                      rounding: "round",
+                    }) ?? "—"}
                   </dd>
                 </div>
               )}

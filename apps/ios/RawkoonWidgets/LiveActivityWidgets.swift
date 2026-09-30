@@ -1,3 +1,4 @@
+import RawkoonKit
 import SwiftUI
 import WidgetKit
 #if !targetEnvironment(macCatalyst)
@@ -111,8 +112,8 @@ import WidgetKit
                         HStack {
                             Text(context.state.progress, format: .percent.precision(.fractionLength(0)))
                             Spacer()
-                            if let eta = context.state.etaSeconds {
-                                Text("~\(max(1, eta / 60)) min left")
+                            if let eta = Formatters.etaSeconds(context.state.etaSeconds) {
+                                Text("~\(eta) left")
                             }
                         }
                         .font(.caption2.monospacedDigit())

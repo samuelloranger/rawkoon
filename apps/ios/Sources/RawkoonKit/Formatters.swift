@@ -17,6 +17,25 @@ public enum Formatters {
         return "\(remaining)m"
     }
 
+    /// ActivityView / download history chips: seconds below a minute, then the
+    /// same compact hour/minute rendering as `durationCompact`.
+    ///
+    /// Returns nil when absent/invalid so callsites can omit the chip entirely.
+    public static func etaSeconds(_ seconds: Int?) -> String? {
+        guard let seconds, seconds >= 0 else { return nil }
+        if seconds < 60 {
+            return "\(seconds)s"
+        }
+        return durationCompact(Double(seconds))
+    }
+
+    /// Compact runtime label for TMDB "runtime" (in minutes) — shares the same
+    /// rendering as file durations (`durationCompact`).
+    public static func runtimeMinutes(_ minutes: Int?) -> String? {
+        guard let minutes, minutes > 0 else { return nil }
+        return durationCompact(Double(minutes * 60)) ?? "\(minutes)m"
+    }
+
     /// ContinueListeningView / BookView rendering: rounding, zero-padded, "0:00" fallback.
     public static func durationClock(_ seconds: Double) -> String {
         guard seconds.isFinite, seconds > 0 else { return "0:00" }
@@ -34,6 +53,20 @@ public enum Formatters {
     public static func durationTimestamp(_ seconds: Double) -> String {
         guard seconds.isFinite, seconds > 0 else { return "0:00" }
         let total = Int(seconds.rounded(.down))
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let secs = total % 60
+        if hours > 0 {
+            return "\(hours):\(String(format: "%02d:%02d", minutes, secs))"
+        }
+        return "\(minutes):\(String(format: "%02d", secs))"
+    }
+
+    /// PlayerView / CarPlay chapter lists: h:mm:ss past an hour, m:ss below,
+    /// "0:00" fallback. Rounds so short taps don't feel off-by-one.
+    public static func durationTimestampRounded(_ seconds: Double) -> String {
+        guard seconds.isFinite, seconds > 0 else { return "0:00" }
+        let total = Int(seconds.rounded())
         let hours = total / 3600
         let minutes = (total % 3600) / 60
         let secs = total % 60

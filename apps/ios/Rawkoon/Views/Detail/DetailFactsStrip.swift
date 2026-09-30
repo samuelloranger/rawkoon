@@ -1,3 +1,4 @@
+import RawkoonKit
 import SwiftUI
 
 /// A horizontally scrolling strip of at-a-glance facts (rating, runtime, year,
@@ -95,10 +96,8 @@ struct DetailFactsStrip: View {
             if let seasons = details?.numberOfSeasons, seasons > 0 {
                 list.append(Fact(id: "seasons", label: "Seasons", value: String(seasons)))
             }
-        } else if let runtime = details?.runtime, runtime > 0 {
-            let hours = runtime / 60
-            let minutes = runtime % 60
-            list.append(Fact(id: "runtime", label: "Runtime", value: hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"))
+        } else if let runtime = Formatters.runtimeMinutes(details?.runtime) {
+            list.append(Fact(id: "runtime", label: "Runtime", value: runtime))
         }
         if let status = details?.status, !status.isEmpty {
             list.append(Fact(id: "status", label: "Status", value: status.capitalized))

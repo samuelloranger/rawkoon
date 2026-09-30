@@ -11,6 +11,7 @@ import {
   Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatRuntimeMinutes } from "@rawkoon/shared/utils";
 import { libraryStatusPresentation } from "@/utils/libraryStatusPresentation";
 import type {
   LibraryMedia,
@@ -30,12 +31,6 @@ type Props = {
   onBack: () => void;
   onWatchlistToggle: () => void;
 };
-
-function formatRuntime(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ""}` : `${m}m`;
-}
 
 export function LibraryItemHero({
   item,
@@ -57,7 +52,7 @@ export function LibraryItemHero({
     detailsData?.primary_backdrop_url ??
     detailsData?.media_stills?.backdrops?.[0]?.url ??
     null;
-  const runtime = detailsData?.runtime ?? null;
+  const runtime = formatRuntimeMinutes(detailsData?.runtime ?? null);
   const genres = detailsData?.genres ?? [];
   const voteAverage = detailsData?.vote_average ?? null;
   const rtScore = ratingsData?.rotten_tomatoes ?? null;
@@ -146,10 +141,10 @@ export function LibraryItemHero({
               {item.year && (
                 <span className="text-xs text-white/55">{item.year}</span>
               )}
-              {runtime != null && (
+              {runtime && (
                 <span className="flex items-center gap-0.5 text-xs text-white/55">
                   <Clock size={10} />
-                  {formatRuntime(runtime)}
+                  {runtime}
                 </span>
               )}
               {detailsData?.number_of_seasons != null && (

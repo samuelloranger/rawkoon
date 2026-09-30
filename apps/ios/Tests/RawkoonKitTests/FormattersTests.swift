@@ -76,4 +76,41 @@ struct FormattersTests {
     @Test func listeningHoursUnpadded() {
         #expect(Formatters.listeningHours(3 * 3600 + 20 * 60) == "3h 20m")
     }
+
+    /// etaSeconds — seconds under a minute, then the same compact shape as file durations.
+    @Test func etaShowsSecondsUnderAMinute() {
+        #expect(Formatters.etaSeconds(0) == "0s")
+        #expect(Formatters.etaSeconds(30) == "30s")
+        #expect(Formatters.etaSeconds(59) == "59s")
+    }
+
+    @Test func etaUsesCompactPastAMinute() {
+        #expect(Formatters.etaSeconds(61) == "1m")
+        // Truncates, same as durationCompact — 90s is 1m, not a rounded 2m.
+        #expect(Formatters.etaSeconds(90) == "1m")
+        #expect(Formatters.etaSeconds(3600) == "1h 0m")
+        #expect(Formatters.etaSeconds(2 * 3600 + 5 * 60) == "2h 5m")
+    }
+
+    @Test func etaRejectsInvalid() {
+        #expect(Formatters.etaSeconds(nil) == nil)
+        #expect(Formatters.etaSeconds(-1) == nil)
+    }
+
+    @Test func runtimeMinutesMatchesCompact() {
+        #expect(Formatters.runtimeMinutes(45) == "45m")
+        #expect(Formatters.runtimeMinutes(60) == "1h 0m")
+        #expect(Formatters.runtimeMinutes(90) == "1h 30m")
+        #expect(Formatters.runtimeMinutes(0) == nil)
+        #expect(Formatters.runtimeMinutes(nil) == nil)
+    }
+
+    /// durationTimestampRounded — rounds, unlike durationTimestamp which floors.
+    @Test func timestampRoundedRoundsUp() {
+        #expect(Formatters.durationTimestampRounded(59.6) == "1:00")
+        #expect(Formatters.durationTimestampRounded(3661) == "1:01:01")
+        #expect(Formatters.durationTimestampRounded(125) == "2:05")
+        #expect(Formatters.durationTimestampRounded(0) == "0:00")
+        #expect(Formatters.durationTimestampRounded(.nan) == "0:00")
+    }
 }
