@@ -22,6 +22,8 @@ struct ReencodeAdminView: View {
     @State private var busyIds: Set<Int> = []
     @State private var confirmCancel: TranscodeJob?
     @State private var confirmClear = false
+    @State private var confirmFree: TranscodeJob?
+    @State private var confirmDiscard: TranscodeJob?
 
     private var running: TranscodeJob? {
         active.first { $0.status == "running" }
@@ -108,6 +110,32 @@ struct ReencodeAdminView: View {
         } message: { _ in
             Text("The original file is kept; the partial output is deleted.")
         }
+        .rawkoonConfirm(
+            "Free the space held by the old file?",
+            isPresented: Binding(get: { confirmFree != nil }, set: {
+                if !$0 {
+                    confirmFree = nil
+                }
+            }),
+            presenting: confirmFree
+        ) { job in
+            Button("Remove torrent and file", role: .destructive) { Task { await freeSource(job) } }
+        } message: { job in
+            Text("This removes the torrent for \(job.title) from the download client and deletes the old file, so it stops sharing. The re-encoded copy in your library is not touched.")
+        }
+        .rawkoonConfirm(
+            "Delete this failed re-encode?",
+            isPresented: Binding(get: { confirmDiscard != nil }, set: {
+                if !$0 {
+                    confirmDiscard = nil
+                }
+            }),
+            presenting: confirmDiscard
+        ) { job in
+            Button("Delete", role: .destructive) { Task { await discard(job) } }
+        } message: { job in
+            Text("This removes \(job.title) from the history and deletes the partial file it left behind. Your library file is not touched.")
+        }
         .rawkoonConfirm("Clear finished jobs?", isPresented: $confirmClear) {
             Button("Clear finished", role: .destructive) { Task { await clearHistory() } }
         }
@@ -181,9 +209,6 @@ struct ReencodeAdminView: View {
                 }
                 .font(.caption).foregroundStyle(Theme.muted)
                 Button("Cancel re-encode", role: .destructive) { confirmCancel = job }
-                    .buttonStyle(.borderless)
-                    .requiresConnection(model.isOffline)
-                Button("Force cleanup") { Task { await forceCleanup(job) } }
                     .buttonStyle(.borderless)
                     .requiresConnection(model.isOffline)
             }
@@ -265,7 +290,11 @@ struct ReencodeAdminView: View {
                     if job.status == "failed" || job.status == "cancelled" {
                         Button("Retry") { Task { await retry(job) } }.tint(Theme.apricot)
                             .requiresConnection(model.isOffline)
-                        Button("Clean up") { Task { await forceCleanup(job) } }.tint(Theme.muted)
+                        Button("Delete", role: .destructive) { confirmDiscard = job }
+                            .requiresConnection(model.isOffline)
+                    }
+                    if job.status == "done", (job.sourceNlink ?? 1) > 1 {
+                        Button("Free space") { confirmFree = job }.tint(Theme.terracotta)
                             .requiresConnection(model.isOffline)
                     }
                 }
@@ -499,28 +528,26 @@ struct ReencodeAdminView: View {
         await run(job.id, failure: String(localized: "Couldn't retry.")) { try await $0.retryTranscodeJob(id: job.id) }
     }
 
-    private func forceCleanup(_ job: TranscodeJob) async {
+    private func freeSource(_ job: TranscodeJob) async {
         guard let client = model.api() else { return }
         busyIds.insert(job.id)
         defer { busyIds.remove(job.id) }
         do {
-            let reply = try await client.cleanupTranscodeJob(id: job.id)
-            let size = ByteCountFormatter.string(fromByteCount: reply.freedBytes, countStyle: .file)
-            model.toast(Self.cleanupMessage(reply.result, size: size), style: .success)
+            let reply = try await client.freeTranscodeSource(id: job.id)
+            if reply.torrents > 0 {
+                let size = ByteCountFormatter.string(fromByteCount: reply.freedBytes, countStyle: .file)
+                model.toast(String(localized: "Removed \(reply.torrents) torrent(s), \(size) freed."), style: .success)
+            } else {
+                model.toast(String(localized: "No torrent is holding the old file any more."), style: .info)
+            }
             await reloadAll()
         } catch {
-            model.toast(String(localized: "Couldn't clean up."), style: .error)
+            model.toast(String(localized: "Couldn't free the space."), style: .error)
         }
     }
 
-    private static func cleanupMessage(_ result: String, size: String) -> String {
-        switch result {
-        case "cancelling": String(localized: "Stopping the encode and cleaning up.")
-        case "requeued": String(localized: "Cleaned up and put back in the queue.")
-        case "recovered": String(localized: "The re-encode had already finished; recovered.")
-        case "removed": String(localized: "Removed the leftover temp file (\(size) freed).")
-        default: String(localized: "Nothing to clean up.")
-        }
+    private func discard(_ job: TranscodeJob) async {
+        await run(job.id, failure: String(localized: "Couldn't delete.")) { try await $0.discardTranscodeJob(id: job.id) }
     }
 
     private func clearHistory() async {

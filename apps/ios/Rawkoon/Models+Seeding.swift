@@ -86,8 +86,9 @@ nonisolated struct UpdateSeedSettingsBody: Encodable, Sendable {
     }
 }
 
-/// Reply of `POST /api/transcode/jobs/:id/cleanup`.
-nonisolated struct TranscodeCleanupDTO: Decodable, Sendable {
-    let result: String
+/// Reply of `POST /api/transcode/jobs/:id/free-source`.
+nonisolated struct TranscodeFreeSourceDTO: Decodable, Sendable {
+    let torrents: Int
     let freedBytes: Int64
+    let skipped: Int
 }

@@ -10778,90 +10778,112 @@
         }
       }
     },
-    "Force cleanup": {
+    "Free space": {
       "extractionState": "manual",
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Forcer le nettoyage"
+            "value": "Libérer l’espace"
           }
         }
       }
     },
-    "Clean up": {
+    "Free the space held by the old file?": {
       "extractionState": "manual",
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nettoyer"
+            "value": "Libérer l’espace de l’ancien fichier ?"
           }
         }
       }
     },
-    "Couldn't clean up.": {
+    "Remove torrent and file": {
       "extractionState": "manual",
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible de nettoyer."
+            "value": "Retirer le torrent et le fichier"
           }
         }
       }
     },
-    "Stopping the encode and cleaning up.": {
+    "This removes the torrent for %@ from the download client and deletes the old file, so it stops sharing. The re-encoded copy in your library is not touched.": {
       "extractionState": "manual",
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Arrêt du réencodage et nettoyage en cours."
+            "value": "Ceci retire le torrent de %@ du client de téléchargement et supprime l’ancien fichier, donc il cesse d’être partagé. La copie réencodée de votre bibliothèque n’est pas touchée."
           }
         }
       }
     },
-    "Cleaned up and put back in the queue.": {
+    "Delete this failed re-encode?": {
       "extractionState": "manual",
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nettoyé et remis dans la file."
+            "value": "Supprimer ce réencodage échoué ?"
           }
         }
       }
     },
-    "The re-encode had already finished; recovered.": {
+    "This removes %@ from the history and deletes the partial file it left behind. Your library file is not touched.": {
       "extractionState": "manual",
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le réencodage était déjà terminé ; récupéré."
+            "value": "Ceci retire %@ de l’historique et supprime le fichier partiel qu’il a laissé. Votre fichier de bibliothèque n’est pas touché."
           }
         }
       }
     },
-    "Removed the leftover temp file (%@ freed).": {
+    "Removed %lld torrent(s), %@ freed.": {
       "extractionState": "manual",
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fichier temporaire résiduel supprimé (%@ libérés)."
+            "value": "%lld torrent(s) retiré(s), %@ libérés."
           }
         }
       }
     },
-    "Nothing to clean up.": {
+    "No torrent is holding the old file any more.": {
       "extractionState": "manual",
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rien à nettoyer."
+            "value": "Aucun torrent ne retient plus l’ancien fichier."
+          }
+        }
+      }
+    },
+    "Couldn't free the space.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de libérer l’espace."
+          }
+        }
+      }
+    },
+    "Couldn't delete.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de supprimer."
           }
         }
       }
