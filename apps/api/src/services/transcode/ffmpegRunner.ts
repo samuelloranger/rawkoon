@@ -1,4 +1,5 @@
 export interface FfmpegProgress {
+  frame: number | null;
   outTimeSecs: number | null;
   fps: number | null;
   speed: number | null;
@@ -36,6 +37,7 @@ export function parseProgressBlock(block: string): FfmpegProgress {
   }
   const us = n(kv.out_time_us);
   return {
+    frame: n(kv.frame),
     outTimeSecs: us == null ? null : us / 1_000_000,
     fps: n(kv.fps),
     speed: n(kv.speed?.replace(/x$/, "")),

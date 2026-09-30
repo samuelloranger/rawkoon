@@ -148,10 +148,15 @@ export async function runPipeline(
         signal: opts.signal,
         nice: job.settings.encoder === "software",
         onProgress: (p) => {
+          // Frames encoded, not out_time: with many copied streams ffmpeg's
+          // out_time can stall while the encode keeps going.
+          const totalFrames = (probe.video?.fps ?? 0) * probe.durationSecs;
           const progress =
-            p.outTimeSecs != null
-              ? Math.min(1, p.outTimeSecs / probe.durationSecs)
-              : 0;
+            p.frame != null && totalFrames > 0
+              ? Math.min(1, p.frame / totalFrames)
+              : p.outTimeSecs != null
+                ? Math.min(1, p.outTimeSecs / probe.durationSecs)
+                : 0;
           const elapsed = (Date.now() - started) / 1000;
           hooks.onProgress({
             progress,
