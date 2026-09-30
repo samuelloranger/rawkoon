@@ -141,6 +141,8 @@ struct LoginView: View {
             lockup(titleSize: titleSize, logoSide: logoSide, stacked: false)
             lockup(titleSize: titleSize, logoSide: logoSide, stacked: true)
         }
+        // A logo, not body copy. Accessibility sizes enlarge the fields, not this.
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     }
 
     @ViewBuilder
