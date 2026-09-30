@@ -46,13 +46,7 @@ struct LoginView: View {
         return ScrollView {
             VStack(spacing: 26) {
                 VStack(spacing: 14) {
-                    Image("AppLogo")
-                        .resizable()
-                        .frame(width: 64, height: 64)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                    Text("Rawkoon")
-                        .font(.display(34, weight: .semibold))
-                        .foregroundStyle(Theme.textStrong)
+                    loginLockup(titleSize: 34, logoSide: 64)
                     Text("Sign in to your library")
                         .font(.subheadline)
                         .foregroundStyle(Theme.muted)
@@ -113,6 +107,38 @@ struct LoginView: View {
         .tint(Theme.apricot)
     }
 
+    /// Side by side until the unscaled word no longer fits, then stacked so
+    /// "Rawkoon" stays one line instead of breaking around the logo.
+    private func loginLockup(titleSize: CGFloat, logoSide: CGFloat) -> some View {
+        ViewThatFits(in: .horizontal) {
+            lockup(titleSize: titleSize, logoSide: logoSide, stacked: false)
+            lockup(titleSize: titleSize, logoSide: logoSide, stacked: true)
+        }
+    }
+
+    @ViewBuilder
+    private func lockup(titleSize: CGFloat, logoSide: CGFloat, stacked: Bool) -> some View {
+        let logo = Image("AppLogo")
+            .resizable()
+            .frame(width: logoSide, height: logoSide)
+            .clipShape(RoundedRectangle(cornerRadius: logoSide * 0.25, style: .continuous))
+        let title = Text("Rawkoon")
+            .font(.display(titleSize, weight: .semibold))
+            .foregroundStyle(Theme.textStrong)
+            .lineLimit(1)
+        if stacked {
+            VStack(spacing: 8) {
+                logo
+                title.minimumScaleFactor(0.4)
+            }
+        } else {
+            HStack(spacing: 14) {
+                logo
+                title.fixedSize()
+            }
+        }
+    }
+
     private func fieldRow(_ label: LocalizedStringKey, @ViewBuilder _ field: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
@@ -122,7 +148,7 @@ struct LoginView: View {
                 .textFieldStyle(.plain)
                 .foregroundStyle(Theme.text)
                 .padding(.horizontal, 12)
-                .frame(height: 42)
+                .frame(height: 44)
                 .background(Theme.well, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border, lineWidth: 1))
         }
@@ -194,17 +220,9 @@ struct LoginView: View {
         @Bindable var model = model
         return Form {
             Section {
-                HStack(spacing: 14) {
-                    Image("AppLogo")
-                        .resizable()
-                        .frame(width: 52, height: 52)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                    Text("Rawkoon")
-                        .font(.display(40, weight: .semibold))
-                        .foregroundStyle(Theme.textStrong)
-                }
-                .padding(.vertical, 10)
-                .listRowBackground(Color.clear)
+                loginLockup(titleSize: 40, logoSide: 52)
+                    .padding(.vertical, 10)
+                    .listRowBackground(Color.clear)
             }
 
             Section("Server") {
