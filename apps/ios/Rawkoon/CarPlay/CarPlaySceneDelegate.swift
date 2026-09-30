@@ -236,6 +236,5 @@
             )
             interfaceController?.pushTemplate(template, animated: true, completion: nil)
         }
-
     }
 #endif
