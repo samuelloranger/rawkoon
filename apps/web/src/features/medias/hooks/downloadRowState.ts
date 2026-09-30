@@ -1,4 +1,5 @@
 import type { LibraryDownloadHistoryItem } from "@rawkoon/shared/types";
+import { formatEtaSeconds } from "@rawkoon/shared/utils";
 import type { TFunction } from "i18next";
 
 export function isDownloadInProgress(row: LibraryDownloadHistoryItem): boolean {
@@ -17,12 +18,6 @@ function formatSpeed(bytesPerSec: number): string {
   return `${bytesPerSec} B/s`;
 }
 
-function formatEta(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
-  return `${Math.round(seconds / 3600)}h`;
-}
-
 export function formatLiveStats(
   live: NonNullable<LibraryDownloadHistoryItem["live"]>,
   t: TFunction,
@@ -34,7 +29,7 @@ export function formatLiveStats(
   }
   if (live.download_speed > 0)
     chips.push(`↓ ${formatSpeed(live.download_speed)}`);
-  if (live.eta_seconds != null)
-    chips.push(`ETA ${formatEta(live.eta_seconds)}`);
+  const eta = formatEtaSeconds(live.eta_seconds);
+  if (eta) chips.push(`ETA ${eta}`);
   return chips;
 }

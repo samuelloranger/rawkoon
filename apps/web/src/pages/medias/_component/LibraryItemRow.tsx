@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Search, Film, Tv, ArrowUpCircle, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@rawkoon/shared/utils/date";
+import { formatDurationCompactSeconds } from "@rawkoon/shared/utils";
 import type { LibraryMedia } from "@rawkoon/shared/types";
 import { usePrefetchLibraryItem } from "@/features/medias/hooks/usePrefetchLibraryItem";
 import { libraryStatusPresentation } from "@/utils/libraryStatusPresentation";
@@ -35,13 +36,6 @@ function formatCodec(codec: string | null): string | null {
   if (c === "av1") return "AV1";
   if (c === "vp9") return "VP9";
   return codec.toUpperCase();
-}
-
-function formatDuration(secs: number | null): string | null {
-  if (!secs || secs < 60) return null;
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
 function MiniPoster({ posterUrl }: { posterUrl: string | null | undefined }) {
@@ -104,7 +98,9 @@ export function LibraryItemRow({
       : null;
   const resolutionLabel = formatResolution(item.resolution);
   const codecLabel = formatCodec(item.video_codec);
-  const durationLabel = formatDuration(item.duration_secs);
+  const durationLabel = formatDurationCompactSeconds(item.duration_secs, {
+    minMinutes: 1,
+  });
 
   return (
     <div

@@ -5,6 +5,7 @@ import { useAddToWatchlist } from "@/features/medias/hooks/useAddToWatchlist";
 import { useMediaModalData } from "@/features/medias/hooks/useMediaModalData";
 import { useRemoveFromWatchlist } from "@/features/medias/hooks/useRemoveFromWatchlist";
 import { type TmdbMediaSearchItem } from "@rawkoon/shared/types";
+import { formatRuntimeMinutes } from "@rawkoon/shared/utils";
 import { Info, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/dialog";
@@ -129,12 +130,9 @@ export function ExploreCardDetailDialog({
 
   const overview = item.overview ?? detailsData?.overview ?? null;
   const voteAverage = item.vote_average ?? detailsData?.vote_average ?? null;
-  const runtime = detailsData?.runtime ?? null;
   const collection = detailsData?.belongs_to_collection ?? null;
 
-  const runtimeStr = runtime
-    ? `${Math.floor(runtime / 60)}h${runtime % 60 > 0 ? ` ${runtime % 60}m` : ""}`
-    : null;
+  const runtimeStr = formatRuntimeMinutes(detailsData?.runtime ?? null);
 
   /** First backdrop: primary TMDB image, else first still in "Visuels" — used as hero background */
   const heroBackdropUrl =
