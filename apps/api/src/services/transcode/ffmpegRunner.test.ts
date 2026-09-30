@@ -11,6 +11,7 @@ describe("parseProgressBlock", () => {
       "frame=240\nfps=48.5\nout_time_us=10000000\ntotal_size=5242880\nspeed=2.02x\nprogress=continue\n",
     );
     expect(p).toEqual({
+      frame: 240,
       outTimeSecs: 10,
       fps: 48.5,
       speed: 2.02,
@@ -23,6 +24,7 @@ describe("parseProgressBlock", () => {
     const p = parseProgressBlock("out_time_us=N/A\nspeed=N/A\nprogress=end\n");
     expect(p.done).toBe(true);
     expect(p.outTimeSecs).toBeNull();
+    expect(p.frame).toBeNull();
     expect(p.speed).toBeNull();
   });
 });

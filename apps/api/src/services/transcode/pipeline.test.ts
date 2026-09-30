@@ -82,7 +82,9 @@ function makeDeps(over: Partial<PipelineDeps> = {}) {
     run: async (args, opts) => {
       if (args.includes("-progress"))
         opts.onProgress?.({
-          outTimeSecs: 50,
+          // out_time lags the frame count, as it does with many copied streams.
+          frame: 1200,
+          outTimeSecs: 10,
           fps: 100,
           speed: 4,
           totalSize: 200,
