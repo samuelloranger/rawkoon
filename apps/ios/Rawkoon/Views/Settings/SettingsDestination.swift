@@ -39,6 +39,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
     case downloadClient
     case bookProviders
     case mediaLibrary
+    case seeding
     case arrImport
     case qualityProfiles
     case customFormats
@@ -63,7 +64,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
             .system
         case .tmdb, .fanart, .jellyfin, .aiProvider, .prowlarr, .jackett, .indexers, .downloadClient, .bookProviders:
             .integrations
-        case .mediaLibrary, .arrImport, .qualityProfiles, .customFormats, .books, .bookQualityProfiles:
+        case .mediaLibrary, .seeding, .arrImport, .qualityProfiles, .customFormats, .books, .bookQualityProfiles:
             .libraryQuality
         case .users, .sessions, .apiKeys, .oidcProviders, .blocklist:
             .usersSecurity
@@ -92,6 +93,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .downloadClient: "Download client"
         case .bookProviders: "Book providers"
         case .mediaLibrary: "Library"
+        case .seeding: "Sharing"
         case .arrImport: "Import from Radarr/Sonarr"
         case .qualityProfiles: "Quality profiles"
         case .customFormats: "Custom formats"
@@ -122,6 +124,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .downloadClient: "arrow.down.circle"
         case .bookProviders: "books.vertical"
         case .mediaLibrary: "folder"
+        case .seeding: "arrow.up.arrow.down.circle"
         case .arrImport: "square.and.arrow.down"
         case .qualityProfiles: "slider.horizontal.3"
         case .customFormats: "tag"
@@ -153,6 +156,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .downloadClient: ["qbittorrent", "transmission", "deluge", "torrent", "download"]
         case .bookProviders: ["audnexus", "audible", "open library", "metadata", "books"]
         case .mediaLibrary: ["folders", "paths", "root", "media", "library"]
+        case .seeding: ["seeding", "seed", "ratio", "torrent", "release", "share", "sharing", "tracker"]
         case .arrImport: ["radarr", "sonarr", "migrate", "import"]
         case .qualityProfiles: ["quality", "profile", "resolution"]
         case .customFormats: ["custom", "format", "scoring"]
@@ -196,6 +200,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .downloadClient: DownloadClientEditView()
         case .bookProviders: BooksProviderView()
         case .mediaLibrary: MediaLibrarySettingsView()
+        case .seeding: SeedingSettingsView()
         case .arrImport: ArrLibraryImportView()
         case .qualityProfiles: QualityProfilesCrudView()
         case .customFormats: CustomFormatsCrudView()

@@ -758,6 +758,8 @@ nonisolated struct PostProcessingSettingsDTO: Decodable, Sendable {
     let bookTemplate: String?
     let audiobookTemplate: String?
     let defaultBookQualityProfileId: Int?
+    let seedSweepEnabled: Bool?
+    let privateSeedRatio: Double?
 }
 
 nonisolated struct PostProcessingSettingsResponseDTO: Decodable, Sendable {

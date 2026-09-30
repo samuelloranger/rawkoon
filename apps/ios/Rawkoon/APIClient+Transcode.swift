@@ -47,6 +47,22 @@ extension APIClient {
         try await postExpectOK("/api/transcode/jobs/\(id)/retry", body: Empty())
     }
 
+    /// What Free space would remove, for the private-tracker warning.
+    func transcodeFreeSourcePreview(id: Int) async throws -> TranscodeFreeSourcePreviewDTO {
+        try await get("/api/transcode/jobs/\(id)/free-source")
+    }
+
+    /// Removes the torrents still holding a finished job's old file, and that file.
+    func freeTranscodeSource(id: Int) async throws -> TranscodeFreeSourceDTO {
+        nonisolated struct Empty: Encodable {}
+        return try await post("/api/transcode/jobs/\(id)/free-source", body: Empty())
+    }
+
+    /// Deletes a failed or cancelled job from the history with its partial output.
+    func discardTranscodeJob(id: Int) async throws {
+        try await deleteExpectOK("/api/transcode/history/\(id)")
+    }
+
     func removeTranscodeBatch(id: String) async throws {
         try await deleteExpectOK("/api/transcode/batches/\(id)")
     }

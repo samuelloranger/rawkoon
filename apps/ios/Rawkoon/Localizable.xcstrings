@@ -10469,6 +10469,435 @@
           }
         }
       }
+    },
+    "Sharing": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partage"
+          }
+        }
+      }
+    },
+    "Release torrents automatically": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Libérer les torrents automatiquement"
+          }
+        }
+      }
+    },
+    "When off, a torrent is only removed on import if it already reached the public ratio.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Désactivé, un torrent n’est retiré à l’import que s’il atteint déjà le ratio public."
+          }
+        }
+      }
+    },
+    "%lld being shared": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld en partage"
+          }
+        }
+      }
+    },
+    "%lld would be released now, %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld seraient libérés maintenant, %@."
+          }
+        }
+      }
+    },
+    "Imports move files out of the client, so torrents are released on import. Switch to hardlinks to share.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les imports déplacent les fichiers hors du client, donc les torrents sont libérés dès l’import. Passez aux liens physiques pour partager."
+          }
+        }
+      }
+    },
+    "After import, Rawkoon keeps each torrent sharing until it reaches its ratio, then removes it from the client. Your library copy is a hardlink, so it stays in place.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Après l’import, Rawkoon garde chaque torrent en partage jusqu’à ce qu’il atteigne son ratio, puis le retire du client. La copie de votre bibliothèque est un lien physique, elle reste donc en place."
+          }
+        }
+      }
+    },
+    "Public trackers": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trackers publics"
+          }
+        }
+      }
+    },
+    "Private trackers": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trackers privés"
+          }
+        }
+      }
+    },
+    "Ratio": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ratio"
+          }
+        }
+      }
+    },
+    "none": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aucun"
+          }
+        }
+      }
+    },
+    "Enter a positive number, or leave it empty.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entrez un nombre positif ou nul, ou laissez le champ vide."
+          }
+        }
+      }
+    },
+    "No indexers found. Connect Prowlarr or Jackett first.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun indexeur trouvé. Connectez d’abord Prowlarr ou Jackett."
+          }
+        }
+      }
+    },
+    "An indexer Rawkoon can't reach counts as private, so nothing is removed too early by mistake.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un indexeur que Rawkoon ne peut pas joindre est considéré comme privé, pour qu’aucun torrent ne soit retiré trop tôt par erreur."
+          }
+        }
+      }
+    },
+    "Customize": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personnaliser"
+          }
+        }
+      }
+    },
+    "Released on import. Nothing is shared.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Libéré dès l’import. Rien n’est partagé."
+          }
+        }
+      }
+    },
+    "Released once ratio %@ is reached.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Libéré une fois le ratio %@ atteint."
+          }
+        }
+      }
+    },
+    "Released after %@ of sharing.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Libéré après %@ de partage."
+          }
+        }
+      }
+    },
+    "Released at ratio %@ or after %@ of sharing, whichever comes first.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Libéré au ratio %@ ou après %@ de partage, selon ce qui arrive en premier."
+          }
+        }
+      }
+    },
+    "On import": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dès l’import"
+          }
+        }
+      }
+    },
+    "Ratio %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ratio %@"
+          }
+        }
+      }
+    },
+    "After %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Après %@"
+          }
+        }
+      }
+    },
+    "Ratio %@ or %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ratio %@ ou %@"
+          }
+        }
+      }
+    },
+    "%@ (default %@)": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (défaut %@)"
+          }
+        }
+      }
+    },
+    "private": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "privé"
+          }
+        }
+      }
+    },
+    "public": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "public"
+          }
+        }
+      }
+    },
+    "Couldn't save the rule.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d’enregistrer la règle."
+          }
+        }
+      }
+    },
+    "Couldn't reset the rule.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de réinitialiser la règle."
+          }
+        }
+      }
+    },
+    "Free space": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Libérer l’espace"
+          }
+        }
+      }
+    },
+    "Free the space held by the old file?": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Libérer l’espace de l’ancien fichier ?"
+          }
+        }
+      }
+    },
+    "Remove torrent and file": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer le torrent et le fichier"
+          }
+        }
+      }
+    },
+    "This removes the torrent for %@ from the download client and deletes the old file, so it stops sharing. The re-encoded copy in your library is not touched.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ceci retire le torrent de %@ du client de téléchargement et supprime l’ancien fichier, donc il cesse d’être partagé. La copie réencodée de votre bibliothèque n’est pas touchée."
+          }
+        }
+      }
+    },
+    "Delete this failed re-encode?": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer ce réencodage échoué ?"
+          }
+        }
+      }
+    },
+    "This removes %@ from the history and deletes the partial file it left behind. Your library file is not touched.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ceci retire %@ de l’historique et supprime le fichier partiel qu’il a laissé. Votre fichier de bibliothèque n’est pas touché."
+          }
+        }
+      }
+    },
+    "Removed %lld torrent(s), %@ freed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld torrent(s) retiré(s), %@ libérés."
+          }
+        }
+      }
+    },
+    "No torrent is holding the old file any more.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun torrent ne retient plus l’ancien fichier."
+          }
+        }
+      }
+    },
+    "Couldn't free the space.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de libérer l’espace."
+          }
+        }
+      }
+    },
+    "Couldn't delete.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de supprimer."
+          }
+        }
+      }
+    },
+    "%lld torrent(s) on a private tracker haven't reached their seed target yet. Removing them now can cost ratio or count as a hit-and-run.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld torrent(s) d’un tracker privé n’ont pas encore atteint leur cible de partage. Les retirer maintenant peut coûter du ratio ou compter comme un hit-and-run."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

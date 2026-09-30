@@ -22,6 +22,9 @@ struct ReencodeAdminView: View {
     @State private var busyIds: Set<Int> = []
     @State private var confirmCancel: TranscodeJob?
     @State private var confirmClear = false
+    @State private var confirmFree: TranscodeJob?
+    @State private var privateUnmet = 0
+    @State private var confirmDiscard: TranscodeJob?
 
     private var running: TranscodeJob? {
         active.first { $0.status == "running" }
@@ -107,6 +110,38 @@ struct ReencodeAdminView: View {
             Button("Cancel re-encode", role: .destructive) { Task { await cancel(job) } }
         } message: { _ in
             Text("The original file is kept; the partial output is deleted.")
+        }
+        .rawkoonConfirm(
+            "Free the space held by the old file?",
+            isPresented: Binding(get: { confirmFree != nil }, set: {
+                if !$0 {
+                    confirmFree = nil
+                }
+            }),
+            presenting: confirmFree
+        ) { job in
+            Button("Remove torrent and file", role: .destructive) { Task { await freeSource(job) } }
+        } message: { job in
+            if privateUnmet > 0 {
+                Text("\(privateUnmet) torrent(s) on a private tracker haven't reached their seed target yet. Removing them now can cost ratio or count as a hit-and-run.")
+                    + Text(verbatim: "\n\n")
+                    + Text("This removes the torrent for \(job.title) from the download client and deletes the old file, so it stops sharing. The re-encoded copy in your library is not touched.")
+            } else {
+                Text("This removes the torrent for \(job.title) from the download client and deletes the old file, so it stops sharing. The re-encoded copy in your library is not touched.")
+            }
+        }
+        .rawkoonConfirm(
+            "Delete this failed re-encode?",
+            isPresented: Binding(get: { confirmDiscard != nil }, set: {
+                if !$0 {
+                    confirmDiscard = nil
+                }
+            }),
+            presenting: confirmDiscard
+        ) { job in
+            Button("Delete", role: .destructive) { Task { await discard(job) } }
+        } message: { job in
+            Text("This removes \(job.title) from the history and deletes the partial file it left behind. Your library file is not touched.")
         }
         .rawkoonConfirm("Clear finished jobs?", isPresented: $confirmClear) {
             Button("Clear finished", role: .destructive) { Task { await clearHistory() } }
@@ -261,6 +296,12 @@ struct ReencodeAdminView: View {
                 .swipeActions {
                     if job.status == "failed" || job.status == "cancelled" {
                         Button("Retry") { Task { await retry(job) } }.tint(Theme.apricot)
+                            .requiresConnection(model.isOffline)
+                        Button("Delete", role: .destructive) { confirmDiscard = job }
+                            .requiresConnection(model.isOffline)
+                    }
+                    if job.status == "done", (job.sourceNlink ?? 1) > 1 {
+                        Button("Free space") { Task { await askFree(job) } }.tint(Theme.terracotta)
                             .requiresConnection(model.isOffline)
                     }
                 }
@@ -492,6 +533,37 @@ struct ReencodeAdminView: View {
 
     private func retry(_ job: TranscodeJob) async {
         await run(job.id, failure: String(localized: "Couldn't retry.")) { try await $0.retryTranscodeJob(id: job.id) }
+    }
+
+    /// Fetches what would go first, so the confirmation can warn about private trackers.
+    private func askFree(_ job: TranscodeJob) async {
+        privateUnmet = 0
+        if let client = model.api(), let preview = try? await client.transcodeFreeSourcePreview(id: job.id) {
+            privateUnmet = preview.privateUnmet
+        }
+        confirmFree = job
+    }
+
+    private func freeSource(_ job: TranscodeJob) async {
+        guard let client = model.api() else { return }
+        busyIds.insert(job.id)
+        defer { busyIds.remove(job.id) }
+        do {
+            let reply = try await client.freeTranscodeSource(id: job.id)
+            if reply.torrents > 0 {
+                let size = ByteCountFormatter.string(fromByteCount: reply.freedBytes, countStyle: .file)
+                model.toast(String(localized: "Removed \(reply.torrents) torrent(s), \(size) freed."), style: .success)
+            } else {
+                model.toast(String(localized: "No torrent is holding the old file any more."), style: .info)
+            }
+            await reloadAll()
+        } catch {
+            model.toast(String(localized: "Couldn't free the space."), style: .error)
+        }
+    }
+
+    private func discard(_ job: TranscodeJob) async {
+        await run(job.id, failure: String(localized: "Couldn't delete.")) { try await $0.discardTranscodeJob(id: job.id) }
     }
 
     private func clearHistory() async {
