@@ -183,6 +183,9 @@ struct ReencodeAdminView: View {
                 Button("Cancel re-encode", role: .destructive) { confirmCancel = job }
                     .buttonStyle(.borderless)
                     .requiresConnection(model.isOffline)
+                Button("Force cleanup") { Task { await forceCleanup(job) } }
+                    .buttonStyle(.borderless)
+                    .requiresConnection(model.isOffline)
             }
             .listRowBackground(Theme.raised)
         }
@@ -261,6 +264,8 @@ struct ReencodeAdminView: View {
                 .swipeActions {
                     if job.status == "failed" || job.status == "cancelled" {
                         Button("Retry") { Task { await retry(job) } }.tint(Theme.apricot)
+                            .requiresConnection(model.isOffline)
+                        Button("Clean up") { Task { await forceCleanup(job) } }.tint(Theme.muted)
                             .requiresConnection(model.isOffline)
                     }
                 }
@@ -492,6 +497,30 @@ struct ReencodeAdminView: View {
 
     private func retry(_ job: TranscodeJob) async {
         await run(job.id, failure: String(localized: "Couldn't retry.")) { try await $0.retryTranscodeJob(id: job.id) }
+    }
+
+    private func forceCleanup(_ job: TranscodeJob) async {
+        guard let client = model.api() else { return }
+        busyIds.insert(job.id)
+        defer { busyIds.remove(job.id) }
+        do {
+            let reply = try await client.cleanupTranscodeJob(id: job.id)
+            let size = ByteCountFormatter.string(fromByteCount: reply.freedBytes, countStyle: .file)
+            model.toast(Self.cleanupMessage(reply.result, size: size), style: .success)
+            await reloadAll()
+        } catch {
+            model.toast(String(localized: "Couldn't clean up."), style: .error)
+        }
+    }
+
+    private static func cleanupMessage(_ result: String, size: String) -> String {
+        switch result {
+        case "cancelling": String(localized: "Stopping the encode and cleaning up.")
+        case "requeued": String(localized: "Cleaned up and put back in the queue.")
+        case "recovered": String(localized: "The re-encode had already finished; recovered.")
+        case "removed": String(localized: "Removed the leftover temp file (\(size) freed).")
+        default: String(localized: "Nothing to clean up.")
+        }
     }
 
     private func clearHistory() async {

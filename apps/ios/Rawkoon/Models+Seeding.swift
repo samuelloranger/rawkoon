@@ -85,3 +85,9 @@ nonisolated struct UpdateSeedSettingsBody: Encodable, Sendable {
         try c.encode(Int?.none, forKey: .privateSeedTimeMins)
     }
 }
+
+/// Reply of `POST /api/transcode/jobs/:id/cleanup`.
+nonisolated struct TranscodeCleanupDTO: Decodable, Sendable {
+    let result: String
+    let freedBytes: Int64
+}

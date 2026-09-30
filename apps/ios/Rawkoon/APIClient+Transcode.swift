@@ -47,6 +47,12 @@ extension APIClient {
         try await postExpectOK("/api/transcode/jobs/\(id)/retry", body: Empty())
     }
 
+    /// Stops a live encode, recovers a stuck one, or deletes a leftover temp file.
+    func cleanupTranscodeJob(id: Int) async throws -> TranscodeCleanupDTO {
+        nonisolated struct Empty: Encodable {}
+        return try await post("/api/transcode/jobs/\(id)/cleanup", body: Empty())
+    }
+
     func removeTranscodeBatch(id: String) async throws {
         try await deleteExpectOK("/api/transcode/batches/\(id)")
     }

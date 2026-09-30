@@ -10777,6 +10777,94 @@
           }
         }
       }
+    },
+    "Force cleanup": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forcer le nettoyage"
+          }
+        }
+      }
+    },
+    "Clean up": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nettoyer"
+          }
+        }
+      }
+    },
+    "Couldn't clean up.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de nettoyer."
+          }
+        }
+      }
+    },
+    "Stopping the encode and cleaning up.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrêt du réencodage et nettoyage en cours."
+          }
+        }
+      }
+    },
+    "Cleaned up and put back in the queue.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nettoyé et remis dans la file."
+          }
+        }
+      }
+    },
+    "The re-encode had already finished; recovered.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le réencodage était déjà terminé ; récupéré."
+          }
+        }
+      }
+    },
+    "Removed the leftover temp file (%@ freed).": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fichier temporaire résiduel supprimé (%@ libérés)."
+          }
+        }
+      }
+    },
+    "Nothing to clean up.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rien à nettoyer."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

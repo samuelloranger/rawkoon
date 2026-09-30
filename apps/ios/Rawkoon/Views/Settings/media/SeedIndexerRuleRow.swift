@@ -22,7 +22,9 @@ struct SeedIndexerRuleRow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 HStack(spacing: 4) {
-                    if row.isPrivate { Image(systemName: "lock.fill").imageScale(.small) }
+                    if row.isPrivate {
+                        Image(systemName: "lock.fill").imageScale(.small)
+                    }
                     Text(row.indexer).fontWeight(.medium)
                 }
                 Spacer()

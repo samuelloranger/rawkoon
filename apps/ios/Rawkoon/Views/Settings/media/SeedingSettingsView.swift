@@ -147,7 +147,9 @@ struct SeedingSettingsView: View {
             .listRowBackground(Theme.raised)
         } header: {
             HStack(spacing: 4) {
-                if isPrivate { Image(systemName: "lock.fill").imageScale(.small) }
+                if isPrivate {
+                    Image(systemName: "lock.fill").imageScale(.small)
+                }
                 Text(title)
             }
         }
@@ -158,8 +160,12 @@ struct SeedingSettingsView: View {
     }
 
     private func load() async {
-        guard let client = model.api() else { loading = false; return }
-        loading = true; loadError = nil
+        guard let client = model.api() else {
+            loading = false
+            return
+        }
+        loading = true
+        loadError = nil
         do {
             let settings = try await client.postProcessingSettings().settings
             enabled = settings.seedSweepEnabled ?? false
@@ -186,7 +192,8 @@ struct SeedingSettingsView: View {
 
     private func save() async {
         guard let client = model.api(), let pub = publicRule, let priv = privateRule else { return }
-        saving = true; saveError = nil
+        saving = true
+        saveError = nil
         do {
             try await client.updateSeedSettings(
                 UpdateSeedSettingsBody(
