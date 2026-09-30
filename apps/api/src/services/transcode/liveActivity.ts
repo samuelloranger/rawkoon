@@ -9,8 +9,33 @@ import type {
 } from "@rawkoon/shared/types";
 import type { ClaimedJob } from "./repo";
 
-const MIN_UPDATE_MS = 15_000;
-const MIN_PROGRESS_DELTA = 0.05;
+const MIN_UPDATE_MS = 30_000;
+// A multi-hour encode moves about 1% every couple of minutes; a bigger step left
+// the lock screen stuck near 0% for the first stretch of every job.
+const MIN_PROGRESS_DELTA = 0.01;
+// Even with no visible progress change, refresh the ETA now and then.
+const HEARTBEAT_MS = 5 * 60_000;
+
+export interface LastSent {
+  lastStep: string | null;
+  lastProgress: number | null;
+  lastSentAt: Date | null;
+}
+
+export function shouldSendUpdate(
+  last: LastSent,
+  step: TranscodeStep,
+  progress: number,
+  now: number,
+): boolean {
+  if (last.lastStep !== step || !last.lastSentAt) return true;
+  const age = now - last.lastSentAt.getTime();
+  if (age < MIN_UPDATE_MS) return false;
+  return (
+    Math.abs(progress - (last.lastProgress ?? 0)) >= MIN_PROGRESS_DELTA ||
+    age >= HEARTBEAT_MS
+  );
+}
 
 function state(
   step: TranscodeStep,
@@ -109,14 +134,7 @@ export const transcodeLiveActivity = {
     await Promise.allSettled(
       devices.map(async (device) => {
         if (!device.activityToken) return;
-        const stepChanged = device.lastStep !== step;
-        const changedEnough =
-          Math.abs(value.progress - (device.lastProgress ?? 0)) >=
-          MIN_PROGRESS_DELTA;
-        const oldEnough =
-          !device.lastSentAt ||
-          now - device.lastSentAt.getTime() >= MIN_UPDATE_MS;
-        if (!stepChanged && !(changedEnough && oldEnough)) return;
+        if (!shouldSendUpdate(device, step, value.progress, now)) return;
         const result = await sendLiveActivityViaRelay({
           event: "update",
           token: device.activityToken,

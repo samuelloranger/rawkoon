@@ -34,7 +34,7 @@ mock.module("@rawkoon/api/utils/apns", () => ({
   },
 }));
 
-const { transcodeLiveActivity } = await import(
+const { shouldSendUpdate, transcodeLiveActivity } = await import(
   "@rawkoon/api/services/transcode/liveActivity"
 );
 
@@ -52,5 +52,41 @@ describe("transcodeLiveActivity.startForInstallation", () => {
     ]);
     expect(sent).toEqual(["start"]);
     expect(claimedJob).toBe(9);
+  });
+});
+
+describe("shouldSendUpdate", () => {
+  const t0 = Date.parse("2026-09-30T12:00:00Z");
+  const last = (
+    over: Partial<Parameters<typeof shouldSendUpdate>[0]> = {},
+  ) => ({
+    lastStep: "encode",
+    lastProgress: 0.1,
+    lastSentAt: new Date(t0),
+    ...over,
+  });
+  it("sends the first update and every step change", () => {
+    expect(
+      shouldSendUpdate(last({ lastSentAt: null }), "encode", 0.1, t0),
+    ).toBe(true);
+    expect(shouldSendUpdate(last(), "validate", 0.1, t0 + 1000)).toBe(true);
+  });
+  it("sends a 1% move once 30 seconds have passed, not before", () => {
+    expect(shouldSendUpdate(last(), "encode", 0.115, t0 + 20_000)).toBe(false);
+    expect(shouldSendUpdate(last(), "encode", 0.115, t0 + 31_000)).toBe(true);
+  });
+  it("stays quiet for a sub-percent move until the heartbeat", () => {
+    expect(shouldSendUpdate(last(), "encode", 0.103, t0 + 120_000)).toBe(false);
+    expect(shouldSendUpdate(last(), "encode", 0.103, t0 + 301_000)).toBe(true);
+  });
+  it("no longer waits for a 5% move (the lock screen stuck near 0%)", () => {
+    expect(
+      shouldSendUpdate(
+        last({ lastProgress: 0.003 }),
+        "encode",
+        0.028,
+        t0 + 60_000,
+      ),
+    ).toBe(true);
   });
 });
