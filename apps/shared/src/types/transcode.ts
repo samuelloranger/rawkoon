@@ -167,3 +167,9 @@ export interface TranscodeFreeSourceResponse {
 export interface TranscodeDiscardResponse {
   freed_bytes: number;
 }
+
+export interface TranscodeFreeSourcePreview {
+  torrents: number;
+  /** Held torrents on a private tracker whose seed target is not reached yet. */
+  private_unmet: number;
+}

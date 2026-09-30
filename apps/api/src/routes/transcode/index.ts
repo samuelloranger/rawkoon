@@ -33,6 +33,7 @@ import { transcodeDispatcher } from "@rawkoon/api/services/transcode/index";
 import {
   discardFailedJob,
   freeSeededSource,
+  previewFreeSource,
 } from "@rawkoon/api/services/transcode/jobCleanup";
 import {
   enqueueBodySchema,
@@ -218,6 +219,16 @@ export const transcodeRoutes = new Hono<Env>()
     return (await moveJob(id, c.req.valid("json")))
       ? ok({ moved: true })
       : notFound("Queued job not found");
+  })
+
+  .get("/jobs/:id/free-source", async (c) => {
+    const id = idParam(c.req.param("id"));
+    if (!id) return badRequest("Invalid job id");
+    const r = await previewFreeSource(id);
+    if (r.status === "not_found") return notFound("Job not found");
+    if (r.status === "not_done")
+      return badRequest("Only a finished re-encode can free its source");
+    return ok({ torrents: r.torrents, private_unmet: r.privateUnmet });
   })
 
   .post("/jobs/:id/free-source", async (c) => {

@@ -2667,6 +2667,8 @@
       "estWas": "Estimé",
       "cancelJob": "Annuler",
       "freeSource": {
+        "privateWarning_one": "{{count}} torrent d'un tracker privé n'a pas encore atteint sa cible de partage. Le retirer maintenant peut coûter du ratio ou compter comme un hit-and-run.",
+        "privateWarning_other": "{{count}} torrents de trackers privés n'ont pas encore atteint leur cible de partage. Les retirer maintenant peut coûter du ratio ou compter comme un hit-and-run.",
         "button": "Libérer l'espace",
         "title": "Libérer l'espace de l'ancien fichier ?",
         "description": "Ceci retire le torrent de {{title}} du client de téléchargement et supprime l'ancien fichier, donc il cesse d'être partagé. La copie réencodée de votre bibliothèque n'est pas touchée.",

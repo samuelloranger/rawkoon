@@ -4,6 +4,7 @@ import {
   discardFailedJob,
   type FreeSourceDeps,
   freeSeededSource,
+  previewFreeSource,
 } from "@rawkoon/api/services/transcode/jobCleanup";
 
 function freeDeps(over: Partial<FreeSourceDeps> = {}) {
@@ -11,6 +12,10 @@ function freeDeps(over: Partial<FreeSourceDeps> = {}) {
   const deps: FreeSourceDeps = {
     loadJob: async () => ({ status: "done", mediaId: 5, episodeId: null }),
     heldHashes: async () => ["aa", "bb"],
+    inspect: async () => [
+      { hash: "aa", isPrivate: true, targetMet: false },
+      { hash: "bb", isPrivate: false, targetMet: false },
+    ],
     release: async (hash) => {
       released.push(hash);
       return { status: "released", freedBytes: 100 };
@@ -55,6 +60,32 @@ describe("freeSeededSource", () => {
   it("answers not_found for an unknown job", async () => {
     const { deps } = freeDeps({ loadJob: async () => null });
     expect(await freeSeededSource(1, deps)).toEqual({ status: "not_found" });
+  });
+});
+
+describe("previewFreeSource", () => {
+  it("counts the private torrents that have not reached their target", async () => {
+    const { deps } = freeDeps();
+    expect(await previewFreeSource(1, deps)).toEqual({
+      status: "ok",
+      torrents: 2,
+      privateUnmet: 1,
+    });
+  });
+  it("does not warn once the private target is met or the tracker is public", async () => {
+    const { deps } = freeDeps({
+      inspect: async () => [
+        { hash: "aa", isPrivate: true, targetMet: true },
+        { hash: "bb", isPrivate: false, targetMet: false },
+      ],
+    });
+    expect(await previewFreeSource(1, deps)).toMatchObject({ privateUnmet: 0 });
+  });
+  it("only applies to a finished re-encode", async () => {
+    const { deps } = freeDeps({
+      loadJob: async () => ({ status: "failed", mediaId: 5, episodeId: null }),
+    });
+    expect(await previewFreeSource(1, deps)).toEqual({ status: "not_done" });
   });
 });
 

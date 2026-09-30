@@ -82,11 +82,24 @@ export function TranscodeTab() {
 
   const { confirm } = useConfirm();
 
-  const freeSource = (id: number, title: string) =>
+  const freeSource = async (id: number, title: string) => {
+    // The private-tracker warning needs the server's view of what would go.
+    const preview = await act.previewFreeSource(id).catch(() => null);
     confirm({
       variant: "destructive",
       title: t("transcode.admin.freeSource.title"),
-      description: t("transcode.admin.freeSource.description", { title }),
+      description: (
+        <>
+          <p>{t("transcode.admin.freeSource.description", { title })}</p>
+          {preview && preview.private_unmet > 0 && (
+            <p className="mt-2 font-medium text-amber-200">
+              {t("transcode.admin.freeSource.privateWarning", {
+                count: preview.private_unmet,
+              })}
+            </p>
+          )}
+        </>
+      ),
       confirmLabel: t("transcode.admin.freeSource.confirm"),
       onConfirm: async () => {
         try {
@@ -104,6 +117,7 @@ export function TranscodeTab() {
         }
       },
     });
+  };
 
   const discard = (id: number, title: string) =>
     confirm({

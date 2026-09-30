@@ -1,6 +1,15 @@
 import { prisma } from "@rawkoon/api/db";
+import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
+import {
+  governingProgress,
+  resolveIndexerRule,
+  statsOf,
+} from "@rawkoon/api/services/seeding/seedPolicy";
 import type { ManualReleaseResult } from "@rawkoon/api/services/seeding/seedSweep";
-import { releaseTorrentNow } from "@rawkoon/api/services/seeding/seedSweep";
+import {
+  loadSeedContext,
+  releaseTorrentNow,
+} from "@rawkoon/api/services/seeding/seedSweep";
 import { transcodeDispatcher } from "@rawkoon/api/services/transcode/index";
 import { tmpPathFor } from "@rawkoon/api/services/transcode/outputPath";
 import { nodeSwapFs, type SwapFs } from "@rawkoon/api/services/transcode/swap";
@@ -8,7 +17,20 @@ import { remapPath } from "@rawkoon/api/utils/medias/mediainfoScanner";
 
 export type FreeSourceResult =
   | { status: "ok"; torrents: number; freedBytes: number; skipped: number }
-  | { status: "not_found" | "not_done" };
+  | { status: "not_found" }
+  | { status: "not_done" };
+
+export type FreeSourcePreview =
+  | { status: "ok"; torrents: number; privateUnmet: number }
+  | { status: "not_found" }
+  | { status: "not_done" };
+
+/** A held torrent as the confirmation needs it: private tracker, target not reached. */
+export interface HeldTorrent {
+  hash: string;
+  isPrivate: boolean;
+  targetMet: boolean;
+}
 
 export interface FreeSourceDeps {
   loadJob(id: number): Promise<{
@@ -17,7 +39,30 @@ export interface FreeSourceDeps {
     episodeId: number | null;
   } | null>;
   heldHashes(mediaId: number, episodeId: number | null): Promise<string[]>;
+  inspect(mediaId: number, episodeId: number | null): Promise<HeldTorrent[]>;
   release(hash: string): Promise<ManualReleaseResult>;
+}
+
+async function heldRows(mediaId: number, episodeId: number | null) {
+  const rows = await prisma.downloadHistory.findMany({
+    where: {
+      mediaId,
+      // A season pack row has no episode of its own; it still holds this file.
+      ...(episodeId != null
+        ? { OR: [{ episodeId }, { episodeId: null }] }
+        : {}),
+      completedAt: { not: null },
+      failed: false,
+      seedReleasedAt: null,
+      torrentHash: { not: null },
+    },
+    select: { torrentHash: true, indexer: true },
+  });
+  return rows.flatMap((r) =>
+    r.torrentHash
+      ? [{ hash: r.torrentHash.trim().toLowerCase(), indexer: r.indexer }]
+      : [],
+  );
 }
 
 const defaultFreeDeps: FreeSourceDeps = {
@@ -38,31 +83,59 @@ const defaultFreeDeps: FreeSourceDeps = {
         }
       : null;
   },
-  heldHashes: async (mediaId, episodeId) => {
-    const rows = await prisma.downloadHistory.findMany({
-      where: {
-        mediaId,
-        // A season pack row has no episode of its own; it still holds this file.
-        ...(episodeId != null
-          ? { OR: [{ episodeId }, { episodeId: null }] }
-          : {}),
-        completedAt: { not: null },
-        failed: false,
-        seedReleasedAt: null,
-        torrentHash: { not: null },
-      },
-      select: { torrentHash: true },
+  heldHashes: async (mediaId, episodeId) => [
+    ...new Set((await heldRows(mediaId, episodeId)).map((r) => r.hash)),
+  ],
+  inspect: async (mediaId, episodeId) => {
+    const rows = await heldRows(mediaId, episodeId);
+    const [ctx, adapter] = await Promise.all([
+      loadSeedContext(),
+      resolveActiveAdapter().then((a) => a?.adapter ?? null),
+    ]);
+    const torrents = adapter
+      ? await adapter.listTorrents().catch(() => [])
+      : [];
+    const byHash = new Map(torrents.map((t) => [t.hash.toLowerCase(), t]));
+    const groups = new Map<string, Array<string | null>>();
+    for (const r of rows)
+      groups.set(r.hash, [...(groups.get(r.hash) ?? []), r.indexer]);
+    return [...groups].flatMap(([hash, indexers]) => {
+      const torrent = byHash.get(hash);
+      // Not in the client any more: nothing left to cut short.
+      if (!torrent) return [];
+      const resolved = indexers.map((i) => resolveIndexerRule(i, ctx));
+      const progress = governingProgress(
+        statsOf(torrent),
+        resolved.map((x) => x.rule),
+      );
+      return [
+        {
+          hash,
+          isPrivate: resolved.some((x) => x.isPrivate),
+          targetMet: progress.met,
+        },
+      ];
     });
-    return [
-      ...new Set(
-        rows.flatMap((r) =>
-          r.torrentHash ? [r.torrentHash.trim().toLowerCase()] : [],
-        ),
-      ),
-    ];
   },
   release: (hash) => releaseTorrentNow(hash),
 };
+
+/** What Free space would remove, so the confirmation can warn about private trackers. */
+export async function previewFreeSource(
+  jobId: number,
+  deps: FreeSourceDeps = defaultFreeDeps,
+): Promise<FreeSourcePreview> {
+  const job = await deps.loadJob(jobId);
+  if (!job) return { status: "not_found" };
+  if (job.status !== "done" || job.mediaId == null)
+    return { status: "not_done" };
+  const held = await deps.inspect(job.mediaId, job.episodeId);
+  return {
+    status: "ok",
+    torrents: held.length,
+    privateUnmet: held.filter((h) => h.isPrivate && !h.targetMet).length,
+  };
+}
 
 /**
  * "Free space" on a finished re-encode: remove the torrents still holding the
@@ -95,7 +168,9 @@ export async function freeSeededSource(
 
 export type DiscardResult =
   | { status: "ok"; freedBytes: number }
-  | { status: "not_found" | "not_failed" | "busy" };
+  | { status: "not_found" }
+  | { status: "not_failed" }
+  | { status: "busy" };
 
 export interface DiscardDeps {
   loadJob(id: number): Promise<{

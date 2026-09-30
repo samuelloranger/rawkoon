@@ -7,6 +7,7 @@ import {
 import type {
   TranscodeCapabilities,
   TranscodeDiscardResponse,
+  TranscodeFreeSourcePreview,
   TranscodeFreeSourceResponse,
   TranscodeEstimate,
   TranscodeJobSettings,
@@ -151,6 +152,10 @@ export function useTranscodeJobAction() {
     isPending: run.isPending,
     cancel: (id: number) =>
       run.mutateAsync({ url: TRANSCODE_ENDPOINTS.JOB(id), method: "DELETE" }),
+    previewFreeSource: (id: number) =>
+      fetcher<TranscodeFreeSourcePreview>(
+        TRANSCODE_ENDPOINTS.JOB_FREE_SOURCE(id),
+      ),
     freeSource: (id: number) =>
       run.mutateAsync({
         url: TRANSCODE_ENDPOINTS.JOB_FREE_SOURCE(id),

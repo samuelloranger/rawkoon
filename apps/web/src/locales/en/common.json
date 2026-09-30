@@ -2667,6 +2667,8 @@
       "estWas": "Est. was",
       "cancelJob": "Cancel",
       "freeSource": {
+        "privateWarning_one": "{{count}} torrent on a private tracker has not reached its seed target yet. Removing it now can cost ratio or count as a hit-and-run.",
+        "privateWarning_other": "{{count}} torrents on private trackers have not reached their seed target yet. Removing them now can cost ratio or count as a hit-and-run.",
         "button": "Free space",
         "title": "Free the space held by the old file?",
         "description": "This removes the torrent for {{title}} from the download client and deletes the old file, so it stops sharing. The re-encoded copy in your library is not touched.",
