@@ -123,7 +123,9 @@ struct ReencodeAdminView: View {
             Button("Remove torrent and file", role: .destructive) { Task { await freeSource(job) } }
         } message: { job in
             if privateUnmet > 0 {
-                Text("\(privateUnmet) torrent(s) on a private tracker haven't reached their seed target yet. Removing them now can cost ratio or count as a hit-and-run.\n\nThis removes the torrent for \(job.title) from the download client and deletes the old file, so it stops sharing. The re-encoded copy in your library is not touched.")
+                Text("\(privateUnmet) torrent(s) on a private tracker haven't reached their seed target yet. Removing them now can cost ratio or count as a hit-and-run.")
+                    + Text(verbatim: "\n\n")
+                    + Text("This removes the torrent for \(job.title) from the download client and deletes the old file, so it stops sharing. The re-encoded copy in your library is not touched.")
             } else {
                 Text("This removes the torrent for \(job.title) from the download client and deletes the old file, so it stops sharing. The re-encoded copy in your library is not touched.")
             }
