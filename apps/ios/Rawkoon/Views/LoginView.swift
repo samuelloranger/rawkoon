@@ -6,6 +6,11 @@ struct LoginView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var revealPassword = false
+    @FocusState private var loginFocus: LoginField?
+
+    private enum LoginField: Hashable {
+        case server, email, password
+    }
 
     private var isRegularWidth: Bool {
         hSizeClass == .regular
@@ -13,6 +18,11 @@ struct LoginView: View {
 
     private var fieldsReady: Bool {
         !email.isEmpty && !password.isEmpty && !model.serverURL.isEmpty
+    }
+
+    private func submit(_ model: AppModel) {
+        guard fieldsReady, !model.loading else { return }
+        Task { await model.login(server: model.serverURL, email: email, password: password) }
     }
 
     var body: some View {
@@ -59,13 +69,23 @@ struct LoginView: View {
                 VStack(spacing: 16) {
                     fieldRow("Server") {
                         TextField("", text: $model.serverURL, prompt: prompt(verbatim: "https://your-rawkoon-server"))
+                            .textContentType(.URL)
+                            .keyboardType(.URL)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
+                            .focused($loginFocus, equals: .server)
+                            .submitLabel(.next)
+                            .onSubmit { loginFocus = .email }
                     }
                     fieldRow("Email") {
                         TextField("", text: $email, prompt: prompt("Email"))
+                            .textContentType(.username)
+                            .keyboardType(.emailAddress)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
+                            .focused($loginFocus, equals: .email)
+                            .submitLabel(.next)
+                            .onSubmit { loginFocus = .password }
                     }
                     fieldRow("Password") {
                         HStack(spacing: 8) {
@@ -79,6 +99,9 @@ struct LoginView: View {
                             .textContentType(.password)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
+                            .focused($loginFocus, equals: .password)
+                            .submitLabel(.go)
+                            .onSubmit { submit(model) }
                             Button {
                                 revealPassword.toggle()
                             } label: {
@@ -160,9 +183,7 @@ struct LoginView: View {
 
     private func signInButton(_ model: AppModel) -> some View {
         Button {
-            Task {
-                await model.login(server: model.serverURL, email: email, password: password)
-            }
+            submit(model)
         } label: {
             Group {
                 if model.loading {
@@ -231,19 +252,27 @@ struct LoginView: View {
 
             Section("Server") {
                 TextField("", text: $model.serverURL, prompt: prompt(verbatim: "https://your-rawkoon-server"))
+                    .textContentType(.URL)
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .foregroundStyle(Theme.text)
+                    .focused($loginFocus, equals: .server)
+                    .submitLabel(.next)
+                    .onSubmit { loginFocus = .email }
             }
             .listRowBackground(Theme.raised)
 
             Section("Credentials") {
                 TextField("", text: $email, prompt: prompt("Email"))
+                    .textContentType(.username)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .keyboardType(.emailAddress)
                     .foregroundStyle(Theme.text)
+                    .focused($loginFocus, equals: .email)
+                    .submitLabel(.next)
+                    .onSubmit { loginFocus = .password }
                 HStack {
                     Group {
                         if revealPassword {
@@ -256,6 +285,9 @@ struct LoginView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .foregroundStyle(Theme.text)
+                    .focused($loginFocus, equals: .password)
+                    .submitLabel(.go)
+                    .onSubmit { submit(model) }
 
                     Button {
                         revealPassword.toggle()
@@ -273,9 +305,7 @@ struct LoginView: View {
 
             Section {
                 Button {
-                    Task {
-                        await model.login(server: model.serverURL, email: email, password: password)
-                    }
+                    submit(model)
                 } label: {
                     Group {
                         if model.loading {
