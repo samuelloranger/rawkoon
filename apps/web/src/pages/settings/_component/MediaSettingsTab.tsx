@@ -4,6 +4,7 @@ import { SegmentedTabs } from "@/components/ui/segmented-tabs";
 import { QualityProfilesTab } from "@/pages/settings/_component/QualityProfilesTab";
 import { CustomFormatsTab } from "@/pages/settings/_component/CustomFormatsTab";
 import { MediaPostProcessingTab } from "@/pages/settings/_component/MediaPostProcessingTab";
+import { SeedingTab } from "@/pages/settings/_component/SeedingTab";
 import { LibraryHistoryTab } from "@/pages/medias/_component/LibraryHistoryTab";
 import { ArrLibraryImportPanel } from "@/pages/settings/_component/ArrLibraryImportPanel";
 import {
@@ -12,6 +13,7 @@ import {
   Film,
   Download,
   Clapperboard,
+  Share2,
   Tags,
 } from "lucide-react";
 import { SettingsPageHeader } from "@/pages/settings/_component/SettingsPageHeader";
@@ -20,6 +22,7 @@ type MediaSubTab =
   | "quality-profiles"
   | "custom-formats"
   | "library-settings"
+  | "seeding"
   | "history"
   | "import";
 
@@ -55,6 +58,11 @@ export function MediaSettingsTab() {
       icon: FolderTree,
     },
     {
+      id: "seeding" as const,
+      label: t("settings.media.tabs.seeding"),
+      icon: Share2,
+    },
+    {
       id: "history" as const,
       label: t("settings.media.tabs.history"),
       icon: Film,
@@ -84,6 +92,7 @@ export function MediaSettingsTab() {
         {activeSubTab === "quality-profiles" && <QualityProfilesTab />}
         {activeSubTab === "custom-formats" && <CustomFormatsTab />}
         {activeSubTab === "library-settings" && <MediaPostProcessingTab />}
+        {activeSubTab === "seeding" && <SeedingTab />}
         {activeSubTab === "history" && <LibraryHistoryTab />}
         {activeSubTab === "import" && <ArrLibraryImportPanel />}
       </div>

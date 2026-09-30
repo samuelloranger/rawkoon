@@ -4,7 +4,6 @@ import { useMediaPostProcessingSettings } from "@/features/medias/hooks/useMedia
 import { useQualityProfilesList } from "@/pages/settings/useQualityProfiles";
 import { MediaPostProcessingSettingsBody } from "./MediaPostProcessingSettingsBody";
 import { DownloadSafetySection } from "./DownloadSafetySection";
-import { SeedingSettingsSection } from "./SeedingSettingsSection";
 
 export function MediaPostProcessingTab() {
   const { t } = useTranslation("common");
@@ -43,10 +42,6 @@ export function MediaPostProcessingTab() {
         key={settings.updated_at}
         settings={settings}
         profilesData={profilesData}
-      />
-      <SeedingSettingsSection
-        key={`seed-${settings.updated_at}`}
-        settings={settings}
       />
       <DownloadSafetySection
         key={`safety-${settings.updated_at}`}

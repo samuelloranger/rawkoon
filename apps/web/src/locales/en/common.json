@@ -789,6 +789,7 @@
       "tabs": {
         "qualityProfiles": "Quality Profiles",
         "librarySettings": "Library Settings",
+        "seeding": "Sharing",
         "history": "History",
         "import": "Import",
         "customFormats": "Custom Formats"
@@ -1507,6 +1508,11 @@
     },
     "seeding": {
       "title": "Seeding",
+      "viewTorrents": "View seeding torrents",
+      "statusOn": "Automatic release is on",
+      "statusOff": "Automatic release is off",
+      "shared_one": "{{count}} torrent being shared",
+      "shared_other": "{{count}} torrents being shared",
       "description": "After import, Rawkoon keeps each torrent seeding until it reaches its ratio, then removes it from the client. Your library copy is a hardlink, so it stays.",
       "enable": "Release torrents automatically",
       "enableHint": "When off, a torrent is only removed at import if it already meets the public ratio.",
@@ -2453,6 +2459,7 @@
     }
   },
   "seeding": {
+    "rulesLink": "Sharing rules",
     "summaryOwed": "{{count}} still owe seeding on private trackers.",
     "summaryNext": "The next one releases in about {{time}}.",
     "live": "Live",
