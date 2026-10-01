@@ -45,7 +45,7 @@ services:
       - "3000:3000"
 
   db:
-    image: postgres:17
+    image: postgres:18
     container_name: rawkoon-db
     restart: unless-stopped
     environment:
@@ -53,7 +53,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - db_data:/var/lib/postgresql/data
+      # Postgres 18+ keeps its data in a versioned subdirectory of this mount.
+      - db_data:/var/lib/postgresql
     networks:
       - rawkoon-network
     healthcheck:
