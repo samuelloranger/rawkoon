@@ -10918,6 +10918,17 @@
           }
         }
       }
+    },
+    "Couldn't delete all downloaded files.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de supprimer tous les fichiers téléchargés."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -343,6 +343,25 @@ private struct RootTabsView: View {
                 Text(message)
             }
         }
+        .alert(
+            model.pendingConfirm?.title ?? "",
+            isPresented: Binding(
+                get: { model.pendingConfirm != nil },
+                set: {
+                    if !$0 {
+                        model.pendingConfirm = nil
+                    }
+                }
+            ),
+            presenting: model.pendingConfirm
+        ) { request in
+            Button(request.confirmTitle, role: request.isDestructive ? .destructive : nil) {
+                request.action()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { request in
+            Text(request.message)
+        }
         .sheet(isPresented: $showFullPlayer) {
             if let active = model.activeBook() {
                 PlayerView(summary: active.summary, manifest: active.manifest)

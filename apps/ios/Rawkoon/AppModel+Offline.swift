@@ -66,7 +66,9 @@ extension AppModel {
     }
 
     static func sortedLibrary(_ items: [BookListItem]) -> [BookListItem] {
-        items.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        BookOrdering.sorted(items) {
+            BookOrderKey(id: $0.bookId, title: $0.title, isInProgress: false, isDownloaded: false)
+        }
     }
 
     // MARK: Back online

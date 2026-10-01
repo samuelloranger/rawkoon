@@ -52,20 +52,29 @@ enum PosterCache {
         if let hit = decoded.object(forKey: cacheKey) {
             return LoadedImage(image: hit)
         }
-        let data: Data
-        do {
-            data = try await session.data(for: URLRequest(url: url, cachePolicy: policy(for: url))).0
-        } catch {
-            // Offline or server down: any stored copy beats a blank tile, however old.
-            guard
-                !(error is CancellationError),
-                let stored = try? await session.data(for: URLRequest(url: url, cachePolicy: .returnCacheDataDontLoad))
-            else { return nil }
-            data = stored.0
-        }
+        guard let data = await fetchData(url) else { return nil }
         guard !Task.isCancelled, let image = downsample(data: data, maxPixel: maxPixel) else { return nil }
         decoded.setObject(image, forKey: cacheKey, cost: cost(image))
         return LoadedImage(image: image)
+    }
+
+    /// A request right after the app resumes often dies on a stale connection, so a
+    /// transient failure is retried before giving up; a stored copy still wins offline.
+    private static func fetchData(_ url: URL) async -> Data? {
+        for attempt in 0 ..< 3 {
+            do {
+                return try await session.data(for: URLRequest(url: url, cachePolicy: policy(for: url))).0
+            } catch {
+                if error is CancellationError || (error as? URLError)?.code == .cancelled {
+                    return nil
+                }
+                if let stored = try? await session.data(for: URLRequest(url: url, cachePolicy: .returnCacheDataDontLoad)) {
+                    return stored.0
+                }
+                try? await Task.sleep(for: .milliseconds(500 * (attempt + 1)))
+            }
+        }
+        return nil
     }
 
     static var diskUsage: Int {
@@ -150,7 +159,9 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
 
     @Environment(\.displayScale) private var displayScale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @State private var uiImage: UIImage?
+    @State private var loadedURL: URL?
 
     init(
         url: URL?,
@@ -186,16 +197,27 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
         // instead of popping. A synchronous cache hit renders `shown` non-nil on
         // the first pass, so cached images never animate — only real loads fade.
         .animation(reduceMotion ? nil : .easeOut(duration: 0.35), value: shown != nil)
-        .task(id: resolvedURL) { await load() }
+        // Re-keyed on scene phase so a cover that failed while the app was away loads on return.
+        .task(id: LoadKey(url: resolvedURL, active: scenePhase == .active)) { await load() }
+    }
+
+    private struct LoadKey: Hashable {
+        var url: URL?
+        var active: Bool
     }
 
     private func load() async {
         guard let resolvedURL else {
             uiImage = nil
+            loadedURL = nil
+            return
+        }
+        if uiImage != nil, loadedURL == resolvedURL {
             return
         }
         if let loaded = await PosterCache.load(resolvedURL, maxPixel: maxPixel) {
             uiImage = loaded.image
+            loadedURL = resolvedURL
         }
     }
 }

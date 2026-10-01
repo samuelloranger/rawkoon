@@ -11,9 +11,7 @@ public struct CarPlayBrowseEntry: Sendable, Equatable {
     public let positionSecs: Double?
     public let totalDurationSecs: Double?
     public let updatedAtMillis: Int64?
-    /// Position in the library list as the server returned it; preserved so the
-    /// Library section keeps the server's ordering.
-    public let libraryOrder: Int
+    public let isDownloaded: Bool
 
     public init(
         editionId: Int,
@@ -22,7 +20,7 @@ public struct CarPlayBrowseEntry: Sendable, Equatable {
         positionSecs: Double?,
         totalDurationSecs: Double?,
         updatedAtMillis: Int64?,
-        libraryOrder: Int
+        isDownloaded: Bool
     ) {
         self.editionId = editionId
         self.title = title
@@ -30,28 +28,34 @@ public struct CarPlayBrowseEntry: Sendable, Equatable {
         self.positionSecs = positionSecs
         self.totalDurationSecs = totalDurationSecs
         self.updatedAtMillis = updatedAtMillis
-        self.libraryOrder = libraryOrder
+        self.isDownloaded = isDownloaded
     }
 
-    /// Same rule the phone's Continue card uses: both numbers must be past the
-    /// 1-second floor, so a zero/one-tick position never counts as started.
+    /// Same rule the phone's Continue card uses; the app layer zeroes the
+    /// position of finished or read books.
     public var isInProgress: Bool {
         guard let positionSecs, let totalDurationSecs else { return false }
-        return positionSecs > 1 && totalDurationSecs > 1
+        return BookOrdering.isAudiobookInProgress(
+            positionSecs: positionSecs, totalDurationSecs: totalDurationSecs, finished: false
+        )
+    }
+
+    var orderKey: BookOrderKey {
+        BookOrderKey(id: editionId, title: title, isInProgress: isInProgress, isDownloaded: isDownloaded)
     }
 }
 
 public enum CarPlayBrowse {
     /// Splits the library into the two CarPlay sections. `continueListening` is a
     /// shortcut (in-progress, most-recent first); `library` is everything, in
-    /// server order — the full list still shows in-progress books too.
+    /// the shared book order — the full list still shows in-progress books too.
     public static func sections(
         entries: [CarPlayBrowseEntry]
     ) -> (continueListening: [CarPlayBrowseEntry], library: [CarPlayBrowseEntry]) {
         let continueListening = entries
             .filter(\.isInProgress)
             .sorted { ($0.updatedAtMillis ?? .min) > ($1.updatedAtMillis ?? .min) }
-        let library = entries.sorted { $0.libraryOrder < $1.libraryOrder }
+        let library = BookOrdering.sorted(entries, key: \.orderKey)
         return (continueListening, library)
     }
 

@@ -73,6 +73,9 @@ public struct DownloadPlan: Sendable {
             states[fileId] = .verified
 
         case let .transportFailed(fileId):
+            // A late error from a duplicate or stale task must not demote a chapter
+            // whose file already arrived intact; it would re-download and hold the book short.
+            guard states[fileId] != .verified else { return }
             fail(fileId)
 
         case let .evicted(fileId):
@@ -130,6 +133,29 @@ public struct DownloadPlan: Sendable {
         files.map(\.id).filter { states[$0] == .inFlight && !liveFileIds.contains($0) }
     }
 
+    /// Marks chapters whose complete file is already on disk as verified, except
+    /// those with a live transfer, whose own completion will do it. Returns the ids changed.
+    @discardableResult
+    public mutating func reconcile(onDiskBytes: [Int: Int], liveFileIds: Set<Int>) -> [Int] {
+        var changed: [Int] = []
+        for file in files where states[file.id] != .verified && !liveFileIds.contains(file.id) {
+            guard let bytes = onDiskBytes[file.id], bytes == file.sizeBytes else { continue }
+            apply(.completed(fileId: file.id, status: 200, bytes: bytes, sha256: file.sha256))
+            if states[file.id] == .verified {
+                changed.append(file.id)
+            }
+        }
+        return changed
+    }
+
+    /// Not finished but within a chapter (or 2%) of it: the point where a lost
+    /// completion looks like a stall rather than slow progress.
+    public var isNearlyDone: Bool {
+        guard !files.isEmpty, !isComplete else { return false }
+        let verified = files.filter { states[$0.id] == .verified }.count
+        return files.count - verified <= max(1, files.count / 50)
+    }
+
     /// Puts a stranded in-flight chapter back in the queue without spending an attempt.
     public mutating func requeue(fileId: Int) {
         guard states[fileId] == .inFlight else { return }
@@ -165,6 +191,21 @@ public struct DownloadPlan: Sendable {
         guard !files.isEmpty else { return 0 }
         let done = files.filter { states[$0.id] == .verified }.count
         return Double(done) / Double(files.count)
+    }
+
+    /// Byte-weighted progress: verified chapters count fully, in-flight ones by
+    /// their live fraction, so the bar moves smoothly instead of per chapter.
+    public func byteFraction(partial: [Int: Double]) -> Double {
+        let total = files.reduce(0) { $0 + max($1.sizeBytes, 0) }
+        guard total > 0 else { return progressFraction() }
+        let done = files.reduce(0.0) { sum, file in
+            let size = Double(max(file.sizeBytes, 0))
+            if states[file.id] == .verified {
+                return sum + size
+            }
+            return sum + size * min(1, max(0, partial[file.id] ?? 0))
+        }
+        return min(1, done / Double(total))
     }
 
     /// Rebuilds a plan from files already on disk after a process kill.

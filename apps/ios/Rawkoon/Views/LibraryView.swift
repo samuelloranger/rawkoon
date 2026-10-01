@@ -49,7 +49,6 @@ struct LibraryView: View {
 
     @State private var bookKind: BookKindFilter = .all
     @State private var bookSearch = ""
-    @State private var bookSort: BookSort = .recent
     @State private var busyBookIds: Set<Int> = []
     /// Local books error, captured at the load site so a stale/unrelated
     /// `model.errorMessage` can't leak into the books view.
@@ -393,11 +392,6 @@ struct LibraryView: View {
                             Button(k.title) { bookKind = k }
                         }
                     }
-                    filterMenu(title: bookSort.title, systemImage: "arrow.up.arrow.down") {
-                        ForEach(BookSort.allCases) { s in
-                            Button(s.title) { bookSort = s }
-                        }
-                    }
                     Spacer()
                 }
             }
@@ -723,55 +717,29 @@ struct LibraryView: View {
             return haystack.contains(query.lowercased())
         }
 
-        switch bookSort {
-        case .recent:
-            // Floats books with an active read to the top; ties and inactive
-            // books fall back to the server's order (added_at desc), which
-            // `model.library` already carries.
-            let order = Dictionary(
-                uniqueKeysWithValues: model.library.enumerated().map { ($1.bookId, $0) }
-            )
-            return filtered.sorted { lhs, rhs in
-                let l = lastReadMillis(lhs)
-                let r = lastReadMillis(rhs)
-                if l != r {
-                    return l > r
-                }
-                return (order[lhs.bookId] ?? 0) < (order[rhs.bookId] ?? 0)
-            }
-        case .title:
-            return filtered.sorted {
-                $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
-            }
-        case .author:
-            return filtered.sorted {
-                let left = $0.author ?? $0.title
-                let right = $1.author ?? $1.title
-                return left.localizedCaseInsensitiveCompare(right) == .orderedAscending
-            }
-        }
+        return BookOrdering.sorted(filtered, key: orderKey)
     }
 
-    /// The most recent unfinished read/listen across a book's editions, in epoch
-    /// millis. Zero when nothing is in progress — the same "some real progress,
-    /// not finished" test the Continue shelf and the web app use.
-    private func lastReadMillis(_ book: BookListItem) -> Int64 {
-        var best: Int64 = 0
-        if
-            let editionId = book.audiobookEditionId,
-            let p = audioProgress[editionId],
-            !p.finished, p.positionSecs > 1, p.totalDurationSecs > 1
-        {
-            best = max(best, Int64(p.updatedAt.timeIntervalSince1970 * 1000))
-        }
-        if
-            let editionId = book.ebookEditionId,
-            let p = ebookProgress[editionId],
-            !p.finished, p.spineIndex > 0 || p.scrollFraction > 0.01
-        {
-            best = max(best, p.updatedAtMillis)
-        }
-        return best
+    private func orderKey(_ book: BookListItem) -> BookOrderKey {
+        BookOrderKey(
+            id: book.bookId, title: book.title,
+            isInProgress: isInProgress(book), isDownloaded: isDownloaded(book)
+        )
+    }
+
+    /// Unfinished listening or reading on any edition, matching the row's progress bar.
+    private func isInProgress(_ book: BookListItem) -> Bool {
+        let audio = book.audiobookEditionId.flatMap { audioProgress[$0] }.map {
+            BookOrdering.isAudiobookInProgress(
+                positionSecs: $0.positionSecs, totalDurationSecs: $0.totalDurationSecs, finished: $0.finished
+            )
+        } ?? false
+        let ebook = book.ebookEditionId.flatMap { ebookProgress[$0] }.map {
+            BookOrdering.isEbookInProgress(
+                spineIndex: $0.spineIndex, scrollFraction: $0.scrollFraction, finished: $0.finished
+            )
+        } ?? false
+        return BookOrdering.isInProgress(audiobookInProgress: audio, ebookInProgress: ebook)
     }
 
     /// Loads the books library and captures any failure locally, so the books
@@ -785,11 +753,11 @@ struct LibraryView: View {
         booksError = model.errorMessage
     }
 
-    /// Loads audiobook and ebook progress for the `.recent` sort. Best effort:
-    /// a failure just leaves the list in latest-added order.
+    /// Loads audiobook and ebook progress to rank in-progress books. Best effort:
+    /// a failure just leaves them in the downloaded/alphabetical tiers.
     private func loadBookProgress() async {
         guard let client = model.api() else { return }
-        // Offline, the saved progress keeps the bars and the Recent sort.
+        // Offline, the saved progress keeps the bars and the in-progress tier.
         let audio = await (try? client.getProgress()) ?? client.cachedProgress()?.value
         let ebook = await (try? client.readingProgress()) ?? client.cachedReadingProgress()?.value
         if let audio {
@@ -819,8 +787,7 @@ struct LibraryView: View {
     }
 
     private func isDownloaded(_ book: BookListItem) -> Bool {
-        guard let id = book.audiobookEditionId else { return false }
-        return model.downloadPlans[id]?.isComplete == true
+        model.downloadedBookIds.contains(book.bookId)
     }
 
     /// A reset refetches every page currently loaded and replaces them in place,

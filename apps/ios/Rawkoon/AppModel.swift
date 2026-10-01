@@ -30,6 +30,9 @@ final class AppModel {
     /// as an alert at the app root, distinct from `errorMessage` (a login failure).
     var authWarning: String?
     var downloadPlans: [Int: DownloadPlan] = [:]
+    /// Books with any fully downloaded edition (audiobook or ebook), mirrored
+    /// from the on-disk index so the book list order can react to it.
+    private(set) var downloadedBookIds: Set<Int> = []
     /// Last known resume point per audiobook edition, so a button can read
     /// "Resume from …" before the player is opened. Filled by
     /// `loadResumePreview(editionId:totalDurationSecs:)`.
@@ -45,6 +48,9 @@ final class AppModel {
     var isOfflineLibrary = false
     /// A title a widget tap asked to open; Home pushes its detail and clears it.
     var pendingMediaLink: MediaLink?
+    /// Shown by the app root: an alert attached to a screen pushed with the zoom
+    /// transition stays hidden until the tab changes.
+    var pendingConfirm: ConfirmRequest?
     /// The in-flight `/api/auth/me` fetch, so launch, Settings and a reconnect
     /// share one request.
     var profileTask: Task<Void, Never>?
@@ -138,6 +144,10 @@ final class AppModel {
     var downloaders: [Int: ChapterDownloader] = [:]
     private var pendingBackgroundCompletions: [String: () -> Void] = [:]
     var verifiedCounts: [Int: Int] = [:]
+    /// Live in-flight chapter fractions per edition, for the chapter pills and the overall bar.
+    var chapterFractions: [Int: [Int: Double]] = [:]
+    /// Smooth, never-decreasing overall fraction per edition while it downloads.
+    var downloadFractions: [Int: Double] = [:]
     var lastProgressWriteMillis: [Int: Int64] = [:]
     /// Whether the device currently has a usable network path.
     ///
@@ -182,6 +192,17 @@ final class AppModel {
         observeProtectedData()
         compactJournal()
         restoreDownloadedAudiobooks()
+        refreshDownloadedBookIds()
+    }
+
+    func refreshDownloadedBookIds() {
+        downloadedBookIds = Set(DownloadedStore.readIndex().map(\.bookId))
+    }
+
+    /// Drops an edition's index record once its last downloaded file is gone.
+    func forgetDownloadedEdition(editionId: Int) {
+        DownloadedStore.forget(editionId: editionId)
+        refreshDownloadedBookIds()
     }
 
     /// Rehydrates in-memory manifests and download plans from disk so a process
@@ -483,7 +504,7 @@ final class AppModel {
     }
 
     /// Flattens the audiobook library + remote progress into the Linux-tested
-    /// CarPlay browse model. `libraryOrder` preserves the server's list order.
+    /// CarPlay browse model. Order is applied by `CarPlayBrowse.sections`.
     func carPlayAudiobooks() async -> [CarPlayBrowseEntry] {
         // A car with a weak signal must not hold the whole list on the server.
         var remote: [RemoteProgress]?
@@ -497,7 +518,7 @@ final class AppModel {
         let journal = await journalEntries()
 
         var entries: [CarPlayBrowseEntry] = []
-        for (index, book) in library.enumerated() {
+        for book in library {
             guard let summary = book.audiobookSummary else { continue }
             let progress = progressByEdition[summary.editionId]
             // A finished book's journal line sits at its end; that is not "in progress".
@@ -511,11 +532,12 @@ final class AppModel {
                     editionId: summary.editionId,
                     title: summary.title,
                     author: summary.author,
-                    positionSecs: progress.map { $0.finished ? 0 : $0.positionSecs } ?? local?.positionSecs,
+                    positionSecs: book.isRead
+                        ? 0 : progress.map { $0.finished ? 0 : $0.positionSecs } ?? local?.positionSecs,
                     totalDurationSecs: progress?.totalDurationSecs ?? summary.durationSecs,
                     updatedAtMillis: progress.map { Int64($0.updatedAt.timeIntervalSince1970 * 1000) }
                         ?? local?.atMillis,
-                    libraryOrder: index
+                    isDownloaded: downloadedBookIds.contains(book.bookId)
                 )
             )
         }
@@ -633,9 +655,10 @@ final class AppModel {
                 editionId: editionId,
                 baseURL: baseURL,
                 manifest: manifest
-            ) { [weak self] plan in
-                Task { @MainActor in
-                    self?.applyDownloadPlan(plan, editionId: editionId)
+            ) { [weak self] snapshot in
+                // Already on the main queue (FIFO); a Task hop could apply an older snapshot last.
+                MainActor.assumeIsolated {
+                    self?.applyDownloadSnapshot(snapshot, editionId: editionId)
                 }
             }
             if let pending = pendingBackgroundCompletions.first(where: { downloader.hasBackgroundSession(identifier: $0.key) }) {
@@ -754,10 +777,16 @@ final class AppModel {
                 Task { @MainActor in self?.invalidatingSessions.remove(editionId) }
             }
         }
-        FileStore.deleteEdition(editionId)
+        let removed = FileStore.deleteEdition(editionId)
         DownloadedStore.forget(editionId: editionId)
+        refreshDownloadedBookIds()
+        if !removed {
+            toast(String(localized: "Couldn't delete all downloaded files."), style: .error)
+        }
         downloadPlans.removeValue(forKey: editionId)
         verifiedCounts.removeValue(forKey: editionId)
+        chapterFractions.removeValue(forKey: editionId)
+        downloadFractions.removeValue(forKey: editionId)
         // The playing book keeps streaming, and progress saving needs its manifest.
         if activeEditionId != editionId {
             manifests.removeValue(forKey: editionId)
@@ -769,6 +798,18 @@ final class AppModel {
         if activeEditionId == editionId {
             player.rebuild()
         }
+        // Same signal as a completed download: the book screen has missed plan removals too.
+        postDownloadStateChanged(editionId: editionId)
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(300))
+            self?.postDownloadStateChanged(editionId: editionId)
+        }
+    }
+
+    private func postDownloadStateChanged(editionId: Int) {
+        NotificationCenter.default.post(
+            name: .audiobookDownloadStateChanged, object: nil, userInfo: ["editionId": editionId]
+        )
     }
 
     /// Replaces the downloader's signed URLs after a grant expired.
@@ -809,11 +850,21 @@ final class AppModel {
 
     private static let maxGrantRefreshAttempts = 3
 
-    private func applyDownloadPlan(_ plan: DownloadPlan, editionId: Int) {
+    private func applyDownloadSnapshot(_ snapshot: DownloadSnapshot, editionId: Int) {
+        let plan = snapshot.plan
+        let shownCount = verifiedCounts[editionId]
+        let incomingCount = verifiedFileCount(in: plan)
+        if shownCount != incomingCount || plan.isComplete {
+            DownloadJournal(editionId: editionId).log(
+                "apply rev=\(snapshot.revision) verified \(shownCount.map(String.init) ?? "-")->\(incomingCount) complete=\(plan.isComplete) hasDownloader=\(downloaders[editionId] != nil)"
+            )
+        }
         // A late callback from a downloader that `purgeDownload` already dropped
         // (cancel/remove) must not resurrect the plan or the deleted files.
         guard downloaders[editionId] != nil else { return }
-        if plan.needsFreshGrants {
+        // Snapshots now stream during byte progress; ask for grants once per expiry.
+        let wasWaitingForGrants = downloadPlans[editionId]?.needsFreshGrants ?? false
+        if plan.needsFreshGrants, !wasWaitingForGrants {
             Task { await refreshGrants(editionId: editionId) }
         }
 
@@ -821,6 +872,13 @@ final class AppModel {
 
         downloadPlans[editionId] = plan
         verifiedCounts[editionId] = newCount
+        if plan.isComplete {
+            chapterFractions.removeValue(forKey: editionId)
+            downloadFractions.removeValue(forKey: editionId)
+        } else {
+            chapterFractions[editionId] = snapshot.chapterFractions
+            downloadFractions[editionId] = snapshot.overallFraction
+        }
 
         // When the last chapter verifies, persist what the offline library needs
         // to list and play this audiobook without the network. Guard on a
@@ -828,7 +886,31 @@ final class AppModel {
         // on every state emission.
         if plan.isComplete, !isIndexedAsDownloaded(editionId) {
             persistDownloadedAudiobook(editionId: editionId)
+            notifyDownloadComplete(editionId: editionId)
         }
+        // Observation alone sometimes left the book screen on a finished ring; this reaches
+        // it through its own @State (see BookView .onReceive).
+        if newCount != shownCount || plan.isComplete {
+            postDownloadStateChanged(editionId: editionId)
+            // A second signal once the dust settles, in case the first was read mid-write.
+            if plan.isComplete {
+                Task { @MainActor [weak self] in
+                    try? await Task.sleep(for: .milliseconds(300))
+                    self?.postDownloadStateChanged(editionId: editionId)
+                }
+            }
+        }
+    }
+
+    /// Only when the app is not on screen: that is when nobody sees the card flip.
+    private func notifyDownloadComplete(editionId: Int) {
+        guard UIApplication.shared.applicationState != .active else { return }
+        let content = UNMutableNotificationContent()
+        content.title = String(localized: "Download complete")
+        content.body = library.first { $0.audiobookEditionId == editionId }?.title ?? ""
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: "download-complete-\(editionId)", content: content, trigger: nil)
+        Task { try? await UNUserNotificationCenter.current().add(request) }
     }
 
     /// Deletes local chapters a re-import on the server replaced, and takes the
@@ -847,6 +929,8 @@ final class AppModel {
         DownloadedStore.writeManifest(fresh, editionId: editionId)
         downloadPlans.removeValue(forKey: editionId)
         verifiedCounts.removeValue(forKey: editionId)
+        chapterFractions.removeValue(forKey: editionId)
+        downloadFractions.removeValue(forKey: editionId)
     }
 
     /// Size of each chapter already on disk, keyed by file id.
@@ -883,6 +967,7 @@ final class AppModel {
         guard let manifest = manifests[editionId] else { return }
         let book = library.first { $0.audiobookEditionId == editionId }
         OfflineLibraryStore.persistAudiobook(editionId: editionId, manifest: manifest, book: book)
+        refreshDownloadedBookIds()
         FileStore.deleteChapters(editionId: editionId, keeping: Set(manifest.files.map(\.id)))
     }
 
@@ -903,6 +988,7 @@ final class AppModel {
             editionId: editionId, bookId: bookId, title: title, author: author,
             coverURL: coverURL, files: files, downloadedFileCount: downloadedFileCount
         )
+        refreshDownloadedBookIds()
     }
 
     /// The persisted ebook file list for a downloaded edition, or nil — see
@@ -1109,4 +1195,17 @@ struct MediaLink: Hashable {
         mediaType = type
         title = value("title") ?? ""
     }
+}
+
+struct ConfirmRequest: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
+    let confirmTitle: String
+    var isDestructive = true
+    let action: @MainActor () -> Void
+}
+
+extension Notification.Name {
+    static let audiobookDownloadStateChanged = Notification.Name("audiobookDownloadStateChanged")
 }
