@@ -5787,6 +5787,26 @@
         }
       }
     },
+    "Move down": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déplacer vers le bas"
+          }
+        }
+      }
+    },
+    "Move up": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déplacer vers le haut"
+          }
+        }
+      }
+    },
     "Movie": {
       "localizations": {
         "fr": {

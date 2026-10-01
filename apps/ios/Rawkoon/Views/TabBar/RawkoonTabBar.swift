@@ -72,6 +72,9 @@ struct RawkoonTabBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(tab.title))
+        .accessibilityShowsLargeContentViewer {
+            Label(tab.title, systemImage: tab == .settings ? "gearshape" : tab.symbol)
+        }
         .accessibilityValue(tab == .notifications ? unreadValue : Text(verbatim: ""))
         .accessibilityAddTraits(active ? .isSelected : [])
         .accessibilityHint(isCollapsed ? Text("Shows all tabs") : Text(verbatim: ""))

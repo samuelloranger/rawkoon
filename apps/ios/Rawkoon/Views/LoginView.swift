@@ -6,9 +6,23 @@ struct LoginView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var revealPassword = false
+    @FocusState private var loginFocus: LoginField?
+
+    private enum LoginField: Hashable {
+        case server, email, password
+    }
 
     private var isRegularWidth: Bool {
         hSizeClass == .regular
+    }
+
+    private var fieldsReady: Bool {
+        !email.isEmpty && !password.isEmpty && !model.serverURL.isEmpty
+    }
+
+    private func submit(_ model: AppModel) {
+        guard fieldsReady, !model.loading else { return }
+        Task { await model.login(server: model.serverURL, email: email, password: password) }
     }
 
     var body: some View {
@@ -46,13 +60,7 @@ struct LoginView: View {
         return ScrollView {
             VStack(spacing: 26) {
                 VStack(spacing: 14) {
-                    Image("AppLogo")
-                        .resizable()
-                        .frame(width: 64, height: 64)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                    Text("Rawkoon")
-                        .font(.display(34, weight: .semibold))
-                        .foregroundStyle(Theme.textStrong)
+                    loginLockup(titleSize: 34, logoSide: 64)
                     Text("Sign in to your library")
                         .font(.subheadline)
                         .foregroundStyle(Theme.muted)
@@ -61,13 +69,23 @@ struct LoginView: View {
                 VStack(spacing: 16) {
                     fieldRow("Server") {
                         TextField("", text: $model.serverURL, prompt: prompt(verbatim: "https://your-rawkoon-server"))
+                            .textContentType(.URL)
+                            .keyboardType(.URL)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
+                            .focused($loginFocus, equals: .server)
+                            .submitLabel(.next)
+                            .onSubmit { loginFocus = .email }
                     }
                     fieldRow("Email") {
                         TextField("", text: $email, prompt: prompt("Email"))
+                            .textContentType(.username)
+                            .keyboardType(.emailAddress)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
+                            .focused($loginFocus, equals: .email)
+                            .submitLabel(.next)
+                            .onSubmit { loginFocus = .password }
                     }
                     fieldRow("Password") {
                         HStack(spacing: 8) {
@@ -81,6 +99,9 @@ struct LoginView: View {
                             .textContentType(.password)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
+                            .focused($loginFocus, equals: .password)
+                            .submitLabel(.go)
+                            .onSubmit { submit(model) }
                             Button {
                                 revealPassword.toggle()
                             } label: {
@@ -113,6 +134,40 @@ struct LoginView: View {
         .tint(Theme.apricot)
     }
 
+    /// Side by side until the unscaled word no longer fits, then stacked so
+    /// "Rawkoon" stays one line instead of breaking around the logo.
+    private func loginLockup(titleSize: CGFloat, logoSide: CGFloat) -> some View {
+        ViewThatFits(in: .horizontal) {
+            lockup(titleSize: titleSize, logoSide: logoSide, stacked: false)
+            lockup(titleSize: titleSize, logoSide: logoSide, stacked: true)
+        }
+        // A logo, not body copy. Accessibility sizes enlarge the fields, not this.
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+    }
+
+    @ViewBuilder
+    private func lockup(titleSize: CGFloat, logoSide: CGFloat, stacked: Bool) -> some View {
+        let logo = Image("AppLogo")
+            .resizable()
+            .frame(width: logoSide, height: logoSide)
+            .clipShape(RoundedRectangle(cornerRadius: logoSide * 0.25, style: .continuous))
+        let title = Text("Rawkoon")
+            .font(.display(titleSize, weight: .semibold))
+            .foregroundStyle(Theme.textStrong)
+            .lineLimit(1)
+        if stacked {
+            VStack(spacing: 8) {
+                logo
+                title.minimumScaleFactor(0.4)
+            }
+        } else {
+            HStack(spacing: 14) {
+                logo
+                title.fixedSize()
+            }
+        }
+    }
+
     private func fieldRow(_ label: LocalizedStringKey, @ViewBuilder _ field: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
@@ -122,7 +177,7 @@ struct LoginView: View {
                 .textFieldStyle(.plain)
                 .foregroundStyle(Theme.text)
                 .padding(.horizontal, 12)
-                .frame(height: 42)
+                .frame(height: 44)
                 .background(Theme.well, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border, lineWidth: 1))
         }
@@ -130,9 +185,7 @@ struct LoginView: View {
 
     private func signInButton(_ model: AppModel) -> some View {
         Button {
-            Task {
-                await model.login(server: model.serverURL, email: email, password: password)
-            }
+            submit(model)
         } label: {
             Group {
                 if model.loading {
@@ -147,8 +200,8 @@ struct LoginView: View {
             .background(Theme.apricot, in: RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
-        .disabled(model.loading || email.isEmpty || password.isEmpty || model.serverURL.isEmpty)
-        .opacity(email.isEmpty || password.isEmpty || model.serverURL.isEmpty ? 0.6 : 1)
+        .disabled(model.loading || !fieldsReady)
+        .opacity(fieldsReady ? 1 : 0.6)
     }
 
     private func ssoBlock(_ model: AppModel) -> some View {
@@ -194,34 +247,34 @@ struct LoginView: View {
         @Bindable var model = model
         return Form {
             Section {
-                HStack(spacing: 14) {
-                    Image("AppLogo")
-                        .resizable()
-                        .frame(width: 52, height: 52)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                    Text("Rawkoon")
-                        .font(.display(40, weight: .semibold))
-                        .foregroundStyle(Theme.textStrong)
-                }
-                .padding(.vertical, 10)
-                .listRowBackground(Color.clear)
+                loginLockup(titleSize: 40, logoSide: 52)
+                    .padding(.vertical, 10)
+                    .listRowBackground(Color.clear)
             }
 
             Section("Server") {
                 TextField("", text: $model.serverURL, prompt: prompt(verbatim: "https://your-rawkoon-server"))
+                    .textContentType(.URL)
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .foregroundStyle(Theme.text)
+                    .focused($loginFocus, equals: .server)
+                    .submitLabel(.next)
+                    .onSubmit { loginFocus = .email }
             }
             .listRowBackground(Theme.raised)
 
             Section("Credentials") {
                 TextField("", text: $email, prompt: prompt("Email"))
+                    .textContentType(.username)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .keyboardType(.emailAddress)
                     .foregroundStyle(Theme.text)
+                    .focused($loginFocus, equals: .email)
+                    .submitLabel(.next)
+                    .onSubmit { loginFocus = .password }
                 HStack {
                     Group {
                         if revealPassword {
@@ -234,6 +287,9 @@ struct LoginView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .foregroundStyle(Theme.text)
+                    .focused($loginFocus, equals: .password)
+                    .submitLabel(.go)
+                    .onSubmit { submit(model) }
 
                     Button {
                         revealPassword.toggle()
@@ -251,9 +307,7 @@ struct LoginView: View {
 
             Section {
                 Button {
-                    Task {
-                        await model.login(server: model.serverURL, email: email, password: password)
-                    }
+                    submit(model)
                 } label: {
                     Group {
                         if model.loading {
@@ -263,10 +317,14 @@ struct LoginView: View {
                         }
                     }
                     .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
+                    .foregroundStyle(Theme.onAccent)
+                    .background(Theme.apricot, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-                .disabled(model.loading || email.isEmpty || password.isEmpty || model.serverURL.isEmpty)
-                .listRowBackground(Theme.apricot)
-                .foregroundStyle(Theme.onAccent)
+                .buttonStyle(.plain)
+                .disabled(model.loading || !fieldsReady)
+                .opacity(fieldsReady ? 1 : 0.6)
+                .listRowBackground(Color.clear)
             }
 
             if !model.ssoProviders.isEmpty {

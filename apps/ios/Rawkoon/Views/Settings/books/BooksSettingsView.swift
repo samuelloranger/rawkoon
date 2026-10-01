@@ -86,8 +86,10 @@ struct BooksSettingsView: View {
                     Spacer()
                     Button { move(index, by: -1) } label: { Image(systemName: "chevron.up") }
                         .disabled(index == 0).buttonStyle(.borderless)
+                        .accessibilityLabel(Text("Move up"))
                     Button { move(index, by: 1) } label: { Image(systemName: "chevron.down") }
                         .disabled(index == order.count - 1).buttonStyle(.borderless)
+                        .accessibilityLabel(Text("Move down"))
                 }
                 .listRowBackground(Theme.raised)
                 .swipeActions {
