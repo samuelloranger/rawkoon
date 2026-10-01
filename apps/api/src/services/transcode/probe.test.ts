@@ -93,6 +93,32 @@ describe("parseProbe", () => {
     expect(p.video).toBeNull();
     expect(p.isHdr).toBe(false);
   });
+
+  it("reports the frame size after container cropping", () => {
+    const p = parseProbe({
+      format: { duration: "10", size: "10" },
+      streams: [
+        {
+          index: 0,
+          codec_type: "video",
+          codec_name: "hevc",
+          width: 3840,
+          height: 2160,
+          side_data_list: [
+            {
+              side_data_type: "Frame Cropping",
+              crop_top: 276,
+              crop_bottom: 276,
+              crop_left: 0,
+              crop_right: 0,
+            },
+          ],
+        },
+      ],
+    });
+    expect(p.video?.width).toBe(3840);
+    expect(p.video?.height).toBe(1608);
+  });
 });
 
 describe("parseProbe audio bitrate", () => {
