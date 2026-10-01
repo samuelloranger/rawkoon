@@ -83,7 +83,14 @@ function sameFile(src: PipelineSource, live: FileFingerprint | null): boolean {
   if (!live) return false;
   if (live.sizeBytes !== src.sizeBytes) return false;
   if (src.fileMtimeMs != null && live.mtimeMs !== src.fileMtimeMs) return false;
-  if (src.fileIno && live.ino && src.fileIno !== live.ino) return false;
+  // A different dev means the mount was remade (mergerfs), so stored inodes are stale.
+  if (
+    src.fileIno &&
+    live.ino &&
+    src.fileDev === live.dev &&
+    src.fileIno !== live.ino
+  )
+    return false;
   return true;
 }
 

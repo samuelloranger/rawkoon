@@ -180,6 +180,25 @@ describe("runPipeline", () => {
     });
   });
 
+  it("ignores a stale inode when the device changed (remounted pool)", async () => {
+    const { deps } = makeDeps({
+      fingerprint: async () => ({ ...fp, dev: "49", ino: "777" }),
+    });
+    const r = await runPipeline(job, deps, hooks().h as never, opts());
+    expect(r.ok).toBe(true);
+  });
+
+  it("fails preflight when the inode changed on the same device", async () => {
+    const { deps } = makeDeps({
+      fingerprint: async () => ({ ...fp, ino: "777" }),
+    });
+    const r = await runPipeline(job, deps, hooks().h as never, opts());
+    expect(r).toMatchObject({
+      ok: false,
+      error: "Source changed since queued",
+    });
+  });
+
   it("fails preflight without enough free space", async () => {
     const { deps } = makeDeps({ freeBytes: async () => 100n });
     const r = await runPipeline(job, deps, hooks().h as never, opts());
