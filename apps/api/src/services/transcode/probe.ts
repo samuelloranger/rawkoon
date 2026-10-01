@@ -15,7 +15,14 @@ type RawStream = {
   bit_rate?: string;
   tags?: Record<string, string>;
   disposition?: Record<string, number>;
-  side_data_list?: { side_data_type?: string; dv_profile?: number }[];
+  side_data_list?: {
+    side_data_type?: string;
+    dv_profile?: number;
+    crop_top?: number;
+    crop_bottom?: number;
+    crop_left?: number;
+    crop_right?: number;
+  }[];
 };
 
 type RawProbe = {
@@ -81,14 +88,24 @@ export function parseProbe(json: unknown): SourceProbe {
     const dv = s.side_data_list?.find(
       (d) => d.side_data_type === "DOVI configuration record",
     );
+    // ffmpeg applies container cropping on decode, so encodes see the cropped frame.
+    const crop = s.side_data_list?.find(
+      (d) => d.side_data_type === "Frame Cropping",
+    );
     streams.push({
       index: s.index ?? streams.length,
       type: type as ProbeStream["type"],
       ordinal,
       codec: s.codec_name ?? "unknown",
       profile: s.profile ?? null,
-      width: s.width ?? null,
-      height: s.height ?? null,
+      width:
+        s.width != null
+          ? s.width - (crop?.crop_left ?? 0) - (crop?.crop_right ?? 0)
+          : null,
+      height:
+        s.height != null
+          ? s.height - (crop?.crop_top ?? 0) - (crop?.crop_bottom ?? 0)
+          : null,
       fps: rate(s.avg_frame_rate) ?? rate(s.r_frame_rate),
       pixFmt: s.pix_fmt ?? null,
       colorPrimaries: s.color_primaries ?? null,

@@ -34,7 +34,7 @@ export function checkStructure(
     (want.height != null && output.video.height !== want.height) ||
     (want.width != null && output.video.width !== want.width)
   ) {
-    return `Video height/width is ${output.video.width}x${output.video.height}, expected ${want.width}x${want.height}`;
+    return `Video size is ${output.video.width}x${output.video.height}, expected ${want.width}x${want.height}`;
   }
   if (langs(output, "audio") !== langs(source, "audio")) {
     return `Audio tracks differ (${langs(source, "audio")} → ${langs(output, "audio")})`;

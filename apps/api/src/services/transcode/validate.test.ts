@@ -92,7 +92,7 @@ describe("checkStructure", () => {
         mk({ h: 720, audio: ["fre", "eng"], subs: ["fre"] }),
         s,
       ),
-    ).toContain("height");
+    ).toContain("Video size is");
   });
   it("fails when audio languages differ", () => {
     expect(
