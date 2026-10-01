@@ -195,24 +195,41 @@ struct HomeView: View {
 
     // MARK: First-load skeleton
 
-    /// Warm shimmer standing in for the first paint: a greeting line and one
-    /// poster rail, shaped like the real content below it.
+    /// Warm shimmer standing in for the first paint: a continue card, poster rails
+    /// and a widget, shaped like the real content below it.
     private var homeSkeleton: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ShimmerView(cornerRadius: 6)
-                .frame(width: 200, height: 20)
+        VStack(alignment: .leading, spacing: 26) {
+            // Continue-listening card.
+            ShimmerView(cornerRadius: 16)
+                .frame(height: 96)
                 .padding(.horizontal, 16)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(0 ..< 4, id: \.self) { _ in
-                        ShimmerView(cornerRadius: RailPoster.corner)
-                            .frame(width: RailPoster.width, height: RailPoster.height)
-                    }
-                }
+            skeletonRail(titleWidth: 140)
+            skeletonRail(titleWidth: 96)
+            skeletonRail(titleWidth: 120)
+            // A widget card.
+            ShimmerView(cornerRadius: 16)
+                .frame(height: 120)
                 .padding(.horizontal, 16)
-            }
         }
         .allowsHitTesting(false)
+    }
+
+    private func skeletonRail(titleWidth: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ShimmerView(cornerRadius: 6)
+                .frame(width: titleWidth, height: 20)
+                .padding(.horizontal, 16)
+            // A plain HStack, not a nested ScrollView: that one clipped the cards to a
+            // hard edge mid-crossfade. The overflow runs off-screen like the real rail.
+            HStack(spacing: 12) {
+                ForEach(0 ..< 4, id: \.self) { _ in
+                    ShimmerView(cornerRadius: RailPoster.corner)
+                        .frame(width: RailPoster.width, height: RailPoster.height)
+                }
+            }
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     // MARK: Poster rails
@@ -626,6 +643,8 @@ struct HomeView: View {
     }
 
     private func load() async {
+        // The first onAppear can beat the API client; paint the saved copy before the fetch.
+        hydrateFromCache()
         guard let client = model.api() else {
             loading = false
             return
