@@ -384,6 +384,13 @@ struct BookRow: View {
                     if book.hasEbook {
                         formatChip("Ebook", tint: Theme.muted)
                     }
+                    // Inline, not a trailing column, so the badge can't narrow the title.
+                    if book.isRead {
+                        StatusBadge(verbatim: bookReadStatusText(), tint: Theme.seed)
+                    }
+                    if downloaded {
+                        StatusBadge(text: "Offline", tint: Theme.seed)
+                    }
                 }
                 if let progress, progress > 0.001, progress < 0.999 {
                     HStack(spacing: 8) {
@@ -396,13 +403,7 @@ struct BookRow: View {
                 }
             }
 
-            Spacer(minLength: 8)
-            if book.isRead {
-                StatusBadge(verbatim: bookReadStatusText(), tint: Theme.seed)
-            }
-            if downloaded {
-                StatusBadge(text: "Offline", tint: Theme.seed)
-            }
+            Spacer(minLength: 0)
         }
         .padding(12)
         .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
@@ -415,6 +416,104 @@ struct BookRow: View {
             .font(.system(.caption2, design: .monospaced))
             .foregroundStyle(tint)
             .chipCapsule(tint: tint)
+    }
+}
+
+/// A destructive book action waiting on the user's confirmation.
+enum PendingBookConfirm: Identifiable {
+    case markRead(BookListItem)
+    case resetProgress(BookListItem)
+    case removeDownload(BookListItem)
+
+    var id: String {
+        switch self {
+        case let .markRead(book): "read-\(book.bookId)"
+        case let .resetProgress(book): "reset-\(book.bookId)"
+        case let .removeDownload(book): "remove-\(book.bookId)"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .markRead: String(localized: "Mark as read?")
+        case .resetProgress: String(localized: "Reset progress?")
+        case .removeDownload: String(localized: "Remove downloaded audiobook?")
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .markRead: String(localized: "This resets ebook and audiobook progress.")
+        case .resetProgress: String(localized: "Clears ebook and audiobook progress. The read badge stays.")
+        case .removeDownload:
+            String(localized: "Deletes the offline chapters from this iPhone. Playback will need the network until you download them again.")
+        }
+    }
+
+    var confirmLabel: String {
+        switch self {
+        case .markRead: String(localized: "Mark as read")
+        case .resetProgress: String(localized: "Reset progress")
+        case .removeDownload: String(localized: "Remove Download")
+        }
+    }
+}
+
+/// The trailing "…" menu on the book detail screen; same actions as the card long-press.
+struct BookActionsMenu: View {
+    let items: [BookCardMenuAction]
+    let onAction: (BookCardMenuAction) -> Void
+
+    var body: some View {
+        Menu {
+            ForEach(items, id: \.self) { action in
+                bookCardMenuButton(action, perform: onAction)
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .accessibilityLabel(Text("More"))
+    }
+}
+
+extension AppModel {
+    /// Goes through the root-level alert: one raised from a zoom-pushed screen stays hidden.
+    func confirmBookAction(_ pending: PendingBookConfirm, onDone: @escaping () async -> Void = {}) {
+        let destructive: Bool
+        let run: @MainActor () -> Void
+        switch pending {
+        case let .markRead(book):
+            destructive = false
+            run = { [self] in
+                Task {
+                    await setBookRead(book, read: true)
+                    await onDone()
+                }
+            }
+        case let .resetProgress(book):
+            destructive = false
+            run = { [self] in
+                Task {
+                    await resetBookProgress(book)
+                    await onDone()
+                }
+            }
+        case let .removeDownload(book):
+            destructive = true
+            run = { [self] in
+                if let editionId = book.audiobookEditionId {
+                    removeDownload(editionId: editionId)
+                }
+                Task { await onDone() }
+            }
+        }
+        pendingConfirm = ConfirmRequest(
+            title: pending.title,
+            message: pending.message,
+            confirmTitle: pending.confirmLabel,
+            isDestructive: destructive,
+            action: run
+        )
     }
 }
 
@@ -554,6 +653,18 @@ private func bookCardMenuButtonContent(
     case .markUnread:
         Button { perform(action) } label: {
             Label("Mark as unread", systemImage: "checkmark.circle.badge.minus")
+        }
+    case .resetProgress:
+        Button { perform(action) } label: {
+            Label("Reset progress", systemImage: "arrow.counterclockwise")
+        }
+    case .download:
+        Button { perform(action) } label: {
+            Label("Download", systemImage: "arrow.down.circle")
+        }
+    case .removeDownload:
+        Button(role: .destructive) { perform(action) } label: {
+            Label("Remove download", systemImage: "trash")
         }
     case .addAudiobook:
         Button { perform(action) } label: {

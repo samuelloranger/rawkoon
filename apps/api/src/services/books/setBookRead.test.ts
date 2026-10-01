@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { setBookRead, type SetBookReadDb } from "./setBookRead";
+import {
+  resetBookProgress,
+  setBookRead,
+  type SetBookReadDb,
+} from "./setBookRead";
 
 type EditionRow = { id: number };
 type BookRow = { id: number };
@@ -155,5 +159,32 @@ describe("setBookRead", () => {
     }>(harness.deleteListening).where;
     expect(listeningWhere.userId).not.toBe(OTHER);
     expect(listeningWhere.editionId.in).not.toContain(OTHER_BOOK_EDITION);
+  });
+});
+
+describe("resetBookProgress", () => {
+  test("wipes progress for every edition and leaves the read flag alone", async () => {
+    const harness = createDb();
+    const result = await resetBookProgress(harness.db, {
+      userId: USER,
+      bookId: BOOK,
+    });
+
+    expect(result).toEqual({ ok: true, readAt: null });
+    expect(harness.deleteListening).toHaveBeenCalledTimes(1);
+    expect(harness.deleteReading).toHaveBeenCalledTimes(1);
+    expect(harness.upsert).not.toHaveBeenCalled();
+    expect(harness.deleteReadState).not.toHaveBeenCalled();
+  });
+
+  test("a missing book is not_found and writes nothing", async () => {
+    const harness = createDb({ bookExists: false });
+    const result = await resetBookProgress(harness.db, {
+      userId: USER,
+      bookId: BOOK,
+    });
+
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+    expect(harness.transaction).not.toHaveBeenCalled();
   });
 });

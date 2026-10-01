@@ -57,6 +57,46 @@ export type SetBookReadResult =
   | { ok: true; readAt: Date | null }
   | { ok: false; reason: "not_found" };
 
+type ProgressWipeDb = Pick<
+  SetBookReadDb,
+  "bookEdition" | "bookListeningProgress" | "bookReadingProgress"
+>;
+
+async function wipeEditionProgress(
+  tx: ProgressWipeDb,
+  userId: string,
+  bookId: number,
+): Promise<void> {
+  const editions = await tx.bookEdition.findMany({
+    where: { bookId },
+    select: { id: true },
+  });
+  const editionIds = editions.map((e) => e.id);
+  if (editionIds.length === 0) return;
+  await tx.bookListeningProgress.deleteMany({
+    where: { userId, editionId: { in: editionIds } },
+  });
+  await tx.bookReadingProgress.deleteMany({
+    where: { userId, editionId: { in: editionIds } },
+  });
+}
+
+/** Clears this user's ebook and audiobook progress without touching the read flag. */
+export async function resetBookProgress(
+  db: SetBookReadDb,
+  opts: { userId: string; bookId: number },
+): Promise<SetBookReadResult> {
+  const book = await db.libraryBook.findUnique({
+    where: { id: opts.bookId },
+    select: { id: true },
+  });
+  if (!book) return { ok: false, reason: "not_found" };
+  await db.$transaction((tx) =>
+    wipeEditionProgress(tx, opts.userId, opts.bookId),
+  );
+  return { ok: true, readAt: null };
+}
+
 export async function setBookRead(
   db: SetBookReadDb,
   opts: { userId: string; bookId: number; read: boolean },
@@ -83,19 +123,7 @@ export async function setBookRead(
       create: { userId: opts.userId, bookId: opts.bookId, readAt: now },
       update: { readAt: now },
     });
-    const editions = await tx.bookEdition.findMany({
-      where: { bookId: opts.bookId },
-      select: { id: true },
-    });
-    const editionIds = editions.map((e) => e.id);
-    if (editionIds.length > 0) {
-      await tx.bookListeningProgress.deleteMany({
-        where: { userId: opts.userId, editionId: { in: editionIds } },
-      });
-      await tx.bookReadingProgress.deleteMany({
-        where: { userId: opts.userId, editionId: { in: editionIds } },
-      });
-    }
+    await wipeEditionProgress(tx, opts.userId, opts.bookId);
     return saved;
   });
 

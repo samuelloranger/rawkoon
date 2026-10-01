@@ -20,6 +20,7 @@ import {
 import { addBookFromVolume } from "@rawkoon/api/services/books/bookLibrary";
 import {
   loadReadAtByBookId,
+  resetBookProgress,
   setBookRead,
 } from "@rawkoon/api/services/books/setBookRead";
 import type { BookEditionKind } from "@rawkoon/shared/types";
@@ -35,6 +36,7 @@ const idParam = z.object({ id: z.coerce.number() });
  *   GET    /api/books/search
  *   GET    /api/books/:id
  *   PUT    /api/books/:id/read
+ *   DELETE /api/books/:id/progress
  *   POST   /api/books
  *   DELETE /api/books/:id
  */
@@ -205,6 +207,17 @@ export const bookListRoutes = new Hono<Env>()
       return ok({ item: mapBook(book, { readAt: result.readAt }) });
     },
   )
+
+  .delete("/:id/progress", requireUser, paramV(idParam), async (c) => {
+    const user = c.get("user");
+    const { id } = c.req.valid("param");
+    const result = await resetBookProgress(prisma, {
+      userId: user.id,
+      bookId: id,
+    });
+    if (!result.ok) return notFound("Book not found");
+    return ok({ ok: true });
+  })
 
   .post(
     "/",
