@@ -6,7 +6,7 @@ final class AudiobookResumeTests: XCTestCase {
         CarPlayBrowseEntry(
             editionId: id, title: "Book \(id)", author: nil,
             positionSecs: position, totalDurationSecs: total,
-            updatedAtMillis: updated, libraryOrder: id
+            updatedAtMillis: updated, isDownloaded: false
         )
     }
 
@@ -73,7 +73,7 @@ final class AudiobookResumeLabelTests: XCTestCase {
         let started = CarPlayBrowseEntry(
             editionId: 1, title: "Book", author: nil,
             positionSecs: 4325, totalDurationSecs: 33120,
-            updatedAtMillis: nil, libraryOrder: 0
+            updatedAtMillis: nil, isDownloaded: false
         )
         XCTAssertEqual(AudiobookResume.label(for: started), .resume(positionSecs: 4325))
     }

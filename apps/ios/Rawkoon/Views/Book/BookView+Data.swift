@@ -301,7 +301,9 @@ extension BookView {
     /// Deletes an offline ebook file from the device.
     func removeEbookDownload(_ file: BookEditionFile) {
         FileStore.delete(url: localEbookURL(for: file))
-        ebookFileToRemove = nil
+        if !ebookFiles.contains(where: isEbookDownloaded) {
+            model.forgetDownloadedEdition(editionId: ebookStorageEditionId)
+        }
     }
 
     func ensureLocalEbookFile(_ file: BookEditionFile) async throws -> URL {

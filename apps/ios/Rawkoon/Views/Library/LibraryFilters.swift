@@ -110,23 +110,6 @@ enum BookKindFilter: String, CaseIterable, Identifiable {
     }
 }
 
-enum BookSort: String, CaseIterable, Identifiable {
-    /// Books still being read/listened, most recently touched first, then the
-    /// rest in the server's latest-added order. The web app's default order.
-    case recent, title, author
-    var id: String {
-        rawValue
-    }
-
-    var title: LocalizedStringKey {
-        switch self {
-        case .recent: "Recent"
-        case .title: "Title"
-        case .author: "Author"
-        }
-    }
-}
-
 /// Two densities only (not the web's three): the default poster grid and an
 /// opt-in list. Persisted per-device via `@AppStorage`.
 enum LibraryDensity: String, CaseIterable {

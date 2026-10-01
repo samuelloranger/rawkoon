@@ -1,4 +1,5 @@
 import Foundation
+import RawkoonKit
 
 /// Not MainActor: a plain FileManager/filesystem helper called from background
 /// queues (ChapterDownloader's URLSession delegate queue, its own stateQueue)
@@ -57,19 +58,25 @@ nonisolated enum FileStore {
         }
     }
 
-    static func deleteEdition(_ editionId: Int) {
+    /// False when files are still on disk, so the caller can say so.
+    @discardableResult
+    static func deleteEdition(_ editionId: Int) -> Bool {
         let directory = editionDirectory(editionId)
-        guard FileManager.default.fileExists(atPath: directory.path) else { return }
-        do {
-            try FileManager.default.removeItem(at: directory)
-        } catch {
-            Log.download.error(
-                """
-                Failed to delete edition directory: \
-                editionId=\(editionId, privacy: .public) \
-                error=\(error.localizedDescription, privacy: .public)
-                """
-            )
+        return EditionDirectory.remove(directory, markers: ["manifest.json"]) { url in
+            do {
+                try FileManager.default.removeItem(at: url)
+            } catch CocoaError.fileNoSuchFile {
+                // Already gone.
+            } catch {
+                Log.download.error(
+                    """
+                    Failed to delete edition path: \
+                    editionId=\(editionId, privacy: .public) \
+                    error=\(error.localizedDescription, privacy: .public)
+                    """
+                )
+                throw error
+            }
         }
     }
 

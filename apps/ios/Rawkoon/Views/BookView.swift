@@ -47,6 +47,10 @@ struct BookView: View {
     @State var fetchAttemptedManifest = false
     @State var rescanningManifest = false
     @State var preparingAudiobookDownload = false
+    @State var showDownloadFinished = false
+    /// Bumped by the download-state notification so the buttons re-evaluate even when Observation misses it.
+    @State var downloadRefreshTick = 0
+    @State var stateProbe = DownloadStateProbe()
     @State var loadingPlayer = false
     @State var showingPlayer = false
     @State var releaseSearchLane: ReleaseSearchLane?
@@ -63,10 +67,7 @@ struct BookView: View {
     /// URLSession request mid-flight (`session.download(for:)` honors Task
     /// cancellation).
     @State var ebookDownloadTasks: [Int: Task<Void, Never>] = [:]
-    @State var confirmRemoveAudiobook = false
-    @State var confirmMarkRead = false
     /// The ebook file awaiting a delete confirmation, or nil when none is.
-    @State var ebookFileToRemove: BookEditionFile?
     @State var ebookFilesError: String?
     @State var previewDocument: EbookPreviewDocument?
     @State var addingEditionKind: String?
@@ -179,7 +180,14 @@ struct BookView: View {
                     if isRead {
                         Task { await model.setBookRead(book, read: false) }
                     } else {
-                        confirmMarkRead = true
+                        model.pendingConfirm = ConfirmRequest(
+                            title: String(localized: "Mark as read?"),
+                            message: String(localized: "This resets ebook and audiobook progress."),
+                            confirmTitle: String(localized: "Mark as read"),
+                            isDestructive: false
+                        ) { [model, book] in
+                            Task { await model.setBookRead(book, read: true) }
+                        }
                     }
                 } label: {
                     Image(systemName: isRead ? "checkmark.circle.fill" : "checkmark.circle")
@@ -236,50 +244,6 @@ struct BookView: View {
         }) { document in
             EbookReaderSheet(document: document)
                 .environment(model)
-        }
-        .rawkoonConfirm(
-            "Remove downloaded audiobook?",
-            isPresented: $confirmRemoveAudiobook
-        ) {
-            Button("Remove Download", role: .destructive) {
-                if let editionId = audiobookEditionId {
-                    audiobookActionError = nil
-                    model.removeDownload(editionId: editionId)
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Deletes the offline chapters from this iPhone. Playback will need the network until you download them again.")
-        }
-        .rawkoonConfirm(
-            "Mark as read?",
-            isPresented: $confirmMarkRead
-        ) {
-            Button("Mark as read") {
-                Task { await model.setBookRead(book, read: true) }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This resets ebook and audiobook progress.")
-        }
-        .rawkoonConfirm(
-            "Remove downloaded file?",
-            isPresented: Binding(
-                get: { ebookFileToRemove != nil },
-                set: {
-                    if !$0 {
-                        ebookFileToRemove = nil
-                    }
-                }
-            ),
-            presenting: ebookFileToRemove
-        ) { file in
-            Button("Remove Download", role: .destructive) {
-                removeEbookDownload(file)
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: { file in
-            Text("Deletes \(file.fileName) from this iPhone. You can download it again anytime.")
         }
     }
 
@@ -475,47 +439,12 @@ struct BookView: View {
     }
 
     var audiobookActionButtons: some View {
-        VStack(spacing: 10) {
-            Button {
-                Task {
-                    guard let editionId = audiobookEditionId else { return }
-                    audiobookActionError = nil
-                    loadingPlayer = true
-                    // "Play" has to mean from the start — but only once the
-                    // preview has loaded. Before that the label is a placeholder,
-                    // so the player resolves the position itself.
-                    let previewed = model.resumePreview[editionId] != nil
-                    let resumeAt: Double? = (previewed && audiobookResume == .play) ? 0 : nil
-                    await model.openPlayer(editionId: editionId, resumeAt: resumeAt)
-                    loadingPlayer = false
-                    if let error = model.errorMessage {
-                        audiobookActionError = error
-                    } else {
-                        showingPlayer = true
-                    }
-                }
-            } label: {
-                Group {
-                    if loadingPlayer {
-                        ProgressView().tint(Theme.onAccent)
-                    } else if case let .resume(positionSecs) = audiobookResume {
-                        Label(
-                            String(localized: "Resume from \(Formatters.durationTimestamp(positionSecs))"),
-                            systemImage: "play.fill"
-                        )
-                    } else {
-                        Label("Play", systemImage: "play.fill")
-                    }
-                }
-                .frame(maxWidth: .infinity).frame(minHeight: 44)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                audiobookPlayButton
+                audiobookDownloadButton
             }
-            .buttonStyle(.borderedProminent)
-            .tint(Theme.apricot)
-            .foregroundStyle(Theme.onAccent)
-            .fontWeight(.semibold)
-            .disabled(!canPlayAudiobook)
-
-            audiobookDownloadButton
+            audiobookDownloadCaption
 
             if let audiobookActionError {
                 Text(audiobookActionError)
@@ -523,106 +452,156 @@ struct BookView: View {
                     .foregroundStyle(Theme.terracotta)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .audiobookDownloadStateChanged)) { note in
+            guard note.userInfo?["editionId"] as? Int == audiobookEditionId else { return }
+            downloadRefreshTick &+= 1
+            if let editionId = audiobookEditionId {
+                DownloadJournal(editionId: editionId).log("ui refresh tick \(downloadRefreshTick)")
+            }
+        }
+        .onChange(of: audiobookDownloadState.kind) { old, new in
+            if let editionId = audiobookEditionId {
+                DownloadJournal(editionId: editionId).log("ui download state \(old) -> \(new)")
+            }
+            guard old == .downloading, new == .downloaded else { return }
+            announceDownloadFinished()
+        }
+    }
+
+    /// The card used to flip to "Downloaded"; a glyph swap alone is easy to miss,
+    /// so the finish gets a haptic and a brief green check.
+    private func announceDownloadFinished() {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        withAnimation(.spring(duration: 0.35)) { showDownloadFinished = true }
+        Task {
+            try? await Task.sleep(for: .seconds(1.8))
+            withAnimation(.easeOut(duration: 0.3)) { showDownloadFinished = false }
+        }
+    }
+
+    var audiobookPlayButton: some View {
+        Button {
+            Task {
+                guard let editionId = audiobookEditionId else { return }
+                audiobookActionError = nil
+                loadingPlayer = true
+                // "Play" has to mean from the start — but only once the
+                // preview has loaded. Before that the label is a placeholder,
+                // so the player resolves the position itself.
+                let previewed = model.resumePreview[editionId] != nil
+                let resumeAt: Double? = (previewed && audiobookResume == .play) ? 0 : nil
+                await model.openPlayer(editionId: editionId, resumeAt: resumeAt)
+                loadingPlayer = false
+                if let error = model.errorMessage {
+                    audiobookActionError = error
+                } else {
+                    showingPlayer = true
+                }
+            }
+        } label: {
+            Group {
+                if loadingPlayer {
+                    ProgressView().tint(Theme.onAccent)
+                } else if case let .resume(positionSecs) = audiobookResume {
+                    Label(
+                        String(localized: "Resume from \(Formatters.durationTimestamp(positionSecs))"),
+                        systemImage: "play.fill"
+                    )
+                } else {
+                    Label("Play", systemImage: "play.fill")
+                }
+            }
+        }
+        .buttonStyle(BookPlayButtonStyle())
+        .disabled(!canPlayAudiobook)
+    }
+
+    var audiobookDownloadState: AudiobookDownloadState {
+        let state = computeAudiobookDownloadState()
+        if let editionId = audiobookEditionId {
+            let plan = model.downloadPlans[editionId]
+            let verified = plan.map { p in p.files.filter { p.states[$0.id] == .verified }.count } ?? -1
+            stateProbe.note(editionId: editionId, summary: "kind=\(state.kind) verified=\(verified) complete=\(plan?.isComplete == true) tick=\(downloadRefreshTick)")
+        }
+        return state
+    }
+
+    private func computeAudiobookDownloadState() -> AudiobookDownloadState {
+        _ = downloadRefreshTick
+        let plan = audiobookEditionId.flatMap { model.downloadPlans[$0] }
+        // The downloader exists a moment before its first snapshot: stay on the spinner.
+        if plan == nil, preparingAudiobookDownload || audiobookEditionId.map({ model.downloaders[$0] != nil }) == true {
+            return .preparing
+        }
+        if let plan, !plan.isComplete {
+            let overall = audiobookEditionId.flatMap { model.downloadFractions[$0] } ?? plan.progressFraction()
+            let done = plan.files.filter { plan.states[$0.id] == .verified }.count
+            return plan.hasGivenUp
+                ? .failed(done: done, total: plan.files.count)
+                : .downloading(fraction: overall, done: done, total: plan.files.count)
+        }
+        return plan?.isComplete == true ? .downloaded : .idle
+    }
+
+    /// One round button beside Play: download, then progress (tap cancels), then
+    /// a struck-through download arrow once the book is on the device.
+    @ViewBuilder
+    var audiobookDownloadButton: some View {
+        let state = audiobookDownloadState
+        let button = Button {
+            handleAudiobookDownloadTap(state)
+        } label: {
+            DownloadStateIcon(state: state, celebrating: showDownloadFinished)
+        }
+        .buttonStyle(BookIconButtonStyle())
+        .accessibilityLabel(state.accessibilityLabel)
+        switch state {
+        case .idle, .failed:
+            button.requiresConnection(model.isOffline)
+        default:
+            button
+        }
     }
 
     @ViewBuilder
-    var audiobookDownloadButton: some View {
-        let plan = audiobookEditionId.flatMap { model.downloadPlans[$0] }
-        if preparingAudiobookDownload, plan == nil {
-            HStack {
-                ProgressView().tint(Theme.apricot)
-                Text("Preparing download...")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.muted)
-                Spacer(minLength: 0)
+    var audiobookDownloadCaption: some View {
+        switch audiobookDownloadState {
+        case .failed:
+            Text("Some chapters couldn't download.")
+                .font(.caption)
+                .foregroundStyle(Theme.terracotta)
+        default:
+            EmptyView()
+        }
+    }
+
+    private func handleAudiobookDownloadTap(_ state: AudiobookDownloadState) {
+        guard let editionId = audiobookEditionId else { return }
+        switch state {
+        case .idle, .failed:
+            Task {
+                audiobookActionError = nil
+                preparingAudiobookDownload = true
+                await model.startDownload(editionId: editionId)
+                preparingAudiobookDownload = false
+                if let error = model.errorMessage {
+                    audiobookActionError = error
+                }
             }
-            .padding(12)
-            .frame(maxWidth: .infinity)
-            .background(Theme.raised, in: RoundedRectangle(cornerRadius: 13))
-            .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Theme.borderStrong, lineWidth: 1))
-        } else if let plan, !plan.isComplete {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Downloading")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.textStrong)
-                    Spacer()
-                    Text("\(Int(plan.progressFraction() * 100))%")
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(Theme.apricot)
-                }
-                DuskProgress(value: plan.progressFraction())
-                if plan.hasGivenUp {
-                    Text("Some chapters couldn't download.")
-                        .font(.caption)
-                        .foregroundStyle(Theme.terracotta)
-                    Button {
-                        if let editionId = audiobookEditionId {
-                            Task { await model.startDownload(editionId: editionId) }
-                        }
-                    } label: {
-                        Label("Retry", systemImage: "arrow.clockwise")
-                            .frame(maxWidth: .infinity).frame(minHeight: 44)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(Theme.apricot)
-                    .requiresConnection(model.isOffline)
-                }
-                Button(role: .destructive) {
-                    if let editionId = audiobookEditionId {
-                        audiobookActionError = nil
-                        preparingAudiobookDownload = false
-                        model.cancelDownload(editionId: editionId)
-                    }
-                } label: {
-                    Label("Cancel", systemImage: "xmark.circle")
-                        .frame(maxWidth: .infinity).frame(minHeight: 44)
-                }
-                .buttonStyle(.bordered)
-                .tint(Theme.terracotta)
+        case .preparing:
+            break
+        case .downloading:
+            audiobookActionError = nil
+            preparingAudiobookDownload = false
+            model.cancelDownload(editionId: editionId)
+        case .downloaded:
+            model.pendingConfirm = ConfirmRequest(
+                title: String(localized: "Remove downloaded audiobook?"),
+                message: String(localized: "Deletes the offline chapters from this iPhone. Playback will need the network until you download them again."),
+                confirmTitle: String(localized: "Remove Download")
+            ) { [model] in
+                model.removeDownload(editionId: editionId)
             }
-            .padding(12)
-            .frame(maxWidth: .infinity)
-            .background(Theme.raised, in: RoundedRectangle(cornerRadius: 13))
-            .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Theme.borderStrong, lineWidth: 1))
-        } else if plan?.isComplete == true {
-            HStack(spacing: 8) {
-                Label("Downloaded", systemImage: "checkmark.circle.fill")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.seed)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Button(role: .destructive) {
-                    confirmRemoveAudiobook = true
-                } label: {
-                    Label("Remove", systemImage: "trash")
-                }
-                .buttonStyle(.bordered)
-                .tint(Theme.terracotta)
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity)
-            .background(Theme.raised, in: RoundedRectangle(cornerRadius: 13))
-            .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Theme.borderStrong, lineWidth: 1))
-        } else {
-            Button {
-                Task {
-                    if let editionId = audiobookEditionId {
-                        audiobookActionError = nil
-                        preparingAudiobookDownload = true
-                        await model.startDownload(editionId: editionId)
-                        preparingAudiobookDownload = false
-                        if let error = model.errorMessage {
-                            audiobookActionError = error
-                        }
-                    }
-                }
-            } label: {
-                Label("Download", systemImage: "arrow.down.circle")
-                    .frame(maxWidth: .infinity).frame(minHeight: 44)
-            }
-            .buttonStyle(.bordered)
-            .tint(Theme.apricot)
-            .requiresConnection(model.isOffline)
         }
     }
 
@@ -679,6 +658,9 @@ struct BookView: View {
                                     title: chapter.title,
                                     downloaded: isChapterDownloaded(chapter),
                                     current: isCurrentChapter(chapter),
+                                    downloadFraction: audiobookEditionId.flatMap {
+                                        model.chapterFractions[$0]?[chapter.fileId]
+                                    },
                                     resumeText: resumePosition(in: chapter).map {
                                         String(localized: "Resume from \(Formatters.durationTimestamp($0))")
                                     }
@@ -871,7 +853,11 @@ struct BookView: View {
                             HStack(spacing: 7) {
                                 if downloaded {
                                     Button("Remove") {
-                                        ebookFileToRemove = file
+                                        model.pendingConfirm = ConfirmRequest(
+                                            title: String(localized: "Remove downloaded file?"),
+                                            message: String(localized: "Deletes \(file.fileName) from this iPhone. You can download it again anytime."),
+                                            confirmTitle: String(localized: "Remove Download")
+                                        ) { removeEbookDownload(file) }
                                     }
                                     .buttonStyle(.bordered)
                                     .tint(Theme.terracotta)
@@ -986,5 +972,17 @@ struct BookView: View {
         .padding(14)
         .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
+    }
+}
+
+/// Debug trace: logs each distinct state the book screen computes, so a screen that
+/// stays on a finished ring can be told apart from one that never re-evaluated.
+final class DownloadStateProbe {
+    private var last = ""
+
+    func note(editionId: Int, summary: String) {
+        guard summary != last else { return }
+        last = summary
+        DownloadJournal(editionId: editionId).log("ui eval \(summary)")
     }
 }

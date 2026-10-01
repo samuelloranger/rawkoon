@@ -3,42 +3,42 @@ import XCTest
 
 final class CarPlayBrowseTests: XCTestCase {
     private func entry(
-        _ id: Int, order: Int, pos: Double? = nil,
-        total: Double? = nil, updated: Int64? = nil
+        _ id: Int, pos: Double? = nil,
+        total: Double? = nil, updated: Int64? = nil, downloaded: Bool = false
     ) -> CarPlayBrowseEntry {
         CarPlayBrowseEntry(
             editionId: id, title: "Book \(id)", author: nil,
             positionSecs: pos, totalDurationSecs: total,
-            updatedAtMillis: updated, libraryOrder: order
+            updatedAtMillis: updated, isDownloaded: downloaded
         )
     }
 
     func testInProgressRequiresBothPositionAndDuration() {
-        XCTAssertFalse(entry(1, order: 0).isInProgress)
-        XCTAssertFalse(entry(1, order: 0, pos: 100, total: 0.5).isInProgress)
-        XCTAssertFalse(entry(1, order: 0, pos: 0.5, total: 1000).isInProgress)
-        XCTAssertTrue(entry(1, order: 0, pos: 100, total: 1000).isInProgress)
+        XCTAssertFalse(entry(1).isInProgress)
+        XCTAssertFalse(entry(1, pos: 100, total: 0.5).isInProgress)
+        XCTAssertFalse(entry(1, pos: 0.5, total: 1000).isInProgress)
+        XCTAssertTrue(entry(1, pos: 100, total: 1000).isInProgress)
     }
 
     func testContinueSortedByUpdatedDescendingNilLast() {
         let list = [
-            entry(1, order: 2, pos: 10, total: 100, updated: 500),
-            entry(2, order: 0, pos: 10, total: 100, updated: 900),
-            entry(3, order: 1, pos: 10, total: 100, updated: nil),
-            entry(4, order: 3), // not in progress
+            entry(1, pos: 10, total: 100, updated: 500),
+            entry(2, pos: 10, total: 100, updated: 900),
+            entry(3, pos: 10, total: 100, updated: nil),
+            entry(4), // not in progress
         ]
         let out = CarPlayBrowse.sections(entries: list)
         XCTAssertEqual(out.continueListening.map(\.editionId), [2, 1, 3])
     }
 
-    func testLibraryContainsAllSortedByLibraryOrder() {
+    func testLibraryContainsAllInSharedBookOrder() {
         let list = [
-            entry(1, order: 2, pos: 10, total: 100, updated: 500),
-            entry(2, order: 0),
-            entry(3, order: 1),
+            entry(1, downloaded: true),
+            entry(2),
+            entry(3, pos: 10, total: 100, updated: 500),
         ]
         let out = CarPlayBrowse.sections(entries: list)
-        XCTAssertEqual(out.library.map(\.editionId), [2, 3, 1])
+        XCTAssertEqual(out.library.map(\.editionId), [3, 1, 2])
     }
 
     func testEmptyInputEmptySections() {
