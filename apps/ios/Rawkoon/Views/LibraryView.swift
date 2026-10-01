@@ -44,7 +44,6 @@ struct LibraryView: View {
     /// rapid `/api/library/events` bursts can't race the list state.
     @State private var liveReloadTask: Task<Void, Never>?
     @State private var readingBook: BookListItem?
-    @State private var markReadBook: BookListItem?
     @State private var busyMediaIds: Set<Int> = []
 
     @State private var bookKind: BookKindFilter = .all
@@ -254,27 +253,6 @@ struct LibraryView: View {
             if let media = removeCandidate {
                 Task { await removeFromLibrary(media, deleteFiles: deleteFiles) }
             }
-        }
-        .rawkoonConfirm(
-            "Mark as read?",
-            isPresented: Binding(
-                get: { markReadBook != nil },
-                set: {
-                    if !$0 {
-                        markReadBook = nil
-                    }
-                }
-            )
-        ) {
-            Button("Mark as read") {
-                if let book = markReadBook {
-                    Task { await model.setBookRead(book, read: true) }
-                }
-                markReadBook = nil
-            }
-            Button("Cancel", role: .cancel) { markReadBook = nil }
-        } message: {
-            Text("This resets ebook and audiobook progress.")
         }
     }
 
@@ -630,7 +608,9 @@ struct LibraryView: View {
                                 hasAudiobook: book.hasAudiobook,
                                 hasEbook: book.hasEbook,
                                 isAdmin: model.isAdmin,
-                                isRead: book.isRead
+                                isRead: book.isRead,
+                                hasProgress: hasProgress(book),
+                                audiobookDownloaded: isDownloaded(book)
                             ),
                             onMenuAction: { handleBookMenu($0, book: book) }
                         )
@@ -786,6 +766,12 @@ struct LibraryView: View {
         return min(1, p.positionSecs / p.totalDurationSecs)
     }
 
+    private func hasProgress(_ book: BookListItem) -> Bool {
+        let audio = book.audiobookEditionId.flatMap { audioProgress[$0] } != nil
+        let ebook = book.ebookEditionId.flatMap { ebookProgress[$0] } != nil
+        return audio || ebook
+    }
+
     private func isDownloaded(_ book: BookListItem) -> Bool {
         model.downloadedBookIds.contains(book.bookId)
     }
@@ -937,7 +923,15 @@ struct LibraryView: View {
                 busyBookIds.remove(book.bookId)
             }
         case .markRead:
-            markReadBook = book
+            model.confirmBookAction(.markRead(book))
+        case .resetProgress:
+            model.confirmBookAction(.resetProgress(book))
+        case .removeDownload:
+            model.confirmBookAction(.removeDownload(book))
+        case .download:
+            if let editionId = book.audiobookEditionId {
+                Task { await model.startDownload(editionId: editionId) }
+            }
         case .markUnread:
             busyBookIds.insert(book.bookId)
             Task {

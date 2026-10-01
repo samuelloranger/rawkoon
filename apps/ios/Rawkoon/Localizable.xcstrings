@@ -1,6 +1,66 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Progress reset.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Progression réinitialisée."
+          }
+        }
+      }
+    },
+    "More": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus"
+          }
+        }
+      }
+    },
+    "Reset progress": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réinitialiser la progression"
+          }
+        }
+      }
+    },
+    "Reset progress?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réinitialiser la progression?"
+          }
+        }
+      }
+    },
+    "Clears ebook and audiobook progress. The read badge stays.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Efface la progression du livre numérique et du livre audio. Le badge « Lu » reste."
+          }
+        }
+      }
+    },
+    "Remove download": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer le téléchargement"
+          }
+        }
+      }
+    },
     "Totals": {
       "localizations": {
         "fr": {

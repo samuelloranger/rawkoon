@@ -37,6 +37,9 @@ public enum BookCardMenuAction: Equatable, Sendable, Hashable {
     case play
     case markRead
     case markUnread
+    case resetProgress
+    case download
+    case removeDownload
     case addAudiobook
     case addEbook
     case rescan
@@ -45,8 +48,8 @@ public enum BookCardMenuAction: Equatable, Sendable, Hashable {
     /// can still open a downloaded edition.
     public var requiresConnection: Bool {
         switch self {
-        case .read, .play: false
-        case .markRead, .markUnread, .addAudiobook, .addEbook, .rescan: true
+        case .read, .play, .removeDownload: false
+        case .markRead, .markUnread, .resetProgress, .download, .addAudiobook, .addEbook, .rescan: true
         }
     }
 }
@@ -55,14 +58,17 @@ public enum BookCardMenuAction: Equatable, Sendable, Hashable {
 ///
 /// Read/Play follow BookView: an edition that exists is playable/readable.
 /// Mark as read is the whole-book flag (not the ebook "Read" action).
-/// Add is admin-only and only for a missing kind. Rescan is admin-only and
+/// Reset progress needs progress to reset; Download is the audiobook (ebook
+/// downloads pick a file on the detail page). Add is admin-only and only for a missing kind. Rescan is admin-only and
 /// only when at least one edition exists to rescan. Offline, the menu greys out
 /// the items whose `requiresConnection` is true.
 public func bookCardMenuItems(
     hasAudiobook: Bool,
     hasEbook: Bool,
     isAdmin: Bool,
-    isRead: Bool
+    isRead: Bool,
+    hasProgress: Bool = false,
+    audiobookDownloaded: Bool = false
 ) -> [BookCardMenuAction] {
     var items: [BookCardMenuAction] = []
     if hasEbook {
@@ -72,6 +78,12 @@ public func bookCardMenuItems(
         items.append(.play)
     }
     items.append(isRead ? .markUnread : .markRead)
+    if hasProgress {
+        items.append(.resetProgress)
+    }
+    if hasAudiobook {
+        items.append(audiobookDownloaded ? .removeDownload : .download)
+    }
     if isAdmin {
         if !hasAudiobook {
             items.append(.addAudiobook)

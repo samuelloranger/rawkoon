@@ -115,11 +115,65 @@ struct BookView: View {
         ebookEdition != nil || book.hasEbook
     }
 
+    /// The shared library list wins: setBookRead refreshes it, whereas this screen's own
+    /// `detail` copy was not reliably re-rendered after a toggle.
     var isRead: Bool {
+        if let listed = model.library.first(where: { $0.bookId == book.bookId }) {
+            return listed.isRead
+        }
         if let detail {
             return detail.readAt != nil
         }
         return book.isRead
+    }
+
+    /// Same list as the card long-press; Read and Play are the page's own primary buttons.
+    var menuItems: [BookCardMenuAction] {
+        let hasProgress = [audiobookEditionId, ebookEditionId].compactMap(\.self).contains {
+            model.resumePreview[$0] != nil || model.readingResumePreview[$0] != nil
+        }
+        return bookCardMenuItems(
+            hasAudiobook: hasAudiobookEdition,
+            hasEbook: hasEbookEdition,
+            isAdmin: model.isAdmin,
+            isRead: isRead,
+            hasProgress: hasProgress,
+            audiobookDownloaded: audiobookEditionId.map { model.downloadPlans[$0]?.isComplete == true } ?? false
+        )
+        .filter { $0 != .read && $0 != .play }
+    }
+
+    func handleMenu(_ action: BookCardMenuAction) {
+        guard !(action.requiresConnection && model.isOffline) else { return }
+        switch action {
+        case .read, .play:
+            break
+        case .markRead:
+            model.confirmBookAction(.markRead(book)) { await loadBookDetail() }
+        case .markUnread:
+            Task { await model.setBookRead(book, read: false) }
+        case .resetProgress:
+            model.confirmBookAction(.resetProgress(book)) { await loadBookDetail() }
+        case .download:
+            if let editionId = audiobookEditionId {
+                Task { await model.startDownload(editionId: editionId) }
+            }
+        case .removeDownload:
+            model.confirmBookAction(.removeDownload(book)) { await loadBookDetail() }
+        case .addAudiobook:
+            Task { await addEdition(kind: "audiobook") }
+        case .addEbook:
+            Task { await addEdition(kind: "ebook") }
+        case .rescan:
+            Task {
+                if hasAudiobookEdition {
+                    await recoverManifestAfterRescan()
+                }
+                if hasEbookEdition {
+                    await rescanEbookEdition()
+                }
+            }
+        }
     }
 
     var titleText: String {
@@ -176,25 +230,7 @@ struct BookView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    if isRead {
-                        Task { await model.setBookRead(book, read: false) }
-                    } else {
-                        model.pendingConfirm = ConfirmRequest(
-                            title: String(localized: "Mark as read?"),
-                            message: String(localized: "This resets ebook and audiobook progress."),
-                            confirmTitle: String(localized: "Mark as read"),
-                            isDestructive: false
-                        ) { [model, book] in
-                            Task { await model.setBookRead(book, read: true) }
-                        }
-                    }
-                } label: {
-                    Image(systemName: isRead ? "checkmark.circle.fill" : "checkmark.circle")
-                }
-                .accessibilityLabel(Text(LocalizedStringKey(isRead ? "Mark as unread" : "Mark as read")))
-                .tint(isRead ? Theme.seed : Theme.apricot)
-                .requiresConnection(model.isOffline)
+                BookActionsMenu(items: menuItems, onAction: handleMenu)
             }
         }
         .rawkoonZoomDestination(RawkoonZoom.book(book.bookId))

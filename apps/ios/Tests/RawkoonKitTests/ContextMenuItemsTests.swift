@@ -56,4 +56,27 @@ final class ContextMenuItemsTests: XCTestCase {
         XCTAssertTrue(items.contains(.markRead))
         XCTAssertTrue(items.contains(.rescan))
     }
+
+    func testResetProgressOnlyOffersWhenThereIsProgress() {
+        let without = bookCardMenuItems(hasAudiobook: true, hasEbook: true, isAdmin: false, isRead: false)
+        XCTAssertFalse(without.contains(.resetProgress))
+        let with = bookCardMenuItems(
+            hasAudiobook: true, hasEbook: true, isAdmin: false, isRead: false, hasProgress: true
+        )
+        XCTAssertTrue(with.contains(.resetProgress))
+    }
+
+    func testDownloadFollowsAudiobookAndDownloadedState() {
+        let fresh = bookCardMenuItems(hasAudiobook: true, hasEbook: false, isAdmin: false, isRead: false)
+        XCTAssertTrue(fresh.contains(.download))
+        XCTAssertFalse(fresh.contains(.removeDownload))
+        let saved = bookCardMenuItems(
+            hasAudiobook: true, hasEbook: false, isAdmin: false, isRead: false, audiobookDownloaded: true
+        )
+        XCTAssertTrue(saved.contains(.removeDownload))
+        XCTAssertFalse(saved.contains(.download))
+        let ebookOnly = bookCardMenuItems(hasAudiobook: false, hasEbook: true, isAdmin: false, isRead: false)
+        XCTAssertFalse(ebookOnly.contains(.download))
+        XCTAssertFalse(ebookOnly.contains(.removeDownload))
+    }
 }

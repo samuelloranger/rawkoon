@@ -18,7 +18,6 @@ struct ContinueListeningView: View {
     @State private var showingPlayer = false
     @State private var previewDocument: EbookPreviewDocument?
     @State private var readingBook: BookListItem?
-    @State private var markReadBook: BookListItem?
 
     var body: some View {
         // A bare `if` with no else renders nothing at all, and SwiftUI never
@@ -59,30 +58,6 @@ struct ContinueListeningView: View {
             if let book = readingBook {
                 BookView(book: book, preferEbook: true)
             }
-        }
-        .rawkoonConfirm(
-            "Mark as read?",
-            isPresented: Binding(
-                get: { markReadBook != nil },
-                set: {
-                    if !$0 {
-                        markReadBook = nil
-                    }
-                }
-            )
-        ) {
-            Button("Mark as read") {
-                if let book = markReadBook {
-                    Task {
-                        await model.setBookRead(book, read: true)
-                        await load()
-                    }
-                }
-                markReadBook = nil
-            }
-            Button("Cancel", role: .cancel) { markReadBook = nil }
-        } message: {
-            Text("This resets ebook and audiobook progress.")
         }
     }
 
@@ -461,7 +436,9 @@ struct ContinueListeningView: View {
             hasAudiobook: book.hasAudiobook,
             hasEbook: book.hasEbook,
             isAdmin: model.isAdmin,
-            isRead: book.isRead
+            isRead: book.isRead,
+            hasProgress: true,
+            audiobookDownloaded: book.audiobookEditionId.map { model.downloadPlans[$0]?.isComplete == true } ?? false
         )
     }
 
@@ -512,7 +489,15 @@ struct ContinueListeningView: View {
                 busyIds.remove(item.id)
             }
         case .markRead:
-            markReadBook = book
+            model.confirmBookAction(.markRead(book)) { await load() }
+        case .resetProgress:
+            model.confirmBookAction(.resetProgress(book)) { await load() }
+        case .removeDownload:
+            model.confirmBookAction(.removeDownload(book)) { await load() }
+        case .download:
+            if let editionId = book.audiobookEditionId {
+                Task { await model.startDownload(editionId: editionId) }
+            }
         case .markUnread:
             Task {
                 await model.setBookRead(book, read: false)

@@ -1090,6 +1090,21 @@ final class AppModel {
         }
     }
 
+    /// Clears ebook and audiobook progress on the server and this device; the read flag is untouched.
+    func resetBookProgress(_ book: BookListItem) async {
+        guard let apiClient else { return }
+        errorMessage = nil
+        do {
+            try await apiClient.resetBookProgress(bookId: book.bookId)
+            clearLocalProgress(for: book)
+            await loadLibrary()
+            liveUpdates.bumpBookChangeToken()
+            toast(String(localized: "Progress reset."), style: .success)
+        } catch {
+            toast(message(for: error), style: .error)
+        }
+    }
+
     private func clearLocalProgress(for book: BookListItem) {
         let editionIds = [book.audiobookEditionId, book.ebookEditionId].compactMap(\.self)
         for editionId in editionIds {

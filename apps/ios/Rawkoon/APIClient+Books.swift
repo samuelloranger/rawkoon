@@ -181,6 +181,10 @@ extension APIClient {
         try await putExpectOK("/api/books/\(bookId)/read", body: SetBookReadBody(read: read))
     }
 
+    func resetBookProgress(bookId: Int) async throws {
+        try await deleteExpectOK("/api/books/\(bookId)/progress")
+    }
+
     func bookEditionFiles(bookId: Int, kind: String) async throws -> [BookEditionFile] {
         let response: BookEditionFilesPayload = try await get("/api/books/\(bookId)/editions/\(kind)/files")
         return response.files
