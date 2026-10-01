@@ -324,4 +324,62 @@ final class DownloadPlanTests: XCTestCase {
         plan.retryFailed()
         XCTAssertEqual(plan.nextToStart(limit: 2), [101])
     }
+
+    /// A duplicate task erroring after the file already verified must not
+    /// reopen the chapter.
+    func testLateTransportFailureDoesNotDemoteAVerifiedChapter() {
+        var plan = DownloadPlan(files: files(2))
+        plan.apply(.completed(fileId: 100, status: 200, bytes: 1000, sha256: nil))
+        plan.apply(.transportFailed(fileId: 100))
+        XCTAssertEqual(plan.states[100], .verified)
+    }
+
+    /// A chapter whose completion was lost, but whose file is on disk, is
+    /// verified without a relaunch; a live transfer is left to finish itself.
+    func testReconcileVerifiesCompleteFilesOnDiskAndSkipsLiveOnes() {
+        var plan = DownloadPlan(files: files(3))
+        plan.apply(.started(fileId: 100))
+        plan.apply(.started(fileId: 101))
+        let changed = plan.reconcile(
+            onDiskBytes: [100: 1000, 101: 1000, 102: 5],
+            liveFileIds: [101]
+        )
+        XCTAssertEqual(changed, [100])
+        XCTAssertEqual(plan.states[100], .verified)
+        XCTAssertEqual(plan.states[101], .inFlight)
+        XCTAssertEqual(plan.states[102], .pending)
+    }
+
+    func testIsNearlyDoneFlagsTheLastChapterOnly() {
+        var plan = DownloadPlan(files: files(3))
+        XCTAssertFalse(plan.isNearlyDone)
+        plan.apply(.completed(fileId: 100, status: 200, bytes: 1000, sha256: nil))
+        XCTAssertFalse(plan.isNearlyDone)
+        plan.apply(.completed(fileId: 101, status: 200, bytes: 1000, sha256: nil))
+        XCTAssertTrue(plan.isNearlyDone)
+        plan.apply(.completed(fileId: 102, status: 200, bytes: 1000, sha256: nil))
+        XCTAssertFalse(plan.isNearlyDone)
+    }
+}
+
+final class DownloadPlanByteFractionTests: XCTestCase {
+    private func plan() -> DownloadPlan {
+        DownloadPlan(files: [
+            ManifestFile(id: 1, startSecs: 0, durationSecs: 10, sizeBytes: 100, sha256: nil, url: "/1.mp3"),
+            ManifestFile(id: 2, startSecs: 10, durationSecs: 10, sizeBytes: 300, sha256: nil, url: "/2.mp3"),
+        ])
+    }
+
+    func testByteFractionWeightsVerifiedAndPartialBySize() {
+        var plan = plan()
+        plan.apply(.completed(fileId: 1, status: 200, bytes: 100, sha256: nil))
+        XCTAssertEqual(plan.byteFraction(partial: [:]), 0.25, accuracy: 0.0001)
+        XCTAssertEqual(plan.byteFraction(partial: [2: 0.5]), 0.625, accuracy: 0.0001)
+    }
+
+    func testByteFractionClampsPartialAndIgnoresVerifiedPartial() {
+        var plan = plan()
+        plan.apply(.completed(fileId: 1, status: 200, bytes: 100, sha256: nil))
+        XCTAssertEqual(plan.byteFraction(partial: [1: 0.1, 2: 7]), 1, accuracy: 0.0001)
+    }
 }
