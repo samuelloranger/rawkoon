@@ -10,7 +10,7 @@ extension BookView {
                     Text("Overview")
                         .font(.sectionTitle)
                         .foregroundStyle(Theme.textStrong)
-                    Text(renderedOverviewText(overview))
+                    Text(HTMLText.plainText(overview))
                         .font(.subheadline)
                         .foregroundStyle(Theme.text)
                 }

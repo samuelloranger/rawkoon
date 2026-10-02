@@ -60,26 +60,6 @@ extension BookView {
         return parts.joined(separator: " · ")
     }
 
-    func renderedOverviewText(_ rawOverview: String) -> String {
-        let trimmed = rawOverview.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.contains("<"), let data = trimmed.data(using: .utf8) else {
-            return trimmed
-        }
-        if let parsed = try? NSAttributedString(
-            data: data,
-            options: [
-                .documentType: NSAttributedString.DocumentType.html,
-                .characterEncoding: String.Encoding.utf8.rawValue,
-            ],
-            documentAttributes: nil
-        ) {
-            return parsed.string
-                .replacingOccurrences(of: "\u{00A0}", with: " ")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        return trimmed
-    }
-
     func isChapterDownloaded(_ chapter: ManifestChapter) -> Bool {
         guard let editionId = audiobookEditionId else { return false }
         if model.downloadPlans[editionId]?.states[chapter.fileId] == .verified {
