@@ -9,6 +9,8 @@ import UIKit
 struct SwipeDeck: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+    @FocusState private var deckFocused: Bool
 
     let label: String
     /// The primary button's accessibility label — "Add" for an admin
@@ -68,6 +70,23 @@ struct SwipeDeck: View {
     private let cardMaxWidth: CGFloat = 260
 
     var body: some View {
+        Group {
+            if hSizeClass == .regular {
+                regularBody
+            } else {
+                compactBody
+            }
+        }
+        .focusable()
+        .focusEffectDisabled()
+        .focused($deckFocused)
+        .onAppear { deckFocused = true }
+        .onKeyPress(.leftArrow) { keyAct(.dismiss) }
+        .onKeyPress(.rightArrow) { keyAct(.primary) }
+        .onKeyPress(.upArrow) { keyAct(.watchlist) }
+    }
+
+    private var compactBody: some View {
         VStack(spacing: 28) {
             ZStack {
                 ForEach(Array(visibleItems.enumerated()).reversed(), id: \.element.id) { index, item in
@@ -81,6 +100,58 @@ struct SwipeDeck: View {
 
             actionBar
         }
+    }
+
+    /// iPad/Mac: the card grows to the available height and the title's details sit beside it.
+    private var regularBody: some View {
+        GeometryReader { geo in
+            let cardHeight = max(300, min(geo.size.height - 140, 640))
+            HStack(alignment: .center, spacing: 48) {
+                VStack(spacing: 28) {
+                    ZStack {
+                        ForEach(Array(visibleItems.enumerated()).reversed(), id: \.element.id) { index, item in
+                            card(for: item, stackIndex: index)
+                        }
+                    }
+                    .frame(width: cardHeight * 2.0 / 3.0, height: cardHeight)
+
+                    actionBar
+                }
+                if let top = items.first {
+                    detailPanel(for: top)
+                        .frame(maxWidth: 420, alignment: .leading)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .containerRelativeFrame(.vertical) { length, _ in max(length, 560) }
+    }
+
+    private func detailPanel(for item: DiscoverDeckItem) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(item.title)
+                .font(.display(28))
+                .foregroundStyle(Theme.textStrong)
+            Text(DeckCardView(item: item, label: label, posterURL: nil).metaLine)
+                .font(.system(.subheadline, design: .monospaced))
+                .foregroundStyle(Theme.muted)
+            if let overview = item.overview, !overview.isEmpty {
+                Text(overview)
+                    .font(.body)
+                    .foregroundStyle(Theme.text)
+                    .lineLimit(10)
+            }
+        }
+    }
+
+    private func keyAct(_ action: Action) -> KeyPress.Result {
+        guard !items.isEmpty, !isFlinging else { return .handled }
+        if model.isOffline {
+            OfflineFeedback.explain()
+        } else {
+            actOnTop(action)
+        }
+        return .handled
     }
 
     private var visibleItems: [DiscoverDeckItem] {

@@ -91,6 +91,7 @@ struct NotificationChannelsCrudView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .navigationTitle("Channels")
@@ -198,6 +199,7 @@ private struct ChannelEditorView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .navigationTitle(Text(LocalizedStringKey(channel == nil ? "New channel" : "Edit channel")))

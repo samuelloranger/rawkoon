@@ -93,6 +93,7 @@ struct DownloadClientView: View {
                 .listRowBackground(Theme.raised)
             }
             .scrollContentBackground(.hidden)
+            .readableWidth()
             .background(Theme.base)
             .tint(Theme.apricot)
         } else {

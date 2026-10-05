@@ -73,6 +73,7 @@ struct BooksSettingsView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .task { await load() }

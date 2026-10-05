@@ -116,6 +116,7 @@ struct NotificationsSettingsView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .navigationTitle("Notifications")

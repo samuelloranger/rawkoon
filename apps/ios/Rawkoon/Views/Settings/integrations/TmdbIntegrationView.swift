@@ -59,6 +59,7 @@ struct TmdbIntegrationView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .toolbar {

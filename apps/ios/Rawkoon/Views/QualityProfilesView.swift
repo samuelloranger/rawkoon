@@ -29,6 +29,7 @@ struct QualityProfilesView: View {
                         }
                     }
                     .scrollContentBackground(.hidden)
+                    .readableWidth()
                     .background(Theme.base)
                     .listStyle(.plain)
 
