@@ -11,6 +11,10 @@ extension RootTab {
         case .explore: "square.grid.2x2"
         case .notifications: "bell"
         case .settings: "gearshape"
+        case .activity: "arrow.down.circle"
+        case .requests: "tray.and.arrow.down"
+        case .watchlist: "bookmark"
+        case .server: "server.rack"
         }
     }
 
@@ -27,6 +31,10 @@ extension RootTab {
         case .explore: "Explore"
         case .notifications: "Notifications"
         case .settings: "Settings"
+        case .activity: "Activity"
+        case .requests: "Requests"
+        case .watchlist: "Watchlist"
+        case .server: "Server"
         }
     }
 }

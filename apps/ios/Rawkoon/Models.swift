@@ -27,6 +27,32 @@ nonisolated struct TmdbSearchResponse: Decodable, Sendable {
     let items: [TmdbSearchItem]
 }
 
+// MARK: - Watchlist
+
+nonisolated struct WatchlistItem: Decodable, Identifiable, Hashable, Sendable {
+    let id: Int
+    let tmdbId: Int
+    let mediaType: String // "movie" | "tv"
+    let title: String
+    let posterUrl: String?
+    let overview: String?
+    let releaseYear: Int?
+    let voteAverage: Double?
+
+    /// The shape the shared poster card and media detail take.
+    var searchItem: TmdbSearchItem {
+        TmdbSearchItem(
+            id: "\(mediaType)-\(tmdbId)", tmdbId: tmdbId, mediaType: mediaType, title: title,
+            releaseYear: releaseYear, posterUrl: posterUrl, overview: overview, voteAverage: voteAverage,
+            alreadyExists: nil, canAdd: nil, libraryId: nil
+        )
+    }
+}
+
+nonisolated struct WatchlistResponse: Decodable, Sendable {
+    let items: [WatchlistItem]
+}
+
 // MARK: - Discover deck (swipe)
 
 nonisolated enum DiscoverSource: String, Codable, Sendable {

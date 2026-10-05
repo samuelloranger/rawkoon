@@ -1,6 +1,126 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Go": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aller"
+          }
+        }
+      }
+    },
+    "Settings…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réglages…"
+          }
+        }
+      }
+    },
+    "Play/Pause": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture/Pause"
+          }
+        }
+      }
+    },
+    "Skip Back 30 Seconds": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reculer de 30 secondes"
+          }
+        }
+      }
+    },
+    "Skip Forward 30 Seconds": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avancer de 30 secondes"
+          }
+        }
+      }
+    },
+    "Previous Chapter": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapitre précédent"
+          }
+        }
+      }
+    },
+    "Next Chapter": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapitre suivant"
+          }
+        }
+      }
+    },
+    "Show Player": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher le lecteur"
+          }
+        }
+      }
+    },
+    "Pipeline": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pipeline"
+          }
+        }
+      }
+    },
+    "Nothing on your watchlist": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rien dans votre liste de suivi"
+          }
+        }
+      }
+    },
+    "Bookmark a movie or show and it will wait here.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajoutez un film ou une série et il attendra ici."
+          }
+        }
+      }
+    },
+    "Couldn't load your watchlist": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger votre liste de suivi"
+          }
+        }
+      }
+    },
     "Progress reset.": {
       "localizations": {
         "fr": {

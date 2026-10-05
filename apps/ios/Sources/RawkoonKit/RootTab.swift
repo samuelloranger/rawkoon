@@ -2,16 +2,26 @@
 /// selection state, so they must not change.
 public enum RootTab: String, CaseIterable, Sendable {
     case home, library, books, discover, explore, notifications, settings
+    case activity, requests, watchlist, server
 
     /// The custom iPhone bar, left to right.
     public static let phone: [RootTab] = [.home, .library, .books, .discover, .explore, .notifications, .settings]
 
-    /// The iPad/Mac sidebar, which the custom bar does not change.
-    public static let sidebar: [RootTab] = [.home, .library, .books, .discover, .explore, .settings]
+    /// The iPad/Mac sidebar, in display order. `server` is admin-only; see `visibleSidebar`.
+    public static let sidebar: [RootTab] = [
+        .home, .library, .books, .watchlist, .discover, .explore,
+        .activity, .requests, .notifications, .settings, .server,
+    ]
+
+    /// The sidebar entries this user can see.
+    public static func visibleSidebar(isAdmin: Bool) -> [RootTab] {
+        sidebar.filter { $0 != .server || isAdmin }
+    }
 
     /// A stale pick must resolve to a tab that exists at this width; Home is the landing tab.
-    public static func validated(_ raw: String, compact: Bool) -> RootTab {
-        guard let tab = RootTab(rawValue: raw), (compact ? phone : sidebar).contains(tab) else { return .home }
+    public static func validated(_ raw: String, compact: Bool, isAdmin: Bool = true) -> RootTab {
+        guard let tab = RootTab(rawValue: raw),
+              (compact ? phone : visibleSidebar(isAdmin: isAdmin)).contains(tab) else { return .home }
         return tab
     }
 

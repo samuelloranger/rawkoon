@@ -118,9 +118,17 @@ enum Appearance {
         nav.largeTitleTextAttributes = [.foregroundColor: strong, .font: large]
         nav.titleTextAttributes = [.foregroundColor: strong, .font: inline]
 
-        UINavigationBar.appearance().standardAppearance = nav
-        UINavigationBar.appearance().scrollEdgeAppearance = nav
-        UINavigationBar.appearance().compactAppearance = nav
+        #if targetEnvironment(macCatalyst)
+            // A Mac window has no glass bar to read through, so scrolled content would show under the title.
+            let bar = nav.copy() as? UINavigationBarAppearance ?? nav
+            bar.backgroundColor = UIColor(Theme.base)
+            bar.shadowColor = UIColor(Theme.border)
+        #else
+            let bar = nav
+        #endif
+        UINavigationBar.appearance().standardAppearance = bar
+        UINavigationBar.appearance().scrollEdgeAppearance = bar
+        UINavigationBar.appearance().compactAppearance = bar
         UINavigationBar.appearance().tintColor = UIColor(Theme.apricot)
 
         // Segmented controls keep the native glass track and thumb; only the
