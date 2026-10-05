@@ -22,7 +22,7 @@ struct RawkoonCommands: Commands {
         }
 
         CommandMenu("Go") {
-            ForEach(Array(RootTab.visibleSidebar(isAdmin: model.isAdmin).enumerated()), id: \.element) { index, tab in
+            ForEach(Array(goTabs.enumerated()), id: \.element) { index, tab in
                 if index < 9, let key = "\(index + 1)".first {
                     goButton(tab).keyboardShortcut(KeyEquivalent(key), modifiers: .command)
                 } else {
@@ -58,12 +58,21 @@ struct RawkoonCommands: Commands {
         }
     }
 
+    /// A phone with a hardware keyboard gets this menu too, but only has the bar's tabs.
+    private var isPhone: Bool {
+        UIDevice.current.userInterfaceIdiom == .phone
+    }
+
+    private var goTabs: [RootTab] {
+        isPhone ? RootTab.phone : RootTab.visibleSidebar(isAdmin: model.isAdmin)
+    }
+
     private var noBook: Bool {
         model.activeBook() == nil
     }
 
     private func goButton(_ tab: RootTab) -> some View {
-        Button(tab.sidebarTitle) { selection?.wrappedValue = tab }
+        Button(isPhone ? tab.title : tab.sidebarTitle) { selection?.wrappedValue = tab }
             .disabled(selection == nil)
     }
 }
