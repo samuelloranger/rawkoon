@@ -81,7 +81,7 @@ struct WatchlistView: View {
                         libraryId: nil
                     )
                 } label: {
-                    MediaPosterCard(item: item.searchItem)
+                    MediaPosterCard(title: item.title, posterURL: model.absoluteURL(item.posterUrl))
                 }
                 .buttonStyle(.plain)
                 .contextMenu {

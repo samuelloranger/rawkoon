@@ -38,15 +38,6 @@ nonisolated struct WatchlistItem: Decodable, Identifiable, Hashable, Sendable {
     let overview: String?
     let releaseYear: Int?
     let voteAverage: Double?
-
-    /// The shape the shared poster card and media detail take.
-    var searchItem: TmdbSearchItem {
-        TmdbSearchItem(
-            id: "\(mediaType)-\(tmdbId)", tmdbId: tmdbId, mediaType: mediaType, title: title,
-            releaseYear: releaseYear, posterUrl: posterUrl, overview: overview, voteAverage: voteAverage,
-            alreadyExists: nil, canAdd: nil, libraryId: nil
-        )
-    }
 }
 
 nonisolated struct WatchlistResponse: Decodable, Sendable {
