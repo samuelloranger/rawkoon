@@ -7,10 +7,11 @@ public enum RootTab: String, CaseIterable, Sendable {
     /// The custom iPhone bar, left to right.
     public static let phone: [RootTab] = [.home, .library, .books, .discover, .explore, .notifications, .settings]
 
-    /// The iPad/Mac sidebar, in display order. `server` is admin-only; see `visibleSidebar`.
+    /// The iPad/Mac sidebar, in display order (SwiftUI lists loose tabs above
+    /// sections). `server` is admin-only; see `visibleSidebar`.
     public static let sidebar: [RootTab] = [
-        .home, .library, .books, .watchlist, .discover, .explore,
-        .activity, .requests, .notifications, .settings, .server,
+        .home, .notifications, .library, .books, .watchlist, .discover, .explore,
+        .activity, .requests, .settings, .server,
     ]
 
     /// The sidebar entries this user can see.

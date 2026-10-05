@@ -40,6 +40,10 @@ extension RootTab {
 
     /// Sidebar and menu label: the phone bar abbreviates Movies & Shows to fit.
     var sidebarTitle: LocalizedStringKey {
-        self == .library ? "Movies & Shows" : title
+        switch self {
+        case .library: "Movies & Shows"
+        case .settings: "Preferences"
+        default: title
+        }
     }
 }

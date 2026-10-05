@@ -8,8 +8,8 @@ final class RootTabTests: XCTestCase {
 
     func testSidebarOrderGroupsLibraryDiscoverAndPipeline() {
         XCTAssertEqual(RootTab.sidebar, [
-            .home, .library, .books, .watchlist, .discover, .explore,
-            .activity, .requests, .notifications, .settings, .server,
+            .home, .notifications, .library, .books, .watchlist, .discover, .explore,
+            .activity, .requests, .settings, .server,
         ])
     }
 

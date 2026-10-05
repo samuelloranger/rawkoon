@@ -22,19 +22,10 @@ struct BookGridCard: View {
                 .font(.subheadline)
                 .foregroundStyle(Theme.muted)
                 .lineLimit(1)
-            HStack(spacing: 6) {
-                if book.hasAudiobook {
-                    formatChip("Audiobook")
-                }
-                if book.hasEbook {
-                    formatChip("Ebook")
-                }
-                if book.isRead {
-                    StatusBadge(verbatim: bookReadStatusText(), tint: Theme.seed)
-                }
-                if downloaded {
-                    StatusBadge(text: "Offline", tint: Theme.seed)
-                }
+            // Narrow cells swap the format words for icons rather than wrap them mid-word.
+            ViewThatFits(in: .horizontal) {
+                badges(iconsOnly: false)
+                badges(iconsOnly: true)
             }
             if let progress, progress > 0.001, progress < 0.999 {
                 HStack(spacing: 8) {
@@ -46,7 +37,7 @@ struct BookGridCard: View {
             }
         }
         .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Theme.raised, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border, lineWidth: 1))
         .bookCardContextMenu(items: menuItems, onAction: onMenuAction)
@@ -73,10 +64,40 @@ struct BookGridCard: View {
             .rawkoonZoomSource(RawkoonZoom.book(book.bookId))
     }
 
-    private func formatChip(_ text: LocalizedStringKey) -> some View {
-        Text(text)
-            .font(.system(.caption2, design: .monospaced))
-            .foregroundStyle(Theme.muted)
-            .chipCapsule(tint: Theme.muted)
+    private func badges(iconsOnly: Bool) -> some View {
+        HStack(spacing: 6) {
+            if book.hasAudiobook {
+                formatChip("Audiobook", systemImage: "headphones", iconOnly: iconsOnly)
+            }
+            if book.hasEbook {
+                formatChip("Ebook", systemImage: "book", iconOnly: iconsOnly)
+            }
+            if book.isRead {
+                StatusBadge(verbatim: bookReadStatusText(), tint: Theme.seed)
+                    .fixedSize()
+            }
+            if downloaded {
+                StatusBadge(text: "Offline", tint: Theme.seed)
+                    .fixedSize()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func formatChip(_ text: LocalizedStringKey, systemImage: String, iconOnly: Bool) -> some View {
+        Group {
+            if iconOnly {
+                Image(systemName: systemImage)
+                    .font(.caption2)
+                    .accessibilityLabel(Text(text))
+            } else {
+                Text(text)
+                    .font(.system(.caption2, design: .monospaced))
+                    .lineLimit(1)
+            }
+        }
+        .foregroundStyle(Theme.muted)
+        .chipCapsule(tint: Theme.muted)
+        .fixedSize()
     }
 }

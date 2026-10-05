@@ -26,6 +26,14 @@ struct SettingsView: View {
         !settingsSearch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var navigationTitleKey: LocalizedStringKey {
+        switch scope {
+        case .all: "Settings"
+        case .personal: "Preferences"
+        case .server: "Server"
+        }
+    }
+
     private var searchResults: [SettingsDestination] {
         guard model.isAdmin, scope != .personal else { return [] }
         return SettingsDestination.allCases.filter { $0.matches(settingsSearch) }
@@ -48,9 +56,10 @@ struct SettingsView: View {
         .reportsTabBarScroll()
         .modifier(SettingsSearch(isEnabled: scope != .personal, text: $settingsSearch))
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
-        .navigationTitle(scope == .server ? "Server" : "Settings")
+        .navigationTitle(navigationTitleKey)
         .navigationBarTitleDisplayMode(.inline)
         .rawkoonConfirm(
             "Delete downloaded chapters?",
@@ -193,7 +202,7 @@ struct SettingsView: View {
             }
             .listRowBackground(Theme.raised)
 
-            Section("Requests & Alerts") {
+            Section(scope == .all ? "Requests & Alerts" : "Alerts") {
                 // The sidebar has Activity and Requests tabs of its own.
                 if scope == .all {
                     NavigationLink {

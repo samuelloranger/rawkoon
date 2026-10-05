@@ -398,6 +398,9 @@ private struct RootTabsView: View {
         TabView(selection: selection) {
             Tab("Home", systemImage: "house", value: RootTab.home) { sidebarRoot(.home) }
                 .customizationID("tab.home")
+            Tab("Notifications", systemImage: "bell", value: RootTab.notifications) { sidebarRoot(.notifications) }
+                .badge(model.unreadNotificationCount)
+                .customizationID("tab.notifications")
             TabSection("Library") {
                 Tab("Movies & Shows", systemImage: "film.stack", value: RootTab.library) { sidebarRoot(.library) }
                     .customizationID("tab.library")
@@ -418,14 +421,13 @@ private struct RootTabsView: View {
                 Tab("Requests", systemImage: "tray.and.arrow.down", value: RootTab.requests) { sidebarRoot(.requests) }
                     .customizationID("tab.requests")
             }
-            Tab("Notifications", systemImage: "bell", value: RootTab.notifications) { sidebarRoot(.notifications) }
-                .badge(model.unreadNotificationCount)
-                .customizationID("tab.notifications")
-            Tab("Settings", systemImage: "gearshape", value: RootTab.settings) { sidebarRoot(.settings) }
-                .customizationID("tab.settings")
-            if model.isAdmin {
-                Tab("Server", systemImage: "server.rack", value: RootTab.server) { sidebarRoot(.server) }
-                    .customizationID("tab.server")
+            TabSection("Settings") {
+                Tab("Preferences", systemImage: "gearshape", value: RootTab.settings) { sidebarRoot(.settings) }
+                    .customizationID("tab.settings")
+                if model.isAdmin {
+                    Tab("Server", systemImage: "server.rack", value: RootTab.server) { sidebarRoot(.server) }
+                        .customizationID("tab.server")
+                }
             }
         }
         .tabViewStyle(.sidebarAdaptable)

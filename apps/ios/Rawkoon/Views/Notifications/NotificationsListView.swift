@@ -20,6 +20,7 @@ struct NotificationsListView: View {
 
     var body: some View {
         content
+            .readableWidth(860)
             .background(Theme.base)
             .navigationTitle("Notifications")
             .navigationBarTitleDisplayMode(.inline)
