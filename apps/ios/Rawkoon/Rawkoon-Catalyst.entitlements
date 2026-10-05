@@ -2,6 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- Push on Mac; the Mac App Store profile already carries this key. -->
+    <key>com.apple.developer.aps-environment</key>
+    <string>production</string>
     <!-- Mac App Store requires the app to be sandboxed (90296). -->
     <key>com.apple.security.app-sandbox</key>
     <true/>
