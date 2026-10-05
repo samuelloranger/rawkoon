@@ -5,6 +5,7 @@ import {
   type TmdbProvider,
   type TmdbWatchProvidersResult,
 } from "./mappers";
+import { fetchWithTimeout } from "@rawkoon/api/utils/fetchWithTimeout";
 import { makeTmdbFetch, toTmdbLanguage } from "./tmdbFetcherCore";
 import type {
   CollectionPart,
@@ -14,6 +15,53 @@ import type {
   TrailerResult,
 } from "./tmdbFetcherTypes";
 
+export const TRAILER_TTL = 24 * 60 * 60;
+export const RATINGS_TTL = 24 * 60 * 60;
+export const CREDITS_TTL = 24 * 60 * 60;
+export const PROVIDERS_TTL = 6 * 60 * 60;
+
+export const trailerCacheKey = (
+  mediaType: "movie" | "tv",
+  tmdbId: number,
+  lang: string,
+) => `medias:trailer:${mediaType}:${tmdbId}:${lang}`;
+export const ratingsCacheKey = (
+  mediaType: "movie" | "tv",
+  tmdbId: number,
+  lang: string,
+) => `medias:ratings:${mediaType}:${tmdbId}:${lang}`;
+export const creditsCacheKey = (
+  mediaType: "movie" | "tv",
+  tmdbId: number,
+  lang: string,
+) => `medias:credits:${mediaType}:${tmdbId}:${lang}`;
+export const providersCacheKey = (
+  mediaType: "movie" | "tv",
+  tmdbId: number,
+  region: string,
+  lang: string,
+) => `medias:providers:${mediaType}:${tmdbId}:${region}:${lang}`;
+
+/** Picks the best YouTube trailer from a TMDB `videos` payload. */
+export function parseTrailer(videosData: unknown): TrailerResult {
+  const data = toRecord(videosData);
+  const results = Array.isArray(data?.results)
+    ? (data.results as Record<string, unknown>[])
+    : [];
+  const youtube = results.filter((v) => v.site === "YouTube");
+  const pick =
+    youtube.find((v) => v.official && v.type === "Trailer") ??
+    youtube.find((v) => v.official && v.type === "Teaser") ??
+    youtube.find((v) => v.type === "Trailer") ??
+    youtube.find((v) => v.type === "Teaser") ??
+    youtube[0] ??
+    null;
+  return {
+    key: pick ? toStringOrNull(pick.key) : null,
+    name: pick ? toStringOrNull(pick.name) : null,
+  };
+}
+
 export async function fetchTrailer(
   apiKey: string,
   mediaType: "movie" | "tv",
@@ -21,33 +69,64 @@ export async function fetchTrailer(
   language = "en-US",
 ): Promise<TrailerResult> {
   const lang = toTmdbLanguage(language);
-  const cacheKey = `medias:trailer:${mediaType}:${tmdbId}:${lang}`;
+  const cacheKey = trailerCacheKey(mediaType, tmdbId, lang);
   const cached = await getJsonCache<TrailerResult>(cacheKey);
   if (cached) return cached;
 
   const tmdbFetch = makeTmdbFetch(apiKey, lang);
   try {
     const data = await tmdbFetch(`${mediaType}/${tmdbId}/videos`);
-    const results = Array.isArray(data?.results)
-      ? (data!.results as Record<string, unknown>[])
-      : [];
-    const youtube = results.filter((v) => v.site === "YouTube");
-    const pick =
-      youtube.find((v) => v.official && v.type === "Trailer") ??
-      youtube.find((v) => v.official && v.type === "Teaser") ??
-      youtube.find((v) => v.type === "Trailer") ??
-      youtube.find((v) => v.type === "Teaser") ??
-      youtube[0] ??
-      null;
-    const result: TrailerResult = {
-      key: pick ? toStringOrNull(pick.key) : null,
-      name: pick ? toStringOrNull(pick.name) : null,
-    };
-    await setJsonCache(cacheKey, result, 24 * 60 * 60);
+    const result = parseTrailer(data);
+    await setJsonCache(cacheKey, result, TRAILER_TTL);
     return result;
   } catch {
     return { key: null, name: null };
   }
+}
+
+export const EMPTY_RATINGS: RatingsResult = {
+  imdb_rating: null,
+  rotten_tomatoes: null,
+  metacritic: null,
+};
+
+/** OMDb ratings for an IMDb id; null when OMDb is unconfigured or the lookup fails. */
+export async function fetchOmdbRatings(
+  imdbId: string,
+): Promise<RatingsResult | null> {
+  const omdbKey = Bun.env.OMDB_API_KEY;
+  if (!omdbKey) return null;
+
+  const omdbUrl = new URL("https://www.omdbapi.com/");
+  omdbUrl.searchParams.set("i", imdbId);
+  omdbUrl.searchParams.set("apikey", omdbKey);
+  const res = await fetchWithTimeout(
+    omdbUrl.toString(),
+    { headers: { Accept: "application/json" } },
+    10_000,
+  );
+  if (!res.ok) return null;
+
+  const data = (await res.json()) as Record<string, unknown>;
+  if (data.Response === "False") return null;
+
+  const ratings = Array.isArray(data.Ratings)
+    ? (data.Ratings as { Source: string; Value: string }[])
+    : [];
+  const rtRaw =
+    ratings.find((r) => r.Source === "Rotten Tomatoes")?.Value ?? null;
+  const mcRaw =
+    ratings
+      .find((r) => r.Source === "Metacritic")
+      ?.Value?.replace("/100", "") ?? null;
+  return {
+    imdb_rating:
+      typeof data.imdbRating === "string" && data.imdbRating !== "N/A"
+        ? data.imdbRating
+        : null,
+    rotten_tomatoes: rtRaw && rtRaw !== "N/A" && rtRaw !== "0%" ? rtRaw : null,
+    metacritic: mcRaw && mcRaw !== "N/A" && mcRaw !== "0" ? mcRaw : null,
+  };
 }
 
 export async function fetchRatings(
@@ -57,59 +136,51 @@ export async function fetchRatings(
   language = "en-US",
 ): Promise<RatingsResult> {
   const lang = toTmdbLanguage(language);
-  const cacheKey = `medias:ratings:${mediaType}:${tmdbId}:${lang}`;
+  const cacheKey = ratingsCacheKey(mediaType, tmdbId, lang);
   const cached = await getJsonCache<RatingsResult>(cacheKey);
   if (cached) return cached;
-
-  const empty: RatingsResult = {
-    imdb_rating: null,
-    rotten_tomatoes: null,
-    metacritic: null,
-  };
-  const omdbKey = Bun.env.OMDB_API_KEY;
-  if (!omdbKey) return empty;
+  if (!Bun.env.OMDB_API_KEY) return EMPTY_RATINGS;
 
   const tmdbFetch = makeTmdbFetch(apiKey, lang);
   try {
     const extData = await tmdbFetch(`${mediaType}/${tmdbId}/external_ids`);
     const imdbId =
       typeof extData?.imdb_id === "string" ? extData.imdb_id : null;
-    if (!imdbId) return empty;
+    if (!imdbId) return EMPTY_RATINGS;
 
-    const omdbUrl = new URL("https://www.omdbapi.com/");
-    omdbUrl.searchParams.set("i", imdbId);
-    omdbUrl.searchParams.set("apikey", omdbKey);
-    const res = await fetch(omdbUrl.toString(), {
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) return empty;
-
-    const data = (await res.json()) as Record<string, unknown>;
-    if (data.Response === "False") return empty;
-
-    const ratings = Array.isArray(data.Ratings)
-      ? (data.Ratings as { Source: string; Value: string }[])
-      : [];
-    const rtRaw =
-      ratings.find((r) => r.Source === "Rotten Tomatoes")?.Value ?? null;
-    const mcRaw =
-      ratings
-        .find((r) => r.Source === "Metacritic")
-        ?.Value?.replace("/100", "") ?? null;
-    const result: RatingsResult = {
-      imdb_rating:
-        typeof data.imdbRating === "string" && data.imdbRating !== "N/A"
-          ? data.imdbRating
-          : null,
-      rotten_tomatoes:
-        rtRaw && rtRaw !== "N/A" && rtRaw !== "0%" ? rtRaw : null,
-      metacritic: mcRaw && mcRaw !== "N/A" && mcRaw !== "0" ? mcRaw : null,
-    };
-    await setJsonCache(cacheKey, result, 24 * 60 * 60);
+    const result = await fetchOmdbRatings(imdbId);
+    if (!result) return EMPTY_RATINGS;
+    await setJsonCache(cacheKey, result, RATINGS_TTL);
     return result;
   } catch {
-    return empty;
+    return EMPTY_RATINGS;
   }
+}
+
+/** Top-billed cast and directors from a TMDB `credits` payload. */
+export function parseCredits(creditsData: unknown): CreditsResult {
+  const data = toRecord(creditsData);
+  const castArr = Array.isArray(data?.cast)
+    ? (data.cast as Record<string, unknown>[])
+    : [];
+  const crewArr = Array.isArray(data?.crew)
+    ? (data.crew as Record<string, unknown>[])
+    : [];
+  return {
+    cast: castArr.slice(0, 10).map((m) => ({
+      id: typeof m.id === "number" ? m.id : 0,
+      name: typeof m.name === "string" ? m.name : "",
+      character: typeof m.character === "string" ? m.character : null,
+      profile_url:
+        typeof m.profile_path === "string" && m.profile_path
+          ? `https://image.tmdb.org/t/p/w185${m.profile_path}`
+          : null,
+    })),
+    directors: crewArr
+      .filter((m) => m.job === "Director")
+      .map((m) => (typeof m.name === "string" ? m.name : ""))
+      .filter(Boolean),
+  };
 }
 
 export async function fetchCredits(
@@ -119,35 +190,15 @@ export async function fetchCredits(
   language = "en-US",
 ): Promise<CreditsResult> {
   const lang = toTmdbLanguage(language);
-  const cacheKey = `medias:credits:${mediaType}:${tmdbId}:${lang}`;
+  const cacheKey = creditsCacheKey(mediaType, tmdbId, lang);
   const cached = await getJsonCache<CreditsResult>(cacheKey);
   if (cached) return cached;
 
   const tmdbFetch = makeTmdbFetch(apiKey, lang);
   try {
     const data = await tmdbFetch(`${mediaType}/${tmdbId}/credits`);
-    const castArr = Array.isArray(data?.cast)
-      ? (data!.cast as Record<string, unknown>[])
-      : [];
-    const crewArr = Array.isArray(data?.crew)
-      ? (data!.crew as Record<string, unknown>[])
-      : [];
-    const result: CreditsResult = {
-      cast: castArr.slice(0, 10).map((m) => ({
-        id: typeof m.id === "number" ? m.id : 0,
-        name: typeof m.name === "string" ? m.name : "",
-        character: typeof m.character === "string" ? m.character : null,
-        profile_url:
-          typeof m.profile_path === "string" && m.profile_path
-            ? `https://image.tmdb.org/t/p/w185${m.profile_path}`
-            : null,
-      })),
-      directors: crewArr
-        .filter((m) => m.job === "Director")
-        .map((m) => (typeof m.name === "string" ? m.name : ""))
-        .filter(Boolean),
-    };
-    await setJsonCache(cacheKey, result, 24 * 60 * 60);
+    const result = parseCredits(data);
+    await setJsonCache(cacheKey, result, CREDITS_TTL);
     return result;
   } catch {
     return { cast: [], directors: [] };
@@ -245,6 +296,28 @@ export function mapProviders(raw: unknown[], logoBase: string): TmdbProvider[] {
     .filter((p): p is TmdbProvider => p !== null);
 }
 
+/** Region-scoped providers from a TMDB `watch/providers` payload. */
+export function parseWatchProviders(
+  providersData: unknown,
+  region: string,
+): TmdbWatchProvidersResult {
+  const LOGO_BASE = "https://image.tmdb.org/t/p/w92";
+  const results = toRecord(toRecord(providersData)?.results);
+  const regionData = toRecord(results?.[region]);
+  const list = (key: string) =>
+    regionData && Array.isArray(regionData[key])
+      ? mapProviders(regionData[key] as unknown[], LOGO_BASE)
+      : [];
+  return {
+    region,
+    streaming: list("flatrate"),
+    free: list("free"),
+    rent: list("rent"),
+    buy: list("buy"),
+    link: regionData ? toStringOrNull(regionData.link) : null,
+  };
+}
+
 export async function fetchWatchProviders(
   apiKey: string,
   mediaType: "movie" | "tv",
@@ -253,72 +326,18 @@ export async function fetchWatchProviders(
   language = "en-US",
 ): Promise<TmdbWatchProvidersResult> {
   const lang = toTmdbLanguage(language);
-  const cacheKey = `medias:providers:${mediaType}:${tmdbId}:${region}:${lang}`;
+  const cacheKey = providersCacheKey(mediaType, tmdbId, region, lang);
   const cached = await getJsonCache<TmdbWatchProvidersResult>(cacheKey);
   if (cached) return cached;
 
-  const LOGO_BASE = "https://image.tmdb.org/t/p/w92";
-  const empty: TmdbWatchProvidersResult = {
-    region,
-    streaming: [],
-    free: [],
-    rent: [],
-    buy: [],
-    link: null,
-  };
-
+  const tmdbFetch = makeTmdbFetch(apiKey, lang);
   try {
-    const url = new URL(
-      `https://api.themoviedb.org/3/${mediaType}/${tmdbId}/watch/providers`,
-    );
-    url.searchParams.set("api_key", apiKey);
-    url.searchParams.set("language", lang);
-    const res = await fetch(url.toString(), {
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) return empty;
-
-    const data = (await res.json()) as Record<string, unknown>;
-    const results = toRecord(data.results);
-    const regionData = toRecord(results?.[region]);
-
-    const result: TmdbWatchProvidersResult = {
-      region,
-      streaming: regionData
-        ? mapProviders(
-            Array.isArray(regionData.flatrate)
-              ? (regionData.flatrate as unknown[])
-              : [],
-            LOGO_BASE,
-          )
-        : [],
-      free: regionData
-        ? mapProviders(
-            Array.isArray(regionData.free)
-              ? (regionData.free as unknown[])
-              : [],
-            LOGO_BASE,
-          )
-        : [],
-      rent: regionData
-        ? mapProviders(
-            Array.isArray(regionData.rent)
-              ? (regionData.rent as unknown[])
-              : [],
-            LOGO_BASE,
-          )
-        : [],
-      buy: regionData
-        ? mapProviders(
-            Array.isArray(regionData.buy) ? (regionData.buy as unknown[]) : [],
-            LOGO_BASE,
-          )
-        : [],
-      link: regionData ? toStringOrNull(regionData.link) : null,
-    };
-    await setJsonCache(cacheKey, result, 6 * 60 * 60);
+    const data = await tmdbFetch(`${mediaType}/${tmdbId}/watch/providers`);
+    if (!data) return parseWatchProviders(null, region);
+    const result = parseWatchProviders(data, region);
+    await setJsonCache(cacheKey, result, PROVIDERS_TTL);
     return result;
   } catch {
-    return empty;
+    return parseWatchProviders(null, region);
   }
 }

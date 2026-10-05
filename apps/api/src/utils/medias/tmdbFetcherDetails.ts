@@ -231,6 +231,18 @@ export function extractTitleTranslations(
   return result;
 }
 
+/** Sub-resources the details mapper reads from `append_to_response`. */
+export const MEDIA_DETAILS_APPEND = "external_ids,images,translations";
+export const MEDIA_DETAILS_TTL = 24 * 60 * 60;
+
+export function mediaDetailsCacheKey(
+  mediaType: "movie" | "tv",
+  tmdbId: number,
+  tmdbLanguage: string,
+): string {
+  return `medias:tmdb-details-v4:${mediaType}:${tmdbId}:${tmdbLanguage}`;
+}
+
 export async function fetchMediaDetails(
   apiKey: string,
   mediaType: "movie" | "tv",
@@ -238,188 +250,194 @@ export async function fetchMediaDetails(
   language = "en-US",
 ): Promise<DetailsResult> {
   const tmdbLanguage = toTmdbLanguage(language);
-  const cacheKey = `medias:tmdb-details-v4:${mediaType}:${tmdbId}:${tmdbLanguage}`;
+  const cacheKey = mediaDetailsCacheKey(mediaType, tmdbId, tmdbLanguage);
   const cached = await getJsonCache<DetailsResult>(cacheKey);
   if (cached) return cached;
 
-  const empty = emptyMediaDetails();
   const tmdbFetch = makeTmdbFetch(apiKey, tmdbLanguage);
-
   try {
     const data = await tmdbFetch(`${mediaType}/${tmdbId}`, {
-      append_to_response: "external_ids,images,translations",
+      append_to_response: MEDIA_DETAILS_APPEND,
     });
-    if (!data) return empty;
-
-    const overview =
-      typeof data.overview === "string" ? data.overview || null : null;
-    const vote_average =
-      typeof data.vote_average === "number" ? data.vote_average : null;
-    const tagline =
-      typeof data.tagline === "string" && data.tagline.trim()
-        ? data.tagline.trim()
-        : null;
-
-    const genres: TmdbGenre[] = Array.isArray(data.genres)
-      ? (data.genres as unknown[])
-          .map((g) => {
-            const gr = toRecord(g);
-            if (!gr) return null;
-            const id = toNumberOrNull(gr.id);
-            const name = toStringOrNull(gr.name);
-            if (id == null || !name) return null;
-            return { id, name };
-          })
-          .filter((g): g is TmdbGenre => g !== null)
-      : [];
-
-    const original_title =
-      mediaType === "movie"
-        ? toStringOrNull(data.original_title)
-        : toStringOrNull(data.original_name ?? data.original_title);
-    const original_language = toStringOrNull(data.original_language);
-    const title_translations = extractTitleTranslations(
-      data.translations,
-      mediaType,
-    );
-
-    const production_countries: TmdbProductionCountry[] = Array.isArray(
-      data.production_countries,
-    )
-      ? (data.production_countries as unknown[])
-          .map((c) => {
-            const r = toRecord(c);
-            if (!r) return null;
-            const iso = toStringOrNull(r.iso_3166_1);
-            const name = toStringOrNull(r.name);
-            if (!iso || !name) return null;
-            return { iso_3166_1: iso, name };
-          })
-          .filter((x): x is TmdbProductionCountry => x !== null)
-      : [];
-
-    const production_companies: TmdbProductionCompany[] = Array.isArray(
-      data.production_companies,
-    )
-      ? (data.production_companies as unknown[])
-          .map((c) => {
-            const r = toRecord(c);
-            if (!r) return null;
-            const id = toNumberOrNull(r.id);
-            const name = toStringOrNull(r.name);
-            if (id == null || !name) return null;
-            const logo = toStringOrNull(r.logo_path);
-            return {
-              id,
-              name,
-              logo_url: logo ? `${IMG_COMPANY}${logo}` : null,
-              origin_country: toStringOrNull(r.origin_country),
-            };
-          })
-          .filter((x): x is TmdbProductionCompany => x !== null)
-      : [];
-
-    const spoken_languages: TmdbSpokenLanguage[] = Array.isArray(
-      data.spoken_languages,
-    )
-      ? (data.spoken_languages as unknown[])
-          .map((c) => {
-            const r = toRecord(c);
-            if (!r) return null;
-            const en = toStringOrNull(r.english_name);
-            const iso = toStringOrNull(r.iso_639_1);
-            const name = toStringOrNull(r.name);
-            if (!iso || !name) return null;
-            return {
-              english_name: en || name,
-              iso_639_1: iso,
-              name,
-            };
-          })
-          .filter((x): x is TmdbSpokenLanguage => x !== null)
-      : [];
-
-    const original_language_label = languageLabel(
-      original_language,
-      spoken_languages,
-    );
-
-    const homepage = toStringOrNull(data.homepage);
-
-    const extParsed = parseExternalIds(data.external_ids);
-    const imdbFallback = toStringOrNull(data.imdb_id);
-    const mergedExternal: TmdbExternalIds = {
-      imdb_id: extParsed?.imdb_id ?? imdbFallback,
-      tvdb_id: extParsed?.tvdb_id ?? null,
-      facebook_id: extParsed?.facebook_id ?? null,
-      instagram_id: extParsed?.instagram_id ?? null,
-      twitter_id: extParsed?.twitter_id ?? null,
-      wikidata_id: extParsed?.wikidata_id ?? null,
-    };
-    const hasExternal =
-      mergedExternal.imdb_id ||
-      mergedExternal.tvdb_id ||
-      mergedExternal.facebook_id ||
-      mergedExternal.instagram_id ||
-      mergedExternal.twitter_id ||
-      mergedExternal.wikidata_id;
-    const external_ids: TmdbExternalIds | null = hasExternal
-      ? mergedExternal
-      : null;
-
-    const imagesRaw = toRecord(data.images);
-    const media_stills = buildMediaStills(imagesRaw);
-
-    const backdropPath = toStringOrNull(data.backdrop_path);
-    const primary_backdrop_url = backdropPath
-      ? `${IMG_BACKDROP}${backdropPath}`
-      : null;
-
-    const status: string | null =
-      typeof data.status === "string" && data.status.trim()
-        ? data.status.trim()
-        : null;
-
-    const movieFields = mediaType === "movie" ? parseMovieFields(data) : null;
-    const tvFields = mediaType === "tv" ? parseTvFields(data) : null;
-
-    const result: TmdbMediaDetailsResponse = {
-      runtime: movieFields?.runtime ?? tvFields?.runtime ?? null,
-      belongs_to_collection: movieFields?.belongs_to_collection ?? null,
-      overview,
-      vote_average,
-      number_of_seasons: tvFields?.number_of_seasons ?? null,
-      number_of_episodes: tvFields?.number_of_episodes ?? null,
-      release_date: movieFields?.release_date ?? null,
-      tagline,
-      genres,
-      first_air_date: tvFields?.first_air_date ?? null,
-      last_air_date: tvFields?.last_air_date ?? null,
-      status,
-      original_title,
-      title_translations,
-      original_language,
-      original_language_label,
-      production_countries,
-      production_companies,
-      spoken_languages,
-      budget: movieFields?.budget ?? null,
-      revenue: movieFields?.revenue ?? null,
-      homepage,
-      external_ids,
-      primary_backdrop_url,
-      media_stills,
-      tv_type: tvFields?.tv_type ?? null,
-      networks: tvFields?.networks ?? [],
-      created_by: tvFields?.created_by ?? [],
-      episode_run_times: tvFields?.episode_run_times ?? [],
-      next_episode_to_air: tvFields?.next_episode_to_air ?? null,
-      last_episode_to_air: tvFields?.last_episode_to_air ?? null,
-      seasons: tvFields?.seasons ?? [],
-    };
-    await setJsonCache(cacheKey, result, 24 * 60 * 60);
+    if (!data) return emptyMediaDetails();
+    const result = parseMediaDetails(data, mediaType);
+    await setJsonCache(cacheKey, result, MEDIA_DETAILS_TTL);
     return result;
   } catch {
-    return empty;
+    return emptyMediaDetails();
   }
+}
+
+/** Maps a TMDB details payload fetched with {@link MEDIA_DETAILS_APPEND}. */
+export function parseMediaDetails(
+  data: Record<string, unknown>,
+  mediaType: "movie" | "tv",
+): DetailsResult {
+  const overview =
+    typeof data.overview === "string" ? data.overview || null : null;
+  const vote_average =
+    typeof data.vote_average === "number" ? data.vote_average : null;
+  const tagline =
+    typeof data.tagline === "string" && data.tagline.trim()
+      ? data.tagline.trim()
+      : null;
+
+  const genres: TmdbGenre[] = Array.isArray(data.genres)
+    ? (data.genres as unknown[])
+        .map((g) => {
+          const gr = toRecord(g);
+          if (!gr) return null;
+          const id = toNumberOrNull(gr.id);
+          const name = toStringOrNull(gr.name);
+          if (id == null || !name) return null;
+          return { id, name };
+        })
+        .filter((g): g is TmdbGenre => g !== null)
+    : [];
+
+  const original_title =
+    mediaType === "movie"
+      ? toStringOrNull(data.original_title)
+      : toStringOrNull(data.original_name ?? data.original_title);
+  const original_language = toStringOrNull(data.original_language);
+  const title_translations = extractTitleTranslations(
+    data.translations,
+    mediaType,
+  );
+
+  const production_countries: TmdbProductionCountry[] = Array.isArray(
+    data.production_countries,
+  )
+    ? (data.production_countries as unknown[])
+        .map((c) => {
+          const r = toRecord(c);
+          if (!r) return null;
+          const iso = toStringOrNull(r.iso_3166_1);
+          const name = toStringOrNull(r.name);
+          if (!iso || !name) return null;
+          return { iso_3166_1: iso, name };
+        })
+        .filter((x): x is TmdbProductionCountry => x !== null)
+    : [];
+
+  const production_companies: TmdbProductionCompany[] = Array.isArray(
+    data.production_companies,
+  )
+    ? (data.production_companies as unknown[])
+        .map((c) => {
+          const r = toRecord(c);
+          if (!r) return null;
+          const id = toNumberOrNull(r.id);
+          const name = toStringOrNull(r.name);
+          if (id == null || !name) return null;
+          const logo = toStringOrNull(r.logo_path);
+          return {
+            id,
+            name,
+            logo_url: logo ? `${IMG_COMPANY}${logo}` : null,
+            origin_country: toStringOrNull(r.origin_country),
+          };
+        })
+        .filter((x): x is TmdbProductionCompany => x !== null)
+    : [];
+
+  const spoken_languages: TmdbSpokenLanguage[] = Array.isArray(
+    data.spoken_languages,
+  )
+    ? (data.spoken_languages as unknown[])
+        .map((c) => {
+          const r = toRecord(c);
+          if (!r) return null;
+          const en = toStringOrNull(r.english_name);
+          const iso = toStringOrNull(r.iso_639_1);
+          const name = toStringOrNull(r.name);
+          if (!iso || !name) return null;
+          return {
+            english_name: en || name,
+            iso_639_1: iso,
+            name,
+          };
+        })
+        .filter((x): x is TmdbSpokenLanguage => x !== null)
+    : [];
+
+  const original_language_label = languageLabel(
+    original_language,
+    spoken_languages,
+  );
+
+  const homepage = toStringOrNull(data.homepage);
+
+  const extParsed = parseExternalIds(data.external_ids);
+  const imdbFallback = toStringOrNull(data.imdb_id);
+  const mergedExternal: TmdbExternalIds = {
+    imdb_id: extParsed?.imdb_id ?? imdbFallback,
+    tvdb_id: extParsed?.tvdb_id ?? null,
+    facebook_id: extParsed?.facebook_id ?? null,
+    instagram_id: extParsed?.instagram_id ?? null,
+    twitter_id: extParsed?.twitter_id ?? null,
+    wikidata_id: extParsed?.wikidata_id ?? null,
+  };
+  const hasExternal =
+    mergedExternal.imdb_id ||
+    mergedExternal.tvdb_id ||
+    mergedExternal.facebook_id ||
+    mergedExternal.instagram_id ||
+    mergedExternal.twitter_id ||
+    mergedExternal.wikidata_id;
+  const external_ids: TmdbExternalIds | null = hasExternal
+    ? mergedExternal
+    : null;
+
+  const imagesRaw = toRecord(data.images);
+  const media_stills = buildMediaStills(imagesRaw);
+
+  const backdropPath = toStringOrNull(data.backdrop_path);
+  const primary_backdrop_url = backdropPath
+    ? `${IMG_BACKDROP}${backdropPath}`
+    : null;
+
+  const status: string | null =
+    typeof data.status === "string" && data.status.trim()
+      ? data.status.trim()
+      : null;
+
+  const movieFields = mediaType === "movie" ? parseMovieFields(data) : null;
+  const tvFields = mediaType === "tv" ? parseTvFields(data) : null;
+
+  const result: TmdbMediaDetailsResponse = {
+    runtime: movieFields?.runtime ?? tvFields?.runtime ?? null,
+    belongs_to_collection: movieFields?.belongs_to_collection ?? null,
+    overview,
+    vote_average,
+    number_of_seasons: tvFields?.number_of_seasons ?? null,
+    number_of_episodes: tvFields?.number_of_episodes ?? null,
+    release_date: movieFields?.release_date ?? null,
+    tagline,
+    genres,
+    first_air_date: tvFields?.first_air_date ?? null,
+    last_air_date: tvFields?.last_air_date ?? null,
+    status,
+    original_title,
+    title_translations,
+    original_language,
+    original_language_label,
+    production_countries,
+    production_companies,
+    spoken_languages,
+    budget: movieFields?.budget ?? null,
+    revenue: movieFields?.revenue ?? null,
+    homepage,
+    external_ids,
+    primary_backdrop_url,
+    media_stills,
+    tv_type: tvFields?.tv_type ?? null,
+    networks: tvFields?.networks ?? [],
+    created_by: tvFields?.created_by ?? [],
+    episode_run_times: tvFields?.episode_run_times ?? [],
+    next_episode_to_air: tvFields?.next_episode_to_air ?? null,
+    last_episode_to_air: tvFields?.last_episode_to_air ?? null,
+    seasons: tvFields?.seasons ?? [],
+  };
+  return result;
 }

@@ -9,13 +9,7 @@ import {
   loadTmdbConfig,
   toTmdbLanguage,
 } from "@rawkoon/api/utils/medias/tmdbFetcherCore";
-import { fetchMediaDetails } from "@rawkoon/api/utils/medias/tmdbFetcherDetails";
-import {
-  fetchCredits,
-  fetchRatings,
-  fetchTrailer,
-  fetchWatchProviders,
-} from "@rawkoon/api/utils/medias/tmdbFetcherEndpoints";
+import { fetchModalTmdbData } from "@rawkoon/api/utils/medias/tmdbModalBundle";
 import { getGlobalTmdbRegion } from "@rawkoon/api/utils/medias/tmdbRegion";
 import {
   buildDiscoverUrl,
@@ -251,21 +245,19 @@ export const tmdbMetaRoutes = new Hono<Env>()
     ]);
     if (!tmdbConfig) return badRequest("TMDB is not configured");
 
-    const [trailer, ratings, credits, details, providers, library_episodes] =
-      await Promise.all([
-        fetchTrailer(tmdbConfig.api_key, mediaType, tmdbId, language),
-        fetchRatings(tmdbConfig.api_key, mediaType, tmdbId, language),
-        fetchCredits(tmdbConfig.api_key, mediaType, tmdbId, language),
-        fetchMediaDetails(tmdbConfig.api_key, mediaType, tmdbId, language),
-        fetchWatchProviders(
-          tmdbConfig.api_key,
-          mediaType,
-          tmdbId,
-          region,
-          language,
-        ),
-        fetchModalLibraryEpisodes(mediaType, tmdbId),
-      ]);
+    const [
+      { trailer, ratings, credits, details, providers },
+      library_episodes,
+    ] = await Promise.all([
+      fetchModalTmdbData(
+        tmdbConfig.api_key,
+        mediaType,
+        tmdbId,
+        region,
+        language,
+      ),
+      fetchModalLibraryEpisodes(mediaType, tmdbId),
+    ]);
 
     return ok({
       watchlist_status: watchlistItem !== null,
