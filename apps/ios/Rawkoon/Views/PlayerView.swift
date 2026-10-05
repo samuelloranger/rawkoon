@@ -160,14 +160,11 @@ struct PlayerView: View {
     /// playback outright and dismisses both.
     private var header: some View {
         HStack {
-            // Mac sheets close via the cross; a second control that does the same is noise.
-            #if !targetEnvironment(macCatalyst)
-                Button { dismiss() } label: {
-                    headerIcon("chevron.down")
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Collapse player")
-            #endif
+            Button { dismiss() } label: {
+                headerIcon("chevron.down")
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Collapse player")
 
             Spacer()
 

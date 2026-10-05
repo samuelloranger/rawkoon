@@ -37,4 +37,9 @@ extension RootTab {
         case .server: "Server"
         }
     }
+
+    /// Sidebar and menu label: the phone bar abbreviates Movies & Shows to fit.
+    var sidebarTitle: LocalizedStringKey {
+        self == .library ? "Movies & Shows" : title
+    }
 }

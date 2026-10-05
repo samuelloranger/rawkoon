@@ -67,7 +67,7 @@ struct RawkoonCommands: Commands {
     }
 
     private func goButton(_ tab: RootTab) -> some View {
-        Button(tab.title) { selection?.wrappedValue = tab }
+        Button(tab.sidebarTitle) { selection?.wrappedValue = tab }
             .disabled(selection == nil)
     }
 }
