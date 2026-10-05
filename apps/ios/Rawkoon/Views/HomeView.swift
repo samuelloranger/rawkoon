@@ -79,21 +79,32 @@ struct HomeView: View {
         .navigationTitle("Home")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                NavigationLink {
-                    NotificationsListView()
-                } label: {
-                    ZStack(alignment: .topTrailing) {
-                        Image(systemName: "bell")
-                        if model.unreadNotificationCount > 0 {
-                            Circle()
-                                .fill(Theme.terracotta)
-                                .frame(width: 8, height: 8)
-                                .offset(x: 3, y: -3)
+            // The sidebar has Notifications and Watchlist tabs of its own.
+            if UIDevice.current.userInterfaceIdiom == .phone {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        WatchlistView()
+                    } label: {
+                        Image(systemName: "bookmark")
+                    }
+                    .accessibilityLabel("Watchlist")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        NotificationsListView()
+                    } label: {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "bell")
+                            if model.unreadNotificationCount > 0 {
+                                Circle()
+                                    .fill(Theme.terracotta)
+                                    .frame(width: 8, height: 8)
+                                    .offset(x: 3, y: -3)
+                            }
                         }
                     }
+                    .accessibilityLabel("Notifications")
                 }
-                .accessibilityLabel("Notifications")
             }
         }
         .onAppear(perform: hydrateFromCache)

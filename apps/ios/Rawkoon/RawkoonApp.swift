@@ -142,12 +142,16 @@ struct RawkoonApp: App {
             // CI greps this file so `.environment(model)` stays below `.overlay`/`.sheet`.
             .environment(model)
         }
+        .commands { RawkoonCommands(model: model) }
     }
 
     /// On iPhone the tab bar floats over the bottom edge, with the mini player
-    /// above it while a book is loaded.
+    /// above it while a book is loaded; in the sidebar only the mini player floats.
     private var toastBottomInset: CGFloat {
-        guard model.isLoggedIn, UIDevice.current.userInterfaceIdiom == .phone else { return 12 }
+        guard model.isLoggedIn else { return 12 }
+        if UIDevice.current.userInterfaceIdiom != .phone {
+            return model.activeBook() == nil ? 12 : 12 + MiniPlayerInset.height
+        }
         return model.activeBook() == nil ? 84 : 148
     }
 
@@ -166,7 +170,17 @@ struct RawkoonApp: App {
     }
 }
 
-final class AppDelegate: NSObject, UIApplicationDelegate {
+final class AppDelegate: UIResponder, UIApplicationDelegate {
+    #if targetEnvironment(macCatalyst)
+        /// SwiftUI's `CommandGroup(replacing:)` leaves these UIKit menus in place on Catalyst.
+        override func buildMenu(with builder: any UIMenuBuilder) {
+            super.buildMenu(with: builder)
+            guard builder.system == .main else { return }
+            builder.remove(menu: .document)
+            builder.remove(menu: .help)
+        }
+    #endif
+
     /// Resolved at launch rather than from a view's onAppear: a background launch
     /// for finished downloads may never render anything.
     @MainActor private var appModel: AppModel {
@@ -286,8 +300,21 @@ private struct RootTabsView: View {
         case .discover: NavigationStack { DiscoverView() }
         case .explore: NavigationStack { ExploreView(embedded: true) }
         case .notifications: NavigationStack { NotificationsListView() }
-        case .settings: NavigationStack { SettingsView() }
+        case .settings: NavigationStack { SettingsView(scope: compact ? .all : .personal) }
+        case .activity: NavigationStack { ActivityView() }
+        case .requests: NavigationStack { RequestsView() }
+        case .watchlist: NavigationStack { WatchlistView() }
+        case .server: NavigationStack { SettingsView(scope: .server) }
         }
+    }
+
+    /// The sidebar floats the mini player over content, so each stack scrolls clear of it.
+    private func sidebarRoot(_ tab: RootTab) -> some View {
+        tabRoot(tab)
+            .background(NavigationBottomInset(
+                bottom: model.activeBook() == nil ? 0 : MiniPlayerInset.height,
+                mountedTabs: 0
+            ))
     }
 
     /// By device, not size class: an iPad window crossing compact width would
@@ -300,7 +327,7 @@ private struct RootTabsView: View {
         // Getter validates so a tab absent at this width can't stay selected
         // mid-render; setter stores the raw pick.
         let validSelection = Binding(
-            get: { RootTab.validated(selection.rawValue, compact: compact) },
+            get: { RootTab.validated(selection.rawValue, compact: compact, isAdmin: model.isAdmin) },
             set: { selection = $0 }
         )
         return Group {
@@ -314,6 +341,8 @@ private struct RootTabsView: View {
                     .offlineStrip(isOffline: model.isOffline)
             }
         }
+        .focusedSceneValue(\.rootTabSelection, validSelection)
+        .focusedSceneValue(\.showPlayer) { showFullPlayer = true }
         .onOpenURL { url in
             guard url.scheme == "rawkoon" else { return }
             switch url.host {
@@ -377,18 +406,39 @@ private struct RootTabsView: View {
 
     private func sidebarTabs(_ selection: Binding<RootTab>) -> some View {
         TabView(selection: selection) {
-            Tab("Home", systemImage: "house", value: RootTab.home) { tabRoot(.home) }
+            Tab("Home", systemImage: "house", value: RootTab.home) { sidebarRoot(.home) }
                 .customizationID("tab.home")
-            Tab("Movies & Shows", systemImage: "film.stack", value: RootTab.library) { tabRoot(.library) }
-                .customizationID("tab.library")
-            Tab("Books", systemImage: "books.vertical", value: RootTab.books) { tabRoot(.books) }
-                .customizationID("tab.books")
-            Tab("For You", systemImage: "sparkles.rectangle.stack", value: RootTab.discover) { tabRoot(.discover) }
-                .customizationID("tab.discover")
-            Tab("Explore", systemImage: "square.grid.2x2", value: RootTab.explore) { tabRoot(.explore) }
-                .customizationID("tab.explore")
-            Tab("Settings", systemImage: "gearshape", value: RootTab.settings) { tabRoot(.settings) }
-                .customizationID("tab.settings")
+            Tab("Notifications", systemImage: "bell", value: RootTab.notifications) { sidebarRoot(.notifications) }
+                .badge(model.unreadNotificationCount)
+                .customizationID("tab.notifications")
+            TabSection("Library") {
+                Tab("Movies & Shows", systemImage: "film.stack", value: RootTab.library) { sidebarRoot(.library) }
+                    .customizationID("tab.library")
+                Tab("Books", systemImage: "books.vertical", value: RootTab.books) { sidebarRoot(.books) }
+                    .customizationID("tab.books")
+                Tab("Watchlist", systemImage: "bookmark", value: RootTab.watchlist) { sidebarRoot(.watchlist) }
+                    .customizationID("tab.watchlist")
+            }
+            TabSection("Discover") {
+                Tab("Discover", systemImage: "sparkles.rectangle.stack", value: RootTab.discover) { sidebarRoot(.discover) }
+                    .customizationID("tab.discover")
+                Tab("Explore", systemImage: "square.grid.2x2", value: RootTab.explore) { sidebarRoot(.explore) }
+                    .customizationID("tab.explore")
+            }
+            TabSection("Pipeline") {
+                Tab("Activity", systemImage: "arrow.down.circle", value: RootTab.activity) { sidebarRoot(.activity) }
+                    .customizationID("tab.activity")
+                Tab("Requests", systemImage: "tray.and.arrow.down", value: RootTab.requests) { sidebarRoot(.requests) }
+                    .customizationID("tab.requests")
+            }
+            TabSection("Settings") {
+                Tab("Preferences", systemImage: "gearshape", value: RootTab.settings) { sidebarRoot(.settings) }
+                    .customizationID("tab.settings")
+                if model.isAdmin {
+                    Tab("Server", systemImage: "server.rack", value: RootTab.server) { sidebarRoot(.server) }
+                        .customizationID("tab.server")
+                }
+            }
         }
         .tabViewStyle(.sidebarAdaptable)
         .tabBarMinimizeBehavior(.onScrollDown)
@@ -397,6 +447,11 @@ private struct RootTabsView: View {
         .tint(Theme.apricot)
         .miniPlayerAccessory(model: model, onExpand: { showFullPlayer = true })
     }
+}
+
+/// Room the sidebar's floating mini player needs at the bottom of each stack.
+enum MiniPlayerInset {
+    static let height: CGFloat = 76
 }
 
 /// Brand lockup shown at the top of the adaptive sidebar (iPad, Mac). Matches

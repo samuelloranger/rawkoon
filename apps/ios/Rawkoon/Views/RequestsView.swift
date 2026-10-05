@@ -60,6 +60,7 @@ struct RequestsView: View {
 
             content
         }
+        .readableWidth()
         .background(Theme.base)
         .navigationTitle("Requests")
         .navigationBarTitleDisplayMode(.inline)
@@ -408,6 +409,7 @@ private struct ProfilePickerSheet: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            .readableWidth()
             .background(Theme.base)
             .navigationTitle("Choose a quality profile")
             .navigationBarTitleDisplayMode(.inline)

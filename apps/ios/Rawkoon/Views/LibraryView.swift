@@ -71,6 +71,14 @@ struct LibraryView: View {
         hSizeClass == .regular
     }
 
+    private var navigationTitleKey: LocalizedStringKey {
+        switch forcedSection {
+        case .media: "Movies & Shows"
+        case .books: "Books"
+        case nil: "Library"
+        }
+    }
+
     private var density: LibraryDensity {
         LibraryDensity(rawValue: densityRaw) ?? .grid
     }
@@ -103,7 +111,7 @@ struct LibraryView: View {
             content
         }
         .background(Theme.base)
-        .navigationTitle("Library")
+        .navigationTitle(navigationTitleKey)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -593,39 +601,62 @@ struct LibraryView: View {
         .refreshable { await loadMedia(reset: true) }
     }
 
+    @ViewBuilder
+    private func bookLink(_ book: BookListItem, grid: Bool) -> some View {
+        let menuItems = bookCardMenuItems(
+            hasAudiobook: book.hasAudiobook,
+            hasEbook: book.hasEbook,
+            isAdmin: model.isAdmin,
+            isRead: book.isRead,
+            hasProgress: hasProgress(book),
+            audiobookDownloaded: isDownloaded(book)
+        )
+        NavigationLink {
+            BookView(book: book)
+        } label: {
+            Group {
+                if grid {
+                    BookGridCard(
+                        book: book,
+                        downloaded: isDownloaded(book),
+                        progress: progressFraction(book),
+                        menuItems: menuItems,
+                        onMenuAction: { handleBookMenu($0, book: book) }
+                    )
+                } else {
+                    BookRow(
+                        book: book,
+                        downloaded: isDownloaded(book),
+                        progress: progressFraction(book),
+                        menuItems: menuItems,
+                        onMenuAction: { handleBookMenu($0, book: book) }
+                    )
+                }
+            }
+            .overlay(alignment: grid ? .topTrailing : .trailing) {
+                if busyBookIds.contains(book.bookId) {
+                    ProgressView().tint(Theme.muted).padding(grid ? 14 : 0).padding(.trailing, grid ? 0 : 10)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .rawkoonScrollSettle()
+    }
+
     private var booksGrid: some View {
         ScrollView {
-            LazyVStack(spacing: 8) {
-                ForEach(filteredBooks) { book in
-                    NavigationLink {
-                        BookView(book: book)
-                    } label: {
-                        BookRow(
-                            book: book,
-                            downloaded: isDownloaded(book),
-                            progress: progressFraction(book),
-                            menuItems: bookCardMenuItems(
-                                hasAudiobook: book.hasAudiobook,
-                                hasEbook: book.hasEbook,
-                                isAdmin: model.isAdmin,
-                                isRead: book.isRead,
-                                hasProgress: hasProgress(book),
-                                audiobookDownloaded: isDownloaded(book)
-                            ),
-                            onMenuAction: { handleBookMenu($0, book: book) }
-                        )
-                        .overlay(alignment: .trailing) {
-                            if busyBookIds.contains(book.bookId) {
-                                ProgressView().tint(Theme.muted).padding(.trailing, 10)
-                            }
-                        }
+            Group {
+                if isRegularWidth {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 170, maximum: 230), spacing: 12)], spacing: 12) {
+                        ForEach(filteredBooks) { book in bookLink(book, grid: true) }
                     }
-                    .buttonStyle(.plain)
-                    .rawkoonScrollSettle()
+                } else {
+                    LazyVStack(spacing: 8) {
+                        ForEach(filteredBooks) { book in bookLink(book, grid: false) }
+                    }
                 }
             }
             .padding(.horizontal, 16).padding(.top, 4)
-            .libraryReadingWidth(isRegularWidth)
         }
         .reportsTabBarScroll()
         .overlay {

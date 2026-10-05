@@ -715,7 +715,7 @@ struct MediaDetailView: View {
             parts.append(String(year))
         }
         if mediaType == "tv" {
-            parts.append("\(details?.numberOfSeasons ?? 0) seasons")
+            parts.append(String(localized: "\(details?.numberOfSeasons ?? 0) seasons"))
         } else if let runtime = Formatters.runtimeMinutes(details?.runtime) {
             parts.append(runtime)
         }

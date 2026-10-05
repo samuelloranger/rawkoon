@@ -68,6 +68,7 @@ struct DevicesView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .navigationTitle("Devices")

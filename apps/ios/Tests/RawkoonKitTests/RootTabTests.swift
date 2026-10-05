@@ -6,8 +6,29 @@ final class RootTabTests: XCTestCase {
         XCTAssertEqual(RootTab.phone, [.home, .library, .books, .discover, .explore, .notifications, .settings])
     }
 
-    func testSidebarIsUnchangedByTheCustomBar() {
-        XCTAssertEqual(RootTab.sidebar, [.home, .library, .books, .discover, .explore, .settings])
+    func testSidebarOrderGroupsLibraryDiscoverAndPipeline() {
+        XCTAssertEqual(RootTab.sidebar, [
+            .home, .notifications, .library, .books, .watchlist, .discover, .explore,
+            .activity, .requests, .settings, .server,
+        ])
+    }
+
+    func testServerIsAdminOnly() {
+        XCTAssertTrue(RootTab.visibleSidebar(isAdmin: true).contains(.server))
+        XCTAssertFalse(RootTab.visibleSidebar(isAdmin: false).contains(.server))
+        XCTAssertEqual(RootTab.visibleSidebar(isAdmin: false).count, RootTab.sidebar.count - 1)
+    }
+
+    func testPhoneNeverShowsSidebarOnlyTabs() {
+        for tab in [RootTab.activity, .requests, .watchlist, .server] {
+            XCTAssertFalse(RootTab.phone.contains(tab))
+        }
+    }
+
+    func testStaleServerPickFallsBackToHomeForNonAdmins() {
+        XCTAssertEqual(RootTab.validated("server", compact: false, isAdmin: false), .home)
+        XCTAssertEqual(RootTab.validated("server", compact: false, isAdmin: true), .server)
+        XCTAssertEqual(RootTab.validated("watchlist", compact: true), .home)
     }
 
     func testEveryPhoneTabSurvivesValidationOnPhone() {
@@ -16,9 +37,8 @@ final class RootTabTests: XCTestCase {
         }
     }
 
-    /// Notifications is a phone-only tab; a stale pick on iPad must land somewhere visible.
-    func testNotificationsFallsBackToHomeInTheSidebar() {
-        XCTAssertEqual(RootTab.validated("notifications", compact: false), .home)
+    func testNotificationsIsInTheSidebar() {
+        XCTAssertEqual(RootTab.validated("notifications", compact: false), .notifications)
     }
 
     /// Home is the landing tab, so every fallback lands there.

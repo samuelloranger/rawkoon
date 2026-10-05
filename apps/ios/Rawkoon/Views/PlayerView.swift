@@ -42,7 +42,7 @@ struct PlayerView: View {
             .padding(.horizontal, 24)
         }
         .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
+        .sheetGrabber()
         .presentationBackground(Theme.base)
         .rawkoonZoomDestination(RawkoonZoom.audiobook(editionId: summary.editionId))
         .sensoryFeedback(RawkoonHaptics.feedback(for: .playPause), trigger: model.player.isPlaying)
@@ -100,7 +100,7 @@ struct PlayerView: View {
                 }
             }
             .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
+            .sheetGrabber()
         }
     }
 

@@ -68,6 +68,7 @@ struct UsersAdminView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .toolbar {
@@ -212,6 +213,7 @@ private struct ProvisioningSheet: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .navigationTitle("Add someone")
@@ -305,6 +307,7 @@ private struct InvitationsView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .navigationTitle("Invitations")

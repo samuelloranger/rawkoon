@@ -76,6 +76,7 @@ struct SessionsAdminView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .onAppear { Task { await load() } }
@@ -198,6 +199,7 @@ struct ApiKeysAdminView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .toolbar {
@@ -278,6 +280,7 @@ private struct CreateApiKeySheet: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .navigationTitle("New API key")
@@ -357,6 +360,7 @@ struct BlocklistAdminView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .onAppear { Task { await load() } }

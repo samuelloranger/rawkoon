@@ -244,6 +244,11 @@ extension APIClient {
         return response.items
     }
 
+    func watchlist() async throws -> [WatchlistItem] {
+        let response: WatchlistResponse = try await get("/api/medias/watchlist")
+        return response.items
+    }
+
     func addToWatchlist(
         tmdbId: Int,
         mediaType: String,

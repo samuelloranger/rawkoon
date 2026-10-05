@@ -27,6 +27,23 @@ nonisolated struct TmdbSearchResponse: Decodable, Sendable {
     let items: [TmdbSearchItem]
 }
 
+// MARK: - Watchlist
+
+nonisolated struct WatchlistItem: Decodable, Identifiable, Hashable, Sendable {
+    let id: Int
+    let tmdbId: Int
+    let mediaType: String // "movie" | "tv"
+    let title: String
+    let posterUrl: String?
+    let overview: String?
+    let releaseYear: Int?
+    let voteAverage: Double?
+}
+
+nonisolated struct WatchlistResponse: Decodable, Sendable {
+    let items: [WatchlistItem]
+}
+
 // MARK: - Discover deck (swipe)
 
 nonisolated enum DiscoverSource: String, Codable, Sendable {

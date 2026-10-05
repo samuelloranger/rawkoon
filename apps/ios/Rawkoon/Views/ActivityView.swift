@@ -85,6 +85,7 @@ struct ActivityView: View {
                 }
             }
         }
+        .readableWidth()
         .background(Theme.base)
         .navigationTitle("Activity")
         .navigationBarTitleDisplayMode(.inline)

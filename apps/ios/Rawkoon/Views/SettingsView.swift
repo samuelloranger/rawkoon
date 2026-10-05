@@ -1,6 +1,13 @@
 import SwiftUI
 
 struct SettingsView: View {
+    /// Which sections show: the sidebar splits personal settings from the admin ones.
+    enum Scope {
+        case all, personal, server
+    }
+
+    var scope: Scope = .all
+
     @Environment(AppModel.self) private var model
     @Environment(\.isActiveRootTab) private var isActiveRootTab
     @AppStorage("download_over") private var downloadOver = "any"
@@ -19,8 +26,16 @@ struct SettingsView: View {
         !settingsSearch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var navigationTitleKey: LocalizedStringKey {
+        switch scope {
+        case .all: "Settings"
+        case .personal: "Preferences"
+        case .server: "Server"
+        }
+    }
+
     private var searchResults: [SettingsDestination] {
-        guard model.isAdmin else { return [] }
+        guard model.isAdmin, scope != .personal else { return [] }
         return SettingsDestination.allCases.filter { $0.matches(settingsSearch) }
     }
 
@@ -30,20 +45,21 @@ struct SettingsView: View {
             if isSearching {
                 searchResultsSection
             } else {
-                staticSections
-                adminSections
+                if scope != .server {
+                    staticSections
+                }
+                if scope != .personal {
+                    adminSections
+                }
             }
         }
         .reportsTabBarScroll()
-        .searchable(
-            text: $settingsSearch,
-            placement: .navigationBarDrawer(displayMode: .automatic),
-            prompt: String(localized: "Search settings")
-        )
+        .modifier(SettingsSearch(isEnabled: scope != .personal, text: $settingsSearch))
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
-        .navigationTitle("Settings")
+        .navigationTitle(navigationTitleKey)
         .navigationBarTitleDisplayMode(.inline)
         .rawkoonConfirm(
             "Delete downloaded chapters?",
@@ -186,17 +202,20 @@ struct SettingsView: View {
             }
             .listRowBackground(Theme.raised)
 
-            Section("Requests & Alerts") {
-                NavigationLink {
-                    ActivityView()
-                } label: {
-                    Label("Activity", systemImage: "arrow.down.circle")
-                }
+            Section(scope == .all ? "Requests & Alerts" : "Alerts") {
+                // The sidebar has Activity and Requests tabs of its own.
+                if scope == .all {
+                    NavigationLink {
+                        ActivityView()
+                    } label: {
+                        Label("Activity", systemImage: "arrow.down.circle")
+                    }
 
-                NavigationLink {
-                    RequestsView()
-                } label: {
-                    Label("Requests", systemImage: "tray.and.arrow.down")
+                    NavigationLink {
+                        RequestsView()
+                    } label: {
+                        Label("Requests", systemImage: "tray.and.arrow.down")
+                    }
                 }
 
                 NavigationLink {
@@ -229,11 +248,14 @@ struct SettingsView: View {
             .listRowBackground(Theme.raised)
 
             Section("Downloads") {
-                Picker("Download over", selection: $downloadOver) {
-                    Text("Any").tag("any")
-                    Text("Wi-Fi").tag("wifi")
-                }
-                .pickerStyle(.segmented)
+                // A Mac has no cellular link to restrict.
+                #if !targetEnvironment(macCatalyst)
+                    Picker("Download over", selection: $downloadOver) {
+                        Text("Any").tag("any")
+                        Text("Wi-Fi").tag("wifi")
+                    }
+                    .pickerStyle(.segmented)
+                #endif
 
                 Button("Delete Downloads", role: .destructive) {
                     confirmDeleteDownloads = true
@@ -333,6 +355,23 @@ struct SettingsView: View {
             appVersion = version.version
         } catch {
             // Best-effort only; do not fail the screen.
+        }
+    }
+}
+
+private struct SettingsSearch: ViewModifier {
+    let isEnabled: Bool
+    @Binding var text: String
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.searchable(
+                text: $text,
+                placement: .navigationBarDrawer(displayMode: .automatic),
+                prompt: String(localized: "Search settings")
+            )
+        } else {
+            content
         }
     }
 }

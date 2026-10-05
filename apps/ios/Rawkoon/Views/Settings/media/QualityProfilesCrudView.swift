@@ -56,6 +56,7 @@ struct QualityProfilesCrudView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .toolbar {
@@ -218,6 +219,7 @@ private struct QualityProfileEditorView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .navigationTitle(Text(LocalizedStringKey(profile == nil ? "New profile" : "Edit profile")))

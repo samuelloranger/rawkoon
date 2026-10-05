@@ -56,6 +56,7 @@ struct CustomFormatsCrudView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .toolbar {
@@ -147,6 +148,7 @@ private struct CustomFormatEditorView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .navigationTitle(Text(LocalizedStringKey(format == nil ? "New format" : "Edit format")))
