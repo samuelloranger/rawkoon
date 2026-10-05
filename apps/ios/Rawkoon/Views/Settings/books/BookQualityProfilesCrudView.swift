@@ -53,6 +53,7 @@ struct BookQualityProfilesCrudView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .toolbar {
@@ -172,6 +173,7 @@ private struct BookQualityProfileEditorView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .navigationTitle(Text(LocalizedStringKey(profile == nil ? "New profile" : "Edit profile")))

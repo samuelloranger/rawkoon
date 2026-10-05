@@ -54,6 +54,7 @@ struct OidcProvidersCrudView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .toolbar {
@@ -149,6 +150,7 @@ private struct OidcProviderEditorView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .tint(Theme.apricot)
         .navigationTitle(Text(LocalizedStringKey(isEdit ? "Edit provider" : "New provider")))

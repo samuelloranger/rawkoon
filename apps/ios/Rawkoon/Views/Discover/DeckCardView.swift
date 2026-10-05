@@ -58,7 +58,7 @@ struct DeckCardView: View {
         .accessibilityLabel(Text("\(item.title), \(metaLine)"))
     }
 
-    private var metaLine: String {
+    var metaLine: String {
         var parts: [String] = []
         if let year = item.releaseYear {
             parts.append(String(year))

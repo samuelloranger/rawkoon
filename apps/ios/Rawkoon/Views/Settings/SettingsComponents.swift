@@ -359,6 +359,7 @@ struct MultiSelectRow<T: Hashable>: View {
                 }
             }
             .scrollContentBackground(.hidden)
+            .readableWidth()
             .background(Theme.base)
             .navigationTitle(titleKey)
             .navigationBarTitleDisplayMode(.inline)
@@ -487,6 +488,7 @@ struct OrderedMultiSelectList<T: Hashable>: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .readableWidth()
         .background(Theme.base)
         .navigationTitle(titleKey)
         .navigationBarTitleDisplayMode(.inline)

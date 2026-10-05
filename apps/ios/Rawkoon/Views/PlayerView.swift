@@ -42,7 +42,7 @@ struct PlayerView: View {
             .padding(.horizontal, 24)
         }
         .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
+        .sheetGrabber()
         .presentationBackground(Theme.base)
         .rawkoonZoomDestination(RawkoonZoom.audiobook(editionId: summary.editionId))
         .sensoryFeedback(RawkoonHaptics.feedback(for: .playPause), trigger: model.player.isPlaying)
@@ -100,7 +100,7 @@ struct PlayerView: View {
                 }
             }
             .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
+            .sheetGrabber()
         }
     }
 
@@ -160,11 +160,14 @@ struct PlayerView: View {
     /// playback outright and dismisses both.
     private var header: some View {
         HStack {
-            Button { dismiss() } label: {
-                headerIcon("chevron.down")
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Collapse player")
+            // Mac sheets close via the cross; a second control that does the same is noise.
+            #if !targetEnvironment(macCatalyst)
+                Button { dismiss() } label: {
+                    headerIcon("chevron.down")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Collapse player")
+            #endif
 
             Spacer()
 

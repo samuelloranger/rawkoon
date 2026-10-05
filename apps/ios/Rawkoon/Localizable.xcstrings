@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Movies & Shows": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Films et séries"
+          }
+        }
+      }
+    },
     "Progress reset.": {
       "localizations": {
         "fr": {

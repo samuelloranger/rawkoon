@@ -12,7 +12,7 @@ struct IndexersView: View {
 
     var body: some View {
         ScrollView {
-            content
+            content.readableWidth()
         }
         .background(Theme.base)
         .navigationTitle("Indexers")

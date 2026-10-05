@@ -54,6 +54,7 @@ struct UsersView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                 }
+                .readableWidth()
                 .background(Theme.base)
             }
         }
