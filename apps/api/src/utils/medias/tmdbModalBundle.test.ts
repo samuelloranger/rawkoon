@@ -153,6 +153,18 @@ describe("fetchModalTmdbData", () => {
     );
   });
 
+  it("does not cache a sub-resource missing from the combined payload", async () => {
+    const { videos: _videos, ...withoutVideos } = bundle;
+    globalThis.fetch = (async () =>
+      json(withoutVideos)) as unknown as typeof fetch;
+
+    const data = await fetchModalTmdbData("key", "movie", 42, "CA", "fr");
+
+    expect(data.trailer).toEqual({ key: null, name: null });
+    expect(cache.has("medias:trailer:movie:42:fr-FR")).toBe(false);
+    expect(cache.has("medias:credits:movie:42:fr-FR")).toBe(true);
+  });
+
   it("falls back to per-resource requests when the combined one fails", async () => {
     failBundle = true;
 

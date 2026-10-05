@@ -109,28 +109,42 @@ export async function fetchModalTmdbData(
     cached: T | null,
     key: string,
     ttl: number,
-    parse: () => T,
+    raw: unknown,
+    parse: (raw: unknown) => T,
   ) => {
     if (cached) return cached;
-    const value = parse();
-    writes.push(setJsonCache(key, value, ttl));
+    const value = parse(raw);
+    // A sub-resource TMDB left out is a miss, not an empty answer: don't pin it for the TTL.
+    if (raw != null) writes.push(setJsonCache(key, value, ttl));
     return value;
   };
 
   let result: ModalTmdbData;
   try {
     result = {
-      trailer: fill(trailer, keys.trailer, TRAILER_TTL, () =>
-        parseTrailer(data?.videos),
+      trailer: fill(
+        trailer,
+        keys.trailer,
+        TRAILER_TTL,
+        data?.videos,
+        parseTrailer,
       ),
-      credits: fill(credits, keys.credits, CREDITS_TTL, () =>
-        parseCredits(data?.credits),
+      credits: fill(
+        credits,
+        keys.credits,
+        CREDITS_TTL,
+        data?.credits,
+        parseCredits,
       ),
-      details: fill(details, keys.details, MEDIA_DETAILS_TTL, () =>
-        parseMediaDetails(data ?? {}, mediaType),
+      details: fill(details, keys.details, MEDIA_DETAILS_TTL, data, (raw) =>
+        parseMediaDetails((raw ?? {}) as Record<string, unknown>, mediaType),
       ),
-      providers: fill(providers, keys.providers, PROVIDERS_TTL, () =>
-        parseWatchProviders(data?.["watch/providers"], region),
+      providers: fill(
+        providers,
+        keys.providers,
+        PROVIDERS_TTL,
+        data?.["watch/providers"],
+        (raw) => parseWatchProviders(raw, region),
       ),
       ratings: ratings ?? EMPTY_RATINGS,
     };
