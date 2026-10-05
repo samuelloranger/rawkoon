@@ -15,10 +15,6 @@ struct RawkoonCommands: Commands {
     @FocusedValue(\.showPlayer) private var showPlayer
 
     var body: some Commands {
-        CommandGroup(replacing: .saveItem) {}
-        CommandGroup(replacing: .importExport) {}
-        CommandGroup(replacing: .help) {}
-
         CommandGroup(replacing: .appSettings) {
             Button("Settings…") { selection?.wrappedValue = .settings }
                 .keyboardShortcut(",", modifiers: .command)

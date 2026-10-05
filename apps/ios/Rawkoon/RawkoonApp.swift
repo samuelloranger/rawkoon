@@ -170,7 +170,17 @@ struct RawkoonApp: App {
     }
 }
 
-final class AppDelegate: NSObject, UIApplicationDelegate {
+final class AppDelegate: UIResponder, UIApplicationDelegate {
+    #if targetEnvironment(macCatalyst)
+        /// SwiftUI's `CommandGroup(replacing:)` leaves these UIKit menus in place on Catalyst.
+        override func buildMenu(with builder: any UIMenuBuilder) {
+            super.buildMenu(with: builder)
+            guard builder.system == .main else { return }
+            builder.remove(menu: .document)
+            builder.remove(menu: .help)
+        }
+    #endif
+
     /// Resolved at launch rather than from a view's onAppear: a background launch
     /// for finished downloads may never render anything.
     @MainActor private var appModel: AppModel {
