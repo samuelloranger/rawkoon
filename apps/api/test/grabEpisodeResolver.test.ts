@@ -26,6 +26,80 @@ describe("resolveGrabEpisodeId", () => {
     expect(r).toEqual({ ok: true, episodeId: null, corrected: false });
   });
 
+  it("links a single-episode release to its episode when none is requested", () => {
+    // Show-level search sends no episode; without this the grab is keyed as a
+    // season-3 pack and blocks every other episode of that season.
+    const r = resolveGrabEpisodeId({
+      requested: null,
+      releaseTitle: "Bellefleur.S03E05.AD.VFQ.1080p.WEB.AC3.5.1.H264-MTLQC",
+      episodesBySeasonEpisode: map,
+    });
+    expect(r).toEqual({ ok: true, episodeId: 110, corrected: false });
+  });
+
+  it("links three-digit episodes in long seasons", () => {
+    const long = new Map([
+      [episodeMapKey(1, 10), { id: 900, season: 1, episode: 10 }],
+      [episodeMapKey(1, 105), { id: 905, season: 1, episode: 105 }],
+    ]);
+    const r = resolveGrabEpisodeId({
+      requested: null,
+      releaseTitle: "Daily.Show.S01E105.FRENCH.720p.WEB.H264",
+      episodesBySeasonEpisode: long,
+    });
+    expect(r).toEqual({ ok: true, episodeId: 905, corrected: false });
+  });
+
+  it("leaves multi-episode releases unlinked so they stay season-keyed", () => {
+    for (const releaseTitle of [
+      "Bellefleur.S03E04E05.1080p.WEB",
+      "Bellefleur.S03E04-E05.1080p.WEB",
+      "Bellefleur.S03E04-05.1080p.WEB",
+      "Bellefleur.S03E04-S03E06.1080p.WEB",
+      "Bellefleur.S03E04.S03E05.1080p.WEB",
+      "Bellefleur.3x04-3x06.1080p.WEB",
+      "Bellefleur.03x04-05.1080p.WEB",
+    ]) {
+      const r = resolveGrabEpisodeId({
+        requested: null,
+        releaseTitle,
+        episodesBySeasonEpisode: map,
+      });
+      expect(r).toEqual({ ok: true, episodeId: null, corrected: false });
+    }
+  });
+
+  it("still links an episode followed by a hyphenated quality tag", () => {
+    for (const releaseTitle of [
+      "Bellefleur.S03E06-720p.WEB",
+      "Bellefleur.S03E06-10bit-1080p.WEB",
+      "Bellefleur.S03E06-60fps.1080p.WEB",
+      "Bellefleur.S03E06-5.1.H264",
+      "Bellefleur.3x06.1080p.WEB",
+    ]) {
+      const r = resolveGrabEpisodeId({
+        requested: null,
+        releaseTitle,
+        episodesBySeasonEpisode: map,
+      });
+      expect(r).toEqual({ ok: true, episodeId: 112, corrected: false });
+    }
+  });
+
+  it("leaves season packs and unknown episodes unlinked when none is requested", () => {
+    for (const releaseTitle of [
+      "Bellefleur.S03.FRENCH.1080p.WEB",
+      "Bellefleur.S03E09.1080p.WEB",
+    ]) {
+      const r = resolveGrabEpisodeId({
+        requested: null,
+        releaseTitle,
+        episodesBySeasonEpisode: map,
+      });
+      expect(r).toEqual({ ok: true, episodeId: null, corrected: false });
+    }
+  });
+
   it("keeps the requested episode when the release SxxExx matches", () => {
     const r = resolveGrabEpisodeId({
       requested: EPISODES[0],
