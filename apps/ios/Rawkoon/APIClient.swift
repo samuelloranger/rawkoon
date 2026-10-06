@@ -61,7 +61,7 @@ actor APIClient {
     private let sseSession: URLSession
     /// Re-encode estimates sample-encode clips server-side and send nothing until done.
     private let slowSession: URLSession
-    /// Indexer searches and AI picks: the server can wait 30-45s on an indexer or the LLM before answering.
+    /// Indexer searches and AI picks: a handler can chain up to three 45s indexer queries before answering.
     private let longWaitSession: URLSession
     private var token: String?
     /// Fired on an authenticated 401 so `AppModel` can drop the Keychain session.
@@ -115,8 +115,8 @@ actor APIClient {
             resourceTimeout: 600
         ))
         longWaitSession = URLSession(configuration: Self.ephemeralConfig(
-            requestTimeout: 90,
-            resourceTimeout: 120
+            requestTimeout: 150,
+            resourceTimeout: 180
         ))
         self.token = token
         self.onUnauthorized = onUnauthorized
