@@ -65,12 +65,16 @@ export const libraryGrabRoutes = new Hono<Env>()
         // context, so grabbing a different episode's release from that panel
         // would mislink it and make the post-processor render every grab to
         // the same destination (later grabs then fail with EEXIST).
-        if (media.type === "show" && episodeId != null) {
+        // With no episode context, a single-episode release is linked from its
+        // SxxExx so it isn't keyed as a season pack.
+        if (media.type === "show") {
           const [requested, allEpisodes] = await Promise.all([
-            prisma.libraryEpisode.findFirst({
-              where: { id: episodeId, mediaId: id },
-              select: { id: true, season: true, episode: true },
-            }),
+            episodeId != null
+              ? prisma.libraryEpisode.findFirst({
+                  where: { id: episodeId, mediaId: id },
+                  select: { id: true, season: true, episode: true },
+                })
+              : null,
             prisma.libraryEpisode.findMany({
               where: { mediaId: id },
               select: { id: true, season: true, episode: true },
@@ -79,7 +83,7 @@ export const libraryGrabRoutes = new Hono<Env>()
           // A provided episode id that no longer belongs to this item is a
           // stale context — reject rather than silently degrade to a
           // season-pack grab.
-          if (!requested) {
+          if (episodeId != null && !requested) {
             return badRequest("Episode not found for this library item");
           }
           const resolved = resolveGrabEpisodeId({
