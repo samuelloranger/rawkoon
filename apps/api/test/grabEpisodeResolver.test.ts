@@ -55,6 +55,10 @@ describe("resolveGrabEpisodeId", () => {
       "Bellefleur.S03E04E05.1080p.WEB",
       "Bellefleur.S03E04-E05.1080p.WEB",
       "Bellefleur.S03E04-05.1080p.WEB",
+      "Bellefleur.S03E04-S03E06.1080p.WEB",
+      "Bellefleur.S03E04.S03E05.1080p.WEB",
+      "Bellefleur.3x04-3x06.1080p.WEB",
+      "Bellefleur.03x04-05.1080p.WEB",
     ]) {
       const r = resolveGrabEpisodeId({
         requested: null,
@@ -65,13 +69,21 @@ describe("resolveGrabEpisodeId", () => {
     }
   });
 
-  it("still links an episode whose title has a hyphenated resolution after it", () => {
-    const r = resolveGrabEpisodeId({
-      requested: null,
-      releaseTitle: "Bellefleur.S03E06-720p.WEB",
-      episodesBySeasonEpisode: map,
-    });
-    expect(r).toEqual({ ok: true, episodeId: 112, corrected: false });
+  it("still links an episode followed by a hyphenated quality tag", () => {
+    for (const releaseTitle of [
+      "Bellefleur.S03E06-720p.WEB",
+      "Bellefleur.S03E06-10bit-1080p.WEB",
+      "Bellefleur.S03E06-60fps.1080p.WEB",
+      "Bellefleur.S03E06-5.1.H264",
+      "Bellefleur.3x06.1080p.WEB",
+    ]) {
+      const r = resolveGrabEpisodeId({
+        requested: null,
+        releaseTitle,
+        episodesBySeasonEpisode: map,
+      });
+      expect(r).toEqual({ ok: true, episodeId: 112, corrected: false });
+    }
   });
 
   it("leaves season packs and unknown episodes unlinked when none is requested", () => {

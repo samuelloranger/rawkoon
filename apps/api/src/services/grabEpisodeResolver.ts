@@ -24,9 +24,19 @@ export type ResolveGrabEpisodeResult =
  *   that episode.
  * - Release SxxExx points at an episode not in the library: reject the grab.
  */
-// S01E04E05, S01E04-E05, S01E04-05; "-720p" after an episode is not a range.
-const MULTI_EPISODE_RE =
-  /S\d{1,2}E\d{1,3}(?:[-_. ]?E\d{1,3}|-\d{1,3}(?![\dpi]))/i;
+const EPISODE_MARKER_RE =
+  /S\d{1,2}E\d{1,3}|(?:^|[\s._-])\d{1,2}x\d{1,3}(?!\d)/gi;
+// E04E05, E04-E05, 4x04-05; "-720p", "-10bit" and "-5.1" are tags, not ranges.
+const EPISODE_RANGE_RE =
+  /(?:S\d{1,2}E\d{1,3}|\d{1,2}x\d{1,3})(?:[-_. ]?E\d{1,3}|-(?![257]\.[01](?!\d))\d{1,3}(?=[-_. ]|$))/i;
+
+/** Whether a release covers more than one episode (a second marker or a range). */
+function isMultiEpisodeRelease(title: string): boolean {
+  return (
+    (title.match(EPISODE_MARKER_RE)?.length ?? 0) > 1 ||
+    EPISODE_RANGE_RE.test(title)
+  );
+}
 
 export function resolveGrabEpisodeId(opts: {
   requested: GrabEpisodeRef | null;
@@ -38,7 +48,7 @@ export function resolveGrabEpisodeId(opts: {
 
   if (!requested) {
     // Show-level search sends no episode; unlinked, the grab is keyed as a pack.
-    if (!se || se.episode == null || MULTI_EPISODE_RE.test(releaseTitle)) {
+    if (!se || se.episode == null || isMultiEpisodeRelease(releaseTitle)) {
       return { ok: true, episodeId: null, corrected: false };
     }
     const match = episodesBySeasonEpisode.get(
