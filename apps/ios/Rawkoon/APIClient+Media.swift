@@ -311,7 +311,8 @@ extension APIClient {
     func searchSeason(id: Int, season: Int, searchQuery: String? = nil) async throws -> LibrarySearchResponse {
         try await post(
             "/api/library/\(id)/seasons/\(season)/search",
-            body: LibrarySearchBody(searchQuery: searchQuery)
+            body: LibrarySearchBody(searchQuery: searchQuery),
+            longWait: true
         )
     }
 
@@ -319,7 +320,8 @@ extension APIClient {
     func searchEpisode(id: Int, episodeId: Int, searchQuery: String? = nil) async throws -> LibrarySearchResponse {
         try await post(
             "/api/library/\(id)/episodes/\(episodeId)/search",
-            body: LibrarySearchBody(searchQuery: searchQuery)
+            body: LibrarySearchBody(searchQuery: searchQuery),
+            longWait: true
         )
     }
 
@@ -393,7 +395,7 @@ extension APIClient {
             "complete": complete ? "true" : nil,
             "tmdb_id": tmdbId.map(String.init),
             "media_type": mediaType,
-        ])
+        ], longWait: true)
     }
 
     /// Returns the grab result: the route replies 200 with `{grabbed:false, reason}`
@@ -423,7 +425,7 @@ extension APIClient {
     }
 
     func aiPick(_ body: AiPickRequest) async throws -> AiPick {
-        try await post("/api/medias/search/ai-pick", body: body)
+        try await post("/api/medias/search/ai-pick", body: body, longWait: true)
     }
 
     func blockRelease(_ body: BlocklistBody) async throws {

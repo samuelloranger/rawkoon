@@ -147,7 +147,7 @@ extension APIClient {
     }
 
     func bookReleaseSearch(bookId: Int, kind: String) async throws -> BookReleasesResponse {
-        try await get("/api/books/\(bookId)/editions/\(kind)/search")
+        try await get("/api/books/\(bookId)/editions/\(kind)/search", longWait: true)
     }
 
     func bookGrab(bookId: Int, kind: String, body: BookGrabBody) async throws {

@@ -61,6 +61,8 @@ actor APIClient {
     private let sseSession: URLSession
     /// Re-encode estimates sample-encode clips server-side and send nothing until done.
     private let slowSession: URLSession
+    /// Indexer searches and AI picks: the server can wait 30-45s on an indexer or the LLM before answering.
+    private let longWaitSession: URLSession
     private var token: String?
     /// Fired on an authenticated 401 so `AppModel` can drop the Keychain session.
     private let onUnauthorized: (@Sendable () -> Void)?
@@ -111,6 +113,10 @@ actor APIClient {
         slowSession = URLSession(configuration: Self.ephemeralConfig(
             requestTimeout: 300,
             resourceTimeout: 600
+        ))
+        longWaitSession = URLSession(configuration: Self.ephemeralConfig(
+            requestTimeout: 90,
+            resourceTimeout: 120
         ))
         self.token = token
         self.onUnauthorized = onUnauthorized
@@ -218,14 +224,14 @@ actor APIClient {
         return request
     }
 
-    func perform(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+    func perform(_ request: URLRequest, longWait: Bool = false) async throws -> (Data, HTTPURLResponse) {
         let key = cacheKey(for: request)
         var request = request
         let cached = key.flatMap { responseCache?.entry(for: $0) }
         if let etag = cached?.etag {
             request.setValue(etag, forHTTPHeaderField: "If-None-Match")
         }
-        let (data, http) = try await send(request)
+        let (data, http) = try await send(request, longWait: longWait)
         guard let key, let responseCache else { return (data, http) }
         if http.statusCode == 304, let cached {
             responseCache.markRevalidated(key)
@@ -294,9 +300,10 @@ actor APIClient {
         ) ?? http
     }
 
-    private func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+    private func send(_ request: URLRequest, longWait: Bool) async throws -> (Data, HTTPURLResponse) {
+        let lane = longWait ? longWaitSession : session
         do {
-            let (data, response) = try await session.data(for: request)
+            let (data, response) = try await lane.data(for: request)
             guard let http = response as? HTTPURLResponse else {
                 throw APIError.transport
             }
@@ -319,7 +326,7 @@ actor APIClient {
                     "Retrying GET \(request.url?.path ?? "?", privacy: .public) after transport reset: \(error.localizedDescription, privacy: .public)"
                 )
                 do {
-                    let (data, response) = try await session.data(for: request)
+                    let (data, response) = try await lane.data(for: request)
                     guard let http = response as? HTTPURLResponse else {
                         throw APIError.transport
                     }
@@ -437,16 +444,20 @@ actor APIClient {
 
     /// Authenticated GET returning a decoded `T`. `query` values that are nil are
     /// dropped, so callers can pass optionals directly.
-    func get<T: Decodable>(_ path: String, query: [String: String?] = [:]) async throws -> T {
+    func get<T: Decodable>(
+        _ path: String,
+        query: [String: String?] = [:],
+        longWait: Bool = false
+    ) async throws -> T {
         let request = try makeRequest(path: pathWithQuery(path, query), method: "GET", requiresAuth: true)
-        let (data, response) = try await perform(request)
+        let (data, response) = try await perform(request, longWait: longWait)
         try checkStatus(data, response)
         return try decodeJSON(data)
     }
 
     /// Authenticated POST with a JSON body returning a decoded `T`.
-    func post<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
-        let (data, response) = try await sendPost(path, body: body)
+    func post<T: Decodable>(_ path: String, body: some Encodable, longWait: Bool = false) async throws -> T {
+        let (data, response) = try await sendPost(path, body: body, longWait: longWait)
         try checkStatus(data, response)
         return try decodeJSON(data)
     }
@@ -465,12 +476,13 @@ actor APIClient {
     func sendPost(
         _ path: String,
         body: some Encodable,
-        method: String = "POST"
+        method: String = "POST",
+        longWait: Bool = false
     ) async throws -> (Data, HTTPURLResponse) {
         var request = try makeRequest(path: path, method: method, requiresAuth: true)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try Self.mediaEncoder.encode(body)
-        return try await perform(request)
+        return try await perform(request, longWait: longWait)
     }
 
     func patch<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
