@@ -63,6 +63,7 @@ actor APIClient {
     private let slowSession: URLSession
     /// Indexer searches and AI picks: a handler can chain up to three 45s indexer queries before answering.
     private let longWaitSession: URLSession
+    private static let longWaitRequestTimeout: TimeInterval = 150
     private var token: String?
     /// Fired on an authenticated 401 so `AppModel` can drop the Keychain session.
     private let onUnauthorized: (@Sendable () -> Void)?
@@ -115,7 +116,7 @@ actor APIClient {
             resourceTimeout: 600
         ))
         longWaitSession = URLSession(configuration: Self.ephemeralConfig(
-            requestTimeout: 150,
+            requestTimeout: Self.longWaitRequestTimeout,
             resourceTimeout: 180
         ))
         self.token = token
@@ -302,6 +303,11 @@ actor APIClient {
 
     private func send(_ request: URLRequest, longWait: Bool) async throws -> (Data, HTTPURLResponse) {
         let lane = longWait ? longWaitSession : session
+        var request = request
+        // Pinned on the request too, so the 60s URLRequest default can never cap the long lane.
+        if longWait {
+            request.timeoutInterval = Self.longWaitRequestTimeout
+        }
         do {
             let (data, response) = try await lane.data(for: request)
             guard let http = response as? HTTPURLResponse else {
