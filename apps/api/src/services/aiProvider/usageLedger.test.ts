@@ -37,6 +37,24 @@ describe("sanitizeAiError", () => {
     expect(out).toContain("HTTP 401: Invalid API Key: [redacted]");
   });
 
+  it("keeps model and parameter names", () => {
+    expect(
+      sanitizeAiError(
+        httpError(
+          "Model meta-llama/Llama-3.3-70B-Instruct does not exist",
+          404,
+        ),
+      ),
+    ).toBe("HTTP 404: Model meta-llama/Llama-3.3-70B-Instruct does not exist");
+    expect(
+      sanitizeAiError(
+        new Error(
+          "Missing required parameter: response_format.json_schema.name",
+        ),
+      ),
+    ).toBe("Missing required parameter: response_format.json_schema.name");
+  });
+
   it("leaves ordinary error text readable", () => {
     expect(
       sanitizeAiError(new Error("The operation was aborted due to timeout")),

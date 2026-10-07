@@ -32,9 +32,9 @@ export const isRateLimited = (error: unknown): boolean =>
 
 const MAX_ERROR_LENGTH = 200;
 
-// Long opaque tokens (sk-…, gsk_…, bearer values, hex/base64 secrets) are never useful in an error row.
+// Known key prefixes, bearer values and long unbroken tokens; dotted or slashed names (models, params) survive.
 const SECRET_LIKE_RE =
-  /\b(?:bearer\s+)?[A-Za-z0-9][A-Za-z0-9_\-.~+/]{23,}=*(?![A-Za-z0-9])/gi;
+  /\b(?:sk-|gsk_|xai-|hf_|AIza)[A-Za-z0-9_-]{8,}|\bbearer\s+\S+|[A-Za-z0-9_-]{32,}/gi;
 
 /**
  * Provider errors can echo the request URL or the key itself ("Invalid API
