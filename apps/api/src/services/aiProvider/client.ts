@@ -10,6 +10,12 @@ import {
   type AiPickMediaContext,
   type AiPickRelease,
 } from "@rawkoon/api/utils/medias/buildAiPickPrompt";
+import {
+  isRateLimited,
+  recordAiCall,
+  sanitizeAiError,
+  type AiCallContext,
+} from "@rawkoon/api/services/aiProvider/usageLedger";
 
 export type AiPickResult = {
   release_key: string;
@@ -153,7 +159,7 @@ async function generatePick(
   media: AiPickMediaContext,
   releases: AiPickRelease[],
   structured: boolean,
-): Promise<RawPick> {
+): Promise<{ object: RawPick; usage: GenerateUsage }> {
   const provider = createOpenAICompatible({
     name: "ai-provider",
     baseURL: `${config.base_url}/v1`,
@@ -164,7 +170,7 @@ async function generatePick(
     fetch: stripFencedContent as ProviderFetch,
   });
 
-  const { object } = await generateObject({
+  const { object, usage } = await generateObject({
     model: provider(config.model),
     schema: pickSchema,
     system: AI_SYSTEM_PROMPT,
@@ -176,7 +182,74 @@ async function generatePick(
     abortSignal: AbortSignal.timeout(30_000),
   });
 
-  return object;
+  return { object, usage };
+}
+
+type GenerateUsage = {
+  inputTokens: number | undefined;
+  outputTokens: number | undefined;
+  totalTokens: number | undefined;
+};
+
+/**
+ * One HTTP attempt, one ledger row. The row is written whether the call
+ * succeeded, picked a key outside the shortlist, or threw; a throw is re-raised
+ * so the caller can still run its json_object fallback.
+ */
+async function attemptPick(
+  config: AiProviderConfig,
+  media: AiPickMediaContext,
+  shortlist: Shortlist,
+  structured: boolean,
+  ctx: AiCallContext,
+): Promise<AiPickResult | null> {
+  const started = performance.now();
+  const base = { ctx, model: config.model, structured };
+
+  let generated: Awaited<ReturnType<typeof generatePick>>;
+  try {
+    generated = await generatePick(
+      config,
+      media,
+      shortlist.releases,
+      structured,
+    );
+  } catch (error) {
+    recordAiCall({
+      ...base,
+      status: isRateLimited(error) ? "rate_limited" : "error",
+      error: sanitizeAiError(error, config.api_key),
+      durationMs: performance.now() - started,
+    });
+    throw error;
+  }
+
+  const durationMs = performance.now() - started;
+  const resolved = resolveKey(
+    validateAiPick(generated.object, shortlist.releases),
+    shortlist,
+  );
+  const pickedTitle = resolved
+    ? shortlist.releases.find((r) => r.key === generated.object.release_key)
+        ?.title
+    : undefined;
+  recordAiCall({
+    ...base,
+    status: resolved ? "ok" : "invalid_pick",
+    agreedWithClassic:
+      pickedTitle !== undefined && ctx.classicTitle !== undefined
+        ? pickedTitle === ctx.classicTitle
+        : undefined,
+    usage: generated.usage,
+    durationMs,
+    ...(resolved
+      ? {
+          pickedTitle,
+          reasoning: resolved.reasoning,
+        }
+      : { reasoning: truncateAtWord(generated.object.reasoning, 150) }),
+  });
+  return resolved;
 }
 
 /**
@@ -219,6 +292,7 @@ export async function pickReleaseWithAi(
   config: AiProviderConfig,
   media: AiPickMediaContext,
   releases: AiPickRelease[],
+  ctx: AiCallContext,
 ): Promise<AiPickResult | null> {
   if (releases.length === 0) return null;
 
@@ -231,13 +305,7 @@ export async function pickReleaseWithAi(
   const structured = !schemaUnsupported.has(endpoint);
 
   try {
-    return resolveKey(
-      validateAiPick(
-        await generatePick(config, media, shortlist.releases, structured),
-        shortlist.releases,
-      ),
-      shortlist,
-    );
+    return await attemptPick(config, media, shortlist, structured, ctx);
   } catch (error) {
     // Already on the weaker mode, so there is nothing left to downgrade to.
     if (!structured) return null;
@@ -245,14 +313,9 @@ export async function pickReleaseWithAi(
     // base_url is user-supplied and not every OpenAI-compatible server
     // implements json_schema; retry once the way the pre-SDK client asked.
     try {
-      const object = await generatePick(
-        config,
-        media,
-        shortlist.releases,
-        false,
-      );
+      const result = await attemptPick(config, media, shortlist, false, ctx);
       if (isSchemaRejection(error)) schemaUnsupported.add(endpoint);
-      return resolveKey(validateAiPick(object, shortlist.releases), shortlist);
+      return result;
     } catch {
       return null;
     }

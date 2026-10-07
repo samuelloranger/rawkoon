@@ -198,6 +198,17 @@ const routeQueryDefinitions = {
       });
     }
 
+    if (tab === "ai") {
+      queries.push({
+        queryKey: queryKeys.integrations.aiProvider(),
+        queryFn: () => webFetcher(INTEGRATION_ENDPOINTS.AI_PROVIDER),
+      });
+      queries.push({
+        queryKey: queryKeys.integrations.aiStats(30),
+        queryFn: () => webFetcher(INTEGRATION_ENDPOINTS.AI_PROVIDER_STATS(30)),
+      });
+    }
+
     if (tab === "jobs") {
       queries.push({
         queryKey: queryKeys.admin.scheduledJobs(),

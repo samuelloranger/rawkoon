@@ -42,6 +42,9 @@ export interface AiProviderConfig {
   model: string;
   /** Optional: local servers need no auth, hosted OpenAI-compatible ones do. */
   api_key?: string;
+  /** USD per million tokens; only used to estimate cost at read time. */
+  input_price_per_million?: number;
+  output_price_per_million?: number;
 }
 
 export interface GoogleBooksIntegrationConfig {

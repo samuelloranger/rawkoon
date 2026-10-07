@@ -1214,6 +1214,7 @@
       "dismissLink": "Fermer"
     },
     "integrations": {
+      "testConnection": "Tester la connexion",
       "title": "Intégrations",
       "description": "Connectez des intégrations tierces utilisées par le tableau de bord.",
       "indexers": "Indexeurs",
@@ -1349,6 +1350,87 @@
         "apiKeyPlaceholder": "Votre clé API personnelle fanart.tv",
         "apiKeySetPlaceholder": "Une clé est enregistrée — saisissez-en une nouvelle pour la remplacer",
         "apiKeyHelp": "Obtenez une clé personnelle gratuite sur fanart.tv. Laissez vide pour conserver celle enregistrée."
+      }
+    },
+    "ai": {
+      "title": "IA",
+      "description": "Branchez un modèle compatible OpenAI pour aider au choix des versions, et suivez ce que ça coûte et comment il se débrouille.",
+      "inputPrice": "Prix en entrée (USD par million de jetons)",
+      "outputPrice": "Prix en sortie (USD par million de jetons)",
+      "priceHelp": "Sert à estimer le coût. Le prix de votre modèle se trouve sur la page de tarification de votre fournisseur.",
+      "usageTitle": "Utilisation",
+      "loading": "Chargement...",
+      "loadError": "Impossible de charger l'utilisation de l'IA.",
+      "empty": "Aucun appel à l'IA pour cette période. Les appels apparaissent ici au fil des choix de versions.",
+      "period": {
+        "label": "Période",
+        "days": "{{count}} jours"
+      },
+      "stats": {
+        "calls": "Appels",
+        "callsHint": "{{invalid}} choix invalide, {{limited}} limite atteinte, {{errors}} en échec",
+        "successRate": "Taux de réussite",
+        "tokens": "Jetons entrée / sortie",
+        "tokensHint": "Entrée / sortie",
+        "cost": "Coût estimé",
+        "setPrices": "Entrez les prix pour estimer le coût",
+        "p50": "Latence médiane",
+        "p95": "Latence p95",
+        "changedPick": "Choix modifié par l'IA",
+        "changedPickHint": "par rapport au pointage classique, sur {{count}} appels",
+        "changedPickNone": "Pas encore de comparaison"
+      },
+      "chart": {
+        "calls": "Appels par jour",
+        "cost": "Coût estimé par jour",
+        "callsValue": "{{count}} appels"
+      },
+      "byFeature": "Par fonction",
+      "byModel": "Par modèle",
+      "grabs": {
+        "title": "Résultat des téléchargements : choix de l'IA vs pointage classique",
+        "ai": "Téléchargements choisis par l'IA",
+        "classic": "Téléchargements classiques",
+        "failureRate": "en échec",
+        "counts": "{{total}} téléchargements : {{completed}} terminés, {{failed}} en échec, {{active}} en cours"
+      },
+      "features": {
+        "release_pick_rss": "Téléchargement auto (RSS)",
+        "release_pick_interactive": "Choix en recherche interactive",
+        "release_pick_search": "Recherche automatique",
+        "book_release_pick": "Choix de version de livre"
+      },
+      "statuses": {
+        "ok": "OK",
+        "invalid_pick": "Choix invalide",
+        "error": "Erreur",
+        "rate_limited": "Limite atteinte"
+      },
+      "history": {
+        "title": "Historique des appels",
+        "time": "Heure",
+        "feature": "Fonction",
+        "model": "Modèle",
+        "status": "Statut",
+        "duration": "Durée",
+        "target": "Titre",
+        "reasoning": "Justification",
+        "allFeatures": "Toutes les fonctions",
+        "allStatuses": "Tous les statuts",
+        "empty": "Aucun appel ne correspond à ces filtres.",
+        "page": "Page {{page}} sur {{total}}",
+        "previous": "Précédent",
+        "next": "Suivant",
+        "trigger": "Déclencheur"
+      },
+      "byTrigger": "Par déclencheur",
+      "triggers": {
+        "rss": "RSS",
+        "scheduled": "Recherche planifiée",
+        "upgrade": "Mise à niveau",
+        "interactive": "Recherche interactive",
+        "manual_search": "Recherche manuelle",
+        "unknown": "Inconnu"
       }
     },
     "blocklist": {

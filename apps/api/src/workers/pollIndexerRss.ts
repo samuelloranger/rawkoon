@@ -334,6 +334,9 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
       profile: profileInput,
       mediaContext,
       aiConfig,
+      feature: "release_pick_rss",
+      trigger: "rss",
+      mediaId: grabArgs.mediaId,
     });
 
     if (!best) {

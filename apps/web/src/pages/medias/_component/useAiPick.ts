@@ -15,6 +15,8 @@ interface UseAiPickParams {
   mediaTitle: string;
   mediaYear: number | null;
   mediaType: "movie" | "tv";
+  /** Library id, when searching from a media page; links the call in AI history. */
+  libraryMediaId?: number | null;
 }
 
 export function useAiPick({
@@ -23,6 +25,7 @@ export function useAiPick({
   mediaTitle,
   mediaYear,
   mediaType,
+  libraryMediaId,
 }: UseAiPickParams) {
   const fetcher = useFetcher();
 
@@ -35,11 +38,13 @@ export function useAiPick({
       mediaYear,
       mediaType,
       releaseKeys,
+      libraryMediaId ?? null,
     ),
     queryFn: () =>
       fetcher<AiPickResult>(MEDIAS_ENDPOINTS.INTERACTIVE_SEARCH_AI_PICK, {
         method: "POST",
         body: {
+          ...(libraryMediaId != null ? { media_id: libraryMediaId } : {}),
           media_context: {
             title: mediaTitle,
             year: mediaYear,

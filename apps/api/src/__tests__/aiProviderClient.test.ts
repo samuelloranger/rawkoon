@@ -1,8 +1,28 @@
-import { describe, it, expect, afterEach } from "bun:test";
-import {
-  validateAiPick,
-  pickReleaseWithAi,
-} from "@rawkoon/api/services/aiProvider/client";
+import { describe, it, expect, afterEach, beforeEach, mock } from "bun:test";
+
+const createCall = mock<
+  (args: { data: Record<string, unknown> }) => Promise<unknown>
+>(async () => ({}));
+mock.module("@rawkoon/api/db", () => ({
+  prisma: { aiCall: { create: createCall } },
+}));
+
+const { validateAiPick, pickReleaseWithAi: pickReleaseWithAiCtx } =
+  await import("@rawkoon/api/services/aiProvider/client");
+
+const ctx = { feature: "release_pick_rss" as const, mediaId: 7 };
+const pickReleaseWithAi = (
+  c: Parameters<typeof pickReleaseWithAiCtx>[0],
+  m: Parameters<typeof pickReleaseWithAiCtx>[1],
+  r: Parameters<typeof pickReleaseWithAiCtx>[2],
+) => pickReleaseWithAiCtx(c, m, r, ctx);
+
+const rows = () => createCall.mock.calls.map((c) => c[0].data);
+
+beforeEach(() => {
+  createCall.mockClear();
+  createCall.mockImplementation(async () => ({}));
+});
 
 const candidates = [
   { key: "guid-a", title: "A", size_bytes: null, seeders: null, score: 100 },
@@ -382,5 +402,122 @@ describe("pickReleaseWithAi json_schema fallback", () => {
     expect(
       await pickReleaseWithAi(at("hopeless"), media, candidates),
     ).toBeNull();
+  });
+});
+
+describe("pickReleaseWithAi usage ledger", () => {
+  const at = (host: string) => ({ base_url: `http://${host}`, model: "m" });
+
+  it("records an ok row with tokens, the picked title and the context", async () => {
+    mockCompletion('{"release_key":"r0","reasoning":"Best seeds"}');
+    await pickReleaseWithAi(at("ledger-ok"), media, candidates);
+
+    expect(rows()).toHaveLength(1);
+    expect(rows()[0]).toMatchObject({
+      feature: "release_pick_rss",
+      model: "m",
+      structured: true,
+      status: "ok",
+      inputTokens: 1,
+      outputTokens: 1,
+      totalTokens: 2,
+      mediaId: 7,
+      bookEditionId: null,
+      pickedTitle: "B",
+      reasoning: "Best seeds",
+      error: null,
+    });
+    expect(typeof rows()[0]?.durationMs).toBe("number");
+  });
+
+  it("records invalid_pick when the model names a key outside the shortlist", async () => {
+    mockCompletion('{"release_key":"nope","reasoning":"x"}');
+    await pickReleaseWithAi(at("ledger-invalid"), media, candidates);
+
+    expect(rows()).toHaveLength(1);
+    expect(rows()[0]).toMatchObject({
+      status: "invalid_pick",
+      totalTokens: 2,
+      pickedTitle: null,
+    });
+  });
+
+  it("records a sanitised error row when the provider fails", async () => {
+    mockSequence([{ status: 401 }]);
+    await pickReleaseWithAi(at("ledger-error"), media, candidates);
+
+    // Structured attempt and its json_object retry both failed.
+    expect(rows().map((r) => r.status)).toEqual(["error", "error"]);
+    expect(rows()[0]?.error).toContain("HTTP 401");
+    expect(rows()[0]?.inputTokens).toBeNull();
+  });
+
+  it("writes one row per attempt when the structured call falls back", async () => {
+    mockSequence([
+      { status: 400 },
+      { content: '{"release_key":"r0","reasoning":"ok"}' },
+    ]);
+    await pickReleaseWithAi(at("ledger-fallback"), media, candidates);
+
+    expect(rows().map((r) => [r.status, r.structured])).toEqual([
+      ["error", true],
+      ["ok", false],
+    ]);
+  });
+
+  it("never lets a failing ledger write break or fail the pick", async () => {
+    createCall.mockImplementation(async () => {
+      throw new Error("db down");
+    });
+    mockCompletion('{"release_key":"r0","reasoning":"ok"}');
+    const result = await pickReleaseWithAi(
+      at("ledger-down"),
+      media,
+      candidates,
+    );
+    expect(result?.release_key).toBe("guid-b");
+
+    createCall.mockImplementation(() => {
+      throw new Error("sync boom");
+    });
+    mockCompletion('{"release_key":"r0","reasoning":"ok"}');
+    const again = await pickReleaseWithAi(
+      at("ledger-down2"),
+      media,
+      candidates,
+    );
+    expect(again?.release_key).toBe("guid-b");
+  });
+
+  it("records rate_limited for a 429 and agreement with the classic pick", async () => {
+    mockSequence([{ status: 429 }]);
+    await pickReleaseWithAiCtx(at("ledger-429"), media, candidates, ctx);
+    expect(rows()[0]?.status).toBe("rate_limited");
+
+    createCall.mockClear();
+    mockCompletion('{"release_key":"r0","reasoning":"ok"}');
+    const withClassic = (classicTitle: string) =>
+      pickReleaseWithAiCtx(at("ledger-agree"), media, candidates, {
+        ...ctx,
+        trigger: "rss",
+        classicTitle,
+      });
+    await withClassic("B");
+    await withClassic("A");
+    await pickReleaseWithAi(at("ledger-agree"), media, candidates);
+    expect(rows().map((r) => [r.trigger, r.agreedWithClassic])).toEqual([
+      ["rss", true],
+      ["rss", false],
+      [null, null],
+    ]);
+  });
+
+  it("scrubs URLs out of stored error text", async () => {
+    const { sanitizeAiError } = await import(
+      "@rawkoon/api/services/aiProvider/usageLedger"
+    );
+    expect(
+      sanitizeAiError(new Error("fetch https://x.test/v1?key=SECRET failed")),
+    ).toBe("fetch [url] failed");
   });
 });

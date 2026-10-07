@@ -11,6 +11,14 @@ import { Button } from "@/components/ui/button";
 import { useFetcher } from "@/lib/api/context";
 import { INTEGRATION_ENDPOINTS } from "@/lib/endpoints";
 
+const priceToText = (value: number | null | undefined) =>
+  value == null ? "" : String(value);
+
+const textToPrice = (text: string): number | null => {
+  const n = Number.parseFloat(text);
+  return text.trim() !== "" && Number.isFinite(n) && n >= 0 ? n : null;
+};
+
 export function AiProviderIntegrationSection() {
   const { data, isLoading } = useAiProviderIntegration();
   return (
@@ -36,6 +44,12 @@ function AiProviderIntegrationSectionImpl({
   const [baseUrl, setBaseUrl] = useState(data?.integration?.base_url ?? "");
   const [model, setModel] = useState(data?.integration?.model ?? "");
   const [apiKey, setApiKey] = useState("");
+  const [inputPrice, setInputPrice] = useState(
+    priceToText(data?.integration?.input_price_per_million),
+  );
+  const [outputPrice, setOutputPrice] = useState(
+    priceToText(data?.integration?.output_price_per_million),
+  );
   const [enabled, setEnabled] = useState(Boolean(data?.integration?.enabled));
   const [testState, setTestState] = useState<
     "idle" | "loading" | "ok" | "model-not-found" | "error"
@@ -47,19 +61,30 @@ function AiProviderIntegrationSectionImpl({
     baseUrl !== (data?.integration?.base_url ?? "") ||
     model !== (data?.integration?.model ?? "") ||
     apiKey !== "" ||
+    inputPrice !== priceToText(data?.integration?.input_price_per_million) ||
+    outputPrice !== priceToText(data?.integration?.output_price_per_million) ||
     enabled !== Boolean(data?.integration?.enabled);
 
   const handleCancel = () => {
     setBaseUrl(data?.integration?.base_url ?? "");
     setModel(data?.integration?.model ?? "");
     setApiKey("");
+    setInputPrice(priceToText(data?.integration?.input_price_per_million));
+    setOutputPrice(priceToText(data?.integration?.output_price_per_million));
     setEnabled(Boolean(data?.integration?.enabled));
     setTestState("idle");
   };
 
   const handleSave = () => {
     saveMutation
-      .mutateAsync({ base_url: baseUrl, model, api_key: apiKey, enabled })
+      .mutateAsync({
+        base_url: baseUrl,
+        model,
+        api_key: apiKey,
+        enabled,
+        input_price_per_million: textToPrice(inputPrice),
+        output_price_per_million: textToPrice(outputPrice),
+      })
       .then(() => {
         setApiKey("");
         toast.success(t("settings.integrations.saveSuccess"));
@@ -133,6 +158,23 @@ function AiProviderIntegrationSectionImpl({
             }
           />
         </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <PriceInput
+            id="ai-provider-integration-section-input-price"
+            label={t("settings.ai.inputPrice")}
+            value={inputPrice}
+            onChange={setInputPrice}
+          />
+          <PriceInput
+            id="ai-provider-integration-section-output-price"
+            label={t("settings.ai.outputPrice")}
+            value={outputPrice}
+            onChange={setOutputPrice}
+          />
+          <p className="text-xs text-neutral-500 sm:col-span-2">
+            {t("settings.ai.priceHelp")}
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -166,5 +208,38 @@ function AiProviderIntegrationSectionImpl({
         </div>
       </div>
     </IntegrationSectionCard>
+  );
+}
+
+function PriceInput({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label
+        htmlFor={id}
+        className="block text-sm font-medium text-neutral-300"
+      >
+        {label}
+      </label>
+      <Input
+        id={id}
+        type="number"
+        min={0}
+        step="any"
+        inputMode="decimal"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="0.00"
+      />
+    </div>
   );
 }

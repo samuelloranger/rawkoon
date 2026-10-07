@@ -1214,6 +1214,7 @@
       "dismissLink": "Dismiss"
     },
     "integrations": {
+      "testConnection": "Test connection",
       "title": "Integrations",
       "description": "Connect third-party integrations used by the dashboard.",
       "indexers": "Indexers",
@@ -1349,6 +1350,87 @@
         "apiKeyPlaceholder": "Your fanart.tv personal API key",
         "apiKeySetPlaceholder": "A key is saved — type a new one to replace it",
         "apiKeyHelp": "Get a free personal key from fanart.tv. Leave blank to keep the saved one."
+      }
+    },
+    "ai": {
+      "title": "AI",
+      "description": "Connect an OpenAI-compatible model to help pick releases, and see what it costs and how well it performs.",
+      "inputPrice": "Input price (USD per million tokens)",
+      "outputPrice": "Output price (USD per million tokens)",
+      "priceHelp": "Used to estimate cost. Find your model's price on your provider's pricing page.",
+      "usageTitle": "Usage",
+      "loading": "Loading...",
+      "loadError": "Could not load AI usage.",
+      "empty": "No AI calls in this period yet. Calls show up here as releases get picked.",
+      "period": {
+        "label": "Period",
+        "days": "{{count}} days"
+      },
+      "stats": {
+        "calls": "Calls",
+        "callsHint": "{{invalid}} invalid pick, {{limited}} rate limited, {{errors}} failed",
+        "successRate": "Success rate",
+        "tokens": "Tokens in / out",
+        "tokensHint": "Input / output",
+        "cost": "Estimated cost",
+        "setPrices": "Set prices to estimate cost",
+        "p50": "Median latency",
+        "p95": "p95 latency",
+        "changedPick": "AI changed the pick",
+        "changedPickHint": "vs classic scoring, over {{count}} calls",
+        "changedPickNone": "No comparison yet"
+      },
+      "chart": {
+        "calls": "Calls per day",
+        "cost": "Estimated cost per day",
+        "callsValue": "{{count}} calls"
+      },
+      "byFeature": "By feature",
+      "byModel": "By model",
+      "grabs": {
+        "title": "Grab outcomes: AI picks vs classic scoring",
+        "ai": "AI-picked grabs",
+        "classic": "Classic grabs",
+        "failureRate": "failed",
+        "counts": "{{total}} grabs: {{completed}} completed, {{failed}} failed, {{active}} in progress"
+      },
+      "features": {
+        "release_pick_rss": "Auto-grab (RSS)",
+        "release_pick_interactive": "Interactive search pick",
+        "release_pick_search": "Automatic search",
+        "book_release_pick": "Book release pick"
+      },
+      "statuses": {
+        "ok": "OK",
+        "invalid_pick": "Invalid pick",
+        "error": "Error",
+        "rate_limited": "Rate limited"
+      },
+      "history": {
+        "title": "Call history",
+        "time": "Time",
+        "feature": "Feature",
+        "model": "Model",
+        "status": "Status",
+        "duration": "Duration",
+        "target": "Title",
+        "reasoning": "Reasoning",
+        "allFeatures": "All features",
+        "allStatuses": "All statuses",
+        "empty": "No calls match these filters.",
+        "page": "Page {{page}} of {{total}}",
+        "previous": "Previous",
+        "next": "Next",
+        "trigger": "Trigger"
+      },
+      "byTrigger": "By trigger",
+      "triggers": {
+        "rss": "RSS",
+        "scheduled": "Scheduled search",
+        "upgrade": "Upgrade",
+        "interactive": "Interactive search",
+        "manual_search": "Manual search",
+        "unknown": "Unknown"
       }
     },
     "blocklist": {

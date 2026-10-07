@@ -13,6 +13,8 @@ export function useUpdateAiProviderIntegration() {
       model: string;
       api_key?: string;
       enabled: boolean;
+      input_price_per_million: number | null;
+      output_price_per_million: number | null;
     }) =>
       fetcher<AiProviderIntegrationUpdateResponse>(
         INTEGRATION_ENDPOINTS.AI_PROVIDER,
