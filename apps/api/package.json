@@ -45,7 +45,6 @@
     "@prisma/client": "7.10.0",
     "@rawkoon/shared": "workspace:*",
     "ai": "^7.0.102",
-    "bencode": "^4.0.1",
     "better-auth": "1.6.33",
     "bullmq": "^6.3.4",
     "hono": "^4.13.7",

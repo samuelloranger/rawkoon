@@ -63,9 +63,39 @@ describe("infoHashFromTorrentBuffer", () => {
     expect(infoHashFromTorrentBuffer(toAB(enc("d4:infolee")))).toBeNull();
   });
 
-  test("returns null rather than a wrong hash when info keys are unsorted", () => {
-    const unsorted = enc("d4:infod4:name1:a6:lengthi1eee");
-    expect(infoHashFromTorrentBuffer(toAB(unsorted))).toBeNull();
+  test("hashes the raw info bytes even when keys are unsorted", () => {
+    const rawInfo = "d4:name1:a6:lengthi1ee";
+    const buf = enc(`d4:info${rawInfo}e`);
+    const expected = createHash("sha1").update(enc(rawInfo)).digest("hex");
+    expect(infoHashFromTorrentBuffer(toAB(buf))).toBe(expected);
+  });
+
+  test("hashes the top-level info, not a copy quoted in a later string", () => {
+    const rawInfo = "d4:name1:a6:lengthi1ee";
+    const quoted = "see 4:infod6:lengthi1e4:name1:aee";
+    const buf = enc(`d4:info${rawInfo}7:comment${quoted.length}:${quoted}e`);
+    const expected = createHash("sha1").update(enc(rawInfo)).digest("hex");
+    expect(infoHashFromTorrentBuffer(toAB(buf))).toBe(expected);
+  });
+
+  test("returns null quickly on malformed lengths and nesting", () => {
+    const start = performance.now();
+    for (const input of [
+      "d4:infod1:a-3:xxee",
+      "d4:spami1e-3:abce",
+      "d4:info999999999999:xe",
+      "d4:infod1:ai-ee",
+      "d4:infod1:aiee",
+      `d4:info${"l".repeat(200)}${"e".repeat(200)}e`,
+    ]) {
+      expect(infoHashFromTorrentBuffer(toAB(enc(input)))).toBeNull();
+    }
+    expect(performance.now() - start).toBeLessThan(1000);
+  });
+
+  test("ignores an info key reached only through __proto__", () => {
+    const buf = enc("d9:__proto__d4:infod6:lengthi1e4:name1:aeee");
+    expect(infoHashFromTorrentBuffer(toAB(buf))).toBeNull();
   });
 
   test("returns null for an empty buffer", () => {
