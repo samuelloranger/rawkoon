@@ -116,8 +116,6 @@ mock.module("../src/services/cache", () => ({
   getJsonCache: async (_key: string) => null,
   setJsonCache: async (_key: string, _value: unknown, _ttl: number) => {},
   deleteCache: async (_key: string) => {},
-  acquireLock: async (_key: string, _ttl: number) => true,
-  releaseLock: async (_key: string) => {},
 }));
 
 // Suppress Prisma connection errors when DATABASE_URL is not set

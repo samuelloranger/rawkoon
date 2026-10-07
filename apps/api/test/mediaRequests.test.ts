@@ -219,8 +219,6 @@ mock.module("@rawkoon/api/services/cache", () => ({
   getJsonCache: () => Promise.resolve(null),
   setJsonCache: () => Promise.resolve(),
   deleteCache: () => Promise.resolve(),
-  acquireLock: () => Promise.resolve(true),
-  releaseLock: () => Promise.resolve(),
 }));
 
 mock.module("@rawkoon/api/utils/dashboard/tmdbUpcoming", () => ({
