@@ -26,8 +26,10 @@ For movies and TV, the model discards low-quality captures (CAM, TS,
 screeners) and, when it is told the target, releases for the wrong season or
 episode. It prefers the profile's preferred audio languages in order when they
 are given, then follows the profile score and breaks ties by seeders.
-Automatic grabs pass the target episode and languages; the interactive
-suggestion only passes the title, year and type.
+Automatic grabs and the interactive suggestion both pass the target season and
+episode (when the search is for one) and the profile's preferred languages. The
+interactive suggestion only has the languages when the search was opened from a
+Library item.
 
 For books, it also discards the wrong title, series volume or author, the wrong
 format kind (ebook versus audiobook), a clearly different language than the
@@ -41,8 +43,9 @@ history.
 
 ## What is sent to the provider
 
-- the title, year and type of the movie or show and, for automatic grabs, the
-  target season and episode and the profile's preferred audio languages;
+- the title, year and type of the movie or show and, when known, the target
+  season and episode and the profile's preferred audio languages (for the
+  interactive suggestion, the languages come from the Library item's profile);
 - for books, the title, authors, series and position, wanted format kind, and
   edition language;
 - for each candidate release: its title, size, seeders, profile score and, for

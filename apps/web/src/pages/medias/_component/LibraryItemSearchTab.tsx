@@ -186,6 +186,14 @@ export function LibraryItemSearchTab({
         defaultSearchQuery={localizedQuery}
         titleOptions={titleOptions}
         episodeId={episodeSearchCtx?.id ?? null}
+        episodeTarget={
+          episodeSearchCtx
+            ? {
+                season: episodeSearchCtx.season,
+                episode: episodeSearchCtx.episode,
+              }
+            : null
+        }
         defaultSeason={seasonSearchCtx}
         isUpgradeMode={isUpgradeMode}
       />

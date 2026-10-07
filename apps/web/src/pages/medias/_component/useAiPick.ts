@@ -9,6 +9,21 @@ interface AiPickResult {
   reasoning: string;
 }
 
+/** The episode target only holds while the search is still scoped to its season. */
+export function resolveAiTarget(
+  episodeTarget: { season: number; episode: number } | null | undefined,
+  selectedSeason: number | "complete" | null,
+): { season: number | null; episode: number | null } {
+  if (selectedSeason === "complete") return { season: null, episode: null };
+  if (
+    episodeTarget &&
+    (selectedSeason === null || selectedSeason === episodeTarget.season)
+  ) {
+    return { season: episodeTarget.season, episode: episodeTarget.episode };
+  }
+  return { season: selectedSeason, episode: null };
+}
+
 interface UseAiPickParams {
   enabled: boolean;
   releases: InteractiveReleaseItem[];
@@ -17,6 +32,9 @@ interface UseAiPickParams {
   mediaType: "movie" | "tv";
   /** Library id, when searching from a media page; links the call in AI history. */
   libraryMediaId?: number | null;
+  /** Target of the search: an episode, or a season pack when episode is null. */
+  season?: number | null;
+  episode?: number | null;
 }
 
 export function useAiPick({
@@ -26,6 +44,8 @@ export function useAiPick({
   mediaYear,
   mediaType,
   libraryMediaId,
+  season,
+  episode,
 }: UseAiPickParams) {
   const fetcher = useFetcher();
 
@@ -39,6 +59,8 @@ export function useAiPick({
       mediaType,
       releaseKeys,
       libraryMediaId ?? null,
+      season ?? null,
+      episode ?? null,
     ),
     queryFn: () =>
       fetcher<AiPickResult>(MEDIAS_ENDPOINTS.INTERACTIVE_SEARCH_AI_PICK, {
@@ -49,6 +71,7 @@ export function useAiPick({
             title: mediaTitle,
             year: mediaYear,
             type: mediaType,
+            ...(season != null ? { season, episode: episode ?? null } : {}),
           },
           releases: candidates.map((r) => ({
             key: r.guid,

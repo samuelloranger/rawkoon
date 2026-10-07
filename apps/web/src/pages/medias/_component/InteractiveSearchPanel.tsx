@@ -6,7 +6,10 @@ import { useAddToBlocklist } from "@/features/medias/hooks/useBlocklist";
 import { useCurrentUser } from "@/lib/auth/useAuth";
 import type { InteractiveReleaseItem } from "@rawkoon/shared/types";
 import { useAiProviderIntegration } from "@/pages/settings/useAiProviderIntegration";
-import { useAiPick } from "@/pages/medias/_component/useAiPick";
+import {
+  resolveAiTarget,
+  useAiPick,
+} from "@/pages/medias/_component/useAiPick";
 import { AiPickBanner } from "@/pages/medias/_component/AiPickBanner";
 import { useFetcher } from "@/lib/api/context";
 import { MEDIAS_ENDPOINTS } from "@/lib/endpoints";
@@ -29,6 +32,8 @@ export interface InteractiveSearchPanelProps {
   titleOptions?: LabeledTitleOption[];
   /** Episode to link the grab to (shows only) */
   episodeId?: number | null;
+  /** Season/episode numbers of `episodeId`, so the AI pick can target it */
+  episodeTarget?: { season: number; episode: number } | null;
   /** Pre-select a season (number) or complete series ("complete") when opening */
   defaultSeason?: number | "complete" | null;
   /** When true, grabs are sent with is_upgrade: true */
@@ -49,6 +54,8 @@ export function InteractiveSearchPanel(props: InteractiveSearchPanelProps) {
       ? "tv"
       : (props.media?.media_type ?? "movie");
 
+  const aiTarget = resolveAiTarget(props.episodeTarget, state.selectedSeason);
+
   const aiPick = useAiPick({
     enabled:
       aiEnabled && state.releases.length > 0 && !state.activeQuery.isLoading,
@@ -57,6 +64,7 @@ export function InteractiveSearchPanel(props: InteractiveSearchPanelProps) {
     mediaYear: props.media?.year ?? null,
     mediaType: mediaType as "movie" | "tv",
     libraryMediaId: props.libraryMediaId,
+    ...aiTarget,
   });
 
   const pickedRelease =
