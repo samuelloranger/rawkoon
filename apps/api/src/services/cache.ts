@@ -53,34 +53,6 @@ export const setJsonCache = async <T>(
   }
 };
 
-// Atomic SET NX EX. Returns true if the lock was acquired (or if Valkey is
-// unavailable — fail-open, matching the rest of this module's degrade-to-no-cache
-// behavior). Pair with releaseLock in a finally.
-export const acquireLock = async (
-  key: string,
-  ttlSeconds: number,
-): Promise<boolean> => {
-  const client = getValkeyClient();
-  if (!client) return true;
-  try {
-    const res = await client.send("SET", [
-      key,
-      "1",
-      "NX",
-      "EX",
-      String(ttlSeconds),
-    ]);
-    return res === "OK";
-  } catch (error) {
-    console.warn(`Valkey lock acquire failed for key ${key}:`, error);
-    return true;
-  }
-};
-
-export const releaseLock = async (key: string): Promise<void> => {
-  await deleteCache(key);
-};
-
 export const deleteCache = async (key: string): Promise<void> => {
   const client = getValkeyClient();
   if (!client) return;
