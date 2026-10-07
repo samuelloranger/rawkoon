@@ -1,3 +1,4 @@
+import { parseReleaseStructure } from "@rawkoon/shared/utils/releaseStructure";
 import { normalizeLanguageCode } from "@rawkoon/shared";
 
 export interface FilenameMetadata {
@@ -340,25 +341,15 @@ export function parseReleaseIsSample(title: string): boolean {
 }
 
 /**
- * Extract season/episode numbers from a scene release title.
- * Matches SxxExx, xxXxx, and " Exx" forms. Returns null if neither is found.
+ * Season and first episode of a release title; episode is null for season
+ * packs. Returns null for movies, daily shows and absolute-numbered anime.
  */
 export function parseReleaseSeasonEpisode(
   title: string,
 ): { season: number; episode: number | null } | null {
-  const sxe = title.match(/S(\d{1,2})E(\d{1,3})/i);
-  if (sxe)
-    return { season: parseInt(sxe[1], 10), episode: parseInt(sxe[2], 10) };
-  const xForm = title.match(/(?:^|[\s._-])(\d{1,2})x(\d{1,3})(?!\d)/i);
-  if (xForm)
-    return { season: parseInt(xForm[1], 10), episode: parseInt(xForm[2], 10) };
-  // (?!\d) not (?![\s._-]?\d): scene packs are "Show.S02.1080p", and the
-  // separator+digit lookahead treated ".1080p" as more of the season number.
-  const seasonOnly = title.match(
-    /(?:^|[\s._-])(?:S|Season|Saison|Stagione|Series)[\s._-]?(\d{1,2})(?!\d)/i,
-  );
-  if (seasonOnly) return { season: parseInt(seasonOnly[1], 10), episode: null };
-  return null;
+  const { season, episodes } = parseReleaseStructure(title);
+  if (season == null) return null;
+  return { season, episode: episodes[0] ?? null };
 }
 
 /**

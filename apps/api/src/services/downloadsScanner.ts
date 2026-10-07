@@ -10,10 +10,8 @@ import {
   normalizeInode,
   mapPool,
 } from "@rawkoon/api/utils/medias/fileFingerprint";
-import {
-  parseReleaseSeasonEpisode,
-  parseReleaseTitle,
-} from "@rawkoon/api/utils/medias/filenameParser";
+import { parseReleaseTitle } from "@rawkoon/api/utils/medias/filenameParser";
+import { parseReleaseStructure } from "@rawkoon/shared/utils/releaseStructure";
 import { remapPath } from "@rawkoon/api/utils/medias/mediainfoScanner";
 import { PERF_TIMING_ENABLED } from "@rawkoon/api/services/perf/perfStore";
 
@@ -25,8 +23,6 @@ const FS_STAT_CONCURRENCY = 16;
 const DB_WRITE_CONCURRENCY = 8;
 /** Cursor page size for full-table media_file sweeps. */
 const DB_PAGE_SIZE = 500;
-
-const RES_HINT = /\b(?:2160p|1080[pi]?|720p|480p|576p|4K|UHD)\b/i;
 
 let cachedInodeKeySet: Set<string> | null = null;
 let cachedInodeExpiresAt = 0;
@@ -218,90 +214,21 @@ export type RawDownloadRow = {
   parsed: DownloadParsed;
 };
 
-function stripSceneSuffixForTitle(stem: string): string {
-  let s = stem.trim();
-  s = s.replace(/\bSample\b.*$/i, "");
-  const lastHyphen = s.lastIndexOf("-");
-  if (lastHyphen > 2 && lastHyphen < s.length - 2) {
-    const tail = s.slice(lastHyphen + 1);
-    if (
-      !RES_HINT.test(tail) &&
-      /^[\dA-Za-z]+$/.test(tail) &&
-      tail.length <= 48
-    ) {
-      s = s.slice(0, lastHyphen).trimEnd();
-    }
-  }
-  return s;
-}
-
-function extractTitleYearFromStem(stemWithoutExt: string): {
-  title: string | null;
-  year: number | null;
-} {
-  let yearEnd: number | null = null;
-  const ym = [...stemWithoutExt.matchAll(/\b((?:19|20)\d{2})\b/g)];
-  if (ym.length > 0) {
-    yearEnd = parseInt(ym[ym.length - 1]![1], 10);
-  }
-
-  const titlePort = stripSceneSuffixForTitle(stemWithoutExt);
-
-  const pieces: string[] = [];
-  for (const part of titlePort.split(/[.\s_-]+/).filter(Boolean)) {
-    if (/^(?:19|20)\d{2}$/.test(part)) break;
-    if (RES_HINT.test(part)) break;
-    if (
-      /^(?:x\d{3}|aac|ddp\d*|ddp|DVD|BR|HDR|HDR10\+?|DV|DOVI|WEB|Bluray)$/i.test(
-        part,
-      )
-    )
-      break;
-    pieces.push(part);
-  }
-
-  let joined = pieces.join(" ").replace(/\s+/g, " ").trim();
-  const seIdx = stemWithoutExt.search(/\bS\d{1,2}E\d{1,3}\b/i);
-  if (joined.length < 2 && seIdx > 0) {
-    const head = stemWithoutExt.slice(0, seIdx);
-    joined = head
-      .split(/[.\s_-]+/)
-      .filter(Boolean)
-      .slice(0, 8)
-      .join(" ")
-      .trim();
-  }
-
-  return {
-    title: joined.length >= 2 ? joined : null,
-    year: yearEnd,
-  };
-}
-
 export function buildParsed(fileNameWithExt: string): DownloadParsed {
   const stem = fileNameWithExt.replace(
     /\.(mkv|mp4|avi|m4v|wmv|ts|m2ts|mov)$/i,
     "",
   );
   const rel = parseReleaseTitle(stem);
-  const seEp = parseReleaseSeasonEpisode(stem);
+  const structure = parseReleaseStructure(stem);
 
-  const season = seEp?.season ?? null;
-  const episodeNum = seEp?.episode ?? null;
-
-  let kind: "movie" | "tv";
-  let title: string | null;
-  let year: number | null;
-
-  if (season != null && episodeNum != null) {
-    kind = "tv";
-    const sr = stem.match(/^(.+?)[._-\s]+S\d{1,2}E\d{1,3}/i);
-    const titleStem = sr?.[1] ?? stem;
-    ({ title, year } = extractTitleYearFromStem(titleStem));
-  } else {
-    kind = "movie";
-    ({ title, year } = extractTitleYearFromStem(stem));
-  }
+  const season = structure.season;
+  const episodeNum = structure.episodes[0] ?? null;
+  // Assigning needs an exact episode, so packs stay on the movie flow as before.
+  const kind: "movie" | "tv" =
+    season != null && episodeNum != null ? "tv" : "movie";
+  const title = structure.title.length >= 2 ? structure.title : null;
+  const year = structure.year;
 
   const quality = rel.resolution != null ? `${rel.resolution}p` : null;
   const audio = rel.audio ? [rel.audio] : [];

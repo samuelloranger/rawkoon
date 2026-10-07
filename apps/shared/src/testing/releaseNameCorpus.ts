@@ -387,6 +387,19 @@ export const MOVIE_RELEASES: ReleaseNameCase[] = [
     name: "Élan.Vital.2019.1080p.WEB.h264-GRP",
     truth: { title: "Élan Vital", year: 2019 },
   },
+  // "Complete" inside a movie title is not a whole-series pack.
+  {
+    name: "A.Complete.Unknown.2024.1080p.WEB-DL.x264-GRP",
+    truth: { title: "A Complete Unknown", year: 2024 },
+  },
+  {
+    name: "The.Complete.Works.2016.1080p.BluRay.x264-GRP",
+    truth: { title: "The Complete Works", year: 2016 },
+  },
+  {
+    name: "Series.7.The.Contenders.2001.DVDRip.XviD-GRP",
+    truth: { title: "Series 7 The Contenders", year: 2001 },
+  },
 ];
 
 export const TV_RELEASES: ReleaseNameCase[] = [
@@ -670,12 +683,80 @@ export const TV_RELEASES: ReleaseNameCase[] = [
     truth: { title: "Quiet Harbor", season: 1, episodes: [1] },
   },
   {
+    name: "Quiet.Harbor.S01E01.10bit.WEB.x265-GRP",
+    truth: { title: "Quiet Harbor", season: 1, episodes: [1] },
+  },
+  {
     name: "Quiet.Harbor.S01E01-5.1.WEB.h264-GRP",
     truth: { title: "Quiet Harbor", season: 1, episodes: [1] },
   },
   {
     name: "Quiet.Harbor.S01E01-S01E02.1080p.WEB.h264-GRP",
     truth: { title: "Quiet Harbor", season: 1, episodes: [1, 2] },
+  },
+  {
+    name: "Quiet.Harbor.S03E04.S03E05.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 3, episodes: [4, 5] },
+  },
+  {
+    name: "Quiet.Harbor.3x04-3x06.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 3, episodes: [4, 5, 6] },
+  },
+  {
+    name: "Quiet.Harbor.S03E06-60fps.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 3, episodes: [6] },
+  },
+  {
+    name: "Quiet.Harbor.S01E01E02E03.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 1, episodes: [1, 2, 3] },
+  },
+  {
+    name: "Quiet.Harbor.S01E01.E02.E03.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 1, episodes: [1, 2, 3] },
+  },
+  {
+    name: "Quiet.Harbor.S12E103-GRP",
+    truth: { title: "Quiet Harbor", season: 12, episodes: [103] },
+  },
+  {
+    name: "Quiet.Harbor.S01.Part.1.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 1, seasonPack: true },
+  },
+  {
+    name: "Quiet.Harbor.2019.Saison.2.FRENCH.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", year: 2019, season: 2, seasonPack: true },
+  },
+  {
+    name: "1883.Saison.2.FRENCH.1080p.WEB.h264-GRP",
+    truth: { title: "1883", season: 2, seasonPack: true },
+  },
+  {
+    name: "9-1-1.Saison.2.FRENCH.1080p.WEB.h264-GRP",
+    truth: { title: "9-1-1", season: 2, seasonPack: true },
+  },
+  {
+    name: "Series.Seven.S01E01.1080p.WEB.h264-GRP",
+    truth: { title: "Series Seven", season: 1, episodes: [1] },
+  },
+  {
+    name: "Quiet.Harbor.S01.E01.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 1, episodes: [1] },
+  },
+  {
+    name: "Quiet Harbor S01 E01-E03 720p WEB-DL",
+    truth: { title: "Quiet Harbor", season: 1, episodes: [1, 2, 3] },
+  },
+  {
+    name: "Quiet.Harbor.1x01x02.HDTV.x264-GRP",
+    truth: { title: "Quiet Harbor", season: 1, episodes: [1, 2] },
+  },
+  {
+    name: "Quiet.Harbor.Season.3.S03E04.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 3, episodes: [4] },
+  },
+  {
+    name: "Quiet.Harbor.Saison.2.S02E05.FRENCH.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 2, episodes: [5] },
   },
   {
     name: "quiet.harbor.s01e01e02.720p.hdtv.x264-grp",
@@ -780,6 +861,19 @@ export const FILE_NAMES: ReleaseNameCase[] = [
   {
     name: "Evening.Report.2024.01.15.1080p.WEB.h264-GRP.mkv",
     truth: { title: "Evening Report", airDate: "2024-01-15" },
+  },
+  // Files named by episode only (inside a season folder).
+  {
+    name: "S01E01.mkv",
+    truth: { title: "", season: 1, episodes: [1] },
+  },
+  {
+    name: "S01E02 - Pilot.mkv",
+    truth: { title: "", season: 1, episodes: [2] },
+  },
+  {
+    name: "1x01 - Pilot.mkv",
+    truth: { title: "", season: 1, episodes: [1] },
   },
 ];
 

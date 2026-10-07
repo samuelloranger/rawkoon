@@ -1,3 +1,4 @@
+import { parseReleaseStructure } from "@rawkoon/shared/utils/releaseStructure";
 import { randomUUID } from "crypto";
 import type { InteractiveReleaseItem } from "@rawkoon/shared/types";
 import { extractProwlarrDownloadTarget } from "@rawkoon/api/utils/medias/prowlarrSearchUtils";
@@ -35,33 +36,14 @@ export type TmdbSearchItem = {
 
 export type { InteractiveReleaseItem };
 
-/**
- * Detects full-season and complete-series packs.
- *
- * A release is a season pack when it has a season marker (S01, Season 1, …)
- * but NO episode number.  The tricky case is SxxExx — "S01E01" has no
- * separator between the season and episode tokens, so the episode regex must
- * also match the bare SxxExx pattern.
- *
- * Matches: "Show.S01", "Show.Season.2.1080p", "Show.S03-S04",
- *          "Show.Integrale", "Show.Complete.Series", "CSI Miami - Season 02 (Complete)"
- * No match: "Show.S01E03", "Show.1x04", "CSI.Miami.S01E01.1080p"
- */
-const SEASON_ONLY_RE =
-  /(?:^|[\s._-])(?:S|Season|Saison|Stagione|Series)[\s._-]?\d{1,2}(?![\s._-]?\d)/i;
-// Covers SxxExx (no separator), as well as " E01", ".x04", "episode 3"
-const EPISODE_RE =
-  /S\d{1,2}E\d{1,3}|[\s._-](?:E\d{1,3}|x\d{1,2}(?!\d)|\d+x\d+|episode[\s._-]?\d+)/i;
-const COMPLETE_SERIES_RE =
-  /(?:^|[\s._(-])(?:int[eé]grale?|complete[.\s_-]*(?:series|pack)?|(?:the[.\s_-])?complete[.\s_-]*series)(?:$|[\s._)-])/i;
-
+/** Whole-season, multi-season or whole-series release (no single episode). */
 export function isSeasonPack(title: string): boolean {
-  if (COMPLETE_SERIES_RE.test(title)) return true;
-  return SEASON_ONLY_RE.test(title) && !EPISODE_RE.test(title);
+  const s = parseReleaseStructure(title);
+  return (s.seasonPack || s.completeSeries) && s.episodes.length === 0;
 }
 
 export function isCompleteSeries(title: string): boolean {
-  return COMPLETE_SERIES_RE.test(title);
+  return parseReleaseStructure(title).completeSeries;
 }
 
 const PROWLARR_RELEASE_TTL_MS = 15 * 60 * 1000;

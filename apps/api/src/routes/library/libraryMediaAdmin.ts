@@ -1,5 +1,6 @@
 import { basename, extname, resolve } from "node:path";
 import { z } from "zod";
+import { parseReleaseStructure } from "@rawkoon/shared/utils/releaseStructure";
 import { stat } from "node:fs/promises";
 import { Hono } from "hono";
 
@@ -24,17 +25,8 @@ export function parseFilenameForScan(nameWithoutExt: string): {
   title: string;
   year: number | null;
 } {
-  const m = nameWithoutExt.match(/^(.+?)[\s.]+(?:\(?(\d{4})\)?)\s*$/);
-  if (m) {
-    return {
-      title: m[1]
-        .replace(/[.\s]+$/g, "")
-        .replace(/\./g, " ")
-        .trim(),
-      year: parseInt(m[2], 10),
-    };
-  }
-  return { title: nameWithoutExt.replace(/\./g, " ").trim(), year: null };
+  const { title, year } = parseReleaseStructure(nameWithoutExt);
+  return { title, year };
 }
 
 export function mapSettings(row: {
