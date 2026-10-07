@@ -1442,7 +1442,15 @@
         "page": "Page {{page}} of {{total}}",
         "previous": "Previous",
         "next": "Next",
-        "trigger": "Trigger"
+        "trigger": "Trigger",
+        "expand": "Show details for {{call}}",
+        "collapse": "Hide details for {{call}}",
+        "picked": "Picked release",
+        "classic": "Classic scorer choice",
+        "agreed": "Agreed with classic",
+        "yes": "Yes",
+        "no": "No",
+        "error": "Error"
       },
       "byTrigger": "By trigger",
       "triggers": {

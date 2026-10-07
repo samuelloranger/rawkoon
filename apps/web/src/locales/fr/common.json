@@ -1442,7 +1442,15 @@
         "page": "Page {{page}} sur {{total}}",
         "previous": "Précédent",
         "next": "Suivant",
-        "trigger": "Déclencheur"
+        "trigger": "Déclencheur",
+        "expand": "Afficher les détails de {{call}}",
+        "collapse": "Masquer les détails de {{call}}",
+        "picked": "Release choisie",
+        "classic": "Choix du scoreur classique",
+        "agreed": "D’accord avec le classique",
+        "yes": "Oui",
+        "no": "Non",
+        "error": "Erreur"
       },
       "byTrigger": "Par déclencheur",
       "triggers": {

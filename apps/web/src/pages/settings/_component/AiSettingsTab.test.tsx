@@ -79,8 +79,8 @@ vi.mock("@/pages/settings/useAiCalls", () => ({
           structured: true,
           status: "ok",
           trigger: "interactive",
-          classic_title: null,
-          agreed_with_classic: null,
+          classic_title: "Classic.Choice",
+          agreed_with_classic: false,
           error: null,
           input_tokens: 2000,
           output_tokens: 100,
@@ -129,6 +129,21 @@ describe("AiSettingsTab", () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText("llama-3.3-70b").length).toBeGreaterThan(0);
     expect(screen.getByText("Highest score and seeders")).toBeInTheDocument();
+  });
+
+  it("expands a history row to show the picked and classic releases", () => {
+    statsData = stats;
+    renderWithProviders(<AiSettingsTab />);
+    expect(screen.queryByText("Classic.Choice")).not.toBeInTheDocument();
+    const toggle = screen.getByRole("button", {
+      name: /settings\.ai\.history\.expand/,
+    });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Some.Release")).toBeInTheDocument();
+    expect(screen.getByText("Classic.Choice")).toBeInTheDocument();
+    expect(screen.getByText("settings.ai.history.no")).toBeInTheDocument();
   });
 
   it("asks for a new period when a period button is clicked", () => {
