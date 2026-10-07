@@ -13,6 +13,7 @@ service.
 | qBittorrent, Transmission, or Deluge | The active download client. Rawkoon polls it for progress and completion. |
 | Prowlarr or Jackett | Indexer search. Choose one active indexer manager for the library grab pipeline. |
 | Jellyfin or Plex | Latest additions, watch activity, and supported notifications. |
+| AI provider (optional) | Any OpenAI-compatible model, local or hosted, that chooses between releases a profile accepts. Configured in **Settings → AI**; see [AI release picks](/library/ai-release-picks). |
 
 The Google Books key is set in **Settings → Books** rather than on this page,
 next to the library paths and the feature switch it depends on. It is encrypted

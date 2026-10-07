@@ -31,6 +31,7 @@ export default defineConfig({
         items: [
           { text: "Getting started", link: "/getting-started" },
           { text: "Quality profiles", link: "/library/quality-profiles" },
+          { text: "AI release picks", link: "/library/ai-release-picks" },
           { text: "Media metadata", link: "/library/metadata" },
           { text: "Books and audiobooks", link: "/library/books" },
           { text: "Downloads and files", link: "/library/downloads-and-files" },

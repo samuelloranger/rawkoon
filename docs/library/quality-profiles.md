@@ -27,6 +27,10 @@ Preferred source, codec, HDR, tracker, and custom-format scores rank releases
 that have already passed those rules. A preferred value is not a requirement
 unless it is represented by a required custom format.
 
+If [AI release picks](/library/ai-release-picks) are on, the model chooses
+only among releases that passed these rules, using the profile score and the
+preferred languages as its guide.
+
 ## Create a usable first profile
 
 Start narrow enough to avoid unwanted files, but not so narrow that searches

@@ -102,8 +102,14 @@ card.
 ## Download lifecycle
 
     Add title → choose profile → search releases → score or reject candidates
+       → optional AI pick among the accepted candidates
        → active download client → adaptive completion polling
        → hardlink/move into the library → MediaInfo scan → library update
+
+When an AI provider is configured, a language model may choose between the
+candidates the profile accepted; any failure falls back to the classic score,
+and every call is recorded in an <code>ai_calls</code> ledger for the cost and
+history views. See [AI release picks](/library/ai-release-picks).
 
 Rawkoon records every grab before it sends it to the active client. Completion
 is detected through adaptive polling. If
