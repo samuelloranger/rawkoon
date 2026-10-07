@@ -11,6 +11,10 @@ import {
   loadProfileWithFormats,
 } from "@rawkoon/api/services/mediaGrabberHelpers";
 import { filesFailProfile } from "@rawkoon/api/services/upgradeDetection";
+import {
+  downloadedEpisodesFailingProfile,
+  upgradeFileSelect,
+} from "@rawkoon/api/services/upgradeTargets";
 
 import { mapLibraryMedia, libraryMediaInclude } from "./libraryHelpers";
 import {
@@ -115,54 +119,20 @@ export const libraryMetaRoutes = new Hono<Env>()
         ) {
           const profileInput = profileToScoreInput(newProfile);
 
-          const fileSelect = {
-            episodeId: true,
-            resolution: true,
-            source: true,
-            videoCodec: true,
-            hdrFormat: true,
-            sizeBytes: true,
-            languageTags: true,
-            releaseGroup: true,
-          } as const;
-
           if (existing.type === "movie") {
             const files = await prisma.mediaFile.findMany({
               where: { mediaId: id, episodeId: null },
-              select: fileSelect,
+              select: upgradeFileSelect,
             });
             needs_upgrade = filesFailProfile(files, profileInput);
           } else {
-            // show — check each downloaded episode
-            const episodes = await prisma.libraryEpisode.findMany({
-              where: { mediaId: id, status: "downloaded" },
-              select: { id: true },
-            });
-
-            // Bulk fetch all files for these episodes in one query
-            const episodeIds = episodes.map((ep) => ep.id);
-            const allFiles = await prisma.mediaFile.findMany({
-              where: { episodeId: { in: episodeIds } },
-              select: fileSelect,
-            });
-
-            const byEpisode = new Map<number, typeof allFiles>();
-            for (const f of allFiles) {
-              if (f.episodeId == null) continue;
-              const bucket = byEpisode.get(f.episodeId) ?? [];
-              bucket.push(f);
-              byEpisode.set(f.episodeId, bucket);
-            }
-
-            let failCount = 0;
-            for (const ep of episodes) {
-              const files = byEpisode.get(ep.id) ?? [];
-              if (filesFailProfile(files, profileInput)) failCount++;
-            }
-
-            if (failCount > 0) {
+            const failing = await downloadedEpisodesFailingProfile(
+              id,
+              profileInput,
+            );
+            if (failing.length > 0) {
               needs_upgrade = true;
-              affected_episodes = failCount;
+              affected_episodes = failing.length;
             }
           }
         }

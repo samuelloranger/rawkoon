@@ -7,6 +7,11 @@ import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 import { grabRelease } from "@rawkoon/api/services/mediaGrabberGrab";
+import { downloadedEpisodesFailingProfile } from "@rawkoon/api/services/upgradeTargets";
+import {
+  loadProfileWithFormats,
+  profileToScoreInput,
+} from "@rawkoon/api/services/mediaGrabberHelpers";
 import {
   searchAndGrab,
   searchAndGrabWithTitleFallback,
@@ -369,7 +374,12 @@ export const libraryGrabRoutes = new Hono<Env>()
         // mode === "auto"
         const media = await prisma.libraryMedia.findUnique({
           where: { id },
-          select: { id: true, type: true, status: true },
+          select: {
+            id: true,
+            type: true,
+            status: true,
+            qualityProfileId: true,
+          },
         });
         if (!media) return notFound("Library item not found");
 
@@ -385,11 +395,23 @@ export const libraryGrabRoutes = new Hono<Env>()
           );
           return ok({ queued: true, mode: "auto" as const, count: 1 });
         } else {
-          // show — upgrade all downloaded episodes
-          const episodes = await prisma.libraryEpisode.findMany({
-            where: { mediaId: id, status: "downloaded" },
-            select: { id: true },
-          });
+          // Only the episodes whose files fail the profile; without a profile
+          // nothing can be judged, so every downloaded episode is searched.
+          const profile =
+            media.qualityProfileId != null
+              ? await loadProfileWithFormats(media.qualityProfileId)
+              : null;
+          const episodes = profile
+            ? (
+                await downloadedEpisodesFailingProfile(
+                  id,
+                  profileToScoreInput(profile),
+                )
+              ).map((epId) => ({ id: epId }))
+            : await prisma.libraryEpisode.findMany({
+                where: { mediaId: id, status: "downloaded" },
+                select: { id: true },
+              });
 
           await prisma.libraryEpisode.updateMany({
             where: { id: { in: episodes.map((ep) => ep.id) } },
