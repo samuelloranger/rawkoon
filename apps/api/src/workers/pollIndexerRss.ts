@@ -474,7 +474,7 @@ function logRssMatch(
   );
 }
 
-function extractTitleFromRelease(title: string): {
+export function extractTitleFromRelease(title: string): {
   normalizedTitle: string;
   season: number | null;
   episode: number | null;
