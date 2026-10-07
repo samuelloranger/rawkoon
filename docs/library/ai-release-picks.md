@@ -15,16 +15,20 @@ Configure it in **Settings → AI**.
 | Interactive search suggestion | Interactive search shows a suggested release with its reasoning. You still choose what to grab. |
 | Book grabs | Wanted-edition searches, **Search** on a book, format upgrades, and book RSS matches. |
 
-The model is only asked when at least two grabbable releases remain after the
-profile's hard rules, the blocklist, and dead torrents (zero seeders) have been
-filtered out. It sees at most the ten best-scored candidates.
+For automatic grabs, the model is only asked when at least two grabbable
+releases remain after the profile's hard rules, the blocklist, and dead
+torrents (zero seeders) have been filtered out. Interactive search asks about
+the non-rejected results it is showing, minus dead torrents. Either way the
+model sees at most the ten best-scored candidates.
 
 ## How it chooses
 
-For movies and TV, the model discards releases for the wrong season or episode
-and low-quality captures (CAM, TS, screeners), prefers the profile's preferred
-audio languages in order, then follows the profile score and breaks ties by
-seeders.
+For movies and TV, the model discards low-quality captures (CAM, TS,
+screeners) and, when it is told the target, releases for the wrong season or
+episode. It prefers the profile's preferred audio languages in order when they
+are given, then follows the profile score and breaks ties by seeders.
+Automatic grabs pass the target episode and languages; the interactive
+suggestion only passes the title, year and type.
 
 For books, it also discards the wrong title, series volume or author, the wrong
 format kind (ebook versus audiobook), a clearly different language than the
@@ -38,8 +42,8 @@ history.
 
 ## What is sent to the provider
 
-- the title, year and type of the movie or show, the target season and
-  episode, and the profile's preferred audio languages;
+- the title, year and type of the movie or show and, for automatic grabs, the
+  target season and episode and the profile's preferred audio languages;
 - for books, the title, authors, series and position, wanted format kind, and
   edition language;
 - for each candidate release: its title, size, seeders, profile score and, for
@@ -73,8 +77,9 @@ The AI page records every request to the provider, including failed ones:
 - how often the model picked a different release than the classic scorer;
 - breakdowns by feature, trigger and model;
 - failure rates of AI-picked grabs compared with classic grabs;
-- a filterable history of each call, with the picked release, the classic
-  choice, and the model's reasoning.
+- a filterable history of each call with its status, tokens, cost and the
+  model's reasoning; on iOS, a call's detail also shows the picked release and
+  the classic scorer's choice.
 
 Calls skipped because the budget was spent are counted separately and do not
 count against the success rate.
