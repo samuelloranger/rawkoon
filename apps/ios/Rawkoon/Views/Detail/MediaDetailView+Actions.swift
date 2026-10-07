@@ -21,18 +21,39 @@ extension MediaDetailView {
         }
     }
 
+    func openReleaseSearch(upgrade: Bool = false) {
+        releaseSearchSeason = nil
+        releaseSearchUpgrade = upgrade
+        showingReleaseSearch = true
+    }
+
+    func movieAutoSearch() async {
+        guard let libraryId, !autoSearching else { return }
+        autoSearching = true
+        defer { autoSearching = false }
+        let grabbed = await model.autoSearchMovie(libraryId: libraryId) { openReleaseSearch() }
+        if grabbed {
+            store.invalidateLibraryRollup(itemID: libraryId)
+            await refreshManagementData()
+        }
+    }
+
     func applyQualityProfileChange(_ qualityProfileId: Int?) async {
         guard let libraryId, let client = model.api() else { return }
         applyingManagementChange = true
         defer { applyingManagementChange = false }
         do {
-            managementItem = try await store.updateQualityProfile(
+            let updated = try await store.updateQualityProfile(
                 id: libraryId,
                 qualityProfileId: qualityProfileId,
                 request: { try await client.updateLibraryQualityProfile(id: libraryId, qualityProfileId: qualityProfileId) }
             )
+            managementItem = updated
             managementNotice = String(localized: "Quality profile updated.")
             managementError = nil
+            if updated.needsUpgrade == true {
+                promptUpgrade(for: updated)
+            }
         } catch {
             managementError = String(localized: "Could not update quality profile.")
         }
@@ -227,11 +248,24 @@ extension MediaDetailView {
     }
 
     func reportGrab(_ result: LibrarySearchResponse) {
-        if result.grabbed {
-            model.toast(String(localized: "Grabbed \(result.releaseTitle ?? "a release")."), style: .success)
-        } else {
-            model.toast(result.reason ?? String(localized: "No release grabbed."), style: .info)
-        }
+        model.reportGrab(result)
+    }
+
+    /// The new profile rejects the file(s) on disk: offer to look for a better one.
+    /// Goes through the app-root alert — this screen is a zoom destination, where a
+    /// local alert may not present.
+    func promptUpgrade(for item: LibraryMedia) {
+        guard let libraryId else { return }
+        let profile = item.qualityProfile?.name
+            ?? qualityProfiles.first { $0.id == item.qualityProfileId }?.name
+            ?? String(localized: "this profile")
+        model.pendingConfirm = ConfirmRequest.upgradePrompt(
+            isShow: item.type == "show",
+            profileName: profile,
+            affectedEpisodes: item.affectedEpisodes ?? 0,
+            onAutoSearch: { [model] in Task { await model.startUpgradeSearch(libraryId: libraryId) } },
+            onChoose: { openReleaseSearch(upgrade: true) }
+        )
     }
 
     // MARK: Similar menu
@@ -241,6 +275,8 @@ extension MediaDetailView {
         case .toggleMonitored:
             guard let libraryId = item.libraryId else { return }
             Task { await toggleSimilarMonitored(libraryId: libraryId) }
+        case .autoSearch:
+            break // never offered for similar items
         case .searchReleases:
             menuReleaseSearch = ReleaseSearchPresentation(
                 query: item.title,

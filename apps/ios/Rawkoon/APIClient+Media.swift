@@ -307,6 +307,21 @@ extension APIClient {
         try await get("/api/library/files/\(fileId)/remux/status")
     }
 
+    /// Movie auto search: the server picks and grabs the best release (AI judge
+    /// included). Long lane, like every search that waits on the indexers.
+    func searchMovie(id: Int) async throws -> LibrarySearchResponse {
+        try await post(
+            "/api/library/\(id)/search",
+            body: LibrarySearchBody(searchQuery: nil),
+            longWait: true
+        )
+    }
+
+    /// Queues an automatic upgrade search for the item (or its failing episodes).
+    func startUpgradeSearch(id: Int) async throws -> LibraryUpgradeResponse {
+        try await post("/api/library/\(id)/upgrade", body: LibraryUpgradeBody(mode: "auto"))
+    }
+
     /// Manual release search + grab for a whole season (best season pack).
     func searchSeason(id: Int, season: Int, searchQuery: String? = nil) async throws -> LibrarySearchResponse {
         try await post(

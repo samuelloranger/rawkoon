@@ -2,6 +2,7 @@ import Foundation
 
 public enum MediaPosterMenuAction: Equatable, Sendable, Hashable {
     case toggleMonitored
+    case autoSearch
     case searchReleases
     case openDetails
     case removeFromLibrary
@@ -12,15 +13,29 @@ public enum MediaPosterMenuAction: Equatable, Sendable, Hashable {
     }
 }
 
+/// Whether a library item offers the one-tap movie auto search: movies only,
+/// and only while nothing is downloaded or downloading (the server refuses a
+/// search on a downloading item).
+public func movieCanAutoSearch(type: String, status: String) -> Bool {
+    type == "movie" && (status == "wanted" || status == "missing")
+}
+
 /// Which long-press items a library poster should offer.
 ///
 /// Admin-only actions match what 403s on the server. Search and Open details
 /// are reachable today from MediaDetailView for any signed-in user. Offline,
 /// the menu greys out the items whose `requiresConnection` is true.
-public func mediaPosterMenuItems(inLibrary: Bool, isAdmin: Bool) -> [MediaPosterMenuAction] {
+public func mediaPosterMenuItems(
+    inLibrary: Bool,
+    isAdmin: Bool,
+    canAutoSearch: Bool = false
+) -> [MediaPosterMenuAction] {
     var items: [MediaPosterMenuAction] = []
     if inLibrary, isAdmin {
         items.append(.toggleMonitored)
+    }
+    if inLibrary, isAdmin, canAutoSearch {
+        items.append(.autoSearch)
     }
     if inLibrary {
         items.append(.searchReleases)

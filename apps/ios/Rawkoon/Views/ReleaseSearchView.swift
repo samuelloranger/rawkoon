@@ -29,6 +29,8 @@ struct ReleaseSearchView: View {
     /// Set when the sheet was opened for one episode; lets the AI pick target it.
     let targetSeason: Int?
     let targetEpisode: Int?
+    /// Grabs are recorded as upgrades (set when opened from the upgrade prompt).
+    let isUpgrade: Bool
 
     init(
         query: String,
@@ -42,11 +44,13 @@ struct ReleaseSearchView: View {
         titleTranslations: [TitleTranslation] = [],
         targetSeason: Int? = nil,
         targetEpisode: Int? = nil,
+        isUpgrade: Bool = false,
         onGrabbed: (() -> Void)? = nil
     ) {
         self.onGrabbed = onGrabbed
         self.targetSeason = targetSeason
         self.targetEpisode = targetEpisode
+        self.isUpgrade = isUpgrade
         self.libraryMediaId = libraryMediaId
         self.tmdbId = tmdbId
         self.mediaType = mediaType
@@ -932,7 +936,7 @@ struct ReleaseSearchView: View {
                         indexer: release.indexer,
                         qualityParsed: release.parsedQuality,
                         sizeBytes: release.sizeBytes,
-                        isUpgrade: nil
+                        isUpgrade: isUpgrade ? true : nil
                     )
                 )
                 if !result.grabbed {

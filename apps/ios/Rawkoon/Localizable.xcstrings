@@ -11869,6 +11869,226 @@
           }
         }
       }
+    },
+    "Auto search failed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La recherche automatique a échoué."
+          }
+        }
+      }
+    },
+    "a release": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "une sortie"
+          }
+        }
+      }
+    },
+    "Choose…": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir…"
+          }
+        }
+      }
+    },
+    "Upgrade search started.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche d’une meilleure version lancée."
+          }
+        }
+      }
+    },
+    "Upgrade search failed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La recherche d’une meilleure version a échoué."
+          }
+        }
+      }
+    },
+    "Look for a better release now?": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chercher une meilleure sortie maintenant ?"
+          }
+        }
+      }
+    },
+    "Auto search for an upgrade": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche automatique d’une meilleure version"
+          }
+        }
+      }
+    },
+    "Choose a release": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir une sortie"
+          }
+        }
+      }
+    },
+    "Choose a release…": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir une sortie…"
+          }
+        }
+      }
+    },
+    "Keep the current file": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garder le fichier actuel"
+          }
+        }
+      }
+    },
+    "this profile": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ce profil"
+          }
+        }
+      }
+    },
+    "Checking your indexers and picking the best match. This can take a minute.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérification de vos indexeurs et choix de la meilleure sortie. Cela peut prendre une minute."
+          }
+        }
+      }
+    },
+    "Searching for a release…": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche d’une sortie…"
+          }
+        }
+      }
+    },
+    "More search options": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus d’options de recherche"
+          }
+        }
+      }
+    },
+    "Searches your indexers and grabs the best release. Touch and hold for more options.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cherche dans vos indexeurs et récupère la meilleure sortie. Maintenez appuyé pour d’autres options."
+          }
+        }
+      }
+    },
+    "Grabbed %@ (AI pick).": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ récupéré (choix de l’IA)."
+          }
+        }
+      }
+    },
+    "Grabbed %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ récupéré."
+          }
+        }
+      }
+    },
+    "Some episodes don't meet “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certains épisodes ne respectent pas « %@ »"
+          }
+        }
+      }
+    },
+    "The current file doesn't meet “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fichier actuel ne respecte pas « %@ »"
+          }
+        }
+      }
+    },
+    "%lld downloaded episodes fall short. Look for better releases now?": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld épisodes téléchargés ne respectent pas le profil. Chercher de meilleures sorties maintenant ?"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -65,6 +65,8 @@ struct MediaDetailView: View {
     @State var showingReleaseSearch = false
     /// When set, the release-search sheet opens scoped to a single season.
     @State var releaseSearchSeason: Int?
+    @State var releaseSearchUpgrade = false
+    @State var autoSearching = false
     @State var releaseSearchEpisode: Int?
     @State var showingRemoveConfirm = false
     @State var menuReleaseSearch: ReleaseSearchPresentation?
@@ -229,6 +231,7 @@ struct MediaDetailView: View {
             .sheet(isPresented: $showingReleaseSearch, onDismiss: {
                 releaseSearchSeason = nil
                 releaseSearchEpisode = nil
+                releaseSearchUpgrade = false
             }) {
                 ReleaseSearchView(
                     query: title,
@@ -242,6 +245,7 @@ struct MediaDetailView: View {
                     titleTranslations: details?.titleTranslations ?? [],
                     targetSeason: releaseSearchSeason,
                     targetEpisode: releaseSearchEpisode,
+                    isUpgrade: releaseSearchUpgrade,
                     onGrabbed: { Task { await refreshManagementData() } }
                 )
                 .environment(model)

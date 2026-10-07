@@ -438,7 +438,11 @@ struct LibraryView: View {
                             MediaPosterCard(
                                 title: m.title,
                                 posterURL: model.absoluteURL(m.posterUrl),
-                                menuItems: mediaPosterMenuItems(inLibrary: true, isAdmin: model.isAdmin),
+                                menuItems: mediaPosterMenuItems(
+                                    inLibrary: true,
+                                    isAdmin: model.isAdmin,
+                                    canAutoSearch: movieCanAutoSearch(type: m.type, status: m.status)
+                                ),
                                 onMenuAction: { handleMediaMenu($0, media: m) }
                             ) {
                                 if busyMediaIds.contains(m.id) {
@@ -578,7 +582,11 @@ struct LibraryView: View {
                             media: m,
                             posterURL: model.absoluteURL(m.posterUrl),
                             isBusy: busyMediaIds.contains(m.id),
-                            menuItems: mediaPosterMenuItems(inLibrary: true, isAdmin: model.isAdmin),
+                            menuItems: mediaPosterMenuItems(
+                                inLibrary: true,
+                                isAdmin: model.isAdmin,
+                                canAutoSearch: movieCanAutoSearch(type: m.type, status: m.status)
+                            ),
                             onMenuAction: { handleMediaMenu($0, media: m) }
                         )
                         .matchedTransitionSource(id: zoomID, in: zoomNamespace)
@@ -927,18 +935,37 @@ struct LibraryView: View {
         switch action {
         case .toggleMonitored:
             Task { await toggleMonitored(media) }
+        case .autoSearch:
+            Task { await autoSearch(media) }
         case .searchReleases:
-            releaseSearch = ReleaseSearchPresentation(
-                query: media.title,
-                libraryMediaId: media.id,
-                tmdbId: media.tmdbId,
-                mediaType: media.type == "show" ? "tv" : "movie"
-            )
+            releaseSearch = presentation(for: media)
         case .openDetails:
             menuDetailMedia = media
         case .removeFromLibrary:
             removeCandidate = media
             showingRemoveConfirm = true
+        }
+    }
+
+    private func presentation(for media: LibraryMedia) -> ReleaseSearchPresentation {
+        ReleaseSearchPresentation(
+            query: media.title,
+            libraryMediaId: media.id,
+            tmdbId: media.tmdbId,
+            mediaType: media.type == "show" ? "tv" : "movie"
+        )
+    }
+
+    private func autoSearch(_ media: LibraryMedia) async {
+        guard !busyMediaIds.contains(media.id) else { return }
+        busyMediaIds.insert(media.id)
+        defer { busyMediaIds.remove(media.id) }
+        model.toast(String(localized: "Searching for a release…"), style: .info)
+        let grabbed = await model.autoSearchMovie(libraryId: media.id) {
+            releaseSearch = presentation(for: media)
+        }
+        if grabbed {
+            await reloadLoadedWindow()
         }
     }
 

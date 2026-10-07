@@ -322,6 +322,8 @@ export interface DownloadProgressEvent {
 export interface LibrarySearchResponse {
   grabbed: boolean;
   release_title?: string;
+  /** True when the AI judge's pick was the release grabbed. */
+  ai_picked?: boolean;
   reason?: string;
 }
 

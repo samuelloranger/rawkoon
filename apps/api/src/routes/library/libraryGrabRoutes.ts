@@ -111,7 +111,11 @@ export const libraryGrabRoutes = new Hono<Env>()
         });
 
         if (result.grabbed) {
-          return ok({ grabbed: true, release_title: result.releaseTitle });
+          return ok({
+            grabbed: true,
+            release_title: result.releaseTitle,
+            ai_picked: result.aiPicked === true,
+          });
         }
 
         return ok({ grabbed: false, reason: result.reason });
@@ -164,7 +168,11 @@ export const libraryGrabRoutes = new Hono<Env>()
           });
 
       if (result.grabbed) {
-        return ok({ grabbed: true, release_title: result.releaseTitle });
+        return ok({
+          grabbed: true,
+          release_title: result.releaseTitle,
+          ai_picked: result.aiPicked === true,
+        });
       }
 
       return ok({ grabbed: false, reason: result.reason });
@@ -236,7 +244,11 @@ export const libraryGrabRoutes = new Hono<Env>()
             });
 
         if (result.grabbed) {
-          return ok({ grabbed: true, release_title: result.releaseTitle });
+          return ok({
+            grabbed: true,
+            release_title: result.releaseTitle,
+            ai_picked: result.aiPicked === true,
+          });
         }
 
         return ok({ grabbed: false, reason: result.reason });
@@ -327,7 +339,11 @@ export const libraryGrabRoutes = new Hono<Env>()
             });
 
         if (result.grabbed) {
-          return ok({ grabbed: true, release_title: result.releaseTitle });
+          return ok({
+            grabbed: true,
+            release_title: result.releaseTitle,
+            ai_picked: result.aiPicked === true,
+          });
         }
 
         return ok({ grabbed: false, reason: result.reason });

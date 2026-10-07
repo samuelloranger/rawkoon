@@ -387,7 +387,14 @@ private struct RootTabsView: View {
             Button(request.confirmTitle, role: request.isDestructive ? .destructive : nil) {
                 request.action()
             }
-            Button("Cancel", role: .cancel) {}
+            if let secondaryTitle = request.secondaryTitle {
+                Button(secondaryTitle) { request.secondaryAction?() }
+            }
+            if let cancelTitle = request.cancelTitle {
+                Button(cancelTitle, role: .cancel) {}
+            } else {
+                Button("Cancel", role: .cancel) {}
+            }
         } message: { request in
             Text(request.message)
         }

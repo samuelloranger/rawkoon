@@ -185,6 +185,10 @@ nonisolated struct LibraryMedia: Decodable, Identifiable, Sendable {
     let lastGrabbedAt: String?
     let addedAt: String?
     let digitalReleaseDate: String?
+    /// Set only on a quality-profile update response: the existing file(s) fail
+    /// the new profile. `affectedEpisodes` counts the failing episodes of a show.
+    var needsUpgrade: Bool?
+    var affectedEpisodes: Int?
     /// Optimistic row standing in for an add the server has not confirmed yet.
     var isProvisional = false
 
@@ -195,7 +199,7 @@ nonisolated struct LibraryMedia: Decodable, Identifiable, Sendable {
         case qualityProfileId, qualityProfile, totalSizeBytes, episodeCount
         case downloadedEpisodeCount, seasonCount, durationSecs, resolution
         case videoCodec, hdrFormat, audioFormat, languageTags, lastGrabbedAt
-        case addedAt, digitalReleaseDate
+        case addedAt, digitalReleaseDate, needsUpgrade, affectedEpisodes
     }
 }
 
@@ -302,4 +306,16 @@ nonisolated struct LibrarySearchResponse: Decodable, Sendable {
     let grabbed: Bool
     let releaseTitle: String?
     let reason: String?
+    /// True when the AI judge's pick was the release grabbed (absent on older servers).
+    let aiPicked: Bool?
+}
+
+/// `POST /api/library/:id/upgrade` — `mode` is "auto" (queue the search) or "manual".
+nonisolated struct LibraryUpgradeBody: Encodable, Sendable {
+    let mode: String
+}
+
+nonisolated struct LibraryUpgradeResponse: Decodable, Sendable {
+    let queued: Bool
+    let count: Int?
 }

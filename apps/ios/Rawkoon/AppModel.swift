@@ -1219,6 +1219,11 @@ struct ConfirmRequest: Identifiable {
     let confirmTitle: String
     var isDestructive = true
     let action: @MainActor () -> Void
+    /// Optional middle choice (e.g. "Choose a release") between confirm and cancel.
+    var secondaryTitle: String?
+    var secondaryAction: (@MainActor () -> Void)?
+    /// Overrides the default "Cancel" label.
+    var cancelTitle: String?
 }
 
 extension Notification.Name {
