@@ -140,11 +140,14 @@ export async function prowlarrHeadersForTorrentUrl(
 export function infoHashFromTorrentBuffer(buf: ArrayBuffer): string | null {
   try {
     // No encoding arg: byte strings stay Uint8Array so `pieces` re-encodes byte-for-byte.
-    const torrent = bencode.decode(new Uint8Array(buf));
+    const bytes = new Uint8Array(buf);
+    const torrent = bencode.decode(bytes);
     if (!isPlainDict(torrent) || !isPlainDict(torrent.info)) return null;
-    return createHash("sha1")
-      .update(bencode.encode(torrent.info as Record<string, never>))
-      .digest("hex");
+    const info = bencode.encode(torrent.info as Record<string, never>);
+    // Clients hash the raw bytes; a non-canonical file (unsorted keys) would re-encode differently.
+    const marked = Buffer.concat([Buffer.from("4:info"), info]);
+    if (Buffer.from(bytes).indexOf(marked) === -1) return null;
+    return createHash("sha1").update(info).digest("hex");
   } catch (e) {
     console.warn("[mediaGrabber] torrent buffer parse failed:", e);
     return null;

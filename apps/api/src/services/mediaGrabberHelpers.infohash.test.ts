@@ -63,6 +63,11 @@ describe("infoHashFromTorrentBuffer", () => {
     expect(infoHashFromTorrentBuffer(toAB(enc("d4:infolee")))).toBeNull();
   });
 
+  test("returns null rather than a wrong hash when info keys are unsorted", () => {
+    const unsorted = enc("d4:infod4:name1:a6:lengthi1eee");
+    expect(infoHashFromTorrentBuffer(toAB(unsorted))).toBeNull();
+  });
+
   test("returns null for an empty buffer", () => {
     expect(infoHashFromTorrentBuffer(new ArrayBuffer(0))).toBeNull();
   });
