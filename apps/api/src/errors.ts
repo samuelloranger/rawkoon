@@ -26,6 +26,8 @@ export const notFound = (message: string) => errorResponse(404, message);
 
 export const conflict = (message: string) => errorResponse(409, message);
 
+export const tooManyRequests = (message: string) => errorResponse(429, message);
+
 export const unprocessable = (message: string) => errorResponse(422, message);
 
 export const serverError = (message: string) => errorResponse(500, message);

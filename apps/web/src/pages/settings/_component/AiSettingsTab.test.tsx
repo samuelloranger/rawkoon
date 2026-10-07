@@ -11,6 +11,7 @@ const metrics = {
   agreement_checked: 10,
   agreement_rate: 0.8,
   error: 1,
+  budget_skipped: 2,
   success_rate: 0.75,
   input_tokens: 24_000,
   output_tokens: 1_200,
@@ -34,6 +35,7 @@ const stats: AiStatsResponse = {
       calls: 5,
       errors: 0,
       rate_limited: 0,
+      budget_skipped: 0,
       total_tokens: 10,
       estimated_cost: 0.01,
     },
@@ -42,6 +44,7 @@ const stats: AiStatsResponse = {
       calls: 7,
       errors: 1,
       rate_limited: 0,
+      budget_skipped: 2,
       total_tokens: 15,
       estimated_cost: 0.0023,
     },
@@ -51,6 +54,8 @@ const stats: AiStatsResponse = {
     classic: { total: 2, completed: 2, failed: 0, active: 0 },
   },
   prices_configured: true,
+  today_spend: 0.0023,
+  daily_budget_usd: null,
 };
 
 let statsData: AiStatsResponse | undefined = stats;
@@ -148,6 +153,7 @@ describe("AiSettingsTab", () => {
         agreement_checked: 0,
         agreement_rate: null,
         error: 0,
+        budget_skipped: 0,
         success_rate: 0,
         estimated_cost: null,
       },
@@ -163,6 +169,51 @@ describe("AiSettingsTab", () => {
   it("prompts to set prices when cost cannot be estimated", () => {
     statsData = { ...stats, prices_configured: false };
     renderWithProviders(<AiSettingsTab />);
-    expect(screen.getByText("settings.ai.stats.setPrices")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("settings.ai.stats.setPrices").length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("shows today's spend against the budget with a progress bar", () => {
+    statsData = { ...stats, today_spend: 0.5, daily_budget_usd: 2 };
+    renderWithProviders(<AiSettingsTab />);
+    expect(screen.getByText("settings.ai.stats.today")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toHaveAttribute(
+      "aria-valuenow",
+      "25",
+    );
+    expect(
+      screen.queryByText("settings.ai.stats.budgetReached"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("flags a spent budget and shows the skipped count", () => {
+    statsData = { ...stats, today_spend: 2.5, daily_budget_usd: 2 };
+    renderWithProviders(<AiSettingsTab />);
+    expect(screen.getByRole("progressbar")).toHaveAttribute(
+      "aria-valuenow",
+      "100",
+    );
+    expect(
+      screen.getByText("settings.ai.stats.budgetReached"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("settings.ai.stats.budgetSkipped"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the Today tile even before any call exists", () => {
+    statsData = {
+      ...stats,
+      totals: { ...metrics, calls: 0, budget_skipped: 0 },
+      by_feature: [],
+      by_model: [],
+      by_trigger: [],
+      daily_budget_usd: 2,
+      today_spend: 0,
+    };
+    renderWithProviders(<AiSettingsTab />);
+    expect(screen.getByText("settings.ai.empty")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
   });
 });

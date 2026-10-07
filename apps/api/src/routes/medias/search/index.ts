@@ -28,8 +28,10 @@ import {
   notFound,
   ok,
   serverError,
+  tooManyRequests,
   unprocessable,
 } from "@rawkoon/api/errors";
+import { gateAiCall } from "@rawkoon/api/services/aiProvider/aiGate";
 import { grabRelease } from "@rawkoon/api/services/mediaGrabberGrab";
 import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationConfigCache";
 import { normalizeAiProviderConfig } from "@rawkoon/api/utils/integrations/normalizers";
@@ -188,6 +190,45 @@ export const aiPickBodySchema = z.object({
     }),
   ),
 });
+
+export async function handleAiPick(
+  body: z.infer<typeof aiPickBodySchema>,
+): Promise<Response> {
+  const config = await loadEnabledAiProviderConfig();
+
+  if (!config) {
+    return notFound("AI Provider integration not configured or disabled");
+  }
+
+  if (body.releases.length === 0) {
+    return unprocessable("No releases to analyze");
+  }
+
+  const ctx = {
+    feature: "release_pick_interactive" as const,
+    trigger: "interactive" as const,
+    mediaId: body.media_id,
+  };
+  // Checked here too so the client can tell "off" and "budget spent" apart from a failed call.
+  const gate = await gateAiCall(config, ctx);
+  if (!gate.allowed) {
+    return gate.reason === "feature_disabled"
+      ? notFound("AI Provider integration not configured or disabled")
+      : tooManyRequests("AI daily budget reached");
+  }
+
+  const result = await pickReleaseWithAi(
+    config,
+    body.media_context,
+    body.releases,
+    ctx,
+  );
+  if (!result) {
+    return badGateway("Could not get response from AI");
+  }
+
+  return ok(result);
+}
 
 // Mounted at /api/medias by the medias parent; admin-only.
 export const mediasSearchRoutes = new Hono<Env>()
@@ -393,34 +434,9 @@ export const mediasSearchRoutes = new Hono<Env>()
       return result instanceof Response ? result : ok(result);
     },
   )
-  .post("/search/ai-pick", requireAdmin, jsonV(aiPickBodySchema), async (c) => {
-    const body = c.req.valid("json");
-    const config = await loadEnabledAiProviderConfig();
-
-    if (!config) {
-      return notFound("AI Provider integration not configured or disabled");
-    }
-
-    if (body.releases.length === 0) {
-      return unprocessable("No releases to analyze");
-    }
-
-    const result = await pickReleaseWithAi(
-      config,
-      body.media_context,
-      body.releases,
-      {
-        feature: "release_pick_interactive",
-        trigger: "interactive",
-        mediaId: body.media_id,
-      },
-    );
-    if (!result) {
-      return badGateway("Could not get response from AI");
-    }
-
-    return ok(result);
-  })
+  .post("/search/ai-pick", requireAdmin, jsonV(aiPickBodySchema), async (c) =>
+    handleAiPick(c.req.valid("json")),
+  )
   .get("/search/ai-warm", requireAdmin, async () => {
     const record = await getIntegrationConfigRecord("ai-provider");
     const config = normalizeAiProviderConfig(record?.config);

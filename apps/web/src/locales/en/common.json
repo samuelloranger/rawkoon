@@ -1358,6 +1358,20 @@
       "inputPrice": "Input price (USD per million tokens)",
       "outputPrice": "Output price (USD per million tokens)",
       "priceHelp": "Used to estimate cost. Find your model's price on your provider's pricing page.",
+      "budget": {
+        "label": "Daily budget (USD)",
+        "placeholder": "No budget",
+        "help": "When today's estimated spend reaches this, automatic grabs fall back to the classic scorer until midnight UTC. Needs prices.",
+        "needsPrices": "A budget only applies once at least one price is set."
+      },
+      "featureToggles": {
+        "title": "Features",
+        "help": "Turn off the places where AI is allowed to pick. Disabled ones use the classic scorer.",
+        "release_pick_rss": "RSS auto-grab",
+        "release_pick_search": "Scheduled & upgrade searches",
+        "release_pick_interactive": "Interactive search suggestion",
+        "book_release_pick": "Book grabs"
+      },
       "usageTitle": "Usage",
       "loading": "Loading...",
       "loadError": "Could not load AI usage.",
@@ -1378,7 +1392,13 @@
         "p95": "p95 latency",
         "changedPick": "AI changed the pick",
         "changedPickHint": "vs classic scoring, over {{count}} calls",
-        "changedPickNone": "No comparison yet"
+        "changedPickNone": "No comparison yet",
+        "today": "Today",
+        "todayOfBudget": "of {{budget}} daily budget",
+        "todayNoBudget": "No daily budget set",
+        "budgetReached": "Budget reached — using classic picks",
+        "budgetSkipped": "Skipped by budget",
+        "budgetSkippedHint": "Calls not made because the budget was spent"
       },
       "chart": {
         "calls": "Calls per day",
@@ -1404,7 +1424,8 @@
         "ok": "OK",
         "invalid_pick": "Invalid pick",
         "error": "Error",
-        "rate_limited": "Rate limited"
+        "rate_limited": "Rate limited",
+        "budget_skipped": "Budget skipped"
       },
       "history": {
         "title": "Call history",

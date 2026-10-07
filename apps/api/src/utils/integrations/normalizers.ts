@@ -12,6 +12,7 @@ import type {
   AudnexusIntegrationConfig,
 } from "./types";
 import { decrypt } from "@rawkoon/api/services/crypto";
+import { AI_FEATURES, type AiFeatureToggles } from "@rawkoon/shared/types";
 
 const normalizeSecret = (value: unknown): string => {
   if (typeof value !== "string") return "";
@@ -203,6 +204,17 @@ const normalizePrice = (value: unknown): number | undefined =>
     ? value
     : undefined;
 
+const normalizeAiFeatures = (value: unknown): AiFeatureToggles | undefined => {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return undefined;
+  const raw = value as Record<string, unknown>;
+  const out: AiFeatureToggles = {};
+  for (const feature of AI_FEATURES) {
+    if (typeof raw[feature] === "boolean") out[feature] = raw[feature];
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+};
+
 export const normalizeAiProviderConfig = (
   config: unknown,
 ): AiProviderConfig | null => {
@@ -214,6 +226,8 @@ export const normalizeAiProviderConfig = (
   const apiKey = normalizeSecret(cfg.api_key);
   const inputPrice = normalizePrice(cfg.input_price_per_million);
   const outputPrice = normalizePrice(cfg.output_price_per_million);
+  const budget = normalizePrice(cfg.daily_budget_usd);
+  const features = normalizeAiFeatures(cfg.features);
   return {
     base_url: cfg.base_url.replace(/\/+$/, ""),
     model: cfg.model,
@@ -224,6 +238,8 @@ export const normalizeAiProviderConfig = (
     ...(outputPrice !== undefined
       ? { output_price_per_million: outputPrice }
       : {}),
+    ...(budget !== undefined ? { daily_budget_usd: budget } : {}),
+    ...(features ? { features } : {}),
   };
 };
 

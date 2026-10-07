@@ -21,7 +21,13 @@ import {
   listAiCalls,
   type AiPrices,
 } from "@rawkoon/api/services/aiProvider/usageStats";
-import { AI_CALL_STATUSES, AI_STATS_PERIODS } from "@rawkoon/shared/types";
+import {
+  AI_CALL_STATUSES,
+  AI_FEATURES,
+  AI_STATS_PERIODS,
+  type AiFeature,
+} from "@rawkoon/shared/types";
+import { invalidateAiSpendCache } from "@rawkoon/api/services/aiProvider/aiGate";
 import {
   getIntegrationConfigRecord,
   invalidateIntegrationConfigCache,
@@ -49,15 +55,32 @@ const callsQuery = z.object({
   status: z.enum(AI_CALL_STATUSES).optional(),
 });
 
-async function loadPrices(): Promise<AiPrices> {
-  const config = normalizeAiProviderConfig(
+// Blank clears, absent keeps; coerce alone would turn "" and null into 0.
+const budgetField = z.preprocess(
+  (v) => (v === "" ? null : v),
+  z.coerce.number().min(0).finite().nullable().optional(),
+);
+
+const featureToggles = z
+  .object(
+    Object.fromEntries(
+      AI_FEATURES.map((f) => [f, z.boolean().optional()]),
+    ) as Record<AiFeature, z.ZodOptional<z.ZodBoolean>>,
+  )
+  .optional();
+
+async function loadAiConfig() {
+  return normalizeAiProviderConfig(
     (await getIntegrationConfigRecord("ai-provider"))?.config,
   );
-  return {
-    input: config?.input_price_per_million,
-    output: config?.output_price_per_million,
-  };
 }
+
+const pricesOf = (
+  config: Awaited<ReturnType<typeof loadAiConfig>>,
+): AiPrices => ({
+  input: config?.input_price_per_million,
+  output: config?.output_price_per_million,
+});
 
 // Mounted under /api/integrations; requireAdmin is applied at the parent.
 export const aiProviderIntegrationRoutes = new Hono<Env>()
@@ -76,6 +99,8 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
           has_api_key: Boolean(config?.api_key),
           input_price_per_million: config?.input_price_per_million ?? null,
           output_price_per_million: config?.output_price_per_million ?? null,
+          daily_budget_usd: config?.daily_budget_usd ?? null,
+          features: config?.features ?? {},
         },
       });
     } catch (error) {
@@ -93,6 +118,8 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
         enabled: z.boolean().optional(),
         input_price_per_million: priceField,
         output_price_per_million: priceField,
+        daily_budget_usd: budgetField,
+        features: featureToggles,
       }),
     ),
     async (c) => {
@@ -107,12 +134,17 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
 
       // An empty api_key means "keep whatever is stored", so the form can be
       // submitted without re-entering a secret it is never shown.
-      const existing = normalizeAiProviderConfig(
-        (await getIntegrationConfigRecord("ai-provider"))?.config,
-      );
+      const existing = await loadAiConfig();
       const apiKey = body.api_key?.trim() || existing?.api_key || "";
       const inputPrice = body.input_price_per_million ?? null;
       const outputPrice = body.output_price_per_million ?? null;
+      // Budget and features are kept when the body omits them (older clients
+      // never send them) and cleared only by an explicit null.
+      const budget =
+        body.daily_budget_usd === undefined
+          ? (existing?.daily_budget_usd ?? null)
+          : body.daily_budget_usd;
+      const features = body.features ?? existing?.features ?? {};
       const providerConfig = {
         base_url: baseUrl,
         model: body.model.trim(),
@@ -121,6 +153,8 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
         ...(outputPrice !== null
           ? { output_price_per_million: outputPrice }
           : {}),
+        ...(budget !== null ? { daily_budget_usd: budget } : {}),
+        ...(Object.keys(features).length > 0 ? { features } : {}),
       };
 
       try {
@@ -142,6 +176,7 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
         });
 
         invalidateIntegrationConfigCache("ai-provider");
+        invalidateAiSpendCache();
 
         await logActivity({
           type: "integration_updated",
@@ -159,6 +194,8 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
             has_api_key: Boolean(apiKey),
             input_price_per_million: inputPrice,
             output_price_per_million: outputPrice,
+            daily_budget_usd: budget,
+            features,
           },
         });
       } catch (error) {
@@ -212,7 +249,15 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
   .get("/ai-provider/stats", requireAdmin, queryV(statsQuery), async (c) => {
     try {
       const { days } = c.req.valid("query");
-      return ok(await getAiStats(days, await loadPrices()));
+      const config = await loadAiConfig();
+      return ok(
+        await getAiStats(
+          days,
+          pricesOf(config),
+          new Date(),
+          config?.daily_budget_usd ?? null,
+        ),
+      );
     } catch (error) {
       console.error("Error fetching AI usage stats:", error);
       return serverError("Failed to fetch AI usage stats");
@@ -227,7 +272,7 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
           pageSize: q.page_size,
           feature: q.feature,
           status: q.status,
-          prices: await loadPrices(),
+          prices: pricesOf(await loadAiConfig()),
         }),
       );
     } catch (error) {

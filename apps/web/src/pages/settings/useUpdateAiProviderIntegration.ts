@@ -2,7 +2,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFetcher } from "@/lib/api/context";
 import { queryKeys } from "@/lib/queryKeys";
 import { INTEGRATION_ENDPOINTS } from "@/lib/endpoints";
-import type { AiProviderIntegrationUpdateResponse } from "@rawkoon/shared/types";
+import type {
+  AiFeatureToggles,
+  AiProviderIntegrationUpdateResponse,
+} from "@rawkoon/shared/types";
 
 export function useUpdateAiProviderIntegration() {
   const fetcher = useFetcher();
@@ -15,6 +18,8 @@ export function useUpdateAiProviderIntegration() {
       enabled: boolean;
       input_price_per_million: number | null;
       output_price_per_million: number | null;
+      daily_budget_usd: number | null;
+      features: AiFeatureToggles;
     }) =>
       fetcher<AiProviderIntegrationUpdateResponse>(
         INTEGRATION_ENDPOINTS.AI_PROVIDER,

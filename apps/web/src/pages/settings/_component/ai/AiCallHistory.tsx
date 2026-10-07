@@ -20,6 +20,7 @@ const STATUS_STYLES: Record<string, string> = {
   invalid_pick: "bg-yellow-500/10 text-yellow-400",
   rate_limited: "bg-orange-500/10 text-orange-400",
   error: "bg-red-500/10 text-red-400",
+  budget_skipped: "bg-neutral-500/10 text-neutral-400",
 };
 
 const SELECT_CLASS =

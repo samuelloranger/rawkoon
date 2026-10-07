@@ -10,6 +10,7 @@ import {
   type AiPickMediaContext,
   type AiPickRelease,
 } from "@rawkoon/api/utils/medias/buildAiPickPrompt";
+import { gateAiCall } from "@rawkoon/api/services/aiProvider/aiGate";
 import {
   AI_BOOK_SYSTEM_PROMPT,
   buildAiBookPickPrompt,
@@ -307,6 +308,9 @@ async function pickWithAi<R extends AiPickRelease>(
   ctx: AiCallContext,
 ): Promise<AiPickResult | null> {
   if (releases.length === 0) return null;
+
+  // Before any provider HTTP: disabled features and spent budgets fall back to classic.
+  if (!(await gateAiCall(config, ctx)).allowed) return null;
 
   // Every caller is shortlisted here rather than at its own call site: the
   // interactive-search route hands over whatever the indexer returned.

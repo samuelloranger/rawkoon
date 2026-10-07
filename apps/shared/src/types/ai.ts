@@ -7,6 +7,9 @@ export const AI_FEATURES = [
 
 export type AiFeature = (typeof AI_FEATURES)[number];
 
+/** A missing key means enabled. */
+export type AiFeatureToggles = Partial<Record<AiFeature, boolean>>;
+
 export type AiTrigger =
   | "rss"
   | "scheduled"
@@ -19,6 +22,8 @@ export const AI_CALL_STATUSES = [
   "invalid_pick",
   "rate_limited",
   "error",
+  /** The daily budget was spent, so the call was never made. */
+  "budget_skipped",
 ] as const;
 
 export type AiCallStatus = (typeof AI_CALL_STATUSES)[number];
@@ -33,6 +38,8 @@ export interface AiUsageMetrics {
   invalid_pick: number;
   rate_limited: number;
   error: number;
+  /** Calls withheld by the daily budget; not counted in `calls`. */
+  budget_skipped: number;
   /** Calls where the AI pick was compared with the classic scorer's. */
   agreement_checked: number;
   /** 0..1 share of compared picks that matched classic; null when none compared. */
@@ -69,6 +76,7 @@ export interface AiDailyStats {
   /** Invalid picks plus hard errors. */
   errors: number;
   rate_limited: number;
+  budget_skipped: number;
   total_tokens: number;
   estimated_cost: number | null;
 }
@@ -92,6 +100,9 @@ export interface AiStatsResponse {
     classic: AiGrabOutcome;
   };
   prices_configured: boolean;
+  /** USD spent so far today (UTC); null when no prices are configured. */
+  today_spend: number | null;
+  daily_budget_usd: number | null;
 }
 
 export interface AiCallEntry {
