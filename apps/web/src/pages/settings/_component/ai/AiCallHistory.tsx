@@ -238,7 +238,7 @@ export function AiCallHistory() {
                               ? "settings.ai.history.collapse"
                               : "settings.ai.history.expand",
                             {
-                              call: `${dateFormat.format(new Date(call.created_at))} · ${t(`settings.ai.features.${call.feature}`, { defaultValue: call.feature })}`,
+                              call: `#${call.id} · ${dateFormat.format(new Date(call.created_at))} · ${t(`settings.ai.features.${call.feature}`, { defaultValue: call.feature })}`,
                             },
                           )}
                           onClick={(e) => {
