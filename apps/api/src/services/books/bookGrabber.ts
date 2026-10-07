@@ -11,6 +11,8 @@ import {
 import { notifyAdminsBookGrabbed } from "@rawkoon/api/workers/notifyBookEvents";
 import { addReleaseToDownloadClient } from "./bookDownloadHandoff";
 import { qbCategoryForEditionKind } from "./bookCategories";
+import { pickBookCandidate, type BookPickCandidate } from "./bookAiPick";
+import type { AiTrigger } from "@rawkoon/shared/types";
 import { tryAdoptQbDuplicateForBook } from "./bookAdopt";
 
 export { qbCategoryForEditionKind };
@@ -55,6 +57,8 @@ export type EditionContext = {
   bookTitle: string;
   authors: string[];
   bookLanguage: string;
+  seriesName: string | null;
+  seriesPosition: number | null;
   profile: BookScoreProfile;
 };
 
@@ -72,7 +76,14 @@ export async function loadEditionContext(
     where: { id: editionId },
     include: {
       book: {
-        select: { title: true, authors: true, language: true, overrides: true },
+        select: {
+          title: true,
+          authors: true,
+          language: true,
+          overrides: true,
+          seriesName: true,
+          seriesPosition: true,
+        },
       },
       bookQualityProfile: true,
     },
@@ -109,6 +120,8 @@ export async function loadEditionContext(
     bookTitle: edition.book.title,
     authors: edition.book.authors,
     bookLanguage: edition.book.language,
+    seriesName: edition.book.seriesName ?? null,
+    seriesPosition: edition.book.seriesPosition ?? null,
     profile: { ...profile, preferredLanguages },
   };
 }
@@ -259,6 +272,7 @@ export async function grabBookRelease(opts: {
   releaseTitle: string;
   indexer?: string | null;
   isUpgrade?: boolean;
+  aiPicked?: boolean;
 }): Promise<BookGrabOutcome> {
   const releaseTitle = opts.releaseTitle.trim();
   if (!releaseTitle) return { grabbed: false, reason: "Missing release title" };
@@ -292,6 +306,7 @@ export async function grabBookRelease(opts: {
         indexer: opts.indexer?.trim() || null,
         downloadUrl: opts.downloadUrl.trim(),
         isUpgrade: opts.isUpgrade ?? false,
+        aiPicked: opts.aiPicked ?? false,
       },
       select: { id: true },
     });
@@ -374,9 +389,24 @@ export async function grabBookRelease(opts: {
   return { grabbed: true, releaseTitle };
 }
 
+export function describeBookRelease(r: BookRelease): BookPickCandidate {
+  return {
+    url: r.download_url ?? r.magnet_url ?? "",
+    title: r.title,
+    sizeBytes: r.size_bytes,
+    seeders: r.seeders,
+    score: r.score,
+    format: r.format,
+    kind: r.kind,
+    language: r.language,
+    audioBitrate: r.audio_bitrate,
+  };
+}
+
 /** Search, then grab the best viable release. */
 export async function searchAndGrabBook(
   editionId: number,
+  trigger: AiTrigger = "scheduled",
 ): Promise<BookGrabOutcome> {
   const { releases, error } = await searchBookReleases(editionId);
   if (error) return { grabbed: false, reason: error };
@@ -388,7 +418,10 @@ export async function searchAndGrabBook(
     return { grabbed: false, reason: "No matching releases found" };
   }
   // searchBookReleases already sorted viable-first by descending score.
-  const best = viable[0];
+  const edition = await loadEditionContext(editionId);
+  const { pick: best, aiPicked } = edition
+    ? await pickBookCandidate(edition, viable, trigger, describeBookRelease)
+    : { pick: viable[0], aiPicked: false };
 
   const url = best.download_url ?? best.magnet_url;
   if (!url) return { grabbed: false, reason: "Release has no download URL" };
@@ -398,5 +431,6 @@ export async function searchAndGrabBook(
     downloadUrl: url,
     releaseTitle: best.title,
     indexer: best.indexer,
+    aiPicked,
   });
 }

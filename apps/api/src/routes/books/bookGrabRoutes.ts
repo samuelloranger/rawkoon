@@ -99,7 +99,7 @@ export const bookGrabRoutes = new Hono<Env>()
       });
       if (!edition) return notFound("Edition not found");
 
-      const result = await searchAndGrabBook(edition.id);
+      const result = await searchAndGrabBook(edition.id, "manual_search");
       if (!result.grabbed) return conflict(result.reason);
       return ok({ grabbed: true, release_title: result.releaseTitle });
     },

@@ -11,6 +11,12 @@ import {
   type AiPickRelease,
 } from "@rawkoon/api/utils/medias/buildAiPickPrompt";
 import {
+  AI_BOOK_SYSTEM_PROMPT,
+  buildAiBookPickPrompt,
+  type AiBookPickContext,
+  type AiBookPickRelease,
+} from "@rawkoon/api/utils/books/buildAiBookPickPrompt";
+import {
   isRateLimited,
   recordAiCall,
   sanitizeAiError,
@@ -20,6 +26,12 @@ import {
 export type AiPickResult = {
   release_key: string;
   reasoning: string;
+};
+
+/** What differs per domain; everything else in this file is shared. */
+type PickPrompt<R extends AiPickRelease> = {
+  system: string;
+  build: (releases: R[]) => string;
 };
 
 const pickSchema = z.object({
@@ -48,7 +60,7 @@ function truncateAtWord(str: string, max: number): string {
  */
 export function validateAiPick(
   pick: RawPick,
-  candidates: AiPickRelease[],
+  candidates: Pick<AiPickRelease, "key">[],
 ): AiPickResult | null {
   if (!candidates.some((r) => r.key === pick.release_key)) return null;
 
@@ -67,8 +79,8 @@ export function validateAiPick(
  */
 const AI_MAX_CANDIDATES = 10;
 
-type Shortlist = {
-  releases: AiPickRelease[];
+type Shortlist<R extends AiPickRelease> = {
+  releases: R[];
   /** Opaque id -> the real release key, which never leaves this process. */
   keyById: Map<string, string>;
 };
@@ -86,7 +98,7 @@ type Shortlist = {
  * dead release also held the top score. `null` seeders means unknown (usenet),
  * which the classic scorer never rejects either.
  */
-function buildShortlist(releases: AiPickRelease[]): Shortlist {
+function buildShortlist<R extends AiPickRelease>(releases: R[]): Shortlist<R> {
   const viable = releases.filter((r) => r.seeders == null || r.seeders > 0);
   const keyById = new Map<string, string>();
 
@@ -154,10 +166,10 @@ const stripFencedContent = async (
  */
 const schemaUnsupported = new Set<string>();
 
-async function generatePick(
+async function generatePick<R extends AiPickRelease>(
   config: AiProviderConfig,
-  media: AiPickMediaContext,
-  releases: AiPickRelease[],
+  prompt: PickPrompt<R>,
+  releases: R[],
   structured: boolean,
 ): Promise<{ object: RawPick; usage: GenerateUsage }> {
   const provider = createOpenAICompatible({
@@ -173,8 +185,8 @@ async function generatePick(
   const { object, usage } = await generateObject({
     model: provider(config.model),
     schema: pickSchema,
-    system: AI_SYSTEM_PROMPT,
-    prompt: buildAiPickPrompt(media, releases),
+    system: prompt.system,
+    prompt: prompt.build(releases),
     temperature: 0.1,
     // This runs inside the grab path and classic scoring already covers
     // failure, so fail fast rather than retry with the SDK's default backoff.
@@ -196,10 +208,10 @@ type GenerateUsage = {
  * succeeded, picked a key outside the shortlist, or threw; a throw is re-raised
  * so the caller can still run its json_object fallback.
  */
-async function attemptPick(
+async function attemptPick<R extends AiPickRelease>(
   config: AiProviderConfig,
-  media: AiPickMediaContext,
-  shortlist: Shortlist,
+  prompt: PickPrompt<R>,
+  shortlist: Shortlist<R>,
   structured: boolean,
   ctx: AiCallContext,
 ): Promise<AiPickResult | null> {
@@ -210,7 +222,7 @@ async function attemptPick(
   try {
     generated = await generatePick(
       config,
-      media,
+      prompt,
       shortlist.releases,
       structured,
     );
@@ -269,9 +281,9 @@ function isSchemaRejection(error: unknown): boolean {
  * model quoted in its reasoning — that text is shown to the user, and small
  * models keep saying "r2" however the prompt is worded.
  */
-function resolveKey(
+function resolveKey<R extends AiPickRelease>(
   pick: AiPickResult | null,
-  shortlist: Shortlist,
+  shortlist: Shortlist<R>,
 ): AiPickResult | null {
   if (!pick) return null;
   const key = shortlist.keyById.get(pick.release_key);
@@ -288,10 +300,10 @@ function resolveKey(
   };
 }
 
-export async function pickReleaseWithAi(
+async function pickWithAi<R extends AiPickRelease>(
   config: AiProviderConfig,
-  media: AiPickMediaContext,
-  releases: AiPickRelease[],
+  prompt: PickPrompt<R>,
+  releases: R[],
   ctx: AiCallContext,
 ): Promise<AiPickResult | null> {
   if (releases.length === 0) return null;
@@ -305,7 +317,7 @@ export async function pickReleaseWithAi(
   const structured = !schemaUnsupported.has(endpoint);
 
   try {
-    return await attemptPick(config, media, shortlist, structured, ctx);
+    return await attemptPick(config, prompt, shortlist, structured, ctx);
   } catch (error) {
     // Already on the weaker mode, so there is nothing left to downgrade to.
     if (!structured) return null;
@@ -313,11 +325,45 @@ export async function pickReleaseWithAi(
     // base_url is user-supplied and not every OpenAI-compatible server
     // implements json_schema; retry once the way the pre-SDK client asked.
     try {
-      const result = await attemptPick(config, media, shortlist, false, ctx);
+      const result = await attemptPick(config, prompt, shortlist, false, ctx);
       if (isSchemaRejection(error)) schemaUnsupported.add(endpoint);
       return result;
     } catch {
       return null;
     }
   }
+}
+
+export function pickReleaseWithAi(
+  config: AiProviderConfig,
+  media: AiPickMediaContext,
+  releases: AiPickRelease[],
+  ctx: AiCallContext,
+): Promise<AiPickResult | null> {
+  return pickWithAi(
+    config,
+    {
+      system: AI_SYSTEM_PROMPT,
+      build: (shortlisted) => buildAiPickPrompt(media, shortlisted),
+    },
+    releases,
+    ctx,
+  );
+}
+
+export function pickBookReleaseWithAi(
+  config: AiProviderConfig,
+  book: AiBookPickContext,
+  releases: AiBookPickRelease[],
+  ctx: AiCallContext,
+): Promise<AiPickResult | null> {
+  return pickWithAi(
+    config,
+    {
+      system: AI_BOOK_SYSTEM_PROMPT,
+      build: (shortlisted) => buildAiBookPickPrompt(book, shortlisted),
+    },
+    releases,
+    ctx,
+  );
 }
