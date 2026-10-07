@@ -10,6 +10,18 @@ export interface AiPickMediaContext {
   title: string;
   year: number | null;
   type: string;
+  /** Profile tags as release titles spell them (VFQ, VFF, TRUEFRENCH, MULTI, fr), best first. */
+  preferred_languages?: string[];
+  season?: number | null;
+  episode?: number | null;
+}
+
+function targetLabel(season?: number | null, episode?: number | null) {
+  if (season == null) return null;
+  const s = `S${String(season).padStart(2, "0")}`;
+  return episode == null
+    ? `${s} (season pack)`
+    : `${s}E${String(episode).padStart(2, "0")}`;
 }
 
 /**
@@ -28,7 +40,8 @@ export const AI_SYSTEM_PROMPT =
   "Given a list of releases, pick the single best one. " +
   "`score` is the app's quality rating derived from the user's resolution, format, and size preferences (higher is better). " +
   "Choose in this order: " +
-  "(1) discard releases with the wrong language, wrong season/episode, or a low-quality capture (CAM, TS, TELESYNC, HDCAM, WORKPRINT, SCREENER); " +
+  "(1) discard releases that do not match the target season/episode when one is given, and low-quality captures (CAM, TS, TELESYNC, HDCAM, WORKPRINT, SCREENER); " +
+  "when preferred audio languages are given, prefer releases tagged with them (earlier is better) over untagged ones; " +
   "(2) among those remaining, pick the highest score, and do not second-guess a score from the title; " +
   "(3) if every release is unscored, rank by seeders, preferring a higher resolution and a non-capture source; " +
   "(4) break ties by seeders. " +
@@ -40,7 +53,16 @@ export function buildAiPickPrompt(
   media: AiPickMediaContext,
   releases: AiPickRelease[],
 ): string {
-  const header = `Media: ${media.title}${media.year ? ` (${media.year})` : ""} [${media.type}]`;
+  const target = targetLabel(media.season, media.episode);
+  const header = [
+    `Media: ${media.title}${media.year ? ` (${media.year})` : ""} [${media.type}]`,
+    target ? `Target: ${target}` : null,
+    media.preferred_languages?.length
+      ? `Preferred audio languages: ${media.preferred_languages.join(", ")}`
+      : null,
+  ]
+    .filter((l) => l != null)
+    .join("\n");
 
   const list = releases
     .map((r, i) => {

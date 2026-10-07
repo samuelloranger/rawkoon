@@ -54,3 +54,30 @@ describe("buildAiPickPrompt", () => {
     expect(prompt).toContain("unknown size");
   });
 });
+
+describe("buildAiPickPrompt target and language header", () => {
+  it("prints the target episode and preferred languages when provided", () => {
+    const prompt = buildAiPickPrompt(
+      {
+        title: "Show",
+        year: null,
+        type: "tv",
+        season: 2,
+        episode: 5,
+        preferred_languages: ["VFQ", "VFF"],
+      },
+      releases,
+    );
+    expect(prompt).toContain("Target: S02E05");
+    expect(prompt).toContain("Preferred audio languages: VFQ, VFF");
+  });
+
+  it("omits both lines when absent", () => {
+    const prompt = buildAiPickPrompt(
+      { title: "Show", year: null, type: "tv" },
+      releases,
+    );
+    expect(prompt).not.toContain("Target:");
+    expect(prompt).not.toContain("Preferred audio languages");
+  });
+});

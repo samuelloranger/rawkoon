@@ -52,6 +52,7 @@ export async function upgradeMediaSearch({
   }
 
   const result = await searchAndGrabWithTitleFallback({
+    trigger: "upgrade",
     mediaId,
     episodeId: episodeId ?? undefined,
     mediaType,

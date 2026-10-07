@@ -332,7 +332,12 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
     const best = await pickReleaseForGrab({
       candidates,
       profile: profileInput,
-      mediaContext,
+      mediaContext: profileInput?.preferredLanguages.length
+        ? {
+            ...mediaContext,
+            preferred_languages: profileInput.preferredLanguages,
+          }
+        : mediaContext,
       aiConfig,
       feature: "release_pick_rss",
       trigger: "rss",
@@ -388,7 +393,7 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
           processGrabMatch(
             candidates,
             match.media.qualityProfileId,
-            tvMediaContext(match.media.title),
+            tvMediaContext(match.media.title, match.season, match.episode),
             `${match.media.title} S${match.season}E${match.episode}`,
             { mediaId: match.media.id, episodeId: match.id },
             `episode ${match.id}`,
@@ -412,7 +417,7 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
           processGrabMatch(
             candidates,
             match.media.qualityProfileId,
-            tvMediaContext(match.media.title),
+            tvMediaContext(match.media.title, match.season),
             `season pack ${match.media.title} S${match.season}`,
             { mediaId: match.media.id, season: match.season },
             `season pack ${match.mediaId} S${match.season}`,
@@ -444,8 +449,12 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
   };
 }
 
-function tvMediaContext(title: string): AiPickMediaContext {
-  return { title, year: null, type: "tv" };
+function tvMediaContext(
+  title: string,
+  season: number,
+  episode: number | null = null,
+): AiPickMediaContext {
+  return { title, year: null, type: "tv", season, episode };
 }
 
 function movieMediaContext(

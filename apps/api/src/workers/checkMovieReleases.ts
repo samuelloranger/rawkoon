@@ -65,6 +65,7 @@ export async function checkMovieReleases(): Promise<void> {
         originalTitle: m.originalTitle,
       });
       const result = await searchAndGrabWithTitleFallback({
+        trigger: "scheduled",
         mediaId: m.id,
         mediaType: "movie",
         titleBaseQueries: queries,
