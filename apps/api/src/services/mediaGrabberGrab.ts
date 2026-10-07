@@ -5,7 +5,7 @@ import { infoHashFromMagnet } from "@rawkoon/api/utils/medias/prowlarrSearchUtil
 import { MAX_TORRENT_FILE_BYTES } from "@rawkoon/api/constants/libraryGrab";
 import {
   fetchHttpWithSafeRedirects,
-  isHttpUrlSafeForServerTorrentFetch,
+  isServerTorrentFetchUrlAllowed,
   MagnetRedirectError,
 } from "@rawkoon/api/utils/medias/safeTorrentFetchUrl";
 import {
@@ -95,7 +95,7 @@ export async function grabRelease(opts: {
       if (downloadUrl.length > 16_384) {
         return { grabbed: false, reason: "Magnet link too long" };
       }
-    } else if (!isHttpUrlSafeForServerTorrentFetch(downloadUrl)) {
+    } else if (!(await isServerTorrentFetchUrlAllowed(downloadUrl))) {
       return {
         grabbed: false,
         reason: "Download URL is not allowed for server-side fetch",

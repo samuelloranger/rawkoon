@@ -1,8 +1,16 @@
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
+import { isBlockedForLanFetch } from "@rawkoon/api/utils/ssrf";
+
 /**
- * Server-side .torrent fetch SSRF hardening: block loopback and cloud metadata,
- * while still allowing LAN indexer URLs typical in homelab setups.
+ * Server-side .torrent fetch SSRF hardening: block loopback, link-local (cloud
+ * metadata), multicast and reserved targets, while still allowing LAN indexer
+ * URLs typical in homelab setups. Hostnames are resolved so a DNS name can't
+ * smuggle in a blocked address.
  */
-export function isHttpUrlSafeForServerTorrentFetch(urlString: string): boolean {
+export async function isServerTorrentFetchUrlAllowed(
+  urlString: string,
+): Promise<boolean> {
   let u: URL;
   try {
     u = new URL(urlString);
@@ -12,24 +20,18 @@ export function isHttpUrlSafeForServerTorrentFetch(urlString: string): boolean {
 
   if (u.protocol !== "http:" && u.protocol !== "https:") return false;
 
-  const host = u.hostname.toLowerCase();
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (host === "localhost") return false;
 
-  if (host === "localhost" || host === "0.0.0.0") return false;
-  if (host === "::1" || host === "[::1]") return false;
+  if (isIP(host)) return !isBlockedForLanFetch(host);
 
-  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
-  if (ipv4) {
-    const [, a, b] = ipv4;
-    const ai = Number(a);
-    const bi = Number(b);
-    if (ai === 127) return false; // loopback 127.x.x.x
-    if (ai === 0) return false; // 0.x.x.x
-    // Block the entire link-local range (169.254.0.0/16) — covers cloud metadata
-    // endpoints (AWS 169.254.169.254, GCP 169.254.169.254/metadata, etc.)
-    if (ai === 169 && bi === 254) return false;
+  try {
+    const addresses = await lookup(host, { all: true });
+    if (addresses.length === 0) return false;
+    return addresses.every((a) => !isBlockedForLanFetch(a.address));
+  } catch {
+    return false;
   }
-
-  return true;
 }
 
 export class MagnetRedirectError extends Error {
@@ -40,7 +42,7 @@ export class MagnetRedirectError extends Error {
 }
 
 /**
- * Follow redirects manually so each hop is checked against {@link isHttpUrlSafeForServerTorrentFetch}
+ * Follow redirects manually so each hop is checked against {@link isServerTorrentFetchUrlAllowed}
  * (mitigates open redirects pointing at loopback/metadata).
  * Throws {@link MagnetRedirectError} if a redirect target is a magnet link.
  */
@@ -53,7 +55,7 @@ export async function fetchHttpWithSafeRedirects(
   let url = initialUrl;
 
   for (let i = 0; i <= max; i++) {
-    if (!isHttpUrlSafeForServerTorrentFetch(url)) {
+    if (!(await isServerTorrentFetchUrlAllowed(url))) {
       throw new Error("URL not allowed");
     }
     const res = await fetch(url, { ...reqInit, redirect: "manual" });
