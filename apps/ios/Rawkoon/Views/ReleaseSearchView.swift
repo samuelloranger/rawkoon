@@ -107,6 +107,8 @@ struct ReleaseSearchView: View {
     /// Canonical guid-set the pick was last requested for, so the pick refires
     /// only when the non-rejected candidate set changes, not on every filter.
     @State private var lastAiPickKey: String?
+    @State private var inFlightAiPickKey: String?
+    @State private var aiPickGeneration = 0
 
     private enum SearchSort: String, CaseIterable, Identifiable {
         case quality, seeders, age, size, title
@@ -736,22 +738,23 @@ struct ReleaseSearchView: View {
             aiPickBudgetReached = false
             aiPickLoading = false
             lastAiPickKey = nil
+            inFlightAiPickKey = nil
+            aiPickGeneration += 1
             return
         }
         let key = candidates.map(\.guid).sorted().joined(separator: ",")
-        if !force, key == lastAiPickKey {
+        if !force, key == lastAiPickKey || key == inFlightAiPickKey {
             return
         }
-        lastAiPickKey = key
+        aiPickGeneration += 1
+        let generation = aiPickGeneration
+        inFlightAiPickKey = key
         aiPickDismissed = false
         aiPickGrabbed = false
         aiPickError = nil
         aiPickBudgetReached = false
         aiPick = nil
         aiPickLoading = true
-        defer {
-            aiPickLoading = false
-        }
         let request = AiPickRequest(
             mediaContext: AiPickMediaContext(
                 title: searchQuery,
@@ -770,10 +773,20 @@ struct ReleaseSearchView: View {
             mediaId: libraryMediaId
         )
         do {
-            aiPick = try await client.aiPick(request)
+            let result = try await client.aiPick(request)
+            guard generation == aiPickGeneration else { return }
+            if !Task.isCancelled {
+                aiPick = result
+                lastAiPickKey = key
+            }
         } catch {
-            handleAiPickFailure(error)
+            guard generation == aiPickGeneration else { return }
+            if !Task.isCancelled {
+                handleAiPickFailure(error)
+            }
         }
+        inFlightAiPickKey = nil
+        aiPickLoading = false
     }
 
     private func handleAiPickFailure(_ error: Error) {

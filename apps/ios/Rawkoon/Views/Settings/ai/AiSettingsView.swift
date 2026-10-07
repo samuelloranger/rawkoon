@@ -100,12 +100,16 @@ struct AiSettingsView: View {
 
     private func loadStats() async {
         guard let client = model.api() else { statsLoading = false; return }
+        let requested = period
         statsLoading = true; statsError = nil
         do {
-            stats = try await client.aiStats(days: period.rawValue)
-        } catch is CancellationError {
-            return
+            let result = try await client.aiStats(days: requested.rawValue)
+            // A cancelled request surfaces as a transport error, so check staleness instead of the error type.
+            guard !Task.isCancelled, requested == period else { return }
+            stats = result
+            statsError = nil
         } catch {
+            guard !Task.isCancelled, requested == period else { return }
             statsError = settingsErrorMessage(error)
         }
         statsLoading = false

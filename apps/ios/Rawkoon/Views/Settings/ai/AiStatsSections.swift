@@ -226,7 +226,8 @@ struct AiDailyChart: View {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(identifier: "UTC")
+        // The API's days are calendar days; anchor them in the local zone so the chart bins them on the same day.
+        formatter.timeZone = .current
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
     }()

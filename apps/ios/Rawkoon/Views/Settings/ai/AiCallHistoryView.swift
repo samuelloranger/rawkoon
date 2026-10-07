@@ -15,6 +15,8 @@ struct AiCallHistoryView: View {
     @State private var loadError: String?
     @State private var feature = ""
     @State private var status = ""
+    /// Bumped on every reload so a response for an old filter state is dropped.
+    @State private var generation = 0
 
     /// Seeds the list for the screenshot harness, which has no server to load from.
     private let preview: AiCallsResponse?
@@ -85,9 +87,12 @@ struct AiCallHistoryView: View {
     }
 
     private func reload() async {
+        generation += 1
         calls = []
         total = 0
         page = 0
+        loadError = nil
+        loading = false
         await loadMore()
     }
 
@@ -100,20 +105,23 @@ struct AiCallHistoryView: View {
             return
         }
         guard let client = model.api() else { return }
+        let token = generation
         loading = true; loadError = nil
-        defer { loading = false }
         let requested = page + 1
         do {
             let response = try await client.aiCalls(
                 page: requested, pageSize: Self.pageSize,
                 feature: feature.isEmpty ? nil : feature, status: status.isEmpty ? nil : status
             )
+            guard token == generation, !Task.isCancelled else { return }
             calls += response.calls
             total = response.total
             page = requested
         } catch {
+            guard token == generation, !Task.isCancelled else { return }
             loadError = settingsErrorMessage(error)
         }
+        loading = false
     }
 }
 
