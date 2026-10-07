@@ -5,7 +5,15 @@ import ipaddr from "ipaddr.js";
 function parseIp(ip: string): ipaddr.IPv4 | ipaddr.IPv6 | null {
   if (isIP(ip) === 0) return null;
   try {
-    return ipaddr.process(ip);
+    const addr = ipaddr.process(ip);
+    // ipaddr leaves IPv4-compatible ::a.b.c.d (::/96) as plain unicast IPv6.
+    if (addr.kind() === "ipv6") {
+      const b = addr.toByteArray();
+      if (b.slice(0, 12).every((x) => x === 0)) {
+        return ipaddr.fromByteArray(b.slice(12, 16));
+      }
+    }
+    return addr;
   } catch {
     return null;
   }

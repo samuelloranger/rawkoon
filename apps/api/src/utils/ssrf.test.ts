@@ -9,6 +9,8 @@ const TABLE: [string, boolean, boolean][] = [
   ["::", true, true],
   ["::1", true, true],
   ["::127.0.0.1", true, true],
+  ["::7f00:1", true, true],
+  ["::a9fe:a9fe", true, true],
   ["::ffff:127.0.0.1", true, true],
   ["::ffff:7f00:1", true, true],
   ["64:ff9b::7f00:1", true, true],
