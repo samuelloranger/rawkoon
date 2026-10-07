@@ -20,7 +20,7 @@ import {
 
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342";
 
-function parseFilenameForScan(nameWithoutExt: string): {
+export function parseFilenameForScan(nameWithoutExt: string): {
   title: string;
   year: number | null;
 } {

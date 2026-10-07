@@ -278,7 +278,7 @@ function extractTitleYearFromStem(stemWithoutExt: string): {
   };
 }
 
-function buildParsed(fileNameWithExt: string): DownloadParsed {
+export function buildParsed(fileNameWithExt: string): DownloadParsed {
   const stem = fileNameWithExt.replace(
     /\.(mkv|mp4|avi|m4v|wmv|ts|m2ts|mov)$/i,
     "",

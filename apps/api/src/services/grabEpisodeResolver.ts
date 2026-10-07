@@ -31,7 +31,7 @@ const EPISODE_RANGE_RE =
   /(?:S\d{1,2}E\d{1,3}|\d{1,2}x\d{1,3})(?:[-_. ]?E\d{1,3}|-(?![257]\.[01](?!\d))\d{1,3}(?=[-_. ]|$))/i;
 
 /** Whether a release covers more than one episode (a second marker or a range). */
-function isMultiEpisodeRelease(title: string): boolean {
+export function isMultiEpisodeRelease(title: string): boolean {
   return (
     (title.match(EPISODE_MARKER_RE)?.length ?? 0) > 1 ||
     EPISODE_RANGE_RE.test(title)
