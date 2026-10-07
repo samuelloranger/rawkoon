@@ -16,7 +16,7 @@ struct AiProviderConfigSections: View {
             LabeledTextFieldRow(title: "Model", text: $config.modelName, placeholder: "model name")
             SecretFieldRow(title: "API key", input: $config.apiKeyInput, isStored: config.hasApiKey)
         } footer: {
-            Text("Optional local LLM used for metadata assists. Leave the API key blank for a local server.")
+            Text("OpenAI-compatible model that picks releases, local (llama.cpp, Ollama) or hosted (Groq). Leave the API key blank for a local server.")
         }
         Section {
             LabeledTextFieldRow(

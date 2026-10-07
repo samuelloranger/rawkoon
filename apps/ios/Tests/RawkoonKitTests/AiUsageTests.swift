@@ -72,6 +72,7 @@ struct AiUsageTests {
         #expect(AiUsage.chartMax([]) == 1)
         #expect(AiUsage.chartMax([0, 0]) == 1)
         #expect(AiUsage.chartMax([3, 12, 7]) == 12)
+        #expect(AiUsage.chartMax([0.002, 0.05, 0.01]) == 0.05)
     }
 
     @Test func pickFailureMapping() {

@@ -88,7 +88,9 @@ public enum AiUsage {
 
     /// The largest value on a chart axis; never below 1 so an empty chart still has a scale.
     public static func chartMax(_ values: [Double]) -> Double {
-        max(1, values.max() ?? 0)
+        // Daily costs are fractions of a cent; a floor of 1 would flatten them.
+        let top = values.max() ?? 0
+        return top > 0 ? top : 1
     }
 }
 

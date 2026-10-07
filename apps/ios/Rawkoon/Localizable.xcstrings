@@ -10950,18 +10950,18 @@
         }
       }
     },
-    "Optional local LLM used for metadata assists. Leave the API key blank for a local server.": {
+    "OpenAI-compatible model that picks releases, local (llama.cpp, Ollama) or hosted (Groq). Leave the API key blank for a local server.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Optional local LLM used for metadata assists. Leave the API key blank for a local server."
+            "value": "OpenAI-compatible model that picks releases, local (llama.cpp, Ollama) or hosted (Groq). Leave the API key blank for a local server."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "LLM local optionnel pour les métadonnées. Laisse la clé API vide pour un serveur local."
+            "value": "Modèle compatible OpenAI qui choisit les releases, local (llama.cpp, Ollama) ou hébergé (Groq). Laisse la clé API vide pour un serveur local."
           }
         }
       }
