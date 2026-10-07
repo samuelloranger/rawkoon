@@ -12,6 +12,16 @@ mock.module("@rawkoon/api/services/aiProvider/client", () => ({
   pickReleaseWithAi: pickReleaseWithAiMock,
 }));
 
+let blocklisted: string[] = [];
+mock.module("@rawkoon/api/db", () => ({
+  prisma: {
+    grabBlocklist: {
+      findMany: async () =>
+        blocklisted.map((releaseTitle) => ({ releaseTitle })),
+    },
+  },
+}));
+
 function release(guid: string, title: string): NormalizedRelease {
   return {
     guid,
@@ -103,6 +113,50 @@ describe("pickReleaseForGrab", () => {
       profile: null,
       mediaContext: { title: "Movie", year: 2020, type: "movie" },
       aiConfig: { base_url: "http://localhost:11434", model: "test" },
+    });
+
+    expect(result?.picked_by).toBe("classic");
+    expect(pickReleaseWithAiMock).not.toHaveBeenCalled();
+  });
+
+  const ai = { base_url: "http://localhost:11434", model: "test" };
+  const ctx = { title: "Movie", year: 2020, type: "movie" };
+
+  it("never offers or falls back to a blocklisted release", async () => {
+    pickReleaseWithAiMock.mockClear();
+    blocklisted = ["movie.2020.1080p.bluray.x265-g2"];
+    const candidates = [
+      release("a", "Movie.2020.720p.WEB-DL.x264-G1"),
+      release("b", "Movie.2020.1080p.BluRay.x265-G2"),
+      release("c", "Movie.2020.1080p.WEB-DL.x264-G3"),
+    ];
+
+    const result = await pickReleaseForGrab({
+      candidates,
+      profile: null,
+      mediaContext: ctx,
+      aiConfig: ai,
+    });
+
+    const offered = (
+      pickReleaseWithAiMock.mock.calls[0]![2] as { title: string }[]
+    ).map((r) => r.title);
+    expect(offered).not.toContain("Movie.2020.1080p.BluRay.x265-G2");
+    expect(result?.release.title).not.toBe("Movie.2020.1080p.BluRay.x265-G2");
+    blocklisted = [];
+  });
+
+  it("skips AI when the other candidate has no seeders", async () => {
+    pickReleaseWithAiMock.mockClear();
+    const dead = {
+      ...release("b", "Movie.2020.720p.WEB-DL.x264-G1"),
+      seeders: 0,
+    };
+    const result = await pickReleaseForGrab({
+      candidates: [release("a", "Movie.2020.1080p.BluRay.x265-G2"), dead],
+      profile: null,
+      mediaContext: ctx,
+      aiConfig: ai,
     });
 
     expect(result?.picked_by).toBe("classic");
