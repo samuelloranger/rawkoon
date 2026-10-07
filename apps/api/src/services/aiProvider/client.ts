@@ -310,7 +310,11 @@ async function pickWithAi<R extends AiPickRelease>(
   if (releases.length === 0) return null;
 
   // Before any provider HTTP: disabled features and spent budgets fall back to classic.
-  if (!(await gateAiCall(config, ctx)).allowed) return null;
+  const gate = await gateAiCall(config, ctx).catch((error: unknown) => {
+    console.warn("[aiProvider] gate check failed, using classic pick:", error);
+    return { allowed: false as const };
+  });
+  if (!gate.allowed) return null;
 
   // Every caller is shortlisted here rather than at its own call site: the
   // interactive-search route hands over whatever the indexer returned.

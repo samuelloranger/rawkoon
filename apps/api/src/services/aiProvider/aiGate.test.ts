@@ -188,6 +188,20 @@ describe("pickReleaseWithAi gating", () => {
       mediaId: 4,
     });
   });
+
+  it("falls back to classic without an HTTP call when the spend lookup fails", async () => {
+    aggregate.mockImplementation(async () => {
+      throw new Error("db down");
+    });
+    const res = await pickReleaseWithAi(
+      { ...priced, daily_budget_usd: 1 },
+      media,
+      releases,
+      { feature: "release_pick_rss" },
+    );
+    expect(res).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
 });
 
 describe("handleAiPick", () => {

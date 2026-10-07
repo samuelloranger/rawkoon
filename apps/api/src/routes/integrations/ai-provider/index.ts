@@ -33,10 +33,10 @@ import {
   invalidateIntegrationConfigCache,
 } from "@rawkoon/api/services/integrationConfigCache";
 
-// Blank means "no price"; coerce alone would turn "" and null into 0.
+// Blank or null clears, absent keeps; coerce alone would turn "" and null into 0.
 const priceField = z.preprocess(
-  (v) => (v === "" || v === null ? undefined : v),
-  z.coerce.number().min(0).finite().optional(),
+  (v) => (v === "" ? null : v),
+  z.coerce.number().min(0).finite().nullable().optional(),
 );
 
 const statsQuery = z.object({
@@ -136,8 +136,15 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
       // submitted without re-entering a secret it is never shown.
       const existing = await loadAiConfig();
       const apiKey = body.api_key?.trim() || existing?.api_key || "";
-      const inputPrice = body.input_price_per_million ?? null;
-      const outputPrice = body.output_price_per_million ?? null;
+      // Older clients (iOS) never send prices, so absent keeps the stored value.
+      const inputPrice =
+        body.input_price_per_million === undefined
+          ? (existing?.input_price_per_million ?? null)
+          : body.input_price_per_million;
+      const outputPrice =
+        body.output_price_per_million === undefined
+          ? (existing?.output_price_per_million ?? null)
+          : body.output_price_per_million;
       // Budget and features are kept when the body omits them (older clients
       // never send them) and cleared only by an explicit null.
       const budget =
