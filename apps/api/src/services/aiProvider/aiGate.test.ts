@@ -18,7 +18,7 @@ mock.module("@rawkoon/api/db", () => ({
 const { checkAiAllowed, invalidateAiSpendCache } = await import(
   "@rawkoon/api/services/aiProvider/aiGate"
 );
-const { pickReleaseWithAi } = await import(
+const { pickReleaseWithAi, pickBookReleaseWithAi } = await import(
   "@rawkoon/api/services/aiProvider/client"
 );
 const { handleAiPick } = await import("@rawkoon/api/routes/medias/search");
@@ -187,6 +187,32 @@ describe("pickReleaseWithAi gating", () => {
       durationMs: 0,
       mediaId: 4,
     });
+  });
+
+  it("gates book picks through the same check", async () => {
+    const res = await pickBookReleaseWithAi(
+      { ...priced, features: { book_release_pick: false } },
+      {
+        title: "Book",
+        authors: ["A"],
+        kind: "audiobook",
+        language: "fr",
+        seriesName: null,
+        seriesPosition: null,
+      },
+      [
+        {
+          ...releases[0]!,
+          format: "m4b",
+          kind: "audiobook",
+          language: "fr",
+          audio_bitrate: null,
+        },
+      ],
+      { feature: "book_release_pick" },
+    );
+    expect(res).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("falls back to classic without an HTTP call when the spend lookup fails", async () => {
