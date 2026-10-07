@@ -33,6 +33,7 @@ const SEASON_WORD = new RegExp(
   `(?:^|${SEP})(?:Seasons?|Saisons?|Stagione|Temporada|Staffel|Series)${SEP}*(\\d{1,2})(?:${SEP}*-${SEP}*\\d{1,2})?(?=$|${SEP})`,
   "i",
 );
+// A bare "Complete" is not enough: movie titles use it ("A Complete Unknown").
 const COMPLETE_SERIES = new RegExp(
   `${SEP}+(?:The${SEP}+)?(?:Complete${SEP}+(?:Series|Pack)|Int[ée]grale?)(?=$|${SEP})`,
   "i",
@@ -206,18 +207,22 @@ function parseTv(name: string): ReleaseStructure | null {
     year: split.year,
     titleWithYear: split.titleWithYear,
   };
-  if (kind === "sxx") {
-    return { ...base, season: Number(match[1]), episodes: sxxEpisodes(match) };
+  // The earliest marker ends the title, but an episode marker anywhere wins
+  // for the numbers: "Show.Season.3.S03E04" is episode 4, not a pack.
+  const sxx = kind === "sxx" ? match : SXX_CHAIN.exec(name);
+  if (sxx) {
+    return { ...base, season: Number(sxx[1]), episodes: sxxEpisodes(sxx) };
   }
-  if (kind === "nx") {
-    const from = Number(match[2]);
-    const chained = [...match[3].matchAll(/x(\d{2,3})/gi)].map((x) =>
+  const nx = kind === "nx" ? match : NXNN.exec(name);
+  if (nx) {
+    const from = Number(nx[2]);
+    const chained = [...nx[3].matchAll(/x(\d{2,3})/gi)].map((x) =>
       Number(x[1]),
     );
     return {
       ...base,
-      season: Number(match[1]),
-      episodes: match[4] ? range(from, Number(match[4])) : [from, ...chained],
+      season: Number(nx[1]),
+      episodes: nx[4] ? range(from, Number(nx[4])) : [from, ...chained],
     };
   }
   const season = /(\d{1,2})/.exec(match[0].replace(/^[\s._-]*\D*/, ""));
