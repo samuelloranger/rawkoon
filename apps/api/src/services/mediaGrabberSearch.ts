@@ -295,8 +295,6 @@ export async function searchAndGrabWithTitleFallback(opts: {
   isUpgrade?: boolean;
   /** Recorded in the AI usage ledger; defaults to upgrade/manual_search from isUpgrade. */
   trigger?: AiTrigger;
-  /** Pre-loaded by the fallback wrapper; undefined means load it here. */
-  aiConfig?: AiProviderConfig | null;
 }): Promise<
   { grabbed: true; releaseTitle: string } | { grabbed: false; reason: string }
 > {
