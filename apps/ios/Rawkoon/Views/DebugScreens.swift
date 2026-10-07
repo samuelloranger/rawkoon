@@ -52,6 +52,26 @@
                         alreadyInLibrary: false
                     ))
                 }
+            case "aiConfig":
+                DebugAiSettings(scrollTo: nil)
+            case "aiPrices":
+                DebugAiSettings(scrollTo: "ai-prices")
+            case "aiUsage":
+                DebugAiSettings(scrollTo: "ai-usage")
+            case "aiStats":
+                DebugAiSettings(scrollTo: "ai-stats")
+            case "aiCharts":
+                DebugAiSettings(scrollTo: "ai-charts")
+            case "aiGrabs":
+                DebugAiSettings(scrollTo: "ai-grabs")
+            case "aiHistory":
+                DebugAiHistory(detail: false)
+            case "aiCallDetail":
+                DebugAiHistory(detail: true)
+            case "aiBanner":
+                DebugAiBanner(budgetReached: false)
+            case "aiBannerBudget":
+                DebugAiBanner(budgetReached: true)
             default:
                 EmptyView()
             }
@@ -60,7 +80,8 @@
         static func isOffline(_ screen: String) -> Bool {
             [
                 "player", "playerNoChapters", "deck", "orderedSources",
-                "bookDiscoveryDetail", "tabBar", "tabContainer",
+                "bookDiscoveryDetail", "tabBar", "tabContainer", "aiConfig", "aiPrices", "aiUsage", "aiStats", "aiCharts",
+                "aiGrabs", "aiHistory", "aiCallDetail", "aiBanner", "aiBannerBudget",
             ].contains(screen)
         }
     }

@@ -9,6 +9,7 @@ struct AiPickBanner: View {
 
     let aiPickLoading: Bool
     let aiPickError: String?
+    let aiPickBudgetReached: Bool
     let aiPickedRelease: ReleaseItem?
     let aiPickGrabbed: Bool
     let aiPick: AiPick?
@@ -26,6 +27,17 @@ struct AiPickBanner: View {
                         .font(.caption)
                         .foregroundStyle(Theme.apricot)
                     Text("AI is picking the best release…")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.muted)
+                }
+            }
+        } else if aiPickBudgetReached {
+            aiPickBannerShell(isError: false) {
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkles")
+                        .font(.caption)
+                        .foregroundStyle(Theme.muted)
+                    Text("AI daily budget reached \u{2014} showing the classic pick")
                         .font(.subheadline)
                         .foregroundStyle(Theme.muted)
                 }
