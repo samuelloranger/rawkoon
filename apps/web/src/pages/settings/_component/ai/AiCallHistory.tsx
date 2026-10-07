@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ChevronRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import {
   AI_CALL_STATUSES,
@@ -52,11 +53,82 @@ function TargetCell({ call }: { call: AiCallEntry }) {
   return <span className="text-neutral-500">—</span>;
 }
 
+function DetailField({
+  label,
+  mono,
+  children,
+}: {
+  label: string;
+  mono?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[11px] uppercase tracking-wider text-neutral-500">
+        {label}
+      </dt>
+      <dd
+        className={cn(
+          "mt-0.5 text-neutral-200",
+          mono ? "break-all font-mono text-xs" : "break-words",
+        )}
+      >
+        {children}
+      </dd>
+    </div>
+  );
+}
+
+function CallDetails({ call }: { call: AiCallEntry }) {
+  const { t } = useTranslation("common");
+  const none = <span className="text-neutral-500">—</span>;
+  const agreed =
+    call.agreed_with_classic == null
+      ? none
+      : call.agreed_with_classic
+        ? t("settings.ai.history.yes")
+        : t("settings.ai.history.no");
+  return (
+    <dl className="grid gap-3 sm:grid-cols-2">
+      <DetailField label={t("settings.ai.history.picked")} mono>
+        {call.picked_title ?? none}
+      </DetailField>
+      <DetailField label={t("settings.ai.history.classic")} mono>
+        {call.classic_title ?? none}
+      </DetailField>
+      <DetailField label={t("settings.ai.history.agreed")}>
+        {agreed}
+      </DetailField>
+      <DetailField label={t("settings.ai.history.trigger")}>
+        {call.trigger
+          ? t(`settings.ai.triggers.${call.trigger}`, {
+              defaultValue: call.trigger,
+            })
+          : none}
+      </DetailField>
+      <DetailField label={t("settings.ai.history.model")} mono>
+        {call.model}
+      </DetailField>
+      <DetailField label={t("settings.ai.history.reasoning")}>
+        <span className="whitespace-pre-wrap">{call.reasoning ?? none}</span>
+      </DetailField>
+      {call.error && (
+        <div className="sm:col-span-2">
+          <DetailField label={t("settings.ai.history.error")} mono>
+            <span className="text-red-400">{call.error}</span>
+          </DetailField>
+        </div>
+      )}
+    </dl>
+  );
+}
+
 export function AiCallHistory() {
   const { t, i18n } = useTranslation("common");
   const [page, setPage] = useState(1);
   const [feature, setFeature] = useState("");
   const [status, setStatus] = useState("");
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const { data, isLoading, isError } = useAiCalls({ page, feature, status });
 
   const totalPages = Math.max(
@@ -127,6 +199,7 @@ export function AiCallHistory() {
           <table className="w-full text-left text-sm">
             <thead className="bg-neutral-900 text-[11px] uppercase tracking-wider text-neutral-500">
               <tr>
+                <th className="w-8 px-1 py-2" />
                 <th className="px-3 py-2">{t("settings.ai.history.time")}</th>
                 <th className="px-3 py-2">
                   {t("settings.ai.history.feature")}
@@ -144,51 +217,94 @@ export function AiCallHistory() {
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-800 text-neutral-300">
-              {data.calls.map((call) => (
-                <tr key={call.id}>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {dateFormat.format(new Date(call.created_at))}
-                  </td>
-                  <td
-                    className="whitespace-nowrap px-3 py-2"
-                    title={call.model}
-                  >
-                    {t(`settings.ai.features.${call.feature}`, {
-                      defaultValue: call.feature,
-                    })}
-                  </td>
-                  <td className="px-3 py-2">
-                    <span
-                      title={call.error ?? undefined}
-                      className={cn(
-                        "whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium",
-                        STATUS_STYLES[call.status],
-                      )}
+              {data.calls.map((call) => {
+                const open = expandedId === call.id;
+                const toggle = () => setExpandedId(open ? null : call.id);
+                return (
+                  <Fragment key={call.id}>
+                    <tr
+                      onClick={toggle}
+                      className="cursor-pointer hover:bg-neutral-900/60"
                     >
-                      {t(`settings.ai.statuses.${call.status}`)}
-                    </span>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {formatTokens(call.input_tokens)} /{" "}
-                    {formatTokens(call.output_tokens)}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {formatMs(call.duration_ms)}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {formatCost(call.estimated_cost)}
-                  </td>
-                  <td className="max-w-48 truncate px-3 py-2">
-                    <TargetCell call={call} />
-                  </td>
-                  <td
-                    className="max-w-56 truncate px-3 py-2 text-neutral-400"
-                    title={call.reasoning ?? call.error ?? undefined}
-                  >
-                    {call.reasoning ?? call.error ?? "—"}
-                  </td>
-                </tr>
-              ))}
+                      <td className="px-1 py-2">
+                        <button
+                          type="button"
+                          aria-expanded={open}
+                          aria-label={t(
+                            open
+                              ? "settings.ai.history.collapse"
+                              : "settings.ai.history.expand",
+                          )}
+                          onClick={(e) => {
+                            // The row handler would toggle a second time.
+                            e.stopPropagation();
+                            toggle();
+                          }}
+                          className="focus-ring rounded p-1 text-neutral-400 hover:text-neutral-100"
+                        >
+                          <ChevronRight
+                            className={cn(
+                              "h-4 w-4 transition-transform",
+                              open && "rotate-90",
+                            )}
+                          />
+                        </button>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2">
+                        {dateFormat.format(new Date(call.created_at))}
+                      </td>
+                      <td
+                        className="whitespace-nowrap px-3 py-2"
+                        title={call.model}
+                      >
+                        {t(`settings.ai.features.${call.feature}`, {
+                          defaultValue: call.feature,
+                        })}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span
+                          title={call.error ?? undefined}
+                          className={cn(
+                            "whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium",
+                            STATUS_STYLES[call.status],
+                          )}
+                        >
+                          {t(`settings.ai.statuses.${call.status}`)}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2">
+                        {formatTokens(call.input_tokens)} /{" "}
+                        {formatTokens(call.output_tokens)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2">
+                        {formatMs(call.duration_ms)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2">
+                        {formatCost(call.estimated_cost)}
+                      </td>
+                      <td
+                        className="max-w-48 truncate px-3 py-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <TargetCell call={call} />
+                      </td>
+                      <td
+                        className="max-w-56 truncate px-3 py-2 text-neutral-400"
+                        title={call.reasoning ?? call.error ?? undefined}
+                      >
+                        {call.reasoning ?? call.error ?? "—"}
+                      </td>
+                    </tr>
+                    {open && (
+                      <tr className="bg-neutral-900/40">
+                        <td colSpan={9} className="px-4 py-3 text-sm">
+                          <CallDetails call={call} />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
