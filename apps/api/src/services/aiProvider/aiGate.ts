@@ -26,6 +26,18 @@ export function invalidateAiSpendCache(): void {
   cached = null;
 }
 
+/** Adds a just-recorded call to the cached spend so the budget holds within the cache window. */
+export function noteAiSpend(
+  usage: { inputTokens?: number; outputTokens?: number },
+  now = Date.now(),
+): void {
+  if (!cached || cached.day !== startOfUtcDay(now)) return;
+  cached.tokens = {
+    input: cached.tokens.input + (usage.inputTokens ?? 0),
+    output: cached.tokens.output + (usage.outputTokens ?? 0),
+  };
+}
+
 /** Uncached; also feeds the stats page so both agree on what "today" is. */
 export async function fetchTodayTokens(now = Date.now()): Promise<Tokens> {
   const sums = await prisma.aiCall.aggregate({

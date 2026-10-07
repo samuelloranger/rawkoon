@@ -10,7 +10,10 @@ import {
   type AiPickMediaContext,
   type AiPickRelease,
 } from "@rawkoon/api/utils/medias/buildAiPickPrompt";
-import { gateAiCall } from "@rawkoon/api/services/aiProvider/aiGate";
+import {
+  gateAiCall,
+  noteAiSpend,
+} from "@rawkoon/api/services/aiProvider/aiGate";
 import {
   AI_BOOK_SYSTEM_PROMPT,
   buildAiBookPickPrompt,
@@ -246,6 +249,7 @@ async function attemptPick<R extends AiPickRelease>(
     ? shortlist.releases.find((r) => r.key === generated.object.release_key)
         ?.title
     : undefined;
+  noteAiSpend(generated.usage);
   recordAiCall({
     ...base,
     status: resolved ? "ok" : "invalid_pick",

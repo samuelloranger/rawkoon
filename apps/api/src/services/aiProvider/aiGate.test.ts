@@ -15,7 +15,7 @@ mock.module("@rawkoon/api/db", () => ({
   },
 }));
 
-const { checkAiAllowed, invalidateAiSpendCache } = await import(
+const { checkAiAllowed, invalidateAiSpendCache, noteAiSpend } = await import(
   "@rawkoon/api/services/aiProvider/aiGate"
 );
 const { pickReleaseWithAi, pickBookReleaseWithAi } = await import(
@@ -133,6 +133,19 @@ describe("checkAiAllowed", () => {
     const fresh = await checkAiAllowed(config, "release_pick_rss", t0 + 62_000);
     expect(fresh.allowed).toBe(true);
     expect(aggregate).toHaveBeenCalledTimes(3);
+  });
+
+  it("counts calls recorded inside the cache window", async () => {
+    const config = { ...priced, daily_budget_usd: 2 };
+    const t0 = Date.UTC(2026, 9, 6, 12, 0, 0);
+    spend(1);
+    expect((await checkAiAllowed(config, "release_pick_rss", t0)).allowed).toBe(
+      true,
+    );
+    noteAiSpend({ inputTokens: 1_500_000, outputTokens: 0 }, t0 + 1_000);
+    const res = await checkAiAllowed(config, "release_pick_rss", t0 + 2_000);
+    expect(res).toEqual({ allowed: false, reason: "budget_exceeded" });
+    expect(aggregate).toHaveBeenCalledTimes(1);
   });
 
   it("starts the spend window at midnight UTC", async () => {

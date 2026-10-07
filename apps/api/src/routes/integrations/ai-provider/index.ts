@@ -67,6 +67,7 @@ const featureToggles = z
       AI_FEATURES.map((f) => [f, z.boolean().optional()]),
     ) as Record<AiFeature, z.ZodOptional<z.ZodBoolean>>,
   )
+  .nullable()
   .optional();
 
 async function loadAiConfig() {
@@ -151,7 +152,11 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
         body.daily_budget_usd === undefined
           ? (existing?.daily_budget_usd ?? null)
           : body.daily_budget_usd;
-      const features = body.features ?? existing?.features ?? {};
+      // Partial maps merge into the stored switches; null resets them all to on.
+      const features =
+        body.features === null
+          ? {}
+          : { ...(existing?.features ?? {}), ...(body.features ?? {}) };
       const providerConfig = {
         base_url: baseUrl,
         model: body.model.trim(),
