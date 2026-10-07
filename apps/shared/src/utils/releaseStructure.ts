@@ -168,9 +168,7 @@ const TV_MARKERS = [
 ] as const;
 
 // The earliest explicit TV marker; the title is everything before it.
-function firstTvMarker(
-  name: string,
-): {
+function firstTvMarker(name: string): {
   kind: (typeof TV_MARKERS)[number][0];
   match: RegExpExecArray;
   start: number;
