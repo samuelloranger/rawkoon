@@ -54,6 +54,7 @@ export function InteractiveSearchPanel(props: InteractiveSearchPanelProps) {
     mediaTitle: props.media?.title ?? props.defaultSearchQuery ?? "",
     mediaYear: props.media?.year ?? null,
     mediaType: mediaType as "movie" | "tv",
+    libraryMediaId: props.libraryMediaId,
   });
 
   const pickedRelease =
