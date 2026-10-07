@@ -78,7 +78,7 @@ final class AudiobookPlayer {
     var chapters: [ManifestChapter] = []
     /// The download+playback unit. A multi-file book has one file per chapter;
     /// a single-file audiobook has one file that many chapters index into.
-    private var filesById: [Int: ManifestFile] = [:]
+    var filesById: [Int: ManifestFile] = [:]
     private var itemFiles: [ObjectIdentifier: ManifestFile] = [:]
     private var timeObserver: Any?
     private var endObserver: NSObjectProtocol?
@@ -86,12 +86,27 @@ final class AudiobookPlayer {
     private var currentItemObserver: NSKeyValueObservation?
     private var itemStatusObserver: NSKeyValueObservation?
     /// Bumped on every seek so a stale completion cannot play() after a newer seek.
-    private var seekID = 0
+    var seekID = 0
     /// While true, ticks and current-item KVO must not overwrite `positionSecs`.
     private var isSeeking = false
     /// Chapters whose unreadable local file was already discarded once this
     /// session, so a chapter that fails for another reason cannot loop.
-    private var recoveredFileIds: Set<Int> = []
+    var recoveredFileIds: Set<Int> = []
+    /// When each file's stream was last retried, so a stream that keeps
+    /// failing stops instead of looping.
+    var streamRetriedAt: [Int: Date] = [:]
+    /// The item the queue was built with, kept so a failure can be resolved
+    /// even after AVQueuePlayer has already dropped it from `currentItem`.
+    var queuedItem: AVPlayerItem?
+    /// The last item whose failure was handled, so the status KVO, the
+    /// failed-to-end notification and a drained queue resolve it only once.
+    var handledFailedItem: ObjectIdentifier?
+
+    /// Fresh signed URLs for an edition, or nil when they cannot be had.
+    /// Set by AppModel; a cached manifest's grants expire after seven days.
+    var refreshManifest: ((Int) async -> BookManifest?)?
+    /// Whether the network is up. Set by AppModel.
+    var isNetworkAvailable: () -> Bool = { true }
 
     init() {
         configureAudioSession()
@@ -333,6 +348,7 @@ final class AudiobookPlayer {
         wasPlayingBeforeInterruption = false
         playbackError = nil
         recoveredFileIds = []
+        streamRetriedAt = [:]
         // An end-of-chapter timer names a chapter of the old book; a rebuild of
         // the same book keeps it.
         if self.manifest?.editionId != manifest.editionId {
@@ -564,12 +580,8 @@ final class AudiobookPlayer {
         case .readyToPlay:
             seekCurrentItem(to: offset, autoplay: autoplay)
         case .failed:
-            logItemFailure(item)
-            if recoverFromFailedLocalItem(item) {
-                return
-            }
             isSeeking = false
-            reportUnplayableFile(file(for: item))
+            handleFailedItem(item)
         default:
             isSeeking = true
             isPlaying = autoplay
@@ -584,15 +596,9 @@ final class AudiobookPlayer {
                             self.itemStatusObserver = nil
                             self.seekCurrentItem(to: offset, autoplay: self.isPlaying)
                         case .failed:
-                            if let failedItem {
-                                self.logItemFailure(failedItem)
-                            }
                             self.itemStatusObserver = nil
-                            if let failedItem, self.recoverFromFailedLocalItem(failedItem) {
-                                return
-                            }
                             self.isSeeking = false
-                            self.reportUnplayableFile(self.file(for: failedItem ?? item))
+                            self.handleFailedItem(failedItem ?? item)
                         default:
                             break
                         }
@@ -634,7 +640,7 @@ final class AudiobookPlayer {
         var items: [AVPlayerItem] = []
         var mapping: [ObjectIdentifier: ManifestFile] = [:]
         if let mediaURL = playbackURL(for: file, editionId: manifest.editionId) {
-            let item = AVPlayerItem(url: mediaURL)
+            let item = makePlayerItem(url: mediaURL)
             item.audioTimePitchAlgorithm = .spectral
             items.append(item)
             mapping[ObjectIdentifier(item)] = file
@@ -660,6 +666,8 @@ final class AudiobookPlayer {
         queuePlayer.actionAtItemEnd = .pause
         player = queuePlayer
         itemFiles = mapping
+        queuedItem = items.first
+        handledFailedItem = nil
 
         // Offset within the physical file, not the chapter: for a single-file
         // book the file's t=0 is the whole book's start, so the offset is
@@ -748,7 +756,7 @@ final class AudiobookPlayer {
         // derived from the whole-book position, not from the item.
         setCurrentChapter(index: timeline?.chapterIndex(at: clamped))
         if isPlaying, player?.currentItem == nil {
-            applyQueueDrained()
+            handleQueueEmptied()
         }
         updateNowPlayingInfo()
     }
@@ -762,7 +770,7 @@ final class AudiobookPlayer {
             }
             setCurrentChapter(index: timeline?.chapterIndex(at: positionSecs))
         } else if player.currentItem == nil {
-            applyQueueDrained()
+            handleQueueEmptied()
         }
         updateNowPlayingInfo()
     }
@@ -795,11 +803,10 @@ final class AudiobookPlayer {
     }
 
     private func handleItemFailedToPlayToEnd(_ identifier: ObjectIdentifier) {
-        guard !isSeeking, let file = itemFiles[identifier] else { return }
-        if let item = player?.currentItem, recoverFromFailedLocalItem(item) {
-            return
-        }
-        reportUnplayableFile(file)
+        // The queued item, not `currentItem`: the queue may already have
+        // dropped it, and an older queue's item must not be resolved here.
+        guard !isSeeking, let item = queuedItem, ObjectIdentifier(item) == identifier else { return }
+        handleFailedItem(item)
     }
 
     private func applyChapterAdvance(_ decision: ChapterAdvanceDecision) {
@@ -808,17 +815,17 @@ final class AudiobookPlayer {
             finishBook()
         case let .playNext(index):
             guard let next = chapter(forIndex: index) else {
-                reportUnplayableFile(nil)
+                reportUnplayableFile(nil, reason: nil)
                 return
             }
             isPlaying = true
             seek(to: next.startSecs, userInitiated: false)
         case let .stopWithError(index, title):
-            stopWithUnplayableChapter(index: index, title: title)
+            stopWithUnplayableChapter(index: index, title: title, reason: nil)
         }
     }
 
-    private func applyQueueDrained() {
+    func applyQueueDrained() {
         switch queueDrainedDecision(
             endedIndex: currentChapterIndex,
             lastIndex: chapters.last?.index,
@@ -832,7 +839,7 @@ final class AudiobookPlayer {
                 guard let current = currentChapterIndex else { return true }
                 return chapter.index > current
             }
-            stopWithUnplayableChapter(index: next?.index ?? currentChapterIndex ?? 0, title: next?.title ?? "")
+            stopWithUnplayableChapter(index: next?.index ?? currentChapterIndex ?? 0, title: next?.title ?? "", reason: nil)
         }
     }
 
@@ -849,16 +856,14 @@ final class AudiobookPlayer {
         return playbackURL(for: file, editionId: manifest.editionId) != nil
     }
 
-    private func stopWithUnplayableChapter(index: Int, title: String) {
-        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        playbackError = trimmed.isEmpty
-            ? String(localized: "The next chapter couldn't be played. Playback stopped.")
-            : String(localized: "\"\(trimmed)\" couldn't be played. Playback stopped.")
+    private func stopWithUnplayableChapter(index: Int, title: String, reason: PlaybackStopReason?) {
+        playbackError = unplayableMessage(title: title.trimmingCharacters(in: .whitespacesAndNewlines), reason: reason)
         stopPlayback()
         Log.playback.error(
             """
-            Stopped: next chapter is unplayable: \
+            Stopped: chapter is unplayable: \
             chapterIndex=\(index, privacy: .public) \
+            reason=\(String(describing: reason), privacy: .public) \
             title=\(title, privacy: .public)
             """
         )
@@ -867,9 +872,9 @@ final class AudiobookPlayer {
 
     /// Surfaces a file that could not play, labelled by its first chapter so
     /// the listener sees a chapter title rather than a file id.
-    private func reportUnplayableFile(_ file: ManifestFile?) {
+    func reportUnplayableFile(_ file: ManifestFile?, reason: PlaybackStopReason?) {
         let chapter = file.flatMap { f in chapters.first { $0.fileId == f.id } }
-        stopWithUnplayableChapter(index: chapter?.index ?? -1, title: chapter?.title ?? "")
+        stopWithUnplayableChapter(index: chapter?.index ?? -1, title: chapter?.title ?? "", reason: reason)
     }
 
     private func setCurrentChapter(_ chapter: ManifestChapter?) {
@@ -920,46 +925,6 @@ final class AudiobookPlayer {
             return absolute
         }
         return nil
-    }
-
-    /// A player item that fails is the end of the road for that file.
-    /// We stop and surface an error rather than walking the playlist.
-    private func logItemFailure(_ item: AVPlayerItem) {
-        let fileId = file(for: item)?.id ?? -1
-        let reason = item.error?.localizedDescription ?? "no error reported"
-        Log.playback.error(
-            """
-            File item failed to load: \
-            fileId=\(fileId, privacy: .public) \
-            error=\(reason, privacy: .public)
-            """
-        )
-    }
-
-    /// Streams a local chapter AVPlayer failed to open, keeping the file: the
-    /// failure is often transient (audio-session/route churn), so deleting the
-    /// only offline copy would strand a listener who then loses network.
-    /// `recoveredFileIds` caps this to one attempt per chapter per session.
-    /// Returns true when recovery started, so the caller doesn't also finalize.
-    private func recoverFromFailedLocalItem(_ item: AVPlayerItem) -> Bool {
-        guard
-            let file = file(for: item),
-            let url = (item.asset as? AVURLAsset)?.url,
-            url.isFileURL,
-            !recoveredFileIds.contains(file.id)
-        else {
-            return false
-        }
-
-        recoveredFileIds.insert(file.id)
-        Log.playback.error(
-            """
-            Local file failed to open; streaming this session and keeping the \
-            file: fileId=\(file.id, privacy: .public)
-            """
-        )
-        buildQueue(at: positionSecs, autoplay: isPlaying)
-        return true
     }
 
     func file(for item: AVPlayerItem?) -> ManifestFile? {

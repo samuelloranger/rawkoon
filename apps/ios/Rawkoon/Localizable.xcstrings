@@ -7077,6 +7077,36 @@
         }
       }
     },
+    "\"%@\" needs a connection and you're offline. Playback stopped.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« %@ » nécessite une connexion et vous êtes hors ligne. Lecture arrêtée."
+          }
+        }
+      }
+    },
+    "\"%@\" couldn't be read on this device. Playback stopped.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« %@ » n'a pas pu être lu sur cet appareil. Lecture arrêtée."
+          }
+        }
+      }
+    },
+    "Couldn't stream \"%@\" from the server. Check your connection and try again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de diffuser « %@ » depuis le serveur. Vérifiez votre connexion et réessayez."
+          }
+        }
+      }
+    },
     "\"%@\" couldn't be played. Playback stopped.": {
       "localizations": {
         "fr": {
