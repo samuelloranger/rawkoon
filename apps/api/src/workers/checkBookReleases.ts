@@ -1,10 +1,13 @@
 import { prisma } from "@rawkoon/api/db";
 import { MAX_CRON_GRAB_ATTEMPTS } from "@rawkoon/api/constants/libraryGrab";
 import {
+  describeBookRelease,
   grabBookRelease,
+  loadEditionContext,
   searchAndGrabBook,
   searchBookReleases,
 } from "@rawkoon/api/services/books/bookGrabber";
+import { pickBookCandidate } from "@rawkoon/api/services/books/bookAiPick";
 import { notifyAdminsBookSearchSkipped } from "@rawkoon/api/workers/notifyBookEvents";
 import { meetsBookCutoff } from "@rawkoon/api/utils/books/bookReleaseScorer";
 import type { BookFormat } from "@rawkoon/shared/types";
@@ -54,7 +57,7 @@ export async function searchWantedBookEditions(): Promise<void> {
 
   for (const edition of editions) {
     try {
-      const result = await searchAndGrabBook(edition.id);
+      const result = await searchAndGrabBook(edition.id, "scheduled");
       if (result.grabbed) continue;
 
       // searchAndGrabBook only bumps searchAttempts when it actually grabbed,
@@ -131,14 +134,27 @@ export async function searchBookUpgrades(): Promise<void> {
       if (error) continue;
 
       // Only a release strictly better than what is held is an upgrade.
-      const candidate = releases.find((r) => {
+      const upgrades = releases.filter((r) => {
         if (r.rejected) return false;
         if (!r.format) return false;
+        if (!(r.download_url ?? r.magnet_url)) return false;
         const idx = profile.allowedFormats.indexOf(r.format);
         if (idx === -1) return false;
         return idx < profile.allowedFormats.indexOf(best);
       });
-      if (!candidate) continue;
+      if (upgrades.length === 0) continue;
+
+      // Only a real choice needs the judge, and its context costs a query.
+      const editionCtx =
+        upgrades.length > 1 ? await loadEditionContext(edition.id) : null;
+      const { pick: candidate, aiPicked } = editionCtx
+        ? await pickBookCandidate(
+            editionCtx,
+            upgrades,
+            "upgrade",
+            describeBookRelease,
+          )
+        : { pick: upgrades[0], aiPicked: false };
 
       const url = candidate.download_url ?? candidate.magnet_url;
       if (!url) continue;
@@ -149,6 +165,7 @@ export async function searchBookUpgrades(): Promise<void> {
         releaseTitle: candidate.title,
         indexer: candidate.indexer,
         isUpgrade: true,
+        aiPicked,
       });
       if (!result.grabbed) {
         console.warn(

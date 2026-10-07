@@ -1,6 +1,7 @@
 import { prisma } from "@rawkoon/api/db";
 import type { IndexerManagerAdapter } from "@rawkoon/api/services/indexerManager/types";
 import type { NormalizedRelease } from "@rawkoon/api/services/indexerManager/types";
+import { pickBookCandidate } from "@rawkoon/api/services/books/bookAiPick";
 import {
   grabBookRelease,
   loadEditionContext,
@@ -63,7 +64,15 @@ export async function pollIndexerRssBooks(
     const ctx = await loadEditionContext(edition.id);
     if (!ctx) continue;
 
-    let best: { release: NormalizedRelease; score: number } | null = null;
+    type Candidate = {
+      release: NormalizedRelease;
+      score: number;
+      format: string | null;
+      language: string | null;
+      audioBitrate: number | null;
+      url: string;
+    };
+    const candidates: Candidate[] = [];
     for (const release of releases) {
       const scored = scoreBookRelease(
         {
@@ -84,14 +93,37 @@ export async function pollIndexerRssBooks(
       // re-checked here: an audiobook in the feed must not satisfy an ebook
       // edition just because the reject filter passed the title.
       if (scored.kind !== ctx.kind) continue;
-      if (!best || scored.score > best.score) {
-        best = { release, score: scored.score };
-      }
+      const url = release.downloadUrl ?? release.magnetUrl;
+      if (!url) continue;
+      candidates.push({
+        release,
+        score: scored.score,
+        format: scored.parsed.format,
+        language: scored.parsed.language,
+        audioBitrate: scored.parsed.audioBitrate,
+        url,
+      });
     }
-    if (!best) continue;
+    if (candidates.length === 0) continue;
+    // Stable sort keeps feed order among equal scores, as the running max did.
+    candidates.sort((x, y) => y.score - x.score);
 
-    const url = best.release.downloadUrl ?? best.release.magnetUrl;
-    if (!url) continue;
+    const { pick: best, aiPicked } = await pickBookCandidate(
+      ctx,
+      candidates,
+      "rss",
+      (c) => ({
+        title: c.release.title,
+        sizeBytes: c.release.sizeBytes,
+        seeders: c.release.seeders,
+        score: c.score,
+        format: c.format,
+        kind: ctx.kind,
+        language: c.language,
+        audioBitrate: c.audioBitrate,
+      }),
+    );
+    const url = best.url;
 
     try {
       const result = await grabBookRelease({
@@ -99,6 +131,7 @@ export async function pollIndexerRssBooks(
         downloadUrl: url,
         releaseTitle: best.release.title,
         indexer: best.release.indexer,
+        aiPicked,
       });
       if (result.grabbed) grabbed++;
       else {
