@@ -26,8 +26,6 @@ const { buildAiBookPickPrompt } = await import(
   "@rawkoon/api/utils/books/buildAiBookPickPrompt"
 );
 
-const SECRET_URL = "https://tracker.test/dl?apikey=SECRET&id=";
-
 const edition = {
   editionId: 42,
   kind: "audiobook" as const,
@@ -45,7 +43,6 @@ const releases = [
 ];
 
 const describe_ = (r: (typeof releases)[number]) => ({
-  url: `${SECRET_URL}${r.id}`,
   title: r.title,
   sizeBytes: 1e9,
   seeders: 5,
@@ -141,11 +138,9 @@ describe("pickBookCandidate", () => {
     expect(out.aiPicked).toBe(true);
   });
 
-  it("never sends download URLs and includes series context", async () => {
+  it("includes series context in the request", async () => {
     reply('{"release_key":"r0","reasoning":"ok"}');
     await pickBookCandidate(edition, releases, "rss", describe_);
-    expect(bodies[0]).not.toContain("SECRET");
-    expect(bodies[0]).not.toContain("tracker.test");
     expect(bodies[0]).toContain("Chronique du tueur de roi #1");
   });
 
@@ -205,6 +200,14 @@ describe("pickBookCandidate", () => {
     const out = await pickBookCandidate(edition, releases, "rss", describe_);
     expect(bodies).toHaveLength(0);
     expect(out).toEqual({ pick: releases[0], aiPicked: false });
+  });
+
+  it("falls back to the next grabbable release when the classic best is blocklisted", async () => {
+    blocklisted = ["Tome 2 audiobook"];
+    reply('{"release_key":"r0","reasoning":"x"}');
+    const out = await pickBookCandidate(edition, releases, "rss", describe_);
+    expect(bodies).toHaveLength(0);
+    expect(out).toEqual({ pick: releases[1], aiPicked: false });
   });
 
   it("records the ledger context", async () => {

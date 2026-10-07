@@ -391,7 +391,6 @@ export async function grabBookRelease(opts: {
 
 export function describeBookRelease(r: BookRelease): BookPickCandidate {
   return {
-    url: r.download_url ?? r.magnet_url ?? "",
     title: r.title,
     sizeBytes: r.size_bytes,
     seeders: r.seeders,

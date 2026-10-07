@@ -113,7 +113,6 @@ export async function pollIndexerRssBooks(
       candidates,
       "rss",
       (c) => ({
-        url: c.url,
         title: c.release.title,
         sizeBytes: c.release.sizeBytes,
         seeders: c.release.seeders,
