@@ -30,12 +30,14 @@ struct MovieAutoSearchLamp: View {
                 } label: {
                     Image(systemName: "chevron.down")
                         .font(.footnote.weight(.bold))
-                        .frame(width: 46, height: 44)
+                        .frame(width: 46)
+                        .frame(maxHeight: .infinity)
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel("More search options")
             }
             .foregroundStyle(Theme.onAccent)
+            .frame(height: 44)
             .background(Theme.apricot.opacity(isSearching ? 0.7 : 1), in: RoundedRectangle(cornerRadius: 12))
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .disabled(isSearching)
@@ -60,7 +62,7 @@ struct MovieAutoSearchLamp: View {
             }
         }
         .font(.body.weight(.semibold))
-        .frame(maxWidth: .infinity, minHeight: 44)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
     }
 
