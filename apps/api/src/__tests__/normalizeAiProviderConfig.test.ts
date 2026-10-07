@@ -60,4 +60,33 @@ describe("normalizeAiProviderConfig prices", () => {
     expect(bad).not.toHaveProperty("input_price_per_million");
     expect(bad).not.toHaveProperty("output_price_per_million");
   });
+
+  it("keeps a budget and known feature toggles, dropping junk", () => {
+    const result = normalizeAiProviderConfig({
+      base_url: "http://h",
+      model: "m",
+      daily_budget_usd: 2.5,
+      features: {
+        release_pick_rss: false,
+        nonsense: false,
+        book_release_pick: "no",
+      },
+    });
+    expect(result).toEqual({
+      base_url: "http://h",
+      model: "m",
+      daily_budget_usd: 2.5,
+      features: { release_pick_rss: false },
+    });
+  });
+
+  it("omits an invalid budget and empty features", () => {
+    const result = normalizeAiProviderConfig({
+      base_url: "http://h",
+      model: "m",
+      daily_budget_usd: -1,
+      features: {},
+    });
+    expect(result).toEqual({ base_url: "http://h", model: "m" });
+  });
 });

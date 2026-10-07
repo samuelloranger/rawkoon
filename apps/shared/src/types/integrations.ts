@@ -1,3 +1,4 @@
+import type { AiFeatureToggles } from "./ai";
 export interface ArrProfile {
   id: number;
   name: string;
@@ -175,6 +176,10 @@ export interface AiProviderIntegration {
   /** USD per million tokens, used to estimate cost; null when unset. */
   input_price_per_million: number | null;
   output_price_per_million: number | null;
+  /** USD; null means no budget. */
+  daily_budget_usd: number | null;
+  /** A missing key means enabled. */
+  features: AiFeatureToggles;
 }
 
 export interface AiProviderIntegrationUpdateResponse {

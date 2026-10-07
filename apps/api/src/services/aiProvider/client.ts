@@ -11,6 +11,10 @@ import {
   type AiPickRelease,
 } from "@rawkoon/api/utils/medias/buildAiPickPrompt";
 import {
+  gateAiCall,
+  noteAiSpend,
+} from "@rawkoon/api/services/aiProvider/aiGate";
+import {
   AI_BOOK_SYSTEM_PROMPT,
   buildAiBookPickPrompt,
   type AiBookPickContext,
@@ -245,6 +249,7 @@ async function attemptPick<R extends AiPickRelease>(
     ? shortlist.releases.find((r) => r.key === generated.object.release_key)
         ?.title
     : undefined;
+  noteAiSpend(generated.usage);
   recordAiCall({
     ...base,
     status: resolved ? "ok" : "invalid_pick",
@@ -307,6 +312,13 @@ async function pickWithAi<R extends AiPickRelease>(
   ctx: AiCallContext,
 ): Promise<AiPickResult | null> {
   if (releases.length === 0) return null;
+
+  // Before any provider HTTP: disabled features and spent budgets fall back to classic.
+  const gate = await gateAiCall(config, ctx).catch((error: unknown) => {
+    console.warn("[aiProvider] gate check failed, using classic pick:", error);
+    return { allowed: false as const };
+  });
+  if (!gate.allowed) return null;
 
   // Every caller is shortlisted here rather than at its own call site: the
   // interactive-search route hands over whatever the indexer returned.

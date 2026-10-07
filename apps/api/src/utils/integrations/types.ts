@@ -1,3 +1,4 @@
+import type { AiFeatureToggles } from "@rawkoon/shared/types";
 export interface JellyfinIntegrationConfig {
   api_key: string;
   website_url: string;
@@ -45,6 +46,10 @@ export interface AiProviderConfig {
   /** USD per million tokens; only used to estimate cost at read time. */
   input_price_per_million?: number;
   output_price_per_million?: number;
+  /** USD; absent means no budget. Only enforced when a price is set too. */
+  daily_budget_usd?: number;
+  /** A missing key means enabled. */
+  features?: AiFeatureToggles;
 }
 
 export interface GoogleBooksIntegrationConfig {

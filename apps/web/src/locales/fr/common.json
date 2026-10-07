@@ -1358,6 +1358,20 @@
       "inputPrice": "Prix en entrée (USD par million de jetons)",
       "outputPrice": "Prix en sortie (USD par million de jetons)",
       "priceHelp": "Sert à estimer le coût. Le prix de votre modèle se trouve sur la page de tarification de votre fournisseur.",
+      "budget": {
+        "label": "Budget quotidien (USD)",
+        "placeholder": "Aucun budget",
+        "help": "Quand la dépense estimée du jour atteint ce montant, les ajouts automatiques reviennent au pointage classique jusqu'à minuit UTC. Nécessite des prix.",
+        "needsPrices": "Un budget ne s'applique que si au moins un prix est défini."
+      },
+      "featureToggles": {
+        "title": "Fonctions",
+        "help": "Désactivez les endroits où l'IA a le droit de choisir. Les fonctions désactivées utilisent le pointage classique.",
+        "release_pick_rss": "Ajout automatique par RSS",
+        "release_pick_search": "Recherches planifiées et de mise à niveau",
+        "release_pick_interactive": "Suggestion de la recherche interactive",
+        "book_release_pick": "Ajouts de livres"
+      },
       "usageTitle": "Utilisation",
       "loading": "Chargement...",
       "loadError": "Impossible de charger l'utilisation de l'IA.",
@@ -1378,6 +1392,12 @@
         "p95": "Latence p95",
         "changedPick": "Choix modifié par l'IA",
         "changedPickHint": "par rapport au pointage classique, sur {{count}} appels",
+        "today": "Aujourd'hui",
+        "todayOfBudget": "sur un budget quotidien de {{budget}}",
+        "todayNoBudget": "Aucun budget quotidien défini",
+        "budgetReached": "Budget atteint — choix classiques utilisés",
+        "budgetSkipped": "Ignorés par le budget",
+        "budgetSkippedHint": "Appels non effectués parce que le budget était épuisé",
         "changedPickNone": "Pas encore de comparaison"
       },
       "chart": {
@@ -1404,7 +1424,8 @@
         "ok": "OK",
         "invalid_pick": "Choix invalide",
         "error": "Erreur",
-        "rate_limited": "Limite atteinte"
+        "rate_limited": "Limite atteinte",
+        "budget_skipped": "Ignoré (budget)"
       },
       "history": {
         "title": "Historique des appels",

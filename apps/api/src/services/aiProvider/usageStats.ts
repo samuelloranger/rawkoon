@@ -18,6 +18,7 @@ type MetricsRow = {
   invalid_pick: number;
   rate_limited: number;
   error: number;
+  budget_skipped: number;
   agreement_checked: number;
   agreed: number;
   input_tokens: number;
@@ -49,6 +50,7 @@ function toMetrics(row: MetricsRow, prices: AiPrices): AiUsageMetrics {
     invalid_pick: row.invalid_pick,
     rate_limited: row.rate_limited,
     error: row.error,
+    budget_skipped: row.budget_skipped,
     agreement_checked: row.agreement_checked,
     agreement_rate:
       row.agreement_checked > 0 ? row.agreed / row.agreement_checked : null,
@@ -69,6 +71,7 @@ const EMPTY_ROW: MetricsRow = {
   invalid_pick: 0,
   rate_limited: 0,
   error: 0,
+  budget_skipped: 0,
   agreement_checked: 0,
   agreed: 0,
   input_tokens: 0,
@@ -80,20 +83,21 @@ const EMPTY_ROW: MetricsRow = {
 };
 
 // float8 casts keep Postgres bigint/numeric out of JSON as BigInt or strings.
-const METRIC_COLUMNS = Prisma.sql`
-  count(*)::float8 AS calls,
+export const METRIC_COLUMNS = Prisma.sql`
+  (count(*) FILTER (WHERE status <> 'budget_skipped'))::float8 AS calls,
   (count(*) FILTER (WHERE status = 'ok'))::float8 AS ok,
   (count(*) FILTER (WHERE status = 'invalid_pick'))::float8 AS invalid_pick,
   (count(*) FILTER (WHERE status = 'rate_limited'))::float8 AS rate_limited,
   (count(*) FILTER (WHERE status = 'error'))::float8 AS error,
+  (count(*) FILTER (WHERE status = 'budget_skipped'))::float8 AS budget_skipped,
   (count(*) FILTER (WHERE agreed_with_classic IS NOT NULL))::float8 AS agreement_checked,
   (count(*) FILTER (WHERE agreed_with_classic))::float8 AS agreed,
   coalesce(sum(input_tokens), 0)::float8 AS input_tokens,
   coalesce(sum(output_tokens), 0)::float8 AS output_tokens,
   coalesce(sum(total_tokens), 0)::float8 AS total_tokens,
-  avg(duration_ms)::float8 AS avg_duration_ms,
-  (percentile_cont(0.5) WITHIN GROUP (ORDER BY duration_ms))::float8 AS p50_duration_ms,
-  (percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms))::float8 AS p95_duration_ms`;
+  (avg(duration_ms) FILTER (WHERE status <> 'budget_skipped'))::float8 AS avg_duration_ms,
+  (percentile_cont(0.5) WITHIN GROUP (ORDER BY duration_ms) FILTER (WHERE status <> 'budget_skipped'))::float8 AS p50_duration_ms,
+  (percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms) FILTER (WHERE status <> 'budget_skipped'))::float8 AS p95_duration_ms`;
 
 function zeroFilledDays(
   days: number,
@@ -102,6 +106,7 @@ function zeroFilledDays(
     calls: number;
     errors: number;
     rate_limited: number;
+    budget_skipped: number;
     input_tokens: number;
     output_tokens: number;
     total_tokens: number;
@@ -124,6 +129,7 @@ function zeroFilledDays(
       calls: row?.calls ?? 0,
       errors: row?.errors ?? 0,
       rate_limited: row?.rate_limited ?? 0,
+      budget_skipped: row?.budget_skipped ?? 0,
       total_tokens: row?.total_tokens ?? 0,
       estimated_cost: estimateCost(
         row?.input_tokens ?? 0,
@@ -156,6 +162,7 @@ export async function getAiStats(
   days: number,
   prices: AiPrices,
   now = new Date(),
+  dailyBudgetUsd: number | null = null,
 ): Promise<AiStatsResponse> {
   // Window starts at the first zero-filled day so the chart and totals agree.
   const startOfToday = Date.UTC(
@@ -184,15 +191,17 @@ export async function getAiStats(
           calls: number;
           errors: number;
           rate_limited: number;
+          budget_skipped: number;
           input_tokens: number;
           output_tokens: number;
           total_tokens: number;
         }>
       >`
       SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day,
-        count(*)::float8 AS calls,
+        (count(*) FILTER (WHERE status <> 'budget_skipped'))::float8 AS calls,
         (count(*) FILTER (WHERE status IN ('error', 'invalid_pick')))::float8 AS errors,
         (count(*) FILTER (WHERE status = 'rate_limited'))::float8 AS rate_limited,
+        (count(*) FILTER (WHERE status = 'budget_skipped'))::float8 AS budget_skipped,
         coalesce(sum(input_tokens), 0)::float8 AS input_tokens,
         coalesce(sum(output_tokens), 0)::float8 AS output_tokens,
         coalesce(sum(total_tokens), 0)::float8 AS total_tokens
@@ -206,6 +215,8 @@ export async function getAiStats(
       FROM download_history WHERE grabbed_at >= ${since} GROUP BY ai_picked`,
     ]);
 
+  const dailyStats = zeroFilledDays(days, daily, prices, now);
+
   return {
     days,
     totals: toMetrics(totals[0] ?? EMPTY_ROW, prices),
@@ -218,12 +229,14 @@ export async function getAiStats(
       trigger: r.trigger,
       ...toMetrics(r, prices),
     })),
-    daily: zeroFilledDays(days, daily, prices, now),
+    daily: dailyStats,
     grabs: {
       ai: toGrabOutcome(grabs.find((g) => g.ai_picked)),
       classic: toGrabOutcome(grabs.find((g) => !g.ai_picked)),
     },
     prices_configured: prices.input != null || prices.output != null,
+    today_spend: dailyStats[dailyStats.length - 1]?.estimated_cost ?? null,
+    daily_budget_usd: dailyBudgetUsd,
   };
 }
 

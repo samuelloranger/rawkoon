@@ -38,6 +38,69 @@ function Tile({
   );
 }
 
+function TodayTile({
+  spend,
+  budget,
+  pricesConfigured,
+}: {
+  spend: number | null;
+  budget: number | null;
+  pricesConfigured: boolean;
+}) {
+  const { t } = useTranslation("common");
+  const reached =
+    budget != null && pricesConfigured && spend != null && spend >= budget;
+  const ratio =
+    budget != null && budget > 0 && spend != null
+      ? Math.min(1, spend / budget)
+      : 0;
+  return (
+    <div className="rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-3">
+      <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-neutral-400">
+        {t("settings.ai.stats.today")}
+      </div>
+      <div className="mt-0.5 font-display text-xl font-semibold text-neutral-50">
+        {pricesConfigured ? formatCost(spend) : "—"}
+        {budget != null && (
+          <span className="ml-2 text-sm font-normal text-neutral-400">
+            {t("settings.ai.stats.todayOfBudget", {
+              budget: formatCost(budget),
+            })}
+          </span>
+        )}
+      </div>
+      {budget != null && pricesConfigured ? (
+        <div
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(ratio * 100)}
+          className="mt-2 h-1.5 overflow-hidden rounded-full bg-neutral-800"
+        >
+          <div
+            className={cn(
+              "h-full rounded-full",
+              reached ? "bg-amber-500" : "bg-primary-500",
+            )}
+            style={{ width: `${ratio * 100}%` }}
+          />
+        </div>
+      ) : (
+        <div className="mt-1 text-xs text-neutral-500">
+          {pricesConfigured
+            ? t("settings.ai.stats.todayNoBudget")
+            : t("settings.ai.stats.setPrices")}
+        </div>
+      )}
+      {reached && (
+        <div className="mt-2 text-xs font-medium text-amber-400">
+          {t("settings.ai.stats.budgetReached")}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DailyBars({
   daily,
   pick,
@@ -210,6 +273,14 @@ export function AiStatsPanel() {
         </p>
       )}
 
+      {data && (
+        <TodayTile
+          spend={data.today_spend}
+          budget={data.daily_budget_usd}
+          pricesConfigured={data.prices_configured}
+        />
+      )}
+
       {data && totals && !empty && (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -256,6 +327,11 @@ export function AiStatsPanel() {
                       count: totals.agreement_checked,
                     })
               }
+            />
+            <Tile
+              label={t("settings.ai.stats.budgetSkipped")}
+              value={String(totals.budget_skipped)}
+              hint={t("settings.ai.stats.budgetSkippedHint")}
             />
             <Tile
               label={t("settings.ai.stats.p50")}

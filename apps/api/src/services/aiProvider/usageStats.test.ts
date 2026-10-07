@@ -6,6 +6,7 @@ const metric = {
   invalid_pick: 1,
   rate_limited: 0,
   error: 0,
+  budget_skipped: 3,
   agreement_checked: 2,
   agreed: 1,
   input_tokens: 2_000_000,
@@ -31,6 +32,7 @@ const queryRaw = mock(async (strings: TemplateStringsArray) => {
         calls: 4,
         errors: 1,
         rate_limited: 2,
+        budget_skipped: 3,
         input_tokens: 2_000_000,
         output_tokens: 1_000_000,
         total_tokens: 3_000_000,
@@ -78,7 +80,7 @@ mock.module("@rawkoon/api/db", () => ({
   },
 }));
 
-const { getAiStats, listAiCalls, estimateCost } = await import(
+const { getAiStats, listAiCalls, estimateCost, METRIC_COLUMNS } = await import(
   "@rawkoon/api/services/aiProvider/usageStats"
 );
 
@@ -131,6 +133,31 @@ describe("getAiStats", () => {
     });
     expect(stats.grabs.classic.total).toBe(5);
     expect(stats.prices_configured).toBe(true);
+  });
+
+  it("reports budget_skipped separately and today's spend against the budget", async () => {
+    const stats = await getAiStats(7, { input: 0.5, output: 1 }, now, 5);
+    expect(stats.totals.budget_skipped).toBe(3);
+    expect(stats.by_feature[0]?.budget_skipped).toBe(3);
+    expect(stats.daily[6]?.budget_skipped).toBe(3);
+    expect(stats.today_spend).toBe(2);
+    expect(stats.daily_budget_usd).toBe(5);
+  });
+
+  it("keeps budget_skipped rows out of calls, success rate and latency", () => {
+    const sql = METRIC_COLUMNS.sql;
+    expect(sql).toContain(
+      "FILTER (WHERE status <> 'budget_skipped'))::float8 AS calls",
+    );
+    expect(sql).toContain(
+      "(avg(duration_ms) FILTER (WHERE status <> 'budget_skipped'))",
+    );
+    expect(sql).toContain(
+      "ORDER BY duration_ms) FILTER (WHERE status <> 'budget_skipped'))::float8 AS p50_duration_ms",
+    );
+    expect(sql).toContain(
+      "ORDER BY duration_ms) FILTER (WHERE status <> 'budget_skipped'))::float8 AS p95_duration_ms",
+    );
   });
 
   it("reports a null cost when no prices are set", async () => {

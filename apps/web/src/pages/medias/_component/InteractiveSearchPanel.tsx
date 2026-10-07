@@ -40,7 +40,9 @@ export function InteractiveSearchPanel(props: InteractiveSearchPanelProps) {
   const state = useInteractiveSearchState(props);
 
   const { data: aiConfig } = useAiProviderIntegration();
-  const aiEnabled = Boolean(aiConfig?.integration?.enabled);
+  const aiEnabled =
+    Boolean(aiConfig?.integration?.enabled) &&
+    aiConfig?.integration?.features?.release_pick_interactive !== false;
 
   const mediaType =
     props.media?.media_type === "series"
