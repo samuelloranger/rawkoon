@@ -95,8 +95,8 @@ final class PlaybackRecoveryTests: XCTestCase {
 
     // MARK: Refreshed manifests
 
-    private func file(_ id: Int, size: Int = 100, start: Double = 0, url: String = "u") -> ManifestFile {
-        ManifestFile(id: id, startSecs: start, durationSecs: 10, sizeBytes: size, sha256: nil, url: url)
+    private func file(_ id: Int, size: Int = 100, start: Double = 0, url: String = "u", sha: String? = nil) -> ManifestFile {
+        ManifestFile(id: id, startSecs: start, durationSecs: 10, sizeBytes: size, sha256: sha, url: url)
     }
 
     func testFreshURLsForTheSameFilesAreTheSameLayout() {
@@ -110,5 +110,13 @@ final class PlaybackRecoveryTests: XCTestCase {
         XCTAssertFalse(sameFileLayout([file(1, size: 100)], [file(1, size: 101)]))
         XCTAssertFalse(sameFileLayout([file(1, start: 0)], [file(1, start: 5)]))
         XCTAssertFalse(sameFileLayout([file(1)], [file(1), file(2)]))
+    }
+
+    /// A replaced file can keep its id, size and timings; only its hash tells.
+    func testADifferentHashIsADifferentLayout() {
+        XCTAssertFalse(sameFileLayout([file(1, sha: "aa")], [file(1, sha: "bb")]))
+        XCTAssertTrue(sameFileLayout([file(1, url: "old", sha: "aa")], [file(1, url: "new", sha: "aa")]))
+        // A manifest without a hash cannot disprove the match.
+        XCTAssertTrue(sameFileLayout([file(1, sha: "aa")], [file(1, sha: nil)]))
     }
 }

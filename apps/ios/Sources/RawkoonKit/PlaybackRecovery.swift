@@ -41,7 +41,8 @@ public func sniffedAudioMIMEType(_ header: Data) -> String? {
 
 /// Whether two manifests describe the same physical files, so only their
 /// signed URLs differ. A re-import changes ids, sizes or offsets, and must be
-/// reloaded rather than having fresh URLs swapped in.
+/// reloaded rather than having fresh URLs swapped in. Hashes are compared when
+/// both manifests carry one: a replaced file keeps its id and can keep its size.
 public func sameFileLayout(_ lhs: [ManifestFile], _ rhs: [ManifestFile]) -> Bool {
     guard lhs.count == rhs.count else { return false }
     let byId = Dictionary(rhs.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -50,6 +51,7 @@ public func sameFileLayout(_ lhs: [ManifestFile], _ rhs: [ManifestFile]) -> Bool
         return other.sizeBytes == file.sizeBytes
             && other.startSecs == file.startSecs
             && other.durationSecs == file.durationSecs
+            && (file.sha256 == nil || other.sha256 == nil || file.sha256 == other.sha256)
     }
 }
 

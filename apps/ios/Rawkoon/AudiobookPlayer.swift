@@ -438,6 +438,9 @@ final class AudiobookPlayer {
             lastSleepTick = Date()
         }
         if player?.currentItem == nil, duration > 0 {
+            // A queue drained by a stopped failure: Play is a fresh attempt, so
+            // the stream gets its URL-refresh retry again.
+            streamRetriedAt = [:]
             seek(to: playStartPosition(positionSecs: positionSecs, durationSecs: duration), userInitiated: false)
             return
         }
@@ -771,15 +774,22 @@ final class AudiobookPlayer {
 
     private func handleTick(_ rawSeconds: Double) {
         guard !isSeeking, !streamRetryPending, rawSeconds.isFinite else { return }
+        // A tick queued before the item left the queue carries that file's
+        // in-file time; read as a whole-book position it would point at the
+        // wrong chapter. Keep the last valid position and resolve the queue.
+        guard player?.currentItem != nil else {
+            if isPlaying {
+                handleQueueEmptied()
+            }
+            updateNowPlayingInfo()
+            return
+        }
         let clamped = timeline?.clamp(wholeBookPosition(fromCurrentItemTime: rawSeconds)) ?? max(rawSeconds, 0)
         positionSecs = clamped
         advanceSleep()
         // The item can span many chapters (single-file book), so the marker is
         // derived from the whole-book position, not from the item.
         setCurrentChapter(index: timeline?.chapterIndex(at: clamped))
-        if isPlaying, player?.currentItem == nil {
-            handleQueueEmptied()
-        }
         updateNowPlayingInfo()
     }
 
