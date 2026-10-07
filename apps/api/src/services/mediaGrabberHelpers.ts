@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import bencode from "bencode";
+
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@rawkoon/api/db";
@@ -132,52 +134,28 @@ export async function prowlarrHeadersForTorrentUrl(
 
 /**
  * Extract the SHA-1 info hash from a raw .torrent file buffer.
- * Parses just enough bencode to locate and hash the "info" dictionary.
+ * Decodes the bencode, then re-encodes the top-level "info" dict and hashes it.
  * Returns null if parsing fails — never throws.
  */
 export function infoHashFromTorrentBuffer(buf: ArrayBuffer): string | null {
   try {
-    const bytes = new Uint8Array(buf);
-
-    // Walk a bencoded value starting at pos, return the index after it ends.
-    function skipValue(pos: number): number {
-      const ch = bytes[pos];
-      if (ch === 0x64 /* d */ || ch === 0x6c /* l */) {
-        pos++;
-        while (bytes[pos] !== 0x65 /* e */) pos = skipValue(pos);
-        return pos + 1;
-      }
-      if (ch === 0x69 /* i */) {
-        while (pos < bytes.length && bytes[pos] !== 0x65 /* e */) pos++;
-        if (pos >= bytes.length)
-          throw new Error("malformed integer in bencode");
-        return pos + 1;
-      }
-      // String: <digits>:<bytes>
-      let colon = pos;
-      while (bytes[colon] !== 0x3a /* : */) colon++;
-      const len = parseInt(
-        new TextDecoder().decode(bytes.slice(pos, colon)),
-        10,
-      );
-      return colon + 1 + len;
-    }
-
-    // The info key is encoded as "4:info" (0x34 0x3a 0x69 0x6e 0x66 0x6f)
-    const marker = [0x34, 0x3a, 0x69, 0x6e, 0x66, 0x6f]; // "4:info"
-    outer: for (let i = 0; i < bytes.length - marker.length; i++) {
-      for (let j = 0; j < marker.length; j++) {
-        if (bytes[i + j] !== marker[j]) continue outer;
-      }
-      const infoStart = i + marker.length;
-      const infoEnd = skipValue(infoStart);
-      return createHash("sha1")
-        .update(bytes.slice(infoStart, infoEnd))
-        .digest("hex");
-    }
-    return null;
+    // No encoding arg: byte strings stay Uint8Array so `pieces` re-encodes byte-for-byte.
+    const torrent = bencode.decode(new Uint8Array(buf));
+    if (!isPlainDict(torrent) || !isPlainDict(torrent.info)) return null;
+    return createHash("sha1")
+      .update(bencode.encode(torrent.info as Record<string, never>))
+      .digest("hex");
   } catch (e) {
     console.warn("[mediaGrabber] torrent buffer parse failed:", e);
     return null;
   }
+}
+
+function isPlainDict(v: unknown): v is Record<string, unknown> {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    !Array.isArray(v) &&
+    !ArrayBuffer.isView(v)
+  );
 }
