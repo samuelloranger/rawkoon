@@ -1,35 +1,20 @@
+import { resolveAllowedIps, safeFetch } from "@rawkoon/api/utils/ssrf";
+
 /**
- * Server-side .torrent fetch SSRF hardening: block loopback and cloud metadata,
- * while still allowing LAN indexer URLs typical in homelab setups.
+ * Server-side .torrent fetch SSRF hardening: block loopback, link-local (cloud
+ * metadata), multicast and reserved targets, while still allowing LAN indexer
+ * URLs typical in homelab setups. Hostnames are resolved so a DNS name can't
+ * smuggle in a blocked address.
  */
-export function isHttpUrlSafeForServerTorrentFetch(urlString: string): boolean {
-  let u: URL;
+export async function isServerTorrentFetchUrlAllowed(
+  urlString: string,
+): Promise<boolean> {
   try {
-    u = new URL(urlString);
+    await resolveAllowedIps(new URL(urlString), "lan");
+    return true;
   } catch {
     return false;
   }
-
-  if (u.protocol !== "http:" && u.protocol !== "https:") return false;
-
-  const host = u.hostname.toLowerCase();
-
-  if (host === "localhost" || host === "0.0.0.0") return false;
-  if (host === "::1" || host === "[::1]") return false;
-
-  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
-  if (ipv4) {
-    const [, a, b] = ipv4;
-    const ai = Number(a);
-    const bi = Number(b);
-    if (ai === 127) return false; // loopback 127.x.x.x
-    if (ai === 0) return false; // 0.x.x.x
-    // Block the entire link-local range (169.254.0.0/16) — covers cloud metadata
-    // endpoints (AWS 169.254.169.254, GCP 169.254.169.254/metadata, etc.)
-    if (ai === 169 && bi === 254) return false;
-  }
-
-  return true;
 }
 
 export class MagnetRedirectError extends Error {
@@ -40,8 +25,9 @@ export class MagnetRedirectError extends Error {
 }
 
 /**
- * Follow redirects manually so each hop is checked against {@link isHttpUrlSafeForServerTorrentFetch}
- * (mitigates open redirects pointing at loopback/metadata).
+ * Fetch a .torrent URL through {@link safeFetch} under the LAN policy: every
+ * redirect hop is re-validated and IP-pinned, and credentials such as an
+ * indexer API key are dropped once a hop leaves the original origin.
  * Throws {@link MagnetRedirectError} if a redirect target is a magnet link.
  */
 export async function fetchHttpWithSafeRedirects(
@@ -49,25 +35,11 @@ export async function fetchHttpWithSafeRedirects(
   init: Omit<RequestInit, "redirect"> & { maxRedirects?: number },
 ): Promise<Response> {
   const { maxRedirects = 5, ...reqInit } = init;
-  const max = maxRedirects;
-  let url = initialUrl;
-
-  for (let i = 0; i <= max; i++) {
-    if (!isHttpUrlSafeForServerTorrentFetch(url)) {
-      throw new Error("URL not allowed");
-    }
-    const res = await fetch(url, { ...reqInit, redirect: "manual" });
-    if (res.status >= 300 && res.status < 400) {
-      const loc = res.headers.get("location");
-      if (!loc?.trim()) throw new Error("Redirect without Location");
-      const next = new URL(loc.trim(), url).href;
-      if (next.startsWith("magnet:")) {
-        throw new MagnetRedirectError(next);
-      }
-      url = next;
-      continue;
-    }
-    return res;
-  }
-  throw new Error("Too many redirects");
+  return safeFetch(initialUrl, reqInit, {
+    policy: "lan",
+    maxRedirects,
+    onRedirect: (next) => {
+      if (next.protocol === "magnet:") throw new MagnetRedirectError(next.href);
+    },
+  });
 }

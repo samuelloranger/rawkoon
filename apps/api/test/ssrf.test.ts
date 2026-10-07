@@ -26,7 +26,7 @@ describe("isPrivateIP", () => {
     expect(isPrivateIP("::")).toBe(true);
     expect(isPrivateIP("fe80::1")).toBe(true);
     expect(isPrivateIP("fc00::1")).toBe(true);
-    expect(isPrivateIP("2001:db8::")).toBe(false);
+    expect(isPrivateIP("2606:4700::1111")).toBe(false);
   });
 });
 

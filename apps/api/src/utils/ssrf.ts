@@ -1,71 +1,53 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import ipaddr from "ipaddr.js";
 
+const NAT64_WELL_KNOWN = [0x00, 0x64, 0xff, 0x9b, 0, 0, 0, 0, 0, 0, 0, 0];
+
+// Forms that carry an IPv4 are classified by that IPv4: IPv4-compatible
+// (::/96, which ipaddr leaves as unicast), well-known NAT64 (64:ff9b::/96)
+// and 6to4 (2002::/16). Local-use NAT64 (64:ff9b:1::/48) keeps its own
+// "rfc6052" range and so stays blocked under both policies.
+function parseIp(ip: string): ipaddr.IPv4 | ipaddr.IPv6 | null {
+  if (isIP(ip) === 0) return null;
+  try {
+    const addr = ipaddr.process(ip);
+    if (addr.kind() === "ipv4") return addr;
+    const b = addr.toByteArray();
+    if (b.slice(0, 12).every((x) => x === 0)) {
+      return ipaddr.fromByteArray(b.slice(12, 16));
+    }
+    if (NAT64_WELL_KNOWN.every((x, i) => b[i] === x)) {
+      return ipaddr.fromByteArray(b.slice(12, 16));
+    }
+    if (b[0] === 0x20 && b[1] === 0x02) {
+      return ipaddr.fromByteArray(b.slice(2, 6));
+    }
+    return addr;
+  } catch {
+    return null;
+  }
+}
+
+/** Strict policy for user-supplied outbound targets: anything not globally routable is blocked. */
 export function isPrivateIP(ip: string): boolean {
-  if (isIP(ip) === 4) {
-    const parts = ip.split(".").map((x) => parseInt(x, 10));
-    if (parts.length !== 4 || parts.some(isNaN)) return true;
+  const addr = parseIp(ip);
+  if (!addr) return true;
+  return addr.range() !== "unicast";
+}
 
-    const [a, b] = parts;
+const LAN_ALLOWED_RANGES = new Set([
+  "unicast",
+  "private",
+  "uniqueLocal",
+  "carrierGradeNat",
+]);
 
-    // 127.0.0.0/8 (loopback)
-    if (a === 127) return true;
-
-    // 10.0.0.0/8 (private)
-    if (a === 10) return true;
-
-    // 172.16.0.0/12 (private)
-    if (a === 172 && b >= 16 && b <= 31) return true;
-
-    // 192.168.0.0/16 (private)
-    if (a === 192 && b === 168) return true;
-
-    // 169.254.0.0/16 (link-local)
-    if (a === 169 && b === 254) return true;
-
-    // 100.64.0.0/10 (carrier-grade NAT, RFC 6598)
-    if (a === 100 && b >= 64 && b <= 127) return true;
-
-    // 0.0.0.0 (unspecified)
-    if (a === 0) return true;
-
-    return false;
-  }
-
-  if (isIP(ip) === 6) {
-    const normalized = ip.toLowerCase();
-
-    // Loopback
-    if (normalized === "::1" || normalized === "0:0:0:0:0:0:0:1") return true;
-
-    // Unspecified
-    if (normalized === "::" || normalized === "0:0:0:0:0:0:0:0") return true;
-
-    // Link-local (fe80::/10)
-    if (
-      normalized.startsWith("fe8") ||
-      normalized.startsWith("fe9") ||
-      normalized.startsWith("fea") ||
-      normalized.startsWith("feb")
-    ) {
-      return true;
-    }
-
-    // Unique Local (fc00::/7 -> fc00 to fdff)
-    if (normalized.startsWith("fc") || normalized.startsWith("fd")) {
-      return true;
-    }
-
-    // IPv4-mapped IPv6 (::ffff:192.168.1.1 or similar)
-    if (normalized.startsWith("::ffff:")) {
-      const ipv4Part = ip.slice(7);
-      return isPrivateIP(ipv4Part);
-    }
-
-    return false;
-  }
-
-  return true;
+/** LAN policy: private/ULA/CGNAT are fine, loopback/link-local/multicast/reserved are not. */
+export function isBlockedForLanFetch(ip: string): boolean {
+  const addr = parseIp(ip);
+  if (!addr) return true;
+  return !LAN_ALLOWED_RANGES.has(addr.range());
 }
 
 export async function validateSafeUrl(urlStr: string): Promise<string> {
@@ -108,73 +90,173 @@ export async function validateSafeUrl(urlStr: string): Promise<string> {
   return urlStr;
 }
 
+const DEFAULT_MAX_REDIRECTS = 5;
+
+/** "public": only globally routable targets. "lan": also private/ULA/CGNAT (indexers on the LAN). */
+export type OutboundPolicy = "public" | "lan";
+
+const isBlockedBy = (policy: OutboundPolicy, ip: string) =>
+  policy === "lan" ? isBlockedForLanFetch(ip) : isPrivateIP(ip);
+
+// Headers that carry no credentials, so they may follow a cross-origin redirect.
+const CROSS_ORIGIN_SAFE_HEADERS = new Set([
+  "accept",
+  "accept-language",
+  "user-agent",
+  "content-type",
+]);
+
+// Resolves the host once and rejects it if any answer is blocked; returns
+// every validated address, IPv4 first, so callers can fall back between them.
+export async function resolveAllowedIps(
+  url: URL,
+  policy: OutboundPolicy = "public",
+): Promise<string[]> {
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`Invalid protocol: ${url.protocol}`);
+  }
+
+  const hostname = url.hostname.replace(/^\[|\]$/g, "");
+  if (isIP(hostname)) {
+    if (isBlockedBy(policy, hostname)) {
+      throw new Error(
+        `Outbound URL target IP is blocked (private/local range): ${hostname}`,
+      );
+    }
+    return [hostname];
+  }
+
+  let addresses: { address: string }[];
+  try {
+    addresses = await lookup(hostname, { all: true });
+  } catch (err) {
+    throw new Error(`DNS resolution failed for host: ${hostname}`, {
+      cause: err,
+    });
+  }
+  if (addresses.length === 0) {
+    throw new Error(`DNS resolution returned no addresses for: ${hostname}`);
+  }
+  for (const addr of addresses) {
+    if (isBlockedBy(policy, addr.address)) {
+      throw new Error(
+        `Outbound URL host resolves to blocked IP (private/local range): ${addr.address}`,
+      );
+    }
+  }
+  const ips = addresses.map((a) => a.address);
+  return [
+    ...ips.filter((ip) => isIP(ip) === 4),
+    ...ips.filter((ip) => isIP(ip) !== 4),
+  ];
+}
+
+// Same origin, or an http→https upgrade on the same host, may keep credentials.
+function keepsCredentials(from: URL, to: URL): boolean {
+  if (to.origin === from.origin) return true;
+  return (
+    from.protocol === "http:" &&
+    to.protocol === "https:" &&
+    to.hostname === from.hostname
+  );
+}
+
+export type SafeFetchOptions = {
+  policy?: OutboundPolicy;
+  maxRedirects?: number;
+  /** Called with each redirect target before it is validated; throw to abort. */
+  onRedirect?: (next: URL) => void;
+};
+
 /**
- * SSRF-safe fetch. Resolves the target host once, rejects any private/local
- * address, then pins the connection to the validated IP so a DNS-rebinding
- * response can't swap in a private address between the check and the request
- * (the TOCTOU that plain `validateSafeUrl(url)` + `fetch(url)` leaves open,
- * since `fetch` re-resolves the hostname independently).
+ * SSRF-safe fetch. Resolves the target host, rejects any blocked address for
+ * the policy, then pins the connection to the validated IP so a DNS-rebinding
+ * response can't swap in another address between the check and the request.
  *
+ * Redirects are followed here, never by `fetch`: every hop is re-validated and
+ * re-pinned, so a permitted host can't bounce the request to a blocked address,
+ * and credential headers are dropped when a hop changes origin.
  * TLS still validates against the original hostname via SNI (`tls.serverName`),
  * and the `Host` header preserves virtual-host routing now that we connect by IP.
  */
 export async function safeFetch(
   urlStr: string,
   init?: RequestInit,
+  opts: SafeFetchOptions = {},
 ): Promise<Response> {
-  const url = new URL(urlStr);
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error(`Invalid protocol: ${url.protocol}`);
-  }
+  const {
+    policy = "public",
+    maxRedirects = DEFAULT_MAX_REDIRECTS,
+    onRedirect,
+  } = opts;
+  let url = new URL(urlStr);
+  let method = (init?.method ?? "GET").toUpperCase();
+  let body = init?.body;
+  const headers = new Headers(init?.headers);
+  const callerHost = headers.get("host");
+  const existingTls = (init as { tls?: Record<string, unknown> } | undefined)
+    ?.tls;
 
-  const hostname = url.hostname;
-  let pinnedIp: string;
+  for (let hop = 0; ; hop++) {
+    const ips = await resolveAllowedIps(url, policy);
+    const hostname = url.hostname.replace(/^\[|\]$/g, "");
 
-  if (isIP(hostname)) {
-    if (isPrivateIP(hostname)) {
-      throw new Error(
-        `Outbound URL target IP is blocked (private/local range): ${hostname}`,
-      );
+    const hopHeaders = new Headers(headers);
+    hopHeaders.set("Host", hop === 0 && callerHost ? callerHost : url.host);
+
+    const hopInit: RequestInit & { tls?: Record<string, unknown> } = {
+      ...init,
+      method,
+      body,
+      headers: hopHeaders,
+      redirect: "manual",
+    };
+    delete hopInit.tls;
+    if (url.protocol === "https:") {
+      hopInit.tls = { ...existingTls, serverName: hostname };
     }
-    pinnedIp = hostname;
-  } else {
-    let addresses: { address: string }[];
-    try {
-      addresses = await lookup(hostname, { all: true });
-    } catch (err) {
-      throw new Error(`DNS resolution failed for host: ${hostname}`, {
-        cause: err,
-      });
-    }
-    if (addresses.length === 0) {
-      throw new Error(`DNS resolution returned no addresses for: ${hostname}`);
-    }
-    for (const addr of addresses) {
-      if (isPrivateIP(addr.address)) {
-        throw new Error(
-          `Outbound URL host resolves to blocked IP (private/local range): ${addr.address}`,
-        );
+
+    let res: Response | undefined;
+    let lastError: unknown;
+    for (const ip of ips) {
+      const pinnedUrl = new URL(url);
+      pinnedUrl.hostname = isIP(ip) === 6 ? `[${ip}]` : ip;
+      try {
+        res = await fetch(pinnedUrl.toString(), hopInit as RequestInit);
+        break;
+      } catch (err) {
+        if (hopInit.signal?.aborted) throw err;
+        lastError = err;
       }
     }
-    pinnedIp = addresses[0].address;
+    if (!res) throw lastError;
+    if (res.status < 300 || res.status >= 400) return res;
+
+    const location = res.headers.get("location")?.trim();
+    if (!location) return res;
+
+    await res.body?.cancel().catch(() => {});
+    if (hop >= maxRedirects) throw new Error("Too many redirects");
+
+    const next = new URL(location, url);
+    onRedirect?.(next);
+    if (!keepsCredentials(url, next)) {
+      for (const name of [...headers.keys()]) {
+        if (!CROSS_ORIGIN_SAFE_HEADERS.has(name)) headers.delete(name);
+      }
+    }
+    const toGet =
+      res.status === 303
+        ? method !== "GET" && method !== "HEAD"
+        : (res.status === 301 || res.status === 302) &&
+          method !== "GET" &&
+          method !== "HEAD";
+    if (toGet) {
+      method = "GET";
+      body = undefined;
+      headers.delete("content-type");
+      headers.delete("content-length");
+    }
+    url = next;
   }
-
-  // Connect to the validated IP, keeping port/path/query intact.
-  const pinnedUrl = new URL(url);
-  pinnedUrl.hostname = isIP(pinnedIp) === 6 ? `[${pinnedIp}]` : pinnedIp;
-
-  const headers = new Headers(init?.headers);
-  if (!headers.has("host")) headers.set("Host", url.host);
-
-  const pinnedInit: RequestInit & { tls?: { serverName?: string } } = {
-    ...init,
-    headers,
-  };
-  if (url.protocol === "https:") {
-    const existingTls = (init as { tls?: Record<string, unknown> } | undefined)
-      ?.tls;
-    pinnedInit.tls = { ...existingTls, serverName: hostname };
-  }
-
-  return fetch(pinnedUrl.toString(), pinnedInit as RequestInit);
 }
