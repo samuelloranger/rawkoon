@@ -648,6 +648,10 @@ export const TV_RELEASES: ReleaseNameCase[] = [
     truth: { title: "Quiet Harbor", completeSeries: true },
   },
   {
+    name: "Quiet.Harbor.COMPLETE.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", completeSeries: true },
+  },
+  {
     name: "Quiet.Harbor.Integrale.FRENCH.1080p.WEB.h264-GRP",
     truth: { title: "Quiet Harbor", completeSeries: true },
   },
@@ -670,12 +674,28 @@ export const TV_RELEASES: ReleaseNameCase[] = [
     truth: { title: "Quiet Harbor", season: 1, episodes: [1] },
   },
   {
+    name: "Quiet.Harbor.S01E01.10bit.WEB.x265-GRP",
+    truth: { title: "Quiet Harbor", season: 1, episodes: [1] },
+  },
+  {
     name: "Quiet.Harbor.S01E01-5.1.WEB.h264-GRP",
     truth: { title: "Quiet Harbor", season: 1, episodes: [1] },
   },
   {
     name: "Quiet.Harbor.S01E01-S01E02.1080p.WEB.h264-GRP",
     truth: { title: "Quiet Harbor", season: 1, episodes: [1, 2] },
+  },
+  {
+    name: "Quiet.Harbor.S03E04.S03E05.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 3, episodes: [4, 5] },
+  },
+  {
+    name: "Quiet.Harbor.3x04-3x06.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 3, episodes: [4, 5, 6] },
+  },
+  {
+    name: "Quiet.Harbor.S03E06-60fps.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 3, episodes: [6] },
   },
   {
     name: "quiet.harbor.s01e01e02.720p.hdtv.x264-grp",

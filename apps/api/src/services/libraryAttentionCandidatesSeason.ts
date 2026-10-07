@@ -1,3 +1,4 @@
+import { parseReleaseStructure } from "@rawkoon/shared/utils/releaseStructure";
 import { prisma } from "@rawkoon/api/db";
 import { LIBRARY_ATTENTION_WARN_ATTEMPTS } from "@rawkoon/api/constants/libraryGrab";
 import {
@@ -7,15 +8,9 @@ import {
 } from "@rawkoon/shared/utils/date";
 import type { AttentionCandidate } from "@rawkoon/api/services/libraryAttentionTypes";
 
-/** Parse season from typical release names (season pack or season folder style). */
+/** Season named by a release (pack or single episode), or null. */
 export function inferSeasonFromReleaseTitle(title: string): number | null {
-  const t = title.trim();
-  if (!t) return null;
-  const mPack = t.match(/\bS(?:eason)?[\s._-]*(\d{1,2})\b/i);
-  if (mPack) return parseInt(mPack[1], 10);
-  const mDot = t.match(/(?:^|[._\s-])S(\d{2})(?:E\d{2}|(?=[._\s-]|$))/i);
-  if (mDot) return parseInt(mDot[1], 10);
-  return null;
+  return parseReleaseStructure(title).season;
 }
 
 type SeasonKey = { mediaId: number; season: number };

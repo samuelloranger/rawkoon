@@ -4,10 +4,7 @@ import type { NormalizedRelease } from "@rawkoon/api/services/indexerManager/typ
 import type { RssRunStats } from "@rawkoon/api/services/rssRunStatus";
 import { grabRelease } from "@rawkoon/api/services/mediaGrabberGrab";
 import { loadEnabledAiProviderConfig } from "@rawkoon/api/services/aiProvider/client";
-import {
-  normalizeTitleForMatch,
-  parseReleaseSeasonEpisode,
-} from "@rawkoon/api/utils/medias/filenameParser";
+import { normalizeTitleForMatch } from "@rawkoon/api/utils/medias/filenameParser";
 import { pickReleaseForGrab } from "@rawkoon/api/utils/medias/pickReleaseForGrab";
 import { mapPool } from "@rawkoon/api/utils/medias/fileFingerprint";
 
@@ -23,6 +20,7 @@ import {
 import type { AiPickMediaContext } from "@rawkoon/api/utils/medias/buildAiPickPrompt";
 import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
 import { pollIndexerRssBooks } from "@rawkoon/api/workers/pollIndexerRssBooks";
+import { parseReleaseStructure } from "@rawkoon/shared/utils/releaseStructure";
 import {
   APP_DISPLAY_TIMEZONE,
   localDateYmd,
@@ -241,7 +239,7 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
       for (const candidate of packEligibleSeasons.values()) {
         if (
           candidate.season === parsed.season &&
-          candidate.normalizedTitles.has(parsed.normalizedTitle)
+          titleMatches(candidate.normalizedTitles, parsed)
         ) {
           pack = candidate;
           break;
@@ -258,7 +256,7 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
     if (parsed.season !== null && parsed.episode !== null) {
       const match = normalizedEpisodes.find(
         (ep) =>
-          ep.normalizedTitles.has(parsed.normalizedTitle) &&
+          titleMatches(ep.normalizedTitles, parsed) &&
           ep.season === parsed.season &&
           ep.episode === parsed.episode,
       );
@@ -272,7 +270,7 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
       }
     } else {
       const match = normalizedMovies.find((m) => {
-        if (!m.normalizedTitles.has(parsed.normalizedTitle)) return false;
+        if (!titleMatches(m.normalizedTitles, parsed)) return false;
         if (parsed.year !== null && m.year !== null)
           return m.year === parsed.year;
         return true;
@@ -476,50 +474,43 @@ function logRssMatch(
 
 export function extractTitleFromRelease(title: string): {
   normalizedTitle: string;
+  /** Show title with its trailing year kept, for shows named after a year. */
+  normalizedTitleWithYear: string | null;
   season: number | null;
   episode: number | null;
   year: number | null;
 } | null {
   if (!title) return null;
-
-  const spaced = title.replace(/[._]/g, " ");
-  const seInfo = parseReleaseSeasonEpisode(title);
-
-  if (seInfo) {
-    const seMatch = spaced.match(/S\d{1,2}E?\d{0,3}|S\d{1,2}$/i);
-    const rawTitle =
-      seMatch?.index !== undefined
-        ? spaced.slice(0, seMatch.index).trim()
-        : spaced;
-    return {
-      normalizedTitle: normalizeTitleForMatch(rawTitle),
-      season: seInfo.season,
-      episode: seInfo.episode,
-      year: null,
-    };
+  const parsed = parseReleaseStructure(title);
+  // Daily shows, absolute-numbered anime and whole-series packs have no
+  // season/episode slot to match, and must not fall through to movie matching.
+  if (
+    parsed.season == null &&
+    (parsed.episodes.length > 0 || parsed.airDate || parsed.completeSeries)
+  ) {
+    return null;
   }
-
-  const yearMatch = spaced.match(/\b(19|20)\d{2}\b/);
-
-  // Quality boundary markers present even without a year token
-  const qualityBoundary = spaced.match(
-    /\b(?:BluRay|BDRip|BRRip|WEB[-. ]?DL|WEBRip|WEB|HDRip|HDTV|DVDRip|DVD|4K|2160p|1080p|720p|480p|REMUX|PROPER|REPACK|EXTENDED|THEATRICAL|MULTI|VFF|VF2|VFQ|VFI|FRENCH|ENGLISH|MULTi)\b/i,
-  );
-
-  const boundary =
-    yearMatch?.index !== undefined
-      ? yearMatch.index
-      : qualityBoundary?.index !== undefined
-        ? qualityBoundary.index
-        : spaced.length;
-
-  const rawTitle = spaced.slice(0, boundary).trim();
-  if (!rawTitle) return null;
-
+  const normalizedTitle = normalizeTitleForMatch(parsed.title);
+  if (!normalizedTitle) return null;
+  const isTv = parsed.season != null;
   return {
-    normalizedTitle: normalizeTitleForMatch(rawTitle),
-    season: null,
-    episode: null,
-    year: yearMatch ? parseInt(yearMatch[0], 10) : null,
+    normalizedTitle,
+    normalizedTitleWithYear: parsed.titleWithYear
+      ? normalizeTitleForMatch(parsed.titleWithYear)
+      : null,
+    season: parsed.season,
+    episode: isTv ? (parsed.episodes[0] ?? null) : null,
+    year: isTv ? null : parsed.year,
   };
+}
+
+function titleMatches(
+  titles: Set<string>,
+  parsed: { normalizedTitle: string; normalizedTitleWithYear: string | null },
+): boolean {
+  return (
+    titles.has(parsed.normalizedTitle) ||
+    (parsed.normalizedTitleWithYear != null &&
+      titles.has(parsed.normalizedTitleWithYear))
+  );
 }

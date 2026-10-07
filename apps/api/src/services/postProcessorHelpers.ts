@@ -1,3 +1,4 @@
+import { parseReleaseStructure } from "@rawkoon/shared/utils/releaseStructure";
 import {
   copyFile,
   link,
@@ -161,9 +162,9 @@ export async function markItemDownloaded(dh: {
 export function parseSeasonEpisode(
   filename: string,
 ): { season: number; episode: number } | null {
-  const m = filename.match(/S(\d{1,2})E(\d{1,3})/i);
-  if (!m) return null;
-  return { season: parseInt(m[1], 10), episode: parseInt(m[2], 10) };
+  const { season, episodes } = parseReleaseStructure(filename);
+  if (season == null || episodes.length === 0) return null;
+  return { season, episode: episodes[0] };
 }
 
 /**

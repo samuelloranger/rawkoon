@@ -1,3 +1,4 @@
+import { parseReleaseStructure } from "@rawkoon/shared/utils/releaseStructure";
 import { parseReleaseSeasonEpisode } from "@rawkoon/api/utils/medias/filenameParser";
 
 export type GrabEpisodeRef = { id: number; season: number; episode: number };
@@ -24,18 +25,9 @@ export type ResolveGrabEpisodeResult =
  *   that episode.
  * - Release SxxExx points at an episode not in the library: reject the grab.
  */
-const EPISODE_MARKER_RE =
-  /S\d{1,2}E\d{1,3}|(?:^|[\s._-])\d{1,2}x\d{1,3}(?!\d)/gi;
-// E04E05, E04-E05, 4x04-05; "-720p", "-10bit" and "-5.1" are tags, not ranges.
-const EPISODE_RANGE_RE =
-  /(?:S\d{1,2}E\d{1,3}|\d{1,2}x\d{1,3})(?:[-_. ]?E\d{1,3}|-(?![257]\.[01](?!\d))\d{1,3}(?=[-_. ]|$))/i;
-
 /** Whether a release covers more than one episode (a second marker or a range). */
 export function isMultiEpisodeRelease(title: string): boolean {
-  return (
-    (title.match(EPISODE_MARKER_RE)?.length ?? 0) > 1 ||
-    EPISODE_RANGE_RE.test(title)
-  );
+  return parseReleaseStructure(title).episodes.length > 1;
 }
 
 export function resolveGrabEpisodeId(opts: {
