@@ -1214,6 +1214,7 @@
       "dismissLink": "Dismiss"
     },
     "integrations": {
+      "testConnection": "Test connection",
       "title": "Integrations",
       "description": "Connect third-party integrations used by the dashboard.",
       "indexers": "Indexers",

@@ -1214,6 +1214,7 @@
       "dismissLink": "Fermer"
     },
     "integrations": {
+      "testConnection": "Tester la connexion",
       "title": "Intégrations",
       "description": "Connectez des intégrations tierces utilisées par le tableau de bord.",
       "indexers": "Indexeurs",
