@@ -31,7 +31,9 @@ const over = <T>(
 ): Record<string, T> =>
   Object.fromEntries(cases.map((c) => [c.name, fn(c.name)]));
 
-const stem = (name: string) => name.replace(/\.[a-z0-9]{2,4}$/i, "");
+// Same extension set the importers strip; a bare 2–4 char suffix would eat ".x264".
+const stem = (name: string) =>
+  name.replace(/\.(mkv|mp4|avi|m4v|wmv|ts|m2ts|mov)$/i, "");
 
 describe("release-name corpus", () => {
   test("parseReleaseTitle", () => {
@@ -95,39 +97,101 @@ describe("release-name corpus", () => {
 
   // Where today's structural parsing disagrees with the corpus truth.
   test("mismatches against truth", () => {
-    const norm = (t: string) =>
-      normalizeTitleForMatch(t).replace(/\s+/g, " ").trim();
-    const mismatches: Record<string, Record<string, string>> = {
-      seasonEpisode: {},
-      rssTitle: {},
-      downloadsImport: {},
+    const norm = (t: string) => normalizeTitleForMatch(t).trim();
+    const show = (v: unknown) =>
+      v === undefined ? "undefined" : JSON.stringify(v);
+    const buckets = {
+      seasonEpisode: {} as Record<string, string>,
+      seasonPack: {} as Record<string, string>,
+      multiEpisode: {} as Record<string, string>,
+      completeSeries: {} as Record<string, string>,
+      inferSeason: {} as Record<string, string>,
+      packFileMapping: {} as Record<string, string>,
+      rssTitle: {} as Record<string, string>,
+      rssYear: {} as Record<string, string>,
+      rssEpisode: {} as Record<string, string>,
+      downloadsTitle: {} as Record<string, string>,
+      downloadsYear: {} as Record<string, string>,
+      downloadsEpisode: {} as Record<string, string>,
+      scanTitle: {} as Record<string, string>,
+      scanYear: {} as Record<string, string>,
     };
-    for (const c of ALL_RELEASE_NAMES) {
-      const t = c.truth;
-      const se = parseReleaseSeasonEpisode(c.name);
+    const isTv = (t: (typeof ALL_RELEASE_NAMES)[number]["truth"]) =>
+      t.season != null ||
+      t.episodes != null ||
+      t.airDate != null ||
+      !!t.completeSeries;
+
+    for (const { name, truth: t } of ALL_RELEASE_NAMES) {
+      const firstEp = t.episodes?.[0] ?? null;
       const wantSe =
-        t.season == null
-          ? null
-          : { season: t.season, episode: t.episodes?.[0] ?? null };
-      const gotSe = se ? { season: se.season, episode: se.episode } : null;
-      if (JSON.stringify(gotSe) !== JSON.stringify(wantSe)) {
-        mismatches.seasonEpisode[c.name] = JSON.stringify(gotSe);
+        t.season == null ? null : { season: t.season, episode: firstEp };
+      const se = parseReleaseSeasonEpisode(name);
+      if (show(se) !== show(wantSe)) buckets.seasonEpisode[name] = show(se);
+
+      if (isTv(t)) {
+        const pack = isSeasonPack(name);
+        if (pack !== !!t.seasonPack) buckets.seasonPack[name] = show(pack);
+        const multi = isMultiEpisodeRelease(name);
+        if (multi !== (t.episodes?.length ?? 0) > 1)
+          buckets.multiEpisode[name] = show(multi);
+        const complete = isCompleteSeries(name);
+        if (complete !== !!t.completeSeries)
+          buckets.completeSeries[name] = show(complete);
+        const inferred = inferSeasonFromReleaseTitle(name);
+        if (inferred !== (t.season ?? null))
+          buckets.inferSeason[name] = show(inferred);
+        if (t.episodes?.length && t.season != null) {
+          const mapped = parseSeasonEpisode(name);
+          const want = { season: t.season, episode: firstEp };
+          if (show(mapped) !== show(want))
+            buckets.packFileMapping[name] = show(mapped);
+        }
       }
 
-      const rss = extractTitleFromRelease(c.name);
+      const rss = extractTitleFromRelease(name);
       if (!rss || rss.normalizedTitle !== norm(t.title)) {
-        mismatches.rssTitle[c.name] = JSON.stringify(rss?.normalizedTitle);
-      } else if (t.year != null && rss.year != null && rss.year !== t.year) {
-        mismatches.rssTitle[c.name] = `year ${rss.year}`;
+        buckets.rssTitle[name] = show(rss?.normalizedTitle);
+      }
+      // RSS only uses the year to disambiguate movies.
+      if (rss && !isTv(t) && rss.year !== (t.year ?? null)) {
+        buckets.rssYear[name] = show(rss.year);
+      }
+      if (
+        rss &&
+        isTv(t) &&
+        (rss.season !== (t.season ?? null) || rss.episode !== firstEp)
+      ) {
+        buckets.rssEpisode[name] = show({
+          season: rss.season,
+          episode: rss.episode,
+        });
       }
 
-      const dl = buildParsed(c.name);
-      if (norm(dl.title ?? "") !== norm(t.title)) {
-        mismatches.downloadsImport[c.name] = JSON.stringify(dl.title);
-      } else if ((dl.year ?? undefined) !== t.year) {
-        mismatches.downloadsImport[c.name] = `year ${dl.year}`;
+      const dl = buildParsed(name);
+      if (norm(dl.title ?? "") !== norm(t.title))
+        buckets.downloadsTitle[name] = show(dl.title);
+      if ((dl.year ?? null) !== (t.year ?? null))
+        buckets.downloadsYear[name] = show(dl.year);
+      if (
+        isTv(t) &&
+        ((dl.season ?? null) !== (t.season ?? null) ||
+          (dl.episode ?? null) !== firstEp)
+      ) {
+        buckets.downloadsEpisode[name] = show({
+          season: dl.season,
+          episode: dl.episode,
+        });
+      }
+
+      if (!isTv(t)) {
+        const scan = parseFilenameForScan(stem(name));
+        if (norm(scan.title) !== norm(t.title))
+          buckets.scanTitle[name] = show(scan.title);
+        if ((scan.year ?? null) !== (t.year ?? null))
+          buckets.scanYear[name] = show(scan.year);
       }
     }
-    expect(mismatches).toMatchSnapshot();
+    expect(buckets).toMatchSnapshot();
   });
 });

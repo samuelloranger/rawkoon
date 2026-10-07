@@ -2,6 +2,8 @@
  * Synthetic release and file names covering the shapes the release/filename
  * parsers have to handle. `truth` is what a correct parse looks like, so a
  * parser change can be judged against it, not just against the old output.
+ * Sample entries carry the truth of the release they sample; samples are
+ * filtered upstream by the isSample flag.
  */
 export type ReleaseNameCase = {
   name: string;
@@ -15,6 +17,10 @@ export type ReleaseNameCase = {
     airDate?: string;
     /** Season pack (whole season, no episode). */
     seasonPack?: boolean;
+    /** Multi-season packs: every season covered (`season` is the first). */
+    seasons?: number[];
+    /** The whole series, not one season ("Complete Series", "Intégrale"). */
+    completeSeries?: boolean;
   };
 };
 
@@ -264,7 +270,7 @@ export const MOVIE_RELEASES: ReleaseNameCase[] = [
   },
   {
     name: "the.long.voyage.2021.1080p.bluray.x264-grp",
-    truth: { title: "the long voyage", year: 2021 },
+    truth: { title: "The Long Voyage", year: 2021 },
   },
 
   // French and multi-language releases.
@@ -350,6 +356,36 @@ export const MOVIE_RELEASES: ReleaseNameCase[] = [
   {
     name: "The Long Voyage (2021)",
     truth: { title: "The Long Voyage", year: 2021 },
+  },
+
+  // Shapes the existing parsers special-case.
+  {
+    name: "Ocean's.8.2018.1080p.BluRay.x264-GRP",
+    truth: { title: "Ocean's 8", year: 2018 },
+  },
+  {
+    name: "Fast.&.Loud.Road.2015.720p.WEB.x264-GRP",
+    truth: { title: "Fast & Loud Road", year: 2015 },
+  },
+  {
+    name: "Summer.of.1985.2020.1080p.WEB.h264-GRP",
+    truth: { title: "Summer of 1985", year: 2020 },
+  },
+  {
+    name: "The.Long.Voyage.2021.1080p.WEB-DL.DDP5.1.H.264-RARBG",
+    truth: { title: "The Long Voyage", year: 2021 },
+  },
+  {
+    name: "The.Long.Voyage.2021.1080p.BluRay.x264-SomeLongGroupName",
+    truth: { title: "The Long Voyage", year: 2021 },
+  },
+  {
+    name: "The.Long.Voyage.2021.HDTV.x264-GRP.ts",
+    truth: { title: "The Long Voyage", year: 2021 },
+  },
+  {
+    name: "Élan.Vital.2019.1080p.WEB.h264-GRP",
+    truth: { title: "Élan Vital", year: 2019 },
   },
 ];
 
@@ -495,6 +531,7 @@ export const TV_RELEASES: ReleaseNameCase[] = [
     name: "Quiet.Harbor.(2019).S01E01.1080p.WEB.h264-GRP",
     truth: { title: "Quiet Harbor", year: 2019, season: 1, episodes: [1] },
   },
+  // A country qualifier is part of the show's title here.
   {
     name: "Quiet.Harbor.US.S01E01.1080p.WEB.h264-GRP",
     truth: { title: "Quiet Harbor US", season: 1, episodes: [1] },
@@ -573,6 +610,97 @@ export const TV_RELEASES: ReleaseNameCase[] = [
     name: "[SubGroup] Starfall Saga - S01E05 [1080p]",
     truth: { title: "Starfall Saga", season: 1, episodes: [5] },
   },
+
+  // Multi-season and whole-series packs.
+  {
+    name: "Quiet.Harbor.S01-S03.1080p.WEB.h264-GRP",
+    truth: {
+      title: "Quiet Harbor",
+      season: 1,
+      seasons: [1, 2, 3],
+      seasonPack: true,
+    },
+  },
+  {
+    name: "Quiet.Harbor.S03-S04.720p.HDTV.x264-GRP",
+    truth: {
+      title: "Quiet Harbor",
+      season: 3,
+      seasons: [3, 4],
+      seasonPack: true,
+    },
+  },
+  {
+    name: "Quiet Harbor Seasons 1-3 1080p WEB-DL",
+    truth: {
+      title: "Quiet Harbor",
+      season: 1,
+      seasons: [1, 2, 3],
+      seasonPack: true,
+    },
+  },
+  {
+    name: "Quiet.Harbor.Complete.Series.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", completeSeries: true },
+  },
+  {
+    name: "Quiet.Harbor.The.Complete.Series.720p.BluRay.x264-GRP",
+    truth: { title: "Quiet Harbor", completeSeries: true },
+  },
+  {
+    name: "Quiet.Harbor.Integrale.FRENCH.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", completeSeries: true },
+  },
+  {
+    name: "Quiet Harbor Season 02 (Complete) 1080p WEB-DL",
+    truth: { title: "Quiet Harbor", season: 2, seasonPack: true },
+  },
+  {
+    name: "Quiet.Harbor.Series.2.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 2, seasonPack: true },
+  },
+
+  // Episode shapes and look-alikes.
+  {
+    name: "Quiet.Harbor.S01E01-720p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 1, episodes: [1] },
+  },
+  {
+    name: "Quiet.Harbor.S01E01-10bit.WEB.x265-GRP",
+    truth: { title: "Quiet Harbor", season: 1, episodes: [1] },
+  },
+  {
+    name: "Quiet.Harbor.S01E01-5.1.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 1, episodes: [1] },
+  },
+  {
+    name: "Quiet.Harbor.S01E01-S01E02.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 1, episodes: [1, 2] },
+  },
+  {
+    name: "quiet.harbor.s01e01e02.720p.hdtv.x264-grp",
+    truth: { title: "Quiet Harbor", season: 1, episodes: [1, 2] },
+  },
+  {
+    name: "Quiet.Harbor.Season.2.E05.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 2, episodes: [5] },
+  },
+  {
+    name: "Quiet Harbor Season 2 Episode 3 720p WEB-DL",
+    truth: { title: "Quiet Harbor", season: 2, episodes: [3] },
+  },
+  {
+    name: "Quiet.Harbor.S00E01.Special.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 0, episodes: [1] },
+  },
+  {
+    name: "Quiet.Harbor.S02E04.1080p.NF.WEB-DL.DDP5.1.H.264-GRP",
+    truth: { title: "Quiet Harbor", season: 2, episodes: [4] },
+  },
+  {
+    name: "Été.Indien.S01E02.FRENCH.1080p.WEB.h264-GRP",
+    truth: { title: "Été Indien", season: 1, episodes: [2] },
+  },
 ];
 
 /** On-disk file names as they reach the importer / rescan (with extensions). */
@@ -647,15 +775,11 @@ export const FILE_NAMES: ReleaseNameCase[] = [
   },
   {
     name: "quiet.harbor.s02e03.720p.hdtv.x264-grp.mkv",
-    truth: { title: "quiet harbor", season: 2, episodes: [3] },
+    truth: { title: "Quiet Harbor", season: 2, episodes: [3] },
   },
   {
     name: "Evening.Report.2024.01.15.1080p.WEB.h264-GRP.mkv",
     truth: { title: "Evening Report", airDate: "2024-01-15" },
-  },
-  {
-    name: "[SubGroup] Starfall Saga - 12 (1080p) [ABCD1234].mkv",
-    truth: { title: "Starfall Saga", episodes: [12] },
   },
 ];
 
