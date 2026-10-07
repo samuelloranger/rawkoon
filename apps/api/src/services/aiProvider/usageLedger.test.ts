@@ -55,6 +55,20 @@ describe("sanitizeAiError", () => {
     ).toBe("Missing required parameter: response_format.json_schema.name");
   });
 
+  it("keeps readable ids that share a key prefix", () => {
+    expect(
+      sanitizeAiError(new Error("Model hf_inference_endpoint is not found")),
+    ).toBe("Model hf_inference_endpoint is not found");
+    expect(
+      sanitizeAiError(new Error("Invalid key hf_AbCdEfGhIjKlMnOpQrSt")),
+    ).toBe("Invalid key [redacted]");
+    expect(
+      sanitizeAiError(
+        new Error("Invalid key hf_ABCDEFGHIJKLMNOP-qrstuvwxyz1234567890 here"),
+      ),
+    ).toBe("Invalid key [redacted] here");
+  });
+
   it("leaves ordinary error text readable", () => {
     expect(
       sanitizeAiError(new Error("The operation was aborted due to timeout")),

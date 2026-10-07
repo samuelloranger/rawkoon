@@ -34,7 +34,7 @@ const MAX_ERROR_LENGTH = 200;
 
 // Known key prefixes, bearer values and long unbroken tokens; dotted or slashed names (models, params) survive.
 const SECRET_LIKE_RE =
-  /\b(?:sk-|gsk_|xai-|hf_|AIza)[A-Za-z0-9_-]{8,}|\bbearer\s+\S+|[A-Za-z0-9_-]{32,}/gi;
+  /\b(?:sk-|gsk_|xai-|hf_|AIza)[A-Za-z0-9]{16}[A-Za-z0-9_-]*|\bbearer\s+\S+|[A-Za-z0-9_-]{32,}/gi;
 
 /**
  * Provider errors can echo the request URL or the key itself ("Invalid API
