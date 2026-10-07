@@ -1,4 +1,10 @@
 import { prisma } from "@rawkoon/api/db";
+import type { AiTrigger } from "@rawkoon/shared/types";
+import type { AiProviderConfig } from "@rawkoon/api/utils/integrations/types";
+import {
+  loadEnabledAiProviderConfig,
+  pickReleaseWithAi,
+} from "@rawkoon/api/services/aiProvider/client";
 import { getActiveIndexerManager } from "@rawkoon/api/services/indexerManager";
 import {
   parseReleaseSeasonEpisode,
@@ -26,6 +32,10 @@ export async function searchAndGrab(opts: {
   searchQuery: string;
   qualityProfileId: number | null;
   isUpgrade?: boolean;
+  /** Recorded in the AI usage ledger; defaults to upgrade/manual_search from isUpgrade. */
+  trigger?: AiTrigger;
+  /** Pre-loaded by the fallback wrapper; undefined means load it here. */
+  aiConfig?: AiProviderConfig | null;
 }): Promise<
   { grabbed: true; releaseTitle: string } | { grabbed: false; reason: string }
 > {
@@ -39,6 +49,8 @@ export async function searchAndGrab(opts: {
       qualityProfileId,
       isUpgrade,
     } = opts;
+    const trigger: AiTrigger =
+      opts.trigger ?? (isUpgrade ? "upgrade" : "manual_search");
     const qTrim = searchQuery.trim();
     if (!qTrim) return { grabbed: false, reason: "Empty search query" };
 
@@ -64,6 +76,8 @@ export async function searchAndGrab(opts: {
       where: { id: mediaId },
       select: {
         title: true,
+        year: true,
+        type: true,
         searchTitle: true,
         originalTitle: true,
       },
@@ -140,6 +154,7 @@ export async function searchAndGrab(opts: {
           score: sc,
           title,
           size,
+          seeders: release.seeders,
         });
       } else {
         rows.push({
@@ -151,6 +166,7 @@ export async function searchAndGrab(opts: {
           score: 0,
           title,
           size,
+          seeders: release.seeders,
         });
       }
     }
@@ -179,11 +195,55 @@ export async function searchAndGrab(opts: {
       })
       .then((rows) => new Set(rows.map((r) => r.releaseTitle.toLowerCase())));
 
-    for (const candidate of rows) {
-      if (blocklistTitles.has(candidate.title.toLowerCase())) continue;
+    const viable = rows.filter(
+      (r) => !blocklistTitles.has(r.title.toLowerCase()) && r.raw._downloadUrl,
+    );
 
+    let aiRow: CandidateRow | null = null;
+    if (viable.length >= 2) {
+      const aiConfig =
+        opts.aiConfig !== undefined
+          ? opts.aiConfig
+          : await loadEnabledAiProviderConfig().catch(() => null);
+      if (aiConfig) {
+        const pick = await pickReleaseWithAi(
+          aiConfig,
+          {
+            title: media?.title ?? "",
+            year: media?.year ?? null,
+            type: media?.type ?? mediaType,
+            preferred_languages: profileInput?.preferredLanguages,
+            season: expectedSeason ?? season ?? null,
+            episode: expectedEpisode,
+          },
+          viable.map((r) => ({
+            key: r.raw._downloadUrl,
+            title: r.title,
+            size_bytes: r.size,
+            seeders: r.seeders,
+            score: profileInput ? r.score : null,
+          })),
+          {
+            feature: "release_pick_search",
+            trigger,
+            classicTitle: viable[0]!.title,
+            mediaId,
+          },
+        ).catch(() => null);
+        aiRow = pick
+          ? (viable.find((r) => r.raw._downloadUrl === pick.release_key) ??
+            null)
+          : null;
+      }
+    }
+
+    // The AI pick goes first; the rest keep the classic order as fallbacks.
+    const ordered = aiRow
+      ? [aiRow, ...viable.filter((r) => r !== aiRow)]
+      : viable;
+
+    for (const candidate of ordered) {
       const downloadUrl = candidate.raw._downloadUrl;
-      if (!downloadUrl) continue;
 
       const result = await grabRelease({
         mediaId,
@@ -194,6 +254,7 @@ export async function searchAndGrab(opts: {
         indexer: null,
         qualityParsed: candidate.parsed,
         isUpgrade,
+        aiPicked: candidate === aiRow,
       });
 
       if (result.grabbed) return result;
@@ -232,10 +293,15 @@ export async function searchAndGrabWithTitleFallback(opts: {
   suffix: string;
   qualityProfileId: number | null;
   isUpgrade?: boolean;
+  /** Recorded in the AI usage ledger; defaults to upgrade/manual_search from isUpgrade. */
+  trigger?: AiTrigger;
+  /** Pre-loaded by the fallback wrapper; undefined means load it here. */
+  aiConfig?: AiProviderConfig | null;
 }): Promise<
   { grabbed: true; releaseTitle: string } | { grabbed: false; reason: string }
 > {
   let lastReason = "No matching releases found";
+  const aiConfig = await loadEnabledAiProviderConfig().catch(() => null);
   for (const base of opts.titleBaseQueries) {
     const result = await searchAndGrab({
       mediaId: opts.mediaId,
@@ -245,6 +311,8 @@ export async function searchAndGrabWithTitleFallback(opts: {
       searchQuery: `${base}${opts.suffix}`,
       qualityProfileId: opts.qualityProfileId,
       isUpgrade: opts.isUpgrade,
+      trigger: opts.trigger,
+      aiConfig,
     });
     if (result.grabbed) return result;
     lastReason = result.reason;

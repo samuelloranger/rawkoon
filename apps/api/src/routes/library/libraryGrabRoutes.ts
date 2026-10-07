@@ -144,12 +144,14 @@ export const libraryGrabRoutes = new Hono<Env>()
       const explicit = body.search_query?.trim();
       const result = explicit
         ? await searchAndGrab({
+            trigger: "manual_search",
             mediaId: id,
             mediaType: "movie",
             searchQuery: explicit,
             qualityProfileId: media.qualityProfileId,
           })
         : await searchAndGrabWithTitleFallback({
+            trigger: "manual_search",
             mediaId: id,
             mediaType: "movie",
             titleBaseQueries: resolveSearchTitles({
@@ -212,6 +214,7 @@ export const libraryGrabRoutes = new Hono<Env>()
         const explicit = body.search_query?.trim();
         const result = explicit
           ? await searchAndGrab({
+              trigger: "manual_search",
               mediaId,
               episodeId,
               mediaType: "tv",
@@ -219,6 +222,7 @@ export const libraryGrabRoutes = new Hono<Env>()
               qualityProfileId: media.qualityProfileId,
             })
           : await searchAndGrabWithTitleFallback({
+              trigger: "manual_search",
               mediaId,
               episodeId,
               mediaType: "tv",
@@ -301,6 +305,7 @@ export const libraryGrabRoutes = new Hono<Env>()
         const explicit = body.search_query?.trim();
         const result = explicit
           ? await searchAndGrab({
+              trigger: "manual_search",
               mediaId,
               season,
               mediaType: "tv",
@@ -308,6 +313,7 @@ export const libraryGrabRoutes = new Hono<Env>()
               qualityProfileId: media.qualityProfileId,
             })
           : await searchAndGrabWithTitleFallback({
+              trigger: "manual_search",
               mediaId,
               season,
               mediaType: "tv",

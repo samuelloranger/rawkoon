@@ -103,6 +103,7 @@ export async function checkEpisodeReleases(): Promise<void> {
 
     try {
       const result = await searchAndGrabWithTitleFallback({
+        trigger: "scheduled",
         mediaId,
         season,
         mediaType: "tv",
@@ -156,6 +157,7 @@ export async function checkEpisodeReleases(): Promise<void> {
         originalTitle: ep.media.originalTitle,
       });
       const result = await searchAndGrabWithTitleFallback({
+        trigger: "scheduled",
         mediaId: ep.media.id,
         episodeId: ep.id,
         mediaType: "tv",

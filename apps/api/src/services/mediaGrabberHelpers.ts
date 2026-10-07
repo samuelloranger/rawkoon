@@ -76,6 +76,7 @@ export type CandidateRow = {
   score: number;
   title: string;
   size: number | null;
+  seeders: number | null;
 };
 
 export async function checkBlocklist(
