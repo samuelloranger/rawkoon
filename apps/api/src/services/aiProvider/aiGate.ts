@@ -55,7 +55,14 @@ async function todayTokens(now: number): Promise<Tokens> {
   if (cached && cached.day === day && now - cached.at < SPEND_CACHE_TTL_MS) {
     return cached.tokens;
   }
-  const tokens = await fetchTodayTokens(now);
+  const fetched = await fetchTodayTokens(now);
+  // Today's totals only grow, so a lookup that started before a noted call
+  // must not shrink the cache back below it.
+  const prior = cached?.day === day ? cached.tokens : null;
+  const tokens = {
+    input: Math.max(fetched.input, prior?.input ?? 0),
+    output: Math.max(fetched.output, prior?.output ?? 0),
+  };
   cached = { day, at: now, tokens };
   return tokens;
 }

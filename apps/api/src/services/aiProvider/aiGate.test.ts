@@ -148,6 +148,18 @@ describe("checkAiAllowed", () => {
     expect(aggregate).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps noted spend when an older lookup lands afterwards", async () => {
+    const config = { ...priced, daily_budget_usd: 2 };
+    const t0 = Date.UTC(2026, 9, 6, 12, 0, 0);
+    spend(1);
+    await checkAiAllowed(config, "release_pick_rss", t0);
+    noteAiSpend({ inputTokens: 1_500_000 }, t0 + 1_000);
+    // A refresh after the TTL that still reads the pre-call total.
+    const res = await checkAiAllowed(config, "release_pick_rss", t0 + 61_000);
+    expect(res).toEqual({ allowed: false, reason: "budget_exceeded" });
+    expect(aggregate).toHaveBeenCalledTimes(2);
+  });
+
   it("starts the spend window at midnight UTC", async () => {
     const now = Date.UTC(2026, 9, 6, 15, 30);
     await checkAiAllowed(
