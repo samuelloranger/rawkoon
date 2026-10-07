@@ -9,6 +9,8 @@ struct AiSettingsView: View {
     @State private var stats: AiStatsResponse?
     @State private var statsLoading = true
     @State private var statsError: String?
+    /// Bumped per load so an older response for the same period cannot overwrite a newer one.
+    @State private var statsGeneration = 0
 
     var body: some View {
         Group {
@@ -100,16 +102,17 @@ struct AiSettingsView: View {
 
     private func loadStats() async {
         guard let client = model.api() else { statsLoading = false; return }
-        let requested = period
+        statsGeneration += 1
+        let token = statsGeneration
         statsLoading = true; statsError = nil
         do {
-            let result = try await client.aiStats(days: requested.rawValue)
+            let result = try await client.aiStats(days: period.rawValue)
             // A cancelled request surfaces as a transport error, so check staleness instead of the error type.
-            guard !Task.isCancelled, requested == period else { return }
+            guard !Task.isCancelled, token == statsGeneration else { return }
             stats = result
             statsError = nil
         } catch {
-            guard !Task.isCancelled, requested == period else { return }
+            guard !Task.isCancelled, token == statsGeneration else { return }
             statsError = settingsErrorMessage(error)
         }
         statsLoading = false

@@ -749,6 +749,8 @@ struct ReleaseSearchView: View {
         aiPickGeneration += 1
         let generation = aiPickGeneration
         inFlightAiPickKey = key
+        // The shown pick is cleared below, so returning to that candidate set must ask again.
+        lastAiPickKey = nil
         aiPickDismissed = false
         aiPickGrabbed = false
         aiPickError = nil
