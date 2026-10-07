@@ -112,7 +112,7 @@ extension MediaDetailView {
                 MovieAutoSearchLamp(
                     isSearching: autoSearching,
                     onAutoSearch: { Task { await movieAutoSearch() } },
-                    onChoose: openReleaseSearch
+                    onChoose: { openReleaseSearch() }
                 )
                 .disabled(applyingManagementChange)
                 .requiresConnection(model.isOffline)
