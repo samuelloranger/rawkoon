@@ -37,8 +37,6 @@ const COMPLETE_SERIES = new RegExp(
   `${SEP}+(?:The${SEP}+)?(?:Complete${SEP}+(?:Series|Pack)|Int[ée]grale?)(?=$|${SEP})`,
   "i",
 );
-// A bare "Complete" only means the whole series when no season is named.
-const COMPLETE_BARE = new RegExp(`${SEP}+Complete(?=$|${SEP})`, "i");
 const SEASON_ONLY = new RegExp(`(?:^|${SEP})S\\d{1,2}(?=$|${SEP})`, "i");
 // Fansub style: "[Group] Title S2 - 05" and "[Group] Title - 12".
 const ANIME_SEASON_EP = /^\[[^\]]+\]\s*(.+?)\s+S(\d{1,2})\s+-\s+(\d{1,4})\b/i;
@@ -149,65 +147,90 @@ function parseAnime(name: string): ReleaseStructure | null {
   return null;
 }
 
-// Fallback for markers the library misses: "4x04-05", "Saison 2", "Stagione 2".
-function parseMarkerFallback(name: string): ReleaseStructure | null {
-  const nx = NXNN.exec(name);
-  if (nx) {
-    const from = Number(nx[2]);
-    const to = nx[3] ? Number(nx[3]) : from;
-    const split = splitTrailingYear(cleanTitle(name.slice(0, nx.index)));
-    return {
-      ...empty(split.title),
-      year: split.year,
-      titleWithYear: split.titleWithYear,
-      season: Number(nx[1]),
-      episodes: range(from, to),
-    };
-  }
-  const sw = SEASON_WORD.exec(name);
-  if (sw) {
-    const split = splitTrailingYear(cleanTitle(name.slice(0, sw.index)));
-    return {
-      ...empty(split.title),
-      year: split.year,
-      titleWithYear: split.titleWithYear,
-      season: Number(sw[1]),
-      seasonPack: true,
-    };
-  }
-  return null;
+// "S01E01", chains ("E01E02E03", "E01.E02") and ranges ("E01-E03", "E01-03").
+const SXX_CHAIN =
+  /\bS(\d{1,2})[\s.-]?E(\d{1,3})((?:[\s.]?-?[\s.]?E\d{1,3})*)(?:-(\d{1,3})(?=$|[\s.-]))?/i;
+
+function sxxEpisodes(m: RegExpExecArray): number[] {
+  const first = Number(m[2]);
+  const rest = [...m[3].matchAll(/E(\d{1,3})/gi)].map((x) => Number(x[1]));
+  if (m[4]) return range(first, Number(m[4]));
+  if (rest.length > 0 && m[3].includes("-"))
+    return range(first, rest[rest.length - 1]);
+  return [first, ...rest];
 }
 
-// The parser keeps only the last episode of an "NxAA-BB" range.
-function nxRangeEpisodes(name: string): number[] | null {
-  const nx = NXNN.exec(name);
-  return nx?.[3] ? range(Number(nx[2]), Number(nx[3])) : null;
-}
+const TV_MARKERS = [
+  ["sxx", SXX_CHAIN],
+  ["nx", NXNN],
+  ["word", SEASON_WORD],
+  ["season", SEASON_ONLY],
+] as const;
 
-// Index where the first TV marker starts, or -1.
-function tvMarkerIndex(name: string): number {
-  let best = -1;
-  for (const re of [SXXEYY, NXNN, SEASON_WORD, SEASON_ONLY]) {
+// The earliest explicit TV marker; the title is everything before it.
+function firstTvMarker(
+  name: string,
+): { kind: (typeof TV_MARKERS)[number][0]; match: RegExpExecArray } | null {
+  let best: {
+    kind: (typeof TV_MARKERS)[number][0];
+    match: RegExpExecArray;
+  } | null = null;
+  for (const [kind, re] of TV_MARKERS) {
     const m = re.exec(name);
-    if (m && (best === -1 || m.index < best)) best = m.index;
+    if (m && (!best || m.index < best.match.index)) best = { kind, match: m };
   }
   return best;
 }
 
+// Season/episode numbers come from explicit markers only: the underlying
+// parser's TV mode misreads too many shapes (a movie year as S20E21, "E06.60fps"
+// as a range, the first of three chained episodes dropped, "Ocean's.8" as S8).
+function parseTv(name: string): ReleaseStructure | null {
+  const marker = firstTvMarker(name);
+  if (!marker) return null;
+  const { kind, match } = marker;
+  // A season word with nothing before it names no show ("Series 7 The Contenders").
+  if ((kind === "word" || kind === "season") && match.index === 0) return null;
+  const split = splitTrailingYear(cleanTitle(name.slice(0, match.index)));
+  const base = {
+    ...empty(split.title),
+    year: split.year,
+    titleWithYear: split.titleWithYear,
+  };
+  if (kind === "sxx") {
+    return { ...base, season: Number(match[1]), episodes: sxxEpisodes(match) };
+  }
+  if (kind === "nx") {
+    const from = Number(match[2]);
+    return {
+      ...base,
+      season: Number(match[1]),
+      episodes: match[3] ? range(from, Number(match[3])) : [from],
+    };
+  }
+  const season = /(\d{1,2})/.exec(match[0].replace(/^[\s._-]*\D*/, ""));
+  return {
+    ...base,
+    season: season ? Number(season[1]) : null,
+    seasonPack: true,
+  };
+}
+
+const MAX_NAME_LENGTH = 512;
+
 /**
  * Parse the title, year and season/episode structure of a release or file name.
  *
- * TV parsing only runs when the name carries an explicit TV marker: the
- * underlying parser otherwise reads a movie year such as 2021 as S20E21.
+ * Movie titles and years come from @ctrl/video-filename-parser; TV structure
+ * comes from explicit markers, so a name without one is always a movie.
  */
 export function parseReleaseStructure(rawName: string): ReleaseStructure {
-  const name = normalizeMarkers(rawName.trim().replace(VIDEO_EXT, ""));
+  const name = normalizeMarkers(
+    rawName.trim().slice(0, MAX_NAME_LENGTH).replace(VIDEO_EXT, ""),
+  );
   if (!name) return empty("");
 
-  const complete =
-    (!SXXEYY.test(name) && COMPLETE_SERIES.exec(name)) ||
-    (tvMarkerIndex(name) === -1 && COMPLETE_BARE.exec(name)) ||
-    null;
+  const complete = !SXXEYY.test(name) ? COMPLETE_SERIES.exec(name) : null;
   if (complete) {
     const split = splitTrailingYear(cleanTitle(name.slice(0, complete.index)));
     return {
@@ -224,24 +247,8 @@ export function parseReleaseStructure(rawName: string): ReleaseStructure {
   const anime = parseAnime(name);
   if (anime) return anime;
 
-  const marker = tvMarkerIndex(name);
-  if (marker > 0) {
-    // Apostrophes hide nothing structural but make "Ocean's.8" read as season 8.
-    const tv = filenameParse(name.replace(/['’]/g, ""), true);
-    if ("isTv" in tv && tv.seasons.length > 0) {
-      const split = splitTrailingYear(cleanTitle(name.slice(0, marker)));
-      return {
-        ...empty(split.title),
-        year: split.year ?? toYear(tv.year),
-        titleWithYear: split.titleWithYear,
-        season: tv.seasons[0],
-        episodes: nxRangeEpisodes(name) ?? tv.episodeNumbers,
-        seasonPack: tv.fullSeason,
-      };
-    }
-    const fallback = parseMarkerFallback(name);
-    if (fallback) return fallback;
-  }
+  const tv = parseTv(name);
+  if (tv) return tv;
 
   const movie = filenameParse(name, false);
   // The parser can leave a separator dot beside a symbol: "Fast &. Loud".
