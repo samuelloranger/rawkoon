@@ -1,21 +1,30 @@
 import { fakeDns } from "../testDnsMock";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "bun:test";
 import {
   fetchHttpWithSafeRedirects,
   isServerTorrentFetchUrlAllowed,
   MagnetRedirectError,
 } from "./safeTorrentFetchUrl";
 
-fakeDns.set("example.com", ["93.184.216.34"]);
+fakeDns.set("public.test", ["93.184.216.34"]);
 fakeDns.set("rebind.test", ["127.0.0.1"]);
 fakeDns.set("indexer.lan", ["192.168.1.20"]);
 fakeDns.set("prowlarr", ["172.20.0.3"]);
 fakeDns.set("meta.test", ["169.254.169.254"]);
+fakeDns.set("nx.test", new Error("getaddrinfo ENOTFOUND nx.test"));
+afterAll(() => fakeDns.clear());
 
 describe("isServerTorrentFetchUrlAllowed", () => {
   test("allows normal https URLs", async () => {
     expect(
-      await isServerTorrentFetchUrlAllowed("https://example.com/file.torrent"),
+      await isServerTorrentFetchUrlAllowed("https://public.test/file.torrent"),
     ).toBe(true);
   });
 
@@ -74,8 +83,7 @@ describe("isServerTorrentFetchUrlAllowed", () => {
   });
 
   test("fails closed on unresolvable hosts", async () => {
-    fakeDns.delete("nx.invalid");
-    expect(await isServerTorrentFetchUrlAllowed("http://nx.invalid/a")).toBe(
+    expect(await isServerTorrentFetchUrlAllowed("http://nx.test/a")).toBe(
       false,
     );
   });
@@ -116,7 +124,7 @@ describe("fetchHttpWithSafeRedirects", () => {
   });
 
   test("drops the indexer API key when a redirect leaves the origin", async () => {
-    responses = [redirect(302, "https://example.com/real.torrent")];
+    responses = [redirect(302, "https://public.test/real.torrent")];
     await fetchHttpWithSafeRedirects("http://prowlarr:9696/dl/1", {
       headers: { "X-Api-Key": "secret", "User-Agent": "rawkoon" },
     });
@@ -151,5 +159,19 @@ describe("fetchHttpWithSafeRedirects", () => {
     ).catch((e) => e);
     expect(err).toBeInstanceOf(MagnetRedirectError);
     expect((err as MagnetRedirectError).magnetUrl).toBe(magnet);
+  });
+
+  test("keeps the API key when the indexer upgrades http to https", async () => {
+    responses = [redirect(301, "https://prowlarr:9696/dl/1")];
+    await fetchHttpWithSafeRedirects("http://prowlarr:9696/dl/1", {
+      headers: { "X-Api-Key": "secret" },
+    });
+    expect((calls[1].init.headers as Headers).get("x-api-key")).toBe("secret");
+  });
+
+  test("prefers the IPv4 answer of a dual-stack LAN host", async () => {
+    fakeDns.set("dual.lan.test", ["fd00::10", "192.168.1.20"]);
+    await fetchHttpWithSafeRedirects("http://dual.lan.test/x", {});
+    expect(calls[0].url).toBe("http://192.168.1.20/x");
   });
 });

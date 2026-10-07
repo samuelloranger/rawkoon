@@ -2,32 +2,31 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import ipaddr from "ipaddr.js";
 
+const NAT64_WELL_KNOWN = [0x00, 0x64, 0xff, 0x9b, 0, 0, 0, 0, 0, 0, 0, 0];
+
+// Forms that carry an IPv4 are classified by that IPv4: IPv4-compatible
+// (::/96, which ipaddr leaves as unicast), well-known NAT64 (64:ff9b::/96)
+// and 6to4 (2002::/16). Local-use NAT64 (64:ff9b:1::/48) keeps its own
+// "rfc6052" range and so stays blocked under both policies.
 function parseIp(ip: string): ipaddr.IPv4 | ipaddr.IPv6 | null {
   if (isIP(ip) === 0) return null;
   try {
     const addr = ipaddr.process(ip);
-    // ipaddr leaves IPv4-compatible ::a.b.c.d (::/96) as plain unicast IPv6.
-    if (addr.kind() === "ipv6") {
-      const b = addr.toByteArray();
-      if (b.slice(0, 12).every((x) => x === 0)) {
-        return ipaddr.fromByteArray(b.slice(12, 16));
-      }
+    if (addr.kind() === "ipv4") return addr;
+    const b = addr.toByteArray();
+    if (b.slice(0, 12).every((x) => x === 0)) {
+      return ipaddr.fromByteArray(b.slice(12, 16));
+    }
+    if (NAT64_WELL_KNOWN.every((x, i) => b[i] === x)) {
+      return ipaddr.fromByteArray(b.slice(12, 16));
+    }
+    if (b[0] === 0x20 && b[1] === 0x02) {
+      return ipaddr.fromByteArray(b.slice(2, 6));
     }
     return addr;
   } catch {
     return null;
   }
-}
-
-// The IPv4 address hidden inside NAT64 (64:ff9b::/96) and 6to4 (2002::/16) forms.
-function embeddedIPv4(addr: ipaddr.IPv6): ipaddr.IPv4 | null {
-  const range = addr.range();
-  const b = addr.toByteArray();
-  if (range === "rfc6052")
-    return ipaddr.fromByteArray(b.slice(12, 16)) as ipaddr.IPv4;
-  if (range === "6to4")
-    return ipaddr.fromByteArray(b.slice(2, 6)) as ipaddr.IPv4;
-  return null;
 }
 
 /** Strict policy for user-supplied outbound targets: anything not globally routable is blocked. */
@@ -48,10 +47,6 @@ const LAN_ALLOWED_RANGES = new Set([
 export function isBlockedForLanFetch(ip: string): boolean {
   const addr = parseIp(ip);
   if (!addr) return true;
-  if (addr.kind() === "ipv6") {
-    const inner = embeddedIPv4(addr as ipaddr.IPv6);
-    if (inner) return !LAN_ALLOWED_RANGES.has(inner.range());
-  }
   return !LAN_ALLOWED_RANGES.has(addr.range());
 }
 
@@ -111,11 +106,12 @@ const CROSS_ORIGIN_SAFE_HEADERS = new Set([
   "content-type",
 ]);
 
-// Resolves the host once and rejects any blocked address; returns the IP to pin.
-export async function resolvePinnedIp(
+// Resolves the host once and rejects it if any answer is blocked; returns
+// every validated address, IPv4 first, so callers can fall back between them.
+export async function resolveAllowedIps(
   url: URL,
   policy: OutboundPolicy = "public",
-): Promise<string> {
+): Promise<string[]> {
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new Error(`Invalid protocol: ${url.protocol}`);
   }
@@ -127,7 +123,7 @@ export async function resolvePinnedIp(
         `Outbound URL target IP is blocked (private/local range): ${hostname}`,
       );
     }
-    return hostname;
+    return [hostname];
   }
 
   let addresses: { address: string }[];
@@ -148,7 +144,21 @@ export async function resolvePinnedIp(
       );
     }
   }
-  return addresses[0].address;
+  const ips = addresses.map((a) => a.address);
+  return [
+    ...ips.filter((ip) => isIP(ip) === 4),
+    ...ips.filter((ip) => isIP(ip) !== 4),
+  ];
+}
+
+// Same origin, or an http→https upgrade on the same host, may keep credentials.
+function keepsCredentials(from: URL, to: URL): boolean {
+  if (to.origin === from.origin) return true;
+  return (
+    from.protocol === "http:" &&
+    to.protocol === "https:" &&
+    to.hostname === from.hostname
+  );
 }
 
 export type SafeFetchOptions = {
@@ -188,11 +198,8 @@ export async function safeFetch(
     ?.tls;
 
   for (let hop = 0; ; hop++) {
-    const pinnedIp = await resolvePinnedIp(url, policy);
+    const ips = await resolveAllowedIps(url, policy);
     const hostname = url.hostname.replace(/^\[|\]$/g, "");
-
-    const pinnedUrl = new URL(url);
-    pinnedUrl.hostname = isIP(pinnedIp) === 6 ? `[${pinnedIp}]` : pinnedIp;
 
     const hopHeaders = new Headers(headers);
     hopHeaders.set("Host", hop === 0 && callerHost ? callerHost : url.host);
@@ -209,7 +216,20 @@ export async function safeFetch(
       hopInit.tls = { ...existingTls, serverName: hostname };
     }
 
-    const res = await fetch(pinnedUrl.toString(), hopInit as RequestInit);
+    let res: Response | undefined;
+    let lastError: unknown;
+    for (const ip of ips) {
+      const pinnedUrl = new URL(url);
+      pinnedUrl.hostname = isIP(ip) === 6 ? `[${ip}]` : ip;
+      try {
+        res = await fetch(pinnedUrl.toString(), hopInit as RequestInit);
+        break;
+      } catch (err) {
+        if (hopInit.signal?.aborted) throw err;
+        lastError = err;
+      }
+    }
+    if (!res) throw lastError;
     if (res.status < 300 || res.status >= 400) return res;
 
     const location = res.headers.get("location")?.trim();
@@ -220,7 +240,7 @@ export async function safeFetch(
 
     const next = new URL(location, url);
     onRedirect?.(next);
-    if (next.origin !== url.origin) {
+    if (!keepsCredentials(url, next)) {
       for (const name of [...headers.keys()]) {
         if (!CROSS_ORIGIN_SAFE_HEADERS.has(name)) headers.delete(name);
       }

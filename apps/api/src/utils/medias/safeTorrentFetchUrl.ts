@@ -1,4 +1,4 @@
-import { resolvePinnedIp, safeFetch } from "@rawkoon/api/utils/ssrf";
+import { resolveAllowedIps, safeFetch } from "@rawkoon/api/utils/ssrf";
 
 /**
  * Server-side .torrent fetch SSRF hardening: block loopback, link-local (cloud
@@ -10,7 +10,7 @@ export async function isServerTorrentFetchUrlAllowed(
   urlString: string,
 ): Promise<boolean> {
   try {
-    await resolvePinnedIp(new URL(urlString), "lan");
+    await resolveAllowedIps(new URL(urlString), "lan");
     return true;
   } catch {
     return false;

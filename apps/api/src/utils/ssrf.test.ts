@@ -1,5 +1,12 @@
 import { fakeDns } from "./testDnsMock";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "bun:test";
 import { isBlockedForLanFetch, isPrivateIP, safeFetch } from "./ssrf";
 
 // [address, blocked by strict policy, blocked by LAN policy]
@@ -14,6 +21,10 @@ const TABLE: [string, boolean, boolean][] = [
   ["::ffff:127.0.0.1", true, true],
   ["::ffff:7f00:1", true, true],
   ["64:ff9b::7f00:1", true, true],
+  ["64:ff9b:1:7f00:0:100:808:808", true, true],
+  ["64:ff9b:1:a9fe:a9:fe00:808:808", true, true],
+  ["64:ff9b::808:808", false, false],
+  ["2002:808:808::1", false, false],
   ["2002:7f00:1::", true, true],
   ["::ffff:169.254.169.254", true, true],
   ["169.254.169.254", true, true],
@@ -35,6 +46,8 @@ const TABLE: [string, boolean, boolean][] = [
   ["not-an-ip", true, true],
   ["", true, true],
 ];
+
+afterAll(() => fakeDns.clear());
 
 describe("IP classifiers", () => {
   for (const [ip, strict, lan] of TABLE) {
@@ -173,6 +186,45 @@ describe("safeFetch redirects", () => {
     expect(cross.has("cookie")).toBe(false);
     expect(cross.has("x-api-key")).toBe(false);
     expect(cross.get("user-agent")).toBe("rawkoon");
+  });
+
+  test("an http→https upgrade on the same host keeps credentials", async () => {
+    responses = [redirect(301, "https://a.test/x")];
+    await safeFetch("http://a.test/x", { headers: { "x-api-key": "k" } });
+    expect((calls[1].init.headers as Headers).get("x-api-key")).toBe("k");
+  });
+
+  test("dials IPv4 first and falls back to the next address on a network error", async () => {
+    fakeDns.set("dual.test", ["2606:4700::1111", "8.8.4.4", "1.0.0.1"]);
+    let failFirst = true;
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      calls.push({ url: String(url), init });
+      if (failFirst) {
+        failFirst = false;
+        throw new TypeError("connect ECONNREFUSED");
+      }
+      return new Response("ok");
+    }) as unknown as typeof fetch;
+    const res = await safeFetch("http://dual.test/x");
+    expect(await res.text()).toBe("ok");
+    expect(calls.map((c) => c.url)).toEqual([
+      "http://8.8.4.4/x",
+      "http://1.0.0.1/x",
+    ]);
+  });
+
+  test("does not try other addresses once the request is aborted", async () => {
+    fakeDns.set("dual.test", ["8.8.4.4", "1.0.0.1"]);
+    const ctrl = new AbortController();
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      calls.push({ url: String(url), init });
+      ctrl.abort();
+      throw new DOMException("aborted", "AbortError");
+    }) as unknown as typeof fetch;
+    await expect(
+      safeFetch("http://dual.test/x", { signal: ctrl.signal }),
+    ).rejects.toThrow("aborted");
+    expect(calls).toHaveLength(1);
   });
 
   test("a 3xx without Location is returned as the final response", async () => {
