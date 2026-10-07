@@ -26,7 +26,7 @@ const DAILY = new RegExp(
 );
 const SXXEYY = /\bS\d{1,2}[\s._-]?E\d{1,3}/i;
 const NXNN = new RegExp(
-  `(?:^|${SEP})(\\d{1,2})x(\\d{2,3})(?:-(\\d{2,3}))?(?=$|${SEP})`,
+  `(?:^|${SEP})(\\d{1,2})x(\\d{2,3})((?:x\\d{2,3})*)(?:-(\\d{2,3}))?(?=$|${SEP})`,
   "i",
 );
 const SEASON_WORD = new RegExp(
@@ -170,14 +170,27 @@ const TV_MARKERS = [
 // The earliest explicit TV marker; the title is everything before it.
 function firstTvMarker(
   name: string,
-): { kind: (typeof TV_MARKERS)[number][0]; match: RegExpExecArray } | null {
+): {
+  kind: (typeof TV_MARKERS)[number][0];
+  match: RegExpExecArray;
+  start: number;
+} | null {
   let best: {
     kind: (typeof TV_MARKERS)[number][0];
     match: RegExpExecArray;
+    start: number;
   } | null = null;
   for (const [kind, re] of TV_MARKERS) {
-    const m = re.exec(name);
-    if (m && (!best || m.index < best.match.index)) best = { kind, match: m };
+    const global = new RegExp(re.source, "gi");
+    for (let m = global.exec(name); m; m = global.exec(name)) {
+      // Some markers include their leading separator; compare where the marker itself starts.
+      const start =
+        m.index + (m[0].length - m[0].replace(/^[\s._-]+/, "").length);
+      // A season word with nothing before it names no show ("Series 7 ..."): look further.
+      if ((kind === "word" || kind === "season") && start === 0) continue;
+      if (!best || start < best.start) best = { kind, match: m, start };
+      break;
+    }
   }
   return best;
 }
@@ -188,10 +201,8 @@ function firstTvMarker(
 function parseTv(name: string): ReleaseStructure | null {
   const marker = firstTvMarker(name);
   if (!marker) return null;
-  const { kind, match } = marker;
-  // A season word with nothing before it names no show ("Series 7 The Contenders").
-  if ((kind === "word" || kind === "season") && match.index === 0) return null;
-  const split = splitTrailingYear(cleanTitle(name.slice(0, match.index)));
+  const { kind, match, start } = marker;
+  const split = splitTrailingYear(cleanTitle(name.slice(0, start)));
   const base = {
     ...empty(split.title),
     year: split.year,
@@ -202,10 +213,13 @@ function parseTv(name: string): ReleaseStructure | null {
   }
   if (kind === "nx") {
     const from = Number(match[2]);
+    const chained = [...match[3].matchAll(/x(\d{2,3})/gi)].map((x) =>
+      Number(x[1]),
+    );
     return {
       ...base,
       season: Number(match[1]),
-      episodes: match[3] ? range(from, Number(match[3])) : [from],
+      episodes: match[4] ? range(from, Number(match[4])) : [from, ...chained],
     };
   }
   const season = /(\d{1,2})/.exec(match[0].replace(/^[\s._-]*\D*/, ""));

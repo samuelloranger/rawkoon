@@ -735,6 +735,22 @@ export const TV_RELEASES: ReleaseNameCase[] = [
     truth: { title: "9-1-1", season: 2, seasonPack: true },
   },
   {
+    name: "Series.Seven.S01E01.1080p.WEB.h264-GRP",
+    truth: { title: "Series Seven", season: 1, episodes: [1] },
+  },
+  {
+    name: "Quiet.Harbor.S01.E01.1080p.WEB.h264-GRP",
+    truth: { title: "Quiet Harbor", season: 1, episodes: [1] },
+  },
+  {
+    name: "Quiet Harbor S01 E01-E03 720p WEB-DL",
+    truth: { title: "Quiet Harbor", season: 1, episodes: [1, 2, 3] },
+  },
+  {
+    name: "Quiet.Harbor.1x01x02.HDTV.x264-GRP",
+    truth: { title: "Quiet Harbor", season: 1, episodes: [1, 2] },
+  },
+  {
     name: "quiet.harbor.s01e01e02.720p.hdtv.x264-grp",
     truth: { title: "Quiet Harbor", season: 1, episodes: [1, 2] },
   },
