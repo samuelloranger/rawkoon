@@ -101,6 +101,9 @@ final class AudiobookPlayer {
     /// The last item whose failure was handled, so the status KVO, the
     /// failed-to-end notification and a drained queue resolve it only once.
     var handledFailedItem: ObjectIdentifier?
+    /// True while a failed stream waits for fresh URLs. Ticks are ignored and
+    /// seeks only move the target, so the retry resumes where the listener is.
+    var streamRetryPending = false
 
     /// Fresh signed URLs for an edition, or nil when they cannot be had.
     /// Set by AppModel; a cached manifest's grants expire after seven days.
@@ -393,6 +396,12 @@ final class AudiobookPlayer {
         chapters = []
         filesById = [:]
         itemFiles = [:]
+        queuedItem = nil
+        handledFailedItem = nil
+        streamRetriedAt = [:]
+        streamRetryPending = false
+        // Abandons a pending stream retry.
+        seekID += 1
         artwork = nil
         artworkURL = nil
         positionSecs = 0
@@ -430,6 +439,18 @@ final class AudiobookPlayer {
         }
         if player?.currentItem == nil, duration > 0 {
             seek(to: playStartPosition(positionSecs: positionSecs, durationSecs: duration), userInitiated: false)
+            return
+        }
+        // The pending retry starts playback itself once it rebuilds.
+        if streamRetryPending {
+            updateNowPlayingInfo()
+            return
+        }
+        // A failed item never plays; a tap after the error is a fresh attempt,
+        // fresh URLs included.
+        if player?.currentItem?.status == .failed {
+            streamRetriedAt = [:]
+            buildQueue(at: positionSecs, autoplay: true)
             return
         }
         // play() cancels an in-flight seek, which is the race that makes
@@ -609,6 +630,7 @@ final class AudiobookPlayer {
     }
 
     func buildQueue(at wholeBookPosition: Double, autoplay: Bool) {
+        streamRetryPending = false
         guard let timeline, let manifest else { return }
         guard !chapters.isEmpty else {
             tearDownObservers()
@@ -748,7 +770,7 @@ final class AudiobookPlayer {
     }
 
     private func handleTick(_ rawSeconds: Double) {
-        guard !isSeeking, rawSeconds.isFinite else { return }
+        guard !isSeeking, !streamRetryPending, rawSeconds.isFinite else { return }
         let clamped = timeline?.clamp(wholeBookPosition(fromCurrentItemTime: rawSeconds)) ?? max(rawSeconds, 0)
         positionSecs = clamped
         advanceSleep()
@@ -762,7 +784,7 @@ final class AudiobookPlayer {
     }
 
     private func handleCurrentItemChanged() {
-        guard !isSeeking, let player else { return }
+        guard !isSeeking, !streamRetryPending, let player else { return }
         if let file = file(for: player.currentItem) {
             if let currentTime = player.currentItem?.currentTime().seconds, currentTime.isFinite {
                 let clamped = timeline?.clamp(file.startSecs + max(currentTime, 0)) ?? max(currentTime, 0)

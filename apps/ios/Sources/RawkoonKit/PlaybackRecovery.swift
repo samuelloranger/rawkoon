@@ -28,11 +28,29 @@ public func sniffedAudioMIMEType(_ header: Data) -> String? {
     if matches("RIFF"), matches("WAVE", at: 8) {
         return "audio/wav"
     }
-    // An untagged MP3 starts straight on an MPEG audio frame sync.
-    if bytes.count >= 2, bytes[0] == 0xFF, bytes[1] & 0xE0 == 0xE0 {
+    // Both start on a frame sync; the layer bits are 00 for ADTS AAC and
+    // non-zero for MPEG audio (an untagged MP3).
+    if bytes.count >= 2, bytes[0] == 0xFF, bytes[1] & 0xF0 == 0xF0, bytes[1] & 0x06 == 0 {
+        return "audio/aac"
+    }
+    if bytes.count >= 2, bytes[0] == 0xFF, bytes[1] & 0xE0 == 0xE0, bytes[1] & 0x06 != 0 {
         return "audio/mpeg"
     }
     return nil
+}
+
+/// Whether two manifests describe the same physical files, so only their
+/// signed URLs differ. A re-import changes ids, sizes or offsets, and must be
+/// reloaded rather than having fresh URLs swapped in.
+public func sameFileLayout(_ lhs: [ManifestFile], _ rhs: [ManifestFile]) -> Bool {
+    guard lhs.count == rhs.count else { return false }
+    let byId = Dictionary(rhs.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    return lhs.allSatisfy { file in
+        guard let other = byId[file.id] else { return false }
+        return other.sizeBytes == file.sizeBytes
+            && other.startSecs == file.startSecs
+            && other.durationSecs == file.durationSecs
+    }
 }
 
 /// Why playback had to stop, so the listener is told what actually went wrong.

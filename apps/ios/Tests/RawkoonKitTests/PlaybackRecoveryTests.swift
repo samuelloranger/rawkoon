@@ -15,6 +15,13 @@ final class PlaybackRecoveryTests: XCTestCase {
         XCTAssertEqual(sniffedAudioMIMEType(Data([0xFF, 0xFB, 0x90, 0x64])), "audio/mpeg")
     }
 
+    /// ADTS AAC also starts on an 0xFFF sync, but with layer bits 00; calling
+    /// it MPEG audio would make a playable file fail.
+    func testADTSAACIsAACNotMPEG() {
+        XCTAssertEqual(sniffedAudioMIMEType(Data([0xFF, 0xF1, 0x50, 0x80])), "audio/aac")
+        XCTAssertEqual(sniffedAudioMIMEType(Data([0xFF, 0xF9, 0x50, 0x80])), "audio/aac")
+    }
+
     func testISOBaseMediaIsMP4() {
         let header = Data([0, 0, 0, 0x1C]) + Data("ftypM4A ".utf8)
         XCTAssertEqual(sniffedAudioMIMEType(header), "audio/mp4")
@@ -84,5 +91,24 @@ final class PlaybackRecoveryTests: XCTestCase {
             playbackFailureAction(isLocalFile: false, localAlreadyFailed: false, secondsSinceStreamRetry: nil, isOnline: false),
             .stop(.offline)
         )
+    }
+
+    // MARK: Refreshed manifests
+
+    private func file(_ id: Int, size: Int = 100, start: Double = 0, url: String = "u") -> ManifestFile {
+        ManifestFile(id: id, startSecs: start, durationSecs: 10, sizeBytes: size, sha256: nil, url: url)
+    }
+
+    func testFreshURLsForTheSameFilesAreTheSameLayout() {
+        XCTAssertTrue(sameFileLayout([file(1, url: "old"), file(2, start: 10)], [file(2, start: 10, url: "new"), file(1, url: "new")]))
+    }
+
+    /// A re-import replaces or resizes files; swapping in its URLs alone would
+    /// leave the player's timeline describing the old ones.
+    func testAReimportIsADifferentLayout() {
+        XCTAssertFalse(sameFileLayout([file(1), file(2)], [file(1), file(3)]))
+        XCTAssertFalse(sameFileLayout([file(1, size: 100)], [file(1, size: 101)]))
+        XCTAssertFalse(sameFileLayout([file(1, start: 0)], [file(1, start: 5)]))
+        XCTAssertFalse(sameFileLayout([file(1)], [file(1), file(2)]))
     }
 }

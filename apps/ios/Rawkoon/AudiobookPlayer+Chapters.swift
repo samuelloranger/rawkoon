@@ -29,12 +29,18 @@ extension AudiobookPlayer {
         }
         updateNowPlayingInfo()
 
+        // The pending retry rebuilds at `positionSecs`, which now holds the target.
+        if streamRetryPending {
+            return
+        }
+
         // In-place when the target stays inside the currently-loaded physical
         // file, even across a chapter boundary (single-file audiobook): reloading
-        // the whole file to move between its own chapters would stutter.
+        // the whole file to move between its own chapters would stutter. A failed
+        // item cannot seek, so it is rebuilt instead.
         if let currentFile = file(for: player?.currentItem),
            let offset = currentFile.inPlaceSeekOffset(to: clamped, bookDurationSecs: duration),
-           player?.currentItem != nil
+           let currentItem = player?.currentItem, currentItem.status != .failed
         {
             seekCurrentItemWhenReady(to: offset, autoplay: autoplay)
             return

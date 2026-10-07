@@ -62,6 +62,7 @@ extension AudiobookPlayer {
         // refresh bumps it again and abandons this retry.
         seekID += 1
         let id = seekID
+        streamRetryPending = true
         Log.playback.error(
             """
             Stream failed; retrying with fresh URLs: \
@@ -71,6 +72,9 @@ extension AudiobookPlayer {
         Task { [weak self] in
             let fresh = await self?.refreshManifest?(editionId)
             guard let self, seekID == id, manifest?.editionId == editionId else { return }
+            // Stamped again on completion: a refresh that hung until the window
+            // passed must not open the way to another retry.
+            streamRetriedAt[fileId] = Date()
             if let fresh {
                 adoptRefreshedManifest(fresh)
             }
@@ -84,7 +88,7 @@ extension AudiobookPlayer {
     @discardableResult
     func adoptRefreshedManifest(_ fresh: BookManifest) -> Bool {
         guard let manifest, manifest.editionId == fresh.editionId,
-              Set(manifest.files.map(\.id)) == Set(fresh.files.map(\.id))
+              sameFileLayout(manifest.files, fresh.files)
         else { return false }
         self.manifest = fresh
         filesById = Dictionary(uniqueKeysWithValues: fresh.files.map { ($0.id, $0) })
@@ -127,7 +131,10 @@ extension AudiobookPlayer {
     /// AVFoundation picks its parser by extension, so a local file gets its
     /// sniffed type spelled out or it fails with "Cannot Open".
     func makePlayerItem(url: URL) -> AVPlayerItem {
-        guard url.isFileURL, let mimeType = FileStore.audioMIMEType(url: url) else {
+        // Only the extensionless `.bin` name needs it; a real extension opens as is.
+        guard url.isFileURL, url.pathExtension == "bin",
+              let mimeType = FileStore.audioMIMEType(url: url)
+        else {
             return AVPlayerItem(url: url)
         }
         return AVPlayerItem(asset: AVURLAsset(url: url, options: [AVURLAssetOverrideMIMETypeKey: mimeType]))

@@ -720,14 +720,19 @@ final class AppModel {
         }
     }
 
-    /// A freshly signed manifest, or nil offline or on failure. The downloaded
-    /// copy on disk is rewritten too, so the next cold start has live URLs.
+    /// Freshly signed URLs for the same files, or nil offline, on failure, or
+    /// when the server re-imported the book. The downloaded copy on disk is
+    /// rewritten too, so the next cold start has live URLs.
     func refreshedManifest(editionId: Int) async -> BookManifest? {
         guard isOnline, let apiClient else { return nil }
         do {
             let fresh = try await apiClient.manifest(editionId: editionId)
+            // URLs only: a re-import is left to `manifest()`'s stale-download
+            // handling, never deleted from under a book that is playing.
+            guard let current = manifests[editionId] ?? DownloadedStore.readManifest(editionId: editionId),
+                  sameFileLayout(current.files, fresh.files)
+            else { return nil }
             manifests[editionId] = fresh
-            dropStaleDownload(editionId: editionId, fresh: fresh)
             if DownloadedStore.readManifest(editionId: editionId) != nil {
                 DownloadedStore.writeManifest(fresh, editionId: editionId)
             }
