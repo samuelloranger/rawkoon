@@ -1,6 +1,4 @@
-import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
-import { isBlockedForLanFetch } from "@rawkoon/api/utils/ssrf";
+import { resolvePinnedIp, safeFetch } from "@rawkoon/api/utils/ssrf";
 
 /**
  * Server-side .torrent fetch SSRF hardening: block loopback, link-local (cloud
@@ -11,24 +9,9 @@ import { isBlockedForLanFetch } from "@rawkoon/api/utils/ssrf";
 export async function isServerTorrentFetchUrlAllowed(
   urlString: string,
 ): Promise<boolean> {
-  let u: URL;
   try {
-    u = new URL(urlString);
-  } catch {
-    return false;
-  }
-
-  if (u.protocol !== "http:" && u.protocol !== "https:") return false;
-
-  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (host === "localhost") return false;
-
-  if (isIP(host)) return !isBlockedForLanFetch(host);
-
-  try {
-    const addresses = await lookup(host, { all: true });
-    if (addresses.length === 0) return false;
-    return addresses.every((a) => !isBlockedForLanFetch(a.address));
+    await resolvePinnedIp(new URL(urlString), "lan");
+    return true;
   } catch {
     return false;
   }
@@ -42,8 +25,9 @@ export class MagnetRedirectError extends Error {
 }
 
 /**
- * Follow redirects manually so each hop is checked against {@link isServerTorrentFetchUrlAllowed}
- * (mitigates open redirects pointing at loopback/metadata).
+ * Fetch a .torrent URL through {@link safeFetch} under the LAN policy: every
+ * redirect hop is re-validated and IP-pinned, and credentials such as an
+ * indexer API key are dropped once a hop leaves the original origin.
  * Throws {@link MagnetRedirectError} if a redirect target is a magnet link.
  */
 export async function fetchHttpWithSafeRedirects(
@@ -51,25 +35,11 @@ export async function fetchHttpWithSafeRedirects(
   init: Omit<RequestInit, "redirect"> & { maxRedirects?: number },
 ): Promise<Response> {
   const { maxRedirects = 5, ...reqInit } = init;
-  const max = maxRedirects;
-  let url = initialUrl;
-
-  for (let i = 0; i <= max; i++) {
-    if (!(await isServerTorrentFetchUrlAllowed(url))) {
-      throw new Error("URL not allowed");
-    }
-    const res = await fetch(url, { ...reqInit, redirect: "manual" });
-    if (res.status >= 300 && res.status < 400) {
-      const loc = res.headers.get("location");
-      if (!loc?.trim()) throw new Error("Redirect without Location");
-      const next = new URL(loc.trim(), url).href;
-      if (next.startsWith("magnet:")) {
-        throw new MagnetRedirectError(next);
-      }
-      url = next;
-      continue;
-    }
-    return res;
-  }
-  throw new Error("Too many redirects");
+  return safeFetch(initialUrl, reqInit, {
+    policy: "lan",
+    maxRedirects,
+    onRedirect: (next) => {
+      if (next.protocol === "magnet:") throw new MagnetRedirectError(next.href);
+    },
+  });
 }

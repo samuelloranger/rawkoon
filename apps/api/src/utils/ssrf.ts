@@ -95,17 +95,34 @@ export async function validateSafeUrl(urlStr: string): Promise<string> {
   return urlStr;
 }
 
-const MAX_REDIRECT_HOPS = 5;
+const DEFAULT_MAX_REDIRECTS = 5;
+
+/** "public": only globally routable targets. "lan": also private/ULA/CGNAT (indexers on the LAN). */
+export type OutboundPolicy = "public" | "lan";
+
+const isBlockedBy = (policy: OutboundPolicy, ip: string) =>
+  policy === "lan" ? isBlockedForLanFetch(ip) : isPrivateIP(ip);
+
+// Headers that carry no credentials, so they may follow a cross-origin redirect.
+const CROSS_ORIGIN_SAFE_HEADERS = new Set([
+  "accept",
+  "accept-language",
+  "user-agent",
+  "content-type",
+]);
 
 // Resolves the host once and rejects any blocked address; returns the IP to pin.
-async function resolvePinnedIp(url: URL): Promise<string> {
+export async function resolvePinnedIp(
+  url: URL,
+  policy: OutboundPolicy = "public",
+): Promise<string> {
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new Error(`Invalid protocol: ${url.protocol}`);
   }
 
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
   if (isIP(hostname)) {
-    if (isPrivateIP(hostname)) {
+    if (isBlockedBy(policy, hostname)) {
       throw new Error(
         `Outbound URL target IP is blocked (private/local range): ${hostname}`,
       );
@@ -125,7 +142,7 @@ async function resolvePinnedIp(url: URL): Promise<string> {
     throw new Error(`DNS resolution returned no addresses for: ${hostname}`);
   }
   for (const addr of addresses) {
-    if (isPrivateIP(addr.address)) {
+    if (isBlockedBy(policy, addr.address)) {
       throw new Error(
         `Outbound URL host resolves to blocked IP (private/local range): ${addr.address}`,
       );
@@ -134,20 +151,34 @@ async function resolvePinnedIp(url: URL): Promise<string> {
   return addresses[0].address;
 }
 
+export type SafeFetchOptions = {
+  policy?: OutboundPolicy;
+  maxRedirects?: number;
+  /** Called with each redirect target before it is validated; throw to abort. */
+  onRedirect?: (next: URL) => void;
+};
+
 /**
- * SSRF-safe fetch. Resolves the target host, rejects any private/local
- * address, then pins the connection to the validated IP so a DNS-rebinding
- * response can't swap in a private address between the check and the request.
+ * SSRF-safe fetch. Resolves the target host, rejects any blocked address for
+ * the policy, then pins the connection to the validated IP so a DNS-rebinding
+ * response can't swap in another address between the check and the request.
  *
  * Redirects are followed here, never by `fetch`: every hop is re-validated and
- * re-pinned, so a public host can't bounce the request to an internal address.
+ * re-pinned, so a permitted host can't bounce the request to a blocked address,
+ * and credential headers are dropped when a hop changes origin.
  * TLS still validates against the original hostname via SNI (`tls.serverName`),
  * and the `Host` header preserves virtual-host routing now that we connect by IP.
  */
 export async function safeFetch(
   urlStr: string,
   init?: RequestInit,
+  opts: SafeFetchOptions = {},
 ): Promise<Response> {
+  const {
+    policy = "public",
+    maxRedirects = DEFAULT_MAX_REDIRECTS,
+    onRedirect,
+  } = opts;
   let url = new URL(urlStr);
   let method = (init?.method ?? "GET").toUpperCase();
   let body = init?.body;
@@ -157,7 +188,7 @@ export async function safeFetch(
     ?.tls;
 
   for (let hop = 0; ; hop++) {
-    const pinnedIp = await resolvePinnedIp(url);
+    const pinnedIp = await resolvePinnedIp(url, policy);
     const hostname = url.hostname.replace(/^\[|\]$/g, "");
 
     const pinnedUrl = new URL(url);
@@ -184,16 +215,15 @@ export async function safeFetch(
     const location = res.headers.get("location")?.trim();
     if (!location) return res;
 
-    if (hop >= MAX_REDIRECT_HOPS) {
-      await res.body?.cancel().catch(() => {});
-      throw new Error("Too many redirects");
-    }
     await res.body?.cancel().catch(() => {});
+    if (hop >= maxRedirects) throw new Error("Too many redirects");
 
     const next = new URL(location, url);
+    onRedirect?.(next);
     if (next.origin !== url.origin) {
-      headers.delete("authorization");
-      headers.delete("cookie");
+      for (const name of [...headers.keys()]) {
+        if (!CROSS_ORIGIN_SAFE_HEADERS.has(name)) headers.delete(name);
+      }
     }
     const toGet =
       res.status === 303

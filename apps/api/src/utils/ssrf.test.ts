@@ -155,17 +155,24 @@ describe("safeFetch redirects", () => {
     expect(res.status).toBe(200);
   });
 
-  test("cross-origin hop drops authorization and cookie, same-origin keeps them", async () => {
+  test("cross-origin hop keeps only credential-free headers", async () => {
     responses = [redirect(302, "/same"), redirect(302, "http://b.test/other")];
     await safeFetch("http://a.test/x", {
-      headers: { authorization: "Bearer t", cookie: "s=1", "x-keep": "1" },
+      headers: {
+        authorization: "Bearer t",
+        cookie: "s=1",
+        "x-api-key": "k",
+        "user-agent": "rawkoon",
+      },
     });
     const same = calls[1].init.headers as Headers;
     expect(same.get("authorization")).toBe("Bearer t");
+    expect(same.get("x-api-key")).toBe("k");
     const cross = calls[2].init.headers as Headers;
     expect(cross.has("authorization")).toBe(false);
     expect(cross.has("cookie")).toBe(false);
-    expect(cross.get("x-keep")).toBe("1");
+    expect(cross.has("x-api-key")).toBe(false);
+    expect(cross.get("user-agent")).toBe("rawkoon");
   });
 
   test("a 3xx without Location is returned as the final response", async () => {

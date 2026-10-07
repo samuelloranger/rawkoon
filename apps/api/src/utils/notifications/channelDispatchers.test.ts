@@ -1,5 +1,8 @@
 import { mock } from "bun:test";
+// Copy the real exports first: mock.module persists across files in this process.
+const realSsrf = { ...(await import("../ssrf")) };
 mock.module("../ssrf", () => ({
+  ...realSsrf,
   validateSafeUrl: async (url: string) => url,
   // Passthrough so request-construction assertions still see the original URL
   // and headers; the real safeFetch's IP-pinning is covered by ssrf tests.

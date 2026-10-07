@@ -1,6 +1,10 @@
 import { fakeDns } from "../testDnsMock";
-import { describe, expect, test } from "bun:test";
-import { isServerTorrentFetchUrlAllowed } from "./safeTorrentFetchUrl";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import {
+  fetchHttpWithSafeRedirects,
+  isServerTorrentFetchUrlAllowed,
+  MagnetRedirectError,
+} from "./safeTorrentFetchUrl";
 
 fakeDns.set("example.com", ["93.184.216.34"]);
 fakeDns.set("rebind.test", ["127.0.0.1"]);
@@ -81,5 +85,71 @@ describe("isServerTorrentFetchUrlAllowed", () => {
       false,
     );
     expect(await isServerTorrentFetchUrlAllowed("ftp://x/y")).toBe(false);
+  });
+});
+
+describe("fetchHttpWithSafeRedirects", () => {
+  const realFetch = globalThis.fetch;
+  let calls: { url: string; init: RequestInit }[] = [];
+  let responses: Response[] = [];
+  const redirect = (status: number, location: string) =>
+    new Response(null, { status, headers: { location } });
+
+  beforeEach(() => {
+    calls = [];
+    responses = [];
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      calls.push({ url: String(url), init });
+      return responses.shift() ?? new Response("torrent-bytes");
+    }) as unknown as typeof fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  test("connects to the validated LAN IP, not a re-resolved name", async () => {
+    await fetchHttpWithSafeRedirects("http://prowlarr:9696/dl/1", {});
+    expect(calls[0].url).toBe("http://172.20.0.3:9696/dl/1");
+    expect((calls[0].init.headers as Headers).get("host")).toBe(
+      "prowlarr:9696",
+    );
+  });
+
+  test("drops the indexer API key when a redirect leaves the origin", async () => {
+    responses = [redirect(302, "https://example.com/real.torrent")];
+    await fetchHttpWithSafeRedirects("http://prowlarr:9696/dl/1", {
+      headers: { "X-Api-Key": "secret", "User-Agent": "rawkoon" },
+    });
+    expect((calls[0].init.headers as Headers).get("x-api-key")).toBe("secret");
+    const second = calls[1].init.headers as Headers;
+    expect(second.has("x-api-key")).toBe(false);
+    expect(second.get("user-agent")).toBe("rawkoon");
+  });
+
+  test("keeps the API key on a same-origin redirect", async () => {
+    responses = [redirect(302, "/dl/1/file")];
+    await fetchHttpWithSafeRedirects("http://prowlarr:9696/dl/1", {
+      headers: { "X-Api-Key": "secret" },
+    });
+    expect((calls[1].init.headers as Headers).get("x-api-key")).toBe("secret");
+  });
+
+  test("rejects a redirect to loopback", async () => {
+    responses = [redirect(302, "http://rebind.test/x")];
+    await expect(
+      fetchHttpWithSafeRedirects("http://prowlarr:9696/dl/1", {}),
+    ).rejects.toThrow("blocked");
+    expect(calls).toHaveLength(1);
+  });
+
+  test("throws MagnetRedirectError on a magnet redirect", async () => {
+    const magnet = "magnet:?xt=urn:btih:abc";
+    responses = [redirect(302, magnet)];
+    const err = await fetchHttpWithSafeRedirects(
+      "http://prowlarr:9696/dl/1",
+      {},
+    ).catch((e) => e);
+    expect(err).toBeInstanceOf(MagnetRedirectError);
+    expect((err as MagnetRedirectError).magnetUrl).toBe(magnet);
   });
 });

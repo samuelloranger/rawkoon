@@ -58,7 +58,7 @@
       },
       "devDependencies": {
         "bun-types": "^1.4.0",
-        "wrangler": "^4.143.0",
+        "wrangler": "4",
       },
     },
     "apps/shared": {
