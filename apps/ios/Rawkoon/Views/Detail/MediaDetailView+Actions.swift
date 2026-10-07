@@ -31,7 +31,9 @@ extension MediaDetailView {
         guard let libraryId, !autoSearching else { return }
         autoSearching = true
         defer { autoSearching = false }
-        let grabbed = await model.autoSearchMovie(libraryId: libraryId) { openReleaseSearch() }
+        let grabbed = await model.autoSearchMovie(libraryId: libraryId, canChoose: { isOnScreen }) {
+            openReleaseSearch()
+        }
         if grabbed {
             store.invalidateLibraryRollup(itemID: libraryId)
             await refreshManagementData()

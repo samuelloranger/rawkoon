@@ -52,6 +52,15 @@
                         alreadyInLibrary: false
                     ))
                 }
+            default:
+                featureView(for: screen)
+            }
+        }
+
+        /// AI settings and auto search screens, split out to keep each switch small.
+        @ViewBuilder
+        private static func featureView(for screen: String) -> some View {
+            switch screen {
             case "aiConfig":
                 DebugAiSettings(scrollTo: nil)
             case "aiPrices":

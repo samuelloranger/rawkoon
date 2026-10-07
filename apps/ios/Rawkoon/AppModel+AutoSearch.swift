@@ -3,12 +3,17 @@ import Foundation
 extension AppModel {
     /// Searches the indexers and grabs the best release for a movie, then says how
     /// it went. `onChoose` backs the "Choose…" action on a miss. True when grabbed.
+    /// `canChoose` is read when the result lands: a screen left mid-search can't open the sheet.
     @discardableResult
-    func autoSearchMovie(libraryId: Int, onChoose: @escaping () -> Void) async -> Bool {
+    func autoSearchMovie(
+        libraryId: Int,
+        canChoose: () -> Bool = { true },
+        onChoose: @escaping () -> Void
+    ) async -> Bool {
         guard let client = api() else { return false }
         do {
             let result = try await client.searchMovie(id: libraryId)
-            reportGrab(result, onChoose: result.grabbed ? nil : onChoose)
+            reportGrab(result, onChoose: result.grabbed || !canChoose() ? nil : onChoose)
             return result.grabbed
         } catch {
             toast(String(localized: "Auto search failed."), style: .error)
