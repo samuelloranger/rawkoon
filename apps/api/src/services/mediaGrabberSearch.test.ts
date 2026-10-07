@@ -30,9 +30,10 @@ const release = (n: number, seeders: number) => ({
   freeleech: false,
 });
 
+let searchReleases = [release(1, 10), release(2, 50)];
 mock.module("@rawkoon/api/services/indexerManager", () => ({
   getActiveIndexerManager: async () => ({
-    search: async () => ({ releases: [release(1, 10), release(2, 50)] }),
+    search: async () => ({ releases: searchReleases }),
   }),
 }));
 
@@ -70,11 +71,12 @@ describe("searchAndGrab AI judge", () => {
     pickReleaseWithAi.mockClear();
     findManyBlocklist.mockClear();
     grabRelease.mockImplementation(async () => ({ grabbed: true }));
+    searchReleases = [release(1, 10), release(2, 50)];
   });
 
   it("grabs the AI pick first with aiPicked and passes the ledger ctx", async () => {
     pickReleaseWithAi.mockImplementationOnce(async () => ({
-      release_key: "magnet:?xt=2",
+      release_key: "1",
     }));
     await searchAndGrab({
       ...base,
@@ -98,6 +100,21 @@ describe("searchAndGrab AI judge", () => {
     ]);
   });
 
+  it("grabs the picked row when two results share a download URL", async () => {
+    searchReleases = [
+      release(1, 10),
+      { ...release(2, 50), magnetUrl: "magnet:?xt=1" },
+    ];
+    pickReleaseWithAi.mockImplementationOnce(async () => ({
+      release_key: "1",
+    }));
+    await searchAndGrab({ ...base, aiConfig: aiConfig as never });
+    expect(grabRelease.mock.calls[0]![0]).toMatchObject({
+      releaseTitle: expect.stringContaining(".2."),
+      aiPicked: true,
+    });
+  });
+
   it("keeps the classic path when the AI returns null", async () => {
     await searchAndGrab({ ...base, aiConfig: aiConfig as never });
     expect(grabRelease).toHaveBeenCalledTimes(1);
@@ -115,7 +132,7 @@ describe("searchAndGrab AI judge", () => {
 
   it("falls back to classic order when the AI pick is blocklisted", async () => {
     pickReleaseWithAi.mockImplementationOnce(async () => ({
-      release_key: "magnet:?xt=2",
+      release_key: "1",
     }));
     grabRelease.mockImplementationOnce(async () => ({
       grabbed: false,

@@ -216,8 +216,9 @@ export async function searchAndGrab(opts: {
             season: expectedSeason ?? season ?? null,
             episode: expectedEpisode,
           },
-          viable.map((r) => ({
-            key: r.raw._downloadUrl,
+          // Index keys: two results can share a download URL under different titles.
+          viable.map((r, i) => ({
+            key: String(i),
             title: r.title,
             size_bytes: r.size,
             seeders: r.seeders,
@@ -230,10 +231,7 @@ export async function searchAndGrab(opts: {
             mediaId,
           },
         ).catch(() => null);
-        aiRow = pick
-          ? (viable.find((r) => r.raw._downloadUrl === pick.release_key) ??
-            null)
-          : null;
+        aiRow = pick ? (viable[Number(pick.release_key)] ?? null) : null;
       }
     }
 
