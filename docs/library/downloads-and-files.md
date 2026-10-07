@@ -27,7 +27,11 @@ and grab a release.
 Rawkoon records the grab and sends the release to the active client with a
 tracking label. Configure its save path to match your mount layout.
 
-For TV, you can search individual episodes or a season pack. For an existing
+For TV, you can search individual episodes or a season pack. Release names
+are read in the common forms: <code>S02E05</code>, <code>2x05</code>,
+<code>Season 2</code> or <code>Saison 2</code>, multi-episode releases, and
+season packs such as <code>Show.S02.1080p</code>. When a season pack is
+imported, its files are matched to episodes the same way. For an existing
 file that you want to replace, use the upgrade flow so Rawkoon does not treat
 the old file as the completed download.
 
