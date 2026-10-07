@@ -6,7 +6,10 @@ import { useAddToBlocklist } from "@/features/medias/hooks/useBlocklist";
 import { useCurrentUser } from "@/lib/auth/useAuth";
 import type { InteractiveReleaseItem } from "@rawkoon/shared/types";
 import { useAiProviderIntegration } from "@/pages/settings/useAiProviderIntegration";
-import { useAiPick } from "@/pages/medias/_component/useAiPick";
+import {
+  resolveAiTarget,
+  useAiPick,
+} from "@/pages/medias/_component/useAiPick";
 import { AiPickBanner } from "@/pages/medias/_component/AiPickBanner";
 import { useFetcher } from "@/lib/api/context";
 import { MEDIAS_ENDPOINTS } from "@/lib/endpoints";
@@ -51,6 +54,8 @@ export function InteractiveSearchPanel(props: InteractiveSearchPanelProps) {
       ? "tv"
       : (props.media?.media_type ?? "movie");
 
+  const aiTarget = resolveAiTarget(props.episodeTarget, state.selectedSeason);
+
   const aiPick = useAiPick({
     enabled:
       aiEnabled && state.releases.length > 0 && !state.activeQuery.isLoading,
@@ -59,10 +64,7 @@ export function InteractiveSearchPanel(props: InteractiveSearchPanelProps) {
     mediaYear: props.media?.year ?? null,
     mediaType: mediaType as "movie" | "tv",
     libraryMediaId: props.libraryMediaId,
-    season:
-      props.episodeTarget?.season ??
-      (typeof state.selectedSeason === "number" ? state.selectedSeason : null),
-    episode: props.episodeTarget?.episode ?? null,
+    ...aiTarget,
   });
 
   const pickedRelease =

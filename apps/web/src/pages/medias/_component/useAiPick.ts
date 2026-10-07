@@ -9,6 +9,21 @@ interface AiPickResult {
   reasoning: string;
 }
 
+/** The episode target only holds while the search is still scoped to its season. */
+export function resolveAiTarget(
+  episodeTarget: { season: number; episode: number } | null | undefined,
+  selectedSeason: number | "complete" | null,
+): { season: number | null; episode: number | null } {
+  if (selectedSeason === "complete") return { season: null, episode: null };
+  if (
+    episodeTarget &&
+    (selectedSeason === null || selectedSeason === episodeTarget.season)
+  ) {
+    return { season: episodeTarget.season, episode: episodeTarget.episode };
+  }
+  return { season: selectedSeason, episode: null };
+}
+
 interface UseAiPickParams {
   enabled: boolean;
   releases: InteractiveReleaseItem[];

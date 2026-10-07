@@ -240,7 +240,7 @@ struct MediaDetailView: View {
                     originalTitle: details?.originalTitle,
                     originalLanguage: details?.originalLanguage,
                     titleTranslations: details?.titleTranslations ?? [],
-                    targetSeason: releaseSearchEpisode == nil ? nil : releaseSearchSeason,
+                    targetSeason: releaseSearchSeason,
                     targetEpisode: releaseSearchEpisode,
                     onGrabbed: { Task { await refreshManagementData() } }
                 )

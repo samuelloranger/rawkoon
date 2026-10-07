@@ -2,7 +2,10 @@ import { describe, it, expect, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { FetcherProvider, type Fetcher } from "@/lib/api/context";
-import { useAiPick } from "@/pages/medias/_component/useAiPick";
+import {
+  resolveAiTarget,
+  useAiPick,
+} from "@/pages/medias/_component/useAiPick";
 import type { InteractiveReleaseItem } from "@rawkoon/shared/types";
 
 const release = {
@@ -73,5 +76,29 @@ describe("useAiPick", () => {
     const call = (fetcher as unknown as ReturnType<typeof vi.fn>).mock
       .calls[0] as unknown as [string, { body: { media_context: object } }];
     expect(call[1].body.media_context).not.toHaveProperty("season");
+  });
+});
+
+describe("resolveAiTarget", () => {
+  const ep = { season: 2, episode: 5 };
+
+  it("keeps the episode while the season is unchanged", () => {
+    expect(resolveAiTarget(ep, null)).toEqual({ season: 2, episode: 5 });
+    expect(resolveAiTarget(ep, 2)).toEqual({ season: 2, episode: 5 });
+  });
+
+  it("falls back to the picked season as a pack when the season changes", () => {
+    expect(resolveAiTarget(ep, 3)).toEqual({ season: 3, episode: null });
+  });
+
+  it("targets nothing for the complete series", () => {
+    expect(resolveAiTarget(ep, "complete")).toEqual({
+      season: null,
+      episode: null,
+    });
+  });
+
+  it("uses the selected season when there is no episode target", () => {
+    expect(resolveAiTarget(null, 4)).toEqual({ season: 4, episode: null });
   });
 });

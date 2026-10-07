@@ -56,6 +56,10 @@ struct ReleaseSearchView: View {
         self.originalTitle = originalTitle
         self.originalLanguage = originalLanguage
         self.titleTranslations = titleTranslations
+        // A season-row open searches that season's packs, as the web panel does.
+        if targetEpisode == nil {
+            _selectedSeason = State(initialValue: targetSeason)
+        }
         _searchQuery = State(initialValue: query)
         _sortBy = State(initialValue: libraryMediaId == nil ? .seeders : .quality)
     }
@@ -759,7 +763,9 @@ struct ReleaseSearchView: View {
             aiPickGeneration += 1
             return
         }
-        let key = candidates.map(\.guid).sorted().joined(separator: ",")
+        let target = aiTarget
+        let targetKey = "\(completeSeries)|\(target.season.map(String.init) ?? "")|\(target.episode.map(String.init) ?? "")"
+        let key = candidates.map(\.guid).sorted().joined(separator: ",") + "|" + targetKey
         if !force, key == lastAiPickKey || key == inFlightAiPickKey {
             return
         }
@@ -779,8 +785,8 @@ struct ReleaseSearchView: View {
                 title: searchQuery,
                 year: mediaYear,
                 type: mediaType,
-                season: aiTarget.season,
-                episode: aiTarget.episode
+                season: target.season,
+                episode: target.episode
             ),
             releases: candidates.map { release in
                 AiPickCandidate(
