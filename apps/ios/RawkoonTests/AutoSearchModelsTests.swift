@@ -2,6 +2,11 @@ import Foundation
 @testable import Rawkoon
 import Testing
 
+/// Same shape as the item envelope the library routes return.
+private struct ItemEnvelope: Decodable {
+    let item: LibraryMedia
+}
+
 struct AutoSearchModelsTests {
     private func decode<T: Decodable>(_ json: String) throws -> T {
         try APIClient.mediaDecoder.decode(T.self, from: Data(json.utf8))
@@ -23,7 +28,7 @@ struct AutoSearchModelsTests {
     }
 
     @Test func profileUpdateDecodesNeedsUpgrade() throws {
-        let response: LibraryItemResponse = try decode("""
+        let response: ItemEnvelope = try decode("""
         {"item": {"id": 4, "tmdb_id": 9, "type": "show", "title": "A Show", "year": 2020,
           "status": "downloaded", "monitored": true, "needs_upgrade": true, "affected_episodes": 3}}
         """)
@@ -32,7 +37,7 @@ struct AutoSearchModelsTests {
     }
 
     @Test func plainItemHasNoUpgradeFlag() throws {
-        let response: LibraryItemResponse = try decode("""
+        let response: ItemEnvelope = try decode("""
         {"item": {"id": 4, "tmdb_id": 9, "type": "movie", "title": "A Movie", "year": 2020,
           "status": "wanted", "monitored": true}}
         """)
