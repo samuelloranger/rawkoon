@@ -32,17 +32,26 @@ export const isRateLimited = (error: unknown): boolean =>
 
 const MAX_ERROR_LENGTH = 200;
 
+// Long opaque tokens (sk-…, gsk_…, bearer values, hex/base64 secrets) are never useful in an error row.
+const SECRET_LIKE_RE =
+  /\b(?:bearer\s+)?[A-Za-z0-9][A-Za-z0-9_\-.~+/]{23,}=*(?![A-Za-z0-9])/gi;
+
 /**
- * Provider errors can echo the request URL, whose query string may carry a
- * credential, so URLs are dropped before the message is stored.
+ * Provider errors can echo the request URL or the key itself ("Invalid API
+ * key: sk-…"), so URLs, the configured key and key-shaped tokens are dropped
+ * before the message is stored.
  */
-export function sanitizeAiError(error: unknown): string {
+export function sanitizeAiError(error: unknown, apiKey?: string): string {
   const status =
     typeof (error as { statusCode?: unknown })?.statusCode === "number"
       ? `HTTP ${(error as { statusCode: number }).statusCode}: `
       : "";
-  const raw = error instanceof Error ? error.message : String(error);
-  const message = raw.replace(/https?:\/\/\S+/gi, "[url]").slice(0, 160);
+  let raw = error instanceof Error ? error.message : String(error);
+  if (apiKey) raw = raw.split(apiKey).join("[redacted]");
+  const message = raw
+    .replace(/https?:\/\/\S+/gi, "[url]")
+    .replace(SECRET_LIKE_RE, "[redacted]")
+    .slice(0, 160);
   return `${status}${message}`.slice(0, MAX_ERROR_LENGTH);
 }
 

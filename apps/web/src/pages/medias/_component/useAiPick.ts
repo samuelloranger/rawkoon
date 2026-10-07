@@ -38,6 +38,7 @@ export function useAiPick({
       mediaYear,
       mediaType,
       releaseKeys,
+      libraryMediaId ?? null,
     ),
     queryFn: () =>
       fetcher<AiPickResult>(MEDIAS_ENDPOINTS.INTERACTIVE_SEARCH_AI_PICK, {

@@ -202,6 +202,7 @@ export const queryKeys = {
       year: number | null,
       mediaType: "movie" | "tv",
       releaseKeys: string,
+      libraryMediaId: number | null = null,
     ) =>
       [
         ...queryKeys.medias.all,
@@ -210,6 +211,7 @@ export const queryKeys = {
         year,
         mediaType,
         releaseKeys,
+        libraryMediaId,
       ] as const,
     providers: (mediaType: "movie" | "tv", tmdbId: number, language?: string) =>
       [

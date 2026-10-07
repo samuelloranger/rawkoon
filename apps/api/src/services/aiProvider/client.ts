@@ -218,7 +218,7 @@ async function attemptPick(
     recordAiCall({
       ...base,
       status: isRateLimited(error) ? "rate_limited" : "error",
-      error: sanitizeAiError(error),
+      error: sanitizeAiError(error, config.api_key),
       durationMs: performance.now() - started,
     });
     throw error;
