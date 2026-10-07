@@ -38,3 +38,26 @@ describe("normalizeAiProviderConfig", () => {
     });
   });
 });
+
+describe("normalizeAiProviderConfig prices", () => {
+  it("keeps non-negative numeric prices and drops anything else", () => {
+    const base = { base_url: "http://x", model: "m" };
+    expect(
+      normalizeAiProviderConfig({
+        ...base,
+        input_price_per_million: 0.59,
+        output_price_per_million: 0,
+      }),
+    ).toMatchObject({
+      input_price_per_million: 0.59,
+      output_price_per_million: 0,
+    });
+    const bad = normalizeAiProviderConfig({
+      ...base,
+      input_price_per_million: -1,
+      output_price_per_million: "2",
+    });
+    expect(bad).not.toHaveProperty("input_price_per_million");
+    expect(bad).not.toHaveProperty("output_price_per_million");
+  });
+});

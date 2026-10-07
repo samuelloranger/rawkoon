@@ -172,6 +172,9 @@ export interface AiProviderIntegration {
   model: string;
   /** The key itself is never returned; this only says whether one is stored. */
   has_api_key: boolean;
+  /** USD per million tokens, used to estimate cost; null when unset. */
+  input_price_per_million: number | null;
+  output_price_per_million: number | null;
 }
 
 export interface AiProviderIntegrationUpdateResponse {

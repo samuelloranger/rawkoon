@@ -14,11 +14,50 @@ import {
 } from "@rawkoon/api/errors";
 import { encrypt } from "@rawkoon/api/services/crypto";
 import type { Env } from "@rawkoon/api/honoEnv";
-import { jsonV } from "@rawkoon/api/middleware/validate";
+import { jsonV, queryV } from "@rawkoon/api/middleware/validate";
+import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
+import {
+  getAiStats,
+  listAiCalls,
+  type AiPrices,
+} from "@rawkoon/api/services/aiProvider/usageStats";
+import { AI_CALL_STATUSES, AI_STATS_PERIODS } from "@rawkoon/shared/types";
 import {
   getIntegrationConfigRecord,
   invalidateIntegrationConfigCache,
 } from "@rawkoon/api/services/integrationConfigCache";
+
+// Blank means "no price"; coerce alone would turn "" and null into 0.
+const priceField = z.preprocess(
+  (v) => (v === "" || v === null ? undefined : v),
+  z.coerce.number().min(0).finite().optional(),
+);
+
+const statsQuery = z.object({
+  days: z.coerce
+    .number()
+    .refine((d) => (AI_STATS_PERIODS as readonly number[]).includes(d), {
+      message: "days must be one of 7, 30, 90, 365",
+    })
+    .default(30),
+});
+
+const callsQuery = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  page_size: z.coerce.number().int().min(1).max(100).default(25),
+  feature: z.string().min(1).optional(),
+  status: z.enum(AI_CALL_STATUSES).optional(),
+});
+
+async function loadPrices(): Promise<AiPrices> {
+  const config = normalizeAiProviderConfig(
+    (await getIntegrationConfigRecord("ai-provider"))?.config,
+  );
+  return {
+    input: config?.input_price_per_million,
+    output: config?.output_price_per_million,
+  };
+}
 
 // Mounted under /api/integrations; requireAdmin is applied at the parent.
 export const aiProviderIntegrationRoutes = new Hono<Env>()
@@ -35,6 +74,8 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
           base_url: config?.base_url ?? "",
           model: config?.model ?? "",
           has_api_key: Boolean(config?.api_key),
+          input_price_per_million: config?.input_price_per_million ?? null,
+          output_price_per_million: config?.output_price_per_million ?? null,
         },
       });
     } catch (error) {
@@ -50,6 +91,8 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
         model: z.string(),
         api_key: z.string().optional(),
         enabled: z.boolean().optional(),
+        input_price_per_million: priceField,
+        output_price_per_million: priceField,
       }),
     ),
     async (c) => {
@@ -68,6 +111,17 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
         (await getIntegrationConfigRecord("ai-provider"))?.config,
       );
       const apiKey = body.api_key?.trim() || existing?.api_key || "";
+      const inputPrice = body.input_price_per_million ?? null;
+      const outputPrice = body.output_price_per_million ?? null;
+      const providerConfig = {
+        base_url: baseUrl,
+        model: body.model.trim(),
+        ...(apiKey ? { api_key: encrypt(apiKey) } : {}),
+        ...(inputPrice !== null ? { input_price_per_million: inputPrice } : {}),
+        ...(outputPrice !== null
+          ? { output_price_per_million: outputPrice }
+          : {}),
+      };
 
       try {
         const now = nowUtc();
@@ -75,21 +129,13 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
           where: { type: "ai-provider" },
           update: {
             enabled: body.enabled ?? true,
-            config: {
-              base_url: baseUrl,
-              model: body.model.trim(),
-              ...(apiKey ? { api_key: encrypt(apiKey) } : {}),
-            },
+            config: providerConfig,
             updatedAt: now,
           },
           create: {
             type: "ai-provider",
             enabled: body.enabled ?? true,
-            config: {
-              base_url: baseUrl,
-              model: body.model.trim(),
-              ...(apiKey ? { api_key: encrypt(apiKey) } : {}),
-            },
+            config: providerConfig,
             createdAt: now,
             updatedAt: now,
           },
@@ -111,6 +157,8 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
             base_url: baseUrl,
             model: body.model.trim(),
             has_api_key: Boolean(apiKey),
+            input_price_per_million: inputPrice,
+            output_price_per_million: outputPrice,
           },
         });
       } catch (error) {
@@ -159,5 +207,31 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
     } catch (error) {
       console.error("Error testing AI Provider connection:", error);
       return serverError("Failed to test AI Provider connection");
+    }
+  })
+  .get("/ai-provider/stats", requireAdmin, queryV(statsQuery), async (c) => {
+    try {
+      const { days } = c.req.valid("query");
+      return ok(await getAiStats(days, await loadPrices()));
+    } catch (error) {
+      console.error("Error fetching AI usage stats:", error);
+      return serverError("Failed to fetch AI usage stats");
+    }
+  })
+  .get("/ai-provider/calls", requireAdmin, queryV(callsQuery), async (c) => {
+    try {
+      const q = c.req.valid("query");
+      return ok(
+        await listAiCalls({
+          page: q.page,
+          pageSize: q.page_size,
+          feature: q.feature,
+          status: q.status,
+          prices: await loadPrices(),
+        }),
+      );
+    } catch (error) {
+      console.error("Error fetching AI call history:", error);
+      return serverError("Failed to fetch AI call history");
     }
   });

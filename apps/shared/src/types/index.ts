@@ -6,6 +6,7 @@ export * from "./notificationChannel";
 export * from "./notificationPreferences";
 export * from "./admin";
 export * from "./integrations";
+export * from "./ai";
 export * from "./artwork";
 export * from "./media";
 export * from "./discover";

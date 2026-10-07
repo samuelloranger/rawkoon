@@ -136,6 +136,16 @@ export const queryKeys = {
     tmdb: () => [...queryKeys.integrations.all, "tmdb"] as const,
     fanart: () => [...queryKeys.integrations.all, "fanart"] as const,
     aiProvider: () => [...queryKeys.integrations.all, "ai-provider"] as const,
+    aiStats: (days: number) =>
+      [...queryKeys.integrations.aiProvider(), "stats", days] as const,
+    aiCalls: (page: number, feature: string, status: string) =>
+      [
+        ...queryKeys.integrations.aiProvider(),
+        "calls",
+        page,
+        feature,
+        status,
+      ] as const,
     googleBooks: () => [...queryKeys.integrations.all, "googlebooks"] as const,
     nytBooks: () => [...queryKeys.integrations.all, "nyt"] as const,
     audnexus: () => [...queryKeys.integrations.all, "audnexus"] as const,

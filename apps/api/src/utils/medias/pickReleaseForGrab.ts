@@ -1,4 +1,5 @@
 import type { NormalizedRelease } from "@rawkoon/api/services/indexerManager/types";
+import type { AiFeature, AiTrigger } from "@rawkoon/shared/types";
 import type { AiProviderConfig } from "@rawkoon/api/utils/integrations/types";
 import {
   pickReleaseWithAi,
@@ -45,6 +46,9 @@ export async function pickReleaseForGrab(opts: {
   profile: QualityProfileScoreInput | null;
   mediaContext: AiPickMediaContext;
   aiConfig: AiProviderConfig | null;
+  feature?: AiFeature;
+  trigger?: AiTrigger;
+  mediaId?: number;
 }): Promise<GrabPickResult | null> {
   const scored = scoreReleasesForProfile(opts.candidates, opts.profile);
   const classicBest = pickBestScored(scored);
@@ -58,6 +62,12 @@ export async function pickReleaseForGrab(opts: {
     opts.aiConfig,
     opts.mediaContext,
     toAiPickReleases(scored),
+    {
+      feature: opts.feature ?? "release_pick_rss",
+      trigger: opts.trigger ?? "rss",
+      classicTitle: classicBest.release.title,
+      mediaId: opts.mediaId,
+    },
   );
   if (!aiPick) {
     return { ...classicBest, picked_by: "classic" };

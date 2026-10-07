@@ -14,6 +14,7 @@ import { RecentActivityTab } from "@/pages/settings/_component/RecentActivityTab
 import { OidcProvidersTab } from "@/pages/settings/_component/OidcProvidersTab";
 import { BlocklistTab } from "@/pages/settings/_component/BlocklistTab";
 import { BooksSettingsTab } from "@/pages/settings/_component/BooksSettingsTab";
+import { AiSettingsTab } from "@/pages/settings/_component/AiSettingsTab";
 import { TranscodeTab } from "@/pages/settings/_component/TranscodeTab";
 import { useCurrentUser } from "@/lib/auth/useAuth";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,7 @@ import {
   KeyRound,
   ShieldBan,
   BookOpen,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { usePrefetchRoute } from "@/lib/routing/usePrefetchRoute";
@@ -41,6 +43,7 @@ export type Tab =
   | "notifications"
   | "profile"
   | "integrations"
+  | "ai"
   | "general"
   | "sso"
   | "jobs"
@@ -93,6 +96,7 @@ export function Settings() {
           label: t("settings.integrations.title"),
           icon: Puzzle,
         },
+        { id: "ai", label: t("settings.ai.title"), icon: Sparkles },
         {
           id: "sso",
           label: t("settings.integrations.sso.title"),
@@ -219,6 +223,7 @@ export function Settings() {
           {activeTab === "integrations" && currentUser?.is_admin && (
             <IntegrationsTab />
           )}
+          {activeTab === "ai" && currentUser?.is_admin && <AiSettingsTab />}
           {activeTab === "general" && currentUser?.is_admin && (
             <GeneralSettingsTab />
           )}

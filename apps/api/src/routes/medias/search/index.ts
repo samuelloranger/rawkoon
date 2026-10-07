@@ -172,6 +172,7 @@ const interactiveSearchQuery = z.object({
 const nullableNumber = z.number().nullable().default(null);
 
 export const aiPickBodySchema = z.object({
+  media_id: z.number().int().optional(),
   media_context: z.object({
     title: z.string(),
     year: nullableNumber,
@@ -408,6 +409,11 @@ export const mediasSearchRoutes = new Hono<Env>()
       config,
       body.media_context,
       body.releases,
+      {
+        feature: "release_pick_interactive",
+        trigger: "interactive",
+        mediaId: body.media_id,
+      },
     );
     if (!result) {
       return badGateway("Could not get response from AI");
@@ -431,7 +437,12 @@ export const mediasSearchRoutes = new Hono<Env>()
     warmInFlight = true;
     void fetch(`${config.base_url}/v1/chat/completions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(config.api_key
+          ? { Authorization: `Bearer ${config.api_key}` }
+          : {}),
+      },
       body: JSON.stringify({
         model: config.model,
         messages: [{ role: "user", content: "hi" }],

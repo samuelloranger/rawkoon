@@ -198,6 +198,11 @@ export const normalizeFanartConfig = (
   return apiKey ? { api_key: apiKey } : null;
 };
 
+const normalizePrice = (value: unknown): number | undefined =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? value
+    : undefined;
+
 export const normalizeAiProviderConfig = (
   config: unknown,
 ): AiProviderConfig | null => {
@@ -207,10 +212,18 @@ export const normalizeAiProviderConfig = (
   if (typeof cfg.base_url !== "string" || !cfg.base_url) return null;
   if (typeof cfg.model !== "string" || !cfg.model) return null;
   const apiKey = normalizeSecret(cfg.api_key);
+  const inputPrice = normalizePrice(cfg.input_price_per_million);
+  const outputPrice = normalizePrice(cfg.output_price_per_million);
   return {
     base_url: cfg.base_url.replace(/\/+$/, ""),
     model: cfg.model,
     ...(apiKey ? { api_key: apiKey } : {}),
+    ...(inputPrice !== undefined
+      ? { input_price_per_million: inputPrice }
+      : {}),
+    ...(outputPrice !== undefined
+      ? { output_price_per_million: outputPrice }
+      : {}),
   };
 };
 

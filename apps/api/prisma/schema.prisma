@@ -1315,3 +1315,36 @@ model TranscodeSettings {
 
   @@map("transcode_settings")
 }
+
+/// One row per HTTP attempt to the AI provider; the usage ledger behind the AI settings page.
+model AiCall {
+  id            Int      @id @default(autoincrement())
+  /// release_pick_rss | release_pick_interactive | release_pick_search | book_release_pick
+  feature       String
+  model         String
+  /// true = json_schema response_format, false = json_object fallback
+  structured    Boolean
+  /// ok | invalid_pick | rate_limited | error
+  status        String
+  /// rss | scheduled | upgrade | interactive | manual_search
+  trigger       String?
+  /// Short message only; never keys, query strings or prompt text.
+  error         String?  @db.Text
+  inputTokens   Int?     @map("input_tokens")
+  outputTokens  Int?     @map("output_tokens")
+  totalTokens   Int?     @map("total_tokens")
+  durationMs    Int      @map("duration_ms")
+  mediaId       Int?     @map("media_id")
+  bookEditionId Int?     @map("book_edition_id")
+  pickedTitle   String?  @map("picked_title") @db.Text
+  reasoning     String?  @db.Text
+  /// What the classic scorer would have picked, when the caller had one.
+  classicTitle  String?  @map("classic_title") @db.Text
+  /// Null when there was no classic title to compare against.
+  agreedWithClassic Boolean? @map("agreed_with_classic")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt], map: "ix_ai_calls_created_at")
+  @@index([feature, createdAt], map: "ix_ai_calls_feature_created_at")
+  @@map("ai_calls")
+}
