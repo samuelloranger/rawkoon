@@ -130,7 +130,6 @@ export function AiCallHistory() {
                 <th className="px-3 py-2">
                   {t("settings.ai.history.feature")}
                 </th>
-                <th className="px-3 py-2">{t("settings.ai.history.model")}</th>
                 <th className="px-3 py-2">{t("settings.ai.history.status")}</th>
                 <th className="px-3 py-2">{t("settings.ai.stats.tokens")}</th>
                 <th className="px-3 py-2">
@@ -149,17 +148,19 @@ export function AiCallHistory() {
                   <td className="whitespace-nowrap px-3 py-2">
                     {dateFormat.format(new Date(call.created_at))}
                   </td>
-                  <td className="px-3 py-2">
+                  <td
+                    className="whitespace-nowrap px-3 py-2"
+                    title={call.model}
+                  >
                     {t(`settings.ai.features.${call.feature}`, {
                       defaultValue: call.feature,
                     })}
                   </td>
-                  <td className="px-3 py-2">{call.model}</td>
                   <td className="px-3 py-2">
                     <span
                       title={call.error ?? undefined}
                       className={cn(
-                        "rounded-full px-2 py-0.5 text-xs font-medium",
+                        "whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium",
                         STATUS_STYLES[call.status],
                       )}
                     >
@@ -173,7 +174,7 @@ export function AiCallHistory() {
                   <td className="whitespace-nowrap px-3 py-2">
                     {formatMs(call.duration_ms)}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="whitespace-nowrap px-3 py-2">
                     {formatCost(call.estimated_cost)}
                   </td>
                   <td className="max-w-48 truncate px-3 py-2">

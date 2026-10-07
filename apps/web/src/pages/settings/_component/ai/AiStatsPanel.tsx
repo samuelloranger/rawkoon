@@ -51,7 +51,8 @@ function DailyBars({
   barClass: string;
   label: string;
 }) {
-  const max = Math.max(1, ...daily.map(pick));
+  // Costs are fractions of a cent, so scale to the real max rather than a floor of 1.
+  const max = Math.max(0, ...daily.map(pick)) || 1;
   return (
     <div>
       <div className="mb-1 text-xs text-neutral-400">{label}</div>
