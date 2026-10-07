@@ -100,6 +100,23 @@ describe("searchAndGrab AI judge", () => {
     ]);
   });
 
+  it("reports aiPicked in the grabbed result only for the AI pick", async () => {
+    pickReleaseWithAi.mockImplementationOnce(async () => ({
+      release_key: "1",
+    }));
+    const picked = await searchAndGrab({
+      ...base,
+      aiConfig: aiConfig as never,
+    });
+    expect(picked).toMatchObject({ grabbed: true, aiPicked: true });
+
+    const classic = await searchAndGrab({
+      ...base,
+      aiConfig: aiConfig as never,
+    });
+    expect(classic).toMatchObject({ grabbed: true, aiPicked: false });
+  });
+
   it("grabs the picked row when two results share a download URL", async () => {
     searchReleases = [
       release(1, 10),

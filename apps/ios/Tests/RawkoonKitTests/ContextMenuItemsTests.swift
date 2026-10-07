@@ -50,6 +50,25 @@ final class ContextMenuItemsTests: XCTestCase {
         XCTAssertEqual(items.filter { !$0.requiresConnection }, [.openDetails])
     }
 
+    func testAutoSearchSitsAboveSearchReleasesForAdminsOnly() {
+        let admin = mediaPosterMenuItems(inLibrary: true, isAdmin: true, canAutoSearch: true)
+        XCTAssertEqual(admin, [.toggleMonitored, .autoSearch, .searchReleases, .openDetails, .removeFromLibrary])
+
+        let member = mediaPosterMenuItems(inLibrary: true, isAdmin: false, canAutoSearch: true)
+        XCTAssertFalse(member.contains(.autoSearch))
+        let notInLibrary = mediaPosterMenuItems(inLibrary: false, isAdmin: true, canAutoSearch: true)
+        XCTAssertFalse(notInLibrary.contains(.autoSearch))
+        XCTAssertTrue(MediaPosterMenuAction.autoSearch.requiresConnection)
+    }
+
+    func testOnlyWantedMoviesCanAutoSearch() {
+        XCTAssertTrue(movieCanAutoSearch(type: "movie", status: "wanted"))
+        XCTAssertTrue(movieCanAutoSearch(type: "movie", status: "missing"))
+        XCTAssertFalse(movieCanAutoSearch(type: "movie", status: "downloaded"))
+        XCTAssertFalse(movieCanAutoSearch(type: "movie", status: "downloading"))
+        XCTAssertFalse(movieCanAutoSearch(type: "show", status: "wanted"))
+    }
+
     func testReadAndPlayWorkOfflineInTheBookMenu() {
         let items = bookCardMenuItems(hasAudiobook: true, hasEbook: true, isAdmin: true, isRead: false)
         XCTAssertEqual(items.filter { !$0.requiresConnection }, [.read, .play])

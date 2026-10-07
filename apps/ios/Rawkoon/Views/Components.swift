@@ -609,6 +609,10 @@ private func mediaPosterMenuButtonContent(
         Button { perform(action) } label: {
             Label("Toggle monitored", systemImage: "antenna.radiowaves.left.and.right")
         }
+    case .autoSearch:
+        Button { perform(action) } label: {
+            Label("Auto search", systemImage: "bolt.fill")
+        }
     case .searchReleases:
         Button { perform(action) } label: {
             Label("Search releases", systemImage: "magnifyingglass")

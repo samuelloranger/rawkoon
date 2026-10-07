@@ -166,6 +166,10 @@ struct LibraryMediaRow: View {
             Button { onMenuAction(action) } label: {
                 Label("Toggle monitored", systemImage: "antenna.radiowaves.left.and.right")
             }
+        case .autoSearch:
+            Button { onMenuAction(action) } label: {
+                Label("Auto search", systemImage: "bolt.fill")
+            }
         case .searchReleases:
             Button { onMenuAction(action) } label: {
                 Label("Search releases", systemImage: "magnifyingglass")

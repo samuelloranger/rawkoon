@@ -37,7 +37,8 @@ export async function searchAndGrab(opts: {
   /** Pre-loaded by the fallback wrapper; undefined means load it here. */
   aiConfig?: AiProviderConfig | null;
 }): Promise<
-  { grabbed: true; releaseTitle: string } | { grabbed: false; reason: string }
+  | { grabbed: true; releaseTitle: string; aiPicked?: boolean }
+  | { grabbed: false; reason: string }
 > {
   try {
     const {
@@ -255,7 +256,7 @@ export async function searchAndGrab(opts: {
         aiPicked: candidate === aiRow,
       });
 
-      if (result.grabbed) return result;
+      if (result.grabbed) return { ...result, aiPicked: candidate === aiRow };
 
       // Only continue to the next candidate on a hash-level blocklist hit.
       // All other failures (network, download client) are terminal.
@@ -294,7 +295,8 @@ export async function searchAndGrabWithTitleFallback(opts: {
   /** Recorded in the AI usage ledger; defaults to upgrade/manual_search from isUpgrade. */
   trigger?: AiTrigger;
 }): Promise<
-  { grabbed: true; releaseTitle: string } | { grabbed: false; reason: string }
+  | { grabbed: true; releaseTitle: string; aiPicked?: boolean }
+  | { grabbed: false; reason: string }
 > {
   let lastReason = "No matching releases found";
   const aiConfig = await loadEnabledAiProviderConfig().catch(() => null);

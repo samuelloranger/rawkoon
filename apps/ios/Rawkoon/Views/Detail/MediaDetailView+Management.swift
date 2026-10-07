@@ -106,21 +106,33 @@ extension MediaDetailView {
             }
 
             // The card's one lamp: searching releases is the primary reason an
-            // admin opens Management.
-            Button {
-                releaseSearchSeason = nil
-                showingReleaseSearch = true
-            } label: {
-                Label("Search releases", systemImage: "magnifyingglass")
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 44)
+            // admin opens Management. Movies split it: tap auto-searches, the
+            // chevron opens the interactive sheet. Shows search per season/episode.
+            // Only a wanted movie: /search resets status to wanted and grabs as a
+            // first download, so a downloaded movie keeps the interactive lamp.
+            if mediaType == "movie", movieCanAutoSearch(type: "movie", status: item.status) {
+                MovieAutoSearchLamp(
+                    isSearching: autoSearching,
+                    onAutoSearch: { Task { await movieAutoSearch() } },
+                    onChoose: { openReleaseSearch() }
+                )
+                .disabled(applyingManagementChange)
+                .requiresConnection(model.isOffline)
+            } else {
+                Button {
+                    openReleaseSearch()
+                } label: {
+                    Label("Search releases", systemImage: "magnifyingglass")
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.apricot)
+                .foregroundStyle(Theme.onAccent)
+                .fontWeight(.semibold)
+                .disabled(applyingManagementChange)
+                .requiresConnection(model.isOffline)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(Theme.apricot)
-            .foregroundStyle(Theme.onAccent)
-            .fontWeight(.semibold)
-            .disabled(applyingManagementChange)
-            .requiresConnection(model.isOffline)
 
             managementDivider
 

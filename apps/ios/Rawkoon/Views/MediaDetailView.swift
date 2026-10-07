@@ -65,6 +65,10 @@ struct MediaDetailView: View {
     @State var showingReleaseSearch = false
     /// When set, the release-search sheet opens scoped to a single season.
     @State var releaseSearchSeason: Int?
+    @State var releaseSearchUpgrade = false
+    @State var autoSearching = false
+    /// False once the screen is popped, so a late auto-search result doesn't offer its sheet.
+    @State var isOnScreen = false
     @State var releaseSearchEpisode: Int?
     @State var showingRemoveConfirm = false
     @State var menuReleaseSearch: ReleaseSearchPresentation?
@@ -202,7 +206,11 @@ struct MediaDetailView: View {
             .frame(maxWidth: .infinity)
             .padding(.bottom, 24)
         }
-        .onAppear(perform: hydrateFromCache)
+        .onAppear {
+            isOnScreen = true
+            hydrateFromCache()
+        }
+        .onDisappear { isOnScreen = false }
         .task {
             // Saved copies painted on appear, so the first open always refetches;
             // a revisit only retries what is still missing.
@@ -229,6 +237,7 @@ struct MediaDetailView: View {
             .sheet(isPresented: $showingReleaseSearch, onDismiss: {
                 releaseSearchSeason = nil
                 releaseSearchEpisode = nil
+                releaseSearchUpgrade = false
             }) {
                 ReleaseSearchView(
                     query: title,
@@ -242,6 +251,7 @@ struct MediaDetailView: View {
                     titleTranslations: details?.titleTranslations ?? [],
                     targetSeason: releaseSearchSeason,
                     targetEpisode: releaseSearchEpisode,
+                    isUpgrade: releaseSearchUpgrade,
                     onGrabbed: { Task { await refreshManagementData() } }
                 )
                 .environment(model)
