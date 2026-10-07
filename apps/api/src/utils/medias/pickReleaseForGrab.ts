@@ -1,3 +1,4 @@
+import { prisma } from "@rawkoon/api/db";
 import type { NormalizedRelease } from "@rawkoon/api/services/indexerManager/types";
 import type { AiFeature, AiTrigger } from "@rawkoon/shared/types";
 import type { AiProviderConfig } from "@rawkoon/api/utils/integrations/types";
@@ -41,6 +42,25 @@ function resolveAiPick(
   };
 }
 
+/** Case-insensitive, like searchAndGrab; grabRelease re-checks by title and hash. */
+async function blocklistedTitles(titles: string[]): Promise<Set<string>> {
+  if (titles.length === 0) return new Set();
+  try {
+    const rows = await prisma.grabBlocklist.findMany({
+      where: {
+        OR: titles.map((title) => ({
+          releaseTitle: { equals: title, mode: "insensitive" as const },
+        })),
+      },
+      select: { releaseTitle: true },
+    });
+    return new Set(rows.map((r) => r.releaseTitle.toLowerCase()));
+  } catch (e) {
+    console.warn("[pickReleaseForGrab] blocklist lookup failed:", e);
+    return new Set();
+  }
+}
+
 export async function pickReleaseForGrab(opts: {
   candidates: NormalizedRelease[];
   profile: QualityProfileScoreInput | null;
@@ -50,11 +70,21 @@ export async function pickReleaseForGrab(opts: {
   trigger?: AiTrigger;
   mediaId?: number;
 }): Promise<GrabPickResult | null> {
-  const scored = scoreReleasesForProfile(opts.candidates, opts.profile);
+  const accepted = scoreReleasesForProfile(opts.candidates, opts.profile);
+  // grabRelease refuses a blocklisted title without trying another, so neither
+  // the classic choice nor the judge may land on one.
+  const blocked = await blocklistedTitles(accepted.map((s) => s.release.title));
+  const scored = accepted.filter(
+    (s) => !blocked.has(s.release.title.toLowerCase()),
+  );
   const classicBest = pickBestScored(scored);
   if (!classicBest) return null;
 
-  if (!opts.aiConfig || scored.length < 2) {
+  // The judge never sees zero-seeder releases, so count only what it would get.
+  const judgeable = scored.filter(
+    (s) => s.release.seeders == null || s.release.seeders > 0,
+  );
+  if (!opts.aiConfig || judgeable.length < 2) {
     return { ...classicBest, picked_by: "classic" };
   }
 

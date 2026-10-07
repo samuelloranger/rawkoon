@@ -16,8 +16,7 @@ Configure it in **Settings → AI**.
 | Book grabs | Wanted-edition searches, **Search** on a book, format upgrades, and book RSS matches. |
 
 For automatic grabs, the model is only asked when more than one release passes
-the profile's hard rules; library searches and book grabs also drop
-blocklisted releases first. Interactive search asks about the non-rejected
+the profile's hard rules and the blocklist. Interactive search asks about the non-rejected
 results it is showing. Releases with zero seeders are never shown to the
 model, and it sees at most the ten best-scored candidates.
 
