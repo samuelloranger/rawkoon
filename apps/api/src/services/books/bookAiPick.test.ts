@@ -4,9 +4,14 @@ const createCall = mock<
   (args: { data: Record<string, unknown> }) => Promise<unknown>
 >(async () => ({}));
 let integration: { enabled: boolean; config: unknown } | null = null;
+let blocklisted: string[] = [];
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
     aiCall: { create: createCall },
+    grabBlocklist: {
+      findMany: async () =>
+        blocklisted.map((releaseTitle) => ({ releaseTitle })),
+    },
     integration: { findFirst: async () => integration },
   },
 }));
@@ -79,6 +84,7 @@ function reply(content: string) {
 
 beforeEach(() => {
   bodies = [];
+  blocklisted = [];
   createCall.mockClear();
   invalidateIntegrationConfigCache();
   integration = {
@@ -179,6 +185,26 @@ describe("pickBookCandidate", () => {
     invalidateIntegrationConfigCache();
     await pickBookCandidate(edition, [releases[0]!], "rss", describe_);
     expect(bodies).toHaveLength(0);
+  });
+
+  it("never offers the judge a blocklisted release", async () => {
+    const three = [
+      ...releases,
+      { id: "c", title: "Tome 1 retail", score: 700 },
+    ];
+    blocklisted = ["Tome 1 audiobook"];
+    reply('{"release_key":"r1","reasoning":"retail"}');
+    const out = await pickBookCandidate(edition, three, "rss", describe_);
+    expect(bodies[0]).not.toContain("Tome 1 audiobook");
+    expect(out).toEqual({ pick: three[2], aiPicked: true });
+  });
+
+  it("uses the classic best when blocklisting leaves one candidate", async () => {
+    blocklisted = ["Tome 1 audiobook"];
+    reply('{"release_key":"r0","reasoning":"x"}');
+    const out = await pickBookCandidate(edition, releases, "rss", describe_);
+    expect(bodies).toHaveLength(0);
+    expect(out).toEqual({ pick: releases[0], aiPicked: false });
   });
 
   it("records the ledger context", async () => {

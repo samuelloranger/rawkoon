@@ -1,3 +1,4 @@
+import { prisma } from "@rawkoon/api/db";
 import {
   loadEnabledAiProviderConfig,
   pickBookReleaseWithAi,
@@ -36,7 +37,18 @@ export async function pickBookCandidate<T>(
     const config = await loadEnabledAiProviderConfig();
     if (!config) return classic;
 
-    const described = candidates.map(describe);
+    // grabBookRelease refuses blocklisted titles without trying another, so the
+    // judge only sees releases that can actually be grabbed.
+    const all = candidates.map(describe);
+    const blocked = await prisma.grabBlocklist
+      .findMany({
+        where: { releaseTitle: { in: all.map((c) => c.title) } },
+        select: { releaseTitle: true },
+      })
+      .then((rows) => new Set(rows.map((r) => r.releaseTitle)));
+    const described = all.filter((c) => !blocked.has(c.title));
+    if (described.length < 2) return classic;
+
     const result = await pickBookReleaseWithAi(
       config,
       {
@@ -61,13 +73,13 @@ export async function pickBookCandidate<T>(
       {
         feature: "book_release_pick",
         trigger,
-        classicTitle: described[0]?.title,
+        classicTitle: all[0]?.title,
         bookEditionId: edition.editionId,
       },
     );
     if (!result) return classic;
 
-    const index = described.findIndex((c) => c.url === result.release_key);
+    const index = all.findIndex((c) => c.url === result.release_key);
     if (index === -1) return classic;
     return { pick: candidates[index] as T, aiPicked: true };
   } catch (e) {

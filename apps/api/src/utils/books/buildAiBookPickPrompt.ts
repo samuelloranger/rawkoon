@@ -22,7 +22,7 @@ export const AI_BOOK_SYSTEM_PROMPT =
   "`score` is the app's quality rating derived from the user's format, bitrate, and size preferences (higher is better). " +
   "Choose in this order: " +
   "(1) discard releases for the wrong title, the wrong volume of a series (e.g. tome 2 when tome 1 is wanted), or the wrong author; " +
-  "(2) discard releases of the wrong kind (an ebook when an audiobook is wanted, or the reverse) or in a different language than the edition's; " +
+  "(2) discard releases of the wrong kind (an ebook when an audiobook is wanted, or the reverse) or clearly in a different language than the edition's; a release whose language is unknown is not a mismatch; " +
   "(3) discard abridged, summary, sample, or excerpt releases; " +
   "(4) among those remaining, pick the highest score, and do not second-guess a score from the title; " +
   "(5) break ties by seeders. " +
