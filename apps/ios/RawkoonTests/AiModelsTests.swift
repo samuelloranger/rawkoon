@@ -153,4 +153,15 @@ struct AiModelsTests {
         let without = try encoded(AiPickRequest(mediaContext: context, releases: [], mediaId: nil))
         #expect(without["media_id"] == nil)
     }
+
+    @Test func aiPickContextEncodesSeasonAndEpisodeWhenKnown() throws {
+        let episode = AiPickMediaContext(title: "T", year: 2020, type: "tv", season: 2, episode: 5)
+        let sent = try #require(try encoded(AiPickRequest(mediaContext: episode, releases: [], mediaId: 7))["media_context"] as? [String: Any])
+        #expect(sent["season"] as? Int == 2)
+        #expect(sent["episode"] as? Int == 5)
+        let movie = AiPickMediaContext(title: "T", year: nil, type: "movie")
+        let bare = try #require(try encoded(AiPickRequest(mediaContext: movie, releases: [], mediaId: nil))["media_context"] as? [String: Any])
+        #expect(bare["season"] == nil)
+        #expect(bare["episode"] == nil)
+    }
 }

@@ -179,6 +179,8 @@ export const aiPickBodySchema = z.object({
     title: z.string(),
     year: nullableNumber,
     type: z.union([z.literal("movie"), z.literal("tv")]),
+    season: nullableNumber.optional(),
+    episode: nullableNumber.optional(),
   }),
   releases: z.array(
     z.object({
@@ -217,9 +219,28 @@ export async function handleAiPick(
       : tooManyRequests("AI daily budget reached");
   }
 
+  // Languages come from the media's own profile, as in the automatic grab.
+  let preferredLanguages: string[] = [];
+  if (body.media_id != null) {
+    const media = await prisma.libraryMedia.findUnique({
+      where: { id: body.media_id },
+      include: { qualityProfile: { include: qualityProfileFormatsInclude } },
+    });
+    if (media?.qualityProfile) {
+      preferredLanguages = profileToScoreInput(
+        media.qualityProfile,
+      ).preferredLanguages;
+    }
+  }
+
   const result = await pickReleaseWithAi(
     config,
-    body.media_context,
+    {
+      ...body.media_context,
+      ...(preferredLanguages.length > 0
+        ? { preferred_languages: preferredLanguages }
+        : {}),
+    },
     body.releases,
     ctx,
   );

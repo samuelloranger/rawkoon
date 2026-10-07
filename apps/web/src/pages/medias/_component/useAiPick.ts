@@ -17,6 +17,9 @@ interface UseAiPickParams {
   mediaType: "movie" | "tv";
   /** Library id, when searching from a media page; links the call in AI history. */
   libraryMediaId?: number | null;
+  /** Target of the search: an episode, or a season pack when episode is null. */
+  season?: number | null;
+  episode?: number | null;
 }
 
 export function useAiPick({
@@ -26,6 +29,8 @@ export function useAiPick({
   mediaYear,
   mediaType,
   libraryMediaId,
+  season,
+  episode,
 }: UseAiPickParams) {
   const fetcher = useFetcher();
 
@@ -39,6 +44,8 @@ export function useAiPick({
       mediaType,
       releaseKeys,
       libraryMediaId ?? null,
+      season ?? null,
+      episode ?? null,
     ),
     queryFn: () =>
       fetcher<AiPickResult>(MEDIAS_ENDPOINTS.INTERACTIVE_SEARCH_AI_PICK, {
@@ -49,6 +56,7 @@ export function useAiPick({
             title: mediaTitle,
             year: mediaYear,
             type: mediaType,
+            ...(season != null ? { season, episode: episode ?? null } : {}),
           },
           releases: candidates.map((r) => ({
             key: r.guid,

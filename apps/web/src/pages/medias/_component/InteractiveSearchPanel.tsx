@@ -29,6 +29,8 @@ export interface InteractiveSearchPanelProps {
   titleOptions?: LabeledTitleOption[];
   /** Episode to link the grab to (shows only) */
   episodeId?: number | null;
+  /** Season/episode numbers of `episodeId`, so the AI pick can target it */
+  episodeTarget?: { season: number; episode: number } | null;
   /** Pre-select a season (number) or complete series ("complete") when opening */
   defaultSeason?: number | "complete" | null;
   /** When true, grabs are sent with is_upgrade: true */
@@ -57,6 +59,10 @@ export function InteractiveSearchPanel(props: InteractiveSearchPanelProps) {
     mediaYear: props.media?.year ?? null,
     mediaType: mediaType as "movie" | "tv",
     libraryMediaId: props.libraryMediaId,
+    season:
+      props.episodeTarget?.season ??
+      (typeof state.selectedSeason === "number" ? state.selectedSeason : null),
+    episode: props.episodeTarget?.episode ?? null,
   });
 
   const pickedRelease =

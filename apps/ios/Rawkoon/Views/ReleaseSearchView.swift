@@ -26,6 +26,9 @@ struct ReleaseSearchView: View {
     /// Fired after a successful grab so the presenter can refresh its download
     /// list — the grabbed row otherwise won't appear until the view is reopened.
     let onGrabbed: (() -> Void)?
+    /// Set when the sheet was opened for one episode; lets the AI pick target it.
+    let targetSeason: Int?
+    let targetEpisode: Int?
 
     init(
         query: String,
@@ -37,9 +40,13 @@ struct ReleaseSearchView: View {
         originalTitle: String? = nil,
         originalLanguage: String? = nil,
         titleTranslations: [TitleTranslation] = [],
+        targetSeason: Int? = nil,
+        targetEpisode: Int? = nil,
         onGrabbed: (() -> Void)? = nil
     ) {
         self.onGrabbed = onGrabbed
+        self.targetSeason = targetSeason
+        self.targetEpisode = targetEpisode
         self.libraryMediaId = libraryMediaId
         self.tmdbId = tmdbId
         self.mediaType = mediaType
@@ -247,6 +254,16 @@ struct ReleaseSearchView: View {
             }
             Task { await search() }
         }
+    }
+
+    /// An episode target holds until a different season chip or the complete series is picked.
+    private var aiTarget: (season: Int?, episode: Int?) {
+        if let targetSeason, let targetEpisode, !completeSeries,
+           selectedSeason == nil || selectedSeason == targetSeason
+        {
+            return (targetSeason, targetEpisode)
+        }
+        return (completeSeries ? nil : selectedSeason, nil)
     }
 
     private func initialLoad() async {
@@ -761,7 +778,9 @@ struct ReleaseSearchView: View {
             mediaContext: AiPickMediaContext(
                 title: searchQuery,
                 year: mediaYear,
-                type: mediaType
+                type: mediaType,
+                season: aiTarget.season,
+                episode: aiTarget.episode
             ),
             releases: candidates.map { release in
                 AiPickCandidate(

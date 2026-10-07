@@ -65,6 +65,7 @@ struct MediaDetailView: View {
     @State var showingReleaseSearch = false
     /// When set, the release-search sheet opens scoped to a single season.
     @State var releaseSearchSeason: Int?
+    @State var releaseSearchEpisode: Int?
     @State var showingRemoveConfirm = false
     @State var menuReleaseSearch: ReleaseSearchPresentation?
     @State var pendingRemoveLibraryId: Int?
@@ -225,7 +226,10 @@ struct MediaDetailView: View {
 
     func attachSheets(_ base: some View) -> some View {
         base
-            .sheet(isPresented: $showingReleaseSearch, onDismiss: { releaseSearchSeason = nil }) {
+            .sheet(isPresented: $showingReleaseSearch, onDismiss: {
+                releaseSearchSeason = nil
+                releaseSearchEpisode = nil
+            }) {
                 ReleaseSearchView(
                     query: title,
                     libraryMediaId: libraryId,
@@ -236,6 +240,8 @@ struct MediaDetailView: View {
                     originalTitle: details?.originalTitle,
                     originalLanguage: details?.originalLanguage,
                     titleTranslations: details?.titleTranslations ?? [],
+                    targetSeason: releaseSearchEpisode == nil ? nil : releaseSearchSeason,
+                    targetEpisode: releaseSearchEpisode,
                     onGrabbed: { Task { await refreshManagementData() } }
                 )
                 .environment(model)
@@ -612,6 +618,7 @@ struct MediaDetailView: View {
                 onEpisodeAutoSearch: { episode in Task { await episodeAutoSearch(episode) } },
                 onEpisodeReleaseSearch: { episode in
                     releaseSearchSeason = episode.season
+                    releaseSearchEpisode = episode.episode
                     showingReleaseSearch = true
                 },
                 onEpisodeToggleMonitor: { episode in Task { await episodeToggleMonitor(episode) } },

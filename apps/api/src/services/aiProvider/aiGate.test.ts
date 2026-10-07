@@ -7,11 +7,13 @@ const createCall = mock(
   async (_args: { data: Record<string, unknown> }) => ({}),
 );
 const findFirst = mock(async (_args?: unknown) => null as unknown);
+const findMedia = mock(async (_args?: unknown) => null as unknown);
 
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
     aiCall: { aggregate, create: createCall },
     integration: { findFirst },
+    libraryMedia: { findUnique: findMedia },
   },
 }));
 
@@ -48,6 +50,8 @@ beforeEach(() => {
   aggregate.mockClear();
   createCall.mockClear();
   findFirst.mockClear();
+  findMedia.mockClear();
+  findMedia.mockImplementation(async () => null);
   spend(0);
   fetchSpy.mockClear();
   globalThis.fetch = fetchSpy as unknown as typeof fetch;
@@ -286,5 +290,63 @@ describe("handleAiPick", () => {
     expect(await res.json()).toEqual({ error: "AI daily budget reached" });
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(createCall).toHaveBeenCalledTimes(1);
+  });
+
+  const promptSentFor = async (b: unknown) => {
+    stored({});
+    fetchSpy.mockImplementation(
+      async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              { message: { content: '{"release_key":"r0","reasoning":"x"}' } },
+            ],
+          }),
+        ),
+    );
+    await handleAiPick(b as typeof body);
+    const init = (
+      fetchSpy.mock.calls[0] as unknown as [string, RequestInit]
+    )[1];
+    return JSON.stringify(JSON.parse(String(init.body)).messages);
+  };
+
+  it("passes season, episode and the media profile's languages to the prompt", async () => {
+    findMedia.mockImplementation(async () => ({
+      qualityProfile: {
+        minResolution: "720p",
+        preferredSources: [],
+        preferredCodecs: [],
+        preferredLanguages: ["VFQ", "fr"],
+        customFormats: [],
+      },
+    }));
+    const prompt = await promptSentFor({
+      ...body,
+      media_id: 9,
+      media_context: {
+        ...body.media_context,
+        type: "tv",
+        season: 2,
+        episode: 5,
+      },
+    });
+    expect(prompt).toContain("S02E05");
+    expect(prompt).toContain("Preferred audio languages: VFQ, fr");
+  });
+
+  it("sends no languages when the media or its profile is missing", async () => {
+    const prompt = await promptSentFor({
+      ...body,
+      media_id: 9,
+      media_context: {
+        ...body.media_context,
+        type: "tv",
+        season: 2,
+        episode: null,
+      },
+    });
+    expect(prompt).toContain("S02 (season pack)");
+    expect(prompt).not.toContain("Preferred audio languages");
   });
 });

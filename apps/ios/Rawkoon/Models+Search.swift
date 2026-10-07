@@ -154,6 +154,9 @@ nonisolated struct AiPickMediaContext: Encodable, Sendable {
     let title: String
     let year: Int?
     let type: String // "movie" | "tv"
+    /// Target of the search; episode is nil for a season pack. Both nil when unknown.
+    var season: Int?
+    var episode: Int?
 }
 
 nonisolated struct AiPickCandidate: Encodable, Sendable {
