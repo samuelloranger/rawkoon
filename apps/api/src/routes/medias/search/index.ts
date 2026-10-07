@@ -222,14 +222,19 @@ export async function handleAiPick(
   // Languages come from the media's own profile, as in the automatic grab.
   let preferredLanguages: string[] = [];
   if (body.media_id != null) {
-    const media = await prisma.libraryMedia.findUnique({
-      where: { id: body.media_id },
-      include: { qualityProfile: { include: qualityProfileFormatsInclude } },
-    });
-    if (media?.qualityProfile) {
-      preferredLanguages = profileToScoreInput(
-        media.qualityProfile,
-      ).preferredLanguages;
+    try {
+      const media = await prisma.libraryMedia.findUnique({
+        where: { id: body.media_id },
+        include: { qualityProfile: { include: qualityProfileFormatsInclude } },
+      });
+      if (media?.qualityProfile) {
+        preferredLanguages = profileToScoreInput(
+          media.qualityProfile,
+        ).preferredLanguages;
+      }
+    } catch (error) {
+      // A suggestion without language hints beats failing the whole pick.
+      console.warn("[ai-pick] profile lookup failed:", error);
     }
   }
 
