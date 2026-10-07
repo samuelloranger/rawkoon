@@ -132,52 +132,87 @@ export async function prowlarrHeadersForTorrentUrl(
 
 /**
  * Extract the SHA-1 info hash from a raw .torrent file buffer.
- * Parses just enough bencode to locate and hash the "info" dictionary.
+ * Walks the top-level bencoded dict and hashes the raw bytes of its "info"
+ * value, the same span BitTorrent clients hash.
  * Returns null if parsing fails — never throws.
  */
 export function infoHashFromTorrentBuffer(buf: ArrayBuffer): string | null {
   try {
     const bytes = new Uint8Array(buf);
-
-    // Walk a bencoded value starting at pos, return the index after it ends.
-    function skipValue(pos: number): number {
-      const ch = bytes[pos];
-      if (ch === 0x64 /* d */ || ch === 0x6c /* l */) {
-        pos++;
-        while (bytes[pos] !== 0x65 /* e */) pos = skipValue(pos);
-        return pos + 1;
-      }
-      if (ch === 0x69 /* i */) {
-        while (pos < bytes.length && bytes[pos] !== 0x65 /* e */) pos++;
-        if (pos >= bytes.length)
-          throw new Error("malformed integer in bencode");
-        return pos + 1;
-      }
-      // String: <digits>:<bytes>
-      let colon = pos;
-      while (bytes[colon] !== 0x3a /* : */) colon++;
-      const len = parseInt(
-        new TextDecoder().decode(bytes.slice(pos, colon)),
-        10,
-      );
-      return colon + 1 + len;
-    }
-
-    // The info key is encoded as "4:info" (0x34 0x3a 0x69 0x6e 0x66 0x6f)
-    const marker = [0x34, 0x3a, 0x69, 0x6e, 0x66, 0x6f]; // "4:info"
-    outer: for (let i = 0; i < bytes.length - marker.length; i++) {
-      for (let j = 0; j < marker.length; j++) {
-        if (bytes[i + j] !== marker[j]) continue outer;
-      }
-      const infoStart = i + marker.length;
-      const infoEnd = skipValue(infoStart);
-      return createHash("sha1")
-        .update(bytes.slice(infoStart, infoEnd))
-        .digest("hex");
-    }
-    return null;
+    const span = topLevelInfoSpan(bytes);
+    if (!span) return null;
+    return createHash("sha1")
+      .update(bytes.subarray(span[0], span[1]))
+      .digest("hex");
   } catch (e) {
     console.warn("[mediaGrabber] torrent buffer parse failed:", e);
     return null;
   }
+}
+
+const B_D = 0x64; // d
+const B_L = 0x6c; // l
+const B_I = 0x69; // i
+const B_E = 0x65; // e
+const B_COLON = 0x3a;
+const MAX_BENCODE_DEPTH = 64;
+
+const isDigit = (b: number | undefined) =>
+  b !== undefined && b >= 0x30 && b <= 0x39;
+
+// Every branch either advances past `pos` or throws, so malformed input can't loop.
+function skipBencode(bytes: Uint8Array, pos: number, depth: number): number {
+  if (depth > MAX_BENCODE_DEPTH) throw new Error("bencode nested too deep");
+  const ch = bytes[pos];
+  if (ch === B_I) {
+    let p = pos + 1;
+    if (bytes[p] === 0x2d) p++;
+    const digitsStart = p;
+    while (isDigit(bytes[p])) p++;
+    if (p === digitsStart || bytes[p] !== B_E) {
+      throw new Error("malformed bencode integer");
+    }
+    return p + 1;
+  }
+  if (ch === B_L || ch === B_D) {
+    let p = pos + 1;
+    while (bytes[p] !== B_E) {
+      if (p >= bytes.length) throw new Error("unterminated bencode container");
+      if (ch === B_D) p = skipBencodeString(bytes, p);
+      p = skipBencode(bytes, p, depth + 1);
+    }
+    return p + 1;
+  }
+  return skipBencodeString(bytes, pos);
+}
+
+function skipBencodeString(bytes: Uint8Array, pos: number): number {
+  let p = pos;
+  while (isDigit(bytes[p]) && p - pos < 12) p++;
+  if (p === pos || bytes[p] !== B_COLON) {
+    throw new Error("malformed bencode string length");
+  }
+  const len = Number(new TextDecoder().decode(bytes.subarray(pos, p)));
+  const end = p + 1 + len;
+  if (end > bytes.length) throw new Error("bencode string past end of buffer");
+  return end;
+}
+
+function topLevelInfoSpan(bytes: Uint8Array): [number, number] | null {
+  if (bytes[0] !== B_D) return null;
+  let info: [number, number] | null = null;
+  let p = 1;
+  while (bytes[p] !== B_E) {
+    if (p >= bytes.length) throw new Error("unterminated top-level dict");
+    const keyEnd = skipBencodeString(bytes, p);
+    const key = new TextDecoder().decode(
+      bytes.subarray(bytes.indexOf(B_COLON, p) + 1, keyEnd),
+    );
+    const valueEnd = skipBencode(bytes, keyEnd, 1);
+    if (key === "info" && !info && bytes[keyEnd] === B_D) {
+      info = [keyEnd, valueEnd];
+    }
+    p = valueEnd;
+  }
+  return info;
 }
