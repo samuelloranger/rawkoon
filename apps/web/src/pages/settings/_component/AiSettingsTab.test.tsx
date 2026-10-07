@@ -136,7 +136,7 @@ describe("AiSettingsTab", () => {
     renderWithProviders(<AiSettingsTab />);
     expect(screen.queryByText("Classic.Choice")).not.toBeInTheDocument();
     const toggle = screen.getByRole("button", {
-      name: "settings.ai.history.expand",
+      name: /settings\.ai\.history\.expand/,
     });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(toggle);

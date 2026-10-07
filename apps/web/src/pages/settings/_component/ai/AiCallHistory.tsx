@@ -34,6 +34,8 @@ function TargetCell({ call }: { call: AiCallEntry }) {
         to="/library/$libraryId"
         params={{ libraryId: String(call.media_id) }}
         className="text-neutral-100 hover:text-primary-400"
+        // Navigating must not also toggle the clickable row.
+        onClick={(e) => e.stopPropagation()}
       >
         {call.media_title}
       </Link>
@@ -45,6 +47,7 @@ function TargetCell({ call }: { call: AiCallEntry }) {
         to="/books/$bookId"
         params={{ bookId: String(call.book_id) }}
         className="text-neutral-100 hover:text-primary-400"
+        onClick={(e) => e.stopPropagation()}
       >
         {call.book_title}
       </Link>
@@ -234,6 +237,9 @@ export function AiCallHistory() {
                             open
                               ? "settings.ai.history.collapse"
                               : "settings.ai.history.expand",
+                            {
+                              call: `${dateFormat.format(new Date(call.created_at))} · ${t(`settings.ai.features.${call.feature}`, { defaultValue: call.feature })}`,
+                            },
                           )}
                           onClick={(e) => {
                             // The row handler would toggle a second time.
@@ -282,10 +288,7 @@ export function AiCallHistory() {
                       <td className="whitespace-nowrap px-3 py-2">
                         {formatCost(call.estimated_cost)}
                       </td>
-                      <td
-                        className="max-w-48 truncate px-3 py-2"
-                        onClick={(e) => e.stopPropagation()}
-                      >
+                      <td className="max-w-48 truncate px-3 py-2">
                         <TargetCell call={call} />
                       </td>
                       <td
