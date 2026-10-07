@@ -1,6 +1,736 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "AI": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "IA"
+          }
+        }
+      }
+    },
+    "Auto-grab (RSS)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Téléchargement auto (RSS)"
+          }
+        }
+      }
+    },
+    "Interactive search pick": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choix en recherche interactive"
+          }
+        }
+      }
+    },
+    "Automatic search": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche automatique"
+          }
+        }
+      }
+    },
+    "Book release pick": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choix de version de livre"
+          }
+        }
+      }
+    },
+    "RSS auto-grab": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajout automatique par RSS"
+          }
+        }
+      }
+    },
+    "Interactive search suggestion": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggestion de la recherche interactive"
+          }
+        }
+      }
+    },
+    "Scheduled & upgrade searches": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherches planifiées et de mise à niveau"
+          }
+        }
+      }
+    },
+    "Book grabs": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouts de livres"
+          }
+        }
+      }
+    },
+    "Invalid pick": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choix invalide"
+          }
+        }
+      }
+    },
+    "Rate limited": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limite atteinte"
+          }
+        }
+      }
+    },
+    "Budget skipped": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ignoré (budget)"
+          }
+        }
+      }
+    },
+    "Scheduled search": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche planifiée"
+          }
+        }
+      }
+    },
+    "Upgrade": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mise à niveau"
+          }
+        }
+      }
+    },
+    "Interactive search": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche interactive"
+          }
+        }
+      }
+    },
+    "Manual search": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche manuelle"
+          }
+        }
+      }
+    },
+    "%lld days": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld jours"
+          }
+        }
+      }
+    },
+    "Calls": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appels"
+          }
+        }
+      }
+    },
+    "%lld invalid pick, %lld rate limited, %lld failed": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld choix invalide, %lld limite atteinte, %lld en échec"
+          }
+        }
+      }
+    },
+    "Success rate": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taux de réussite"
+          }
+        }
+      }
+    },
+    "Tokens in / out": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jetons entrée / sortie"
+          }
+        }
+      }
+    },
+    "Estimated cost": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coût estimé"
+          }
+        }
+      }
+    },
+    "Set prices to estimate cost": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entrez les prix pour estimer le coût"
+          }
+        }
+      }
+    },
+    "AI changed the pick": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choix modifié par l’IA"
+          }
+        }
+      }
+    },
+    "No comparison yet": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas encore de comparaison"
+          }
+        }
+      }
+    },
+    "vs classic scoring, over %lld calls": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "par rapport au pointage classique, sur %lld appels"
+          }
+        }
+      }
+    },
+    "Skipped by budget": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ignorés par le budget"
+          }
+        }
+      }
+    },
+    "Calls not made because the budget was spent": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appels non effectués parce que le budget était épuisé"
+          }
+        }
+      }
+    },
+    "Median latency": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Latence médiane"
+          }
+        }
+      }
+    },
+    "p95 latency": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Latence p95"
+          }
+        }
+      }
+    },
+    "AI-picked grabs": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Téléchargements choisis par l’IA"
+          }
+        }
+      }
+    },
+    "Classic grabs": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Téléchargements classiques"
+          }
+        }
+      }
+    },
+    "failed": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "en échec"
+          }
+        }
+      }
+    },
+    "%lld grabs: %lld completed, %lld failed, %lld in progress": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld téléchargements : %lld terminés, %lld en échec, %lld en cours"
+          }
+        }
+      }
+    },
+    "Calls per day": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appels par jour"
+          }
+        }
+      }
+    },
+    "Estimated cost per day": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coût estimé par jour"
+          }
+        }
+      }
+    },
+    "max %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "max %@"
+          }
+        }
+      }
+    },
+    "By feature": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Par fonction"
+          }
+        }
+      }
+    },
+    "By trigger": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Par déclencheur"
+          }
+        }
+      }
+    },
+    "By model": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Par modèle"
+          }
+        }
+      }
+    },
+    "%lld calls · %@ success · %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld appels · %@ de réussite · %@"
+          }
+        }
+      }
+    },
+    "of %@ daily budget": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sur un budget quotidien de %@"
+          }
+        }
+      }
+    },
+    "No daily budget set": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun budget quotidien défini"
+          }
+        }
+      }
+    },
+    "Today": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aujourd’hui"
+          }
+        }
+      }
+    },
+    "Budget reached — using classic picks": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Budget atteint — choix classiques utilisés"
+          }
+        }
+      }
+    },
+    "Input price (USD per million tokens)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prix en entrée (USD par million de jetons)"
+          }
+        }
+      }
+    },
+    "Output price (USD per million tokens)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prix en sortie (USD par million de jetons)"
+          }
+        }
+      }
+    },
+    "Daily budget (USD)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Budget quotidien (USD)"
+          }
+        }
+      }
+    },
+    "No budget": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun budget"
+          }
+        }
+      }
+    },
+    "Used to estimate cost. Find your model's price on your provider's pricing page.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sert à estimer le coût. Le prix de votre modèle se trouve sur la page de tarification de votre fournisseur."
+          }
+        }
+      }
+    },
+    "When today's estimated spend reaches this, automatic grabs fall back to the classic scorer until midnight UTC. Needs prices.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quand la dépense estimée du jour atteint ce montant, les ajouts automatiques reviennent au pointage classique jusqu’à minuit UTC. Nécessite des prix."
+          }
+        }
+      }
+    },
+    "A budget only applies once at least one price is set.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un budget ne s’applique que si au moins un prix est défini."
+          }
+        }
+      }
+    },
+    "Features": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fonctions"
+          }
+        }
+      }
+    },
+    "Turn off the places where AI is allowed to pick. Disabled ones use the classic scorer.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Désactivez les endroits où l’IA a le droit de choisir. Les fonctions désactivées utilisent le pointage classique."
+          }
+        }
+      }
+    },
+    "Period": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Période"
+          }
+        }
+      }
+    },
+    "Usage": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilisation"
+          }
+        }
+      }
+    },
+    "No AI calls in this period yet. Calls show up here as releases get picked.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun appel à l’IA pour cette période. Les appels apparaissent ici au fil des choix de versions."
+          }
+        }
+      }
+    },
+    "Grab outcomes: AI picks vs classic scoring": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Résultat des téléchargements : choix de l’IA vs pointage classique"
+          }
+        }
+      }
+    },
+    "Call history": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Historique des appels"
+          }
+        }
+      }
+    },
+    "Call details": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Détails de l’appel"
+          }
+        }
+      }
+    },
+    "Feature": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fonction"
+          }
+        }
+      }
+    },
+    "All features": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toutes les fonctions"
+          }
+        }
+      }
+    },
+    "All statuses": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous les statuts"
+          }
+        }
+      }
+    },
+    "No calls match these filters.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun appel ne correspond à ces filtres."
+          }
+        }
+      }
+    },
+    "Time": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heure"
+          }
+        }
+      }
+    },
+    "Model": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modèle"
+          }
+        }
+      }
+    },
+    "Trigger": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déclencheur"
+          }
+        }
+      }
+    },
+    "Duration": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Durée"
+          }
+        }
+      }
+    },
+    "Classic pick": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choix classique"
+          }
+        }
+      }
+    },
+    "Agreed with classic": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Identique au choix classique"
+          }
+        }
+      }
+    },
+    "Reasoning": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Justification"
+          }
+        }
+      }
+    },
+    "AI daily budget reached — showing the classic pick": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Budget quotidien d’IA atteint — choix classique affiché"
+          }
+        }
+      }
+    },
+    "Release search": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche de versions"
+          }
+        }
+      }
+    },
     "Preferences": {
       "localizations": {
         "fr": {
@@ -10220,18 +10950,18 @@
         }
       }
     },
-    "Optional local LLM used for metadata assists. Leave the API key blank for a local server.": {
+    "OpenAI-compatible model that picks releases, local (llama.cpp, Ollama) or hosted (Groq). Leave the API key blank for a local server.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Optional local LLM used for metadata assists. Leave the API key blank for a local server."
+            "value": "OpenAI-compatible model that picks releases, local (llama.cpp, Ollama) or hosted (Groq). Leave the API key blank for a local server."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "LLM local optionnel pour les métadonnées. Laisse la clé API vide pour un serveur local."
+            "value": "Modèle compatible OpenAI qui choisit les releases, local (llama.cpp, Ollama) ou hébergé (Groq). Laisse la clé API vide pour un serveur local."
           }
         }
       }

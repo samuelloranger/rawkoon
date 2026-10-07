@@ -4,6 +4,7 @@ import SwiftUI
 enum SettingsGroup: String, CaseIterable, Identifiable {
     case system
     case integrations
+    case ai
     case libraryQuality
     case usersSecurity
     case jobsReleases
@@ -17,6 +18,7 @@ enum SettingsGroup: String, CaseIterable, Identifiable {
         switch self {
         case .system: "System"
         case .integrations: "Integrations"
+        case .ai: "AI"
         case .libraryQuality: "Library & Quality"
         case .usersSecurity: "Users & Security"
         case .jobsReleases: "Jobs & Releases"
@@ -32,12 +34,12 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
     case tmdb
     case fanart
     case jellyfin
-    case aiProvider
     case prowlarr
     case jackett
     case indexers
     case downloadClient
     case bookProviders
+    case ai
     case mediaLibrary
     case seeding
     case arrImport
@@ -62,8 +64,10 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         switch self {
         case .general, .liveUpdates:
             .system
-        case .tmdb, .fanart, .jellyfin, .aiProvider, .prowlarr, .jackett, .indexers, .downloadClient, .bookProviders:
+        case .tmdb, .fanart, .jellyfin, .prowlarr, .jackett, .indexers, .downloadClient, .bookProviders:
             .integrations
+        case .ai:
+            .ai
         case .mediaLibrary, .seeding, .arrImport, .qualityProfiles, .customFormats, .books, .bookQualityProfiles:
             .libraryQuality
         case .users, .sessions, .apiKeys, .oidcProviders, .blocklist:
@@ -86,7 +90,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .tmdb: "TMDB"
         case .fanart: "fanart.tv"
         case .jellyfin: "Jellyfin"
-        case .aiProvider: "AI Provider"
+        case .ai: "AI"
         case .prowlarr: "Prowlarr"
         case .jackett: "Jackett"
         case .indexers: "Indexers"
@@ -117,7 +121,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .tmdb: "film"
         case .fanart: "photo.on.rectangle"
         case .jellyfin: "play.rectangle"
-        case .aiProvider: "brain"
+        case .ai: "sparkles"
         case .prowlarr: "magnifyingglass.circle"
         case .jackett: "magnifyingglass.circle"
         case .indexers: "magnifyingglass"
@@ -149,7 +153,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .tmdb: ["the movie database", "metadata", "discovery"]
         case .fanart: ["fanart", "artwork", "posters", "backdrops", "metadata"]
         case .jellyfin: ["media server", "streaming"]
-        case .aiProvider: ["ai", "llm", "recommendations"]
+        case .ai: ["llm", "recommendations", "usage", "cost", "budget", "history", "provider", "tokens"]
         case .prowlarr: ["indexer", "search", "releases"]
         case .jackett: ["indexer", "search", "releases"]
         case .indexers: ["indexer", "search", "trackers", "torrent", "usenet"]
@@ -193,7 +197,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .tmdb: TmdbIntegrationView()
         case .fanart: FanartIntegrationView()
         case .jellyfin: JellyfinIntegrationView()
-        case .aiProvider: AiProviderIntegrationView()
+        case .ai: AiSettingsView()
         case .prowlarr: IndexerManagerIntegrationView(kind: .prowlarr)
         case .jackett: IndexerManagerIntegrationView(kind: .jackett)
         case .indexers: IndexersView()

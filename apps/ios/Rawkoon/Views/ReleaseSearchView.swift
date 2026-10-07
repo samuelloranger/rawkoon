@@ -100,11 +100,15 @@ struct ReleaseSearchView: View {
     @State private var aiPickLoading = false
     @State private var aiPick: AiPick?
     @State private var aiPickError: String?
+    /// The daily AI budget is spent: a calm note replaces the pick, with no Retry.
+    @State private var aiPickBudgetReached = false
     @State private var aiPickGrabbed = false
     @State private var aiPickDismissed = false
     /// Canonical guid-set the pick was last requested for, so the pick refires
     /// only when the non-rejected candidate set changes, not on every filter.
     @State private var lastAiPickKey: String?
+    @State private var inFlightAiPickKey: String?
+    @State private var aiPickGeneration = 0
 
     private enum SearchSort: String, CaseIterable, Identifiable {
         case quality, seeders, age, size, title
@@ -211,6 +215,7 @@ struct ReleaseSearchView: View {
                 AiPickBanner(
                     aiPickLoading: aiPickLoading,
                     aiPickError: aiPickError,
+                    aiPickBudgetReached: aiPickBudgetReached,
                     aiPickedRelease: aiPickedRelease,
                     aiPickGrabbed: aiPickGrabbed,
                     aiPick: aiPick,
@@ -710,7 +715,7 @@ struct ReleaseSearchView: View {
         guard let client = model.api() else {
             return
         }
-        aiEnabled = await client.aiProviderEnabled()
+        aiEnabled = await client.aiInteractivePickEnabled()
         if aiEnabled {
             Task {
                 await client.aiWarm()
@@ -730,23 +735,28 @@ struct ReleaseSearchView: View {
         guard !candidates.isEmpty else {
             aiPick = nil
             aiPickError = nil
+            aiPickBudgetReached = false
             aiPickLoading = false
             lastAiPickKey = nil
+            inFlightAiPickKey = nil
+            aiPickGeneration += 1
             return
         }
         let key = candidates.map(\.guid).sorted().joined(separator: ",")
-        if !force, key == lastAiPickKey {
+        if !force, key == lastAiPickKey || key == inFlightAiPickKey {
             return
         }
-        lastAiPickKey = key
+        aiPickGeneration += 1
+        let generation = aiPickGeneration
+        inFlightAiPickKey = key
+        // The shown pick is cleared below, so returning to that candidate set must ask again.
+        lastAiPickKey = nil
         aiPickDismissed = false
         aiPickGrabbed = false
         aiPickError = nil
+        aiPickBudgetReached = false
         aiPick = nil
         aiPickLoading = true
-        defer {
-            aiPickLoading = false
-        }
         let request = AiPickRequest(
             mediaContext: AiPickMediaContext(
                 title: searchQuery,
@@ -761,12 +771,37 @@ struct ReleaseSearchView: View {
                     seeders: release.seeders,
                     score: release.qualityScore
                 )
-            }
+            },
+            mediaId: libraryMediaId
         )
         do {
-            aiPick = try await client.aiPick(request)
+            let result = try await client.aiPick(request)
+            guard generation == aiPickGeneration else { return }
+            if !Task.isCancelled {
+                aiPick = result
+                lastAiPickKey = key
+            }
         } catch {
-            aiPickError = String(localized: "Could not get a response from AI")
+            guard generation == aiPickGeneration else { return }
+            if !Task.isCancelled {
+                handleAiPickFailure(error)
+            }
+        }
+        inFlightAiPickKey = nil
+        aiPickLoading = false
+    }
+
+    private func handleAiPickFailure(_ error: Error) {
+        var status: Int?
+        switch error as? APIError {
+        case let .http(code): status = code
+        case let .server(code, _): status = code
+        default: break
+        }
+        switch AiPickFailure.from(status: status) {
+        case .featureOff: aiEnabled = false
+        case .budgetReached: aiPickBudgetReached = true
+        case .failed: aiPickError = String(localized: "Could not get a response from AI")
         }
     }
 

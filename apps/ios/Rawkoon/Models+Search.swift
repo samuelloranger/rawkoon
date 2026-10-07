@@ -167,6 +167,8 @@ nonisolated struct AiPickCandidate: Encodable, Sendable {
 nonisolated struct AiPickRequest: Encodable, Sendable {
     let mediaContext: AiPickMediaContext
     let releases: [AiPickCandidate]
+    /// The library item the search was opened for; links the call to it in the AI history.
+    let mediaId: Int?
 }
 
 nonisolated struct AiPick: Decodable, Sendable {

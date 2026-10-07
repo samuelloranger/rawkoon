@@ -480,6 +480,13 @@ nonisolated struct AiProviderIntegrationDTO: Decodable, Sendable {
     let baseUrl: String?
     let model: String?
     let hasApiKey: Bool?
+    /// USD per million tokens, used to estimate cost; nil when unset.
+    let inputPricePerMillion: Double?
+    let outputPricePerMillion: Double?
+    /// USD; nil means no budget.
+    let dailyBudgetUsd: Double?
+    /// A missing key means the feature is on.
+    let features: AiFeatureToggles?
 }
 
 nonisolated struct AiProviderIntegrationResponse: Decodable, Sendable { let integration: AiProviderIntegrationDTO }
@@ -489,6 +496,28 @@ nonisolated struct SaveAiProviderBody: Encodable, Sendable {
     let model: String
     /// Blank keeps the stored key (server behavior); encodes as `api_key`.
     let apiKey: String
+    /// A cleared field is sent as an explicit null: the server keeps a stored value
+    /// when the key is absent, so only null actually clears it.
+    let inputPricePerMillion: Double?
+    let outputPricePerMillion: Double?
+    let dailyBudgetUsd: Double?
+    let features: AiFeatureToggles
+
+    private enum CodingKeys: String, CodingKey {
+        case enabled, baseUrl, model, apiKey, inputPricePerMillion, outputPricePerMillion, dailyBudgetUsd, features
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(enabled, forKey: .enabled)
+        try container.encode(baseUrl, forKey: .baseUrl)
+        try container.encode(model, forKey: .model)
+        try container.encode(apiKey, forKey: .apiKey)
+        try container.encode(inputPricePerMillion, forKey: .inputPricePerMillion)
+        try container.encode(outputPricePerMillion, forKey: .outputPricePerMillion)
+        try container.encode(dailyBudgetUsd, forKey: .dailyBudgetUsd)
+        try container.encode(features.explicit, forKey: .features)
+    }
 }
 
 nonisolated struct FanartIntegrationDTO: Decodable, Sendable {

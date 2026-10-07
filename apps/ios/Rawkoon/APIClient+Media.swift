@@ -408,11 +408,13 @@ extension APIClient {
         try await post("/api/library/\(libraryId)/grab", body: body)
     }
 
-    /// Whether the AI Provider integration is enabled — gates the AI-pick UI.
-    func aiProviderEnabled() async -> Bool {
+    /// Whether the interactive AI pick should run: the integration is on and its
+    /// interactive feature has not been switched off (a missing key means on).
+    func aiInteractivePickEnabled() async -> Bool {
         do {
             let response: AiProviderIntegrationResponse = try await get("/api/integrations/ai-provider")
-            return response.integration.enabled
+            let integration = response.integration
+            return integration.enabled && (integration.features?.isOn(.releasePickInteractive) ?? true)
         } catch {
             return false
         }

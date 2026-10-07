@@ -61,6 +61,17 @@ extension APIClient {
         try await putExpectOK("/api/integrations/ai-provider", body: body)
     }
 
+    func aiStats(days: Int) async throws -> AiStatsResponse {
+        try await get("/api/integrations/ai-provider/stats", query: ["days": String(days)])
+    }
+
+    func aiCalls(page: Int, pageSize: Int, feature: String?, status: String?) async throws -> AiCallsResponse {
+        try await get(
+            "/api/integrations/ai-provider/calls",
+            query: ["page": String(page), "page_size": String(pageSize), "feature": feature, "status": status]
+        )
+    }
+
     func testAiProvider() async throws -> AiProviderTestResponse {
         try await get("/api/integrations/ai-provider/test")
     }
