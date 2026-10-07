@@ -62,6 +62,11 @@ describe("sanitizeAiError", () => {
     expect(
       sanitizeAiError(new Error("Invalid key hf_AbCdEfGhIjKlMnOpQrSt")),
     ).toBe("Invalid key [redacted]");
+    expect(
+      sanitizeAiError(
+        new Error("Invalid key hf_ABCDEFGHIJKLMNOP-qrstuvwxyz1234567890 here"),
+      ),
+    ).toBe("Invalid key [redacted] here");
   });
 
   it("leaves ordinary error text readable", () => {
