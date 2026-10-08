@@ -188,6 +188,8 @@ final class AppModel {
 
         player.onPositionTick = { [weak self] in self?.persistPlaybackProgress(force: false) }
         player.onPlaybackStopped = { [weak self] in self?.persistPlaybackProgress(force: true) }
+        player.refreshManifest = { [weak self] editionId in await self?.refreshedManifest(editionId: editionId) }
+        player.isNetworkAvailable = { [weak self] in self?.isOnline ?? true }
         startPathMonitor()
         observeProtectedData()
         compactJournal()
@@ -707,8 +709,43 @@ final class AppModel {
                     .first(where: { $0.audiobookEditionId == editionId })?
                     .audiobookSummary?.coverURL
             )
+            // The manifest may be a cached copy whose signed URLs expired after
+            // seven days; refresh them behind playback for any chapter that streams.
+            Task { [weak self] in
+                guard let fresh = await self?.refreshedManifest(editionId: editionId) else { return }
+                self?.player.adoptRefreshedManifest(fresh)
+            }
         } catch {
             errorMessage = message(for: error)
+        }
+    }
+
+    /// Freshly signed URLs for the same files, or nil offline, on failure, or
+    /// when the server re-imported the book. The downloaded copy on disk is
+    /// rewritten too, so the next cold start has live URLs.
+    func refreshedManifest(editionId: Int) async -> BookManifest? {
+        guard isOnline, let apiClient else { return nil }
+        do {
+            let fresh = try await apiClient.manifest(editionId: editionId)
+            // URLs only: a re-import is left to `manifest()`'s stale-download
+            // handling, never deleted from under a book that is playing.
+            guard let current = manifests[editionId] ?? DownloadedStore.readManifest(editionId: editionId),
+                  sameFileLayout(current.files, fresh.files)
+            else { return nil }
+            manifests[editionId] = fresh
+            if DownloadedStore.readManifest(editionId: editionId) != nil {
+                DownloadedStore.writeManifest(fresh, editionId: editionId)
+            }
+            return fresh
+        } catch {
+            Log.playback.error(
+                """
+                Manifest refresh failed: \
+                editionId=\(editionId, privacy: .public) \
+                error=\(error.localizedDescription, privacy: .public)
+                """
+            )
+            return nil
         }
     }
 

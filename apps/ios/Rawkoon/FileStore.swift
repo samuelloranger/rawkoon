@@ -33,6 +33,15 @@ nonisolated enum FileStore {
         return value.intValue
     }
 
+    /// The audio type of a local chapter from its first bytes, or nil when
+    /// unreadable or unrecognised.
+    static func audioMIMEType(url: URL) -> String? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        guard let header = try? handle.read(upToCount: 12) else { return nil }
+        return sniffedAudioMIMEType(header)
+    }
+
     /// Removing a file that may already be gone. A missing file is a no-op,
     /// not an error; any other failure is logged for diagnosis.
     static func delete(url: URL) {
