@@ -238,13 +238,29 @@ final class LiveUpdatesCoordinator {
     /// whichever one is already shown, and auto-dismisses it a few seconds
     /// later — the iOS analog of the web app's `NotificationToastContainer`.
     private func showBanner(_ notification: StreamNotificationDTO) {
-        bannerDismissTask?.cancel()
         bannerNotification = notification
+        scheduleBannerDismiss()
+    }
+
+    private func scheduleBannerDismiss() {
+        bannerDismissTask?.cancel()
         bannerDismissTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(5))
             guard !Task.isCancelled else { return }
             self?.dismissBanner()
         }
+    }
+
+    /// Stops the auto-dismiss timer while the user is dragging the banner.
+    func holdBanner() {
+        bannerDismissTask?.cancel()
+        bannerDismissTask = nil
+    }
+
+    /// Restarts the auto-dismiss timer after a drag that didn't dismiss.
+    func releaseBanner() {
+        guard bannerNotification != nil else { return }
+        scheduleBannerDismiss()
     }
 
     /// Dismisses the in-app banner early (e.g. on tap).

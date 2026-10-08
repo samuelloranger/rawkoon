@@ -403,6 +403,14 @@ final class AppModel {
         liveUpdates.dismissBanner()
     }
 
+    func holdBanner() {
+        liveUpdates.holdBanner()
+    }
+
+    func releaseBanner() {
+        liveUpdates.releaseBanner()
+    }
+
     /// Resolves a notification's `url` to a native destination and pushes it.
     func navigate(toNotificationUrl url: String?) {
         liveUpdates.navigate(toNotificationUrl: url)
