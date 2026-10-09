@@ -468,7 +468,7 @@ struct LibraryView: View {
         }
         .reportsTabBarScroll()
         .overlay { mediaOverlay }
-        // swiftlint:disable:next raw_animation - listMotion already resolves Reduce Motion
+        // motion-ok: listMotion already resolves Reduce Motion
         .animation(listMotion, value: mediaAnimationToken)
         .refreshable { await loadMedia(reset: true) }
     }
@@ -608,7 +608,7 @@ struct LibraryView: View {
         }
         .reportsTabBarScroll()
         .overlay { mediaOverlay }
-        // swiftlint:disable:next raw_animation - listMotion already resolves Reduce Motion
+        // motion-ok: listMotion already resolves Reduce Motion
         .animation(listMotion, value: mediaAnimationToken)
         .refreshable { await loadMedia(reset: true) }
     }

@@ -68,7 +68,7 @@ struct NotificationBannerView: View {
             } else if dragOffset < -40 || predictedEnd < -80 {
                 flingAway()
             } else {
-                // swiftlint:disable:next raw_animation - already gates on Reduce Motion here
+                // motion-ok: already gates on Reduce Motion here
                 withAnimation(reduceMotion ? RawkoonMotion.reduced : RawkoonMotion.snappy) { dragOffset = 0 }
                 model.releaseBanner()
             }
@@ -95,11 +95,11 @@ struct NotificationBannerView: View {
             }
         }
         if reduceMotion {
-            // swiftlint:disable:next raw_animation - already gates on Reduce Motion here
+            // motion-ok: already gates on Reduce Motion here
             withAnimation(RawkoonMotion.reduced) { dismissIfStillShown() }
             return
         }
-        // swiftlint:disable:next raw_animation - already gates on Reduce Motion here
+        // motion-ok: already gates on Reduce Motion here
         withAnimation(RawkoonMotion.deckFling) {
             dragOffset = -(bottomEdge + 20)
         } completion: {

@@ -279,7 +279,7 @@ struct SwipeDeck: View {
 
     private func springBack() {
         guard !reduceMotion else { return }
-        // swiftlint:disable:next raw_animation - gesture-driven fling, gated by reduceMotion above
+        // motion-ok: gesture-driven fling, gated by reduceMotion above
         withAnimation(RawkoonMotion.snappy) { dragOffset = .zero } completion: {
             controlledId = nil
         }
@@ -293,21 +293,21 @@ struct SwipeDeck: View {
         RawkoonHaptics.play(action == .dismiss ? .deckDismiss : .deckCommit)
 
         guard !reduceMotion else {
-            // swiftlint:disable:next raw_animation - gesture-driven fling, gated by reduceMotion above
+            // motion-ok: gesture-driven fling, gated by reduceMotion above
             withAnimation(RawkoonMotion.reduced) { performRemoval(action, item: item) }
             return
         }
 
         isFlinging = true
         controlledId = item.id
-        // swiftlint:disable:next raw_animation - gesture-driven fling, gated by reduceMotion above
+        // motion-ok: gesture-driven fling, gated by reduceMotion above
         withAnimation(RawkoonMotion.deckFling) {
             dragOffset = flingTarget(toward: toward)
         } completion: {
             // Remove (animating only the stack's scale promotion). The offset
             // belonged to the now-removed card, so clearing it can't affect the
             // promoted card — its `live` is already .zero (id != controlledId).
-            // swiftlint:disable:next raw_animation - gesture-driven fling, gated by reduceMotion above
+            // motion-ok: gesture-driven fling, gated by reduceMotion above
             withAnimation(RawkoonMotion.snappy) { performRemoval(action, item: item) }
             withTransaction(Transaction(animation: nil)) {
                 dragOffset = .zero
