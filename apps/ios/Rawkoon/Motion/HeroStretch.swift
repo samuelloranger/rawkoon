@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Scroll-driven geometry for a detail hero: pull down to stretch, scroll up to parallax and fade.
 enum HeroStretch {
-    struct Transform: Equatable {
+    nonisolated struct Transform: Equatable, Sendable {
         var scale: CGFloat
         var offsetY: CGFloat
         var opacity: Double
