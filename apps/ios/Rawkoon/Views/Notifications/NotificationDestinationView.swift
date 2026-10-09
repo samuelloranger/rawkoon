@@ -80,7 +80,7 @@ struct NotificationDestinationView: View {
                     systemImage: "questionmark.circle",
                     description: Text("This notification's item is no longer available.")
                 )
-                .rawkoonLivingSymbol(.empty)
+                .rawkoonLivingSymbol(.error)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
