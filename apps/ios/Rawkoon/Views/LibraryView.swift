@@ -453,7 +453,7 @@ struct LibraryView: View {
                             }
                             .matchedTransitionSource(id: zoomID, in: zoomNamespace)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.rawkoonPressable)
                         .disabled(!LibraryRowPresentation(media: m).isInteractive)
                         .rawkoonScrollSettle()
                     }
@@ -591,7 +591,7 @@ struct LibraryView: View {
                         )
                         .matchedTransitionSource(id: zoomID, in: zoomNamespace)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.rawkoonPressable(scale: 0.98))
                     .disabled(!LibraryRowPresentation(media: m).isInteractive)
                     .rawkoonScrollSettle()
                 }
@@ -647,7 +647,7 @@ struct LibraryView: View {
                 }
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.rawkoonPressable(scale: 0.98))
         .rawkoonScrollSettle()
     }
 

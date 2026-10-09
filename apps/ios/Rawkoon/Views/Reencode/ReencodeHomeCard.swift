@@ -11,7 +11,7 @@ struct ReencodeHomeCard: View {
         } label: {
             card
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.rawkoonPressable(scale: 0.98))
     }
 
     private var card: some View {

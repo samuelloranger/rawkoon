@@ -131,7 +131,7 @@ struct BookDiscoveryView: View {
                     } label: {
                         posterCard(book)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.rawkoonPressable)
                 }
             }
             .padding(.horizontal, 16)

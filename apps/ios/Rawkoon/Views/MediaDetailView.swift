@@ -721,7 +721,7 @@ struct MediaDetailView: View {
                 }
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.rawkoonPressable)
     }
 
     // MARK: Meta

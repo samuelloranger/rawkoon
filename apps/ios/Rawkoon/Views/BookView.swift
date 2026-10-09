@@ -702,7 +702,7 @@ struct BookView: View {
                                     }
                                 )
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.rawkoonPressable(scale: 0.98))
                         }
                     }
                 }

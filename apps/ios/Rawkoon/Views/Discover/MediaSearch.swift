@@ -210,7 +210,7 @@ struct MediaSearchResults: View {
                                 posterCard(item, fixedWidth: nil)
                                     .matchedTransitionSource(id: zoomID, in: zoomNamespace)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.rawkoonPressable)
                             .rawkoonScrollSettle()
                         }
                     }
@@ -232,7 +232,7 @@ struct MediaSearchResults: View {
                 } label: {
                     bookSearchLabel(hit)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.rawkoonPressable(scale: 0.98))
             } else {
                 bookSearchLabel(hit)
             }

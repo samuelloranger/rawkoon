@@ -83,7 +83,7 @@ struct WatchlistView: View {
                 } label: {
                     MediaPosterCard(title: item.title, posterURL: model.absoluteURL(item.posterUrl))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.rawkoonPressable)
                 .contextMenu {
                     Button(role: .destructive) {
                         Task { await remove(item) }

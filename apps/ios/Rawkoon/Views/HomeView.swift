@@ -290,7 +290,7 @@ struct HomeView: View {
                                 width: RailPoster.width, corner: RailPoster.corner)
                     .matchedTransitionSource(id: zoomID, in: zoomNamespace)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.rawkoonPressable)
         case let .upcoming(u):
             let zoomID = RawkoonZoom.media(tmdbId: u.tmdbId ?? 0, mediaType: u.mediaType)
             NavigationLink {
@@ -303,7 +303,7 @@ struct HomeView: View {
                                 width: RailPoster.width, corner: RailPoster.corner)
                     .matchedTransitionSource(id: zoomID, in: zoomNamespace)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.rawkoonPressable)
             .disabled(u.tmdbId == nil && u.libraryId == nil)
         case let .discover(d):
             let zoomID = RawkoonZoom.media(tmdbId: d.tmdbId, mediaType: d.mediaType)
@@ -316,7 +316,7 @@ struct HomeView: View {
                                 width: RailPoster.width, corner: RailPoster.corner)
                     .matchedTransitionSource(id: zoomID, in: zoomNamespace)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.rawkoonPressable)
         }
     }
 
@@ -438,7 +438,7 @@ struct HomeView: View {
             } label: {
                 attentionRowContent(item, busy: resolvingAttentionId == mediaId)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.rawkoonPressable(scale: 0.98))
             // Opening resolves the item from the server; the row still reads fine offline.
             .disabled(resolvingAttentionId != nil)
             .requiresConnection(model.isOffline)

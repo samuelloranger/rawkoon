@@ -310,7 +310,7 @@ struct ExploreView: View {
                     } label: {
                         posterCard(item)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.rawkoonPressable)
                     .onAppear {
                         guard item.id == items.last?.id else { return }
                         Task { await loadMore() }
