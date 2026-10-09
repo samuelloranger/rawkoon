@@ -31,7 +31,17 @@ struct RawkoonMotionTests {
         let ledger = EntranceLedger()
         _ = ledger.claim("a", now: 10.00)
         _ = ledger.claim("b", now: 10.01)
-        #expect(ledger.claim("c", now: 10.01 + EntranceLedger.burstGap + 0.01) == 0)
+        #expect(ledger.claim("c", now: 10.00 + EntranceLedger.burstWindow + 0.01) == 0)
+    }
+
+    @Test func ledgerStaysQuickDuringContinuousScroll() {
+        let ledger = EntranceLedger()
+        var worst = 0
+        for step in 0 ..< 40 {
+            let position = ledger.claim(step, now: 100 + Double(step) * 0.05) ?? 0
+            worst = max(worst, position)
+        }
+        #expect(worst <= 4)
     }
 
     @Test func ledgerDistinguishesIdTypes() {
