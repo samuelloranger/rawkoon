@@ -76,18 +76,21 @@ struct NotificationsListView: View {
                 systemImage: "wifi.slash",
                 description: Text("This will load when you're back online.")
             )
+            .rawkoonLivingSymbol(.error)
         } else if let errorMessage, notifications.isEmpty {
             ContentUnavailableView(
                 "Couldn't load notifications",
                 systemImage: "exclamationmark.triangle",
                 description: Text(errorMessage)
             )
+            .rawkoonLivingSymbol(.error)
         } else if notifications.isEmpty {
             ContentUnavailableView(
                 "No notifications",
                 systemImage: "bell.slash",
                 description: Text("You're all caught up.")
             )
+            .rawkoonLivingSymbol(.empty)
         } else {
             List {
                 ForEach(notifications) { notification in

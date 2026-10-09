@@ -17,6 +17,7 @@ extension MediaDetailView {
                     systemImage: "exclamationmark.triangle",
                     description: Text(managementError)
                 )
+                .rawkoonLivingSymbol(.error)
                 Button {
                     Task { await refreshManagementData() }
                 } label: {

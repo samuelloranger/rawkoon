@@ -519,8 +519,10 @@ struct LibraryView: View {
             }
         } else if let mediaError, media.isEmpty {
             ContentUnavailableView("Couldn't load", systemImage: "exclamationmark.triangle", description: Text(mediaError))
+                .rawkoonLivingSymbol(.error)
         } else if !loadingMedia, mediaError == nil, media.isEmpty {
             ContentUnavailableView("No titles", systemImage: "film", description: Text("Nothing matches these filters."))
+                .rawkoonLivingSymbol(.empty)
         }
     }
 
@@ -680,8 +682,10 @@ struct LibraryView: View {
                         .buttonStyle(.bordered)
                         .tint(Theme.apricot)
                 }
+                .rawkoonLivingSymbol(.error)
             } else if !model.loading, filteredBooks.isEmpty {
                 ContentUnavailableView("No books", systemImage: "books.vertical", description: Text("Books added on your server show up here."))
+                    .rawkoonLivingSymbol(.empty)
             }
         }
         .refreshable { await loadBooks() }

@@ -30,6 +30,7 @@ struct IndexersView: View {
                 systemImage: "lock",
                 description: Text("Indexer settings need an admin account.")
             )
+            .rawkoonLivingSymbol(.empty)
             .padding(.top, 28)
         } else if let errorMessage {
             ContentUnavailableView(
@@ -37,6 +38,7 @@ struct IndexersView: View {
                 systemImage: "exclamationmark.triangle",
                 description: Text(errorMessage)
             )
+            .rawkoonLivingSymbol(.error)
             .padding(.top, 28)
         } else if indexers.isEmpty {
             ContentUnavailableView(
@@ -44,6 +46,7 @@ struct IndexersView: View {
                 systemImage: "server.rack",
                 description: Text("No indexers are configured yet.")
             )
+            .rawkoonLivingSymbol(.empty)
             .padding(.top, 28)
         } else {
             LazyVStack(spacing: 10) {

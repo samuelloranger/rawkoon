@@ -16,6 +16,7 @@ struct QualityProfilesCrudView: View {
         Group {
             if !model.isAdmin {
                 ContentUnavailableView("Admin only", systemImage: "lock")
+                    .rawkoonLivingSymbol(.empty)
             } else {
                 list
             }
@@ -372,6 +373,7 @@ private struct QualityProfileEditorView: View {
                     QualityProfileEditorView(profile: profile, formats: formats)
                 } else if failed {
                     ContentUnavailableView("No profiles", systemImage: "slider.horizontal.3")
+                        .rawkoonLivingSymbol(.error)
                 } else {
                     ProgressView().tint(Theme.apricot)
                 }

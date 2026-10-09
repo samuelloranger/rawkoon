@@ -34,6 +34,7 @@ struct FanartIntegrationView: View {
         Group {
             if !model.isAdmin {
                 ContentUnavailableView("Admin only", systemImage: "lock")
+                    .rawkoonLivingSymbol(.empty)
             } else {
                 form
             }

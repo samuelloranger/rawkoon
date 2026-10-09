@@ -33,12 +33,14 @@ struct DownloadClientView: View {
                 systemImage: "lock",
                 description: Text("Download client settings need an admin account.")
             )
+            .rawkoonLivingSymbol(.empty)
         } else if let errorMessage {
             ContentUnavailableView(
                 "Something went wrong",
                 systemImage: "exclamationmark.triangle",
                 description: Text(errorMessage)
             )
+            .rawkoonLivingSymbol(.error)
         } else if let integration {
             Form {
                 if let speed, speed.connected {
@@ -102,6 +104,7 @@ struct DownloadClientView: View {
                 systemImage: "arrow.down.circle",
                 description: Text("No download client is configured yet.")
             )
+            .rawkoonLivingSymbol(.empty)
         }
     }
 

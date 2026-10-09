@@ -22,6 +22,7 @@ struct UsersView: View {
                     systemImage: "lock",
                     description: Text("You need admin access to view users.")
                 )
+                .rawkoonLivingSymbol(.empty)
                 .background(Theme.base)
             } else if let errorText {
                 ContentUnavailableView(
@@ -29,6 +30,7 @@ struct UsersView: View {
                     systemImage: "exclamationmark.triangle",
                     description: Text(errorText)
                 )
+                .rawkoonLivingSymbol(.error)
                 .background(Theme.base)
             } else if users.isEmpty {
                 ContentUnavailableView(
@@ -36,6 +38,7 @@ struct UsersView: View {
                     systemImage: "person.2",
                     description: Text("No registered users found.")
                 )
+                .rawkoonLivingSymbol(.empty)
                 .background(Theme.base)
             } else {
                 VStack(spacing: 0) {

@@ -186,9 +186,11 @@ struct LibraryArtworkPickerView: View {
                     systemImage: "photo",
                     description: Text(errorMessage)
                 )
+                .rawkoonLivingSymbol(.error)
                 .padding(.top, 24)
             } else if candidates.isEmpty {
                 ContentUnavailableView("No artwork found", systemImage: "photo")
+                    .rawkoonLivingSymbol(.empty)
                     .padding(.top, 24)
             } else {
                 LazyVGrid(columns: columns, spacing: 12) {

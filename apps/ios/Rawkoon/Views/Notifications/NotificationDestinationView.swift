@@ -73,12 +73,14 @@ struct NotificationDestinationView: View {
                 } description: {
                     Text("This will open once the connection is back.")
                 }
+                .rawkoonLivingSymbol(.error)
             } else {
                 ContentUnavailableView(
                     "Couldn't open this",
                     systemImage: "questionmark.circle",
                     description: Text("This notification's item is no longer available.")
                 )
+                .rawkoonLivingSymbol(.empty)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

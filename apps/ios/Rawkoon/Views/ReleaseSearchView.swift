@@ -552,6 +552,7 @@ struct ReleaseSearchView: View {
             } description: {
                 Text("Release search needs a connection.")
             }
+            .rawkoonLivingSymbol(.error)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let errorMessage, releases.isEmpty {
             ContentUnavailableView {
@@ -559,6 +560,7 @@ struct ReleaseSearchView: View {
             } description: {
                 Text(errorMessage)
             }
+            .rawkoonLivingSymbol(.error)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if releases.isEmpty {
             ContentUnavailableView.search
@@ -576,6 +578,7 @@ struct ReleaseSearchView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(Theme.terracotta)
             }
+            .rawkoonLivingSymbol(.empty)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             ScrollView {

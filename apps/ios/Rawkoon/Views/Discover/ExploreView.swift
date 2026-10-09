@@ -259,6 +259,7 @@ struct ExploreView: View {
                 systemImage: "wifi.slash",
                 description: Text("This will load when you're back online.")
             )
+            .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
         } else if items.isEmpty, error != nil {
             ContentUnavailableView(
@@ -266,6 +267,7 @@ struct ExploreView: View {
                 systemImage: "wifi.slash",
                 description: Text(error ?? "")
             )
+            .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
         } else if items.isEmpty {
             ContentUnavailableView {
@@ -279,6 +281,7 @@ struct ExploreView: View {
                     }
                 }
             }
+            .rawkoonLivingSymbol(.empty)
             .padding(.top, 28)
         } else {
             grid

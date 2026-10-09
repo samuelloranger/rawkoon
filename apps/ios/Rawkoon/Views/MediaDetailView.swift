@@ -387,6 +387,7 @@ struct MediaDetailView: View {
                 systemImage: "exclamationmark.triangle",
                 description: Text(errorMessage)
             )
+            .rawkoonLivingSymbol(.error)
             .padding(.top, 28)
         } else {
             // Hero + primary action stay pinned above the segmented content, the
