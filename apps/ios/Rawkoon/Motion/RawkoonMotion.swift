@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// One motion vocabulary for the whole app. All timing derives from these
 /// springs so the app reads as one system. Every consumer must be Reduce-Motion
@@ -12,6 +13,20 @@ enum RawkoonMotion {
     static let deckFling = Animation.easeOut(duration: 0.26)
     /// Reduce-Motion replacement: a quick crossfade instead of movement.
     static let reduced = Animation.easeInOut(duration: 0.15)
+
+    /// Progress fills: smooth with no overshoot, so a full bar never pokes past its groove.
+    static let progress = Animation.smooth(duration: 0.35)
+
+    /// Entrance delay for the `position`-th item of one appearance burst; capped so long lists stay quick.
+    nonisolated static func staggerDelay(position: Int) -> Double {
+        Double(min(max(position, 0), 8)) * 0.04
+    }
+}
+
+/// `withAnimation` that degrades to a short crossfade under Reduce Motion. Use it for imperative state changes.
+@discardableResult
+func withRawkoonMotion<Result>(_ animation: Animation, _ body: () throws -> Result) rethrows -> Result {
+    try withAnimation(UIAccessibility.isReduceMotionEnabled ? RawkoonMotion.reduced : animation, body)
 }
 
 extension View {
