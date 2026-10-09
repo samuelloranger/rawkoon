@@ -36,11 +36,11 @@ private struct StretchyHero: ViewModifier {
         } else {
             let height = height
             content.visualEffect { view, proxy in
-                let t = HeroStretch.transform(minY: proxy.frame(in: .scrollView).minY, height: height)
+                let transform = HeroStretch.transform(minY: proxy.frame(in: .scrollView).minY, height: height)
                 return view
-                    .scaleEffect(t.scale, anchor: .bottom)
-                    .offset(y: t.offsetY)
-                    .opacity(t.opacity)
+                    .scaleEffect(transform.scale, anchor: .bottom)
+                    .offset(y: transform.offsetY)
+                    .opacity(transform.opacity)
             }
         }
     }
