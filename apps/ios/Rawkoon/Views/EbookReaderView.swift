@@ -220,7 +220,7 @@ struct EbookReaderSheet: View {
         }
         .statusBarHidden(!controlsVisible)
         .persistentSystemOverlays(controlsVisible ? .automatic : .hidden)
-        .animation(.easeInOut(duration: 0.2), value: controlsVisible)
+        .rawkoonMotion(.easeInOut(duration: 0.2), value: controlsVisible)
         .sheet(isPresented: $showTOC) {
             if case let .ready(session) = state {
                 TableOfContentsSheet(

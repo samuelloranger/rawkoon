@@ -61,12 +61,15 @@ struct RawkoonApp: App {
             // Live notification banner (spec T4) — foreground-only, so it sits
             // above whichever tab is showing rather than inside one NavigationStack.
             .overlay(alignment: .top) {
-                if let notification = model.bannerNotification {
-                    NotificationBannerView(notification: notification)
-                        .padding(.top, 8)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                        .rawkoonMotion(RawkoonMotion.spring, value: model.bannerNotification?.id)
+                // The animation sits outside the `if` so insertion and removal both animate.
+                ZStack {
+                    if let notification = model.bannerNotification {
+                        NotificationBannerView(notification: notification)
+                            .padding(.top, 8)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                 }
+                .rawkoonMotion(RawkoonMotion.spring, value: model.bannerNotification?.id)
             }
             // A notification's resolved destination (spec T6) is shown modally
             // from the app root so a banner tap works no matter which tab is

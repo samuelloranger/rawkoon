@@ -508,10 +508,10 @@ struct BookView: View {
     /// so the finish gets a haptic and a brief green check.
     private func announceDownloadFinished() {
         RawkoonHaptics.play(.downloadComplete)
-        withAnimation(.spring(duration: 0.35)) { showDownloadFinished = true }
+        withRawkoonMotion(.spring(duration: 0.35)) { showDownloadFinished = true }
         Task {
             try? await Task.sleep(for: .seconds(1.8))
-            withAnimation(.easeOut(duration: 0.3)) { showDownloadFinished = false }
+            withRawkoonMotion(.easeOut(duration: 0.3)) { showDownloadFinished = false }
         }
     }
 

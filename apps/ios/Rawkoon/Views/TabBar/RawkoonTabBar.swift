@@ -60,7 +60,7 @@ struct RawkoonTabBar: View {
             } else if active {
                 onReselect(tab)
             } else {
-                withAnimation(.spring(duration: 0.35, bounce: 0.2)) { selection = tab }
+                withRawkoonMotion(.spring(duration: 0.35, bounce: 0.2)) { selection = tab }
             }
         } label: {
             icon(tab, active: active)

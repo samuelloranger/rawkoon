@@ -426,7 +426,7 @@ struct MediaDetailView: View {
             ForEach(availableTabs) { tab in
                 let isActive = activeTab == tab
                 Button {
-                    withAnimation(.easeInOut(duration: 0.15)) { detailTab = tab }
+                    withRawkoonMotion(.easeInOut(duration: 0.15)) { detailTab = tab }
                 } label: {
                     VStack(spacing: 6) {
                         Label(tab.label, systemImage: tab.systemImage)

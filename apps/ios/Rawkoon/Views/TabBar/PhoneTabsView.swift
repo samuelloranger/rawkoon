@@ -112,6 +112,7 @@ struct PhoneTabsView<Root: View>: View {
         }
         .padding(.horizontal, insets.margin)
         .padding(.bottom, 4)
+        .rawkoonMotion(RawkoonMotion.spring, value: hasActiveBook)
     }
 }
 
