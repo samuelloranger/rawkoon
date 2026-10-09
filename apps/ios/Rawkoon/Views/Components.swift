@@ -103,13 +103,21 @@ struct StatusBadge: View {
             .padding(.vertical, 4)
             .background(tint.opacity(0.12), in: Capsule())
             .overlay(Capsule().strokeBorder(tint.opacity(0.3), lineWidth: 1))
+            .transition(.rawkoonSwap)
     }
 }
 
 /// The Cozy Dusk progress bar: a well groove with a terracotta→apricot fill.
 struct DuskProgress: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// 0...1
     let value: Double
+    /// True while the work behind the bar is running; adds a moving sheen.
+    var isActive = false
+
+    private var clamped: Double {
+        max(0, min(1, value))
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -117,10 +125,17 @@ struct DuskProgress: View {
                 Capsule().fill(Theme.well)
                 Capsule()
                     .fill(Theme.progress)
-                    .frame(width: max(0, min(1, value)) * geo.size.width)
+                    .overlay {
+                        if isActive, !reduceMotion {
+                            ProgressSheen()
+                        }
+                    }
+                    .clipShape(Capsule())
+                    .frame(width: clamped * geo.size.width)
             }
         }
         .frame(height: 5)
+        .rawkoonMotion(RawkoonMotion.progress, value: clamped)
     }
 }
 
@@ -343,7 +358,7 @@ struct SpineRow: View {
                     }
                     .clipShape(Capsule())
                     .shadow(color: Theme.apricot.opacity(0.25 + 0.45 * clamped), radius: 3 + 3 * clamped)
-                    .animation(.linear(duration: 0.15), value: clamped)
+                    .rawkoonMotion(.linear(duration: 0.15), value: clamped)
             } else if current {
                 Capsule().fill(Theme.progress).frame(width: 4, height: 30)
                     .shadow(color: Theme.apricot.opacity(0.55), radius: 6)
@@ -398,6 +413,7 @@ struct BookRow: View {
                         Text(verbatim: "\(Int(progress * 100))%")
                             .font(.system(.caption2, design: .monospaced))
                             .foregroundStyle(Theme.apricot)
+                            .rawkoonNumeric(progress)
                     }
                     .padding(.top, 2)
                 }
@@ -754,48 +770,57 @@ struct DownloadStateIcon: View {
     var celebrating = false
 
     var body: some View {
-        switch state {
-        case .idle:
-            Image(systemName: "arrow.down.to.line")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(Theme.apricot)
-        case .preparing:
-            ProgressView().tint(Theme.apricot)
-        case let .downloading(fraction, _, _):
-            ZStack {
-                Circle().stroke(Theme.borderStrong, lineWidth: 3)
-                Circle()
-                    .trim(from: 0, to: max(0.02, min(1, fraction)))
-                    .stroke(Theme.apricot, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .animation(.linear(duration: 0.15), value: fraction)
-                Image(systemName: "stop.fill")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(Theme.apricot)
-            }
-            .padding(10)
-        case .failed:
-            Image(systemName: "arrow.clockwise")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(Theme.terracotta)
-        case .downloaded where celebrating:
-            Image(systemName: "checkmark.circle.fill")
-                .font(.title2)
-                .foregroundStyle(Theme.seed)
-                .symbolEffect(.bounce, value: celebrating)
-                .transition(.scale.combined(with: .opacity))
-        case .downloaded:
-            ZStack {
+        ZStack {
+            switch state {
+            case .idle:
                 Image(systemName: "arrow.down.to.line")
                     .font(.title3.weight(.semibold))
-                    .foregroundStyle(Theme.muted)
-                // A slash cut through the arrow: a background-coloured bar knocks out
-                // the glyph behind it, then the visible bar sits on top.
-                Capsule().fill(Theme.raised).frame(width: 6, height: 30)
-                    .rotationEffect(.degrees(45))
-                Capsule().fill(Theme.muted).frame(width: 2.5, height: 30)
-                    .rotationEffect(.degrees(45))
+                    .foregroundStyle(Theme.apricot)
+                    .transition(.rawkoonSwap)
+            case .preparing:
+                ProgressView().tint(Theme.apricot)
+                    .transition(.rawkoonSwap)
+            case let .downloading(fraction, _, _):
+                ZStack {
+                    Circle().stroke(Theme.borderStrong, lineWidth: 3)
+                    Circle()
+                        .trim(from: 0, to: max(0.02, min(1, fraction)))
+                        .stroke(Theme.apricot, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .rawkoonMotion(.linear(duration: 0.15), value: fraction)
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Theme.apricot)
+                }
+                .padding(10)
+                .transition(.rawkoonSwap)
+            case .failed:
+                Image(systemName: "arrow.clockwise")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(Theme.terracotta)
+                    .transition(.rawkoonSwap)
+            case .downloaded where celebrating:
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(Theme.seed)
+                    .symbolEffect(.bounce, value: celebrating)
+                    .transition(.scale.combined(with: .opacity))
+            case .downloaded:
+                ZStack {
+                    Image(systemName: "arrow.down.to.line")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(Theme.muted)
+                    // A slash cut through the arrow: a background-coloured bar knocks out
+                    // the glyph behind it, then the visible bar sits on top.
+                    Capsule().fill(Theme.raised).frame(width: 6, height: 30)
+                        .rotationEffect(.degrees(45))
+                    Capsule().fill(Theme.muted).frame(width: 2.5, height: 30)
+                        .rotationEffect(.degrees(45))
+                }
+                .transition(.rawkoonSwap)
             }
         }
+        .rawkoonMotion(RawkoonMotion.snappy, value: state.kind)
+        .rawkoonMotion(RawkoonMotion.snappy, value: celebrating)
     }
 }

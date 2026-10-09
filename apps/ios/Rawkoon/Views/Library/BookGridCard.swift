@@ -33,6 +33,7 @@ struct BookGridCard: View {
                     Text(verbatim: "\(Int(progress * 100))%")
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(Theme.apricot)
+                        .rawkoonNumeric(progress)
                 }
             }
         }

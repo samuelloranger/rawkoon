@@ -48,7 +48,7 @@
                         Text(verbatim: "\(Int(progress * 100))%")
                             .font(.system(.title2, design: .monospaced))
                             .rawkoonNumeric(progress)
-                        DuskProgress(value: progress)
+                        DuskProgress(value: progress, isActive: true)
                     }
 
                     Image(systemName: "checkmark.circle.fill")
