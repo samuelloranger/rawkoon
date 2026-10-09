@@ -2,6 +2,7 @@
 import SwiftUI
 import Testing
 
+@MainActor
 struct RawkoonMotionTests {
     @Test func staggerGrowsThenClamps() {
         #expect(RawkoonMotion.staggerDelay(position: 0) == 0)
