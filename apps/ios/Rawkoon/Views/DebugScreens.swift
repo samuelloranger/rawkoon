@@ -1,4 +1,5 @@
 #if DEBUG
+    // swiftlint:disable raw_animation - debug-only harness
     import RawkoonKit
     import SwiftUI
 
@@ -784,4 +785,5 @@
             }
         }
     }
+    // swiftlint:enable raw_animation
 #endif

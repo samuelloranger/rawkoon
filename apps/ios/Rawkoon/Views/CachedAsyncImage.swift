@@ -196,6 +196,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
         // Crossfade the placeholder → image swap so posters/covers fade in
         // instead of popping. A synchronous cache hit renders `shown` non-nil on
         // the first pass, so cached images never animate — only real loads fade.
+        // swiftlint:disable:next raw_animation - already gates on Reduce Motion here
         .animation(reduceMotion ? nil : .easeOut(duration: 0.35), value: shown != nil)
         // Re-keyed on scene phase so a cover that failed while the app was away loads on return.
         .task(id: LoadKey(url: resolvedURL, active: scenePhase == .active)) { await load() }

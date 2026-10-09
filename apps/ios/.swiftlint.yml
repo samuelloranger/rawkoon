@@ -82,3 +82,14 @@ large_tuple:
   warning: 2
 
 # strict mode is intentionally not enabled — see the header comment above.
+
+# Keeps view code on the Reduce-Motion-safe helpers in Rawkoon/Motion/
+# (`.rawkoonMotion(_:value:)`, `withRawkoonMotion`). A site that already
+# gates on Reduce Motion itself carries a `disable:next` with its reason.
+custom_rules:
+  raw_animation:
+    name: "Raw animation outside Motion/"
+    regex: '(\.animation\(|\bwithAnimation\s*[({])'
+    excluded: "Rawkoon/Motion/"
+    message: "Use .rawkoonMotion(_:value:) or withRawkoonMotion so Reduce Motion is honored."
+    severity: warning
