@@ -76,9 +76,14 @@ private struct EdgeEffect: ViewModifier {
         content
             .opacity(isIdentity ? 1 : 0)
             .visualEffect { view, proxy in
-                let dy: CGFloat = !slides ? 0 : edge == .top ? -proxy.size.height : edge == .bottom ? proxy.size.height : 0
-                let dx: CGFloat = !slides ? 0 : edge == .leading ? -proxy.size.width : edge == .trailing ? proxy.size.width : 0
-                return view.offset(x: dx, y: dy)
+                let vertical: CGFloat = edge == .top ? -proxy.size.height : proxy.size.height
+                let horizontal: CGFloat = edge == .leading ? -proxy.size.width : proxy.size.width
+                let isVertical = edge == .top || edge == .bottom
+                let shift = CGSize(
+                    width: slides && !isVertical ? horizontal : 0,
+                    height: slides && isVertical ? vertical : 0
+                )
+                return view.offset(shift)
             }
     }
 }
