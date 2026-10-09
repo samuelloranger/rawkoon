@@ -14,6 +14,15 @@ struct RawkoonRevealTransition: Transition {
     }
 }
 
+/// Chrome that enters from an edge: slides fully past it, or just fades under Reduce Motion.
+struct RawkoonEdgeTransition: Transition {
+    let edge: Edge
+
+    func body(content: Content, phase: TransitionPhase) -> some View {
+        content.modifier(EdgeEffect(isIdentity: phase.isIdentity, edge: edge))
+    }
+}
+
 extension Transition where Self == RawkoonSwapTransition {
     static var rawkoonSwap: RawkoonSwapTransition {
         RawkoonSwapTransition()
@@ -23,6 +32,12 @@ extension Transition where Self == RawkoonSwapTransition {
 extension Transition where Self == RawkoonRevealTransition {
     static var rawkoonReveal: RawkoonRevealTransition {
         RawkoonRevealTransition()
+    }
+}
+
+extension Transition where Self == RawkoonEdgeTransition {
+    static func rawkoonEdge(_ edge: Edge) -> RawkoonEdgeTransition {
+        RawkoonEdgeTransition(edge: edge)
     }
 }
 
@@ -47,5 +62,23 @@ private struct RevealEffect: ViewModifier {
         content
             .opacity(isIdentity ? 1 : 0)
             .offset(y: isIdentity || reduceMotion ? 0 : -12)
+    }
+}
+
+private struct EdgeEffect: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let isIdentity: Bool
+    let edge: Edge
+
+    func body(content: Content) -> some View {
+        let slides = !isIdentity && !reduceMotion
+        let edge = edge
+        content
+            .opacity(isIdentity ? 1 : 0)
+            .visualEffect { view, proxy in
+                let dy: CGFloat = !slides ? 0 : edge == .top ? -proxy.size.height : edge == .bottom ? proxy.size.height : 0
+                let dx: CGFloat = !slides ? 0 : edge == .leading ? -proxy.size.width : edge == .trailing ? proxy.size.width : 0
+                return view.offset(x: dx, y: dy)
+            }
     }
 }

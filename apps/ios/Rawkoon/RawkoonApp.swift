@@ -66,7 +66,7 @@ struct RawkoonApp: App {
                     if let notification = model.bannerNotification {
                         NotificationBannerView(notification: notification)
                             .padding(.top, 8)
-                            .transition(.move(edge: .top).combined(with: .opacity))
+                            .transition(.rawkoonEdge(.top))
                     }
                 }
                 .rawkoonMotion(RawkoonMotion.spring, value: model.bannerNotification?.id)
