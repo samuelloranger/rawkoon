@@ -18,3 +18,30 @@ enum HeroStretch {
         return Transform(scale: 1, offsetY: -minY / 2, opacity: 1 - Double(progress) * 0.6)
     }
 }
+
+extension View {
+    /// Stretches on pull-down and parallaxes on scroll; static under Reduce Motion.
+    func rawkoonStretchyHero(height: CGFloat) -> some View {
+        modifier(StretchyHero(height: height))
+    }
+}
+
+private struct StretchyHero: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let height: CGFloat
+
+    func body(content: Content) -> some View {
+        if reduceMotion {
+            content
+        } else {
+            let height = height
+            content.visualEffect { view, proxy in
+                let t = HeroStretch.transform(minY: proxy.frame(in: .scrollView).minY, height: height)
+                return view
+                    .scaleEffect(t.scale, anchor: .bottom)
+                    .offset(y: t.offsetY)
+                    .opacity(t.opacity)
+            }
+        }
+    }
+}
