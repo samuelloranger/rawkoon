@@ -69,7 +69,7 @@ private struct RequiresConnection: ViewModifier {
 /// The one message every blocked server action gives, from any screen.
 enum OfflineFeedback {
     static func explain() {
-        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        RawkoonHaptics.play(.warning)
         AppModel.shared.toast(String(localized: "You're offline. This needs a connection."), style: .info)
     }
 

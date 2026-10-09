@@ -327,10 +327,9 @@ final class AppModel {
     func toast(_ message: String, style: Toast.Style = .info, action: ToastAction? = nil) {
         currentToast = Toast(message: message, style: style, action: action)
 
-        let generator = UINotificationFeedbackGenerator()
         switch style {
-        case .success: generator.notificationOccurred(.success)
-        case .error: generator.notificationOccurred(.error)
+        case .success: RawkoonHaptics.play(.success)
+        case .error: RawkoonHaptics.play(.error)
         case .info: break
         }
 

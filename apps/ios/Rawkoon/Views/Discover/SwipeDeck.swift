@@ -289,7 +289,7 @@ struct SwipeDeck: View {
     private func flingAway(_ action: Action, item: DiscoverDeckItem, toward: CGSize) {
         guard !isFlinging else { return }
 
-        UIImpactFeedbackGenerator(style: action == .dismiss ? .rigid : .medium).impactOccurred()
+        RawkoonHaptics.play(action == .dismiss ? .deckDismiss : .deckCommit)
 
         guard !reduceMotion else {
             withAnimation(RawkoonMotion.reduced) { performRemoval(action, item: item) }
