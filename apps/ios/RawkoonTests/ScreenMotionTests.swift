@@ -81,4 +81,45 @@ struct ScreenMotionTests {
         #expect(TestConnectionButton.TestState(.success(nil)) == .ok(nil))
         #expect(TestConnectionButton.TestState(.failure("no")) == .failed("no"))
     }
+
+    @Test func listSpinsOnlyWhileNothingIsCached() {
+        #expect(listPhase(loading: true, isEmpty: true) == .loading)
+        #expect(listPhase(loading: true, isEmpty: false) == .list)
+    }
+
+    @Test func listOfflineBeatsAPlainFailure() {
+        #expect(listPhase(offline: true, failed: true, isEmpty: true) == .offline)
+        #expect(listPhase(failed: true, isEmpty: true) == .failed)
+    }
+
+    @Test func listKeepsCachedRowsOverAnError() {
+        #expect(listPhase(offline: true, failed: true, isEmpty: false) == .list)
+    }
+
+    @Test func listShowsEmptyWhenTheFilterLeavesNothing() {
+        let phase = ListLoadPhase.resolve(
+            loading: false, offline: false, failed: false, isEmpty: false, showsNothing: true
+        )
+        #expect(phase == .empty)
+    }
+
+    @Test func requestRowBusyWinsThenModerationThenStatus() {
+        #expect(RequestRowFace.face(busy: true, canModerate: true, status: "pending") == .busy)
+        #expect(RequestRowFace.face(busy: false, canModerate: true, status: "pending") == .moderate)
+        #expect(RequestRowFace.face(busy: false, canModerate: false, status: "approved") == .status("approved"))
+    }
+
+    @Test func unreadBadgeRollsOnItsNumber() {
+        #expect(UnreadBadge.rollValue("3") == 3)
+        #expect(UnreadBadge.rollValue("9+") == 9)
+        #expect(UnreadBadge.rollValue("") == 0)
+    }
+
+    private func listPhase(
+        loading: Bool = false, offline: Bool = false, failed: Bool = false, isEmpty: Bool
+    ) -> ListLoadPhase {
+        ListLoadPhase.resolve(
+            loading: loading, offline: offline, failed: failed, isEmpty: isEmpty, showsNothing: isEmpty
+        )
+    }
 }

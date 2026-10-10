@@ -67,53 +67,78 @@ struct NotificationsListView: View {
             }
     }
 
-    @ViewBuilder private var content: some View {
-        if loading, notifications.isEmpty {
-            ProgressView().tint(Theme.muted).frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if model.isOffline, errorMessage != nil, notifications.isEmpty {
-            ContentUnavailableView(
-                "You're offline",
-                systemImage: "wifi.slash",
-                description: Text("This will load when you're back online.")
-            )
-            .rawkoonLivingSymbol(.error)
-        } else if let errorMessage, notifications.isEmpty {
-            ContentUnavailableView(
-                "Couldn't load notifications",
-                systemImage: "exclamationmark.triangle",
-                description: Text(errorMessage)
-            )
-            .rawkoonLivingSymbol(.error)
-        } else if notifications.isEmpty {
-            ContentUnavailableView(
-                "No notifications",
-                systemImage: "bell.slash",
-                description: Text("You're all caught up.")
-            )
-            .rawkoonLivingSymbol(.empty)
-        } else {
-            List {
-                ForEach(notifications) { notification in
-                    row(notification)
-                        .listRowBackground(Theme.raised)
-                        .listRowSeparator(.hidden)
-                        .swipeActions(edge: .trailing) {
-                            Button(role: .destructive, action: OfflineFeedback.gate(model.isOffline) {
-                                pendingDeleteId = notification.id
-                            }) {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
-                }
-                // The sentinel would spin forever offline; it comes back with the connection.
-                if hasMore, !model.isOffline {
-                    loadMoreRow
-                }
+    private var phase: ListLoadPhase {
+        ListLoadPhase.resolve(
+            loading: loading, offline: model.isOffline, failed: errorMessage != nil,
+            isEmpty: notifications.isEmpty, showsNothing: notifications.isEmpty
+        )
+    }
+
+    /// One slot, so the spinner, the empty and error states and the list crossfade.
+    private var content: some View {
+        ZStack {
+            switch phase {
+            case .loading:
+                ProgressView().tint(Theme.muted).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .transition(.rawkoonSwap)
+            case .offline:
+                ContentUnavailableView(
+                    "You're offline",
+                    systemImage: "wifi.slash",
+                    description: Text("This will load when you're back online.")
+                )
+                .rawkoonLivingSymbol(.error)
+                .transition(.rawkoonSwap)
+            case .failed:
+                ContentUnavailableView(
+                    "Couldn't load notifications",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(errorMessage ?? "")
+                )
+                .rawkoonLivingSymbol(.error)
+                .transition(.rawkoonSwap)
+            case .empty:
+                ContentUnavailableView(
+                    "No notifications",
+                    systemImage: "bell.slash",
+                    description: Text("You're all caught up.")
+                )
+                .rawkoonLivingSymbol(.empty)
+                .transition(.rawkoonSwap)
+            case .list:
+                notificationList
+                    .transition(.rawkoonSwap)
             }
-            .reportsTabBarScroll()
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
         }
+        .rawkoonMotion(RawkoonMotion.spring, value: phase)
+    }
+
+    private var notificationList: some View {
+        List {
+            ForEach(notifications) { notification in
+                row(notification)
+                    .rawkoonEntrance(id: notification.id)
+                    .listRowBackground(Theme.raised)
+                    .listRowSeparator(.hidden)
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive, action: OfflineFeedback.gate(model.isOffline) {
+                            pendingDeleteId = notification.id
+                        }) {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+            }
+            // The sentinel would spin forever offline; it comes back with the connection.
+            if hasMore, !model.isOffline {
+                loadMoreRow
+            }
+        }
+        .rawkoonEntranceScope()
+        // Arrivals, deletions and pages animate in and out of the list.
+        .rawkoonMotion(RawkoonMotion.spring, value: notifications.map(\.id))
+        .reportsTabBarScroll()
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
     }
 
     /// Infinite-scroll sentinel: appearing near the list's end pulls the next
@@ -153,9 +178,11 @@ struct NotificationsListView: View {
                 Spacer(minLength: 0)
                 if !notification.read {
                     Circle().fill(Theme.apricot).frame(width: 8, height: 8).padding(.top, 4)
+                        .transition(.rawkoonPop)
                 }
             }
             .padding(.vertical, 4)
+            .rawkoonMotion(RawkoonMotion.snappy, value: notification.read)
         }
         .buttonStyle(.plain)
     }
