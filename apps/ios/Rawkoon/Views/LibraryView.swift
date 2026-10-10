@@ -13,7 +13,7 @@ struct LibraryView: View {
     }
 
     @State private var section: LibrarySection = .media
-    /// False until the grid first fills, so the empty-to-populated change does not animate cells from narrow widths.
+    /// False while the grid is empty, so a refill from empty does not animate cells in from narrow widths.
     @State private var mediaPopulated = false
 
     /// When set (desktop's split Media/Books tabs), the section is fixed and the
@@ -168,9 +168,7 @@ struct LibraryView: View {
         }
         .onAppear { mediaPopulated = mediaPopulated || !media.isEmpty }
         .onChange(of: media.isEmpty) { _, isEmpty in
-            if !isEmpty {
-                mediaPopulated = true
-            }
+            mediaPopulated = !isEmpty
         }
         // Kept-alive iPhone tabs never re-appear, so a revisit refreshes like the old TabView did.
         .onChange(of: isActiveRootTab) { _, active in
