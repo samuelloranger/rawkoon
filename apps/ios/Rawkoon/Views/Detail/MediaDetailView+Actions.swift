@@ -413,6 +413,7 @@ extension MediaDetailView {
             libraryId = item.id
             recordLibraryChangeFeedback()
             if showManagement {
+                tabSlideEdge = .trailing
                 detailTab = .manage
                 await refreshManagementData()
             }
