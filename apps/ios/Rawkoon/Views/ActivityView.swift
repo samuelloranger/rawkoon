@@ -38,10 +38,12 @@ struct ActivityView: View {
     /// Header speed
     @State private var speed: SpeedResponse?
 
-    /// Queue
+    // MARK: Queue state
     @State private var queueRows: [QueueRow] = []
     /// Starts true, like the other lanes, so an empty state never flashes before the first load.
     @State private var loadingQueue = true
+    /// The skeleton is for the cold load only; live reloads keep the current lane still.
+    @State private var didLoadQueue = false
     @State private var queueError: String?
     /// nil = show every card; otherwise only cards in the tapped phase.
     @State private var queuePhaseFilter: QueuePhase?
@@ -422,9 +424,14 @@ struct ActivityView: View {
     }
 
     private func loadQueue() async {
-        loadingQueue = true
+        if !didLoadQueue {
+            loadingQueue = true
+        }
         queueError = nil
-        defer { loadingQueue = false }
+        defer {
+            loadingQueue = false
+            didLoadQueue = true
+        }
 
         guard let client = model.api() else {
             queueError = String(localized: "Not signed in.")
