@@ -42,6 +42,7 @@ struct RawkoonTabBar: View {
                 }
             }
         }
+        .rawkoonMotion(.spring(duration: 0.35, bounce: 0.2), value: selection)
         .padding(.vertical, 5)
         .padding(.horizontal, horizontalPadding)
         .clipShape(Capsule())
@@ -60,7 +61,8 @@ struct RawkoonTabBar: View {
             } else if active {
                 onReselect(tab)
             } else {
-                withRawkoonMotion(.spring(duration: 0.35, bounce: 0.2)) { selection = tab }
+                // Unanimated: the shown tab must lay out at full size, not spring from the old one.
+                selection = tab
             }
         } label: {
             icon(tab, active: active)

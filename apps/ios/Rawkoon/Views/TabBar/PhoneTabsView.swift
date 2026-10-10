@@ -35,7 +35,8 @@ struct PhoneTabsView<Root: View>: View {
                         // Only the shown tab may drive the bar; a hidden list reloading must not.
                         .environment(\.tabBarChrome, shown ? chrome : nil)
                         .environment(\.isActiveRootTab, shown)
-                        .opacity(shown ? 1 : 0)
+                        // Only the fade animates, so a first visit lays the tab out at full size.
+                        .rawkoonMotion(RawkoonMotion.gentle) { $0.opacity(shown ? 1 : 0) }
                         .allowsHitTesting(shown)
                         .accessibilityHidden(!shown)
                 }
