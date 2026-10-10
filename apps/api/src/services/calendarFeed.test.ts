@@ -137,7 +137,7 @@ describe("renderCalendar", () => {
           uid: "movie-9@rawkoon",
           date: "2026-12-31",
           summary: "A; B, C",
-          description: "Line one\nLine two",
+          description: "Line one\nLine two\rLine three\r\nLine four",
           url: "https://rawkoon.example/library/9",
         },
       ],
@@ -151,7 +151,7 @@ describe("renderCalendar", () => {
     expect(ics).toContain("DTEND;VALUE=DATE:20270101");
     expect(ics).toContain("SUMMARY:A\\; B\\, C");
     expect(ics).toContain(
-      "DESCRIPTION:Line one\\nLine two\\n\\nhttps://rawkoon.example/library/9",
+      "DESCRIPTION:Line one\\nLine two\\nLine three\\nLine four\\n\\nhttps://rawko",
     );
   });
 });
