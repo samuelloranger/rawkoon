@@ -50,11 +50,18 @@ struct BookReleaseSearchView: View {
             }
             .padding(.bottom, 12)
 
-            content
+            // One slot, so the outgoing state never stacks above the incoming one.
+            ZStack(alignment: .top) {
+                content
+            }
         }
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Theme.base)
+        .rawkoonMotion(RawkoonMotion.spring, value: phase)
+        .rawkoonMotion(RawkoonMotion.spring, value: grabError)
+        // One success tap per confirmed grab.
+        .sensoryFeedback(RawkoonHaptics.feedback(for: .grab), trigger: grabbed.count)
         .task { await start() }
         .onChange(of: model.isOffline) { _, offline in
             guard !offline, releases.isEmpty, !loading else { return }
@@ -66,44 +73,74 @@ struct BookReleaseSearchView: View {
     private var content: some View {
         if loading {
             centered { ProgressView().tint(Theme.apricot); Text("Searching…").foregroundStyle(Theme.muted) }
+                .transition(.rawkoonSwap)
         } else if model.isOffline, releases.isEmpty {
             centered {
                 ContentUnavailableView("Offline", systemImage: "wifi.slash",
                                        description: Text("Release search needs a connection."))
                     .rawkoonLivingSymbol(.error)
             }
+            .transition(.rawkoonSwap)
         } else if let errorMessage, releases.isEmpty {
             centered {
                 ContentUnavailableView("Search failed", systemImage: "wifi.slash", description: Text(errorMessage))
                     .rawkoonLivingSymbol(.error)
             }
+            .transition(.rawkoonSwap)
         } else if visibleReleases.isEmpty {
             centered {
                 ContentUnavailableView("No releases", systemImage: "magnifyingglass",
                                        description: Text("Nothing grabbable found for this book."))
                     .rawkoonLivingSymbol(.empty)
             }
+            .transition(.rawkoonSwap)
         } else {
-            if let grabError {
-                Text(grabError)
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.terracotta)
-                    .padding(.bottom, 8)
-            }
-            ScrollView {
-                LazyVStack(spacing: 8) {
-                    ForEach(visibleReleases) { release in
-                        releaseRow(release)
-                    }
-                    if hasRejected {
-                        Button(LocalizedStringKey(showRejected ? "Hide rejected" : "Show rejected")) { showRejected.toggle() }
+            VStack(alignment: .leading, spacing: 0) {
+                if let grabError {
+                    Text(grabError)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.terracotta)
+                        .padding(.bottom, 8)
+                        .transition(.rawkoonReveal)
+                }
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        ForEach(visibleReleases) { release in
+                            releaseRow(release)
+                                .rawkoonEntrance(id: release.guid)
+                        }
+                        if hasRejected {
+                            Button(LocalizedStringKey(showRejected ? "Hide rejected" : "Show rejected")) {
+                                withRawkoonMotion(RawkoonMotion.spring) { showRejected.toggle() }
+                            }
                             .font(.subheadline).foregroundStyle(Theme.muted)
                             .padding(.vertical, 8)
+                        }
                     }
+                    .padding(.bottom, 24)
+                    .rawkoonEntranceScope()
                 }
-                .padding(.bottom, 24)
             }
+            .transition(.rawkoonSwap)
         }
+    }
+
+    /// Mirrors `content`'s branch order, so every swap between states animates.
+    private enum Phase: Equatable {
+        case searching, offline, failed, empty, list
+    }
+
+    private var phase: Phase {
+        if loading {
+            return .searching
+        }
+        if model.isOffline, releases.isEmpty {
+            return .offline
+        }
+        if errorMessage != nil, releases.isEmpty {
+            return .failed
+        }
+        return visibleReleases.isEmpty ? .empty : .list
     }
 
     private var visibleReleases: [BookRelease] {
@@ -128,7 +165,11 @@ struct BookReleaseSearchView: View {
                 Label("\(release.seeders ?? 0)", systemImage: "arrow.up")
                     .font(.system(.caption2, design: .monospaced)).foregroundStyle(Theme.seed)
                 Spacer(minLength: 4)
-                grabButton(release)
+                // One slot, so the button, spinner and "Grabbed" crossfade in place.
+                ZStack(alignment: .trailing) {
+                    grabButton(release)
+                }
+                .rawkoonMotion(RawkoonMotion.snappy, value: [grabbing == release.guid, grabbed.contains(release.guid)])
             }
             if let indexer = release.indexer {
                 Text("\(indexer) · \(release.age ?? 0)d")
@@ -141,14 +182,23 @@ struct BookReleaseSearchView: View {
         .padding(11)
         .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border, lineWidth: 1))
+        // `grabbed` gains a guid only after the grab call succeeds; the sheet plays the haptic.
+        .rawkoonCelebrate(
+            trigger: grabbed.contains(release.guid),
+            ring: .roundedRect(cornerRadius: 12),
+            haptic: nil,
+            when: { !$0 && $1 }
+        )
     }
 
     @ViewBuilder
     private func grabButton(_ release: BookRelease) -> some View {
         if grabbed.contains(release.guid) {
             Label("Grabbed", systemImage: "checkmark").font(.caption2.weight(.bold)).foregroundStyle(Theme.seed)
+                .transition(.rawkoonSwap)
         } else if grabbing == release.guid {
             ProgressView().tint(Theme.apricot)
+                .transition(.rawkoonSwap)
         } else {
             Button("Grab") { Task { await grab(release) } }
                 .font(.caption.weight(.bold)).foregroundStyle(Theme.onAccent)
@@ -157,6 +207,7 @@ struct BookReleaseSearchView: View {
                 .background(Theme.terracotta, in: Capsule())
                 .disabled(release.downloadUrl == nil && release.magnetUrl == nil)
                 .requiresConnection(model.isOffline)
+                .transition(.rawkoonSwap)
         }
     }
 
