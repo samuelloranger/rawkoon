@@ -15,11 +15,6 @@ enum BookDetailLane: String, CaseIterable, Identifiable {
         case .ebook: "Ebook"
         }
     }
-
-    /// Position in the picker, so a lane switch slides in from the tapped side.
-    var order: Int {
-        Self.allCases.firstIndex(of: self) ?? 0
-    }
 }
 
 enum ReleaseSearchLane: String, Identifiable {
@@ -44,8 +39,6 @@ struct BookView: View {
     @State var loadingDetail = false
     @State var detailError: String?
     @State var activeLane: BookDetailLane
-    /// The side the next lane slides in from; written just before the lane changes.
-    @State var laneSlideEdge: Edge = .trailing
 
     @State var manifest: BookManifest?
     @State var loadingManifest = false
@@ -218,7 +211,6 @@ struct BookView: View {
                 hero
                 VStack(alignment: .leading, spacing: 18) {
                     lanePicker
-                        .rawkoonLanding(step: 1)
                     if let detailError, detail == nil {
                         errorBanner(detailError)
                     }
@@ -227,16 +219,12 @@ struct BookView: View {
                     overviewCard
                 }
                 .padding(.horizontal, 16)
-                .rawkoonMotion(RawkoonMotion.spring, value: activeLane)
             }
             // Cap to a readable measure and center on iPad/Mac; full-bleed on phone.
             .frame(maxWidth: isRegularWidth ? 980 : .infinity)
             .frame(maxWidth: .infinity)
             .padding(.bottom, 24)
         }
-        .rawkoonStretchyHeroHost()
-        // One ledger for the whole page, so returning to a lane never replays its rows' entrance.
-        .rawkoonEntranceScope()
         .background(Theme.base)
         .navigationTitle(titleText)
         .navigationBarTitleDisplayMode(.inline)
@@ -326,13 +314,7 @@ struct BookView: View {
     }
 
     var lanePicker: some View {
-        Picker("Edition", selection: Binding(
-            get: { activeLane },
-            set: { lane in
-                laneSlideEdge = RawkoonSlide.edge(from: activeLane.order, to: lane.order)
-                activeLane = lane
-            }
-        )) {
+        Picker("Edition", selection: $activeLane) {
             ForEach(BookDetailLane.allCases) { lane in
                 Text(lane.title).tag(lane)
             }
@@ -340,17 +322,13 @@ struct BookView: View {
         .pickerStyle(.segmented)
     }
 
-    /// One slot, so the entering lane slides in from the tapped side while the leaving one fades in place.
+    @ViewBuilder
     var laneContent: some View {
-        ZStack(alignment: .top) {
-            switch activeLane {
-            case .audiobook:
-                audiobookSection
-                    .transition(.rawkoonSlide(laneSlideEdge))
-            case .ebook:
-                ebookSection
-                    .transition(.rawkoonSlide(laneSlideEdge))
-            }
+        switch activeLane {
+        case .audiobook:
+            audiobookSection
+        case .ebook:
+            ebookSection
         }
     }
 
@@ -527,8 +505,9 @@ struct BookView: View {
     }
 
     /// The card used to flip to "Downloaded"; a glyph swap alone is easy to miss,
-    /// so the finish gets a brief green check, which the button celebrates with the haptic.
+    /// so the finish gets a haptic and a brief green check.
     private func announceDownloadFinished() {
+        RawkoonHaptics.play(.downloadComplete)
         withRawkoonMotion(.spring(duration: 0.35)) { showDownloadFinished = true }
         Task {
             try? await Task.sleep(for: .seconds(1.8))
@@ -556,24 +535,18 @@ struct BookView: View {
                 }
             }
         } label: {
-            // One slot, so the spinner and the label crossfade while the player loads.
-            ZStack {
+            Group {
                 if loadingPlayer {
                     ProgressView().tint(Theme.onAccent)
-                        .transition(.rawkoonSwap)
                 } else if case let .resume(positionSecs) = audiobookResume {
                     Label(
                         String(localized: "Resume from \(Formatters.durationTimestamp(positionSecs))"),
                         systemImage: "play.fill"
                     )
-                    .transition(.rawkoonSwap)
                 } else {
                     Label("Play", systemImage: "play.fill")
-                        .transition(.rawkoonSwap)
                 }
             }
-            .rawkoonMotion(RawkoonMotion.snappy, value: loadingPlayer)
-            .rawkoonMotion(RawkoonMotion.snappy, value: audiobookResume)
         }
         .buttonStyle(BookPlayButtonStyle())
         .disabled(!canPlayAudiobook)
@@ -608,25 +581,22 @@ struct BookView: View {
 
     /// One round button beside Play: download, then progress (tap cancels), then
     /// a struck-through download arrow once the book is on the device.
+    @ViewBuilder
     var audiobookDownloadButton: some View {
         let state = audiobookDownloadState
-        let needsConnection = switch state {
-        case .idle, .failed: true
-        default: false
-        }
-        // One view for every state, so the icon and the celebration keep their state across a change.
-        return Button {
+        let button = Button {
             handleAudiobookDownloadTap(state)
         } label: {
             DownloadStateIcon(state: state, celebrating: showDownloadFinished)
         }
         .buttonStyle(BookIconButtonStyle())
         .accessibilityLabel(state.accessibilityLabel)
-        .rawkoonCelebrate(
-            trigger: showDownloadFinished, tint: Theme.seed, haptic: .downloadComplete,
-            when: { !$0 && $1 }
-        )
-        .requiresConnection(model.isOffline && needsConnection)
+        switch state {
+        case .idle, .failed:
+            button.requiresConnection(model.isOffline)
+        default:
+            button
+        }
     }
 
     @ViewBuilder
@@ -680,99 +650,75 @@ struct BookView: View {
     }
 
     var chaptersList: some View {
-        let phase = chapterListPhase(
-            loading: loadingManifest,
-            fetchAttempted: fetchAttemptedManifest,
-            hasChapters: !(manifest?.chapters.isEmpty ?? true),
-            error: manifestError
-        )
-        return VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("Chapters")
                 .font(.sectionTitle)
                 .foregroundStyle(Theme.textStrong)
-            // One slot, so the spinner, the list and the failure crossfade instead of stacking.
-            ZStack(alignment: .topLeading) {
-                switch phase {
-                case .loading:
-                    ProgressView().tint(Theme.apricot)
-                        .transition(.rawkoonSwap)
-                case .ready:
-                    chapterRows
-                        .transition(.rawkoonSwap)
-                case let .failed(message):
-                    chaptersFailure(message)
-                        .transition(.rawkoonSwap)
+            switch chapterListPhase(
+                loading: loadingManifest,
+                fetchAttempted: fetchAttemptedManifest,
+                hasChapters: !(manifest?.chapters.isEmpty ?? true),
+                error: manifestError
+            ) {
+            case .loading:
+                ProgressView().tint(Theme.apricot)
+            case .ready:
+                if sortedChapters.count > chapterFilterThreshold {
+                    searchField("Filter chapters", text: $chapterFilter)
                 }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .rawkoonMotion(RawkoonMotion.spring, value: phase)
-        }
-    }
-
-    var chapterRows: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if sortedChapters.count > chapterFilterThreshold {
-                searchField("Filter chapters", text: $chapterFilter)
-            }
-            if filteredChapters.isEmpty {
-                if !chapterFilter.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text("No chapters match.")
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.muted)
-                }
-            } else {
-                VStack(spacing: 4) {
-                    ForEach(filteredChapters, id: \.index) { chapter in
-                        chapterButton(chapter)
-                            .rawkoonEntrance(id: "chapter-\(chapter.index)")
+                if filteredChapters.isEmpty {
+                    if !chapterFilter.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text("No chapters match.")
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.muted)
+                    }
+                } else {
+                    VStack(spacing: 4) {
+                        ForEach(filteredChapters, id: \.index) { chapter in
+                            Button {
+                                Task {
+                                    guard let editionId = audiobookEditionId else { return }
+                                    loadingPlayer = true
+                                    await model.openPlayer(
+                                        editionId: editionId,
+                                        resumeAt: resumePosition(in: chapter) ?? chapter.startSecs
+                                    )
+                                    loadingPlayer = false
+                                    if model.errorMessage == nil {
+                                        showingPlayer = true
+                                    }
+                                }
+                            } label: {
+                                SpineRow(
+                                    index: chapter.index,
+                                    title: chapter.title,
+                                    downloaded: isChapterDownloaded(chapter),
+                                    current: isCurrentChapter(chapter),
+                                    downloadFraction: audiobookEditionId.flatMap {
+                                        model.chapterFractions[$0]?[chapter.fileId]
+                                    },
+                                    resumeText: resumePosition(in: chapter).map {
+                                        String(localized: "Resume from \(Formatters.durationTimestamp($0))")
+                                    }
+                                )
+                            }
+                            .buttonStyle(.rawkoonPressable(scale: 0.98))
+                        }
                     }
                 }
-            }
-        }
-    }
-
-    func chapterButton(_ chapter: ManifestChapter) -> some View {
-        Button {
-            Task {
-                guard let editionId = audiobookEditionId else { return }
-                loadingPlayer = true
-                await model.openPlayer(
-                    editionId: editionId,
-                    resumeAt: resumePosition(in: chapter) ?? chapter.startSecs
-                )
-                loadingPlayer = false
-                if model.errorMessage == nil {
-                    showingPlayer = true
+            case let .failed(message):
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(message)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.muted)
+                    Text("Pull to refresh, run rescan, or check the server.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.faint)
+                    (Text("Edition status: ") + LocalizedStatus.text(audiobookEdition?.status ?? book.audiobookStatus ?? "wanted"))
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(Theme.faint)
                 }
             }
-        } label: {
-            SpineRow(
-                index: chapter.index,
-                title: chapter.title,
-                downloaded: isChapterDownloaded(chapter),
-                current: isCurrentChapter(chapter),
-                downloadFraction: audiobookEditionId.flatMap {
-                    model.chapterFractions[$0]?[chapter.fileId]
-                },
-                resumeText: resumePosition(in: chapter).map {
-                    String(localized: "Resume from \(Formatters.durationTimestamp($0))")
-                }
-            )
-        }
-        .buttonStyle(.rawkoonPressable(scale: 0.98))
-    }
-
-    func chaptersFailure(_ message: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(Theme.muted)
-            Text("Pull to refresh, run rescan, or check the server.")
-                .font(.caption)
-                .foregroundStyle(Theme.faint)
-            (Text("Edition status: ") + LocalizedStatus.text(audiobookEdition?.status ?? book.audiobookStatus ?? "wanted"))
-                .font(.system(.caption2, design: .monospaced))
-                .foregroundStyle(Theme.faint)
         }
     }
 
@@ -894,128 +840,96 @@ struct BookView: View {
     }
 
     var ebookFilesCard: some View {
-        let phase = EbookFilesPhase.resolve(loading: loadingEbookFiles, isEmpty: ebookFiles.isEmpty)
-        return VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("Files")
                 .font(.sectionTitle)
                 .foregroundStyle(Theme.textStrong)
 
-            // One slot, so the spinner, the empty note and the list crossfade instead of stacking.
-            ZStack(alignment: .topLeading) {
-                switch phase {
-                case .loading:
-                    ProgressView().tint(Theme.muted)
-                        .transition(.rawkoonSwap)
-                case .empty:
-                    Text("No ebook files imported yet. Search releases or rescan this edition.")
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.muted)
-                        .transition(.rawkoonSwap)
-                case .list:
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(ebookFiles) { file in
-                            ebookFileRow(file)
-                                .rawkoonEntrance(id: "ebook-\(file.id)")
-                        }
-                    }
-                    .transition(.rawkoonSwap)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .rawkoonMotion(RawkoonMotion.spring, value: phase)
-        }
-    }
-
-    func ebookFileRow(_ file: BookEditionFile) -> some View {
-        let face = EbookFileAction.phase(
-            downloading: downloadingEbookFileIDs.contains(file.id),
-            opening: openingEbookFileId == file.id,
-            downloaded: isEbookDownloaded(file)
-        )
-        return HStack(alignment: .top, spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(file.fileName)
+            if loadingEbookFiles {
+                ProgressView().tint(Theme.muted)
+            } else if ebookFiles.isEmpty {
+                Text("No ebook files imported yet. Search releases or rescan this edition.")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.textStrong)
-                    .lineLimit(2)
-                Text(fileMeta(file))
-                    .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(Theme.muted)
-            }
-            Spacer(minLength: 8)
-            // One slot, so a download, an open or a removal crossfades the actions instead of cutting.
-            ZStack(alignment: .topTrailing) {
-                switch face {
-                case .downloading:
-                    HStack(spacing: 7) {
-                        ProgressView().tint(Theme.muted)
-                        Button("Cancel") {
-                            cancelEbookDownload(file)
+            } else {
+                ForEach(ebookFiles) { file in
+                    HStack(alignment: .top, spacing: 10) {
+                        let downloaded = isEbookDownloaded(file)
+                        let downloading = downloadingEbookFileIDs.contains(file.id)
+                        let loadingState = openingEbookFileId == file.id || downloading
+                        let canFetchRemote = remoteEbookURL(for: file) != nil
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(file.fileName)
+                                .font(.subheadline)
+                                .foregroundStyle(Theme.textStrong)
+                                .lineLimit(2)
+                            Text(fileMeta(file))
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(Theme.muted)
                         }
-                        .buttonStyle(.bordered)
-                        .tint(Theme.terracotta)
-                        .lineLimit(1)
+                        Spacer(minLength: 8)
+                        if downloading {
+                            HStack(spacing: 7) {
+                                ProgressView().tint(Theme.muted)
+                                Button("Cancel") {
+                                    cancelEbookDownload(file)
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(Theme.terracotta)
+                                .lineLimit(1)
+                            }
+                            .fixedSize()
+                        } else if loadingState {
+                            ProgressView().tint(Theme.muted)
+                        } else {
+                            // Actions hold their intrinsic width; the file name (which
+                            // wraps to two lines) yields the remaining space, so labels
+                            // like "Retirer" never break character-by-character.
+                            HStack(spacing: 7) {
+                                if downloaded {
+                                    Button("Remove") {
+                                        model.pendingConfirm = ConfirmRequest(
+                                            title: String(localized: "Remove downloaded file?"),
+                                            message: String(localized: "Deletes \(file.fileName) from this iPhone. You can download it again anytime."),
+                                            confirmTitle: String(localized: "Remove Download")
+                                        ) { removeEbookDownload(file) }
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(Theme.terracotta)
+                                    .lineLimit(1)
+                                } else {
+                                    Button("Download") {
+                                        startEbookDownload(file)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(Theme.muted)
+                                    .lineLimit(1)
+                                    .disabled(!canFetchRemote)
+                                    .requiresConnection(model.isOffline)
+                                }
+
+                                if isReadableEbook(file) {
+                                    Button("Read") {
+                                        Task { await openEbook(file) }
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(Theme.muted)
+                                    .lineLimit(1)
+                                    .disabled(!downloaded && !canFetchRemote)
+                                } else {
+                                    StatusBadge(text: "Ebook only", tint: Theme.muted)
+                                }
+                            }
+                            .fixedSize()
+                        }
                     }
-                    .fixedSize()
-                    .transition(.rawkoonSwap)
-                case .opening:
-                    ProgressView().tint(Theme.muted)
-                        .transition(.rawkoonSwap)
-                case .saved:
-                    ebookFileActions(file, downloaded: true)
-                        .transition(.rawkoonSwap)
-                case .remote:
-                    ebookFileActions(file, downloaded: false)
-                        .transition(.rawkoonSwap)
+                    .padding(11)
+                    .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border, lineWidth: 1))
                 }
-            }
-            .rawkoonMotion(RawkoonMotion.snappy, value: face)
-        }
-        .padding(11)
-        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border, lineWidth: 1))
-    }
-
-    /// Actions hold their intrinsic width; the file name (which wraps to two lines)
-    /// yields the remaining space, so labels like "Retirer" never break character-by-character.
-    func ebookFileActions(_ file: BookEditionFile, downloaded: Bool) -> some View {
-        let canFetchRemote = remoteEbookURL(for: file) != nil
-        return HStack(spacing: 7) {
-            if downloaded {
-                Button("Remove") {
-                    model.pendingConfirm = ConfirmRequest(
-                        title: String(localized: "Remove downloaded file?"),
-                        message: String(localized: "Deletes \(file.fileName) from this iPhone. You can download it again anytime."),
-                        confirmTitle: String(localized: "Remove Download")
-                    ) { removeEbookDownload(file) }
-                }
-                .buttonStyle(.bordered)
-                .tint(Theme.terracotta)
-                .lineLimit(1)
-            } else {
-                Button("Download") {
-                    startEbookDownload(file)
-                }
-                .buttonStyle(.bordered)
-                .tint(Theme.muted)
-                .lineLimit(1)
-                .disabled(!canFetchRemote)
-                .requiresConnection(model.isOffline)
-            }
-
-            if isReadableEbook(file) {
-                Button("Read") {
-                    Task { await openEbook(file) }
-                }
-                .buttonStyle(.bordered)
-                .tint(Theme.muted)
-                .lineLimit(1)
-                .disabled(!downloaded && !canFetchRemote)
-            } else {
-                StatusBadge(text: "Ebook only", tint: Theme.muted)
             }
         }
-        .fixedSize()
     }
 
     /// The in-app reader unpacks EPUB only. Other formats in the library (the

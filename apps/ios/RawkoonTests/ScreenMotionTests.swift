@@ -30,25 +30,6 @@ struct ScreenMotionTests {
         #expect(PlayerMotion.sleepRollValue(isOff: false, remaining: 0.2) == 1)
     }
 
-    @Test func ebookRowDownloadWinsOverEveryOtherFace() {
-        #expect(EbookFileAction.phase(downloading: true, opening: true, downloaded: true) == .downloading)
-    }
-
-    @Test func ebookRowOpensBeforeShowingActions() {
-        #expect(EbookFileAction.phase(downloading: false, opening: true, downloaded: true) == .opening)
-    }
-
-    @Test func ebookRowActionsFollowTheDownload() {
-        #expect(EbookFileAction.phase(downloading: false, opening: false, downloaded: true) == .saved)
-        #expect(EbookFileAction.phase(downloading: false, opening: false, downloaded: false) == .remote)
-    }
-
-    @Test func ebookFilesSpinWhileLoadingEvenOverAList() {
-        #expect(EbookFilesPhase.resolve(loading: true, isEmpty: false) == .loading)
-        #expect(EbookFilesPhase.resolve(loading: false, isEmpty: true) == .empty)
-        #expect(EbookFilesPhase.resolve(loading: false, isEmpty: false) == .list)
-    }
-
     @Test func loginShowsWhileSignedOut() {
         #expect(LoginExit.showsLogin(isLoggedIn: false, exitFinished: false))
         #expect(LoginExit.showsLogin(isLoggedIn: false, exitFinished: true))

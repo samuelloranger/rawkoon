@@ -15,8 +15,29 @@ struct BookHero<Badges: View>: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            backdrop
-                .rawkoonStretchyHero(height: 260)
+            // Blurred cover as the ground, overlaid on a fixed-size Rectangle so
+            // layout is driven by the Rectangle, never by the image. Loading the
+            // cover can't resize the hero — no flash.
+            Rectangle()
+                .fill(Theme.raised)
+                .frame(maxWidth: .infinity)
+                .frame(height: 260)
+                .overlay {
+                    CachedAsyncImage(url: coverURL, targetSize: CGSize(width: 400, height: 400)) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Color.clear
+                    }
+                    .blur(radius: 26)
+                }
+                .clipped()
+
+            LinearGradient(
+                colors: [Theme.base.opacity(0.15), Theme.base.opacity(0.6), Theme.base],
+                startPoint: .top, endPoint: .bottom
+            )
+            .frame(maxWidth: .infinity)
+            .frame(height: 260)
 
             HStack(alignment: .bottom, spacing: 16) {
                 posterThumb
@@ -47,7 +68,6 @@ struct BookHero<Badges: View>: View {
                         .padding(.top, 2)
                 }
                 .padding(.bottom, 2)
-                .rawkoonLanding(step: 0)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 16)
@@ -55,35 +75,6 @@ struct BookHero<Badges: View>: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: 260)
-    }
-
-    /// The blurred cover and its fade to the page, moved as one layer by the stretch and parallax.
-    private var backdrop: some View {
-        ZStack {
-            // Blurred cover as the ground, overlaid on a fixed-size Rectangle so
-            // layout is driven by the Rectangle, never by the image. Loading the
-            // cover can't resize the hero — no flash.
-            Rectangle()
-                .fill(Theme.raised)
-                .frame(maxWidth: .infinity)
-                .frame(height: 260)
-                .overlay {
-                    CachedAsyncImage(url: coverURL, targetSize: CGSize(width: 400, height: 400)) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
-                        Color.clear
-                    }
-                    .blur(radius: 26)
-                }
-                .clipped()
-
-            LinearGradient(
-                colors: [Theme.base.opacity(0.15), Theme.base.opacity(0.6), Theme.base],
-                startPoint: .top, endPoint: .bottom
-            )
-            .frame(maxWidth: .infinity)
-            .frame(height: 260)
-        }
     }
 
     /// Portrait cover with the rawkoon book-spine edge, so it reads as a book

@@ -4,72 +4,48 @@ import SwiftUI
 extension MediaDetailView {
     // MARK: Management (admin, in-library)
 
-    /// Mirrors `managementSections`' branch order, so its loading, error and ready states crossfade.
-    enum ManagementPhase: Equatable {
-        case idle, loading, failed, ready
-    }
-
-    var managementPhase: ManagementPhase {
-        if managementLoading, managementItem == nil {
-            return .loading
-        }
-        if managementError != nil, managementItem == nil {
-            return .failed
-        }
-        return managementItem == nil ? .idle : .ready
-    }
-
+    @ViewBuilder
     var managementSections: some View {
-        // One slot, so the outgoing state never stacks above the incoming one.
-        ZStack(alignment: .topLeading) {
-            if managementLoading, managementItem == nil {
-                ProgressView().tint(Theme.muted)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 8)
-                    .transition(.rawkoonSwap)
-            } else if let managementError, managementItem == nil {
-                VStack(spacing: 12) {
-                    ContentUnavailableView(
-                        "Couldn't load management",
-                        systemImage: "exclamationmark.triangle",
-                        description: Text(managementError)
-                    )
-                    .rawkoonLivingSymbol(.error)
-                    Button {
-                        Task { await refreshManagementData() }
-                    } label: {
-                        Label("Try again", systemImage: "arrow.clockwise")
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(Theme.apricot)
-                }
+        if managementLoading, managementItem == nil {
+            ProgressView().tint(Theme.muted)
+                .frame(maxWidth: .infinity)
                 .padding(.top, 8)
-                .transition(.rawkoonSwap)
-            } else if let managementItem {
-                VStack(alignment: .leading, spacing: 18) {
-                    managementControlsCard(managementItem)
-                        .id("management")
-                    // TV files fold into the seasons section; only movies keep a card.
-                    if mediaType != "tv" {
-                        managementFilesCard
-                    }
-                    managementDownloadsCard
-                    if let managementNotice {
-                        Text(managementNotice)
-                            .font(.caption)
-                            .foregroundStyle(Theme.apricotSoft)
-                            .padding(.horizontal, 16)
-                            .transition(.rawkoonReveal)
-                    }
-                    if let managementError {
-                        Text(managementError)
-                            .font(.caption)
-                            .foregroundStyle(Theme.terracotta)
-                            .padding(.horizontal, 16)
-                            .transition(.rawkoonReveal)
-                    }
+        } else if let managementError, managementItem == nil {
+            VStack(spacing: 12) {
+                ContentUnavailableView(
+                    "Couldn't load management",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(managementError)
+                )
+                .rawkoonLivingSymbol(.error)
+                Button {
+                    Task { await refreshManagementData() }
+                } label: {
+                    Label("Try again", systemImage: "arrow.clockwise")
                 }
-                .transition(.rawkoonSwap)
+                .buttonStyle(.bordered)
+                .tint(Theme.apricot)
+            }
+            .padding(.top, 8)
+        } else if let managementItem {
+            managementControlsCard(managementItem)
+                .id("management")
+            // TV files fold into the seasons section; only movies keep a card.
+            if mediaType != "tv" {
+                managementFilesCard
+            }
+            managementDownloadsCard
+            if let managementNotice {
+                Text(managementNotice)
+                    .font(.caption)
+                    .foregroundStyle(Theme.apricotSoft)
+                    .padding(.horizontal, 16)
+            }
+            if let managementError {
+                Text(managementError)
+                    .font(.caption)
+                    .foregroundStyle(Theme.terracotta)
+                    .padding(.horizontal, 16)
             }
         }
     }

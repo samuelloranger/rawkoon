@@ -15,11 +15,6 @@ extension View {
         modifier(LivingSymbol(kind: kind))
     }
 
-    /// One bounce each time `trigger` changes; still under Reduce Motion.
-    func rawkoonSymbolBounce(_ trigger: some Equatable) -> some View {
-        modifier(SymbolBounce(trigger: trigger))
-    }
-
     /// One spin of the symbol's arrow each time `trigger` changes; still under Reduce Motion.
     func rawkoonSymbolSpin(_ trigger: some Equatable, clockwise: Bool) -> some View {
         modifier(SymbolSpin(trigger: trigger, clockwise: clockwise))
@@ -65,16 +60,6 @@ private struct BounceOnInsert: ViewModifier {
                 didBounce = true
                 bounces += 1
             }
-    }
-}
-
-private struct SymbolBounce<Trigger: Equatable>: ViewModifier {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    let trigger: Trigger
-
-    func body(content: Content) -> some View {
-        // A value that never changes under Reduce Motion, so the effect never fires.
-        content.symbolEffect(.bounce, value: reduceMotion ? nil : Optional(trigger))
     }
 }
 
