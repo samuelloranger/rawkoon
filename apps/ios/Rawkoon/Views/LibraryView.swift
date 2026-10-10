@@ -13,8 +13,11 @@ struct LibraryView: View {
     }
 
     @State private var section: LibrarySection = .media
-    /// False while the grid is empty, so a refill from empty does not animate cells in from narrow widths.
-    @State private var mediaPopulated = false
+    /// The ids the grid last showed. A change that brings in new rows is not animated: a lazy
+    /// grid creates those cells during the update and would spring them in from a zero frame.
+    @State private var shownMediaIds: Set<Int> = []
+    /// False until the rows have a measured height; the update that first lays them out must not animate.
+    @State private var mediaRowsLaidOut = false
 
     /// When set (desktop's split Media/Books tabs), the section is fixed and the
     /// Media/Books segmented toggle is hidden. Nil keeps the phone's single tab.
@@ -166,9 +169,9 @@ struct LibraryView: View {
             }
             await loadBookProgress()
         }
-        .onAppear { mediaPopulated = mediaPopulated || !media.isEmpty }
-        .onChange(of: media.isEmpty) { _, isEmpty in
-            mediaPopulated = !isEmpty
+        .onAppear { shownMediaIds = Set(media.map(\.id)) }
+        .onChange(of: media.map(\.id)) { _, ids in
+            shownMediaIds = Set(ids)
         }
         // Kept-alive iPhone tabs never re-appear, so a revisit refreshes like the old TabView did.
         .onChange(of: isActiveRootTab) { _, active in
@@ -330,8 +333,13 @@ struct LibraryView: View {
         store.pagination(mediaKey).hasMore
     }
 
-    /// Changes worth animating: rows appearing or leaving, the monitored badge
-    /// flipping, and status or busy badges swapping. Cheap at page size.
+    /// Rows leaving and badges changing animate; new rows appear in place.
+    private var mediaListMotion: Animation? {
+        mediaRowsLaidOut && media.allSatisfy { shownMediaIds.contains($0.id) } ? listMotion : nil
+    }
+
+    /// Changes worth animating: rows leaving, the monitored badge flipping, and
+    /// status or busy badges swapping. Cheap at page size.
     private var mediaAnimationToken: Int {
         var hasher = Hasher()
         for item in media {
@@ -479,11 +487,12 @@ struct LibraryView: View {
                 }
             }
             .padding(.vertical, 16)
+            .onGeometryChange(for: Bool.self) { $0.size.height > 40 } action: { mediaRowsLaidOut = $0 }
         }
         .reportsTabBarScroll()
         .overlay { mediaOverlay }
         // motion-ok: listMotion already resolves Reduce Motion
-        .animation(mediaPopulated ? listMotion : nil, value: mediaAnimationToken)
+        .animation(mediaListMotion, value: mediaAnimationToken)
         .refreshable { await loadMedia(reset: true) }
     }
 
@@ -623,11 +632,12 @@ struct LibraryView: View {
             }
             .padding(.horizontal, 16).padding(.vertical, 16)
             .libraryReadingWidth(isRegularWidth)
+            .onGeometryChange(for: Bool.self) { $0.size.height > 40 } action: { mediaRowsLaidOut = $0 }
         }
         .reportsTabBarScroll()
         .overlay { mediaOverlay }
         // motion-ok: listMotion already resolves Reduce Motion
-        .animation(mediaPopulated ? listMotion : nil, value: mediaAnimationToken)
+        .animation(mediaListMotion, value: mediaAnimationToken)
         .refreshable { await loadMedia(reset: true) }
     }
 

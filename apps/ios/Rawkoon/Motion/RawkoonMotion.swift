@@ -36,14 +36,6 @@ extension View {
         modifier(RawkoonMotionModifier(animation: animation, value: AnyEquatable(value)))
     }
 
-    /// Animates only the modifiers applied inside `body`, so a layout pass in the same update stays still.
-    func rawkoonMotion(
-        _ animation: Animation,
-        @ViewBuilder body: (PlaceholderContentView<Self>) -> some View
-    ) -> some View {
-        self.animation(UIAccessibility.isReduceMotionEnabled ? RawkoonMotion.reduced : animation, body: body)
-    }
-
     /// The apricot lamp: breathes while `active`, still otherwise.
     func breathingLamp(active: Bool) -> some View {
         modifier(BreathingLamp(isActive: active))
