@@ -11,7 +11,7 @@ struct RawkoonApp: App {
     /// locale for SwiftUI `Text`, and — via `APIClient` — the language the server
     /// localizes titles/metadata in.
     @AppStorage(AppLanguage.storageKey) private var appLanguage = AppLanguage.system.rawValue
-    /// False only while a sign-out leaves Login pending a hold; true means no hold is owed, so a signed-in launch never draws Login.
+    /// True means no Login hold is owed, so a signed-in launch never draws Login.
     @State private var loginExitFinished = true
     /// The pending Login hold, cancelled when the session changes again so a stale one can't end a newer hold.
     @State private var loginExitTask: Task<Void, Never>?
