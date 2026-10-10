@@ -23,7 +23,7 @@ controls are why this is native rather than a PWA.
 - **Shippability**: a phase that leaves `main` unshippable is not complete —
   but "shippable" is proved by `lint`, `kit` and `build` green on the push to
   `main`, not by an upload. A push to `main` that changes the app already uploads
-  to TestFlight (the edge lane, as the next patch version), and a push to `main`
+  to TestFlight (the edge lane, under the last release's version), and a push to `main`
   that passes CI redeploys production on the `:edge` image — so merging to `main`
   ships. A published GitHub release also uploads and redeploys, and is an
   outward-facing act with production consequences. Only the
