@@ -55,7 +55,9 @@ struct LoginView: View {
             .task { await model.loadSsoProviders() }
             // Drop the keyboard once the session opens, not on a failed attempt.
             .onChange(of: model.isLoggedIn) { _, signedIn in
-                if signedIn { loginFocus = nil }
+                if signedIn {
+                    loginFocus = nil
+                }
             }
             .onChange(of: model.serverURL) { _, _ in
                 Task { await model.loadSsoProviders() }
