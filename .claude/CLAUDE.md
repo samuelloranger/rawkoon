@@ -22,10 +22,11 @@ controls are why this is native rather than a PWA.
   `RawkoonKit` alone, so no phase is "done" on a green Linux run
 - **Shippability**: a phase that leaves `main` unshippable is not complete —
   but "shippable" is proved by `lint`, `kit` and `build` green on the push to
-  `main`, not by an upload. The `testflight` job is gated on a published GitHub
-  release, and publishing one in this repo also triggers `docker-publish.yml`,
-  which auto-redeploys the production container through `DEPLOYER_WEBHOOK_URL` —
-  so a release is an outward-facing act with production consequences. Only the
+  `main`, not by an upload. A push to `main` that changes the app already uploads
+  to TestFlight (the edge lane, as the next patch version), and a push to `main`
+  that passes CI redeploys production on the `:edge` image — so merging to `main`
+  ships. A published GitHub release also uploads and redeploys, and is an
+  outward-facing act with production consequences. Only the
   main interactive agent may cut one, and only after confirming the intent to
   release with the user; a subagent, background, or other non-interactive
   session must never cut a release. Never bump the version, tag, or publish a

@@ -20,7 +20,7 @@ mkdir rawkoon && cd rawkoon
 ---
 
 ## 2. Docker Compose Configuration
-Create a `docker-compose.yml` file in that folder using the official Docker image (`ghcr.io/samuelloranger/rawkoon:latest`):
+Create a `docker-compose.yml` file in that folder using the official Docker image (`ghcr.io/samuelloranger/rawkoon:latest`). `:latest` follows releases. `:edge` follows every change merged to `main` that passes CI, so it gets fixes first and is less tested; pin `:X.Y.Z` to stay on one version.
 
 ```yaml
 services:

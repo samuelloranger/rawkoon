@@ -4,11 +4,13 @@ on:
   # carrying `tags` but no `branches` as tag-only, which silently stops branch
   # pushes from building at all.
   #
-  # TestFlight uploads happen on a published GitHub release, or on a manual
-  # dispatch that explicitly sets testflight=true (a pre-release build of any
-  # branch for internal testers). Pushes to main (and every other branch) run
-  # kit+lint+build only — they never upload. A successful upload consumes a
-  # (version, build) pair, so it must be a deliberate act, not a side effect.
+  # TestFlight uploads happen on three lanes:
+  #   - edge: a push to main that changes the app uploads it as the next patch
+  #     version (X.Y.Z+1), so a fix reaches internal testers with a merge
+  #   - release: a published GitHub release uploads X.Y.Z
+  #   - manual: a dispatch with testflight=true uploads any branch
+  # Pushes to other branches run kit+lint+build only. The build number is
+  # github.run_number, shared by every lane and never reused.
   push:
     branches: ["**"]
     paths: ["apps/ios/**", ".github/workflows/ios.yml"]
@@ -27,6 +29,35 @@ on:
         type: string
         required: false
 jobs:
+  # Decides whether a push to main ships to TestFlight, and as which version.
+  edge:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      ship: ${{ steps.plan.outputs.ship }}
+      version: ${{ steps.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Plan
+        id: plan
+        run: |
+          set -euo pipefail
+          VERSION="$(jq -r .version package.json)"
+          PARENT_VERSION="$(git show HEAD^:package.json 2>/dev/null | jq -r .version || true)"
+          SHIP=true
+          if [ "$VERSION" != "$PARENT_VERSION" ]; then
+            # The version bump is the release commit: its release uploads it as X.Y.Z.
+            echo "This commit bumps the version to $VERSION; its release uploads it"
+            SHIP=false
+          fi
+          IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION"
+          {
+            echo "ship=$SHIP"
+            echo "version=$MAJOR.$MINOR.$((PATCH + 1))"
+          } | tee -a "$GITHUB_OUTPUT"
+
   kit:
     runs-on: ubuntu-latest
     steps:
@@ -101,10 +132,18 @@ jobs:
 
   testflight:
     runs-on: macos-26
-    needs: build
-    # Uploads only on a published release or a manual dispatch with testflight=true.
-    # Never on a push or PR — an upload consumes a (version, build) pair.
-    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.testflight)
+    needs: [build, edge]
+    # `edge` is skipped off a push to main, so the condition names build's result itself.
+    if: >-
+      !cancelled() && needs.build.result == 'success' && (
+        github.event_name == 'release' ||
+        (github.event_name == 'workflow_dispatch' && inputs.testflight) ||
+        needs.edge.outputs.ship == 'true')
+    # Edge runs are not queued: a concurrency group keeps one pending run and drops the
+    # rest, which could drop the newest commit. The freshness check below filters out a
+    # build main has already moved past; in the few minutes between that check and the
+    # upload, a newer run can still finish first, and App Store Connect then rejects the
+    # older, lower build number of the same version.
     env:
       APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
@@ -115,9 +154,9 @@ jobs:
       - name: Resolve release version
         working-directory: apps/ios
         run: |
-          # The release tag is authoritative for a release build; package.json is
-          # the fallback if the tag is not version-shaped.
-          TAG="${{ github.event.release.tag_name || inputs.marketing_version }}"
+          # The release tag is authoritative for a release build, the edge plan for a
+          # push to main; package.json is the fallback if neither is version-shaped.
+          TAG="${{ github.event.release.tag_name || inputs.marketing_version || needs.edge.outputs.version }}"
           MARKETING_VERSION="${TAG#v}"
           case "$MARKETING_VERSION" in
             [0-9]*.[0-9]*.[0-9]*) ;;
@@ -128,7 +167,7 @@ jobs:
             exit 1
           fi
           echo "MARKETING_VERSION=${MARKETING_VERSION}" >> "$GITHUB_ENV"
-          # Rawkoon has one publishing lane; github.run_number is already monotonic.
+          # Every lane runs in this workflow, so github.run_number never repeats.
           echo "CURRENT_PROJECT_VERSION=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
       - name: Install App Store Connect key
         run: |
@@ -191,7 +230,31 @@ jobs:
             -archivePath build/Rawkoon.xcarchive \
             -exportPath build/export \
             -exportOptionsPlist ExportOptions.plist
+      # An edge build uploads only while main has nothing newer for the app: a later push
+      # that changed it has its own run, and a version bump has its release. Otherwise an
+      # older build could reach testers after a newer one.
+      - name: Check main has nothing newer for the app
+        id: fresh
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          UPLOAD=true
+          if [ "$EVENT" = push ]; then
+            git fetch --quiet --depth=1 origin main
+            OURS="$(jq -r .version package.json)"
+            THEIRS="$(git show FETCH_HEAD:package.json | jq -r .version)"
+            if [ "$OURS" != "$THEIRS" ]; then
+              echo "main is on $THEIRS now; its release uploads it"
+              UPLOAD=false
+            elif ! git diff --quiet HEAD FETCH_HEAD -- apps/ios .github/workflows/ios.yml; then
+              echo "main has newer app changes; their run uploads them"
+              UPLOAD=false
+            fi
+          fi
+          echo "upload=$UPLOAD" >> "$GITHUB_OUTPUT"
       - name: Upload to TestFlight
+        if: steps.fresh.outputs.upload == 'true'
         working-directory: apps/ios
         run: |
           IPA_PATH=""
@@ -209,11 +272,12 @@ jobs:
             --apiKey "$APP_STORE_CONNECT_KEY_ID" \
             --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
       - name: Distribute to internal testers
+        if: steps.fresh.outputs.upload == 'true'
         working-directory: apps/ios
         env:
           BUNDLE_ID: cloud.samlo.rawkoon
           BUILD_NUMBER: ${{ env.CURRENT_PROJECT_VERSION }}
-          WHATS_NEW: "${{ github.event.release.tag_name && format('Release {0}', github.event.release.tag_name) || format('Pre-release build of {0}', github.ref_name) }} (${{ github.sha }})"
+          WHATS_NEW: "${{ github.event.release.tag_name && format('Release {0}', github.event.release.tag_name) || github.event_name == 'push' && 'Edge build of main' || format('Pre-release build of {0}', github.ref_name) }} (${{ github.sha }})"
         run: node scripts/asc-distribute.mjs
       - name: Upload IPA artifact
         if: always()
@@ -232,14 +296,16 @@ jobs:
 
   testflight-mac:
     runs-on: macos-26
-    needs: build
-    # Same rule as the iOS lane — only a published release uploads. This lane
+    needs: [build, edge]
+    # Same lanes as iOS (edge and release; no manual upload). This lane
     # archives the Mac Catalyst build and uploads it to the SAME app's macOS
     # platform (DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER=NO keeps the bundle
     # id). Dormant until the Mac signing assets exist: set the repo VARIABLE
     # MAC_TESTFLIGHT_ENABLED=true once the MAC_* secrets below are in place, so
     # releases don't go red before Mac distribution is set up.
-    if: github.event_name == 'release' && vars.MAC_TESTFLIGHT_ENABLED == 'true'
+    if: >-
+      !cancelled() && needs.build.result == 'success' && vars.MAC_TESTFLIGHT_ENABLED == 'true' && (
+        github.event_name == 'release' || needs.edge.outputs.ship == 'true')
     env:
       APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
@@ -250,7 +316,7 @@ jobs:
       - name: Resolve release version
         working-directory: apps/ios
         run: |
-          TAG="${{ github.event.release.tag_name }}"
+          TAG="${{ github.event.release.tag_name || needs.edge.outputs.version }}"
           MARKETING_VERSION="${TAG#v}"
           case "$MARKETING_VERSION" in
             [0-9]*.[0-9]*.[0-9]*) ;;
@@ -331,7 +397,31 @@ jobs:
             --sign "$INSTALLER_ID" \
             --component "$APP" /Applications \
             build/export-mac/Rawkoon.pkg
+      # An edge build uploads only while main has nothing newer for the app: a later push
+      # that changed it has its own run, and a version bump has its release. Otherwise an
+      # older build could reach testers after a newer one.
+      - name: Check main has nothing newer for the app
+        id: fresh
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          UPLOAD=true
+          if [ "$EVENT" = push ]; then
+            git fetch --quiet --depth=1 origin main
+            OURS="$(jq -r .version package.json)"
+            THEIRS="$(git show FETCH_HEAD:package.json | jq -r .version)"
+            if [ "$OURS" != "$THEIRS" ]; then
+              echo "main is on $THEIRS now; its release uploads it"
+              UPLOAD=false
+            elif ! git diff --quiet HEAD FETCH_HEAD -- apps/ios .github/workflows/ios.yml; then
+              echo "main has newer app changes; their run uploads them"
+              UPLOAD=false
+            fi
+          fi
+          echo "upload=$UPLOAD" >> "$GITHUB_OUTPUT"
       - name: Upload to TestFlight (macOS)
+        if: steps.fresh.outputs.upload == 'true'
         working-directory: apps/ios
         run: |
           PKG_PATH=""

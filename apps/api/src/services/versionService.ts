@@ -31,6 +31,12 @@ function isReleaseVersion(version: string): boolean {
   return !version.startsWith("0.0.0-dev");
 }
 
+// Edge builds (every green push to main) carry a `-main.N` suffix; only a
+// release is worth telling users about.
+export function isEdgeVersion(version: string): boolean {
+  return /-main\.\d+$/.test(version);
+}
+
 async function getStoredAppVersion(): Promise<string | null> {
   return await getJsonCache<string>(APP_VERSION_KEY);
 }
@@ -107,7 +113,9 @@ export async function checkAndNotifyVersionChange(): Promise<void> {
         `First startup or Valkey empty. Storing current version and notifying: ${currentVersion}`,
       );
       await storeAppVersion(currentVersion);
-      await sendAppUpdateNotifications(currentVersion);
+      if (!isEdgeVersion(currentVersion)) {
+        await sendAppUpdateNotifications(currentVersion);
+      }
       return;
     }
 
@@ -119,7 +127,9 @@ export async function checkAndNotifyVersionChange(): Promise<void> {
         type: "app_updated",
         payload: { from_version: storedVersion, to_version: currentVersion },
       });
-      await sendAppUpdateNotifications(currentVersion);
+      if (!isEdgeVersion(currentVersion)) {
+        await sendAppUpdateNotifications(currentVersion);
+      }
       await storeAppVersion(currentVersion);
     } else {
       console.log(`App version unchanged: ${currentVersion}`);
