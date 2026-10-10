@@ -36,6 +36,8 @@ struct SwipeDeck: View {
     /// True while the top card is flying off-screen: locks input so a second
     /// gesture can't commit the same or next card mid-exit.
     @State private var isFlinging = false
+    /// False until this batch's opening deal; `.id(deckBatch)` gives each batch a fresh deck, so it deals once.
+    @State private var dealt = false
 
     private enum Action { case dismiss, primary, watchlist }
 
@@ -82,6 +84,8 @@ struct SwipeDeck: View {
         .focusEffectDisabled()
         .focused($deckFocused)
         .onAppear { deckFocused = true }
+        // After the first frame, so the cards start below their slots; a return from detail finds `dealt` already true.
+        .task { dealt = true }
         .onKeyPress(.leftArrow) { keyAct(.dismiss) }
         .onKeyPress(.rightArrow) { keyAct(.primary) }
         .onKeyPress(.upArrow) { keyAct(.watchlist) }
@@ -168,6 +172,10 @@ struct SwipeDeck: View {
         let live = item.id == controlledId && !reduceMotion ? dragOffset : .zero
         // Cap so a fast fling doesn't over-rotate; a drag never reaches the cap.
         let angle = max(-40, min(40, live.width / 18))
+        // Before the deal a card waits below its slot, tilted; under Reduce Motion it only fades in.
+        let undealt = !dealt && !reduceMotion
+        let dealTilt = undealt ? DeckDeal.startAngle(stackIndex: stackIndex) : 0
+        let dealDelay = DeckDeal.delay(stackIndex: stackIndex, visibleCount: visibleItems.count)
 
         DeckCardView(item: item, label: label, posterURL: model.absoluteURL(item.posterUrl))
             .overlay {
@@ -183,7 +191,10 @@ struct SwipeDeck: View {
             // The top card's live translation is applied without any persistent
             // animation modifier, so it tracks the finger exactly.
             .offset(live)
-            .rotationEffect(.degrees(Double(angle)))
+            .rotationEffect(.degrees(Double(angle) + dealTilt))
+            .offset(y: undealt ? DeckDeal.rise : 0)
+            .opacity(dealt ? 1 : 0)
+            .rawkoonMotion(RawkoonMotion.spring.delay(dealDelay), value: dealt)
             .zIndex(isTop ? 1 : 0)
             .allowsHitTesting(isTop && !isFlinging)
             .contentShape(Rectangle())
@@ -387,5 +398,24 @@ struct SwipeDeck: View {
         if items.isEmpty {
             onExhausted()
         }
+    }
+}
+
+/// The deck's opening deal: each card rises from below its slot, back card first, so the top card lands last.
+nonisolated enum DeckDeal {
+    /// How far below its slot a card starts.
+    static let rise: CGFloat = 360
+    /// The gap between two cards landing.
+    static let step: Double = 0.06
+
+    /// Back card first; capped at the three visible cards so the deal never drags.
+    static func delay(stackIndex: Int, visibleCount: Int) -> Double {
+        let fromBack = min(max(visibleCount - 1 - stackIndex, 0), 2)
+        return Double(fromBack) * step
+    }
+
+    /// A small alternating tilt that settles flat, so the cards read as dealt by hand.
+    static func startAngle(stackIndex: Int) -> Double {
+        stackIndex.isMultiple(of: 2) ? -5 : 5
     }
 }

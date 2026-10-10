@@ -30,6 +30,24 @@ struct DiscoverView: View {
     /// Cards still in the current batch before a prefetch kicks off.
     private let prefetchThreshold = 5
 
+    /// Which of `deckContent`'s branches shows, so switching between them crossfades.
+    private enum DeckPhase {
+        case deck, loading, offline, failed, empty
+    }
+
+    private var deckPhase: DeckPhase {
+        if !deckItems.isEmpty {
+            return .deck
+        }
+        if deckLoading {
+            return .loading
+        }
+        if deckError != nil {
+            return model.isOffline ? .offline : .failed
+        }
+        return .empty
+    }
+
     var body: some View {
         phoneScroll
             .background(Theme.base)
@@ -71,6 +89,7 @@ struct DiscoverView: View {
             deckContent
         }
         .padding(.top, 12)
+        .rawkoonMotion(RawkoonMotion.spring, value: deckPhase)
     }
 
     // MARK: Search field
@@ -91,6 +110,7 @@ struct DiscoverView: View {
                 onOpen: { openDeckItem = $0 }
             )
             .id(deckBatch)
+            .transition(.rawkoonSwap)
         } else if deckLoading {
             ShimmerView(cornerRadius: 16)
                 .aspectRatio(2.0 / 3.0, contentMode: .fit)
@@ -98,6 +118,7 @@ struct DiscoverView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, 28)
                 .allowsHitTesting(false)
+                .transition(.rawkoonSwap)
         } else if model.isOffline, deckError != nil {
             ContentUnavailableView(
                 "You're offline",
@@ -106,6 +127,7 @@ struct DiscoverView: View {
             )
             .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
+            .transition(.rawkoonSwap)
         } else if let deckError {
             ContentUnavailableView(
                 "Couldn't load Discover",
@@ -114,6 +136,7 @@ struct DiscoverView: View {
             )
             .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
+            .transition(.rawkoonSwap)
         } else {
             ContentUnavailableView(
                 "Nothing to show yet",
@@ -122,6 +145,7 @@ struct DiscoverView: View {
             )
             .rawkoonLivingSymbol(.empty)
             .padding(.top, 28)
+            .transition(.rawkoonSwap)
         }
     }
 
