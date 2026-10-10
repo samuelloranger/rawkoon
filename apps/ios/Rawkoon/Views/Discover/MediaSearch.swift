@@ -160,6 +160,7 @@ struct MediaSearchResults: View {
                 systemImage: "wifi.slash",
                 description: Text("Search needs a connection.")
             )
+            .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
         } else if let searchError {
             ContentUnavailableView(
@@ -167,6 +168,7 @@ struct MediaSearchResults: View {
                 systemImage: "wifi.slash",
                 description: Text(searchError)
             )
+            .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
         } else if searchResults.isEmpty, bookResults.isEmpty {
             ContentUnavailableView(
@@ -174,6 +176,7 @@ struct MediaSearchResults: View {
                 systemImage: "magnifyingglass",
                 description: Text("Try a different title.")
             )
+            .rawkoonLivingSymbol(.empty)
             .padding(.top, 28)
         } else {
             VStack(alignment: .leading, spacing: 20) {
@@ -210,7 +213,7 @@ struct MediaSearchResults: View {
                                 posterCard(item, fixedWidth: nil)
                                     .matchedTransitionSource(id: zoomID, in: zoomNamespace)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.rawkoonPressable)
                             .rawkoonScrollSettle()
                         }
                     }
@@ -232,7 +235,7 @@ struct MediaSearchResults: View {
                 } label: {
                     bookSearchLabel(hit)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.rawkoonPressable(scale: 0.98))
             } else {
                 bookSearchLabel(hit)
             }

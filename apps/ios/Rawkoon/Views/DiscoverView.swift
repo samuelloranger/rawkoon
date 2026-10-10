@@ -103,6 +103,7 @@ struct DiscoverView: View {
                 systemImage: "wifi.slash",
                 description: Text("This will load when you're back online.")
             )
+            .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
         } else if let deckError {
             ContentUnavailableView(
@@ -110,6 +111,7 @@ struct DiscoverView: View {
                 systemImage: "wifi.slash",
                 description: Text(deckError)
             )
+            .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
         } else {
             ContentUnavailableView(
@@ -117,6 +119,7 @@ struct DiscoverView: View {
                 systemImage: "sparkles.rectangle.stack",
                 description: Text("Check back soon for new releases.")
             )
+            .rawkoonLivingSymbol(.empty)
             .padding(.top, 28)
         }
     }

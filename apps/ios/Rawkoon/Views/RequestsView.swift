@@ -111,6 +111,7 @@ struct RequestsView: View {
                 systemImage: "wifi.slash",
                 description: Text("This will load when you're back online.")
             )
+            .rawkoonLivingSymbol(.error)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let errorMessage, requests.isEmpty {
             ContentUnavailableView(
@@ -118,6 +119,7 @@ struct RequestsView: View {
                 systemImage: "exclamationmark.triangle",
                 description: Text(errorMessage)
             )
+            .rawkoonLivingSymbol(.error)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if visibleRequests.isEmpty {
             ContentUnavailableView(
@@ -125,6 +127,7 @@ struct RequestsView: View {
                 systemImage: "tray",
                 description: Text(LocalizedStringKey(filter == .pending ? "No pending requests. Request a title from Discover." : "No requests yet."))
             )
+            .rawkoonLivingSymbol(.empty)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             List {

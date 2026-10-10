@@ -49,6 +49,7 @@ struct WatchlistView: View {
                 systemImage: "wifi.slash",
                 description: Text("This will load when you're back online.")
             )
+            .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
         } else if items.isEmpty, let error {
             ContentUnavailableView(
@@ -56,6 +57,7 @@ struct WatchlistView: View {
                 systemImage: "wifi.slash",
                 description: Text(error)
             )
+            .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
         } else if items.isEmpty {
             ContentUnavailableView(
@@ -63,6 +65,7 @@ struct WatchlistView: View {
                 systemImage: "bookmark",
                 description: Text("Bookmark a movie or show and it will wait here.")
             )
+            .rawkoonLivingSymbol(.empty)
             .padding(.top, 28)
         } else {
             grid
@@ -83,7 +86,7 @@ struct WatchlistView: View {
                 } label: {
                     MediaPosterCard(title: item.title, posterURL: model.absoluteURL(item.posterUrl))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.rawkoonPressable)
                 .contextMenu {
                     Button(role: .destructive) {
                         Task { await remove(item) }

@@ -196,6 +196,7 @@ struct ActivityView: View {
                 systemImage: "arrow.down.circle",
                 description: Text("The queue is empty right now.")
             )
+            .rawkoonLivingSymbol(.empty)
             .frame(maxWidth: .infinity, minHeight: 420)
         } else {
             VStack(spacing: 12) {
@@ -396,6 +397,7 @@ struct ActivityView: View {
                     systemImage: "clock.arrow.circlepath",
                     description: Text("Nothing has happened yet.")
                 )
+                .rawkoonLivingSymbol(.empty)
                 .frame(maxWidth: .infinity, minHeight: 360)
             } else {
                 historyList
@@ -654,6 +656,7 @@ struct ActivityView: View {
                 systemImage: "calendar",
                 description: Text("No known releases on the horizon.")
             )
+            .rawkoonLivingSymbol(.empty)
             .frame(maxWidth: .infinity, minHeight: 420)
         } else {
             LazyVStack(spacing: 8) {
@@ -759,6 +762,7 @@ struct ActivityView: View {
                 systemImage: "wifi.slash",
                 description: Text("This will load when you're back online.")
             )
+            .rawkoonLivingSymbol(.error)
             .frame(maxWidth: .infinity, minHeight: 420)
         } else {
             ContentUnavailableView(
@@ -766,6 +770,7 @@ struct ActivityView: View {
                 systemImage: "exclamationmark.triangle",
                 description: Text(text)
             )
+            .rawkoonLivingSymbol(.error)
             .frame(maxWidth: .infinity, minHeight: 420)
         }
     }

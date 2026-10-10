@@ -15,6 +15,7 @@ struct ReleasesAdminView: View {
         Group {
             if !model.isAdmin {
                 ContentUnavailableView("Admin only", systemImage: "lock")
+                    .rawkoonLivingSymbol(.empty)
             } else {
                 content
             }
@@ -115,6 +116,7 @@ struct JobsAdminView: View {
         Group {
             if !model.isAdmin {
                 ContentUnavailableView("Admin only", systemImage: "lock")
+                    .rawkoonLivingSymbol(.empty)
             } else {
                 content
             }

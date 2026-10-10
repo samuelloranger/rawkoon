@@ -87,7 +87,7 @@ struct ContinueListeningView: View {
                         } label: {
                             row(item)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.rawkoonPressable(scale: 0.98))
                         .disabled(openingID != nil || busyIds.contains(item.id))
                         .bookCardContextMenu(
                             items: menuItems(for: item),

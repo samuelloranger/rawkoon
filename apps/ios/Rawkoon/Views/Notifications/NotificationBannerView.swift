@@ -68,6 +68,7 @@ struct NotificationBannerView: View {
             } else if dragOffset < -40 || predictedEnd < -80 {
                 flingAway()
             } else {
+                // motion-ok: already gates on Reduce Motion here
                 withAnimation(reduceMotion ? RawkoonMotion.reduced : RawkoonMotion.snappy) { dragOffset = 0 }
                 model.releaseBanner()
             }
@@ -94,9 +95,11 @@ struct NotificationBannerView: View {
             }
         }
         if reduceMotion {
+            // motion-ok: already gates on Reduce Motion here
             withAnimation(RawkoonMotion.reduced) { dismissIfStillShown() }
             return
         }
+        // motion-ok: already gates on Reduce Motion here
         withAnimation(RawkoonMotion.deckFling) {
             dragOffset = -(bottomEdge + 20)
         } completion: {

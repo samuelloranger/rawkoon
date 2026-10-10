@@ -387,6 +387,7 @@ struct MediaDetailView: View {
                 systemImage: "exclamationmark.triangle",
                 description: Text(errorMessage)
             )
+            .rawkoonLivingSymbol(.error)
             .padding(.top, 28)
         } else {
             // Hero + primary action stay pinned above the segmented content, the
@@ -426,7 +427,7 @@ struct MediaDetailView: View {
             ForEach(availableTabs) { tab in
                 let isActive = activeTab == tab
                 Button {
-                    withAnimation(.easeInOut(duration: 0.15)) { detailTab = tab }
+                    withRawkoonMotion(.easeInOut(duration: 0.15)) { detailTab = tab }
                 } label: {
                     VStack(spacing: 6) {
                         Label(tab.label, systemImage: tab.systemImage)
@@ -721,7 +722,7 @@ struct MediaDetailView: View {
                 }
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.rawkoonPressable)
     }
 
     // MARK: Meta

@@ -25,6 +25,7 @@ struct ShimmerView: View {
             }
             .onAppear {
                 guard !reduceMotion else { return }
+                // motion-ok: already gates on Reduce Motion here
                 withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
                     phase = 1
                 }

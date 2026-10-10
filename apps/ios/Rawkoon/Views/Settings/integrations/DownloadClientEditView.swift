@@ -56,6 +56,7 @@ struct DownloadClientEditView: View {
         Group {
             if !model.isAdmin {
                 ContentUnavailableView("Admin only", systemImage: "lock")
+                    .rawkoonLivingSymbol(.empty)
             } else {
                 form
             }

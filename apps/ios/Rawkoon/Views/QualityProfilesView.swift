@@ -20,6 +20,7 @@ struct QualityProfilesView: View {
                     systemImage: "slider.horizontal.3",
                     description: Text("No quality profiles are configured on this server.")
                 )
+                .rawkoonLivingSymbol(.empty)
             } else {
                 VStack(spacing: 0) {
                     List {
@@ -89,6 +90,7 @@ struct QualityProfilesView: View {
             systemImage: "exclamationmark.triangle",
             description: Text(text)
         )
+        .rawkoonLivingSymbol(.error)
         .padding(.top, 28)
     }
 

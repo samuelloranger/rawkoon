@@ -70,15 +70,18 @@ struct BookReleaseSearchView: View {
             centered {
                 ContentUnavailableView("Offline", systemImage: "wifi.slash",
                                        description: Text("Release search needs a connection."))
+                    .rawkoonLivingSymbol(.error)
             }
         } else if let errorMessage, releases.isEmpty {
             centered {
                 ContentUnavailableView("Search failed", systemImage: "wifi.slash", description: Text(errorMessage))
+                    .rawkoonLivingSymbol(.error)
             }
         } else if visibleReleases.isEmpty {
             centered {
                 ContentUnavailableView("No releases", systemImage: "magnifyingglass",
                                        description: Text("Nothing grabbable found for this book."))
+                    .rawkoonLivingSymbol(.empty)
             }
         } else {
             if let grabError {

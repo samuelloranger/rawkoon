@@ -453,7 +453,7 @@ struct LibraryView: View {
                             }
                             .matchedTransitionSource(id: zoomID, in: zoomNamespace)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.rawkoonPressable)
                         .disabled(!LibraryRowPresentation(media: m).isInteractive)
                         .rawkoonScrollSettle()
                     }
@@ -468,6 +468,7 @@ struct LibraryView: View {
         }
         .reportsTabBarScroll()
         .overlay { mediaOverlay }
+        // motion-ok: listMotion already resolves Reduce Motion
         .animation(listMotion, value: mediaAnimationToken)
         .refreshable { await loadMedia(reset: true) }
     }
@@ -519,8 +520,10 @@ struct LibraryView: View {
             }
         } else if let mediaError, media.isEmpty {
             ContentUnavailableView("Couldn't load", systemImage: "exclamationmark.triangle", description: Text(mediaError))
+                .rawkoonLivingSymbol(.error)
         } else if !loadingMedia, mediaError == nil, media.isEmpty {
             ContentUnavailableView("No titles", systemImage: "film", description: Text("Nothing matches these filters."))
+                .rawkoonLivingSymbol(.empty)
         }
     }
 
@@ -591,7 +594,7 @@ struct LibraryView: View {
                         )
                         .matchedTransitionSource(id: zoomID, in: zoomNamespace)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.rawkoonPressable(scale: 0.98))
                     .disabled(!LibraryRowPresentation(media: m).isInteractive)
                     .rawkoonScrollSettle()
                 }
@@ -605,6 +608,7 @@ struct LibraryView: View {
         }
         .reportsTabBarScroll()
         .overlay { mediaOverlay }
+        // motion-ok: listMotion already resolves Reduce Motion
         .animation(listMotion, value: mediaAnimationToken)
         .refreshable { await loadMedia(reset: true) }
     }
@@ -647,7 +651,7 @@ struct LibraryView: View {
                 }
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.rawkoonPressable(scale: 0.98))
         .rawkoonScrollSettle()
     }
 
@@ -680,8 +684,10 @@ struct LibraryView: View {
                         .buttonStyle(.bordered)
                         .tint(Theme.apricot)
                 }
+                .rawkoonLivingSymbol(.error)
             } else if !model.loading, filteredBooks.isEmpty {
                 ContentUnavailableView("No books", systemImage: "books.vertical", description: Text("Books added on your server show up here."))
+                    .rawkoonLivingSymbol(.empty)
             }
         }
         .refreshable { await loadBooks() }

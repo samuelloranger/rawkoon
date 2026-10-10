@@ -81,6 +81,8 @@ jobs:
         working-directory: apps/ios
       - run: python3 scripts/check-env-inject.py
         working-directory: apps/ios
+      - run: python3 scripts/check-raw-animation.py
+        working-directory: apps/ios
       - run: swiftformat Rawkoon RawkoonTests RawkoonWidgets WidgetSupport Sources Tests --lint
         working-directory: apps/ios
       - run: swiftlint lint

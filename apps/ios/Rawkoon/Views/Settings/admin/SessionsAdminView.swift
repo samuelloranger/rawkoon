@@ -16,6 +16,7 @@ struct SessionsAdminView: View {
         Group {
             if !model.isAdmin {
                 ContentUnavailableView("Admin only", systemImage: "lock")
+                    .rawkoonLivingSymbol(.empty)
             } else {
                 content
             }
@@ -165,6 +166,7 @@ struct ApiKeysAdminView: View {
         Group {
             if !model.isAdmin {
                 ContentUnavailableView("Admin only", systemImage: "lock")
+                    .rawkoonLivingSymbol(.empty)
             } else {
                 content
             }
@@ -325,6 +327,7 @@ struct BlocklistAdminView: View {
         Group {
             if !model.isAdmin {
                 ContentUnavailableView("Admin only", systemImage: "lock")
+                    .rawkoonLivingSymbol(.empty)
             } else {
                 content
             }

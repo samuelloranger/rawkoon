@@ -1,4 +1,5 @@
 #if DEBUG
+    // motion-ok-file: debug-only harness
     import RawkoonKit
     import SwiftUI
 
@@ -52,6 +53,8 @@
                         alreadyInLibrary: false
                     ))
                 }
+            case "motionKit":
+                DebugMotionGallery()
             default:
                 featureView(for: screen)
             }
@@ -97,7 +100,7 @@
                 "player", "playerNoChapters", "deck", "orderedSources",
                 "bookDiscoveryDetail", "tabBar", "tabContainer", "aiConfig", "aiPrices", "aiUsage", "aiStats", "aiCharts",
                 "aiGrabs", "aiHistory", "aiCallDetail", "aiBanner", "aiBannerBudget",
-                "autoSearchIdle", "autoSearchBusy", "upgradeDialog",
+                "autoSearchIdle", "autoSearchBusy", "upgradeDialog", "motionKit",
             ].contains(screen)
         }
     }

@@ -507,11 +507,11 @@ struct BookView: View {
     /// The card used to flip to "Downloaded"; a glyph swap alone is easy to miss,
     /// so the finish gets a haptic and a brief green check.
     private func announceDownloadFinished() {
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-        withAnimation(.spring(duration: 0.35)) { showDownloadFinished = true }
+        RawkoonHaptics.play(.downloadComplete)
+        withRawkoonMotion(.spring(duration: 0.35)) { showDownloadFinished = true }
         Task {
             try? await Task.sleep(for: .seconds(1.8))
-            withAnimation(.easeOut(duration: 0.3)) { showDownloadFinished = false }
+            withRawkoonMotion(.easeOut(duration: 0.3)) { showDownloadFinished = false }
         }
     }
 
@@ -702,7 +702,7 @@ struct BookView: View {
                                     }
                                 )
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.rawkoonPressable(scale: 0.98))
                         }
                     }
                 }

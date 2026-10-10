@@ -109,6 +109,7 @@ struct BookDiscoveryView: View {
                 systemImage: "wifi.slash",
                 description: Text("This will load when you're back online.")
             )
+            .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
         } else if items.isEmpty, let error {
             ContentUnavailableView(
@@ -116,12 +117,14 @@ struct BookDiscoveryView: View {
                 systemImage: "wifi.slash",
                 description: Text(error)
             )
+            .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
         } else if items.isEmpty {
             ContentUnavailableView(
                 "No books to show right now",
                 systemImage: "books.vertical"
             )
+            .rawkoonLivingSymbol(.empty)
             .padding(.top, 28)
         } else {
             LazyVGrid(columns: gridColumns, spacing: 14) {
@@ -131,7 +134,7 @@ struct BookDiscoveryView: View {
                     } label: {
                         posterCard(book)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.rawkoonPressable)
                 }
             }
             .padding(.horizontal, 16)

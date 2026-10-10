@@ -50,7 +50,7 @@ struct PhoneTabsView<Root: View>: View {
             if model.isOffline {
                 OfflineStrip()
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { offlineStripHeight = $0 }
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .transition(.rawkoonEdge(.top))
             }
         }
         .rawkoonMotion(RawkoonMotion.spring, value: model.isOffline)
@@ -107,11 +107,12 @@ struct PhoneTabsView<Root: View>: View {
                     .background(Capsule().fill(Theme.raised))
                     .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
                     .shadow(color: .black.opacity(0.4), radius: 12, y: 6)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(.rawkoonEdge(.bottom))
             }
         }
         .padding(.horizontal, insets.margin)
         .padding(.bottom, 4)
+        .rawkoonMotion(RawkoonMotion.spring, value: hasActiveBook)
     }
 }
 

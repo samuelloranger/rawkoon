@@ -25,7 +25,7 @@ final class TabBarChrome {
 
     private func sync() {
         guard scroll.isCollapsed != isCollapsed else { return }
-        withAnimation(.spring(duration: 0.35)) { isCollapsed = scroll.isCollapsed }
+        withRawkoonMotion(.spring(duration: 0.35)) { isCollapsed = scroll.isCollapsed }
     }
 }
 
