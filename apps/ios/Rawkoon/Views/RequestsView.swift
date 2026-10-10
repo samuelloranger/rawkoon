@@ -158,11 +158,9 @@ struct RequestsView: View {
         List {
             ForEach(visibleRequests) { req in
                 row(req)
-                    .rawkoonEntrance(id: req.id)
                     .listRowBackground(Theme.raised)
             }
         }
-        .rawkoonEntranceScope()
         // An approved or denied request leaves the Pending list with an animation; so does a filter switch.
         .rawkoonMotion(RawkoonMotion.spring, value: visibleRequests.map(\.id))
         .listStyle(.plain)

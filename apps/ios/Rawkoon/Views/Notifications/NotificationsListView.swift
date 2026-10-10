@@ -117,7 +117,6 @@ struct NotificationsListView: View {
         List {
             ForEach(notifications) { notification in
                 row(notification)
-                    .rawkoonEntrance(id: notification.id)
                     .listRowBackground(Theme.raised)
                     .listRowSeparator(.hidden)
                     .swipeActions(edge: .trailing) {
@@ -133,7 +132,6 @@ struct NotificationsListView: View {
                 loadMoreRow
             }
         }
-        .rawkoonEntranceScope()
         // Arrivals, deletions and pages animate in and out of the list.
         .rawkoonMotion(RawkoonMotion.spring, value: notifications.map(\.id))
         .reportsTabBarScroll()
@@ -176,13 +174,12 @@ struct NotificationsListView: View {
                         .foregroundStyle(Theme.faint)
                 }
                 Spacer(minLength: 0)
-                if !notification.read {
-                    Circle().fill(Theme.apricot).frame(width: 8, height: 8).padding(.top, 4)
-                        .transition(.rawkoonPop)
-                }
+                // Always laid out so the text never shifts when a row is read; only its opacity changes.
+                Circle().fill(Theme.apricot).frame(width: 8, height: 8).padding(.top, 4)
+                    .opacity(notification.read ? 0 : 1)
+                    .rawkoonMotion(RawkoonMotion.snappy, value: notification.read)
             }
             .padding(.vertical, 4)
-            .rawkoonMotion(RawkoonMotion.snappy, value: notification.read)
         }
         .buttonStyle(.plain)
     }
