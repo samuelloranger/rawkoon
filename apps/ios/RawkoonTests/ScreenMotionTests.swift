@@ -69,4 +69,16 @@ struct ScreenMotionTests {
         #expect(SignInFace.face(loading: true, signedIn: false) == .loading)
         #expect(SignInFace.face(loading: false, signedIn: false) == .idle)
     }
+
+    @Test func connectionTestPlaysOneHapticPerResult() {
+        #expect(TestOutcome.success(nil).haptic == .success)
+        #expect(TestOutcome.success("Connected").haptic == .success)
+        #expect(TestOutcome.failure("Could not connect.").haptic == .error)
+    }
+
+    @Test func connectionTestStateFollowsTheOutcome() {
+        #expect(TestConnectionButton.TestState(.success("ok")) == .ok("ok"))
+        #expect(TestConnectionButton.TestState(.success(nil)) == .ok(nil))
+        #expect(TestConnectionButton.TestState(.failure("no")) == .failed("no"))
+    }
 }
