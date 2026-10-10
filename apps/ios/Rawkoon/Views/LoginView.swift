@@ -26,8 +26,6 @@ struct LoginView: View {
         // A lingering Login after the session opened must not start a second sign-in.
         guard fieldsReady, !model.loading, !model.isLoggedIn else { return }
         signInAttempted = true
-        // Drop the keyboard before the tabs mount under it.
-        loginFocus = nil
         Task { await model.login(server: model.serverURL, email: email, password: password) }
     }
 
@@ -55,6 +53,10 @@ struct LoginView: View {
                 .rawkoonShake(trigger: model.errorMessage, when: { _, new in new != nil && !signedIn })
             }
             .task { await model.loadSsoProviders() }
+            // Drop the keyboard once the session opens, not on a failed attempt.
+            .onChange(of: model.isLoggedIn) { _, signedIn in
+                if signedIn { loginFocus = nil }
+            }
             .onChange(of: model.serverURL) { _, _ in
                 Task { await model.loadSsoProviders() }
             }
