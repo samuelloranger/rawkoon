@@ -176,6 +176,12 @@ struct RawkoonApp: App {
                     // A lingering Login must not take taps or start a second sign-in.
                     .allowsHitTesting(!model.isLoggedIn)
                     .accessibilityHidden(model.isLoggedIn)
+                    // Absorbs taps during the hold so they can't reach the tabs fading in underneath.
+                    .overlay {
+                        if model.isLoggedIn {
+                            Color.clear.contentShape(Rectangle()).accessibilityHidden(true)
+                        }
+                    }
             }
         }
         .rawkoonMotion(RawkoonMotion.gentle, value: showsLogin)
