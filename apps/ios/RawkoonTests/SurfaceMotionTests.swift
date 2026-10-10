@@ -40,12 +40,15 @@ struct SurfaceMotionTests {
     }
 
     @Test func downloadSheenRunsOnlyWhileBytesArrive() {
-        #expect(DownloadMotion.isRunning(state: "downloading"))
-        #expect(DownloadMotion.isRunning(state: "Downloading"))
-        #expect(!DownloadMotion.isRunning(state: "paused"))
-        #expect(!DownloadMotion.isRunning(state: "stalled"))
-        #expect(!DownloadMotion.isRunning(state: "completed"))
-        #expect(!DownloadMotion.isRunning(state: "error"))
+        #expect(DownloadMotion.isRunning(state: "downloading", speed: 1024))
+        #expect(DownloadMotion.isRunning(state: "Downloading", speed: 1))
+        #expect(!DownloadMotion.isRunning(state: "downloading", speed: 0))
+        #expect(!DownloadMotion.isRunning(state: "downloading", speed: .nan))
+        #expect(!DownloadMotion.isRunning(state: "downloading", speed: .infinity))
+        #expect(!DownloadMotion.isRunning(state: "paused", speed: 1024))
+        #expect(!DownloadMotion.isRunning(state: "stalled", speed: 1024))
+        #expect(!DownloadMotion.isRunning(state: "completed", speed: 1024))
+        #expect(!DownloadMotion.isRunning(state: "error", speed: 1024))
     }
 
     @Test func downloadCompletionMatchesTheSeedingPhase() {

@@ -337,7 +337,7 @@ struct ActivityView: View {
                 }
             }
 
-            DuskProgress(value: row.live.progress, isActive: DownloadMotion.isRunning(state: row.live.state))
+            DuskProgress(value: row.live.progress, isActive: DownloadMotion.isRunning(state: row.live.state, speed: row.live.downloadSpeed))
 
             HStack(spacing: 10) {
                 Text("↓ \(Formatters.speed(row.live.downloadSpeed, useAll: true))")
