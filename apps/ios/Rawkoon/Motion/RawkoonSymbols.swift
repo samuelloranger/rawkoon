@@ -53,13 +53,16 @@ private struct BounceOnInsert: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let armed: Bool
     @State private var bounces = 0
+    /// A re-appearing view (popping back) must not bounce the same glyph again.
+    @State private var didBounce = false
 
     func body(content: Content) -> some View {
         content
             .symbolEffect(.bounce, value: bounces)
             // A task, not onAppear, so the effect sees the change once the symbol is on screen.
             .task {
-                guard armed, !reduceMotion else { return }
+                guard armed, !didBounce, !reduceMotion else { return }
+                didBounce = true
                 bounces += 1
             }
     }
