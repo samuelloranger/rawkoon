@@ -52,6 +52,8 @@ struct DetailSeasonsSection: View {
                     seasonBlock(season)
                 }
             }
+            // Keyed here, not per block, so the seasons below an opening one glide down with it.
+            .rawkoonMotion(RawkoonMotion.snappy, value: expanded)
         }
         .padding(.horizontal, 16)
     }
@@ -69,9 +71,11 @@ struct DetailSeasonsSection: View {
                     toggle(season.seasonNumber)
                 } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        // One glyph turned a quarter, so opening reads as a rotation rather than a swap.
+                        Image(systemName: "chevron.right")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(Theme.faint)
+                            .rotationEffect(.degrees(isExpanded ? 90 : 0))
                         Text(season.name)
                             .font(.subheadline.weight(.medium))
                             .foregroundStyle(Theme.textStrong)
@@ -79,6 +83,7 @@ struct DetailSeasonsSection: View {
                         Text(countLabel(downloaded: downloaded, total: total, season: season))
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(Theme.muted)
+                            .rawkoonNumeric(Double(downloaded))
                     }
                     .contentShape(Rectangle())
                 }
@@ -94,22 +99,29 @@ struct DetailSeasonsSection: View {
             }
 
             if isExpanded {
-                let files = filesBySeason[season.seasonNumber] ?? []
-                let filesByEp = Dictionary(grouping: files.filter { $0.episode != nil }, by: { $0.episode! })
-                mergedEpisodeList(episodes, filesByEp: filesByEp, canManage: canManage)
-                let orphans = files.filter { file in
-                    guard let ep = file.episode else { return true }
-                    return !episodes.contains { $0.episode == ep }
-                }
-                if !orphans.isEmpty {
-                    otherFilesList(orphans)
-                }
+                expandedSeason(season, episodes: episodes, canManage: canManage)
+                    .transition(.rawkoonReveal)
             }
         }
         .padding(12)
         .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border, lineWidth: 1))
-        .rawkoonMotion(RawkoonMotion.snappy, value: isExpanded)
+    }
+
+    /// The season's episodes and stray files as one block, so they reveal together.
+    private func expandedSeason(_ season: SeasonSummary, episodes: [Episode], canManage: Bool) -> some View {
+        let files = filesBySeason[season.seasonNumber] ?? []
+        let filesByEp = Dictionary(grouping: files.filter { $0.episode != nil }, by: { $0.episode! })
+        let orphans = files.filter { file in
+            guard let ep = file.episode else { return true }
+            return !episodes.contains { $0.episode == ep }
+        }
+        return VStack(alignment: .leading, spacing: 8) {
+            mergedEpisodeList(episodes, filesByEp: filesByEp, canManage: canManage)
+            if !orphans.isEmpty {
+                otherFilesList(orphans)
+            }
+        }
     }
 
     private func countLabel(downloaded: Int, total: Int, season: SeasonSummary) -> String {
