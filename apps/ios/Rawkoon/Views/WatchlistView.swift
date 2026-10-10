@@ -101,7 +101,10 @@ struct WatchlistView: View {
     private var grid: some View {
         LazyVGrid(columns: gridColumns, spacing: 14) {
             ForEach(items) { item in
-                let zoomID = RawkoonZoom.media(tmdbId: item.tmdbId, mediaType: item.mediaType)
+                let zoomID = ZoomSourceKey.scoped(
+                    RawkoonZoom.media(tmdbId: item.tmdbId, mediaType: item.mediaType),
+                    in: "watchlist"
+                )
                 NavigationLink {
                     MediaDetailView(
                         tmdbId: item.tmdbId,

@@ -25,6 +25,11 @@ nonisolated enum ZoomSourceKey {
     static func id(_ id: String, inActiveTab: Bool) -> String {
         inActiveTab ? id : id + "#background"
     }
+
+    /// A context prefix stops a pushed screen's poster registering twice with the one beneath it.
+    static func scoped(_ id: String, in context: String) -> String {
+        context + "/" + id
+    }
 }
 
 private struct ZoomSourceModifier: ViewModifier {

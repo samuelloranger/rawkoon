@@ -105,4 +105,11 @@ struct RawkoonMotionTests {
         #expect(hidden == ZoomSourceKey.id("movie:42", inActiveTab: false))
         #expect(hidden != ZoomSourceKey.id("tv:42", inActiveTab: false))
     }
+
+    @Test func scopedZoomIdsDifferByContextAndRepeatWithinOne() {
+        let base = "movie:42"
+        #expect(ZoomSourceKey.scoped(base, in: "watchlist") == ZoomSourceKey.scoped(base, in: "watchlist"))
+        #expect(ZoomSourceKey.scoped(base, in: "watchlist") != ZoomSourceKey.scoped(base, in: "similar:movie:7"))
+        #expect(ZoomSourceKey.scoped(base, in: "watchlist") != base)
+    }
 }

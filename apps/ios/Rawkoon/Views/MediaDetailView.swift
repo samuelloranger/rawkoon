@@ -358,7 +358,7 @@ struct MediaDetailView: View {
                         posterPath: item.posterUrl,
                         libraryId: item.libraryId
                     )
-                    .rawkoonZoomDestination(RawkoonZoom.media(tmdbId: item.tmdbId, mediaType: item.mediaType))
+                    .rawkoonZoomDestination(similarZoomID(item))
                 }
             }
     }
@@ -699,8 +699,15 @@ struct MediaDetailView: View {
         }
     }
 
+    private func similarZoomID(_ item: TmdbSearchItem) -> RawkoonZoom.ID {
+        ZoomSourceKey.scoped(
+            RawkoonZoom.media(tmdbId: item.tmdbId, mediaType: item.mediaType),
+            in: "similar:\(mediaType):\(tmdbId)"
+        )
+    }
+
     func similarCard(_ item: TmdbSearchItem) -> some View {
-        let zoomID = RawkoonZoom.media(tmdbId: item.tmdbId, mediaType: item.mediaType)
+        let zoomID = similarZoomID(item)
         return NavigationLink {
             MediaDetailView(
                 tmdbId: item.tmdbId,
