@@ -352,6 +352,13 @@ private struct RootTabsView: View {
                 bottom: model.activeBook() == nil ? 0 : MiniPlayerInset.height,
                 mountedTabs: 0
             ))
+            // Kept-alive sidebar tabs share the zoom namespace; only the shown one registers plain ids.
+            .environment(\.isActiveRootTab, tab == shownTab)
+    }
+
+    /// The selection as shown: a tab absent at this width or role falls back instead of staying selected.
+    private var shownTab: RootTab {
+        RootTab.validated(selection.rawValue, compact: compact, isAdmin: model.isAdmin)
     }
 
     /// By device, not size class: an iPad window crossing compact width would
@@ -364,7 +371,7 @@ private struct RootTabsView: View {
         // Getter validates so a tab absent at this width can't stay selected
         // mid-render; setter stores the raw pick.
         let validSelection = Binding(
-            get: { RootTab.validated(selection.rawValue, compact: compact, isAdmin: model.isAdmin) },
+            get: { shownTab },
             set: { selection = $0 }
         )
         return Group {
