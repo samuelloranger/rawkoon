@@ -1,3 +1,4 @@
+import RawkoonKit
 import SwiftUI
 
 /// Filter state for `ExploreView` / `ExploreFilterSheet`. Provider and genre
@@ -302,6 +303,7 @@ struct ExploreView: View {
         VStack(spacing: 0) {
             LazyVGrid(columns: gridColumns, spacing: 14) {
                 ForEach(items) { item in
+                    let zoomID = RawkoonZoom.media(tmdbId: item.tmdbId, mediaType: item.mediaType)
                     NavigationLink {
                         MediaDetailView(
                             tmdbId: item.tmdbId,
@@ -310,8 +312,10 @@ struct ExploreView: View {
                             posterPath: item.posterUrl,
                             libraryId: item.libraryId
                         )
+                        .rawkoonZoomDestination(zoomID)
                     } label: {
                         posterCard(item)
+                            .rawkoonZoomSource(zoomID)
                     }
                     .buttonStyle(.rawkoonPressable)
                     .onAppear {

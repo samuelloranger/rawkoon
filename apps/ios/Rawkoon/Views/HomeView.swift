@@ -9,9 +9,6 @@ import SwiftUI
 struct HomeView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.isActiveRootTab) private var isActiveRootTab
-    /// Local namespace shared directly by each poster source and its detail
-    /// destination — the reliable pattern for the zoom transition.
-    @Namespace private var zoomNamespace
 
     @State private var recent: [LibraryMedia] = []
     @State private var upcoming: [UpcomingItem] = []
@@ -284,11 +281,11 @@ struct HomeView: View {
             NavigationLink {
                 MediaDetailView(tmdbId: m.tmdbId, mediaType: m.type == "show" ? "tv" : "movie",
                                 title: m.title, posterPath: m.posterUrl, libraryId: m.id)
-                    .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
+                    .rawkoonZoomDestination(zoomID)
             } label: {
                 MediaPosterCard(title: m.title, posterURL: model.absoluteURL(m.posterUrl),
                                 width: RailPoster.width, corner: RailPoster.corner)
-                    .matchedTransitionSource(id: zoomID, in: zoomNamespace)
+                    .rawkoonZoomSource(zoomID)
             }
             .buttonStyle(.rawkoonPressable)
         case let .upcoming(u):
@@ -296,12 +293,12 @@ struct HomeView: View {
             NavigationLink {
                 MediaDetailView(tmdbId: u.tmdbId ?? 0, mediaType: u.mediaType,
                                 title: u.title, posterPath: u.posterUrl, libraryId: u.libraryId)
-                    .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
+                    .rawkoonZoomDestination(zoomID)
             } label: {
                 MediaPosterCard(title: u.title, posterURL: model.absoluteURL(u.posterUrl),
                                 date: u.displayDate, episode: u.episodeLabel,
                                 width: RailPoster.width, corner: RailPoster.corner)
-                    .matchedTransitionSource(id: zoomID, in: zoomNamespace)
+                    .rawkoonZoomSource(zoomID)
             }
             .buttonStyle(.rawkoonPressable)
             .disabled(u.tmdbId == nil && u.libraryId == nil)
@@ -310,11 +307,11 @@ struct HomeView: View {
             NavigationLink {
                 MediaDetailView(tmdbId: d.tmdbId, mediaType: d.mediaType,
                                 title: d.title, posterPath: d.posterUrl, libraryId: nil)
-                    .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
+                    .rawkoonZoomDestination(zoomID)
             } label: {
                 MediaPosterCard(title: d.title, posterURL: model.absoluteURL(d.posterUrl),
                                 width: RailPoster.width, corner: RailPoster.corner)
-                    .matchedTransitionSource(id: zoomID, in: zoomNamespace)
+                    .rawkoonZoomSource(zoomID)
             }
             .buttonStyle(.rawkoonPressable)
         }

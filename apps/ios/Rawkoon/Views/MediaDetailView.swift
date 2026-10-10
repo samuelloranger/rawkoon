@@ -358,6 +358,7 @@ struct MediaDetailView: View {
                         posterPath: item.posterUrl,
                         libraryId: item.libraryId
                     )
+                    .rawkoonZoomDestination(RawkoonZoom.media(tmdbId: item.tmdbId, mediaType: item.mediaType))
                 }
             }
     }
@@ -699,7 +700,8 @@ struct MediaDetailView: View {
     }
 
     func similarCard(_ item: TmdbSearchItem) -> some View {
-        NavigationLink {
+        let zoomID = RawkoonZoom.media(tmdbId: item.tmdbId, mediaType: item.mediaType)
+        return NavigationLink {
             MediaDetailView(
                 tmdbId: item.tmdbId,
                 mediaType: item.mediaType,
@@ -707,6 +709,7 @@ struct MediaDetailView: View {
                 posterPath: item.posterUrl,
                 libraryId: item.libraryId
             )
+            .rawkoonZoomDestination(zoomID)
         } label: {
             MediaPosterCard(
                 title: item.title,
@@ -721,6 +724,7 @@ struct MediaDetailView: View {
                         .overlay(Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Color(hex: 0x10231A)))
                 }
             }
+            .rawkoonZoomSource(zoomID)
         }
         .buttonStyle(.rawkoonPressable)
     }

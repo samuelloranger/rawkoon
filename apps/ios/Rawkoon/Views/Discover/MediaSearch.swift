@@ -43,9 +43,6 @@ struct MediaSearchField: View {
 
 struct MediaSearchResults: View {
     @Environment(AppModel.self) private var model
-    /// Local to this view: the zoom source and its destination both reference
-    /// this namespace directly, which is the reliable pattern.
-    @Namespace private var zoomNamespace
 
     let query: String
 
@@ -208,10 +205,10 @@ struct MediaSearchResults: View {
                                     posterPath: item.posterUrl,
                                     libraryId: item.libraryId
                                 )
-                                .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
+                                .rawkoonZoomDestination(zoomID)
                             } label: {
                                 posterCard(item, fixedWidth: nil)
-                                    .matchedTransitionSource(id: zoomID, in: zoomNamespace)
+                                    .rawkoonZoomSource(zoomID)
                             }
                             .buttonStyle(.rawkoonPressable)
                             .rawkoonScrollSettle()

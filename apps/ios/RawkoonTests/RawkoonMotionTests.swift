@@ -94,4 +94,15 @@ struct RawkoonMotionTests {
         #expect(CelebrationGate.fires(from: false, to: true, when: forwardOnly))
         #expect(!CelebrationGate.fires(from: true, to: false, when: forwardOnly))
     }
+
+    @Test func zoomSourceKeyKeepsTheActiveTabsId() {
+        #expect(ZoomSourceKey.id("movie:42", inActiveTab: true) == "movie:42")
+    }
+
+    @Test func zoomSourceKeySeparatesBackgroundTabs() {
+        let hidden = ZoomSourceKey.id("movie:42", inActiveTab: false)
+        #expect(hidden != "movie:42")
+        #expect(hidden == ZoomSourceKey.id("movie:42", inActiveTab: false))
+        #expect(hidden != ZoomSourceKey.id("tv:42", inActiveTab: false))
+    }
 }

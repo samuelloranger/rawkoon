@@ -1,3 +1,4 @@
+import RawkoonKit
 import SwiftUI
 
 /// The titles the user bookmarked from Discover and Explore, newest first.
@@ -75,6 +76,7 @@ struct WatchlistView: View {
     private var grid: some View {
         LazyVGrid(columns: gridColumns, spacing: 14) {
             ForEach(items) { item in
+                let zoomID = RawkoonZoom.media(tmdbId: item.tmdbId, mediaType: item.mediaType)
                 NavigationLink {
                     MediaDetailView(
                         tmdbId: item.tmdbId,
@@ -83,8 +85,10 @@ struct WatchlistView: View {
                         posterPath: item.posterUrl,
                         libraryId: nil
                     )
+                    .rawkoonZoomDestination(zoomID)
                 } label: {
                     MediaPosterCard(title: item.title, posterURL: model.absoluteURL(item.posterUrl))
+                        .rawkoonZoomSource(zoomID)
                 }
                 .buttonStyle(.rawkoonPressable)
                 .contextMenu {

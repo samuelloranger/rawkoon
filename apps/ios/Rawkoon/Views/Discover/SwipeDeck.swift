@@ -1,3 +1,4 @@
+import RawkoonKit
 import SwiftUI
 import UIKit
 
@@ -174,6 +175,8 @@ struct SwipeDeck: View {
                     intentOverlay
                 }
             }
+            // Every visible card is a source (never nil), so promoting a card never rebuilds it.
+            .rawkoonZoomSource(RawkoonZoom.media(tmdbId: item.tmdbId, mediaType: item.mediaType))
             // Cards behind sit scaled down and zoom up to full size as they
             // promote — the only "appearing" motion. No slide or fade.
             .scaleEffect(1.0 - depth * 0.05)

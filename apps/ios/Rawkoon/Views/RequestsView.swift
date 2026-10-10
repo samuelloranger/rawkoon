@@ -1,3 +1,4 @@
+import RawkoonKit
 import SwiftUI
 
 /// Requests tab: everyone sees their own (and others') pending/all requests;
@@ -154,6 +155,9 @@ struct RequestsView: View {
                         posterPath: req.posterUrl,
                         libraryId: nil
                     )
+                    .rawkoonZoomDestination(
+                        RawkoonZoom.media(tmdbId: tmdbId, mediaType: req.type == "show" ? "tv" : "movie")
+                    )
                 } label: {
                     rowLabel(req)
                 }
@@ -186,6 +190,9 @@ struct RequestsView: View {
                 BookCover(url: model.absoluteURL(req.posterUrl), size: 46, corner: 6)
             } else {
                 MediaThumb(url: model.absoluteURL(req.posterUrl), width: 46)
+                    .rawkoonZoomSource(req.tmdbId.map {
+                        RawkoonZoom.media(tmdbId: $0, mediaType: req.type == "show" ? "tv" : "movie")
+                    })
             }
 
             VStack(alignment: .leading, spacing: 3) {

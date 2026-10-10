@@ -43,6 +43,7 @@ struct DiscoverView: View {
                     posterPath: item.posterUrl,
                     libraryId: nil
                 )
+                .rawkoonZoomDestination(RawkoonZoom.media(tmdbId: item.tmdbId, mediaType: item.mediaType))
             }
             .task {
                 if deckItems.isEmpty, !deckLoading {
