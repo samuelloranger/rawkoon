@@ -1,3 +1,4 @@
+import RawkoonKit
 import SwiftUI
 
 /// The titles the user bookmarked from Discover and Explore, newest first.
@@ -21,6 +22,7 @@ struct WatchlistView: View {
             content
                 .padding(.top, 12)
                 .padding(.bottom, 32)
+                .rawkoonMotion(RawkoonMotion.spring, value: phase)
         }
         .reportsTabBarScroll()
         .refreshable { await load() }
@@ -34,6 +36,25 @@ struct WatchlistView: View {
         }
     }
 
+    private enum WatchlistPhase: Equatable { case loading, offline, error, empty, grid }
+
+    /// Mirrors the branch order in `content`, so every swap between states animates.
+    private var phase: WatchlistPhase {
+        if loading, items.isEmpty {
+            return .loading
+        }
+        if items.isEmpty, error != nil, model.isOffline {
+            return .offline
+        }
+        if items.isEmpty, error != nil {
+            return .error
+        }
+        if items.isEmpty {
+            return .empty
+        }
+        return .grid
+    }
+
     @ViewBuilder private var content: some View {
         if loading, items.isEmpty {
             LazyVGrid(columns: gridColumns, spacing: 14) {
@@ -43,6 +64,7 @@ struct WatchlistView: View {
                 }
             }
             .padding(.horizontal, 16)
+            .transition(.rawkoonSwap)
         } else if items.isEmpty, error != nil, model.isOffline {
             ContentUnavailableView(
                 "You're offline",
@@ -51,6 +73,7 @@ struct WatchlistView: View {
             )
             .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
+            .transition(.rawkoonSwap)
         } else if items.isEmpty, let error {
             ContentUnavailableView(
                 "Couldn't load your watchlist",
@@ -59,6 +82,7 @@ struct WatchlistView: View {
             )
             .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
+            .transition(.rawkoonSwap)
         } else if items.isEmpty {
             ContentUnavailableView(
                 "Nothing on your watchlist",
@@ -67,14 +91,20 @@ struct WatchlistView: View {
             )
             .rawkoonLivingSymbol(.empty)
             .padding(.top, 28)
+            .transition(.rawkoonSwap)
         } else {
             grid
+                .transition(.rawkoonSwap)
         }
     }
 
     private var grid: some View {
         LazyVGrid(columns: gridColumns, spacing: 14) {
             ForEach(items) { item in
+                let zoomID = ZoomSourceKey.scoped(
+                    RawkoonZoom.media(tmdbId: item.tmdbId, mediaType: item.mediaType),
+                    in: "watchlist"
+                )
                 NavigationLink {
                     MediaDetailView(
                         tmdbId: item.tmdbId,
@@ -83,8 +113,10 @@ struct WatchlistView: View {
                         posterPath: item.posterUrl,
                         libraryId: nil
                     )
+                    .rawkoonZoomDestination(zoomID)
                 } label: {
                     MediaPosterCard(title: item.title, posterURL: model.absoluteURL(item.posterUrl))
+                        .rawkoonZoomSource(zoomID)
                 }
                 .buttonStyle(.rawkoonPressable)
                 .contextMenu {
@@ -95,9 +127,12 @@ struct WatchlistView: View {
                     }
                     .requiresConnection(model.isOffline)
                 }
+                .rawkoonEntrance(id: item.id)
+                .transition(.rawkoonSwap)
             }
         }
         .padding(.horizontal, 16)
+        .rawkoonEntranceScope()
     }
 
     private func load() async {
@@ -121,7 +156,10 @@ struct WatchlistView: View {
         guard let client = model.api() else { return }
         do {
             try await client.removeFromWatchlist(tmdbId: item.tmdbId, mediaType: item.mediaType)
-            items.removeAll { $0.id == item.id }
+            // The card fades out and its neighbours reflow instead of snapping.
+            withRawkoonMotion(RawkoonMotion.spring) {
+                items.removeAll { $0.id == item.id }
+            }
         } catch {
             model.toast(error.localizedDescription, style: .error)
         }

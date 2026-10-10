@@ -1,3 +1,4 @@
+import RawkoonKit
 import SwiftUI
 
 /// Requests tab: everyone sees their own (and others') pending/all requests;
@@ -22,7 +23,8 @@ struct RequestsView: View {
 
     @State private var filter: Filter = .pending
     @State private var requests: [MediaRequest] = []
-    @State private var loading = false
+    /// Starts true so the first frame shows the spinner, not "No requests", before the first load.
+    @State private var loading = true
     @State private var errorMessage: String?
     @State private var adminNote: String?
 
@@ -56,10 +58,12 @@ struct RequestsView: View {
                     .foregroundStyle(Theme.muted)
                     .padding(.horizontal, 16)
                     .padding(.top, 6)
+                    .transition(.rawkoonReveal)
             }
 
             content
         }
+        .rawkoonMotion(RawkoonMotion.spring, value: adminNote)
         .readableWidth()
         .background(Theme.base)
         .navigationTitle("Requests")
@@ -100,46 +104,68 @@ struct RequestsView: View {
         }
     }
 
-    @ViewBuilder
+    private var phase: ListLoadPhase {
+        ListLoadPhase.resolve(
+            loading: loading, offline: model.isOffline, failed: errorMessage != nil,
+            isEmpty: requests.isEmpty, showsNothing: visibleRequests.isEmpty
+        )
+    }
+
+    /// One slot, so the spinner, the empty and error states and the list crossfade.
     private var content: some View {
-        if loading, requests.isEmpty {
-            ProgressView().tint(Theme.apricot)
+        ZStack {
+            switch phase {
+            case .loading:
+                ProgressView().tint(Theme.apricot)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .transition(.rawkoonSwap)
+            case .offline:
+                ContentUnavailableView(
+                    "You're offline",
+                    systemImage: "wifi.slash",
+                    description: Text("This will load when you're back online.")
+                )
+                .rawkoonLivingSymbol(.error)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if model.isOffline, errorMessage != nil, requests.isEmpty {
-            ContentUnavailableView(
-                "You're offline",
-                systemImage: "wifi.slash",
-                description: Text("This will load when you're back online.")
-            )
-            .rawkoonLivingSymbol(.error)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if let errorMessage, requests.isEmpty {
-            ContentUnavailableView(
-                "Couldn't load requests",
-                systemImage: "exclamationmark.triangle",
-                description: Text(errorMessage)
-            )
-            .rawkoonLivingSymbol(.error)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if visibleRequests.isEmpty {
-            ContentUnavailableView(
-                "No requests",
-                systemImage: "tray",
-                description: Text(LocalizedStringKey(filter == .pending ? "No pending requests. Request a title from Discover." : "No requests yet."))
-            )
-            .rawkoonLivingSymbol(.empty)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            List {
-                ForEach(visibleRequests) { req in
-                    row(req)
-                        .listRowBackground(Theme.raised)
-                }
+                .transition(.rawkoonSwap)
+            case .failed:
+                ContentUnavailableView(
+                    "Couldn't load requests",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(errorMessage ?? "")
+                )
+                .rawkoonLivingSymbol(.error)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.rawkoonSwap)
+            case .empty:
+                ContentUnavailableView(
+                    "No requests",
+                    systemImage: "tray",
+                    description: Text(LocalizedStringKey(filter == .pending ? "No pending requests. Request a title from Discover." : "No requests yet."))
+                )
+                .rawkoonLivingSymbol(.empty)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.rawkoonSwap)
+            case .list:
+                requestList
+                    .transition(.rawkoonSwap)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .refreshable { await load() }
         }
+        .rawkoonMotion(RawkoonMotion.spring, value: phase)
+    }
+
+    private var requestList: some View {
+        List {
+            ForEach(visibleRequests) { req in
+                row(req)
+                    .listRowBackground(Theme.raised)
+            }
+        }
+        // An approved or denied request leaves the Pending list with an animation; so does a filter switch.
+        .rawkoonMotion(RawkoonMotion.spring, value: visibleRequests.map(\.id))
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .refreshable { await load() }
     }
 
     private func row(_ req: MediaRequest) -> some View {
@@ -153,6 +179,9 @@ struct RequestsView: View {
                         title: req.title,
                         posterPath: req.posterUrl,
                         libraryId: nil
+                    )
+                    .rawkoonZoomDestination(
+                        RawkoonZoom.media(tmdbId: tmdbId, mediaType: req.type == "show" ? "tv" : "movie")
                     )
                 } label: {
                     rowLabel(req)
@@ -186,6 +215,9 @@ struct RequestsView: View {
                 BookCover(url: model.absoluteURL(req.posterUrl), size: 46, corner: 6)
             } else {
                 MediaThumb(url: model.absoluteURL(req.posterUrl), width: 46)
+                    .rawkoonZoomSource(req.tmdbId.map {
+                        RawkoonZoom.media(tmdbId: $0, mediaType: req.type == "show" ? "tv" : "movie")
+                    })
             }
 
             VStack(alignment: .leading, spacing: 3) {
@@ -209,40 +241,54 @@ struct RequestsView: View {
         .contentShape(Rectangle())
     }
 
-    @ViewBuilder
+    /// One slot, so the spinner, the approve/deny buttons and the status badge crossfade.
     private func rowTrailing(_ req: MediaRequest) -> some View {
-        if busyRequestId == req.id {
-            ProgressView().tint(Theme.apricot)
-        } else if model.isAdmin, req.status == "pending" {
-            HStack(spacing: 2) {
-                Button {
-                    Task { await beginApprove(request: req) }
-                } label: {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Theme.seed)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Approve")
-                .requiresConnection(model.isOffline)
-
-                Button {
-                    denyTarget = req
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Theme.terracotta)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Deny")
-                .requiresConnection(model.isOffline)
+        let face = RequestRowFace.face(
+            busy: busyRequestId == req.id, canModerate: model.isAdmin && req.status == "pending", status: req.status
+        )
+        return ZStack(alignment: .trailing) {
+            switch face {
+            case .busy:
+                ProgressView().tint(Theme.apricot)
+                    .transition(.rawkoonSwap)
+            case .moderate:
+                moderationButtons(req)
+                    .transition(.rawkoonSwap)
+            case let .status(status):
+                statusBadge(status, tint: badgeTint(status))
+                    .transition(.rawkoonSwap)
             }
-        } else {
-            statusBadge(req.status, tint: badgeTint(req.status))
+        }
+        .rawkoonMotion(RawkoonMotion.snappy, value: face)
+    }
+
+    private func moderationButtons(_ req: MediaRequest) -> some View {
+        HStack(spacing: 2) {
+            Button {
+                Task { await beginApprove(request: req) }
+            } label: {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.seed)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Approve")
+            .requiresConnection(model.isOffline)
+
+            Button {
+                denyTarget = req
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.terracotta)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Deny")
+            .requiresConnection(model.isOffline)
         }
     }
 
@@ -273,7 +319,10 @@ struct RequestsView: View {
     }
 
     private func load() async {
-        guard let client = model.api() else { return }
+        guard let client = model.api() else {
+            loading = false
+            return
+        }
         loading = true
         errorMessage = nil
         defer { loading = false }
@@ -424,5 +473,18 @@ private struct ProfilePickerSheet: View {
         }
         .presentationDetents([.medium, .large])
         .presentationBackground(Theme.base)
+    }
+}
+
+/// What a request row's trailing slot shows; mirrors the slot's branch order.
+nonisolated enum RequestRowFace: Equatable {
+    case busy, moderate
+    case status(String)
+
+    static func face(busy: Bool, canModerate: Bool, status: String) -> Self {
+        if busy {
+            return .busy
+        }
+        return canModerate ? .moderate : .status(status)
     }
 }

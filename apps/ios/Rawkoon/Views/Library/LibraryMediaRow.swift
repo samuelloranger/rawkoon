@@ -31,6 +31,7 @@ struct LibraryMediaRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             if presentation.showsSpinner {
                 ProgressView().tint(Theme.apricot)
+                    .transition(.rawkoonSwap)
             }
         }
         .padding(12)

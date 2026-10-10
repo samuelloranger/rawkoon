@@ -19,13 +19,28 @@ extension View {
     }
 }
 
+/// Zoom source ids as registered in the shared namespace.
+nonisolated enum ZoomSourceKey {
+    /// Kept-alive tabs share the namespace; a hidden tab's poster gets a distinct id so zooms use the visible one.
+    static func id(_ id: String, inActiveTab: Bool) -> String {
+        inActiveTab ? id : id + "#background"
+    }
+
+    /// A context prefix stops a pushed screen's poster registering twice with the one beneath it.
+    static func scoped(_ id: String, in context: String) -> String {
+        context + "/" + id
+    }
+}
+
 private struct ZoomSourceModifier: ViewModifier {
     let id: RawkoonZoom.ID?
     @Environment(\.rawkoonZoomNamespace) private var namespace
+    @Environment(\.isActiveRootTab) private var isActiveRootTab
 
     func body(content: Content) -> some View {
         if let id, let namespace {
-            content.matchedTransitionSource(id: id, in: namespace)
+            // Same branch either way, so switching tabs never rebuilds the poster.
+            content.matchedTransitionSource(id: ZoomSourceKey.id(id, inActiveTab: isActiveRootTab), in: namespace)
         } else {
             content
         }

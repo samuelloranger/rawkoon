@@ -4,9 +4,6 @@ import SwiftUI
 struct LibraryView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.isActiveRootTab) private var isActiveRootTab
-    /// Local namespace shared directly by each poster source and its detail
-    /// destination — the reliable pattern for the zoom transition.
-    @Namespace private var zoomNamespace
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// List mutations animate with the app spring, degrading to a crossfade
@@ -16,6 +13,8 @@ struct LibraryView: View {
     }
 
     @State private var section: LibrarySection = .media
+    /// False while the grid is empty, so a refill from empty does not animate cells in from narrow widths.
+    @State private var mediaPopulated = false
 
     /// When set (desktop's split Media/Books tabs), the section is fixed and the
     /// Media/Books segmented toggle is hidden. Nil keeps the phone's single tab.
@@ -100,16 +99,21 @@ struct LibraryView: View {
 
             if model.isOfflineLibrary {
                 offlineBanner
+                    .transition(.rawkoonReveal)
             }
 
             if section == .media {
                 mediaToolbar
+                    .transition(.rawkoonSwap)
             } else {
                 booksToolbar
+                    .transition(.rawkoonSwap)
             }
 
             content
         }
+        .rawkoonMotion(RawkoonMotion.snappy, value: section)
+        .rawkoonMotion(RawkoonMotion.spring, value: model.isOfflineLibrary)
         .background(Theme.base)
         .navigationTitle(navigationTitleKey)
         .navigationBarTitleDisplayMode(.inline)
@@ -161,6 +165,10 @@ struct LibraryView: View {
                 await loadBooks()
             }
             await loadBookProgress()
+        }
+        .onAppear { mediaPopulated = mediaPopulated || !media.isEmpty }
+        .onChange(of: media.isEmpty) { _, isEmpty in
+            mediaPopulated = !isEmpty
         }
         // Kept-alive iPhone tabs never re-appear, so a revisit refreshes like the old TabView did.
         .onChange(of: isActiveRootTab) { _, active in
@@ -239,6 +247,9 @@ struct LibraryView: View {
                     title: m.title,
                     posterPath: m.posterUrl,
                     libraryId: m.id
+                )
+                .rawkoonZoomDestination(
+                    RawkoonZoom.media(tmdbId: m.tmdbId, mediaType: m.type == "show" ? "tv" : "movie")
                 )
             }
         }
@@ -319,14 +330,16 @@ struct LibraryView: View {
         store.pagination(mediaKey).hasMore
     }
 
-    /// Changes worth animating: rows appearing or leaving, and the monitored
-    /// badge flipping. Cheap enough to recompute per body pass at page size.
+    /// Changes worth animating: rows appearing or leaving, the monitored badge
+    /// flipping, and status or busy badges swapping. Cheap at page size.
     private var mediaAnimationToken: Int {
         var hasher = Hasher()
         for item in media {
             hasher.combine(item.id)
             hasher.combine(item.monitored)
             hasher.combine(item.isProvisional)
+            hasher.combine(item.status)
+            hasher.combine(busyMediaIds.contains(item.id))
         }
         return hasher.finalize()
     }
@@ -433,7 +446,7 @@ struct LibraryView: View {
                                 posterPath: m.posterUrl,
                                 libraryId: m.id
                             )
-                            .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
+                            .rawkoonZoomDestination(zoomID)
                         } label: {
                             MediaPosterCard(
                                 title: m.title,
@@ -447,11 +460,12 @@ struct LibraryView: View {
                             ) {
                                 if busyMediaIds.contains(m.id) {
                                     ProgressView().tint(Theme.apricot)
+                                        .transition(.rawkoonSwap)
                                 } else {
                                     mediaBadge(for: m)
                                 }
                             }
-                            .matchedTransitionSource(id: zoomID, in: zoomNamespace)
+                            .rawkoonZoomSource(zoomID)
                         }
                         .buttonStyle(.rawkoonPressable)
                         .disabled(!LibraryRowPresentation(media: m).isInteractive)
@@ -469,7 +483,7 @@ struct LibraryView: View {
         .reportsTabBarScroll()
         .overlay { mediaOverlay }
         // motion-ok: listMotion already resolves Reduce Motion
-        .animation(listMotion, value: mediaAnimationToken)
+        .animation(mediaPopulated ? listMotion : nil, value: mediaAnimationToken)
         .refreshable { await loadMedia(reset: true) }
     }
 
@@ -497,16 +511,20 @@ struct LibraryView: View {
         .onAppear { loadMoreIfNeeded() }
     }
 
+    /// Each branch carries its own transition so a status change crossfades between badges.
     @ViewBuilder
     private func mediaBadge(for m: LibraryMedia) -> some View {
         if case .adding = LibraryRowPresentation(media: m).status {
             StatusBadge(text: "Adding…", tint: Theme.apricot)
+                .transition(.rawkoonSwap)
         } else if m.status == "downloading" {
             Circle().fill(Theme.importing).frame(width: 22, height: 22)
                 .overlay(Image(systemName: "arrow.down").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.onAccent))
+                .transition(.rawkoonSwap)
         } else if m.status == "wanted" || m.status == "missing" {
             Circle().fill(Theme.muted.opacity(0.9)).frame(width: 22, height: 22)
                 .overlay(Image(systemName: "questionmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.base))
+                .transition(.rawkoonSwap)
         }
     }
 
@@ -579,7 +597,7 @@ struct LibraryView: View {
                             posterPath: m.posterUrl,
                             libraryId: m.id
                         )
-                        .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
+                        .rawkoonZoomDestination(zoomID)
                     } label: {
                         LibraryMediaRow(
                             media: m,
@@ -592,7 +610,7 @@ struct LibraryView: View {
                             ),
                             onMenuAction: { handleMediaMenu($0, media: m) }
                         )
-                        .matchedTransitionSource(id: zoomID, in: zoomNamespace)
+                        .rawkoonZoomSource(zoomID)
                     }
                     .buttonStyle(.rawkoonPressable(scale: 0.98))
                     .disabled(!LibraryRowPresentation(media: m).isInteractive)
@@ -609,7 +627,7 @@ struct LibraryView: View {
         .reportsTabBarScroll()
         .overlay { mediaOverlay }
         // motion-ok: listMotion already resolves Reduce Motion
-        .animation(listMotion, value: mediaAnimationToken)
+        .animation(mediaPopulated ? listMotion : nil, value: mediaAnimationToken)
         .refreshable { await loadMedia(reset: true) }
     }
 
@@ -648,6 +666,7 @@ struct LibraryView: View {
             .overlay(alignment: grid ? .topTrailing : .trailing) {
                 if busyBookIds.contains(book.bookId) {
                     ProgressView().tint(Theme.muted).padding(grid ? 14 : 0).padding(.trailing, grid ? 0 : 10)
+                        .transition(.rawkoonSwap)
                 }
             }
         }
@@ -660,16 +679,21 @@ struct LibraryView: View {
             Group {
                 if isRegularWidth {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 170, maximum: 230), spacing: 12)], spacing: 12) {
-                        ForEach(filteredBooks) { book in bookLink(book, grid: true) }
+                        ForEach(filteredBooks) { book in
+                            bookLink(book, grid: true)
+                        }
                     }
                 } else {
                     LazyVStack(spacing: 8) {
-                        ForEach(filteredBooks) { book in bookLink(book, grid: false) }
+                        ForEach(filteredBooks) { book in
+                            bookLink(book, grid: false)
+                        }
                     }
                 }
             }
             .padding(.horizontal, 16).padding(.top, 4)
         }
+        .rawkoonMotion(RawkoonMotion.snappy, value: busyBookIds)
         .reportsTabBarScroll()
         .overlay {
             if model.loading, model.library.isEmpty {

@@ -29,6 +29,7 @@ struct ContinueListeningView: View {
                 card
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
+                    .transition(.rawkoonSwap)
             } else {
                 Color.clear.frame(width: 0, height: 0)
             }
@@ -206,7 +207,10 @@ struct ContinueListeningView: View {
             let cachedAudio = client.cachedProgress()?.value
             let cachedEbook = client.cachedReadingProgress()?.value
             if cachedAudio != nil || cachedEbook != nil {
-                items = buildItems(audiobookProgress: cachedAudio ?? [], ebookProgress: cachedEbook ?? [])
+                // Animated so the card swaps in and Home's rails glide down instead of jumping.
+                withRawkoonMotion(RawkoonMotion.spring) {
+                    items = buildItems(audiobookProgress: cachedAudio ?? [], ebookProgress: cachedEbook ?? [])
+                }
             }
         }
         if model.library.isEmpty {
@@ -219,17 +223,21 @@ struct ContinueListeningView: View {
         // Both failed: keep what is on screen rather than blanking the rail.
         guard audiobookProgress != nil || ebookProgress != nil else {
             if items.isEmpty {
-                errorMessage = model.isOffline
-                    ? String(localized: "This will load when you're back online.")
-                    : String(localized: "Could not load continue progress.")
+                withRawkoonMotion(RawkoonMotion.spring) {
+                    errorMessage = model.isOffline
+                        ? String(localized: "This will load when you're back online.")
+                        : String(localized: "Could not load continue progress.")
+                }
             }
             return
         }
-        items = buildItems(
-            audiobookProgress: audiobookProgress ?? client.cachedProgress()?.value ?? [],
-            ebookProgress: ebookProgress ?? client.cachedReadingProgress()?.value ?? []
-        )
-        errorMessage = nil
+        withRawkoonMotion(RawkoonMotion.spring) {
+            items = buildItems(
+                audiobookProgress: audiobookProgress ?? client.cachedProgress()?.value ?? [],
+                ebookProgress: ebookProgress ?? client.cachedReadingProgress()?.value ?? []
+            )
+            errorMessage = nil
+        }
     }
 
     private func buildItems(

@@ -32,7 +32,7 @@ extension View {
         safeAreaInset(edge: .top, spacing: 0) {
             if isOffline {
                 OfflineStrip()
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .transition(.rawkoonEdge(.top))
             }
         }
         .rawkoonMotion(RawkoonMotion.spring, value: isOffline)
@@ -47,10 +47,13 @@ extension View {
 }
 
 private struct RequiresConnection: ViewModifier {
+    @Environment(\.rawkoonDisabledDimHandled) private var dimHandledAbove
     let isOffline: Bool
 
     func body(content: Content) -> some View {
         content
+            // This modifier dims the control itself, so a pressable style inside must not dim it again.
+            .environment(\.rawkoonDisabledDimHandled, dimHandledAbove || isOffline)
             .disabled(isOffline)
             .opacity(isOffline ? 0.45 : 1)
             .overlay {

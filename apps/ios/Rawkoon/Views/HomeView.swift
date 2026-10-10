@@ -9,9 +9,6 @@ import SwiftUI
 struct HomeView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.isActiveRootTab) private var isActiveRootTab
-    /// Local namespace shared directly by each poster source and its detail
-    /// destination — the reliable pattern for the zoom transition.
-    @Namespace private var zoomNamespace
 
     @State private var recent: [LibraryMedia] = []
     @State private var upcoming: [UpcomingItem] = []
@@ -52,10 +49,10 @@ struct HomeView: View {
 
                 if loading, recent.isEmpty {
                     homeSkeleton
-                        .transition(.opacity)
+                        .transition(.rawkoonSwap)
                 } else {
                     loadedContent
-                        .transition(.opacity)
+                        .transition(.rawkoonSwap)
                 }
             }
             .padding(.vertical, 12)
@@ -93,15 +90,7 @@ struct HomeView: View {
                     NavigationLink {
                         NotificationsListView()
                     } label: {
-                        ZStack(alignment: .topTrailing) {
-                            Image(systemName: "bell")
-                            if model.unreadNotificationCount > 0 {
-                                Circle()
-                                    .fill(Theme.terracotta)
-                                    .frame(width: 8, height: 8)
-                                    .offset(x: 3, y: -3)
-                            }
-                        }
+                        NotificationBell(unread: model.unreadNotificationCount)
                     }
                     .accessibilityLabel("Notifications")
                 }
@@ -176,6 +165,8 @@ struct HomeView: View {
                 .foregroundStyle(Theme.muted)
         }
         .padding(.horizontal, 16)
+        // The name arrives after first render; the load-swap spring must not animate its reflow.
+        .transaction { $0.animation = nil }
     }
 
     /// With no name known yet the greeting stands alone rather than addressing
@@ -263,10 +254,15 @@ struct HomeView: View {
             Text(title).font(.sectionTitle).foregroundStyle(Theme.textStrong).padding(.horizontal, 16)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    ForEach(items) { item in railCard(item) }
+                    ForEach(items) { item in
+                        railCard(item)
+                            .rawkoonEntrance(id: item.id)
+                    }
                 }
                 .padding(.horizontal, 16)
             }
+            // One ledger per rail, so each rail cascades left to right on its own.
+            .rawkoonEntranceScope()
             // Pin the rail height instead of inheriting it from the posters'
             // intrinsic size through the scroll view: an outer `.refreshable`
             // pull can momentarily collapse a nested horizontal ScrollView to
@@ -284,11 +280,11 @@ struct HomeView: View {
             NavigationLink {
                 MediaDetailView(tmdbId: m.tmdbId, mediaType: m.type == "show" ? "tv" : "movie",
                                 title: m.title, posterPath: m.posterUrl, libraryId: m.id)
-                    .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
+                    .rawkoonZoomDestination(zoomID)
             } label: {
                 MediaPosterCard(title: m.title, posterURL: model.absoluteURL(m.posterUrl),
                                 width: RailPoster.width, corner: RailPoster.corner)
-                    .matchedTransitionSource(id: zoomID, in: zoomNamespace)
+                    .rawkoonZoomSource(zoomID)
             }
             .buttonStyle(.rawkoonPressable)
         case let .upcoming(u):
@@ -296,12 +292,12 @@ struct HomeView: View {
             NavigationLink {
                 MediaDetailView(tmdbId: u.tmdbId ?? 0, mediaType: u.mediaType,
                                 title: u.title, posterPath: u.posterUrl, libraryId: u.libraryId)
-                    .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
+                    .rawkoonZoomDestination(zoomID)
             } label: {
                 MediaPosterCard(title: u.title, posterURL: model.absoluteURL(u.posterUrl),
                                 date: u.displayDate, episode: u.episodeLabel,
                                 width: RailPoster.width, corner: RailPoster.corner)
-                    .matchedTransitionSource(id: zoomID, in: zoomNamespace)
+                    .rawkoonZoomSource(zoomID)
             }
             .buttonStyle(.rawkoonPressable)
             .disabled(u.tmdbId == nil && u.libraryId == nil)
@@ -310,11 +306,11 @@ struct HomeView: View {
             NavigationLink {
                 MediaDetailView(tmdbId: d.tmdbId, mediaType: d.mediaType,
                                 title: d.title, posterPath: d.posterUrl, libraryId: nil)
-                    .navigationTransition(.zoom(sourceID: zoomID, in: zoomNamespace))
+                    .rawkoonZoomDestination(zoomID)
             } label: {
                 MediaPosterCard(title: d.title, posterURL: model.absoluteURL(d.posterUrl),
                                 width: RailPoster.width, corner: RailPoster.corner)
-                    .matchedTransitionSource(id: zoomID, in: zoomNamespace)
+                    .rawkoonZoomSource(zoomID)
             }
             .buttonStyle(.rawkoonPressable)
         }
@@ -380,6 +376,7 @@ struct HomeView: View {
                             Spacer()
                             if let p = s.progressPct {
                                 Text("\(Int(p))%").font(.system(.caption, design: .monospaced)).foregroundStyle(Theme.muted)
+                                    .rawkoonNumeric(p)
                             }
                         }
                     }
@@ -415,6 +412,7 @@ struct HomeView: View {
         return HStack(spacing: 5) {
             Image(systemName: dir == "down" ? "arrow.down" : "arrow.up").font(.caption2).foregroundStyle(tint)
             Text(text).font(.system(.subheadline, design: .monospaced)).foregroundStyle(Theme.text)
+                .rawkoonNumeric(Double(safeBytes))
         }
     }
 
@@ -513,14 +511,14 @@ struct HomeView: View {
         widgetCard("Library", systemImage: "internaldrive") {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top, spacing: 18) {
-                    statFigure("\(s.totalMovies)", "Movies")
-                    statFigure("\(s.totalShows)", "Shows")
-                    statFigure("\(s.downloaded)", "Downloaded")
+                    statFigure(s.totalMovies, "Movies")
+                    statFigure(s.totalShows, "Shows")
+                    statFigure(s.downloaded, "Downloaded")
                     if s.wanted > 0 {
-                        statFigure("\(s.wanted)", "Wanted")
+                        statFigure(s.wanted, "Wanted")
                     }
                     if s.returningSeries > 0 {
-                        statFigure("\(s.returningSeries)", "Returning")
+                        statFigure(s.returningSeries, "Returning")
                     }
                     Spacer(minLength: 0)
                 }
@@ -528,6 +526,7 @@ struct HomeView: View {
                     Text("Storage").font(.caption2).foregroundStyle(Theme.faint)
                     Text(byteString(s.storageUsedBytes))
                         .font(.system(.subheadline, design: .monospaced)).foregroundStyle(Theme.text)
+                        .rawkoonNumeric(Double(s.storageUsedBytes))
                 }
                 let bars = orderedStorageBars(s.storageByResolution)
                 if !bars.isEmpty {
@@ -540,9 +539,11 @@ struct HomeView: View {
         }
     }
 
-    private func statFigure(_ value: String, _ label: LocalizedStringKey) -> some View {
+    private func statFigure(_ value: Int, _ label: LocalizedStringKey) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.system(.title3, design: .rounded).weight(.semibold)).foregroundStyle(Theme.textStrong)
+            Text(String(value))
+                .font(.system(.title3, design: .rounded).weight(.semibold)).foregroundStyle(Theme.textStrong)
+                .rawkoonNumeric(Double(value))
             Text(label).font(.caption2).foregroundStyle(Theme.faint)
         }
     }

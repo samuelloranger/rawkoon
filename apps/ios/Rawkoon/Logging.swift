@@ -15,6 +15,7 @@ import os
 /// - `network`: API requests and responses
 /// - `auth`: sign-in, token/grant refresh, and Keychain access
 /// - `sync`: library and manifest refresh
+/// - `motion`: developer warnings from the motion kit (DEBUG builds only)
 /// Not MainActor: os.Logger is Sendable and this namespace is called from
 /// every isolation domain in the app (background download delegate queues
 /// included), so it must stay isolation-free.
@@ -26,4 +27,5 @@ nonisolated enum Log {
     static let network = Logger(subsystem: subsystem, category: "network")
     static let auth = Logger(subsystem: subsystem, category: "auth")
     static let sync = Logger(subsystem: subsystem, category: "sync")
+    static let motion = Logger(subsystem: subsystem, category: "motion")
 }

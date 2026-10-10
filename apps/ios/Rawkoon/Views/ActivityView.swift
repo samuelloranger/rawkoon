@@ -26,6 +26,8 @@ struct ActivityView: View {
     private static let historyPageSize = 50
 
     @State private var lane: Lane = .queue
+    /// The side the next lane enters from, set before the lane changes so the insertion reads it fresh.
+    @State private var laneEdge: Edge = .trailing
     /// In-flight live-event reload, cancelled before the next starts so a burst
     /// of SSE events can't run overlapping lane reloads.
     @State private var liveReloadTask: Task<Void, Never>?
@@ -36,16 +38,20 @@ struct ActivityView: View {
     /// Header speed
     @State private var speed: SpeedResponse?
 
-    // Queue
+    // MARK: Queue state
+
     @State private var queueRows: [QueueRow] = []
-    @State private var loadingQueue = false
+    /// Starts true, like the other lanes, so an empty state never flashes before the first load.
+    @State private var loadingQueue = true
+    /// The skeleton is for the cold load only; live reloads keep the current lane still.
+    @State private var didLoadQueue = false
     @State private var queueError: String?
     /// nil = show every card; otherwise only cards in the tapped phase.
     @State private var queuePhaseFilter: QueuePhase?
 
     // History
     @State private var activities: [ActivityRecord] = []
-    @State private var loadingHistory = false
+    @State private var loadingHistory = true
     @State private var loadingMoreHistory = false
     @State private var historyError: String?
     @State private var historyLimit = ActivityView.historyPageSize
@@ -57,14 +63,14 @@ struct ActivityView: View {
 
     // Calendar
     @State private var upcomingItems: [UpcomingItem] = []
-    @State private var loadingCalendar = false
+    @State private var loadingCalendar = true
     @State private var calendarError: String?
 
     @State private var hydrated = false
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Lane", selection: $lane) {
+            Picker("Lane", selection: laneSelection) {
                 ForEach(Lane.allCases) { lane in
                     Text(lane.title).tag(lane)
                 }
@@ -73,20 +79,31 @@ struct ActivityView: View {
             .padding(.horizontal, 16)
             .padding(.top, 8)
 
-            if let speed, speed.connected, speed.dlSpeed > 0 || speed.ulSpeed > 0 {
+            if let speed, showsSpeed {
                 speedHeader(speed)
+                    .transition(.rawkoonReveal)
             }
 
             ScrollView {
-                switch lane {
-                case .queue: queueContent
-                case .history: historyContent
-                case .calendar: calendarContent
+                // One slot, so a lane slides in over the one fading out instead of stacking under it.
+                ZStack(alignment: .top) {
+                    switch lane {
+                    case .queue:
+                        queueContent
+                            .transition(.rawkoonSlide(laneEdge))
+                    case .history:
+                        historyContent
+                            .transition(.rawkoonSlide(laneEdge))
+                    case .calendar:
+                        calendarContent
+                            .transition(.rawkoonSlide(laneEdge))
+                    }
                 }
             }
         }
         .readableWidth()
         .background(Theme.base)
+        .rawkoonMotion(RawkoonMotion.spring, value: showsSpeed)
         .navigationTitle("Activity")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: hydrateFromCache)
@@ -109,6 +126,39 @@ struct ActivityView: View {
             loadMoreTask?.cancel()
             liveReloadTask = Task { await loadCurrentLane() }
         }
+    }
+
+    /// Picker writes go through here, so the new lane slides in from the side of the tapped segment.
+    private var laneSelection: Binding<Lane> {
+        Binding(
+            get: { lane },
+            set: { newLane in
+                laneEdge = RawkoonSlide.edge(
+                    from: Lane.allCases.firstIndex(of: lane) ?? 0,
+                    to: Lane.allCases.firstIndex(of: newLane) ?? 0
+                )
+                withRawkoonMotion(RawkoonMotion.snappy) { lane = newLane }
+            }
+        )
+    }
+
+    /// The header shows only while the client is connected and moving bytes.
+    private var showsSpeed: Bool {
+        guard let speed else { return false }
+        return speed.connected && (speed.dlSpeed > 0 || speed.ulSpeed > 0)
+    }
+
+    /// Mirrors each lane's branch order, so its skeleton, error, empty and list states crossfade.
+    private enum LaneState: Equatable {
+        case loading, failed, empty, list
+    }
+
+    private static func laneState(loading: Bool, failed: Bool, isEmpty: Bool) -> LaneState {
+        guard isEmpty else { return .list }
+        if loading {
+            return .loading
+        }
+        return failed ? .failed : .empty
     }
 
     // MARK: Header
@@ -179,37 +229,52 @@ struct ActivityView: View {
         return queueRows.filter { phase(of: $0.live.state) == filter }
     }
 
-    @ViewBuilder
     private var queueContent: some View {
-        if loadingQueue, queueRows.isEmpty {
-            LazyVStack(spacing: 10) {
-                ForEach(0 ..< 4, id: \.self) { _ in
-                    queueSkeletonCard
-                }
-            }
-            .padding(16)
-        } else if let queueError, queueRows.isEmpty {
-            errorView(queueError)
-        } else if queueRows.isEmpty {
-            ContentUnavailableView(
-                "Nothing downloading",
-                systemImage: "arrow.down.circle",
-                description: Text("The queue is empty right now.")
-            )
-            .rawkoonLivingSymbol(.empty)
-            .frame(maxWidth: .infinity, minHeight: 420)
-        } else {
-            VStack(spacing: 12) {
-                queuePhaseBar
+        // A container, not a bare conditional, so the lane slide and the state swaps never share one transition.
+        ZStack(alignment: .top) {
+            if loadingQueue, queueRows.isEmpty {
                 LazyVStack(spacing: 10) {
-                    ForEach(visibleQueueRows) { row in
-                        queueCard(row)
+                    ForEach(0 ..< 4, id: \.self) { _ in
+                        queueSkeletonCard
                     }
                 }
-                .rawkoonMotion(RawkoonMotion.snappy, value: queuePhaseFilter)
+                .padding(16)
+                .transition(.rawkoonSwap)
+            } else if let queueError, queueRows.isEmpty {
+                errorView(queueError)
+                    .transition(.rawkoonSwap)
+            } else if queueRows.isEmpty {
+                ContentUnavailableView(
+                    "Nothing downloading",
+                    systemImage: "arrow.down.circle",
+                    description: Text("The queue is empty right now.")
+                )
+                .rawkoonLivingSymbol(.empty)
+                .frame(maxWidth: .infinity, minHeight: 420)
+                .transition(.rawkoonSwap)
+            } else {
+                VStack(spacing: 12) {
+                    queuePhaseBar
+                    LazyVStack(spacing: 10) {
+                        ForEach(visibleQueueRows) { row in
+                            queueCard(row)
+                                .rawkoonEntrance(id: row.id)
+                                .transition(.rawkoonSwap)
+                        }
+                    }
+                    .rawkoonEntranceScope()
+                    .rawkoonMotion(RawkoonMotion.snappy, value: queuePhaseFilter)
+                    // A live reload that drops a finished item fades it out instead of cutting.
+                    .rawkoonMotion(RawkoonMotion.spring, value: queueRows.map(\.id))
+                }
+                .padding(16)
+                .transition(.rawkoonSwap)
             }
-            .padding(16)
         }
+        .rawkoonMotion(
+            RawkoonMotion.spring,
+            value: Self.laneState(loading: loadingQueue, failed: queueError != nil, isEmpty: queueRows.isEmpty)
+        )
     }
 
     /// Live status chips: a tap filters the visible cards to that phase, a
@@ -247,7 +312,8 @@ struct ActivityView: View {
     }
 
     private func queueCard(_ row: QueueRow) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let complete = DownloadMotion.isComplete(state: row.live.state)
+        return VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(row.mediaTitle)
@@ -260,19 +326,36 @@ struct ActivityView: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                statusBadge(row.live.state, tint: stateTint(row.live.state))
+                if complete {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.seed)
+                        .accessibilityHidden(true)
+                        .transition(.rawkoonSwap)
+                }
+                // One slot keyed by the state, so a state change crossfades the badge in place.
+                ZStack(alignment: .trailing) {
+                    statusBadge(row.live.state, tint: stateTint(row.live.state))
+                        .id(row.live.state)
+                }
             }
 
-            DuskProgress(value: row.live.progress)
+            DuskProgress(
+                value: row.live.progress,
+                isActive: DownloadMotion.isRunning(state: row.live.state, speed: row.live.downloadSpeed)
+            )
 
             HStack(spacing: 10) {
                 Text("↓ \(Formatters.speed(row.live.downloadSpeed, useAll: true))")
                     .foregroundStyle(Theme.apricotSoft)
+                    .rawkoonNumeric(row.live.downloadSpeed.isFinite ? row.live.downloadSpeed : 0)
                 Text("\(Int(row.live.progress * 100))%")
                     .foregroundStyle(Theme.muted)
+                    .rawkoonNumeric(Double(Int(row.live.progress * 100)))
                 if let eta = Formatters.etaSeconds(row.live.etaSeconds) {
                     Text("ETA \(eta)")
                         .foregroundStyle(Theme.faint)
+                        .rawkoonNumeric(Double(row.live.etaSeconds ?? 0))
                 }
                 Spacer()
             }
@@ -280,6 +363,14 @@ struct ActivityView: View {
         }
         .padding(12)
         .activityCard(cornerRadius: 13)
+        .rawkoonMotion(RawkoonMotion.snappy, value: row.live.state)
+        // The check burst: only a finish seen on screen counts, never a card that loads already complete.
+        .rawkoonCelebrate(
+            trigger: complete,
+            ring: .roundedRect(cornerRadius: 13),
+            haptic: .downloadComplete,
+            when: { !$0 && $1 }
+        )
     }
 
     /// Warm skeleton row shown while the queue's first load is in flight.
@@ -337,9 +428,17 @@ struct ActivityView: View {
     }
 
     private func loadQueue() async {
-        loadingQueue = true
+        if !didLoadQueue {
+            loadingQueue = true
+        }
         queueError = nil
-        defer { loadingQueue = false }
+        defer {
+            loadingQueue = false
+            // A cancelled cold load showed nothing, so the next one still opens on the skeleton.
+            if !Task.isCancelled {
+                didLoadQueue = true
+            }
+        }
 
         guard let client = model.api() else {
             queueError = String(localized: "Not signed in.")
@@ -382,34 +481,45 @@ struct ActivityView: View {
 
     // MARK: History
 
-    @ViewBuilder
     private var historyContent: some View {
         VStack(spacing: 12) {
             historyFilterBar
 
-            if loadingHistory, activities.isEmpty {
-                historySkeleton
-            } else if let historyError, activities.isEmpty {
-                errorView(historyError)
-            } else if activities.isEmpty {
-                ContentUnavailableView(
-                    "No recent activity",
-                    systemImage: "clock.arrow.circlepath",
-                    description: Text("Nothing has happened yet.")
-                )
-                .rawkoonLivingSymbol(.empty)
-                .frame(maxWidth: .infinity, minHeight: 360)
-            } else {
-                historyList
+            // One slot, so the outgoing state never stacks above the incoming one.
+            ZStack(alignment: .top) {
+                if loadingHistory, activities.isEmpty {
+                    historySkeleton
+                        .transition(.rawkoonSwap)
+                } else if let historyError, activities.isEmpty {
+                    errorView(historyError)
+                        .transition(.rawkoonSwap)
+                } else if activities.isEmpty {
+                    ContentUnavailableView(
+                        "No recent activity",
+                        systemImage: "clock.arrow.circlepath",
+                        description: Text("Nothing has happened yet.")
+                    )
+                    .rawkoonLivingSymbol(.empty)
+                    .frame(maxWidth: .infinity, minHeight: 360)
+                    .transition(.rawkoonSwap)
+                } else {
+                    historyList
+                        .transition(.rawkoonSwap)
+                }
             }
+            .rawkoonMotion(
+                RawkoonMotion.spring,
+                value: Self.laneState(loading: loadingHistory, failed: historyError != nil, isEmpty: activities.isEmpty)
+            )
         }
         .padding(16)
     }
 
     private var historyList: some View {
         LazyVStack(spacing: 8) {
-            ForEach(Array(activities.enumerated()), id: \.offset) { _, activity in
+            ForEach(Array(activities.enumerated()), id: \.offset) { offset, activity in
                 historyRow(activity)
+                    .rawkoonEntrance(id: activity.id ?? -(offset + 1))
                     .onAppear {
                         // Trigger on the row's own identity, not its offset: an
                         // offset-keyed ForEach re-fires `onAppear` for whichever
@@ -429,6 +539,7 @@ struct ActivityView: View {
                 historySkeletonRow
             }
         }
+        .rawkoonEntranceScope()
         .rawkoonMotion(RawkoonMotion.gentle, value: activities.count)
     }
 
@@ -573,6 +684,7 @@ struct ActivityView: View {
     private func loadHistory() async {
         guard let client = model.api() else {
             historyError = String(localized: "Not signed in.")
+            loadingHistory = false
             return
         }
         // Skeleton only on a cold load; a live reload keeps the current rows.
@@ -643,29 +755,43 @@ struct ActivityView: View {
 
     // MARK: Calendar
 
-    @ViewBuilder
     private var calendarContent: some View {
-        if loadingCalendar, upcomingItems.isEmpty {
-            ProgressView().tint(Theme.apricot)
+        // A container, not a bare conditional, so the lane slide and the state swaps never share one transition.
+        ZStack(alignment: .top) {
+            if loadingCalendar, upcomingItems.isEmpty {
+                ProgressView().tint(Theme.apricot)
+                    .frame(maxWidth: .infinity, minHeight: 420)
+                    .transition(.rawkoonSwap)
+            } else if let calendarError, upcomingItems.isEmpty {
+                errorView(calendarError)
+                    .transition(.rawkoonSwap)
+            } else if upcomingItems.isEmpty {
+                ContentUnavailableView(
+                    "Nothing upcoming",
+                    systemImage: "calendar",
+                    description: Text("No known releases on the horizon.")
+                )
+                .rawkoonLivingSymbol(.empty)
                 .frame(maxWidth: .infinity, minHeight: 420)
-        } else if let calendarError, upcomingItems.isEmpty {
-            errorView(calendarError)
-        } else if upcomingItems.isEmpty {
-            ContentUnavailableView(
-                "Nothing upcoming",
-                systemImage: "calendar",
-                description: Text("No known releases on the horizon.")
-            )
-            .rawkoonLivingSymbol(.empty)
-            .frame(maxWidth: .infinity, minHeight: 420)
-        } else {
-            LazyVStack(spacing: 8) {
-                ForEach(upcomingItems) { item in
-                    calendarRow(item)
+                .transition(.rawkoonSwap)
+            } else {
+                LazyVStack(spacing: 8) {
+                    ForEach(upcomingItems) { item in
+                        calendarRow(item)
+                            .rawkoonEntrance(id: item.id)
+                    }
                 }
+                .padding(16)
+                .rawkoonEntranceScope()
+                .transition(.rawkoonSwap)
             }
-            .padding(16)
         }
+        .rawkoonMotion(
+            RawkoonMotion.spring,
+            value: Self.laneState(
+                loading: loadingCalendar, failed: calendarError != nil, isEmpty: upcomingItems.isEmpty
+            )
+        )
     }
 
     private func calendarRow(_ item: UpcomingItem) -> some View {

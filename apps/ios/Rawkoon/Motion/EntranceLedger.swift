@@ -39,8 +39,9 @@ extension View {
     }
 
     /// Fades and rises this item in the first time it appears, staggered within its burst.
-    func rawkoonEntrance(id: some Hashable) -> some View {
-        modifier(Entrance(id: AnyHashable(id)))
+    /// `fileID` and `line` only name the call site in the DEBUG missing-scope log.
+    func rawkoonEntrance(id: some Hashable, fileID: String = #fileID, line: Int = #line) -> some View {
+        modifier(Entrance(id: AnyHashable(id), callSite: "\(fileID):\(line)"))
     }
 }
 
@@ -56,6 +57,7 @@ private struct Entrance: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.rawkoonEntranceLedger) private var ledger
     let id: AnyHashable
+    let callSite: String
     @State private var entered = false
 
     /// Hidden only before the first claim; a claimed id always renders, even mid-animation.
@@ -68,6 +70,11 @@ private struct Entrance: ViewModifier {
             .opacity(hidden ? 0 : 1)
             .offset(y: hidden && !reduceMotion ? 12 : 0)
             .onAppear {
+                #if DEBUG
+                    if ledger == nil {
+                        MissingEntranceScope.report(callSite)
+                    }
+                #endif
                 guard !entered else { return }
                 let position = ledger.map { $0.claim(id, now: ProcessInfo.processInfo.systemUptime) } ?? 0
                 guard let position else {
@@ -81,3 +88,20 @@ private struct Entrance: ViewModifier {
             }
     }
 }
+
+#if DEBUG
+    /// Without a scope the ledger is missing and the entrance replays on every re-creation; say so once per call site.
+    private enum MissingEntranceScope {
+        private static var reported: Set<String> = []
+
+        static func report(_ callSite: String) {
+            guard reported.insert(callSite).inserted else { return }
+            Log.motion.warning(
+                """
+                rawkoonEntrance at \(callSite, privacy: .public) has no rawkoonEntranceScope above it; \
+                it replays whenever the view is re-created
+                """
+            )
+        }
+    }
+#endif

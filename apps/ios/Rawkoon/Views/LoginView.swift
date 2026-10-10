@@ -6,6 +6,8 @@ struct LoginView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var revealPassword = false
+    /// Set on a user's sign-in tap, so a session restored after unlock doesn't celebrate.
+    @State private var signInAttempted = false
     @FocusState private var loginFocus: LoginField?
 
     private enum LoginField: Hashable {
@@ -21,21 +23,42 @@ struct LoginView: View {
     }
 
     private func submit(_ model: AppModel) {
-        guard fieldsReady, !model.loading else { return }
+        // A lingering Login after the session opened must not start a second sign-in.
+        guard fieldsReady, !model.loading, !model.isLoggedIn else { return }
+        signInAttempted = true
         Task { await model.login(server: model.serverURL, email: email, password: password) }
     }
 
+    private func signIn(with provider: SsoProvider) {
+        guard !model.isLoggedIn else { return }
+        signInAttempted = true
+        Task { await model.signInWithProvider(provider.slug) }
+    }
+
     var body: some View {
-        NavigationStack {
+        // Read here so the shake's predicate sees the session state of the render that changed the error.
+        let signedIn = model.isLoggedIn
+        return NavigationStack {
             ZStack {
                 background
-                if isRegularWidth {
-                    macLayout(model)
-                } else {
-                    phoneForm(model)
+                Group {
+                    if isRegularWidth {
+                        macLayout(model)
+                    } else {
+                        phoneForm(model)
+                    }
                 }
+                .rawkoonEntranceScope()
+                // A failed sign-in shakes the form; an error after the session opened is the library load's.
+                .rawkoonShake(trigger: model.errorMessage, when: { _, new in new != nil && !signedIn })
             }
             .task { await model.loadSsoProviders() }
+            // Drop the keyboard once the session opens, not on a failed attempt.
+            .onChange(of: model.isLoggedIn) { _, signedIn in
+                if signedIn {
+                    loginFocus = nil
+                }
+            }
             .onChange(of: model.serverURL) { _, _ in
                 Task { await model.loadSsoProviders() }
             }
@@ -65,6 +88,7 @@ struct LoginView: View {
                         .font(.subheadline)
                         .foregroundStyle(Theme.muted)
                 }
+                .rawkoonEntrance(id: "lockup")
 
                 VStack(spacing: 16) {
                     fieldRow("Server") {
@@ -113,11 +137,14 @@ struct LoginView: View {
                         }
                     }
                 }
+                .rawkoonEntrance(id: "fields")
 
                 signInButton(model)
+                    .rawkoonEntrance(id: "signIn")
 
                 if !model.ssoProviders.isEmpty {
                     ssoBlock(model)
+                        .rawkoonEntrance(id: "sso")
                 }
 
                 if let errorMessage = model.errorMessage {
@@ -125,9 +152,11 @@ struct LoginView: View {
                         .foregroundStyle(Theme.terracotta)
                         .font(.footnote)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .transition(.rawkoonReveal)
                 }
             }
             .frame(width: 380)
+            .rawkoonMotion(RawkoonMotion.spring, value: model.errorMessage)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 48)
         }
@@ -187,21 +216,39 @@ struct LoginView: View {
         Button {
             submit(model)
         } label: {
-            Group {
-                if model.loading {
-                    ProgressView().tint(Theme.onAccent)
-                } else {
-                    Text("Sign In").fontWeight(.semibold)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 46)
-            .foregroundStyle(Theme.onAccent)
-            .background(Theme.apricot, in: RoundedRectangle(cornerRadius: 12))
+            signInLabel(model)
+                .frame(maxWidth: .infinity)
+                .frame(height: 46)
+                .foregroundStyle(Theme.onAccent)
+                .background(Theme.apricot, in: RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
         .disabled(model.loading || !fieldsReady)
         .opacity(fieldsReady ? 1 : 0.6)
+        .rawkoonCelebrate(
+            trigger: model.isLoggedIn, ring: .roundedRect(cornerRadius: 12), tint: Theme.seed,
+            when: { old, new in !old && new && signInAttempted }
+        )
+    }
+
+    /// Sign In, then a spinner, then a check once the session opens (the static mark Reduce Motion keeps).
+    private func signInLabel(_ model: AppModel) -> some View {
+        let face = SignInFace.face(loading: model.loading, signedIn: model.isLoggedIn)
+        return ZStack {
+            switch face {
+            case .signedIn:
+                Image(systemName: "checkmark")
+                    .fontWeight(.bold)
+                    .transition(.rawkoonPop)
+            case .loading:
+                ProgressView().tint(Theme.onAccent)
+                    .transition(.rawkoonSwap)
+            case .idle:
+                Text("Sign In").fontWeight(.semibold)
+                    .transition(.rawkoonSwap)
+            }
+        }
+        .rawkoonMotion(RawkoonMotion.snappy, value: face)
     }
 
     private func ssoBlock(_ model: AppModel) -> some View {
@@ -213,7 +260,7 @@ struct LoginView: View {
             }
             ForEach(model.ssoProviders) { provider in
                 Button {
-                    Task { await model.signInWithProvider(provider.slug) }
+                    signIn(with: provider)
                 } label: {
                     HStack(spacing: 10) {
                         if model.loading {
@@ -249,6 +296,7 @@ struct LoginView: View {
             Section {
                 loginLockup(titleSize: 40, logoSide: 52)
                     .padding(.vertical, 10)
+                    .rawkoonEntrance(id: "lockup")
                     .listRowBackground(Color.clear)
             }
 
@@ -262,6 +310,7 @@ struct LoginView: View {
                     .focused($loginFocus, equals: .server)
                     .submitLabel(.next)
                     .onSubmit { loginFocus = .email }
+                    .rawkoonEntrance(id: "server")
             }
             .listRowBackground(Theme.raised)
 
@@ -275,6 +324,7 @@ struct LoginView: View {
                     .focused($loginFocus, equals: .email)
                     .submitLabel(.next)
                     .onSubmit { loginFocus = .password }
+                    .rawkoonEntrance(id: "email")
                 HStack {
                     Group {
                         if revealPassword {
@@ -302,6 +352,7 @@ struct LoginView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel(Text(LocalizedStringKey(revealPassword ? "Hide password" : "Show password")))
                 }
+                .rawkoonEntrance(id: "password")
             }
             .listRowBackground(Theme.raised)
 
@@ -309,21 +360,20 @@ struct LoginView: View {
                 Button {
                     submit(model)
                 } label: {
-                    Group {
-                        if model.loading {
-                            ProgressView().tint(Theme.onAccent)
-                        } else {
-                            Text("Sign In").fontWeight(.semibold)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 44)
-                    .foregroundStyle(Theme.onAccent)
-                    .background(Theme.apricot, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    signInLabel(model)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44)
+                        .foregroundStyle(Theme.onAccent)
+                        .background(Theme.apricot, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .disabled(model.loading || !fieldsReady)
                 .opacity(fieldsReady ? 1 : 0.6)
+                .rawkoonCelebrate(
+                    trigger: model.isLoggedIn, ring: .roundedRect(cornerRadius: 12), tint: Theme.seed,
+                    when: { old, new in !old && new && signInAttempted }
+                )
+                .rawkoonEntrance(id: "signIn")
                 .listRowBackground(Color.clear)
             }
 
@@ -331,7 +381,7 @@ struct LoginView: View {
                 Section {
                     ForEach(model.ssoProviders) { provider in
                         Button {
-                            Task { await model.signInWithProvider(provider.slug) }
+                            signIn(with: provider)
                         } label: {
                             HStack(spacing: 10) {
                                 if model.loading {
@@ -353,6 +403,7 @@ struct LoginView: View {
                             .foregroundStyle(Theme.textStrong)
                         }
                         .disabled(model.loading)
+                        .rawkoonEntrance(id: "sso-\(provider.slug)")
                     }
                 } header: {
                     Text("Or")
@@ -371,6 +422,7 @@ struct LoginView: View {
         }
         .scrollContentBackground(.hidden)
         .tint(Theme.apricot)
+        .rawkoonMotion(RawkoonMotion.spring, value: model.errorMessage)
     }
 
     /// The provider's configured icon, or the same slug-based dashboard-icons CDN
@@ -389,5 +441,27 @@ struct LoginView: View {
 
     private func prompt(verbatim text: String) -> Text {
         Text(verbatim: text).foregroundStyle(Theme.muted)
+    }
+}
+
+/// How the root hands over from Login to the tabs: Login stays on top long enough for its success moment.
+nonisolated enum LoginExit {
+    /// The sign-in celebration's ring runs about 0.44s.
+    static let linger: Duration = .milliseconds(450)
+
+    static func showsLogin(isLoggedIn: Bool, exitFinished: Bool) -> Bool {
+        !isLoggedIn || !exitFinished
+    }
+}
+
+/// What the Sign In button shows; an open session wins over the library load still running behind it.
+nonisolated enum SignInFace: Equatable {
+    case signedIn, loading, idle
+
+    static func face(loading: Bool, signedIn: Bool) -> Self {
+        if signedIn {
+            return .signedIn
+        }
+        return loading ? .loading : .idle
     }
 }

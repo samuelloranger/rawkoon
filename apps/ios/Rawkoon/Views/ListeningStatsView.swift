@@ -128,22 +128,25 @@ struct ListeningStatsFigures: View {
         HStack(alignment: .top, spacing: 16) {
             figure(
                 value: "\(stats.streakDays)",
+                numeric: Double(stats.streakDays),
                 label: String(localized: "\(stats.streakDays) day streak"),
                 monospaced: false
             )
             figure(
                 value: Formatters.listeningHours(stats.weekSecs),
+                numeric: stats.weekSecs,
                 label: String(localized: "This week"),
                 monospaced: true
             )
         }
     }
 
-    private func figure(value: String, label: String, monospaced: Bool) -> some View {
+    private func figure(value: String, numeric: Double, label: String, monospaced: Bool) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(value)
                 .font(monospaced ? .system(.title2, design: .monospaced).weight(.semibold) : .display(24))
                 .foregroundStyle(Theme.textStrong)
+                .rawkoonNumeric(numeric)
             Text(label)
                 .font(.caption)
                 .foregroundStyle(Theme.faint)

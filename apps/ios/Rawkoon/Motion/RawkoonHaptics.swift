@@ -7,6 +7,8 @@ enum RawkoonHaptics {
         case playPause, chapterSkip, grab, downloadComplete, libraryChanged
         case success, error, warning
         case deckDismiss, deckCommit
+        /// A plain control tap that starts work, e.g. `AsyncButton`.
+        case tap
     }
 
     /// The UIKit generator call for code paths with no view to hang `.sensoryFeedback` on.
@@ -18,7 +20,7 @@ enum RawkoonHaptics {
 
     nonisolated static func feedback(for event: Event) -> SensoryFeedback {
         switch event {
-        case .playPause: .selection
+        case .playPause, .tap: .selection
         case .chapterSkip: .impact(weight: .light)
         case .grab, .downloadComplete, .libraryChanged, .success: .success
         case .error: .error
@@ -30,7 +32,7 @@ enum RawkoonHaptics {
 
     nonisolated static func imperative(for event: Event) -> Imperative {
         switch event {
-        case .playPause: .selection
+        case .playPause, .tap: .selection
         case .chapterSkip: .impact(.light)
         case .grab, .downloadComplete, .libraryChanged, .success: .notification(.success)
         case .error: .notification(.error)

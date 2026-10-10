@@ -50,6 +50,10 @@ struct ReleaseRow: View {
             RoundedRectangle(cornerRadius: 14)
                 .strokeBorder(cardBorder, lineWidth: 1)
         )
+        // The row's own states come from the sheet unanimated, so the row animates them itself.
+        .rawkoonMotion(RawkoonMotion.snappy, value: [isAiPick, isBlocking, isBlocked, isGrabbing, isGrabbed])
+        // `isGrabbed` turns true only after the server confirms the grab; the sheet plays the haptic.
+        .rawkoonCelebrate(trigger: isGrabbed, ring: .roundedRect(cornerRadius: 14), haptic: nil, when: { !$0 && $1 })
     }
 
     /// Resolution tier → rail colour: brighter for higher quality.
@@ -83,6 +87,7 @@ struct ReleaseRow: View {
                 Image(systemName: "sparkles")
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.apricotSoft)
+                    .transition(.rawkoonSwap)
             }
             titleView
             Spacer(minLength: 0)
@@ -93,9 +98,14 @@ struct ReleaseRow: View {
     /// Block quiet on the left, Grab (the primary) reachable on the right.
     private var actionsRow: some View {
         HStack(spacing: 10) {
-            blockButton
+            // Each control keeps one slot, so its states crossfade in place.
+            ZStack(alignment: .leading) {
+                blockButton
+            }
             Spacer(minLength: 8)
-            grabButton
+            ZStack(alignment: .trailing) {
+                grabButton
+            }
         }
     }
 
@@ -231,10 +241,12 @@ struct ReleaseRow: View {
             Label("Grabbed", systemImage: "checkmark.circle.fill")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(Theme.seed)
+                .transition(.rawkoonSwap)
         } else if isGrabbing {
             ProgressView()
                 .tint(Theme.apricot)
                 .frame(width: 20, height: 20)
+                .transition(.rawkoonSwap)
         } else {
             Button {
                 Task { await onGrab() }
@@ -255,6 +267,7 @@ struct ReleaseRow: View {
                 .background(Theme.terracotta, in: Capsule())
             }
             .requiresConnection(model.isOffline)
+            .transition(.rawkoonSwap)
         }
     }
 
@@ -266,11 +279,13 @@ struct ReleaseRow: View {
                 .foregroundStyle(Theme.muted)
                 .lineLimit(1)
                 .frame(minHeight: 44)
+                .transition(.rawkoonSwap)
         } else if isBlocking {
             ProgressView()
                 .tint(Theme.terracotta)
                 .frame(width: 20, height: 20)
                 .frame(minHeight: 44)
+                .transition(.rawkoonSwap)
         } else {
             Button {
                 Task { await onBlock() }
@@ -284,6 +299,7 @@ struct ReleaseRow: View {
             .controlSize(.small)
             .frame(minHeight: 44)
             .requiresConnection(model.isOffline)
+            .transition(.rawkoonSwap)
         }
     }
 

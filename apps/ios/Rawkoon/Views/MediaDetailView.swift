@@ -358,6 +358,7 @@ struct MediaDetailView: View {
                         posterPath: item.posterUrl,
                         libraryId: item.libraryId
                     )
+                    .rawkoonZoomDestination(similarZoomID(item))
                 }
             }
     }
@@ -698,8 +699,16 @@ struct MediaDetailView: View {
         }
     }
 
+    private func similarZoomID(_ item: TmdbSearchItem) -> RawkoonZoom.ID {
+        ZoomSourceKey.scoped(
+            RawkoonZoom.media(tmdbId: item.tmdbId, mediaType: item.mediaType),
+            in: "similar:\(mediaType):\(tmdbId)"
+        )
+    }
+
     func similarCard(_ item: TmdbSearchItem) -> some View {
-        NavigationLink {
+        let zoomID = similarZoomID(item)
+        return NavigationLink {
             MediaDetailView(
                 tmdbId: item.tmdbId,
                 mediaType: item.mediaType,
@@ -707,6 +716,7 @@ struct MediaDetailView: View {
                 posterPath: item.posterUrl,
                 libraryId: item.libraryId
             )
+            .rawkoonZoomDestination(zoomID)
         } label: {
             MediaPosterCard(
                 title: item.title,
@@ -721,6 +731,7 @@ struct MediaDetailView: View {
                         .overlay(Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Color(hex: 0x10231A)))
                 }
             }
+            .rawkoonZoomSource(zoomID)
         }
         .buttonStyle(.rawkoonPressable)
     }
