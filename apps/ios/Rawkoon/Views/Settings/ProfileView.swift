@@ -4,6 +4,7 @@ import SwiftUI
 /// Avatar upload and passkey registration are deferred to the web app.
 struct ProfileView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.openURL) private var openURL
 
     @State private var loading = true
     @State private var loadError: String?
@@ -23,6 +24,9 @@ struct ProfileView: View {
     @State private var changingPassword = false
     @State private var passwordError: String?
     @State private var passwordDone = false
+
+    @State private var openingCalendar = false
+    @State private var calendarError: String?
 
     private var nameDirty: Bool {
         firstName != loadedFirst || lastName != loadedLast
@@ -64,6 +68,20 @@ struct ProfileView: View {
                         Text(passwordError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
                     }
                 } header: { Text("Password") }
+
+                Section {
+                    Button("Add to Calendar") { Task { await subscribeToCalendar() } }
+                        .disabled(openingCalendar)
+                        .requiresConnection(model.isOffline)
+                        .listRowBackground(Theme.raised)
+                    if let calendarError {
+                        Text(calendarError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                    }
+                } header: {
+                    Text("Calendar")
+                } footer: {
+                    Text("Subscribe to your library's release dates in the Calendar app.")
+                }
 
                 Section {
                     Text("Add or remove passkeys from the web app.")
@@ -121,6 +139,22 @@ struct ProfileView: View {
             nameError = String(localized: "Couldn't save your name.")
         }
         savingName = false
+    }
+
+    private func subscribeToCalendar() async {
+        guard let client = model.api() else { return }
+        openingCalendar = true; calendarError = nil
+        do {
+            let subscription = try await client.calendarSubscription()
+            if let url = URL(string: subscription.webcalUrl) {
+                openURL(url)
+            } else {
+                calendarError = String(localized: "Couldn't open the calendar link.")
+            }
+        } catch {
+            calendarError = String(localized: "Couldn't open the calendar link.")
+        }
+        openingCalendar = false
     }
 
     private func changePassword() async {

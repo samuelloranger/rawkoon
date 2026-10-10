@@ -707,7 +707,11 @@
         "urlLabel": "URL d'abonnement",
         "revokeConfirm": "Êtes-vous sûr ? Les abonnements existants cesseront de se mettre à jour.",
         "regenerateConfirm": "Êtes-vous sûr ? Les abonnements existants devront être ajoutés à nouveau.",
-        "instructions": "Copiez l'URL et ajoutez-la comme abonnement de calendrier, ou cliquez sur « Ouvrir dans le calendrier » pour l'ajouter automatiquement."
+        "instructions": "Copiez l'URL et ajoutez-la comme abonnement de calendrier, ou cliquez sur « Ouvrir dans le calendrier » pour l'ajouter automatiquement.",
+        "copyError": "Impossible de copier l'URL.",
+        "regenerated": "Nouvelle URL prête. Ajoutez-la de nouveau dans votre calendrier.",
+        "regenerateError": "Impossible de regénérer l'URL.",
+        "loadError": "Impossible de charger l'URL de votre calendrier."
       },
       "comingSoon": "Plus de fonctionnalités à venir",
       "comingSoonDescription": "Nous travaillons sur d'autres fonctionnalités de calendrier pour aider votre foyer à rester synchronisé.",

@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { UserRound, Monitor } from "lucide-react";
+import { CalendarSubscriptionSection } from "@/pages/settings/_component/CalendarSubscriptionSection";
 import { PasskeysSection } from "@/pages/settings/_component/PasskeysSection";
 import { ProfileForm } from "@/pages/settings/_component/ProfileForm";
 import { SettingsPageHeader } from "@/pages/settings/_component/SettingsPageHeader";
@@ -34,6 +35,7 @@ export function ProfileTab() {
         <NavPositionPicker value={position} onChange={setPosition} />
       </div>
       <PasskeysSection />
+      <CalendarSubscriptionSection />
     </div>
   );
 }

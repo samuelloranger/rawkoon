@@ -409,4 +409,9 @@ extension APIClient {
     func changePassword(_ body: ChangePasswordBody) async throws {
         try await postExpectOK("/api/users/me/password", body: body)
     }
+
+    /// Creates the feed token on first call, so the URL is stable after that.
+    func calendarSubscription() async throws -> CalendarSubscription {
+        try await get("/api/calendar/subscription")
+    }
 }
