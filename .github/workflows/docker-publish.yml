@@ -9,9 +9,11 @@ name: Build and Push Docker Image
 # Release lane: a published GitHub release builds vX.Y.Z and moves `:latest`, `:X.Y.Z`,
 # `:X.Y` and `:edge`, so a host on edge also lands on the release.
 #
-# The hidden ref refs/edge/server records the commit `:edge` was last built from. CI runs
-# can finish out of order, so `:edge` only moves to a commit that contains that one; it
-# never goes back to older code.
+# The hidden ref refs/edge/server records the commit `:edge` should hold, and `:edge` is
+# always the image `:sha-<short>` of that commit. CI runs can finish out of order, so the
+# mark only moves to a commit that contains it. Runs are not queued: GitHub keeps one
+# pending run per concurrency group and drops the rest, which could drop the newest commit.
+# The mark is the only ordering guard.
 on:
   release:
     types: [published]
@@ -33,12 +35,6 @@ jobs:
         github.event.workflow_run.event == 'push' &&
         github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
-    # Edge runs queue so each one compares against the commit the previous one shipped; a
-    # release never waits on them. On the job, after `if:`, so a run that CI failed never
-    # takes the pending slot from a green one.
-    concurrency:
-      group: ${{ github.event_name == 'workflow_run' && 'docker-edge' || format('docker-release-{0}', github.run_id) }}
-      cancel-in-progress: false
     permissions:
       contents: write # pushes refs/edge/server
       packages: write
@@ -105,7 +101,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=sha-${{ steps.plan.outputs.short }},enable=${{ steps.plan.outputs.lane == 'edge' }}
+            type=raw,value=sha-${{ steps.plan.outputs.short }}
             type=raw,value=latest,enable=${{ steps.plan.outputs.lane == 'release' }}
             type=semver,pattern={{version}},enable=${{ steps.plan.outputs.lane == 'release' }}
             type=semver,pattern={{major}}.{{minor}},enable=${{ steps.plan.outputs.lane == 'release' }}
@@ -122,10 +118,11 @@ jobs:
             APP_VERSION=${{ steps.plan.outputs.app_version }}
             GITHUB_RELEASES_REPO=${{ github.repository }}
 
-      # `:edge` moves unless the mark already holds a later commit. The same commit moves it
-      # again: a re-run repairs a retag that failed, and a release replaces the edge build of
-      # its code. The mark moves first, under a lease, so of two runs moving at once the
-      # loser re-reads it and decides again instead of retagging over a newer build.
+      # The mark moves unless it already holds a later commit; the same commit moves it again,
+      # so a re-run repairs a retag that failed. It moves first, under a lease, and `:edge`
+      # follows. Another run can move the mark while this one retags, so each run retags
+      # until the mark it reads afterwards is the one it just retagged to. Whichever retag
+      # lands last was then followed by a read of the final mark, so `:edge` ends on it.
       - name: Move edge
         if: steps.plan.outputs.ship == 'true'
         id: edge
@@ -133,34 +130,53 @@ jobs:
         # cost it the deploy.
         continue-on-error: ${{ steps.plan.outputs.lane == 'release' }}
         env:
-          LANE: ${{ steps.plan.outputs.lane }}
           REF: ${{ steps.plan.outputs.ref }}
           SHORT: ${{ steps.plan.outputs.short }}
-          APP_VERSION: ${{ steps.plan.outputs.app_version }}
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         run: |
           set -euo pipefail
-          if [ "$LANE" = release ]; then SOURCE="${APP_VERSION#v}"; else SOURCE="sha-$SHORT"; fi
+          mark() { git ls-remote --refs origin refs/edge/server | cut -f1; }
+          retag() {
+            for attempt in 1 2 3; do
+              docker buildx imagetools create --tag "$IMAGE:edge" "$IMAGE:sha-${1:0:7}" && return 0
+              sleep $((attempt * 10))
+            done
+            return 1
+          }
+          MOVED=false
           for attempt in 1 2 3; do
-            MARK="$(git ls-remote --refs origin refs/edge/server | cut -f1)"
+            MARK="$(mark)"
             if [ -n "$MARK" ] && [ "$MARK" != "$REF" ]; then
               git fetch --quiet origin "+refs/edge/server:refs/edge/server"
               if git merge-base --is-ancestor "$REF" "$MARK"; then
                 echo ":edge already holds ${MARK:0:7}, which contains $SHORT; leaving it"
-                echo "moved=false" >> "$GITHUB_OUTPUT"
-                exit 0
+                break
               fi
             fi
             if git push --force-with-lease="refs/edge/server:$MARK" origin "$REF:refs/edge/server"; then
-              docker buildx imagetools create --tag "$IMAGE:edge" "$IMAGE:$SOURCE"
-              echo ":edge now holds $SHORT ($SOURCE)"
-              echo "moved=true" >> "$GITHUB_OUTPUT"
-              exit 0
+              MOVED=true
+              break
             fi
             echo "refs/edge/server moved under attempt $attempt; reading it again"
           done
-          echo "::error::Could not move refs/edge/server after 3 attempts"
-          exit 1
+          if [ "$MOVED" = false ] && [ "$(mark)" != "$REF" ] && ! git merge-base --is-ancestor "$REF" "$(mark)"; then
+            echo "::error::Could not move refs/edge/server after 3 attempts"
+            exit 1
+          fi
+          if [ "$MOVED" = true ]; then
+            TARGET="$REF"
+            for _ in 1 2 3 4 5; do
+              retag "$TARGET"
+              NOW="$(mark)"
+              if [ "$NOW" = "$TARGET" ]; then
+                echo ":edge now holds ${TARGET:0:7}"
+                break
+              fi
+              echo "refs/edge/server moved to ${NOW:0:7} while retagging; following it"
+              TARGET="$NOW"
+            done
+          fi
+          echo "moved=$MOVED" >> "$GITHUB_OUTPUT"
 
       - name: Trigger deployer
         if: steps.plan.outputs.ship == 'true' && (steps.plan.outputs.lane == 'release' || steps.edge.outputs.moved == 'true')

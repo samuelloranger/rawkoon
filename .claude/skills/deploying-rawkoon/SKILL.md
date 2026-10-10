@@ -15,7 +15,8 @@ Every push to `main` that CI passes already ships. `docker-publish.yml` runs on 
 
 So **a fix needs a merge, not a release.** Cut a release to collect what has landed into a version with notes: weekly, or at a milestone. Never one per fix.
 
-- `refs/edge/server` records the commit `:edge` was last built from. CI runs can finish out of order; `:edge` only moves to a commit that contains the mark, so it never goes back to older code. A failed edge run leaves the mark where it was, and the next green push retries.
+- `refs/edge/server` records the commit `:edge` should hold, and `:edge` is always that commit's `:sha-<short>`. Edge runs are not queued; CI runs can finish out of order, and the mark only moves to a commit that contains it, so `:edge` never goes back to older code. A run whose retag failed is repaired by re-running it or by the next green push.
+- An edge TestFlight upload is skipped when `main` already has newer app changes (their run uploads them) or a version bump (its release does).
 - A commit that changes the `version` in `package.json` is the release commit: both edge lanes skip it, because its release builds it under the real version.
 - Edge versions (`-main.N`) do not send the "App updated" notification; the release that follows does.
 - Merging to `main` is therefore a production deploy. Only the main interactive session merges.
