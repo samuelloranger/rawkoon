@@ -19,6 +19,50 @@ extension View {
     func rawkoonSymbolBounce(_ trigger: some Equatable) -> some View {
         modifier(SymbolBounce(trigger: trigger))
     }
+
+    /// One spin of the symbol's arrow each time `trigger` changes; still under Reduce Motion.
+    func rawkoonSymbolSpin(_ trigger: some Equatable, clockwise: Bool) -> some View {
+        modifier(SymbolSpin(trigger: trigger, clockwise: clockwise))
+    }
+
+    /// One bounce when this symbol is inserted while `armed`; for a glyph that replaces another on a state change.
+    func rawkoonBounceOnInsert(armed: Bool) -> some View {
+        modifier(BounceOnInsert(armed: armed))
+    }
+}
+
+private struct SymbolSpin<Trigger: Equatable>: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let trigger: Trigger
+    let clockwise: Bool
+
+    func body(content: Content) -> some View {
+        // A value that never changes under Reduce Motion, so the effect never fires.
+        let value = reduceMotion ? nil : Optional(trigger)
+        return Group {
+            if clockwise {
+                content.symbolEffect(.rotate.clockwise.byLayer, value: value)
+            } else {
+                content.symbolEffect(.rotate.counterClockwise.byLayer, value: value)
+            }
+        }
+    }
+}
+
+private struct BounceOnInsert: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let armed: Bool
+    @State private var bounces = 0
+
+    func body(content: Content) -> some View {
+        content
+            .symbolEffect(.bounce, value: bounces)
+            // A task, not onAppear, so the effect sees the change once the symbol is on screen.
+            .task {
+                guard armed, !reduceMotion else { return }
+                bounces += 1
+            }
+    }
 }
 
 private struct SymbolBounce<Trigger: Equatable>: ViewModifier {

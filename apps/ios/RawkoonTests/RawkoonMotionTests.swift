@@ -176,4 +176,56 @@ struct RawkoonMotionTests {
     @Test func slideStaysPutUnderReduceMotion() {
         #expect(RawkoonSlide.offset(edge: .leading, appearing: true, reduceMotion: true) == .zero)
     }
+
+    @Test func shakeEndsAtRest() {
+        #expect(RawkoonShake.offsets.count == 5)
+        #expect(RawkoonShake.offsets.last == 0)
+    }
+
+    @Test func shakeDecays() {
+        let swings = RawkoonShake.offsets.dropLast().map(abs)
+        #expect(zip(swings, swings.dropFirst()).allSatisfy { $0 > $1 })
+        #expect((swings.max() ?? 0) <= 12)
+    }
+
+    @Test func shakeStaysShort() {
+        #expect(Double(RawkoonShake.offsets.count) * RawkoonShake.beat <= 0.45)
+    }
+
+    @Test func popStartsSmallAndRestsAtFullSize() {
+        #expect(RawkoonPop.scale(isIdentity: false, reduceMotion: false) == RawkoonPop.hiddenScale)
+        #expect(RawkoonPop.hiddenScale < 1)
+        #expect(RawkoonPop.scale(isIdentity: true, reduceMotion: false) == 1)
+    }
+
+    @Test func popOnlyFadesUnderReduceMotion() {
+        #expect(RawkoonPop.scale(isIdentity: false, reduceMotion: true) == 1)
+    }
+
+    @Test func pressableRestsOpaqueAndDimsWhilePressed() {
+        #expect(PressableAppearance.opacity(isPressed: false, isEnabled: true, dimHandledAbove: false) == 1)
+        #expect(
+            PressableAppearance.opacity(isPressed: true, isEnabled: true, dimHandledAbove: false)
+                == PressableAppearance.pressedOpacity
+        )
+    }
+
+    @Test func pressableDimsADisabledControl() {
+        #expect(
+            PressableAppearance.opacity(isPressed: false, isEnabled: false, dimHandledAbove: false)
+                == PressableAppearance.disabledOpacity
+        )
+        #expect(PressableAppearance.disabledOpacity < PressableAppearance.pressedOpacity)
+    }
+
+    @Test func pressableLeavesAnAncestorsDimAlone() {
+        #expect(PressableAppearance.opacity(isPressed: false, isEnabled: false, dimHandledAbove: true) == 1)
+    }
+
+    @Test func pressableIgnoresAPressWhileDisabled() {
+        #expect(
+            PressableAppearance.opacity(isPressed: true, isEnabled: false, dimHandledAbove: false)
+                == PressableAppearance.disabledOpacity
+        )
+    }
 }
