@@ -7,9 +7,24 @@ description: Use when deploying, releasing, shipping, or rolling back rawkoon �
 
 ## Overview
 
+Two lanes publish the same image. Production tracks `ghcr.io/samuelloranger/rawkoon:edge`.
+
+## Edge builds come first
+
+Every push to `main` that CI passes already ships. `docker-publish.yml` runs on the `edge` lane (a `workflow_run` of CI): it builds the image as `vX.Y.Z+1-main.N` (the next patch above `package.json`, N = the workflow's run number), pushes `:sha-<short>`, moves `:edge` and POSTs the deployer webhook, so production redeploys within a minute or two. A push that changes `apps/ios` also uploads iOS and Mac to TestFlight as `X.Y.Z+1` (`ios.yml`, `edge` job). No tag and no GitHub release.
+
+So **a fix needs a merge, not a release.** Cut a release to collect what has landed into a version with notes: weekly, or at a milestone. Never one per fix.
+
+- `refs/edge/server` records the commit `:edge` was last built from. CI runs can finish out of order; `:edge` only moves to a commit that contains the mark, so it never goes back to older code. A failed edge run leaves the mark where it was, and the next green push retries.
+- A commit that changes the `version` in `package.json` is the release commit: both edge lanes skip it, because its release builds it under the real version.
+- Edge versions (`-main.N`) do not send the "App updated" notification; the release that follows does.
+- Merging to `main` is therefore a production deploy. Only the main interactive session merges.
+
+## Release lane
+
 There is **no release script**. A release is a GitHub Release, cut by hand, and everything downstream hangs off it:
 
-- `.github/workflows/docker-publish.yml` triggers on `release: [published]` — not on tag push. It builds `Dockerfile` and pushes `ghcr.io/samuelloranger/rawkoon` with three tags: `latest`, `{{version}}`, and `{{major}}.{{minor}}`. `APP_VERSION` is baked from `github.ref_name` (so it keeps the `v`), then it POSTs an HMAC-signed webhook to `DEPLOYER_WEBHOOK_URL` if that secret exists, and no-ops if it doesn't.
+- `.github/workflows/docker-publish.yml` triggers on `release: [published]` — not on tag push. It builds `Dockerfile` and pushes `ghcr.io/samuelloranger/rawkoon` with `latest`, `{{version}}`, `{{major}}.{{minor}}` and `sha-<short>`, then moves `:edge` to it (unless `:edge` already holds a later commit). `APP_VERSION` is the release tag (it keeps the `v`), then it POSTs an HMAC-signed webhook to `DEPLOYER_WEBHOOK_URL` if that secret exists, and no-ops if it doesn't.
 - `docs-pages.yml` (publish VitePress docs to samlo-cloud) and `screenshots.yml` (re-capture README screenshots and commit them to the default branch) also fire on `release: published`.
 
 **Version source of truth: the `version` field in the root `package.json`.** The git tag is `v` + that value (`1.4.2` → `v1.4.2`), and historically the bump is committed *in the release commit itself* — sometimes as a lone `chore: bump version to X.Y.Z`, sometimes folded into the last fix. Nothing validates that the tag and `package.json` agree, so getting them out of sync is silent and shows the wrong version in the app.
@@ -69,7 +84,7 @@ TODO(sam): confirm whether `DEPLOYER_WEBHOOK_URL` is actually configured as a re
 
 ## Rolling back
 
-The image tags are immutable per version, so rollback is repointing the compose file at the previous one — `latest` always follows the newest release and cannot be trusted for this.
+The version and `sha-<short>` tags are immutable, so rollback is repointing the compose file at one of them — `edge` moves on the next green push to `main` and `latest` on the next release, so neither can be trusted for this. Revert the bad commit on `main` before switching the compose file back to `:edge`, or the next deploy brings it back.
 
 ```bash
 # in docker-compose.prod.yml: image: ghcr.io/samuelloranger/rawkoon:1.4.2
@@ -88,4 +103,5 @@ To un-publish a bad release so `screenshots.yml`/docs don't reference it and the
 | App shows `0.0.0-dev+<timestamp>` | `APP_VERSION` build arg wasn't passed — the image was built locally, not by the release workflow. Version-change notifications stay suppressed in that state, by design. |
 | Release published, no image | The workflow only listens to `release: published`. A pushed tag with no release, or a draft release, starts nothing. |
 | Container restart-loops on boot | `entrypoint.sh` failed `migrate deploy`. Read the logs: it only auto-baselines (`migrate resolve --applied 0_init`) for "already exists"-class errors and exits on anything else. |
+| Merged to `main`, production unchanged | The edge run skipped it: the commit bumps the version (its release builds it), CI failed, or `:edge` already holds a later commit. The `Plan` and `Move edge` steps of the `Build and Push Docker Image` run say which. |
 | Re-tagging the same version | The workflow would rebuild and overwrite `latest` and `X.Y`. Always release the next patch instead of reusing a version. |
