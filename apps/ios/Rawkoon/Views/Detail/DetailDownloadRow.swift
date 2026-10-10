@@ -62,7 +62,10 @@ struct DetailDownloadRow: View {
             }
 
             if let live = row.live {
-                DuskProgress(value: live.progress, isActive: isActive && DownloadMotion.isRunning(state: live.state, speed: live.downloadSpeed))
+                DuskProgress(
+                    value: live.progress,
+                    isActive: isActive && DownloadMotion.isRunning(state: live.state, speed: live.downloadSpeed)
+                )
                 HStack(spacing: 10) {
                     Text("↓ \(Formatters.speed(live.downloadSpeed, useAll: false))")
                         .rawkoonNumeric(live.downloadSpeed.isFinite ? live.downloadSpeed : 0)
