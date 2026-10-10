@@ -5,10 +5,12 @@ on:
   # pushes from building at all.
   #
   # TestFlight uploads happen on three lanes:
-  #   - edge: a push to main that changes the app uploads it as the next patch
-  #     version (X.Y.Z+1), so a fix reaches internal testers with a merge
+  #   - edge: a push to main that changes the app uploads it under the last
+  #     release's version (package.json), so a fix reaches internal testers with
+  #     a merge; only the build number grows until the next release bumps it
   #   - release: a published GitHub release uploads X.Y.Z
-  #   - manual: a dispatch with testflight=true uploads any branch
+  #   - manual: a dispatch with testflight=true uploads any branch, under the
+  #     last release's version unless marketing_version says otherwise
   # Pushes to other branches run kit+lint+build only. The build number is
   # github.run_number, shared by every lane and never reused.
   push:
@@ -52,10 +54,10 @@ jobs:
             echo "This commit bumps the version to $VERSION; its release uploads it"
             SHIP=false
           fi
-          IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION"
+          # Edge builds stay on the last release's version; a release is the only thing that bumps it.
           {
             echo "ship=$SHIP"
-            echo "version=$MAJOR.$MINOR.$((PATCH + 1))"
+            echo "version=$VERSION"
           } | tee -a "$GITHUB_OUTPUT"
 
   kit:

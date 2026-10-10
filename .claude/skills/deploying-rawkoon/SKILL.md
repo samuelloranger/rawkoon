@@ -11,7 +11,7 @@ Two lanes publish the same image. Production tracks `ghcr.io/samuelloranger/rawk
 
 ## Edge builds come first
 
-Every push to `main` that CI passes already ships. `docker-publish.yml` runs on the `edge` lane (a `workflow_run` of CI): it builds the image as `vX.Y.Z+1-main.N` (the next patch above `package.json`, N = the workflow's run number), pushes `:sha-<short>`, moves `:edge` and POSTs the deployer webhook, so production redeploys within a minute or two. A push that changes `apps/ios` also uploads iOS and Mac to TestFlight as `X.Y.Z+1` (`ios.yml`, `edge` job). No tag and no GitHub release.
+Every push to `main` that CI passes already ships. `docker-publish.yml` runs on the `edge` lane (a `workflow_run` of CI): it builds the image as `vX.Y.Z+1-main.N` (the next patch above `package.json`, N = the workflow's run number), pushes `:sha-<short>`, moves `:edge` and POSTs the deployer webhook, so production redeploys within a minute or two. A push that changes `apps/ios` also uploads iOS and Mac to TestFlight under the last release's version `X.Y.Z` with a new build number (`ios.yml`, `edge` job); only a release bumps the TestFlight version. No tag and no GitHub release.
 
 So **a fix needs a merge, not a release.** Cut a release to collect what has landed into a version with notes: weekly, or at a milestone. Never one per fix.
 
