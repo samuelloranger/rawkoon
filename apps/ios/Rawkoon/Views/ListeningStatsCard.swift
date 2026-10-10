@@ -27,8 +27,10 @@ struct ListeningStatsCard: View {
                         card(stats)
                     }
                     .buttonStyle(.rawkoonPressable(scale: 0.98))
+                    .transition(.rawkoonSwap)
                 } else {
                     errorCard
+                        .transition(.rawkoonSwap)
                 }
             } else {
                 Color.clear.frame(width: 0, height: 0)
@@ -94,31 +96,41 @@ struct ListeningStatsCard: View {
         do {
             let features = try await client.systemFeatures()
             guard features.booksEnabled else {
-                booksEnabled = false
-                stats = nil
-                errorMessage = nil
+                withRawkoonMotion(RawkoonMotion.spring) {
+                    booksEnabled = false
+                    stats = nil
+                    errorMessage = nil
+                }
                 WidgetSnapshotWriter.shared.updateListening(nil)
                 return
             }
             booksEnabled = true
-            stats = try await client.listeningStats()
-            WidgetSnapshotWriter.shared.updateListening(stats)
-            errorMessage = nil
+            let fresh = try await client.listeningStats()
+            // Animated so the card swaps in and the rails below glide down instead of jumping.
+            withRawkoonMotion(RawkoonMotion.spring) {
+                stats = fresh
+                errorMessage = nil
+            }
+            WidgetSnapshotWriter.shared.updateListening(fresh)
         } catch {
             // A failed refresh keeps the last stats on the card.
             guard stats == nil else { return }
-            errorMessage = model.isOffline
-                ? String(localized: "This will load when you're back online.")
-                : String(localized: "Couldn't load listening stats.")
+            withRawkoonMotion(RawkoonMotion.spring) {
+                errorMessage = model.isOffline
+                    ? String(localized: "This will load when you're back online.")
+                    : String(localized: "Couldn't load listening stats.")
+            }
         }
     }
 
     /// Paints the card from the saved features + stats, honoring a saved "books off".
     private func hydrateFromCache(client: APIClient) {
         guard stats == nil, let features = client.cached(Endpoints.systemFeatures)?.value else { return }
-        booksEnabled = features.booksEnabled
-        if features.booksEnabled, let cached = client.cached(Endpoints.listeningStats) {
-            stats = cached.value
+        withRawkoonMotion(RawkoonMotion.spring) {
+            booksEnabled = features.booksEnabled
+            if features.booksEnabled, let cached = client.cached(Endpoints.listeningStats) {
+                stats = cached.value
+            }
         }
     }
 }
