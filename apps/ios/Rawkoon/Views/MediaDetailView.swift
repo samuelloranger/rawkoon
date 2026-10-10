@@ -101,6 +101,8 @@ struct MediaDetailView: View {
     @State var showingOverridesEditor = false
     @State var showingArtworkPicker = false
     @State var detailTab: DetailTab = .info
+    /// When this screen first appeared; the header cascade waits out what is left of the zoom from here.
+    @State var landingOrigin: TimeInterval?
 
     /// The detail page's own sections, shown in an in-content segmented control
     /// under the hero (see `detailTabBar`). Mirrors the web app splitting detail
@@ -206,8 +208,14 @@ struct MediaDetailView: View {
             .frame(maxWidth: .infinity)
             .padding(.bottom, 24)
         }
+        .rawkoonStretchyHeroHost()
+        .environment(\.rawkoonLandingOrigin, landingOrigin)
         .onAppear {
             isOnScreen = true
+            // Kept from the first appearance, so returning from a pushed screen never re-delays the header.
+            if landingOrigin == nil {
+                landingOrigin = ProcessInfo.processInfo.systemUptime
+            }
             hydrateFromCache()
         }
         .onDisappear { isOnScreen = false }
@@ -400,7 +408,8 @@ struct MediaDetailView: View {
                 metaLine: metaLine,
                 tagline: details?.tagline,
                 statusText: detailStatusText,
-                statusTint: detailStatusTint
+                statusTint: detailStatusTint,
+                statusEarned: libraryId != nil || added || requested
             )
             primaryAction
             if availableTabs.count > 1 {
@@ -451,6 +460,7 @@ struct MediaDetailView: View {
         .overlay(alignment: .bottom) {
             Divider().overlay(Theme.border)
         }
+        .rawkoonLanding(step: 2)
     }
 
     @ViewBuilder
@@ -565,6 +575,7 @@ struct MediaDetailView: View {
                 }
             }
             .padding(.horizontal, 16)
+            .rawkoonLanding(step: 1)
         }
     }
 
