@@ -39,6 +39,7 @@ struct ActivityView: View {
     @State private var speed: SpeedResponse?
 
     // MARK: Queue state
+
     @State private var queueRows: [QueueRow] = []
     /// Starts true, like the other lanes, so an empty state never flashes before the first load.
     @State private var loadingQueue = true
