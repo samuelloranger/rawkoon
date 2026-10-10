@@ -675,22 +675,18 @@ struct LibraryView: View {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 170, maximum: 230), spacing: 12)], spacing: 12) {
                         ForEach(filteredBooks) { book in
                             bookLink(book, grid: true)
-                                .rawkoonEntrance(id: book.bookId)
                         }
                     }
                 } else {
                     LazyVStack(spacing: 8) {
                         ForEach(filteredBooks) { book in
                             bookLink(book, grid: false)
-                                .rawkoonEntrance(id: book.bookId)
                         }
                     }
                 }
             }
             .padding(.horizontal, 16).padding(.top, 4)
         }
-        // On the scroll view, which outlives search and filter changes, so seen books never replay.
-        .rawkoonEntranceScope()
         .rawkoonMotion(RawkoonMotion.snappy, value: busyBookIds)
         .reportsTabBarScroll()
         .overlay {
