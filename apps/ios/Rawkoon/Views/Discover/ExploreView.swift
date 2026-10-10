@@ -121,6 +121,9 @@ struct ExploreView: View {
             page = 1
             totalPages = 1
             loadMoreError = nil
+            // Set synchronously so no frame commits the empty state before the load starts.
+            loading = true
+            error = nil
             Task { await loadFirstPage() }
         }
         .onChange(of: model.isOffline) { _, offline in
@@ -439,6 +442,7 @@ struct ExploreView: View {
     private func loadFirstPage() async {
         guard let client = model.api() else {
             error = String(localized: "Not signed in.")
+            loading = false
             return
         }
         let generation = loadGeneration
