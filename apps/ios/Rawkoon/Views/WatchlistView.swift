@@ -22,7 +22,7 @@ struct WatchlistView: View {
             content
                 .padding(.top, 12)
                 .padding(.bottom, 32)
-                .rawkoonMotion(RawkoonMotion.spring, value: loading)
+                .rawkoonMotion(RawkoonMotion.spring, value: phase)
         }
         .reportsTabBarScroll()
         .refreshable { await load() }
@@ -34,6 +34,25 @@ struct WatchlistView: View {
             guard !offline, items.isEmpty || error != nil else { return }
             Task { await load() }
         }
+    }
+
+    private enum WatchlistPhase: Equatable { case loading, offline, error, empty, grid }
+
+    /// Mirrors the branch order in `content`, so every swap between states animates.
+    private var phase: WatchlistPhase {
+        if loading, items.isEmpty {
+            return .loading
+        }
+        if items.isEmpty, error != nil, model.isOffline {
+            return .offline
+        }
+        if items.isEmpty, error != nil {
+            return .error
+        }
+        if items.isEmpty {
+            return .empty
+        }
+        return .grid
     }
 
     @ViewBuilder private var content: some View {
