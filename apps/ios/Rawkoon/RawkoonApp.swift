@@ -11,6 +11,10 @@ struct RawkoonApp: App {
     /// locale for SwiftUI `Text`, and — via `APIClient` — the language the server
     /// localizes titles/metadata in.
     @AppStorage(AppLanguage.storageKey) private var appLanguage = AppLanguage.system.rawValue
+    /// True means no Login hold is owed, so a signed-in launch never draws Login.
+    @State private var loginExitFinished = true
+    /// The pending Login hold, cancelled when the session changes again so a stale one can't end a newer hold.
+    @State private var loginExitTask: Task<Void, Never>?
 
     init() {
         Appearance.apply()
@@ -22,17 +26,11 @@ struct RawkoonApp: App {
                 #if DEBUG
                     if let screen = DebugScreen.requested, DebugScreen.isOffline(screen) {
                         DebugScreen.offlineView(for: screen)
-                    } else if model.isLoggedIn {
-                        RootTabsView()
                     } else {
-                        LoginView()
+                        sessionRoot
                     }
                 #else
-                    if model.isLoggedIn {
-                        RootTabsView()
-                    } else {
-                        LoginView()
-                    }
+                    sessionRoot
                 #endif
             }
             .tint(Theme.apricot)
@@ -115,6 +113,20 @@ struct RawkoonApp: App {
                 guard model.isLoggedIn else { return }
                 Task { await model.loadLibrary() }
             }
+            // Login lingers over the new tabs for its success moment, then the root fades it away.
+            // `initial` covers a root first rendered after the session already opened, which would strand Login.
+            .onChange(of: model.isLoggedIn, initial: true) { _, isLoggedIn in
+                loginExitTask?.cancel()
+                guard isLoggedIn else {
+                    loginExitFinished = false
+                    return
+                }
+                loginExitTask = Task {
+                    try? await Task.sleep(for: LoginExit.linger)
+                    guard !Task.isCancelled, model.isLoggedIn else { return }
+                    loginExitFinished = true
+                }
+            }
             .onChange(of: model.isAdmin) { _, isAdmin in
                 if isAdmin {
                     ReencodeActivityCoordinator.shared.start(model: model)
@@ -146,6 +158,34 @@ struct RawkoonApp: App {
             .environment(model)
         }
         .commands { RawkoonCommands(model: model) }
+    }
+
+    /// The tabs mount as soon as the session opens; Login stays on top until its exit finishes, then fades.
+    private var sessionRoot: some View {
+        let showsLogin = LoginExit.showsLogin(isLoggedIn: model.isLoggedIn, exitFinished: loginExitFinished)
+        return ZStack {
+            if model.isLoggedIn {
+                RootTabsView()
+                    .transition(.opacity)
+            }
+            if showsLogin {
+                LoginView()
+                    .transition(.opacity)
+                    // Keeps the leaving Login above the tabs for its whole fade.
+                    .zIndex(1)
+                    // A lingering Login must not take taps or start a second sign-in.
+                    .allowsHitTesting(!model.isLoggedIn)
+                    .accessibilityHidden(model.isLoggedIn)
+                    // Absorbs taps during the hold so they can't reach the tabs fading in underneath.
+                    .overlay {
+                        if model.isLoggedIn {
+                            Color.clear.contentShape(Rectangle()).accessibilityHidden(true)
+                        }
+                    }
+            }
+        }
+        .rawkoonMotion(RawkoonMotion.gentle, value: showsLogin)
+        .rawkoonMotion(RawkoonMotion.gentle, value: model.isLoggedIn)
     }
 
     /// On iPhone the tab bar floats over the bottom edge, with the mini player
@@ -318,6 +358,13 @@ private struct RootTabsView: View {
                 bottom: model.activeBook() == nil ? 0 : MiniPlayerInset.height,
                 mountedTabs: 0
             ))
+            // Kept-alive sidebar tabs share the zoom namespace; only the shown one registers plain ids.
+            .environment(\.isActiveRootTab, tab == shownTab)
+    }
+
+    /// The selection as shown: a tab absent at this width or role falls back instead of staying selected.
+    private var shownTab: RootTab {
+        RootTab.validated(selection.rawValue, compact: compact, isAdmin: model.isAdmin)
     }
 
     /// By device, not size class: an iPad window crossing compact width would
@@ -330,7 +377,7 @@ private struct RootTabsView: View {
         // Getter validates so a tab absent at this width can't stay selected
         // mid-render; setter stores the raw pick.
         let validSelection = Binding(
-            get: { RootTab.validated(selection.rawValue, compact: compact, isAdmin: model.isAdmin) },
+            get: { shownTab },
             set: { selection = $0 }
         )
         return Group {

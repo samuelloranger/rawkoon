@@ -345,14 +345,12 @@ struct MultiSelectRow<T: Hashable>: View {
             List {
                 ForEach(options, id: \.value) { option in
                     Button {
-                        toggle(option.value)
+                        withRawkoonMotion(RawkoonMotion.snappy) { toggle(option.value) }
                     } label: {
                         HStack {
                             option.label.foregroundStyle(Theme.text)
                             Spacer()
-                            if selected.contains(option.value) {
-                                Image(systemName: "checkmark").foregroundStyle(Theme.apricot)
-                            }
+                            SelectionCheck(isOn: selected.contains(option.value))
                         }
                     }
                     .listRowBackground(Theme.raised)
@@ -368,6 +366,7 @@ struct MultiSelectRow<T: Hashable>: View {
                 Text(titleKey).foregroundStyle(Theme.text)
                 Spacer()
                 Text("\(selected.count)").foregroundStyle(Theme.muted)
+                    .rawkoonNumeric(Double(selected.count))
             }
         }
         .listRowBackground(Theme.raised)
@@ -420,6 +419,7 @@ struct OrderedMultiSelectRow<T: Hashable>: View {
                 Text(titleKey).foregroundStyle(Theme.text)
                 Spacer()
                 Text("\(selected.count)").foregroundStyle(Theme.muted)
+                    .rawkoonNumeric(Double(selected.count))
             }
         }
         .listRowBackground(Theme.raised)
@@ -471,7 +471,7 @@ struct OrderedMultiSelectList<T: Hashable>: View {
                 Section {
                     ForEach(available, id: \.value) { option in
                         Button {
-                            selected.append(option.value)
+                            withRawkoonMotion(RawkoonMotion.snappy) { selected.append(option.value) }
                         } label: {
                             HStack {
                                 option.label.foregroundStyle(Theme.text)
@@ -497,6 +497,24 @@ struct OrderedMultiSelectList<T: Hashable>: View {
                 EditButton().tint(Theme.apricot)
             }
         }
+    }
+}
+
+/// A multi-select checkmark that pops in and out; it bounces on a tap, not when the list first shows.
+private struct SelectionCheck: View {
+    let isOn: Bool
+    @State private var armed = false
+
+    var body: some View {
+        ZStack {
+            if isOn {
+                Image(systemName: "checkmark")
+                    .foregroundStyle(Theme.apricot)
+                    .rawkoonBounceOnInsert(armed: armed)
+                    .transition(.rawkoonPop)
+            }
+        }
+        .onAppear { armed = true }
     }
 }
 
@@ -527,16 +545,16 @@ struct TestConnectionButton: View {
         VStack(alignment: .leading, spacing: 6) {
             Button {
                 Task {
-                    state = .running
-                    switch await action() {
-                    case let .success(message): state = .ok(message)
-                    case let .failure(message): state = .failed(message)
-                    }
+                    withRawkoonMotion(RawkoonMotion.snappy) { state = .running }
+                    let outcome = await action()
+                    RawkoonHaptics.play(outcome.haptic)
+                    withRawkoonMotion(RawkoonMotion.spring) { state = TestState(outcome) }
                 }
             } label: {
                 HStack {
                     if state == .running {
                         ProgressView().tint(Theme.apricot)
+                            .transition(.rawkoonSwap)
                     }
                     title
                 }
@@ -545,19 +563,45 @@ struct TestConnectionButton: View {
             .disabled(state == .running)
             .requiresConnection(model.isOffline)
 
-            switch state {
-            case let .ok(message):
-                if let message {
-                    Text(message).font(.footnote).foregroundStyle(Theme.apricot)
-                } else {
-                    Text("Connected").font(.footnote).foregroundStyle(Theme.apricot)
+            // One slot, so a new result reveals where the last one was.
+            ZStack(alignment: .leading) {
+                switch state {
+                case let .ok(message):
+                    Group {
+                        if let message {
+                            Text(message).font(.footnote).foregroundStyle(Theme.apricot)
+                        } else {
+                            Text("Connected").font(.footnote).foregroundStyle(Theme.apricot)
+                        }
+                    }
+                    .transition(.rawkoonReveal)
+                case let .failed(message):
+                    Text(message).font(.footnote).foregroundStyle(Theme.terracotta)
+                        .transition(.rawkoonReveal)
+                default:
+                    EmptyView()
                 }
-            case let .failed(message):
-                Text(message).font(.footnote).foregroundStyle(Theme.terracotta)
-            default:
-                EmptyView()
             }
         }
         .listRowBackground(Theme.raised)
+    }
+}
+
+extension TestOutcome {
+    /// One haptic per test result; none of the callers toasts, so this is the only one.
+    var haptic: RawkoonHaptics.Event {
+        switch self {
+        case .success: .success
+        case .failure: .error
+        }
+    }
+}
+
+extension TestConnectionButton.TestState {
+    init(_ outcome: TestOutcome) {
+        switch outcome {
+        case let .success(message): self = .ok(message)
+        case let .failure(message): self = .failed(message)
+        }
     }
 }

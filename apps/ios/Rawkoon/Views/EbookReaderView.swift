@@ -31,6 +31,19 @@ private enum ReaderState {
     case opening
     case ready(ReaderSession)
     case failed(String)
+
+    /// The visible state without the session, so a crossfade can key on it.
+    var phase: ReaderPhase {
+        switch self {
+        case .opening: .opening
+        case .ready: .ready
+        case .failed: .failed
+        }
+    }
+}
+
+private enum ReaderPhase: Equatable {
+    case opening, ready, failed
 }
 
 /// Global (not per-book) typography, persisted in UserDefaults and submitted
@@ -258,42 +271,49 @@ struct EbookReaderSheet: View {
         }
     }
 
-    @ViewBuilder private var content: some View {
-        switch state {
-        case .opening:
-            VStack(spacing: 10) {
-                ProgressView().tint(Theme.importing)
-                Text("Opening book…")
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.muted)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-        case let .failed(message):
-            VStack(spacing: 12) {
-                Image(systemName: "book.closed")
-                    .font(.system(size: 30))
-                    .foregroundStyle(Theme.muted)
-                Text("Could not open this ebook")
-                    .font(.display(17))
-                    .foregroundStyle(Theme.textStrong)
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(Theme.muted)
-                    .multilineTextAlignment(.center)
-                Button("Close") { persistAndDismiss() }
-                    .frame(minHeight: 44)
-                    .padding(.horizontal, 20)
-                    .glassEffect(.regular.interactive(), in: .capsule)
-                    .foregroundStyle(Theme.textStrong)
-            }
-            .padding(24)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-        case let .ready(session):
-            ReaderViewControllerWrapper(viewController: session.host)
+    /// One slot, so opening, failure and the book crossfade instead of cutting.
+    private var content: some View {
+        ZStack {
+            switch state {
+            case .opening:
+                VStack(spacing: 10) {
+                    ProgressView().tint(Theme.importing)
+                    Text("Opening book…")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.muted)
+                }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.rawkoonSwap)
+
+            case let .failed(message):
+                VStack(spacing: 12) {
+                    Image(systemName: "book.closed")
+                        .font(.system(size: 30))
+                        .foregroundStyle(Theme.muted)
+                    Text("Could not open this ebook")
+                        .font(.display(17))
+                        .foregroundStyle(Theme.textStrong)
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(Theme.muted)
+                        .multilineTextAlignment(.center)
+                    Button("Close") { persistAndDismiss() }
+                        .frame(minHeight: 44)
+                        .padding(.horizontal, 20)
+                        .glassEffect(.regular.interactive(), in: .capsule)
+                        .foregroundStyle(Theme.textStrong)
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.rawkoonSwap)
+
+            case let .ready(session):
+                ReaderViewControllerWrapper(viewController: session.host)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .transition(.rawkoonSwap)
+            }
         }
+        .rawkoonMotion(RawkoonMotion.spring, value: state.phase)
     }
 
     /// The only permanent mark on screen. Without a bar it is the sole
@@ -305,6 +325,7 @@ struct EbookReaderSheet: View {
                 Text("\(Int((percent * 100).rounded()))%")
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(Theme.faint)
+                    .rawkoonNumeric((percent * 100).rounded())
                     .padding(.bottom, 6)
             }
             .allowsHitTesting(false)

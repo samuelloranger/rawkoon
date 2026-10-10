@@ -165,6 +165,8 @@ struct HomeView: View {
                 .foregroundStyle(Theme.muted)
         }
         .padding(.horizontal, 16)
+        // The name arrives after first render; the load-swap spring must not animate its reflow.
+        .transaction { $0.animation = nil }
     }
 
     /// With no name known yet the greeting stands alone rather than addressing

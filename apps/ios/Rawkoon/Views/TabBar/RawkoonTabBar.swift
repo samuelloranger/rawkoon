@@ -95,16 +95,23 @@ struct RawkoonTabBar: View {
                 .font(.system(size: 20, weight: .medium))
                 .foregroundStyle(Theme.textStrong)
                 .overlay(alignment: .topTrailing) {
-                    if tab == .notifications, let unreadLabel {
-                        Text(verbatim: unreadLabel)
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 4)
-                            .frame(minWidth: 16, minHeight: 16)
-                            .background(Capsule().fill(Theme.badge))
-                            .overlay(Capsule().strokeBorder(Theme.tabBar, lineWidth: 2))
-                            .offset(x: 9, y: -7)
+                    // The slot outlives the badge, so it pops in and out; a count change rolls and pulses it.
+                    ZStack {
+                        if tab == .notifications, let unreadLabel {
+                            Text(verbatim: unreadLabel)
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.white)
+                                .rawkoonNumeric(UnreadBadge.rollValue(unreadLabel))
+                                .padding(.horizontal, 4)
+                                .frame(minWidth: 16, minHeight: 16)
+                                .background(Capsule().fill(Theme.badge))
+                                .overlay(Capsule().strokeBorder(Theme.tabBar, lineWidth: 2))
+                                .rawkoonCelebrate(trigger: unreadLabel, tint: Theme.badge, haptic: nil)
+                                .offset(x: 9, y: -7)
+                                .transition(.rawkoonPop)
+                        }
                     }
+                    .rawkoonMotion(RawkoonMotion.snappy, value: unreadLabel != nil)
                 }
         }
     }
@@ -133,6 +140,13 @@ struct RawkoonTabBar: View {
                 .overlay(Circle().strokeBorder(Theme.tabBar, lineWidth: 2))
                 .offset(x: 5, y: 4)
         }
+    }
+}
+
+/// The value the unread badge rolls on; "9+" rolls as 9.
+nonisolated enum UnreadBadge {
+    static func rollValue(_ label: String) -> Double {
+        Double(String(label.prefix { $0.isNumber })) ?? 0
     }
 }
 
