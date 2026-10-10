@@ -351,6 +351,12 @@ nonisolated struct UpdateProfileBody: Encodable, Sendable {
     let lastName: String?
 }
 
+/// The per-user iCal feed of library release dates.
+nonisolated struct CalendarSubscription: Decodable, Sendable {
+    let url: String
+    let webcalUrl: String
+}
+
 nonisolated struct ChangePasswordBody: Encodable, Sendable {
     let currentPassword: String
     let newPassword: String

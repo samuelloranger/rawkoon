@@ -24,6 +24,8 @@ model User {
   navPosition             String?   @map("nav_position")
   dashboardConfig         Json?     @map("dashboard_config")
   notificationPreferences Json?     @map("notification_preferences")
+  /// Secret for the iCal subscription feed; created on first view, replaced by regenerate.
+  calendarToken           String?   @unique(map: "ix_users_calendar_token") @map("calendar_token")
 
   notifications        Notification[]
   userSubscriptions    UserSubscription[]

@@ -66,6 +66,10 @@ export const queryKeys = {
     janitorStats: () => [...queryKeys.downloads.all, "janitor-stats"] as const,
   },
 
+  calendar: {
+    subscription: ["calendar", "subscription"] as const,
+  },
+
   dashboard: {
     all: ["dashboard"] as const,
     activities: (limit?: number) =>

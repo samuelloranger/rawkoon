@@ -120,3 +120,9 @@ export interface RssStatusResponse {
   history: RssRunResult[];
   next_run_at: string | null;
 }
+
+/** Subscription URLs for the per-user iCal feed of library release dates. */
+export interface CalendarSubscription {
+  url: string;
+  webcal_url: string;
+}

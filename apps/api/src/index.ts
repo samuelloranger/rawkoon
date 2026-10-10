@@ -15,6 +15,7 @@ import {
 } from "./auth";
 import { downloadClientHookRoutes } from "./routes/integrations/downloadClient/hookRoutes";
 import { adminRoutes } from "./routes/admin";
+import { calendarRoutes } from "./routes/calendar";
 import { dashboardRoutes } from "./routes/dashboard";
 import { libraryRoutes } from "./routes/library";
 import { transcodeRoutes } from "./routes/transcode";
@@ -93,6 +94,7 @@ app.route("/api/download-client", downloadClientHookRoutes);
 app.use("*", globalRateLimit);
 
 app
+  .route("/api/calendar", calendarRoutes)
   .route("/api/dashboard", dashboardRoutes)
   .route("/api/users", usersRoutes)
   .route("/api/notifications", notificationsRoutes)

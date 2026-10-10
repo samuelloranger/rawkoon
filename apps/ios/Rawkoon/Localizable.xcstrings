@@ -1,6 +1,36 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Add to Calendar": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter au calendrier"
+          }
+        }
+      }
+    },
+    "Subscribe to your library's release dates in the Calendar app.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abonne-toi aux dates de sortie de ta bibliothèque dans l'app Calendrier."
+          }
+        }
+      }
+    },
+    "Couldn't open the calendar link.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'ouvrir le lien du calendrier."
+          }
+        }
+      }
+    },
     "AI": {
       "localizations": {
         "fr": {
