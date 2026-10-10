@@ -894,96 +894,128 @@ struct BookView: View {
     }
 
     var ebookFilesCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let phase = EbookFilesPhase.resolve(loading: loadingEbookFiles, isEmpty: ebookFiles.isEmpty)
+        return VStack(alignment: .leading, spacing: 10) {
             Text("Files")
                 .font(.sectionTitle)
                 .foregroundStyle(Theme.textStrong)
 
-            if loadingEbookFiles {
-                ProgressView().tint(Theme.muted)
-            } else if ebookFiles.isEmpty {
-                Text("No ebook files imported yet. Search releases or rescan this edition.")
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.muted)
-            } else {
-                ForEach(ebookFiles) { file in
-                    HStack(alignment: .top, spacing: 10) {
-                        let downloaded = isEbookDownloaded(file)
-                        let downloading = downloadingEbookFileIDs.contains(file.id)
-                        let loadingState = openingEbookFileId == file.id || downloading
-                        let canFetchRemote = remoteEbookURL(for: file) != nil
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(file.fileName)
-                                .font(.subheadline)
-                                .foregroundStyle(Theme.textStrong)
-                                .lineLimit(2)
-                            Text(fileMeta(file))
-                                .font(.system(.caption2, design: .monospaced))
-                                .foregroundStyle(Theme.muted)
-                        }
-                        Spacer(minLength: 8)
-                        if downloading {
-                            HStack(spacing: 7) {
-                                ProgressView().tint(Theme.muted)
-                                Button("Cancel") {
-                                    cancelEbookDownload(file)
-                                }
-                                .buttonStyle(.bordered)
-                                .tint(Theme.terracotta)
-                                .lineLimit(1)
-                            }
-                            .fixedSize()
-                        } else if loadingState {
-                            ProgressView().tint(Theme.muted)
-                        } else {
-                            // Actions hold their intrinsic width; the file name (which
-                            // wraps to two lines) yields the remaining space, so labels
-                            // like "Retirer" never break character-by-character.
-                            HStack(spacing: 7) {
-                                if downloaded {
-                                    Button("Remove") {
-                                        model.pendingConfirm = ConfirmRequest(
-                                            title: String(localized: "Remove downloaded file?"),
-                                            message: String(localized: "Deletes \(file.fileName) from this iPhone. You can download it again anytime."),
-                                            confirmTitle: String(localized: "Remove Download")
-                                        ) { removeEbookDownload(file) }
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .tint(Theme.terracotta)
-                                    .lineLimit(1)
-                                } else {
-                                    Button("Download") {
-                                        startEbookDownload(file)
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .tint(Theme.muted)
-                                    .lineLimit(1)
-                                    .disabled(!canFetchRemote)
-                                    .requiresConnection(model.isOffline)
-                                }
-
-                                if isReadableEbook(file) {
-                                    Button("Read") {
-                                        Task { await openEbook(file) }
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .tint(Theme.muted)
-                                    .lineLimit(1)
-                                    .disabled(!downloaded && !canFetchRemote)
-                                } else {
-                                    StatusBadge(text: "Ebook only", tint: Theme.muted)
-                                }
-                            }
-                            .fixedSize()
+            // One slot, so the spinner, the empty note and the list crossfade instead of stacking.
+            ZStack(alignment: .topLeading) {
+                switch phase {
+                case .loading:
+                    ProgressView().tint(Theme.muted)
+                        .transition(.rawkoonSwap)
+                case .empty:
+                    Text("No ebook files imported yet. Search releases or rescan this edition.")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.muted)
+                        .transition(.rawkoonSwap)
+                case .list:
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(ebookFiles) { file in
+                            ebookFileRow(file)
+                                .rawkoonEntrance(id: "ebook-\(file.id)")
                         }
                     }
-                    .padding(11)
-                    .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border, lineWidth: 1))
+                    .transition(.rawkoonSwap)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .rawkoonMotion(RawkoonMotion.spring, value: phase)
         }
+    }
+
+    func ebookFileRow(_ file: BookEditionFile) -> some View {
+        let face = EbookFileAction.phase(
+            downloading: downloadingEbookFileIDs.contains(file.id),
+            opening: openingEbookFileId == file.id,
+            downloaded: isEbookDownloaded(file)
+        )
+        return HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(file.fileName)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.textStrong)
+                    .lineLimit(2)
+                Text(fileMeta(file))
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(Theme.muted)
+            }
+            Spacer(minLength: 8)
+            // One slot, so a download, an open or a removal crossfades the actions instead of cutting.
+            ZStack(alignment: .topTrailing) {
+                switch face {
+                case .downloading:
+                    HStack(spacing: 7) {
+                        ProgressView().tint(Theme.muted)
+                        Button("Cancel") {
+                            cancelEbookDownload(file)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(Theme.terracotta)
+                        .lineLimit(1)
+                    }
+                    .fixedSize()
+                    .transition(.rawkoonSwap)
+                case .opening:
+                    ProgressView().tint(Theme.muted)
+                        .transition(.rawkoonSwap)
+                case .saved:
+                    ebookFileActions(file, downloaded: true)
+                        .transition(.rawkoonSwap)
+                case .remote:
+                    ebookFileActions(file, downloaded: false)
+                        .transition(.rawkoonSwap)
+                }
+            }
+            .rawkoonMotion(RawkoonMotion.snappy, value: face)
+        }
+        .padding(11)
+        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border, lineWidth: 1))
+    }
+
+    /// Actions hold their intrinsic width; the file name (which wraps to two lines)
+    /// yields the remaining space, so labels like "Retirer" never break character-by-character.
+    func ebookFileActions(_ file: BookEditionFile, downloaded: Bool) -> some View {
+        let canFetchRemote = remoteEbookURL(for: file) != nil
+        return HStack(spacing: 7) {
+            if downloaded {
+                Button("Remove") {
+                    model.pendingConfirm = ConfirmRequest(
+                        title: String(localized: "Remove downloaded file?"),
+                        message: String(localized: "Deletes \(file.fileName) from this iPhone. You can download it again anytime."),
+                        confirmTitle: String(localized: "Remove Download")
+                    ) { removeEbookDownload(file) }
+                }
+                .buttonStyle(.bordered)
+                .tint(Theme.terracotta)
+                .lineLimit(1)
+            } else {
+                Button("Download") {
+                    startEbookDownload(file)
+                }
+                .buttonStyle(.bordered)
+                .tint(Theme.muted)
+                .lineLimit(1)
+                .disabled(!canFetchRemote)
+                .requiresConnection(model.isOffline)
+            }
+
+            if isReadableEbook(file) {
+                Button("Read") {
+                    Task { await openEbook(file) }
+                }
+                .buttonStyle(.bordered)
+                .tint(Theme.muted)
+                .lineLimit(1)
+                .disabled(!downloaded && !canFetchRemote)
+            } else {
+                StatusBadge(text: "Ebook only", tint: Theme.muted)
+            }
+        }
+        .fixedSize()
     }
 
     /// The in-app reader unpacks EPUB only. Other formats in the library (the
