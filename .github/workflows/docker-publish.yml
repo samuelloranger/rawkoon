@@ -35,6 +35,7 @@ jobs:
         github.event.workflow_run.event == 'push' &&
         github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: write # pushes refs/edge/server
       packages: write
@@ -120,9 +121,10 @@ jobs:
 
       # The mark moves unless it already holds a later commit; the same commit moves it again,
       # so a re-run repairs a retag that failed. It moves first, under a lease, and `:edge`
-      # follows. Another run can move the mark while this one retags, so each run retags
-      # until the mark it reads afterwards is the one it just retagged to. Whichever retag
-      # lands last was then followed by a read of the final mark, so `:edge` ends on it.
+      # follows; if that retag fails, the mark goes back. Another run can move the mark while
+      # this one retags, so each run retags until the mark it reads afterwards is the one it
+      # just retagged to. Whichever retag lands last was then followed by a read of the final
+      # mark, so `:edge` ends on it. The job timeout bounds the loop.
       - name: Move edge
         if: steps.plan.outputs.ship == 'true'
         id: edge
@@ -164,9 +166,15 @@ jobs:
             exit 1
           fi
           if [ "$MOVED" = true ]; then
+            if ! retag "$REF"; then
+              # Hand the mark back so the next green push still sees this commit as unshipped.
+              if [ -n "$MARK" ]; then BACK="$MARK:refs/edge/server"; else BACK=":refs/edge/server"; fi
+              git push --force-with-lease="refs/edge/server:$REF" origin "$BACK" || true
+              echo "::error::Could not retag :edge to $SHORT"
+              exit 1
+            fi
             TARGET="$REF"
-            for _ in 1 2 3 4 5; do
-              retag "$TARGET"
+            while :; do
               NOW="$(mark)"
               if [ "$NOW" = "$TARGET" ]; then
                 echo ":edge now holds ${TARGET:0:7}"
@@ -174,6 +182,7 @@ jobs:
               fi
               echo "refs/edge/server moved to ${NOW:0:7} while retagging; following it"
               TARGET="$NOW"
+              retag "$TARGET"
             done
           fi
           echo "moved=$MOVED" >> "$GITHUB_OUTPUT"

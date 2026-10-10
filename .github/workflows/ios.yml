@@ -139,8 +139,11 @@ jobs:
         github.event_name == 'release' ||
         (github.event_name == 'workflow_dispatch' && inputs.testflight) ||
         needs.edge.outputs.ship == 'true')
-    # Edge runs are not queued (a concurrency group keeps one pending run and drops the
-    # rest, which could drop the newest commit); the freshness check below orders them.
+    # Edge runs are not queued: a concurrency group keeps one pending run and drops the
+    # rest, which could drop the newest commit. The freshness check below filters out a
+    # build main has already moved past; in the few minutes between that check and the
+    # upload, a newer run can still finish first, and App Store Connect then rejects the
+    # older, lower build number of the same version.
     env:
       APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
