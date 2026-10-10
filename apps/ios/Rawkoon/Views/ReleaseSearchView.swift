@@ -85,7 +85,8 @@ struct ReleaseSearchView: View {
     @State private var releases: [ReleaseItem] = []
     @State private var service: String?
     @State private var indexerWarnings: [IndexerWarning] = []
-    @State private var isLoading = false
+    /// Starts true so the sheet opens on "Searching…", never a "No Results" flash; `search()` clears it.
+    @State private var isLoading = true
     @State private var errorMessage: String?
     /// The query/season/complete combination `releases` was fetched for.
     @State private var releasesKey: String?
@@ -194,59 +195,23 @@ struct ReleaseSearchView: View {
 
             controls
 
-            if let adminOnlyNote {
-                Text(adminOnlyNote)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.terracotta)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
-            }
+            notices
 
-            if !indexerWarnings.isEmpty {
-                warningStrip
+            // One slot, so the outgoing state never stacks above the incoming one.
+            ZStack {
+                content
             }
-
-            // A failed refresh keeps the earlier results; say so above them.
-            if let errorMessage, !releases.isEmpty {
-                Text(errorMessage)
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.terracotta)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
-            }
-
-            if let grabError {
-                Text(grabError)
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.terracotta)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
-            }
-
-            if aiEnabled, !aiPickDismissed {
-                AiPickBanner(
-                    aiPickLoading: aiPickLoading,
-                    aiPickError: aiPickError,
-                    aiPickBudgetReached: aiPickBudgetReached,
-                    aiPickedRelease: aiPickedRelease,
-                    aiPickGrabbed: aiPickGrabbed,
-                    aiPick: aiPick,
-                    grabbingGuid: grabbingGuid,
-                    onRetry: { await runAiPick(force: true) },
-                    onGrab: { release in await grabFromBanner(release) },
-                    onDismiss: { aiPickDismissed = true }
-                )
-            }
-
-            content
         }
         .background(Theme.base)
+        .rawkoonMotion(RawkoonMotion.spring, value: motionState)
+        // One success tap per confirmed grab, whether it came from a row or the AI banner.
+        .sensoryFeedback(RawkoonHaptics.feedback(for: .grab), trigger: grabbedGuids.count)
         .task {
             // Offline, the search would only fail; it runs once the connection is back.
-            guard !model.isOffline else { return }
+            guard !model.isOffline else {
+                isLoading = false
+                return
+            }
             await initialLoad()
         }
         .onChange(of: model.isOffline) { _, offline in
@@ -264,6 +229,104 @@ struct ReleaseSearchView: View {
         }
     }
 
+    /// Notes that slide in above the results: admin-only, warnings, a failed refresh or grab, the AI pick.
+    @ViewBuilder
+    private var notices: some View {
+        if let adminOnlyNote {
+            Text(adminOnlyNote)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.terracotta)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+                .transition(.rawkoonReveal)
+        }
+
+        if !indexerWarnings.isEmpty {
+            warningStrip
+                .transition(.rawkoonReveal)
+        }
+
+        // A failed refresh keeps the earlier results; say so above them.
+        if let errorMessage, !releases.isEmpty {
+            Text(errorMessage)
+                .font(.subheadline)
+                .foregroundStyle(Theme.terracotta)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+                .transition(.rawkoonReveal)
+        }
+
+        if let grabError {
+            Text(grabError)
+                .font(.subheadline)
+                .foregroundStyle(Theme.terracotta)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+                .transition(.rawkoonReveal)
+        }
+
+        if aiEnabled, !aiPickDismissed {
+            AiPickBanner(
+                aiPickLoading: aiPickLoading,
+                aiPickError: aiPickError,
+                aiPickBudgetReached: aiPickBudgetReached,
+                aiPickedRelease: aiPickedRelease,
+                aiPickGrabbed: aiPickGrabbed,
+                aiPick: aiPick,
+                grabbingGuid: grabbingGuid,
+                onRetry: { await runAiPick(force: true) },
+                onGrab: { release in await grabFromBanner(release) },
+                onDismiss: { aiPickDismissed = true }
+            )
+            .transition(.rawkoonReveal)
+        }
+    }
+
+    /// Mirrors `content`'s branch order, so every swap between states animates.
+    private enum ContentPhase: Equatable {
+        case searching, offline, failed, empty, filteredOut, list
+    }
+
+    private var contentPhase: ContentPhase {
+        if isLoading {
+            return .searching
+        }
+        if model.isOffline, releases.isEmpty {
+            return .offline
+        }
+        if errorMessage != nil, releases.isEmpty {
+            return .failed
+        }
+        if releases.isEmpty {
+            return .empty
+        }
+        return filteredAndSortedReleases.isEmpty ? .filteredOut : .list
+    }
+
+    /// Everything that appears above or in place of the list; one change animates the sheet's layout together.
+    private struct MotionState: Equatable {
+        var content: ContentPhase
+        var adminOnlyNote: String?
+        var hasWarnings: Bool
+        var refreshError: String?
+        var grabError: String?
+        var showsAiBanner: Bool
+    }
+
+    private var motionState: MotionState {
+        MotionState(
+            content: contentPhase,
+            adminOnlyNote: adminOnlyNote,
+            hasWarnings: !indexerWarnings.isEmpty,
+            refreshError: releases.isEmpty ? nil : errorMessage,
+            grabError: grabError,
+            showsAiBanner: aiEnabled && !aiPickDismissed
+        )
+    }
+
     /// An episode target holds until a different season chip or the complete series is picked.
     private var aiTarget: (season: Int?, episode: Int?) {
         if let targetSeason, let targetEpisode, !completeSeries,
@@ -275,6 +338,8 @@ struct ReleaseSearchView: View {
     }
 
     private func initialLoad() async {
+        // Also covers the AI gate and history lookups that run before the search itself.
+        isLoading = true
         await resolveAiGate()
         await loadGrabbedTitles()
         await search()
@@ -388,8 +453,10 @@ struct ReleaseSearchView: View {
                         }
                         .buttonStyle(.plain)
                         .fixedSize()
+                        .transition(.rawkoonSwap)
                     }
                 }
+                .rawkoonMotion(RawkoonMotion.snappy, value: hasActiveFilters)
             }
         }
     }
@@ -420,10 +487,12 @@ struct ReleaseSearchView: View {
                 if activeCount > 0 {
                     Text("\(activeCount)")
                         .font(.system(.caption2, design: .monospaced).weight(.semibold))
+                        .rawkoonNumeric(Double(activeCount))
                         .foregroundStyle(Theme.onAccent)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 1)
                         .background(Theme.terracotta, in: Capsule())
+                        .transition(.rawkoonSwap)
                 }
                 Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
             }
@@ -434,6 +503,7 @@ struct ReleaseSearchView: View {
             .overlay(
                 Capsule().strokeBorder(activeCount > 0 ? Theme.apricotSoft : Theme.borderStrong, lineWidth: 1)
             )
+            .rawkoonMotion(RawkoonMotion.snappy, value: activeCount)
         }
         .fixedSize()
     }
@@ -521,6 +591,7 @@ struct ReleaseSearchView: View {
         .overlay(Capsule().strokeBorder(selected ? accent : Theme.border, lineWidth: 1))
         .foregroundStyle(selected ? Theme.textStrong : Theme.muted)
         .font(.system(.caption, design: .monospaced))
+        .rawkoonMotion(RawkoonMotion.snappy, value: selected)
     }
 
     private var warningStrip: some View {
@@ -546,6 +617,7 @@ struct ReleaseSearchView: View {
                     .foregroundStyle(Theme.muted)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .transition(.rawkoonSwap)
         } else if model.isOffline, releases.isEmpty {
             ContentUnavailableView {
                 Label("Offline", systemImage: "wifi.slash")
@@ -554,6 +626,7 @@ struct ReleaseSearchView: View {
             }
             .rawkoonLivingSymbol(.error)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .transition(.rawkoonSwap)
         } else if let errorMessage, releases.isEmpty {
             ContentUnavailableView {
                 Label("Search failed", systemImage: "exclamationmark.triangle")
@@ -562,9 +635,11 @@ struct ReleaseSearchView: View {
             }
             .rawkoonLivingSymbol(.error)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .transition(.rawkoonSwap)
         } else if releases.isEmpty {
             ContentUnavailableView.search
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.rawkoonSwap)
         } else if filteredAndSortedReleases.isEmpty {
             // Results came back but the active filters (commonly "Hide rejected")
             // hide them all — say so and offer a reset, mirroring the web
@@ -580,6 +655,7 @@ struct ReleaseSearchView: View {
             }
             .rawkoonLivingSymbol(.empty)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .transition(.rawkoonSwap)
         } else {
             ScrollView {
                 LazyVStack(spacing: 10) {
@@ -595,10 +671,13 @@ struct ReleaseSearchView: View {
                             onGrab: { await grab(release) },
                             onBlock: { await block(release) }
                         )
+                        .rawkoonEntrance(id: release.guid)
                     }
                 }
                 .padding(16)
+                .rawkoonEntranceScope()
             }
+            .transition(.rawkoonSwap)
         }
     }
 
@@ -691,13 +770,18 @@ struct ReleaseSearchView: View {
     private func search() async {
         guard let client = model.api() else {
             errorMessage = String(localized: "Not connected.")
+            isLoading = false
             return
         }
-        guard !model.isOffline else { return }
+        guard !model.isOffline else {
+            isLoading = false
+            return
+        }
         let trimmedQuery = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedQuery.count < 2, selectedSeason == nil, !completeSeries {
             errorMessage = String(localized: "Search query must be at least 2 characters.")
             releases = []
+            isLoading = false
             return
         }
 
