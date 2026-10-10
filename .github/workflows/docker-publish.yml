@@ -1,8 +1,30 @@
 name: Build and Push Docker Image
 
+# Two lanes publish the same image, and both trigger the deployer.
+#
+# Edge lane: every push to main that CI passes builds the image as vX.Y.(Z+1)-main.N, the
+# next patch above the last release, and moves `:edge` to it. No tag, no GitHub release.
+# Production tracks `:edge`, so a fix reaches it with a merge, not a release.
+#
+# Release lane: a published GitHub release builds vX.Y.Z and moves `:latest`, `:X.Y.Z`,
+# `:X.Y` and `:edge`, so a host on edge also lands on the release.
+#
+# The hidden ref refs/edge/server records the commit `:edge` was last built from. CI runs
+# can finish out of order, so `:edge` only moves to a commit that contains that one; it
+# never goes back to older code.
 on:
   release:
     types: [published]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+# Edge runs queue so each one compares against the commit the previous one shipped; a
+# release never waits on them.
+concurrency:
+  group: ${{ github.event_name == 'workflow_run' && 'docker-edge' || format('docker-release-{0}', github.run_id) }}
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
@@ -10,33 +32,86 @@ env:
 
 jobs:
   build-and-push:
+    # The edge lane starts only from a green CI run of a push to this repository's main.
+    if: >-
+      github.event_name == 'release' || (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write # pushes refs/edge/server
       packages: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Plan
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          TAG: ${{ github.event.release.tag_name }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          REF="$(git rev-parse HEAD)"
+          SHORT="${REF:0:7}"
+          SHIP=true
+          if [ "$EVENT" = release ]; then
+            LANE=release
+            APP_VERSION="$TAG"
+          else
+            LANE=edge
+            VERSION="$(jq -r .version package.json)"
+            IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION"
+            APP_VERSION="v$MAJOR.$MINOR.$((PATCH + 1))-main.$RUN_NUMBER"
+            PARENT_VERSION="$(git show "$REF^:package.json" 2>/dev/null | jq -r .version || true)"
+            if ! git merge-base --is-ancestor "$REF" origin/main; then
+              echo "$SHORT is no longer on main; nothing to ship"
+              SHIP=false
+            elif [ "$VERSION" != "$PARENT_VERSION" ]; then
+              # The version bump is the release commit: its release builds it under the real
+              # version, and an edge build here would only run first and be replaced.
+              echo "$SHORT bumps the version to $VERSION; its release builds it"
+              SHIP=false
+            fi
+          fi
+          {
+            echo "lane=$LANE"
+            echo "ref=$REF"
+            echo "short=$SHORT"
+            echo "app_version=$APP_VERSION"
+            echo "ship=$SHIP"
+          } | tee -a "$GITHUB_OUTPUT"
 
       - name: Log in to GitHub Container Registry
+        if: steps.plan.outputs.ship == 'true'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # `:edge` is not in this list: the next step moves it only after the build, once it
+      # knows no newer commit got there first.
       - name: Extract metadata (tags, labels)
+        if: steps.plan.outputs.ship == 'true'
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=sha-${{ steps.plan.outputs.short }}
+            type=raw,value=latest,enable=${{ steps.plan.outputs.lane == 'release' }}
+            type=semver,pattern={{version}},enable=${{ steps.plan.outputs.lane == 'release' }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.plan.outputs.lane == 'release' }}
 
       - name: Build and push image
+        if: steps.plan.outputs.ship == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -44,21 +119,55 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            APP_VERSION=${{ github.ref_name }}
+            APP_VERSION=${{ steps.plan.outputs.app_version }}
             GITHUB_RELEASES_REPO=${{ github.repository }}
 
+      # An edge build moves `:edge` unless the mark already holds this commit or a later one.
+      # A release moves it unless the mark holds a later commit, so a release of main's head
+      # replaces the edge build of the same code. The mark moves first, under a lease, so a
+      # concurrent mover fails here instead of after it has retagged the image.
+      - name: Move edge
+        if: steps.plan.outputs.ship == 'true'
+        id: edge
+        env:
+          LANE: ${{ steps.plan.outputs.lane }}
+          REF: ${{ steps.plan.outputs.ref }}
+          SHORT: ${{ steps.plan.outputs.short }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        run: |
+          set -euo pipefail
+          MARK="$(git ls-remote --refs origin refs/edge/server | cut -f1)"
+          MOVE=true
+          if [ -n "$MARK" ]; then
+            git fetch --quiet origin "+refs/edge/server:refs/edge/server"
+            if [ "$MARK" = "$REF" ]; then
+              [ "$LANE" = release ] || MOVE=false
+            elif git merge-base --is-ancestor "$REF" "$MARK"; then
+              MOVE=false
+            fi
+          fi
+          if [ "$MOVE" = false ]; then
+            echo ":edge already holds ${MARK:0:7}, which contains $SHORT; leaving it"
+          else
+            git push --force-with-lease="refs/edge/server:$MARK" origin "$REF:refs/edge/server"
+            docker buildx imagetools create --tag "$IMAGE:edge" "$IMAGE:sha-$SHORT"
+            echo ":edge now holds $SHORT"
+          fi
+          echo "moved=$MOVE" >> "$GITHUB_OUTPUT"
+
       - name: Trigger deployer
+        if: steps.plan.outputs.ship == 'true' && (steps.plan.outputs.lane == 'release' || steps.edge.outputs.moved == 'true')
         env:
           DEPLOYER_URL: ${{ secrets.DEPLOYER_WEBHOOK_URL }}
           DEPLOYER_SECRET: ${{ secrets.DEPLOYER_WEBHOOK_SECRET }}
-          TAG: ${{ github.event.release.tag_name }}
+          APP_VERSION: ${{ steps.plan.outputs.app_version }}
         run: |
           if [ -z "$DEPLOYER_URL" ]; then
             echo "No DEPLOYER_WEBHOOK_URL configured — skipping deploy trigger (image is published to ghcr)."
             exit 0
           fi
           BODY=$(jq -nc \
-            --arg tag "${TAG#v}" \
+            --arg tag "${APP_VERSION#v}" \
             '{action: "published", package: {name: "rawkoon", package_version: {container_metadata: {tag: {name: $tag}}}}}')
           SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$DEPLOYER_SECRET" -binary | xxd -p -c 256)
           curl -fsS -X POST "$DEPLOYER_URL" \
