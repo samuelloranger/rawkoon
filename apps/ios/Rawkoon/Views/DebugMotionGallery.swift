@@ -81,6 +81,7 @@
                 }
                 .padding(16)
             }
+            .rawkoonStretchyHeroHost()
             .background(Theme.base)
             .task {
                 while !Task.isCancelled {

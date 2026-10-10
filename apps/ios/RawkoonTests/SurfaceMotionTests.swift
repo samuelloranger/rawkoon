@@ -38,4 +38,20 @@ struct SurfaceMotionTests {
         #expect(DeckDeal.startAngle(stackIndex: 0) == -DeckDeal.startAngle(stackIndex: 1))
         #expect(abs(DeckDeal.startAngle(stackIndex: 2)) <= 6)
     }
+
+    @Test func downloadSheenRunsOnlyWhileBytesArrive() {
+        #expect(DownloadMotion.isRunning(state: "downloading"))
+        #expect(DownloadMotion.isRunning(state: "Downloading"))
+        #expect(!DownloadMotion.isRunning(state: "paused"))
+        #expect(!DownloadMotion.isRunning(state: "stalled"))
+        #expect(!DownloadMotion.isRunning(state: "completed"))
+        #expect(!DownloadMotion.isRunning(state: "error"))
+    }
+
+    @Test func downloadCompletionMatchesTheSeedingPhase() {
+        #expect(DownloadMotion.isComplete(state: "completed"))
+        #expect(DownloadMotion.isComplete(state: "seeding"))
+        #expect(!DownloadMotion.isComplete(state: "downloading"))
+        #expect(!DownloadMotion.isComplete(state: "paused"))
+    }
 }

@@ -14,6 +14,21 @@ extension View {
     func rawkoonLivingSymbol(_ kind: LivingSymbolKind) -> some View {
         modifier(LivingSymbol(kind: kind))
     }
+
+    /// One bounce each time `trigger` changes; still under Reduce Motion.
+    func rawkoonSymbolBounce(_ trigger: some Equatable) -> some View {
+        modifier(SymbolBounce(trigger: trigger))
+    }
+}
+
+private struct SymbolBounce<Trigger: Equatable>: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let trigger: Trigger
+
+    func body(content: Content) -> some View {
+        // A value that never changes under Reduce Motion, so the effect never fires.
+        content.symbolEffect(.bounce, value: reduceMotion ? nil : Optional(trigger))
+    }
 }
 
 private struct NumericRoll: ViewModifier {
