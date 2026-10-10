@@ -242,7 +242,7 @@ struct ExploreView: View {
         .foregroundStyle(Theme.onAccent)
         .padding(.leading, 10)
         .frame(minHeight: 44)
-        .glassEffect(.regular.tint(Theme.apricot).interactive(), in: .capsule)
+        .glassEffect(.regular.tint(Theme.apricot), in: .capsule)
         .glassEffectID(id, in: chipNamespace)
     }
 

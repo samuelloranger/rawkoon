@@ -403,7 +403,6 @@ struct DiscoveryBookDetailView: View {
                             ProgressView().tint(Theme.onAccent)
                         } else {
                             Image(systemName: added ? "checkmark" : "plus")
-                                .contentTransition(.symbolEffect(.replace))
                         }
                         Text(added ? LocalizedStringKey("Added") : LocalizedStringKey("Add to library"))
                     }
