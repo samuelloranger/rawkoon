@@ -342,6 +342,7 @@ extension MediaDetailView {
                 inWatchlist = true
             }
             recordLibraryChangeFeedback()
+            watchlistBounce += 1
         } catch APIError.unauthorized {
             requestError = String(localized: "Sign in required.")
         } catch {
