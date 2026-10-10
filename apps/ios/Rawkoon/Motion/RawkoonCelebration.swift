@@ -5,15 +5,25 @@ enum CelebrationRing {
     case roundedRect(cornerRadius: CGFloat)
 }
 
+/// Decides whether one trigger change earns a celebration.
+nonisolated enum CelebrationGate {
+    /// A real change that passes `predicate`; with no predicate every change counts.
+    static func fires<T: Equatable>(from old: T, to new: T, when predicate: ((T, T) -> Bool)?) -> Bool {
+        old != new && (predicate?(old, new) ?? true)
+    }
+}
+
 extension View {
-    /// A success moment: the view pops, a ring pulses out, and a haptic fires each time `trigger` changes.
-    func rawkoonCelebrate(
-        trigger: some Equatable,
+    /// A success moment: the view pops, a ring pulses out, and a haptic fires when `trigger` changes.
+    /// Pass `when` to celebrate only some changes, e.g. `{ !$0 && $1 }` for false → true only.
+    func rawkoonCelebrate<Trigger: Equatable>(
+        trigger: Trigger,
         ring: CelebrationRing = .circle,
         tint: Color = Theme.seed,
-        haptic: RawkoonHaptics.Event? = .success
+        haptic: RawkoonHaptics.Event? = .success,
+        when predicate: ((Trigger, Trigger) -> Bool)? = nil
     ) -> some View {
-        modifier(Celebration(trigger: trigger, ring: ring, tint: tint, haptic: haptic))
+        modifier(Celebration(trigger: trigger, ring: ring, tint: tint, haptic: haptic, predicate: predicate))
     }
 }
 
@@ -29,6 +39,9 @@ private struct Celebration<Trigger: Equatable>: ViewModifier {
     let ring: CelebrationRing
     let tint: Color
     let haptic: RawkoonHaptics.Event?
+    let predicate: ((Trigger, Trigger) -> Bool)?
+    /// Counts accepted trigger changes; the animator and the haptic key off this, not the raw trigger.
+    @State private var fires = 0
 
     func body(content: Content) -> some View {
         // Copied out so the nonisolated animator closures read no MainActor state.
@@ -40,7 +53,7 @@ private struct Celebration<Trigger: Equatable>: ViewModifier {
         let end = ringEnd
         let haptic = haptic
         return content
-            .keyframeAnimator(initialValue: CelebrationFrame(), trigger: trigger) { view, frame in
+            .keyframeAnimator(initialValue: CelebrationFrame(), trigger: fires) { view, frame in
                 view
                     .scaleEffect(showRing ? frame.contentScale : 1)
                     .overlay {
@@ -72,8 +85,13 @@ private struct Celebration<Trigger: Equatable>: ViewModifier {
                     CubicKeyframe(0, duration: 0.42)
                 }
             }
-            .sensoryFeedback(RawkoonHaptics.feedback(for: haptic ?? .success), trigger: trigger) { _, _ in
+            .sensoryFeedback(RawkoonHaptics.feedback(for: haptic ?? .success), trigger: fires) { _, _ in
                 haptic != nil
+            }
+            .onChange(of: trigger) { old, new in
+                if CelebrationGate.fires(from: old, to: new, when: predicate) {
+                    fires += 1
+                }
             }
     }
 

@@ -15,6 +15,7 @@ struct RawkoonHapticsTests {
         #expect(RawkoonHaptics.feedback(for: .warning) == .warning)
         #expect(RawkoonHaptics.feedback(for: .deckDismiss) == .impact(flexibility: .rigid))
         #expect(RawkoonHaptics.feedback(for: .deckCommit) == .impact(weight: .medium))
+        #expect(RawkoonHaptics.feedback(for: .tap) == .selection)
     }
 
     @Test func imperativeMatchesSensoryFeedback() {
@@ -28,5 +29,6 @@ struct RawkoonHapticsTests {
         #expect(RawkoonHaptics.imperative(for: .warning) == .notification(.warning))
         #expect(RawkoonHaptics.imperative(for: .deckDismiss) == .impact(.rigid))
         #expect(RawkoonHaptics.imperative(for: .deckCommit) == .impact(.medium))
+        #expect(RawkoonHaptics.imperative(for: .tap) == .selection)
     }
 }

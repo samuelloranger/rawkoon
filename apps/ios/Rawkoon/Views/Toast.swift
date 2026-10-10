@@ -40,7 +40,7 @@ struct ToastOverlay: View {
             Spacer()
             if let toast {
                 content(for: toast)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(.rawkoonEdge(.bottom))
                     .padding(.horizontal, 16)
                     .padding(.bottom, bottomInset)
                     .allowsHitTesting(toast.action != nil)
@@ -134,7 +134,7 @@ struct AsyncButton<Label: View>: View {
             }
         }
         .disabled(isRunning)
-        .sensoryFeedback(.selection, trigger: tapCount)
+        .sensoryFeedback(RawkoonHaptics.feedback(for: .tap), trigger: tapCount)
     }
 }
 

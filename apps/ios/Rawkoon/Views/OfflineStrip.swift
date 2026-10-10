@@ -32,7 +32,7 @@ extension View {
         safeAreaInset(edge: .top, spacing: 0) {
             if isOffline {
                 OfflineStrip()
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .transition(.rawkoonEdge(.top))
             }
         }
         .rawkoonMotion(RawkoonMotion.spring, value: isOffline)

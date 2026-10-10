@@ -77,4 +77,21 @@ struct RawkoonMotionTests {
     @Test func heroZeroHeightIsIdentity() {
         #expect(HeroStretch.transform(minY: 50, height: 0) == .init(scale: 1, offsetY: 0, opacity: 1))
     }
+
+    @Test func celebrationFiresOnAnyChangeWithoutAPredicate() {
+        #expect(CelebrationGate.fires(from: false, to: true, when: nil))
+        #expect(CelebrationGate.fires(from: true, to: false, when: nil))
+        #expect(CelebrationGate.fires(from: 1, to: 2, when: nil))
+    }
+
+    @Test func celebrationIgnoresANonChange() {
+        #expect(!CelebrationGate.fires(from: 3, to: 3, when: nil))
+        #expect(!CelebrationGate.fires(from: true, to: true) { _, _ in true })
+    }
+
+    @Test func celebrationPredicateBlocksAReversal() {
+        let forwardOnly: (Bool, Bool) -> Bool = { old, new in !old && new }
+        #expect(CelebrationGate.fires(from: false, to: true, when: forwardOnly))
+        #expect(!CelebrationGate.fires(from: true, to: false, when: forwardOnly))
+    }
 }
