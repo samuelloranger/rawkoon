@@ -11,6 +11,8 @@ struct RawkoonApp: App {
     /// locale for SwiftUI `Text`, and — via `APIClient` — the language the server
     /// localizes titles/metadata in.
     @AppStorage(AppLanguage.storageKey) private var appLanguage = AppLanguage.system.rawValue
+    /// True once Login has finished leaving; a launch with a saved session starts past it.
+    @State private var loginExitFinished = AppModel.shared.isLoggedIn
 
     init() {
         Appearance.apply()
@@ -22,17 +24,11 @@ struct RawkoonApp: App {
                 #if DEBUG
                     if let screen = DebugScreen.requested, DebugScreen.isOffline(screen) {
                         DebugScreen.offlineView(for: screen)
-                    } else if model.isLoggedIn {
-                        RootTabsView()
                     } else {
-                        LoginView()
+                        sessionRoot
                     }
                 #else
-                    if model.isLoggedIn {
-                        RootTabsView()
-                    } else {
-                        LoginView()
-                    }
+                    sessionRoot
                 #endif
             }
             .tint(Theme.apricot)
@@ -115,6 +111,18 @@ struct RawkoonApp: App {
                 guard model.isLoggedIn else { return }
                 Task { await model.loadLibrary() }
             }
+            // Login lingers over the new tabs for its success moment, then the root fades it away.
+            .onChange(of: model.isLoggedIn) { _, isLoggedIn in
+                guard isLoggedIn else {
+                    loginExitFinished = false
+                    return
+                }
+                Task {
+                    try? await Task.sleep(for: LoginExit.linger)
+                    guard model.isLoggedIn else { return }
+                    loginExitFinished = true
+                }
+            }
             .onChange(of: model.isAdmin) { _, isAdmin in
                 if isAdmin {
                     ReencodeActivityCoordinator.shared.start(model: model)
@@ -146,6 +154,27 @@ struct RawkoonApp: App {
             .environment(model)
         }
         .commands { RawkoonCommands(model: model) }
+    }
+
+    /// The tabs mount as soon as the session opens; Login stays on top until its exit finishes, then fades.
+    private var sessionRoot: some View {
+        let showsLogin = LoginExit.showsLogin(isLoggedIn: model.isLoggedIn, exitFinished: loginExitFinished)
+        return ZStack {
+            if model.isLoggedIn {
+                RootTabsView()
+                    .transition(.opacity)
+            }
+            if showsLogin {
+                LoginView()
+                    .transition(.opacity)
+                    // Keeps the leaving Login above the tabs for its whole fade.
+                    .zIndex(1)
+                    // A lingering Login must not take taps or start a second sign-in.
+                    .allowsHitTesting(!model.isLoggedIn)
+            }
+        }
+        .rawkoonMotion(RawkoonMotion.gentle, value: showsLogin)
+        .rawkoonMotion(RawkoonMotion.gentle, value: model.isLoggedIn)
     }
 
     /// On iPhone the tab bar floats over the bottom edge, with the mini player

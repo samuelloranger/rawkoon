@@ -48,4 +48,25 @@ struct ScreenMotionTests {
         #expect(EbookFilesPhase.resolve(loading: false, isEmpty: true) == .empty)
         #expect(EbookFilesPhase.resolve(loading: false, isEmpty: false) == .list)
     }
+
+    @Test func loginShowsWhileSignedOut() {
+        #expect(LoginExit.showsLogin(isLoggedIn: false, exitFinished: false))
+        #expect(LoginExit.showsLogin(isLoggedIn: false, exitFinished: true))
+    }
+
+    @Test func loginLingersUntilItsExitFinishes() {
+        #expect(LoginExit.showsLogin(isLoggedIn: true, exitFinished: false))
+        #expect(!LoginExit.showsLogin(isLoggedIn: true, exitFinished: true))
+    }
+
+    @Test func loginLingerCoversTheCelebration() {
+        #expect(LoginExit.linger >= .milliseconds(440))
+        #expect(LoginExit.linger <= .milliseconds(500))
+    }
+
+    @Test func signInFaceShowsTheCheckOnceTheSessionOpens() {
+        #expect(SignInFace.face(loading: true, signedIn: true) == .signedIn)
+        #expect(SignInFace.face(loading: true, signedIn: false) == .loading)
+        #expect(SignInFace.face(loading: false, signedIn: false) == .idle)
+    }
 }
