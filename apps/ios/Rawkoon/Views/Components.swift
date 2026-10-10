@@ -768,6 +768,8 @@ struct DownloadStateIcon: View {
     let state: AudiobookDownloadState
     /// Just finished: show a green check before settling on the struck-through arrow.
     var celebrating = false
+    /// False on the first render, so only a glyph that replaces another bounces, not the one the screen opens on.
+    @State private var armed = false
 
     var body: some View {
         ZStack {
@@ -776,6 +778,7 @@ struct DownloadStateIcon: View {
                 Image(systemName: "arrow.down.to.line")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(Theme.apricot)
+                    .rawkoonBounceOnInsert(armed: armed)
                     .transition(.rawkoonSwap)
             case .preparing:
                 ProgressView().tint(Theme.apricot)
@@ -791,6 +794,7 @@ struct DownloadStateIcon: View {
                     Image(systemName: "stop.fill")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(Theme.apricot)
+                        .rawkoonBounceOnInsert(armed: armed)
                 }
                 .padding(10)
                 .transition(.rawkoonSwap)
@@ -798,13 +802,14 @@ struct DownloadStateIcon: View {
                 Image(systemName: "arrow.clockwise")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(Theme.terracotta)
+                    .rawkoonBounceOnInsert(armed: armed)
                     .transition(.rawkoonSwap)
             case .downloaded where celebrating:
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title2)
                     .foregroundStyle(Theme.seed)
-                    .symbolEffect(.bounce, value: celebrating)
-                    .transition(.scale.combined(with: .opacity))
+                    .rawkoonBounceOnInsert(armed: armed)
+                    .transition(.rawkoonPop)
             case .downloaded:
                 ZStack {
                     Image(systemName: "arrow.down.to.line")
@@ -820,6 +825,7 @@ struct DownloadStateIcon: View {
                 .transition(.rawkoonSwap)
             }
         }
+        .onAppear { armed = true }
         .rawkoonMotion(RawkoonMotion.snappy, value: state.kind)
         .rawkoonMotion(RawkoonMotion.snappy, value: celebrating)
     }

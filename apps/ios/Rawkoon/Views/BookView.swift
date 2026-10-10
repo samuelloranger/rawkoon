@@ -15,6 +15,11 @@ enum BookDetailLane: String, CaseIterable, Identifiable {
         case .ebook: "Ebook"
         }
     }
+
+    /// Position in the picker, so a lane switch slides in from the tapped side.
+    var order: Int {
+        Self.allCases.firstIndex(of: self) ?? 0
+    }
 }
 
 enum ReleaseSearchLane: String, Identifiable {
@@ -39,6 +44,8 @@ struct BookView: View {
     @State var loadingDetail = false
     @State var detailError: String?
     @State var activeLane: BookDetailLane
+    /// The side the next lane slides in from; written just before the lane changes.
+    @State var laneSlideEdge: Edge = .trailing
 
     @State var manifest: BookManifest?
     @State var loadingManifest = false
@@ -220,6 +227,7 @@ struct BookView: View {
                     overviewCard
                 }
                 .padding(.horizontal, 16)
+                .rawkoonMotion(RawkoonMotion.spring, value: activeLane)
             }
             // Cap to a readable measure and center on iPad/Mac; full-bleed on phone.
             .frame(maxWidth: isRegularWidth ? 980 : .infinity)
@@ -227,6 +235,8 @@ struct BookView: View {
             .padding(.bottom, 24)
         }
         .rawkoonStretchyHeroHost()
+        // One ledger for the whole page, so returning to a lane never replays its rows' entrance.
+        .rawkoonEntranceScope()
         .background(Theme.base)
         .navigationTitle(titleText)
         .navigationBarTitleDisplayMode(.inline)
@@ -316,7 +326,13 @@ struct BookView: View {
     }
 
     var lanePicker: some View {
-        Picker("Edition", selection: $activeLane) {
+        Picker("Edition", selection: Binding(
+            get: { activeLane },
+            set: { lane in
+                laneSlideEdge = RawkoonSlide.edge(from: activeLane.order, to: lane.order)
+                activeLane = lane
+            }
+        )) {
             ForEach(BookDetailLane.allCases) { lane in
                 Text(lane.title).tag(lane)
             }
@@ -324,13 +340,17 @@ struct BookView: View {
         .pickerStyle(.segmented)
     }
 
-    @ViewBuilder
+    /// One slot, so the entering lane slides in from the tapped side while the leaving one fades in place.
     var laneContent: some View {
-        switch activeLane {
-        case .audiobook:
-            audiobookSection
-        case .ebook:
-            ebookSection
+        ZStack(alignment: .top) {
+            switch activeLane {
+            case .audiobook:
+                audiobookSection
+                    .transition(.rawkoonSlide(laneSlideEdge))
+            case .ebook:
+                ebookSection
+                    .transition(.rawkoonSlide(laneSlideEdge))
+            }
         }
     }
 
@@ -507,9 +527,8 @@ struct BookView: View {
     }
 
     /// The card used to flip to "Downloaded"; a glyph swap alone is easy to miss,
-    /// so the finish gets a haptic and a brief green check.
+    /// so the finish gets a brief green check, which the button celebrates with the haptic.
     private func announceDownloadFinished() {
-        RawkoonHaptics.play(.downloadComplete)
         withRawkoonMotion(.spring(duration: 0.35)) { showDownloadFinished = true }
         Task {
             try? await Task.sleep(for: .seconds(1.8))
@@ -537,18 +556,24 @@ struct BookView: View {
                 }
             }
         } label: {
-            Group {
+            // One slot, so the spinner and the label crossfade while the player loads.
+            ZStack {
                 if loadingPlayer {
                     ProgressView().tint(Theme.onAccent)
+                        .transition(.rawkoonSwap)
                 } else if case let .resume(positionSecs) = audiobookResume {
                     Label(
                         String(localized: "Resume from \(Formatters.durationTimestamp(positionSecs))"),
                         systemImage: "play.fill"
                     )
+                    .transition(.rawkoonSwap)
                 } else {
                     Label("Play", systemImage: "play.fill")
+                        .transition(.rawkoonSwap)
                 }
             }
+            .rawkoonMotion(RawkoonMotion.snappy, value: loadingPlayer)
+            .rawkoonMotion(RawkoonMotion.snappy, value: audiobookResume)
         }
         .buttonStyle(BookPlayButtonStyle())
         .disabled(!canPlayAudiobook)
@@ -583,22 +608,25 @@ struct BookView: View {
 
     /// One round button beside Play: download, then progress (tap cancels), then
     /// a struck-through download arrow once the book is on the device.
-    @ViewBuilder
     var audiobookDownloadButton: some View {
         let state = audiobookDownloadState
-        let button = Button {
+        let needsConnection = switch state {
+        case .idle, .failed: true
+        default: false
+        }
+        // One view for every state, so the icon and the celebration keep their state across a change.
+        return Button {
             handleAudiobookDownloadTap(state)
         } label: {
             DownloadStateIcon(state: state, celebrating: showDownloadFinished)
         }
         .buttonStyle(BookIconButtonStyle())
         .accessibilityLabel(state.accessibilityLabel)
-        switch state {
-        case .idle, .failed:
-            button.requiresConnection(model.isOffline)
-        default:
-            button
-        }
+        .rawkoonCelebrate(
+            trigger: showDownloadFinished, tint: Theme.seed, haptic: .downloadComplete,
+            when: { !$0 && $1 }
+        )
+        .requiresConnection(model.isOffline && needsConnection)
     }
 
     @ViewBuilder
@@ -652,75 +680,99 @@ struct BookView: View {
     }
 
     var chaptersList: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let phase = chapterListPhase(
+            loading: loadingManifest,
+            fetchAttempted: fetchAttemptedManifest,
+            hasChapters: !(manifest?.chapters.isEmpty ?? true),
+            error: manifestError
+        )
+        return VStack(alignment: .leading, spacing: 10) {
             Text("Chapters")
                 .font(.sectionTitle)
                 .foregroundStyle(Theme.textStrong)
-            switch chapterListPhase(
-                loading: loadingManifest,
-                fetchAttempted: fetchAttemptedManifest,
-                hasChapters: !(manifest?.chapters.isEmpty ?? true),
-                error: manifestError
-            ) {
-            case .loading:
-                ProgressView().tint(Theme.apricot)
-            case .ready:
-                if sortedChapters.count > chapterFilterThreshold {
-                    searchField("Filter chapters", text: $chapterFilter)
-                }
-                if filteredChapters.isEmpty {
-                    if !chapterFilter.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Text("No chapters match.")
-                            .font(.subheadline)
-                            .foregroundStyle(Theme.muted)
-                    }
-                } else {
-                    VStack(spacing: 4) {
-                        ForEach(filteredChapters, id: \.index) { chapter in
-                            Button {
-                                Task {
-                                    guard let editionId = audiobookEditionId else { return }
-                                    loadingPlayer = true
-                                    await model.openPlayer(
-                                        editionId: editionId,
-                                        resumeAt: resumePosition(in: chapter) ?? chapter.startSecs
-                                    )
-                                    loadingPlayer = false
-                                    if model.errorMessage == nil {
-                                        showingPlayer = true
-                                    }
-                                }
-                            } label: {
-                                SpineRow(
-                                    index: chapter.index,
-                                    title: chapter.title,
-                                    downloaded: isChapterDownloaded(chapter),
-                                    current: isCurrentChapter(chapter),
-                                    downloadFraction: audiobookEditionId.flatMap {
-                                        model.chapterFractions[$0]?[chapter.fileId]
-                                    },
-                                    resumeText: resumePosition(in: chapter).map {
-                                        String(localized: "Resume from \(Formatters.durationTimestamp($0))")
-                                    }
-                                )
-                            }
-                            .buttonStyle(.rawkoonPressable(scale: 0.98))
-                        }
-                    }
-                }
-            case let .failed(message):
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(message)
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.muted)
-                    Text("Pull to refresh, run rescan, or check the server.")
-                        .font(.caption)
-                        .foregroundStyle(Theme.faint)
-                    (Text("Edition status: ") + LocalizedStatus.text(audiobookEdition?.status ?? book.audiobookStatus ?? "wanted"))
-                        .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(Theme.faint)
+            // One slot, so the spinner, the list and the failure crossfade instead of stacking.
+            ZStack(alignment: .topLeading) {
+                switch phase {
+                case .loading:
+                    ProgressView().tint(Theme.apricot)
+                        .transition(.rawkoonSwap)
+                case .ready:
+                    chapterRows
+                        .transition(.rawkoonSwap)
+                case let .failed(message):
+                    chaptersFailure(message)
+                        .transition(.rawkoonSwap)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .rawkoonMotion(RawkoonMotion.spring, value: phase)
+        }
+    }
+
+    var chapterRows: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if sortedChapters.count > chapterFilterThreshold {
+                searchField("Filter chapters", text: $chapterFilter)
+            }
+            if filteredChapters.isEmpty {
+                if !chapterFilter.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text("No chapters match.")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.muted)
+                }
+            } else {
+                VStack(spacing: 4) {
+                    ForEach(filteredChapters, id: \.index) { chapter in
+                        chapterButton(chapter)
+                            .rawkoonEntrance(id: "chapter-\(chapter.index)")
+                    }
+                }
+            }
+        }
+    }
+
+    func chapterButton(_ chapter: ManifestChapter) -> some View {
+        Button {
+            Task {
+                guard let editionId = audiobookEditionId else { return }
+                loadingPlayer = true
+                await model.openPlayer(
+                    editionId: editionId,
+                    resumeAt: resumePosition(in: chapter) ?? chapter.startSecs
+                )
+                loadingPlayer = false
+                if model.errorMessage == nil {
+                    showingPlayer = true
+                }
+            }
+        } label: {
+            SpineRow(
+                index: chapter.index,
+                title: chapter.title,
+                downloaded: isChapterDownloaded(chapter),
+                current: isCurrentChapter(chapter),
+                downloadFraction: audiobookEditionId.flatMap {
+                    model.chapterFractions[$0]?[chapter.fileId]
+                },
+                resumeText: resumePosition(in: chapter).map {
+                    String(localized: "Resume from \(Formatters.durationTimestamp($0))")
+                }
+            )
+        }
+        .buttonStyle(.rawkoonPressable(scale: 0.98))
+    }
+
+    func chaptersFailure(_ message: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(Theme.muted)
+            Text("Pull to refresh, run rescan, or check the server.")
+                .font(.caption)
+                .foregroundStyle(Theme.faint)
+            (Text("Edition status: ") + LocalizedStatus.text(audiobookEdition?.status ?? book.audiobookStatus ?? "wanted"))
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(Theme.faint)
         }
     }
 
