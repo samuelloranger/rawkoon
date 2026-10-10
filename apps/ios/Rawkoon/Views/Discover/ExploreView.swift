@@ -210,13 +210,14 @@ struct ExploreView: View {
                                 filters.originalLanguageOnly = false
                             }
                         }
-                        if !loading, error == nil {
-                            Text("\(totalResults) results")
-                                .font(.caption)
-                                .foregroundStyle(Theme.muted)
-                                .padding(.leading, 4)
-                                .rawkoonNumeric(Double(totalResults))
-                        }
+                        // Stays mounted so the figure rolls; hidden while loading or failed.
+                        Text("\(totalResults) results")
+                            .font(.caption)
+                            .foregroundStyle(Theme.muted)
+                            .padding(.leading, 4)
+                            .rawkoonNumeric(Double(totalResults))
+                            .opacity(loading || error != nil ? 0 : 1)
+                            .accessibilityHidden(loading || error != nil)
                     }
                     .padding(.horizontal, 16)
                 }
