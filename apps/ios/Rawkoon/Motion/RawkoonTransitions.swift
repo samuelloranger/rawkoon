@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Skeleton → content and state switches: a soft blur-scale crossfade.
+/// Skeleton → content and state switches: a plain crossfade; scale or blur on text reads as a wobble.
 struct RawkoonSwapTransition: Transition {
     func body(content: Content, phase: TransitionPhase) -> some View {
         content.modifier(SwapEffect(isIdentity: phase.isIdentity))
@@ -98,15 +98,10 @@ nonisolated enum RawkoonPop {
 }
 
 private struct SwapEffect: ViewModifier {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let isIdentity: Bool
 
     func body(content: Content) -> some View {
-        let still = isIdentity || reduceMotion
-        content
-            .opacity(isIdentity ? 1 : 0)
-            .scaleEffect(still ? 1 : 0.98)
-            .blur(radius: still ? 0 : 6)
+        content.opacity(isIdentity ? 1 : 0)
     }
 }
 
