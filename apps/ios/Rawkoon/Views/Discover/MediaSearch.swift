@@ -113,6 +113,7 @@ struct MediaSearchResults: View {
             kindPicker
             searchContent
         }
+        .rawkoonMotion(RawkoonMotion.spring, value: loadingSearch)
         // Debounced; a new key cancels the pending search before it runs.
         .task(id: SearchTrigger(key: SearchKey(query: trimmedQuery, kind: kindFilter), offline: model.isOffline)) {
             try? await Task.sleep(for: .milliseconds(300))
@@ -151,6 +152,7 @@ struct MediaSearchResults: View {
             }
             .padding(.horizontal, 16)
             .allowsHitTesting(false)
+            .transition(.rawkoonSwap)
         } else if model.isOffline, searchResults.isEmpty, bookResults.isEmpty {
             ContentUnavailableView(
                 "You're offline",
@@ -159,6 +161,7 @@ struct MediaSearchResults: View {
             )
             .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
+            .transition(.rawkoonSwap)
         } else if let searchError {
             ContentUnavailableView(
                 "Search failed",
@@ -167,6 +170,7 @@ struct MediaSearchResults: View {
             )
             .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
+            .transition(.rawkoonSwap)
         } else if searchResults.isEmpty, bookResults.isEmpty {
             ContentUnavailableView(
                 "Nothing to show yet",
@@ -175,6 +179,7 @@ struct MediaSearchResults: View {
             )
             .rawkoonLivingSymbol(.empty)
             .padding(.top, 28)
+            .transition(.rawkoonSwap)
         } else {
             VStack(alignment: .leading, spacing: 20) {
                 if !bookResults.isEmpty {
@@ -212,11 +217,14 @@ struct MediaSearchResults: View {
                             }
                             .buttonStyle(.rawkoonPressable)
                             .rawkoonScrollSettle()
+                            .rawkoonEntrance(id: item.id)
                         }
                     }
                     .padding(.horizontal, 16)
+                    .rawkoonEntranceScope()
                 }
             }
+            .transition(.rawkoonSwap)
         }
     }
 

@@ -69,6 +69,8 @@ struct ExploreView: View {
     /// in flight from the previous filters discards its response instead of
     /// appending stale-filter pages onto the new grid.
     @State private var loadGeneration = 0
+    /// Ties each active chip to its glass shape, so adding or clearing one morphs inside the container.
+    @Namespace private var chipNamespace
 
     private var gridColumns: [GridItem] {
         if hSizeClass == .regular {
@@ -173,6 +175,9 @@ struct ExploreView: View {
             }
             .padding(.top, 12)
             .padding(.bottom, 32)
+            // Chips morph on a filter change; banner, skeleton and grid swap when a load settles.
+            .rawkoonMotion(RawkoonMotion.snappy, value: filters)
+            .rawkoonMotion(RawkoonMotion.spring, value: loading)
         }
         .reportsTabBarScroll()
         .refreshable {
@@ -186,34 +191,38 @@ struct ExploreView: View {
     private var filterBar: some View {
         if !filters.isDefault {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    if let provider = filters.provider {
-                        activeChip(Text(provider.name)) { filters.provider = nil }
-                    }
-                    if let genre = filters.genre {
-                        activeChip(Text(genre.name)) { filters.genre = nil }
-                    }
-                    if filters.sort != .popularityDesc {
-                        activeChip(Text(filters.sort.label)) { filters.sort = .popularityDesc }
-                    }
-                    if filters.originalLanguageOnly {
-                        activeChip(Text("Original language")) {
-                            filters.originalLanguageOnly = false
+                GlassEffectContainer(spacing: 8) {
+                    HStack(spacing: 8) {
+                        if let provider = filters.provider {
+                            activeChip(Text(provider.name), id: "provider") { filters.provider = nil }
+                        }
+                        if let genre = filters.genre {
+                            activeChip(Text(genre.name), id: "genre") { filters.genre = nil }
+                        }
+                        if filters.sort != .popularityDesc {
+                            activeChip(Text(filters.sort.label), id: "sort") { filters.sort = .popularityDesc }
+                        }
+                        if filters.originalLanguageOnly {
+                            activeChip(Text("Original language"), id: "language") {
+                                filters.originalLanguageOnly = false
+                            }
+                        }
+                        if !loading, error == nil {
+                            Text("\(totalResults) results")
+                                .font(.caption)
+                                .foregroundStyle(Theme.muted)
+                                .padding(.leading, 4)
+                                .rawkoonNumeric(Double(totalResults))
                         }
                     }
-                    if !loading, error == nil {
-                        Text("\(totalResults) results")
-                            .font(.caption)
-                            .foregroundStyle(Theme.muted)
-                            .padding(.leading, 4)
-                    }
+                    .padding(.horizontal, 16)
                 }
-                .padding(.horizontal, 16)
             }
+            .transition(.rawkoonReveal)
         }
     }
 
-    private func activeChip(_ label: Text, onClear: @escaping () -> Void) -> some View {
+    private func activeChip(_ label: Text, id: String, onClear: @escaping () -> Void) -> some View {
         HStack(spacing: 4) {
             label
                 .font(.subheadline.weight(.medium))
@@ -229,7 +238,8 @@ struct ExploreView: View {
         .foregroundStyle(Theme.onAccent)
         .padding(.leading, 10)
         .frame(minHeight: 44)
-        .background(Theme.apricot, in: Capsule())
+        .glassEffect(.regular.tint(Theme.apricot).interactive(), in: .capsule)
+        .glassEffectID(id, in: chipNamespace)
     }
 
     private func refreshErrorBanner(_ message: String) -> some View {
@@ -246,6 +256,7 @@ struct ExploreView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .padding(.horizontal, 16)
+        .transition(.rawkoonReveal)
     }
 
     // MARK: Grid content
@@ -254,6 +265,7 @@ struct ExploreView: View {
     private var content: some View {
         if loading, items.isEmpty {
             skeletonGrid
+                .transition(.rawkoonSwap)
         } else if items.isEmpty, error != nil, model.isOffline {
             ContentUnavailableView(
                 "You're offline",
@@ -262,6 +274,7 @@ struct ExploreView: View {
             )
             .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
+            .transition(.rawkoonSwap)
         } else if items.isEmpty, error != nil {
             ContentUnavailableView(
                 "Couldn't load Explore",
@@ -270,6 +283,7 @@ struct ExploreView: View {
             )
             .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
+            .transition(.rawkoonSwap)
         } else if items.isEmpty {
             ContentUnavailableView {
                 Label("No results for these filters", systemImage: "sparkles.rectangle.stack")
@@ -284,8 +298,10 @@ struct ExploreView: View {
             }
             .rawkoonLivingSymbol(.empty)
             .padding(.top, 28)
+            .transition(.rawkoonSwap)
         } else {
             grid
+                .transition(.rawkoonSwap)
         }
     }
 
@@ -322,9 +338,12 @@ struct ExploreView: View {
                         guard item.id == items.last?.id else { return }
                         Task { await loadMore() }
                     }
+                    .rawkoonEntrance(id: item.id)
                 }
             }
             .padding(.horizontal, 16)
+            // Lives with the grid: a new filter set rebuilds it and cascades; a refresh in place does not replay.
+            .rawkoonEntranceScope()
 
             paginationFooter
         }

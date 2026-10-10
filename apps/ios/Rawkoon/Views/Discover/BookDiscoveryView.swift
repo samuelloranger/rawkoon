@@ -56,6 +56,7 @@ struct BookDiscoveryView: View {
             }
             .padding(.top, 12)
             .padding(.bottom, 32)
+            .rawkoonMotion(RawkoonMotion.spring, value: loading)
         }
         .background(Theme.base)
         .navigationTitle("Explore books")
@@ -103,6 +104,7 @@ struct BookDiscoveryView: View {
     private var content: some View {
         if loading, items.isEmpty {
             skeletonGrid
+                .transition(.rawkoonSwap)
         } else if items.isEmpty, error != nil, model.isOffline {
             ContentUnavailableView(
                 "You're offline",
@@ -111,6 +113,7 @@ struct BookDiscoveryView: View {
             )
             .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
+            .transition(.rawkoonSwap)
         } else if items.isEmpty, let error {
             ContentUnavailableView(
                 "Couldn't load this list",
@@ -119,6 +122,7 @@ struct BookDiscoveryView: View {
             )
             .rawkoonLivingSymbol(.error)
             .padding(.top, 16)
+            .transition(.rawkoonSwap)
         } else if items.isEmpty {
             ContentUnavailableView(
                 "No books to show right now",
@@ -126,6 +130,7 @@ struct BookDiscoveryView: View {
             )
             .rawkoonLivingSymbol(.empty)
             .padding(.top, 28)
+            .transition(.rawkoonSwap)
         } else {
             LazyVGrid(columns: gridColumns, spacing: 14) {
                 ForEach(items) { book in
@@ -135,9 +140,12 @@ struct BookDiscoveryView: View {
                         posterCard(book)
                     }
                     .buttonStyle(.rawkoonPressable)
+                    .rawkoonEntrance(id: book.id)
                 }
             }
             .padding(.horizontal, 16)
+            .rawkoonEntranceScope()
+            .transition(.rawkoonSwap)
         }
     }
 
@@ -395,6 +403,7 @@ struct DiscoveryBookDetailView: View {
                             ProgressView().tint(Theme.onAccent)
                         } else {
                             Image(systemName: added ? "checkmark" : "plus")
+                                .contentTransition(.symbolEffect(.replace))
                         }
                         Text(added ? LocalizedStringKey("Added") : LocalizedStringKey("Add to library"))
                     }
@@ -403,7 +412,15 @@ struct DiscoveryBookDetailView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(Theme.apricot, in: Capsule())
+                    .rawkoonMotion(RawkoonMotion.snappy, value: added)
                 }
+                // Forward only; the success toast already plays the haptic.
+                .rawkoonCelebrate(
+                    trigger: added,
+                    ring: .roundedRect(cornerRadius: 24),
+                    haptic: nil,
+                    when: { !$0 && $1 }
+                )
                 .disabled(adding || added)
                 .requiresConnection(model.isOffline)
             }
