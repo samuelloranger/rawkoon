@@ -26,10 +26,13 @@ struct LoginView: View {
         // A lingering Login after the session opened must not start a second sign-in.
         guard fieldsReady, !model.loading, !model.isLoggedIn else { return }
         signInAttempted = true
+        // Drop the keyboard before the tabs mount under it.
+        loginFocus = nil
         Task { await model.login(server: model.serverURL, email: email, password: password) }
     }
 
     private func signIn(with provider: SsoProvider) {
+        guard !model.isLoggedIn else { return }
         signInAttempted = true
         Task { await model.signInWithProvider(provider.slug) }
     }

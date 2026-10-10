@@ -13,6 +13,8 @@ struct RawkoonApp: App {
     @AppStorage(AppLanguage.storageKey) private var appLanguage = AppLanguage.system.rawValue
     /// True once Login has finished leaving; a launch with a saved session starts past it.
     @State private var loginExitFinished = AppModel.shared.isLoggedIn
+    /// The pending Login hold, cancelled when the session changes again so a stale one can't end a newer hold.
+    @State private var loginExitTask: Task<Void, Never>?
 
     init() {
         Appearance.apply()
@@ -112,14 +114,16 @@ struct RawkoonApp: App {
                 Task { await model.loadLibrary() }
             }
             // Login lingers over the new tabs for its success moment, then the root fades it away.
-            .onChange(of: model.isLoggedIn) { _, isLoggedIn in
+            // `initial` covers a root first rendered after the session already opened, which would strand Login.
+            .onChange(of: model.isLoggedIn, initial: true) { _, isLoggedIn in
+                loginExitTask?.cancel()
                 guard isLoggedIn else {
                     loginExitFinished = false
                     return
                 }
-                Task {
+                loginExitTask = Task {
                     try? await Task.sleep(for: LoginExit.linger)
-                    guard model.isLoggedIn else { return }
+                    guard !Task.isCancelled, model.isLoggedIn else { return }
                     loginExitFinished = true
                 }
             }
@@ -171,6 +175,7 @@ struct RawkoonApp: App {
                     .zIndex(1)
                     // A lingering Login must not take taps or start a second sign-in.
                     .allowsHitTesting(!model.isLoggedIn)
+                    .accessibilityHidden(model.isLoggedIn)
             }
         }
         .rawkoonMotion(RawkoonMotion.gentle, value: showsLogin)
