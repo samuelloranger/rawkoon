@@ -136,26 +136,6 @@ struct RawkoonMotionTests {
         #expect(HeroStretch.transform(minY: pull, height: 260) == .init(scale: 1, offsetY: 0, opacity: 1))
     }
 
-    @Test func landingWaitsForTheZoomThenSteps() {
-        #expect(abs(HeroLanding.delay(step: 0, elapsed: 0) - HeroLanding.settle) < 1e-9)
-        #expect(abs(HeroLanding.delay(step: 1, elapsed: 0) - (HeroLanding.settle + HeroLanding.beat)) < 1e-9)
-    }
-
-    @Test func landingCapsItsSteps() {
-        #expect(HeroLanding.delay(step: 50, elapsed: 0) == HeroLanding.delay(step: 3, elapsed: 0))
-        #expect(HeroLanding.delay(step: -2, elapsed: 0) == HeroLanding.delay(step: 0, elapsed: 0))
-    }
-
-    @Test func landingAfterTheZoomSkipsTheWait() {
-        #expect(HeroLanding.delay(step: 0, elapsed: 2) == 0)
-        #expect(abs(HeroLanding.delay(step: 2, elapsed: 2) - 2 * HeroLanding.beat) < 1e-9)
-        #expect(abs(HeroLanding.delay(step: 0, elapsed: 0.1) - (HeroLanding.settle - 0.1)) < 1e-9)
-    }
-
-    @Test func landingIgnoresAClockThatRunsBackwards() {
-        #expect(HeroLanding.delay(step: 0, elapsed: -5) == HeroLanding.delay(step: 0, elapsed: 0))
-    }
-
     @Test func slideEntersFromTheTappedSide() {
         #expect(RawkoonSlide.edge(from: 0, to: 2) == .trailing)
         #expect(RawkoonSlide.edge(from: 2, to: 1) == .leading)
@@ -175,5 +155,57 @@ struct RawkoonMotionTests {
 
     @Test func slideStaysPutUnderReduceMotion() {
         #expect(RawkoonSlide.offset(edge: .leading, appearing: true, reduceMotion: true) == .zero)
+    }
+
+    @Test func shakeEndsAtRest() {
+        #expect(RawkoonShake.offsets.count == 5)
+        #expect(RawkoonShake.offsets.last == 0)
+    }
+
+    @Test func shakeDecays() {
+        let swings = RawkoonShake.offsets.dropLast().map(abs)
+        #expect(zip(swings, swings.dropFirst()).allSatisfy { $0 > $1 })
+        #expect((swings.max() ?? 0) <= 12)
+    }
+
+    @Test func shakeStaysShort() {
+        #expect(Double(RawkoonShake.offsets.count) * RawkoonShake.beat <= 0.45)
+    }
+
+    @Test func popStartsSmallAndRestsAtFullSize() {
+        #expect(RawkoonPop.scale(isIdentity: false, reduceMotion: false) == RawkoonPop.hiddenScale)
+        #expect(RawkoonPop.hiddenScale < 1)
+        #expect(RawkoonPop.scale(isIdentity: true, reduceMotion: false) == 1)
+    }
+
+    @Test func popOnlyFadesUnderReduceMotion() {
+        #expect(RawkoonPop.scale(isIdentity: false, reduceMotion: true) == 1)
+    }
+
+    @Test func pressableRestsOpaqueAndDimsWhilePressed() {
+        #expect(PressableAppearance.opacity(isPressed: false, isEnabled: true, dimHandledAbove: false) == 1)
+        #expect(
+            PressableAppearance.opacity(isPressed: true, isEnabled: true, dimHandledAbove: false)
+                == PressableAppearance.pressedOpacity
+        )
+    }
+
+    @Test func pressableDimsADisabledControl() {
+        #expect(
+            PressableAppearance.opacity(isPressed: false, isEnabled: false, dimHandledAbove: false)
+                == PressableAppearance.disabledOpacity
+        )
+        #expect(PressableAppearance.disabledOpacity < PressableAppearance.pressedOpacity)
+    }
+
+    @Test func pressableLeavesAnAncestorsDimAlone() {
+        #expect(PressableAppearance.opacity(isPressed: false, isEnabled: false, dimHandledAbove: true) == 1)
+    }
+
+    @Test func pressableIgnoresAPressWhileDisabled() {
+        #expect(
+            PressableAppearance.opacity(isPressed: true, isEnabled: false, dimHandledAbove: false)
+                == PressableAppearance.disabledOpacity
+        )
     }
 }

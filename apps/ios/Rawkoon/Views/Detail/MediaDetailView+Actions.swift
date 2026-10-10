@@ -342,7 +342,6 @@ extension MediaDetailView {
                 inWatchlist = true
             }
             recordLibraryChangeFeedback()
-            watchlistBounce += 1
         } catch APIError.unauthorized {
             requestError = String(localized: "Sign in required.")
         } catch {
@@ -413,7 +412,6 @@ extension MediaDetailView {
             libraryId = item.id
             recordLibraryChangeFeedback()
             if showManagement {
-                tabSlideEdge = .trailing
                 detailTab = .manage
                 await refreshManagementData()
             }

@@ -101,12 +101,6 @@ struct MediaDetailView: View {
     @State var showingOverridesEditor = false
     @State var showingArtworkPicker = false
     @State var detailTab: DetailTab = .info
-    /// When this screen first appeared; the header cascade waits out what is left of the zoom from here.
-    @State var landingOrigin: TimeInterval?
-    /// The side the next tab enters from, set before the tab changes so the insertion reads it fresh.
-    @State var tabSlideEdge: Edge = .trailing
-    /// Bumped after a user-initiated watchlist change, so loading the saved state never bounces the bookmark.
-    @State var watchlistBounce = 0
 
     /// The detail page's own sections, shown in an in-content segmented control
     /// under the hero (see `detailTabBar`). Mirrors the web app splitting detail
@@ -175,9 +169,6 @@ struct MediaDetailView: View {
                         Task { await toggleWatchlist() }
                     } label: {
                         Image(systemName: inWatchlist ? "bookmark.fill" : "bookmark")
-                            .contentTransition(.symbolEffect(.replace))
-                            .rawkoonSymbolBounce(watchlistBounce)
-                            .rawkoonMotion(RawkoonMotion.snappy, value: inWatchlist)
                     }
                     .accessibilityLabel(Text(LocalizedStringKey(inWatchlist ? "Remove from watchlist" : "Add to watchlist")))
                     .disabled(watchlistPending)
@@ -207,24 +198,16 @@ struct MediaDetailView: View {
 
     var scrollBody: some View {
         ScrollView {
-            // One slot, so a state swap crossfades in place instead of stacking two states.
-            ZStack(alignment: .topLeading) {
+            VStack(alignment: .leading, spacing: 18) {
                 mainContent
             }
             // Cap to a readable measure and center on iPad/Mac; full-bleed on phone.
             .frame(maxWidth: isRegularWidth ? 980 : .infinity)
             .frame(maxWidth: .infinity)
             .padding(.bottom, 24)
-            .rawkoonMotion(RawkoonMotion.spring, value: motionState)
         }
-        .rawkoonStretchyHeroHost()
-        .environment(\.rawkoonLandingOrigin, landingOrigin)
         .onAppear {
             isOnScreen = true
-            // Kept from the first appearance, so returning from a pushed screen never re-delays the header.
-            if landingOrigin == nil {
-                landingOrigin = ProcessInfo.processInfo.systemUptime
-            }
             hydrateFromCache()
         }
         .onDisappear { isOnScreen = false }
@@ -382,27 +365,23 @@ struct MediaDetailView: View {
 
     @ViewBuilder
     var mainContent: some View {
-        if showsDetailSkeleton {
+        if loading, details == nil {
             detailSkeleton
-                .transition(.rawkoonSwap)
         } else if details == nil, detailsUnreachable {
             // Offline with nothing saved: keep the identity the caller passed in.
-            VStack(alignment: .leading, spacing: 18) {
-                DetailHero(
-                    title: title,
-                    posterPath: resolvedPosterPath,
-                    backdropPath: nil,
-                    metaLine: "",
-                    tagline: nil,
-                    statusText: detailStatusText,
-                    statusTint: detailStatusTint
-                )
-                Text("Details will load when you're back online.")
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.muted)
-                    .padding(.horizontal, 16)
-            }
-            .transition(.rawkoonSwap)
+            DetailHero(
+                title: title,
+                posterPath: resolvedPosterPath,
+                backdropPath: nil,
+                metaLine: "",
+                tagline: nil,
+                statusText: detailStatusText,
+                statusTint: detailStatusTint
+            )
+            Text("Details will load when you're back online.")
+                .font(.subheadline)
+                .foregroundStyle(Theme.muted)
+                .padding(.horizontal, 16)
         } else if let errorMessage, details == nil {
             ContentUnavailableView(
                 "Couldn't load details",
@@ -411,130 +390,33 @@ struct MediaDetailView: View {
             )
             .rawkoonLivingSymbol(.error)
             .padding(.top, 28)
-            .transition(.rawkoonSwap)
         } else {
             // Hero + primary action stay pinned above the segmented content, the
             // way the web keeps the title header above its detail tabs.
-            VStack(alignment: .leading, spacing: 18) {
-                DetailHero(
-                    title: title,
-                    posterPath: resolvedPosterPath,
-                    backdropPath: details?.primaryBackdropUrl,
-                    metaLine: metaLine,
-                    tagline: details?.tagline,
-                    statusText: detailStatusText,
-                    statusTint: detailStatusTint,
-                    statusEarned: libraryId != nil || added || requested
-                )
-                primaryAction
-                if availableTabs.count > 1 {
-                    detailTabBar
-                }
-                tabContent
+            DetailHero(
+                title: title,
+                posterPath: resolvedPosterPath,
+                backdropPath: details?.primaryBackdropUrl,
+                metaLine: metaLine,
+                tagline: details?.tagline,
+                statusText: detailStatusText,
+                statusTint: detailStatusTint
+            )
+            primaryAction
+            if availableTabs.count > 1 {
+                detailTabBar
             }
-            .transition(.rawkoonSwap)
-        }
-    }
-
-    /// The selected tab's sections; a tapped tab slides in from its side while the old one fades in place.
-    var tabContent: some View {
-        ZStack(alignment: .topLeading) {
             switch activeTab {
             case .info:
-                VStack(alignment: .leading, spacing: 18) {
-                    infoSections
-                }
-                .transition(.rawkoonSlide(tabSlideEdge))
+                infoSections
             case .similar:
                 similarSection
-                    .transition(.rawkoonSlide(tabSlideEdge))
             case .manage:
                 if showManagement {
                     managementSections
-                        .transition(.rawkoonSlide(tabSlideEdge))
                 }
             }
         }
-    }
-
-    /// Mirrors `mainContent`'s branch order, so every swap between states animates.
-    enum DetailPhase: Equatable {
-        case skeleton, unreachable, failed, content
-    }
-
-    /// Mirrors `primaryAction`'s branches.
-    enum PrimaryActionPhase: Equatable {
-        case lamp, requested, quiet
-    }
-
-    /// Mirrors `similarBody`'s branch order.
-    enum SimilarPhase: Equatable {
-        case loading, failed, empty, grid
-    }
-
-    /// Every swappable state on the page; one change animates the whole page's layout together.
-    struct MotionState: Equatable {
-        var detail: DetailPhase
-        var inLibrary: Bool
-        var primary: PrimaryActionPhase
-        var requestError: String?
-        var similar: SimilarPhase
-        var management: ManagementPhase
-        var managementNotice: String?
-        var managementError: String?
-    }
-
-    var motionState: MotionState {
-        MotionState(
-            detail: detailPhase,
-            inLibrary: libraryId != nil,
-            primary: primaryActionPhase,
-            requestError: requestError,
-            similar: similarPhase,
-            management: managementPhase,
-            managementNotice: managementNotice,
-            managementError: managementError
-        )
-    }
-
-    /// Also covers the frames before the first fetch starts, so an empty hero never flashes ahead of the skeleton.
-    var showsDetailSkeleton: Bool {
-        details == nil && (loading || (!didInitialLoad && errorMessage == nil && !detailsUnreachable))
-    }
-
-    var detailPhase: DetailPhase {
-        if showsDetailSkeleton {
-            return .skeleton
-        }
-        if details == nil, detailsUnreachable {
-            return .unreachable
-        }
-        if errorMessage != nil, details == nil {
-            return .failed
-        }
-        return .content
-    }
-
-    var primaryActionPhase: PrimaryActionPhase {
-        if !requested, !added {
-            return .lamp
-        }
-        return requested ? .requested : .quiet
-    }
-
-    /// Also covers the frames before the first fetch, so "No similar titles." never flashes ahead of the shimmer.
-    var showsSimilarSkeleton: Bool {
-        similarItems.isEmpty && (loadingSimilar || !didInitialLoad)
-    }
-
-    var similarPhase: SimilarPhase {
-        if showsSimilarSkeleton {
-            return .loading
-        }
-        if similarError != nil {
-            return .failed
-        }
-        return similarItems.isEmpty ? .empty : .grid
     }
 
     /// In-content tab switcher under the hero — an icon + label underline control
@@ -546,11 +428,7 @@ struct MediaDetailView: View {
             ForEach(availableTabs) { tab in
                 let isActive = activeTab == tab
                 Button {
-                    tabSlideEdge = RawkoonSlide.edge(
-                        from: DetailTab.allCases.firstIndex(of: activeTab) ?? 0,
-                        to: DetailTab.allCases.firstIndex(of: tab) ?? 0
-                    )
-                    withRawkoonMotion(RawkoonMotion.snappy) { detailTab = tab }
+                    withRawkoonMotion(.easeInOut(duration: 0.15)) { detailTab = tab }
                 } label: {
                     VStack(spacing: 6) {
                         Label(tab.label, systemImage: tab.systemImage)
@@ -573,7 +451,6 @@ struct MediaDetailView: View {
         .overlay(alignment: .bottom) {
             Divider().overlay(Theme.border)
         }
-        .rawkoonLanding(step: 2)
     }
 
     @ViewBuilder
@@ -660,42 +537,34 @@ struct MediaDetailView: View {
     var primaryAction: some View {
         if libraryId == nil {
             VStack(alignment: .leading, spacing: 8) {
-                // One slot, so the lamp and its "We'll notify you" note crossfade in place.
-                ZStack(alignment: .leading) {
-                    if !requested, !added {
-                        HStack(spacing: 0) {
-                            // On Mac/iPad the lamp sizes to its label and floats right
-                            // instead of stretching the whole content width.
-                            if isRegularWidth {
-                                Spacer(minLength: 0)
-                            }
-                            lampButton(
-                                title: model.isAdmin ? "Add to library" : "Request",
-                                systemImage: model.isAdmin ? "plus.circle.fill" : "plus.circle",
-                                busy: requesting
-                            ) {
-                                Task { model.isAdmin ? await submitAdd() : await submitRequest() }
-                            }
-                            .requiresConnection(model.isOffline)
+                if !requested, !added {
+                    HStack(spacing: 0) {
+                        // On Mac/iPad the lamp sizes to its label and floats right
+                        // instead of stretching the whole content width.
+                        if isRegularWidth {
+                            Spacer(minLength: 0)
                         }
-                        .transition(.rawkoonSwap)
-                    } else if requested {
-                        Text("We'll notify you when this is in the library. See Requests in Library.")
-                            .font(.footnote)
-                            .foregroundStyle(Theme.muted)
-                            .transition(.rawkoonSwap)
+                        lampButton(
+                            title: model.isAdmin ? "Add to library" : "Request",
+                            systemImage: model.isAdmin ? "plus.circle.fill" : "plus.circle",
+                            busy: requesting
+                        ) {
+                            Task { model.isAdmin ? await submitAdd() : await submitRequest() }
+                        }
+                        .requiresConnection(model.isOffline)
                     }
+                } else if requested {
+                    Text("We'll notify you when this is in the library. See Requests in Library.")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.muted)
                 }
                 if let requestError {
                     Text(requestError)
                         .font(.caption)
                         .foregroundStyle(Theme.terracotta)
-                        .transition(.rawkoonReveal)
                 }
             }
             .padding(.horizontal, 16)
-            .rawkoonLanding(step: 1)
-            .transition(.rawkoonSwap)
         }
     }
 
@@ -783,16 +652,13 @@ struct MediaDetailView: View {
                 .font(.sectionTitle)
                 .foregroundStyle(Theme.textStrong)
                 .padding(.horizontal, 16)
-            // One slot, so the shimmer and the grid crossfade instead of stacking.
-            ZStack(alignment: .topLeading) {
-                similarBody
-            }
+            similarBody
         }
     }
 
     @ViewBuilder
     var similarBody: some View {
-        if showsSimilarSkeleton {
+        if loadingSimilar, similarItems.isEmpty {
             LazyVGrid(columns: similarColumns, spacing: 14) {
                 ForEach(0 ..< 6, id: \.self) { _ in
                     VStack(alignment: .leading, spacing: 6) {
@@ -804,7 +670,6 @@ struct MediaDetailView: View {
             }
             .padding(.horizontal, 16)
             .allowsHitTesting(false)
-            .transition(.rawkoonSwap)
         } else if let similarError {
             VStack(alignment: .leading, spacing: 10) {
                 Text(similarError)
@@ -819,23 +684,18 @@ struct MediaDetailView: View {
                 .tint(Theme.apricot)
             }
             .padding(.horizontal, 16)
-            .transition(.rawkoonSwap)
         } else if similarItems.isEmpty {
             Text("No similar titles.")
                 .font(.subheadline)
                 .foregroundStyle(Theme.muted)
                 .padding(.horizontal, 16)
-                .transition(.rawkoonSwap)
         } else {
             LazyVGrid(columns: similarColumns, spacing: 14) {
                 ForEach(similarItems) { item in
                     similarCard(item)
-                        .rawkoonEntrance(id: item.id)
                 }
             }
             .padding(.horizontal, 16)
-            .rawkoonEntranceScope()
-            .transition(.rawkoonSwap)
         }
     }
 

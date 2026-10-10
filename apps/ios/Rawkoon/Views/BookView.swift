@@ -211,7 +211,6 @@ struct BookView: View {
                 hero
                 VStack(alignment: .leading, spacing: 18) {
                     lanePicker
-                        .rawkoonLanding(step: 1)
                     if let detailError, detail == nil {
                         errorBanner(detailError)
                     }
@@ -226,7 +225,6 @@ struct BookView: View {
             .frame(maxWidth: .infinity)
             .padding(.bottom, 24)
         }
-        .rawkoonStretchyHeroHost()
         .background(Theme.base)
         .navigationTitle(titleText)
         .navigationBarTitleDisplayMode(.inline)

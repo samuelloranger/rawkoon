@@ -13,6 +13,8 @@ struct LibraryView: View {
     }
 
     @State private var section: LibrarySection = .media
+    /// False while the grid is empty, so a refill from empty does not animate cells in from narrow widths.
+    @State private var mediaPopulated = false
 
     /// When set (desktop's split Media/Books tabs), the section is fixed and the
     /// Media/Books segmented toggle is hidden. Nil keeps the phone's single tab.
@@ -163,6 +165,10 @@ struct LibraryView: View {
                 await loadBooks()
             }
             await loadBookProgress()
+        }
+        .onAppear { mediaPopulated = mediaPopulated || !media.isEmpty }
+        .onChange(of: media.isEmpty) { _, isEmpty in
+            mediaPopulated = !isEmpty
         }
         // Kept-alive iPhone tabs never re-appear, so a revisit refreshes like the old TabView did.
         .onChange(of: isActiveRootTab) { _, active in
@@ -477,7 +483,7 @@ struct LibraryView: View {
         .reportsTabBarScroll()
         .overlay { mediaOverlay }
         // motion-ok: listMotion already resolves Reduce Motion
-        .animation(listMotion, value: mediaAnimationToken)
+        .animation(mediaPopulated ? listMotion : nil, value: mediaAnimationToken)
         .refreshable { await loadMedia(reset: true) }
     }
 
@@ -621,7 +627,7 @@ struct LibraryView: View {
         .reportsTabBarScroll()
         .overlay { mediaOverlay }
         // motion-ok: listMotion already resolves Reduce Motion
-        .animation(listMotion, value: mediaAnimationToken)
+        .animation(mediaPopulated ? listMotion : nil, value: mediaAnimationToken)
         .refreshable { await loadMedia(reset: true) }
     }
 
@@ -675,22 +681,18 @@ struct LibraryView: View {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 170, maximum: 230), spacing: 12)], spacing: 12) {
                         ForEach(filteredBooks) { book in
                             bookLink(book, grid: true)
-                                .rawkoonEntrance(id: book.bookId)
                         }
                     }
                 } else {
                     LazyVStack(spacing: 8) {
                         ForEach(filteredBooks) { book in
                             bookLink(book, grid: false)
-                                .rawkoonEntrance(id: book.bookId)
                         }
                     }
                 }
             }
             .padding(.horizontal, 16).padding(.top, 4)
         }
-        // On the scroll view, which outlives search and filter changes, so seen books never replay.
-        .rawkoonEntranceScope()
         .rawkoonMotion(RawkoonMotion.snappy, value: busyBookIds)
         .reportsTabBarScroll()
         .overlay {

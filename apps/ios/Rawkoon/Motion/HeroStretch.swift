@@ -34,21 +34,8 @@ final class HeroScroll {
     var pull: CGFloat = 0
 }
 
-/// Delays for a detail header's cascade: wait out what is left of the zoom push, then step through the parts.
-nonisolated enum HeroLanding {
-    /// Roughly how long a zoom push takes to land.
-    static let settle = 0.3
-    static let beat = 0.06
-
-    static func delay(step: Int, elapsed: TimeInterval) -> Double {
-        max(0, settle - max(0, elapsed)) + Double(min(max(step, 0), 3)) * beat
-    }
-}
-
 extension EnvironmentValues {
     @Entry var rawkoonHeroScroll: HeroScroll?
-    /// When the screen hosting a landing cascade first appeared (system uptime); nil reads as "just now".
-    @Entry var rawkoonLandingOrigin: TimeInterval?
 }
 
 extension View {
@@ -61,11 +48,6 @@ extension View {
     /// `fileID` and `line` only name the call site in the DEBUG missing-host log.
     func rawkoonStretchyHero(height: CGFloat, fileID: String = #fileID, line: Int = #line) -> some View {
         StretchyHeroLayer(content: self, height: height, callSite: "\(fileID):\(line)")
-    }
-
-    /// Fades and rises this header piece in once, `step` beats after the screen's zoom push lands.
-    func rawkoonLanding(step: Int) -> some View {
-        modifier(Landing(step: step))
     }
 }
 
@@ -116,26 +98,6 @@ private nonisolated struct BelowEdgeClip: Shape {
     func path(in rect: CGRect) -> Path {
         let headroom: CGFloat = 10000
         return Path(CGRect(x: rect.minX, y: rect.minY - headroom, width: rect.width, height: rect.height + headroom))
-    }
-}
-
-private struct Landing: ViewModifier {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.rawkoonLandingOrigin) private var origin
-    let step: Int
-    @State private var landed = false
-
-    func body(content: Content) -> some View {
-        content
-            .opacity(landed ? 1 : 0)
-            .offset(y: landed || reduceMotion ? 0 : 10)
-            .onAppear {
-                guard !landed else { return }
-                let now = ProcessInfo.processInfo.systemUptime
-                let delay = HeroLanding.delay(step: step, elapsed: origin.map { now - $0 } ?? 0)
-                let animation = reduceMotion ? RawkoonMotion.reduced : RawkoonMotion.spring.delay(delay)
-                withAnimation(animation) { landed = true }
-            }
     }
 }
 

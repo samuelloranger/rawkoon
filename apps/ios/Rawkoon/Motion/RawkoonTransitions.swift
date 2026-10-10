@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Skeleton → content and state switches: a soft blur-scale crossfade.
+/// Skeleton → content and state switches: a plain crossfade; scale or blur on text reads as a wobble.
 struct RawkoonSwapTransition: Transition {
     func body(content: Content, phase: TransitionPhase) -> some View {
         content.modifier(SwapEffect(isIdentity: phase.isIdentity))
@@ -75,16 +75,33 @@ nonisolated enum RawkoonSlide {
     }
 }
 
+/// Small marks (an unread dot, a badge, a check) that pop in and out.
+struct RawkoonPopTransition: Transition {
+    func body(content: Content, phase: TransitionPhase) -> some View {
+        content.modifier(PopEffect(isIdentity: phase.isIdentity))
+    }
+}
+
+extension Transition where Self == RawkoonPopTransition {
+    static var rawkoonPop: RawkoonPopTransition {
+        RawkoonPopTransition()
+    }
+}
+
+/// Scale for `rawkoonPop`; a plain fade under Reduce Motion.
+nonisolated enum RawkoonPop {
+    static let hiddenScale: CGFloat = 0.3
+
+    static func scale(isIdentity: Bool, reduceMotion: Bool) -> CGFloat {
+        isIdentity || reduceMotion ? 1 : hiddenScale
+    }
+}
+
 private struct SwapEffect: ViewModifier {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let isIdentity: Bool
 
     func body(content: Content) -> some View {
-        let still = isIdentity || reduceMotion
-        content
-            .opacity(isIdentity ? 1 : 0)
-            .scaleEffect(still ? 1 : 0.98)
-            .blur(radius: still ? 0 : 6)
+        content.opacity(isIdentity ? 1 : 0)
     }
 }
 
@@ -135,5 +152,16 @@ private struct SlideEffect: ViewModifier {
         content
             .opacity(phase.isIdentity ? 1 : 0)
             .offset(RawkoonSlide.offset(edge: edge, appearing: appearing, reduceMotion: reduceMotion))
+    }
+}
+
+private struct PopEffect: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let isIdentity: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(isIdentity ? 1 : 0)
+            .scaleEffect(RawkoonPop.scale(isIdentity: isIdentity, reduceMotion: reduceMotion))
     }
 }

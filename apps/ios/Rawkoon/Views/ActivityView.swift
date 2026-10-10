@@ -434,7 +434,10 @@ struct ActivityView: View {
         queueError = nil
         defer {
             loadingQueue = false
-            didLoadQueue = true
+            // A cancelled cold load showed nothing, so the next one still opens on the skeleton.
+            if !Task.isCancelled {
+                didLoadQueue = true
+            }
         }
 
         guard let client = model.api() else {
