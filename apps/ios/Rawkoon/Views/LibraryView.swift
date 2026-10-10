@@ -13,6 +13,8 @@ struct LibraryView: View {
     }
 
     @State private var section: LibrarySection = .media
+    /// False until the grid first fills, so the empty-to-populated change does not animate cells from narrow widths.
+    @State private var mediaPopulated = false
 
     /// When set (desktop's split Media/Books tabs), the section is fixed and the
     /// Media/Books segmented toggle is hidden. Nil keeps the phone's single tab.
@@ -163,6 +165,12 @@ struct LibraryView: View {
                 await loadBooks()
             }
             await loadBookProgress()
+        }
+        .onAppear { mediaPopulated = mediaPopulated || !media.isEmpty }
+        .onChange(of: media.isEmpty) { _, isEmpty in
+            if !isEmpty {
+                mediaPopulated = true
+            }
         }
         // Kept-alive iPhone tabs never re-appear, so a revisit refreshes like the old TabView did.
         .onChange(of: isActiveRootTab) { _, active in
@@ -477,7 +485,7 @@ struct LibraryView: View {
         .reportsTabBarScroll()
         .overlay { mediaOverlay }
         // motion-ok: listMotion already resolves Reduce Motion
-        .animation(listMotion, value: mediaAnimationToken)
+        .animation(mediaPopulated ? listMotion : nil, value: mediaAnimationToken)
         .refreshable { await loadMedia(reset: true) }
     }
 
@@ -621,7 +629,7 @@ struct LibraryView: View {
         .reportsTabBarScroll()
         .overlay { mediaOverlay }
         // motion-ok: listMotion already resolves Reduce Motion
-        .animation(listMotion, value: mediaAnimationToken)
+        .animation(mediaPopulated ? listMotion : nil, value: mediaAnimationToken)
         .refreshable { await loadMedia(reset: true) }
     }
 
