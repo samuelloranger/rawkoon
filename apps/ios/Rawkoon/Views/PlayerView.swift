@@ -331,7 +331,7 @@ struct PlayerView: View {
             }
         } label: {
             chip(
-                verbatim: "\(rateLabel(Double(model.player.rate)))×",
+                title: Text(verbatim: "\(rateLabel(Double(model.player.rate)))×"),
                 systemImage: "speedometer",
                 emphasized: false
             )
@@ -350,13 +350,13 @@ struct PlayerView: View {
             }
         } label: {
             // One label for every mode, so a mode change and each countdown second roll in place.
-            chip(verbatim: sleepLabel, systemImage: "moon.zzz.fill", emphasized: sleepActive)
+            chip(title: sleepText, systemImage: "moon.zzz.fill", emphasized: sleepActive)
                 .rawkoonNumeric(PlayerMotion.sleepRollValue(
                     isOff: model.player.sleepMode == .off, remaining: model.player.sleepRemainingSecs
                 ))
         }
         .accessibilityLabel("Sleep timer")
-        .accessibilityValue(sleepLabel)
+        .accessibilityValue(sleepText)
     }
 
     /// AirPlay, in the player rather than only in Control Center — moving a
@@ -367,10 +367,10 @@ struct PlayerView: View {
             .glassEffect(.regular.interactive(), in: .capsule)
     }
 
-    private func chip(verbatim title: String, systemImage: String, emphasized: Bool) -> some View {
+    private func chip(title: Text, systemImage: String, emphasized: Bool) -> some View {
         chipLabel(
             Label {
-                Text(verbatim: title)
+                title
             } icon: {
                 Image(systemName: systemImage)
             },
@@ -391,17 +391,18 @@ struct PlayerView: View {
         model.player.sleepMode != .off
     }
 
-    private var sleepLabel: String {
+    /// One `Text` for every mode (no view branches), so it localizes with the in-app language and still rolls in place.
+    private var sleepText: Text {
         switch model.player.sleepMode {
         case .off:
-            return String(localized: "Sleep")
+            return Text("Sleep")
         case .endOfChapter:
-            return String(localized: "Chapter")
+            return Text("Chapter")
         case .minutes:
             if let remaining = model.player.sleepRemainingSecs {
-                return Formatters.durationTimestampRounded(remaining)
+                return Text(verbatim: Formatters.durationTimestampRounded(remaining))
             }
-            return String(localized: "Sleep")
+            return Text("Sleep")
         }
     }
 
