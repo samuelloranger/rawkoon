@@ -6,6 +6,7 @@ import SwiftUI
 struct PlayerView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let summary: LibrarySummary
     let manifest: BookManifest
@@ -111,6 +112,11 @@ struct PlayerView: View {
             BookCover(url: summary.coverURL, size: 220, corner: 16)
                 .frame(maxWidth: 220)
                 .shadow(color: .black.opacity(0.6), radius: 24, y: 14)
+                // Purely visual: the cover sits back while paused and springs forward on play.
+                .scaleEffect(PlayerMotion.artworkScale(
+                    isPlaying: model.player.isPlaying, reduceMotion: reduceMotion
+                ))
+                .rawkoonMotion(RawkoonMotion.spring, value: model.player.isPlaying)
                 .accessibilityHidden(true)
 
             VStack(spacing: 4) {
@@ -119,10 +125,16 @@ struct PlayerView: View {
                     .foregroundStyle(Theme.textStrong)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
-                Text(currentChapterTitle)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(hasChapter ? Theme.apricotSoft : Theme.muted)
-                    .lineLimit(1)
+                // One slot keyed by chapter, so a new chapter's title rolls up as the old one fades.
+                ZStack {
+                    Text(currentChapterTitle)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(hasChapter ? Theme.apricotSoft : Theme.muted)
+                        .lineLimit(1)
+                        .id(model.player.currentChapterIndex)
+                        .transition(.rawkoonSlide(.bottom))
+                }
+                .rawkoonMotion(RawkoonMotion.spring, value: model.player.currentChapterIndex)
 
                 if !manifest.chapters.isEmpty {
                     Button {
@@ -272,7 +284,9 @@ struct PlayerView: View {
     private var transport: some View {
         HStack(spacing: 24) {
             control("backward.end.fill", label: "Previous chapter", action: model.player.prevChapter)
-            control("gobackward.30", label: "Skip back 30 seconds") { model.player.skipBackward(30) }
+            SkipControl(systemImage: "gobackward.30", label: "Skip back 30 seconds", clockwise: false) {
+                model.player.skipBackward(30)
+            }
 
             Button {
                 model.player.isPlaying ? model.player.pause() : model.player.play()
@@ -288,7 +302,9 @@ struct PlayerView: View {
             .shadow(color: Theme.apricot.opacity(0.35), radius: 12, y: 6)
             .accessibilityLabel(Text(LocalizedStringKey(model.player.isPlaying ? "Pause" : "Play")))
 
-            control("goforward.30", label: "Skip forward 30 seconds") { model.player.skipForward(30) }
+            SkipControl(systemImage: "goforward.30", label: "Skip forward 30 seconds", clockwise: true) {
+                model.player.skipForward(30)
+            }
             control("forward.end.fill", label: "Next chapter", action: model.player.nextChapter)
         }
         .padding(.top, 8)
@@ -319,6 +335,7 @@ struct PlayerView: View {
                 systemImage: "speedometer",
                 emphasized: false
             )
+            .rawkoonNumeric(Double(model.player.rate))
         }
         .accessibilityLabel("Playback speed")
         .accessibilityValue("\(rateLabel(Double(model.player.rate)))×")
@@ -332,14 +349,11 @@ struct PlayerView: View {
                 Button("\(m) min") { model.player.setSleep(.minutes(m)) }
             }
         } label: {
-            switch model.player.sleepMode {
-            case .off:
-                chip(title: "Sleep", systemImage: "moon.zzz.fill", emphasized: sleepActive)
-            case .endOfChapter:
-                chip(title: "Chapter", systemImage: "moon.zzz.fill", emphasized: sleepActive)
-            case .minutes:
-                chip(verbatim: sleepLabel, systemImage: "moon.zzz.fill", emphasized: sleepActive)
-            }
+            // One label for every mode, so a mode change and each countdown second roll in place.
+            chip(verbatim: sleepLabel, systemImage: "moon.zzz.fill", emphasized: sleepActive)
+                .rawkoonNumeric(PlayerMotion.sleepRollValue(
+                    isOff: model.player.sleepMode == .off, remaining: model.player.sleepRemainingSecs
+                ))
         }
         .accessibilityLabel("Sleep timer")
         .accessibilityValue(sleepLabel)
@@ -351,10 +365,6 @@ struct PlayerView: View {
         RoutePicker()
             .frame(width: 44, height: 44)
             .glassEffect(.regular.interactive(), in: .capsule)
-    }
-
-    private func chip(title: LocalizedStringKey, systemImage: String, emphasized: Bool) -> some View {
-        chipLabel(Label(title, systemImage: systemImage), emphasized: emphasized)
     }
 
     private func chip(verbatim title: String, systemImage: String, emphasized: Bool) -> some View {
@@ -435,6 +445,50 @@ struct PlayerView: View {
 
     private func formatTime(_ seconds: Double) -> String {
         Formatters.durationTimestampRounded(seconds)
+    }
+}
+
+/// The player's motion rules, pure so they can be tested.
+nonisolated enum PlayerMotion {
+    /// Far enough to read as "resting", near enough that the cover never looks like it is closing.
+    static let pausedArtworkScale: CGFloat = 0.9
+
+    static func artworkScale(isPlaying: Bool, reduceMotion: Bool) -> CGFloat {
+        isPlaying || reduceMotion ? 1 : pausedArtworkScale
+    }
+
+    /// What the sleep chip rolls on: a mode change, then each displayed second of the countdown.
+    static func sleepRollValue(isOff: Bool, remaining: Double?) -> Double {
+        if isOff {
+            return 0
+        }
+        guard let remaining, remaining.isFinite else { return -1 }
+        return max(1, remaining.rounded())
+    }
+}
+
+/// A 30-second skip whose arrow spins the way it skips; the skip runs first, the spin alongside.
+private struct SkipControl: View {
+    let systemImage: String
+    let label: LocalizedStringKey
+    let clockwise: Bool
+    let action: () -> Void
+    @State private var spins = 0
+
+    var body: some View {
+        Button {
+            action()
+            spins += 1
+        } label: {
+            Image(systemName: systemImage)
+                .font(.system(size: 22))
+                .foregroundStyle(Theme.textStrong)
+                .rawkoonSymbolSpin(spins, clockwise: clockwise)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
 
