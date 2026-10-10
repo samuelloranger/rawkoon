@@ -303,7 +303,7 @@ struct ReleaseSearchView: View {
         if releases.isEmpty {
             return .empty
         }
-        return filteredAndSortedReleases.isEmpty ? .filteredOut : .list
+        return filteredReleases.isEmpty ? .filteredOut : .list
     }
 
     /// Everything that appears above or in place of the list; one change animates the sheet's layout together.
@@ -640,7 +640,7 @@ struct ReleaseSearchView: View {
             ContentUnavailableView.search
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .transition(.rawkoonSwap)
-        } else if filteredAndSortedReleases.isEmpty {
+        } else if filteredReleases.isEmpty {
             // Results came back but the active filters (commonly "Hide rejected")
             // hide them all — say so and offer a reset, mirroring the web
             // "No matches" + Reset view empty state instead of a blank sheet.
@@ -695,12 +695,22 @@ struct ReleaseSearchView: View {
     }
 
     private var filteredAndSortedReleases: [ReleaseItem] {
+        let effectiveSort: SearchSort = sortOptions.contains(sortBy) ? sortBy : .seeders
+        return InteractiveSearchLogic.sortReleases(
+            filteredReleases,
+            by: effectiveSort.sortKey,
+            dir: sortAscending ? .asc : .desc
+        )
+    }
+
+    /// The filter step alone, so the content phase can test emptiness without sorting.
+    private var filteredReleases: [ReleaseItem] {
         // Search mode strips the query's trailing SxxExx/year suffix to a bare title
         // for the client rejection heuristic, mirroring the web picker.
         let expectedTitle = InteractiveSearchLogic.stripTitleSuffixes(searchQuery)
         let normalizedFilter = InteractiveSearchLogic.normalizeKey(filterQuery)
 
-        let filtered = releases.filter { release in
+        return releases.filter { release in
             if hideRejected {
                 if release.rejected == true {
                     return false
@@ -742,13 +752,6 @@ struct ReleaseSearchView: View {
             let haystack = InteractiveSearchLogic.normalizeKey("\(release.title) \(release.indexer ?? "")")
             return haystack.contains(normalizedFilter)
         }
-
-        let effectiveSort: SearchSort = sortOptions.contains(sortBy) ? sortBy : .seeders
-        return InteractiveSearchLogic.sortReleases(
-            filtered,
-            by: effectiveSort.sortKey,
-            dir: sortAscending ? .asc : .desc
-        )
     }
 
     /// Normalized tracker key for `release`, matching `trackerOptions` bucketing.
