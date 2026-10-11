@@ -52,6 +52,7 @@ struct BookView: View {
     @State var manifestError: String?
     @State var attemptedAutomaticRecovery = false
 
+    @State var audiobookState = BookAudiobookState()
     @State var ebookState = BookEbookState()
     @State var previewDocument: EbookPreviewDocument?
     @State var addingEditionKind: String?
@@ -306,7 +307,10 @@ struct BookView: View {
     var laneContent: some View {
         switch activeLane {
         case .audiobook:
-            BookAudiobookView(page: self, showingPlayer: $showingPlayer, chapterFilter: $chapterFilter)
+            BookAudiobookView(
+                page: self, audioState: audiobookState,
+                showingPlayer: $showingPlayer, chapterFilter: $chapterFilter
+            )
         case .ebook:
             BookEbookView(page: self, state: ebookState)
         }

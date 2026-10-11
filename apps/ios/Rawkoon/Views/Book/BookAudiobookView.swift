@@ -4,15 +4,12 @@ import SwiftUI
 
 struct BookAudiobookView: View {
     let page: BookView
+    let audioState: BookAudiobookState
     @Binding var showingPlayer: Bool
     @Binding var chapterFilter: String
-    @State private var preparingAudiobookDownload = false
-    @State private var showDownloadFinished = false
     /// Bumped by the download-state notification so the buttons re-evaluate even when Observation misses it.
     @State private var downloadRefreshTick = 0
     @State private var stateProbe = DownloadStateProbe()
-    @State private var loadingPlayer = false
-    @State private var audiobookActionError: String?
     /// Longer than one screen of spine rows; a 3-chapter book does not need a field.
     private let chapterFilterThreshold = 12
 
@@ -110,7 +107,7 @@ struct BookAudiobookView: View {
             }
             audiobookDownloadCaption
 
-            if let audiobookActionError {
+            if let audiobookActionError = audioState.audiobookActionError {
                 Text(audiobookActionError)
                     .font(.caption)
                     .foregroundStyle(Theme.terracotta)
@@ -136,10 +133,10 @@ struct BookAudiobookView: View {
     /// so the finish gets a haptic and a brief green check.
     private func announceDownloadFinished() {
         RawkoonHaptics.play(.downloadComplete)
-        withRawkoonMotion(.spring(duration: 0.35)) { showDownloadFinished = true }
+        withRawkoonMotion(.spring(duration: 0.35)) { audioState.showDownloadFinished = true }
         Task {
             try? await Task.sleep(for: .seconds(1.8))
-            withRawkoonMotion(.easeOut(duration: 0.3)) { showDownloadFinished = false }
+            withRawkoonMotion(.easeOut(duration: 0.3)) { audioState.showDownloadFinished = false }
         }
     }
 
@@ -147,24 +144,24 @@ struct BookAudiobookView: View {
         Button {
             Task {
                 guard let editionId = audiobookEditionId else { return }
-                audiobookActionError = nil
-                loadingPlayer = true
+                audioState.audiobookActionError = nil
+                audioState.loadingPlayer = true
                 // "Play" has to mean from the start — but only once the
                 // preview has loaded. Before that the label is a placeholder,
                 // so the player resolves the position itself.
                 let previewed = model.resumePreview[editionId] != nil
                 let resumeAt: Double? = (previewed && audiobookResume == .play) ? 0 : nil
                 await model.openPlayer(editionId: editionId, resumeAt: resumeAt)
-                loadingPlayer = false
+                audioState.loadingPlayer = false
                 if let error = model.errorMessage {
-                    audiobookActionError = error
+                    audioState.audiobookActionError = error
                 } else {
                     showingPlayer = true
                 }
             }
         } label: {
             Group {
-                if loadingPlayer {
+                if audioState.loadingPlayer {
                     ProgressView().tint(Theme.onAccent)
                 } else if case let .resume(positionSecs) = audiobookResume {
                     Label(
@@ -194,7 +191,8 @@ struct BookAudiobookView: View {
         _ = downloadRefreshTick
         let plan = audiobookEditionId.flatMap { model.downloadPlans[$0] }
         // The downloader exists a moment before its first snapshot: stay on the spinner.
-        if plan == nil, preparingAudiobookDownload || audiobookEditionId.map({ model.downloaders[$0] != nil }) == true {
+        let hasDownloader = audiobookEditionId.map { model.downloaders[$0] != nil } == true
+        if plan == nil, audioState.preparingAudiobookDownload || hasDownloader {
             return .preparing
         }
         if let plan, !plan.isComplete {
@@ -215,7 +213,7 @@ struct BookAudiobookView: View {
         let button = Button {
             handleAudiobookDownloadTap(state)
         } label: {
-            DownloadStateIcon(state: state, celebrating: showDownloadFinished)
+            DownloadStateIcon(state: state, celebrating: audioState.showDownloadFinished)
         }
         .buttonStyle(BookIconButtonStyle())
         .accessibilityLabel(state.accessibilityLabel)
@@ -244,19 +242,19 @@ struct BookAudiobookView: View {
         switch state {
         case .idle, .failed:
             Task {
-                audiobookActionError = nil
-                preparingAudiobookDownload = true
+                audioState.audiobookActionError = nil
+                audioState.preparingAudiobookDownload = true
                 await model.startDownload(editionId: editionId)
-                preparingAudiobookDownload = false
+                audioState.preparingAudiobookDownload = false
                 if let error = model.errorMessage {
-                    audiobookActionError = error
+                    audioState.audiobookActionError = error
                 }
             }
         case .preparing:
             break
         case .downloading:
-            audiobookActionError = nil
-            preparingAudiobookDownload = false
+            audioState.audiobookActionError = nil
+            audioState.preparingAudiobookDownload = false
             model.cancelDownload(editionId: editionId)
         case .downloaded:
             model.pendingConfirm = ConfirmRequest(
@@ -306,12 +304,12 @@ struct BookAudiobookView: View {
                             Button {
                                 Task {
                                     guard let editionId = audiobookEditionId else { return }
-                                    loadingPlayer = true
+                                    audioState.loadingPlayer = true
                                     await model.openPlayer(
                                         editionId: editionId,
                                         resumeAt: page.resumePosition(in: chapter) ?? chapter.startSecs
                                     )
-                                    loadingPlayer = false
+                                    audioState.loadingPlayer = false
                                     if model.errorMessage == nil {
                                         showingPlayer = true
                                     }
