@@ -16,10 +16,7 @@ struct SettingsView: View {
 
     @State private var sessionUser: SessionUser?
     @State private var appVersion: String?
-    @State private var confirmDeleteDownloads = false
-    @State private var confirmClearSavedData = false
     @State private var savedDataBytes = 0
-    @State private var confirmLogOut = false
     @State private var settingsSearch = ""
 
     private var isSearching: Bool {
@@ -40,59 +37,27 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        @Bindable var model = model
-        return Form {
+        Form {
             if isSearching {
                 searchResultsSection
             } else {
                 if scope != .server {
-                    staticSections
+                    personalSections
                 }
                 if scope != .personal {
                     adminSections
+                }
+                if scope != .server {
+                    aboutFooter
                 }
             }
         }
         .reportsTabBarScroll()
         .modifier(SettingsSearch(isEnabled: scope != .personal, text: $settingsSearch))
-        .scrollContentBackground(.hidden)
-        .readableWidth()
-        .background(Theme.base)
-        .tint(Theme.apricot)
+        .settingsScreenStyle()
         .navigationTitle(navigationTitleKey)
         .navigationBarTitleDisplayMode(.inline)
-        .rawkoonConfirm(
-            "Delete downloaded chapters?",
-            isPresented: $confirmDeleteDownloads
-        ) {
-            Button("Delete Downloads", role: .destructive) {
-                model.deleteDownloads()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Removes offline audiobook chapters from this iPhone. Playback will need the network until they download again.")
-        }
-        .rawkoonConfirm(
-            "Clear saved data?",
-            isPresented: $confirmClearSavedData
-        ) {
-            Button("Clear Saved Data", role: .destructive) {
-                model.clearSavedData()
-                savedDataBytes = model.savedDataBytes
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Screens will need the network again until they reload. Downloads and your sign-in are kept.")
-        }
-        .rawkoonConfirm(
-            "Log out of Rawkoon?",
-            isPresented: $confirmLogOut
-        ) {
-            Button("Log Out", role: .destructive) {
-                model.logout()
-            }
-            Button("Cancel", role: .cancel) {}
-        }
+        .onAppear { savedDataBytes = model.savedDataBytes }
         .task {
             hydrateFromCache()
             await model.refreshAdminIfNeeded()
@@ -132,21 +97,35 @@ struct SettingsView: View {
         .listRowBackground(Theme.raised)
     }
 
+    /// The phone gets one summary row per admin group; the sidebar's Server
+    /// screen has the room to list every row inline.
     @ViewBuilder
     private var adminSections: some View {
         if model.isAdmin {
-            ForEach(SettingsGroup.allCases) { group in
-                let items = SettingsDestination.allCases.filter { $0.group == group }
-                Section {
-                    ForEach(items) { destination in
+            if scope == .server {
+                ForEach(SettingsGroup.allCases) { group in
+                    Section {
+                        ForEach(group.destinations) { destination in
+                            NavigationLink {
+                                destination.destination
+                            } label: {
+                                Label(destination.title, systemImage: destination.systemImage)
+                            }
+                        }
+                    } header: {
+                        Text(group.title)
+                    }
+                    .listRowBackground(Theme.raised)
+                }
+            } else {
+                Section("Server") {
+                    ForEach(SettingsGroup.allCases) { group in
                         NavigationLink {
-                            destination.destination
+                            SettingsGroupView(group: group)
                         } label: {
-                            Label(destination.title, systemImage: destination.systemImage)
+                            SettingsNavRow(title: group.title, subtitle: group.summary, systemImage: group.systemImage)
                         }
                     }
-                } header: {
-                    Text(group.title)
                 }
                 .listRowBackground(Theme.raised)
             }
@@ -154,165 +133,109 @@ struct SettingsView: View {
     }
 
     @ViewBuilder
-    private var staticSections: some View {
-        @Bindable var model = model
-        Group {
-            Section("Account") {
-                TextField("Server URL", text: $model.serverURL)
-                    .disabled(true)
-                    .textSelection(.enabled)
-                    .foregroundStyle(Theme.muted)
+    private var personalSections: some View {
+        Section {
+            NavigationLink {
+                SettingsAccountView(name: accountName, email: sessionUser?.email, version: appVersion)
+            } label: {
+                SettingsProfileCard(
+                    name: accountName,
+                    email: sessionUser?.email,
+                    initials: model.userInitials,
+                    version: appVersion,
+                    isOffline: model.isOffline
+                )
+            }
+        }
+        .listRowBackground(Theme.raised)
 
-                if let user = sessionUser {
-                    if let email = user.email, !email.isEmpty {
-                        LabeledContent("Email") {
-                            Text(email)
-                                .foregroundStyle(Theme.text)
-                                .textSelection(.enabled)
-                        }
-                    }
-                    if let displayName = displayName(for: user), !displayName.isEmpty {
-                        LabeledContent("Name") {
-                            Text(displayName)
-                                .foregroundStyle(Theme.text)
-                        }
-                    }
+        Section("You") {
+            NavigationLink {
+                SettingsAlertsView()
+            } label: {
+                SettingsNavRow(
+                    title: "Notifications",
+                    subtitle: String(localized: "Push, devices, channels"),
+                    systemImage: "bell"
+                )
+            }
+            NavigationLink {
+                SettingsPlaybackView()
+            } label: {
+                SettingsNavRow(title: "Playback & downloads", subtitle: playbackSummary, systemImage: "play.circle")
+            }
+            NavigationLink {
+                SettingsStorageView()
+            } label: {
+                SettingsNavRow(title: "Storage", subtitle: storageSummary, systemImage: "internaldrive")
+            }
+            Picker(selection: $appLanguage) {
+                ForEach(AppLanguage.allCases) { language in
+                    Text(language.label).tag(language.rawValue)
                 }
+            } label: {
+                SettingsNavRow(title: "Language", systemImage: "globe")
+            }
+            .pickerStyle(.menu)
+        }
+        .listRowBackground(Theme.raised)
 
+        // The sidebar has Activity and Requests tabs of its own; the phone reaches them only here.
+        if scope == .all {
+            Section("Activity") {
                 NavigationLink {
-                    ProfileView()
+                    ActivityView()
                 } label: {
-                    Label("Edit profile", systemImage: "person.crop.circle")
+                    SettingsNavRow(title: "Activity", systemImage: "arrow.down.circle")
                 }
-            }
-            .listRowBackground(Theme.raised)
-
-            Section {
-                Picker("Language", selection: $appLanguage) {
-                    ForEach(AppLanguage.allCases) { language in
-                        Text(language.label).tag(language.rawValue)
-                    }
-                }
-                .pickerStyle(.menu)
-                .tint(Theme.apricot)
-            } header: {
-                Text("Language")
-            } footer: {
-                Text("Sets the app language and the language titles and discovery are shown in. \u{201C}System\u{201D} follows your device.")
-            }
-            .listRowBackground(Theme.raised)
-
-            Section(scope == .all ? "Requests & Alerts" : "Alerts") {
-                // The sidebar has Activity and Requests tabs of its own.
-                if scope == .all {
-                    NavigationLink {
-                        ActivityView()
-                    } label: {
-                        Label("Activity", systemImage: "arrow.down.circle")
-                    }
-
-                    NavigationLink {
-                        RequestsView()
-                    } label: {
-                        Label("Requests", systemImage: "tray.and.arrow.down")
-                    }
-                }
-
                 NavigationLink {
-                    NotificationsSettingsView()
+                    RequestsView()
                 } label: {
-                    Label("Notifications", systemImage: "bell")
-                }
-
-                NavigationLink {
-                    DevicesView()
-                } label: {
-                    Label("Devices", systemImage: "iphone")
-                }
-
-                NavigationLink {
-                    NotificationChannelsCrudView()
-                } label: {
-                    Label("Channels", systemImage: "paperplane")
-                }
-            }
-            .listRowBackground(Theme.raised)
-
-            Section {
-                Toggle("Smart rewind", isOn: $smartRewind)
-            } header: {
-                Text("Playback")
-            } footer: {
-                Text("Rewind when a book resumes, by how long it was paused \u{2014} nothing under three seconds, three under fifteen, six under five minutes, ten under an hour, twenty overnight.")
-            }
-            .listRowBackground(Theme.raised)
-
-            Section("Downloads") {
-                // A Mac has no cellular link to restrict.
-                #if !targetEnvironment(macCatalyst)
-                    Picker("Download over", selection: $downloadOver) {
-                        Text("Any").tag("any")
-                        Text("Wi-Fi").tag("wifi")
-                    }
-                    .pickerStyle(.segmented)
-                #endif
-
-                Button("Delete Downloads", role: .destructive) {
-                    confirmDeleteDownloads = true
-                }
-            }
-            .listRowBackground(Theme.raised)
-
-            Section {
-                LabeledContent("Saved data") {
-                    Text(ByteCountFormatter.string(fromByteCount: Int64(savedDataBytes), countStyle: .file))
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(Theme.faint)
-                }
-                if let synced = model.libraryFetchedAt {
-                    LabeledContent("Last synced") {
-                        Text(synced, style: .relative)
-                            .font(.caption)
-                            .foregroundStyle(Theme.faint)
-                    }
-                }
-                Button("Clear Saved Data", role: .destructive) {
-                    confirmClearSavedData = true
-                }
-            } header: {
-                Text("Offline")
-            } footer: {
-                Text("Screens you've opened, and recent titles fetched ahead of time on Wi-Fi, stay viewable without a connection.")
-            }
-            .listRowBackground(Theme.raised)
-            .onAppear { savedDataBytes = model.savedDataBytes }
-
-            Section("About") {
-                LabeledContent("Version") {
-                    Text("Rawkoon \(appVersion ?? "—")")
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(Theme.faint)
-                }
-                if let url = URL(string: "https://samlo.cloud/rawkoon/privacy") {
-                    Link(destination: url) {
-                        Label("Privacy policy", systemImage: "hand.raised")
-                    }
-                }
-                if let url = URL(string: "https://github.com/samuelloranger/rawkoon/issues") {
-                    Link(destination: url) {
-                        Label("Support", systemImage: "questionmark.circle")
-                    }
-                }
-            }
-            .listRowBackground(Theme.raised)
-
-            Section {
-                Button("Log Out", role: .destructive) {
-                    confirmLogOut = true
+                    SettingsNavRow(title: "Requests", systemImage: "tray.and.arrow.down")
                 }
             }
             .listRowBackground(Theme.raised)
         }
+    }
+
+    private var aboutFooter: some View {
+        Section {
+            VStack(spacing: 6) {
+                Text("Rawkoon \(appVersion ?? "—")")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.faint)
+                HStack(spacing: 16) {
+                    if let url = URL(string: "https://samlo.cloud/rawkoon/privacy") {
+                        Link("Privacy policy", destination: url)
+                    }
+                    if let url = URL(string: "https://github.com/samuelloranger/rawkoon/issues") {
+                        Link("Support", destination: url)
+                    }
+                }
+                .font(.footnote)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .listRowBackground(Color.clear)
+    }
+
+    private var accountName: String? {
+        sessionUser.flatMap(displayName(for:))
+    }
+
+    private var playbackSummary: String {
+        let rewind = smartRewind ? String(localized: "Smart rewind on") : String(localized: "Smart rewind off")
+        #if targetEnvironment(macCatalyst)
+            return rewind
+        #else
+            let network = downloadOver == "wifi" ? String(localized: "Wi-Fi only") : String(localized: "Any network")
+            return "\(rewind) \u{00B7} \(network)"
+        #endif
+    }
+
+    private var storageSummary: String {
+        let size = ByteCountFormatter.string(fromByteCount: Int64(savedDataBytes), countStyle: .file)
+        return String(localized: "\(size) saved offline")
     }
 
     private func displayName(for user: SessionUser) -> String? {

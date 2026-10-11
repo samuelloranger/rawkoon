@@ -1,6 +1,146 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "You": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous"
+          }
+        }
+      }
+    },
+    "Playback & downloads": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture et téléchargements"
+          }
+        }
+      }
+    },
+    "System & AI": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Système et IA"
+          }
+        }
+      }
+    },
+    "Integrations": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Intégrations"
+          }
+        }
+      }
+    },
+    "Library & Quality": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bibliothèque et qualité"
+          }
+        }
+      }
+    },
+    "Users & Security": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilisateurs et sécurité"
+          }
+        }
+      }
+    },
+    "Jobs & Releases": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tâches et versions"
+          }
+        }
+      }
+    },
+    "Push, devices, channels": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Push, appareils, canaux"
+          }
+        }
+      }
+    },
+    "Smart rewind on": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recul intelligent activé"
+          }
+        }
+      }
+    },
+    "Smart rewind off": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recul intelligent désactivé"
+          }
+        }
+      }
+    },
+    "Wi-Fi only": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi seulement"
+          }
+        }
+      }
+    },
+    "Any network": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout réseau"
+          }
+        }
+      }
+    },
+    "%@ saved offline": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ enregistrés hors ligne"
+          }
+        }
+      }
+    },
+    "Connected · %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecté · %@"
+          }
+        }
+      }
+    },
     "Add to Calendar": {
       "localizations": {
         "fr": {
