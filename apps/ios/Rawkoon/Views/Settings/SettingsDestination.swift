@@ -1,28 +1,50 @@
 import SwiftUI
 
-/// The five admin taxonomy groups the settings screen renders as inset sections.
+/// The admin taxonomy: one summary row each on the phone's Settings screen, and
+/// inset sections on the Mac's Server screen.
 enum SettingsGroup: String, CaseIterable, Identifiable {
-    case system
     case integrations
-    case ai
     case libraryQuality
+    case books
     case usersSecurity
     case jobsReleases
+    case system
 
     var id: String {
         rawValue
     }
 
-    /// Sanctioned new section-header wording for the regroup.
     var title: LocalizedStringKey {
         switch self {
-        case .system: "System"
         case .integrations: "Integrations"
-        case .ai: "AI"
         case .libraryQuality: "Library & Quality"
+        case .books: "Books"
         case .usersSecurity: "Users & Security"
         case .jobsReleases: "Jobs & Releases"
+        case .system: "System & AI"
         }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .integrations: "point.3.connected.trianglepath.dotted"
+        case .libraryQuality: "slider.horizontal.3"
+        case .books: "books.vertical"
+        case .usersSecurity: "person.2"
+        case .jobsReleases: "clock"
+        case .system: "gearshape"
+        }
+    }
+
+    var destinations: [SettingsDestination] {
+        SettingsDestination.allCases.filter { $0.group == self }
+    }
+
+    /// The first few row titles, so the summary row says what sits behind it.
+    var summary: String {
+        let titles = destinations.map(\.localizedTitle)
+        let shown = titles.prefix(3).joined(separator: ", ")
+        return titles.count > 3 ? shown + "\u{2026}" : shown
     }
 }
 
@@ -62,18 +84,18 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
 
     var group: SettingsGroup {
         switch self {
-        case .general, .liveUpdates:
-            .system
-        case .tmdb, .fanart, .jellyfin, .prowlarr, .jackett, .indexers, .downloadClient, .bookProviders:
+        case .tmdb, .fanart, .jellyfin, .prowlarr, .jackett, .indexers, .downloadClient:
             .integrations
-        case .ai:
-            .ai
-        case .mediaLibrary, .seeding, .arrImport, .qualityProfiles, .customFormats, .books, .bookQualityProfiles:
+        case .mediaLibrary, .seeding, .arrImport, .qualityProfiles, .customFormats:
             .libraryQuality
+        case .books, .bookQualityProfiles, .bookProviders:
+            .books
         case .users, .sessions, .apiKeys, .oidcProviders, .blocklist:
             .usersSecurity
         case .jobs, .reencode, .releases:
             .jobsReleases
+        case .general, .liveUpdates, .ai:
+            .system
         }
     }
 
@@ -112,6 +134,10 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .reencode: "Re-encode"
         case .releases: "Releases"
         }
+    }
+
+    var localizedTitle: String {
+        String(localized: LocalizedStringResource(stringLiteral: titleKey))
     }
 
     var systemImage: String {
@@ -183,7 +209,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         if needle.isEmpty {
             return true
         }
-        if String(localized: LocalizedStringResource(stringLiteral: titleKey)).lowercased().contains(needle) {
+        if localizedTitle.lowercased().contains(needle) {
             return true
         }
         return keywords.contains { $0.lowercased().contains(needle) }
