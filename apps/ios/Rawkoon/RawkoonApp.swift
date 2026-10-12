@@ -11,7 +11,7 @@ struct RawkoonApp: App {
     }
 
     var body: some Scene {
-        // Reads no app state, so SwiftUI never re-runs it off the main thread (see AppRootView).
+        // Reads no observable state, so SwiftUI never re-runs it off the main thread (see AppRootView).
         WindowGroup {
             AppRootView(model: model)
         }
