@@ -7,6 +7,7 @@ import UIKit
 /// `@MainActor` closure that reads app state traps.
 struct AppRootView: View {
     let model: AppModel
+    @Environment(\.scenePhase) private var scenePhase
     /// In-app UI-language override (see `AppLanguage`). Drives the environment
     /// locale for SwiftUI `Text`, and — via `APIClient` — the language the server
     /// localizes titles/metadata in.
@@ -126,6 +127,26 @@ struct AppRootView: View {
                 ReencodeActivityCoordinator.shared.stop(model: model)
             }
         }
+        // `.inactive` (a brief transitional state — Control Center, a system
+        // alert) intentionally does nothing here; only a real background
+        // transition tears the streams down.
+        .onChange(of: scenePhase) { _, newPhase in
+            switch newPhase {
+            case .active:
+                Self.configureCatalystTitlebar()
+                model.startLiveStreams()
+                model.resyncDownloads()
+                Task { await model.refreshUnreadNotificationCount() }
+            case .background:
+                model.persistPlaybackProgress(force: true)
+                model.stopLiveStreams()
+                model.scheduleBackgroundRefresh()
+            case .inactive:
+                break
+            @unknown default:
+                break
+            }
+        }
         // Outermost on purpose: overlays, alerts, and sheets inherit AppModel.
         // `tabViewBottomAccessory` is a system-hosted tree that does NOT
         // inherit — pass the model explicitly there (see MiniPlayerView).
@@ -174,7 +195,7 @@ struct AppRootView: View {
     /// Mac Catalyst shows the app name as the window title by default. Hide the
     /// titlebar text (and its empty toolbar) so the window chrome stays clean —
     /// the sidebar already carries the Rawkoon lockup.
-    static func configureCatalystTitlebar() {
+    private static func configureCatalystTitlebar() {
         #if targetEnvironment(macCatalyst)
             for scene in UIApplication.shared.connectedScenes {
                 guard let windowScene = scene as? UIWindowScene,

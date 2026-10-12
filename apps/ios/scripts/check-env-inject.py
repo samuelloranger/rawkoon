@@ -21,7 +21,7 @@ def line_numbers(text: str, pattern: str) -> list[int]:
 
 
 def main() -> int:
-    # Only the scene body: helper views below it (sessionRoot) are subviews that sit under `.environment(model)`.
+    # Only the root view's body: helper views below it (sessionRoot) are subviews that sit under `.environment(model)`.
     text = APP.read_text().split("private var sessionRoot", 1)[0]
     env = line_numbers(text, r"\.environment\(model\)")
     overlays = line_numbers(text, r"\.(overlay|sheet)\b")
