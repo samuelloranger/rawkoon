@@ -1,6 +1,26 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Request again": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demander à nouveau"
+          }
+        }
+      }
+    },
+    "This edition hasn't been added yet.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette édition n'a pas encore été ajoutée."
+          }
+        }
+      }
+    },
     "Grab delay (minutes)": {
       "localizations": {
         "fr": {

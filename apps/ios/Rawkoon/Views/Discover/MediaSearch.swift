@@ -53,6 +53,8 @@ struct MediaSearchResults: View {
     @State private var searchError: String?
     @State private var addingVolumeId: String?
     @State private var requestingVolumeId: String?
+    /// Volumes requested this session, so the row flips before (or without) a server echo.
+    @State private var requestedVolumeIds: Set<String> = []
     /// What the results on screen were searched for.
     @State private var resultsKey: SearchKey?
 
@@ -264,6 +266,8 @@ struct MediaSearchResults: View {
                 .foregroundStyle(Theme.onAccent)
                 .disabled(addingVolumeId != nil)
                 .requiresConnection(model.isOffline)
+            } else if requestedVolumeIds.contains(hit.googleVolumeId) || hit.request.map({ !$0.canRequestAgain }) == true {
+                bookRequestBadge(status: hit.request?.status ?? "pending")
             } else {
                 Button {
                     Task { await requestBook(hit) }
@@ -271,7 +275,7 @@ struct MediaSearchResults: View {
                     if requestingVolumeId == hit.googleVolumeId {
                         ProgressView().tint(Theme.onAccent)
                     } else {
-                        Text("Request")
+                        Text(hit.request == nil ? LocalizedStringKey("Request") : LocalizedStringKey("Request again"))
                             .font(.subheadline.weight(.semibold))
                     }
                 }
@@ -282,6 +286,19 @@ struct MediaSearchResults: View {
                 .disabled(requestingVolumeId != nil)
                 .requiresConnection(model.isOffline)
             }
+        }
+    }
+
+    /// A member's request that is already in flight; approved/available show as such.
+    @ViewBuilder
+    private func bookRequestBadge(status: String) -> some View {
+        switch status {
+        case "approved":
+            StatusBadge(text: "Approved", tint: Theme.seed)
+        case "available":
+            StatusBadge(text: "Available", tint: Theme.seed)
+        default:
+            StatusBadge(text: "Requested")
         }
     }
 
@@ -454,10 +471,16 @@ struct MediaSearchResults: View {
                 googleVolumeId: hit.googleVolumeId,
                 author: hit.authors.isEmpty ? nil : hit.authors.joined(separator: ", ")
             ))
+            requestedVolumeIds.insert(hit.googleVolumeId)
             model.toast(String(localized: "Requested — we'll notify you"), style: .success)
             model.requestPushAuthorization()
+            await runSearch(query: trimmedQuery, kind: kindFilter)
         } catch let error as APIError {
             model.toast(message(for: error), style: .error)
+            // 409: someone already requested or added it, so pick up the real state.
+            if case let .server(status, _) = error, status == 409 {
+                await runSearch(query: trimmedQuery, kind: kindFilter)
+            }
         } catch {
             model.toast(String(localized: "Can't reach the server. Try again in a moment."), style: .error)
         }

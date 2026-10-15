@@ -396,24 +396,27 @@ struct BookView: View {
             Text(title)
                 .font(.display(16))
                 .foregroundStyle(Theme.textStrong)
-            Text(description)
+            // Adding an edition is admin-only; members just see that it isn't there.
+            Text(model.isAdmin ? description : LocalizedStringKey("This edition hasn't been added yet."))
                 .font(.subheadline)
                 .foregroundStyle(Theme.muted)
-            Button(action: action) {
-                if addingEditionKind != nil {
-                    ProgressView()
-                        .tint(Theme.onAccent)
-                        .frame(maxWidth: .infinity)
-                } else {
-                    Label(buttonTitle, systemImage: "plus.circle")
-                        .frame(maxWidth: .infinity)
+            if model.isAdmin {
+                Button(action: action) {
+                    if addingEditionKind != nil {
+                        ProgressView()
+                            .tint(Theme.onAccent)
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Label(buttonTitle, systemImage: "plus.circle")
+                            .frame(maxWidth: .infinity)
+                    }
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(tint)
+                .foregroundStyle(Theme.onAccent)
+                .disabled(addingEditionKind != nil)
+                .requiresConnection(model.isOffline)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(tint)
-            .foregroundStyle(Theme.onAccent)
-            .disabled(addingEditionKind != nil)
-            .requiresConnection(model.isOffline)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)

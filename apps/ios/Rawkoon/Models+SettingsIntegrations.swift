@@ -278,6 +278,7 @@ nonisolated struct BookDiscoveryBook: Decodable, Sendable, Identifiable {
     let publishedYear: Int?
     let volumeId: String?
     let alreadyInLibrary: Bool
+    let request: BookRequestState?
 
     var id: String {
         "\(rank)-\(isbn13 ?? title)"

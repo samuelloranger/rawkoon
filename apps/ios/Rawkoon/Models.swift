@@ -134,6 +134,18 @@ nonisolated struct StreamingProvidersResponse: Decodable, Sendable {
     let region: String?
 }
 
+/// The caller's existing request for a book, when the server reports one. Absent
+/// on older servers, so every carrier decodes it as optional.
+nonisolated struct BookRequestState: Decodable, Hashable, Sendable {
+    let id: Int
+    let status: String // pending | approved | denied | available
+
+    /// Denied requests can be filed again; every other state is already in flight or done.
+    var canRequestAgain: Bool {
+        status == "denied"
+    }
+}
+
 nonisolated struct BookSearchHit: Decodable, Identifiable, Hashable, Sendable {
     var id: String {
         googleVolumeId
@@ -148,6 +160,7 @@ nonisolated struct BookSearchHit: Decodable, Identifiable, Hashable, Sendable {
     let overview: String?
     let inLibrary: Bool
     let libraryBookId: Int?
+    let request: BookRequestState?
 }
 
 nonisolated struct BookSearchResponse: Decodable, Sendable {
