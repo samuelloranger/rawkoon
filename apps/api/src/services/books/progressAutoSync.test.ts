@@ -328,6 +328,11 @@ describe("an unopened reader must not rewind listening", () => {
     const out = await runProgressSync(readJob, deps());
     expect(out).toEqual({ status: "skipped", reason: "unconfirmed_rewind" });
     expect(listeningUpsert).not.toHaveBeenCalled();
+    // The sighting is kept, so the next real move from here is confirmed.
+    expect(setLast).toHaveBeenCalledWith(expect.any(String), {
+      spinePath: "c2.xhtml",
+      fraction: 0.5,
+    });
   });
 
   test("a reading row that moved since the last sync may re-read earlier text", async () => {

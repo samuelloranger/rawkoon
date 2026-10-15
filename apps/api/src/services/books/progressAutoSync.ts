@@ -296,8 +296,14 @@ export async function runProgressSync(
     listening &&
     !last &&
     result.position_secs < listening.positionSecs - MAX_UNCONFIRMED_REWIND_SECS
-  )
+  ) {
+    // Recorded so the next real move counts as confirmed instead of being transcribed and discarded again.
+    await deps.setLast(lastKey, {
+      spinePath: reading.spinePath,
+      fraction: reading.scrollFraction,
+    });
     return skipped("unconfirmed_rewind");
+  }
   if (
     await targetCaughtUp(
       () =>
