@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useLogin, useSSOProviders } from "@/lib/auth/useAuth";
 import { oidcProviderIconUrl } from "@/lib/auth/useOidcProviders";
 import { authClient } from "@/lib/auth/betterAuthClient";
-import { safeRedirect } from "@/lib/auth/safeRedirect";
+import { safeRedirect, ssoCallbackUrl } from "@/lib/auth/safeRedirect";
 import {
   browserSupportsWebAuthn,
   usePasskeyAuthenticate,
@@ -157,7 +157,7 @@ export function LoginForm() {
             onClick={() =>
               authClient.signIn.social({
                 provider: provider.slug,
-                callbackURL: safeRedirect(redirect),
+                callbackURL: ssoCallbackUrl(redirect),
               })
             }
             className="focus-ring group relative w-full flex justify-center items-center gap-2.5 py-2 px-4 border border-neutral-600 text-sm font-medium rounded-md text-neutral-300 bg-neutral-800 hover:bg-neutral-700 transition-colors"
