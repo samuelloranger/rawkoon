@@ -32,7 +32,8 @@ export function DiscoveryBookSheet({
 }) {
   const { t } = useTranslation("common");
   const addBook = useAddDiscoveryBook();
-  const isAdmin = useCurrentUser().data?.is_admin ?? false;
+  const me = useCurrentUser().data;
+  const isAdmin = me?.is_admin ?? false;
   const paragraphs = providerHtmlParagraphs(book.overview);
 
   return (
@@ -99,7 +100,7 @@ export function DiscoveryBookSheet({
             >
               {t("books.explore.inLibrary")}
             </Link>
-          ) : !isAdmin ? (
+          ) : !me ? null : !isAdmin ? (
             // A request is keyed by Google volume, so no volume means no request.
             book.volumeId ? (
               <BookRequestAction

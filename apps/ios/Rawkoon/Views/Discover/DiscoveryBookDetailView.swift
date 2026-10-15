@@ -260,6 +260,10 @@ struct DiscoveryBookDetailView: View {
             model.toast(String(localized: "Requested — we'll notify you"), style: .success)
             model.requestPushAuthorization()
         } catch {
+            // 409: someone already asked for it, so show it as requested rather than offer a button that keeps failing.
+            if case let .server(status, _) = error as? APIError, status == 409 {
+                requested = true
+            }
             let message = (error as? APIError)?.userMessage(unauthorized: String(localized: "Sign in required."))
                 ?? String(localized: "Something went wrong.")
             model.toast(message, style: .error)

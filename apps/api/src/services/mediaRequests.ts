@@ -138,10 +138,11 @@ export async function createRequest(opts: CreateOpts): Promise<CreateResult> {
       where: { googleVolumeId: opts.googleVolumeId },
     });
     if (dupe) {
-      if (dupe.status === "pending" || dupe.status === "approved") {
+      // The title isn't in the library (checked above), so an approved or
+      // available request outlived a removal and reopens like a denied one.
+      if (dupe.status === "pending") {
         return { ok: false, reason: "already_requested" };
       }
-      // Reopen denied request
       const reopened = await prisma.mediaRequest.update({
         where: { id: dupe.id },
         data: {
@@ -206,10 +207,11 @@ export async function createRequest(opts: CreateOpts): Promise<CreateResult> {
     where: { tmdbId_type: { tmdbId: opts.tmdbId, type: opts.type } },
   });
   if (dupe) {
-    if (dupe.status === "pending" || dupe.status === "approved") {
+    // The title isn't in the library (checked above), so an approved or
+    // available request outlived a removal and reopens like a denied one.
+    if (dupe.status === "pending") {
       return { ok: false, reason: "already_requested" };
     }
-    // Reopen denied request
     const reopened = await prisma.mediaRequest.update({
       where: { id: dupe.id },
       data: {

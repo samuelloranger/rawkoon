@@ -69,13 +69,23 @@ async function enrichEntries(entries: RankedEntry[]): Promise<EnrichedBook[]> {
   return out;
 }
 
-/** Request status per volume id; one query for the whole list. */
+/**
+ * Request status per volume id; one query for the whole list. An approved or
+ * available request whose book was since removed is omitted, since asking again
+ * reopens it.
+ */
 export async function loadRequestsByVolumeId(
   volumeIds: string[],
 ): Promise<Map<string, { id: number; status: MediaRequestStatus }>> {
   if (volumeIds.length === 0) return new Map();
   const rows = await prisma.mediaRequest.findMany({
-    where: { googleVolumeId: { in: volumeIds } },
+    where: {
+      googleVolumeId: { in: volumeIds },
+      OR: [
+        { status: { in: ["pending", "denied"] } },
+        { libraryBookId: { not: null } },
+      ],
+    },
     select: { id: true, status: true, googleVolumeId: true },
   });
   return new Map(

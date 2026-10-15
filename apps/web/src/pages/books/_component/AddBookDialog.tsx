@@ -28,7 +28,8 @@ export function AddBookDialog({ onClose }: { onClose: () => void }) {
   );
   const addBook = useAddBook();
   // Members request a book; only admins add it straight to the library.
-  const isAdmin = useCurrentUser().data?.is_admin ?? false;
+  const me = useCurrentUser().data;
+  const isAdmin = me?.is_admin ?? false;
 
   const toggleKind = (kind: BookEditionKind) => {
     setKinds((prev) =>
@@ -165,7 +166,7 @@ export function AddBookDialog({ onClose }: { onClose: () => void }) {
                   <span className="shrink-0 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-400">
                     {t("books.add.inLibrary")}
                   </span>
-                ) : !isAdmin ? (
+                ) : !me ? null : !isAdmin ? (
                   <BookRequestAction
                     book={{
                       google_volume_id: r.google_volume_id,

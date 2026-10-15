@@ -360,6 +360,30 @@ describe("createRequest", () => {
     ]);
   });
 
+  it("reopens an approved request whose title left the library", async () => {
+    state.requests = [
+      {
+        id: 1,
+        tmdbId: 9,
+        type: "movie",
+        status: "approved",
+        requestedById: "u2",
+        libraryMediaId: null,
+      },
+    ];
+    const r = await createRequest({
+      tmdbId: 9,
+      type: "movie",
+      title: "X",
+      posterUrl: null,
+      year: null,
+      userId: "u1",
+    });
+    expect(r).toEqual({ ok: true, id: 1, status: "pending" });
+    expect(state.requests[0].status).toBe("pending");
+    expect(state.requests[0].requestedById).toBe("u1");
+  });
+
   it("rejects a book already in the library", async () => {
     state.libraryBooks = [{ googleVolumeId: "vol-1" }];
     const r = await createRequest({
@@ -416,6 +440,31 @@ describe("createRequest", () => {
       userId: "u1",
     });
     expect(r).toEqual({ ok: false, reason: "already_requested" });
+  });
+
+  it("reopens an approved book request whose book was removed", async () => {
+    state.requests = [
+      {
+        id: 1,
+        type: "book",
+        status: "approved",
+        requestedById: "u2",
+        libraryMediaId: null,
+        googleVolumeId: "vol-4",
+      },
+    ];
+    const r = await createRequest({
+      type: "book",
+      googleVolumeId: "vol-4",
+      title: "Book W",
+      author: null,
+      posterUrl: null,
+      year: null,
+      userId: "u1",
+    });
+    expect(r).toMatchObject({ ok: true, id: 1 });
+    expect(state.requests[0].status).toBe("pending");
+    expect(state.requests[0].requestedById).toBe("u1");
   });
 });
 
