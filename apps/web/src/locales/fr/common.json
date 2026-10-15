@@ -1116,6 +1116,7 @@
       "jellyfinNotLinked": "Non lié",
       "jellyfinLinkUpdated": "Lien Jellyfin mis à jour",
       "jellyfinLinkError": "Échec de la mise à jour du lien Jellyfin",
+      "jellyfinUnreachable": "Jellyfin injoignable : vérifiez sa clé API dans Intégrations",
       "inviteTitle": "Inviter un utilisateur",
       "inviteDescription": "Envoyer un e-mail d'invitation pour ajouter un nouvel utilisateur.",
       "inviteButton": "Envoyer l'invitation",

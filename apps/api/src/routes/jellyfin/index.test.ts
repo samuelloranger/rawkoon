@@ -30,6 +30,11 @@ mock.module("@rawkoon/api/lib/auth", () => ({
 }));
 mock.module("@rawkoon/api/services/jellyfinUsers", () => ({
   JELLYFIN_SESSION_AGENT_PREFIX: "Jellyfin: ",
+  // mock.module is process-wide, so keep every export other suites import.
+  jellyfinAuthHeader: (token: string) => ({
+    Authorization: `MediaBrowser Token="${token}"`,
+  }),
+  listJellyfinUsers: async () => [],
   getJellyfinConfig,
   resolveJellyfinTokenUser,
 }));

@@ -1,5 +1,6 @@
 import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationConfigCache";
 import { normalizeJellyfinConfig } from "@rawkoon/api/utils/integrations/normalizers";
+import { jellyfinAuthHeader } from "@rawkoon/api/services/jellyfinUsers";
 
 /**
  * Fires a POST /Library/Refresh to Jellyfin so it picks up newly post-processed files.
@@ -16,7 +17,7 @@ export async function triggerJellyfinLibraryScan(): Promise<void> {
     const url = `${config.website_url}/Library/Refresh`;
     const res = await fetch(url, {
       method: "POST",
-      headers: { Authorization: `MediaBrowser Token="${config.api_key}"` },
+      headers: jellyfinAuthHeader(config.api_key),
       signal: AbortSignal.timeout(10_000),
     });
 

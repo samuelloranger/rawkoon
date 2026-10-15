@@ -1116,6 +1116,7 @@
       "jellyfinNotLinked": "Not linked",
       "jellyfinLinkUpdated": "Jellyfin link updated",
       "jellyfinLinkError": "Failed to update the Jellyfin link",
+      "jellyfinUnreachable": "Can't reach Jellyfin: check its API key in Integrations",
       "inviteTitle": "Invite User",
       "inviteDescription": "Send an invitation email to add a new user.",
       "inviteButton": "Send Invitation",

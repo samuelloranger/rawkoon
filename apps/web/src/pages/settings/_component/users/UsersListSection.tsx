@@ -44,8 +44,13 @@ export function UsersListSection() {
   const resetPasswordMutation = useResetUserPassword();
   const deleteMutation = useDeleteUser();
   const linkJellyfinMutation = useLinkJellyfinUser();
-  const { data: jellyfinData } = useJellyfinUsers();
+  const { data: jellyfinData, error: jellyfinError } = useJellyfinUsers();
   const jellyfinUsers = jellyfinData?.users;
+  // 503 means the integration is off: hide the column. Any other failure shows it.
+  const jellyfinFailed =
+    !!jellyfinError &&
+    !(jellyfinError instanceof HttpError && jellyfinError.status === 503);
+  const showJellyfinColumn = !!jellyfinUsers || jellyfinFailed;
   const { data: currentUser } = useCurrentUser();
   const {
     data: usersData,
@@ -160,7 +165,7 @@ export function UsersListSection() {
                 <th className="text-left py-3 px-4 text-sm font-medium text-neutral-300">
                   {t("settings.users.role")}
                 </th>
-                {jellyfinUsers && (
+                {showJellyfinColumn && (
                   <th className="text-left py-3 px-4 text-sm font-medium text-neutral-300">
                     {t("settings.users.jellyfin")}
                   </th>
@@ -230,6 +235,11 @@ export function UsersListSection() {
                         </button>
                       )}
                     </td>
+                    {jellyfinFailed && (
+                      <td className="py-3 px-4 text-sm text-red-400">
+                        {t("settings.users.jellyfinUnreachable")}
+                      </td>
+                    )}
                     {jellyfinUsers && (
                       <td className="py-3 px-4 text-sm">
                         <Select

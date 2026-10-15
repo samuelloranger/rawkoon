@@ -4,6 +4,11 @@ import type { JellyfinIntegrationConfig } from "@rawkoon/api/utils/integrations/
 
 const JELLYFIN_TIMEOUT_MS = 10_000;
 
+/** Jellyfin 12 accepts only this header; the legacy X-Emby-Token header gets a 401. */
+export function jellyfinAuthHeader(token: string): Record<string, string> {
+  return { Authorization: `MediaBrowser Token="${token}"` };
+}
+
 /** Marks sessions minted from a Jellyfin token, so relinking can revoke them. */
 export const JELLYFIN_SESSION_AGENT_PREFIX = "Jellyfin: ";
 
@@ -34,7 +39,7 @@ export async function resolveJellyfinTokenUser(
   token: string,
 ): Promise<JellyfinUser | null> {
   const res = await fetch(`${config.website_url}/Users/Me`, {
-    headers: { Authorization: `MediaBrowser Token="${token}"` },
+    headers: jellyfinAuthHeader(token),
     signal: AbortSignal.timeout(JELLYFIN_TIMEOUT_MS),
   });
   if (res.status === 401 || res.status === 403) return null;
@@ -46,7 +51,7 @@ export async function listJellyfinUsers(
   config: JellyfinIntegrationConfig,
 ): Promise<JellyfinUser[]> {
   const res = await fetch(`${config.website_url}/Users`, {
-    headers: { Authorization: `MediaBrowser Token="${config.api_key}"` },
+    headers: jellyfinAuthHeader(config.api_key),
     signal: AbortSignal.timeout(JELLYFIN_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`Jellyfin /Users returned ${res.status}`);

@@ -6,6 +6,7 @@ import {
   mapJellyfinSessions,
 } from "@rawkoon/api/utils/dashboard/jellyfin";
 import { normalizeJellyfinConfig } from "@rawkoon/api/utils/integrations/normalizers";
+import { jellyfinAuthHeader } from "@rawkoon/api/services/jellyfinUsers";
 import { badGateway, notFound, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
@@ -86,7 +87,7 @@ export const dashboardJellyfinRoutes = new Hono<Env>()
         appendJellyfinImageSizing(imageUrl, candidate.imageType);
 
         const response = await fetch(imageUrl.toString(), {
-          headers: { "X-Emby-Token": config.api_key, Accept: "image/*" },
+          headers: { ...jellyfinAuthHeader(config.api_key), Accept: "image/*" },
         });
 
         const contentType = response.headers.get("content-type");
@@ -124,7 +125,10 @@ export const dashboardJellyfinRoutes = new Hono<Env>()
 
       const sessionsUrl = new URL("/Sessions", config.website_url);
       const response = await fetch(sessionsUrl.toString(), {
-        headers: { "X-Emby-Token": config.api_key, Accept: "application/json" },
+        headers: {
+          ...jellyfinAuthHeader(config.api_key),
+          Accept: "application/json",
+        },
       });
 
       if (!response.ok) {
