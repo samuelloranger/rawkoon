@@ -264,6 +264,8 @@ nonisolated struct UpcomingItem: Decodable, Identifiable, Sendable {
     let overview: String?
     let seasonNumber: Int?
     let episodeNumber: Int?
+    /// Last episode when several air the same day; nil otherwise.
+    let episodeNumberEnd: Int?
     let libraryId: Int?
 
     /// TMDB id parsed from the composite `id` (first run of digits).
@@ -285,11 +287,14 @@ nonisolated struct UpcomingItem: Decodable, Identifiable, Sendable {
         return date.formatted(.dateTime.month(.abbreviated).day())
     }
 
-    /// `S2 E5` for a single upcoming episode; nil for movies or for days that
-    /// group several episodes (season/episode arrive null then).
+    /// `S2 E5`, or `S2 E5–7` for a day that releases several; nil for movies
+    /// or when the episodes span seasons (season/episode arrive null then).
     var episodeLabel: String? {
         guard mediaType == "tv", let seasonNumber, let episodeNumber else {
             return nil
+        }
+        if let episodeNumberEnd, episodeNumberEnd > episodeNumber {
+            return "S\(seasonNumber) E\(episodeNumber)–\(episodeNumberEnd)"
         }
         return "S\(seasonNumber) E\(episodeNumber)"
     }

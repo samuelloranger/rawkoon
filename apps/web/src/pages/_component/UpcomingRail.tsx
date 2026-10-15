@@ -25,11 +25,14 @@ function formatReleaseDate(iso: string, locale: string): string | null {
   }).format(date);
 }
 
-/** `S2 E5` when both are known (single-episode days only), else null. */
+/** `S2 E5`, or `S2 E5–7` for a day that releases several; null when unknown. */
 function episodeLabel(item: DashboardUpcomingItem): string | null {
   if (item.media_type !== "tv") return null;
   if (item.season_number == null || item.episode_number == null) return null;
-  return `S${item.season_number} E${item.episode_number}`;
+  const end = item.episode_number_end;
+  return end != null && end > item.episode_number
+    ? `S${item.season_number} E${item.episode_number}–${end}`
+    : `S${item.season_number} E${item.episode_number}`;
 }
 
 /** Upcoming item id is `<media_type>-<tmdbId>[-...]`; derive the TMDB id. */
