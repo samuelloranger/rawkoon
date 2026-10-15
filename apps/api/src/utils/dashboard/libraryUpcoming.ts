@@ -47,6 +47,36 @@ const mapToItem = (
 });
 
 /**
+ * Episode numbers for a day that releases several episodes: the season and the
+ * first-to-last range when they share a season, otherwise only the count.
+ */
+export const episodeSpan = (
+  episodes: { season: number; episode: number }[],
+): Pick<
+  DashboardUpcomingItem,
+  "season_number" | "episode_number" | "episode_number_end" | "episode_count"
+> => {
+  const seasons = new Set(episodes.map((e) => e.season));
+  if (seasons.size !== 1) {
+    return {
+      season_number: null,
+      episode_number: null,
+      episode_number_end: null,
+      episode_count: episodes.length,
+    };
+  }
+  const numbers = episodes.map((e) => e.episode);
+  const first = Math.min(...numbers);
+  const last = Math.max(...numbers);
+  return {
+    season_number: episodes[0]?.season ?? null,
+    episode_number: first,
+    episode_number_end: last > first ? last : null,
+    episode_count: episodes.length,
+  };
+};
+
+/**
  * Collect upcoming TV episodes and movies from the user's library within the
  * date window. For shows, returns one entry per series (earliest upcoming
  * episode). Items bypass popularity filters — the user is already tracking them.
@@ -99,7 +129,7 @@ export const collectLibraryUpcoming = async (
     string,
     {
       item: DashboardUpcomingItem;
-      episodeCountOnDate: number;
+      episodes: { season: number; episode: number }[];
     }
   >();
   for (const ep of episodes) {
@@ -108,10 +138,9 @@ export const collectLibraryUpcoming = async (
     const groupKey = `${ep.mediaId}:${releaseDateIso}`;
     const existing = byMediaDate.get(groupKey);
     if (existing) {
-      existing.episodeCountOnDate += 1;
+      existing.episodes.push({ season: ep.season, episode: ep.episode });
       existing.item.id = buildUpcomingId(ep.media, "tv", releaseDateIso, null);
-      existing.item.season_number = null;
-      existing.item.episode_number = null;
+      Object.assign(existing.item, episodeSpan(existing.episodes));
       continue;
     }
 
@@ -120,7 +149,7 @@ export const collectLibraryUpcoming = async (
         season: ep.season,
         episode: ep.episode,
       }),
-      episodeCountOnDate: 1,
+      episodes: [{ season: ep.season, episode: ep.episode }],
     });
   }
 
@@ -143,8 +172,14 @@ export const mergeUpcomingById = (
   base: DashboardUpcomingItem[],
   additions: DashboardUpcomingItem[],
 ): DashboardUpcomingItem[] => {
-  const seen = new Set(base.map((item) => item.id));
-  const merged = [...base];
+  // TMDB discover can list one title on two pages, so base is de-duplicated too.
+  const seen = new Set<string>();
+  const merged: DashboardUpcomingItem[] = [];
+  for (const item of base) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    merged.push(item);
+  }
   for (const item of additions) {
     if (seen.has(item.id)) continue;
     seen.add(item.id);
