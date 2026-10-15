@@ -52,7 +52,7 @@ function DevicePage() {
   if (result) {
     const approved = result === "approved";
     return (
-      <div className="flex justify-center px-4 pt-8 pb-12 sm:px-6 sm:pt-16 lg:px-8">
+      <div className="flex justify-center px-4 pt-8 pb-12 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-4 text-center">
           {approved ? (
             <CheckCircle2 className="mx-auto w-12 h-12 text-green-400" />
@@ -78,7 +78,7 @@ function DevicePage() {
         : null;
 
   return (
-    <div className="flex justify-center px-4 pt-8 pb-12 sm:px-6 sm:pt-16 lg:px-8">
+    <div className="flex justify-center px-4 pt-8 pb-12 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <Tv className="mx-auto w-10 h-10 text-primary-400" />
