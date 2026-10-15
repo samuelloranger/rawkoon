@@ -52,7 +52,7 @@ function DevicePage() {
   if (result) {
     const approved = result === "approved";
     return (
-      <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="flex justify-center px-4 pt-8 pb-12 sm:px-6 sm:pt-16 lg:px-8">
         <div className="max-w-md w-full space-y-4 text-center">
           {approved ? (
             <CheckCircle2 className="mx-auto w-12 h-12 text-green-400" />
@@ -78,7 +78,7 @@ function DevicePage() {
         : null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="flex justify-center px-4 pt-8 pb-12 sm:px-6 sm:pt-16 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <Tv className="mx-auto w-10 h-10 text-primary-400" />
@@ -102,7 +102,9 @@ function DevicePage() {
             className="focus-ring block w-full rounded-md border border-neutral-600 bg-neutral-800 px-3 py-3 text-center font-mono text-2xl tracking-[0.3em] text-white"
             placeholder="ABCD1234"
           />
-          <p className="text-xs text-neutral-500">{t("device.warning")}</p>
+          <p className="text-center text-xs text-neutral-500">
+            {t("device.warning")}
+          </p>
           {error && <p className="text-sm text-red-400">{error}</p>}
           <div className="flex gap-3">
             <button
