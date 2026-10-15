@@ -307,9 +307,28 @@ struct EbookReaderSheet: View {
                 openedSpinePath: openedPath,
                 openedProgression: openedProgression
             )
-            guard !Task.isCancelled else { return }
-            suggestion = banner
+            guard !Task.isCancelled, let found = banner, !readerIsPast(found) else { return }
+            suggestion = found
         }
+    }
+
+    /// The reader may have moved on while the server worked; judge against where it is now.
+    private func readerIsPast(_ banner: HandoffSuggestionBanner) -> Bool {
+        guard case let .ebook(spot) = banner.target,
+              case let .ready(session) = state,
+              let current = session.currentSpot()
+        else { return false }
+        let hrefs = session.publication.readingOrder.map(\.href)
+        guard let matchedHref = BookHandoff.matchReadingOrderHref(spot.spinePath, in: hrefs),
+              let matchedIndex = hrefs.firstIndex(of: matchedHref),
+              let currentIndex = hrefs.firstIndex(of: current.spinePath)
+        else { return false }
+        return HandoffSuggestion.isAtOrPast(
+            currentSpineIndex: currentIndex,
+            currentProgression: current.progression,
+            matchedSpineIndex: matchedIndex,
+            matchedProgression: spot.progression
+        )
     }
 
     private func acceptSuggestion(_ banner: HandoffSuggestionBanner) {

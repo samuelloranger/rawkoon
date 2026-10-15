@@ -113,6 +113,48 @@ final class HandoffSuggestionTests: XCTestCase {
         )
     }
 
+    func testMemoRefusesAConcurrentMatchForTheSameKey() {
+        var memo = HandoffSuggestion.Memo()
+        XCTAssertTrue(memo.begin("a"))
+        XCTAssertFalse(memo.begin("a"))
+        XCTAssertTrue(memo.begin("b"))
+    }
+
+    func testMemoKeepsAnAnsweredKeyClosed() {
+        var memo = HandoffSuggestion.Memo()
+        XCTAssertTrue(memo.begin("a"))
+        memo.finish("a", answered: true)
+        XCTAssertFalse(memo.begin("a"))
+    }
+
+    func testMemoLetsACancelledOrFailedMatchRetry() {
+        var memo = HandoffSuggestion.Memo()
+        XCTAssertTrue(memo.begin("a"))
+        memo.finish("a", answered: false)
+        XCTAssertTrue(memo.begin("a"))
+    }
+
+    func testReaderAlreadyPastTheMatchedSpot() {
+        XCTAssertTrue(HandoffSuggestion.isAtOrPast(
+            currentSpineIndex: 4, currentProgression: 0.1, matchedSpineIndex: 3, matchedProgression: 0.9
+        ))
+        XCTAssertFalse(HandoffSuggestion.isAtOrPast(
+            currentSpineIndex: 2, currentProgression: 0.9, matchedSpineIndex: 3, matchedProgression: 0.1
+        ))
+    }
+
+    func testReaderAtTheMatchedSpotWithinTwoPercent() {
+        XCTAssertTrue(HandoffSuggestion.isAtOrPast(
+            currentSpineIndex: 3, currentProgression: 0.49, matchedSpineIndex: 3, matchedProgression: 0.50
+        ))
+        XCTAssertTrue(HandoffSuggestion.isAtOrPast(
+            currentSpineIndex: 3, currentProgression: 0.60, matchedSpineIndex: 3, matchedProgression: 0.50
+        ))
+        XCTAssertFalse(HandoffSuggestion.isAtOrPast(
+            currentSpineIndex: 3, currentProgression: 0.40, matchedSpineIndex: 3, matchedProgression: 0.50
+        ))
+    }
+
     func testSnippetFromLocatorHighlight() {
         let json = #"{"href":"a.xhtml","text":{"highlight":"  It was a\n dark night. "}}"#
         XCTAssertEqual(HandoffSuggestion.snippet(fromLocatorJSON: json), "It was a dark night.")

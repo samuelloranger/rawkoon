@@ -1,5 +1,6 @@
 import RawkoonKit
 import SwiftUI
+import UIKit
 
 /// A compact, dismissible offer to continue from the book's other format. It
 /// hides itself after `HandoffSuggestion.bannerLifetimeSecs` and never takes
@@ -36,6 +37,11 @@ struct HandoffBannerView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(title)
+            .accessibilityValue(detail)
+            .accessibilityHint(String(localized: "Double-tap to jump"))
+            .accessibilityAddTraits(.isButton)
 
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
@@ -49,7 +55,12 @@ struct HandoffBannerView: View {
         }
         .glassEffect(.regular.tint(Theme.raised.opacity(0.85)).interactive(), in: .capsule)
         .padding(.horizontal, 16)
+        .onAppear {
+            UIAccessibility.post(notification: .announcement, argument: title)
+        }
         .task {
+            // A screen-reader or switch user needs longer than 12 s; it stays until closed or used.
+            guard !Self.assistiveTechnologyRunning else { return }
             try? await Task.sleep(for: .seconds(HandoffSuggestion.bannerLifetimeSecs))
             guard !Task.isCancelled else { return }
             onDismiss()
@@ -63,6 +74,10 @@ struct HandoffBannerView: View {
         )
         guard let snippet else { return when }
         return "\(when) · \u{201C}\(snippet)\u{201D}"
+    }
+
+    private static var assistiveTechnologyRunning: Bool {
+        UIAccessibility.isVoiceOverRunning || UIAccessibility.isSwitchControlRunning
     }
 
     private static let relative: RelativeDateTimeFormatter = {

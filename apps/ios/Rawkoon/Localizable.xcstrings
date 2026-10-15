@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Double-tap to jump": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appuyez deux fois pour y aller"
+          }
+        }
+      }
+    },
     "Continue from the audiobook": {
       "localizations": {
         "fr": {

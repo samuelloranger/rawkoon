@@ -43,12 +43,14 @@ extension AppModel {
         else { return nil }
 
         let key = HandoffSuggestion.memoKey(bookId: bookId, listenPositionSecs: listen.positionSecs)
-        guard handoffChecked.insert(key).inserted else { return nil }
+        guard handoffMemo.begin(key) else { return nil }
 
         let spot: BookHandoff.EbookSpot
         do {
             spot = try await client.handoffToEbook(bookId: bookId, positionSecs: listen.positionSecs)
+            handoffMemo.finish(key, answered: !Task.isCancelled)
         } catch {
+            handoffMemo.finish(key, answered: false)
             Log.network.error("handoff suggestion failed: \(String(describing: error), privacy: .public)")
             return nil
         }
@@ -86,14 +88,19 @@ extension AppModel {
         let key = HandoffSuggestion.memoKey(
             bookId: bookId, spinePath: read.spinePath, progression: read.scrollFraction
         )
-        guard handoffChecked.insert(key).inserted else { return nil }
+        // The final comparison needs the loaded position, and a match is not worth
+        // transcribing for a player that never becomes ready.
+        guard await waitForPlayer(editionId: audiobookEditionId) else { return nil }
+        guard handoffMemo.begin(key) else { return nil }
 
         let positionSecs: Double
         do {
             positionSecs = try await client.handoffToAudiobook(
                 bookId: bookId, spinePath: read.spinePath, progression: read.scrollFraction
             )
+            handoffMemo.finish(key, answered: !Task.isCancelled)
         } catch {
+            handoffMemo.finish(key, answered: false)
             Log.network.error("handoff suggestion failed: \(String(describing: error), privacy: .public)")
             return nil
         }
@@ -107,6 +114,20 @@ extension AppModel {
             atMillis: read.updatedAtMillis,
             snippet: nil
         )
+    }
+
+    /// Waits briefly for the player to hold this edition; false on timeout or cancellation.
+    private func waitForPlayer(editionId: Int) async -> Bool {
+        for _ in 0 ..< 20 {
+            if player.manifest?.editionId == editionId {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(250))
+            if Task.isCancelled {
+                return false
+            }
+        }
+        return player.manifest?.editionId == editionId
     }
 
     /// The listening position and when it was recorded: the newer of this

@@ -65,6 +65,20 @@ public enum HandoffSuggestion {
         return abs(matchedProgression - (openedProgression ?? 0)) > minimumProgressionGap
     }
 
+    /// The reader has since moved to the matched spot or beyond it, by the same
+    /// spine and 2% rule, so offering to jump there would only take them back.
+    public static func isAtOrPast(
+        currentSpineIndex: Int,
+        currentProgression: Double,
+        matchedSpineIndex: Int,
+        matchedProgression: Double
+    ) -> Bool {
+        if currentSpineIndex != matchedSpineIndex {
+            return currentSpineIndex > matchedSpineIndex
+        }
+        return currentProgression >= matchedProgression - minimumProgressionGap
+    }
+
     public static func isMeaningfullyDifferent(currentSecs: Double, matchedSecs: Double) -> Bool {
         abs(matchedSecs - currentSecs) > minimumAudiobookGapSecs
     }
@@ -80,6 +94,31 @@ public enum HandoffSuggestion {
     public static func memoKey(bookId: Int, spinePath: String, progression: Double) -> String {
         let bucket = Int((min(max(progression, 0), 1) * 100).rounded())
         return "\(bookId)|\(Direction.toAudiobook.rawValue)|\(spinePath)|\(bucket)"
+    }
+
+    // MARK: In-flight memo
+
+    /// Which source positions have been matched, and which are being matched now.
+    /// Only a returned answer is remembered; a cancelled or failed call stays retryable.
+    public struct Memo: Sendable, Equatable {
+        private var done: Set<String> = []
+        private var inFlight: Set<String> = []
+
+        public init() {}
+
+        /// False when the key was already answered or another match for it is running.
+        public mutating func begin(_ key: String) -> Bool {
+            guard !done.contains(key), !inFlight.contains(key) else { return false }
+            inFlight.insert(key)
+            return true
+        }
+
+        public mutating func finish(_ key: String, answered: Bool) {
+            inFlight.remove(key)
+            if answered {
+                done.insert(key)
+            }
+        }
     }
 
     // MARK: Banner text
