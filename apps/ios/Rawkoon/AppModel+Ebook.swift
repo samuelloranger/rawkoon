@@ -3,16 +3,21 @@ import RawkoonKit
 
 extension AppModel {
     /// Resolves the ebook file to read (the preferred one, else the best format),
-    /// downloading it when it is not on disk yet.
+    /// downloading it when it is not on disk yet. `onlyFormat` limits the choice
+    /// to one format, e.g. the epub a handoff position was matched against.
     func ebookDocument(
         bookId: Int,
         editionId: Int,
         title: String,
-        preferredFileId: Int? = nil
+        preferredFileId: Int? = nil,
+        onlyFormat: String? = nil
     ) async throws -> EbookPreviewDocument {
         guard let client = api() else { throw APIError.unauthorized }
 
-        let files = try await client.bookEditionFiles(bookId: bookId, kind: "ebook")
+        let allFiles = try await client.bookEditionFiles(bookId: bookId, kind: "ebook")
+        let files = onlyFormat.map { format in
+            allFiles.filter { $0.format.lowercased() == format }
+        } ?? allFiles
         guard !files.isEmpty else { throw APIError.http(404) }
 
         let selected =

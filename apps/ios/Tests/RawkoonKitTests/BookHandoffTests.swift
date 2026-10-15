@@ -81,6 +81,16 @@ final class BookHandoffTests: XCTestCase {
         XCTAssertNil(BookHandoff.matchReadingOrderHref("", in: spine))
     }
 
+    func testRootFileDoesNotClaimANestedPath() {
+        XCTAssertNil(BookHandoff.matchReadingOrderHref("Text/a.html", in: ["a.html"]))
+    }
+
+    func testRawNameWithSpacesAndBracketsMatchesEncodedSpine() {
+        let raw = "Name,J.K.-[Series-1]Title a l'Ecole(1997).split_002.html"
+        let encoded = "Name,J.K.-%5BSeries-1%5DTitle%20a%20l'Ecole(1997).split_002.html"
+        XCTAssertEqual(BookHandoff.matchReadingOrderHref(raw, in: ["intro.html", encoded]), encoded)
+    }
+
     func testAmbiguousSuffixIsNil() {
         let spine = ["a/ch1.xhtml", "b/ch1.xhtml"]
         XCTAssertNil(BookHandoff.matchReadingOrderHref("ch1.xhtml", in: spine))
@@ -114,7 +124,11 @@ final class BookHandoffTests: XCTestCase {
     }
 
     func testClassifiesStatuses() {
-        XCTAssertEqual(BookHandoff.classify(status: 404), .needsBothEditions)
+        XCTAssertEqual(BookHandoff.classify(status: 404, code: "no_epub_file"), .needsBothEditions)
+        XCTAssertEqual(BookHandoff.classify(status: 404, code: "no_audiobook_edition"), .needsBothEditions)
+        // An older server without the handoff routes answers a bare 404.
+        XCTAssertEqual(BookHandoff.classify(status: 404), .other)
+        XCTAssertEqual(BookHandoff.classify(status: 404, code: "Not found"), .other)
         XCTAssertEqual(BookHandoff.classify(status: 409), .syncOff)
         XCTAssertEqual(BookHandoff.classify(status: 422), .spotNotFound)
         XCTAssertEqual(BookHandoff.classify(status: 502), .unreachable)

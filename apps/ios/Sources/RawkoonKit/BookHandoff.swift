@@ -118,7 +118,9 @@ public enum BookHandoff {
         }
         let suffixed = hrefs.filter {
             let candidate = normalizedHref($0)
-            return !candidate.isEmpty && (candidate.hasSuffix("/" + target) || target.hasSuffix("/" + candidate))
+            // The reverse case needs a nested candidate, so a root file can't claim `Text/a.html`.
+            return !candidate.isEmpty && (candidate.hasSuffix("/" + target)
+                || (candidate.contains("/") && target.hasSuffix("/" + candidate)))
         }
         return suffixed.count == 1 ? suffixed[0] : nil
     }
@@ -175,10 +177,15 @@ public enum BookHandoff {
         case other
     }
 
+    private static let missingEditionCodes: Set<String> = [
+        "no_ebook_edition", "no_audiobook_edition", "no_epub_file", "no_audio_file",
+    ]
+
     /// `code` is the server's `{error}` string when the body carried one.
     public static func classify(status: Int?, code: String? = nil) -> Failure {
         switch status {
-        case 404: .needsBothEditions
+        // A bare 404 (an older server without these routes) is not a missing edition.
+        case 404: code.map(missingEditionCodes.contains) == true ? .needsBothEditions : .other
         case 409: code == "budget_exceeded" ? .budgetSpent : .syncOff
         case 429: .rateLimited
         case 422: .spotNotFound

@@ -33,7 +33,9 @@ extension AppModel {
                 bookId: bookId,
                 editionId: ebookEditionId,
                 title: title,
-                preferredFileId: stored?.fileId
+                preferredFileId: stored?.fileId,
+                // The server matched the spot in the edition's epub.
+                onlyFormat: "epub"
             )
         } catch {
             if !Task.isCancelled {
