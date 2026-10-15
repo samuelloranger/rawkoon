@@ -26,3 +26,8 @@ export function resolveReadingPosition(
     scrollFraction: 0,
   };
 }
+
+/** Identifies a reading spot, so a save with no movement can be told from a real one. */
+export function readingSpotKey(href: string, progression: number): string {
+  return `${href}|${Math.round(progression * 10_000)}`;
+}

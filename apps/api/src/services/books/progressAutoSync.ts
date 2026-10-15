@@ -1,4 +1,5 @@
 import { prisma } from "@rawkoon/api/db";
+import { valkey } from "@rawkoon/api/db/valkey";
 import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
 import {
   handoffToAudiobookDetailed,
@@ -23,6 +24,12 @@ const MIN_MOVE_SECS = 60;
 /** Same-chapter reading moves smaller than this are not worth another transcription. */
 const MIN_READ_MOVE = 0.01;
 const LAST_SYNC_TTL_SECS = 7 * 24 * 3600;
+/** Matches the manual handoff route's rate limit, since each sync is a paid transcription. */
+export const MAX_SYNCS_PER_HOUR = 60;
+/** Reading may pull listening back further than this only after it has moved since a prior sync. */
+const MAX_UNCONFIRMED_REWIND_SECS = 600;
+/** A reading position this close to the start of the book is an unopened book, not a place. */
+const START_OF_BOOK = 0.01;
 
 const jobId = (d: ProgressSyncJobData) =>
   `book-sync:${d.direction}:${d.userId}:${d.bookId}`;
@@ -40,25 +47,106 @@ export interface DebounceQueue {
   ): Promise<unknown>;
 }
 
-const defaultQueue = async (): Promise<DebounceQueue> =>
-  (await import("@rawkoon/api/services/queueService"))
-    .bookPositionSyncQueue as unknown as DebounceQueue;
+type EditionRow = {
+  id: number;
+  kind: string;
+  files: Array<{ format: string }>;
+};
+
+type ProgressRow = {
+  updatedAt: Date;
+  finished: boolean;
+  positionSecs: number;
+  spineIndex: number;
+  spineCount: number;
+  spinePath: string;
+  scrollFraction: number;
+} | null;
+
+/** The slice of prisma this module uses, so tests can pass a fake. */
+export interface SyncDb {
+  bookEdition: { findMany(args: unknown): Promise<EditionRow[]> };
+  bookListeningProgress: {
+    findUnique(args: unknown): Promise<ProgressRow>;
+    upsert(args: unknown): Promise<unknown>;
+  };
+  bookReadingProgress: {
+    findUnique(args: unknown): Promise<ProgressRow>;
+    upsert(args: unknown): Promise<unknown>;
+  };
+}
+
+type LastSynced = {
+  positionSecs?: number;
+  spinePath?: string;
+  fraction?: number;
+};
+
+export interface SyncDeps {
+  db: SyncDb;
+  handoffToEbook: typeof handoffToEbookDetailed;
+  handoffToAudiobook: typeof handoffToAudiobookDetailed;
+  getLast: (key: string) => Promise<LastSynced | null>;
+  setLast: (key: string, value: LastSynced) => Promise<void>;
+  /** Increments the user's count for the current hour and returns it. */
+  bumpHourlyCount: (userId: string) => Promise<number>;
+  getQueue: () => Promise<DebounceQueue>;
+}
+
+const defaultDeps: SyncDeps = {
+  db: prisma as unknown as SyncDb,
+  handoffToEbook: handoffToEbookDetailed,
+  handoffToAudiobook: handoffToAudiobookDetailed,
+  getLast: (key) => getJsonCache<LastSynced>(key),
+  setLast: (key, value) => setJsonCache(key, value, LAST_SYNC_TTL_SECS),
+  bumpHourlyCount: async (userId) => {
+    const key = `book-sync:count:${userId}:${Math.floor(Date.now() / 3_600_000)}`;
+    const count = await valkey.incr(key);
+    if (count === 1) await valkey.expire(key, 3600);
+    return count;
+  },
+  getQueue: async () =>
+    (await import("@rawkoon/api/services/queueService"))
+      .bookPositionSyncQueue as unknown as DebounceQueue,
+};
+
+const loadEditions = (db: SyncDb, bookId: number) =>
+  db.bookEdition.findMany({
+    where: { bookId },
+    select: { id: true, kind: true, files: { select: { format: true } } },
+  });
+
+function pairOf(editions: EditionRow[]) {
+  const ebook = editions.find((e) => e.kind === "ebook");
+  const audiobook = editions.find((e) => e.kind === "audiobook");
+  const hasEpub = Boolean(
+    ebook?.files.some((f) => f.format.toLowerCase() === "epub"),
+  );
+  return { ebook, audiobook, hasEpub };
+}
 
 /** Replaces any pending job for the key, so it fires only once the position has been still. */
 export async function scheduleProgressSync(
   data: ProgressSyncJobData,
-  queue?: DebounceQueue,
+  deps: Pick<SyncDeps, "db" | "getQueue"> = defaultDeps,
 ): Promise<void> {
   try {
-    const q = queue ?? (await defaultQueue());
+    // A book with no audiobook or no epub can never hand off; don't queue it.
+    const { ebook, audiobook, hasEpub } = pairOf(
+      await loadEditions(deps.db, data.bookId),
+    );
+    if (!ebook || !audiobook || !hasEpub) return;
+
+    const q = await deps.getQueue();
     const id = jobId(data);
     let useId = id;
     const existing = await q.getJob(id);
     if (existing) {
-      // A running job can't be replaced; queue behind it under a fresh id.
-      if ((await existing.getState()) === "active")
-        useId = `${id}:${Date.now()}`;
-      else await existing.remove();
+      if ((await existing.getState()) === "active") {
+        // A running job can't be replaced; debounce a single follow-up behind it.
+        useId = `${id}:next`;
+        await (await q.getJob(useId))?.remove();
+      } else await existing.remove();
     }
     await q.add(BOOK_POSITION_SYNC_JOB_NAME, data, {
       jobId: useId,
@@ -73,26 +161,6 @@ export async function scheduleProgressSync(
   }
 }
 
-type LastSynced = {
-  positionSecs?: number;
-  spinePath?: string;
-  fraction?: number;
-};
-
-export interface SyncDeps {
-  handoffToEbook: typeof handoffToEbookDetailed;
-  handoffToAudiobook: typeof handoffToAudiobookDetailed;
-  getLast: (key: string) => Promise<LastSynced | null>;
-  setLast: (key: string, value: LastSynced) => Promise<void>;
-}
-
-const defaultDeps: SyncDeps = {
-  handoffToEbook: handoffToEbookDetailed,
-  handoffToAudiobook: handoffToAudiobookDetailed,
-  getLast: (key) => getJsonCache<LastSynced>(key),
-  setLast: (key, value) => setJsonCache(key, value, LAST_SYNC_TTL_SECS),
-};
-
 export type SyncOutcome =
   | { status: "written" }
   | { status: "skipped"; reason: string }
@@ -103,21 +171,9 @@ const skipped = (reason: string): SyncOutcome => ({
   reason,
 });
 
-const currentReading = (userId: string, editionId: number) =>
-  prisma.bookReadingProgress.findUnique({
-    where: { userId_editionId: { userId, editionId } },
-    select: { updatedAt: true },
-  });
-
-const currentListening = (userId: string, editionId: number) =>
-  prisma.bookListeningProgress.findUnique({
-    where: { userId_editionId: { userId, editionId } },
-    select: { updatedAt: true },
-  });
-
 /** Transcription takes seconds; a client may have written the target meanwhile. */
 async function targetCaughtUp(
-  load: () => Promise<{ updatedAt: Date } | null>,
+  load: () => Promise<ProgressRow>,
   sourceAt: Date,
 ): Promise<boolean> {
   const row = await load();
@@ -138,25 +194,28 @@ export async function runProgressSync(
   deps: SyncDeps = defaultDeps,
 ): Promise<SyncOutcome> {
   const { userId, bookId, direction } = data;
-  const editions = await prisma.bookEdition.findMany({
-    where: { bookId },
-    select: { id: true, kind: true, files: { select: { format: true } } },
-  });
-  const ebook = editions.find((e) => e.kind === "ebook");
-  const audiobook = editions.find((e) => e.kind === "audiobook");
+  const { db } = deps;
+  const { ebook, audiobook, hasEpub } = pairOf(await loadEditions(db, bookId));
   if (!ebook || !audiobook) return skipped("missing_edition");
-  if (!ebook.files.some((f) => f.format.toLowerCase() === "epub"))
-    return skipped("no_epub");
+  if (!hasEpub) return skipped("no_epub");
 
   const [listening, reading] = await Promise.all([
-    prisma.bookListeningProgress.findUnique({
+    db.bookListeningProgress.findUnique({
       where: { userId_editionId: { userId, editionId: audiobook.id } },
     }),
-    prisma.bookReadingProgress.findUnique({
+    db.bookReadingProgress.findUnique({
       where: { userId_editionId: { userId, editionId: ebook.id } },
     }),
   ]);
   const lastKey = `book-sync:last:${direction}:${userId}:${bookId}`;
+
+  // Called after the free skips, so only a run that will transcribe is counted.
+  const overCap = async () => {
+    if ((await deps.bumpHourlyCount(userId)) <= MAX_SYNCS_PER_HOUR)
+      return false;
+    console.info("[progressAutoSync] hourly cap reached for a user");
+    return true;
+  };
 
   if (direction === "listen_to_read") {
     if (!listening) return skipped("no_source");
@@ -170,13 +229,18 @@ export async function runProgressSync(
       Math.abs(listening.positionSecs - last.positionSecs) < MIN_MOVE_SECS
     )
       return skipped("moved_too_little");
+    if (await overCap()) return skipped("rate_limited");
 
     const out = await deps.handoffToEbook(bookId, listening.positionSecs);
     if ("ok" in out) return failed(data, out.code);
     const { result, source } = out;
     if (
       await targetCaughtUp(
-        () => currentReading(userId, ebook.id),
+        () =>
+          db.bookReadingProgress.findUnique({
+            where: { userId_editionId: { userId, editionId: ebook.id } },
+            select: { updatedAt: true },
+          }),
         listening.updatedAt,
       )
     )
@@ -193,7 +257,7 @@ export async function runProgressSync(
       receivedAt: new Date(),
       deviceId: AUTO_SYNC_DEVICE_ID,
     };
-    await prisma.bookReadingProgress.upsert({
+    await db.bookReadingProgress.upsert({
       where: { userId_editionId: { userId, editionId: ebook.id } },
       update: fields,
       create: { ...fields, userId, editionId: ebook.id },
@@ -204,15 +268,21 @@ export async function runProgressSync(
 
   if (!reading) return skipped("no_source");
   if (reading.finished) return skipped("source_finished");
+  const overall =
+    (reading.spineIndex + reading.scrollFraction) /
+    Math.max(1, reading.spineCount);
+  // An unopened book reads as position zero; it must never pull listening back to the start.
+  if (overall < START_OF_BOOK) return skipped("at_book_start");
   if (listening && listening.updatedAt >= reading.updatedAt)
     return skipped("target_not_older");
   const last = await deps.getLast(lastKey);
   if (
     last?.spinePath === reading.spinePath &&
-    last.fraction !== undefined &&
-    Math.abs(reading.scrollFraction - last.fraction) < MIN_READ_MOVE
+    last?.fraction !== undefined &&
+    Math.abs(reading.scrollFraction - last.fraction!) < MIN_READ_MOVE
   )
     return skipped("moved_too_little");
+  if (await overCap()) return skipped("rate_limited");
 
   const out = await deps.handoffToAudiobook(
     bookId,
@@ -221,9 +291,20 @@ export async function runProgressSync(
   );
   if ("ok" in out) return failed(data, out.code);
   const { result, source } = out;
+  // A big rewind needs a reading row that has moved since a prior sync; a first sight of one is not enough.
+  if (
+    listening &&
+    !last &&
+    result.position_secs < listening.positionSecs - MAX_UNCONFIRMED_REWIND_SECS
+  )
+    return skipped("unconfirmed_rewind");
   if (
     await targetCaughtUp(
-      () => currentListening(userId, audiobook.id),
+      () =>
+        db.bookListeningProgress.findUnique({
+          where: { userId_editionId: { userId, editionId: audiobook.id } },
+          select: { updatedAt: true },
+        }),
       reading.updatedAt,
     )
   )
@@ -237,7 +318,7 @@ export async function runProgressSync(
     receivedAt: new Date(),
     deviceId: AUTO_SYNC_DEVICE_ID,
   };
-  await prisma.bookListeningProgress.upsert({
+  await db.bookListeningProgress.upsert({
     where: { userId_editionId: { userId, editionId: audiobook.id } },
     update: fields,
     create: { ...fields, userId, editionId: audiobook.id },

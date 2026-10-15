@@ -17,7 +17,7 @@ import {
 import { webDeviceId } from "@/features/player/deviceId";
 import { queryKeys } from "@/lib/queryKeys";
 import { useQueryClient } from "@tanstack/react-query";
-import { resolveReadingPosition } from "./resumeLocator";
+import { readingSpotKey, resolveReadingPosition } from "./resumeLocator";
 import { spinePositions } from "./spinePositions";
 import { openPublication } from "./openEpub";
 import {
@@ -79,6 +79,7 @@ export function ReaderPage({ bookId }: { bookId: number }) {
   const navRef = useRef<EpubNavigator | null>(null);
   const pubRef = useRef<Publication | null>(null);
   const lastPutRef = useRef(0);
+  const lastSpotRef = useRef<string | null>(null);
   const persistRef = useRef<(force?: boolean) => Promise<void>>(async () => {});
   const [status, setStatus] = useState<"loading" | "ready" | "failed">(
     "loading",
@@ -93,9 +94,15 @@ export function ReaderPage({ bookId }: { bookId: number }) {
     const nav = navRef.current;
     const pub = pubRef.current;
     if (!nav || !pub || !edition || !epub) return;
+    const locator = nav.currentLocator;
+    // Only real movement is saved: an unmoved close must not stamp a fresh time that wins sync.
+    const spot = readingSpotKey(
+      locator.href,
+      locator.locations.progression ?? 0,
+    );
+    if (spot === lastSpotRef.current) return;
     if (!force && Date.now() - lastPutRef.current < PERSIST_MS) return;
     lastPutRef.current = Date.now();
-    const locator = nav.currentLocator;
     const hrefs = spineHrefs(pub);
     const index = Math.max(
       0,
@@ -118,6 +125,7 @@ export function ReaderPage({ bookId }: { bookId: number }) {
         updated_at: new Date().toISOString(),
         device_id: webDeviceId(),
       });
+      lastSpotRef.current = spot;
       void qc.invalidateQueries({
         queryKey: queryKeys.books.readingProgress(),
       });
@@ -212,6 +220,11 @@ export function ReaderPage({ bookId }: { bookId: number }) {
         );
         navRef.current = navigator;
         await navigator.load();
+        const opened = navigator.currentLocator;
+        lastSpotRef.current = readingSpotKey(
+          opened.href,
+          opened.locations.progression ?? 0,
+        );
         if (!cancelled) setStatus("ready");
       } catch (err) {
         console.error("reader boot failed", err);

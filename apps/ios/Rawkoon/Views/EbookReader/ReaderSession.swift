@@ -40,6 +40,8 @@ final class ReaderSession {
     let tableOfContents: [EPUBLink]
     private var lastPersistMillis: Int64 = 0
     private var currentLocator: Locator?
+    /// The spot the reader opened at, then the last one saved; a save with no movement is skipped.
+    private var lastSavedSpot: String?
     private let editionId: Int?
     private let fileId: Int
     private let save: (ReadingPosition) -> Void
@@ -66,18 +68,31 @@ final class ReaderSession {
 
     func handleLocationChange(_ locator: Locator) {
         currentLocator = locator
+        // The first location is the opening spot, not movement.
+        if lastSavedSpot == nil {
+            lastSavedSpot = Self.spotKey(locator)
+            return
+        }
         persist(force: false)
     }
 
     func persist(force: Bool) {
         guard let editionId else { return }
         guard let locator = currentLocator ?? navigator.currentLocation else { return }
+        // An unmoved close must not stamp a fresh time that wins the sync.
+        let spot = Self.spotKey(locator)
+        guard let baseline = lastSavedSpot, spot != baseline else { return }
         let now = Int64(Date().timeIntervalSince1970 * 1000)
         if !force, now - lastPersistMillis < 3000 {
             return
         }
         lastPersistMillis = now
+        lastSavedSpot = spot
         save(position(from: locator, editionId: editionId, now: now))
+    }
+
+    private static func spotKey(_ locator: Locator) -> String {
+        "\(locator.href.string)|\(Int(((locator.locations.progression ?? 0) * 10000).rounded()))"
     }
 
     /// Where the reader is, in the form the server's handoff matcher takes.

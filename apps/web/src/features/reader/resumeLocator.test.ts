@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveReadingPosition } from "./resumeLocator";
+import { readingSpotKey, resolveReadingPosition } from "./resumeLocator";
 
 const spine = ["a.xhtml", "b.xhtml", "c.xhtml"];
 const pos = (over: {
@@ -42,5 +42,19 @@ describe("resolveReadingPosition", () => {
         spine,
       ),
     ).toEqual({ index: 2, scrollFraction: 0 });
+  });
+});
+
+describe("readingSpotKey", () => {
+  it("is equal for an unmoved spot and differs once the reader moves", () => {
+    expect(readingSpotKey("a.xhtml", 0.4)).toBe(
+      readingSpotKey("a.xhtml", 0.40001),
+    );
+    expect(readingSpotKey("a.xhtml", 0.4)).not.toBe(
+      readingSpotKey("a.xhtml", 0.5),
+    );
+    expect(readingSpotKey("a.xhtml", 0.4)).not.toBe(
+      readingSpotKey("b.xhtml", 0.4),
+    );
   });
 });
