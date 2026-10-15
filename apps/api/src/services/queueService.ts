@@ -18,6 +18,7 @@ export const QUEUE_NAMES = {
   LIBRARY_REINDEX_LANGUAGES: "library-reindex-languages",
   LIBRARY_REMUX: "library-remux",
   LIBRARY_POST_PROCESS: "library-post-process",
+  BOOK_POSITION_SYNC: "book-position-sync",
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -109,6 +110,15 @@ export const libraryPostProcessQueue = new Queue(
     },
   },
 );
+// Each job is a paid transcription: one attempt, no retries.
+export const bookPositionSyncQueue = new Queue(QUEUE_NAMES.BOOK_POSITION_SYNC, {
+  ...defaultQueueOptions,
+  defaultJobOptions: {
+    attempts: 1,
+    removeOnComplete: true,
+    removeOnFail: { age: 24 * 3600 },
+  },
+});
 const queues: Record<QueueName, Queue> = {
   [QUEUE_NAMES.EXPRESS]: expressQueue,
   [QUEUE_NAMES.SCHEDULED_TASKS]: scheduledTasksQueue,
@@ -116,6 +126,7 @@ const queues: Record<QueueName, Queue> = {
   [QUEUE_NAMES.LIBRARY_REINDEX_LANGUAGES]: libraryReindexLanguagesQueue,
   [QUEUE_NAMES.LIBRARY_REMUX]: libraryRemuxQueue,
   [QUEUE_NAMES.LIBRARY_POST_PROCESS]: libraryPostProcessQueue,
+  [QUEUE_NAMES.BOOK_POSITION_SYNC]: bookPositionSyncQueue,
 };
 
 export async function addJob<T = Record<string, unknown>>(
@@ -273,6 +284,20 @@ export function initWorkers() {
       { connection: valkeyConnection, concurrency: 1 },
     ),
     QUEUE_NAMES.LIBRARY_POST_PROCESS,
+  );
+  // 9. Book Position Sync Worker (concurrency 1 — paid transcription, one at a time)
+  registerWorker(
+    new Worker(
+      QUEUE_NAMES.BOOK_POSITION_SYNC,
+      async (job: Job) => {
+        const { processBookPositionSyncJob } = await import(
+          "./jobs/bookPositionSyncWorker"
+        );
+        return processBookPositionSyncJob(job);
+      },
+      { connection: valkeyConnection, concurrency: 1 },
+    ),
+    QUEUE_NAMES.BOOK_POSITION_SYNC,
   );
   void import("./transcode").then(({ transcodeDispatcher }) =>
     transcodeDispatcher.start(),

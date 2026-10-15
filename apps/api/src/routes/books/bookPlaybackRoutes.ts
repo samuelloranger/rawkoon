@@ -14,6 +14,10 @@ import {
   signGrant,
   verifyGrant,
 } from "@rawkoon/api/services/books/downloadGrant";
+import {
+  AUTO_SYNC_DEVICE_ID,
+  scheduleProgressSync,
+} from "@rawkoon/api/services/books/progressAutoSync";
 import { applyListeningCredit } from "@rawkoon/api/services/books/listeningStats";
 import { parseByteRange, type ParsedByteRange } from "@rawkoon/shared/utils";
 import type { BookManifestFile } from "@rawkoon/shared/types";
@@ -358,7 +362,7 @@ export const bookProgressRoutes = new Hono<Env>()
       const body = c.req.valid("json");
       const edition = await prisma.bookEdition.findUnique({
         where: { id },
-        select: { id: true },
+        select: { id: true, bookId: true },
       });
       if (!edition) return notFound("Edition not found");
 
@@ -407,6 +411,13 @@ export const bookProgressRoutes = new Hono<Env>()
         newPosition: body.position_secs,
         receivedAt: now,
       });
+
+      if (body.device_id !== AUTO_SYNC_DEVICE_ID)
+        void scheduleProgressSync({
+          userId: user.id,
+          bookId: edition.bookId,
+          direction: "listen_to_read",
+        });
 
       return ok({ applied: true });
     },
@@ -482,7 +493,7 @@ export const bookReadingProgressRoutes = new Hono<Env>()
       const body = c.req.valid("json");
       const edition = await prisma.bookEdition.findUnique({
         where: { id },
-        select: { id: true },
+        select: { id: true, bookId: true },
       });
       if (!edition) return notFound("Edition not found");
 
@@ -531,6 +542,13 @@ export const bookReadingProgressRoutes = new Hono<Env>()
           editionId: id,
         },
       });
+
+      if (body.device_id !== AUTO_SYNC_DEVICE_ID)
+        void scheduleProgressSync({
+          userId: user.id,
+          bookId: edition.bookId,
+          direction: "read_to_listen",
+        });
 
       return ok({ applied: true });
     },

@@ -56,6 +56,7 @@ export const defaultHandoffDeps: HandoffDeps = {
 
 interface Sources {
   epubPath: string;
+  epubFileId: number;
   audioEditionId: number;
   chapters: AudioChapter[];
   durationSecs: number;
@@ -67,7 +68,9 @@ async function resolveSources(
   const [ebook, audiobook] = await Promise.all([
     prisma.bookEdition.findUnique({
       where: { bookId_kind: { bookId, kind: "ebook" } },
-      select: { files: { select: { filePath: true, format: true } } },
+      select: {
+        files: { select: { id: true, filePath: true, format: true } },
+      },
     }),
     prisma.bookEdition.findUnique({
       where: { bookId_kind: { bookId, kind: "audiobook" } },
@@ -97,6 +100,7 @@ async function resolveSources(
   const chapterEnd = Math.max(...audiobook.chapters.map((c) => c.endSecs));
   return {
     epubPath: epub.filePath,
+    epubFileId: epub.id,
     audioEditionId: audiobook.id,
     chapters: audiobook.chapters,
     durationSecs: chapterEnd > 0 ? chapterEnd : (audiobook.durationSecs ?? 0),
@@ -138,14 +142,32 @@ async function prepare(
   };
 }
 
-export async function handoffToEbook(
+/** What a caller that persists the result needs beyond the response itself. */
+export interface HandoffSource {
+  epubFileId: number;
+  spineCount: number;
+  audiobookDurationSecs: number;
+}
+
+export interface DetailedHandoff<T> {
+  result: T;
+  source: HandoffSource;
+}
+
+const sourceOf = (p: Prepared): HandoffSource => ({
+  epubFileId: p.sources.epubFileId,
+  spineCount: p.model.docs.length,
+  audiobookDurationSecs: p.sources.durationSecs,
+});
+
+export async function handoffToEbookDetailed(
   bookId: number,
   positionSecs: number,
   deps: HandoffDeps = defaultHandoffDeps,
-): Promise<HandoffOutcome<BookHandoffToEbookResponse>> {
+): Promise<HandoffOutcome<DetailedHandoff<BookHandoffToEbookResponse>>> {
   const prepared = await prepare(bookId, deps);
   if ("ok" in prepared) return prepared;
-  return listenToRead({
+  const result = await listenToRead({
     model: prepared.model,
     transcribe: prepared.transcribe,
     positionSecs: Math.min(
@@ -153,6 +175,36 @@ export async function handoffToEbook(
       prepared.sources.durationSecs,
     ),
   });
+  if ("ok" in result) return result;
+  return { result, source: sourceOf(prepared) };
+}
+
+export async function handoffToAudiobookDetailed(
+  bookId: number,
+  spinePath: string,
+  progression: number,
+  deps: HandoffDeps = defaultHandoffDeps,
+): Promise<HandoffOutcome<DetailedHandoff<BookHandoffToAudiobookResponse>>> {
+  const prepared = await prepare(bookId, deps);
+  if ("ok" in prepared) return prepared;
+  const result = await readToListen({
+    model: prepared.model,
+    transcribe: prepared.transcribe,
+    durationSecs: prepared.sources.durationSecs,
+    spinePath,
+    progression,
+  });
+  if ("ok" in result) return result;
+  return { result, source: sourceOf(prepared) };
+}
+
+export async function handoffToEbook(
+  bookId: number,
+  positionSecs: number,
+  deps: HandoffDeps = defaultHandoffDeps,
+): Promise<HandoffOutcome<BookHandoffToEbookResponse>> {
+  const out = await handoffToEbookDetailed(bookId, positionSecs, deps);
+  return "ok" in out ? out : out.result;
 }
 
 export async function handoffToAudiobook(
@@ -161,13 +213,11 @@ export async function handoffToAudiobook(
   progression: number,
   deps: HandoffDeps = defaultHandoffDeps,
 ): Promise<HandoffOutcome<BookHandoffToAudiobookResponse>> {
-  const prepared = await prepare(bookId, deps);
-  if ("ok" in prepared) return prepared;
-  return readToListen({
-    model: prepared.model,
-    transcribe: prepared.transcribe,
-    durationSecs: prepared.sources.durationSecs,
+  const out = await handoffToAudiobookDetailed(
+    bookId,
     spinePath,
     progression,
-  });
+    deps,
+  );
+  return "ok" in out ? out : out.result;
 }
