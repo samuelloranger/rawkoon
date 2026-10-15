@@ -14,6 +14,7 @@ import {
   mobileAuthRoutes,
 } from "./auth";
 import { jellyfinSessionRoutes } from "./routes/jellyfin";
+import { tvRoutes } from "./routes/tv";
 import { downloadClientHookRoutes } from "./routes/integrations/downloadClient/hookRoutes";
 import { adminRoutes } from "./routes/admin";
 import { calendarRoutes } from "./routes/calendar";
@@ -115,6 +116,7 @@ app
   .route("/api/medias", mediasRoutes)
   .route("/api/downloads", downloadsRoutes)
   .route("/api/requests", requestRoutes)
+  .route("/api/tv", tvRoutes)
   .route("/api/search", searchRoutes)
   .route("/api/system", systemRoutes);
 

@@ -5,10 +5,19 @@ import { useSetupStatus } from "@/lib/auth/useAuth";
 import { LoginForm } from "@/pages/login/_component/LoginForm";
 import { SetupForm } from "@/pages/login/_component/SetupForm";
 
+type LoginSearch = { redirect?: string };
+
+/** Only same-app paths, so a crafted link can't bounce a fresh login offsite. */
+export const safeRedirect = (target: string | undefined) =>
+  target?.startsWith("/") && !target.startsWith("//") ? target : "/";
+
 export const Route = createFileRoute("/login/")({
-  beforeLoad: async () => {
+  validateSearch: (search: Record<string, unknown>): LoginSearch => ({
+    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
+  }),
+  beforeLoad: async ({ search }) => {
     const user = await getCurrentUser().catch(() => null);
-    if (user) throw redirect({ to: "/" });
+    if (user) throw redirect({ href: safeRedirect(search.redirect) });
   },
   component: LoginPage,
 });

@@ -263,6 +263,18 @@
       "openLibraryLink": "Open media library"
     }
   },
+  "device": {
+    "title": "Sign in a TV",
+    "description": "Enter the code shown on your TV to sign it in to your Rawkoon account.",
+    "codeLabel": "TV code",
+    "approve": "Sign in",
+    "deny": "Deny",
+    "invalidCode": "This code is invalid or has expired. Check the code on your TV.",
+    "approvedTitle": "Your TV is signed in",
+    "approvedBody": "You can go back to your TV.",
+    "deniedTitle": "Sign-in denied",
+    "deniedBody": "The TV was not signed in."
+  },
   "login": {
     "welcome": "Welcome to Rawkoon",
     "signIn": "Sign in to Rawkoon",

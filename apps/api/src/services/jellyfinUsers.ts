@@ -59,3 +59,27 @@ export async function listJellyfinUsers(
   if (!Array.isArray(body)) return [];
   return body.map(toJellyfinUser).filter((u): u is JellyfinUser => u !== null);
 }
+
+/**
+ * Approves a pending Quick Connect request for `jellyfinUserId` using the
+ * admin API key. Jellyfin answers 404 for a code it doesn't know or that expired.
+ */
+export async function authorizeJellyfinQuickConnect(
+  config: JellyfinIntegrationConfig,
+  code: string,
+  jellyfinUserId: string,
+): Promise<"ok" | "unknown_code"> {
+  const url = new URL("/QuickConnect/Authorize", config.website_url);
+  url.searchParams.set("code", code);
+  url.searchParams.set("userId", jellyfinUserId);
+  const res = await fetch(url, {
+    method: "POST",
+    headers: jellyfinAuthHeader(config.api_key),
+    signal: AbortSignal.timeout(JELLYFIN_TIMEOUT_MS),
+  });
+  if (res.status === 404) return "unknown_code";
+  if (!res.ok) {
+    throw new Error(`Jellyfin /QuickConnect/Authorize returned ${res.status}`);
+  }
+  return "ok";
+}
