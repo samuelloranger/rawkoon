@@ -23,7 +23,8 @@ const sessionBody = z.object({
 });
 
 // Public: a Jellyfin client (e.g. the TV app) trades its Jellyfin access token
-// for a Rawkoon bearer session belonging to the linked Rawkoon user.
+// for a Rawkoon bearer session belonging to the linked Rawkoon user. The session
+// is a normal one: revoke it from the sessions page or by relinking the user.
 export const jellyfinSessionRoutes = new Hono<Env>().post(
   "/api/jellyfin/session",
   jsonV(sessionBody),

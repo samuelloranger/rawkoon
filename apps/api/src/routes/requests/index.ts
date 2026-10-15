@@ -103,6 +103,7 @@ export const requestRoutes = new Hono<Env>()
     ),
     async (c) => {
       const { tmdb_id: tmdbId, type } = c.req.valid("query");
+      const user = c.get("user");
       const [media, request] = await Promise.all([
         prisma.libraryMedia.findUnique({ where: { tmdbId } }),
         prisma.mediaRequest.findUnique({
@@ -119,12 +120,15 @@ export const requestRoutes = new Hono<Env>()
                 downloaded_episode_count: media.downloadedEpisodeCount,
               }
             : null,
+        // Someone else's request is shown by status only, like GET / hides it.
         request: request
-          ? {
-              id: request.id,
-              status: request.status,
-              deny_reason: request.denyReason,
-            }
+          ? user.is_admin || request.requestedById === user.id
+            ? {
+                id: request.id,
+                status: request.status,
+                deny_reason: request.denyReason,
+              }
+            : { id: request.id, status: request.status, deny_reason: null }
           : null,
       });
     },

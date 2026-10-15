@@ -180,18 +180,25 @@ export const adminUserRoutes = new Hono<Env>()
         }
       }
       // Sessions minted from the old link must not outlive it.
-      await prisma.$transaction([
-        prisma.user.update({
-          where: { id: userId },
-          data: { jellyfinUserId },
-        }),
-        prisma.baSession.deleteMany({
-          where: {
-            userId,
-            userAgent: { startsWith: JELLYFIN_SESSION_AGENT_PREFIX },
-          },
-        }),
-      ]);
+      try {
+        await prisma.$transaction([
+          prisma.user.update({
+            where: { id: userId },
+            data: { jellyfinUserId },
+          }),
+          prisma.baSession.deleteMany({
+            where: {
+              userId,
+              userAgent: { startsWith: JELLYFIN_SESSION_AGENT_PREFIX },
+            },
+          }),
+        ]);
+      } catch (error) {
+        if ((error as { code?: string }).code === "P2002") {
+          return conflict("That Jellyfin user is linked to another account");
+        }
+        throw error;
+      }
       return ok({ success: true, jellyfin_user_id: jellyfinUserId });
     },
   )

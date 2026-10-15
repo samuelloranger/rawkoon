@@ -66,11 +66,20 @@ export async function globalRateLimitSkip(req: Request): Promise<boolean> {
 }
 
 /** Strict limiter applies only to sign-in / sign-up / accept-invitation. */
+export const JELLYFIN_SESSION_PATH = "/api/jellyfin/session";
+
+/** TV clients re-exchange on their own, so they get a bucket apart from sign-in. */
+export function strictAuthRateLimitBucket(req: Request): string {
+  return new URL(req.url).pathname === JELLYFIN_SESSION_PATH
+    ? "ip_jellyfin"
+    : "ip_auth";
+}
+
 export function strictAuthRateLimitSkip(req: Request): boolean {
   const path = new URL(req.url).pathname;
   const isSignIn = path.startsWith("/api/auth/sign-in");
   const isSignUp = path.startsWith("/api/auth/sign-up");
   const isAcceptInvitation = path === "/api/auth/accept-invitation";
-  const isJellyfinSession = path === "/api/jellyfin/session";
+  const isJellyfinSession = path === JELLYFIN_SESSION_PATH;
   return !(isSignIn || isSignUp || isAcceptInvitation || isJellyfinSession);
 }

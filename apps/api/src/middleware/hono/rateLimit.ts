@@ -9,6 +9,7 @@ import {
   RATE_LIMIT_WINDOW_MS,
   STRICT_AUTH_RATE_LIMIT_MAX,
   STRICT_AUTH_RATE_LIMIT_MESSAGE,
+  strictAuthRateLimitBucket,
   strictAuthRateLimitSkip,
 } from "@rawkoon/api/middleware/rateLimitCore";
 
@@ -39,7 +40,8 @@ export const strictAuthRateLimit = rateLimiter({
   windowMs: RATE_LIMIT_WINDOW_MS,
   limit: STRICT_AUTH_RATE_LIMIT_MAX,
   skip: (c) => strictAuthRateLimitSkip(c.req.raw),
-  keyGenerator: (c) => `ip_auth:${clientIp(c.req.raw, connAddr(c))}`,
+  keyGenerator: (c) =>
+    `${strictAuthRateLimitBucket(c.req.raw)}:${clientIp(c.req.raw, connAddr(c))}`,
   message: STRICT_AUTH_RATE_LIMIT_MESSAGE,
   standardHeaders: true,
 });
