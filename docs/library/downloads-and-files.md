@@ -42,15 +42,16 @@ still wanted is searched automatically, by two jobs that hit the same indexer:
 
 | Job | Schedule | What it does |
 | --- | --- | --- |
-| Release search | every 6 hours | Searches each wanted movie and episode, and grabs the best match its quality profile allows. |
+| Release search | every 6 hours | Searches each wanted movie and episode, and grabs the best match its quality profile allows. A season whose aired episodes are all wanted is searched as one season pack. |
 | RSS | every 15 minutes | Matches new releases from the indexer feeds against the same wanted titles. |
 
 Neither job searches a title before it can exist:
 
 - **Movies** wait for their digital release. Rawkoon uses the TMDB digital
   release date for the instance's TMDB region, read as a calendar day in the
-  instance's time zone, and checks it again with TMDB before searching, since
-  those dates change. A movie with no digital date yet is not searched.
+  instance's time zone. Once that date looks due, the release search checks it
+  again with TMDB before searching, since those dates change; RSS relies on the
+  stored date. A movie with no digital date yet is not searched.
 - **Episodes** wait for their air date.
 
 When a quality profile has a grab delay, both jobs hold what they find until the

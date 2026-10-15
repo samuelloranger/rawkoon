@@ -55,8 +55,17 @@ is released and found.
 - **Book:** when the first edition of the book, ebook or audiobook, finishes
   importing. A request does not choose a format, so either one satisfies it.
 
+## When an administrator requests
+
+An administrator's own movie or show request is approved on the spot with the
+default quality profile for its type, with no pending or approval
+notification. If no default
+profile is set, it waits as **Pending** like any other request. Book requests
+are never approved automatically.
+
 ## Asking again after a denial
 
 A denied request is not final. If anyone asks for the same title again, the
 request goes back to **Pending** under the new requester, its previous deny
-reason is cleared, and the administrators are notified again.
+reason is cleared, and the administrators are notified again. When that person
+is an administrator, the request is approved on the spot as described above.
