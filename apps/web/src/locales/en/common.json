@@ -267,6 +267,7 @@
     "title": "Sign in a TV",
     "description": "Enter the code shown on your TV to sign it in to your Rawkoon account.",
     "codeLabel": "TV code",
+    "warning": "Only approve a code shown on your own TV. Approving gives that TV access to your account.",
     "approve": "Sign in",
     "deny": "Deny",
     "invalidCode": "This code is invalid or has expired. Check the code on your TV.",

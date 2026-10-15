@@ -1,15 +1,12 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { getCurrentUser } from "@/lib/auth";
+import { safeRedirect } from "@/lib/auth/safeRedirect";
 import { useSetupStatus } from "@/lib/auth/useAuth";
 import { LoginForm } from "@/pages/login/_component/LoginForm";
 import { SetupForm } from "@/pages/login/_component/SetupForm";
 
 type LoginSearch = { redirect?: string };
-
-/** Only same-app paths, so a crafted link can't bounce a fresh login offsite. */
-export const safeRedirect = (target: string | undefined) =>
-  target?.startsWith("/") && !target.startsWith("//") ? target : "/";
 
 export const Route = createFileRoute("/login/")({
   validateSearch: (search: Record<string, unknown>): LoginSearch => ({
