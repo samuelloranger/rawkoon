@@ -277,4 +277,3 @@ struct BookDiscoveryView: View {
         }
     }
 }
-
