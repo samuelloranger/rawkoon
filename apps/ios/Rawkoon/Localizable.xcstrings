@@ -1,6 +1,36 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Continue from the audiobook": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuer depuis le livre audio"
+          }
+        }
+      }
+    },
+    "Continue from where you read": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuer depuis votre lecture"
+          }
+        }
+      }
+    },
+    "Dismiss": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermer"
+          }
+        }
+      }
+    },
     "Request again": {
       "localizations": {
         "fr": {

@@ -17,6 +17,8 @@ struct PlayerView: View {
     @State private var findingPlace = false
     @State private var handoffDocument: EbookPreviewDocument?
     @State private var handoffTask: Task<Void, Never>?
+    @State private var suggestion: HandoffSuggestionBanner?
+    @State private var suggestionTask: Task<Void, Never>?
 
     let rates: [Double] = [0.8, 1.0, 1.25, 1.5, 2.0]
 
@@ -67,9 +69,17 @@ struct PlayerView: View {
                 Text(message)
             }
         }
-        .onAppear { sliderPosition = model.player.positionSecs }
+        .overlay(alignment: .top) { suggestionBanner }
+        .rawkoonMotion(RawkoonMotion.spring, value: suggestion?.id)
+        .onAppear {
+            sliderPosition = model.player.positionSecs
+            startSuggestion()
+        }
         // A request still in flight must not pause audio or open a reader after the player is gone.
-        .onDisappear { handoffTask?.cancel() }
+        .onDisappear {
+            handoffTask?.cancel()
+            suggestionTask?.cancel()
+        }
         .onChange(of: model.player.positionSecs) { _, position in
             guard !isDraggingSlider else { return }
             sliderPosition = position
@@ -222,6 +232,55 @@ struct PlayerView: View {
             } else if wasPlaying, model.activeBook() != nil {
                 model.player.play()
             }
+        }
+    }
+
+    // MARK: Continue from where you read
+
+    @ViewBuilder private var suggestionBanner: some View {
+        if let suggestion {
+            HandoffBannerView(
+                systemImage: "book",
+                title: String(localized: "Continue from where you read"),
+                atMillis: suggestion.atMillis,
+                snippet: nil,
+                onAccept: { acceptSuggestion(suggestion) },
+                onDismiss: { dismissSuggestion(suggestion) }
+            )
+            .id(suggestion.id)
+            // Below the grabber, above the header buttons.
+            .padding(.top, 20)
+            .transition(.rawkoonSlide(.top))
+        }
+    }
+
+    private func dismissSuggestion(_ banner: HandoffSuggestionBanner) {
+        guard suggestion?.id == banner.id else { return }
+        suggestion = nil
+    }
+
+    /// Looks for a more recent reading position in the background; nothing shows
+    /// unless it lands well away from where the audiobook is.
+    private func startSuggestion() {
+        guard suggestion == nil, model.library.first(where: { $0.bookId == summary.bookId })?.hasEbook == true
+        else { return }
+        suggestionTask?.cancel()
+        suggestionTask = Task {
+            let banner = await model.suggestAudiobookSpot(
+                bookId: summary.bookId, audiobookEditionId: summary.editionId
+            )
+            guard !Task.isCancelled else { return }
+            suggestion = banner
+        }
+    }
+
+    private func acceptSuggestion(_ banner: HandoffSuggestionBanner) {
+        suggestion = nil
+        guard case let .audiobook(positionSecs) = banner.target else { return }
+        Task {
+            _ = await model.playHandoffPosition(
+                bookId: summary.bookId, editionId: summary.editionId, positionSecs: positionSecs
+            )
         }
     }
 

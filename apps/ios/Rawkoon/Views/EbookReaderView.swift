@@ -41,6 +41,8 @@ struct EbookReaderSheet: View {
     @State private var showSettings = false
     @State private var findingPlace = false
     @State private var listenTask: Task<Void, Never>?
+    @State private var suggestion: HandoffSuggestionBanner?
+    @State private var suggestionTask: Task<Void, Never>?
     // DEBUG only: RAWKOON_CONTROLS=1 starts with the capsule shown, so the
     // controls can be screenshotted on the simulator without tap injection.
     #if DEBUG
@@ -64,6 +66,8 @@ struct EbookReaderSheet: View {
             percentReadout
             floatingControls
         }
+        .overlay(alignment: .top) { suggestionBanner }
+        .rawkoonMotion(RawkoonMotion.spring, value: suggestion?.id)
         .statusBarHidden(!controlsVisible)
         .persistentSystemOverlays(controlsVisible ? .automatic : .hidden)
         .rawkoonMotion(.easeInOut(duration: 0.2), value: controlsVisible)
@@ -93,6 +97,7 @@ struct EbookReaderSheet: View {
         .onDisappear {
             // A match still in flight must not start playback after the reader is gone.
             listenTask?.cancel()
+            suggestionTask?.cancel()
             if case let .ready(session) = state {
                 session.persist(force: true)
             }
@@ -257,6 +262,81 @@ struct EbookReaderSheet: View {
         }
     }
 
+    // MARK: Continue from the audiobook
+
+    @ViewBuilder private var suggestionBanner: some View {
+        if let suggestion {
+            HandoffBannerView(
+                systemImage: "headphones",
+                title: String(localized: "Continue from the audiobook"),
+                atMillis: suggestion.atMillis,
+                snippet: suggestion.snippet,
+                onAccept: { acceptSuggestion(suggestion) },
+                onDismiss: { dismissSuggestion(suggestion) }
+            )
+            .id(suggestion.id)
+            .padding(.top, 8)
+            .transition(.rawkoonSlide(.top))
+        }
+    }
+
+    private func dismissSuggestion(_ banner: HandoffSuggestionBanner) {
+        // A stale auto-hide must not take down a newer banner.
+        guard suggestion?.id == banner.id else { return }
+        suggestion = nil
+    }
+
+    /// Looks for a more recent listening position in the background; nothing
+    /// shows unless it lands somewhere meaningfully different from where the
+    /// reader opened.
+    private func startSuggestion(
+        publication: Publication,
+        stored: ReadingPosition?,
+        initialLocation: Locator?
+    ) {
+        guard let bookId = document.bookId, !document.startFromBeginning else { return }
+        let readingOrder = publication.readingOrder
+        let openedPath = initialLocation
+            .flatMap { readingOrder.firstIndexWithHREF($0.href) }
+            .map { readingOrder[$0].href } ?? readingOrder.first?.href
+        let openedProgression = initialLocation.map { $0.locations.progression ?? 0 } ?? 0
+        suggestionTask = Task {
+            let banner = await model.suggestEbookSpot(
+                bookId: bookId,
+                stored: stored,
+                openedSpinePath: openedPath,
+                openedProgression: openedProgression
+            )
+            guard !Task.isCancelled else { return }
+            suggestion = banner
+        }
+    }
+
+    private func acceptSuggestion(_ banner: HandoffSuggestionBanner) {
+        suggestion = nil
+        guard case let .ebook(spot) = banner.target,
+              case let .ready(session) = state,
+              let editionId = document.editionId
+        else { return }
+        Task {
+            // The same locator the manual handoff opens at, href matching included.
+            let position = BookHandoff.readingPosition(
+                from: spot,
+                editionId: editionId,
+                fileId: document.id,
+                knownSpineCount: session.publication.readingOrder.count,
+                nowMillis: Int64(Date().timeIntervalSince1970 * 1000)
+            )
+            guard let locator = await Self.resumeLocator(publication: session.publication, stored: position)
+            else { return }
+            model.player.pause()
+            await session.navigator.go(to: locator, options: .animated)
+            if let bookId = document.bookId {
+                model.noteHandoffAgreed(bookId: bookId)
+            }
+        }
+    }
+
     private func revealControls() {
         controlsVisible = true
         hideTask?.cancel()
@@ -356,6 +436,7 @@ struct EbookReaderSheet: View {
                 chrome.percent = initialLocation.locations.totalProgression
             }
             state = .ready(session)
+            startSuggestion(publication: publication, stored: stored, initialLocation: initialLocation)
         } catch {
             state = .failed(Self.describe(error))
         }

@@ -46,6 +46,7 @@ extension AppModel {
         guard !Task.isCancelled else { return nil }
 
         player.pause()
+        noteHandoffAgreed(bookId: bookId)
         saveReadingPosition(BookHandoff.readingPosition(
             from: spot,
             editionId: ebookEditionId,
@@ -75,12 +76,19 @@ extension AppModel {
             return false
         }
         guard !Task.isCancelled else { return false }
+        return await playHandoffPosition(bookId: bookId, editionId: editionId, positionSecs: positionSecs)
+    }
+
+    /// Plays the audiobook from a matched spot. False (after a toast) when the
+    /// player failed to load.
+    func playHandoffPosition(bookId: Int, editionId: Int, positionSecs: Double) async -> Bool {
         await openPlayer(editionId: editionId, resumeAt: positionSecs)
         if let error = errorMessage {
             toast(error, style: .error)
             return false
         }
         guard !Task.isCancelled else { return false }
+        noteHandoffAgreed(bookId: bookId)
         player.play()
         return true
     }
