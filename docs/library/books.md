@@ -129,9 +129,9 @@ There is no publication-date gate. A book has no digital release window worth
 waiting on, and Google Books' own dates are unreliable enough that gating on
 them would stop real searches from ever running.
 
-A search that keeps failing eventually stops: after enough attempts the edition
-is set to **Skipped** and administrators are notified. A manual search clears
-that.
+A search that keeps failing eventually stops: after 24 failed attempts the
+edition is set to **Skipped** and administrators are notified. A manual search
+clears that.
 
 An upgrade **replaces** what it supersedes. When a better format is imported,
 the previous files for that edition are deleted from disk. This is what keeps a

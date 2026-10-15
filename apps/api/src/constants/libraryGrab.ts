@@ -1,6 +1,6 @@
 /** Failed cron grab attempts before an item is auto-skipped and admins are notified.
- *  At every-2h cadence this is 12 attempts/day — 24 ≈ 2 days. Manual searches
- *  do not count against this cap and reset the counter on invocation. */
+ *  At the 6-hourly release sweep this is 4 attempts/day — 24 ≈ 6 days. Manual
+ *  searches do not count against this cap and reset the counter on invocation. */
 export const MAX_CRON_GRAB_ATTEMPTS = 24;
 
 /** Cron grab attempts at or above this threshold surface on the library attention list. */

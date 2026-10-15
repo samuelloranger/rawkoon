@@ -35,6 +35,44 @@ imported, its files are matched to episodes the same way. For an existing
 file that you want to replace, use the upgrade flow so Rawkoon does not treat
 the old file as the completed download.
 
+## Automatic searches
+
+You do not have to grab every release by hand. Every monitored title that is
+still wanted is searched automatically, by two jobs that hit the same indexer:
+
+| Job | Schedule | What it does |
+| --- | --- | --- |
+| Release search | every 6 hours | Searches each wanted movie and episode, and grabs the best match its quality profile allows. |
+| RSS | every 15 minutes | Matches new releases from the indexer feeds against the same wanted titles. |
+
+Neither job searches a title before it can exist:
+
+- **Movies** wait for their digital release. Rawkoon uses the TMDB digital
+  release date for the instance's TMDB region, read as a calendar day in the
+  instance's time zone, and checks it again with TMDB before searching, since
+  those dates change. A movie with no digital date yet is not searched.
+- **Episodes** wait for their air date.
+
+When a quality profile has a grab delay, both jobs hold what they find until the
+delay ends, then grab the best release seen in that window. By default a release
+that already meets the profile's cutoff skips the wait. A manual search grabs at
+once.
+
+### When searches give up
+
+Each scheduled release search that finds nothing usable counts one failed
+attempt against the movie or episode; RSS misses do not count. After 24 failed
+attempts the title is set to **Skipped**, it stops being searched, and
+administrators are notified. At the 6-hour cadence that is about six days of
+searching. From the twelfth attempt, the title also appears in the Library
+attention list.
+
+Two outcomes do not count as a failed attempt: a release held back by the
+profile's grab delay, and a grab refused because the library disk is low on
+free space.
+
+A manual search, or setting the title back to wanted, resets the counter.
+
 ## What happens at completion
 
 Rawkoon polls the active client for progress and completion, with faster checks

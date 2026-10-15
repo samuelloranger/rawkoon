@@ -19,6 +19,9 @@ for you by an administrator.
 
 ## Add your first title
 
+Only administrators add titles. If you are not an administrator, open a title
+and choose **Request** instead; see [Requests](/library/requests).
+
 1. Open **Explore**, find a movie or show, and add it to the Library.
 2. Assign a quality profile if the default is not appropriate.
 3. Open the item and use its search or grab controls to select a release.
