@@ -118,20 +118,24 @@ jobs:
           print(ids[0] if ids else "")')
           if [ -z "$UDID" ]; then echo "No iOS 26 iPhone simulator on runner" >&2; exit 1; fi
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
-      - name: Run app-target tests (iOS 26)
+      # Readium and its dependencies are cloned into one cached directory instead of
+      # re-fetched on every run; project.yml pins the versions.
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('apps/ios/project.yml') }}
+          restore-keys: spm-${{ runner.os }}-
+      # Compiling the app for the test run is the build check; a separate generic
+      # simulator build recompiled everything for two architectures.
+      - name: Build and run app-target tests (iOS 26)
         working-directory: apps/ios
         run: |
           xcodebuild test \
             -project Rawkoon.xcodeproj -scheme Rawkoon \
             -destination "id=${{ steps.sim.outputs.udid }}" \
+            -clonedSourcePackagesDirPath "${{ runner.temp }}/SourcePackages" \
             -only-testing:RawkoonTests \
-            CODE_SIGNING_ALLOWED=NO
-      - name: Build for simulator
-        working-directory: apps/ios
-        run: |
-          xcodebuild build \
-            -project Rawkoon.xcodeproj -scheme Rawkoon \
-            -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO
 
   testflight:
@@ -217,6 +221,14 @@ jobs:
       # Signing settings live on the app target in project.yml, not here: an
       # xcodebuild command-line setting applies to every target in the project,
       # and SPM package targets reject a provisioning profile.
+      # Readium and its dependencies are cloned into one cached directory instead of
+      # re-fetched on every run; project.yml pins the versions.
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('apps/ios/project.yml') }}
+          restore-keys: spm-${{ runner.os }}-
       - name: Archive signed app
         working-directory: apps/ios
         run: |
@@ -224,6 +236,7 @@ jobs:
             -project Rawkoon.xcodeproj \
             -scheme Rawkoon \
             -destination 'generic/platform=iOS' \
+            -clonedSourcePackagesDirPath "${{ runner.temp }}/SourcePackages" \
             -archivePath build/Rawkoon.xcarchive \
             MARKETING_VERSION="$MARKETING_VERSION" \
             CURRENT_PROJECT_VERSION="$CURRENT_PROJECT_VERSION"
@@ -373,6 +386,14 @@ jobs:
           security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/"
+      # Readium and its dependencies are cloned into one cached directory instead of
+      # re-fetched on every run; project.yml pins the versions.
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('apps/ios/project.yml') }}
+          restore-keys: spm-${{ runner.os }}-
       - name: Archive signed Mac Catalyst app
         working-directory: apps/ios
         run: |
@@ -380,6 +401,7 @@ jobs:
             -project Rawkoon.xcodeproj \
             -scheme Rawkoon \
             -destination 'generic/platform=macOS,variant=Mac Catalyst' \
+            -clonedSourcePackagesDirPath "${{ runner.temp }}/SourcePackages" \
             -archivePath build/Rawkoon-mac.xcarchive \
             MARKETING_VERSION="$MARKETING_VERSION" \
             CURRENT_PROJECT_VERSION="$CURRENT_PROJECT_VERSION"
