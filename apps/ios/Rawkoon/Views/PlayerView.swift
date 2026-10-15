@@ -14,6 +14,8 @@ struct PlayerView: View {
     @State var isDraggingSlider = false
     @State var draggingChapterSnapshot: ManifestChapter?
     @State private var showingChapters = false
+    @State private var findingPlace = false
+    @State private var handoffDocument: EbookPreviewDocument?
 
     let rates: [Double] = [0.8, 1.0, 1.25, 1.5, 2.0]
 
@@ -68,6 +70,10 @@ struct PlayerView: View {
         .onChange(of: model.player.positionSecs) { _, position in
             guard !isDraggingSlider else { return }
             sliderPosition = position
+        }
+        .sheet(item: $handoffDocument) { document in
+            EbookReaderSheet(document: document)
+                .environment(model)
         }
         .sheet(isPresented: $showingChapters) {
             NavigationStack {
@@ -162,6 +168,48 @@ struct PlayerView: View {
                 }
             }
             .padding(.top, 8)
+
+            readFromHereButton
+        }
+    }
+
+    // MARK: Read from here
+
+    /// Only for a book that also has an ebook, and only online: the match runs on the server.
+    @ViewBuilder private var readFromHereButton: some View {
+        if model.isOnline, model.library.first(where: { $0.bookId == summary.bookId })?.hasEbook == true {
+            Button(action: readFromHere) {
+                HStack(spacing: 8) {
+                    if findingPlace {
+                        ProgressView().tint(Theme.textStrong)
+                        Text("Finding your place…")
+                    } else {
+                        Image(systemName: "book")
+                        Text("Read from here")
+                    }
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.textStrong)
+                .padding(.horizontal, 18)
+                .frame(minHeight: 44)
+                .glassEffect(.regular.interactive(), in: .capsule)
+            }
+            .buttonStyle(.plain)
+            .disabled(findingPlace)
+            .accessibilityHint("Opens the ebook at this spot in the story")
+        }
+    }
+
+    private func readFromHere() {
+        guard !findingPlace else { return }
+        findingPlace = true
+        Task {
+            defer { findingPlace = false }
+            handoffDocument = await model.readFromHere(
+                bookId: summary.bookId,
+                title: summary.title,
+                positionSecs: model.player.positionSecs
+            )
         }
     }
 

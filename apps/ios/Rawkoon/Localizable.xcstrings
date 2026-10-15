@@ -12729,6 +12729,96 @@
           }
         }
       }
+    },
+    "Read from here": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lire à partir d'ici"
+          }
+        }
+      }
+    },
+    "Finding your place…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche de votre position…"
+          }
+        }
+      }
+    },
+    "Listen from here": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Écouter à partir d'ici"
+          }
+        }
+      }
+    },
+    "Opens the ebook at this spot in the story": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvre le livre numérique à cet endroit de l'histoire"
+          }
+        }
+      }
+    },
+    "Book sync": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synchro livre"
+          }
+        }
+      }
+    },
+    "Book sync is off. Turn it on in AI settings.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La synchro livre est désactivée. Activez-la dans les réglages IA."
+          }
+        }
+      }
+    },
+    "Couldn't find this spot. Try a little further on.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de trouver cet endroit. Essayez un peu plus loin."
+          }
+        }
+      }
+    },
+    "Couldn't reach the transcription service.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de joindre le service de transcription."
+          }
+        }
+      }
+    },
+    "This book needs both an ebook and an audiobook.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce livre doit avoir à la fois une version numérique et un livre audio."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

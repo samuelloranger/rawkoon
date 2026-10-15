@@ -41,6 +41,8 @@ final class AppModel {
     /// can name the chapter before the reader is opened.
     var readingResumePreview: [Int: ReadingPosition] = [:]
     var activeEditionId: Int?
+    /// Bumped to ask the root to show the full player (e.g. after "Listen from here" closes the reader).
+    var playerPresentationRequest = 0
     /// True when `library` was built from the on-device downloaded index because
     /// the server was unreachable and no saved copy of the full library existed —
     /// the UI shows an "Offline" hint instead of a network-error wall, and lists

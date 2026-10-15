@@ -245,7 +245,8 @@ extension BookView {
                 language: detail?.language,
                 title: file.fileName,
                 localURL: localURL,
-                startFromBeginning: startFromBeginning
+                startFromBeginning: startFromBeginning,
+                bookId: book.bookId
             )
         } catch EbookStorageError.missingRemoteURL {
             ebookFilesError = String(localized: "This server version cannot provide ebook download links yet.")

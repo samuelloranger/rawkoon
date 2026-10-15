@@ -10,6 +10,7 @@ nonisolated enum AiFeature: String, CaseIterable, Identifiable, Sendable {
     case releasePickInteractive = "release_pick_interactive"
     case releasePickSearch = "release_pick_search"
     case bookReleasePick = "book_release_pick"
+    case bookSync = "book_sync"
 
     var id: String {
         rawValue
@@ -22,6 +23,7 @@ nonisolated enum AiFeature: String, CaseIterable, Identifiable, Sendable {
         case .releasePickInteractive: "Interactive search pick"
         case .releasePickSearch: "Automatic search"
         case .bookReleasePick: "Book release pick"
+        case .bookSync: "Book sync"
         }
     }
 
@@ -32,6 +34,7 @@ nonisolated enum AiFeature: String, CaseIterable, Identifiable, Sendable {
         case .releasePickInteractive: "Interactive search suggestion"
         case .releasePickSearch: "Scheduled & upgrade searches"
         case .bookReleasePick: "Book grabs"
+        case .bookSync: "Book sync"
         }
     }
 }
@@ -42,6 +45,7 @@ nonisolated struct AiFeatureToggles: Codable, Equatable, Sendable {
     var releasePickInteractive: Bool?
     var releasePickSearch: Bool?
     var bookReleasePick: Bool?
+    var bookSync: Bool?
 
     func isOn(_ feature: AiFeature) -> Bool {
         value(for: feature) != false
@@ -53,6 +57,7 @@ nonisolated struct AiFeatureToggles: Codable, Equatable, Sendable {
         case .releasePickInteractive: releasePickInteractive = on
         case .releasePickSearch: releasePickSearch = on
         case .bookReleasePick: bookReleasePick = on
+        case .bookSync: bookSync = on
         }
     }
 
@@ -71,6 +76,7 @@ nonisolated struct AiFeatureToggles: Codable, Equatable, Sendable {
         case .releasePickInteractive: releasePickInteractive
         case .releasePickSearch: releasePickSearch
         case .bookReleasePick: bookReleasePick
+        case .bookSync: bookSync
         }
     }
 }

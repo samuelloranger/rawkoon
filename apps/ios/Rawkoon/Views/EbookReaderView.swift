@@ -22,6 +22,8 @@ struct EbookPreviewDocument: Identifiable, Sendable {
     /// Set when the button offered "Read" rather than "Resume" — a finished book
     /// reopens at the beginning instead of on its last page.
     var startFromBeginning = false
+    /// Lets the reader offer "Listen from here" for the same book's audiobook.
+    var bookId: Int?
 }
 
 /// In-app EPUB reading via Readium's navigator. Readium owns the WKWebView,
@@ -37,6 +39,7 @@ struct EbookReaderSheet: View {
     @State private var preferences = ReaderPreferences.load()
     @State private var showTOC = false
     @State private var showSettings = false
+    @State private var findingPlace = false
     // DEBUG only: RAWKOON_CONTROLS=1 starts with the capsule shown, so the
     // controls can be screenshotted on the simulator without tap injection.
     #if DEBUG
@@ -170,14 +173,27 @@ struct EbookReaderSheet: View {
                 GlassEffectContainer {
                     if controlsVisible {
                         HStack(spacing: 22) {
-                            controlButton("chevron.down", "Close the book") { persistAndDismiss() }
-                            controlButton("list.bullet", "Contents") {
-                                revealControls()
-                                showTOC = true
-                            }
-                            controlButton("textformat.size", "Text options") {
-                                revealControls()
-                                showSettings = true
+                            if findingPlace {
+                                ProgressView().tint(Theme.textStrong)
+                                Text("Finding your place…")
+                                    .font(.subheadline)
+                                    .foregroundStyle(Theme.textStrong)
+                                    .frame(minHeight: 44)
+                            } else {
+                                controlButton("chevron.down", "Close the book") { persistAndDismiss() }
+                                controlButton("list.bullet", "Contents") {
+                                    revealControls()
+                                    showTOC = true
+                                }
+                                controlButton("textformat.size", "Text options") {
+                                    revealControls()
+                                    showSettings = true
+                                }
+                                if canListenFromHere {
+                                    controlButton("headphones", String(localized: "Listen from here")) {
+                                        listenFromHere()
+                                    }
+                                }
                             }
                         }
                         .padding(.horizontal, 22)
@@ -208,6 +224,34 @@ struct EbookReaderSheet: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
+    }
+
+    /// Only for a book that also has an audiobook, and only online: the match runs on the server.
+    private var canListenFromHere: Bool {
+        guard model.isOnline, let bookId = document.bookId else { return false }
+        return model.library.first(where: { $0.bookId == bookId })?.hasAudiobook == true
+    }
+
+    private func listenFromHere() {
+        guard !findingPlace, let bookId = document.bookId,
+              case let .ready(session) = state,
+              let spot = session.currentSpot()
+        else { return }
+        findingPlace = true
+        // The capsule must stay up while the server works.
+        hideTask?.cancel()
+        Task {
+            defer { findingPlace = false }
+            let started = await model.listenFromHere(
+                bookId: bookId, spinePath: spot.spinePath, progression: spot.progression
+            )
+            if started {
+                persistAndDismiss()
+                model.presentPlayerAfterDismiss()
+            } else {
+                revealControls()
+            }
+        }
     }
 
     private func revealControls() {

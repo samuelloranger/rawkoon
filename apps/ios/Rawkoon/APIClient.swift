@@ -170,14 +170,18 @@ actor APIClient {
         return request
     }
 
-    func perform(_ request: URLRequest, longWait: Bool = false) async throws -> (Data, HTTPURLResponse) {
+    func perform(
+        _ request: URLRequest,
+        longWait: Bool = false,
+        timeout: TimeInterval? = nil
+    ) async throws -> (Data, HTTPURLResponse) {
         let key = cacheKey(for: request)
         var request = request
         let cached = key.flatMap { responseCache?.entry(for: $0) }
         if let etag = cached?.etag {
             request.setValue(etag, forHTTPHeaderField: "If-None-Match")
         }
-        let (data, http) = try await send(request, longWait: longWait)
+        let (data, http) = try await send(request, longWait: longWait, timeout: timeout)
         guard let key, let responseCache else { return (data, http) }
         if http.statusCode == 304, let cached {
             responseCache.markRevalidated(key)
@@ -246,12 +250,20 @@ actor APIClient {
         ) ?? http
     }
 
-    private func send(_ request: URLRequest, longWait: Bool) async throws -> (Data, HTTPURLResponse) {
+    private func send(
+        _ request: URLRequest,
+        longWait: Bool,
+        timeout: TimeInterval? = nil
+    ) async throws -> (Data, HTTPURLResponse) {
         let lane = longWait ? longWaitSession : session
         var request = request
         // Pinned on the request too, so the 60s URLRequest default can never cap the long lane.
         if longWait {
             request.timeoutInterval = Self.longWaitRequestTimeout
+        }
+        // Applied last so a caller can tighten the lane's default.
+        if let timeout {
+            request.timeoutInterval = timeout
         }
         do {
             let (data, response) = try await lane.data(for: request)

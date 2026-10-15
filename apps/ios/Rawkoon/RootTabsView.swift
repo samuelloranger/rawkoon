@@ -186,6 +186,11 @@ struct RootTabsView: View {
                     .environment(model)
             }
         }
+        .onChange(of: model.playerPresentationRequest) { _, _ in
+            if model.activeBook() != nil {
+                showFullPlayer = true
+            }
+        }
         .task {
             if model.needsLibraryRefresh {
                 await model.loadLibrary()

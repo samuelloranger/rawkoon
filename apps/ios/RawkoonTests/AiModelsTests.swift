@@ -143,6 +143,7 @@ struct AiModelsTests {
             "release_pick_interactive": true,
             "release_pick_search": false,
             "book_release_pick": true,
+            "book_sync": true,
         ])
     }
 
