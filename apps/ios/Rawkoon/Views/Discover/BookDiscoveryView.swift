@@ -286,6 +286,8 @@ struct DiscoveryBookDetailView: View {
 
     @State private var adding = false
     @State private var added = false
+    @State private var requesting = false
+    @State private var requested = false
 
     var body: some View {
         ScrollView {
@@ -394,6 +396,8 @@ struct DiscoveryBookDetailView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(Theme.seed.opacity(0.12), in: Capsule())
+            } else if !model.isAdmin {
+                requestAction
             } else if book.isbn13 != nil {
                 Button {
                     Task { await add() }
@@ -434,6 +438,54 @@ struct DiscoveryBookDetailView: View {
         }
     }
 
+    /// Members request instead of adding. The request keys off a Google volume, so a
+    /// pick the server could not match to one has nothing to request yet.
+    @ViewBuilder
+    private var requestAction: some View {
+        if let state = book.request, !state.canRequestAgain {
+            requestStatusLabel(status: state.status)
+        } else if requested {
+            requestStatusLabel(status: "pending")
+        } else if book.volumeId != nil {
+            Button {
+                Task { await request() }
+            } label: {
+                HStack(spacing: 8) {
+                    if requesting {
+                        ProgressView().tint(Theme.onAccent)
+                    } else {
+                        Image(systemName: "plus")
+                    }
+                    Text(book.request == nil ? LocalizedStringKey("Request") : LocalizedStringKey("Request again"))
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.onAccent)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Theme.apricot, in: Capsule())
+            }
+            .disabled(requesting)
+            .requiresConnection(model.isOffline)
+        }
+    }
+
+    private func requestStatusLabel(status: String) -> some View {
+        let isDone = status == "approved" || status == "available"
+        let tint = isDone ? Theme.seed : Theme.apricot
+        return Group {
+            switch status {
+            case "approved": Label("Approved", systemImage: "checkmark.circle.fill")
+            case "available": Label("Available", systemImage: "checkmark.circle.fill")
+            default: Label("Requested", systemImage: "clock.fill")
+            }
+        }
+        .font(.subheadline.weight(.medium))
+        .foregroundStyle(tint)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(tint.opacity(0.12), in: Capsule())
+    }
+
     @ViewBuilder
     private var summary: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -465,6 +517,30 @@ struct DiscoveryBookDetailView: View {
             model.requestPushAuthorization()
         } catch {
             model.toast(settingsErrorMessage(error), style: .error)
+        }
+    }
+
+    private func request() async {
+        guard let client = model.api(), let volumeId = book.volumeId else { return }
+        requesting = true
+        defer { requesting = false }
+        do {
+            _ = try await client.createRequest(CreateRequestBody(
+                tmdbId: nil,
+                type: "book",
+                title: book.title,
+                posterUrl: book.coverUrl,
+                year: book.publishedYear,
+                googleVolumeId: volumeId,
+                author: book.author
+            ))
+            requested = true
+            model.toast(String(localized: "Requested — we'll notify you"), style: .success)
+            model.requestPushAuthorization()
+        } catch {
+            let message = (error as? APIError)?.userMessage(unauthorized: String(localized: "Sign in required."))
+                ?? String(localized: "Something went wrong.")
+            model.toast(message, style: .error)
         }
     }
 }

@@ -50,7 +50,8 @@
                         """,
                         publishedYear: 2026,
                         volumeId: nil,
-                        alreadyInLibrary: false
+                        alreadyInLibrary: false,
+                        request: nil
                     ))
                 }
             case "motionKit":
