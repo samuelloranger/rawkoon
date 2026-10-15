@@ -103,6 +103,60 @@ public enum BookHandoff {
         )
     }
 
+    // MARK: Href matching
+
+    /// The server reports OPF-relative hrefs (`ch1.xhtml`) while Readium's reading
+    /// order is container-root-relative (`OEBPS/ch1.xhtml`). Returns the reading-order
+    /// entry for `href`: exact first, else the one entry that is a path-suffix of it or
+    /// that it is a suffix of. Fragments and percent-encoding are ignored; nil when
+    /// nothing matches or the match is ambiguous.
+    public static func matchReadingOrderHref(_ href: String, in hrefs: [String]) -> String? {
+        let target = normalizedHref(href)
+        guard !target.isEmpty else { return nil }
+        if let exact = hrefs.first(where: { normalizedHref($0) == target }) {
+            return exact
+        }
+        let suffixed = hrefs.filter {
+            let candidate = normalizedHref($0)
+            return !candidate.isEmpty && (candidate.hasSuffix("/" + target) || target.hasSuffix("/" + candidate))
+        }
+        return suffixed.count == 1 ? suffixed[0] : nil
+    }
+
+    private static func normalizedHref(_ href: String) -> String {
+        var text = href
+        if let hash = text.firstIndex(of: "#") {
+            text = String(text[..<hash])
+        }
+        text = text.removingPercentEncoding ?? text
+        while text.hasPrefix("./") || text.hasPrefix("/") {
+            text = String(text.drop(while: { $0 == "." || $0 == "/" }))
+        }
+        return text
+    }
+
+    /// The locator JSON with its `href` replaced, everything else kept.
+    public static func locatorJSON(_ json: String, withHref href: String) -> String? {
+        guard
+            let data = json.data(using: .utf8),
+            var root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        else { return nil }
+        root["href"] = href
+        guard let encoded = try? JSONSerialization.data(withJSONObject: root, options: [.sortedKeys]) else {
+            return nil
+        }
+        return String(data: encoded, encoding: .utf8)
+    }
+
+    /// The locator's own `href`, when the JSON has one.
+    public static func locatorHref(_ json: String) -> String? {
+        guard
+            let data = json.data(using: .utf8),
+            let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        else { return nil }
+        return root["href"] as? String
+    }
+
     // MARK: Errors
 
     public enum Failure: Equatable, Sendable {
@@ -114,13 +168,19 @@ public enum BookHandoff {
         case unreachable
         /// 404: the book lacks an edition or its file.
         case needsBothEditions
+        /// 409 `budget_exceeded`: the daily AI budget is spent.
+        case budgetSpent
+        /// 429: too many requests.
+        case rateLimited
         case other
     }
 
-    public static func classify(status: Int?) -> Failure {
+    /// `code` is the server's `{error}` string when the body carried one.
+    public static func classify(status: Int?, code: String? = nil) -> Failure {
         switch status {
         case 404: .needsBothEditions
-        case 409: .syncOff
+        case 409: code == "budget_exceeded" ? .budgetSpent : .syncOff
+        case 429: .rateLimited
         case 422: .spotNotFound
         case 502, 503, 504: .unreachable
         default: .other

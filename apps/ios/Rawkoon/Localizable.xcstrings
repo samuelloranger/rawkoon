@@ -12819,6 +12819,36 @@
           }
         }
       }
+    },
+    "Book sync budget for today is spent.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le budget de synchro livre d'aujourd'hui est épuisé."
+          }
+        }
+      }
+    },
+    "Too many book sync requests. Try again later.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trop de requêtes de synchro livre. Réessayez plus tard."
+          }
+        }
+      }
+    },
+    "Couldn't open the ebook.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'ouvrir le livre numérique."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

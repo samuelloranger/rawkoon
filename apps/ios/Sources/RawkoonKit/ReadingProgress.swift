@@ -92,6 +92,13 @@ public enum ReadingProgressReconciler {
             return (moved, position.scrollFraction)
         }
 
+        // A handed-off path can be OPF-relative while the spine is container-relative.
+        if let matched = BookHandoff.matchReadingOrderHref(position.spinePath, in: spine),
+           let moved = spine.firstIndex(of: matched)
+        {
+            return (moved, position.scrollFraction)
+        }
+
         return (min(max(position.spineIndex, 0), spine.count - 1), 0)
     }
 }

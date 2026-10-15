@@ -87,13 +87,11 @@ final class ReaderSession {
     }
 
     private func spine(for locator: Locator) -> (index: Int, path: String) {
-        let index = publication.readingOrder.firstIndexWithHREF(locator.href) ?? 0
-        let path: String = if publication.readingOrder.indices.contains(index) {
-            publication.readingOrder[index].href
-        } else {
-            locator.href.string
-        }
-        return (index, path)
+        // Unknown to the reading order: report the locator's own href, not spine item 0's.
+        guard let index = publication.readingOrder.firstIndexWithHREF(locator.href),
+              publication.readingOrder.indices.contains(index)
+        else { return (0, locator.href.string) }
+        return (index, publication.readingOrder[index].href)
     }
 
     private func position(from locator: Locator, editionId: Int, now: Int64) -> ReadingPosition {

@@ -23,13 +23,27 @@ extension EbookReaderSheet {
         publication: Publication,
         stored: ReadingPosition?
     ) async -> Locator? {
-        if let json = stored?.locator, let locator = try? Locator(jsonString: json) {
+        if let json = stored?.locator,
+           let usable = readingOrderLocatorJSON(json, publication: publication),
+           let locator = try? Locator(jsonString: usable)
+        {
             return publication.normalizeLocator(locator)
         }
         guard let stored else { return nil }
         let spine = publication.readingOrder.map(\.href)
         let resolved = ReadingProgressReconciler.resolve(stored, spine: spine)
         return await locator(at: resolved.index, progression: resolved.scrollFraction, in: publication)
+    }
+
+    /// A handed-off locator carries an OPF-relative href that Readium cannot map;
+    /// point it at the matching reading-order entry. Nil when no entry matches
+    /// uniquely, so the caller falls back to the stored spine index.
+    static func readingOrderLocatorJSON(_ json: String, publication: Publication) -> String? {
+        guard let href = BookHandoff.locatorHref(json) else { return json }
+        let spine = publication.readingOrder.map(\.href)
+        if spine.contains(href) { return json }
+        guard let matched = BookHandoff.matchReadingOrderHref(href, in: spine) else { return nil }
+        return BookHandoff.locatorJSON(json, withHref: matched)
     }
 
     static func locator(

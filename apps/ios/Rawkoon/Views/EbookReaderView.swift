@@ -40,6 +40,7 @@ struct EbookReaderSheet: View {
     @State private var showTOC = false
     @State private var showSettings = false
     @State private var findingPlace = false
+    @State private var listenTask: Task<Void, Never>?
     // DEBUG only: RAWKOON_CONTROLS=1 starts with the capsule shown, so the
     // controls can be screenshotted on the simulator without tap injection.
     #if DEBUG
@@ -90,6 +91,8 @@ struct EbookReaderSheet: View {
         }
         // A swipe-to-dismiss never runs the Done button.
         .onDisappear {
+            // A match still in flight must not start playback after the reader is gone.
+            listenTask?.cancel()
             if case let .ready(session) = state {
                 session.persist(force: true)
             }
@@ -171,7 +174,7 @@ struct EbookReaderSheet: View {
             VStack {
                 Spacer()
                 GlassEffectContainer {
-                    if controlsVisible {
+                    if controlsVisible || findingPlace {
                         HStack(spacing: 22) {
                             if findingPlace {
                                 ProgressView().tint(Theme.textStrong)
@@ -206,7 +209,7 @@ struct EbookReaderSheet: View {
                 }
                 .padding(.bottom, 26)
             }
-            .allowsHitTesting(controlsVisible)
+            .allowsHitTesting(controlsVisible || findingPlace)
         }
     }
 
@@ -240,12 +243,12 @@ struct EbookReaderSheet: View {
         findingPlace = true
         // The capsule must stay up while the server works.
         hideTask?.cancel()
-        Task {
+        listenTask = Task {
             defer { findingPlace = false }
             let started = await model.listenFromHere(
                 bookId: bookId, spinePath: spot.spinePath, progression: spot.progression
             )
-            if started {
+            if started, !Task.isCancelled {
                 persistAndDismiss()
                 model.presentPlayerAfterDismiss()
             } else {

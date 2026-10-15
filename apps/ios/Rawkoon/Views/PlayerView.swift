@@ -16,6 +16,7 @@ struct PlayerView: View {
     @State private var showingChapters = false
     @State private var findingPlace = false
     @State private var handoffDocument: EbookPreviewDocument?
+    @State private var handoffTask: Task<Void, Never>?
 
     let rates: [Double] = [0.8, 1.0, 1.25, 1.5, 2.0]
 
@@ -67,6 +68,8 @@ struct PlayerView: View {
             }
         }
         .onAppear { sliderPosition = model.player.positionSecs }
+        // A request still in flight must not pause audio or open a reader after the player is gone.
+        .onDisappear { handoffTask?.cancel() }
         .onChange(of: model.player.positionSecs) { _, position in
             guard !isDraggingSlider else { return }
             sliderPosition = position
@@ -203,13 +206,22 @@ struct PlayerView: View {
     private func readFromHere() {
         guard !findingPlace else { return }
         findingPlace = true
-        Task {
-            defer { findingPlace = false }
-            handoffDocument = await model.readFromHere(
+        // Paused first so the position sent is the one the reader lands on.
+        let wasPlaying = model.player.isPlaying
+        model.player.pause()
+        let positionSecs = model.player.positionSecs
+        handoffTask = Task {
+            let document = await model.readFromHere(
                 bookId: summary.bookId,
                 title: summary.title,
-                positionSecs: model.player.positionSecs
+                positionSecs: positionSecs
             )
+            findingPlace = false
+            if let document {
+                handoffDocument = document
+            } else if wasPlaying, model.activeBook() != nil {
+                model.player.play()
+            }
         }
     }
 

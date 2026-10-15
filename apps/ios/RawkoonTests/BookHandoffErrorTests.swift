@@ -10,6 +10,8 @@ struct BookHandoffErrorTests {
         #expect(APIError.server(status: 502, message: "transcription_failed").handoffFailure == .unreachable)
         #expect(APIError.server(status: 404, message: "no_ebook_edition").handoffFailure == .needsBothEditions)
         #expect(APIError.http(409).handoffFailure == .syncOff)
+        #expect(APIError.server(status: 409, message: "budget_exceeded").handoffFailure == .budgetSpent)
+        #expect(APIError.http(429).handoffFailure == .rateLimited)
     }
 
     @Test func transportFailuresReadAsUnreachable() {

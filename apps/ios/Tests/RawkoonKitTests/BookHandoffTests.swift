@@ -66,6 +66,53 @@ final class BookHandoffTests: XCTestCase {
         XCTAssertEqual(EbookResume.label(fresh), .resumePercent(59))
     }
 
+    func testMatchesReadingOrderHref() {
+        let spine = ["OEBPS/cover.xhtml", "OEBPS/ch1.xhtml", "OEBPS/text/ch2.xhtml", "OEBPS/Ch 3.xhtml"]
+        XCTAssertEqual(BookHandoff.matchReadingOrderHref("OEBPS/ch1.xhtml", in: spine), "OEBPS/ch1.xhtml")
+        XCTAssertEqual(BookHandoff.matchReadingOrderHref("ch1.xhtml", in: spine), "OEBPS/ch1.xhtml")
+        XCTAssertEqual(BookHandoff.matchReadingOrderHref("text/ch2.xhtml", in: spine), "OEBPS/text/ch2.xhtml")
+        XCTAssertEqual(BookHandoff.matchReadingOrderHref("ch1.xhtml#p4", in: spine), "OEBPS/ch1.xhtml")
+        XCTAssertEqual(BookHandoff.matchReadingOrderHref("Ch%203.xhtml", in: spine), "OEBPS/Ch 3.xhtml")
+        XCTAssertEqual(BookHandoff.matchReadingOrderHref("./ch1.xhtml", in: spine), "OEBPS/ch1.xhtml")
+        // Reverse direction: the stored path is the longer one.
+        XCTAssertEqual(BookHandoff.matchReadingOrderHref("book/OEBPS/ch1.xhtml", in: spine), "OEBPS/ch1.xhtml")
+        XCTAssertNil(BookHandoff.matchReadingOrderHref("missing.xhtml", in: spine))
+        XCTAssertNil(BookHandoff.matchReadingOrderHref("h1.xhtml", in: spine))
+        XCTAssertNil(BookHandoff.matchReadingOrderHref("", in: spine))
+    }
+
+    func testAmbiguousSuffixIsNil() {
+        let spine = ["a/ch1.xhtml", "b/ch1.xhtml"]
+        XCTAssertNil(BookHandoff.matchReadingOrderHref("ch1.xhtml", in: spine))
+        XCTAssertEqual(BookHandoff.matchReadingOrderHref("a/ch1.xhtml", in: spine), "a/ch1.xhtml")
+    }
+
+    func testRewritesLocatorHrefKeepingTheRest() throws {
+        let json = try XCTUnwrap(BookHandoff.locatorJSON(
+            #"{"href":"ch1.xhtml","locations":{"progression":0.5}}"#, withHref: "OEBPS/ch1.xhtml"
+        ))
+        XCTAssertEqual(BookHandoff.locatorHref(json), "OEBPS/ch1.xhtml")
+        XCTAssertTrue(json.contains("\"progression\":0.5"))
+    }
+
+    func testResolveFallbackFollowsSuffixMatchAndKeepsScroll() {
+        let position = ReadingPosition(
+            editionId: 1, fileId: nil, spineIndex: 1, spinePath: "ch2.xhtml",
+            spineCount: 3, scrollFraction: 0.4, updatedAtMillis: 0
+        )
+        let resolved = ReadingProgressReconciler.resolve(
+            position, spine: ["OEBPS/cover.xhtml", "OEBPS/ch1.xhtml", "OEBPS/ch2.xhtml"]
+        )
+        XCTAssertEqual(resolved.index, 2)
+        XCTAssertEqual(resolved.scrollFraction, 0.4)
+    }
+
+    func testClassifiesRateLimitAndBudget() {
+        XCTAssertEqual(BookHandoff.classify(status: 429), .rateLimited)
+        XCTAssertEqual(BookHandoff.classify(status: 409, code: "budget_exceeded"), .budgetSpent)
+        XCTAssertEqual(BookHandoff.classify(status: 409, code: "feature_disabled"), .syncOff)
+    }
+
     func testClassifiesStatuses() {
         XCTAssertEqual(BookHandoff.classify(status: 404), .needsBothEditions)
         XCTAssertEqual(BookHandoff.classify(status: 409), .syncOff)
