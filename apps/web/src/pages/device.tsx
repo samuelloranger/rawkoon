@@ -102,6 +102,7 @@ function DevicePage() {
             className="focus-ring block w-full rounded-md border border-neutral-600 bg-neutral-800 px-3 py-3 text-center font-mono text-2xl tracking-[0.3em] text-white"
             placeholder="ABCD1234"
           />
+          <p className="text-xs text-neutral-500">{t("device.warning")}</p>
           {error && <p className="text-sm text-red-400">{error}</p>}
           <div className="flex gap-3">
             <button

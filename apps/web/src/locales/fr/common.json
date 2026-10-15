@@ -267,6 +267,7 @@
     "title": "Connecter une télé",
     "description": "Entrez le code affiché sur votre télé pour la connecter à votre compte Rawkoon.",
     "codeLabel": "Code de la télé",
+    "warning": "N'approuvez qu'un code affiché sur votre propre télé. L'approuver donne à cette télé l'accès à votre compte.",
     "approve": "Connecter",
     "deny": "Refuser",
     "invalidCode": "Ce code est invalide ou expiré. Vérifiez le code sur votre télé.",
