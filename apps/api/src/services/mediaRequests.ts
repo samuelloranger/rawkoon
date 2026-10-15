@@ -109,6 +109,11 @@ async function settleMovieShowRequest(
         if (approved.ok) return { ok: true, id, status: "approved" };
       }
     } catch (error) {
+      // The approval may have committed before a later step threw.
+      const current = await prisma.mediaRequest.findUnique({ where: { id } });
+      if (current?.status === "approved") {
+        return { ok: true, id, status: "approved" };
+      }
       console.error("[requests] auto-approve failed, left pending:", error);
     }
   }

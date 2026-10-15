@@ -167,7 +167,8 @@ export const requestRoutes = new Hono<Env>()
       }
       return badRequest("Already in your library");
     }
-    return ok({ id: result.id, status: result.status });
+    // Only the id: the iOS app decodes this body strictly as [String: Int].
+    return ok({ id: result.id });
   })
   // Admin-only: approve / deny
   .post(

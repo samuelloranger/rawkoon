@@ -30,6 +30,7 @@ const state: {
   addedBooks: Array<{ volumeId: string; bookQualityProfileId?: number }>;
   bookEditionStatusByBookId: Record<number, string>;
   defaultProfiles: { movie: number | null; show: number | null };
+  failLibraryAdd: boolean;
 } = {
   library: [],
   libraryBooks: [],
@@ -43,6 +44,7 @@ const state: {
   addedBooks: [],
   bookEditionStatusByBookId: {},
   defaultProfiles: { movie: null, show: null },
+  failLibraryAdd: false,
 };
 
 function installMediaRequestDbMock() {
@@ -193,12 +195,14 @@ installMediaRequestDbMock();
 
 mock.module("@rawkoon/api/services/libraryFromTmdb", () => ({
   addOrUpdateLibraryFromTmdb: ({ tmdb_id }: { tmdb_id: number }) =>
-    Promise.resolve({
-      id: 900 + tmdb_id,
-      tmdbId: tmdb_id,
-      type: "movie",
-      title: "T",
-    }),
+    state.failLibraryAdd
+      ? Promise.reject(new Error("TMDB unreachable"))
+      : Promise.resolve({
+          id: 900 + tmdb_id,
+          tmdbId: tmdb_id,
+          type: "movie",
+          title: "T",
+        }),
 }));
 
 mock.module("@rawkoon/api/utils/medias/tmdbRegion", () => ({
@@ -275,6 +279,7 @@ beforeEach(() => {
   state.addedBooks = [];
   state.bookEditionStatusByBookId = {};
   state.defaultProfiles = { movie: null, show: null };
+  state.failLibraryAdd = false;
 });
 
 describe("createRequest", () => {
@@ -460,6 +465,36 @@ describe("createRequest by an admin", () => {
     state.defaultProfiles.show = 1;
     const r2 = await createRequest({ ...adminMovie, type: "show" });
     expect(r2).toEqual({ ok: true, id: 1, status: "approved" });
+  });
+
+  it("approves a reopened denied request", async () => {
+    state.defaultProfiles.movie = 3;
+    state.requests = [
+      {
+        id: 1,
+        tmdbId: 9,
+        type: "movie",
+        status: "denied",
+        requestedById: "u2",
+        libraryMediaId: null,
+        title: "X",
+      },
+    ];
+    const r = await createRequest(adminMovie);
+    expect(r).toEqual({ ok: true, id: 1, status: "approved" });
+    expect(state.requests[0].status).toBe("approved");
+    expect(state.requests[0].requestedById).toBe("admin-1");
+  });
+
+  it("falls back to pending and notifies admins when the approval throws", async () => {
+    state.defaultProfiles.movie = 3;
+    state.failLibraryAdd = true;
+    const r = await createRequest(adminMovie);
+    expect(r).toEqual({ ok: true, id: 1, status: "pending" });
+    expect(state.requests[0].status).toBe("pending");
+    expect(state.notifications).toEqual([
+      { userId: "admin-1", type: "request_pending" },
+    ]);
   });
 
   it("leaves a non-admin request pending even with a default profile", async () => {

@@ -198,6 +198,6 @@ describe("requestRoutes", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ tmdb_id: 42, type: "movie", title: "X" }),
     });
-    expect(await res.json()).toEqual({ id: 2, status: "pending" });
+    expect(await res.json()).toEqual({ id: 2 });
   });
 });
