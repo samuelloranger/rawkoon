@@ -20,6 +20,8 @@ type CreateOpts =
       posterUrl: string | null;
       year: number | null;
       userId: string;
+      /** The requester is an admin: approve on the spot with the default profile. */
+      autoApprove?: boolean;
     }
   | {
       type: "book";
@@ -76,12 +78,51 @@ async function notifyAdminsRequestPending(
   );
 }
 
-export async function createRequest(
-  opts: CreateOpts,
-): Promise<
-  | { ok: true; id: number }
-  | { ok: false; reason: "exists_in_library" | "already_requested" }
-> {
+type CreateResult =
+  | { ok: true; id: number; status: "pending" | "approved" }
+  | { ok: false; reason: "exists_in_library" | "already_requested" };
+
+/** The default profile an admin's own request is approved with, if one is set. */
+async function defaultQualityProfileId(
+  type: "movie" | "show",
+): Promise<number | null> {
+  const settings = await prisma.mediaSettings.findUnique({ where: { id: 1 } });
+  return type === "movie"
+    ? (settings?.defaultMovieQualityProfileId ?? null)
+    : (settings?.defaultShowQualityProfileId ?? null);
+}
+
+/**
+ * Approves an admin's own movie/show request right away. Falls back to a normal
+ * pending request (admins notified) when no default profile is set or the
+ * approval fails.
+ */
+async function settleMovieShowRequest(
+  id: number,
+  opts: Extract<CreateOpts, { type: "movie" | "show" }>,
+): Promise<CreateResult> {
+  if (opts.autoApprove) {
+    try {
+      const profileId = await defaultQualityProfileId(opts.type);
+      if (profileId != null) {
+        const approved = await approveRequest(id, profileId, opts.userId);
+        if (approved.ok) return { ok: true, id, status: "approved" };
+      }
+    } catch (error) {
+      console.error("[requests] auto-approve failed, left pending:", error);
+    }
+  }
+  await notifyAdminsRequestPending(
+    id,
+    opts.type,
+    opts.title,
+    opts.year,
+    opts.posterUrl,
+  );
+  return { ok: true, id, status: "pending" };
+}
+
+export async function createRequest(opts: CreateOpts): Promise<CreateResult> {
   if (opts.type === "book") {
     const inLibrary = await prisma.libraryBook.findUnique({
       where: { googleVolumeId: opts.googleVolumeId },
@@ -116,7 +157,7 @@ export async function createRequest(
         opts.posterUrl,
       );
 
-      return { ok: true, id: reopened.id };
+      return { ok: true, id: reopened.id, status: "pending" };
     }
 
     let created;
@@ -148,7 +189,7 @@ export async function createRequest(
       opts.posterUrl,
     );
 
-    return { ok: true, id: created.id };
+    return { ok: true, id: created.id, status: "pending" };
   }
 
   const inLibrary = await prisma.libraryMedia.findUnique({
@@ -176,15 +217,7 @@ export async function createRequest(
       },
     });
 
-    await notifyAdminsRequestPending(
-      reopened.id,
-      opts.type,
-      opts.title,
-      opts.year,
-      opts.posterUrl,
-    );
-
-    return { ok: true, id: reopened.id };
+    return settleMovieShowRequest(reopened.id, opts);
   }
 
   let created;
@@ -207,15 +240,7 @@ export async function createRequest(
     throw error;
   }
 
-  await notifyAdminsRequestPending(
-    created.id,
-    opts.type,
-    opts.title,
-    opts.year,
-    opts.posterUrl,
-  );
-
-  return { ok: true, id: created.id };
+  return settleMovieShowRequest(created.id, opts);
 }
 
 export async function approveRequest(
@@ -285,6 +310,9 @@ export async function approveRequest(
     throw error;
   }
   await deleteCache(`${TMDB_UPCOMING_CACHE_KEY}:${region}`);
+
+  // Deciding your own request needs no "approved" notification.
+  if (adminId === req.requestedById) return { ok: true };
 
   const requester = await getNotificationTarget(req.requestedById);
   const locale = requester?.locale ?? null;

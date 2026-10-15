@@ -155,6 +155,7 @@ export const requestRoutes = new Hono<Env>()
             posterUrl: body.poster_url ?? null,
             year: body.year ?? null,
             userId: user.id,
+            autoApprove: !!user.is_admin,
           },
     );
     if (!result.ok) {
@@ -166,7 +167,7 @@ export const requestRoutes = new Hono<Env>()
       }
       return badRequest("Already in your library");
     }
-    return ok({ id: result.id });
+    return ok({ id: result.id, status: result.status });
   })
   // Admin-only: approve / deny
   .post(

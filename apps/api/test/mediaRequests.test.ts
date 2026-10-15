@@ -29,6 +29,7 @@ const state: {
   mediaStatusById: Record<number, string>;
   addedBooks: Array<{ volumeId: string; bookQualityProfileId?: number }>;
   bookEditionStatusByBookId: Record<number, string>;
+  defaultProfiles: { movie: number | null; show: number | null };
 } = {
   library: [],
   libraryBooks: [],
@@ -41,6 +42,7 @@ const state: {
   mediaStatusById: {},
   addedBooks: [],
   bookEditionStatusByBookId: {},
+  defaultProfiles: { movie: null, show: null },
 };
 
 function installMediaRequestDbMock() {
@@ -176,6 +178,13 @@ function installMediaRequestDbMock() {
             notificationPreferences: null,
           }),
       },
+      mediaSettings: {
+        findUnique: () =>
+          Promise.resolve({
+            defaultMovieQualityProfileId: state.defaultProfiles.movie,
+            defaultShowQualityProfileId: state.defaultProfiles.show,
+          }),
+      },
       $transaction: (promises: Promise<any>[]) => Promise.all(promises),
     },
   }));
@@ -265,6 +274,7 @@ beforeEach(() => {
   state.mediaStatusById = {};
   state.addedBooks = [];
   state.bookEditionStatusByBookId = {};
+  state.defaultProfiles = { movie: null, show: null };
 });
 
 describe("createRequest", () => {
@@ -312,7 +322,7 @@ describe("createRequest", () => {
       year: null,
       userId: "u1",
     });
-    expect(r).toEqual({ ok: true, id: 1 });
+    expect(r).toEqual({ ok: true, id: 1, status: "pending" });
     expect(state.notifications).toEqual([
       { userId: "admin-1", type: "request_pending" },
     ]);
@@ -337,7 +347,7 @@ describe("createRequest", () => {
       year: null,
       userId: "u1",
     });
-    expect(r).toEqual({ ok: true, id: 1 });
+    expect(r).toEqual({ ok: true, id: 1, status: "pending" });
     expect(state.requests[0].status).toBe("pending");
     expect(state.requests[0].requestedById).toBe("u1");
     expect(state.notifications).toEqual([
@@ -369,7 +379,7 @@ describe("createRequest", () => {
       year: 2020,
       userId: "u1",
     });
-    expect(r).toEqual({ ok: true, id: 1 });
+    expect(r).toEqual({ ok: true, id: 1, status: "pending" });
     expect(state.requests[0]).toMatchObject({
       type: "book",
       googleVolumeId: "vol-2",
@@ -401,6 +411,65 @@ describe("createRequest", () => {
       userId: "u1",
     });
     expect(r).toEqual({ ok: false, reason: "already_requested" });
+  });
+});
+
+describe("createRequest by an admin", () => {
+  const adminMovie = {
+    tmdbId: 9,
+    type: "movie" as const,
+    title: "X",
+    posterUrl: null,
+    year: null,
+    userId: "admin-1",
+    autoApprove: true,
+  };
+
+  it("approves on the spot with the default profile, without notifying anyone", async () => {
+    state.defaultProfiles.movie = 3;
+    const r = await createRequest(adminMovie);
+    expect(r).toEqual({ ok: true, id: 1, status: "approved" });
+    const row = state.requests[0] as Req & { decidedById?: string };
+    expect(row.status).toBe("approved");
+    expect(row.libraryMediaId).toBe(909);
+    expect(row.decidedById).toBe("admin-1");
+    expect(state.notifications).toEqual([]);
+  });
+
+  it("stays pending when no default profile is set", async () => {
+    const r = await createRequest(adminMovie);
+    expect(r).toEqual({ ok: true, id: 1, status: "pending" });
+    expect(state.requests[0].status).toBe("pending");
+    expect(state.notifications).toEqual([
+      { userId: "admin-1", type: "request_pending" },
+    ]);
+  });
+
+  it("stays pending when the default profile no longer exists", async () => {
+    state.defaultProfiles.movie = 42;
+    const r = await createRequest(adminMovie);
+    expect(r).toEqual({ ok: true, id: 1, status: "pending" });
+    expect(state.requests[0].status).toBe("pending");
+  });
+
+  it("uses the show default for a show", async () => {
+    state.defaultProfiles.movie = 3;
+    const r = await createRequest({ ...adminMovie, type: "show" });
+    expect(r).toEqual({ ok: true, id: 1, status: "pending" });
+    state.requests = [];
+    state.defaultProfiles.show = 1;
+    const r2 = await createRequest({ ...adminMovie, type: "show" });
+    expect(r2).toEqual({ ok: true, id: 1, status: "approved" });
+  });
+
+  it("leaves a non-admin request pending even with a default profile", async () => {
+    state.defaultProfiles.movie = 3;
+    const r = await createRequest({
+      ...adminMovie,
+      userId: "u1",
+      autoApprove: false,
+    });
+    expect(r).toEqual({ ok: true, id: 1, status: "pending" });
   });
 });
 
