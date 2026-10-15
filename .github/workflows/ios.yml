@@ -124,8 +124,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/SourcePackages
-          key: spm-${{ runner.os }}-${{ hashFiles('apps/ios/project.yml') }}
-          restore-keys: spm-${{ runner.os }}-
+          key: spm-v1-${{ runner.os }}-${{ hashFiles('apps/ios/project.yml') }}
+          restore-keys: spm-v1-${{ runner.os }}-
       # Compiling the app for the test run is the build check; a separate generic
       # simulator build recompiled everything for two architectures.
       - name: Build and run app-target tests (iOS 26)
@@ -227,8 +227,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/SourcePackages
-          key: spm-${{ runner.os }}-${{ hashFiles('apps/ios/project.yml') }}
-          restore-keys: spm-${{ runner.os }}-
+          key: spm-v1-${{ runner.os }}-${{ hashFiles('apps/ios/project.yml') }}
+          restore-keys: spm-v1-${{ runner.os }}-
       - name: Archive signed app
         working-directory: apps/ios
         run: |
@@ -392,8 +392,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/SourcePackages
-          key: spm-${{ runner.os }}-${{ hashFiles('apps/ios/project.yml') }}
-          restore-keys: spm-${{ runner.os }}-
+          key: spm-v1-${{ runner.os }}-${{ hashFiles('apps/ios/project.yml') }}
+          restore-keys: spm-v1-${{ runner.os }}-
       - name: Archive signed Mac Catalyst app
         working-directory: apps/ios
         run: |
