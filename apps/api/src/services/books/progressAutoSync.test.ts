@@ -112,25 +112,27 @@ describe("scheduleProgressSync", () => {
     expect(data).toEqual(listenJob);
     expect(addedOpts().delay).toBe(SYNC_DEBOUNCE_MS);
     expect(addedOpts().attempts).toBe(1);
-    expect(addedOpts().jobId).toBe("book-sync:listen_to_read:u:5");
+    expect(addedOpts().jobId).toBe("book-sync-listen_to_read-u-5");
+    // BullMQ refuses custom ids containing ":" and the add fails.
+    expect(addedOpts().jobId).not.toContain(":");
   });
 
   test("a second write replaces the pending job", async () => {
     const remove = mock(async () => {});
-    jobsById.set("book-sync:listen_to_read:u:5", { state: "delayed", remove });
+    jobsById.set("book-sync-listen_to_read-u-5", { state: "delayed", remove });
     await scheduleProgressSync(listenJob, deps());
     expect(remove).toHaveBeenCalledTimes(1);
-    expect(addedOpts().jobId).toBe("book-sync:listen_to_read:u:5");
+    expect(addedOpts().jobId).toBe("book-sync-listen_to_read-u-5");
   });
 
   test("while a job runs, writes debounce one stable follow-up id", async () => {
-    const id = "book-sync:listen_to_read:u:5";
+    const id = "book-sync-listen_to_read-u-5";
     jobsById.set(id, { state: "active", remove: mock(async () => {}) });
     const removeNext = mock(async () => {});
-    jobsById.set(`${id}:next`, { state: "delayed", remove: removeNext });
+    jobsById.set(`${id}-next`, { state: "delayed", remove: removeNext });
     await scheduleProgressSync(listenJob, deps());
     expect(removeNext).toHaveBeenCalledTimes(1);
-    expect(addedOpts().jobId).toBe(`${id}:next`);
+    expect(addedOpts().jobId).toBe(`${id}-next`);
   });
 
   test("never enqueues for a book without an audiobook, an ebook, or an epub", async () => {

@@ -31,8 +31,9 @@ const MAX_UNCONFIRMED_REWIND_SECS = 600;
 /** A reading position this close to the start of the book is an unopened book, not a place. */
 const START_OF_BOOK = 0.01;
 
+// BullMQ rejects a custom job id that contains ":", so the parts are joined with "-".
 const jobId = (d: ProgressSyncJobData) =>
-  `book-sync:${d.direction}:${d.userId}:${d.bookId}`;
+  `book-sync-${d.direction}-${d.userId}-${d.bookId}`;
 
 export interface DebounceQueue {
   getJob(
@@ -144,7 +145,7 @@ export async function scheduleProgressSync(
     if (existing) {
       if ((await existing.getState()) === "active") {
         // A running job can't be replaced; debounce a single follow-up behind it.
-        useId = `${id}:next`;
+        useId = `${id}-next`;
         await (await q.getJob(useId))?.remove();
       } else await existing.remove();
     }
