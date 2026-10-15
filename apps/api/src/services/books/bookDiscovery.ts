@@ -1,6 +1,7 @@
 import type {
   BookDiscoveryBook,
   BookDiscoverySourcesResponse,
+  MediaRequestStatus,
 } from "@rawkoon/shared/types";
 import { prisma } from "@rawkoon/api/db";
 import { getBookMetadataProvider } from "@rawkoon/api/services/books";
@@ -15,7 +16,7 @@ const ENRICHED_TTL = 12 * 60 * 60;
 const ENRICH_CONCURRENCY = 5;
 
 /** Enriched item WITHOUT the membership flag, which is computed post-cache. */
-type EnrichedBook = Omit<BookDiscoveryBook, "alreadyInLibrary">;
+type EnrichedBook = Omit<BookDiscoveryBook, "alreadyInLibrary" | "request">;
 
 /**
  * Resolve each entry's ISBN through the provider chain for a `volumeId` (needed
@@ -68,6 +69,24 @@ async function enrichEntries(entries: RankedEntry[]): Promise<EnrichedBook[]> {
   return out;
 }
 
+/** Request status per volume id; one query for the whole list. */
+export async function loadRequestsByVolumeId(
+  volumeIds: string[],
+): Promise<Map<string, { id: number; status: MediaRequestStatus }>> {
+  if (volumeIds.length === 0) return new Map();
+  const rows = await prisma.mediaRequest.findMany({
+    where: { googleVolumeId: { in: volumeIds } },
+    select: { id: true, status: true, googleVolumeId: true },
+  });
+  return new Map(
+    rows.flatMap((r) =>
+      r.googleVolumeId
+        ? [[r.googleVolumeId, { id: r.id, status: r.status }] as const]
+        : [],
+    ),
+  );
+}
+
 /** ISBNs already in the library, for the `alreadyInLibrary` flag. */
 async function membershipFlags(items: EnrichedBook[]): Promise<Set<string>> {
   const isbns = items
@@ -103,9 +122,13 @@ export async function getDiscovery(
   }
 
   const inLibrary = await membershipFlags(enriched);
+  const requests = await loadRequestsByVolumeId(
+    enriched.map((b) => b.volumeId).filter((v): v is string => v != null),
+  );
   const items: BookDiscoveryBook[] = enriched.map((b) => ({
     ...b,
     alreadyInLibrary: b.isbn13 != null && inLibrary.has(b.isbn13),
+    request: (b.volumeId && requests.get(b.volumeId)) || null,
   }));
   return { source: source.id, list: listId, items };
 }

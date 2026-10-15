@@ -21,6 +21,8 @@
     "requestedBy": "by {{name}}",
     "request": "Request",
     "requested": "Requested",
+    "book": "Book",
+    "viewBook": "View book",
     "qualityPlaceholder": "Quality profile",
     "approve": "Approve",
     "deny": "Deny",
@@ -2339,7 +2341,19 @@
     "subtitleCount": "{{count}} in library",
     "subtitleEmpty": "Ebooks and audiobooks",
     "addBook": "Add book",
+    "requestBook": "Request a book",
     "authorsLink": "Authors",
+    "request": {
+      "action": "Request",
+      "again": "Request again",
+      "failed": "Could not send the request",
+      "status": {
+        "pending": "Requested",
+        "approved": "Approved",
+        "denied": "Denied",
+        "available": "Available"
+      }
+    },
     "explore": {
       "link": "Explore",
       "pageTitle": "Explore books",
@@ -2379,6 +2393,7 @@
     "editionChipTitle": "{{kind}}: {{status}}",
     "editionChipTitleWithFormat": "{{kind}}: {{status}} ({{format}})",
     "add": {
+      "requestTitle": "Request a book",
       "title": "Add a book",
       "close": "Close",
       "queryPlaceholder": "Title, author, or ISBN",

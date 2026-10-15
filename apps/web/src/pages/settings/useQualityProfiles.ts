@@ -12,6 +12,7 @@ import type {
 export function useQualityProfilesList(options?: {
   staleTime?: number;
   gcTime?: number;
+  enabled?: boolean;
 }) {
   const fetcher = useFetcher();
   return useQuery({

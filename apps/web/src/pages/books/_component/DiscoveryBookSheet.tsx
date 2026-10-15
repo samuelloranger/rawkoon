@@ -4,7 +4,9 @@ import { Link } from "@tanstack/react-router";
 import type { BookDiscoveryBook } from "@rawkoon/shared/types";
 import { providerHtmlParagraphs } from "@rawkoon/shared";
 import { Button } from "@/components/ui/button";
+import { useCurrentUser } from "@/lib/auth/useAuth";
 import { useAddDiscoveryBook } from "../_hooks/useBookDiscovery";
+import { BookRequestAction } from "./BookRequestAction";
 
 /** External-link label from the product URL's host. */
 function sourceLabel(url: string, fallback: string): string {
@@ -30,6 +32,7 @@ export function DiscoveryBookSheet({
 }) {
   const { t } = useTranslation("common");
   const addBook = useAddDiscoveryBook();
+  const isAdmin = useCurrentUser().data?.is_admin ?? false;
   const paragraphs = providerHtmlParagraphs(book.overview);
 
   return (
@@ -96,6 +99,20 @@ export function DiscoveryBookSheet({
             >
               {t("books.explore.inLibrary")}
             </Link>
+          ) : !isAdmin ? (
+            // A request is keyed by Google volume, so no volume means no request.
+            book.volumeId ? (
+              <BookRequestAction
+                book={{
+                  google_volume_id: book.volumeId,
+                  title: book.title,
+                  author: book.author,
+                  poster_url: book.coverUrl,
+                  year: book.publishedYear,
+                }}
+                request={book.request}
+              />
+            ) : null
           ) : book.isbn13 ? (
             <Button
               disabled={addBook.isPending || addBook.isSuccess}

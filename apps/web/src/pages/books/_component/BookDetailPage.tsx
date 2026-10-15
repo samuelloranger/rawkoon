@@ -5,6 +5,7 @@ import { providerHtmlParagraphs, type BookEditionKind } from "@rawkoon/shared";
 import { useLibraryEvents } from "@/features/medias/hooks/useLibraryEvents";
 import { PageLayout } from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
+import { useCurrentUser } from "@/lib/auth/useAuth";
 import { MarkBookReadAction, BookReadBadge } from "./BookReadActions";
 import { toast } from "sonner";
 import { useAddEdition, useBook } from "../_hooks/useBooks";
@@ -37,6 +38,8 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
   const { data, isLoading } = useBook(bookId);
   const refreshMetadata = useRefreshBookMetadata(bookId);
   const addEdition = useAddEdition(bookId);
+  // Grabbing, editing and removing are admin-only; members read and listen.
+  const isAdmin = useCurrentUser().data?.is_admin ?? false;
 
   if (isLoading) {
     return (
@@ -221,63 +224,66 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
             left the whole right half of the header empty and put a destructive
             button in the middle of the reading path. */}
         <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col sm:items-end">
-          {missingKinds.map((kind) => (
+          {isAdmin &&
+            missingKinds.map((kind) => (
+              <Button
+                key={kind}
+                size="sm"
+                variant="secondary"
+                disabled={addEdition.isPending}
+                onClick={() => addEdition.mutate({ kind })}
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                {t("books.detail.addEdition", {
+                  kind: t(
+                    `books.kind${kind === "audiobook" ? "Audiobook" : "Ebook"}`,
+                  ),
+                })}
+              </Button>
+            ))}
+          {isAdmin && (
             <Button
-              key={kind}
               size="sm"
               variant="secondary"
-              disabled={addEdition.isPending}
-              onClick={() => addEdition.mutate({ kind })}
-            >
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              {t("books.detail.addEdition", {
-                kind: t(
-                  `books.kind${kind === "audiobook" ? "Audiobook" : "Ebook"}`,
-                ),
-              })}
-            </Button>
-          ))}
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={refreshMetadata.isPending}
-            onClick={() => {
-              refreshMetadata.mutate(undefined, {
-                onSuccess: (res) => {
-                  // Naming a failed source matters: an Audnexus outage would
-                  // otherwise be indistinguishable from "this book has no
-                  // narrators".
-                  if (res.failed_sources.length > 0) {
-                    toast.warning(
-                      t("books.detail.metadata.refreshedWithFailures", {
+              disabled={refreshMetadata.isPending}
+              onClick={() => {
+                refreshMetadata.mutate(undefined, {
+                  onSuccess: (res) => {
+                    // Naming a failed source matters: an Audnexus outage would
+                    // otherwise be indistinguishable from "this book has no
+                    // narrators".
+                    if (res.failed_sources.length > 0) {
+                      toast.warning(
+                        t("books.detail.metadata.refreshedWithFailures", {
+                          count: res.changed_fields.length,
+                          sources: res.failed_sources.join(", "),
+                        }),
+                      );
+                      return;
+                    }
+                    if (res.changed_fields.length === 0) {
+                      toast.info(t("books.detail.metadata.refreshedNoChange"));
+                      return;
+                    }
+                    toast.success(
+                      t("books.detail.metadata.refreshed", {
                         count: res.changed_fields.length,
-                        sources: res.failed_sources.join(", "),
                       }),
                     );
-                    return;
-                  }
-                  if (res.changed_fields.length === 0) {
-                    toast.info(t("books.detail.metadata.refreshedNoChange"));
-                    return;
-                  }
-                  toast.success(
-                    t("books.detail.metadata.refreshed", {
-                      count: res.changed_fields.length,
-                    }),
-                  );
-                },
-                onError: () =>
-                  toast.error(t("books.detail.metadata.refreshFailed")),
-              });
-            }}
-          >
-            {refreshMetadata.isPending && (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            )}
-            {t("books.detail.metadata.refresh")}
-          </Button>
+                  },
+                  onError: () =>
+                    toast.error(t("books.detail.metadata.refreshFailed")),
+                });
+              }}
+            >
+              {refreshMetadata.isPending && (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              )}
+              {t("books.detail.metadata.refresh")}
+            </Button>
+          )}
           <MarkBookReadAction book={book} />
-          <RemoveBookAction bookId={book.id} title={book.title} />
+          {isAdmin && <RemoveBookAction bookId={book.id} title={book.title} />}
         </div>
       </div>
 
@@ -299,14 +305,16 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
         </div>
       )}
 
-      <details className="mt-10 rounded-xl border border-neutral-800 bg-neutral-900/40">
-        <summary className="cursor-pointer px-4 py-3 text-xs font-medium uppercase tracking-[0.2em] text-neutral-400 hover:text-neutral-200">
-          {t("books.detail.overrides.heading")}
-        </summary>
-        <div className="border-t border-neutral-800 p-4">
-          <BookInfoOverridesSection book={book} />
-        </div>
-      </details>
+      {isAdmin && (
+        <details className="mt-10 rounded-xl border border-neutral-800 bg-neutral-900/40">
+          <summary className="cursor-pointer px-4 py-3 text-xs font-medium uppercase tracking-[0.2em] text-neutral-400 hover:text-neutral-200">
+            {t("books.detail.overrides.heading")}
+          </summary>
+          <div className="border-t border-neutral-800 p-4">
+            <BookInfoOverridesSection book={book} />
+          </div>
+        </details>
+      )}
 
       <div className="mt-12">
         <h2 className="flex items-center gap-3 text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
@@ -316,7 +324,12 @@ export function BookDetailPage({ bookId }: { bookId: number }) {
 
         <div className="mt-4 space-y-4">
           {book.editions.map((e) => (
-            <EditionPanel key={e.id} bookId={book.id} edition={e} />
+            <EditionPanel
+              key={e.id}
+              bookId={book.id}
+              edition={e}
+              isAdmin={isAdmin}
+            />
           ))}
         </div>
       </div>

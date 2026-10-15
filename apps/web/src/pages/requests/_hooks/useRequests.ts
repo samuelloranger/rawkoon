@@ -24,7 +24,13 @@ export function useCreateRequest() {
         method: "POST",
         body,
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.requests.all }),
+    onSuccess: (_data, body) => {
+      void qc.invalidateQueries({ queryKey: queryKeys.requests.all });
+      // Book search and discovery carry each volume's request status.
+      if (body.type === "book") {
+        void qc.invalidateQueries({ queryKey: queryKeys.books.all });
+      }
+    },
   });
 }
 

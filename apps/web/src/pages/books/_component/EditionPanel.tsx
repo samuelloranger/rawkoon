@@ -35,9 +35,12 @@ import { NO_PROFILE, formatBytes } from "./bookDetailFormat";
 export function EditionPanel({
   bookId,
   edition,
+  isAdmin,
 }: {
   bookId: number;
   edition: BookEdition;
+  /** Monitoring, profile, rescan and release search are admin-only. */
+  isAdmin: boolean;
 }) {
   const { t } = useTranslation("common");
   const update = useUpdateEdition(bookId);
@@ -85,15 +88,17 @@ export function EditionPanel({
             {/* A Switch, not a checkbox: the authors page already expresses
                 monitoring this way, and the same idea should not wear two
                 different controls in one feature. */}
-            <label className="ml-auto flex shrink-0 cursor-pointer items-center gap-2 text-sm text-neutral-300">
-              {t("books.edition.monitored")}
-              <Switch
-                checked={edition.monitored}
-                onCheckedChange={(checked) =>
-                  update.mutate({ kind: edition.kind, monitored: checked })
-                }
-              />
-            </label>
+            {isAdmin && (
+              <label className="ml-auto flex shrink-0 cursor-pointer items-center gap-2 text-sm text-neutral-300">
+                {t("books.edition.monitored")}
+                <Switch
+                  checked={edition.monitored}
+                  onCheckedChange={(checked) =>
+                    update.mutate({ kind: edition.kind, monitored: checked })
+                  }
+                />
+              </label>
+            )}
           </header>
 
           <div className="mt-4">
@@ -144,39 +149,41 @@ export function EditionPanel({
           )}
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Select
-              value={
-                edition.book_quality_profile_id != null
-                  ? String(edition.book_quality_profile_id)
-                  : NO_PROFILE
-              }
-              onValueChange={(value) =>
-                update.mutate({
-                  kind: edition.kind,
-                  book_quality_profile_id:
-                    value === NO_PROFILE ? null : Number(value),
-                })
-              }
-            >
-              <SelectTrigger
-                aria-label={t("books.edition.profileLabel", {
-                  kind: kindLabel,
-                })}
-                className="h-9 w-48"
+            {isAdmin && (
+              <Select
+                value={
+                  edition.book_quality_profile_id != null
+                    ? String(edition.book_quality_profile_id)
+                    : NO_PROFILE
+                }
+                onValueChange={(value) =>
+                  update.mutate({
+                    kind: edition.kind,
+                    book_quality_profile_id:
+                      value === NO_PROFILE ? null : Number(value),
+                  })
+                }
               >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_PROFILE}>
-                  {t("books.edition.noProfile")}
-                </SelectItem>
-                {profiles.map((p) => (
-                  <SelectItem key={p.id} value={String(p.id)}>
-                    {p.name}
+                <SelectTrigger
+                  aria-label={t("books.edition.profileLabel", {
+                    kind: kindLabel,
+                  })}
+                  className="h-9 w-48"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_PROFILE}>
+                    {t("books.edition.noProfile")}
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  {profiles.map((p) => (
+                    <SelectItem key={p.id} value={String(p.id)}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
             {edition.file_count > 0 && (
               <Button
@@ -190,20 +197,22 @@ export function EditionPanel({
               </Button>
             )}
 
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={rescan.isPending}
-              onClick={() => rescan.mutate(edition.kind)}
-              title={t("books.edition.rescanHint")}
-            >
-              {rescan.isPending ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <FolderSearch className="mr-1.5 h-3.5 w-3.5" />
-              )}
-              {t("books.edition.rescan")}
-            </Button>
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={rescan.isPending}
+                onClick={() => rescan.mutate(edition.kind)}
+                title={t("books.edition.rescanHint")}
+              >
+                {rescan.isPending ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <FolderSearch className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                {t("books.edition.rescan")}
+              </Button>
+            )}
           </div>
 
           {rescan.data && (
@@ -258,11 +267,13 @@ export function EditionPanel({
             </ul>
           )}
 
-          <ReleaseList
-            bookId={bookId}
-            kind={edition.kind}
-            isPrimary={edition.file_count === 0}
-          />
+          {isAdmin && (
+            <ReleaseList
+              bookId={bookId}
+              kind={edition.kind}
+              isPrimary={edition.file_count === 0}
+            />
+          )}
         </div>
       </div>
     </section>

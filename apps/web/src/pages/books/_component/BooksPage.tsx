@@ -1,4 +1,5 @@
 import { formatBytes } from "@/lib/utils/format";
+import { useCurrentUser } from "@/lib/auth/useAuth";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "@tanstack/react-router";
@@ -234,6 +235,7 @@ export function BooksPage() {
   const [submitted, setSubmitted] = useState("");
   const [kind, setKind] = useState<BookEditionKind | undefined>();
   const [showAdd, setShowAdd] = useState(false);
+  const isAdmin = useCurrentUser().data?.is_admin ?? false;
   const [view, setView] = useState<BooksViewMode>(readStoredView);
 
   const changeView = (next: BooksViewMode) => {
@@ -298,7 +300,7 @@ export function BooksPage() {
             </Link>
             <Button onClick={() => setShowAdd(true)}>
               <Plus className="mr-1.5 h-4 w-4" />
-              {t("books.addBook")}
+              {isAdmin ? t("books.addBook") : t("books.requestBook")}
             </Button>
           </div>
         }
@@ -384,7 +386,7 @@ export function BooksPage() {
           <p className="mt-3 text-sm text-neutral-400">
             {submitted ? t("books.noneMatch") : t("books.noneYet")}
           </p>
-          {!submitted && (
+          {!submitted && isAdmin && (
             <Button className="mt-4" onClick={() => setShowAdd(true)}>
               <Plus className="mr-1.5 h-4 w-4" />
               {t("books.addFirst")}

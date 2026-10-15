@@ -5,7 +5,9 @@ import type { BookEditionKind } from "@rawkoon/shared/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api/client";
+import { useCurrentUser } from "@/lib/auth/useAuth";
 import { useAddBook, useBookProviderSearch } from "../_hooks/useBooks";
+import { BookRequestAction } from "./BookRequestAction";
 
 /**
  * Add a book by searching Google Books.
@@ -25,6 +27,8 @@ export function AddBookDialog({ onClose }: { onClose: () => void }) {
     submitted.length > 1,
   );
   const addBook = useAddBook();
+  // Members request a book; only admins add it straight to the library.
+  const isAdmin = useCurrentUser().data?.is_admin ?? false;
 
   const toggleKind = (kind: BookEditionKind) => {
     setKinds((prev) =>
@@ -44,7 +48,7 @@ export function AddBookDialog({ onClose }: { onClose: () => void }) {
       <div className="w-full max-w-2xl rounded-xl border border-neutral-800 bg-neutral-900 shadow-2xl">
         <div className="flex items-center justify-between border-b border-neutral-800 px-5 py-4">
           <h2 className="text-lg font-semibold text-neutral-100">
-            {t("books.add.title")}
+            {isAdmin ? t("books.add.title") : t("books.add.requestTitle")}
           </h2>
           <Button
             variant="ghost"
@@ -79,28 +83,30 @@ export function AddBookDialog({ onClose }: { onClose: () => void }) {
           </Button>
         </form>
 
-        <div className="flex items-center gap-2 px-5 pt-3 text-xs text-neutral-400">
-          <span>{t("books.add.addAs")}</span>
-          {(["ebook", "audiobook"] as BookEditionKind[]).map((kind) => (
-            <button
-              key={kind}
-              type="button"
-              onClick={() => toggleKind(kind)}
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium transition-colors ${
-                kinds.includes(kind)
-                  ? "bg-primary-500/15 text-primary-300"
-                  : "bg-neutral-800 text-neutral-400 hover:text-neutral-200"
-              }`}
-            >
-              {kind === "audiobook" ? (
-                <Headphones className="h-3 w-3" />
-              ) : (
-                <BookOpen className="h-3 w-3" />
-              )}
-              {t(`books.kind${kind === "audiobook" ? "Audiobook" : "Ebook"}`)}
-            </button>
-          ))}
-        </div>
+        {isAdmin && (
+          <div className="flex items-center gap-2 px-5 pt-3 text-xs text-neutral-400">
+            <span>{t("books.add.addAs")}</span>
+            {(["ebook", "audiobook"] as BookEditionKind[]).map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                onClick={() => toggleKind(kind)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium transition-colors ${
+                  kinds.includes(kind)
+                    ? "bg-primary-500/15 text-primary-300"
+                    : "bg-neutral-800 text-neutral-400 hover:text-neutral-200"
+                }`}
+              >
+                {kind === "audiobook" ? (
+                  <Headphones className="h-3 w-3" />
+                ) : (
+                  <BookOpen className="h-3 w-3" />
+                )}
+                {t(`books.kind${kind === "audiobook" ? "Audiobook" : "Ebook"}`)}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="max-h-[50vh] overflow-y-auto px-5 py-4">
           {searchError && (
@@ -159,6 +165,17 @@ export function AddBookDialog({ onClose }: { onClose: () => void }) {
                   <span className="shrink-0 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-400">
                     {t("books.add.inLibrary")}
                   </span>
+                ) : !isAdmin ? (
+                  <BookRequestAction
+                    book={{
+                      google_volume_id: r.google_volume_id,
+                      title: r.title,
+                      author: r.authors.join(", ") || null,
+                      poster_url: r.cover_url,
+                      year: r.published_year,
+                    }}
+                    request={r.request}
+                  />
                 ) : (
                   <Button
                     size="sm"

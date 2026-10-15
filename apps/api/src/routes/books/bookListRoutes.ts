@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 
 import type { Env } from "@rawkoon/api/honoEnv";
-import { requireUser } from "@rawkoon/api/middleware/hono/auth";
+import { requireAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, paramV, queryV } from "@rawkoon/api/middleware/validate";
 import { prisma } from "@rawkoon/api/db";
 import {
@@ -17,6 +17,7 @@ import {
   getBookMetadataProvider,
   BookProviderUnavailableError,
 } from "@rawkoon/api/services/books";
+import { loadRequestsByVolumeId } from "@rawkoon/api/services/books/bookDiscovery";
 import { addBookFromVolume } from "@rawkoon/api/services/books/bookLibrary";
 import {
   loadReadAtByBookId,
@@ -143,6 +144,7 @@ export const bookListRoutes = new Hono<Env>()
           select: { id: true, googleVolumeId: true },
         });
         const byVolume = new Map(existing.map((e) => [e.googleVolumeId, e.id]));
+        const requests = await loadRequestsByVolumeId(volumeIds);
 
         return ok({
           results: found.map((b) => ({
@@ -157,6 +159,7 @@ export const bookListRoutes = new Hono<Env>()
             overview: b.overview,
             in_library: byVolume.has(b.volumeId),
             library_book_id: byVolume.get(b.volumeId) ?? null,
+            request: requests.get(b.volumeId) ?? null,
           })),
         });
       } catch (e) {
@@ -221,7 +224,7 @@ export const bookListRoutes = new Hono<Env>()
 
   .post(
     "/",
-    requireUser,
+    requireAdmin,
     jsonV(
       z.object({
         google_volume_id: z.string(),
@@ -279,7 +282,7 @@ export const bookListRoutes = new Hono<Env>()
     },
   )
 
-  .delete("/:id", requireUser, paramV(idParam), async (c) => {
+  .delete("/:id", requireAdmin, paramV(idParam), async (c) => {
     const { id } = c.req.valid("param");
     const existing = await prisma.libraryBook.findUnique({
       where: { id },

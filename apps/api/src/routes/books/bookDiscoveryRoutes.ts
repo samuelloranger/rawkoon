@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 
 import type { Env } from "@rawkoon/api/honoEnv";
-import { requireUser } from "@rawkoon/api/middleware/hono/auth";
+import { requireAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 import { badRequest, ok, serviceUnavailable } from "@rawkoon/api/errors";
 import {
@@ -53,7 +53,7 @@ export const bookDiscoveryRoutes = new Hono<Env>()
   // Add a discovered book. When a Google volume matched it goes through the
   // provider path; otherwise it is created straight from the scraped metadata,
   // so a francophone-Québec title Google does not index is still addable.
-  .post("/discovery/add", requireUser, jsonV(addBody), async (c) => {
+  .post("/discovery/add", requireAdmin, jsonV(addBody), async (c) => {
     const b = c.req.valid("json");
     const outcome = b.volume_id
       ? await addBookFromVolume({

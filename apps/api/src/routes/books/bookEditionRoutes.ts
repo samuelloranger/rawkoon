@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 
 import type { Env } from "@rawkoon/api/honoEnv";
-import { requireUser } from "@rawkoon/api/middleware/hono/auth";
+import { requireAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, paramV } from "@rawkoon/api/middleware/validate";
 import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound, ok } from "@rawkoon/api/errors";
@@ -56,7 +56,7 @@ const editionKindParams = z.object({
 export const bookEditionRoutes = new Hono<Env>()
   .patch(
     "/:id/editions/:kind",
-    requireUser,
+    requireAdmin,
     paramV(editionKindParams),
     jsonV(
       z.object({
@@ -115,7 +115,7 @@ export const bookEditionRoutes = new Hono<Env>()
   // Add the other edition kind to a book that only has one.
   .post(
     "/:id/editions",
-    requireUser,
+    requireAdmin,
     paramV(z.object({ id: z.coerce.number() })),
     jsonV(
       z.object({
@@ -219,7 +219,7 @@ export const bookEditionRoutes = new Hono<Env>()
    */
   .post(
     "/:id/editions/:kind/rescan",
-    requireUser,
+    requireAdmin,
     paramV(editionKindParams),
     async (c) => {
       const params = c.req.valid("param");
@@ -244,7 +244,7 @@ export const bookEditionRoutes = new Hono<Env>()
   // library media file removal behaves.
   .delete(
     "/:id/files/:fileId",
-    requireUser,
+    requireAdmin,
     paramV(z.object({ id: z.coerce.number(), fileId: z.coerce.number() })),
     async (c) => {
       const params = c.req.valid("param");

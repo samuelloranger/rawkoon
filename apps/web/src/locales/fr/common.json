@@ -21,6 +21,8 @@
     "requestedBy": "par {{name}}",
     "request": "Demander",
     "requested": "Demandé",
+    "book": "Livre",
+    "viewBook": "Voir le livre",
     "qualityPlaceholder": "Profil de qualité",
     "approve": "Approuver",
     "deny": "Refuser",
@@ -2339,7 +2341,19 @@
     "subtitleCount": "{{count}} dans la bibliothèque",
     "subtitleEmpty": "Livres numériques et audio",
     "addBook": "Ajouter un livre",
+    "requestBook": "Demander un livre",
     "authorsLink": "Auteurs",
+    "request": {
+      "action": "Demander",
+      "again": "Demander à nouveau",
+      "failed": "Impossible d'envoyer la demande",
+      "status": {
+        "pending": "Demandé",
+        "approved": "Approuvé",
+        "denied": "Refusé",
+        "available": "Disponible"
+      }
+    },
     "explore": {
       "link": "Explorer",
       "pageTitle": "Explorer les livres",
@@ -2379,6 +2393,7 @@
     "editionChipTitle": "{{kind}} : {{status}}",
     "editionChipTitleWithFormat": "{{kind}} : {{status}} ({{format}})",
     "add": {
+      "requestTitle": "Demander un livre",
       "title": "Ajouter un livre",
       "close": "Fermer",
       "queryPlaceholder": "Titre, auteur ou ISBN",

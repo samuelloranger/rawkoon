@@ -254,8 +254,9 @@ export function useGrabRelease(bookId: number) {
   });
 }
 
-export function useBookQualityProfiles() {
+export function useBookQualityProfiles(options?: { enabled?: boolean }) {
   return useQuery({
+    enabled: options?.enabled ?? true,
     queryKey: queryKeys.books.qualityProfiles(),
     queryFn: () =>
       fetchApi<BookQualityProfileListResponse>(

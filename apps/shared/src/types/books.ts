@@ -6,6 +6,8 @@
  * A translation and its original are two independent books.
  */
 
+import type { MediaRequestStatus } from "./request";
+
 export type BookEditionKind = "ebook" | "audiobook";
 
 export type BookEditionStatus =
@@ -208,6 +210,8 @@ export interface BookSearchResult {
   /** True when this volume is already in the library. */
   in_library: boolean;
   library_book_id: number | null;
+  /** The request for this volume, if any. Status only — never who asked. */
+  request: { id: number; status: MediaRequestStatus } | null;
 }
 
 export interface BookSearchResponse {
@@ -464,6 +468,8 @@ export interface BookDiscoveryBook {
   /** Present once enriched — required to add the book to the library. */
   volumeId: string | null;
   alreadyInLibrary: boolean;
+  /** The request for this volume, if any. Status only — never who asked. */
+  request: { id: number; status: MediaRequestStatus } | null;
 }
 
 export interface BookDiscoveryList {

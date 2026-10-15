@@ -38,7 +38,7 @@ export const bookMetadataRoutes = new Hono<Env>()
     });
   })
 
-  .post("/:id/refresh-metadata", requireUser, async (c) => {
+  .post("/:id/refresh-metadata", requireAdmin, async (c) => {
     const id = Number(c.req.param("id"));
     if (!Number.isInteger(id) || id <= 0) return badRequest("Invalid book id");
 

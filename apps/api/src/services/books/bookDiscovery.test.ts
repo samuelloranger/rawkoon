@@ -26,6 +26,11 @@ mock.module("@rawkoon/api/db", () => ({
     libraryBook: {
       findMany: async () => [{ isbn13: "9780000000001" }],
     },
+    mediaRequest: {
+      findMany: async () => [
+        { id: 7, status: "pending", googleVolumeId: "vol-1" },
+      ],
+    },
   },
 }));
 mock.module("@rawkoon/api/services/cache", () => ({
@@ -83,6 +88,9 @@ describe("getDiscovery", () => {
     expect(res.items[1].author).toBe("NYT Author");
     expect(res.items[1].volumeId).toBeNull();
     expect(res.items[1].alreadyInLibrary).toBe(false);
+    // Request status is attached by volume id; no volume means no request.
+    expect(res.items[0].request).toEqual({ id: 7, status: "pending" });
+    expect(res.items[1].request).toBeNull();
   });
 
   it("prefers source-supplied author over enrichment", async () => {

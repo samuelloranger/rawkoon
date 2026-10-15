@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 
 import type { Env } from "@rawkoon/api/honoEnv";
-import { requireUser } from "@rawkoon/api/middleware/hono/auth";
+import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
@@ -75,7 +75,7 @@ const nullableInt = (min: number, max: number) =>
 
 export const bookOverridesRoutes = new Hono<Env>().patch(
   "/:id/overrides",
-  requireUser,
+  requireAdmin,
   jsonV(
     z.object({
       title: nullableStr(500),

@@ -1,8 +1,23 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, screen, fireEvent } from "@/test-utils/render";
 import type { BookDiscoveryBook } from "@rawkoon/shared/types";
 
 const mutate = vi.fn();
+const auth = vi.hoisted(() => ({ isAdmin: true }));
+vi.mock("@/lib/auth/useAuth", () => ({
+  useCurrentUser: () => ({ data: { id: "u", is_admin: auth.isAdmin } }),
+}));
+
+const requestMutate = vi.fn();
+vi.mock("@/pages/requests/_hooks/useRequests", () => ({
+  useCreateRequest: () => ({
+    mutate: requestMutate,
+    isPending: false,
+    isSuccess: false,
+    isError: false,
+  }),
+}));
+
 vi.mock("../_hooks/useBookDiscovery", () => ({
   useAddDiscoveryBook: () => ({ mutate, isPending: false, isSuccess: false }),
 }));
@@ -20,9 +35,64 @@ const base: BookDiscoveryBook = {
   publishedYear: 2026,
   volumeId: "vol-1",
   alreadyInLibrary: false,
+  request: null,
 };
 
 describe("DiscoveryBookSheet", () => {
+  beforeEach(() => {
+    auth.isAdmin = true;
+    requestMutate.mockClear();
+  });
+
+  it("gives a member a Request action instead of Add", () => {
+    auth.isAdmin = false;
+    renderWithProviders(<DiscoveryBookSheet book={base} onClose={vi.fn()} />);
+    expect(screen.queryByText("books.explore.add")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("books.request.action"));
+    expect(requestMutate).toHaveBeenCalledWith({
+      type: "book",
+      google_volume_id: "vol-1",
+      title: "Livre A",
+      author: "Auteur",
+      poster_url: null,
+      year: 2026,
+    });
+  });
+
+  it("shows the request status for a member, and lets a denied one be re-requested", () => {
+    auth.isAdmin = false;
+    const { unmount } = renderWithProviders(
+      <DiscoveryBookSheet
+        book={{ ...base, request: { id: 3, status: "pending" } }}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText("books.request.status.pending"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("books.request.action")).not.toBeInTheDocument();
+    unmount();
+    renderWithProviders(
+      <DiscoveryBookSheet
+        book={{ ...base, request: { id: 3, status: "denied" } }}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("books.request.again")).toBeInTheDocument();
+  });
+
+  it("offers a member nothing when the book has no Google volume", () => {
+    auth.isAdmin = false;
+    renderWithProviders(
+      <DiscoveryBookSheet
+        book={{ ...base, volumeId: null }}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText("books.request.action")).not.toBeInTheDocument();
+    expect(screen.queryByText("books.explore.add")).not.toBeInTheDocument();
+  });
+
   it("adds the whole book (server picks volume vs metadata)", () => {
     mutate.mockClear();
     renderWithProviders(<DiscoveryBookSheet book={base} onClose={vi.fn()} />);

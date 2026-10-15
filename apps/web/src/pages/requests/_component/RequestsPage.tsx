@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Film, Inbox, Send, X } from "lucide-react";
+import { BookOpen, Check, Film, Inbox, Send, X } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import type { MediaRequest, MediaRequestStatus } from "@rawkoon/shared/types";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/lib/auth/useAuth";
 import { useQualityProfilesList } from "@/pages/settings/useQualityProfiles";
+import { useBookQualityProfiles } from "@/pages/books/_hooks/useBooks";
 import {
   useRequests,
   useApproveRequest,
@@ -30,7 +32,16 @@ function StatusBadge({ status }: { status: MediaRequestStatus }) {
   );
 }
 
-function PosterThumb({ url, alt }: { url: string | null; alt: string }) {
+function PosterThumb({
+  url,
+  alt,
+  isBook = false,
+}: {
+  url: string | null;
+  alt: string;
+  isBook?: boolean;
+}) {
+  const Fallback = isBook ? BookOpen : Film;
   const [imgError, setImgError] = useState(false);
   return (
     <div className="h-16 w-11 shrink-0 overflow-hidden rounded-md bg-neutral-950 ring-1 ring-primary-500/20">
@@ -44,7 +55,7 @@ function PosterThumb({ url, alt }: { url: string | null; alt: string }) {
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center">
-          <Film className="h-4 w-4 text-neutral-700" />
+          <Fallback className="h-4 w-4 text-neutral-700" />
         </div>
       )}
     </div>
@@ -59,27 +70,59 @@ function RequestRow({
   isAdmin: boolean;
 }) {
   const { t } = useTranslation("common");
-  const { data: profilesData } = useQualityProfilesList();
+  const isBook = request.type === "book";
+  // Book requests are approved with a book quality profile (a separate table).
+  const canApprove = isAdmin && request.status === "pending";
+  const { data: profilesData } = useQualityProfilesList({
+    enabled: canApprove && !isBook,
+  });
+  const { data: bookProfilesData } = useBookQualityProfiles({
+    enabled: canApprove && isBook,
+  });
   const approve = useApproveRequest();
   const deny = useDenyRequest();
   const [profileId, setProfileId] = useState<number | "">("");
 
-  const profiles = profilesData?.profiles ?? [];
-  const canApprove = isAdmin && request.status === "pending";
+  const profiles = isBook
+    ? (bookProfilesData?.profiles ?? [])
+    : (profilesData?.profiles ?? []);
 
   return (
     <div className="flex items-center gap-3 rounded-xl bg-neutral-900/60 px-3 py-2.5 ring-1 ring-neutral-800">
-      <PosterThumb url={request.poster_url} alt={request.title} />
+      <PosterThumb
+        url={request.poster_url}
+        alt={request.title}
+        isBook={isBook}
+      />
 
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium text-neutral-100">
-          {request.title}
+          {isBook && request.library_book_id != null ? (
+            <Link
+              to="/books/$bookId"
+              params={{ bookId: String(request.library_book_id) }}
+              aria-label={t("requests.viewBook")}
+              className="hover:text-primary-300 hover:underline"
+            >
+              {request.title}
+            </Link>
+          ) : (
+            request.title
+          )}
           {request.year ? (
             <span className="ml-1.5 text-sm font-normal text-neutral-500">
               {request.year}
             </span>
           ) : null}
         </p>
+        {isBook && (
+          <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-neutral-400">
+            <span className="rounded bg-neutral-800 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-neutral-300">
+              {t("requests.book")}
+            </span>
+            {request.author}
+          </p>
+        )}
         {isAdmin && request.requested_by.name ? (
           <p className="mt-0.5 truncate text-xs text-neutral-500">
             {t("requests.requestedBy", { name: request.requested_by.name })}

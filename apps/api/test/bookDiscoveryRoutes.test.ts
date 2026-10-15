@@ -5,14 +5,16 @@ import type { Env } from "@rawkoon/api/honoEnv";
 // requireUser is shared middleware tested elsewhere; here we exercise the
 // handler logic (defaults, unknown-source rejection, 503 mapping), so stub the
 // guard to a passthrough that injects a user.
+const passthrough = (
+  c: { set: (k: string, v: unknown) => void },
+  next: () => unknown,
+) => {
+  c.set("user", { id: "u1" });
+  return next();
+};
 mock.module("@rawkoon/api/middleware/hono/auth", () => ({
-  requireUser: (
-    c: { set: (k: string, v: unknown) => void },
-    next: () => unknown,
-  ) => {
-    c.set("user", { id: "u1" });
-    return next();
-  },
+  requireUser: passthrough,
+  requireAdmin: passthrough,
 }));
 
 const { BookProviderUnavailableError } = await import(
@@ -48,6 +50,7 @@ mock.module("@rawkoon/api/services/books/bookDiscovery", () => ({
           publishedYear: null,
           volumeId: null,
           alreadyInLibrary: false,
+          request: null,
         },
       ],
     };

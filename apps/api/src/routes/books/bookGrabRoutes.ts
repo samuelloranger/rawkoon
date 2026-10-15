@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 
 import type { Env } from "@rawkoon/api/honoEnv";
-import { requireUser } from "@rawkoon/api/middleware/hono/auth";
+import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, paramV } from "@rawkoon/api/middleware/validate";
 import { prisma } from "@rawkoon/api/db";
 import {
@@ -32,7 +32,7 @@ const editionParams = z.object({
 export const bookGrabRoutes = new Hono<Env>()
   .get(
     "/:id/editions/:kind/search",
-    requireUser,
+    requireAdmin,
     paramV(editionParams),
     async (c) => {
       const params = c.req.valid("param");
@@ -53,7 +53,7 @@ export const bookGrabRoutes = new Hono<Env>()
 
   .post(
     "/:id/editions/:kind/grab",
-    requireUser,
+    requireAdmin,
     paramV(editionParams),
     jsonV(
       z.object({
@@ -100,7 +100,7 @@ export const bookGrabRoutes = new Hono<Env>()
 
   .post(
     "/:id/editions/:kind/auto",
-    requireUser,
+    requireAdmin,
     paramV(editionParams),
     async (c) => {
       try {

@@ -31,6 +31,7 @@ vi.mock("@/pages/books/_hooks/useBookDiscovery", () => ({
           publishedYear: 2026,
           volumeId: "v1",
           alreadyInLibrary: true,
+          request: null,
         },
       ],
     },
