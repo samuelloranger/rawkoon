@@ -1,5 +1,5 @@
 import { betterAuth, type Auth } from "better-auth";
-import { genericOAuth, bearer } from "better-auth/plugins";
+import { bearer, deviceAuthorization, genericOAuth } from "better-auth/plugins";
 import { apiKey } from "@better-auth/api-key";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { passkey } from "@better-auth/passkey";
@@ -10,6 +10,8 @@ import { hashPassword, verifyPassword } from "@rawkoon/api/utils/password";
 import { resolveFirstSignup } from "@rawkoon/api/lib/firstSignup";
 
 const config = loadConfig();
+
+const TV_CLIENT_IDS = new Set(["rawkoon-tv"]);
 const authSecret = config.BETTER_AUTH_SECRET || config.SECRET_KEY;
 if (
   !authSecret ||
@@ -198,6 +200,14 @@ export const auth = betterAuth({
       },
     }),
     genericOAuth({ config: oidcProviderConfigs }),
+    // TV sign-in: the TV shows a code, a signed-in user approves it on /device.
+    deviceAuthorization({
+      expiresIn: "10m",
+      interval: "5s",
+      verificationUri: `${baseURL}/device`,
+      validateClient: (clientId) => TV_CLIENT_IDS.has(clientId),
+      schema: { deviceCode: { modelName: "BaDeviceCode" } },
+    }),
   ],
   trustedOrigins: [process.env.CORS_ORIGIN || "http://localhost:5173", baseURL],
   databaseHooks: {

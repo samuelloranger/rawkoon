@@ -35,6 +35,7 @@ mock.module("@rawkoon/api/services/jellyfinUsers", () => ({
     Authorization: `MediaBrowser Token="${token}"`,
   }),
   listJellyfinUsers: async () => [],
+  authorizeJellyfinQuickConnect: async () => "ok",
   getJellyfinConfig,
   resolveJellyfinTokenUser,
 }));

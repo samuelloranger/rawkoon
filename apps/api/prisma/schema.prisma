@@ -431,6 +431,26 @@ model BaAccount {
   @@map("ba_accounts")
 }
 
+/// better-auth device-authorization plugin: pending TV sign-in codes.
+model BaDeviceCode {
+  id              String    @id @default(uuid())
+  deviceCode      String    @map("device_code")
+  userCode        String    @map("user_code")
+  userId          String?   @map("user_id")
+  expiresAt       DateTime  @map("expires_at")
+  status          String
+  lastPolledAt    DateTime? @map("last_polled_at")
+  pollingInterval Int?      @map("polling_interval")
+  clientId        String?   @map("client_id")
+  scope           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([deviceCode], map: "ix_ba_device_codes_device_code")
+  @@index([userCode], map: "ix_ba_device_codes_user_code")
+  @@map("ba_device_codes")
+}
+
 model BaVerification {
   id         String   @id @default(uuid())
   identifier String

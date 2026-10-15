@@ -1,11 +1,12 @@
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { useLogin, useSSOProviders } from "@/lib/auth/useAuth";
 import { oidcProviderIconUrl } from "@/lib/auth/useOidcProviders";
 import { authClient } from "@/lib/auth/betterAuthClient";
+import { safeRedirect } from "@/pages/login/index";
 import {
   browserSupportsWebAuthn,
   usePasskeyAuthenticate,
@@ -19,6 +20,8 @@ interface FormData {
 export function LoginForm() {
   const { t } = useTranslation("common");
   const navigate = useNavigate();
+  const { redirect } = useSearch({ from: "/login/" });
+  const goNext = () => navigate({ href: safeRedirect(redirect) });
   const loginMutation = useLogin();
   const passkeyMutation = usePasskeyAuthenticate();
   const { data: ssoProviders } = useSSOProviders();
@@ -41,7 +44,7 @@ export function LoginForm() {
         password: data.password,
       });
 
-      navigate({ to: "/" });
+      goNext();
     } catch (err: unknown) {
       toast.error(
         (err instanceof Error ? err.message : null) ||
@@ -54,7 +57,7 @@ export function LoginForm() {
   const onPasskeyLogin = async () => {
     try {
       await passkeyMutation.mutateAsync();
-      navigate({ to: "/" });
+      goNext();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : null;
       if (message && !message.toLowerCase().includes("cancel")) {
