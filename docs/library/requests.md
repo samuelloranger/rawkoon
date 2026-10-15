@@ -10,10 +10,10 @@ Open a movie or show from **Explore**, or a book from the books search, and
 choose **Request**. The title shows its request state from then on, and
 **Requests** lists everything you have asked for.
 
-A title can only be requested once. If someone has already asked for it and the
-request is pending or approved, asking again is refused, and the title shows
-that it is already requested. A title already in the library cannot be
-requested.
+A title can only be requested once. While someone's request for it is pending,
+asking again is refused, and the title shows that it is already requested. A
+title already in the library cannot be requested. If a requested title is later
+removed from the library, asking for it again reopens its request.
 
 Members see only their own requests. Administrators see every request on the
 instance, with who asked for it.
