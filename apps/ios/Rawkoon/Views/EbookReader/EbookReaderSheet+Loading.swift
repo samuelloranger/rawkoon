@@ -41,7 +41,9 @@ extension EbookReaderSheet {
     static func readingOrderLocatorJSON(_ json: String, publication: Publication) -> String? {
         guard let href = BookHandoff.locatorHref(json) else { return json }
         let spine = publication.readingOrder.map(\.href)
-        if spine.contains(href) { return json }
+        if spine.contains(href) {
+            return json
+        }
         guard let matched = BookHandoff.matchReadingOrderHref(href, in: spine) else { return nil }
         return BookHandoff.locatorJSON(json, withHref: matched)
     }

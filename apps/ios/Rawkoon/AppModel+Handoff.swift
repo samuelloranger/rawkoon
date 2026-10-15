@@ -18,7 +18,9 @@ extension AppModel {
         do {
             spot = try await client.handoffToEbook(bookId: bookId, positionSecs: positionSecs)
         } catch {
-            if !Task.isCancelled { toastHandoffFailure(error) }
+            if !Task.isCancelled {
+                toastHandoffFailure(error)
+            }
             return nil
         }
         guard !Task.isCancelled else { return nil }
@@ -34,7 +36,9 @@ extension AppModel {
                 preferredFileId: stored?.fileId
             )
         } catch {
-            if !Task.isCancelled { toastEbookOpenFailure(error) }
+            if !Task.isCancelled {
+                toastEbookOpenFailure(error)
+            }
             return nil
         }
         guard !Task.isCancelled else { return nil }
@@ -63,7 +67,9 @@ extension AppModel {
                 bookId: bookId, spinePath: spinePath, progression: progression
             )
         } catch {
-            if !Task.isCancelled { toastHandoffFailure(error) }
+            if !Task.isCancelled {
+                toastHandoffFailure(error)
+            }
             return false
         }
         guard !Task.isCancelled else { return false }
