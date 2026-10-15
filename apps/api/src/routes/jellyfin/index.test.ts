@@ -2,20 +2,24 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 const config = { website_url: "http://jellyfin.test", api_key: "admin-key" };
 
-const getJellyfinConfig = mock(async (): Promise<typeof config | null> => config);
+const getJellyfinConfig = mock(
+  async (): Promise<typeof config | null> => config,
+);
 const resolveJellyfinTokenUser = mock(
   async (): Promise<{ id: string; name: string } | null> => ({
     id: "jf-1",
     name: "viewer",
   }),
 );
-const findUnique = mock(async (): Promise<Record<string, unknown> | null> => ({
-  id: "user-1",
-  name: "Viewer",
-  firstName: null,
-  email: "viewer@example.com",
-  isAdmin: false,
-}));
+const findUnique = mock(
+  async (): Promise<Record<string, unknown> | null> => ({
+    id: "user-1",
+    name: "Viewer",
+    firstName: null,
+    email: "viewer@example.com",
+    isAdmin: false,
+  }),
+);
 const createSession = mock(async () => ({ token: "session-token" }));
 
 mock.module("@rawkoon/api/db", () => ({
