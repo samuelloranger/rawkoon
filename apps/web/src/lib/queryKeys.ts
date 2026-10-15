@@ -161,6 +161,7 @@ export const queryKeys = {
   admin: {
     all: ["admin"] as const,
     users: () => [...queryKeys.admin.all, "users"] as const,
+    jellyfinUsers: () => [...queryKeys.admin.all, "jellyfin-users"] as const,
     invitations: () => [...queryKeys.admin.all, "invitations"] as const,
     export: () => [...queryKeys.admin.all, "export"] as const,
     sessions: () => [...queryKeys.admin.all, "sessions"] as const,

@@ -185,11 +185,21 @@ interface AdminUser {
   locale: string;
   created_at: string | null;
   last_login: string | null;
+  jellyfin_user_id: string | null;
 }
 
 export interface ListUsersResponse {
   success: boolean;
   users: AdminUser[];
+}
+
+export interface JellyfinUserOption {
+  id: string;
+  name: string;
+}
+
+export interface ListJellyfinUsersResponse {
+  users: JellyfinUserOption[];
 }
 
 export interface DeleteUserResponse {

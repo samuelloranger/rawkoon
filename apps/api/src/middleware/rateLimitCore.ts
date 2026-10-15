@@ -71,5 +71,6 @@ export function strictAuthRateLimitSkip(req: Request): boolean {
   const isSignIn = path.startsWith("/api/auth/sign-in");
   const isSignUp = path.startsWith("/api/auth/sign-up");
   const isAcceptInvitation = path === "/api/auth/accept-invitation";
-  return !(isSignIn || isSignUp || isAcceptInvitation);
+  const isJellyfinSession = path === "/api/jellyfin/session";
+  return !(isSignIn || isSignUp || isAcceptInvitation || isJellyfinSession);
 }

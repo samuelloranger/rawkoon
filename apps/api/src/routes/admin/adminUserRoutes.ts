@@ -7,9 +7,22 @@ import {
   generateOpaqueToken,
   hashOpaqueToken,
 } from "@rawkoon/api/utils/tokens";
-import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
+import {
+  badGateway,
+  badRequest,
+  conflict,
+  notFound,
+  ok,
+  serverError,
+  serviceUnavailable,
+} from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { jsonV } from "@rawkoon/api/middleware/validate";
+import {
+  getJellyfinConfig,
+  JELLYFIN_SESSION_AGENT_PREFIX,
+  listJellyfinUsers,
+} from "@rawkoon/api/services/jellyfinUsers";
 
 const validateEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -33,6 +46,7 @@ export const adminUserRoutes = new Hono<Env>()
         locale: u.locale || "en",
         created_at: formatIso(u.createdAt),
         last_login: formatIso(u.lastLogin),
+        jellyfin_user_id: u.jellyfinUserId,
       }));
 
       return ok({ success: true, users: usersData });
@@ -130,6 +144,55 @@ export const adminUserRoutes = new Hono<Env>()
         console.error("Error creating user:", error);
         return serverError("Failed to create user");
       }
+    },
+  )
+
+  .get("/jellyfin-users", async () => {
+    const config = await getJellyfinConfig();
+    if (!config) {
+      return serviceUnavailable("Jellyfin integration is not configured");
+    }
+    try {
+      return ok({ users: await listJellyfinUsers(config) });
+    } catch (error) {
+      console.error("Error listing Jellyfin users:", error);
+      return badGateway("Failed to reach Jellyfin");
+    }
+  })
+
+  .patch(
+    "/users/:id/jellyfin",
+    jsonV(z.object({ jellyfin_user_id: z.string().min(1).nullable() })),
+    async (c) => {
+      const userId = c.req.param("id");
+      const jellyfinUserId = c.req.valid("json").jellyfin_user_id;
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) return notFound("User not found");
+      if (user.jellyfinUserId === jellyfinUserId) {
+        return ok({ success: true, jellyfin_user_id: jellyfinUserId });
+      }
+      if (jellyfinUserId) {
+        const owner = await prisma.user.findUnique({
+          where: { jellyfinUserId },
+        });
+        if (owner) {
+          return conflict("That Jellyfin user is linked to another account");
+        }
+      }
+      // Sessions minted from the old link must not outlive it.
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: userId },
+          data: { jellyfinUserId },
+        }),
+        prisma.baSession.deleteMany({
+          where: {
+            userId,
+            userAgent: { startsWith: JELLYFIN_SESSION_AGENT_PREFIX },
+          },
+        }),
+      ]);
+      return ok({ success: true, jellyfin_user_id: jellyfinUserId });
     },
   )
 

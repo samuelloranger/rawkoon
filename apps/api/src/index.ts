@@ -13,6 +13,7 @@ import {
   ssoProvidersRoute,
   mobileAuthRoutes,
 } from "./auth";
+import { jellyfinSessionRoutes } from "./routes/jellyfin";
 import { downloadClientHookRoutes } from "./routes/integrations/downloadClient/hookRoutes";
 import { adminRoutes } from "./routes/admin";
 import { calendarRoutes } from "./routes/calendar";
@@ -87,6 +88,7 @@ app.use("*", strictAuthRateLimit);
 app.route("/", publicAuthRoutes);
 app.route("/", ssoProvidersRoute);
 app.route("/", mobileAuthRoutes);
+app.route("/", jellyfinSessionRoutes);
 app.route("/", protectedAuthRoutes);
 app.all("/api/auth/*", (c) => betterAuthInstance.handler(c.req.raw));
 app.route("/api/download-client", downloadClientHookRoutes);

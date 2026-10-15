@@ -4,7 +4,7 @@ import { prisma } from "@rawkoon/api/db";
 import { badRequest, conflict, notFound, ok } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
-import { jsonV } from "@rawkoon/api/middleware/validate";
+import { jsonV, queryV } from "@rawkoon/api/middleware/validate";
 import {
   approveRequest,
   createRequest,
@@ -91,6 +91,44 @@ export const requestRoutes = new Hono<Env>()
     });
     return ok({ requests: rows.map(mapRequest) });
   })
+  // GET /api/requests/status — library + request state for one title, for clients
+  // that show it on a title page without loading the whole request list.
+  .get(
+    "/status",
+    queryV(
+      z.object({
+        tmdb_id: z.coerce.number().int().positive(),
+        type: z.union([z.literal("movie"), z.literal("show")]),
+      }),
+    ),
+    async (c) => {
+      const { tmdb_id: tmdbId, type } = c.req.valid("query");
+      const [media, request] = await Promise.all([
+        prisma.libraryMedia.findUnique({ where: { tmdbId } }),
+        prisma.mediaRequest.findUnique({
+          where: { tmdbId_type: { tmdbId, type } },
+        }),
+      ]);
+      return ok({
+        library:
+          media && media.type === type
+            ? {
+                id: media.id,
+                status: media.status,
+                episode_count: media.episodeCount,
+                downloaded_episode_count: media.downloadedEpisodeCount,
+              }
+            : null,
+        request: request
+          ? {
+              id: request.id,
+              status: request.status,
+              deny_reason: request.denyReason,
+            }
+          : null,
+      });
+    },
+  )
   // POST /api/requests — any logged-in user creates a request
   .post("/", jsonV(createBody), async (c) => {
     const body = c.req.valid("json");

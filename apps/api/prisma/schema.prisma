@@ -26,6 +26,8 @@ model User {
   notificationPreferences Json?     @map("notification_preferences")
   /// Secret for the iCal subscription feed; created on first view, replaced by regenerate.
   calendarToken           String?   @unique(map: "ix_users_calendar_token") @map("calendar_token")
+  /// Jellyfin user this account is linked to; lets a Jellyfin client exchange its token for a session.
+  jellyfinUserId          String?   @unique(map: "ix_users_jellyfin_user_id") @map("jellyfin_user_id")
 
   notifications        Notification[]
   userSubscriptions    UserSubscription[]

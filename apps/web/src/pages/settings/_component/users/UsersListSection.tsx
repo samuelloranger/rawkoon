@@ -7,10 +7,24 @@ import { useAdminUsers } from "@/pages/settings/useAdminUsers";
 import { useDeleteUser } from "@/pages/settings/useDeleteUser";
 import { useUpdateUserRole } from "@/pages/settings/useUpdateUserRole";
 import { useResetUserPassword } from "@/pages/settings/useResetUserPassword";
+import {
+  useJellyfinUsers,
+  useLinkJellyfinUser,
+} from "@/pages/settings/useJellyfinUserLink";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useCurrentUser } from "@/lib/auth/useAuth";
 import { formatDateTime } from "@rawkoon/shared/utils";
 import { LoadingState } from "@/components/LoadingState";
 import { useConfirm } from "@/components/confirm/ConfirmContext";
+
+// Radix Select reserves "" for "no value", so unlinked needs its own sentinel.
+const JELLYFIN_UNLINKED = "__unlinked__";
 
 const formatDisplayName = (user: {
   first_name: string | null;
@@ -29,6 +43,9 @@ export function UsersListSection() {
   const updateRoleMutation = useUpdateUserRole();
   const resetPasswordMutation = useResetUserPassword();
   const deleteMutation = useDeleteUser();
+  const linkJellyfinMutation = useLinkJellyfinUser();
+  const { data: jellyfinData } = useJellyfinUsers();
+  const jellyfinUsers = jellyfinData?.users;
   const { data: currentUser } = useCurrentUser();
   const {
     data: usersData,
@@ -85,6 +102,21 @@ export function UsersListSection() {
     });
   };
 
+  const handleLinkJellyfin = async (userId: string, value: string) => {
+    try {
+      await linkJellyfinMutation.mutateAsync({
+        userId,
+        jellyfinUserId: value === JELLYFIN_UNLINKED ? null : value,
+      });
+      toast.success(t("settings.users.jellyfinLinkUpdated"));
+    } catch (error: unknown) {
+      toast.error(
+        (error instanceof HttpError ? error.apiError() : undefined) ||
+          t("settings.users.jellyfinLinkError"),
+      );
+    }
+  };
+
   const handleResetPassword = async (userId: string, email: string) => {
     const password = prompt(t("settings.users.passwordResetPrompt", { email }));
     if (password === null) return;
@@ -128,6 +160,11 @@ export function UsersListSection() {
                 <th className="text-left py-3 px-4 text-sm font-medium text-neutral-300">
                   {t("settings.users.role")}
                 </th>
+                {jellyfinUsers && (
+                  <th className="text-left py-3 px-4 text-sm font-medium text-neutral-300">
+                    {t("settings.users.jellyfin")}
+                  </th>
+                )}
                 <th className="text-left py-3 px-4 text-sm font-medium text-neutral-300">
                   {t("settings.users.createdAt")}
                 </th>
@@ -193,6 +230,36 @@ export function UsersListSection() {
                         </button>
                       )}
                     </td>
+                    {jellyfinUsers && (
+                      <td className="py-3 px-4 text-sm">
+                        <Select
+                          value={user.jellyfin_user_id ?? JELLYFIN_UNLINKED}
+                          onValueChange={(value) =>
+                            handleLinkJellyfin(user.id, value)
+                          }
+                          disabled={linkJellyfinMutation.isPending}
+                        >
+                          <SelectTrigger
+                            aria-label={t("settings.users.jellyfin")}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={JELLYFIN_UNLINKED}>
+                              {t("settings.users.jellyfinNotLinked")}
+                            </SelectItem>
+                            {jellyfinUsers.map((jellyfinUser) => (
+                              <SelectItem
+                                key={jellyfinUser.id}
+                                value={jellyfinUser.id}
+                              >
+                                {jellyfinUser.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                    )}
                     <td className="py-3 px-4 text-sm text-neutral-400">
                       {user.created_at
                         ? formatDateTime(user.created_at, i18n.language)
