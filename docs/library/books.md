@@ -257,10 +257,11 @@ from one to the other at the same sentence.
 
 To find the spot, the server cuts a 10-second clip around the listening
 position, transcribes it, and searches the book's text for it with a fuzzy
-match, so a few misheard words don't matter. Going from the ebook to the
-audiobook works the other way round, narrowing in on the passage over up to
-three short transcriptions. If the clip lands on silence or a chapter title, it
-retries once a little further on.
+match, so a few misheard words don't matter. That is a single attempt: if the
+clip finds no match, the position is left where it was. Going from the ebook to
+the audiobook works the other way round, narrowing in on the passage over up to
+three short transcriptions; when a clip finds no match, it moves 15 seconds on
+and tries again within those three.
 
 The automatic sync leaves a position alone when moving it would not help:
 

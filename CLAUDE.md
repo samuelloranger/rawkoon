@@ -20,7 +20,7 @@ Bun workspace, `workspaces: ["apps/*"]`. Root `package.json` is the orchestrator
 
 ```bash
 bun install                  # root only — workspaces handle the rest
-bun run dev:services         # docker compose up db redis -d  (Postgres 17 :5433, Redis :6380)
+bun run dev:services         # docker compose up db valkey -d  (Postgres 17 :5433, Valkey :6381)
 bun run dev:api              # bun --watch, loads root .env, :3000
 bun run dev:web              # Vite dev server :5173
 

@@ -44,7 +44,7 @@ SHA-256 A2:71:9E:DC:5C:9D:1A:75:51:B0:A4:1D:02:7D:40:55:1E:14:DA:F1:2F:35:9F:F5:
 1. Enter your Rawkoon address.
 2. The TV shows a code and a QR code. On your phone, scan it or open
    `/device` on your Rawkoon instance, sign in if asked, check that the code
-   matches, and choose **Approve**.
+   matches, and choose **Sign in**.
 3. The TV finishes on its own: it reads your account, connects to the Jellyfin
    server Rawkoon names, and signs in to it through Quick Connect.
 
