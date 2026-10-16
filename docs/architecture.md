@@ -6,13 +6,16 @@ web interface ship in the same container.
 
 ## System map
 
-    Browser / iPhone
+    Browser / iPhone / TV
       │
       ├── Rawkoon web application
       │     └── same-origin /api requests and server-sent events
       │
       ├── Rawkoon iOS app (`apps/ios`)
       │     └── REST + APNs device token; audiobook chapters download offline
+      │
+      ├── RawkoonTV (separate repo, a Wholphin fork)
+      │     └── device-code sign-in, `/api/tv/bootstrap`, then plays from Jellyfin
       │
       └── Rawkoon API
             ├── PostgreSQL: users, library, settings, history, integrations
@@ -22,6 +25,7 @@ web interface ship in the same container.
             ├── Prowlarr or Jackett: release search
             ├── qBittorrent, Transmission, or Deluge: active download client
             ├── Jellyfin, OIDC, and Web Push: optional services
+            ├── AI provider (optional): release picks and audiobook transcription
             └── Push relay (`apps/relay`): APNs signing for the iOS app
 
 ## Workspaces and boundaries
@@ -130,7 +134,8 @@ Scheduled work refreshes upcoming releases, syncs show episodes, checks
 download completion, polls indexer RSS feeds, runs weekly library integrity
 checks, and refreshes attention alerts. When the book library is enabled, two
 more jobs run: a book release sweep that also searches for format upgrades, and
-a daily check for new titles from monitored authors. Library migration and file-heavy jobs
+a daily check for new titles from monitored authors. A paused audiobook or a
+closed reader queues a debounced job that syncs the other format's position. Library migration and file-heavy jobs
 run one at a time to avoid competing writes.
 
 ## Realtime and health

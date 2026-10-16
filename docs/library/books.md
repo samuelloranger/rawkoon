@@ -98,6 +98,10 @@ interface yet; the `/api/book-quality-profiles` endpoints accept changes.
 
 ## Searching and grabbing
 
+Only administrators add, edit, search, grab, and delete books. Members find a
+book in the books search or discovery and choose **Request** instead; see
+[Requests](/library/requests).
+
 Open a book, then use **Search indexers** on the edition you want.
 
 Every book search is free text. Torznab exposes no ISBN or book-id parameter,
@@ -239,6 +243,44 @@ The in-app reader unpacks **EPUB only**. Other formats in the library — the
 `.mobi` files that ship beside some editions, pdf, azw3 — can be downloaded but
 show *EPUB only* where the Read button would be.
 
+## Switching between listening and reading
+
+When a book has both an audiobook and an EPUB, Rawkoon can carry your place
+from one to the other at the same sentence.
+
+- **On demand (iOS).** The player and the reader offer to continue in the other
+  format. Opening a book whose other format is further along shows a banner
+  offering to jump there.
+- **Automatically.** About 30 seconds after you pause an audiobook, close it, or
+  leave the reader, the server moves the other format's position to match.
+  Positions it writes come from the device `rawkoon-sync`.
+
+To find the spot, the server cuts a 10-second clip around the listening
+position, transcribes it, and searches the book's text for it with a fuzzy
+match, so a few misheard words don't matter. Going from the ebook to the
+audiobook works the other way round, narrowing in on the passage over up to
+three short transcriptions. If the clip lands on silence or a chapter title, it
+retries once a little further on.
+
+The automatic sync leaves a position alone when moving it would not help:
+
+- the book is finished, or you listened for less than 30 seconds;
+- the other format was used more recently;
+- you moved less than a minute of audio, or less than 1% of a chapter of text;
+- you are still at the very start of the book;
+- it would take the audiobook back more than 10 minutes without you
+  confirming it.
+
+Each user gets at most 60 automatic syncs and 60 on-demand handoffs an hour.
+
+**Requirements:** an [AI provider](/library/ai-release-picks) that serves
+OpenAI-compatible speech-to-text (`/v1/audio/transcriptions`), with
+**Audiobook and ebook sync** left on in its features. The transcription model
+defaults to `whisper-large-v3-turbo`. A local llama.cpp or Ollama server
+usually has no speech-to-text endpoint, so the sync needs a hosted provider
+such as Groq, or a local Whisper server. Without one, positions stay
+independent, as before.
+
 ## Metadata sources
 
 Google Books alone leaves most of a book blank. Measured against a real
@@ -327,7 +369,7 @@ monitored author has new titles.
   ISBN's registration group and corrects an obvious contradiction.
 - **Multi-book and author-collection packs are rejected.** A release containing
   a whole series is never grabbed for a single edition.
-- **Requests and the discover deck do not cover books yet.** Books are added
-  from the books page, not requested.
+- **The discover deck does not cover books.** Find books through the books
+  search instead.
 - **Bookmarks and notes are not tracked anywhere.** Only a single current
   position per edition is stored.

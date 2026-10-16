@@ -4,8 +4,8 @@ Rawkoon is self-hosted software. You, or whoever runs your Rawkoon server,
 control that server and the data on it. The Rawkoon project doesn't run your
 server and can't see what's on it.
 
-This policy covers the Rawkoon iPhone and Mac apps and the push relay that the
-project operates.
+This policy covers the Rawkoon iPhone and Mac apps, the RawkoonTV app for
+Android TV and Fire TV, and the push relay that the project operates.
 
 ## What the apps collect
 
@@ -58,6 +58,24 @@ their own relay instead by setting `PUSH_RELAY_URL`.
   chosen to share them with developers.
 
 Those services receive your device's IP address, as any web request does.
+
+## RawkoonTV
+
+RawkoonTV has no analytics, advertising, or tracking either. It talks to:
+
+- your Rawkoon server, to sign in and to browse, request, and follow requests;
+- the Jellyfin server your Rawkoon server names, for your library and playback;
+- TMDB's image server, for posters and backdrops of titles you browse;
+- GitHub, to check for and download app updates.
+
+After a crash, the app asks whether to send a crash report to your Jellyfin
+server. Nothing is sent unless you agree, and the report goes only to that
+server.
+
+The Rawkoon address, the sign-in tokens for Rawkoon and Jellyfin, and the
+app's settings stay on the TV. **Sign out** in the app's Rawkoon settings
+removes the Rawkoon account from the TV, and uninstalling the app removes
+everything.
 
 ## Children
 

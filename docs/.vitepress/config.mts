@@ -30,6 +30,8 @@ export default defineConfig({
         text: "Use Rawkoon",
         items: [
           { text: "Getting started", link: "/getting-started" },
+          { text: "Requests", link: "/library/requests" },
+          { text: "TV app", link: "/tv-app" },
           { text: "Quality profiles", link: "/library/quality-profiles" },
           { text: "AI release picks", link: "/library/ai-release-picks" },
           { text: "Media metadata", link: "/library/metadata" },

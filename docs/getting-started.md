@@ -44,12 +44,25 @@ instance's address and sign in with your Rawkoon account.
 
 The app is a client for your instance — it does not run a server of its own.
 
+For a book you have as both an audiobook and an ebook, the app can carry your
+place from one to the other at the same sentence; see
+[Switching between listening and reading](/library/books#switching-between-listening-and-reading).
+
+## Watch on your TV
+
+RawkoonTV is the Android TV and Fire TV app. Sign in once with a code you
+approve from your phone; it sets up Jellyfin playback for you and lets you
+browse, request, and follow your requests from the couch. See
+[TV app](/tv-app).
+
 ## Learn the library
 
 - [Quality profiles](/library/quality-profiles) decide which releases are
   eligible and which is preferred.
 - [Media metadata](/library/metadata) explains how titles, images, and details
   are sourced and refreshed.
+- [Requests](/library/requests) explains how members ask for titles and
+  what each request state means.
 - [Downloads and files](/library/downloads-and-files) traces a release from
   grab to a completed file in your library.
 - [Books and audiobooks](/library/books) covers the separate book library, its

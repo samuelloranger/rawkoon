@@ -12,7 +12,7 @@ service.
 | Google Books | Book and audiobook metadata. Required for the book library; see [Books and audiobooks](/library/books). |
 | qBittorrent, Transmission, Deluge, or rdt-client | The active download client. Rawkoon polls it for progress and completion. |
 | Prowlarr or Jackett | Indexer search. Choose one active indexer manager for the library grab pipeline. |
-| Jellyfin or Plex | Latest additions, watch activity, and supported notifications. |
+| Jellyfin or Plex | Latest additions, watch activity, and supported notifications. Jellyfin also signs in the [TV app](/tv-app); see [Jellyfin](#jellyfin). |
 | AI provider (optional) | Any OpenAI-compatible model, local or hosted, that chooses between releases a profile accepts. Configured in **Settings → AI**; see [AI release picks](/library/ai-release-picks). |
 
 The Google Books key is set in **Settings → Books** rather than on this page,
@@ -61,9 +61,36 @@ finished, not when the debrid service reaches 100%, because the local copy can
 still be in progress at that point. The qBittorrent completion hook is not
 available, since rdt-client can't run an external program.
 
+### Jellyfin
+
+Set the **Jellyfin Website URL** and a **Jellyfin API Key** (Jellyfin
+Dashboard → API Keys). Rawkoon authenticates with the
+`Authorization: MediaBrowser Token="…"` header, which every supported Jellyfin
+version accepts; newer servers reject the older `X-Emby-Token` header.
+
+The Website URL is also the address Rawkoon gives the [TV app](/tv-app), so it
+must be reachable from your TVs, not only from the Rawkoon container.
+
+**Linking users.** In **Settings → Users**, the Jellyfin column links each
+Rawkoon account to one Jellyfin user. A link is what lets a Jellyfin client act
+as that Rawkoon user:
+
+- the TV app signs in to Rawkoon, then asks Rawkoon to approve a Jellyfin
+  **Quick Connect** code for the linked Jellyfin user, so nobody types a
+  Jellyfin password on the TV. Quick Connect must be on in Jellyfin
+  (Dashboard → General → Quick Connect);
+- a Jellyfin client can trade its Jellyfin token for a Rawkoon session through
+  `POST /api/jellyfin/session`, which only succeeds for a linked user.
+
+A Jellyfin user can be linked to only one Rawkoon account. Unlinked accounts
+keep working everywhere except on the TV.
+
 ## Identity and notifications
 
 - **OIDC** providers can be configured in Settings for external sign-in.
+- **Device sign-in.** A TV signs in with a short code that you approve at
+  `/device` on your instance (OAuth device authorization, RFC 8628). Codes
+  expire after 10 minutes. Only the TV app's client id is accepted.
 - **Web Push** uses VAPID keys from environment variables or the
   <code>vapid_keys/</code> directory.
 

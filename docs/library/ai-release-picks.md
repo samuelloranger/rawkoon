@@ -4,6 +4,10 @@ Rawkoon can ask a language model to choose between the releases a quality
 profile already accepts. It is optional: with no AI provider, or whenever the
 model can't help, the classic scorer picks exactly as it always has.
 
+The same provider also transcribes short audiobook clips to keep an audiobook
+and its ebook at the same place; see
+[Switching between listening and reading](/library/books#switching-between-listening-and-reading).
+
 Configure it in **Settings → AI**.
 
 ## Where the model is asked
@@ -14,6 +18,7 @@ Configure it in **Settings → AI**.
 | Scheduled & upgrade searches | Scheduled release checks, upgrade searches, and **Search** on a Library item. |
 | Interactive search suggestion | Interactive search shows a suggested release with its reasoning. You still choose what to grab. |
 | Book grabs | Wanted-edition searches, **Search** on a book, format upgrades, and book RSS matches. |
+| Audiobook and ebook sync | Moving a position between an audiobook and its ebook, on demand or after a pause. Uses the transcription model, not the chat model. |
 
 For automatic grabs, the model is only asked when more than one release passes
 the profile's hard rules and the blocklist. Interactive search asks about the non-rejected
@@ -51,6 +56,10 @@ history.
 - for each candidate release: its title, size, seeders, profile score and, for
   books, parsed format, language and bitrate.
 
+For audiobook and ebook sync, a 10-second audio clip from the audiobook is sent
+to the provider's transcription endpoint, with the book's language when it is
+known. No title or other book details are sent with it.
+
 Download links are never sent. They often carry tracker API keys, so each
 candidate is given an opaque id (`r0`, `r1`, …) that Rawkoon maps back itself.
 If you use a hosted provider, release titles and the titles in your library are
@@ -69,6 +78,7 @@ removed from any provider error Rawkoon records.
 | Input / output price | USD per million tokens. Only used to estimate cost on the AI page. |
 | Daily budget | When today's estimated spend reaches it, automatic grabs use the classic scorer until midnight UTC. Needs at least one price. |
 | Features | Turns the model off for one place without disabling the provider. |
+| Transcription model | The speech-to-text model for audiobook and ebook sync, called through `/v1/audio/transcriptions`. Blank means `whisper-large-v3-turbo`. |
 
 ## Usage and history
 
@@ -85,3 +95,7 @@ The AI page records every request to the provider, including failed ones:
 
 Calls skipped because the budget was spent are counted separately and do not
 count against the success rate.
+
+Transcription is billed per second of audio and reports no tokens, so the
+daily budget cannot measure it. A per-user limit of 60 sync requests an hour
+caps it instead.
