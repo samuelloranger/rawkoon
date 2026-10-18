@@ -62,11 +62,14 @@ once.
 ### When searches give up
 
 Each scheduled release search that finds nothing usable counts one failed
-attempt against the movie or episode; RSS misses do not count. After 24 failed
-attempts the title is set to **Skipped**, it stops being searched, and
-administrators are notified. At the default 6-hour cadence that is about six days of
-searching. From the twelfth attempt, the title also appears in the Library
-attention list.
+attempt against the movie or episode; RSS misses do not count. The first 12
+failed attempts are retried on every scheduled search. After that, the title is
+searched again only once about a day has passed since its last failed attempt,
+so releases that show up late (dubbed or regional versions) are still caught.
+After 40 failed attempts the title is set to **Skipped**, it stops being
+searched, and administrators are notified. At the default 6-hour cadence that is
+about a month of searching. From the twelfth attempt, the title also appears in
+the Library attention list.
 
 Two outcomes do not count as a failed attempt: a release held back by the
 profile's grab delay, and a grab refused because the library disk is low on
