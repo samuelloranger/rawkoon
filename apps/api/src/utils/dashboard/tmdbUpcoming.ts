@@ -433,19 +433,18 @@ export function mergeTmdbTvWithSonarrCalendar(
   return Array.from(byId.values());
 }
 
-type TmdbCountryReleases = {
-  iso_3166_1: string;
-  release_dates: Array<{ type: number; release_date: string }>;
-};
-
-const releaseDayOfType = (
-  entry: TmdbCountryReleases | undefined,
-  type: number,
-): string | null => {
-  const found = entry?.release_dates.find(
-    (d) => d.type === type && d.release_date,
-  );
-  return found ? found.release_date.substring(0, 10) : null;
+/** Day of the first release of `type` in one country entry; malformed entries yield null. */
+const releaseDayOfType = (entry: unknown, type: number): string | null => {
+  const dates = toRecord(entry)?.release_dates;
+  if (!Array.isArray(dates)) return null;
+  for (const raw of dates) {
+    const rd = toRecord(raw);
+    const day = rd?.release_date;
+    if (rd?.type === type && typeof day === "string" && day) {
+      return day.substring(0, 10);
+    }
+  }
+  return null;
 };
 
 /**
@@ -453,10 +452,12 @@ const releaseDayOfType = (
  * release anywhere, the same fallback the library uses for its own date.
  */
 export const pickUpcomingMovieDay = (
-  results: TmdbCountryReleases[],
+  results: unknown[],
   region: string,
 ): string | null => {
-  const regionEntry = results.find((r) => r.iso_3166_1 === region);
+  const regionEntry = results.find(
+    (r) => toStringOrNull(toRecord(r)?.iso_3166_1) === region,
+  );
   return (
     releaseDayOfType(regionEntry, 4) ??
     releaseDayOfType(regionEntry, 5) ??
@@ -482,11 +483,9 @@ export const fetchMovieReleaseDates = async (
     });
     if (!response.ok) return null;
 
-    const data = (await response.json()) as {
-      results?: TmdbCountryReleases[];
-    };
+    const data = toRecord(await response.json());
     return pickUpcomingMovieDay(
-      Array.isArray(data.results) ? data.results : [],
+      Array.isArray(data?.results) ? data.results : [],
       region,
     );
   } catch {
