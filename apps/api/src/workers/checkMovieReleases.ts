@@ -3,8 +3,11 @@ import { searchAndGrabWithTitleFallback } from "@rawkoon/api/services/mediaGrabb
 import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
 import { refreshLibraryMovieDigitalDate } from "@rawkoon/api/services/libraryTmdbRefresh";
 import { isNoMissRefusal } from "@rawkoon/api/services/grabRefusal";
-import { MAX_CRON_GRAB_ATTEMPTS } from "@rawkoon/api/constants/libraryGrab";
-import { recordMovieMiss } from "@rawkoon/api/services/grabAttempts";
+import { MAX_LIBRARY_GRAB_ATTEMPTS } from "@rawkoon/api/constants/libraryGrab";
+import {
+  isGrabSearchDue,
+  recordMovieMiss,
+} from "@rawkoon/api/services/grabAttempts";
 import {
   publishSearchResult,
   searchResultFrom,
@@ -39,7 +42,7 @@ export async function checkMovieReleases(): Promise<void> {
       status: "wanted",
       monitored: true,
       files: { none: {} },
-      searchAttempts: { lt: MAX_CRON_GRAB_ATTEMPTS },
+      searchAttempts: { lt: MAX_LIBRARY_GRAB_ATTEMPTS },
     },
     select: {
       id: true,
@@ -49,6 +52,7 @@ export async function checkMovieReleases(): Promise<void> {
       year: true,
       qualityProfileId: true,
       searchAttempts: true,
+      lastMissAt: true,
       digitalReleaseDate: true,
       digitalReleaseCheckedAt: true,
     },
@@ -57,6 +61,8 @@ export async function checkMovieReleases(): Promise<void> {
   for (const m of movies) {
     try {
       let digital = m.digitalReleaseDate;
+      // A released title backing off between searches needs no TMDB call either.
+      if (digital && digital <= todayCutoff && !isGrabSearchDue(m)) continue;
       // Re-validate from TMDB when the date is missing, already due, or not
       // checked lately. TMDB community data is mutable: a date cached as
       // "released" can be corrected to a future date (re-fetching avoids
@@ -80,6 +86,7 @@ export async function checkMovieReleases(): Promise<void> {
 
       // Not yet released digitally — nothing to search.
       if (digital > todayCutoff) continue;
+      if (!isGrabSearchDue(m)) continue;
 
       const { queries } = resolveSearchTitles({
         title: m.title,

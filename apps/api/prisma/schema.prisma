@@ -506,6 +506,8 @@ model LibraryMedia {
   digitalReleaseCheckedAt DateTime? @map("digital_release_checked_at")
   qualityProfileId      Int?      @map("quality_profile_id")
   searchAttempts        Int       @default(0) @map("search_attempts")
+  /// Last automatic grab miss; past the fast tries the release sweep waits a day after it.
+  lastMissAt            DateTime? @map("last_miss_at")
   /// Last automatic or manual search; a miss stays visible after its toast is gone.
   lastSearchAt          DateTime? @map("last_search_at")
   lastSearchOutcome     String?   @map("last_search_outcome")
@@ -590,6 +592,8 @@ model LibraryEpisode {
   tmdbEpisodeId  Int?      @map("tmdb_episode_id")
   downloadedAt   DateTime? @map("downloaded_at")
   searchAttempts Int       @default(0) @map("search_attempts")
+  /// Last automatic grab miss; past the fast tries the release sweep waits a day after it.
+  lastMissAt     DateTime? @map("last_miss_at")
 
   media             LibraryMedia      @relation(fields: [mediaId], references: [id], onDelete: Cascade)
   files             MediaFile[]       @relation("MediaFileEpisode")

@@ -64,7 +64,7 @@ mock.module("@rawkoon/api/db", () => ({
           originalTitle: null,
           year: 2020,
           qualityProfileId: null,
-          searchAttempts: 23,
+          searchAttempts: 39,
           digitalReleaseDate: new Date("2020-01-01"),
         },
       ],
@@ -80,7 +80,7 @@ mock.module("@rawkoon/api/db", () => ({
           mediaId: 2,
           season: 1,
           episode: 1,
-          searchAttempts: 23,
+          searchAttempts: 39,
           media: {
             id: 2,
             title: "Some Show",
@@ -137,7 +137,9 @@ describe("cron release checks on a space refusal", () => {
   it("movie: still counts and skips on any other failure", async () => {
     grabResult = { grabbed: false, reason: "No matching releases found" };
     await checkMovieReleases();
-    expect(mediaUpdates).toEqual([{ searchAttempts: 24, status: "skipped" }]);
+    expect(mediaUpdates).toEqual([
+      { searchAttempts: 40, lastMissAt: expect.any(Date), status: "skipped" },
+    ]);
     expect(notifications).toHaveLength(1);
   });
 
@@ -158,7 +160,7 @@ describe("cron release checks on a space refusal", () => {
       grabResult = { grabbed: false, reason: "No matching releases found" };
       await checkEpisodeReleases();
       expect(episodeUpdates).toEqual([
-        { searchAttempts: 24, status: "skipped" },
+        { searchAttempts: 40, lastMissAt: expect.any(Date), status: "skipped" },
       ]);
       expect(notifications).toHaveLength(1);
     });

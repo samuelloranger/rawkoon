@@ -1,7 +1,17 @@
-/** Failed cron grab attempts before an item is auto-skipped and admins are notified.
+/** Failed cron grab attempts before a book is auto-skipped and admins are notified.
  *  At the 6-hourly release sweep this is 4 attempts/day — 24 ≈ 6 days. Manual
  *  searches do not count against this cap and reset the counter on invocation. */
 export const MAX_CRON_GRAB_ATTEMPTS = 24;
+
+/** Movie and episode misses searched on every release sweep (≈ 3 days at the 6-hourly default). */
+export const LIBRARY_FAST_GRAB_ATTEMPTS = 12;
+
+/** Past the fast misses, a movie or episode is searched again once this long after its last miss. */
+export const LIBRARY_SLOW_GRAB_INTERVAL_MS = 20 * 60 * 60 * 1000;
+
+/** Movie and episode misses before auto-skip: 12 fast, then one a day ≈ 30 days at the default sweep.
+ *  Late-arriving releases (dubs, regional WEB-DLs) often land well after the first week. */
+export const MAX_LIBRARY_GRAB_ATTEMPTS = 40;
 
 /** Cron grab attempts at or above this threshold surface on the library attention list. */
 export const LIBRARY_ATTENTION_WARN_ATTEMPTS = 12;

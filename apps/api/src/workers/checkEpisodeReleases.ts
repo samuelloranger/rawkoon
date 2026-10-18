@@ -3,8 +3,9 @@ import { searchAndGrabWithTitleFallback } from "@rawkoon/api/services/mediaGrabb
 import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
 import { activeShowGrabCovers } from "@rawkoon/api/services/activeShowGrab";
 import { isNoMissRefusal } from "@rawkoon/api/services/grabRefusal";
-import { MAX_CRON_GRAB_ATTEMPTS } from "@rawkoon/api/constants/libraryGrab";
+import { MAX_LIBRARY_GRAB_ATTEMPTS } from "@rawkoon/api/constants/libraryGrab";
 import {
+  isGrabSearchDue,
   recordEpisodeMiss,
   recordSeasonPackMiss,
 } from "@rawkoon/api/services/grabAttempts";
@@ -41,7 +42,7 @@ export async function checkEpisodeReleases(): Promise<void> {
       airDate: { lte: cutoff },
       files: { none: {} },
       media: { type: "show", monitored: true },
-      searchAttempts: { lt: MAX_CRON_GRAB_ATTEMPTS },
+      searchAttempts: { lt: MAX_LIBRARY_GRAB_ATTEMPTS },
     },
     include: {
       media: {
@@ -103,6 +104,7 @@ export async function checkEpisodeReleases(): Promise<void> {
 
   for (const [key, groupEps] of seasonGroups) {
     if (!groupEps.every((ep) => packEligibleIds.has(ep.id))) continue;
+    if (!groupEps.some((ep) => isGrabSearchDue(ep))) continue;
 
     const [mediaIdStr, seasonStr] = key.split(":");
     const mediaId = Number(mediaIdStr);
@@ -144,7 +146,7 @@ export async function checkEpisodeReleases(): Promise<void> {
   }
 
   const individualEpisodes = episodes.filter(
-    (ep) => !packEligibleIds.has(ep.id),
+    (ep) => !packEligibleIds.has(ep.id) && isGrabSearchDue(ep),
   );
 
   for (const ep of individualEpisodes) {

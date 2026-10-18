@@ -276,14 +276,14 @@ describe("processPendingReleases", () => {
   it("skips and notifies when failed replays reach the attempt cap", async () => {
     rows = [row(1, "a", 1, -5)];
     // The mocked findUnique serves both the wanted check and the miss lookup.
-    episode = { ...wantedEpisode, id: 7, mediaId: 1, searchAttempts: 23 };
+    episode = { ...wantedEpisode, id: 7, mediaId: 1, searchAttempts: 39 };
     grabRelease.mockImplementation(async () => ({
       grabbed: false,
       reason: "client down",
     }));
     await processPendingReleases(NOW);
     expect(episodeUpdate.mock.calls[0]![0]).toMatchObject({
-      data: { searchAttempts: 24, status: "skipped" },
+      data: { searchAttempts: 40, status: "skipped" },
     });
     expect(notifySkipped).toHaveBeenCalledTimes(1);
   });
