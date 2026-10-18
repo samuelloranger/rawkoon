@@ -5,14 +5,16 @@ import {
   remapPath,
 } from "@rawkoon/api/utils/medias/mediainfoScanner";
 import { parseFilenameMetadata } from "@rawkoon/api/utils/medias/filenameParser";
-import { sortTitleFromName } from "@rawkoon/api/utils/medias/libraryHelpers";
+import {
+  pickDigitalRelease,
+  sortTitleFromName,
+} from "@rawkoon/api/utils/medias/libraryHelpers";
 import {
   buildAudioTracksFromArr,
   buildSubtitleTracksFromArr,
   fileQualityScore,
   normalizeHdrFormat,
   normalizeVideoCodec,
-  pickDigitalRelease,
   tmdbFetch,
 } from "@rawkoon/api/services/jobs/libraryMigrateArrHelpers";
 import type {

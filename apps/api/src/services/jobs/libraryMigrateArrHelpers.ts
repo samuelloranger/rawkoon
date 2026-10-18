@@ -158,18 +158,3 @@ export async function tmdbFetch<T>(
   if (!res.ok) throw new Error(`TMDB ${path} → ${res.status}`);
   return res.json() as Promise<T>;
 }
-
-export function pickDigitalRelease(
-  results: Array<{
-    iso_3166_1: string;
-    release_dates: Array<{ type: number; release_date: string }>;
-  }>,
-  region: string,
-): Date | null {
-  for (const country of [region, ...results.map((r) => r.iso_3166_1)]) {
-    const entry = results.find((r) => r.iso_3166_1 === country);
-    const digital = entry?.release_dates.find((d) => d.type === 4);
-    if (digital) return new Date(digital.release_date);
-  }
-  return null;
-}

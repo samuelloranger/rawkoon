@@ -148,23 +148,51 @@ export function resolveDownloadedStatus(
   return "downloaded";
 }
 
-export function pickDigitalRelease(
-  results: Array<{
-    iso_3166_1: string;
-    release_dates: Array<{ type: number; release_date: string }>;
-  }>,
+/** Past this age a title with no home release listed on TMDB is treated as out. */
+const HOME_RELEASE_FALLBACK_AGE_MS = 365 * 24 * 60 * 60 * 1000;
+
+type TmdbCountryReleases = {
+  iso_3166_1: string;
+  release_dates: Array<{ type: number; release_date: string }>;
+};
+
+/** First valid date of `type` in the region, then in any other country. */
+function firstReleaseOfType(
+  results: TmdbCountryReleases[],
   region: string,
+  type: number,
 ): Date | null {
-  // Prioritise the user's region; fall back to any other country with a digital release (type 4).
   for (const country of [region, ...results.map((r) => r.iso_3166_1)]) {
     const entry = results.find((r) => r.iso_3166_1 === country);
-    const digital = entry?.release_dates.find(
-      (d) => d.type === 4 && d.release_date,
-    );
-    if (digital) {
-      const dt = new Date(digital.release_date);
+    for (const d of entry?.release_dates ?? []) {
+      if (d.type !== type || !d.release_date) continue;
+      const dt = new Date(d.release_date);
       if (!Number.isNaN(dt.getTime())) return dt;
     }
   }
   return null;
+}
+
+/**
+ * The day a movie can be grabbed: its digital release (region first), else its
+ * physical one. A title whose first release of any kind is over a year old is
+ * out even when TMDB lists no home release, so that first date stands in.
+ */
+export function pickDigitalRelease(
+  results: TmdbCountryReleases[],
+  region: string,
+  now: Date = new Date(),
+): Date | null {
+  const home =
+    firstReleaseOfType(results, region, 4) ??
+    firstReleaseOfType(results, region, 5);
+  if (home) return home;
+  const earliest = results
+    .flatMap((r) => r.release_dates.map((d) => new Date(d.release_date)))
+    .filter((dt) => !Number.isNaN(dt.getTime()))
+    .reduce<Date | null>((min, dt) => (!min || dt < min ? dt : min), null);
+  return earliest &&
+    now.getTime() - earliest.getTime() >= HOME_RELEASE_FALLBACK_AGE_MS
+    ? earliest
+    : null;
 }

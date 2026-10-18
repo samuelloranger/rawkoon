@@ -501,6 +501,8 @@ model LibraryMedia {
   searchTitle           String?   @map("search_title")
   searchTitleLanguage   String?   @map("search_title_language")
   digitalReleaseDate    DateTime? @map("digital_release_date")
+  /// Last TMDB check of digitalReleaseDate; a future date is re-checked once it goes stale.
+  digitalReleaseCheckedAt DateTime? @map("digital_release_checked_at")
   qualityProfileId      Int?      @map("quality_profile_id")
   searchAttempts        Int       @default(0) @map("search_attempts")
   /// Last automatic or manual search; a miss stays visible after its toast is gone.

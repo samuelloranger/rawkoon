@@ -32,7 +32,7 @@ export async function refreshLibraryMovieDigitalDate(
   const picked = pickDigitalRelease(releaseDatesData.results, region);
   await prisma.libraryMedia.update({
     where: { id: mediaId },
-    data: { digitalReleaseDate: picked },
+    data: { digitalReleaseDate: picked, digitalReleaseCheckedAt: new Date() },
   });
   return picked;
 }

@@ -15,6 +15,19 @@ import {
   toUtcMidnightDate,
 } from "@rawkoon/shared/utils/date";
 
+/** A future date is re-checked at most about once a day, whatever the schedule. */
+const DIGITAL_RELEASE_RECHECK_MS = 20 * 60 * 60 * 1000;
+
+export function isDigitalReleaseCheckStale(
+  checkedAt: Date | null,
+  now: Date = new Date(),
+): boolean {
+  return (
+    !checkedAt ||
+    now.getTime() - checkedAt.getTime() >= DIGITAL_RELEASE_RECHECK_MS
+  );
+}
+
 export async function checkMovieReleases(): Promise<void> {
   // digitalReleaseDate is a DATE column — interpret it as a calendar day in
   // the app's display timezone (TZ env var → NY fallback), not UTC.
@@ -37,18 +50,22 @@ export async function checkMovieReleases(): Promise<void> {
       qualityProfileId: true,
       searchAttempts: true,
       digitalReleaseDate: true,
+      digitalReleaseCheckedAt: true,
     },
   });
 
   for (const m of movies) {
     try {
       let digital = m.digitalReleaseDate;
-      // Re-validate from TMDB when the date is missing OR already due. TMDB
-      // community data is mutable: a date cached as "released" can be corrected
-      // to a future date later. Without re-fetching we'd burn search attempts
-      // and auto-skip on a stale past date. Movies whose cached date is still
-      // clearly in the future are left alone (no extra TMDB call).
-      if (!digital || digital <= todayCutoff) {
+      // Re-validate from TMDB when the date is missing, already due, or not
+      // checked lately. TMDB community data is mutable: a date cached as
+      // "released" can be corrected to a future date (re-fetching avoids
+      // burning search attempts on it), and a future date can move earlier.
+      if (
+        !digital ||
+        digital <= todayCutoff ||
+        isDigitalReleaseCheckStale(m.digitalReleaseCheckedAt)
+      ) {
         try {
           digital = await refreshLibraryMovieDigitalDate(m.id);
         } catch (e) {

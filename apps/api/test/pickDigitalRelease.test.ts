@@ -4,6 +4,8 @@ import { pickDigitalRelease } from "@rawkoon/api/utils/medias/libraryHelpers";
 // type 4 = digital release. type 3 = theatrical.
 const digital = (date: string) => ({ type: 4, release_date: date });
 const theatrical = (date: string) => ({ type: 3, release_date: date });
+const physical = (date: string) => ({ type: 5, release_date: date });
+const NOW = new Date("2026-10-18T12:00:00.000Z");
 
 describe("pickDigitalRelease", () => {
   it("prefers the requested region's digital release", () => {
@@ -32,6 +34,7 @@ describe("pickDigitalRelease", () => {
     const got = pickDigitalRelease(
       [{ iso_3166_1: "CA", release_dates: [theatrical("2026-05-13")] }],
       "CA",
+      NOW,
     );
     expect(got).toBeNull();
   });
@@ -56,5 +59,50 @@ describe("pickDigitalRelease", () => {
       "CA",
     );
     expect(got?.toISOString().slice(0, 10)).toBe("2026-06-30");
+  });
+
+  it("falls back to a physical release when no country lists a digital one", () => {
+    const got = pickDigitalRelease(
+      [
+        { iso_3166_1: "CA", release_dates: [theatrical("2026-05-13")] },
+        { iso_3166_1: "US", release_dates: [physical("2026-08-04")] },
+      ],
+      "CA",
+      NOW,
+    );
+    expect(got?.toISOString().slice(0, 10)).toBe("2026-08-04");
+  });
+
+  it("keeps a digital release elsewhere ahead of a physical one in the region", () => {
+    const got = pickDigitalRelease(
+      [
+        { iso_3166_1: "CA", release_dates: [physical("2026-08-04")] },
+        { iso_3166_1: "US", release_dates: [digital("2026-07-20")] },
+      ],
+      "CA",
+      NOW,
+    );
+    expect(got?.toISOString().slice(0, 10)).toBe("2026-07-20");
+  });
+
+  it("treats a title first released over a year ago as out, from its first release", () => {
+    const got = pickDigitalRelease(
+      [
+        { iso_3166_1: "FR", release_dates: [theatrical("1994-10-26")] },
+        { iso_3166_1: "US", release_dates: [theatrical("1994-09-23")] },
+      ],
+      "CA",
+      NOW,
+    );
+    expect(got?.toISOString().slice(0, 10)).toBe("1994-09-23");
+  });
+
+  it("does not guess a date for a recent title with only theatrical releases", () => {
+    const got = pickDigitalRelease(
+      [{ iso_3166_1: "US", release_dates: [theatrical("2025-11-01")] }],
+      "CA",
+      NOW,
+    );
+    expect(got).toBeNull();
   });
 });
