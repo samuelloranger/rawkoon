@@ -500,6 +500,7 @@ model LibraryMedia {
   originalLanguage      String?   @map("original_language")
   searchTitle           String?   @map("search_title")
   searchTitleLanguage   String?   @map("search_title_language")
+  /// The day the movie can be grabbed: digital, else physical release, else (long-released titles) first release.
   digitalReleaseDate    DateTime? @map("digital_release_date")
   /// Last TMDB check of digitalReleaseDate; a future date is re-checked once it goes stale.
   digitalReleaseCheckedAt DateTime? @map("digital_release_checked_at")

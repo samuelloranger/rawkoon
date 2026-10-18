@@ -175,8 +175,8 @@ function firstReleaseOfType(
 
 /**
  * The day a movie can be grabbed: its digital release (region first), else its
- * physical one. A title whose first release of any kind is over a year old is
- * out even when TMDB lists no home release, so that first date stands in.
+ * physical one. A title whose first release is over a year old, with none still
+ * ahead, is out even when TMDB lists no home release, so that first date stands in.
  */
 export function pickDigitalRelease(
   results: TmdbCountryReleases[],
@@ -187,10 +187,17 @@ export function pickDigitalRelease(
     firstReleaseOfType(results, region, 4) ??
     firstReleaseOfType(results, region, 5);
   if (home) return home;
-  const earliest = results
-    .flatMap((r) => r.release_dates.map((d) => new Date(d.release_date)))
-    .filter((dt) => !Number.isNaN(dt.getTime()))
-    .reduce<Date | null>((min, dt) => (!min || dt < min ? dt : min), null);
+  const releases = results
+    .flatMap((r) => r.release_dates)
+    .map((d) => ({ type: d.type, at: new Date(d.release_date) }))
+    .filter((r) => !Number.isNaN(r.at.getTime()));
+  if (releases.some((r) => r.at > now)) return null;
+  // A festival premiere can come long before the film is out anywhere else.
+  const wide = releases.filter((r) => r.type !== 1);
+  const earliest = (wide.length > 0 ? wide : releases).reduce<Date | null>(
+    (min, r) => (!min || r.at < min ? r.at : min),
+    null,
+  );
   return earliest &&
     now.getTime() - earliest.getTime() >= HOME_RELEASE_FALLBACK_AGE_MS
     ? earliest

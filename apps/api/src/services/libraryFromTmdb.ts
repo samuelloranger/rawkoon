@@ -175,6 +175,7 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
           releaseDatesData.results,
           region,
         ),
+        digitalReleaseCheckedAt: new Date(),
         ...searchFields,
         ...(qualityProfileId != null ? { qualityProfileId } : {}),
       },
@@ -192,6 +193,7 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
           releaseDatesData.results,
           region,
         ),
+        digitalReleaseCheckedAt: new Date(),
       },
       include: libraryMediaInclude,
     });

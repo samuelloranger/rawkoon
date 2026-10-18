@@ -105,4 +105,38 @@ describe("pickDigitalRelease", () => {
     );
     expect(got).toBeNull();
   });
+
+  it("does not treat an old premiere as out while a wider release is still ahead", () => {
+    const got = pickDigitalRelease(
+      [
+        {
+          iso_3166_1: "US",
+          release_dates: [
+            { type: 1, release_date: "2025-09-01" },
+            theatrical("2026-12-01"),
+          ],
+        },
+      ],
+      "CA",
+      NOW,
+    );
+    expect(got).toBeNull();
+  });
+
+  it("dates an old title from its first wide release, not its festival premiere", () => {
+    const got = pickDigitalRelease(
+      [
+        {
+          iso_3166_1: "US",
+          release_dates: [
+            { type: 1, release_date: "2023-01-20" },
+            theatrical("2024-03-08"),
+          ],
+        },
+      ],
+      "CA",
+      NOW,
+    );
+    expect(got?.toISOString().slice(0, 10)).toBe("2024-03-08");
+  });
 });
