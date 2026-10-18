@@ -7,7 +7,20 @@ struct WantedBadge: View {
 
     var body: some View {
         let note = media.lastSearchNote
-        if note?.outcome == .noMatch {
+        if let releaseDay = media.upcomingReleaseDay {
+            let date = UpcomingRelease.format(releaseDay)
+            Label(date, systemImage: "calendar")
+                .labelStyle(.titleAndIcon)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Theme.base)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(Theme.muted.opacity(0.9), in: Capsule())
+                .accessibilityElement()
+                .accessibilityLabel(Text("Releases \(date)"))
+        } else if note?.outcome == .noMatch {
             Text("No match")
                 .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(Theme.base)

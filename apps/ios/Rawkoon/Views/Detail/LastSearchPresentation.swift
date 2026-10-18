@@ -38,6 +38,28 @@ enum LastSearchCopy {
     }
 }
 
+/// A wanted item's release day when it is not out yet, then its last search unless that only said "not released".
+struct WantedStatusLines: View {
+    let media: LibraryMedia
+    var showsReason = false
+
+    var body: some View {
+        let releaseDay = media.upcomingReleaseDay
+        if let releaseDay {
+            Label {
+                Text("Releases \(UpcomingRelease.format(releaseDay))")
+            } icon: {
+                Image(systemName: "calendar")
+            }
+            .font(.caption.weight(.medium))
+            .foregroundStyle(Theme.muted)
+        }
+        if let note = media.lastSearchNote, releaseDay == nil || note.outcome != .notReleased {
+            LastSearchLine(note: note, showsReason: showsReason)
+        }
+    }
+}
+
 /// One line saying how the last search ended, with the reason beneath when asked for.
 struct LastSearchLine: View {
     let note: LastSearchNote

@@ -213,6 +213,11 @@ nonisolated struct LibraryMedia: Decodable, Identifiable, Sendable {
     var lastSearchNote: LastSearchNote? {
         LastSearchNote(status: status, outcome: lastSearchOutcome, at: lastSearchAt, reason: lastSearchReason)
     }
+
+    /// The digital release day of a wanted movie that is not out yet.
+    var upcomingReleaseDay: Date? {
+        UpcomingRelease.day(type: type, status: status, digitalReleaseDate: digitalReleaseDate)
+    }
 }
 
 extension LibraryMedia {

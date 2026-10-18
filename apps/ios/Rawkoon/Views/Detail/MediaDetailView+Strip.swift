@@ -33,9 +33,7 @@ extension MediaDetailView {
                 }
                 .rawkoonMotion(RawkoonMotion.snappy, value: item.monitored)
 
-                if let note = item.lastSearchNote {
-                    LastSearchLine(note: note, showsReason: true)
-                }
+                WantedStatusLines(media: item, showsReason: true)
                 if wanted {
                     wantedSearchControl(item)
                 }

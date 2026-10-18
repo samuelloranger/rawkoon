@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Releases %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sortie le %@"
+          }
+        }
+      }
+    },
     "Couldn't load the missing titles.": {
       "localizations": {
         "fr": {
