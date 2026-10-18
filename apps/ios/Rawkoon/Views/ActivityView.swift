@@ -250,7 +250,8 @@ struct ActivityView: View {
     }
 
     private func calendarRow(_ item: UpcomingItem) -> some View {
-        let zoomID = RawkoonZoom.media(tmdbId: item.tmdbId ?? 0, mediaType: item.mediaType)
+        // Per row, since a show lists one row per upcoming episode day.
+        let zoomID: RawkoonZoom.ID = "upcoming:\(item.id)"
         return NavigationLink {
             MediaDetailView(tmdbId: item.tmdbId ?? 0, mediaType: item.mediaType,
                             title: item.title, posterPath: item.posterUrl, libraryId: item.libraryId)
