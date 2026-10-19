@@ -48,7 +48,7 @@ final class UpcomingCalendarTests: XCTestCase {
 
     func testSectionsSortDaysAndKeepUndatedLast() {
         let items: [(String, String?)] = [
-            ("a", "2026-10-23"), ("b", nil), ("c", "2026-10-20"), ("d", "2026-10-23"), ("e", ""),
+            ("a", "2026-10-23"), ("b", nil), ("c", "2026-10-20"), ("d", "2026-10-23"), ("e", "")
         ]
         let sections = UpcomingCalendar.sections(items) { $0.1 }
         XCTAssertEqual(sections.map(\.isoDay), ["2026-10-20", "2026-10-23", nil])

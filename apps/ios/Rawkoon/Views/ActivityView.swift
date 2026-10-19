@@ -16,9 +16,8 @@ struct ActivityView: View {
         var lane = initialLane
         #if DEBUG
             // Screenshot harness: open a lane without tap injection, like `RAWKOON_TAB`.
-            if initialLane != .queue, let raw = ProcessInfo.processInfo.environment["RAWKOON_ACTIVITY_LANE"],
-               let requested = ActivityLane(rawValue: raw)
-            {
+            let raw = ProcessInfo.processInfo.environment["RAWKOON_ACTIVITY_LANE"]
+            if initialLane != .queue, let requested = raw.flatMap(ActivityLane.init(rawValue:)) {
                 lane = requested
             }
         #endif
