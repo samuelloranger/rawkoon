@@ -20,6 +20,7 @@ public enum UpcomingCalendar {
     }
 
     /// Items bucketed by day in ascending order, server order kept within a day; undated ones last.
+    /// `release_date` is a calendar day, not an instant, so its first ten characters are the key.
     public static func sections<Item>(_ items: [Item], isoDay: (Item) -> String?) -> [Section<Item>] {
         var order: [String?] = []
         var buckets: [String?: [Item]] = [:]

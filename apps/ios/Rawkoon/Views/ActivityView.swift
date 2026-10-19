@@ -351,7 +351,7 @@ struct ActivityView: View {
             }
             if let vote = item.voteAverage, vote > 0 {
                 dot
-                Text(verbatim: "\(Int((vote * 10).rounded()))%").monospacedDigit()
+                Text((vote / 10).formatted(.percent.precision(.fractionLength(0)))).monospacedDigit()
             }
             if item.libraryId != nil {
                 dot
