@@ -16,7 +16,9 @@ public enum UpcomingCalendar {
         public let isoDay: String?
         public let items: [Item]
 
-        public var id: String { isoDay ?? "undated" }
+        public var id: String {
+            isoDay ?? "undated"
+        }
     }
 
     /// Items bucketed by day in ascending order, server order kept within a day; undated ones last.
@@ -26,12 +28,16 @@ public enum UpcomingCalendar {
         var buckets: [String?: [Item]] = [:]
         for item in items {
             let key = isoDay(item).map { String($0.prefix(10)) }.flatMap { $0.isEmpty ? nil : $0 }
-            if buckets[key] == nil { order.append(key) }
+            if buckets[key] == nil {
+                order.append(key)
+            }
             buckets[key, default: []].append(item)
         }
-        let dated = order.compactMap { $0 }.sorted()
+        let dated = order.compactMap(\.self).sorted()
         var keys: [String?] = dated
-        if buckets[nil] != nil { keys.append(nil) }
+        if buckets[nil] != nil {
+            keys.append(nil)
+        }
         return keys.map { Section(isoDay: $0, items: buckets[$0] ?? []) }
     }
 
