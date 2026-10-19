@@ -269,6 +269,12 @@ nonisolated struct UpcomingResponse: Decodable, Sendable {
     let items: [UpcomingItem]
 }
 
+nonisolated struct UpcomingProvider: Decodable, Identifiable, Sendable {
+    let id: Int
+    let name: String
+    let logoUrl: String
+}
+
 nonisolated struct UpcomingItem: Decodable, Identifiable, Sendable {
     let id: String // "${media_type}-${tmdb_id}…"
     let title: String
@@ -280,7 +286,12 @@ nonisolated struct UpcomingItem: Decodable, Identifiable, Sendable {
     let episodeNumber: Int?
     /// Last episode when several air the same day; nil otherwise.
     let episodeNumberEnd: Int?
+    /// Episodes this entry stands for; more than one when several air the same day.
+    let episodeCount: Int?
     let libraryId: Int?
+    /// TMDB score out of 10; library-only entries have none.
+    let voteAverage: Double?
+    let providers: [UpcomingProvider]?
 
     /// TMDB id parsed from the composite `id` (first run of digits).
     var tmdbId: Int? {

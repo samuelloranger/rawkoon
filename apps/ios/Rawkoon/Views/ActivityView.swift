@@ -223,13 +223,20 @@ struct ActivityView: View {
                 .frame(maxWidth: .infinity, minHeight: 420)
                 .transition(.rawkoonSwap)
             } else {
-                LazyVStack(spacing: 8) {
-                    ForEach(upcomingItems) { item in
-                        calendarRow(item)
-                            .rawkoonEntrance(id: item.id)
+                LazyVStack(spacing: 8, pinnedViews: .sectionHeaders) {
+                    ForEach(UpcomingCalendar.sections(upcomingItems, isoDay: \.releaseDate)) { section in
+                        Section {
+                            ForEach(section.items) { item in
+                                calendarRow(item)
+                                    .rawkoonEntrance(id: item.id)
+                            }
+                        } header: {
+                            calendarDayHeader(section.isoDay)
+                        }
                     }
                 }
-                .padding(16)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
                 .rawkoonEntranceScope()
                 .transition(.rawkoonSwap)
             }
@@ -264,34 +271,106 @@ struct ActivityView: View {
         .disabled(item.tmdbId == nil && item.libraryId == nil)
     }
 
-    private func calendarRowLabel(_ item: UpcomingItem) -> some View {
-        HStack(spacing: 12) {
-            MediaThumb(url: model.absoluteURL(item.posterUrl), width: 48)
+    private func calendarDayHeader(_ isoDay: String?) -> some View {
+        let day = UpcomingCalendar.day(isoDay)
+        return HStack(alignment: .firstTextBaseline, spacing: 8) {
+            switch day?.relative {
+            case .today: Text("Today")
+            case .tomorrow: Text("Tomorrow")
+            case .other: Text(verbatim: day.map { UpcomingCalendar.weekday($0.date) } ?? "")
+            case nil: Text("Date to be announced")
+            }
+            if let day {
+                Text(verbatim: UpcomingCalendar.monthDay(day.date))
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.faint)
+            }
+            Spacer(minLength: 0)
+        }
+        .font(.headline)
+        .foregroundStyle(Theme.textStrong)
+        .padding(.top, 16)
+        .padding(.bottom, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.base)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+    }
 
-            VStack(alignment: .leading, spacing: 4) {
+    private func calendarRowLabel(_ item: UpcomingItem) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            MediaThumb(url: model.absoluteURL(item.posterUrl), width: 56)
+
+            VStack(alignment: .leading, spacing: 6) {
                 Text(item.title)
                     .font(.display(15))
                     .foregroundStyle(Theme.textStrong)
                     .lineLimit(2)
-                HStack(spacing: 8) {
-                    if let releaseDate = item.releaseDate, !releaseDate.isEmpty {
-                        Text(releaseDate)
-                    }
-                    if let season = item.seasonNumber {
-                        if let episode = item.episodeNumber {
-                            Text(String(format: "S%02dE%02d", season, episode))
-                        } else {
-                            Text(String(format: "S%02d", season))
-                        }
-                    }
+                    .multilineTextAlignment(.leading)
+                calendarFacts(item)
+                if let overview = item.overview, !overview.isEmpty {
+                    Text(overview)
+                        .font(.caption)
+                        .foregroundStyle(Theme.muted)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
                 }
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(Theme.faint)
+                if let providers = item.providers, !providers.isEmpty {
+                    calendarProviders(providers)
+                }
             }
             Spacer(minLength: 0)
         }
         .padding(12)
         .activityCard(cornerRadius: 12)
+    }
+
+    /// One quiet line: kind, episodes, score, and whether the title is already in the library.
+    private func calendarFacts(_ item: UpcomingItem) -> some View {
+        HStack(spacing: 6) {
+            if item.mediaType == "tv" {
+                Text("Show")
+            } else {
+                Text("Movie")
+            }
+            if let episode = item.episodeLabel {
+                dot
+                Text(verbatim: episode).monospacedDigit()
+            } else if let count = item.episodeCount, count > 1 {
+                dot
+                Text("\(count) episodes")
+            }
+            if let vote = item.voteAverage, vote > 0 {
+                dot
+                Text(verbatim: "\(Int((vote * 10).rounded()))%").monospacedDigit()
+            }
+            if item.libraryId != nil {
+                dot
+                Text("In library").foregroundStyle(Theme.seed)
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(Theme.faint)
+        .lineLimit(1)
+    }
+
+    private var dot: some View {
+        Text(verbatim: "·").accessibilityHidden(true)
+    }
+
+    private func calendarProviders(_ providers: [UpcomingProvider]) -> some View {
+        HStack(spacing: 4) {
+            ForEach(providers.prefix(5)) { provider in
+                CachedAsyncImage(url: URL(string: provider.logoUrl), targetSize: CGSize(width: 20, height: 20)) { image in
+                    image.resizable().scaledToFit()
+                } placeholder: {
+                    Theme.well
+                }
+                .frame(width: 20, height: 20)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .accessibilityLabel(Text(verbatim: provider.name))
+            }
+        }
     }
 
     private func loadCalendar() async {

@@ -15282,6 +15282,26 @@
           }
         }
       }
+    },
+    "Tomorrow": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demain"
+          }
+        }
+      }
+    },
+    "Date to be announced": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date à confirmer"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
