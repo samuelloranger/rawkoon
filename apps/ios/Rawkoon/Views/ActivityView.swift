@@ -13,7 +13,16 @@ struct ActivityView: View {
     private let isQueueScreen: Bool
 
     init(initialLane: ActivityLane = .inbox) {
-        _lane = State(initialValue: initialLane)
+        var lane = initialLane
+        #if DEBUG
+            // Screenshot harness: open a lane without tap injection, like `RAWKOON_TAB`.
+            if initialLane != .queue, let raw = ProcessInfo.processInfo.environment["RAWKOON_ACTIVITY_LANE"],
+               let requested = ActivityLane(rawValue: raw)
+            {
+                lane = requested
+            }
+        #endif
+        _lane = State(initialValue: lane)
         isQueueScreen = initialLane == .queue
     }
 
