@@ -83,6 +83,8 @@ beforeEach(() => {
 
 describe("grabRelease free-space check", () => {
   it("grabs a release that fits", async () => {
+    // A 1 MB minimum keeps the check on without depending on how full the disk is.
+    settings = cfg({ minFreeSpaceGb: 1 / 1024 });
     const r = await grabRelease({ ...base, sizeBytes: 1024 });
     expect(r.grabbed).toBe(true);
     expect(addedTorrents).toHaveLength(1);
