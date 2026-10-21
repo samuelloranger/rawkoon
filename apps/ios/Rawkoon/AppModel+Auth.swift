@@ -140,6 +140,8 @@ extension AppModel {
 
         apiClient = nil
         PosterCache.authorize(server: nil, token: nil)
+        // Images the server serves were fetched with this account's token.
+        PosterCache.removeAll()
         isLoggedIn = false
         isAdmin = false
         userId = nil
