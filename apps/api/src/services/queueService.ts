@@ -380,12 +380,12 @@ export async function setupScheduledJobs() {
     },
     {
       name: SCHEDULED_JOB_NAMES.SWEEP_SEEDING_TORRENTS,
-      // Offset off the RSS poll's :07/:22/... ticks; both list the client's torrents.
+      // Offset off the RSS poll's :07 ticks at the default interval; both list the client's torrents.
       pattern: "3-59/15 * * * *",
     },
     {
       name: SCHEDULED_JOB_NAMES.PROCESS_PENDING_RELEASES,
-      // Offset off the RSS poll's :07/:22/... ticks so a due grab doesn't race a poll.
+      // Offset off the RSS poll's ticks at every interval (they fall on :02/:07) so a due grab doesn't race a poll.
       pattern: "1-59/5 * * * *",
     },
   ];
