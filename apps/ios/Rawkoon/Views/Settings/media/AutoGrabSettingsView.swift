@@ -283,7 +283,7 @@ struct AutoGrabSettingsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("How often the feeds of the indexers picked under RSS Polling are read. A new release that matches a wanted title is grabbed at the next read.")
                 if activeIndexerManager == "jackett" {
-                    Text("Jackett keeps feed results for 35 minutes by default, so reading more often returns the same results. Lower Jackett's Cache TTL below this interval, for example to 120 seconds.")
+                    Text("Jackett keeps feed results for 35 minutes by default. Set its Cache TTL below this interval, for example 120 seconds.")
                 }
             }
         }
