@@ -96,6 +96,7 @@ extension AppModel {
 
     func makeAPIClient(baseURL: URL, token: String?) -> APIClient {
         serverStateStore.clear()
+        PosterCache.authorize(server: baseURL, token: token)
         return APIClient(
             baseURL: baseURL,
             token: token,
@@ -138,6 +139,7 @@ extension AppModel {
         wipeResponseCache()
 
         apiClient = nil
+        PosterCache.authorize(server: nil, token: nil)
         isLoggedIn = false
         isAdmin = false
         userId = nil

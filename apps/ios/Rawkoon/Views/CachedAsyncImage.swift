@@ -36,6 +36,26 @@ enum PosterCache {
         return URLSession(configuration: config)
     }()
 
+    /// Most artwork is public (TMDB), but what the server proxies (Jellyfin's) needs
+    /// the API's bearer token; sent only to that server.
+    private static var credential: ImageCredential?
+
+    static func authorize(server: URL?, token: String?) {
+        guard let server, let token, !token.isEmpty else {
+            credential = nil
+            return
+        }
+        credential = ImageCredential(server: server, token: token)
+    }
+
+    private static func request(_ url: URL, cachePolicy: URLRequest.CachePolicy) -> URLRequest {
+        var request = URLRequest(url: url, cachePolicy: cachePolicy)
+        if let token = credential?.token(for: url) {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        return request
+    }
+
     private static func key(_ url: URL, _ maxPixel: CGFloat) -> NSString {
         "\(url.absoluteString)|\(Int(maxPixel))" as NSString
     }
@@ -63,12 +83,12 @@ enum PosterCache {
     private static func fetchData(_ url: URL) async -> Data? {
         for attempt in 0 ..< 3 {
             do {
-                return try await session.data(for: URLRequest(url: url, cachePolicy: policy(for: url))).0
+                return try await session.data(for: request(url, cachePolicy: policy(for: url))).0
             } catch {
                 if error is CancellationError || (error as? URLError)?.code == .cancelled {
                     return nil
                 }
-                if let stored = try? await session.data(for: URLRequest(url: url, cachePolicy: .returnCacheDataDontLoad)) {
+                if let stored = try? await session.data(for: request(url, cachePolicy: .returnCacheDataDontLoad)) {
                     return stored.0
                 }
                 try? await Task.sleep(for: .milliseconds(500 * (attempt + 1)))
@@ -90,10 +110,10 @@ enum PosterCache {
     /// ask for, without decoding it — so a screen opened offline has its artwork.
     static func prefetch(_ url: URL, targetSize: CGSize, scale: CGFloat) async {
         let sized = url.tmdbSized(maxPixelWidth: targetSize.width * scale) ?? url
-        var request = URLRequest(url: sized, cachePolicy: policy(for: sized))
-        request.allowsConstrainedNetworkAccess = false
-        request.allowsExpensiveNetworkAccess = false
-        _ = try? await session.data(for: request)
+        var prefetch = request(sized, cachePolicy: policy(for: sized))
+        prefetch.allowsConstrainedNetworkAccess = false
+        prefetch.allowsExpensiveNetworkAccess = false
+        _ = try? await session.data(for: prefetch)
     }
 
     /// TMDB never changes the image behind a URL, so a stored copy needs no
@@ -123,6 +143,16 @@ enum PosterCache {
     private static func cost(_ image: UIImage) -> Int {
         guard let cgImage = image.cgImage else { return 0 }
         return cgImage.bytesPerRow * cgImage.height
+    }
+}
+
+/// A bearer token tied to the server that issued it, so no other host ever sees it.
+nonisolated struct ImageCredential: Equatable, Sendable {
+    let server: URL
+    let token: String
+
+    func token(for url: URL) -> String? {
+        url.scheme == server.scheme && url.host == server.host && url.port == server.port ? token : nil
     }
 }
 
