@@ -478,6 +478,24 @@ export async function denyRequest(
   return { ok: true };
 }
 
+/** Deletes a library title with its request, so the title can be requested again. */
+export async function deleteLibraryMediaWithRequests(
+  id: number,
+): Promise<void> {
+  await prisma.$transaction([
+    prisma.mediaRequest.deleteMany({ where: { libraryMediaId: id } }),
+    prisma.libraryMedia.delete({ where: { id } }),
+  ]);
+}
+
+/** Deletes a library book with its request, so the book can be requested again. */
+export async function deleteLibraryBookWithRequests(id: number): Promise<void> {
+  await prisma.$transaction([
+    prisma.mediaRequest.deleteMany({ where: { libraryBookId: id } }),
+    prisma.libraryBook.delete({ where: { id } }),
+  ]);
+}
+
 const DELETABLE_STATUSES = ["pending", "denied"] as const;
 
 /** Deletes a pending or denied request; to a non-admin, someone else's reads as not found. */

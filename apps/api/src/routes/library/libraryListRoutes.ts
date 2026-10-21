@@ -9,6 +9,7 @@ import { ensureAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, queryV } from "@rawkoon/api/middleware/validate";
 import { addOrUpdateLibraryFromTmdb } from "@rawkoon/api/services/libraryFromTmdb";
 import { deleteCache } from "@rawkoon/api/services/cache";
+import { deleteLibraryMediaWithRequests } from "@rawkoon/api/services/mediaRequests";
 import { queueSearchOnAdd } from "@rawkoon/api/services/searchOnAdd";
 import { pruneLibraryDirsAfterDelete } from "@rawkoon/api/services/library/pruneLibraryDirs";
 import { TMDB_UPCOMING_CACHE_KEY } from "@rawkoon/api/utils/dashboard/tmdbUpcoming";
@@ -353,7 +354,7 @@ export const libraryListRoutes = new Hono<Env>()
 
         // DownloadHistory rows are kept (media_id → NULL) so their torrents keep seeding to target.
         // Cascade deletes episodes + MediaFile records.
-        await prisma.libraryMedia.delete({ where: { id } });
+        await deleteLibraryMediaWithRequests(id);
 
         // Torrents are touched only after the title is gone, so a failed delete leaves both intact.
         const pending = existing.downloadHistories.filter(

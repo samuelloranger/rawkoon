@@ -19,6 +19,7 @@ import {
 } from "@rawkoon/api/services/books";
 import { loadRequestsByVolumeId } from "@rawkoon/api/services/books/bookDiscovery";
 import { addBookFromVolume } from "@rawkoon/api/services/books/bookLibrary";
+import { deleteLibraryBookWithRequests } from "@rawkoon/api/services/mediaRequests";
 import {
   loadReadAtByBookId,
   resetBookProgress,
@@ -301,6 +302,6 @@ export const bookListRoutes = new Hono<Env>()
     // Editions and files cascade; library files on disk are left alone,
     // matching how removing a library media item behaves. Completed grabs keep
     // their rows (book_edition_id → NULL) so their torrents seed to target.
-    await prisma.libraryBook.delete({ where: { id } });
+    await deleteLibraryBookWithRequests(id);
     return ok({ deleted: true });
   });
