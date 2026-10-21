@@ -1,6 +1,66 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Check indexer RSS feeds": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lire les flux RSS des indexeurs"
+          }
+        }
+      }
+    },
+    "Read every": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lire toutes les"
+          }
+        }
+      }
+    },
+    "%lld minutes": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld minutes"
+          }
+        }
+      }
+    },
+    "%lld minutes (default)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld minutes (par défaut)"
+          }
+        }
+      }
+    },
+    "How often the feeds of the indexers picked under RSS Polling are read. A new release that matches a wanted title is grabbed at the next read.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fréquence de lecture des flux des indexeurs choisis sous Flux RSS. Une nouvelle sortie qui correspond à un titre recherché est saisie à la lecture suivante."
+          }
+        }
+      }
+    },
+    "Jackett keeps feed results for 35 minutes by default, so reading more often returns the same results. Lower Jackett's Cache TTL below this interval, for example to 120 seconds.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Par défaut, Jackett garde les résultats d'un flux 35 minutes : une lecture plus fréquente renvoie les mêmes résultats. Réduisez le Cache TTL de Jackett sous cet intervalle, par exemple à 120 secondes."
+          }
+        }
+      }
+    },
     "Releases %@": {
       "localizations": {
         "fr": {

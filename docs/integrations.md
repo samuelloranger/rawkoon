@@ -23,6 +23,21 @@ Choose one active download client. Rawkoon labels its torrents, polls the
 client automatically, and detects stalled or expired downloads without
 requiring webhook setup.
 
+### Jackett feed cache
+
+Jackett keeps the results of each feed read for 35 minutes by default (Cache
+TTL, 2100 seconds). While those results are cached, a read returns them
+unchanged, so a release posted just after one read stays invisible to Rawkoon
+until the cache expires. With the default, polling RSS more often than every
+35 minutes changes nothing.
+
+To make the RSS interval in Library Settings count, set Jackett's cache time
+below it. In the Jackett web UI, change **Cache TTL (seconds)** under Jackett
+Configuration and apply, or stop Jackett and edit `CacheTtl` in
+`ServerConfig.json`. 120 seconds works for every interval Rawkoon offers. The
+cache also covers manual searches, so the same search repeated within that
+window still comes back from the cache.
+
 ### rdt-client (debrid)
 
 [rdt-client](https://github.com/rogerfar/rdt-client) sends torrents to a

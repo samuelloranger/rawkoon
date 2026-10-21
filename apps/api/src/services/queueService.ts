@@ -5,6 +5,7 @@ import {
   type QueueOptions,
   type JobsOptions,
 } from "bullmq";
+import { rssPollCron } from "@rawkoon/shared/utils";
 import { valkeyConnection } from "@rawkoon/api/db/valkey";
 import {
   PERF_TIMING_ENABLED,
@@ -308,11 +309,13 @@ export function initWorkers() {
 export async function setupScheduledJobs() {
   console.log("⏰ Setting up scheduled jobs...");
 
-  // Lazy: the schedule service imports this module for the queue.
+  // Lazy: the schedule services import this module for the queue.
   const { loadReleaseCheckCron, registerSchedulers } = await import(
     "./releaseCheckSchedule"
   );
+  const { loadRssPollInterval } = await import("./rssPollSchedule");
   const releaseCheckCron = await loadReleaseCheckCron();
+  const rssPollPattern = rssPollCron(await loadRssPollInterval());
 
   const jobs = [
     { name: SCHEDULED_JOB_NAMES.CLEANUP_NOTIFICATIONS, pattern: "0 0 * * *" },
@@ -343,11 +346,11 @@ export async function setupScheduledJobs() {
     },
     {
       name: SCHEDULED_JOB_NAMES.POLL_INDEXER_RSS,
-      // Offset off :00 so it never shares a tick with the 6-hourly release
-      // sweeps below, which hit the same indexer for the same wanted items.
+      // rssPollCron keeps it off :00 so it never shares a tick with the
+      // release sweeps, which hit the same indexer for the same wanted items.
       // The duplicate-grab guard in grabRelease is the real safety net; this
       // just stops the two jobs racing in the first place.
-      pattern: "7-59/15 * * * *",
+      pattern: rssPollPattern,
     },
     {
       name: SCHEDULED_JOB_NAMES.REFRESH_GITHUB_RELEASES,

@@ -113,10 +113,31 @@ public enum GrabReadiness {
 public struct AutoGrabSettings: Decodable, Equatable, Sendable {
     public let searchOnAdd: Bool?
     public let releaseCheckCron: String?
+    public let rssPollIntervalMinutes: Int?
+    public let activeIndexerManager: String?
 
-    public init(searchOnAdd: Bool?, releaseCheckCron: String?) {
+    public init(
+        searchOnAdd: Bool?,
+        releaseCheckCron: String?,
+        rssPollIntervalMinutes: Int? = nil,
+        activeIndexerManager: String? = nil
+    ) {
         self.searchOnAdd = searchOnAdd
         self.releaseCheckCron = releaseCheckCron
+        self.rssPollIntervalMinutes = rssPollIntervalMinutes
+        self.activeIndexerManager = activeIndexerManager
+    }
+}
+
+/// Mirrors `RSS_POLL_INTERVAL_MINUTES` in `@rawkoon/shared/utils`.
+public enum RssPollInterval {
+    public static let options = [5, 10, 15, 30, 60]
+    public static let defaultMinutes = 15
+
+    /// An interval the server no longer offers reads as the default, as the server does.
+    public static func normalized(_ minutes: Int?) -> Int {
+        guard let minutes, options.contains(minutes) else { return defaultMinutes }
+        return minutes
     }
 }
 

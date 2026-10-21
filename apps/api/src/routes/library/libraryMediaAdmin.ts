@@ -7,7 +7,11 @@ import { Hono } from "hono";
 import { prisma } from "@rawkoon/api/db";
 import {
   DEFAULT_RELEASE_CHECK_CRON,
+  DEFAULT_RSS_POLL_INTERVAL_MINUTES,
+  isRssPollInterval,
   normalizeCron,
+  RSS_POLL_INTERVAL_MINUTES,
+  type RssPollIntervalMinutes,
 } from "@rawkoon/shared/utils";
 import { badRequest, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
@@ -18,6 +22,10 @@ import {
   parseReleaseCheckCron,
   rescheduleThenPersist,
 } from "@rawkoon/api/services/releaseCheckSchedule";
+import {
+  loadRssPollInterval,
+  rescheduleRssPollThenPersist,
+} from "@rawkoon/api/services/rssPollSchedule";
 import { normalizeExtension } from "@rawkoon/api/services/seeding/seedPolicy";
 import { TMDB_LANGUAGE_LIBRARY_PERSISTENCE } from "@rawkoon/api/utils/medias/tmdbFetcherTypes";
 import { listVideoFilesUnder } from "@rawkoon/api/utils/medias/fileIdentifier";
@@ -51,6 +59,7 @@ export function mapSettings(row: {
   defaultShowQualityProfileId?: number | null;
   searchOnAdd?: boolean;
   releaseCheckCron?: string;
+  rssPollIntervalMinutes?: number;
   activeIndexerManager?: string | null;
   booksLibraryPath?: string | null;
   audiobooksLibraryPath?: string | null;
@@ -78,6 +87,9 @@ export function mapSettings(row: {
     default_show_quality_profile_id: row.defaultShowQualityProfileId ?? null,
     search_on_add: row.searchOnAdd ?? true,
     release_check_cron: row.releaseCheckCron ?? DEFAULT_RELEASE_CHECK_CRON,
+    rss_poll_interval_minutes: isRssPollInterval(row.rssPollIntervalMinutes)
+      ? row.rssPollIntervalMinutes
+      : DEFAULT_RSS_POLL_INTERVAL_MINUTES,
     active_indexer_manager: row.activeIndexerManager ?? null,
     // Book paths and templates live on the same row: post-processing settings
     // are per-instance, not per-media-kind, and splitting them would mean two
@@ -145,6 +157,7 @@ export const libraryMediaAdminRoutes = new Hono<Env>()
           .optional(),
         search_on_add: z.boolean().optional(),
         release_check_cron: z.string().max(100).optional(),
+        rss_poll_interval_minutes: z.number().int().optional(),
         active_indexer_manager: z
           .union([z.literal("prowlarr"), z.literal("jackett"), z.null()])
           .optional(),
@@ -191,6 +204,7 @@ export const libraryMediaAdminRoutes = new Hono<Env>()
           defaultShowQualityProfileId?: number | null;
           searchOnAdd?: boolean;
           releaseCheckCron?: string;
+          rssPollIntervalMinutes?: number;
           activeIndexerManager?: string | null;
           booksLibraryPath?: string | null;
           audiobooksLibraryPath?: string | null;
@@ -239,6 +253,16 @@ export const libraryMediaAdminRoutes = new Hono<Env>()
           const parsed = parseReleaseCheckCron(body.release_check_cron);
           if (!parsed.ok) return badRequest(parsed.error);
           update.releaseCheckCron = parsed.cron;
+        }
+        let rssPollInterval: RssPollIntervalMinutes | undefined;
+        if (body.rss_poll_interval_minutes !== undefined) {
+          if (!isRssPollInterval(body.rss_poll_interval_minutes)) {
+            return badRequest(
+              `rss_poll_interval_minutes must be one of ${RSS_POLL_INTERVAL_MINUTES.join(", ")}`,
+            );
+          }
+          rssPollInterval = body.rss_poll_interval_minutes;
+          update.rssPollIntervalMinutes = rssPollInterval;
         }
         if (body.active_indexer_manager !== undefined) {
           if (
@@ -299,19 +323,30 @@ export const libraryMediaAdminRoutes = new Hono<Env>()
             });
           }
         };
+        let save = persist;
         if (
           update.releaseCheckCron !== undefined &&
           update.releaseCheckCron !== previousCron
         ) {
+          const cron = update.releaseCheckCron;
           // Schedule before saving so a cron BullMQ rejects is never stored.
-          await rescheduleThenPersist(
-            update.releaseCheckCron,
-            previousCron,
-            persist,
-          );
-        } else {
-          await persist();
+          save = () => rescheduleThenPersist(cron, previousCron, persist);
         }
+        if (rssPollInterval !== undefined) {
+          const previousInterval = await loadRssPollInterval(
+            async () => existing?.rssPollIntervalMinutes,
+          );
+          if (rssPollInterval !== previousInterval) {
+            const inner = save;
+            save = () =>
+              rescheduleRssPollThenPersist(
+                rssPollInterval,
+                previousInterval,
+                inner,
+              );
+          }
+        }
+        await save();
         return ok({ settings: mapSettings(row!) });
       } catch {
         return serverError("Failed to update media settings");

@@ -120,7 +120,7 @@ export function isValidCron(expr: string): boolean {
   return fieldsOk && hasReachableDate(parts);
 }
 
-/** Same floor as the indexer RSS poll: more frequent release checks only hammer the indexers. */
+/** Each release check searches every wanted item, so running it more often only hammers the indexers. */
 export const MIN_RELEASE_CHECK_INTERVAL_MINUTES = 15;
 
 /**
