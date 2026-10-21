@@ -56,7 +56,6 @@ const state: {
 function installMediaRequestDbMock() {
   mock.module("@rawkoon/api/db", () => ({
     prisma: {
-      $transaction: (ops: Promise<unknown>[]) => Promise.all(ops),
       libraryMedia: {
         findUnique: ({
           where,
@@ -177,6 +176,8 @@ function installMediaRequestDbMock() {
           };
         }) => {
           state.beforeDeleteMany?.();
+          if (where.libraryMediaId != null || where.libraryBookId != null)
+            state.deletedLibrary.push("requests");
           const before = state.requests.length;
           state.requests = state.requests.filter(
             (r) =>
@@ -227,7 +228,10 @@ function installMediaRequestDbMock() {
             defaultShowQualityProfileId: state.defaultProfiles.show,
           }),
       },
-      $transaction: (promises: Promise<any>[]) => Promise.all(promises),
+      $transaction: (promises: Promise<any>[]) => {
+        state.deletedLibrary.push("transaction");
+        return Promise.all(promises);
+      },
     },
   }));
 }
@@ -835,7 +839,12 @@ describe("deleting a library title", () => {
     ];
     await deleteLibraryMediaWithRequests(5);
     expect(state.requests.map((r) => r.id)).toEqual([2]);
-    expect(state.deletedLibrary).toEqual(["media:5"]);
+    // Requests go first: the title's delete would otherwise null their link.
+    expect(state.deletedLibrary).toEqual([
+      "requests",
+      "media:5",
+      "transaction",
+    ]);
   });
 
   it("removes a book's request with it", async () => {
@@ -845,7 +854,7 @@ describe("deleting a library title", () => {
     ];
     await deleteLibraryBookWithRequests(7);
     expect(state.requests.map((r) => r.id)).toEqual([2]);
-    expect(state.deletedLibrary).toEqual(["book:7"]);
+    expect(state.deletedLibrary).toEqual(["requests", "book:7", "transaction"]);
   });
 });
 
