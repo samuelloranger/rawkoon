@@ -15,6 +15,10 @@ import {
   type ReleaseCheckValue,
 } from "@/pages/settings/_component/ReleaseCheckFieldset";
 import { AdvancedDisclosure } from "@/components/ui/advanced-disclosure";
+import {
+  DEFAULT_RSS_POLL_INTERVAL_MINUTES,
+  RSS_POLL_INTERVAL_MINUTES,
+} from "@rawkoon/shared/utils";
 import { useBookQualityProfiles } from "@/pages/books/_hooks/useBooks";
 import type {
   MediaPostProcessingSettings,
@@ -121,6 +125,7 @@ export function MediaPostProcessingSettingsBody({
         defaultShowQualityProfileId: z.string(),
         defaultBookQualityProfileId: z.string(),
         searchOnAdd: z.enum(["on", "off"]),
+        rssPollIntervalMinutes: z.string(),
       }),
     [],
   );
@@ -148,6 +153,7 @@ export function MediaPostProcessingSettingsBody({
       defaultBookQualityProfileId:
         settings.default_book_quality_profile_id?.toString() ?? "",
       searchOnAdd: settings.search_on_add ? "on" : "off",
+      rssPollIntervalMinutes: String(settings.rss_poll_interval_minutes),
     },
   });
 
@@ -188,6 +194,7 @@ export function MediaPostProcessingSettingsBody({
             : parseInt(data.defaultBookQualityProfileId, 10),
         search_on_add: data.searchOnAdd === "on",
         release_check_cron: releaseCheck.cron,
+        rss_poll_interval_minutes: parseInt(data.rssPollIntervalMinutes, 10),
       });
       toast.success(t("settings.mediaLibrary.saveSuccess"));
     } catch {
@@ -387,6 +394,39 @@ export function MediaPostProcessingSettingsBody({
             initialCron={settings.release_check_cron}
             onChange={setReleaseCheck}
           />
+          <div>
+            <label
+              htmlFor="media-post-processing-settings-body-rss-poll-interval"
+              className={LABEL_CLASS}
+            >
+              {t("settings.mediaLibrary.rssPoll.title")}
+            </label>
+            <select
+              id="media-post-processing-settings-body-rss-poll-interval"
+              {...register("rssPollIntervalMinutes")}
+              className={SELECT_CLASS}
+            >
+              {RSS_POLL_INTERVAL_MINUTES.map((minutes) => (
+                <option key={minutes} value={minutes}>
+                  {minutes === DEFAULT_RSS_POLL_INTERVAL_MINUTES
+                    ? t("settings.mediaLibrary.rssPoll.optionDefault", {
+                        count: minutes,
+                      })
+                    : t("settings.mediaLibrary.rssPoll.option", {
+                        count: minutes,
+                      })}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1.5 text-xs text-neutral-400">
+              {t("settings.mediaLibrary.rssPoll.description")}
+            </p>
+            {settings.active_indexer_manager === "jackett" && (
+              <p className="mt-1.5 text-xs text-amber-300/90">
+                {t("settings.mediaLibrary.rssPoll.jackettCache")}
+              </p>
+            )}
+          </div>
         </CardSection>
 
         <div>

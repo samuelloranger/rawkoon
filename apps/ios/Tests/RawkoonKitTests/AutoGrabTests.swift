@@ -16,10 +16,24 @@ struct AutoGrabTests {
         #expect(value.settings.releaseCheckCron == "0 */12 * * *")
     }
 
+    @Test func decodesRssPollInterval() throws {
+        let json = #"{"settings":{"rss_poll_interval_minutes":5,"active_indexer_manager":"jackett"}}"#
+        let value = try decoder().decode(AutoGrabSettingsResponse.self, from: Data(json.utf8))
+        #expect(value.settings.rssPollIntervalMinutes == 5)
+        #expect(value.settings.activeIndexerManager == "jackett")
+    }
+
+    @Test func rssPollIntervalFallsBackToTheDefault() {
+        #expect(RssPollInterval.normalized(nil) == 15)
+        #expect(RssPollInterval.normalized(7) == 15)
+        #expect(RssPollInterval.normalized(30) == 30)
+    }
+
     @Test func olderServerWithoutTheFieldsStillDecodes() throws {
         let value = try decoder().decode(AutoGrabSettingsResponse.self, from: Data(#"{"settings":{}}"#.utf8))
         #expect(value.settings.searchOnAdd == nil)
         #expect(value.settings.releaseCheckCron == nil)
+        #expect(value.settings.rssPollIntervalMinutes == nil)
     }
 
     @Test func decodesReadinessChecks() throws {

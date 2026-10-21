@@ -787,6 +787,8 @@ model MediaSettings {
   searchOnAdd             Boolean  @default(true) @map("search_on_add")
   /// Cron for the scheduled movie and episode release checks.
   releaseCheckCron        String   @default("0 */6 * * *") @map("release_check_cron")
+  /// Minutes between indexer RSS polls; one of RSS_POLL_INTERVAL_MINUTES.
+  rssPollIntervalMinutes  Int      @default(15) @map("rss_poll_interval_minutes")
   activeIndexerManager    String?  @map("active_indexer_manager")
   downloadPollActiveSecs   Int      @default(20) @map("download_poll_active_secs")
   downloadPollIdleSecs     Int      @default(1800) @map("download_poll_idle_secs")

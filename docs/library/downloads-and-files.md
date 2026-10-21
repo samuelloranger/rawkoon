@@ -43,7 +43,7 @@ still wanted is searched automatically, by two jobs that hit the same indexer:
 | Job | Schedule | What it does |
 | --- | --- | --- |
 | Release search | every 6 hours by default; change it under Settings, Media, Library Settings, "Check for new releases"; a shorter interval means more indexer searches, and the minimum is 15 minutes | Searches each wanted movie and episode, and grabs the best match its quality profile allows. A season whose aired episodes are all wanted is searched as one season pack. |
-| RSS | every 15 minutes | Matches new releases from the indexer feeds against the same wanted titles. |
+| RSS | every 15 minutes by default; change it under Settings, Media, Library Settings, "Check indexer RSS feeds" to 5, 10, 15, 30 or 60 minutes | Matches new releases from the feeds of the indexers picked under RSS Polling against the same wanted titles. With Jackett, also lower Jackett's feed cache; see [Jackett feed cache](/integrations#jackett-feed-cache). |
 
 Neither job searches a title before it can exist:
 

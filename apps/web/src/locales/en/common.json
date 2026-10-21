@@ -897,6 +897,15 @@
         "invalidTime": "Pick a time of day.",
         "summary": "Runs {{schedule}}.",
         "timezoneHint": "Times follow the server's time zone."
+      },
+      "rssPoll": {
+        "title": "Check indexer RSS feeds",
+        "option_one": "Every {{count}} minute",
+        "option_other": "Every {{count}} minutes",
+        "optionDefault_one": "Every {{count}} minute (default)",
+        "optionDefault_other": "Every {{count}} minutes (default)",
+        "description": "How often the RSS feeds of the indexers picked under RSS Polling are read. A new release that matches a wanted title is grabbed at the next read.",
+        "jackettCache": "Jackett keeps feed results for 35 minutes by default, so reading more often returns the same results. Lower Jackett's cache time (Cache TTL in Jackett's settings) below this interval, for example to 120 seconds."
       }
     },
     "arrImport": {
@@ -1230,7 +1239,7 @@
       },
       "rssPolling": {
         "label": "RSS Polling",
-        "help": "Select indexers to poll every 15 minutes for new releases. Matched items are grabbed immediately without waiting for the scheduled search.",
+        "help": "Select indexers to poll for new releases on the schedule set under Library settings. Matched items are grabbed immediately without waiting for the scheduled search.",
         "noIndexers": "No indexers found. Save your credentials first.",
         "offline": "offline"
       },

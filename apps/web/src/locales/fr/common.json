@@ -897,6 +897,15 @@
         "invalidTime": "Choisissez une heure.",
         "summary": "S'exécute {{schedule}}.",
         "timezoneHint": "Les heures suivent le fuseau horaire du serveur."
+      },
+      "rssPoll": {
+        "title": "Lire les flux RSS des indexeurs",
+        "option_one": "Toutes les {{count}} minute",
+        "option_other": "Toutes les {{count}} minutes",
+        "optionDefault_one": "Toutes les {{count}} minute (par défaut)",
+        "optionDefault_other": "Toutes les {{count}} minutes (par défaut)",
+        "description": "Fréquence de lecture des flux RSS des indexeurs choisis sous Flux RSS. Une nouvelle sortie qui correspond à un titre recherché est saisie à la lecture suivante.",
+        "jackettCache": "Par défaut, Jackett garde les résultats d'un flux 35 minutes : une lecture plus fréquente renvoie les mêmes résultats. Réduisez la durée du cache de Jackett (Cache TTL dans ses réglages) sous cet intervalle, par exemple à 120 secondes."
       }
     },
     "arrImport": {
@@ -1230,7 +1239,7 @@
       },
       "rssPolling": {
         "label": "Flux RSS",
-        "help": "Sélectionnez les indexeurs à surveiller toutes les 15 minutes. Les éléments correspondants sont téléchargés immédiatement sans attendre la recherche planifiée.",
+        "help": "Sélectionnez les indexeurs à surveiller selon la fréquence définie dans les réglages de la bibliothèque. Les éléments correspondants sont téléchargés immédiatement sans attendre la recherche planifiée.",
         "noIndexers": "Aucun indexeur trouvé. Sauvegardez vos identifiants d'abord.",
         "offline": "hors ligne"
       },

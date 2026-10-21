@@ -6,6 +6,7 @@ nonisolated struct UpdateAutoGrabBody: Encodable, Sendable {
     // Nil keys are omitted, so each control saves only its own field.
     var searchOnAdd: Bool?
     var releaseCheckCron: String?
+    var rssPollIntervalMinutes: Int?
 }
 
 private nonisolated struct GrabPendingBody: Encodable, Sendable {

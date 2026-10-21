@@ -2,7 +2,8 @@ import RawkoonKit
 import SwiftUI
 
 /// Adding & checking (admin): search on add, how often wanted titles are re-checked
-/// (presets, with a custom cron behind Advanced), and releases held by a grab delay.
+/// (presets, with a custom cron behind Advanced), how often indexer RSS feeds are
+/// read, and releases held by a grab delay.
 /// `GET/PATCH /api/library/post-processing/settings`, `/api/downloads/pending-releases`.
 /// Whether the pipeline is ready to grab is answered on System > Health.
 struct AutoGrabSettingsView: View {
@@ -22,6 +23,8 @@ struct AutoGrabSettingsView: View {
     @State private var searchOnAdd = true
     @State private var schedule: Schedule = .preset(.every6h)
     @State private var customCron = ""
+    @State private var rssInterval = RssPollInterval.defaultMinutes
+    @State private var activeIndexerManager: String?
     @State private var loaded: Saved?
 
     @State private var advancedOpen = false
@@ -33,6 +36,7 @@ struct AutoGrabSettingsView: View {
     private struct Saved: Equatable {
         var searchOnAdd: Bool
         var cron: String
+        var rssInterval: Int
     }
 
     private var cronText: String {
@@ -54,7 +58,7 @@ struct AutoGrabSettingsView: View {
         }
     }
 
-    /// Only the schedule waits for Save; the toggle saves itself.
+    /// Only the schedule waits for Save; the toggle and the RSS interval save themselves.
     private var cronDirty: Bool {
         guard let loaded else { return false }
         let draft = effectiveCron ?? cronText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -101,6 +105,7 @@ struct AutoGrabSettingsView: View {
                 }
 
                 scheduleSection
+                rssSection
                 heldSection
 
                 if let saveError {
@@ -114,6 +119,11 @@ struct AutoGrabSettingsView: View {
         .onChange(of: searchOnAdd) { _, value in
             if let loaded, value != loaded.searchOnAdd {
                 Task { await saveToggle(value) }
+            }
+        }
+        .onChange(of: rssInterval) { _, value in
+            if let loaded, value != loaded.rssInterval {
+                Task { await saveRssInterval(value) }
             }
         }
         // Hiding the system back button also disables the swipe, so an unsaved schedule can't vanish silently.
@@ -255,6 +265,36 @@ struct AutoGrabSettingsView: View {
         .accessibilityAddTraits(schedule == value ? .isSelected : [])
     }
 
+    // MARK: RSS
+
+    private var rssSection: some View {
+        Section {
+            PickerRow(
+                title: "Read every",
+                selection: $rssInterval,
+                options: RssPollInterval.options.map { minutes in
+                    (value: minutes, label: rssIntervalLabel(minutes))
+                }
+            )
+            .accessibilityIdentifier("autograb-rss-interval")
+        } header: {
+            Text("Check indexer RSS feeds")
+        } footer: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("How often the feeds of the indexers picked under RSS Polling are read. A new release that matches a wanted title is grabbed at the next read.")
+                if activeIndexerManager == "jackett" {
+                    Text("Jackett keeps feed results for 35 minutes by default. Set its Cache TTL below this interval, for example 120 seconds.")
+                }
+            }
+        }
+    }
+
+    private func rssIntervalLabel(_ minutes: Int) -> LocalizedStringKey {
+        minutes == RssPollInterval.defaultMinutes
+            ? "\(minutes) minutes (default)"
+            : "\(minutes) minutes"
+    }
+
     // MARK: Held releases
 
     private var heldSection: some View {
@@ -337,7 +377,13 @@ struct AutoGrabSettingsView: View {
                 customCron = cron
                 advancedOpen = true
             }
-            loaded = Saved(searchOnAdd: searchOnAdd, cron: ReleaseCheckCron.normalize(cron) ?? cron)
+            rssInterval = RssPollInterval.normalized(settings.rssPollIntervalMinutes)
+            activeIndexerManager = settings.activeIndexerManager
+            loaded = Saved(
+                searchOnAdd: searchOnAdd,
+                cron: ReleaseCheckCron.normalize(cron) ?? cron,
+                rssInterval: rssInterval
+            )
         } catch {
             if Task.isCancelled || error is CancellationError {
                 return
@@ -367,7 +413,7 @@ struct AutoGrabSettingsView: View {
         saving = true
         saveError = nil
         do {
-            try await client.updateAutoGrab(UpdateAutoGrabBody(searchOnAdd: nil, releaseCheckCron: cron))
+            try await client.updateAutoGrab(UpdateAutoGrabBody(releaseCheckCron: cron))
             loaded?.cron = cron
             confirmingDiscard = false
             if case .custom = schedule, let preset = ReleaseCheckCron.preset(for: cron) {
@@ -383,10 +429,22 @@ struct AutoGrabSettingsView: View {
         guard let client = model.api() else { return }
         saveError = nil
         do {
-            try await client.updateAutoGrab(UpdateAutoGrabBody(searchOnAdd: value, releaseCheckCron: nil))
+            try await client.updateAutoGrab(UpdateAutoGrabBody(searchOnAdd: value))
             loaded?.searchOnAdd = value
         } catch {
             searchOnAdd = loaded?.searchOnAdd ?? !value
+            saveError = settingsErrorMessage(error)
+        }
+    }
+
+    private func saveRssInterval(_ value: Int) async {
+        guard let client = model.api() else { return }
+        saveError = nil
+        do {
+            try await client.updateAutoGrab(UpdateAutoGrabBody(rssPollIntervalMinutes: value))
+            loaded?.rssInterval = value
+        } catch {
+            rssInterval = loaded?.rssInterval ?? RssPollInterval.defaultMinutes
             saveError = settingsErrorMessage(error)
         }
     }

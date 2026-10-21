@@ -47,6 +47,7 @@ const settings = {
   default_book_quality_profile_id: 5,
   search_on_add: true,
   release_check_cron: "0 */6 * * *",
+  rss_poll_interval_minutes: 15,
   active_indexer_manager: "prowlarr",
   updated_at: "x",
 } as unknown as MediaPostProcessingSettings;
@@ -117,5 +118,52 @@ describe("library settings", () => {
     const body = mutateAsync.mock.calls[0][0];
     expect(body.default_book_quality_profile_id).toBe(5);
     expect("active_indexer_manager" in body).toBe(false);
+  });
+
+  it("saves the RSS poll interval picked from the offered intervals", async () => {
+    mutateAsync.mockClear();
+    render(
+      <MediaPostProcessingSettingsBody
+        settings={settings}
+        profilesData={profilesData}
+      />,
+    );
+    const select = document.getElementById(
+      "media-post-processing-settings-body-rss-poll-interval",
+    ) as HTMLSelectElement;
+    expect([...select.options].map((o) => o.value)).toEqual([
+      "5",
+      "10",
+      "15",
+      "30",
+      "60",
+    ]);
+    expect(select.value).toBe("15");
+    fireEvent.change(select, { target: { value: "5" } });
+    fireEvent.click(screen.getByText("settings.mediaLibrary.save"));
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
+    expect(mutateAsync.mock.calls[0][0].rss_poll_interval_minutes).toBe(5);
+  });
+
+  it("warns about Jackett's feed cache only when Jackett is the indexer manager", () => {
+    const { unmount } = render(
+      <MediaPostProcessingSettingsBody
+        settings={settings}
+        profilesData={profilesData}
+      />,
+    );
+    expect(
+      screen.queryByText("settings.mediaLibrary.rssPoll.jackettCache"),
+    ).toBeNull();
+    unmount();
+    render(
+      <MediaPostProcessingSettingsBody
+        settings={{ ...settings, active_indexer_manager: "jackett" }}
+        profilesData={profilesData}
+      />,
+    );
+    expect(
+      screen.getByText("settings.mediaLibrary.rssPoll.jackettCache"),
+    ).toBeTruthy();
   });
 });

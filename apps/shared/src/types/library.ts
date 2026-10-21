@@ -271,6 +271,8 @@ export interface MediaPostProcessingSettings {
   search_on_add: boolean;
   /** 5-field cron for the scheduled movie and episode release checks. */
   release_check_cron: string;
+  /** Minutes between indexer RSS polls; one of RSS_POLL_INTERVAL_MINUTES. */
+  rss_poll_interval_minutes: number;
   active_indexer_manager: IndexerManagerType | null;
   /** Book fields share this row: post-processing is per instance, not per kind. */
   books_library_path: string | null;
@@ -307,6 +309,7 @@ export interface UpdateMediaPostProcessingSettingsRequest {
   default_show_quality_profile_id?: number | null;
   search_on_add?: boolean;
   release_check_cron?: string;
+  rss_poll_interval_minutes?: number;
   active_indexer_manager?: IndexerManagerType | null;
   books_library_path?: string | null;
   audiobooks_library_path?: string | null;
