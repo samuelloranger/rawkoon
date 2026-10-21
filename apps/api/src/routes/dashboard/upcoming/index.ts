@@ -2,12 +2,15 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
-import { jsonV } from "@rawkoon/api/middleware/validate";
+import { jsonV, queryV } from "@rawkoon/api/middleware/validate";
 import {
+  DEFAULT_UPCOMING_LANGUAGE,
   TMDB_UPCOMING_CACHE_KEY,
   collectTmdbUpcoming,
   getTmdbUpcomingDateWindowIso,
+  upcomingCacheKey,
 } from "@rawkoon/api/utils/dashboard/tmdbUpcoming";
+import { toTmdbLanguage } from "@rawkoon/api/utils/medias/tmdbFetcherCore";
 import { getGlobalTmdbRegion } from "@rawkoon/api/utils/medias/tmdbRegion";
 import {
   attachLibraryIds,
@@ -30,6 +33,7 @@ const buildUpcomingPayload = async (
   tmdbApiKey: string,
   popularityThreshold: number,
   region: string,
+  tmdbLanguage: string = DEFAULT_UPCOMING_LANGUAGE,
 ): Promise<{ enabled: true; items: DashboardUpcomingItem[] } | null> => {
   const appSettings = await prisma.appSettings.findUnique({
     where: { id: 1 },
@@ -50,6 +54,7 @@ const buildUpcomingPayload = async (
       endDateIso,
       region,
       upcomingLanguages,
+      tmdbLanguage,
     ),
     collectTmdbUpcoming(
       "tv",
@@ -59,6 +64,7 @@ const buildUpcomingPayload = async (
       endDateIso,
       region,
       upcomingLanguages,
+      tmdbLanguage,
     ),
   ]);
 
@@ -115,47 +121,55 @@ const upcomingItemBody = z.object({
 
 export const dashboardUpcomingRoutes = new Hono<Env>()
   .use("*", requireUser)
-  .get("/upcoming", async () => {
-    try {
-      const region = await getGlobalTmdbRegion();
-      const tmdbIntegration = await getIntegrationConfigRecord("tmdb");
-      const tmdbConfig = tmdbIntegration?.enabled
-        ? normalizeTmdbConfig(tmdbIntegration.config)
-        : null;
-      const tmdbApiKey = tmdbConfig?.api_key ?? null;
-
-      if (!tmdbApiKey) {
-        return ok({ enabled: false, items: [] });
-      }
-
-      const cached = await getJsonCache<{
-        enabled: boolean;
-        items: DashboardUpcomingItem[];
-      }>(`${TMDB_UPCOMING_CACHE_KEY}:${region}`);
-
-      if (cached) {
-        return ok(cached);
-      }
-
-      console.log("[upcoming] Cache miss, running inline fallback");
-      const popularityThreshold = tmdbConfig?.popularity_threshold ?? 15;
-      const responsePayload = await buildUpcomingPayload(
-        tmdbApiKey,
-        popularityThreshold,
-        region,
+  .get(
+    "/upcoming",
+    queryV(z.object({ language: z.string().optional() })),
+    async (c) => {
+      const language = toTmdbLanguage(
+        c.req.valid("query").language || DEFAULT_UPCOMING_LANGUAGE,
       );
-      if (!responsePayload) return badGateway("TMDB request failed");
-      await setJsonCache(
-        `${TMDB_UPCOMING_CACHE_KEY}:${region}`,
-        responsePayload,
-        60 * 60,
-      );
-      return ok(responsePayload);
-    } catch (error) {
-      console.error("Error getting TMDB upcoming items:", error);
-      return serverError("Failed to get TMDB upcoming items");
-    }
-  })
+      try {
+        const region = await getGlobalTmdbRegion();
+        const tmdbIntegration = await getIntegrationConfigRecord("tmdb");
+        const tmdbConfig = tmdbIntegration?.enabled
+          ? normalizeTmdbConfig(tmdbIntegration.config)
+          : null;
+        const tmdbApiKey = tmdbConfig?.api_key ?? null;
+
+        if (!tmdbApiKey) {
+          return ok({ enabled: false, items: [] });
+        }
+
+        const cached = await getJsonCache<{
+          enabled: boolean;
+          items: DashboardUpcomingItem[];
+        }>(upcomingCacheKey(region, language));
+
+        if (cached) {
+          return ok(cached);
+        }
+
+        console.log("[upcoming] Cache miss, running inline fallback");
+        const popularityThreshold = tmdbConfig?.popularity_threshold ?? 15;
+        const responsePayload = await buildUpcomingPayload(
+          tmdbApiKey,
+          popularityThreshold,
+          region,
+          language,
+        );
+        if (!responsePayload) return badGateway("TMDB request failed");
+        await setJsonCache(
+          upcomingCacheKey(region, language),
+          responsePayload,
+          60 * 60,
+        );
+        return ok(responsePayload);
+      } catch (error) {
+        console.error("Error getting TMDB upcoming items:", error);
+        return serverError("Failed to get TMDB upcoming items");
+      }
+    },
+  )
   .post("/upcoming/refresh", async () => {
     try {
       const region = await getGlobalTmdbRegion();

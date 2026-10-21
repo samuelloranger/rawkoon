@@ -19,6 +19,8 @@ function requestId(raw: string): number | null {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+const isTruthyFlag = (v: string | undefined) => v === "1" || v === "true";
+
 /** Newest requests returned to the requests screen. */
 const REQUEST_LIST_LIMIT = 500;
 
@@ -87,10 +89,14 @@ const createBody = z.union([
 // Mounted at /api/requests by the edge.
 export const requestRoutes = new Hono<Env>()
   .use("*", requireUser)
-  // GET /api/requests — admins see all, users see their own
-  .get("/", async (c) => {
+  // GET /api/requests — admins see all, users see their own; ?mine=1 limits admins to theirs
+  .get("/", queryV(z.object({ mine: z.string().optional() })), async (c) => {
     const user = c.get("user");
-    const where = user.is_admin ? {} : { requestedById: user.id };
+    // Filtering in the query keeps an admin's own requests from falling past the cap.
+    const where =
+      user.is_admin && !isTruthyFlag(c.req.valid("query").mine)
+        ? {}
+        : { requestedById: user.id };
     const rows = await prisma.mediaRequest.findMany({
       where,
       orderBy: { createdAt: "desc" },

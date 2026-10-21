@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import {
+  enrichSearchItems,
   exploreBaseCacheKey,
   getExploreBaseSections,
   type ExploreBaseSections,
@@ -95,5 +96,26 @@ describe("getExploreBaseSections", () => {
     expect(getCalled).toBe(false);
     expect(fetched).toBe(true);
     expect(res.cacheHit).toBe(false);
+  });
+});
+
+describe("enrichSearchItems", () => {
+  const raw = (id: number) => ({ id, media_type: "movie", title: `T${id}` });
+
+  it("sets library_id and library_status for titles in the library", () => {
+    const [inLib, notInLib] = enrichSearchItems(
+      [raw(1), raw(2)],
+      new Map([[1, { id: 7, status: "wanted" }]]),
+    );
+    expect(inLib).toMatchObject({
+      already_exists: true,
+      library_id: 7,
+      library_status: "wanted",
+    });
+    expect(notInLib).toMatchObject({
+      already_exists: false,
+      library_id: null,
+      library_status: null,
+    });
   });
 });

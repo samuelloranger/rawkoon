@@ -87,7 +87,15 @@ function parseTvFields(data: Record<string, unknown>): TvFields {
   const episode_run_times = episodeRunTime.filter(
     (n) => typeof n === "number" && n > 0,
   );
-  const runtime = episode_run_times.length > 0 ? episode_run_times[0] : null;
+  // TMDB often returns an empty episode_run_time now; the aired episodes still carry one.
+  const episodeRuntime = (key: string): number | null => {
+    const runtime = toNumberOrNull(toRecord(data[key])?.runtime);
+    return runtime != null && runtime > 0 ? runtime : null;
+  };
+  const runtime =
+    episode_run_times[0] ??
+    episodeRuntime("last_episode_to_air") ??
+    episodeRuntime("next_episode_to_air");
   const number_of_seasons =
     typeof data.number_of_seasons === "number" ? data.number_of_seasons : null;
   const number_of_episodes =

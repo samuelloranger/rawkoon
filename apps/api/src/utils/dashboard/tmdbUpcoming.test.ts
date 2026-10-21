@@ -1,5 +1,9 @@
-import { describe, expect, it } from "bun:test";
-import { pickUpcomingMovieDay } from "@rawkoon/api/utils/dashboard/tmdbUpcoming";
+import { afterEach, describe, expect, it } from "bun:test";
+import {
+  collectTmdbUpcoming,
+  pickUpcomingMovieDay,
+  upcomingCacheKey,
+} from "@rawkoon/api/utils/dashboard/tmdbUpcoming";
 
 const country = (iso: string, ...dates: [number, string][]) => ({
   iso_3166_1: iso,
@@ -52,5 +56,50 @@ describe("pickUpcomingMovieDay", () => {
       pickUpcomingMovieDay([country("CA", [3, "2026-07-17"])], "CA"),
     ).toBeNull();
     expect(pickUpcomingMovieDay([], "CA")).toBeNull();
+  });
+});
+
+describe("upcomingCacheKey", () => {
+  it("keeps the original key for en-US and splits other languages", () => {
+    expect(upcomingCacheKey("CA", "en-US")).toBe(
+      "dashboard:tmdb:upcoming:v8:CA",
+    );
+    expect(upcomingCacheKey("CA", "fr-FR")).toBe(
+      "dashboard:tmdb:upcoming:v8:CA:fr-FR",
+    );
+  });
+});
+
+describe("collectTmdbUpcoming language", () => {
+  const realFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  const languageSent = async (tmdbLanguage?: string) => {
+    const sent: { language: string | null } = { language: null };
+    globalThis.fetch = (async (input: string | URL | Request) => {
+      sent.language = new URL(String(input)).searchParams.get("language");
+      return Response.json({ results: [], total_pages: 1 });
+    }) as unknown as typeof fetch;
+    await collectTmdbUpcoming(
+      "movie",
+      1,
+      "key",
+      "2026-01-01",
+      "2026-12-31",
+      "CA",
+      "en,fr",
+      tmdbLanguage,
+    );
+    return sent.language;
+  };
+
+  it("sends the requested language to TMDB", async () => {
+    expect(await languageSent("fr-FR")).toBe("fr-FR");
+  });
+
+  it("defaults to en-US", async () => {
+    expect(await languageSent()).toBe("en-US");
   });
 });

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { extractTitleTranslations } from "./tmdbFetcherDetails";
+import {
+  extractTitleTranslations,
+  parseMediaDetails,
+} from "./tmdbFetcherDetails";
 
 describe("extractTitleTranslations", () => {
   it("returns one title per language for movies (data.title)", () => {
@@ -84,5 +87,43 @@ describe("extractTitleTranslations", () => {
     expect(extractTitleTranslations({ translations: "nope" }, "movie")).toEqual(
       [],
     );
+  });
+});
+
+describe("parseMediaDetails TV runtime", () => {
+  const runtimeOf = (data: Record<string, unknown>) =>
+    parseMediaDetails(data, "tv").runtime;
+
+  it("uses episode_run_time when TMDB provides it", () => {
+    expect(
+      runtimeOf({
+        episode_run_time: [45, 50],
+        last_episode_to_air: { runtime: 60 },
+      }),
+    ).toBe(45);
+  });
+
+  it("falls back to the last aired episode when the array is empty", () => {
+    expect(
+      runtimeOf({
+        episode_run_time: [],
+        last_episode_to_air: { runtime: 52 },
+        next_episode_to_air: { runtime: 40 },
+      }),
+    ).toBe(52);
+  });
+
+  it("falls back to the next episode when there is no usable last one", () => {
+    expect(
+      runtimeOf({
+        episode_run_time: [],
+        last_episode_to_air: { runtime: null },
+        next_episode_to_air: { runtime: 40 },
+      }),
+    ).toBe(40);
+  });
+
+  it("stays null when no source has a runtime", () => {
+    expect(runtimeOf({ episode_run_time: [] })).toBeNull();
   });
 });

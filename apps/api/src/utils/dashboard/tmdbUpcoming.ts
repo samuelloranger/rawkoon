@@ -14,6 +14,13 @@ const TMDB_WEB_BASE_URL = "https://www.themoviedb.org";
 
 export const TMDB_UPCOMING_CACHE_TTL_SECONDS = 24 * 60 * 60;
 export const TMDB_UPCOMING_CACHE_KEY = "dashboard:tmdb:upcoming:v8";
+export const DEFAULT_UPCOMING_LANGUAGE = "en-US";
+
+/** The default language keeps the original key, which the cron worker and invalidators use. */
+export const upcomingCacheKey = (region: string, language: string): string =>
+  language === DEFAULT_UPCOMING_LANGUAGE
+    ? `${TMDB_UPCOMING_CACHE_KEY}:${region}`
+    : `${TMDB_UPCOMING_CACHE_KEY}:${region}:${language}`;
 
 export const getArrIntegrationStatus =
   async (): Promise<ArrIntegrationStatus> => {
@@ -139,11 +146,12 @@ const fetchTmdbDiscoverPage = async (
   toDateIso: string,
   region: string,
   languages: string = "en,fr",
+  tmdbLanguage: string = DEFAULT_UPCOMING_LANGUAGE,
 ): Promise<{ items: DashboardUpcomingItem[]; totalPages: number } | null> => {
   const endpoint = mediaType === "movie" ? "discover/movie" : "discover/tv";
   const url = new URL(`https://api.themoviedb.org/3/${endpoint}`);
   url.searchParams.set("api_key", tmdbApiKey);
-  url.searchParams.set("language", "en-US");
+  url.searchParams.set("language", tmdbLanguage);
   url.searchParams.set("page", String(page));
 
   const languageFilter = languages.split(",").join("|");
@@ -194,6 +202,7 @@ export const collectTmdbUpcoming = async (
   toDateIso: string,
   region: string,
   languages: string = "en,fr",
+  tmdbLanguage: string = DEFAULT_UPCOMING_LANGUAGE,
 ): Promise<{ items: DashboardUpcomingItem[]; hasMore: boolean } | null> => {
   const items: DashboardUpcomingItem[] = [];
   let page = 1;
@@ -208,6 +217,7 @@ export const collectTmdbUpcoming = async (
       toDateIso,
       region,
       languages,
+      tmdbLanguage,
     );
     if (!response) return null;
     items.push(...response.items);

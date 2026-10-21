@@ -16,7 +16,7 @@ import {
   fetchTmdbResults,
   getExploreBaseSections,
   injectMediaType,
-  libraryIdMapForTmdbIds,
+  libraryEntriesForTmdbIds,
   loadAllLibraryTmdbIds,
   loadEnabledTmdbConfig,
   resolveLanguage,
@@ -88,11 +88,11 @@ export const tmdbExploreRoutes = new Hono<Env>()
         },
       });
 
-      const { libraryIdByTmdbId, allTmdbIds, movieTmdbIds, showTmdbIds } =
+      const { libraryByTmdbId, allTmdbIds, movieTmdbIds, showTmdbIds } =
         await loadAllLibraryTmdbIds();
 
       const normalize = (items: unknown[]) =>
-        enrichSearchItems(items, libraryIdByTmdbId);
+        enrichSearchItems(items, libraryByTmdbId);
 
       const recommendationsCacheKey = `medias:explore:recommendations:${language}`;
 
@@ -197,7 +197,7 @@ export const tmdbExploreRoutes = new Hono<Env>()
         .map(mapTmdbSearchItem)
         .filter((item): item is TmdbSearchItem => Boolean(item))
         .map((i) => i.tmdb_id);
-      const catLibMap = await libraryIdMapForTmdbIds(catTmdbIds);
+      const catLibMap = await libraryEntriesForTmdbIds(catTmdbIds);
 
       const enrichedNormalized = enrichSearchItems(items, catLibMap);
 
@@ -261,7 +261,7 @@ export const tmdbExploreRoutes = new Hono<Env>()
         .filter((item): item is TmdbSearchItem => Boolean(item))
         .slice(0, 40);
 
-      const simLibMap = await libraryIdMapForTmdbIds(
+      const simLibMap = await libraryEntriesForTmdbIds(
         baseItems.map((i) => i.tmdb_id),
       );
       const enrichedItems = enrichSearchItems(withType, simLibMap).slice(0, 40);

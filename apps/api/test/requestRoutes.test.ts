@@ -39,6 +39,7 @@ let requestRows: Array<{
 }> = [];
 let libraryRows: Array<{ tmdbId: number }> = [];
 let nextRequestId = 1;
+let lastFindManyWhere: unknown;
 
 const prismaStub = {
   libraryMedia: {
@@ -47,7 +48,10 @@ const prismaStub = {
     update: async () => ({}),
   },
   mediaRequest: {
-    findMany: async () => requestRows,
+    findMany: async ({ where }: { where?: unknown } = {}) => {
+      lastFindManyWhere = where;
+      return requestRows;
+    },
     findUnique: async ({
       where,
     }: {
@@ -201,6 +205,25 @@ describe("requestRoutes", () => {
       requested_by: { id: "u1", name: "Sam" },
       created_at: "2026-06-19T00:00:00.000Z",
     });
+  });
+
+  it("GET / returns every request to an admin by default", async () => {
+    await requestRoutes.request("/");
+    expect(lastFindManyWhere).toEqual({});
+  });
+
+  it("GET /?mine=1 filters an admin to their own requests in the query", async () => {
+    for (const flag of ["1", "true"]) {
+      lastFindManyWhere = undefined;
+      const res = await requestRoutes.request(`/?mine=${flag}`);
+      expect(res.status).toBe(200);
+      expect(lastFindManyWhere).toEqual({ requestedById: "u1" });
+    }
+  });
+
+  it("GET /?mine=0 keeps the admin default", async () => {
+    await requestRoutes.request("/?mine=0");
+    expect(lastFindManyWhere).toEqual({});
   });
 
   it("POST / returns the new id", async () => {

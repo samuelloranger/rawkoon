@@ -67,56 +67,53 @@ export async function libraryEntriesForTmdbIds(
   );
 }
 
-export async function libraryIdMapForTmdbIds(
-  tmdbIds: number[],
-): Promise<Map<number, number>> {
-  const entries = await libraryEntriesForTmdbIds(tmdbIds);
-  return new Map([...entries].map(([tmdbId, e]) => [tmdbId, e.id]));
-}
+export type LibraryEntry = { id: number; status: string };
 
 export function enrichSearchItems(
   items: unknown[],
-  libraryIdByTmdbId: Map<number, number | null | undefined>,
+  libraryByTmdbId: Map<number, LibraryEntry>,
 ): TmdbSearchItem[] {
   return items
     .map(mapTmdbSearchItem)
     .filter((item): item is TmdbSearchItem => Boolean(item))
     .map((item) => {
-      const libId = libraryIdByTmdbId.get(item.tmdb_id) ?? null;
+      const entry = libraryByTmdbId.get(item.tmdb_id);
       return {
         ...item,
         service: "prowlarr" as const,
-        already_exists: libId != null,
+        already_exists: entry != null,
         can_add: true,
         source_id: null,
-        library_id: libId,
+        library_id: entry?.id ?? null,
+        library_status: entry?.status ?? null,
       };
     });
 }
 
 export async function enrichItemsFromRaw(
   items: unknown[],
-  libraryIdByTmdbId?: Map<number, number | null | undefined>,
+  libraryByTmdbId?: Map<number, LibraryEntry>,
 ): Promise<TmdbSearchItem[]> {
   const baseItems = items
     .map(mapTmdbSearchItem)
     .filter((item): item is TmdbSearchItem => Boolean(item));
 
   const libMap =
-    libraryIdByTmdbId ??
-    (await libraryIdMapForTmdbIds(baseItems.map((i) => i.tmdb_id)));
+    libraryByTmdbId ??
+    (await libraryEntriesForTmdbIds(baseItems.map((i) => i.tmdb_id)));
 
   return enrichSearchItems(items, libMap);
 }
 
 export async function loadAllLibraryTmdbIds(): Promise<{
   libraryIdByTmdbId: Map<number, number>;
+  libraryByTmdbId: Map<number, LibraryEntry>;
   allTmdbIds: Set<number>;
   movieTmdbIds: number[];
   showTmdbIds: number[];
 }> {
   const libraryAllEntries = await prisma.libraryMedia.findMany({
-    select: { tmdbId: true, id: true, type: true },
+    select: { tmdbId: true, id: true, type: true, status: true },
   });
 
   const libraryIdByTmdbId = new Map(
@@ -125,6 +122,9 @@ export async function loadAllLibraryTmdbIds(): Promise<{
 
   return {
     libraryIdByTmdbId,
+    libraryByTmdbId: new Map(
+      libraryAllEntries.map((e) => [e.tmdbId, { id: e.id, status: e.status }]),
+    ),
     allTmdbIds: new Set(libraryAllEntries.map((e) => e.tmdbId)),
     movieTmdbIds: libraryAllEntries
       .filter((e) => e.type === "movie")
