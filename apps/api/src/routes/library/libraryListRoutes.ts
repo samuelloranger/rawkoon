@@ -12,7 +12,7 @@ import { deleteCache } from "@rawkoon/api/services/cache";
 import { deleteLibraryMediaWithRequests } from "@rawkoon/api/services/mediaRequests";
 import { queueSearchOnAdd } from "@rawkoon/api/services/searchOnAdd";
 import { pruneLibraryDirsAfterDelete } from "@rawkoon/api/services/library/pruneLibraryDirs";
-import { TMDB_UPCOMING_CACHE_KEY } from "@rawkoon/api/utils/dashboard/tmdbUpcoming";
+import { invalidateUpcomingCache } from "@rawkoon/api/utils/dashboard/tmdbUpcoming";
 import { getGlobalTmdbRegion } from "@rawkoon/api/utils/medias/tmdbRegion";
 
 import {
@@ -283,7 +283,7 @@ export const libraryListRoutes = new Hono<Env>()
             type,
             region,
           });
-          await deleteCache(`${TMDB_UPCOMING_CACHE_KEY}:${region}`);
+          await invalidateUpcomingCache(region);
           const search = await queueSearchOnAdd(item, search_on_add);
           return ok({
             item: mapLibraryMedia(item, undefined, adminView(c)),

@@ -8,6 +8,7 @@ import {
   TMDB_UPCOMING_CACHE_KEY,
   collectTmdbUpcoming,
   getTmdbUpcomingDateWindowIso,
+  invalidateUpcomingCache,
   upcomingCacheKey,
 } from "@rawkoon/api/utils/dashboard/tmdbUpcoming";
 import { toTmdbLanguage } from "@rawkoon/api/utils/medias/tmdbFetcherCore";
@@ -179,7 +180,7 @@ export const dashboardUpcomingRoutes = new Hono<Env>()
         : null;
       const tmdbApiKey = tmdbConfig?.api_key ?? null;
 
-      await deleteCache(`${TMDB_UPCOMING_CACHE_KEY}:${region}`);
+      await invalidateUpcomingCache(region);
 
       if (!tmdbApiKey) {
         return ok({ enabled: false, items: [] });
@@ -219,7 +220,7 @@ export const dashboardUpcomingRoutes = new Hono<Env>()
         where: { tmdbId },
       });
       if (existing) {
-        await deleteCache(`${TMDB_UPCOMING_CACHE_KEY}:${region}`);
+        await invalidateUpcomingCache(region);
         return ok({ success: true, added: false, already_exists: true });
       }
 
@@ -228,7 +229,7 @@ export const dashboardUpcomingRoutes = new Hono<Env>()
         type: libType,
         region,
       });
-      await deleteCache(`${TMDB_UPCOMING_CACHE_KEY}:${region}`);
+      await invalidateUpcomingCache(region);
 
       return ok({ success: true, added: true, already_exists: false });
     } catch (error) {

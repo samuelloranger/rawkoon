@@ -1,4 +1,6 @@
+import { deleteCache } from "@rawkoon/api/services/cache";
 import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationConfigCache";
+import { TMDB_LANGUAGES } from "@rawkoon/api/utils/medias/tmdbFetcherCore";
 import { toRecord, toStringOrNull } from "@rawkoon/shared/utils";
 import type {
   ArrIntegrationStatus,
@@ -21,6 +23,17 @@ export const upcomingCacheKey = (region: string, language: string): string =>
   language === DEFAULT_UPCOMING_LANGUAGE
     ? `${TMDB_UPCOMING_CACHE_KEY}:${region}`
     : `${TMDB_UPCOMING_CACHE_KEY}:${region}:${language}`;
+
+/** Drops every language's cached list, so a library change shows in all of them. */
+export const invalidateUpcomingCache = async (
+  region: string,
+): Promise<void> => {
+  await Promise.all(
+    TMDB_LANGUAGES.map((language) =>
+      deleteCache(upcomingCacheKey(region, language)),
+    ),
+  );
+};
 
 export const getArrIntegrationStatus =
   async (): Promise<ArrIntegrationStatus> => {

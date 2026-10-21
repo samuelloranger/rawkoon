@@ -7,7 +7,7 @@ import { getGlobalTmdbRegion } from "@rawkoon/api/utils/medias/tmdbRegion";
 import { deleteCache } from "@rawkoon/api/services/cache";
 import { queueSearchOnAdd } from "@rawkoon/api/services/searchOnAdd";
 import type { SearchSkippedReason } from "@rawkoon/shared/types";
-import { TMDB_UPCOMING_CACHE_KEY } from "@rawkoon/api/utils/dashboard/tmdbUpcoming";
+import { invalidateUpcomingCache } from "@rawkoon/api/utils/dashboard/tmdbUpcoming";
 import { getAdminNotificationTargets } from "@rawkoon/api/services/notificationPreferences";
 import { notificationCopy } from "@rawkoon/api/services/notificationCopy";
 import { getNotificationTarget } from "@rawkoon/api/services/notificationPreferences";
@@ -326,7 +326,7 @@ export async function approveRequest(
     }
     throw error;
   }
-  await deleteCache(`${TMDB_UPCOMING_CACHE_KEY}:${region}`);
+  await invalidateUpcomingCache(region);
   const outcome = await queueSearchOnAdd(media);
   const approved = {
     ok: true as const,

@@ -1,6 +1,8 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import * as cache from "@rawkoon/api/services/cache";
 import {
   collectTmdbUpcoming,
+  invalidateUpcomingCache,
   pickUpcomingMovieDay,
   upcomingCacheKey,
 } from "@rawkoon/api/utils/dashboard/tmdbUpcoming";
@@ -67,6 +69,21 @@ describe("upcomingCacheKey", () => {
     expect(upcomingCacheKey("CA", "fr-FR")).toBe(
       "dashboard:tmdb:upcoming:v8:CA:fr-FR",
     );
+  });
+});
+
+describe("invalidateUpcomingCache", () => {
+  it("drops every language's key for the region", async () => {
+    const spy = spyOn(cache, "deleteCache").mockResolvedValue(undefined);
+    try {
+      await invalidateUpcomingCache("CA");
+      expect(spy.mock.calls.map(([key]) => key).sort()).toEqual([
+        "dashboard:tmdb:upcoming:v8:CA",
+        "dashboard:tmdb:upcoming:v8:CA:fr-FR",
+      ]);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 

@@ -13,6 +13,9 @@ const LOCALE_TO_TMDB: Record<string, string> = {
   en: "en-US",
 };
 
+/** Every `language` value [toTmdbLanguage] can produce. */
+export const TMDB_LANGUAGES = [...new Set(Object.values(LOCALE_TO_TMDB))];
+
 /** Maps an i18n locale or TMDB-style tag to a TMDB `language` query value. */
 export function toTmdbLanguage(locale: string): string {
   return (

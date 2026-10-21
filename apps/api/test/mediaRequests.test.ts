@@ -297,6 +297,7 @@ mock.module("@rawkoon/api/services/cache", () => ({
 
 mock.module("@rawkoon/api/utils/dashboard/tmdbUpcoming", () => ({
   TMDB_UPCOMING_CACHE_KEY: "tmdb:upcoming",
+  invalidateUpcomingCache: () => Promise.resolve(),
 }));
 
 function installMediaRequestNotificationMock() {
