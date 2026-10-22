@@ -2,7 +2,7 @@
   "name": "@rawkoon/api",
   "version": "1.0.0",
   "license": "GPL-3.0-or-later",
-  "packageManager": "bun@1.4.0",
+  "packageManager": "bun@1.4.4",
   "module": "src/index.ts",
   "type": "module",
   "exports": {
@@ -58,7 +58,7 @@
   },
   "devDependencies": {
     "@types/web-push": "^3.6.4",
-    "bun-types": "^1.4.2",
+    "bun-types": "^1.4.4",
     "prisma": "7.10.0"
   }
 }
