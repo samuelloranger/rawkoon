@@ -9,7 +9,8 @@ export interface FfmpegProgress {
 
 export interface RunResult {
   code: number | null;
-  signal: string | null;
+  /** Signal name, or its number when the signal has no name. */
+  signal: string | number | null;
   stderr: string;
   aborted: boolean;
 }

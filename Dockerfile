@@ -1,5 +1,5 @@
 # Build stage (using Bun)
-FROM oven/bun:1.4.2 AS builder
+FROM oven/bun:1.4.4 AS builder
 
 WORKDIR /app
 
@@ -29,7 +29,7 @@ ENV APP_VERSION=$APP_VERSION
 RUN cd apps/web && bun run build
 
 # Final production stage (using a slim Bun image)
-FROM oven/bun:1.4.2-slim
+FROM oven/bun:1.4.4-slim
 
 # Baked in at build time by the CI pipeline.
 # Falls back to local development values when build args are not provided.
