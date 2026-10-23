@@ -53,11 +53,7 @@ struct RootTabsView: View {
             case "miniPlayer": DebugMiniPlayer { mainTabs }
             case "reader": DebugEbookReader()
             case "settings": NavigationStack { SettingsView() }
-            case "users": NavigationStack { UsersAdminView() }
-            case "userDetail": DebugUsersScreen(target: .firstUserDetail)
-            case "usersInvite": DebugUsersScreen(target: .invite)
-            case "usersImport": DebugUsersScreen(target: .importJellyfin)
-            case "invitations": DebugUsersScreen(target: .invitations)
+            case "users", "userDetail", "usersInvite", "usersImport", "invitations": DebugUsersScreen(screen: screen)
             case "requests": NavigationStack { RequestsView() }
             case "autoGrab": NavigationStack { AutoGrabSettingsView() }
             case "qualityProfileEditor": NavigationStack { DebugFirstQualityProfile() }

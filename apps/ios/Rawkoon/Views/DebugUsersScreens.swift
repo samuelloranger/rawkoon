@@ -4,11 +4,8 @@
     /// Debug harness entries for the admin Users screens (`RAWKOON_SCREEN=users…`).
     /// Each loads the real store, then shows the screen that a tap would reach.
     struct DebugUsersScreen: View {
-        enum Target {
-            case firstUserDetail, invite, importJellyfin, invitations
-        }
-
-        let target: Target
+        /// `users`, `userDetail`, `usersInvite`, `usersImport` or `invitations`.
+        let screen: String
         @Environment(AppModel.self) private var model
         @State private var store = UsersAdminStore()
         @State private var loaded = false
@@ -17,7 +14,7 @@
             NavigationStack {
                 Group {
                     if loaded {
-                        screen
+                        content
                     } else {
                         ProgressView().tint(Theme.muted)
                     }
@@ -29,9 +26,9 @@
             }
         }
 
-        @ViewBuilder private var screen: some View {
-            switch target {
-            case .firstUserDetail:
+        @ViewBuilder private var content: some View {
+            switch screen {
+            case "userDetail":
                 if let user = store.users.first(where: { $0.id != model.userId && $0.jellyfinUserId != nil })
                     ?? store.users.first(where: { $0.id != model.userId })
                 {
@@ -39,9 +36,10 @@
                 } else {
                     Text(verbatim: "No other user")
                 }
-            case .invite: InviteUserSheet(store: store)
-            case .importJellyfin: ImportJellyfinSheet(store: store)
-            case .invitations: InvitationsAdminView(store: store)
+            case "usersInvite": InviteUserSheet(store: store)
+            case "usersImport": ImportJellyfinSheet(store: store)
+            case "invitations": InvitationsAdminView(store: store)
+            default: UsersAdminView()
             }
         }
     }
