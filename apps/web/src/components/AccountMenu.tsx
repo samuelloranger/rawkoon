@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth/useAuth";
 import { useLanguageToggle } from "@/lib/app/useLanguageToggle";
 import { useSignOut } from "@/lib/auth/useSignOut";
 import { formatDisplayName } from "@/lib/utils/format";
+import { displayEmail } from "@/lib/jellyfinEmail";
 import { cn } from "@/lib/utils";
 
 type AccountMenuVariant = "sidebar" | "compact" | "tab";
@@ -38,7 +39,7 @@ function Avatar({ size }: { size: "sm" | "md" }) {
         "flex shrink-0 items-center justify-center rounded-lg bg-primary-900/40 text-xs font-semibold text-primary-300",
       )}
     >
-      {name.charAt(0).toUpperCase()}
+      {name.charAt(0).toUpperCase() || "?"}
     </div>
   );
 }
@@ -108,7 +109,7 @@ export function AccountMenu({ variant, side = "top" }: AccountMenuProps) {
           className="z-[var(--z-modal)] w-56 overflow-hidden rounded-xl border border-neutral-700/60 bg-neutral-800 p-1.5 shadow-lg"
         >
           <div className="truncate px-2.5 py-1.5 text-xs text-neutral-500">
-            {user.email}
+            {displayEmail(user.email)}
           </div>
           <Link
             to="/settings/profile"

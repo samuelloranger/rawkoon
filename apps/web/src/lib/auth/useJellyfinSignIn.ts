@@ -42,6 +42,8 @@ export function useJellyfinLogin() {
   const fetcher = useFetcher();
   const queryClient = useQueryClient();
   return useMutation({
+    // Callers show the mapped inline message; the global error toast would duplicate it.
+    meta: { silent: true },
     mutationFn: (data: Credentials) =>
       fetcher<{ user: unknown }>(AUTH_ENDPOINTS.JELLYFIN_LOGIN, {
         method: "POST",
@@ -68,6 +70,8 @@ export function useLinkJellyfin() {
   const fetcher = useFetcher();
   const queryClient = useQueryClient();
   return useMutation({
+    // Callers show the mapped inline message; the global error toast would duplicate it.
+    meta: { silent: true },
     mutationFn: (data: Credentials) =>
       fetcher<{ jellyfin_name: string }>(AUTH_ENDPOINTS.JELLYFIN_PROFILE, {
         method: "POST",
@@ -84,6 +88,8 @@ export function useUnlinkJellyfin() {
   const fetcher = useFetcher();
   const queryClient = useQueryClient();
   return useMutation({
+    // Callers show the mapped inline message; the global error toast would duplicate it.
+    meta: { silent: true },
     mutationFn: () =>
       fetcher<{ success: boolean }>(AUTH_ENDPOINTS.JELLYFIN_PROFILE, {
         method: "DELETE",

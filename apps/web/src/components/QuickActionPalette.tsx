@@ -24,6 +24,7 @@ import { useQuickSearch } from "@/lib/search/useSearch";
 import { navItems, resolveNavPath } from "@/lib/routing/navigation";
 import { usePrefetchAllRoutes } from "@/lib/routing/usePrefetchAllRoutes";
 import { Dialog } from "@/components/dialog";
+import { displayEmail } from "@/lib/jellyfinEmail";
 import { Input } from "@/components/ui/input";
 import {
   QuickActionRow,
@@ -212,7 +213,7 @@ export function QuickActionPalette({
     const userActions: QuickAction[] = users.map((user) => ({
       id: `user-${user.id}`,
       title: user.name,
-      description: user.email,
+      description: displayEmail(user.email),
       icon: <User size={20} />,
       section: "users" as const,
       action: () => {

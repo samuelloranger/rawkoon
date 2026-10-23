@@ -22,7 +22,7 @@ import {
 import { useCurrentUser } from "@/lib/auth/useAuth";
 import { formatDateTime } from "@rawkoon/shared/utils";
 import { LoadingState } from "@/components/LoadingState";
-import { displayEmail } from "@/lib/jellyfinEmail";
+import { displayEmail, isJellyfinPlaceholderEmail } from "@/lib/jellyfinEmail";
 import { ImportJellyfinDialog } from "@/pages/settings/_component/users/ImportJellyfinDialog";
 import { useConfirm } from "@/components/confirm/ConfirmContext";
 
@@ -211,7 +211,10 @@ export function UsersListSection() {
                   [user.first_name, user.last_name]
                     .filter(Boolean)
                     .map((n) => n![0].toUpperCase())
-                    .join("") || user.email[0].toUpperCase();
+                    .join("") ||
+                  (isJellyfinPlaceholderEmail(user.email)
+                    ? "?"
+                    : user.email[0].toUpperCase());
                 return (
                   <tr
                     key={user.id}
