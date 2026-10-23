@@ -15482,6 +15482,106 @@
           }
         }
       }
+    },
+    "Connect to your Rawkoon server to sign in.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez-vous à votre serveur Rawkoon pour ouvrir une session."
+          }
+        }
+      }
+    },
+    "Server address": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adresse du serveur"
+          }
+        }
+      }
+    },
+    "Connect": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexion"
+          }
+        }
+      }
+    },
+    "Enter a server address like https://rawkoon.example.com.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entrez une adresse de serveur comme https://rawkoon.example.com."
+          }
+        }
+      }
+    },
+    "Can't reach a Rawkoon server at %@. Check the address and that the server is running.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de joindre un serveur Rawkoon à %@. Vérifiez l’adresse et que le serveur est démarré."
+          }
+        }
+      }
+    },
+    "Sign in to": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se connecter à"
+          }
+        }
+      }
+    },
+    "Change server": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changer de serveur"
+          }
+        }
+      }
+    },
+    "Or sign in with": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ou se connecter avec"
+          }
+        }
+      }
+    },
+    "Sign in to %@ with the username and password you use in Jellyfin.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez-vous à %@ avec le nom d’utilisateur et le mot de passe que vous utilisez dans Jellyfin."
+          }
+        }
+      }
+    },
+    "Your Jellyfin server checks the password. Rawkoon doesn't store it.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre serveur Jellyfin vérifie le mot de passe. Rawkoon ne le conserve pas."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

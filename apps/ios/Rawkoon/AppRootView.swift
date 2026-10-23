@@ -165,7 +165,7 @@ struct AppRootView: View {
                     .transition(.opacity)
             }
             if showsLogin {
-                LoginView()
+                LoginView(hasSavedServer: !model.serverURL.isEmpty)
                     .transition(.opacity)
                     // Keeps the leaving Login above the tabs for its whole fade.
                     .zIndex(1)

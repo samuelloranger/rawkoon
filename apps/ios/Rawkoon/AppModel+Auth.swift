@@ -72,6 +72,28 @@ extension AppModel {
         jellyfinSignInEnabled = response?.jellyfinSignIn ?? false
     }
 
+    /// Login step one: checks that `address` answers as a Rawkoon server, then keeps it and its sign-in options.
+    func connect(to address: String) async -> Bool {
+        guard let normalized = ServerAddress.normalize(address), let base = URL(string: normalized) else {
+            errorMessage = String(localized: "Enter a server address like https://rawkoon.example.com.")
+            return false
+        }
+        errorMessage = nil
+        do {
+            let response = try await APIClient(baseURL: base, token: nil).ssoProviders()
+            serverURL = normalized
+            ssoProviders = response.providers
+            jellyfinSignInEnabled = response.jellyfinSignIn ?? false
+            return true
+        } catch {
+            let host = ServerAddress.displayName(normalized)
+            errorMessage = String(
+                localized: "Can't reach a Rawkoon server at \(host). Check the address and that the server is running."
+            )
+            return false
+        }
+    }
+
     /// Sign in through a provider using the native browser OAuth flow.
     func signInWithProvider(_ slug: String) async {
         let raw = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
