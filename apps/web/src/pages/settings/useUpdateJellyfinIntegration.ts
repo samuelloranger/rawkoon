@@ -12,6 +12,8 @@ export function useUpdateJellyfinIntegration() {
       website_url: string;
       api_key: string;
       enabled: boolean;
+      sign_in_enabled?: boolean;
+      open_sign_in?: boolean;
     }) =>
       fetcher<JellyfinIntegrationUpdateResponse>(
         INTEGRATION_ENDPOINTS.JELLYFIN,
@@ -26,6 +28,9 @@ export function useUpdateJellyfinIntegration() {
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.dashboard.jellyfinNowPlaying(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.auth.ssoProviders(),
       });
     },
   });

@@ -179,6 +179,7 @@ export function useSSOProviders() {
     queryKey: queryKeys.auth.ssoProviders(),
     queryFn: () =>
       fetcher<{
+        jellyfin_sign_in?: boolean;
         providers: { slug: string; name: string; icon_url: string | null }[];
       }>(AUTH_ENDPOINTS.SSO_PROVIDERS),
     staleTime: 60_000,

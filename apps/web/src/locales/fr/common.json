@@ -337,7 +337,20 @@
     "passwordNeedsLowercase": "Le mot de passe doit contenir au moins une lettre minuscule",
     "passwordNeedsNumber": "Le mot de passe doit contenir au moins un chiffre",
     "passwordNeedsSpecialChar": "Le mot de passe doit contenir au moins un caractère spécial",
-    "signInWith": "Se connecter avec {{provider}}"
+    "signInWith": "Se connecter avec {{provider}}",
+    "jellyfin": {
+      "signIn": "Se connecter avec Jellyfin",
+      "username": "Nom d'utilisateur Jellyfin",
+      "continue": "Continuer",
+      "back": "Retour",
+      "hint": "Votre mot de passe est vérifié par le serveur Jellyfin et n'est pas conservé par Rawkoon.",
+      "invalidCredentials": "Nom d'utilisateur ou mot de passe incorrect.",
+      "noAccess": "Ce compte Jellyfin ne peut pas encore se connecter à Rawkoon. Demandez à votre administrateur.",
+      "unreachable": "Jellyfin est injoignable. Réessayez dans un instant.",
+      "disabled": "La connexion avec Jellyfin n'est pas activée.",
+      "alreadyLinked": "Ce compte Jellyfin est lié à un autre compte Rawkoon.",
+      "tooManyAttempts": "Trop de tentatives, réessayez dans quelques minutes."
+    }
   },
   "setup": {
     "title": "Configurer Rawkoon",
@@ -1208,7 +1221,27 @@
       "passwordMinPlaceholder": "Mot de passe (8 caractères minimum)",
       "inviteLinkTitle": "Lien d'invitation généré",
       "inviteLinkHelp": "Partagez ce lien d'inscription avec l'utilisateur. Il est à usage unique et expire dans 7 jours.",
-      "dismissLink": "Fermer"
+      "dismissLink": "Fermer",
+      "importJellyfin": {
+        "button": "Importer depuis Jellyfin",
+        "title": "Importer depuis Jellyfin",
+        "description": "Créez des comptes Rawkoon pour des utilisateurs Jellyfin. Ils se connectent avec leur mot de passe Jellyfin.",
+        "disabled": "désactivé dans Jellyfin",
+        "alreadyLinked": "déjà lié",
+        "roleUser": "Utilisateur",
+        "roleAdmin": "Admin",
+        "import": "Importer ({{count}})",
+        "success": "{{count}} utilisateur(s) importé(s)",
+        "skipped": "Ignorés : {{list}}",
+        "error": "Échec de l'importation des utilisateurs",
+        "skipReasons": {
+          "duplicate": "sélectionné en double",
+          "not_found": "introuvable dans Jellyfin",
+          "disabled": "désactivé dans Jellyfin",
+          "already_linked": "déjà lié",
+          "unknown": "n'a pas pu être importé"
+        }
+      }
     },
     "integrations": {
       "testConnection": "Tester la connexion",
@@ -1228,7 +1261,11 @@
         "help": "Connectez Jellyfin pour récupérer les derniers éléments ajoutés sur votre serveur média.",
         "websiteUrl": "URL du site Jellyfin",
         "apiKey": "Clé API Jellyfin",
-        "apiKeyPlaceholder": "Collez votre clé API Jellyfin"
+        "apiKeyPlaceholder": "Collez votre clé API Jellyfin",
+        "signIn": "Connexion avec Jellyfin",
+        "signInHelp": "Affiche une option Jellyfin sur la page de connexion pour les utilisateurs liés.",
+        "openSignIn": "Tout utilisateur Jellyfin peut se connecter",
+        "openSignInHelp": "Les utilisateurs Jellyfin actifs obtiennent un compte Rawkoon dès leur première connexion."
       },
       "tmdb": {
         "help": "Configurez TMDB pour que les sorties à venir et la recherche médias interrogent TMDB depuis le serveur.",
@@ -1847,6 +1884,19 @@
       "libraryIssues_other": "{{count}} problèmes de bibliothèque à examiner",
       "alertsOpen_one": "{{count}} alerte ouverte",
       "alertsOpen_other": "{{count}} alertes ouvertes"
+    },
+    "jellyfinLink": {
+      "title": "Jellyfin",
+      "description": "Liez votre compte Jellyfin pour vous connecter à Rawkoon avec votre nom d'utilisateur et mot de passe Jellyfin.",
+      "notLinked": "Aucun compte Jellyfin lié.",
+      "linked": "Compte Jellyfin lié.",
+      "linkedAs": "Lié en tant que {{name}}",
+      "link": "Lier",
+      "unlink": "Délier",
+      "linkSuccess": "Compte Jellyfin lié",
+      "unlinkSuccess": "Compte Jellyfin délié",
+      "unlinkError": "Échec de la déliaison de Jellyfin",
+      "turnedOff": "La connexion avec Jellyfin a été désactivée. Rechargez la page."
     }
   },
   "medias": {

@@ -9,6 +9,8 @@ export interface JellyfinIntegration {
   enabled: boolean;
   website_url: string;
   api_key: string;
+  sign_in_enabled: boolean;
+  open_sign_in: boolean;
 }
 
 export interface ProwlarrIntegration {

@@ -1,5 +1,11 @@
 import i18n from "i18next";
 import type { User } from "@rawkoon/shared/types";
+import { isJellyfinPlaceholderEmail } from "@/lib/jellyfinEmail";
+
+/** A Jellyfin placeholder address is not a name, so it falls through to the caller fallback. */
+function nameFromEmail(email: string, fallback: string): string {
+  return email && !isJellyfinPlaceholderEmail(email) ? email : fallback;
+}
 
 export function formatDisplayName(
   user: User | null | undefined,
@@ -13,7 +19,7 @@ export function formatDisplayName(
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(" ");
   }
-  return user.email || fallback;
+  return nameFromEmail(user.email, fallback);
 }
 
 export function getUserFirstName(
@@ -27,7 +33,7 @@ export function getUserFirstName(
       user.first_name.slice(1).toLowerCase()
     );
   }
-  return user.email || fallback;
+  return nameFromEmail(user.email, fallback);
 }
 
 const SIZE_UNITS = {

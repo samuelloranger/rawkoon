@@ -1,7 +1,11 @@
+import { JellyfinIcon } from "@/components/JellyfinIcon";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { KeyRound } from "lucide-react";
+import { JellyfinSignInForm } from "@/pages/login/_component/JellyfinSignInForm";
+import { useJellyfinLogin } from "@/lib/auth/useJellyfinSignIn";
 import { toast } from "sonner";
 import { useLogin, useSSOProviders } from "@/lib/auth/useAuth";
 import { oidcProviderIconUrl } from "@/lib/auth/useOidcProviders";
@@ -25,6 +29,9 @@ export function LoginForm() {
   const loginMutation = useLogin();
   const passkeyMutation = usePasskeyAuthenticate();
   const { data: ssoProviders } = useSSOProviders();
+  const jellyfinMutation = useJellyfinLogin();
+  const [jellyfinOpen, setJellyfinOpen] = useState(false);
+  const jellyfinSignIn = ssoProviders?.jellyfin_sign_in === true;
 
   const {
     register,
@@ -65,6 +72,20 @@ export function LoginForm() {
       }
     }
   };
+
+  if (jellyfinOpen && jellyfinSignIn) {
+    return (
+      <JellyfinSignInForm
+        submitLabel={t("login.jellyfin.continue")}
+        pending={jellyfinMutation.isPending}
+        onBack={() => setJellyfinOpen(false)}
+        onSubmit={async (credentials) => {
+          await jellyfinMutation.mutateAsync(credentials);
+          goNext();
+        }}
+      />
+    );
+  }
 
   return (
     <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
@@ -135,6 +156,7 @@ export function LoginForm() {
         </button>
 
         {(browserSupportsWebAuthn() ||
+          jellyfinSignIn ||
           (ssoProviders?.providers?.length ?? 0) > 0) && (
           <div className="relative flex items-center">
             <div className="flex-1 border-t border-neutral-600" />
@@ -156,6 +178,17 @@ export function LoginForm() {
             {passkeyMutation.isPending
               ? t("login.loading")
               : t("login.signInWithPasskey")}
+          </button>
+        )}
+
+        {jellyfinSignIn && (
+          <button
+            type="button"
+            onClick={() => setJellyfinOpen(true)}
+            className="focus-ring group relative w-full flex justify-center items-center gap-2.5 py-2 px-4 border border-neutral-600 text-sm font-medium rounded-md text-neutral-300 bg-neutral-800 hover:bg-neutral-700 transition-colors"
+          >
+            <JellyfinIcon className="size-5 text-violet-400" />
+            {t("login.jellyfin.signIn")}
           </button>
         )}
 
