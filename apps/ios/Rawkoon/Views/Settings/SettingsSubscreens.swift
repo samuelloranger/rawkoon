@@ -154,7 +154,7 @@ struct SettingsAccountView: View {
         Form {
             Section {
                 VStack(spacing: 6) {
-                    SettingsAvatar(initials: model.userInitials, size: 76)
+                    SettingsAvatar(initials: model.userInitials, imageURL: model.userAvatarURL, size: 76)
                         .padding(.bottom, 6)
                     if let name, !name.isEmpty {
                         Text(verbatim: name)

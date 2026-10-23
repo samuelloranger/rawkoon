@@ -10,6 +10,7 @@ struct RawkoonTabBar: View {
     let isCollapsed: Bool
     let unreadLabel: String?
     let initials: String?
+    var avatarURL: URL?
     let onExpand: () -> Void
     /// A tap on the tab already shown; the container pops it to its root.
     var onReselect: (RootTab) -> Void = { _ in }
@@ -136,6 +137,7 @@ struct RawkoonTabBar: View {
             }
         }
         .frame(width: 30, height: 30)
+        .avatarPhoto(avatarURL, size: 30)
         .overlay(alignment: .bottomTrailing) {
             Image(systemName: "line.3.horizontal")
                 .font(.system(size: 7, weight: .black))

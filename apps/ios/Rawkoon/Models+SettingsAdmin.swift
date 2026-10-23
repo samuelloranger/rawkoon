@@ -223,6 +223,7 @@ nonisolated struct SessionUser: Decodable, Sendable {
     let lastName: String?
     let isAdmin: Bool?
     let notificationPreferences: [String: Bool]?
+    let avatarUrl: String?
 }
 
 nonisolated struct SessionResponse: Decodable, Sendable {

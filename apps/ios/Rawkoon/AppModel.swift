@@ -30,6 +30,7 @@ final class AppModel {
     var libraryGrowthFailed = false
     var userFirstName: String?
     var userInitials: String?
+    var userAvatarURL: URL?
     var ssoProviders: [SsoProvider] = []
     var jellyfinSignInEnabled = false
     var loading = false

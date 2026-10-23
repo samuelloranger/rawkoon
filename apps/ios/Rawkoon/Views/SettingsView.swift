@@ -175,6 +175,7 @@ struct SettingsView: View {
                     name: accountName,
                     email: sessionUser?.email,
                     initials: model.userInitials,
+                    avatarURL: model.userAvatarURL,
                     version: appVersion,
                     isOffline: model.isOffline
                 )
