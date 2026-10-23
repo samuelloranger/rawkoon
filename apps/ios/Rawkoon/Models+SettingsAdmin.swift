@@ -43,6 +43,55 @@ nonisolated struct AdminUser: Decodable, Identifiable, Sendable {
     let locale: String?
     let createdAt: String?
     let lastLogin: String?
+    let jellyfinUserId: String?
+    let avatarUrl: String?
+}
+
+/// A Jellyfin user offered for linking or import (`GET /api/admin/jellyfin-users`).
+nonisolated struct AdminJellyfinUser: Decodable, Identifiable, Sendable {
+    let id: String
+    let name: String
+    let disabled: Bool?
+    /// The Rawkoon user already tied to this Jellyfin user, if any.
+    let linkedUserId: String?
+}
+
+nonisolated struct AdminJellyfinUsersResponse: Decodable, Sendable { let users: [AdminJellyfinUser] }
+
+/// `jellyfin_user_id` must be sent even when nil: the server reads null as "unlink".
+nonisolated struct LinkJellyfinUserBody: Encodable, Sendable {
+    let jellyfinUserId: String?
+
+    private enum CodingKeys: String, CodingKey { case jellyfinUserId }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(jellyfinUserId, forKey: .jellyfinUserId)
+    }
+}
+
+nonisolated struct ImportJellyfinUsersBody: Encodable, Sendable {
+    struct Entry: Encodable, Sendable {
+        let jellyfinUserId: String
+        let isAdmin: Bool
+    }
+
+    let users: [Entry]
+}
+
+nonisolated struct ImportJellyfinUsersResponse: Decodable, Sendable {
+    struct Skipped: Decodable, Sendable {
+        let jellyfinUserId: String
+        let reason: String
+    }
+
+    struct Created: Decodable, Sendable {
+        let jellyfinUserId: String
+        let userId: String
+    }
+
+    let created: [Created]
+    let skipped: [Skipped]
 }
 
 // MARK: Users admin + invitations (spec §5 Phase 5)

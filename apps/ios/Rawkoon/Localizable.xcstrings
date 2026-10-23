@@ -15582,6 +15582,756 @@
           }
         }
       }
+    },
+    "Account created.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compte créé."
+          }
+        }
+      }
+    },
+    "already linked": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "déjà lié"
+          }
+        }
+      }
+    },
+    "Already linked": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déjà lié"
+          }
+        }
+      }
+    },
+    "Already linked to %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déjà lié à %@"
+          }
+        }
+      }
+    },
+    "Copy link": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier le lien"
+          }
+        }
+      }
+    },
+    "Create an account": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Créer un compte"
+          }
+        }
+      }
+    },
+    "Create link": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Créer le lien"
+          }
+        }
+      }
+    },
+    "Creates a link that works once and expires in 7 days.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crée un lien à usage unique qui expire dans 7 jours."
+          }
+        }
+      }
+    },
+    "disabled in Jellyfin": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "désactivé dans Jellyfin"
+          }
+        }
+      }
+    },
+    "Disabled in Jellyfin": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Désactivé dans Jellyfin"
+          }
+        }
+      }
+    },
+    "Each person gets a Rawkoon account linked to their Jellyfin user. They sign in with Jellyfin; no password is set.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque personne reçoit un compte Rawkoon lié à son utilisateur Jellyfin. Elle se connecte avec Jellyfin; aucun mot de passe n’est défini."
+          }
+        }
+      }
+    },
+    "Import from Jellyfin": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importer depuis Jellyfin"
+          }
+        }
+      }
+    },
+    "Invite with a link": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inviter avec un lien"
+          }
+        }
+      }
+    },
+    "Jellyfin link updated.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lien Jellyfin mis à jour."
+          }
+        }
+      }
+    },
+    "Jellyfin user": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilisateur Jellyfin"
+          }
+        }
+      }
+    },
+    "Link copied.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lien copié."
+          }
+        }
+      }
+    },
+    "Linked": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lié"
+          }
+        }
+      }
+    },
+    "listed twice": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "en double"
+          }
+        }
+      }
+    },
+    "Never": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jamais"
+          }
+        }
+      }
+    },
+    "Never signed in": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jamais connecté"
+          }
+        }
+      }
+    },
+    "New link copied.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouveau lien copié."
+          }
+        }
+      }
+    },
+    "No invitations yet. Use + on Users to invite someone with a link.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune invitation pour l’instant. Utilisez + dans Utilisateurs pour inviter quelqu’un avec un lien."
+          }
+        }
+      }
+    },
+    "no longer in Jellyfin": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "n’est plus dans Jellyfin"
+          }
+        }
+      }
+    },
+    "No open invitations": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune invitation ouverte"
+          }
+        }
+      }
+    },
+    "not imported": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "non importé"
+          }
+        }
+      }
+    },
+    "Not linked": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non lié"
+          }
+        }
+      }
+    },
+    "Past": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passées"
+          }
+        }
+      }
+    },
+    "Reset password…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réinitialiser le mot de passe…"
+          }
+        }
+      }
+    },
+    "Search people": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechercher des personnes"
+          }
+        }
+      }
+    },
+    "Share…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partager…"
+          }
+        }
+      }
+    },
+    "Signed in on this device": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecté sur cet appareil"
+          }
+        }
+      }
+    },
+    "Signs in with Jellyfin": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se connecte avec Jellyfin"
+          }
+        }
+      }
+    },
+    "Swipe an invitation for a new link. A new link is copied right away.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Balayez une invitation pour obtenir un nouveau lien. Il est copié aussitôt."
+          }
+        }
+      }
+    },
+    "The link stops working right away.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le lien cesse de fonctionner immédiatement."
+          }
+        }
+      }
+    },
+    "They get access to every server setting, including users.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette personne aura accès à tous les réglages du serveur, y compris les utilisateurs."
+          }
+        }
+      }
+    },
+    "They lose access right away. Their requests and history stay.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette personne perd l’accès immédiatement. Ses demandes et son historique sont conservés."
+          }
+        }
+      }
+    },
+    "They lose access to server settings.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette personne perd l’accès aux réglages du serveur."
+          }
+        }
+      }
+    },
+    "User": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilisateur"
+          }
+        }
+      }
+    },
+    "Admins": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Admins"
+          }
+        }
+      }
+    },
+    "Works once and expires in 7 days.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fonctionne une seule fois et expire dans 7 jours."
+          }
+        }
+      }
+    },
+    "No one matches “%@”.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personne ne correspond à « %@ »."
+          }
+        }
+      }
+    },
+    "Delete %@?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer %@?"
+          }
+        }
+      }
+    },
+    "Delete %@…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer %@…"
+          }
+        }
+      }
+    },
+    "Make %@ a user?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faire de %@ un utilisateur?"
+          }
+        }
+      }
+    },
+    "Make %@ an admin?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faire de %@ un admin?"
+          }
+        }
+      }
+    },
+    "%lld pending": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld en attente"
+          }
+        }
+      }
+    },
+    "%lld expired": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld expirée(s)"
+          }
+        }
+      }
+    },
+    "%lld pending, %lld expired": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld en attente, %lld expirée(s)"
+          }
+        }
+      }
+    },
+    "Sets a new password and signs %@ out everywhere.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Définit un nouveau mot de passe et déconnecte %@ partout."
+          }
+        }
+      }
+    },
+    "%@ (linked to %@)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (lié à %@)"
+          }
+        }
+      }
+    },
+    "%@ (disabled in Jellyfin)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (désactivé dans Jellyfin)"
+          }
+        }
+      }
+    },
+    "Last signed in %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dernière connexion %@"
+          }
+        }
+      }
+    },
+    "Link for %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lien pour %@"
+          }
+        }
+      }
+    },
+    "Import %lld": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importer %lld"
+          }
+        }
+      }
+    },
+    "Imported %lld.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld importé(s)."
+          }
+        }
+      }
+    },
+    "Imported %lld. Skipped: %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld importé(s). Ignorés : %@."
+          }
+        }
+      }
+    },
+    "Revoke the invitation for %@?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Révoquer l’invitation de %@?"
+          }
+        }
+      }
+    },
+    "Sent %@, expires %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyée le %@, expire le %@"
+          }
+        }
+      }
+    },
+    "Expires %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expire le %@"
+          }
+        }
+      }
+    },
+    "Expired %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expirée le %@"
+          }
+        }
+      }
+    },
+    "Sent %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyée le %@"
+          }
+        }
+      }
+    },
+    "Couldn't create a new link.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de créer un nouveau lien."
+          }
+        }
+      }
+    },
+    "Couldn't create the invitation. Check the email and try again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de créer l’invitation. Vérifiez le courriel et réessayez."
+          }
+        }
+      }
+    },
+    "Couldn't create the account. The email may already be in use.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de créer le compte. Le courriel est peut-être déjà utilisé."
+          }
+        }
+      }
+    },
+    "Couldn't import from Jellyfin.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d’importer depuis Jellyfin."
+          }
+        }
+      }
+    },
+    "Can't reach Jellyfin, so the link can't be changed right now.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jellyfin est injoignable : le lien ne peut pas être modifié pour l’instant."
+          }
+        }
+      }
+    },
+    "Changing the link signs out this person's Jellyfin sessions.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changer le lien déconnecte les sessions Jellyfin de cette personne."
+          }
+        }
+      }
+    },
+    "You can't change your own role": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous ne pouvez pas changer votre propre rôle"
+          }
+        }
+      }
+    },
+    "Edit your profile": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifier votre profil"
+          }
+        }
+      }
+    },
+    "Joined": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inscrit"
+          }
+        }
+      }
+    },
+    "Linked account": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compte lié"
+          }
+        }
+      }
+    },
+    "This account no longer exists": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce compte n’existe plus"
+          }
+        }
+      }
+    },
+    "Add people": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter des personnes"
+          }
+        }
+      }
+    },
+    "Linked to Jellyfin": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lié à Jellyfin"
+          }
+        }
+      }
+    },
+    "Role": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rôle"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

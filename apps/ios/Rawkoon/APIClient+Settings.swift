@@ -318,6 +318,22 @@ extension APIClient {
         try await postExpectOK("/api/admin/users", body: body)
     }
 
+    /// Fails with 503 when the Jellyfin integration isn't set up.
+    func adminJellyfinUsers() async throws -> AdminJellyfinUsersResponse {
+        try await get("/api/admin/jellyfin-users")
+    }
+
+    func linkJellyfinUser(userId: String, jellyfinUserId: String?) async throws {
+        try await patchExpectOK(
+            "/api/admin/users/\(userId)/jellyfin",
+            body: LinkJellyfinUserBody(jellyfinUserId: jellyfinUserId)
+        )
+    }
+
+    func importJellyfinUsers(_ body: ImportJellyfinUsersBody) async throws -> ImportJellyfinUsersResponse {
+        try await post("/api/admin/users/import-jellyfin", body: body)
+    }
+
     func invitations() async throws -> InvitationsResponse {
         try await get("/api/admin/invitations")
     }

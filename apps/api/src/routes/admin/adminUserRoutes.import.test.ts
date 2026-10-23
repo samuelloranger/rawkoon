@@ -185,3 +185,30 @@ describe("GET /jellyfin-users", () => {
     });
   });
 });
+
+describe("GET /users", () => {
+  it("includes each user's avatar URL", async () => {
+    userFindMany.mockImplementation(async () => [
+      {
+        id: "u1",
+        email: "viewer@example.com",
+        firstName: "Viewer",
+        lastName: null,
+        isAdmin: false,
+        locale: "en",
+        createdAt: null,
+        lastLogin: null,
+        jellyfinUserId: null,
+        avatarUrl: "https://rawkoon.example.com/api/users/avatar/a.png",
+      },
+    ]);
+    const res = await adminUserRoutes.fetch(
+      new Request("http://localhost/users"),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { users: Row[] };
+    expect(body.users[0]?.avatar_url).toBe(
+      "https://rawkoon.example.com/api/users/avatar/a.png",
+    );
+  });
+});
