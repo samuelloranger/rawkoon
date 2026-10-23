@@ -337,7 +337,19 @@
     "passwordNeedsLowercase": "Password must contain at least one lowercase letter",
     "passwordNeedsNumber": "Password must contain at least one number",
     "passwordNeedsSpecialChar": "Password must contain at least one special character",
-    "signInWith": "Sign in with {{provider}}"
+    "signInWith": "Sign in with {{provider}}",
+    "jellyfin": {
+      "signIn": "Sign in with Jellyfin",
+      "username": "Jellyfin username",
+      "continue": "Continue",
+      "back": "Back",
+      "hint": "Your password is checked by the Jellyfin server and is not stored by Rawkoon.",
+      "invalidCredentials": "Wrong username or password.",
+      "noAccess": "This Jellyfin account can't sign in to Rawkoon yet. Ask your admin.",
+      "unreachable": "Can't reach Jellyfin. Try again in a moment.",
+      "disabled": "Sign in with Jellyfin is not enabled.",
+      "alreadyLinked": "That Jellyfin account is linked to another Rawkoon account."
+    }
   },
   "setup": {
     "title": "Set up Rawkoon",
@@ -1208,7 +1220,20 @@
       "passwordMinPlaceholder": "Password (minimum 8 characters)",
       "inviteLinkTitle": "Invitation link generated",
       "inviteLinkHelp": "Share this signup link with the user directly. This link is single-use and expires in 7 days.",
-      "dismissLink": "Dismiss"
+      "dismissLink": "Dismiss",
+      "importJellyfin": {
+        "button": "Import from Jellyfin",
+        "title": "Import from Jellyfin",
+        "description": "Create Rawkoon accounts for Jellyfin users. They sign in with their Jellyfin password.",
+        "disabled": "disabled in Jellyfin",
+        "alreadyLinked": "already linked",
+        "roleUser": "User",
+        "roleAdmin": "Admin",
+        "import": "Import ({{count}})",
+        "success": "{{count}} user(s) imported",
+        "skipped": "Skipped: {{list}}",
+        "error": "Failed to import users"
+      }
     },
     "integrations": {
       "testConnection": "Test connection",
@@ -1228,7 +1253,11 @@
         "help": "Connect Jellyfin to fetch the latest items added to your media server.",
         "websiteUrl": "Jellyfin Website URL",
         "apiKey": "Jellyfin API Key",
-        "apiKeyPlaceholder": "Paste your Jellyfin API key"
+        "apiKeyPlaceholder": "Paste your Jellyfin API key",
+        "signIn": "Sign in with Jellyfin",
+        "signInHelp": "Show a Jellyfin option on the login page for linked users.",
+        "openSignIn": "Any Jellyfin user can sign in",
+        "openSignInHelp": "Enabled Jellyfin users get a Rawkoon account the first time they sign in."
       },
       "tmdb": {
         "help": "Configure TMDB so upcoming releases and media search can query TMDB from the server.",
@@ -1847,6 +1876,18 @@
       "libraryIssues_other": "{{count}} library issues to review",
       "alertsOpen_one": "{{count}} alert open",
       "alertsOpen_other": "{{count}} alerts open"
+    },
+    "jellyfinLink": {
+      "title": "Jellyfin",
+      "description": "Link your Jellyfin account to sign in to Rawkoon with your Jellyfin username and password.",
+      "notLinked": "No Jellyfin account linked.",
+      "linked": "Jellyfin account linked.",
+      "linkedAs": "Linked as {{name}}",
+      "link": "Link",
+      "unlink": "Unlink",
+      "linkSuccess": "Jellyfin account linked",
+      "unlinkSuccess": "Jellyfin account unlinked",
+      "unlinkError": "Failed to unlink Jellyfin"
     }
   },
   "medias": {

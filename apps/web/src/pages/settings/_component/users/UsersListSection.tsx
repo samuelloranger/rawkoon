@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { KeyRound } from "lucide-react";
@@ -21,6 +22,8 @@ import {
 import { useCurrentUser } from "@/lib/auth/useAuth";
 import { formatDateTime } from "@rawkoon/shared/utils";
 import { LoadingState } from "@/components/LoadingState";
+import { displayEmail } from "@/lib/jellyfinEmail";
+import { ImportJellyfinDialog } from "@/pages/settings/_component/users/ImportJellyfinDialog";
 import { useConfirm } from "@/components/confirm/ConfirmContext";
 
 // Radix Select reserves "" for "no value", so unlinked needs its own sentinel.
@@ -34,7 +37,7 @@ const formatDisplayName = (user: {
   if (user.first_name || user.last_name) {
     return [user.first_name, user.last_name].filter(Boolean).join(" ");
   }
-  return user.email;
+  return displayEmail(user.email);
 };
 
 export function UsersListSection() {
@@ -51,6 +54,7 @@ export function UsersListSection() {
     !!jellyfinError &&
     !(jellyfinError instanceof HttpError && jellyfinError.status === 503);
   const showJellyfinColumn = !!jellyfinUsers || jellyfinFailed;
+  const [importOpen, setImportOpen] = useState(false);
   const { data: currentUser } = useCurrentUser();
   const {
     data: usersData,
@@ -143,9 +147,27 @@ export function UsersListSection() {
 
   return (
     <div className="bg-neutral-800 rounded-xl border border-neutral-700 p-6">
-      <h2 className="text-base font-semibold mb-1.5 text-neutral-100">
-        {t("settings.users.listTitle")}
-      </h2>
+      <div className="flex items-center justify-between gap-3 mb-1.5">
+        <h2 className="text-base font-semibold text-neutral-100">
+          {t("settings.users.listTitle")}
+        </h2>
+        {jellyfinUsers && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setImportOpen(true)}
+          >
+            {t("settings.users.importJellyfin.button")}
+          </Button>
+        )}
+      </div>
+      {jellyfinUsers && (
+        <ImportJellyfinDialog
+          isOpen={importOpen}
+          onClose={() => setImportOpen(false)}
+          users={jellyfinUsers}
+        />
+      )}
 
       {usersLoading ? (
         <LoadingState />
@@ -196,7 +218,7 @@ export function UsersListSection() {
                     className="border-b border-neutral-700 hover:bg-neutral-700/50 transition-colors"
                   >
                     <td className="py-3 px-4 text-sm text-neutral-100">
-                      {user.email}
+                      {displayEmail(user.email)}
                     </td>
                     <td className="py-3 px-4 text-sm text-neutral-100">
                       <div className="flex items-center gap-2.5">
