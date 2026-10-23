@@ -6,12 +6,15 @@ struct LoginView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var revealPassword = false
+    @State private var showJellyfinForm = false
+    @State private var jellyfinUsername = ""
+    @State private var jellyfinPassword = ""
     /// Set on a user's sign-in tap, so a session restored after unlock doesn't celebrate.
     @State private var signInAttempted = false
     @FocusState private var loginFocus: LoginField?
 
     private enum LoginField: Hashable {
-        case server, email, password
+        case server, email, password, jellyfinUsername, jellyfinPassword
     }
 
     private var isRegularWidth: Bool {
@@ -27,6 +30,20 @@ struct LoginView: View {
         guard fieldsReady, !model.loading, !model.isLoggedIn else { return }
         signInAttempted = true
         Task { await model.login(server: model.serverURL, email: email, password: password) }
+    }
+
+    private var jellyfinFieldsReady: Bool {
+        !jellyfinUsername.isEmpty && !jellyfinPassword.isEmpty && !model.serverURL.isEmpty
+    }
+
+    private func submitJellyfin(_ model: AppModel) {
+        guard jellyfinFieldsReady, !model.loading, !model.isLoggedIn else { return }
+        signInAttempted = true
+        Task {
+            await model.loginWithJellyfin(
+                server: model.serverURL, username: jellyfinUsername, password: jellyfinPassword
+            )
+        }
     }
 
     private func signIn(with provider: SsoProvider) {
@@ -145,6 +162,11 @@ struct LoginView: View {
                 if !model.ssoProviders.isEmpty {
                     ssoBlock(model)
                         .rawkoonEntrance(id: "sso")
+                }
+
+                if model.jellyfinSignInEnabled {
+                    jellyfinBlock(model)
+                        .rawkoonEntrance(id: "jellyfin")
                 }
 
                 if let errorMessage = model.errorMessage {
@@ -288,6 +310,82 @@ struct LoginView: View {
         }
     }
 
+    /// "Sign in with Jellyfin": a button that opens a username and password form in place.
+    private func jellyfinBlock(_ model: AppModel) -> some View {
+        VStack(spacing: 10) {
+            if showJellyfinForm {
+                fieldRow("Jellyfin username") {
+                    TextField("", text: $jellyfinUsername, prompt: prompt("Jellyfin username"))
+                        .textContentType(.username)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .focused($loginFocus, equals: .jellyfinUsername)
+                        .submitLabel(.next)
+                        .onSubmit { loginFocus = .jellyfinPassword }
+                }
+                fieldRow("Jellyfin password") {
+                    SecureField("", text: $jellyfinPassword, prompt: prompt("Jellyfin password"))
+                        .textContentType(.password)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .focused($loginFocus, equals: .jellyfinPassword)
+                        .submitLabel(.go)
+                        .onSubmit { submitJellyfin(model) }
+                }
+                Text("Your password is checked by the Jellyfin server and not stored.")
+                    .font(.caption)
+                    .foregroundStyle(Theme.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 10) {
+                    Button("Back") {
+                        showJellyfinForm = false
+                        jellyfinPassword = ""
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.muted)
+                    .frame(minHeight: 44)
+                    Button {
+                        submitJellyfin(model)
+                    } label: {
+                        Group {
+                            if model.loading {
+                                ProgressView().tint(Theme.onAccent)
+                            } else {
+                                Text("Continue").fontWeight(.semibold)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .foregroundStyle(Theme.onAccent)
+                        .background(Theme.apricot, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(model.loading || !jellyfinFieldsReady)
+                    .opacity(jellyfinFieldsReady ? 1 : 0.6)
+                }
+            } else {
+                Button {
+                    showJellyfinForm = true
+                    loginFocus = .jellyfinUsername
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "play.tv.fill").foregroundStyle(Theme.muted)
+                            .frame(width: 20, height: 20)
+                        Text("Sign in with Jellyfin").fontWeight(.medium)
+                        Spacer()
+                    }
+                    .foregroundStyle(Theme.textStrong)
+                    .padding(.horizontal, 12)
+                    .frame(height: 44)
+                    .background(Theme.raised, in: RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .disabled(model.loading)
+            }
+        }
+    }
+
     // MARK: - Phone (compact): the original form, unchanged
 
     private func phoneForm(_ model: AppModel) -> some View {
@@ -407,6 +505,14 @@ struct LoginView: View {
                     }
                 } header: {
                     Text("Or")
+                }
+                .listRowBackground(Theme.raised)
+            }
+
+            if model.jellyfinSignInEnabled {
+                Section {
+                    jellyfinBlock(model)
+                        .rawkoonEntrance(id: "jellyfin")
                 }
                 .listRowBackground(Theme.raised)
             }

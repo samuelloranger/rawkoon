@@ -123,6 +123,8 @@ nonisolated struct SsoProvider: Decodable, Identifiable, Sendable {
 
 nonisolated struct SsoProvidersResponse: Decodable, Sendable {
     let providers: [SsoProvider]
+    /// Absent on servers that predate Jellyfin sign-in.
+    let jellyfinSignIn: Bool?
 }
 
 // MARK: - Notification center (spec §T3/T4/T5) — mirrors the web `/notifications` page.

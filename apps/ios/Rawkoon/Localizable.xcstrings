@@ -15392,6 +15392,86 @@
           }
         }
       }
+    },
+    "Sign in with Jellyfin": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se connecter avec Jellyfin"
+          }
+        }
+      }
+    },
+    "Jellyfin username": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nom d'utilisateur Jellyfin"
+          }
+        }
+      }
+    },
+    "Jellyfin password": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mot de passe Jellyfin"
+          }
+        }
+      }
+    },
+    "Your password is checked by the Jellyfin server and not stored.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre mot de passe est vérifié par le serveur Jellyfin et n'est pas conservé."
+          }
+        }
+      }
+    },
+    "Wrong Jellyfin username or password.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nom d'utilisateur ou mot de passe Jellyfin incorrect."
+          }
+        }
+      }
+    },
+    "This Jellyfin account can't sign in to Rawkoon yet. Ask your admin.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce compte Jellyfin ne peut pas encore se connecter à Rawkoon. Demandez à votre administrateur."
+          }
+        }
+      }
+    },
+    "Can't reach Jellyfin. Try again in a moment.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de joindre Jellyfin. Réessayez dans un instant."
+          }
+        }
+      }
+    },
+    "Jellyfin sign-in isn't enabled on this server.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La connexion avec Jellyfin n'est pas activée sur ce serveur."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
