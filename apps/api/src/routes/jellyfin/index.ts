@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
 import {
   badGateway,
   forbidden,
@@ -16,6 +15,7 @@ import {
   JELLYFIN_SESSION_AGENT_PREFIX,
   resolveJellyfinTokenUser,
 } from "@rawkoon/api/services/jellyfinUsers";
+import { resolveOrCreateJellyfinRawkoonUser } from "@rawkoon/api/services/jellyfinSignIn";
 
 const sessionBody = z.object({
   jellyfin_token: z.string().min(1).max(512),
@@ -47,14 +47,16 @@ export const jellyfinSessionRoutes = new Hono<Env>().post(
     }
     if (!jellyfinUser) return unauthorized("Jellyfin rejected the token");
 
-    const user = await prisma.user.findUnique({
-      where: { jellyfinUserId: jellyfinUser.id },
-    });
-    if (!user) {
+    const resolution = await resolveOrCreateJellyfinRawkoonUser(
+      jellyfinUser,
+      config,
+    );
+    if (resolution.status === "no_access") {
       return forbidden(
         "This Jellyfin account is not linked to a Rawkoon user. Ask an admin to link it.",
       );
     }
+    const { user } = resolution;
 
     const ctx = await betterAuth.$context;
     const deviceName = body.device_name?.trim() || "Jellyfin client";

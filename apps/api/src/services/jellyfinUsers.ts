@@ -15,6 +15,25 @@ export const JELLYFIN_SESSION_AGENT_PREFIX = "Jellyfin: ";
 export interface JellyfinUser {
   id: string;
   name: string;
+  disabled: boolean;
+}
+
+/**
+ * Sessions minted from Jellyfin credentials or a Jellyfin token. Used
+ * everywhere those sessions are revoked, so the two marks stay in step.
+ */
+export const JELLYFIN_PROVIDER_ID = "jellyfin";
+
+export function jellyfinSessionWhere(userIds?: string | string[]) {
+  const marked = [
+    { providerId: JELLYFIN_PROVIDER_ID },
+    { userAgent: { startsWith: JELLYFIN_SESSION_AGENT_PREFIX } },
+  ];
+  if (userIds === undefined) return { OR: marked };
+  return {
+    userId: Array.isArray(userIds) ? { in: userIds } : userIds,
+    OR: marked,
+  };
 }
 
 export async function getJellyfinConfig(): Promise<JellyfinIntegrationConfig | null> {
@@ -25,9 +44,17 @@ export async function getJellyfinConfig(): Promise<JellyfinIntegrationConfig | n
 
 function toJellyfinUser(raw: unknown): JellyfinUser | null {
   if (!raw || typeof raw !== "object") return null;
-  const { Id, Name } = raw as { Id?: unknown; Name?: unknown };
+  const { Id, Name, Policy } = raw as {
+    Id?: unknown;
+    Name?: unknown;
+    Policy?: { IsDisabled?: unknown } | null;
+  };
   if (typeof Id !== "string" || !Id) return null;
-  return { id: Id, name: typeof Name === "string" ? Name : "" };
+  return {
+    id: Id,
+    name: typeof Name === "string" ? Name : "",
+    disabled: Policy?.IsDisabled === true,
+  };
 }
 
 /**
@@ -45,6 +72,56 @@ export async function resolveJellyfinTokenUser(
   if (res.status === 401 || res.status === 403) return null;
   if (!res.ok) throw new Error(`Jellyfin /Users/Me returned ${res.status}`);
   return toJellyfinUser(await res.json());
+}
+
+function clientAuthHeader(token?: string): Record<string, string> {
+  const fields = [
+    'Client="Rawkoon"',
+    'Device="Rawkoon"',
+    'DeviceId="rawkoon-server"',
+    `Version="${process.env.APP_VERSION || "0.0.0"}"`,
+  ];
+  if (token) fields.push(`Token="${token}"`);
+  return { Authorization: `MediaBrowser ${fields.join(", ")}` };
+}
+
+/**
+ * Checks a username and password against the configured Jellyfin server.
+ * `null` means the credentials were rejected; any other failure throws. The
+ * Jellyfin session this opens is closed again so no device entry is left.
+ */
+export async function authenticateJellyfinUser(
+  config: JellyfinIntegrationConfig,
+  username: string,
+  password: string,
+): Promise<JellyfinUser | null> {
+  const res = await fetch(`${config.website_url}/Users/AuthenticateByName`, {
+    method: "POST",
+    headers: { ...clientAuthHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({ Username: username, Pw: password }),
+    signal: AbortSignal.timeout(JELLYFIN_TIMEOUT_MS),
+  });
+  if (res.status === 401) return null;
+  if (!res.ok) {
+    throw new Error(
+      `Jellyfin /Users/AuthenticateByName returned ${res.status}`,
+    );
+  }
+  const body = (await res.json()) as { User?: unknown; AccessToken?: unknown };
+  const user = toJellyfinUser(body.User);
+  if (!user) throw new Error("Jellyfin returned no user");
+  if (typeof body.AccessToken === "string" && body.AccessToken) {
+    try {
+      await fetch(`${config.website_url}/Sessions/Logout`, {
+        method: "POST",
+        headers: clientAuthHeader(body.AccessToken),
+        signal: AbortSignal.timeout(JELLYFIN_TIMEOUT_MS),
+      });
+    } catch (error) {
+      console.warn("[jellyfin] could not end the sign-in session:", error);
+    }
+  }
+  return user;
 }
 
 export async function listJellyfinUsers(

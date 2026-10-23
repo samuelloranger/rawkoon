@@ -156,6 +156,13 @@ export async function processScheduledJob(job: Job) {
         await syncLocalizedTitles();
         break;
       }
+      case SCHEDULED_JOB_NAMES.SYNC_JELLYFIN_USERS: {
+        const { syncJellyfinUsers } = await import(
+          "../../workers/syncJellyfinUsers"
+        );
+        await syncJellyfinUsers();
+        break;
+      }
       case SCHEDULED_JOB_NAMES.SWEEP_SEEDING_TORRENTS: {
         const { runSeedSweep } = await import("../seeding/seedSweep");
         await runSeedSweep();

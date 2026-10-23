@@ -14,6 +14,7 @@ import {
   mobileAuthRoutes,
 } from "./auth";
 import { jellyfinSessionRoutes } from "./routes/jellyfin";
+import { profileRoutes } from "./routes/profile";
 import { tvRoutes } from "./routes/tv";
 import { downloadClientHookRoutes } from "./routes/integrations/downloadClient/hookRoutes";
 import { adminRoutes } from "./routes/admin";
@@ -100,6 +101,7 @@ app
   .route("/api/calendar", calendarRoutes)
   .route("/api/dashboard", dashboardRoutes)
   .route("/api/users", usersRoutes)
+  .route("/api/profile", profileRoutes)
   .route("/api/notifications", notificationsRoutes)
   .route("/api/labby", labbyRoutes)
   .route("/api/releases", releasesRoutes)

@@ -29,6 +29,8 @@ export const jellyfinIntegrationRoutes = new Hono<Env>()
           enabled: integration?.enabled || false,
           website_url: config?.website_url || "",
           api_key: "",
+          sign_in_enabled: config?.sign_in_enabled ?? false,
+          open_sign_in: config?.open_sign_in ?? false,
         },
       });
     } catch (error) {
@@ -43,6 +45,8 @@ export const jellyfinIntegrationRoutes = new Hono<Env>()
         website_url: z.string(),
         api_key: z.string(),
         enabled: z.boolean().optional(),
+        sign_in_enabled: z.boolean().optional(),
+        open_sign_in: z.boolean().optional(),
       }),
     ),
     async (c) => {
@@ -57,6 +61,22 @@ export const jellyfinIntegrationRoutes = new Hono<Env>()
       const providedApiKey = body.api_key.trim();
       const apiKey = providedApiKey || existingConfig?.api_key || "";
       const enabled = body.enabled ?? true;
+      // An omitted flag keeps the stored value; a stored open_sign_in survives
+      // sign-in being switched off.
+      const storedFlags = existingIntegration?.config as
+        | Record<string, unknown>
+        | null
+        | undefined;
+      const signInEnabled =
+        body.sign_in_enabled ?? storedFlags?.sign_in_enabled === true;
+      const openSignIn =
+        body.open_sign_in ?? storedFlags?.open_sign_in === true;
+      const storedConfig = {
+        website_url: websiteUrl,
+        api_key: encrypt(apiKey),
+        sign_in_enabled: signInEnabled,
+        open_sign_in: openSignIn,
+      };
 
       if (!websiteUrl || !isValidHttpUrl(websiteUrl)) {
         return badRequest("Invalid website_url. Must be a valid http(s) URL.");
@@ -72,13 +92,13 @@ export const jellyfinIntegrationRoutes = new Hono<Env>()
           where: { type: "jellyfin" },
           update: {
             enabled,
-            config: { website_url: websiteUrl, api_key: encrypt(apiKey) },
+            config: storedConfig,
             updatedAt: now,
           },
           create: {
             type: "jellyfin",
             enabled,
-            config: { website_url: websiteUrl, api_key: encrypt(apiKey) },
+            config: storedConfig,
             createdAt: now,
             updatedAt: now,
           },
@@ -100,6 +120,8 @@ export const jellyfinIntegrationRoutes = new Hono<Env>()
             enabled: integration.enabled,
             website_url: websiteUrl,
             api_key: "",
+            sign_in_enabled: signInEnabled,
+            open_sign_in: openSignIn,
           },
         });
       } catch (error) {

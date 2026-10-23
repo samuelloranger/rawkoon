@@ -66,6 +66,7 @@ export async function globalRateLimitSkip(req: Request): Promise<boolean> {
 }
 
 export const JELLYFIN_SESSION_PATH = "/api/jellyfin/session";
+export const JELLYFIN_LINK_PATH = "/api/profile/jellyfin";
 
 /** TV clients re-exchange on their own, so they get a bucket apart from sign-in. */
 export function strictAuthRateLimitBucket(req: Request): string {
@@ -81,5 +82,13 @@ export function strictAuthRateLimitSkip(req: Request): boolean {
   const isSignUp = path.startsWith("/api/auth/sign-up");
   const isAcceptInvitation = path === "/api/auth/accept-invitation";
   const isJellyfinSession = path === JELLYFIN_SESSION_PATH;
-  return !(isSignIn || isSignUp || isAcceptInvitation || isJellyfinSession);
+  // Linking takes a Jellyfin password, so it gets the sign-in limiter.
+  const isJellyfinLink = path === JELLYFIN_LINK_PATH && req.method === "POST";
+  return !(
+    isSignIn ||
+    isSignUp ||
+    isAcceptInvitation ||
+    isJellyfinSession ||
+    isJellyfinLink
+  );
 }
