@@ -14,6 +14,7 @@ import {
   mobileAuthRoutes,
 } from "./auth";
 import { jellyfinSessionRoutes } from "./routes/jellyfin";
+import { profileRoutes } from "./routes/profile";
 import { tvRoutes } from "./routes/tv";
 import { downloadClientHookRoutes } from "./routes/integrations/downloadClient/hookRoutes";
 import { adminRoutes } from "./routes/admin";
@@ -41,6 +42,7 @@ import { systemRoutes } from "./routes/system";
 import { usersRoutes } from "./routes/users";
 import {
   globalRateLimit,
+  jellyfinUsernameRateLimit,
   strictAuthRateLimit,
 } from "./middleware/hono/rateLimit";
 import { requestTiming } from "./middleware/hono/requestTiming";
@@ -84,6 +86,7 @@ app.onError(honoOnError);
 app.notFound(() => notFound("Not found"));
 
 app.use("*", strictAuthRateLimit);
+app.use("*", jellyfinUsernameRateLimit);
 
 // Registered before the /api/auth/* catch-all so Hono doesn't swallow them.
 app.route("/", publicAuthRoutes);
@@ -100,6 +103,7 @@ app
   .route("/api/calendar", calendarRoutes)
   .route("/api/dashboard", dashboardRoutes)
   .route("/api/users", usersRoutes)
+  .route("/api/profile", profileRoutes)
   .route("/api/notifications", notificationsRoutes)
   .route("/api/labby", labbyRoutes)
   .route("/api/releases", releasesRoutes)
