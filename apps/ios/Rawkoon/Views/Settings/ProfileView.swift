@@ -56,6 +56,9 @@ struct ProfileView: View {
         do {
             let user = try await client.currentUser().user
             apply(user)
+            if let user {
+                model.applyUser(user)
+            }
         } catch {
             if !hasProfile {
                 loadError = settingsErrorMessage(error, admin: false)
