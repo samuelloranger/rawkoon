@@ -119,10 +119,11 @@ struct UserAdminDetailView: View {
             if store.jellyfinState == .ready {
                 Picker("Linked account", selection: linkBinding(user)) {
                     Text("Not linked").tag(String?.none)
-                    ForEach(store.jellyfinUsers) { jellyfinUser in
-                        Text(jellyfinOptionLabel(jellyfinUser, for: user))
-                            .tag(Optional(jellyfinUser.id))
-                            .selectionDisabled(!isLinkable(jellyfinUser, for: user))
+                    if let current = user.jellyfinUserId, !store.jellyfinUsers.contains(where: { $0.id == current }) {
+                        Text("No longer in Jellyfin").tag(Optional(current))
+                    }
+                    ForEach(store.jellyfinUsers.filter { isLinkable($0, for: user) }) { jellyfinUser in
+                        Text(verbatim: jellyfinUser.name).tag(Optional(jellyfinUser.id))
                     }
                 }
                 .disabled(store.busyIds.contains(user.id))
@@ -138,7 +139,7 @@ struct UserAdminDetailView: View {
             if store.jellyfinState == .unreachable {
                 Text("Can't reach Jellyfin, so the link can't be changed right now.")
             } else {
-                Text("Changing the link signs out this person's Jellyfin sessions.")
+                Text("Jellyfin users that are disabled or linked to someone else aren't listed. Changing the link signs out this person's Jellyfin sessions.")
             }
         }
         .listRowBackground(Theme.raised)
@@ -174,19 +175,6 @@ struct UserAdminDetailView: View {
             return true
         }
         return jellyfinUser.disabled != true && jellyfinUser.linkedUserId == nil
-    }
-
-    private func jellyfinOptionLabel(_ jellyfinUser: AdminJellyfinUser, for user: AdminUser) -> String {
-        if jellyfinUser.id == user.jellyfinUserId {
-            return jellyfinUser.name
-        }
-        if let owner = jellyfinUser.linkedUserId.flatMap({ store.user(id: $0) }) {
-            return String(localized: "\(jellyfinUser.name) (linked to \(store.displayName(owner)))")
-        }
-        if jellyfinUser.disabled == true {
-            return String(localized: "\(jellyfinUser.name) (disabled in Jellyfin)")
-        }
-        return jellyfinUser.name
     }
 
     private func confirmDelete(_ user: AdminUser) {

@@ -307,7 +307,7 @@ extension APIClient {
     }
 
     func resetUserPassword(id: String, newPassword: String) async throws {
-        try await postExpectOK("/api/admin/users/\(id)/reset-password", body: ResetPasswordBody(newPassword: newPassword))
+        try await postExpectOK("/api/admin/users/\(id)/reset-password", body: ResetPasswordBody(password: newPassword))
     }
 
     func deleteUser(id: String) async throws {

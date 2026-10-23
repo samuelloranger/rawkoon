@@ -16332,6 +16332,46 @@
           }
         }
       }
+    },
+    "That Jellyfin user is linked to someone else.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cet utilisateur Jellyfin est lié à quelqu’un d’autre."
+          }
+        }
+      }
+    },
+    "The invitation was renewed, but no link came back.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’invitation a été renouvelée, mais aucun lien n’a été renvoyé."
+          }
+        }
+      }
+    },
+    "No longer in Jellyfin": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "N’est plus dans Jellyfin"
+          }
+        }
+      }
+    },
+    "Jellyfin users that are disabled or linked to someone else aren't listed. Changing the link signs out this person's Jellyfin sessions.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les utilisateurs Jellyfin désactivés ou liés à quelqu’un d’autre ne sont pas listés. Changer le lien déconnecte les sessions Jellyfin de cette personne."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

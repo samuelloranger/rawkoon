@@ -97,7 +97,7 @@ nonisolated struct ImportJellyfinUsersResponse: Decodable, Sendable {
 // MARK: Users admin + invitations (spec §5 Phase 5)
 
 nonisolated struct SetRoleBody: Encodable, Sendable { let isAdmin: Bool }
-nonisolated struct ResetPasswordBody: Encodable, Sendable { let newPassword: String }
+nonisolated struct ResetPasswordBody: Encodable, Sendable { let password: String }
 nonisolated struct CreateUserBody: Encodable, Sendable {
     let email: String
     let password: String

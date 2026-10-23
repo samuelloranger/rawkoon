@@ -238,9 +238,11 @@ struct ImportJellyfinSheet: View {
                     Spacer(minLength: 8)
                 }
                 .contentShape(Rectangle())
+                .accessibilityElement(children: .combine)
             }
             .buttonStyle(.plain)
             .disabled(reason != nil)
+            .accessibilityAddTraits(isOn ? .isSelected : [])
             if isOn {
                 Menu {
                     Picker("Role", selection: roleBinding(jellyfinUser.id)) {
@@ -257,8 +259,6 @@ struct ImportJellyfinSheet: View {
             }
         }
         .opacity(reason == nil ? 1 : 0.5)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
     private func roleBinding(_ id: String) -> Binding<Bool> {

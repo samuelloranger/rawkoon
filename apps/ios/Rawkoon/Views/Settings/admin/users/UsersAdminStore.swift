@@ -16,6 +16,9 @@ final class UsersAdminStore {
     private(set) var loading = true
     private(set) var loadError: String?
     private(set) var busyIds: Set<String> = []
+    private(set) var busyInvitationIds: Set<Int> = []
+    /// Deleted ids stay hidden until the server confirms, so a refresh racing the delete can't bring a row back.
+    private var pendingDeletes: Set<String> = []
     private var loadGen = 0
 
     func user(id: String) -> AdminUser? {
@@ -36,7 +39,7 @@ final class UsersAdminStore {
         do {
             let fetched = try await client.adminUsers().users
             if gen == loadGen {
-                users = fetched
+                users = fetched.filter { !pendingDeletes.contains($0.id) }
             }
         } catch {
             if users.isEmpty {
@@ -95,6 +98,8 @@ final class UsersAdminStore {
         loadGen &+= 1
         guard let idx = users.firstIndex(where: { $0.id == user.id }) else { return false }
         let removed = users.remove(at: idx)
+        pendingDeletes.insert(user.id)
+        defer { pendingDeletes.remove(user.id) }
         do {
             try await client.deleteUser(id: user.id)
             model.toast(String(localized: "Deleted \(displayName(user))."), style: .success)
@@ -116,6 +121,9 @@ final class UsersAdminStore {
             try await client.linkJellyfinUser(userId: user.id, jellyfinUserId: jellyfinUserId)
             await load(model)
             model.toast(String(localized: "Jellyfin link updated."), style: .success)
+        } catch APIError.server(status: 409, message: _), APIError.http(409) {
+            await load(model)
+            model.toast(String(localized: "That Jellyfin user is linked to someone else."), style: .error)
         } catch {
             model.toast(settingsErrorMessage(error), style: .error)
         }
@@ -138,7 +146,9 @@ final class UsersAdminStore {
     // MARK: Invitations
 
     func revoke(_ invitation: InvitationDTO, model: AppModel) async {
-        guard let client = model.api() else { return }
+        guard let client = model.api(), !busyInvitationIds.contains(invitation.id) else { return }
+        busyInvitationIds.insert(invitation.id)
+        defer { busyInvitationIds.remove(invitation.id) }
         do {
             try await client.revokeInvitation(id: invitation.id)
             await loadInvitations(model)
@@ -150,12 +160,16 @@ final class UsersAdminStore {
 
     /// Issues a new link for a pending or expired invitation and copies it.
     func renew(_ invitation: InvitationDTO, model: AppModel) async {
-        guard let client = model.api() else { return }
+        guard let client = model.api(), !busyInvitationIds.contains(invitation.id) else { return }
+        busyInvitationIds.insert(invitation.id)
+        defer { busyInvitationIds.remove(invitation.id) }
         do {
             let response = try await client.resendInvitation(id: invitation.id)
             if let token = response.token {
                 UIPasteboard.general.string = Self.inviteLink(server: model.serverURL, token: token)
                 model.toast(String(localized: "New link copied."), style: .success)
+            } else {
+                model.toast(String(localized: "The invitation was renewed, but no link came back."), style: .info)
             }
             await loadInvitations(model)
         } catch {
