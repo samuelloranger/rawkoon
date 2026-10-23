@@ -175,6 +175,7 @@ struct SettingsView: View {
                     name: accountName,
                     email: sessionUser?.email,
                     initials: model.userInitials,
+                    avatarURL: model.userAvatarURL,
                     version: appVersion,
                     isOffline: model.isOffline
                 )
@@ -278,6 +279,10 @@ struct SettingsView: View {
         do {
             let session = try await client.currentUser()
             sessionUser = session.user
+            // The tab bar and the profile card read the model, so a changed picture or name reaches them too.
+            if let user = session.user {
+                model.applyUser(user)
+            }
         } catch {
             // Best-effort only; do not fail the screen.
         }

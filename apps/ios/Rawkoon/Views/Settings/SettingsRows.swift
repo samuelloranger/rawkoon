@@ -46,12 +46,13 @@ struct SettingsProfileCard: View {
     let name: String?
     let email: String?
     let initials: String?
+    var avatarURL: URL?
     let version: String?
     let isOffline: Bool
 
     var body: some View {
         HStack(spacing: 14) {
-            SettingsAvatar(initials: initials, size: 52)
+            SettingsAvatar(initials: initials, imageURL: avatarURL, size: 52)
             VStack(alignment: .leading, spacing: 2) {
                 if let name, !name.isEmpty {
                     Text(verbatim: name)
@@ -98,6 +99,7 @@ struct SettingsProfileCard: View {
 
 struct SettingsAvatar: View {
     let initials: String?
+    var imageURL: URL?
     let size: CGFloat
 
     var body: some View {
@@ -115,7 +117,25 @@ struct SettingsAvatar: View {
             }
         }
         .frame(width: size, height: size)
+        .avatarPhoto(imageURL, size: size)
         .accessibilityHidden(true)
+    }
+}
+
+extension View {
+    /// The user's profile picture over an initials avatar, which stays visible while it loads or when there is none.
+    func avatarPhoto(_ url: URL?, size: CGFloat) -> some View {
+        overlay {
+            if let url {
+                CachedAsyncImage(url: url, targetSize: CGSize(width: size, height: size)) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Color.clear
+                }
+                .frame(width: size, height: size)
+                .clipShape(Circle())
+            }
+        }
     }
 }
 

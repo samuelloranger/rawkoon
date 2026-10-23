@@ -200,6 +200,7 @@ extension AppModel {
         pendingRequestCount = 0
         userFirstName = nil
         userInitials = nil
+        userAvatarURL = nil
         library = []
         libraryFetchedAt = nil
         manifests = [:]

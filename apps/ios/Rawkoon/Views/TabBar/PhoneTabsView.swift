@@ -98,6 +98,7 @@ struct PhoneTabsView<Root: View>: View {
                 isCollapsed: chrome.isCollapsed,
                 unreadLabel: NotificationBadge.label(forUnread: model.activityBadgeCount),
                 initials: model.userInitials,
+                avatarURL: model.userAvatarURL,
                 onExpand: { chrome.expand() },
                 onReselect: { tab in
                     stackResets[tab, default: 0] += 1
