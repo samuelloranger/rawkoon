@@ -97,6 +97,7 @@ describe("resolveOrCreateJellyfinRawkoonUser", () => {
     const data = (create.mock.calls[0]![0] as { data: Row }).data;
     expect(data).toMatchObject({
       name: "viewer",
+      firstName: "viewer",
       email: "jf-1@jellyfin.invalid",
       isAdmin: false,
       jellyfinUserId: "jf-1",

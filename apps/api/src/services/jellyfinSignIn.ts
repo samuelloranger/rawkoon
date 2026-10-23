@@ -45,6 +45,7 @@ export async function createJellyfinRawkoonUser(
     const user = await prisma.user.create({
       data: {
         name: jellyfinUser.name || jellyfinUser.id,
+        firstName: jellyfinUser.name || jellyfinUser.id,
         email: placeholderJellyfinEmail(jellyfinUser.id),
         emailVerified: true,
         isAdmin,
