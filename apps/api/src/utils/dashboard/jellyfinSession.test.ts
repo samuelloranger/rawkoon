@@ -1,7 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import { mapJellyfinSessions } from "@rawkoon/api/utils/dashboard/jellyfin";
 
-const config = { api_key: "key", website_url: "https://jelly.example.com" };
+const config = {
+  api_key: "key",
+  website_url: "https://jelly.example.com",
+  sign_in_enabled: false,
+  open_sign_in: false,
+};
 
 const rawSessions: unknown[] = [
   {

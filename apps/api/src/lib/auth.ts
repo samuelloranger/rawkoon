@@ -8,6 +8,8 @@ import { getBaseUrl, loadConfig } from "@rawkoon/api/config";
 import { decrypt } from "@rawkoon/api/services/crypto";
 import { hashPassword, verifyPassword } from "@rawkoon/api/utils/password";
 import { resolveFirstSignup } from "@rawkoon/api/lib/firstSignup";
+import { jellyfinSignIn } from "@rawkoon/api/lib/jellyfinSignInPlugin";
+import { sessionProviderId } from "@rawkoon/api/lib/sessionProvider";
 
 const config = loadConfig();
 
@@ -200,6 +202,7 @@ export const auth = betterAuth({
       },
     }),
     genericOAuth({ config: oidcProviderConfigs }),
+    jellyfinSignIn(),
     // TV sign-in: the TV shows a code, a signed-in user approves it on /device.
     deviceAuthorization({
       expiresIn: "10m",
@@ -249,16 +252,10 @@ export const auth = betterAuth({
       create: {
         after: async (session, ctx) => {
           if (!ctx?.path) return;
-          let providerId: string | null = null;
-          if (ctx.path === "/sign-in/email") {
-            providerId = "credential";
-          } else if (ctx.path.startsWith("/callback/")) {
-            // better-auth 1.7: OIDC providers use the social callback path
-            // /callback/:providerId (was /oauth2/callback/:providerId).
-            const params = (ctx as { params?: { providerId?: string } }).params;
-            providerId =
-              params?.providerId ?? ctx.path.split("/callback/")[1] ?? null;
-          }
+          const providerId = sessionProviderId(
+            ctx.path,
+            (ctx as { params?: { providerId?: string } }).params,
+          );
           if (providerId) {
             await prisma.baSession
               .update({

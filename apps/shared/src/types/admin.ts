@@ -196,6 +196,20 @@ export interface ListUsersResponse {
 export interface JellyfinUserOption {
   id: string;
   name: string;
+  disabled: boolean;
+  /** Rawkoon user already tied to this Jellyfin user, if any. */
+  linked_user_id: string | null;
+}
+
+export interface ImportJellyfinUsersResponse {
+  created: { jellyfin_user_id: string; user_id: string }[];
+  skipped: { jellyfin_user_id: string; reason: string }[];
+}
+
+export interface JellyfinProfileLink {
+  linked: boolean;
+  jellyfin_name: string | null;
+  can_unlink: boolean;
 }
 
 export interface ListJellyfinUsersResponse {

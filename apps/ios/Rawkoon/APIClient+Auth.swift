@@ -16,7 +16,16 @@ extension APIClient {
     }
 
     func login(email: String, password: String) async throws -> String {
-        let payload = ["email": email, "password": password]
+        try await signIn(path: "/api/auth/sign-in/email", payload: ["email": email, "password": password])
+    }
+
+    /// Jellyfin credentials, checked server-side against the configured Jellyfin.
+    /// Failures arrive as plain status codes; see `JellyfinSignInFailure`.
+    func loginWithJellyfin(username: String, password: String) async throws -> String {
+        try await signIn(path: "/api/auth/sign-in/jellyfin", payload: ["username": username, "password": password])
+    }
+
+    private func signIn(path: String, payload: [String: String]) async throws -> String {
         let body: Data
         do {
             body = try JSONSerialization.data(withJSONObject: payload)
@@ -24,7 +33,7 @@ extension APIClient {
             throw APIError.transport
         }
 
-        var request = try makeRequest(path: "/api/auth/sign-in/email", method: "POST")
+        var request = try makeRequest(path: path, method: "POST")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = body
 

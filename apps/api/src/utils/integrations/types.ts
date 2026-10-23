@@ -2,6 +2,10 @@ import type { AiFeatureToggles } from "@rawkoon/shared/types";
 export interface JellyfinIntegrationConfig {
   api_key: string;
   website_url: string;
+  /** Shows the Jellyfin option on login and enables the sign-in endpoint and sync. */
+  sign_in_enabled: boolean;
+  /** Any enabled Jellyfin user may sign in; only effective with sign_in_enabled. */
+  open_sign_in: boolean;
 }
 
 export interface RadarrIntegrationConfig {

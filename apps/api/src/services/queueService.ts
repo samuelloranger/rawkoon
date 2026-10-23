@@ -43,6 +43,7 @@ export const SCHEDULED_JOB_NAMES = {
   SYNC_LOCALIZED_TITLES: "sync-localized-titles",
   SWEEP_SEEDING_TORRENTS: "sweep-seeding-torrents",
   PROCESS_PENDING_RELEASES: "process-pending-releases",
+  SYNC_JELLYFIN_USERS: "sync-jellyfin-users",
 } as const;
 
 export const NOTIFICATION_JOB_NAMES = {
@@ -387,6 +388,11 @@ export async function setupScheduledJobs() {
       name: SCHEDULED_JOB_NAMES.PROCESS_PENDING_RELEASES,
       // Offset off the RSS poll's ticks at every interval (they fall on :02/:07) so a due grab doesn't race a poll.
       pattern: "1-59/5 * * * *",
+    },
+    {
+      name: SCHEDULED_JOB_NAMES.SYNC_JELLYFIN_USERS,
+      // Bounds how long a disabled or deleted Jellyfin user keeps a session.
+      pattern: "*/15 * * * *",
     },
   ];
 

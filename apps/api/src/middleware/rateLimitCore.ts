@@ -66,6 +66,7 @@ export async function globalRateLimitSkip(req: Request): Promise<boolean> {
 }
 
 export const JELLYFIN_SESSION_PATH = "/api/jellyfin/session";
+export const JELLYFIN_LINK_PATH = "/api/profile/jellyfin";
 
 /** TV clients re-exchange on their own, so they get a bucket apart from sign-in. */
 export function strictAuthRateLimitBucket(req: Request): string {
@@ -81,5 +82,43 @@ export function strictAuthRateLimitSkip(req: Request): boolean {
   const isSignUp = path.startsWith("/api/auth/sign-up");
   const isAcceptInvitation = path === "/api/auth/accept-invitation";
   const isJellyfinSession = path === JELLYFIN_SESSION_PATH;
-  return !(isSignIn || isSignUp || isAcceptInvitation || isJellyfinSession);
+  // Linking takes a Jellyfin password, so it gets the sign-in limiter.
+  const isJellyfinLink = path === JELLYFIN_LINK_PATH && req.method === "POST";
+  return !(
+    isSignIn ||
+    isSignUp ||
+    isAcceptInvitation ||
+    isJellyfinSession ||
+    isJellyfinLink
+  );
+}
+
+export const JELLYFIN_USERNAME_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+export const JELLYFIN_USERNAME_RATE_LIMIT_MAX = 10;
+export const JELLYFIN_USERNAME_RATE_LIMIT_MESSAGE =
+  "Too many sign-in attempts for this Jellyfin user. Please try again later.";
+
+const JELLYFIN_SIGN_IN_PATH = "/api/auth/sign-in/jellyfin";
+
+/** Per-username limiter covers the two endpoints that check a Jellyfin password. */
+export function jellyfinUsernameRateLimitSkip(req: Request): boolean {
+  if (req.method !== "POST") return true;
+  const path = new URL(req.url).pathname;
+  return path !== JELLYFIN_SIGN_IN_PATH && path !== JELLYFIN_LINK_PATH;
+}
+
+/** Bucket key from the request body, so one username can't be guessed across many IPs. */
+export async function jellyfinUsernameRateLimitKey(
+  req: Request,
+  fallback: string,
+): Promise<string> {
+  try {
+    const body = (await req.clone().json()) as { username?: unknown };
+    if (typeof body.username === "string" && body.username.trim()) {
+      return `jf_user:${body.username.trim().toLowerCase()}`;
+    }
+  } catch {
+    // Unparseable bodies are rejected by validation; keep them on the IP bucket.
+  }
+  return `jf_user_ip:${fallback}`;
 }

@@ -1,4 +1,5 @@
 import { CalendarSubscriptionSection } from "@/pages/settings/_component/CalendarSubscriptionSection";
+import { JellyfinLinkSection } from "@/pages/settings/_component/JellyfinLinkSection";
 import { PasskeysSection } from "@/pages/settings/_component/PasskeysSection";
 import { ProfileForm } from "@/pages/settings/_component/ProfileForm";
 import { SettingsPageShell } from "@/pages/settings/_component/SettingsPageShell";
@@ -10,6 +11,7 @@ export function SecurityPage() {
         <ProfileForm part="password" />
       </div>
       <PasskeysSection />
+      <JellyfinLinkSection />
       <CalendarSubscriptionSection />
     </SettingsPageShell>
   );

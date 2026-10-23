@@ -8,6 +8,7 @@ export const ADMIN_ENDPOINTS = {
   UPDATE_USER_ROLE: (userId: string) => `/api/admin/users/${userId}/role`,
   LINK_USER_JELLYFIN: (userId: string) => `/api/admin/users/${userId}/jellyfin`,
   JELLYFIN_USERS: "/api/admin/jellyfin-users",
+  IMPORT_JELLYFIN_USERS: "/api/admin/users/import-jellyfin",
   RESET_USER_PASSWORD: (userId: string) =>
     `/api/admin/users/${userId}/reset-password`,
   INVITATIONS: "/api/admin/invitations",

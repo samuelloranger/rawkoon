@@ -7,6 +7,7 @@ export const queryKeys = {
     validateInvitation: (token: string) =>
       [...queryKeys.auth.all, "validate-invitation", token] as const,
     setupStatus: () => [...queryKeys.auth.all, "setup-status"] as const,
+    jellyfinProfile: () => [...queryKeys.auth.all, "jellyfin-profile"] as const,
     ssoProviders: () => [...queryKeys.auth.all, "sso-providers"] as const,
     oidcProviders: () => [...queryKeys.auth.all, "oidc-providers"] as const,
   },

@@ -49,6 +49,8 @@ export const normalizeJellyfinConfig = (
   return {
     api_key: apiKey,
     website_url: websiteUrl.replace(/\/+$/, ""),
+    sign_in_enabled: cfg.sign_in_enabled === true,
+    open_sign_in: cfg.open_sign_in === true,
   };
 };
 

@@ -19,8 +19,12 @@ import {
 import type { Env } from "@rawkoon/api/honoEnv";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 import {
+  copyJellyfinAvatars,
+  createJellyfinRawkoonUser,
+} from "@rawkoon/api/services/jellyfinSignIn";
+import {
   getJellyfinConfig,
-  JELLYFIN_SESSION_AGENT_PREFIX,
+  jellyfinSessionWhere,
   listJellyfinUsers,
 } from "@rawkoon/api/services/jellyfinUsers";
 
@@ -153,12 +157,93 @@ export const adminUserRoutes = new Hono<Env>()
       return serviceUnavailable("Jellyfin integration is not configured");
     }
     try {
-      return ok({ users: await listJellyfinUsers(config) });
+      const users = await listJellyfinUsers(config);
+      const linked = await prisma.user.findMany({
+        where: { jellyfinUserId: { in: users.map((u) => u.id) } },
+        select: { id: true, jellyfinUserId: true },
+      });
+      const linkedBy = new Map(linked.map((u) => [u.jellyfinUserId, u.id]));
+      return ok({
+        users: users.map((u) => ({
+          ...u,
+          linked_user_id: linkedBy.get(u.id) ?? null,
+        })),
+      });
     } catch (error) {
       console.error("Error listing Jellyfin users:", error);
       return badGateway("Failed to reach Jellyfin");
     }
   })
+
+  .post(
+    "/users/import-jellyfin",
+    jsonV(
+      z.object({
+        users: z
+          .array(
+            z.object({
+              jellyfin_user_id: z.string().min(1),
+              is_admin: z.boolean().optional(),
+            }),
+          )
+          .min(1)
+          .max(200),
+      }),
+    ),
+    async (c) => {
+      const config = await getJellyfinConfig();
+      if (!config) {
+        return serviceUnavailable("Jellyfin integration is not configured");
+      }
+      let jellyfinUsers;
+      try {
+        jellyfinUsers = await listJellyfinUsers(config);
+      } catch (error) {
+        console.error("Error listing Jellyfin users:", error);
+        return badGateway("Failed to reach Jellyfin");
+      }
+      const byId = new Map(jellyfinUsers.map((u) => [u.id, u]));
+
+      const created: { jellyfin_user_id: string; user_id: string }[] = [];
+      const skipped: { jellyfin_user_id: string; reason: string }[] = [];
+      const avatarJobs: { jellyfinUserId: string; rawkoonUserId: string }[] =
+        [];
+      const seen = new Set<string>();
+      for (const entry of c.req.valid("json").users) {
+        const id = entry.jellyfin_user_id;
+        const jellyfinUser = byId.get(id);
+        if (seen.has(id)) {
+          skipped.push({ jellyfin_user_id: id, reason: "duplicate" });
+        } else if (!jellyfinUser) {
+          skipped.push({ jellyfin_user_id: id, reason: "not_found" });
+        } else if (jellyfinUser.disabled) {
+          skipped.push({ jellyfin_user_id: id, reason: "disabled" });
+        } else if (
+          await prisma.user.findUnique({ where: { jellyfinUserId: id } })
+        ) {
+          skipped.push({ jellyfin_user_id: id, reason: "already_linked" });
+        } else {
+          const result = await createJellyfinRawkoonUser(
+            jellyfinUser,
+            entry.is_admin === true,
+          );
+          if (result.created) {
+            created.push({ jellyfin_user_id: id, user_id: result.user.id });
+            avatarJobs.push({
+              jellyfinUserId: id,
+              rawkoonUserId: result.user.id,
+            });
+          } else {
+            skipped.push({ jellyfin_user_id: id, reason: "already_linked" });
+          }
+        }
+        seen.add(id);
+      }
+      // Not awaited: avatars are best effort and a big import must not outlast the proxy.
+      void copyJellyfinAvatars(config, avatarJobs);
+      return ok({ created, skipped });
+    },
+  )
 
   .patch(
     "/users/:id/jellyfin",
@@ -187,10 +272,7 @@ export const adminUserRoutes = new Hono<Env>()
             data: { jellyfinUserId },
           }),
           prisma.baSession.deleteMany({
-            where: {
-              userId,
-              userAgent: { startsWith: JELLYFIN_SESSION_AGENT_PREFIX },
-            },
+            where: jellyfinSessionWhere(userId),
           }),
         ]);
       } catch (error) {
