@@ -16,6 +16,7 @@ const integrationFindFirst = mock(
 );
 const userFindMany = mock(async (_args: unknown): Promise<Row[]> => []);
 const sessionDeleteMany = mock(async (_args: unknown) => ({ count: 2 }));
+const copyAvatars = mock(async (_config: unknown, _pairs: unknown) => {});
 
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
@@ -58,7 +59,12 @@ const jf = (id: string, disabled = false) => ({
 
 beforeEach(() => {
   invalidateIntegrationConfigCache();
-  for (const m of [integrationFindFirst, userFindMany, sessionDeleteMany]) {
+  for (const m of [
+    integrationFindFirst,
+    userFindMany,
+    sessionDeleteMany,
+    copyAvatars,
+  ]) {
     m.mockClear();
   }
   integrationFindFirst.mockImplementation(async () => integration());
@@ -73,7 +79,7 @@ afterEach(() => fetchSpy?.mockRestore());
 describe("syncJellyfinUsers", () => {
   it("revokes only Jellyfin-based sessions of disabled or missing users", async () => {
     jellyfinUsers(() => usersResponse([jf("jf-ok"), jf("jf-off", true)]));
-    const result = await syncJellyfinUsers();
+    const result = await syncJellyfinUsers(copyAvatars);
     expect(result.revoked).toBe(2);
     expect(sessionDeleteMany).toHaveBeenCalledWith({
       where: {
@@ -91,33 +97,56 @@ describe("syncJellyfinUsers", () => {
       integration({ sign_in_enabled: false }),
     );
     jellyfinUsers(() => usersResponse([jf("jf-ok")]));
-    await syncJellyfinUsers();
+    await syncJellyfinUsers(copyAvatars);
     expect(sessionDeleteMany).toHaveBeenCalledTimes(1);
   });
 
   it("does nothing when the user list cannot be read", async () => {
     jellyfinUsers(() => new Response(null, { status: 500 }));
-    expect((await syncJellyfinUsers()).revoked).toBe(0);
+    expect((await syncJellyfinUsers(copyAvatars)).revoked).toBe(0);
     expect(sessionDeleteMany).not.toHaveBeenCalled();
   });
 
   it("does nothing on an empty user list", async () => {
     jellyfinUsers(() => usersResponse([]));
-    await syncJellyfinUsers();
+    await syncJellyfinUsers(copyAvatars);
     expect(sessionDeleteMany).not.toHaveBeenCalled();
   });
 
   it("does nothing when Jellyfin is not configured", async () => {
     integrationFindFirst.mockImplementation(async () => null);
-    await syncJellyfinUsers();
+    await syncJellyfinUsers(copyAvatars);
     expect(userFindMany).not.toHaveBeenCalled();
   });
 
   it("does nothing when no Rawkoon user is linked", async () => {
     userFindMany.mockImplementation(async () => []);
     jellyfinUsers(() => usersResponse([jf("jf-ok")]));
-    await syncJellyfinUsers();
+    await syncJellyfinUsers(copyAvatars);
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(sessionDeleteMany).not.toHaveBeenCalled();
+  });
+
+  it("gives active linked users without a picture their Jellyfin one", async () => {
+    userFindMany.mockImplementation(async () => [
+      { id: "u-bare", jellyfinUserId: "jf-bare", avatarUrl: null },
+      { id: "u-pic", jellyfinUserId: "jf-pic", avatarUrl: "/a.png" },
+      { id: "u-off", jellyfinUserId: "jf-off", avatarUrl: null },
+    ]);
+    jellyfinUsers(() =>
+      usersResponse([jf("jf-bare"), jf("jf-pic"), jf("jf-off", true)]),
+    );
+    const result = await syncJellyfinUsers(copyAvatars);
+    expect(result.avatarsChecked).toBe(1);
+    expect(copyAvatars).toHaveBeenCalledTimes(1);
+    expect(copyAvatars.mock.calls[0]?.[1]).toEqual([
+      { jellyfinUserId: "jf-bare", rawkoonUserId: "u-bare" },
+    ]);
+  });
+
+  it("copies no pictures when the user list cannot be read", async () => {
+    jellyfinUsers(() => new Response(null, { status: 500 }));
+    await syncJellyfinUsers(copyAvatars);
+    expect(copyAvatars).not.toHaveBeenCalled();
   });
 });

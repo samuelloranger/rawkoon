@@ -19,6 +19,7 @@ import {
 import type { Env } from "@rawkoon/api/honoEnv";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 import {
+  copyJellyfinAvatar,
   copyJellyfinAvatars,
   createJellyfinRawkoonUser,
 } from "@rawkoon/api/services/jellyfinSignIn";
@@ -281,6 +282,11 @@ export const adminUserRoutes = new Hono<Env>()
           return conflict("That Jellyfin user is linked to another account");
         }
         throw error;
+      }
+      // Same rule as the self-service link: a user without a picture gets their Jellyfin one.
+      if (jellyfinUserId && !user.avatarUrl) {
+        const config = await getJellyfinConfig();
+        if (config) void copyJellyfinAvatar(config, jellyfinUserId, userId);
       }
       return ok({ success: true, jellyfin_user_id: jellyfinUserId });
     },

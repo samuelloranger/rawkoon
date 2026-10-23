@@ -27,8 +27,11 @@ mock.module("@rawkoon/api/db", () => ({
       findUnique: userFindUnique,
       findMany: userFindMany,
       create: userCreate,
+      update: async () => ({}),
       updateMany: async () => ({ count: 0 }),
     },
+    baSession: { deleteMany: async () => ({ count: 0 }) },
+    $transaction: async (ops: unknown[]) => Promise.all(ops),
   },
 }));
 
@@ -210,5 +213,43 @@ describe("GET /users", () => {
     expect(body.users[0]?.avatar_url).toBe(
       "https://rawkoon.example.com/api/users/avatar/a.png",
     );
+  });
+});
+
+describe("PATCH /users/:id/jellyfin", () => {
+  const link = (userRow: Row) => {
+    userFindUnique.mockImplementation(async (args) =>
+      (args as { where: Row }).where.id === "u1" ? userRow : null,
+    );
+    jellyfinUsers([]);
+    return adminUserRoutes.fetch(
+      new Request("http://localhost/users/u1/jellyfin", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jellyfin_user_id: "jf-1" }),
+      }),
+    );
+  };
+  const askedForPicture = () =>
+    (fetchSpy?.mock.calls ?? []).some(([url]) =>
+      String(url).endsWith("/Users/jf-1/Images/Primary"),
+    );
+
+  it("copies the Jellyfin picture onto a user who has none", async () => {
+    const res = await link({ id: "u1", jellyfinUserId: null, avatarUrl: null });
+    expect(res.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(askedForPicture()).toBe(true);
+  });
+
+  it("keeps a picture the user already has", async () => {
+    const res = await link({
+      id: "u1",
+      jellyfinUserId: null,
+      avatarUrl: "/api/users/avatar/own.png",
+    });
+    expect(res.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(askedForPicture()).toBe(false);
   });
 });
