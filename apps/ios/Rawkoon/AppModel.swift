@@ -31,6 +31,7 @@ final class AppModel {
     var userFirstName: String?
     var userInitials: String?
     var ssoProviders: [SsoProvider] = []
+    var jellyfinSignInEnabled = false
     var loading = false
     var errorMessage: String?
     /// Set when sign-in succeeded but the credential could not be written to the
