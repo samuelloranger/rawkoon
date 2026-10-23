@@ -42,23 +42,31 @@ export async function syncJellyfinUsers(
   const active = new Set(
     jellyfinUsers.filter((u) => !u.disabled).map((u) => u.id),
   );
+  const withPicture = new Set(
+    jellyfinUsers.filter((u) => u.hasPicture).map((u) => u.id),
+  );
   // Accounts linked by an admin, or before pictures were copied, never got one.
   const missingAvatars = linked.flatMap((u) =>
-    u.jellyfinUserId && active.has(u.jellyfinUserId) && !u.avatarUrl
+    u.jellyfinUserId &&
+    active.has(u.jellyfinUserId) &&
+    withPicture.has(u.jellyfinUserId) &&
+    !u.avatarUrl
       ? [{ jellyfinUserId: u.jellyfinUserId, rawkoonUserId: u.id }]
       : [],
   );
-  if (missingAvatars.length > 0) await copyAvatars(config, missingAvatars);
 
+  // Revocation first: a slow picture download must not delay signing anyone out.
   const revokedIds = linked
     .filter((u) => u.jellyfinUserId && !active.has(u.jellyfinUserId))
     .map((u) => u.id);
-  if (revokedIds.length === 0) {
-    return { revoked: 0, avatarsChecked: missingAvatars.length };
+  let revoked = 0;
+  if (revokedIds.length > 0) {
+    const { count } = await prisma.baSession.deleteMany({
+      where: jellyfinSessionWhere(revokedIds),
+    });
+    revoked = count;
   }
 
-  const { count } = await prisma.baSession.deleteMany({
-    where: jellyfinSessionWhere(revokedIds),
-  });
-  return { revoked: count, avatarsChecked: missingAvatars.length };
+  if (missingAvatars.length > 0) await copyAvatars(config, missingAvatars);
+  return { revoked, avatarsChecked: missingAvatars.length };
 }

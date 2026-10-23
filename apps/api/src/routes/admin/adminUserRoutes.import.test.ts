@@ -234,11 +234,17 @@ describe("PATCH /users/:id/jellyfin", () => {
     (fetchSpy?.mock.calls ?? []).some(([url]) =>
       String(url).endsWith("/Users/jf-1/Images/Primary"),
     );
+  /** The copy runs after the response; wait for it instead of a fixed sleep. */
+  const settle = async (until: () => boolean) => {
+    for (let i = 0; i < 50 && !until(); i++) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+  };
 
   it("copies the Jellyfin picture onto a user who has none", async () => {
     const res = await link({ id: "u1", jellyfinUserId: null, avatarUrl: null });
     expect(res.status).toBe(200);
-    await new Promise((r) => setTimeout(r, 20));
+    await settle(askedForPicture);
     expect(askedForPicture()).toBe(true);
   });
 
@@ -249,7 +255,26 @@ describe("PATCH /users/:id/jellyfin", () => {
       avatarUrl: "/api/users/avatar/own.png",
     });
     expect(res.status).toBe(200);
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(askedForPicture()).toBe(false);
+  });
+
+  it("asks for no picture when unlinking", async () => {
+    userFindUnique.mockImplementation(async () => ({
+      id: "u1",
+      jellyfinUserId: "jf-1",
+      avatarUrl: null,
+    }));
+    jellyfinUsers([]);
+    const res = await adminUserRoutes.fetch(
+      new Request("http://localhost/users/u1/jellyfin", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jellyfin_user_id: null }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 50));
     expect(askedForPicture()).toBe(false);
   });
 });

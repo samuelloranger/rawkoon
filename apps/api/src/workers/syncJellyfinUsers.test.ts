@@ -51,14 +51,17 @@ const usersResponse = (users: Row[]) =>
     status: 200,
     headers: { "content-type": "application/json" },
   });
-const jf = (id: string, disabled = false) => ({
+const jf = (id: string, disabled = false, picture = true) => ({
   Id: id,
   Name: id,
   Policy: { IsDisabled: disabled },
+  ...(picture ? { PrimaryImageTag: `tag-${id}` } : {}),
 });
 
 beforeEach(() => {
   invalidateIntegrationConfigCache();
+  sessionDeleteMany.mockImplementation(async () => ({ count: 2 }));
+  copyAvatars.mockImplementation(async () => {});
   for (const m of [
     integrationFindFirst,
     userFindMany,
@@ -142,6 +145,34 @@ describe("syncJellyfinUsers", () => {
     expect(copyAvatars.mock.calls[0]?.[1]).toEqual([
       { jellyfinUserId: "jf-bare", rawkoonUserId: "u-bare" },
     ]);
+  });
+
+  it("skips users whose Jellyfin account has no picture", async () => {
+    userFindMany.mockImplementation(async () => [
+      { id: "u-bare", jellyfinUserId: "jf-bare", avatarUrl: null },
+    ]);
+    jellyfinUsers(() => usersResponse([jf("jf-bare", false, false)]));
+    const result = await syncJellyfinUsers(copyAvatars);
+    expect(result.avatarsChecked).toBe(0);
+    expect(copyAvatars).not.toHaveBeenCalled();
+  });
+
+  it("revokes sessions before copying pictures", async () => {
+    const order: string[] = [];
+    sessionDeleteMany.mockImplementation(async () => {
+      order.push("revoke");
+      return { count: 1 };
+    });
+    copyAvatars.mockImplementation(async () => {
+      order.push("copy");
+    });
+    userFindMany.mockImplementation(async () => [
+      { id: "u-bare", jellyfinUserId: "jf-bare", avatarUrl: null },
+      { id: "u-off", jellyfinUserId: "jf-off", avatarUrl: null },
+    ]);
+    jellyfinUsers(() => usersResponse([jf("jf-bare"), jf("jf-off", true)]));
+    await syncJellyfinUsers(copyAvatars);
+    expect(order).toEqual(["revoke", "copy"]);
   });
 
   it("copies no pictures when the user list cannot be read", async () => {
