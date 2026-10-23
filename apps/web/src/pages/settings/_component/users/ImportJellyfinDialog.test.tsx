@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { renderWithProviders } from "@/test-utils/render";
 import type { JellyfinUserOption } from "@rawkoon/shared/types";
 
@@ -10,7 +11,7 @@ const toast = vi.hoisted(() => ({
 }));
 vi.mock("sonner", () => ({ toast }));
 
-import { ImportJellyfinDialog } from "./ImportJellyfinDialog";
+import { ImportJellyfinDialog, skipReasonKey } from "./ImportJellyfinDialog";
 
 const users: JellyfinUserOption[] = [
   { id: "j1", name: "alice", disabled: false, linked_user_id: null },
@@ -52,7 +53,40 @@ describe("ImportJellyfinDialog", () => {
       }),
     );
     await waitFor(() => expect(toast.warning).toHaveBeenCalled());
-    expect(toast.warning.mock.calls[0][0]).toContain("bob (disabled)");
+    expect(toast.warning.mock.calls[0][0]).toContain(
+      "bob (settings.users.importJellyfin.skipReasons.disabled)",
+    );
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("maps known skip reasons and falls back for unknown ones", () => {
+    expect(skipReasonKey("already_linked")).toBe(
+      "settings.users.importJellyfin.skipReasons.already_linked",
+    );
+    expect(skipReasonKey("something_new")).toBe(
+      "settings.users.importJellyfin.skipReasons.unknown",
+    );
+  });
+
+  it("forgets ticked users after the dialog closes and reopens", () => {
+    function Harness() {
+      const [open, setOpen] = useState(true);
+      return (
+        <>
+          <button onClick={() => setOpen((v) => !v)}>toggle</button>
+          <ImportJellyfinDialog
+            isOpen={open}
+            onClose={() => setOpen(false)}
+            users={users}
+          />
+        </>
+      );
+    }
+    renderWithProviders(<Harness />);
+    fireEvent.click(screen.getByLabelText("alice"));
+    expect(screen.getByLabelText("alice")).toBeChecked();
+    fireEvent.click(screen.getByText("toggle"));
+    fireEvent.click(screen.getByText("toggle"));
+    expect(screen.getByLabelText("alice")).not.toBeChecked();
   });
 });

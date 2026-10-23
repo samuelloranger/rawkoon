@@ -348,7 +348,8 @@
       "noAccess": "This Jellyfin account can't sign in to Rawkoon yet. Ask your admin.",
       "unreachable": "Can't reach Jellyfin. Try again in a moment.",
       "disabled": "Sign in with Jellyfin is not enabled.",
-      "alreadyLinked": "That Jellyfin account is linked to another Rawkoon account."
+      "alreadyLinked": "That Jellyfin account is linked to another Rawkoon account.",
+      "tooManyAttempts": "Too many attempts, try again in a few minutes."
     }
   },
   "setup": {
@@ -1232,7 +1233,14 @@
         "import": "Import ({{count}})",
         "success": "{{count}} user(s) imported",
         "skipped": "Skipped: {{list}}",
-        "error": "Failed to import users"
+        "error": "Failed to import users",
+        "skipReasons": {
+          "duplicate": "already selected twice",
+          "not_found": "not found in Jellyfin",
+          "disabled": "disabled in Jellyfin",
+          "already_linked": "already linked",
+          "unknown": "could not be imported"
+        }
       }
     },
     "integrations": {
@@ -1887,7 +1895,8 @@
       "unlink": "Unlink",
       "linkSuccess": "Jellyfin account linked",
       "unlinkSuccess": "Jellyfin account unlinked",
-      "unlinkError": "Failed to unlink Jellyfin"
+      "unlinkError": "Failed to unlink Jellyfin",
+      "turnedOff": "Jellyfin sign-in has been turned off. Reload the page."
     }
   },
   "medias": {

@@ -12,7 +12,10 @@ interface Credentials {
 }
 
 /** The server doesn't promise error text reaches the client, so the status picks the message. */
-export function jellyfinErrorKey(error: unknown): string {
+export function jellyfinErrorKey(
+  error: unknown,
+  flow: "signIn" | "link" = "signIn",
+): string {
   if (error instanceof HttpError) {
     switch (error.status) {
       case 401:
@@ -20,9 +23,14 @@ export function jellyfinErrorKey(error: unknown): string {
       case 403:
         return "login.jellyfin.noAccess";
       case 404:
-        return "login.jellyfin.disabled";
+        // The link endpoint only 404s when the admin has since turned sign-in off.
+        return flow === "link"
+          ? "settings.jellyfinLink.turnedOff"
+          : "login.jellyfin.disabled";
       case 409:
         return "login.jellyfin.alreadyLinked";
+      case 429:
+        return "login.jellyfin.tooManyAttempts";
       case 502:
         return "login.jellyfin.unreachable";
     }

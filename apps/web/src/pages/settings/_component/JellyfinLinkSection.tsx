@@ -46,6 +46,7 @@ export function JellyfinLinkSection() {
 
       {linking ? (
         <JellyfinSignInForm
+          flow="link"
           submitLabel={t("settings.jellyfinLink.link")}
           pending={linkMutation.isPending}
           onBack={() => setLinking(false)}

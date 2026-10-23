@@ -348,7 +348,8 @@
       "noAccess": "Ce compte Jellyfin ne peut pas encore se connecter à Rawkoon. Demandez à votre administrateur.",
       "unreachable": "Jellyfin est injoignable. Réessayez dans un instant.",
       "disabled": "La connexion avec Jellyfin n'est pas activée.",
-      "alreadyLinked": "Ce compte Jellyfin est lié à un autre compte Rawkoon."
+      "alreadyLinked": "Ce compte Jellyfin est lié à un autre compte Rawkoon.",
+      "tooManyAttempts": "Trop de tentatives, réessayez dans quelques minutes."
     }
   },
   "setup": {
@@ -1232,7 +1233,14 @@
         "import": "Importer ({{count}})",
         "success": "{{count}} utilisateur(s) importé(s)",
         "skipped": "Ignorés : {{list}}",
-        "error": "Échec de l'importation des utilisateurs"
+        "error": "Échec de l'importation des utilisateurs",
+        "skipReasons": {
+          "duplicate": "sélectionné en double",
+          "not_found": "introuvable dans Jellyfin",
+          "disabled": "désactivé dans Jellyfin",
+          "already_linked": "déjà lié",
+          "unknown": "n'a pas pu être importé"
+        }
       }
     },
     "integrations": {
@@ -1887,7 +1895,8 @@
       "unlink": "Délier",
       "linkSuccess": "Compte Jellyfin lié",
       "unlinkSuccess": "Compte Jellyfin délié",
-      "unlinkError": "Échec de la déliaison de Jellyfin"
+      "unlinkError": "Échec de la déliaison de Jellyfin",
+      "turnedOff": "La connexion avec Jellyfin a été désactivée. Rechargez la page."
     }
   },
   "medias": {

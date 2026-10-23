@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Dialog } from "@/components/dialog";
@@ -23,6 +23,20 @@ interface Props {
   users: JellyfinUserOption[];
 }
 
+const SKIP_REASONS = [
+  "duplicate",
+  "not_found",
+  "disabled",
+  "already_linked",
+] as const;
+
+/** Unknown codes get a generic label so a newer server never shows a raw code. */
+export function skipReasonKey(reason: string): string {
+  return (SKIP_REASONS as readonly string[]).includes(reason)
+    ? `settings.users.importJellyfin.skipReasons.${reason}`
+    : "settings.users.importJellyfin.skipReasons.unknown";
+}
+
 export const isImportable = (user: JellyfinUserOption) =>
   !user.disabled && !user.linked_user_id;
 
@@ -40,6 +54,14 @@ export function ImportJellyfinDialog({ isOpen, onClose, users }: Props) {
       return next;
     });
 
+  // Picks must not survive a close, however the parent closes the dialog.
+  useEffect(() => {
+    if (!isOpen) {
+      setSelected(new Set());
+      setRoles({});
+    }
+  }, [isOpen]);
+
   const handleImport = async () => {
     try {
       const result = await importMutation.mutateAsync(
@@ -56,7 +78,7 @@ export function ImportJellyfinDialog({ isOpen, onClose, users }: Props) {
       if (result.skipped.length > 0) {
         const names = result.skipped.map(
           (s) =>
-            `${users.find((u) => u.id === s.jellyfin_user_id)?.name ?? s.jellyfin_user_id} (${s.reason})`,
+            `${users.find((u) => u.id === s.jellyfin_user_id)?.name ?? s.jellyfin_user_id} (${t(skipReasonKey(s.reason))})`,
         );
         toast.warning(
           t("settings.users.importJellyfin.skipped", {
@@ -65,6 +87,7 @@ export function ImportJellyfinDialog({ isOpen, onClose, users }: Props) {
         );
       }
       setSelected(new Set());
+      setRoles({});
       onClose();
     } catch (error: unknown) {
       toast.error(

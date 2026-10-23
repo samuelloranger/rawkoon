@@ -19,10 +19,16 @@ describe("jellyfinErrorKey", () => {
     [403, "login.jellyfin.noAccess"],
     [404, "login.jellyfin.disabled"],
     [409, "login.jellyfin.alreadyLinked"],
+    [429, "login.jellyfin.tooManyAttempts"],
     [502, "login.jellyfin.unreachable"],
     [500, "login.authFailed"],
   ])("maps %i", (status, key) => {
     expect(jellyfinErrorKey(new HttpError("x", status))).toBe(key);
+  });
+  it("reads a link-flow 404 as sign-in turned off", () => {
+    expect(jellyfinErrorKey(new HttpError("x", 404), "link")).toBe(
+      "settings.jellyfinLink.turnedOff",
+    );
   });
   it("falls back for non-HTTP errors", () => {
     expect(jellyfinErrorKey(new Error("boom"))).toBe("login.authFailed");

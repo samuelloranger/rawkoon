@@ -11,6 +11,7 @@ interface Props {
   onBack: () => void;
   submitLabel: string;
   pending: boolean;
+  flow?: "signIn" | "link";
 }
 
 const INPUT =
@@ -21,6 +22,7 @@ export function JellyfinSignInForm({
   onBack,
   submitLabel,
   pending,
+  flow = "signIn",
 }: Props) {
   const { t } = useTranslation("common");
   const [username, setUsername] = useState("");
@@ -33,7 +35,7 @@ export function JellyfinSignInForm({
     try {
       await onSubmit({ username: username.trim(), password });
     } catch (error: unknown) {
-      setErrorKey(jellyfinErrorKey(error));
+      setErrorKey(jellyfinErrorKey(error, flow));
     }
   };
 
