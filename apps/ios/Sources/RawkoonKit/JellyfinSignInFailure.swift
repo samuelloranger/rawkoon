@@ -11,6 +11,8 @@ public enum JellyfinSignInFailure: Equatable, Sendable {
     case jellyfinUnreachable
     /// 404: Jellyfin sign-in is off or Jellyfin is not configured.
     case notEnabled
+    /// 429: too many attempts for this username.
+    case tooManyAttempts
     case other
 
     public init(status: Int) {
@@ -19,6 +21,7 @@ public enum JellyfinSignInFailure: Equatable, Sendable {
         case 403: self = .noAccess
         case 502: self = .jellyfinUnreachable
         case 404: self = .notEnabled
+        case 429: self = .tooManyAttempts
         default: self = .other
         }
     }

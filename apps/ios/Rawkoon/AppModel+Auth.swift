@@ -17,19 +17,7 @@ extension AppModel {
     /// Status-code copy for a failed Jellyfin sign-in (the body is not relied on).
     func jellyfinMessage(for error: Error) -> String {
         guard let apiError = error as? APIError else { return message(for: error) }
-        let failure: JellyfinSignInFailure? = switch apiError {
-        case .unauthorized: .wrongCredentials
-        case .forbidden: .noAccess
-        case let .http(status), let .server(status, _): JellyfinSignInFailure(status: status)
-        default: nil
-        }
-        switch failure {
-        case .wrongCredentials: return String(localized: "Wrong Jellyfin username or password.")
-        case .noAccess: return String(localized: "This Jellyfin account can't sign in to Rawkoon yet. Ask your admin.")
-        case .jellyfinUnreachable: return String(localized: "Can't reach Jellyfin. Try again in a moment.")
-        case .notEnabled: return String(localized: "Jellyfin sign-in isn't enabled on this server.")
-        case .other, nil: return apiError.userMessage()
-        }
+        return JellyfinSignInFailure(apiError: apiError)?.message ?? apiError.userMessage()
     }
 
     private func signIn(
@@ -225,6 +213,30 @@ extension AppModel {
         await task.value
         if profileTask == task {
             profileTask = nil
+        }
+    }
+}
+
+extension JellyfinSignInFailure {
+    /// Nil for errors with no sign-in specific copy (transport, decode, offline).
+    init?(apiError: APIError) {
+        switch apiError {
+        case .unauthorized: self = .wrongCredentials
+        case .forbidden: self = .noAccess
+        case let .http(status), let .server(status, _): self.init(status: status)
+        default: return nil
+        }
+    }
+
+    /// Nil for `.other`, which falls back to the generic API error copy.
+    var message: String? {
+        switch self {
+        case .wrongCredentials: String(localized: "Wrong Jellyfin username or password.")
+        case .noAccess: String(localized: "This Jellyfin account can't sign in to Rawkoon yet. Ask your admin.")
+        case .jellyfinUnreachable: String(localized: "Can't reach Jellyfin. Try again in a moment.")
+        case .notEnabled: String(localized: "Jellyfin sign-in isn't enabled on this server.")
+        case .tooManyAttempts: String(localized: "Too many attempts. Try again in a few minutes.")
+        case .other: nil
         }
     }
 }

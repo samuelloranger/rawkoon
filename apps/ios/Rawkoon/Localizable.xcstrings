@@ -15472,6 +15472,16 @@
           }
         }
       }
+    },
+    "Too many attempts. Try again in a few minutes.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trop de tentatives. Réessayez dans quelques minutes."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

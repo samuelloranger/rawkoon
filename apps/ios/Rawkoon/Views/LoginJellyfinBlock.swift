@@ -48,8 +48,10 @@ struct LoginJellyfinBlock: View {
     private func submit() {
         guard fieldsReady, !model.loading, !model.isLoggedIn else { return }
         onAttempt()
+        let attemptedPassword = password
         Task {
-            await model.loginWithJellyfin(server: model.serverURL, username: username, password: password)
+            await model.loginWithJellyfin(server: model.serverURL, username: username, password: attemptedPassword)
+            password = ""
         }
     }
 
