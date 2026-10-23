@@ -146,3 +146,24 @@ export async function copyJellyfinAvatar(
     console.warn("[jellyfin] avatar copy failed:", error);
   }
 }
+
+const AVATAR_COPY_CONCURRENCY = 4;
+
+/** Copies several avatars with a small concurrency limit; resolves once all are done. */
+export async function copyJellyfinAvatars(
+  config: JellyfinIntegrationConfig,
+  pairs: { jellyfinUserId: string; rawkoonUserId: string }[],
+): Promise<void> {
+  const queue = [...pairs];
+  const worker = async () => {
+    for (let next = queue.shift(); next; next = queue.shift()) {
+      await copyJellyfinAvatar(config, next.jellyfinUserId, next.rawkoonUserId);
+    }
+  };
+  await Promise.all(
+    Array.from(
+      { length: Math.min(AVATAR_COPY_CONCURRENCY, queue.length) },
+      worker,
+    ),
+  );
+}

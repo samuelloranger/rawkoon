@@ -47,6 +47,15 @@ mock.module("@rawkoon/api/middleware/hono/auth", () => ({
   ensureAdmin: () => null,
 }));
 
+const getSession = mock(
+  async (_args: unknown): Promise<{ session: { id: string } } | null> => ({
+    session: { id: "session-current" },
+  }),
+);
+mock.module("@rawkoon/api/lib/auth", () => ({
+  auth: { api: { getSession } },
+}));
+
 const { encrypt } = await import("@rawkoon/api/services/crypto");
 const { invalidateIntegrationConfigCache } = await import(
   "@rawkoon/api/services/integrationConfigCache"
@@ -105,6 +114,7 @@ beforeEach(() => {
     userUpdateMany,
     passkeyCount,
     sessionDeleteMany,
+    getSession,
   ]) {
     m.mockClear();
   }
@@ -137,12 +147,44 @@ describe("POST /api/profile/jellyfin", () => {
     expect(sessionDeleteMany).toHaveBeenCalledWith({
       where: {
         userId: "user-1",
+        id: { not: "session-current" },
         OR: [
           { providerId: "jellyfin" },
           { userAgent: { startsWith: "Jellyfin: " } },
         ],
       },
     });
+  });
+
+  it("revokes every Jellyfin session when the caller has no session id", async () => {
+    jellyfin({ auth: () => authOk() });
+    userFindUnique.mockImplementation(async (args) =>
+      (args as { where: Row }).where.jellyfinUserId ? null : { id: "user-1" },
+    );
+    getSession.mockImplementation(async () => null);
+    const res = await call("POST", { username: "viewer", password: "pw" });
+    expect(res.status).toBe(200);
+    const where = (sessionDeleteMany.mock.calls[0]![0] as { where: Row }).where;
+    expect(where).not.toHaveProperty("id");
+  });
+
+  it("answers 502 when the request to Jellyfin fails", async () => {
+    fetchSpy = spyOn(globalThis, "fetch").mockImplementation((async () => {
+      throw new TypeError("connection refused");
+    }) as unknown as typeof fetch);
+    const res = await call("POST", { username: "viewer", password: "pw" });
+    expect(res.status).toBe(502);
+  });
+
+  it("does not turn a local failure into a 502", async () => {
+    jellyfin({ auth: () => authOk() });
+    userFindUnique.mockImplementation(async () => {
+      throw new Error("database down");
+    });
+    const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+    const res = await call("POST", { username: "viewer", password: "pw" });
+    errorSpy.mockRestore();
+    expect(res.status).toBe(500);
   });
 
   it("answers 409 when the Jellyfin user belongs to another account", async () => {
@@ -201,6 +243,18 @@ describe("DELETE /api/profile/jellyfin", () => {
       data: { jellyfinUserId: null },
     });
     expect(sessionDeleteMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("revokes Jellyfin sessions without excluding the caller's own", async () => {
+    // A caller on a Jellyfin session is signed out by unlinking; one on a password session is untouched by the same filter.
+    userFindUnique.mockImplementation(async () => ({
+      id: "user-1",
+      passwordHash: "hash",
+      jellyfinUserId: "jf-1",
+    }));
+    await call("DELETE");
+    const where = (sessionDeleteMany.mock.calls[0]![0] as { where: Row }).where;
+    expect(where).not.toHaveProperty("id");
   });
 
   it("unlinks a user who has a password", async () => {

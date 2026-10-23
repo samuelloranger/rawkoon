@@ -42,6 +42,7 @@ import { systemRoutes } from "./routes/system";
 import { usersRoutes } from "./routes/users";
 import {
   globalRateLimit,
+  jellyfinUsernameRateLimit,
   strictAuthRateLimit,
 } from "./middleware/hono/rateLimit";
 import { requestTiming } from "./middleware/hono/requestTiming";
@@ -85,6 +86,7 @@ app.onError(honoOnError);
 app.notFound(() => notFound("Not found"));
 
 app.use("*", strictAuthRateLimit);
+app.use("*", jellyfinUsernameRateLimit);
 
 // Registered before the /api/auth/* catch-all so Hono doesn't swallow them.
 app.route("/", publicAuthRoutes);

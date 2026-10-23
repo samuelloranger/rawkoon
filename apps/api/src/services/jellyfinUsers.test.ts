@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import {
   authenticateJellyfinUser,
+  JellyfinUnreachableError,
   jellyfinSessionWhere,
 } from "@rawkoon/api/services/jellyfinUsers";
 
@@ -84,14 +85,26 @@ describe("authenticateJellyfinUser", () => {
       (async () =>
         new Response(null, { status: 500 })) as unknown as typeof fetch,
     );
-    await expect(authenticateJellyfinUser(config, "v", "p")).rejects.toThrow();
+    await expect(authenticateJellyfinUser(config, "v", "p")).rejects.toThrow(
+      JellyfinUnreachableError,
+    );
   });
 
   it("throws when the request fails", async () => {
     fetchSpy = spyOn(globalThis, "fetch").mockImplementation((async () => {
       throw new DOMException("timed out", "TimeoutError");
     }) as unknown as typeof fetch);
-    await expect(authenticateJellyfinUser(config, "v", "p")).rejects.toThrow();
+    await expect(authenticateJellyfinUser(config, "v", "p")).rejects.toThrow(
+      JellyfinUnreachableError,
+    );
+  });
+
+  it("throws the unreachable error when Jellyfin returns no user", async () => {
+    fetchSpy = spyOn(globalThis, "fetch").mockImplementation((async () =>
+      json({ AccessToken: "t" })) as unknown as typeof fetch);
+    await expect(authenticateJellyfinUser(config, "v", "p")).rejects.toThrow(
+      JellyfinUnreachableError,
+    );
   });
 
   it("still signs in when the logout call fails", async () => {

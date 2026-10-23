@@ -6,6 +6,7 @@ import { prisma } from "@rawkoon/api/db";
 import {
   authenticateJellyfinUser,
   getJellyfinConfig,
+  JellyfinUnreachableError,
 } from "@rawkoon/api/services/jellyfinUsers";
 import { resolveOrCreateJellyfinRawkoonUser } from "@rawkoon/api/services/jellyfinSignIn";
 
@@ -43,6 +44,7 @@ export const jellyfinSignIn = () =>
               ctx.body.password,
             );
           } catch (error) {
+            if (!(error instanceof JellyfinUnreachableError)) throw error;
             console.error("[jellyfin-sign-in] Jellyfin unreachable:", error);
             throw new APIError("BAD_GATEWAY", {
               message: "Can't reach Jellyfin",

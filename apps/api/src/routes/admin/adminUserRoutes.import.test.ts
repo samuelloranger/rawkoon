@@ -132,6 +132,36 @@ describe("POST /users/import-jellyfin", () => {
     expect(roles).toEqual([true, false]);
   });
 
+  it("answers before the avatar copies finish", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let avatarCalls = 0;
+    fetchSpy = spyOn(globalThis, "fetch").mockImplementation((async (
+      url: string | URL | Request,
+    ) => {
+      if (String(url).endsWith("/Users")) {
+        return new Response(JSON.stringify([jf("a"), jf("b")]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      avatarCalls++;
+      await gate;
+      return new Response(null, { status: 404 });
+    }) as unknown as typeof fetch);
+    const res = await importUsers([
+      { jellyfin_user_id: "a" },
+      { jellyfin_user_id: "b" },
+    ]);
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { created: unknown[] }).created).toHaveLength(
+      2,
+    );
+    await new Promise((r) => setTimeout(r, 10));
+    expect(avatarCalls).toBe(2);
+    release();
+  });
+
   it("answers 503 when Jellyfin is not configured", async () => {
     integrationFindFirst.mockImplementation(async () => null);
     expect((await importUsers([{ jellyfin_user_id: "a" }])).status).toBe(503);

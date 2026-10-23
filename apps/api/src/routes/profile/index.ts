@@ -10,6 +10,7 @@ import {
   unauthorized,
 } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
+import { auth } from "@rawkoon/api/lib/auth";
 import { jellyfinSignInBody } from "@rawkoon/api/lib/jellyfinSignInPlugin";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
@@ -17,6 +18,7 @@ import { copyJellyfinAvatar } from "@rawkoon/api/services/jellyfinSignIn";
 import {
   authenticateJellyfinUser,
   getJellyfinConfig,
+  JellyfinUnreachableError,
   jellyfinSessionWhere,
   listJellyfinUsers,
 } from "@rawkoon/api/services/jellyfinUsers";
@@ -24,6 +26,11 @@ import {
 async function canUnlink(userId: string, passwordHash: string | null) {
   if (passwordHash) return true;
   return (await prisma.baPasskey.count({ where: { userId } })) > 0;
+}
+
+async function currentSessionIdOf(req: Request): Promise<string | null> {
+  const session = await auth.api.getSession({ headers: req.headers });
+  return session?.session.id ?? null;
 }
 
 // Mounted at /api/profile. POST takes a Jellyfin password, so the strict
@@ -72,6 +79,7 @@ export const profileRoutes = new Hono<Env>()
         body.password,
       );
     } catch (error) {
+      if (!(error instanceof JellyfinUnreachableError)) throw error;
       console.error("[profile] Jellyfin unreachable:", error);
       return badGateway("Can't reach Jellyfin");
     }
@@ -87,6 +95,8 @@ export const profileRoutes = new Hono<Env>()
       return conflict("That Jellyfin user is linked to another account");
     }
 
+    // Linking must not sign out the session that is doing it.
+    const currentSessionId = await currentSessionIdOf(c.req.raw);
     try {
       // Sessions minted from a previous link must not outlive it.
       await prisma.$transaction([
@@ -94,7 +104,12 @@ export const profileRoutes = new Hono<Env>()
           where: { id: userId },
           data: { jellyfinUserId: jellyfinUser.id },
         }),
-        prisma.baSession.deleteMany({ where: jellyfinSessionWhere(userId) }),
+        prisma.baSession.deleteMany({
+          where: {
+            ...jellyfinSessionWhere(userId),
+            ...(currentSessionId && { id: { not: currentSessionId } }),
+          },
+        }),
       ]);
     } catch (error) {
       if ((error as { code?: string }).code === "P2002") {

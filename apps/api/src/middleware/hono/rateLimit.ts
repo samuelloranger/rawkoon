@@ -6,6 +6,11 @@ import {
   GLOBAL_RATE_LIMIT_MAX,
   GLOBAL_RATE_LIMIT_MESSAGE,
   globalRateLimitSkip,
+  JELLYFIN_USERNAME_RATE_LIMIT_MAX,
+  JELLYFIN_USERNAME_RATE_LIMIT_MESSAGE,
+  JELLYFIN_USERNAME_RATE_LIMIT_WINDOW_MS,
+  jellyfinUsernameRateLimitKey,
+  jellyfinUsernameRateLimitSkip,
   RATE_LIMIT_WINDOW_MS,
   STRICT_AUTH_RATE_LIMIT_MAX,
   STRICT_AUTH_RATE_LIMIT_MESSAGE,
@@ -43,5 +48,15 @@ export const strictAuthRateLimit = rateLimiter({
   keyGenerator: (c) =>
     `${strictAuthRateLimitBucket(c.req.raw)}:${clientIp(c.req.raw, connAddr(c))}`,
   message: STRICT_AUTH_RATE_LIMIT_MESSAGE,
+  standardHeaders: true,
+});
+
+export const jellyfinUsernameRateLimit = rateLimiter({
+  windowMs: JELLYFIN_USERNAME_RATE_LIMIT_WINDOW_MS,
+  limit: JELLYFIN_USERNAME_RATE_LIMIT_MAX,
+  skip: (c) => jellyfinUsernameRateLimitSkip(c.req.raw),
+  keyGenerator: (c) =>
+    jellyfinUsernameRateLimitKey(c.req.raw, clientIp(c.req.raw, connAddr(c))),
+  message: JELLYFIN_USERNAME_RATE_LIMIT_MESSAGE,
   standardHeaders: true,
 });

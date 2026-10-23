@@ -9,6 +9,31 @@ export function jellyfinAuthHeader(token: string): Record<string, string> {
   return { Authorization: `MediaBrowser Token="${token}"` };
 }
 
+/** Jellyfin could not be reached or answered unexpectedly; callers map it to a 502. */
+export class JellyfinUnreachableError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "JellyfinUnreachableError";
+  }
+}
+
+/** `fetch` with the shared timeout; network errors and timeouts become JellyfinUnreachableError. */
+async function jellyfinFetch(
+  url: string | URL,
+  init: RequestInit,
+): Promise<Response> {
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: AbortSignal.timeout(JELLYFIN_TIMEOUT_MS),
+    });
+  } catch (error) {
+    throw new JellyfinUnreachableError(`Jellyfin request failed: ${error}`, {
+      cause: error,
+    });
+  }
+}
+
 /** Marks sessions minted from a Jellyfin token, so relinking can revoke them. */
 export const JELLYFIN_SESSION_AGENT_PREFIX = "Jellyfin: ";
 
@@ -65,12 +90,14 @@ export async function resolveJellyfinTokenUser(
   config: JellyfinIntegrationConfig,
   token: string,
 ): Promise<JellyfinUser | null> {
-  const res = await fetch(`${config.website_url}/Users/Me`, {
+  const res = await jellyfinFetch(`${config.website_url}/Users/Me`, {
     headers: jellyfinAuthHeader(token),
-    signal: AbortSignal.timeout(JELLYFIN_TIMEOUT_MS),
   });
   if (res.status === 401 || res.status === 403) return null;
-  if (!res.ok) throw new Error(`Jellyfin /Users/Me returned ${res.status}`);
+  if (!res.ok)
+    throw new JellyfinUnreachableError(
+      `Jellyfin /Users/Me returned ${res.status}`,
+    );
   return toJellyfinUser(await res.json());
 }
 
@@ -95,27 +122,28 @@ export async function authenticateJellyfinUser(
   username: string,
   password: string,
 ): Promise<JellyfinUser | null> {
-  const res = await fetch(`${config.website_url}/Users/AuthenticateByName`, {
-    method: "POST",
-    headers: { ...clientAuthHeader(), "Content-Type": "application/json" },
-    body: JSON.stringify({ Username: username, Pw: password }),
-    signal: AbortSignal.timeout(JELLYFIN_TIMEOUT_MS),
-  });
+  const res = await jellyfinFetch(
+    `${config.website_url}/Users/AuthenticateByName`,
+    {
+      method: "POST",
+      headers: { ...clientAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ Username: username, Pw: password }),
+    },
+  );
   if (res.status === 401) return null;
   if (!res.ok) {
-    throw new Error(
+    throw new JellyfinUnreachableError(
       `Jellyfin /Users/AuthenticateByName returned ${res.status}`,
     );
   }
   const body = (await res.json()) as { User?: unknown; AccessToken?: unknown };
   const user = toJellyfinUser(body.User);
-  if (!user) throw new Error("Jellyfin returned no user");
+  if (!user) throw new JellyfinUnreachableError("Jellyfin returned no user");
   if (typeof body.AccessToken === "string" && body.AccessToken) {
     try {
-      await fetch(`${config.website_url}/Sessions/Logout`, {
+      await jellyfinFetch(`${config.website_url}/Sessions/Logout`, {
         method: "POST",
         headers: clientAuthHeader(body.AccessToken),
-        signal: AbortSignal.timeout(JELLYFIN_TIMEOUT_MS),
       });
     } catch (error) {
       console.warn("[jellyfin] could not end the sign-in session:", error);
@@ -127,11 +155,13 @@ export async function authenticateJellyfinUser(
 export async function listJellyfinUsers(
   config: JellyfinIntegrationConfig,
 ): Promise<JellyfinUser[]> {
-  const res = await fetch(`${config.website_url}/Users`, {
+  const res = await jellyfinFetch(`${config.website_url}/Users`, {
     headers: jellyfinAuthHeader(config.api_key),
-    signal: AbortSignal.timeout(JELLYFIN_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`Jellyfin /Users returned ${res.status}`);
+  if (!res.ok)
+    throw new JellyfinUnreachableError(
+      `Jellyfin /Users returned ${res.status}`,
+    );
   const body: unknown = await res.json();
   if (!Array.isArray(body)) return [];
   return body.map(toJellyfinUser).filter((u): u is JellyfinUser => u !== null);
@@ -149,14 +179,15 @@ export async function authorizeJellyfinQuickConnect(
   const url = new URL("/QuickConnect/Authorize", config.website_url);
   url.searchParams.set("code", code);
   url.searchParams.set("userId", jellyfinUserId);
-  const res = await fetch(url, {
+  const res = await jellyfinFetch(url, {
     method: "POST",
     headers: jellyfinAuthHeader(config.api_key),
-    signal: AbortSignal.timeout(JELLYFIN_TIMEOUT_MS),
   });
   if (res.status === 404) return "unknown_code";
   if (!res.ok) {
-    throw new Error(`Jellyfin /QuickConnect/Authorize returned ${res.status}`);
+    throw new JellyfinUnreachableError(
+      `Jellyfin /QuickConnect/Authorize returned ${res.status}`,
+    );
   }
   return "ok";
 }

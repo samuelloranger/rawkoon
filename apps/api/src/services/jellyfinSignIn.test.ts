@@ -27,9 +27,11 @@ mock.module("@rawkoon/api/services/imageService", () => ({
   getAvatarUrl: (f: string) => `/avatars/${f}`,
 }));
 
-const { resolveOrCreateJellyfinRawkoonUser, copyJellyfinAvatar } = await import(
-  "./jellyfinSignIn"
-);
+const {
+  resolveOrCreateJellyfinRawkoonUser,
+  copyJellyfinAvatar,
+  copyJellyfinAvatars,
+} = await import("./jellyfinSignIn");
 
 const base = {
   website_url: "http://jellyfin.test",
@@ -208,5 +210,26 @@ describe("copyJellyfinAvatar", () => {
     await copyJellyfinAvatar(base, "jf-1", "u1");
     expect(saveImage).not.toHaveBeenCalled();
     expect(updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("copyJellyfinAvatars", () => {
+  it("copies every avatar with at most four in flight", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    fetchSpy = spyOn(globalThis, "fetch").mockImplementation((async () => {
+      inFlight++;
+      peak = Math.max(peak, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      return new Response(null, { status: 404 });
+    }) as unknown as typeof fetch);
+    const pairs = Array.from({ length: 10 }, (_, i) => ({
+      jellyfinUserId: `jf-${i}`,
+      rawkoonUserId: `u-${i}`,
+    }));
+    await copyJellyfinAvatars(base, pairs);
+    expect(fetchSpy).toHaveBeenCalledTimes(10);
+    expect(peak).toBe(4);
   });
 });

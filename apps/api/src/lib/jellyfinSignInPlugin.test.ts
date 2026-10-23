@@ -153,6 +153,24 @@ describe("POST /sign-in/jellyfin", () => {
     expect((await signIn()).status).toBe(502);
   });
 
+  it("answers 502 when the request to Jellyfin fails", async () => {
+    jellyfin(() => {
+      throw new TypeError("connection refused");
+    });
+    expect((await signIn()).status).toBe(502);
+  });
+
+  it("does not report a local failure as Jellyfin being unreachable", async () => {
+    jellyfin(() => jfUser());
+    userFindUnique.mockImplementation(async () => {
+      throw new Error("database down");
+    });
+    const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+    const res = await signIn();
+    errorSpy.mockRestore();
+    expect(res.status).toBe(500);
+  });
+
   it("answers 403 for a Jellyfin user nobody linked", async () => {
     jellyfin(() => jfUser());
     expect((await signIn()).status).toBe(403);

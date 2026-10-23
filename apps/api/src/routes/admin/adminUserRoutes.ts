@@ -19,7 +19,7 @@ import {
 import type { Env } from "@rawkoon/api/honoEnv";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 import {
-  copyJellyfinAvatar,
+  copyJellyfinAvatars,
   createJellyfinRawkoonUser,
 } from "@rawkoon/api/services/jellyfinSignIn";
 import {
@@ -206,6 +206,8 @@ export const adminUserRoutes = new Hono<Env>()
 
       const created: { jellyfin_user_id: string; user_id: string }[] = [];
       const skipped: { jellyfin_user_id: string; reason: string }[] = [];
+      const avatarJobs: { jellyfinUserId: string; rawkoonUserId: string }[] =
+        [];
       const seen = new Set<string>();
       for (const entry of c.req.valid("json").users) {
         const id = entry.jellyfin_user_id;
@@ -227,13 +229,18 @@ export const adminUserRoutes = new Hono<Env>()
           );
           if (result.created) {
             created.push({ jellyfin_user_id: id, user_id: result.user.id });
-            await copyJellyfinAvatar(config, id, result.user.id);
+            avatarJobs.push({
+              jellyfinUserId: id,
+              rawkoonUserId: result.user.id,
+            });
           } else {
             skipped.push({ jellyfin_user_id: id, reason: "already_linked" });
           }
         }
         seen.add(id);
       }
+      // Not awaited: avatars are best effort and a big import must not outlast the proxy.
+      void copyJellyfinAvatars(config, avatarJobs);
       return ok({ created, skipped });
     },
   )
