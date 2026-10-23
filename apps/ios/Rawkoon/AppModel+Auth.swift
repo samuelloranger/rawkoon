@@ -217,7 +217,7 @@ extension AppModel {
     }
 }
 
-extension JellyfinSignInFailure {
+nonisolated extension JellyfinSignInFailure {
     /// Nil for errors with no sign-in specific copy (transport, decode, offline).
     init?(apiError: APIError) {
         switch apiError {
