@@ -30,9 +30,9 @@ struct UsersAdminView: View {
     }
 
     private var filtered: [AdminUser] {
-        store.users.filter {
-            AdminUserDisplay.matches(search, firstName: $0.firstName, lastName: $0.lastName, email: $0.email)
-        }
+        store.users
+            .filter { AdminUserDisplay.matches(search, firstName: $0.firstName, lastName: $0.lastName, email: $0.email) }
+            .sorted { store.displayName($0).localizedStandardCompare(store.displayName($1)) == .orderedAscending }
     }
 
     private var list: some View {
