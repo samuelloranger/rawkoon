@@ -6,15 +6,12 @@ struct LoginView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var revealPassword = false
-    @State private var showJellyfinForm = false
-    @State private var jellyfinUsername = ""
-    @State private var jellyfinPassword = ""
     /// Set on a user's sign-in tap, so a session restored after unlock doesn't celebrate.
     @State private var signInAttempted = false
     @FocusState private var loginFocus: LoginField?
 
     private enum LoginField: Hashable {
-        case server, email, password, jellyfinUsername, jellyfinPassword
+        case server, email, password
     }
 
     private var isRegularWidth: Bool {
@@ -30,20 +27,6 @@ struct LoginView: View {
         guard fieldsReady, !model.loading, !model.isLoggedIn else { return }
         signInAttempted = true
         Task { await model.login(server: model.serverURL, email: email, password: password) }
-    }
-
-    private var jellyfinFieldsReady: Bool {
-        !jellyfinUsername.isEmpty && !jellyfinPassword.isEmpty && !model.serverURL.isEmpty
-    }
-
-    private func submitJellyfin(_ model: AppModel) {
-        guard jellyfinFieldsReady, !model.loading, !model.isLoggedIn else { return }
-        signInAttempted = true
-        Task {
-            await model.loginWithJellyfin(
-                server: model.serverURL, username: jellyfinUsername, password: jellyfinPassword
-            )
-        }
     }
 
     private func signIn(with provider: SsoProvider) {
@@ -165,7 +148,7 @@ struct LoginView: View {
                 }
 
                 if model.jellyfinSignInEnabled {
-                    jellyfinBlock(model)
+                    LoginJellyfinBlock(model: model) { signInAttempted = true }
                         .rawkoonEntrance(id: "jellyfin")
                 }
 
@@ -220,18 +203,7 @@ struct LoginView: View {
     }
 
     private func fieldRow(_ label: LocalizedStringKey, @ViewBuilder _ field: () -> some View) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(Theme.muted)
-            field()
-                .textFieldStyle(.plain)
-                .foregroundStyle(Theme.text)
-                .padding(.horizontal, 12)
-                .frame(height: 44)
-                .background(Theme.well, in: RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border, lineWidth: 1))
-        }
+        LoginFieldRow(label, field: field)
     }
 
     private func signInButton(_ model: AppModel) -> some View {
@@ -296,82 +268,6 @@ struct LoginView: View {
                             .frame(width: 20, height: 20)
                         }
                         Text("Sign in with \(provider.name)").fontWeight(.medium)
-                        Spacer()
-                    }
-                    .foregroundStyle(Theme.textStrong)
-                    .padding(.horizontal, 12)
-                    .frame(height: 44)
-                    .background(Theme.raised, in: RoundedRectangle(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-                .disabled(model.loading)
-            }
-        }
-    }
-
-    /// "Sign in with Jellyfin": a button that opens a username and password form in place.
-    private func jellyfinBlock(_ model: AppModel) -> some View {
-        VStack(spacing: 10) {
-            if showJellyfinForm {
-                fieldRow("Jellyfin username") {
-                    TextField("", text: $jellyfinUsername, prompt: prompt("Jellyfin username"))
-                        .textContentType(.username)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .focused($loginFocus, equals: .jellyfinUsername)
-                        .submitLabel(.next)
-                        .onSubmit { loginFocus = .jellyfinPassword }
-                }
-                fieldRow("Jellyfin password") {
-                    SecureField("", text: $jellyfinPassword, prompt: prompt("Jellyfin password"))
-                        .textContentType(.password)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .focused($loginFocus, equals: .jellyfinPassword)
-                        .submitLabel(.go)
-                        .onSubmit { submitJellyfin(model) }
-                }
-                Text("Your password is checked by the Jellyfin server and not stored.")
-                    .font(.caption)
-                    .foregroundStyle(Theme.muted)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                HStack(spacing: 10) {
-                    Button("Back") {
-                        showJellyfinForm = false
-                        jellyfinPassword = ""
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Theme.muted)
-                    .frame(minHeight: 44)
-                    Button {
-                        submitJellyfin(model)
-                    } label: {
-                        Group {
-                            if model.loading {
-                                ProgressView().tint(Theme.onAccent)
-                            } else {
-                                Text("Continue").fontWeight(.semibold)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .foregroundStyle(Theme.onAccent)
-                        .background(Theme.apricot, in: RoundedRectangle(cornerRadius: 12))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(model.loading || !jellyfinFieldsReady)
-                    .opacity(jellyfinFieldsReady ? 1 : 0.6)
-                }
-            } else {
-                Button {
-                    showJellyfinForm = true
-                    loginFocus = .jellyfinUsername
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "play.tv.fill").foregroundStyle(Theme.muted)
-                            .frame(width: 20, height: 20)
-                        Text("Sign in with Jellyfin").fontWeight(.medium)
                         Spacer()
                     }
                     .foregroundStyle(Theme.textStrong)
@@ -511,7 +407,7 @@ struct LoginView: View {
 
             if model.jellyfinSignInEnabled {
                 Section {
-                    jellyfinBlock(model)
+                    LoginJellyfinBlock(model: model) { signInAttempted = true }
                         .rawkoonEntrance(id: "jellyfin")
                 }
                 .listRowBackground(Theme.raised)
