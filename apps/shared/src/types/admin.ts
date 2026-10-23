@@ -186,6 +186,7 @@ interface AdminUser {
   created_at: string | null;
   last_login: string | null;
   jellyfin_user_id: string | null;
+  avatar_url: string | null;
 }
 
 export interface ListUsersResponse {

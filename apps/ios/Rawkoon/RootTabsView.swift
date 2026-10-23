@@ -53,6 +53,7 @@ struct RootTabsView: View {
             case "miniPlayer": DebugMiniPlayer { mainTabs }
             case "reader": DebugEbookReader()
             case "settings": NavigationStack { SettingsView() }
+            case "users", "userDetail", "usersInvite", "usersImport", "invitations": DebugUsersScreen(screen: screen)
             case "requests": NavigationStack { RequestsView() }
             case "autoGrab": NavigationStack { AutoGrabSettingsView() }
             case "qualityProfileEditor": NavigationStack { DebugFirstQualityProfile() }

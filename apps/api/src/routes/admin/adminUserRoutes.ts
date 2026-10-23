@@ -51,6 +51,7 @@ export const adminUserRoutes = new Hono<Env>()
         created_at: formatIso(u.createdAt),
         last_login: formatIso(u.lastLogin),
         jellyfin_user_id: u.jellyfinUserId,
+        avatar_url: u.avatarUrl,
       }));
 
       return ok({ success: true, users: usersData });

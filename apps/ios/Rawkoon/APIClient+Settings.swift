@@ -307,7 +307,7 @@ extension APIClient {
     }
 
     func resetUserPassword(id: String, newPassword: String) async throws {
-        try await postExpectOK("/api/admin/users/\(id)/reset-password", body: ResetPasswordBody(newPassword: newPassword))
+        try await postExpectOK("/api/admin/users/\(id)/reset-password", body: ResetPasswordBody(password: newPassword))
     }
 
     func deleteUser(id: String) async throws {
@@ -316,6 +316,22 @@ extension APIClient {
 
     func createUser(_ body: CreateUserBody) async throws {
         try await postExpectOK("/api/admin/users", body: body)
+    }
+
+    /// Fails with 503 when the Jellyfin integration isn't set up.
+    func adminJellyfinUsers() async throws -> AdminJellyfinUsersResponse {
+        try await get("/api/admin/jellyfin-users")
+    }
+
+    func linkJellyfinUser(userId: String, jellyfinUserId: String?) async throws {
+        try await patchExpectOK(
+            "/api/admin/users/\(userId)/jellyfin",
+            body: LinkJellyfinUserBody(jellyfinUserId: jellyfinUserId)
+        )
+    }
+
+    func importJellyfinUsers(_ body: ImportJellyfinUsersBody) async throws -> ImportJellyfinUsersResponse {
+        try await post("/api/admin/users/import-jellyfin", body: body)
     }
 
     func invitations() async throws -> InvitationsResponse {
