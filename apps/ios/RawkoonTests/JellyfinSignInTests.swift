@@ -35,7 +35,7 @@ struct JellyfinSignInTests {
 
     @Test func failuresCarryDistinctMessages() {
         let cases: [JellyfinSignInFailure] = [
-            .wrongCredentials, .noAccess, .jellyfinUnreachable, .notEnabled, .tooManyAttempts
+            .wrongCredentials, .noAccess, .jellyfinUnreachable, .notEnabled, .tooManyAttempts,
         ]
         let messages = cases.compactMap(\.message)
         #expect(messages.count == cases.count)
