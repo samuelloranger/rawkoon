@@ -19,6 +19,7 @@ import {
 import type { Env } from "@rawkoon/api/honoEnv";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 import {
+  copyJellyfinAvatar,
   copyJellyfinAvatars,
   createJellyfinRawkoonUser,
 } from "@rawkoon/api/services/jellyfinSignIn";
@@ -166,7 +167,9 @@ export const adminUserRoutes = new Hono<Env>()
       const linkedBy = new Map(linked.map((u) => [u.jellyfinUserId, u.id]));
       return ok({
         users: users.map((u) => ({
-          ...u,
+          id: u.id,
+          name: u.name,
+          disabled: u.disabled,
           linked_user_id: linkedBy.get(u.id) ?? null,
         })),
       });
@@ -281,6 +284,19 @@ export const adminUserRoutes = new Hono<Env>()
           return conflict("That Jellyfin user is linked to another account");
         }
         throw error;
+      }
+      // Same rule as the self-service link: a user without a picture gets their Jellyfin one.
+      if (jellyfinUserId && !user.avatarUrl) {
+        // Best effort: the link already committed, so a failure here must not turn it into an error.
+        void getJellyfinConfig()
+          .then((config) =>
+            config
+              ? copyJellyfinAvatar(config, jellyfinUserId, userId)
+              : undefined,
+          )
+          .catch((error) =>
+            console.warn("[jellyfin] avatar copy after link failed:", error),
+          );
       }
       return ok({ success: true, jellyfin_user_id: jellyfinUserId });
     },

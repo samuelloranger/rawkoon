@@ -41,6 +41,8 @@ export interface JellyfinUser {
   id: string;
   name: string;
   disabled: boolean;
+  /** Whether Jellyfin has a profile picture for this user (its PrimaryImageTag). */
+  hasPicture?: boolean;
 }
 
 /**
@@ -69,16 +71,18 @@ export async function getJellyfinConfig(): Promise<JellyfinIntegrationConfig | n
 
 function toJellyfinUser(raw: unknown): JellyfinUser | null {
   if (!raw || typeof raw !== "object") return null;
-  const { Id, Name, Policy } = raw as {
+  const { Id, Name, Policy, PrimaryImageTag } = raw as {
     Id?: unknown;
     Name?: unknown;
     Policy?: { IsDisabled?: unknown } | null;
+    PrimaryImageTag?: unknown;
   };
   if (typeof Id !== "string" || !Id) return null;
   return {
     id: Id,
     name: typeof Name === "string" ? Name : "",
     disabled: Policy?.IsDisabled === true,
+    hasPicture: typeof PrimaryImageTag === "string" && PrimaryImageTag !== "",
   };
 }
 

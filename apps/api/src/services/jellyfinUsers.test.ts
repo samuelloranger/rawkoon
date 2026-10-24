@@ -38,7 +38,12 @@ describe("authenticateJellyfinUser", () => {
 
     const user = await authenticateJellyfinUser(config, "viewer", "pw");
 
-    expect(user).toEqual({ id: "jf-1", name: "viewer", disabled: false });
+    expect(user).toEqual({
+      id: "jf-1",
+      name: "viewer",
+      disabled: false,
+      hasPicture: false,
+    });
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     const [authUrl, authInit] = fetchSpy.mock.calls[0]!;
     expect(String(authUrl)).toBe(
