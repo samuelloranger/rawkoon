@@ -30,6 +30,9 @@
         @ObservationIgnored private var retriedFailure = false
         /// Failures reported while that retry fetches fresh URLs belong to the old load.
         @ObservationIgnored private var retryInFlight = false
+        /// The retried load; only its answer ends `retryInFlight`.
+        @ObservationIgnored private var retryRequest: GCKRequest?
+        @ObservationIgnored private var lastLoadRequest: GCKRequest?
         /// A queue jump starts its item playing; this pauses it again once it lands.
         @ObservationIgnored private var pauseAfter: GCKRequest?
         /// A play or pause just sent, which the receiver's status may not reflect yet.
@@ -128,8 +131,14 @@
                 if let fresh = await refresh(editionId) {
                     self?.player?.adoptRefreshedManifest(fresh)
                 }
-                self?.retryInFlight = false
-                self?.load(at: position, autoplay: true)
+                guard let self else { return }
+                lastLoadRequest = nil
+                load(at: position, autoplay: true)
+                // Held until the retried load answers; released now if it was never sent.
+                retryRequest = lastLoadRequest
+                if retryRequest == nil {
+                    retryInFlight = false
+                }
             }
         }
 
@@ -196,10 +205,13 @@
             currentFile = manifest.files[start.index]
             awaitingReceiver = true
             pauseAfter = nil
-            client.loadMedia(with: request.build()).delegate = self
+            let sent = client.loadMedia(with: request.build())
+            sent.delegate = self
+            lastLoadRequest = sent
         }
 
         func play() {
+            pauseAfter = nil
             commandedPlaying = (true, Date())
             client?.play()
         }
@@ -218,6 +230,9 @@
                 let options = GCKMediaSeekOptions()
                 options.interval = start.offset
                 options.resumeState = autoplay ? .play : .unchanged
+                if autoplay {
+                    pauseAfter = nil
+                }
                 awaitingReceiver = true
                 client.seek(with: options).delegate = self
                 return
@@ -285,6 +300,8 @@
             awaitingReceiver = false
             pauseAfter = nil
             commandedPlaying = nil
+            retryInFlight = false
+            retryRequest = nil
             player?.endCasting()
         }
 
@@ -314,8 +331,15 @@
                 case .error:
                     handleFailure()
                     return
+                case .finished:
+                    // A file ended mid-book; the receiver is already moving to the next one.
+                    return
                 default:
-                    break
+                    // Stopped from elsewhere: show it paused where it was. Our own reloads idle the old item too.
+                    if !awaitingReceiver {
+                        player.applyCastStatus(wholeBookPosition: player.positionSecs, playing: false)
+                    }
+                    return
                 }
             default:
                 break
@@ -325,21 +349,30 @@
     }
 
     extension CastController: @preconcurrency GCKRequestDelegate {
+        private func releaseRetry(after request: GCKRequest) {
+            guard request === retryRequest else { return }
+            retryRequest = nil
+            retryInFlight = false
+        }
+
         func requestDidComplete(_ request: GCKRequest) {
             if request === pauseAfter {
                 pauseAfter = nil
                 pause()
             }
+            releaseRetry(after: request)
             awaitingReceiver = false
             report()
         }
 
         /// Superseded by a newer request, which will report for itself.
-        func request(_: GCKRequest, didAbortWith _: GCKRequestAbortReason) {
+        func request(_ request: GCKRequest, didAbortWith _: GCKRequestAbortReason) {
+            releaseRetry(after: request)
             awaitingReceiver = false
         }
 
-        func request(_: GCKRequest, didFailWithError error: GCKError) {
+        func request(_ request: GCKRequest, didFailWithError error: GCKError) {
+            releaseRetry(after: request)
             awaitingReceiver = false
             Log.playback.error("Cast request failed: \(error.localizedDescription, privacy: .public)")
             handleFailure()
