@@ -35,7 +35,8 @@ extension AudiobookPlayer {
     }
 
     func rebuild() {
-        guard let manifest, let baseURL else { return }
+        // The receiver streams regardless of what is on the phone.
+        guard castRoute == nil, let manifest, let baseURL else { return }
         let resumeAt = positionSecs
         let resumePlaying = isPlaying
         load(manifest: manifest, baseURL: baseURL, resumeAt: resumeAt, artworkURL: artworkURL)

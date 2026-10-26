@@ -10,7 +10,7 @@ final class CastQueuePlanTests: XCTestCase {
     private lazy var multiFile = [
         file(1, start: 0, duration: 100),
         file(2, start: 100, duration: 50),
-        file(3, start: 150, duration: 200)
+        file(3, start: 150, duration: 200),
     ]
 
     func testStartPicksTheFileHoldingThePosition() {

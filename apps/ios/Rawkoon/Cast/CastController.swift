@@ -28,6 +28,12 @@
         @ObservationIgnored private var awaitingReceiver = false
         /// One refresh-and-reload per failure streak, like the local stream retry.
         @ObservationIgnored private var retriedFailure = false
+        /// Failures reported while that retry fetches fresh URLs belong to the old load.
+        @ObservationIgnored private var retryInFlight = false
+        /// A queue jump starts its item playing; this pauses it again once it lands.
+        @ObservationIgnored private var pauseAfter: GCKRequest?
+        /// A play or pause just sent, which the receiver's status may not reflect yet.
+        @ObservationIgnored private var commandedPlaying: (playing: Bool, at: Date)?
         @ObservationIgnored private var ticker: Task<Void, Never>?
 
         /// Must run at launch, before any Cast UI exists.
@@ -71,9 +77,18 @@
 
         private func report() {
             guard !awaitingReceiver, let player, player.isCasting, let client,
-                  let status = client.mediaStatus, let file = currentFile
+                  let status = client.mediaStatus, let file = currentFile,
+                  // Idle means finished, stopped or failed; its stream position says nothing about the book.
+                  status.playerState != .idle
             else { return }
-            let playing = [.playing, .buffering, .loading].contains(status.playerState)
+            var playing = [.playing, .buffering, .loading].contains(status.playerState)
+            if let commanded = commandedPlaying {
+                if commanded.playing == playing || Date().timeIntervalSince(commanded.at) > 2 {
+                    commandedPlaying = nil
+                } else {
+                    playing = commanded.playing
+                }
+            }
             let position = CastQueuePlan.wholeBookPosition(
                 file: file, streamPosition: client.approximateStreamPosition()
             )
@@ -98,7 +113,7 @@
         // MARK: Failure
 
         private func handleFailure() {
-            guard let player, player.isCasting else { return }
+            guard !retryInFlight, let player, player.isCasting else { return }
             guard !retriedFailure, let editionId = player.manifest?.editionId,
                   let refresh = player.refreshManifest
             else {
@@ -107,11 +122,13 @@
             }
             // An expired grant is the likely cause: fresh URLs, then one more try.
             retriedFailure = true
+            retryInFlight = true
             let position = player.positionSecs
             Task { [weak self] in
                 if let fresh = await refresh(editionId) {
                     self?.player?.adoptRefreshedManifest(fresh)
                 }
+                self?.retryInFlight = false
                 self?.load(at: position, autoplay: true)
             }
         }
@@ -178,14 +195,17 @@
 
             currentFile = manifest.files[start.index]
             awaitingReceiver = true
+            pauseAfter = nil
             client.loadMedia(with: request.build()).delegate = self
         }
 
         func play() {
+            commandedPlaying = (true, Date())
             client?.play()
         }
 
         func pause() {
+            commandedPlaying = (false, Date())
             client?.pause()
         }
 
@@ -210,7 +230,9 @@
             }
             currentFile = target
             awaitingReceiver = true
-            client.queueJumpToItem(withID: itemID, playPosition: start.offset, customData: nil).delegate = self
+            let request = client.queueJumpToItem(withID: itemID, playPosition: start.offset, customData: nil)
+            request.delegate = self
+            pauseAfter = autoplay ? nil : request
         }
 
         func setRate(_ rate: Float) {
@@ -261,6 +283,8 @@
             deviceName = nil
             currentFile = nil
             awaitingReceiver = false
+            pauseAfter = nil
+            commandedPlaying = nil
             player?.endCasting()
         }
 
@@ -301,7 +325,11 @@
     }
 
     extension CastController: @preconcurrency GCKRequestDelegate {
-        func requestDidComplete(_: GCKRequest) {
+        func requestDidComplete(_ request: GCKRequest) {
+            if request === pauseAfter {
+                pauseAfter = nil
+                pause()
+            }
             awaitingReceiver = false
             report()
         }
