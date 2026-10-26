@@ -23,6 +23,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         AppModel.registerBackgroundRefresh()
+        #if !targetEnvironment(macCatalyst)
+            CastController.configure(player: appModel.player)
+        #endif
         Task { @MainActor in
             if appModel.isLoggedIn {
                 ReencodeActivityCoordinator.shared.start(model: appModel)

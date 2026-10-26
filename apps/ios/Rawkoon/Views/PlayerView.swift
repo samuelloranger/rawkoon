@@ -34,6 +34,13 @@ struct PlayerView: View {
             VStack(spacing: 0) {
                 header
 
+                #if !targetEnvironment(macCatalyst)
+                    if model.player.isCasting, let name = CastController.shared.deviceName {
+                        CastingPill(deviceName: name)
+                            .padding(.top, 12)
+                    }
+                #endif
+
                 // The sheet is always full-height, and the controls are a
                 // fixed-height stack, so without the pair of spacers
                 // everything pinned itself to the top and left a dead half
@@ -69,6 +76,7 @@ struct PlayerView: View {
                 Text(message)
             }
         }
+        .castErrorAlert()
         .overlay(alignment: .top) { suggestionBanner }
         .rawkoonMotion(RawkoonMotion.spring, value: suggestion?.id)
         .onAppear {
@@ -300,6 +308,15 @@ struct PlayerView: View {
             .accessibilityLabel("Collapse player")
 
             Spacer()
+
+            #if !targetEnvironment(macCatalyst)
+                if CastController.isConfigured {
+                    CastButton()
+                        .frame(width: 44, height: 44)
+                        .glassEffect(.regular.interactive(), in: .circle)
+                        .accessibilityLabel("Cast to a device")
+                }
+            #endif
 
             Button {
                 model.closePlayer()

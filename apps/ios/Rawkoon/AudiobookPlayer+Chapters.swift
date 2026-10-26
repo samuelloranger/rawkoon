@@ -29,6 +29,11 @@ extension AudiobookPlayer {
         }
         updateNowPlayingInfo()
 
+        if let castRoute {
+            castRoute.seek(toWholeBook: clamped, autoplay: autoplay)
+            return
+        }
+
         // The pending retry rebuilds at `positionSecs`, which now holds the target.
         if streamRetryPending {
             return
@@ -90,6 +95,7 @@ extension AudiobookPlayer {
         if isPlaying {
             player?.rate = value
         }
+        castRoute?.setRate(value)
         updateNowPlayingInfo()
     }
 
