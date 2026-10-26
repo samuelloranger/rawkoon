@@ -29,6 +29,8 @@ const POSTER_READY =
   '[...document.images].some((i) => i.src.includes("image.tmdb.org") && i.complete && i.naturalWidth > 0)';
 const WAIT_TIMEOUT_MS = 30_000;
 const POLL_INTERVAL_MS = 250;
+/** Lossy WebP: every release commits new shots, and the PNGs ran to megabytes. */
+const WEBP_QUALITY = 82;
 /** Let posters decode and the layout settle before the shutter. */
 const SETTLE_MS = 2000;
 const CAPTURE_ATTEMPTS = 3;
@@ -117,9 +119,13 @@ async function capture(
       // Hiding the scrollbar reflows the grid, so settle after emulation.
       await Bun.sleep(SETTLE_MS);
 
-      const png = await view.screenshot({ encoding: "buffer", format: "png" });
-      await Bun.write(join(OUT, `${name}.png`), png);
-      console.log(`[shots] ${name}.png (${png.length} bytes)`);
+      const image = await view.screenshot({
+        encoding: "buffer",
+        format: "webp",
+        quality: WEBP_QUALITY,
+      });
+      await Bun.write(join(OUT, `${name}.webp`), image);
+      console.log(`[shots] ${name}.webp (${image.length} bytes)`);
       return true;
     } catch (err) {
       console.warn(`[shots] ${name} attempt ${attempt} failed: ${String(err).slice(0, 240)}`);

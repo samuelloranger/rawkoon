@@ -100,7 +100,7 @@ To un-publish a bad release so `screenshots.yml`/docs don't reference it and the
 
 | Symptom | Cause |
 |---|---|
-| Push rejected, "remote has diverged" | `screenshots.yml` commits `docs/screenshots/*.png` to the default branch after every release. `git pull --rebase` first. |
+| Push rejected, "remote has diverged" | `screenshots.yml` commits `docs/screenshots/*.webp` to the default branch after every release. `git pull --rebase` first. |
 | App shows `0.0.0-dev+<timestamp>` | `APP_VERSION` build arg wasn't passed — the image was built locally, not by the release workflow. Version-change notifications stay suppressed in that state, by design. |
 | Release published, no image | The workflow only listens to `release: published`. A pushed tag with no release, or a draft release, starts nothing. |
 | Container restart-loops on boot | `entrypoint.sh` failed `migrate deploy`. Read the logs: it only auto-baselines (`migrate resolve --applied 0_init`) for "already exists"-class errors and exits on anything else. |

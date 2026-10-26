@@ -13,7 +13,7 @@
   <a href="https://testflight.apple.com/join/wm3Psb2n"><img src="https://img.shields.io/badge/iOS-TestFlight%20beta-0D96F6?logo=apple&logoColor=white" alt="iOS TestFlight beta" /></a>
 </p>
 
-![Library screenshot](docs/screenshots/library.png)
+![Library screenshot](docs/screenshots/library.webp)
 
 Rawkoon is a self-hosted movie, TV, ebook, and audiobook library with a
 built-in download manager. It discovers titles through TMDB and book
