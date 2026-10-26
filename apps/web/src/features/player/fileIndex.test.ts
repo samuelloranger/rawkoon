@@ -9,6 +9,7 @@ const f = (id: number, start: number, duration: number): BookManifestFile => ({
   size_bytes: 1,
   sha256: null,
   url: `/f/${id}`,
+  mime_type: "audio/mpeg",
 });
 
 describe("createFileIndex", () => {

@@ -39,9 +39,11 @@ public struct ManifestFile: Codable, Equatable, Sendable {
     public let sizeBytes: Int
     public let sha256: String?
     public let url: String
+    /// What the grant URL serves. Nil from servers and persisted manifests older than casting.
+    public let mimeType: String?
 
     public init(id: Int, startSecs: Double, durationSecs: Double,
-                sizeBytes: Int, sha256: String?, url: String)
+                sizeBytes: Int, sha256: String?, url: String, mimeType: String? = nil)
     {
         self.id = id
         self.startSecs = startSecs
@@ -49,6 +51,7 @@ public struct ManifestFile: Codable, Equatable, Sendable {
         self.sizeBytes = sizeBytes
         self.sha256 = sha256
         self.url = url
+        self.mimeType = mimeType
     }
 
     /// Same rule as `ManifestChapter.fileExtension`: grant URLs have no

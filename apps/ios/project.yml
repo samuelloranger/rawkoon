@@ -23,6 +23,11 @@ packages:
   Readium:
     url: https://github.com/readium/swift-toolkit
     exactVersion: 3.11.0
+  # Google's own SPM manifest for the Cast sender SDK. 4.8.6 asserts on a
+  # CFBundleVersion whose first component exceeds six digits; ours is the CI run number.
+  GoogleCast:
+    url: https://github.com/googlecast/google-cast-ios-sdk
+    exactVersion: 4.8.6
 targets:
   Rawkoon:
     type: application
@@ -38,6 +43,10 @@ targets:
         product: ReadiumStreamer
       - package: Readium
         product: ReadiumNavigator
+      # The Cast SDK is iOS-only; Catalyst sources are #if-guarded.
+      - package: GoogleCast
+        product: GoogleCastDynamic
+        platformFilter: iOS
       - target: RawkoonWidgets
         embed: true
         platformFilter: iOS
@@ -95,8 +104,12 @@ targets:
         # flash white before the dark first screen.
         UILaunchScreen:
           UIColorName: LaunchBackground
-        # Shown in the Local Network prompt when the server is on the LAN.
-        NSLocalNetworkUsageDescription: Rawkoon connects to your Rawkoon server when it's on your local network.
+        # Shown in the Local Network prompt: the server on the LAN, and Cast discovery.
+        NSLocalNetworkUsageDescription: Rawkoon connects to your Rawkoon server when it's on your local network, and finds speakers and displays to cast audiobooks to.
+        # Cast discovery: the generic service and the Default Media Receiver's.
+        NSBonjourServices:
+          - _googlecast._tcp
+          - _CC1AD845._googlecast._tcp
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: cloud.samlo.rawkoon

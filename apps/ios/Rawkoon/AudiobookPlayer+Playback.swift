@@ -35,7 +35,8 @@ extension AudiobookPlayer {
     }
 
     func rebuild() {
-        guard let manifest, let baseURL else { return }
+        // The receiver streams regardless of what is on the phone.
+        guard castRoute == nil, let manifest, let baseURL else { return }
         let resumeAt = positionSecs
         let resumePlaying = isPlaying
         load(manifest: manifest, baseURL: baseURL, resumeAt: resumeAt, artworkURL: artworkURL)
@@ -49,6 +50,10 @@ extension AudiobookPlayer {
     /// The Now Playing entry has to go with it: leaving it behind keeps a
     /// paused book on the Lock Screen and in CarPlay with no way to dismiss it.
     func unload() {
+        if let castRoute {
+            self.castRoute = nil
+            castRoute.stop()
+        }
         pause()
         artworkTask?.cancel()
         artworkTask = nil
@@ -101,6 +106,11 @@ extension AudiobookPlayer {
         if case .minutes = sleepMode {
             lastSleepTick = Date()
         }
+        if let castRoute {
+            castRoute.play()
+            updateNowPlayingInfo()
+            return
+        }
         if player?.currentItem == nil, duration > 0 {
             // A queue drained by a stopped failure: Play is a fresh attempt, so
             // the stream gets its URL-refresh retry again.
@@ -148,6 +158,7 @@ extension AudiobookPlayer {
         wasPlayingBeforeInterruption = userPaused(
             InterruptionState(isPlaying: isPlaying, resumePending: wasPlayingBeforeInterruption)
         ).resumePending
+        castRoute?.pause()
         stopPlayback()
     }
 

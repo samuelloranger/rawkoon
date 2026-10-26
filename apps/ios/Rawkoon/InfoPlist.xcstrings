@@ -8,13 +8,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rawkoon connects to your Rawkoon server when it's on your local network."
+            "value" : "Rawkoon connects to your Rawkoon server when it's on your local network, and finds speakers and displays to cast audiobooks to."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rawkoon se connecte à ton serveur Rawkoon lorsqu'il est sur ton réseau local."
+            "value" : "Rawkoon se connecte à ton serveur Rawkoon lorsqu'il est sur ton réseau local, et trouve les haut-parleurs et écrans vers lesquels diffuser tes livres audio."
           }
         }
       }

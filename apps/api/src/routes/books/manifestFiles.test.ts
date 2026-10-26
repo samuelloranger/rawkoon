@@ -9,7 +9,12 @@ const ch = (
 ) => ({
   startSecs,
   endSecs,
-  bookFile: { id: fileId, sizeBytes: BigInt(size), sha256: null },
+  bookFile: {
+    id: fileId,
+    sizeBytes: BigInt(size),
+    sha256: null,
+    filePath: `/books/${fileId}.m4b`,
+  },
 });
 
 describe("buildManifestFiles", () => {
@@ -26,6 +31,7 @@ describe("buildManifestFiles", () => {
         size_bytes: 1000,
         sha256: null,
         url: "grant:100",
+        mime_type: "audio/mp4",
       },
       {
         id: 101,
@@ -34,6 +40,7 @@ describe("buildManifestFiles", () => {
         size_bytes: 1000,
         sha256: null,
         url: "grant:101",
+        mime_type: "audio/mp4",
       },
     ]);
   });
@@ -51,6 +58,7 @@ describe("buildManifestFiles", () => {
       size_bytes: 500,
       sha256: null,
       url: "grant:1059",
+      mime_type: "audio/mp4",
     });
   });
 

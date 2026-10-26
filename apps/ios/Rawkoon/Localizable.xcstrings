@@ -1,6 +1,86 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Cast devices can only play from a server address that starts with https.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les appareils Cast ne peuvent lire que depuis une adresse de serveur qui commence par https."
+          }
+        }
+      }
+    },
+    "The cast device couldn't play this book.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'appareil Cast n'a pas pu lire ce livre."
+          }
+        }
+      }
+    },
+    "the cast device": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "l'appareil Cast"
+          }
+        }
+      }
+    },
+    "Playing on %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture sur %@"
+          }
+        }
+      }
+    },
+    "Lost the connection to %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexion perdue avec %@."
+          }
+        }
+      }
+    },
+    "Couldn't connect to %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de se connecter à %@."
+          }
+        }
+      }
+    },
+    "Casting stopped": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diffusion arrêtée"
+          }
+        }
+      }
+    },
+    "Cast to a device": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diffuser sur un appareil"
+          }
+        }
+      }
+    },
     "Check indexer RSS feeds": {
       "localizations": {
         "fr": {

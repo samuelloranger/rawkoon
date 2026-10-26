@@ -84,6 +84,8 @@ export interface BookManifestFile {
   size_bytes: number;
   sha256: string | null;
   url: string;
+  /** The Content-Type the grant URL serves, which its extensionless path can't tell. */
+  mime_type: string;
 }
 
 export interface BookManifest {

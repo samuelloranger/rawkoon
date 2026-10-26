@@ -27,7 +27,12 @@ import { bookIdentityFromEdition } from "./progressIdentity";
 type ChapterForGrouping = {
   startSecs: number;
   endSecs: number;
-  bookFile: { id: number; sizeBytes: bigint; sha256: string | null };
+  bookFile: {
+    id: number;
+    sizeBytes: bigint;
+    sha256: string | null;
+    filePath: string;
+  };
 };
 
 /**
@@ -50,6 +55,7 @@ export function buildManifestFiles(
         size_bytes: Number(chapter.bookFile.sizeBytes),
         sha256: chapter.bookFile.sha256,
         url: grantUrlForFile(id),
+        mime_type: contentTypeForPath(chapter.bookFile.filePath),
       });
     } else {
       existing.duration_secs = chapter.endSecs - existing.start_secs;
@@ -160,6 +166,7 @@ export const bookPlaybackRoutes = new Hono<Env>().get(
                 id: true,
                 sizeBytes: true,
                 sha256: true,
+                filePath: true,
               },
             },
           },

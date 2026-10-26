@@ -20,6 +20,12 @@ extension AudiobookPlayer {
         }
 
         let clamped = timeline.clamp(wholeBookPosition)
+        if let castRoute {
+            positionSecs = clamped
+            setCurrentChapter(index: timeline.chapterIndex(at: clamped))
+            castRoute.load(at: clamped, autoplay: autoplay)
+            return
+        }
         guard let chapter = chapter(forWholeBookPosition: clamped),
               let file = filesById[chapter.fileId]
         else {

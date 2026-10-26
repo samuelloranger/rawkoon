@@ -104,6 +104,9 @@ final class AudiobookPlayer {
     /// True while a failed stream waits for fresh URLs. Ticks are ignored and
     /// seeks only move the target, so the retry resumes where the listener is.
     var streamRetryPending = false
+    /// Set while a Cast receiver has the book: controls go there, and its
+    /// status comes back through `applyCastStatus`.
+    var castRoute: (any AudiobookCastRoute)?
 
     /// Fresh signed URLs for an edition, or nil when they cannot be had.
     /// Set by AppModel; a cached manifest's grants expire after seven days.
@@ -252,7 +255,7 @@ final class AudiobookPlayer {
     /// otherwise be cleared by `load()`, and the prompt's `.ended` would find
     /// nothing to resume.
     private func handleMediaServicesReset() {
-        guard let manifest, let baseURL else { return }
+        guard castRoute == nil, let manifest, let baseURL else { return }
         let resumeAt = positionSecs
         let wasPlaying = isPlaying
         let hadPendingResume = wasPlayingBeforeInterruption
@@ -313,6 +316,8 @@ final class AudiobookPlayer {
     }
 
     private func handleInterruption(_ event: InterruptionEvent) {
+        // A call on the phone has nothing to do with the receiver's audio.
+        guard castRoute == nil else { return }
         // The decision itself lives in RawkoonKit, where the cases that cannot
         // be reproduced on a simulator — a call during a navigation prompt, a
         // pause while the prompt is speaking — are unit tests instead.
