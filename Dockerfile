@@ -28,6 +28,20 @@ ENV APP_VERSION=$APP_VERSION
 
 RUN cd apps/web && bun run build
 
+# Runtime dependencies: only the API workspace, without devDependencies.
+# --omit=peer drops optional peers such as better-auth's vitest, which would pull
+# the whole Vite toolchain into the image. The client is generated here, at build.
+FROM oven/bun:1.4.4 AS prod-deps
+WORKDIR /app
+COPY bun.lock package.json bunfig.toml tsconfig.json ./
+COPY apps/api/package.json ./apps/api/
+COPY apps/shared/package.json ./apps/shared/
+COPY apps/web/package.json ./apps/web/
+RUN bun install --frozen-lockfile --production --omit=peer --ignore-scripts --filter '@rawkoon/api'
+COPY apps/api/prisma ./apps/api/prisma
+COPY apps/api/prisma.config.ts ./apps/api/
+RUN cd apps/api && DATABASE_URL=postgresql://build@localhost/build bunx prisma generate
+
 # Final production stage (using a slim Bun image)
 FROM oven/bun:1.4.4-slim
 
@@ -50,29 +64,29 @@ ENV LANG=C.UTF-8
 # VA-API drivers let re-encoding use an Intel/AMD GPU when /dev/dri is passed through.
 RUN sed -i 's/^Components: main$/Components: main non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources \
     && apt-get update -y \
-    && apt-get install -y openssl curl mediainfo mkvtoolnix ffmpeg intel-media-va-driver-non-free mesa-va-drivers \
+    && apt-get install -y --no-install-recommends ca-certificates openssl curl mediainfo mkvtoolnix ffmpeg intel-media-va-driver-non-free mesa-va-drivers \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy only what's needed for the runtime
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/bun.lock ./bun.lock
+COPY --chown=bun:bun --from=prod-deps /app/node_modules ./node_modules
+COPY --chown=bun:bun --from=builder /app/package.json ./package.json
+COPY --chown=bun:bun --from=builder /app/bun.lock ./bun.lock
 
 # Copy API and shared source code
-COPY apps/api ./apps/api
-COPY apps/shared ./apps/shared
+COPY --chown=bun:bun apps/api ./apps/api
+COPY --chown=bun:bun apps/shared ./apps/shared
 
 # The isolated linker (bunfig.toml) keeps each workspace's dependencies in a
 # per-package node_modules of symlinks into /app/node_modules/.bun, so copying
 # the root node_modules alone leaves the API without any of its own deps.
-COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=builder /app/apps/shared/node_modules ./apps/shared/node_modules
+COPY --chown=bun:bun --from=prod-deps /app/apps/api/node_modules ./apps/api/node_modules
+COPY --chown=bun:bun --from=prod-deps /app/apps/shared/node_modules ./apps/shared/node_modules
 
 # Set working directory to the api application
 WORKDIR /app/apps/api
 
 # Copy built frontend assets into the API's public directory
-COPY --from=builder /app/apps/web/dist ./public
+COPY --chown=bun:bun --from=builder /app/apps/web/dist ./public
 
 # Expose the application port
 EXPOSE 3000
@@ -81,11 +95,12 @@ EXPOSE 3000
 RUN chmod +x entrypoint.sh
 
 # Run as the non-root "bun" user (uid/gid 1000, pre-created in the base image).
-# Prisma generate/migrate at runtime write into /app/node_modules, and images/
-# vapid keys are written under /app, so the whole app tree must be owned by bun.
-# The data + vapid_keys dirs are pre-created so named volumes inherit bun ownership.
+# The app tree is copied in already owned by bun (a recursive chown would
+# duplicate every file into a new layer); prisma generate/migrate at runtime write
+# into /app/node_modules. The data + vapid_keys dirs are pre-created so named
+# volumes inherit bun ownership.
 RUN mkdir -p /app/data/images /app/vapid_keys /app/apps/api/data/images \
-    && chown -R bun:bun /app
+    && chown bun:bun /app /app/data /app/data/images /app/vapid_keys /app/apps/api/data /app/apps/api/data/images
 USER bun
 
 # Probe /api/health (SELECT 1 + redis.ping). start-period covers migrate-on-boot.

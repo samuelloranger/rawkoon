@@ -52,13 +52,14 @@
     "hono-rate-limiter": "^0.5.4",
     "ioredis": "^6.0.0",
     "ipaddr.js": "^2.5.0",
+    "prisma": "7.10.1",
+    "sharp": "^0.35.4",
     "ua-parser-js": "^2.0.10",
     "web-push": "^3.6.7",
     "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/web-push": "^3.6.4",
-    "bun-types": "^1.4.4",
-    "prisma": "7.10.1"
+    "bun-types": "^1.4.4"
   }
 }

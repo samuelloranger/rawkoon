@@ -32,8 +32,6 @@ const config: KnipConfig = {
       includeEntryExports: true,
     },
   },
-  // elysia at root is a workspace-hoisted dep; the real consumer is apps/api
-  ignoreDependencies: ["elysia"],
 };
 
 export default config;

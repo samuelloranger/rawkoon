@@ -40,20 +40,10 @@
   ],
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",
-    "@types/react": "~19.3.0",
-    "elysia": "^1.4.30",
     "husky": "^9.1.7",
     "knip": "^6.35.0",
     "typescript": "^7.0.2",
     "vitepress": "1.6.4"
-  },
-  "dependencies": {
-    "@tanstack/react-query": "^5.102.8",
-    "i18next": "^26.4.2",
-    "react": "19.3.1",
-    "react-i18next": "^17.0.13",
-    "recharts": "3.8.1",
-    "sharp": "^0.35.4"
   },
   "version": "1.45.0",
   "overrides": {
