@@ -68,49 +68,33 @@ describe("queryLibraryList status filter", () => {
 
 describe("queryLibraryList sorted by status", () => {
   beforeEach(() => {
-    findMany.mockClear();
-    rows = [
-      { id: 1, type: "movie", status: "wanted", tmdbStatus: null },
-      {
-        id: 2,
-        type: "show",
-        status: "downloaded",
-        tmdbStatus: "Returning Series",
-      },
-      { id: 3, type: "show", status: "downloaded", tmdbStatus: "Ended" },
-      { id: 4, type: "show", status: "downloaded", tmdbStatus: "Planned" },
-      { id: 5, type: "movie", status: "downloading", tmdbStatus: null },
-      {
-        id: 6,
-        type: "show",
-        status: "downloaded",
-        tmdbStatus: "In Production",
-      },
-      { id: 7, type: "movie", status: "skipped", tmdbStatus: null },
-    ];
+    queryRaw.mockClear();
+    queryRaw.mockImplementation(async () => [
+      { id: 4 },
+      { id: 2 },
+      { id: 7 },
+      { id: 1 },
+    ]);
   });
 
-  const ids = async (sortDir: string, page = 1, limit = 100) => {
-    const result = await queryLibraryList({
+  const lastSql = () =>
+    queryRaw.mock.calls.at(-1)?.[0] as { strings: string[]; values: unknown[] };
+
+  it("orders in SQL by the composite value clients read, then id", async () => {
+    await queryLibraryList({
       ...base,
-      page,
-      limit,
+      page: 1,
+      limit: 3,
       sort_by: "status",
-      sort_dir: sortDir,
+      sort_dir: "desc",
     });
-    return result.rows.map((r) => r.id);
-  };
-
-  it("orders airing shows by the composite value clients read", async () => {
-    // downloaded, downloading, in_production, planned, returning, skipped, wanted
-    expect(await ids("asc")).toEqual([3, 5, 6, 4, 2, 7, 1]);
+    const text = lastSql().strings.join("?");
+    expect(text).toContain("CASE WHEN");
+    expect(text).toContain('m."id" DESC');
+    expect(text).toContain("LIMIT ? OFFSET ?");
   });
 
-  it("reverses for descending", async () => {
-    expect(await ids("desc")).toEqual([1, 7, 2, 4, 6, 5, 3]);
-  });
-
-  it("pages over the folded order and reports more", async () => {
+  it("pages in the database and reports more", async () => {
     const result = await queryLibraryList({
       ...base,
       page: 2,
@@ -118,7 +102,29 @@ describe("queryLibraryList sorted by status", () => {
       sort_by: "status",
       sort_dir: "asc",
     });
+    expect(lastSql().values.slice(-2)).toEqual([4, 3]);
     expect(result.rows.map((r) => r.id)).toEqual([4, 2, 7]);
     expect(result.has_more).toBe(true);
+  });
+
+  it("applies the list filters to the sorted query", async () => {
+    await queryLibraryList({
+      ...base,
+      page: 1,
+      type: "show",
+      status: "returning",
+      q: "abc",
+      language: "fr",
+      sort_by: "status",
+    });
+    const { strings, values } = lastSql();
+    const text = strings.join("?");
+    expect(text).toContain('m."type" = ?');
+    expect(text).toContain('m."tmdb_status" = ?');
+    expect(text).toContain('m."title" ILIKE ?');
+    expect(text).toContain("language_tags");
+    expect(values).toEqual(
+      expect.arrayContaining(["show", "Returning Series", "%abc%", "fr"]),
+    );
   });
 });

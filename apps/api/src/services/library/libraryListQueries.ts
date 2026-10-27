@@ -2,10 +2,11 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@rawkoon/api/db";
 import {
+  libraryStatusSql,
   libraryStatusWhere,
   notAiringSql,
+  presentedStatusSql,
 } from "@rawkoon/api/services/library/libraryStatusFilter";
-import { presentLibraryStatus } from "@rawkoon/api/utils/medias/libraryAiring";
 import { libraryMediaInclude } from "@rawkoon/api/routes/library/libraryHelpers";
 import {
   buildLibraryOrderBy,
@@ -60,23 +61,33 @@ async function hydrateInOrder(ids: number[]) {
     .filter((r): r is (typeof rows)[number] => r !== undefined);
 }
 
-/** Ids ordered by the status clients read, then id in the same direction. */
-async function sortIdsByPresentedStatus(
-  where: Prisma.LibraryMediaWhereInput,
-  sortDir: "asc" | "desc",
-): Promise<number[]> {
-  const rows = await prisma.libraryMedia.findMany({
-    where,
-    select: { id: true, type: true, status: true, tmdbStatus: true },
-  });
-  const sign = sortDir === "asc" ? 1 : -1;
-  return rows
-    .map((r) => ({ id: r.id, status: presentLibraryStatus(r) }))
-    .sort((a, b) => {
-      if (a.status !== b.status) return (a.status < b.status ? -1 : 1) * sign;
-      return (a.id - b.id) * sign;
-    })
-    .map((r) => r.id);
+/** One page of ids ordered by the status clients read, then id in the same direction. */
+async function statusSortedIds(input: {
+  type?: string;
+  status?: string;
+  q?: string;
+  fileLanguage?: string;
+  sortDir: "asc" | "desc";
+  take: number;
+  skip: number;
+}): Promise<number[]> {
+  const conditions: Prisma.Sql[] = [];
+  if (input.type) conditions.push(Prisma.sql`m."type" = ${input.type}`);
+  if (input.status) conditions.push(libraryStatusSql("m.", input.status));
+  if (input.q) conditions.push(Prisma.sql`m."title" ILIKE ${`%${input.q}%`}`);
+  if (input.fileLanguage) {
+    conditions.push(
+      Prisma.sql`EXISTS (SELECT 1 FROM media_files f WHERE f.media_id = m."id" AND ${input.fileLanguage} = ANY(f.language_tags))`,
+    );
+  }
+  const where = conditions.length
+    ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
+    : Prisma.empty;
+  const dir = Prisma.raw(input.sortDir === "asc" ? "ASC" : "DESC");
+  const rows = await prisma.$queryRaw<{ id: number }[]>(
+    Prisma.sql`SELECT m."id" FROM library_media m ${where} ORDER BY ${presentedStatusSql("m.")} ${dir}, m."id" ${dir} LIMIT ${input.take} OFFSET ${input.skip}`,
+  );
+  return rows.map((r) => r.id);
 }
 
 /**
@@ -143,12 +154,19 @@ export async function queryLibraryList(params: LibraryListParams) {
     const take = Math.min(Math.max(1, limit ?? 60), 100);
     const skip = (Math.max(1, page ?? 1) - 1) * take;
 
-    // All sorts (including former aggregates) use persisted columns +
-    // Prisma orderBy so pagination stays skip/take in the database.
+    // Every sort pages in the database (skip/take or LIMIT/OFFSET).
     if (titleLanguage === DEFAULT_TITLE_LANGUAGE && sortBy === "status") {
-      // The wire status folds airing into the stored one, which SQL ordering on the column can't see.
-      const ids = await sortIdsByPresentedStatus(typedWhere, sortDir);
-      const sliced = slicePage(ids.slice(skip, skip + take + 1), take);
+      // Clients read airing shows as returning/in_production/planned, which the stored column alone can't order by.
+      const ids = await statusSortedIds({
+        type,
+        status,
+        q,
+        fileLanguage: language,
+        sortDir,
+        take: take + 1,
+        skip,
+      });
+      const sliced = slicePage(ids, take);
       has_more = sliced.has_more;
       rows = await hydrateInOrder(sliced.items);
       mapTitleLanguage = undefined;
