@@ -4,6 +4,7 @@ import { basename, extname, join } from "node:path";
 
 import { prisma } from "@rawkoon/api/db";
 import { registerBookChapters } from "@rawkoon/api/services/books/registerBookChapters";
+import { renameAudiobookChaptersFromEbook } from "@rawkoon/api/services/books/renameChaptersFromEbook";
 import { emitBookUpdate } from "@rawkoon/api/services/libraryEvents";
 import { notifyBookRequestAvailable } from "@rawkoon/api/services/mediaRequests";
 import { placeFile } from "@rawkoon/api/services/postProcessor/postProcessorHelpers";
@@ -217,6 +218,8 @@ async function finalizeEdition(
   // Without a registered timeline the edition is not offline-ready, so every
   // manifest request 400s until someone rescans it by hand.
   if (kind === "audiobook") await registerBookChapters(editionId);
+  // An audiobook imported first got placeholder chapter titles; its epub can name them now.
+  if (kind === "ebook") await renameAudiobookChaptersFromEbook(bookId);
 
   // Push to any open client so the list and detail both update without polling,
   // the same way a movie import does.

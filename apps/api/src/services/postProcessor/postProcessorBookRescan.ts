@@ -4,6 +4,7 @@ import { basename, dirname, join } from "node:path";
 
 import { prisma } from "@rawkoon/api/db";
 import { registerBookChapters } from "@rawkoon/api/services/books/registerBookChapters";
+import { renameAudiobookChaptersFromEbook } from "@rawkoon/api/services/books/renameChaptersFromEbook";
 import { emitBookUpdate } from "@rawkoon/api/services/libraryEvents";
 import { notifyBookRequestAvailable } from "@rawkoon/api/services/mediaRequests";
 import {
@@ -272,6 +273,14 @@ export async function rescanBookEdition(editionId: number): Promise<{
   ) {
     const registration = await registerBookChapters(editionId);
     if (registration.offlineReady) shouldEmitBookUpdate = true;
+  }
+
+  if (
+    kind === "ebook" &&
+    registered > 0 &&
+    (await renameAudiobookChaptersFromEbook(edition.bookId))
+  ) {
+    shouldEmitBookUpdate = true;
   }
 
   if (shouldEmitBookUpdate) {

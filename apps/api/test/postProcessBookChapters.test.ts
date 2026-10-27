@@ -13,9 +13,10 @@ const downloads = join(root, "downloads");
 const audiobooksRoot = join(root, "Audiobooks");
 const booksRoot = join(root, "Books");
 
-const state: { kind: string; registered: number[] } = {
+const state: { kind: string; registered: number[]; renamed: number[] } = {
   kind: "audiobook",
   registered: [],
+  renamed: [],
 };
 
 mock.module("@rawkoon/api/db", () =>
@@ -74,6 +75,18 @@ mock.module("@rawkoon/api/services/books/registerBookChapters", () => ({
   },
 }));
 
+const realRename = await import(
+  "@rawkoon/api/services/books/renameChaptersFromEbook"
+);
+mock.module("@rawkoon/api/services/books/renameChaptersFromEbook", () => ({
+  ...realRename,
+  renameAudiobookChaptersFromEbook: (bookId: number) => {
+    if (!intercept) return realRename.renameAudiobookChaptersFromEbook(bookId);
+    state.renamed.push(bookId);
+    return Promise.resolve(false);
+  },
+}));
+
 const realEbookMetadata = await import(
   "@rawkoon/api/utils/books/ebookMetadata"
 );
@@ -96,6 +109,7 @@ describe("postProcessBook chapter registration", () => {
     await rm(root, { recursive: true, force: true });
     await mkdir(downloads, { recursive: true });
     state.registered = [];
+    state.renamed = [];
   });
 
   it("registers the chapter timeline after importing an audiobook", async () => {
@@ -114,6 +128,7 @@ describe("postProcessBook chapter registration", () => {
 
     expect(result.imported).toBe(2);
     expect(state.registered).toEqual([7]);
+    expect(state.renamed).toEqual([]);
   });
 
   it("does not register chapters for an ebook", async () => {
@@ -130,5 +145,7 @@ describe("postProcessBook chapter registration", () => {
 
     expect(result.imported).toBe(1);
     expect(state.registered).toEqual([]);
+    // The epub can now name an audiobook imported before it.
+    expect(state.renamed).toEqual([3]);
   });
 });

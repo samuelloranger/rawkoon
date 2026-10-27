@@ -36,6 +36,10 @@ export const chapterTitleFromFileName = (name: string): string => {
 export const titlesAreUninformative = (titles: string[]): boolean =>
   titles.length > 1 && titles.every((t) => t === titles[0]);
 
+/** The fallback when nothing names the chapters. */
+export const numberedChapterTitle = (index: number): string =>
+  `Chapter ${index + 1}`;
+
 /** Numeric order by leading ordinal, so 10 follows 2 rather than preceding it. */
 export const sortChapterFiles = (names: string[]): string[] =>
   [...names].sort(compareChapterFileNames);
@@ -174,7 +178,7 @@ const registerSingleFileEdition = async (
     rows = atoms.map((atom, index) => ({
       bookFileId: file.id,
       index,
-      title: atom.title || `Chapter ${index + 1}`,
+      title: atom.title || numberedChapterTitle(index),
       startSecs: Math.min(atom.startSecs, totalDurationSecs),
       // The atoms are already whole-file offsets, so they are used directly
       // (never run through buildTimeline, which accumulates per-file durations).
@@ -265,7 +269,7 @@ export async function registerBookChapters(
     ? ((await ebookChapterNames(
         editionId,
         chapterInputs.map((c) => c.durationSecs),
-      )) ?? fileTitles.map((_, i) => `Chapter ${i + 1}`))
+      )) ?? fileTitles.map((_, i) => numberedChapterTitle(i)))
     : fileTitles;
   const timeline = buildTimeline(
     chapterInputs.map(({ durationSecs }, i) => ({
