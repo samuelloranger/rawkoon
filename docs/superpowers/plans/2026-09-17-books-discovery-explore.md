@@ -1120,7 +1120,7 @@ git commit -m "feat(web): NYT Books integration settings"
 
 - [ ] **Step 4: Full web gates**
 
-Run: `cd /home/samuelloranger/sites/rawkoon && bun run lint && bun run typecheck && bun run build && env -u NODE_ENV bun run --filter @rawkoon/web test`
+Run: `bun run lint && bun run typecheck && bun run build && env -u NODE_ENV bun run --filter @rawkoon/web test`
 Expected: PASS
 
 ---
@@ -1212,7 +1212,7 @@ git commit -m "feat(ios): NYT Books integration settings"
 
 - [ ] **Full monorepo gates**
 
-Run: `cd /home/samuelloranger/sites/rawkoon && bun run formatCheck && bun run lint && bun run typecheck && bun run test && bun run build`
+Run: `bun run formatCheck && bun run lint && bun run typecheck && bun run test && bun run build`
 Expected: PASS. Also run the api suite once more (`cd apps/api && NODE_ENV=test bun test`) for order-flake, and `bun run knip` to confirm the earlier "unused export" warnings for the scraper are gone now that consumers exist.
 
 - [ ] **Open the PR** — title describing the general capability ("Add a books Explore surface with pluggable bestseller sources"); body summarizes the source abstraction, the two sources, enrichment/caching, and the settings addition. No instance-specific data. Push `feat/books-discovery-explore`, open PR against `main`. Do NOT release.

@@ -17,7 +17,7 @@ const book = (
   partial: Partial<ProviderBook> & Pick<ProviderBook, "volumeId" | "title">,
 ): ProviderBook => ({
   subtitle: null,
-  authors: ["V. E. Schwab"],
+  authors: ["J. L. Marrow"],
   language: "en",
   publishedYear: 2018,
   isbn13: null,
@@ -35,13 +35,13 @@ describe("pickBookForIsbn", () => {
   test("prefers the volume whose isbn13 is the queried ISBN", () => {
     const english = book({
       volumeId: "en-first",
-      title: "Vengeful",
+      title: "Ironwake",
       language: "en",
       isbn13: englishIsbn,
     });
     const french = book({
       volumeId: "fr-lumen",
-      title: "Vengeful",
+      title: "Ironwake",
       language: "fr",
       isbn13: frenchIsbn,
     });
@@ -55,7 +55,7 @@ describe("pickBookForIsbn", () => {
   test("tolerates hyphens in the query", () => {
     const french = book({
       volumeId: "fr-lumen",
-      title: "Vengeful",
+      title: "Ironwake",
       language: "fr",
       isbn13: frenchIsbn,
     });
@@ -69,13 +69,13 @@ describe("pickBookForIsbn", () => {
     // returns sibling editions only), so language is the next best signal.
     const english = book({
       volumeId: "en",
-      title: "Vengeful",
+      title: "Ironwake",
       language: "en",
       isbn13: englishIsbn,
     });
     const french = book({
       volumeId: "fr",
-      title: "Vengeful",
+      title: "Ironwake",
       language: "fr",
       isbn13: "9782371022515",
     });
@@ -89,7 +89,7 @@ describe("pickBookForIsbn", () => {
   test("returns null for a non-ISBN query", () => {
     expect(
       pickBookForIsbn(
-        [book({ volumeId: "x", title: "Vengeful", isbn13: frenchIsbn })],
+        [book({ volumeId: "x", title: "Ironwake", isbn13: frenchIsbn })],
         "not-an-isbn",
       ),
     ).toBeNull();
@@ -105,7 +105,7 @@ describe("pinQueriedIsbn", () => {
   test("overwrites isbn13 with the queried ISBN-13", () => {
     const english = book({
       volumeId: "en-first",
-      title: "Vengeful",
+      title: "Ironwake",
       language: "en",
       isbn13: "9781250303554",
     });
@@ -128,7 +128,7 @@ describe("pickBookForIsbn strict", () => {
   test("refuses a language match", () => {
     const french = book({
       volumeId: "fr-other",
-      title: "Vengeful",
+      title: "Ironwake",
       language: "fr",
       isbn13: "9782371022515",
     });
@@ -139,7 +139,7 @@ describe("pickBookForIsbn strict", () => {
   test("still accepts the volume that carries the ISBN", () => {
     const french = book({
       volumeId: "fr-lumen",
-      title: "Vengeful",
+      title: "Ironwake",
       language: "fr",
       isbn13: frenchIsbn,
     });
@@ -173,13 +173,13 @@ describe("ISBN-10 selection", () => {
   test("matches the volume carrying the equivalent ISBN-13", () => {
     const french = book({
       volumeId: "fr-lumen",
-      title: "Vengeful",
+      title: "Ironwake",
       language: "fr",
       isbn13: "9782371022508",
     });
     const english = book({
       volumeId: "en-first",
-      title: "Vengeful",
+      title: "Ironwake",
       language: "en",
       isbn13: "9781250303554",
     });
@@ -192,7 +192,7 @@ describe("ISBN-10 selection", () => {
   test("pins the ISBN-13 form of an ISBN-10", () => {
     const english = book({
       volumeId: "en-first",
-      title: "Vengeful",
+      title: "Ironwake",
       language: "en",
       isbn13: "9781250303554",
     });

@@ -7,15 +7,15 @@ describe("bookIdentityFromEdition", () => {
       bookIdentityFromEdition({
         book: {
           id: 3,
-          title: "L'intruse",
-          authors: ["Freida McFadden"],
+          title: "L'inconnue",
+          authors: ["Nora Whitfield"],
           coverUrl: "https://example/cover.jpg",
         },
       }),
     ).toEqual({
       book_id: 3,
-      title: "L'intruse",
-      authors: ["Freida McFadden"],
+      title: "L'inconnue",
+      authors: ["Nora Whitfield"],
       cover_url: "https://example/cover.jpg",
     });
   });

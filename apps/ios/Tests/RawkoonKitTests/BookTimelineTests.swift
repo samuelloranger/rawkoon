@@ -2,7 +2,7 @@
 import XCTest
 
 final class BookTimelineTests: XCTestCase {
-    /// The real registered offsets for L'intruse. NOT metadata.json's atoms,
+    /// Offsets as registered for a real multi-file audiobook. NOT metadata.json's atoms,
     /// which end at 29381.830 — the 1.567s gap is frame-quantisation drift and
     /// a fixture from the wrong source would encode the bug into the client.
     private func chapter(_ i: Int, _ s: Double, _ e: Double) -> ManifestChapter {

@@ -8,8 +8,8 @@
  *
  * Usage (from the monorepo root):
  *   cd apps/api && bun --env-file=../../.env src/scripts/configureBooks.ts \
- *     --books-path /mnt/storage/Books \
- *     --audiobooks-path /mnt/storage/Audiobooks \
+ *     --books-path /data/Books \
+ *     --audiobooks-path /data/Audiobooks \
  *     --google-key AIza... \
  *     --enable
  *

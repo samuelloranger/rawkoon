@@ -79,7 +79,7 @@ New files are picked up by XcodeGen's folder sources (`project.yml` lists `Rawko
 Every task ends with the same gate block, run from `apps/ios/`:
 
 ```bash
-SDD=/home/samuelloranger/sites/rawkoon/.superpowers/sdd/2026-10-09-ios-motion-detail-search-activity
+SDD=.superpowers/sdd/2026-10-09-ios-motion-detail-search-activity
 python3 scripts/check-l10n.py
 python3 scripts/check-env-inject.py
 python3 scripts/check-raw-animation.py
@@ -119,12 +119,12 @@ Expected: the three scripts print `ok`; swiftformat reports 0 files (if it names
 Run from `apps/ios/`, before any edit:
 
 ```bash
-SDD=/home/samuelloranger/sites/rawkoon/.superpowers/sdd/2026-10-09-ios-motion-detail-search-activity
+SDD=.superpowers/sdd/2026-10-09-ios-motion-detail-search-activity
 mkdir -p "$SDD"
 cat > "$SDD/rawkoon-pr3-lint.sh" <<'EOF'
 #!/usr/bin/env bash
 # Per-file, per-rule SwiftLint warning counts for the files PR 3 touches.
-cd /home/samuelloranger/sites/rawkoon/apps/ios || exit 1
+cd apps/ios || exit 1
 files=()
 for f in \
   Rawkoon/Motion/HeroStretch.swift Rawkoon/Motion/RawkoonTransitions.swift \
@@ -3856,7 +3856,7 @@ git commit -m "feat(ios): slide Activity lanes, roll queue figures and burst com
 Run from `apps/ios/`:
 
 ```bash
-SDD=/home/samuelloranger/sites/rawkoon/.superpowers/sdd/2026-10-09-ios-motion-detail-search-activity
+SDD=.superpowers/sdd/2026-10-09-ios-motion-detail-search-activity
 python3 scripts/check-l10n.py
 python3 scripts/check-env-inject.py
 python3 scripts/check-raw-animation.py

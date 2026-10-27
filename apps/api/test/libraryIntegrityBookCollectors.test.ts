@@ -83,13 +83,13 @@ describe("collectDownloadedBookEditionsWithoutFiles", () => {
       {
         id: 11,
         kind: "ebook",
-        book: { id: 7, title: "La prof" },
+        book: { id: 7, title: "La voisine" },
         _count: { files: 0 },
       },
       {
         id: 12,
         kind: "audiobook",
-        book: { id: 7, title: "La prof" },
+        book: { id: 7, title: "La voisine" },
         _count: { files: 2 },
       },
     ];
@@ -104,9 +104,9 @@ describe("collectDownloadedBookEditionsWithoutFiles", () => {
       book_id: 7,
       book_edition_id: 11,
       edition_kind: "ebook",
-      title: "La prof",
+      title: "La voisine",
     });
-    expect(issues[0]!.detail).toContain("La prof");
+    expect(issues[0]!.detail).toContain("La voisine");
   });
 
   it("returns nothing and skips the scan when books are disabled", async () => {
@@ -131,7 +131,7 @@ describe("collectMissingBookFilePaths", () => {
         edition: {
           id: 11,
           kind: "ebook",
-          book: { id: 7, title: "La prof" },
+          book: { id: 7, title: "La voisine" },
         },
       },
       {
@@ -140,7 +140,7 @@ describe("collectMissingBookFilePaths", () => {
         edition: {
           id: 11,
           kind: "ebook",
-          book: { id: 7, title: "La prof" },
+          book: { id: 7, title: "La voisine" },
         },
       },
     ];
@@ -156,7 +156,7 @@ describe("collectMissingBookFilePaths", () => {
       book_edition_id: 11,
       book_file_id: 22,
       edition_kind: "ebook",
-      title: "La prof",
+      title: "La voisine",
       path: "/books/gone.epub",
     });
   });

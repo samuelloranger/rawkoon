@@ -28,8 +28,8 @@ afterEach(() => {
 const volume = {
   id: "EN-VOLUME",
   volumeInfo: {
-    title: "Vengeful",
-    authors: ["V. E. Schwab"],
+    title: "Ironwake",
+    authors: ["J. L. Marrow"],
     language: "en",
     publishedDate: "2018-09-25",
     industryIdentifiers: [{ type: "ISBN_13", identifier: "9781250303554" }],
@@ -48,8 +48,8 @@ const stubVolume = () => {
 
 const input = (isbn13: string | null) => ({
   bookId: 1,
-  title: "Vengeful",
-  authors: ["V. E. Schwab"],
+  title: "Ironwake",
+  authors: ["J. L. Marrow"],
   language: "fr",
   isbn13,
   googleVolumeId: "EN-VOLUME",
@@ -64,7 +64,7 @@ describe("GoogleBooksProvider.enrich", () => {
     );
     // Absent, not null: absent defers, null would assert emptiness.
     expect("isbn13" in fields).toBe(false);
-    expect(fields.title).toBe("Vengeful");
+    expect(fields.title).toBe("Ironwake");
   });
 
   test("fills an empty isbn13", async () => {

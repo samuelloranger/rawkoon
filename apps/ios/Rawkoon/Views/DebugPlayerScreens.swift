@@ -95,8 +95,8 @@
             }
             let total = chapterCount > 0 ? Double(chapterCount) * chapterSecs : 34748
             let json = """
-            {"edition_id":63,"book_id":9,"title":"La femme de ménage",\
-            "authors":["Freida McFadden"],"total_duration_secs":\(total),\
+            {"edition_id":63,"book_id":9,"title":"La veuve du ménestrel",\
+            "authors":["Nora Whitfield"],"total_duration_secs":\(total),\
             "chapters":[\(chapters.joined(separator: ","))]}
             """
             let decoder = JSONDecoder()

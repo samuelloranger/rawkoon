@@ -34,7 +34,7 @@ services:
       - ./vapid_keys:/app/vapid_keys
       # Mount your media paths here (must be identical to download client mount paths for hardlinking).
       # The same mount covers the book and audiobook libraries if they live under it.
-      # - /mnt/storage:/mnt/storage
+      # - /media:/media
     restart: unless-stopped
     depends_on:
       db:

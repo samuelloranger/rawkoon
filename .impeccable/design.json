@@ -137,7 +137,7 @@
       "kind": "nav",
       "refersTo": null,
       "description": "Glass bar above the tab bar — tap to expand Now Playing.",
-      "html": "<div class=\"ds-mini\"><div class=\"ds-mini-cover\"></div><div class=\"ds-mini-copy\"><strong>La femme de ménage</strong><span>Chapitre 12</span></div><button class=\"ds-mini-play\" aria-label=\"Pause\"></button></div>",
+      "html": "<div class=\"ds-mini\"><div class=\"ds-mini-cover\"></div><div class=\"ds-mini-copy\"><strong>La veuve du ménestrel</strong><span>Chapitre 12</span></div><button class=\"ds-mini-play\" aria-label=\"Pause\"></button></div>",
       "css": ".ds-mini { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 18px; background: rgba(36,30,27,0.82); border: 1px solid rgba(232,160,106,0.22); box-shadow: 0 4px 10px rgba(0,0,0,0.4); } .ds-mini-cover { width: 38px; height: 38px; border-radius: 9px; background: linear-gradient(135deg, #AD5440, #E8A06A); flex: none; } .ds-mini-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; } .ds-mini-copy strong { font-family: Georgia, serif; font-size: 14px; color: #F4ECE4; } .ds-mini-copy span { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; color: #AA9A8C; } .ds-mini-play { width: 30px; height: 30px; border: none; border-radius: 9999px; background: #E8A06A; flex: none; cursor: pointer; }"
     }
   ],

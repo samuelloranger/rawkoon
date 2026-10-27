@@ -217,7 +217,7 @@ describe("pickBestAsin", () => {
  * for a long while it could not: an exact title plus a full author match scores
  * 80 on its own, so the 10-point language signal could never change a verdict.
  *
- * Measured live 2026-08-25 on `api.audible.fr` for "Vengeful Schwab": the only
+ * Measured live 2026-08-25 on `api.audible.fr` for "Ironwake Marrow": the only
  * non-German hit is the English Macmillan Audio product. There is no French
  * audiobook, so the correct answer is no ASIN — instead the English record was
  * attached and its blurb, cover, narrator and publisher displaced the French
@@ -343,8 +343,8 @@ describe("scoreAsinCandidate edition suffix ordering", () => {
   });
 
   test("still disqualifies a same-title book by another author", () => {
-    // Observed live: the French "Vicious" in the catalogue is L.J. Shen's
-    // romance, not V. E. Schwab's novel. No ASIN is the right answer.
+    // Observed live: the French "Brackish" in the catalogue is L.J. Shen's
+    // romance, not J. L. Marrow's novel. No ASIN is the right answer.
     expect(
       pickBestAsin(want, [
         candidate({

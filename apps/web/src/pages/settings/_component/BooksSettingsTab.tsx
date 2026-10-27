@@ -307,7 +307,7 @@ export function BooksSettingsTab() {
               id="books-path"
               value={booksPath}
               onChange={(e) => setBooksPath(e.target.value)}
-              placeholder="/mnt/storage/Books"
+              placeholder="/data/Books"
             />
           </div>
           <div>
@@ -318,7 +318,7 @@ export function BooksSettingsTab() {
               id="audiobooks-path"
               value={audiobooksPath}
               onChange={(e) => setAudiobooksPath(e.target.value)}
-              placeholder="/mnt/storage/Audiobooks"
+              placeholder="/data/Audiobooks"
             />
           </div>
         </div>

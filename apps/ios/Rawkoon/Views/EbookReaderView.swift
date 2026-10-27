@@ -13,8 +13,8 @@ struct EbookPreviewDocument: Identifiable, Sendable {
     /// Rawkoon's own language for the book, used to override the EPUB's.
     ///
     /// An EPUB can declare several `dc:language` values and the reader takes the
-    /// first. "La femme de ménage" lists `ar, en, fr`, so Readium picked Arabic
-    /// and laid a French novel out right-to-left. Rawkoon knows the real
+    /// first. A French novel listing `ar, en, fr` made Readium pick Arabic and
+    /// lay the book out right-to-left. Rawkoon knows the real
     /// language, so it wins.
     let language: String?
     let title: String

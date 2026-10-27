@@ -205,9 +205,9 @@ export const identityFor = (
       calls.push({ isbn, strict: opts?.strict === true });
       return Promise.resolve({
         volumeId,
-        title: "Vengeful",
+        title: "Ironwake",
         subtitle: null,
-        authors: ["V. E. Schwab"],
+        authors: ["J. L. Marrow"],
         language: "fr",
         publishedYear: 2019,
         isbn13: "9782371022508",

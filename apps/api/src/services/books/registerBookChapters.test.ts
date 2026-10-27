@@ -239,7 +239,7 @@ describe("registerBookChapters", () => {
     ];
     probeResults = new Map([["/library/Book/book.m4b", 3600]]);
     atomResults = new Map();
-    editionBookTitle = "La femme de ménage voit tout";
+    editionBookTitle = "La veuve du ménestrel revient";
 
     const result = await registerBookChapters(65);
 
@@ -255,7 +255,7 @@ describe("registerBookChapters", () => {
         editionId: 65,
         bookFileId: 65,
         index: 0,
-        title: "La femme de ménage voit tout",
+        title: "La veuve du ménestrel revient",
         startSecs: 0,
         endSecs: 3600,
       },
