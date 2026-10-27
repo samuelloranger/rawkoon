@@ -141,7 +141,7 @@ simulator UUID into the repository. Work in that checkout preserves its
 untracked `HANDOFF.md` and `apps/ios/.swiftpm/` state; implementation commits
 must stage only intended files.
 
-## ADR-006: Library status is acquisition-only; airing is a derived field
+## ADR-009: Library status is acquisition-only; airing is a derived field
 
 **Status:** accepted (2026-10-27).
 
