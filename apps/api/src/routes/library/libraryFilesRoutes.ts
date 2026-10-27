@@ -1,23 +1,25 @@
 import { Hono } from "hono";
-import type { NormalizedTorrent } from "@rawkoon/api/services/downloadClient/types";
 import { seedStateForRow } from "@rawkoon/api/services/seeding/seedingView";
 import { z } from "zod";
 
-import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { ensureAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, queryV } from "@rawkoon/api/middleware/validate";
+import { enqueuePostProcess } from "@rawkoon/api/services/downloads/downloadOutcome";
 import {
-  enqueuePostProcess,
-  revertToWantedIfNoActiveGrabs,
-} from "@rawkoon/api/services/downloads/downloadOutcome";
-import { estimateEtaSeconds } from "@rawkoon/api/services/downloadClient/eta";
+  checkPostProcessRetryable,
+  clearFailedDownloads,
+  deleteEpisodeFiles,
+  deleteMediaFile,
+  getDownloadHistoryWithLive,
+  listEpisodesForMedia,
+  listMediaFiles,
+  performDownloadAction,
+  removeDownloadHistoryEntry,
+  updateMediaFileReleaseGroup,
+} from "@rawkoon/api/services/library/libraryFiles";
 import { rescanLibraryItem } from "@rawkoon/api/services/library/rescan";
-import { pruneLibraryDirsAfterDelete } from "@rawkoon/api/services/library/pruneLibraryDirs";
-
-/** Newest grabs shown in the library detail history panel. */
-const MEDIA_HISTORY_LIMIT = 200;
 
 const deleteFileQuery = z.object({ delete_file: z.string().optional() });
 
@@ -29,13 +31,8 @@ export const libraryFilesRoutes = new Hono<Env>()
   .get("/:id/episodes", requireUser, async (c) => {
     try {
       const id = parseInt(c.req.param("id"), 10);
-      const media = await prisma.libraryMedia.findUnique({ where: { id } });
-      if (!media) return notFound("Library item not found");
-
-      const episodes = await prisma.libraryEpisode.findMany({
-        where: { mediaId: id },
-        orderBy: [{ season: "asc" }, { episode: "asc" }],
-      });
+      const episodes = await listEpisodesForMedia(id);
+      if (!episodes) return notFound("Library item not found");
 
       const bySeason = new Map<number, typeof episodes>();
       for (const ep of episodes) {
@@ -68,66 +65,9 @@ export const libraryFilesRoutes = new Hono<Env>()
   .get("/:id/downloads", requireUser, async (c) => {
     try {
       const id = parseInt(c.req.param("id"), 10);
-      const media = await prisma.libraryMedia.findUnique({ where: { id } });
-      if (!media) return notFound("Library item not found");
-
-      const items = await prisma.downloadHistory.findMany({
-        where: { mediaId: id },
-        orderBy: { grabbedAt: "desc" },
-        // Newest-first cap: a long-running upgrade loop can accumulate hundreds
-        // of grabs for one title, and the detail panel only renders recent ones.
-        take: MEDIA_HISTORY_LIMIT,
-      });
-
-      // Best-effort live numbers: progress for in-flight rows, ratio/seed time for held ones.
-      const activeHashes = items
-        .filter((h) => !h.completedAt && !h.failed && h.torrentHash)
-        .map((h) => h.torrentHash as string);
-      const heldHashes = items
-        .filter(
-          (h) =>
-            h.completedAt && !h.failed && !h.seedReleasedAt && h.torrentHash,
-        )
-        .map((h) => h.torrentHash as string);
-      const torrentByHash = new Map<string, NormalizedTorrent>();
-
-      const liveByHash = new Map<
-        string,
-        {
-          progress: number;
-          download_speed: number;
-          eta_seconds: number | null;
-          state: string;
-        }
-      >();
-      if (activeHashes.length + heldHashes.length > 0) {
-        const { resolveActiveAdapter } = await import(
-          "@rawkoon/api/services/downloadClient/registry"
-        );
-        const active = await resolveActiveAdapter();
-        if (active) {
-          try {
-            const torrents = await active.adapter.listTorrents();
-            const inFlight = new Set(
-              activeHashes.map((hash) => hash.toLowerCase()),
-            );
-            const held = new Set(heldHashes.map((hash) => hash.toLowerCase()));
-            for (const torrent of torrents) {
-              const key = torrent.hash.toLowerCase();
-              if (held.has(key)) torrentByHash.set(key, torrent);
-              if (!inFlight.has(key)) continue;
-              liveByHash.set(key, {
-                progress: torrent.progress,
-                download_speed: torrent.dlSpeed,
-                eta_seconds: estimateEtaSeconds(torrent),
-                state: torrent.state,
-              });
-            }
-          } catch {
-            // Client unavailable: keep live progress null.
-          }
-        }
-      }
+      const history = await getDownloadHistoryWithLive(id);
+      if (!history) return notFound("Library item not found");
+      const { items, torrentByHash, liveByHash } = history;
 
       return ok({
         items: items.map((h) => ({
@@ -168,51 +108,9 @@ export const libraryFilesRoutes = new Hono<Env>()
       const mediaId = parseInt(c.req.param("id"), 10);
       if (!Number.isFinite(mediaId)) return badRequest("Invalid id");
 
-      const media = await prisma.libraryMedia.findUnique({
-        where: { id: mediaId },
-      });
-      if (!media) return notFound("Library item not found");
-
-      const staleRows = await prisma.downloadHistory.findMany({
-        where: {
-          mediaId,
-          OR: [
-            { failed: true },
-            {
-              AND: [
-                { postProcessError: { not: null } },
-                { postProcessError: { not: "" } },
-              ],
-            },
-          ],
-        },
-        select: { id: true },
-      });
-      const ids = staleRows.map((r) => r.id);
-      if (ids.length === 0) return ok({ deleted: 0 });
-
-      const { emitLibraryUpdate } = await import(
-        "@rawkoon/api/services/libraryEvents"
-      );
-
-      await prisma.$transaction([
-        prisma.libraryAttentionAlert.updateMany({
-          where: {
-            status: "open",
-            downloadHistoryId: { in: ids },
-          },
-          data: {
-            status: "resolved_auto",
-            resolvedAt: new Date(),
-          },
-        }),
-        prisma.downloadHistory.deleteMany({
-          where: { id: { in: ids } },
-        }),
-      ]);
-
-      emitLibraryUpdate(mediaId);
-      return ok({ deleted: ids.length });
+      const deleted = await clearFailedDownloads(mediaId);
+      if (deleted === null) return notFound("Library item not found");
+      return ok({ deleted });
     } catch (err) {
       console.error("Library clear failed downloads error:", err);
       return serverError("Failed to delete download history");
@@ -229,44 +127,13 @@ export const libraryFilesRoutes = new Hono<Env>()
         return badRequest("Invalid id");
       }
 
-      const { isRemovableDownloadHistoryEntry } = await import(
-        "@rawkoon/shared"
-      );
-
-      const dh = await prisma.downloadHistory.findFirst({
-        where: { id: dhId, mediaId },
-        select: {
-          id: true,
-          failed: true,
-          postProcessError: true,
-        },
-      });
-      if (!dh) return notFound("Download history not found");
-      if (!isRemovableDownloadHistoryEntry(dh)) {
+      const result = await removeDownloadHistoryEntry(mediaId, dhId);
+      if (result === "not_found") return notFound("Download history not found");
+      if (result === "not_removable") {
         return badRequest(
           "Only failed downloads or post-processing errors can be removed",
         );
       }
-
-      const { emitLibraryUpdate } = await import(
-        "@rawkoon/api/services/libraryEvents"
-      );
-
-      await prisma.$transaction([
-        prisma.libraryAttentionAlert.updateMany({
-          where: {
-            status: "open",
-            downloadHistoryId: dhId,
-          },
-          data: {
-            status: "resolved_auto",
-            resolvedAt: new Date(),
-          },
-        }),
-        prisma.downloadHistory.delete({ where: { id: dhId } }),
-      ]);
-
-      emitLibraryUpdate(mediaId);
       return ok({ success: true });
     } catch (err) {
       console.error("Library delete download entry error:", err);
@@ -298,61 +165,21 @@ export const libraryFilesRoutes = new Hono<Env>()
         }
         const body = c.req.valid("json");
 
-        const dh = await prisma.downloadHistory.findFirst({
-          where: { id: dhId, mediaId },
-          select: {
-            id: true,
-            mediaId: true,
-            torrentHash: true,
-            episodeId: true,
-          },
-        });
-        if (!dh) return notFound("Download history not found");
-
-        const { resolveActiveAdapter } = await import(
-          "@rawkoon/api/services/downloadClient/registry"
+        const result = await performDownloadAction(
+          mediaId,
+          dhId,
+          body.action,
+          body.delete_files ?? false,
         );
-        const { emitLibraryUpdate } = await import(
-          "@rawkoon/api/services/libraryEvents"
-        );
-
-        if (body.action === "remove") {
-          if (dh.torrentHash) {
-            const active = await resolveActiveAdapter();
-            if (active) {
-              // Best-effort: a missing torrent shouldn't block removing the row.
-              await active.adapter
-                .remove(dh.torrentHash, body.delete_files ?? false)
-                .catch(() => {});
-            }
-          }
-          await revertToWantedIfNoActiveGrabs({
-            id: dh.id,
-            mediaId: dh.mediaId,
-            episodeId: dh.episodeId,
-          });
-          await prisma.$transaction([
-            prisma.libraryAttentionAlert.updateMany({
-              where: { status: "open", downloadHistoryId: dhId },
-              data: { status: "resolved_auto", resolvedAt: new Date() },
-            }),
-            prisma.downloadHistory.delete({ where: { id: dhId } }),
-          ]);
-          emitLibraryUpdate(mediaId);
-          return ok({ success: true });
+        if (result === "not_found") {
+          return notFound("Download history not found");
         }
-
-        // pause / resume — require a torrent hash
-        if (!dh.torrentHash) {
+        if (result === "no_torrent") {
           return badRequest("Download has no torrent to control");
         }
-        const active = await resolveActiveAdapter();
-        if (!active) {
+        if (result === "no_client") {
           return badRequest("Download client is not configured");
         }
-        if (body.action === "pause") await active.adapter.pause(dh.torrentHash);
-        else await active.adapter.resume(dh.torrentHash);
-        emitLibraryUpdate(mediaId);
         return ok({ success: true });
       } catch (err) {
         console.error("Library download action error:", err);
@@ -368,13 +195,12 @@ export const libraryFilesRoutes = new Hono<Env>()
       const dhId = parseInt(c.req.param("dhId"), 10);
       if (isNaN(dhId)) return badRequest("Invalid download history id");
 
-      const dh = await prisma.downloadHistory.findUnique({
-        where: { id: dhId },
-        select: { id: true, completedAt: true, failed: true },
-      });
-      if (!dh) return notFound("Download history not found");
-      if (dh.failed) return badRequest("Download is marked as failed");
-      if (!dh.completedAt) return badRequest("Download not yet completed");
+      const check = await checkPostProcessRetryable(dhId);
+      if (check === "not_found") return notFound("Download history not found");
+      if (check === "failed") return badRequest("Download is marked as failed");
+      if (check === "not_completed") {
+        return badRequest("Download not yet completed");
+      }
 
       // force: an operator retry must run even when a completed job for this
       // row is still retained by the queue.
@@ -391,32 +217,12 @@ export const libraryFilesRoutes = new Hono<Env>()
   .get("/:id/files", requireUser, async (c) => {
     try {
       const id = parseInt(c.req.param("id"), 10);
-      const media = await prisma.libraryMedia.findUnique({ where: { id } });
-      if (!media) return notFound("Library item not found");
-
-      const files = await prisma.mediaFile.findMany({
-        where: { mediaId: id },
-        include: {
-          episode: { select: { season: true, episode: true, title: true } },
-        },
-      });
-
-      // Sort: episodes by season → episode number; non-episode files by filename
-      files.sort((a, b) => {
-        const ae = a.episode,
-          be = b.episode;
-        if (ae && be) {
-          if (ae.season !== be.season) return ae.season - be.season;
-          return ae.episode - be.episode;
-        }
-        if (ae) return 1;
-        if (be) return -1;
-        return a.fileName.localeCompare(b.fileName);
-      });
+      const result = await listMediaFiles(id);
+      if (!result) return notFound("Library item not found");
 
       return ok({
-        media_type: media.type,
-        files: files.map((f) => ({
+        media_type: result.mediaType,
+        files: result.files.map((f) => ({
           id: f.id,
           file_name: f.fileName,
           file_path: f.filePath,
@@ -482,19 +288,11 @@ export const libraryFilesRoutes = new Hono<Env>()
         if (!Number.isFinite(fileId)) return badRequest("Invalid file id");
         const body = c.req.valid("json");
 
-        const file = await prisma.mediaFile.findUnique({
-          where: { id: fileId },
-        });
-        if (!file) return notFound("File not found");
-
-        const updated = await prisma.mediaFile.update({
-          where: { id: fileId },
-          data: {
-            ...(body.release_group !== undefined
-              ? { releaseGroup: body.release_group }
-              : {}),
-          },
-        });
+        const updated = await updateMediaFileReleaseGroup(
+          fileId,
+          body.release_group,
+        );
+        if (!updated) return notFound("File not found");
 
         return ok({ id: updated.id, release_group: updated.releaseGroup });
       } catch {
@@ -512,46 +310,11 @@ export const libraryFilesRoutes = new Hono<Env>()
       const fileId = parseInt(c.req.param("fileId"), 10);
       if (!Number.isFinite(fileId)) return badRequest("Invalid file id");
 
-      const file = await prisma.mediaFile.findUnique({
-        where: { id: fileId },
-      });
-      if (!file) return notFound("File not found");
-
-      // Delete the DB row first: a stale row pointing at a deleted file is
-      // worse than a leftover file on disk. If the fs removal below fails we
-      // only log it.
-      await prisma.mediaFile.delete({ where: { id: fileId } });
-
-      if (c.req.valid("query").delete_file === "true") {
-        const { rm } = await import("node:fs/promises");
-        try {
-          await rm(file.filePath);
-        } catch (e) {
-          // File may already be gone, or removal failed after the row was
-          // deleted — log and move on rather than resurrecting the row.
-          console.warn(
-            `[library/files] Failed to remove ${file.filePath} after deleting MediaFile ${fileId}:`,
-            e,
-          );
-        }
-        await pruneLibraryDirsAfterDelete([file.filePath]);
-      }
-
-      // If the parent media item now has no files left, reset it to "wanted"
-      if (file.mediaId !== null) {
-        const remaining = await prisma.mediaFile.count({
-          where: { mediaId: file.mediaId },
-        });
-        if (remaining === 0) {
-          await prisma.libraryMedia.updateMany({
-            where: {
-              id: file.mediaId,
-              status: { notIn: ["wanted", "skipped"] },
-            },
-            data: { status: "wanted", searchAttempts: 0 },
-          });
-        }
-      }
+      const found = await deleteMediaFile(
+        fileId,
+        c.req.valid("query").delete_file === "true",
+      );
+      if (!found) return notFound("File not found");
 
       return ok({ success: true });
     } catch {
@@ -575,48 +338,12 @@ export const libraryFilesRoutes = new Hono<Env>()
           return badRequest("Invalid id");
         }
 
-        const ep = await prisma.libraryEpisode.findFirst({
-          where: { id: episodeId, mediaId },
-          include: { files: true },
-        });
-        if (!ep) return notFound("Episode not found");
-
-        if (
-          c.req.valid("query").delete_file === "true" &&
-          ep.files.length > 0
-        ) {
-          const { rm } = await import("node:fs/promises");
-          for (const f of ep.files) {
-            try {
-              await rm(f.filePath);
-            } catch {
-              // ignore — file may already be gone
-            }
-          }
-          await pruneLibraryDirsAfterDelete(ep.files.map((f) => f.filePath));
-        }
-
-        if (ep.files.length > 0) {
-          await prisma.mediaFile.deleteMany({ where: { episodeId } });
-        }
-
-        await prisma.libraryEpisode.update({
-          where: { id: episodeId },
-          data: { status: "wanted", searchAttempts: 0, downloadedAt: null },
-        });
-
-        const remainingFiles = await prisma.mediaFile.count({
-          where: { mediaId },
-        });
-        if (remainingFiles === 0) {
-          await prisma.libraryMedia.updateMany({
-            where: {
-              id: mediaId,
-              status: { notIn: ["wanted", "skipped"] },
-            },
-            data: { status: "wanted", searchAttempts: 0 },
-          });
-        }
+        const found = await deleteEpisodeFiles(
+          mediaId,
+          episodeId,
+          c.req.valid("query").delete_file === "true",
+        );
+        if (!found) return notFound("Episode not found");
 
         return ok({ success: true });
       } catch {
