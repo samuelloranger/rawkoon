@@ -9,6 +9,7 @@ const base = {
   sortTitle: "Godfather",
   year: 1972,
   status: "downloaded",
+  tmdbStatus: null,
   monitored: true,
   posterUrl: null,
   overview: null,
@@ -110,5 +111,32 @@ describe("mapLibraryMedia poster override", () => {
   it("falls back to the stored poster", () => {
     const item = { ...base, posterUrl: "https://tmdb/p.jpg" };
     expect(mapLibraryMedia(item).poster_url).toBe("https://tmdb/p.jpg");
+  });
+});
+
+describe("mapLibraryMedia status", () => {
+  it("keeps the stored acquisition status and adds the airing state", () => {
+    const airing = {
+      ...base,
+      type: "show",
+      status: "downloaded",
+      tmdbStatus: "Returning Series",
+    };
+    const out = mapLibraryMedia(airing);
+    expect(out.status).toBe("downloaded");
+    expect(out.airing_state).toBe("returning");
+  });
+
+  it("reports a finished show as ended", () => {
+    const ended = { ...base, type: "show", tmdbStatus: "Canceled" };
+    expect(mapLibraryMedia(ended).airing_state).toBe("ended");
+  });
+
+  it("has no airing state for a movie or an unknown TMDB status", () => {
+    expect(mapLibraryMedia(base).airing_state).toBeNull();
+    expect(
+      mapLibraryMedia({ ...base, type: "show", tmdbStatus: "Pilot" })
+        .airing_state,
+    ).toBeNull();
   });
 });

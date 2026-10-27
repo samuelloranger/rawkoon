@@ -489,7 +489,7 @@ model LibraryMedia {
   title                 String
   sortTitle             String?   @map("sort_title")
   year                  Int?
-  status                String    @default("wanted") // wanted | downloading | downloaded | skipped | returning | in_production | planned | upgrading
+  status                String    @default("wanted") // acquisition only: wanted | downloading | downloaded | upgrading | skipped; airing comes from tmdbStatus
   tmdbStatus            String?   @map("tmdb_status")
   tmdbStatusRefreshedAt DateTime? @map("tmdb_status_refreshed_at")
   monitored             Boolean   @default(true)

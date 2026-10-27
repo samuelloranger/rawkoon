@@ -1,6 +1,10 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@rawkoon/api/db";
+import {
+  airingStateWhere,
+  notAiringSql,
+} from "@rawkoon/api/services/library/libraryStatusFilter";
 import { libraryMediaInclude } from "@rawkoon/api/routes/library/libraryHelpers";
 import {
   buildLibraryOrderBy,
@@ -15,10 +19,12 @@ import {
   DEFAULT_TITLE_LANGUAGE,
   type TitleLanguage,
 } from "@rawkoon/shared/constants";
+import type { AiringState } from "@rawkoon/shared/types";
 
 export type LibraryListParams = {
   type?: string;
   status?: string;
+  airing?: AiringState;
   q?: string;
   language?: string;
   page?: number;
@@ -28,7 +34,7 @@ export type LibraryListParams = {
   titleLanguage: TitleLanguage;
 };
 
-const watchableWhere = Prisma.sql`(status IN ('downloaded', 'upgrading') OR downloaded_episode_count > 0)`;
+const watchableWhere = Prisma.sql`((status = 'downloaded' AND ${notAiringSql()}) OR status = 'upgrading' OR downloaded_episode_count > 0)`;
 
 async function randomWatchableIds(
   take: number,
@@ -61,13 +67,15 @@ async function hydrateInOrder(ids: number[]) {
  * rows must be re-sorted by the localized title.
  */
 export async function queryLibraryList(params: LibraryListParams) {
-  const { type, status, q, language, page, limit, sort_by, sort_dir } = params;
+  const { type, status, airing, q, language, page, limit, sort_by, sort_dir } =
+    params;
   const { titleLanguage } = params;
   const titleFilter = q
     ? { title: { contains: q, mode: "insensitive" as const } }
     : {};
   const sharedWhere: Prisma.LibraryMediaWhereInput = {
     ...(status ? { status } : {}),
+    ...(airing ? { AND: [airingStateWhere(airing)] } : {}),
     ...titleFilter,
     ...(language && language.length > 0
       ? { files: { some: { languageTags: { has: language } } } }
@@ -84,6 +92,7 @@ export async function queryLibraryList(params: LibraryListParams) {
           buildLocalizedCountQuery({
             language: titleLanguage,
             status,
+            airing,
             q,
             fileLanguage: language,
           }),
@@ -119,8 +128,7 @@ export async function queryLibraryList(params: LibraryListParams) {
     const take = Math.min(Math.max(1, limit ?? 60), 100);
     const skip = (Math.max(1, page ?? 1) - 1) * take;
 
-    // All sorts (including former aggregates) use persisted columns +
-    // Prisma orderBy so pagination stays skip/take in the database.
+    // Every sort pages in the database (skip/take or LIMIT/OFFSET).
     if (titleLanguage === DEFAULT_TITLE_LANGUAGE) {
       // English keeps the pure-Prisma path: persisted columns, skip/take.
       const found = await prisma.libraryMedia.findMany({
@@ -142,6 +150,7 @@ export async function queryLibraryList(params: LibraryListParams) {
           language: titleLanguage,
           type,
           status,
+          airing,
           q,
           fileLanguage: language,
           sortBy,

@@ -10,6 +10,7 @@ import {
 import type { Context } from "hono";
 import type { Env } from "@rawkoon/api/honoEnv";
 import type { SearchOutcome } from "@rawkoon/shared/types";
+import { airingStateOf } from "@rawkoon/api/utils/medias/libraryAiring";
 
 export function computeTotalSizeBytes(
   files: { sizeBytes: bigint }[],
@@ -51,6 +52,7 @@ export function mapLibraryMedia(
     sortTitle: string | null;
     year: number | null;
     status: string;
+    tmdbStatus: string | null;
     monitored: boolean;
     posterUrl: string | null;
     overview: string | null;
@@ -139,6 +141,7 @@ export function mapLibraryMedia(
       typeof ov.sort_title === "string" ? ov.sort_title : item.sortTitle,
     year: typeof ov.year === "number" ? ov.year : item.year,
     status: item.status,
+    airing_state: airingStateOf(item),
     monitored: item.monitored,
     poster_url:
       typeof ov.poster_url === "string" ? ov.poster_url : item.posterUrl,

@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { libraryStatusPresentation } from "./libraryStatusPresentation";
+import {
+  displayLibraryStatus,
+  libraryStatusPresentation,
+} from "./libraryStatusPresentation";
 import type { LibraryMediaStatus } from "@rawkoon/shared/types";
 
 const ALL: LibraryMediaStatus[] = [
@@ -7,9 +10,6 @@ const ALL: LibraryMediaStatus[] = [
   "downloading",
   "downloaded",
   "skipped",
-  "returning",
-  "in_production",
-  "planned",
   "upgrading",
 ];
 
@@ -44,5 +44,35 @@ describe("libraryStatusPresentation", () => {
   it("offers a search quick-action only for missing/wanted", () => {
     expect(libraryStatusPresentation("wanted").quickAction).toBe("search");
     expect(libraryStatusPresentation("downloaded").quickAction).toBe(null);
+  });
+  it("labels a downloaded airing show by its airing state, as clients always did", () => {
+    const returning = libraryStatusPresentation("downloaded", "returning");
+    expect(returning.cardStatus).toBe("returning");
+    expect(returning.liseretClass).toBe("bg-primary-400");
+    expect(returning.labelKey).toBe("medias.library.itemStatus.returning");
+    const inProduction = libraryStatusPresentation(
+      "downloaded",
+      "in_production",
+    );
+    expect(inProduction.cardStatus).toBe("in_production");
+    expect(inProduction.liseretClass).toBe("bg-amber-400");
+    const planned = libraryStatusPresentation("downloaded", "planned");
+    expect(planned.cardStatus).toBe("planned");
+    expect(planned.labelKey).toBe("medias.library.itemStatus.planned");
+  });
+  it("keeps a finished or unknown show plainly downloaded", () => {
+    for (const airing of ["ended", null, undefined] as const) {
+      const p = libraryStatusPresentation("downloaded", airing);
+      expect(p.cardStatus).toBe("downloaded");
+      expect(p.labelKey).toBe("medias.library.itemStatus.downloaded");
+    }
+  });
+  it("lets an acquisition status win over the airing state", () => {
+    expect(libraryStatusPresentation("wanted", "returning").cardStatus).toBe(
+      "missing",
+    );
+    expect(displayLibraryStatus("downloading", "returning")).toBe(
+      "downloading",
+    );
   });
 });

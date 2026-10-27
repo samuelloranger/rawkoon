@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { airingStateOf } from "@rawkoon/api/utils/medias/libraryAiring";
 import { z } from "zod";
 import { badRequest, conflict, notFound, ok } from "@rawkoon/api/errors";
 import type { RequestTitleStatusResponse } from "@rawkoon/shared/types";
@@ -119,6 +120,7 @@ export const requestRoutes = new Hono<Env>()
           ? {
               id: media.id,
               status: media.status,
+              airing_state: airingStateOf(media),
               episode_count: media.episodeCount,
               downloaded_episode_count: media.downloadedEpisodeCount,
             }

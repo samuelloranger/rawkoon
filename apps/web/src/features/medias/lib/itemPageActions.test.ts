@@ -42,7 +42,7 @@ describe("defaultItemTab", () => {
   });
 
   it("opens every other status on Info", () => {
-    for (const status of ["downloaded", "downloading", "returning"] as const)
+    for (const status of ["downloaded", "downloading", "upgrading"] as const)
       expect(
         defaultItemTab({ isAdmin: true, status, focusedEpisode: false }),
       ).toBe("info");
@@ -62,7 +62,13 @@ describe("headerActionKind", () => {
     expect(headerActionKind("upgrading", true)).toBe("downloading");
     expect(headerActionKind("downloaded", true)).toBe("downloaded");
     expect(headerActionKind("skipped", true)).toBe("skipped");
-    expect(headerActionKind("returning", true)).toBeNull();
+  });
+
+  it("adds nothing for a downloaded show that is still airing", () => {
+    for (const airing of ["returning", "in_production", "planned"] as const)
+      expect(headerActionKind("downloaded", true, airing)).toBeNull();
+    expect(headerActionKind("downloaded", true, "ended")).toBe("downloaded");
+    expect(headerActionKind("downloaded", true, null)).toBe("downloaded");
   });
 
   it("adds nothing for non-admins", () => {

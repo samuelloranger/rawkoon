@@ -43,6 +43,7 @@ function makeItem(overrides: Partial<LibraryMedia> = {}): LibraryMedia {
     sort_title: "Test Movie",
     year: 2024,
     status: "wanted",
+    airing_state: null,
     monitored: true,
     poster_url: null,
     backdrop_url: null,

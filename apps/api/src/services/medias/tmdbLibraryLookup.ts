@@ -1,6 +1,12 @@
 import { prisma } from "@rawkoon/api/db";
+import { airingStateOf } from "@rawkoon/api/utils/medias/libraryAiring";
+import type { AiringState } from "@rawkoon/shared/types";
 
-type LibraryEntry = { id: number; status: string };
+export type LibraryEntry = {
+  id: number;
+  status: string;
+  airingState: AiringState | null;
+};
 
 /** Map key for a library title; a movie and a show can share a TMDB id. */
 export const libraryKey = (
@@ -14,12 +20,18 @@ export async function libraryEntriesForTmdbItems(
   if (items.length === 0) return new Map();
   const entries = await prisma.libraryMedia.findMany({
     where: { tmdbId: { in: items.map((i) => i.tmdb_id) } },
-    select: { tmdbId: true, type: true, id: true, status: true },
+    select: {
+      tmdbId: true,
+      type: true,
+      id: true,
+      status: true,
+      tmdbStatus: true,
+    },
   });
   return new Map(
     entries.map((e) => [
       libraryKey(e.tmdbId, e.type === "movie" ? "movie" : "show"),
-      { id: e.id, status: e.status },
+      { id: e.id, status: e.status, airingState: airingStateOf(e) },
     ]),
   );
 }
@@ -31,14 +43,20 @@ export async function loadAllLibraryTmdbIds(): Promise<{
   showTmdbIds: number[];
 }> {
   const libraryAllEntries = await prisma.libraryMedia.findMany({
-    select: { tmdbId: true, id: true, type: true, status: true },
+    select: {
+      tmdbId: true,
+      id: true,
+      type: true,
+      status: true,
+      tmdbStatus: true,
+    },
   });
 
   return {
     libraryByKey: new Map(
       libraryAllEntries.map((e) => [
         libraryKey(e.tmdbId, e.type === "movie" ? "movie" : "show"),
-        { id: e.id, status: e.status },
+        { id: e.id, status: e.status, airingState: airingStateOf(e) },
       ]),
     ),
     allTmdbIds: new Set(libraryAllEntries.map((e) => e.tmdbId)),

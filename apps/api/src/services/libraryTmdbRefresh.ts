@@ -3,7 +3,6 @@ import { TMDB_LANGUAGE_LIBRARY_PERSISTENCE } from "@rawkoon/api/utils/medias/tmd
 import {
   getLibraryTmdbApiKey,
   pickDigitalRelease,
-  resolveDownloadedStatus,
   tmdbApiFetch,
   upsertLibraryShowEpisodesFromTmdb,
 } from "@rawkoon/api/utils/medias/libraryHelpers";
@@ -53,13 +52,6 @@ export async function syncLibraryShowEpisodes(mediaId: number): Promise<void> {
     { language: TMDB_LANGUAGE_LIBRARY_PERSISTENCE },
   );
   const newTmdbStatus = details.status ?? null;
-  const PRODUCTION_STATUSES = [
-    "returning",
-    "in_production",
-    "planned",
-    "downloaded",
-  ];
-
   // A show only reaches "downloading"/"upgrading" through a show-level grab, and
   // only that grab's terminal transition clears it. If the row is gone — deleted,
   // or lost with an older schema — nothing else recomputes the status, so the
@@ -70,14 +62,13 @@ export async function syncLibraryShowEpisodes(mediaId: number): Promise<void> {
       where: { mediaId, episodeId: null, failed: false, completedAt: null },
     })) === 0;
 
-  const nextStatus = PRODUCTION_STATUSES.includes(media.status)
-    ? resolveDownloadedStatus("show", newTmdbStatus)
-    : isStaleGrabLatch
-      ? // A latched show that never got a file belongs back in the search queue.
-        (media.downloadedEpisodeCount ?? 0) > 0
-        ? resolveDownloadedStatus("show", newTmdbStatus)
-        : "wanted"
-      : null;
+  // A downloaded show keeps its status; its airing state follows tmdbStatus.
+  const nextStatus = isStaleGrabLatch
+    ? // A latched show that never got a file belongs back in the search queue.
+      (media.downloadedEpisodeCount ?? 0) > 0
+      ? "downloaded"
+      : "wanted"
+    : null;
 
   await prisma.libraryMedia.update({
     where: { id: mediaId },

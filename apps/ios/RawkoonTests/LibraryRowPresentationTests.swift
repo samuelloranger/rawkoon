@@ -20,6 +20,13 @@ struct LibraryRowPresentationTests {
         #expect(presentation.showsSpinner == false)
     }
 
+    @Test func downloadedAiringShowPresentsItsAiringState() {
+        var show = movie(id: 1, status: "downloaded")
+        show.airingState = "returning"
+
+        #expect(LibraryRowPresentation(media: show).status == .server("returning"))
+    }
+
     @Test func busyConfirmedRowSpinsButStaysInteractive() {
         let presentation = LibraryRowPresentation(media: movie(id: 1, status: "wanted"), isBusy: true)
 

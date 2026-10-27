@@ -27,6 +27,7 @@ export const state: {
   profiles: number[];
   bookProfiles: number[];
   mediaStatusById: Record<number, string>;
+  mediaTmdbStatusById: Record<number, string>;
   addedBooks: Array<{ volumeId: string; bookQualityProfileId?: number }>;
   bookEditionStatusByBookId: Record<number, string>;
   defaultProfiles: { movie: number | null; show: number | null };
@@ -44,6 +45,7 @@ export const state: {
   profiles: [],
   bookProfiles: [],
   mediaStatusById: {},
+  mediaTmdbStatusById: {},
   addedBooks: [],
   bookEditionStatusByBookId: {},
   defaultProfiles: { movie: null, show: null },
@@ -68,7 +70,15 @@ function installMediaRequestDbMock() {
           if (where.id != null)
             return Promise.resolve(
               state.mediaStatusById[where.id] != null
-                ? { id: where.id, status: state.mediaStatusById[where.id] }
+                ? {
+                    id: where.id,
+                    status: state.mediaStatusById[where.id],
+                    type:
+                      state.mediaTmdbStatusById[where.id] != null
+                        ? "show"
+                        : "movie",
+                    tmdbStatus: state.mediaTmdbStatusById[where.id] ?? null,
+                  }
                 : null,
             );
           return Promise.resolve(
@@ -344,6 +354,7 @@ export function useMediaRequestHooks() {
     state.profiles = [1, 3];
     state.bookProfiles = [7];
     state.mediaStatusById = {};
+    state.mediaTmdbStatusById = {};
     state.addedBooks = [];
     state.bookEditionStatusByBookId = {};
     state.defaultProfiles = { movie: null, show: null };

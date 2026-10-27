@@ -1,4 +1,5 @@
 import {
+  type LibraryEntry,
   fetchModalLibraryEpisodes,
   libraryEntriesForTmdbItems,
   libraryKey,
@@ -66,7 +67,7 @@ export async function fetchTmdbResults(
   return Array.isArray(data.results) ? data.results : [];
 }
 
-export type LibraryEntry = { id: number; status: string };
+export type { LibraryEntry };
 
 export function enrichSearchItems(
   items: unknown[],
@@ -85,6 +86,7 @@ export function enrichSearchItems(
         source_id: null,
         library_id: entry?.id ?? null,
         library_status: entry?.status ?? null,
+        library_airing_state: entry?.airingState ?? null,
       };
     });
 }

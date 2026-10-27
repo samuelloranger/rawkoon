@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
+import type { AiringState } from "@rawkoon/shared/types";
 import { cn } from "@/lib/utils";
+import { displayLibraryStatus } from "@/utils/libraryStatusPresentation";
 
 const STATUS_STYLES: Record<string, string> = {
   wanted: "bg-amber-500/20 text-amber-300",
@@ -10,13 +12,18 @@ const STATUS_STYLES: Record<string, string> = {
 
 /** Library state of a title (Missing, Downloading, Downloaded, ...), or a plain "In library" when the status is unknown. */
 export function LibraryStatusChip({
-  status,
+  status: storedStatus,
+  airingState,
   className,
 }: {
   status?: string | null;
+  airingState?: AiringState | null;
   className?: string;
 }) {
   const { t } = useTranslation("common");
+  const status = storedStatus
+    ? displayLibraryStatus(storedStatus, airingState)
+    : storedStatus;
   const label = status
     ? t(`medias.library.itemStatus.${status}`, { defaultValue: status })
     : t("medias.tmdb.inLibrary");

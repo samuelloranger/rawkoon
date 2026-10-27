@@ -28,7 +28,7 @@ export function LibraryItemCard({
   const navigate = useNavigate();
   const prefetchLibraryItem = usePrefetchLibraryItem();
 
-  const p = libraryStatusPresentation(item.status);
+  const p = libraryStatusPresentation(item.status, item.airing_state);
   const statusLabel = useStatusLabel(item, p.labelKey);
 
   const digitalLabel =

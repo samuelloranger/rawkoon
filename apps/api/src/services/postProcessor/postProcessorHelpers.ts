@@ -13,7 +13,6 @@ import { basename, dirname, isAbsolute, join } from "node:path";
 
 import { prisma } from "@rawkoon/api/db";
 import { parseReleaseTitle } from "@rawkoon/api/utils/medias/filenameParser";
-import { resolveDownloadedStatus } from "@rawkoon/api/utils/medias/libraryHelpers";
 import {
   removeStalePartials,
   withPartial,
@@ -226,7 +225,7 @@ export async function replaceFile(
 }
 
 export async function markItemDownloaded(dh: {
-  media: { id: number; type: string; tmdbStatus: string | null };
+  media: { id: number };
   episode: { id: number } | null;
 }): Promise<void> {
   if (dh.episode) {
@@ -237,9 +236,7 @@ export async function markItemDownloaded(dh: {
   } else {
     await prisma.libraryMedia.update({
       where: { id: dh.media.id },
-      data: {
-        status: resolveDownloadedStatus(dh.media.type, dh.media.tmdbStatus),
-      },
+      data: { status: "downloaded" },
     });
   }
 }

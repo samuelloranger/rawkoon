@@ -1,5 +1,7 @@
 import { Prisma } from "@prisma/client";
 import type { TitleLanguage } from "@rawkoon/shared/constants";
+import { airingStateSql } from "@rawkoon/api/services/library/libraryStatusFilter";
+import type { AiringState } from "@rawkoon/shared/types";
 import type { LibrarySortBy, LibrarySortDir } from "./libraryListQuery";
 
 /**
@@ -44,6 +46,7 @@ type LocalizedFilters = {
   language: TitleLanguage;
   type?: string;
   status?: string;
+  airing?: AiringState;
   q?: string;
   fileLanguage?: string;
 };
@@ -52,6 +55,7 @@ function localizedFromWhere(input: LocalizedFilters): Prisma.Sql {
   const conditions: Prisma.Sql[] = [];
   if (input.type) conditions.push(Prisma.sql`m."type" = ${input.type}`);
   if (input.status) conditions.push(Prisma.sql`m."status" = ${input.status}`);
+  if (input.airing) conditions.push(airingStateSql("m.", input.airing));
   if (input.q) {
     const pattern = `%${input.q}%`;
     conditions.push(

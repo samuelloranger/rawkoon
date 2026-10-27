@@ -93,6 +93,7 @@ export const tmdbSearchRoutes = new Hono<Env>().get(
           source_id: null,
           library_id: entry?.id ?? null,
           library_status: entry?.status ?? null,
+          library_airing_state: entry?.airingState ?? null,
         };
       });
 

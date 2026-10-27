@@ -37,6 +37,13 @@ const { syncLibraryShowEpisodes } = await import(
   "@rawkoon/api/services/libraryTmdbRefresh"
 );
 
+function tmdbStatusWritten(): string | undefined {
+  const args = update.mock.calls.at(-1)?.[0] as
+    | { data: { tmdbStatus?: string } }
+    | undefined;
+  return args?.data.tmdbStatus;
+}
+
 function statusWritten(): string | undefined {
   const args = update.mock.calls.at(-1)?.[0] as
     | { data: { status?: string } }
@@ -53,20 +60,22 @@ describe("syncLibraryShowEpisodes status reconciliation", () => {
       id: 675,
       type: "show",
       tmdbId: 202555,
-      status: "returning",
+      status: "downloaded",
       downloadedEpisodeCount: 17,
     };
   });
 
-  it("recomputes the status of a show already in a production status", async () => {
+  it("keeps a downloaded show downloaded and records its airing state in tmdbStatus", async () => {
     await syncLibraryShowEpisodes(675);
-    expect(statusWritten()).toBe("returning");
+    expect(statusWritten()).toBeUndefined();
+    expect(tmdbStatusWritten()).toBe("Returning Series");
   });
 
   it("heals a show latched on 'downloading' with no show-level grab in flight", async () => {
     mediaRow.status = "downloading";
     await syncLibraryShowEpisodes(675);
-    expect(statusWritten()).toBe("returning");
+    expect(statusWritten()).toBe("downloaded");
+    expect(tmdbStatusWritten()).toBe("Returning Series");
   });
 
   it("heals a latched show with no downloaded episodes back to 'wanted'", async () => {

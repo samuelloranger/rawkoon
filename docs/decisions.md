@@ -238,3 +238,49 @@ overwritten, and only the current asker is notified when the title becomes
 available. The list of requests stays one row per title and the uniqueness rule
 closes duplicate-request races. If per-user histories or multiple concurrent
 requesters are ever wanted, this needs a second table and a data migration.
+
+## ADR-009: Library status is acquisition-only; airing is a derived field
+
+**Status:** accepted (2026-10-27).
+
+### Context
+
+`LibraryMedia.status` held two state machines. Acquisition (`wanted`,
+`downloading`, `downloaded`, `upgrading`, `skipped`) and, for a show that had
+finished acquiring, its airing state (`returning`, `in_production`,
+`planned`), copied from the separately stored `tmdbStatus`. Every check for
+`"downloaded"` therefore silently excluded airing shows, and a few call sites
+had to list all four values. The TMDB refresh also had to rewrite the status to
+keep the copy current.
+
+### Decision
+
+The stored status is acquisition-only: a finished show is `downloaded`, and
+whether it is airing is read from `tmdbStatus` through one module,
+`utils/medias/libraryAiring.ts`. A migration rewrites the three airing values
+to `downloaded`, filling a missing `tmdb_status` with the raw value the old
+status stood for so the change can be reversed from `tmdb_status`.
+
+The API contract changes, with no compatibility layer. A library item's
+`status` is the stored acquisition status everywhere it is emitted, and the
+airing label is a separate `airing_state` field (`returning`, `in_production`,
+`planned`, `ended`, or null for a movie or an unrecognised TMDB status). It sits
+beside `status` on library items, the request status `library` object, quick
+search results and library stats rows, and as `library_airing_state` beside the
+TMDB search `library_status` badge. The library list `status` filter takes
+acquisition values only, `sort_by=status` orders on the stored column, and a
+separate `airing` query parameter filters shows by airing state. The web app and
+the iOS app are updated together to render the airing label for a downloaded
+show from `airing_state`; a build that predates this change shows such a show
+as plain "Downloaded".
+
+Internal reads that compared to `"downloaded"` alone keep that meaning by
+excluding airing shows explicitly, so server behaviour is unchanged.
+
+### Consequences
+
+New code can ask "is it acquired" and "is it airing" separately, and the API no
+longer folds two concepts into one string for clients. Some internal checks
+(library stats, integrity, quality-profile upgrade detection) still treat airing
+shows as not `downloaded`; they were preserved as they were and are candidates
+for a separate behaviour change.

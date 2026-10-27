@@ -114,7 +114,14 @@ function dhScopeFromRow(dh: DhRow): {
 }
 
 const dhInclude = {
-  media: { select: { id: true, title: true, type: true, status: true } },
+  media: {
+    select: {
+      id: true,
+      title: true,
+      type: true,
+      status: true,
+    },
+  },
   episode: {
     select: {
       id: true,

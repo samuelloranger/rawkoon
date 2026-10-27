@@ -28,11 +28,29 @@ describe("bucketResolution", () => {
 describe("buildLibraryStatsResponse", () => {
   it("sets missing equal wanted", () => {
     const stats = buildLibraryStatsResponse({
-      byTypeStatus: [{ type: "movie", status: "wanted", count: 3 }],
+      byTypeStatus: [
+        { type: "movie", status: "wanted", airing_state: null, count: 3 },
+        {
+          type: "show",
+          status: "downloaded",
+          airing_state: "returning",
+          count: 2,
+        },
+        { type: "show", status: "downloaded", airing_state: "ended", count: 4 },
+        { type: "movie", status: "downloaded", airing_state: null, count: 1 },
+      ],
       byTmdbStatus: [{ tmdb_status: "Returning Series", count: 2 }],
       files: [{ resolution: 1080, size_bytes: 100n }],
     });
     expect(stats.wanted).toBe(3);
+    // An airing show is not counted as downloaded.
+    expect(stats.downloaded).toBe(5);
+    expect(stats.counts_by_status_type[1]).toEqual({
+      type: "show",
+      status: "downloaded",
+      airing_state: "returning",
+      count: 2,
+    });
     expect(stats.returning_series).toBe(2);
   });
 });

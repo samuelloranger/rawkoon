@@ -22,7 +22,7 @@ nonisolated struct LibraryRowPresentation: Equatable, Sendable {
             isInteractive = false
             showsSpinner = true
         } else {
-            status = .server(media.status)
+            status = .server(media.displayStatus)
             isInteractive = true
             showsSpinner = isBusy
         }

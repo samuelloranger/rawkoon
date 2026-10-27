@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@rawkoon/api/db";
+import { airingStateOf } from "@rawkoon/api/utils/medias/libraryAiring";
 
 export function searchUsers(q: string, limit: number, includeEmail: boolean) {
   const or: Prisma.UserWhereInput[] = [
@@ -16,12 +17,23 @@ export function searchUsers(q: string, limit: number, includeEmail: boolean) {
   });
 }
 
-export function searchLibraryMedias(q: string, limit: number) {
-  return prisma.libraryMedia.findMany({
+export async function searchLibraryMedias(q: string, limit: number) {
+  const rows = await prisma.libraryMedia.findMany({
     where: { title: { contains: q, mode: "insensitive" } },
     take: limit,
-    select: { id: true, title: true, type: true, year: true, status: true },
+    select: {
+      id: true,
+      title: true,
+      type: true,
+      year: true,
+      status: true,
+      tmdbStatus: true,
+    },
   });
+  return rows.map(({ tmdbStatus, ...row }) => ({
+    ...row,
+    airing_state: airingStateOf({ type: row.type, tmdbStatus }),
+  }));
 }
 
 /** Empty unless books are enabled, so a movies-only install skips the query. */

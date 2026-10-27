@@ -14,6 +14,7 @@ import { useBookProviderSearch } from "@/pages/books/_hooks/useBooks";
 import { AddBookDialog } from "@/pages/books/_component/AddBookDialog";
 import { BookRequestAction } from "@/pages/books/_component/BookRequestAction";
 import { ExploreCardDetailDialog } from "@/pages/medias/_component/ExploreCardDetailDialog";
+import { displayLibraryStatus } from "@/utils/libraryStatusPresentation";
 import { TmdbResultCard } from "@/pages/medias/_component/TmdbResultCard";
 
 function Group({
@@ -66,9 +67,12 @@ function LibraryGroup({ query }: { query: string }) {
                 <span className="block truncate text-xs text-neutral-400">
                   {[
                     item.year ?? "",
-                    t(`medias.library.itemStatus.${item.status}`, {
-                      defaultValue: item.status,
-                    }),
+                    t(
+                      `medias.library.itemStatus.${displayLibraryStatus(item.status, item.airing_state)}`,
+                      {
+                        defaultValue: item.status,
+                      },
+                    ),
                   ]
                     .filter(Boolean)
                     .join(" • ")}

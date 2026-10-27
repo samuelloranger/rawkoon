@@ -161,6 +161,8 @@ nonisolated struct LibraryMedia: Decodable, Identifiable, Sendable {
     let title: String
     let year: Int?
     let status: String // wanted / downloading / downloaded / missing …
+    /// A show's airing label (returning / in_production / planned / ended); nil for movies or an older server.
+    var airingState: String?
     // Patched optimistically by `ServerStateStore` before the server confirms.
     var monitored: Bool
     let posterUrl: String?
@@ -200,13 +202,18 @@ nonisolated struct LibraryMedia: Decodable, Identifiable, Sendable {
 
     /// Listed explicitly so `isProvisional` stays a client-only presentation flag.
     private enum CodingKeys: String, CodingKey {
-        case id, tmdbId, type, title, year, status, monitored, posterUrl, overview
+        case id, tmdbId, type, title, year, status, airingState, monitored, posterUrl, overview
         case backdropUrl, overrides
         case qualityProfileId, qualityProfile, totalSizeBytes, episodeCount
         case downloadedEpisodeCount, seasonCount, durationSecs, resolution
         case videoCodec, hdrFormat, audioFormat, languageTags, lastGrabbedAt
         case addedAt, digitalReleaseDate, needsUpgrade, affectedEpisodes
         case lastSearchAt, lastSearchOutcome, lastSearchReason
+    }
+
+    /// What the item is labelled as: a downloaded show that is still airing reads as its airing state.
+    var displayStatus: String {
+        LibraryStatusDisplay.status(status, airingState: airingState)
     }
 
     /// The last search outcome worth showing for this item, if any.

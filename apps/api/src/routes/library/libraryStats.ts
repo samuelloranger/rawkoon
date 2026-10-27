@@ -1,4 +1,5 @@
 import type { LibraryStats, LibraryStatsResolution } from "@rawkoon/shared";
+import type { AiringState } from "@rawkoon/shared/types";
 
 const RESOLUTION_ORDER: LibraryStatsResolution[] = [
   "unknown",
@@ -7,6 +8,12 @@ const RESOLUTION_ORDER: LibraryStatsResolution[] = [
   "1080p",
   "4k",
 ];
+
+function isAiringState(state: AiringState | null): boolean {
+  return (
+    state === "returning" || state === "in_production" || state === "planned"
+  );
+}
 
 export function bucketResolution(
   resolution: number | null,
@@ -19,7 +26,12 @@ export function bucketResolution(
 }
 
 export function buildLibraryStatsResponse(input: {
-  byTypeStatus: { type: string; status: string; count: number }[];
+  byTypeStatus: {
+    type: string;
+    status: string;
+    airing_state: AiringState | null;
+    count: number;
+  }[];
   byTmdbStatus: { tmdb_status: string | null; count: number }[];
   files: { resolution: number | null; size_bytes: bigint }[];
 }): LibraryStats {
@@ -31,11 +43,14 @@ export function buildLibraryStatsResponse(input: {
   const counts_by_status_type = input.byTypeStatus.map((row) => {
     if (row.type === "movie") total_movies += row.count;
     if (row.type === "show") total_shows += row.count;
-    if (row.status === "downloaded") downloaded += row.count;
+    // An airing show is not counted as downloaded.
+    if (row.status === "downloaded" && !isAiringState(row.airing_state))
+      downloaded += row.count;
     if (row.status === "wanted") wanted += row.count;
     return {
       type: row.type as "movie" | "show",
       status: row.status,
+      airing_state: row.airing_state,
       count: row.count,
     };
   });
