@@ -51,7 +51,8 @@ async function adoptExistingFiles(
     // losing-duplicate skip — not a fresh import. Record why in
     // postProcessSkipReason (never postProcessError) so the "downloaded"
     // notification is suppressed. The rescan branch below, which registers
-    // genuinely new files, stays a real import.
+    // genuinely new files, stays a real import. Written here rather than by
+    // finishPostProcess because the request notice below can throw first.
     await prisma.bookEdition.update({
       where: { id: editionId },
       data: { status: "downloaded" },
