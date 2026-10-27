@@ -3,7 +3,6 @@ import {
   type OutcomeEffects,
   productionOutcomeEffects,
 } from "@rawkoon/api/services/downloads/outcomeEffects";
-import { resolveDownloadedStatus } from "@rawkoon/api/utils/medias/libraryHelpers";
 
 /**
  * The only place a DownloadHistory row reaches a terminal state, and the only writer of the
@@ -89,7 +88,7 @@ export async function revertToWantedIfNoActiveGrabs(
   }
 }
 
-/** DB half of a completion; shows use `resolveDownloadedStatus` because an airing series isn't done after one grab. */
+/** DB half of a completion. */
 async function applyCompletionTransition(dh: DownloadRef): Promise<void> {
   const completedAt = new Date();
   await prisma.downloadHistory.update({
@@ -107,19 +106,9 @@ async function applyCompletionTransition(dh: DownloadRef): Promise<void> {
       },
     });
   } else if (dh.mediaId != null) {
-    const media = await prisma.libraryMedia.findUnique({
-      where: { id: dh.mediaId },
-      select: { type: true, tmdbStatus: true },
-    });
     await prisma.libraryMedia.update({
       where: { id: dh.mediaId },
-      data: {
-        status: resolveDownloadedStatus(
-          media?.type ?? "movie",
-          media?.tmdbStatus ?? null,
-        ),
-        searchAttempts: 0,
-      },
+      data: { status: "downloaded", searchAttempts: 0 },
     });
   }
 }

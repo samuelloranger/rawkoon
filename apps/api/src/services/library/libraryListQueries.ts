@@ -1,6 +1,11 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@rawkoon/api/db";
+import {
+  libraryStatusWhere,
+  notAiringSql,
+} from "@rawkoon/api/services/library/libraryStatusFilter";
+import { presentLibraryStatus } from "@rawkoon/api/utils/medias/libraryAiring";
 import { libraryMediaInclude } from "@rawkoon/api/routes/library/libraryHelpers";
 import {
   buildLibraryOrderBy,
@@ -28,7 +33,7 @@ export type LibraryListParams = {
   titleLanguage: TitleLanguage;
 };
 
-const watchableWhere = Prisma.sql`(status IN ('downloaded', 'upgrading') OR downloaded_episode_count > 0)`;
+const watchableWhere = Prisma.sql`((status = 'downloaded' AND ${notAiringSql()}) OR status = 'upgrading' OR downloaded_episode_count > 0)`;
 
 async function randomWatchableIds(
   take: number,
@@ -55,6 +60,25 @@ async function hydrateInOrder(ids: number[]) {
     .filter((r): r is (typeof rows)[number] => r !== undefined);
 }
 
+/** Ids ordered by the status clients read, then id in the same direction. */
+async function sortIdsByPresentedStatus(
+  where: Prisma.LibraryMediaWhereInput,
+  sortDir: "asc" | "desc",
+): Promise<number[]> {
+  const rows = await prisma.libraryMedia.findMany({
+    where,
+    select: { id: true, type: true, status: true, tmdbStatus: true },
+  });
+  const sign = sortDir === "asc" ? 1 : -1;
+  return rows
+    .map((r) => ({ id: r.id, status: presentLibraryStatus(r) }))
+    .sort((a, b) => {
+      if (a.status !== b.status) return (a.status < b.status ? -1 : 1) * sign;
+      return (a.id - b.id) * sign;
+    })
+    .map((r) => r.id);
+}
+
 /**
  * Library rows for one list request, plus how the route must map them:
  * `mapTitleLanguage` is passed to the mapper, `resortLanguage` is set when the
@@ -67,7 +91,7 @@ export async function queryLibraryList(params: LibraryListParams) {
     ? { title: { contains: q, mode: "insensitive" as const } }
     : {};
   const sharedWhere: Prisma.LibraryMediaWhereInput = {
-    ...(status ? { status } : {}),
+    ...(status ? { AND: [libraryStatusWhere(status)] } : {}),
     ...titleFilter,
     ...(language && language.length > 0
       ? { files: { some: { languageTags: { has: language } } } }
@@ -121,7 +145,14 @@ export async function queryLibraryList(params: LibraryListParams) {
 
     // All sorts (including former aggregates) use persisted columns +
     // Prisma orderBy so pagination stays skip/take in the database.
-    if (titleLanguage === DEFAULT_TITLE_LANGUAGE) {
+    if (titleLanguage === DEFAULT_TITLE_LANGUAGE && sortBy === "status") {
+      // The wire status folds airing into the stored one, which SQL ordering on the column can't see.
+      const ids = await sortIdsByPresentedStatus(typedWhere, sortDir);
+      const sliced = slicePage(ids.slice(skip, skip + take + 1), take);
+      has_more = sliced.has_more;
+      rows = await hydrateInOrder(sliced.items);
+      mapTitleLanguage = undefined;
+    } else if (titleLanguage === DEFAULT_TITLE_LANGUAGE) {
       // English keeps the pure-Prisma path: persisted columns, skip/take.
       const found = await prisma.libraryMedia.findMany({
         where: typedWhere,

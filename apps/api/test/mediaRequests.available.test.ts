@@ -45,10 +45,30 @@ describe("notifyRequestAvailable", () => {
         title: "X",
       },
     ];
-    state.mediaStatusById = { 909: "returning" }; // ongoing show, not "downloaded"
+    // ongoing show: downloaded as far as acquisition goes, but still airing
+    state.mediaStatusById = { 909: "downloaded" };
+    state.mediaTmdbStatusById = { 909: "Returning Series" };
     await notifyRequestAvailable(909);
     expect(state.requests[0].status).toBe("approved");
     expect(state.notifications).toEqual([]);
+  });
+
+  it("flips a show request once the show has ended", async () => {
+    state.requests = [
+      {
+        id: 1,
+        tmdbId: 9,
+        type: "show",
+        status: "approved",
+        requestedById: "u1",
+        libraryMediaId: 909,
+        title: "X",
+      },
+    ];
+    state.mediaStatusById = { 909: "downloaded" };
+    state.mediaTmdbStatusById = { 909: "Ended" };
+    await notifyRequestAvailable(909);
+    expect(state.requests[0].status).toBe("available");
   });
 
   it("is a no-op when no approved request links to the media", async () => {

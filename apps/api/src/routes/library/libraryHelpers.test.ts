@@ -9,6 +9,7 @@ const base = {
   sortTitle: "Godfather",
   year: 1972,
   status: "downloaded",
+  tmdbStatus: null,
   monitored: true,
   posterUrl: null,
   overview: null,
@@ -110,5 +111,22 @@ describe("mapLibraryMedia poster override", () => {
   it("falls back to the stored poster", () => {
     const item = { ...base, posterUrl: "https://tmdb/p.jpg" };
     expect(mapLibraryMedia(item).poster_url).toBe("https://tmdb/p.jpg");
+  });
+});
+
+describe("mapLibraryMedia status", () => {
+  it("emits the legacy composite value for a downloaded airing show", () => {
+    const airing = {
+      ...base,
+      type: "show",
+      status: "downloaded",
+      tmdbStatus: "Returning Series",
+    };
+    expect(mapLibraryMedia(airing).status).toBe("returning");
+  });
+
+  it("emits the stored status for a finished show", () => {
+    const ended = { ...base, type: "show", tmdbStatus: "Ended" };
+    expect(mapLibraryMedia(ended).status).toBe("downloaded");
   });
 });

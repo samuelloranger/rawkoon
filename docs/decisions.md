@@ -140,3 +140,45 @@ Every iOS change has a repeatable macOS verification command without baking a
 simulator UUID into the repository. Work in that checkout preserves its
 untracked `HANDOFF.md` and `apps/ios/.swiftpm/` state; implementation commits
 must stage only intended files.
+
+## ADR-006: Library status is acquisition-only; airing is derived from tmdbStatus
+
+**Status:** accepted (2026-10-27).
+
+### Context
+
+`LibraryMedia.status` held two state machines. Acquisition (`wanted`,
+`downloading`, `downloaded`, `upgrading`, `skipped`) and, for a show that had
+finished acquiring, its airing state (`returning`, `in_production`,
+`planned`), copied from the separately stored `tmdbStatus`. Every check for
+`"downloaded"` therefore silently excluded airing shows, and a few call sites
+had to list all four values. The TMDB refresh also had to rewrite the status to
+keep the copy current.
+
+### Decision
+
+The stored status is acquisition-only: a finished show is `downloaded`, and
+whether it is airing is read from `tmdbStatus` through one module,
+`utils/medias/libraryAiring.ts` (`isAiring`, `presentLibraryStatus`). A migration
+rewrites the three airing values to `downloaded`, filling a missing
+`tmdb_status` with the raw value the old status stood for so the change can be
+reversed from `tmdb_status`.
+
+The API contract does not change. Installed web and iOS builds read the
+composite values, so every response that serialises a library item's status
+(list, detail, random, TMDB search badges, quick search, request status,
+attention alerts, stats) runs it through `presentLibraryStatus`. Every input
+that accepted a composite value (the library list `status` filter, `sort_by=status`)
+still does, translated to `downloaded` plus a `tmdbStatus` condition; a plain
+`downloaded` filter keeps meaning "downloaded and not airing". Internal reads
+that compared to `"downloaded"` alone keep that meaning by excluding airing
+shows explicitly, so behaviour is unchanged by this refactor.
+
+### Consequences
+
+New code can ask "is it acquired" and "is it airing" separately. The legacy
+composite exists only at the API boundary and can be removed once no installed
+client reads it. Some internal checks (library stats, integrity, quality-profile
+upgrade detection) still treat airing shows as not
+`downloaded`; they were preserved as they were and are candidates for a
+separate behaviour change.

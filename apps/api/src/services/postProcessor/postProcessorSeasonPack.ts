@@ -18,7 +18,6 @@ import {
   afterImportAction,
   applyAfterImportAction,
 } from "@rawkoon/api/services/downloadClient/afterImport";
-import { resolveDownloadedStatus } from "@rawkoon/api/utils/medias/libraryHelpers";
 
 import {
   parseSeasonEpisode,
@@ -232,9 +231,7 @@ export async function postProcessSeasonPack(
     });
     await prisma.libraryMedia.update({
       where: { id: dh.media.id },
-      data: {
-        status: resolveDownloadedStatus(dh.media.type, dh.media.tmdbStatus),
-      },
+      data: { status: "downloaded" },
     });
     const destinationPath = existingFiles[0]!.filePath;
     return {
@@ -428,9 +425,7 @@ export async function postProcessSeasonPack(
 
   await prisma.libraryMedia.update({
     where: { id: dh.media.id },
-    data: {
-      status: resolveDownloadedStatus(dh.media.type, dh.media.tmdbStatus),
-    },
+    data: { status: "downloaded" },
   });
   await prisma.downloadHistory.update({
     where: { id: downloadHistoryId },

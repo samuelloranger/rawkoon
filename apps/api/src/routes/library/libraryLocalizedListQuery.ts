@@ -1,5 +1,9 @@
 import { Prisma } from "@prisma/client";
 import type { TitleLanguage } from "@rawkoon/shared/constants";
+import {
+  libraryStatusSql,
+  presentedStatusSql,
+} from "@rawkoon/api/services/library/libraryStatusFilter";
 import type { LibrarySortBy, LibrarySortDir } from "./libraryListQuery";
 
 /**
@@ -20,7 +24,7 @@ function orderByFragment(
     case "year":
       return Prisma.sql`m."list_year" ${dir} NULLS LAST, m."id" ${dir}`;
     case "status":
-      return Prisma.sql`m."status" ${dir}, m."id" ${dir}`;
+      return Prisma.sql`${presentedStatusSql("m.")} ${dir}, m."id" ${dir}`;
     case "digital_release_date":
       return Prisma.sql`m."digital_release_date" ${dir} NULLS LAST, m."id" ${dir}`;
     case "file_size":
@@ -51,7 +55,7 @@ type LocalizedFilters = {
 function localizedFromWhere(input: LocalizedFilters): Prisma.Sql {
   const conditions: Prisma.Sql[] = [];
   if (input.type) conditions.push(Prisma.sql`m."type" = ${input.type}`);
-  if (input.status) conditions.push(Prisma.sql`m."status" = ${input.status}`);
+  if (input.status) conditions.push(libraryStatusSql("m.", input.status));
   if (input.q) {
     const pattern = `%${input.q}%`;
     conditions.push(

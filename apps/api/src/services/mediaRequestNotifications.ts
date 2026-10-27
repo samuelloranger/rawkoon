@@ -1,5 +1,6 @@
 import { APP_PATHS } from "@rawkoon/shared/constants";
 import { prisma } from "@rawkoon/api/db";
+import { presentLibraryStatus } from "@rawkoon/api/utils/medias/libraryAiring";
 import { createAndQueueNotification } from "@rawkoon/api/workers/notificationService";
 import {
   getAdminNotificationTargets,
@@ -67,12 +68,12 @@ export async function notifyRequestAvailable(
   // single finished episode (episode downloads carry the parent show's
   // mediaId) flipping a whole-show request, and torrent-complete-but-not-yet-
   // ready cases. "downloaded" is the library's ready state; ongoing shows
-  // resolve to "returning"/etc. and stay approved until truly complete.
+  // are still airing and stay approved until truly complete.
   const media = await prisma.libraryMedia.findUnique({
     where: { id: libraryMediaId },
-    select: { status: true },
+    select: { status: true, type: true, tmdbStatus: true },
   });
-  if (media?.status !== "downloaded") return;
+  if (!media || presentLibraryStatus(media) !== "downloaded") return;
 
   await finalizeRequestAvailable(req, {
     libraryMediaId: req.libraryMediaId,

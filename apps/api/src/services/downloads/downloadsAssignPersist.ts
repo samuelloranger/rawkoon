@@ -4,7 +4,6 @@ import { basename } from "node:path";
 import { prisma } from "@rawkoon/api/db";
 import { classifyLanguageTags, type LibraryAudioTrack } from "@rawkoon/shared";
 import { parseFilenameMetadata } from "@rawkoon/api/utils/medias/filenameParser";
-import { resolveDownloadedStatus } from "@rawkoon/api/utils/medias/libraryHelpers";
 import {
   fingerprintDbFields,
   fingerprintFromStats,
@@ -110,12 +109,7 @@ export async function persistMediaAndStatuses(opts: {
 
   await prisma.libraryMedia.update({
     where: { id: opts.mediaId },
-    data: {
-      status: resolveDownloadedStatus(
-        opts.libraryRow.type,
-        opts.libraryRow.tmdbStatus,
-      ),
-    },
+    data: { status: "downloaded" },
   });
 
   return mfRow;

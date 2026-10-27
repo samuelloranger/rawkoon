@@ -35,12 +35,12 @@ async function revertRejectedImport(
     });
     return;
   }
-  // Movie or season pack: undo exactly the statuses the completion transition writes.
+  // Movie or season pack: undo the status the completion transition writes.
   if (dh.mediaId != null) {
     await prisma.libraryMedia.updateMany({
       where: {
         id: dh.mediaId,
-        status: { in: ["downloaded", "returning", "in_production", "planned"] },
+        status: "downloaded",
       },
       data: { status: "wanted" },
     });

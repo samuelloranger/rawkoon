@@ -3,7 +3,6 @@ import { basename, extname } from "node:path";
 import { prisma } from "@rawkoon/api/db";
 import { TMDB_LANGUAGE_LIBRARY_PERSISTENCE } from "@rawkoon/api/utils/medias/tmdbFetcherTypes";
 import {
-  resolveDownloadedStatus,
   sortTitleFromName,
   tmdbApiFetch,
 } from "@rawkoon/api/utils/medias/libraryHelpers";
@@ -133,7 +132,7 @@ export async function importScannedVideos(
             title: details.name,
             sortTitle: sortTitleFromName(details.name),
             year: y,
-            status: resolveDownloadedStatus("show", details.status ?? null),
+            status: "downloaded",
             tmdbStatus: details.status ?? null,
             posterUrl,
             overview: details.overview || null,

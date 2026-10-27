@@ -136,18 +136,6 @@ export async function upsertLibraryShowEpisodesFromTmdb(opts: {
   }
 }
 
-export function resolveDownloadedStatus(
-  type: string,
-  tmdbStatus: string | null,
-): string {
-  if (type === "show" && tmdbStatus) {
-    if (tmdbStatus === "Returning Series") return "returning";
-    if (tmdbStatus === "In Production") return "in_production";
-    if (tmdbStatus === "Planned") return "planned";
-  }
-  return "downloaded";
-}
-
 /** Past this age a title with no home release listed on TMDB is treated as out. */
 const HOME_RELEASE_FALLBACK_AGE_MS = 365 * 24 * 60 * 60 * 1000;
 
