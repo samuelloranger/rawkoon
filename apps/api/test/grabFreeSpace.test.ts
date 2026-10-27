@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { tmpdir } from "node:os";
+import { dbModule } from "./mocks/prisma";
+import { makeNotifyLibraryEventsMock } from "./mocks/notifyLibraryEvents";
 
 // Real statfs on a real directory: the free-space figure is the machine's, so
 // the tests force each outcome through the size / minimum-to-keep settings.
@@ -15,32 +17,41 @@ const blocklistWrites: unknown[] = [];
 const createCalls: unknown[] = [];
 const addedTorrents: unknown[] = [];
 
-mock.module("@rawkoon/api/db", () => ({
-  prisma: {
-    mediaSettings: { findUnique: async () => settings },
-    libraryMedia: {
-      findUnique: async () => ({ id: 42, type: "movie", title: "Some Movie" }),
-      update: async () => ({}),
-    },
-    libraryEpisode: { update: async () => ({}) },
-    grabBlocklist: {
-      findFirst: async () => null,
-      create: async (a: unknown) => {
-        blocklistWrites.push(a);
-        return {};
+mock.module("@rawkoon/api/workers/notifyLibraryEvents", () =>
+  makeNotifyLibraryEventsMock(),
+);
+mock.module("@rawkoon/api/db", () =>
+  dbModule({
+    prisma: {
+      mediaSettings: { findUnique: async () => settings },
+      libraryMedia: {
+        findUnique: async () => ({
+          id: 42,
+          type: "movie",
+          title: "Some Movie",
+        }),
+        update: async () => ({}),
       },
-    },
-    downloadHistory: {
-      findFirst: async () => null,
-      create: async (a: unknown) => {
-        createCalls.push(a);
-        return { id: 9001 };
+      libraryEpisode: { update: async () => ({}) },
+      grabBlocklist: {
+        findFirst: async () => null,
+        create: async (a: unknown) => {
+          blocklistWrites.push(a);
+          return {};
+        },
       },
-      update: async () => ({ id: 9001 }),
+      downloadHistory: {
+        findFirst: async () => null,
+        create: async (a: unknown) => {
+          createCalls.push(a);
+          return { id: 9001 };
+        },
+        update: async () => ({ id: 9001 }),
+      },
+      activityLog: { create: async () => ({ id: 1 }) },
     },
-    activityLog: { create: async () => ({ id: 1 }) },
-  },
-}));
+  }),
+);
 
 mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
   resolveActiveAdapter: async () => ({

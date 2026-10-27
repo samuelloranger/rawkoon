@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { dbModule } from "./mocks/prisma";
 
 const grabRelease = mock(async () => ({
   grabbed: true as const,
@@ -17,16 +18,18 @@ const state = {
   episode: null as { mediaId: number } | null,
 };
 
-mock.module("@rawkoon/api/db", () => ({
-  prisma: {
-    libraryMedia: {
-      findUnique: async () => state.media,
+mock.module("@rawkoon/api/db", () =>
+  dbModule({
+    prisma: {
+      libraryMedia: {
+        findUnique: async () => state.media,
+      },
+      libraryEpisode: {
+        findUnique: async () => state.episode,
+      },
     },
-    libraryEpisode: {
-      findUnique: async () => state.episode,
-    },
-  },
-}));
+  }),
+);
 
 mock.module("@rawkoon/api/services/indexerManager", () => ({
   getActiveIndexerManager: async () => ({

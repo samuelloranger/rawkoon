@@ -7,6 +7,7 @@
  */
 import { describe, expect, mock, test, beforeEach } from "bun:test";
 import { Hono } from "hono";
+import { dbModule } from "../../../test/mocks/prisma";
 
 const EPOCH = new Date(0);
 
@@ -63,7 +64,7 @@ const prismaStub = {
   },
 };
 
-mock.module("@rawkoon/api/db", () => ({ prisma: prismaStub }));
+mock.module("@rawkoon/api/db", () => dbModule({ prisma: prismaStub }));
 
 mock.module("@rawkoon/api/lib/auth", () => ({
   auth: {

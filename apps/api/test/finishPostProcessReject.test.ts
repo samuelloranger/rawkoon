@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { dbModule } from "./mocks/prisma";
 
 const DH = {
   mediaId: 42 as number | null,
@@ -31,18 +32,22 @@ const revert = (model: string) => async (args: { data: unknown }) => {
   return { count: 1 };
 };
 
-mock.module("@rawkoon/api/db", () => ({
-  prisma: {
-    downloadHistory: {
-      findUnique: async () => state.dh,
-      update: async () => ({ id: 1 }),
+mock.module("@rawkoon/api/db", () =>
+  dbModule({
+    prisma: {
+      downloadHistory: {
+        findUnique: async () => state.dh,
+        update: async () => ({ id: 1 }),
+      },
+      mediaSettings: {
+        findUnique: async () => ({ blockedExtensions: ["exe"] }),
+      },
+      libraryMedia: { updateMany: revert("media") },
+      libraryEpisode: { updateMany: revert("episode") },
+      bookEdition: { updateMany: revert("edition") },
     },
-    mediaSettings: { findUnique: async () => ({ blockedExtensions: ["exe"] }) },
-    libraryMedia: { updateMany: revert("media") },
-    libraryEpisode: { updateMany: revert("episode") },
-    bookEdition: { updateMany: revert("edition") },
-  },
-}));
+  }),
+);
 mock.module("@rawkoon/api/services/postProcessorSingle", () => ({
   postProcess: async () => {
     state.processed += 1;

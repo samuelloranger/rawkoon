@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 import * as realFs from "node:fs/promises";
+import { dbModule } from "./mocks/prisma";
 
 /**
  * Regression (board task 723): a second grab for an item whose file another
@@ -53,40 +54,42 @@ mock.module("node:fs/promises", () => ({
   access: async () => {},
 }));
 
-mock.module("@rawkoon/api/db", () => ({
-  prisma: {
-    downloadHistory: {
-      findUnique: async () => state.dh,
-      update: async (args: { data: Record<string, unknown> }) => {
-        state.dhUpdates.push(args.data);
-        return { id: 1 };
+mock.module("@rawkoon/api/db", () =>
+  dbModule({
+    prisma: {
+      downloadHistory: {
+        findUnique: async () => state.dh,
+        update: async (args: { data: Record<string, unknown> }) => {
+          state.dhUpdates.push(args.data);
+          return { id: 1 };
+        },
+      },
+      mediaSettings: { findUnique: async () => state.settings },
+      mediaFile: {
+        findMany: async () => state.mediaFiles,
+        findFirst: async () => null,
+        create: async (args: unknown) => {
+          state.mediaFileCreates.push(args);
+          return { id: 999 };
+        },
+        update: async () => ({ id: 1 }),
+      },
+      libraryMedia: { update: async () => ({ id: 1 }) },
+      libraryEpisode: { update: async () => ({ id: 1 }) },
+      bookFile: {
+        findMany: async () => state.bookFiles,
+        create: async (args: unknown) => {
+          state.bookFileCreates.push(args);
+          return { id: 999 };
+        },
+      },
+      bookEdition: {
+        update: async () => ({ id: 1, bookId: 7 }),
+        findUnique: async () => ({ bookId: 7 }),
       },
     },
-    mediaSettings: { findUnique: async () => state.settings },
-    mediaFile: {
-      findMany: async () => state.mediaFiles,
-      findFirst: async () => null,
-      create: async (args: unknown) => {
-        state.mediaFileCreates.push(args);
-        return { id: 999 };
-      },
-      update: async () => ({ id: 1 }),
-    },
-    libraryMedia: { update: async () => ({ id: 1 }) },
-    libraryEpisode: { update: async () => ({ id: 1 }) },
-    bookFile: {
-      findMany: async () => state.bookFiles,
-      create: async (args: unknown) => {
-        state.bookFileCreates.push(args);
-        return { id: 999 };
-      },
-    },
-    bookEdition: {
-      update: async () => ({ id: 1, bookId: 7 }),
-      findUnique: async () => ({ bookId: 7 }),
-    },
-  },
-}));
+  }),
+);
 
 const { postProcess } = await import(
   "@rawkoon/api/services/postProcessorSingle"

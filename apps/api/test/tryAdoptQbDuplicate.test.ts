@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
+import { dbModule } from "./mocks/prisma";
 
 // Regression test for the load-bearing fix: when mediaGrabber adopts an
 // already-complete qBittorrent torrent (re-grab path), it must enqueue
@@ -47,57 +48,59 @@ const state: {
   mediaStatus: "downloaded",
 };
 
-mock.module("@rawkoon/api/db", () => ({
-  prisma: {
-    downloadHistory: {
-      update: (args: {
-        where: { id: number };
-        data: Record<string, unknown>;
-      }) => {
-        state.dhUpdates.push(args);
-        return Promise.resolve({});
+mock.module("@rawkoon/api/db", () =>
+  dbModule({
+    prisma: {
+      downloadHistory: {
+        update: (args: {
+          where: { id: number };
+          data: Record<string, unknown>;
+        }) => {
+          state.dhUpdates.push(args);
+          return Promise.resolve({});
+        },
+      },
+      libraryEpisode: {
+        update: (args: {
+          where: { id: number };
+          data: Record<string, unknown>;
+        }) => {
+          state.episodeUpdates.push(args);
+          return Promise.resolve({});
+        },
+      },
+      libraryMedia: {
+        update: (args: {
+          where: { id: number };
+          data: Record<string, unknown>;
+        }) => {
+          state.mediaUpdates.push(args);
+          return Promise.resolve({});
+        },
+        findUnique: () =>
+          Promise.resolve({
+            type: "show",
+            tmdbStatus: null,
+            status: state.mediaStatus,
+          }),
+      },
+      grabBlocklist: { findFirst: () => Promise.resolve(null) },
+      mediaSettings: {
+        findUnique: () => Promise.resolve({ postProcessingEnabled: true }),
+      },
+      mediaRequest: {
+        findFirst: () => Promise.resolve(state.approvedRequest),
+        update: (args: {
+          where: { id: number };
+          data: Record<string, unknown>;
+        }) => {
+          state.requestUpdates.push(args);
+          return Promise.resolve({});
+        },
       },
     },
-    libraryEpisode: {
-      update: (args: {
-        where: { id: number };
-        data: Record<string, unknown>;
-      }) => {
-        state.episodeUpdates.push(args);
-        return Promise.resolve({});
-      },
-    },
-    libraryMedia: {
-      update: (args: {
-        where: { id: number };
-        data: Record<string, unknown>;
-      }) => {
-        state.mediaUpdates.push(args);
-        return Promise.resolve({});
-      },
-      findUnique: () =>
-        Promise.resolve({
-          type: "show",
-          tmdbStatus: null,
-          status: state.mediaStatus,
-        }),
-    },
-    grabBlocklist: { findFirst: () => Promise.resolve(null) },
-    mediaSettings: {
-      findUnique: () => Promise.resolve({ postProcessingEnabled: true }),
-    },
-    mediaRequest: {
-      findFirst: () => Promise.resolve(state.approvedRequest),
-      update: (args: {
-        where: { id: number };
-        data: Record<string, unknown>;
-      }) => {
-        state.requestUpdates.push(args);
-        return Promise.resolve({});
-      },
-    },
-  },
-}));
+  }),
+);
 
 mock.module("@rawkoon/api/workers/notificationService", () => ({
   createAndQueueNotification: () => Promise.resolve(undefined),
