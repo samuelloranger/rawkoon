@@ -83,7 +83,7 @@ describe("Export API", () => {
   });
 
   it("rejects an out-of-range limit", async () => {
-    const res = await get("/library?limit=201");
+    const res = await get("/library?limit=101");
     expect(res.status).toBe(400);
   });
 
@@ -112,7 +112,7 @@ describe("Export API", () => {
     const body = (await (
       await get("/library")
     ).json()) as ExportLibraryResponse;
-    expect(body).toMatchObject({ page: 1, limit: 100, has_more: false });
+    expect(body).toMatchObject({ page: 1, limit: 50, has_more: false });
     const [item] = body.items;
     expect(item).toMatchObject({
       id: 1,
