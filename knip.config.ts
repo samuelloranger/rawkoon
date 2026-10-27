@@ -18,10 +18,8 @@ const config: KnipConfig = {
       entry: ["src/sw/index.ts", "src/routeTree.gen.ts"],
       project: ["src/**/*.{ts,tsx}"],
       // @tailwindcss/typography: CSS @plugin directive — not a JS import, knip can't see it
-      // @readium/navigator-html-injectables: pinned directly but only loaded transitively by @readium/navigator
       ignoreDependencies: [
         "@tailwindcss/typography",
-        "@readium/navigator-html-injectables",
       ],
     },
     "apps/shared": {
