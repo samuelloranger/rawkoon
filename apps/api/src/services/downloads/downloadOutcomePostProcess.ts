@@ -224,12 +224,20 @@ export async function finishPostProcess(
       if (!result.skipped) {
         const packEpisodeCount = result.episodeCount;
         if (!isUpgrade) {
-          await effects.importLanded({
-            mediaId,
-            episodeId,
-            season,
-            episodeCount: packEpisodeCount,
-          });
+          // A live-client event must never fail the import it reports.
+          await effects
+            .importLanded({
+              mediaId,
+              episodeId,
+              season,
+              episodeCount: packEpisodeCount,
+            })
+            .catch((e) =>
+              console.warn(
+                `[downloadOutcome] landed event failed dh=${downloadHistoryId}:`,
+                e,
+              ),
+            );
         }
         await effects.mediaDownloaded({
           mediaId,

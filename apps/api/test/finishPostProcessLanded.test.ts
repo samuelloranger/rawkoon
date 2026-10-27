@@ -114,6 +114,26 @@ describe("finishPostProcess landed event", () => {
     await finishPostProcess(1, effects);
     expect(effects.named("importLanded")).toHaveLength(0);
   });
+
+  it("finishes the import when the landed event rejects", async () => {
+    effects.importLanded = async () => {
+      throw new Error("events down");
+    };
+    const result = await finishPostProcess(1, effects);
+    expect(result.success).toBe(true);
+    expect(effects.named("mediaDownloaded")).toHaveLength(1);
+    expect(effects.named("libraryScan")).toHaveLength(1);
+  });
+
+  it("still rescans the library when the seed check rejects", async () => {
+    state.dh = { ...state.dh, torrentHash: "abc" };
+    effects.seedReleaseCheck = async () => {
+      throw new Error("client down");
+    };
+    const result = await finishPostProcess(1, effects);
+    expect(result.success).toBe(true);
+    expect(effects.named("libraryScan")).toHaveLength(1);
+  });
 });
 
 describe("production landed adapter", () => {
