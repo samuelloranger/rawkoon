@@ -1,11 +1,9 @@
 import { prisma } from "@rawkoon/api/db";
 import {
-  emitBookUpdate,
-  emitLibraryUpdate,
-} from "@rawkoon/api/services/libraryEvents";
-import { notifyRequestAvailable } from "@rawkoon/api/services/mediaRequests";
+  type OutcomeEffects,
+  productionOutcomeEffects,
+} from "@rawkoon/api/services/downloads/outcomeEffects";
 import { resolveDownloadedStatus } from "@rawkoon/api/utils/medias/libraryHelpers";
-import { notifyAdminsLibraryDownloadFailed } from "@rawkoon/api/workers/notifyLibraryEvents";
 
 /** The only place a DownloadHistory row reaches a terminal state; grab-time failures stay in the grab path. */
 
@@ -21,6 +19,7 @@ export type DownloadRef = {
 /** Unblock an item with no other active grab: `downloading` -> `wanted`, in-flight upgrade -> `downloaded`. */
 export async function revertToWantedIfNoActiveGrabs(
   dh: DownloadRef,
+  effects: OutcomeEffects = productionOutcomeEffects,
 ): Promise<void> {
   // Books first: a book row has no mediaId, so a failed book download would stay "downloading".
   if (dh.bookEditionId != null) {
@@ -47,7 +46,7 @@ export async function revertToWantedIfNoActiveGrabs(
       where: { id: dh.bookEditionId },
       select: { bookId: true },
     });
-    if (reverted) emitBookUpdate(reverted.bookId);
+    if (reverted) effects.bookChanged(reverted.bookId);
     return;
   }
 
@@ -122,13 +121,16 @@ async function applyCompletionTransition(dh: DownloadRef): Promise<void> {
 }
 
 /** Finish a download: transition, notify listeners and requester, schedule post-processing. */
-export async function completeDownload(dh: DownloadRef): Promise<number> {
+export async function completeDownload(
+  dh: DownloadRef,
+  effects: OutcomeEffects = productionOutcomeEffects,
+): Promise<number> {
   await applyCompletionTransition(dh);
 
   if (dh.mediaId != null) {
-    emitLibraryUpdate(dh.mediaId);
+    effects.libraryChanged(dh.mediaId);
     // Reads the status written above, so it must run after the transition.
-    await notifyRequestAvailable(dh.mediaId);
+    await effects.requestAvailable(dh.mediaId);
   }
 
   // Scheduling failure must not undo the transition (reconcile skips completed rows), so persist the reason.
@@ -153,6 +155,7 @@ export async function completeDownload(dh: DownloadRef): Promise<number> {
 /** Complete the newest pending row for a hash, else re-queue the newest completed one (recovery for a file that never landed). */
 export async function completeDownloadByHash(
   hash: string,
+  effects: OutcomeEffects = productionOutcomeEffects,
 ): Promise<number | null> {
   const normalizedHash = hash.toLowerCase().trim();
   if (!normalizedHash) return null;
@@ -161,7 +164,7 @@ export async function completeDownloadByHash(
     where: { torrentHash: normalizedHash, completedAt: null, failed: false },
     orderBy: { id: "desc" },
   });
-  if (pending) return completeDownload(pending);
+  if (pending) return completeDownload(pending, effects);
 
   const completed = await prisma.downloadHistory.findFirst({
     where: { torrentHash: normalizedHash, failed: false },
@@ -180,16 +183,17 @@ export async function completeDownloadByHash(
 export async function failDownload(
   dh: DownloadRef,
   reason: string,
+  effects: OutcomeEffects = productionOutcomeEffects,
 ): Promise<void> {
   await prisma.downloadHistory.update({
     where: { id: dh.id },
     data: { failed: true, failReason: reason },
   });
-  await revertToWantedIfNoActiveGrabs(dh);
+  await revertToWantedIfNoActiveGrabs(dh, effects);
   if (dh.mediaId != null) {
-    emitLibraryUpdate(dh.mediaId);
+    effects.libraryChanged(dh.mediaId);
     try {
-      await notifyAdminsLibraryDownloadFailed({
+      await effects.downloadFailed({
         mediaId: dh.mediaId,
         episodeId: dh.episodeId,
         reason,
@@ -206,8 +210,10 @@ export async function adoptDownload(ctx: {
   torrentHash: string;
   completed: boolean;
   isUpgrade?: boolean;
+  effects?: OutcomeEffects;
 }): Promise<void> {
   const { dh, torrentHash, completed, isUpgrade } = ctx;
+  const effects = ctx.effects ?? productionOutcomeEffects;
 
   await prisma.downloadHistory.update({
     where: { id: dh.id },
@@ -222,7 +228,7 @@ export async function adoptDownload(ctx: {
   });
 
   if (completed) {
-    await completeDownload(dh);
+    await completeDownload(dh, effects);
     return;
   }
 
@@ -233,7 +239,7 @@ export async function adoptDownload(ctx: {
       data: { status: nextStatus, searchAttempts: 0 },
       select: { bookId: true },
     });
-    emitBookUpdate(edition.bookId);
+    effects.bookChanged(edition.bookId);
   } else if (dh.episodeId != null) {
     await prisma.libraryEpisode.update({
       where: { id: dh.episodeId },

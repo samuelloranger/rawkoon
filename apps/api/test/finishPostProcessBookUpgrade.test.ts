@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { recordingEffects } from "./mocks/outcomeEffects";
 
 // Every book outcome of finishPostProcess must tell the notifier whether the
 // grab was an upgrade, including the path where post-processing throws.
@@ -15,8 +16,6 @@ const state = {
     indexer: "Nimbus",
   },
   bookResult: { success: true } as Record<string, unknown> | Error,
-  downloaded: [] as unknown[][],
-  failed: [] as unknown[][],
 };
 
 mock.module("@rawkoon/api/db", () => ({
@@ -37,43 +36,25 @@ mock.module("@rawkoon/api/services/postProcessor/postProcessorBook", () => ({
     return state.bookResult;
   },
 }));
-mock.module("@rawkoon/api/services/libraryEvents", () => ({
-  emitLibraryUpdate: () => {},
-  emitBookUpdate: () => {},
-  emitSeedState: () => {},
-  emitLibraryLanded: () => {},
-}));
-mock.module("@rawkoon/api/services/jellyfin/jellyfinLibraryRefresh", () => ({
-  triggerJellyfinLibraryScan: async () => {},
-}));
 mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
   resolveActiveAdapter: async () => null,
 }));
-mock.module("@rawkoon/api/workers/notifyBookEvents", () => ({
-  notifyAdminsBookDownloaded: async (...args: unknown[]) => {
-    state.downloaded.push(args);
-  },
-  notifyAdminsBookImportFailed: async (...args: unknown[]) => {
-    state.failed.push(args);
-  },
-  notifyAdminsBookGrabbed: async () => {},
-}));
-
 const { finishPostProcess } = await import(
   "@rawkoon/api/services/downloads/downloadOutcome"
 );
 
+let effects = recordingEffects();
+
 beforeEach(() => {
   state.dh.isUpgrade = true;
   state.bookResult = { success: true };
-  state.downloaded = [];
-  state.failed = [];
+  effects = recordingEffects();
 });
 
 describe("finishPostProcess book upgrade notices", () => {
   it("flags a successful upgrade import", async () => {
-    await finishPostProcess(1);
-    expect(state.downloaded).toEqual([[11, true]]);
+    await finishPostProcess(1, effects);
+    expect(effects.named("bookDownloaded")).toEqual([[11, true]]);
   });
 
   it("flags an upgrade whose import failed", async () => {
@@ -81,21 +62,41 @@ describe("finishPostProcess book upgrade notices", () => {
       success: false,
       reason: "Every candidate file failed to import",
     };
-    await finishPostProcess(1);
-    expect(state.failed).toEqual([
-      [11, "Every candidate file failed to import", true],
+    await finishPostProcess(1, effects);
+    expect(effects.named("importFailed")).toEqual([
+      [
+        {
+          downloadHistoryId: 1,
+          reason: "Every candidate file failed to import",
+          mediaId: null,
+          episodeId: null,
+          bookEditionId: 11,
+          isUpgrade: true,
+        },
+      ],
     ]);
   });
 
   it("flags an upgrade whose post-processing threw", async () => {
     state.bookResult = new Error("disk unavailable");
-    await finishPostProcess(1);
-    expect(state.failed).toEqual([[11, "disk unavailable", true]]);
+    await finishPostProcess(1, effects);
+    expect(effects.named("importFailed")).toEqual([
+      [
+        {
+          downloadHistoryId: 1,
+          reason: "disk unavailable",
+          mediaId: null,
+          episodeId: null,
+          bookEditionId: 11,
+          isUpgrade: true,
+        },
+      ],
+    ]);
   });
 
   it("leaves a first grab unflagged", async () => {
     state.dh.isUpgrade = false;
-    await finishPostProcess(1);
-    expect(state.downloaded).toEqual([[11, false]]);
+    await finishPostProcess(1, effects);
+    expect(effects.named("bookDownloaded")).toEqual([[11, false]]);
   });
 });

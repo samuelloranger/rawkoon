@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { dbModule } from "./mocks/prisma";
+import { recordingEffects } from "./mocks/outcomeEffects";
 
 const DH = {
   mediaId: 42 as number | null,
@@ -17,8 +18,6 @@ const state = {
   rejected: [] as Array<{ id: number; kind: string; reason: string }>,
   reverted: [] as Array<{ model: string; data: unknown }>,
   processed: 0,
-  postProcessFailedCalls: 0,
-  evaluated: [] as string[],
   files: null as string[] | null,
   result: {
     success: false,
@@ -57,27 +56,6 @@ mock.module("@rawkoon/api/services/postProcessor/postProcessorSingle", () => ({
 mock.module("@rawkoon/api/services/postProcessor/postProcessorBook", () => ({
   postProcessBookDownload: async () => ({ success: false, reason: "unused" }),
 }));
-mock.module("@rawkoon/api/services/libraryEvents", () => ({
-  emitLibraryUpdate: () => {},
-  emitBookUpdate: () => {},
-  emitSeedState: () => {},
-  emitLibraryLanded: () => {},
-}));
-mock.module("@rawkoon/api/services/jellyfin/jellyfinLibraryRefresh", () => ({
-  triggerJellyfinLibraryScan: async () => {},
-}));
-mock.module("@rawkoon/api/services/mediaRequests", () => ({
-  notifyRequestAvailable: async () => {},
-}));
-mock.module("@rawkoon/api/workers/notifyMediaDownloaded", () => ({
-  notifyAdminsMediaDownloaded: async () => {},
-}));
-mock.module("@rawkoon/api/workers/notifyLibraryEvents", () => ({
-  notifyAdminsPostProcessFailed: async () => {
-    state.postProcessFailedCalls += 1;
-  },
-  notifyAdminsLibraryDownloadFailed: async () => {},
-}));
 mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
   resolveActiveAdapter: async () => ({
     adapter: { listFiles: async () => state.files },
@@ -96,23 +74,18 @@ mock.module("@rawkoon/api/services/downloads/downloadJanitor", () => ({
     return files?.find((f) => exts.some((e) => f.endsWith(`.${e}`))) ?? null;
   },
 }));
-mock.module("@rawkoon/api/services/seeding/seedSweep", () => ({
-  evaluateSeedRelease: async (hash: string) => {
-    state.evaluated.push(hash);
-  },
-}));
-
 const { finishPostProcess } = await import(
   "@rawkoon/api/services/downloads/downloadOutcome"
 );
+
+let effects = recordingEffects();
 
 beforeEach(() => {
   state.dh = { ...DH };
   state.rejected = [];
   state.reverted = [];
   state.processed = 0;
-  state.postProcessFailedCalls = 0;
-  state.evaluated = [];
+  effects = recordingEffects();
   state.files = ["Some/Some.mkv"];
   state.result = {
     success: false,
@@ -123,11 +96,11 @@ beforeEach(() => {
 
 describe("finishPostProcess rejects", () => {
   it("routes a content failure to rejectRelease instead of a post-process-failed notice", async () => {
-    await finishPostProcess(1);
+    await finishPostProcess(1, effects);
     expect(state.rejected).toEqual([
       { id: 1, kind: "import_rejected", reason: "No video file found" },
     ]);
-    expect(state.postProcessFailedCalls).toBe(0);
+    expect(effects.named("importFailed")).toHaveLength(0);
   });
 
   it("keeps environmental failures retryable", async () => {
@@ -135,26 +108,26 @@ describe("finishPostProcess rejects", () => {
       success: false,
       reason: "Movies library path not configured",
     };
-    await finishPostProcess(1);
+    await finishPostProcess(1, effects);
     expect(state.rejected).toEqual([]);
-    expect(state.postProcessFailedCalls).toBe(1);
+    expect(effects.named("importFailed")).toHaveLength(1);
   });
 
   it("rejects a blocked file before importing anything", async () => {
     state.files = ["Some/Some.mkv", "Some/setup.exe"];
-    const out = await finishPostProcess(1);
+    const out = await finishPostProcess(1, effects);
     expect(out.success).toBe(false);
     expect(state.rejected[0]).toMatchObject({ kind: "malware" });
   });
 
   it("evaluates the seed release after a successful import", async () => {
     state.result = { success: true, destinationPath: "/m/Some.mkv" };
-    await finishPostProcess(1);
-    expect(state.evaluated).toEqual(["ab".repeat(20)]);
+    await finishPostProcess(1, effects);
+    expect(effects.named("seedReleaseCheck")).toEqual([["ab".repeat(20)]]);
   });
 
   it("sends a rejected, non-upgrade title back to wanted so search moves on", async () => {
-    await finishPostProcess(1);
+    await finishPostProcess(1, effects);
     expect(state.reverted).toContainEqual({
       model: "media",
       data: { status: "wanted" },
@@ -163,16 +136,16 @@ describe("finishPostProcess rejects", () => {
 
   it("leaves an upgrade's title alone — its old file is still there", async () => {
     state.dh = { ...DH, isUpgrade: true };
-    await finishPostProcess(1);
+    await finishPostProcess(1, effects);
     expect(state.reverted).toEqual([]);
   });
 
   it("skips a row whose library item was removed, without notifying", async () => {
     state.dh = { ...DH, mediaId: null };
-    const out = await finishPostProcess(1);
+    const out = await finishPostProcess(1, effects);
     expect(out.success).toBe(true);
     expect(state.processed).toBe(0);
-    expect(state.postProcessFailedCalls).toBe(0);
+    expect(effects.named("importFailed")).toHaveLength(0);
     expect(state.rejected).toEqual([]);
   });
 });
