@@ -3,7 +3,7 @@ import XCTest
 
 final class BookTimelineTests: XCTestCase {
     /// Offsets as registered for a real multi-file audiobook. NOT metadata.json's atoms,
-    /// which end at 29381.830 — the 1.567s gap is frame-quantisation drift and
+    /// which end at 28798.900 — the 1.6s gap is frame-quantisation drift and
     /// a fixture from the wrong source would encode the bug into the client.
     private func chapter(_ i: Int, _ s: Double, _ e: Double) -> ManifestChapter {
         ManifestChapter(index: i, title: "Chapter \(i + 1)", startSecs: s, endSecs: e,
@@ -12,15 +12,15 @@ final class BookTimelineTests: XCTestCase {
 
     private var timeline: BookTimeline {
         BookTimeline(chapters: [
-            chapter(0, 0.0, 504.189388),
-            chapter(1, 504.189388, 1042.860408),
-            chapter(2, 1042.860408, 1452.382041),
-            chapter(3, 1452.382041, 1995.049796),
+            chapter(0, 0.0, 498.125),
+            chapter(1, 498.125, 1037.5),
+            chapter(2, 1037.5, 1450.25),
+            chapter(3, 1450.25, 1990.0),
         ])
     }
 
     func testTotalIsTheLastChaptersEnd() {
-        XCTAssertEqual(timeline.totalDurationSecs, 1995.049796, accuracy: 1e-9)
+        XCTAssertEqual(timeline.totalDurationSecs, 1990.0, accuracy: 1e-9)
     }
 
     func testPositionMapsToTheContainingChapter() {
@@ -33,8 +33,8 @@ final class BookTimelineTests: XCTestCase {
     /// A boundary belongs to the chapter it STARTS, never the one it ends.
     /// Ambiguity here is what makes a "next chapter" tap land back where it was.
     func testExactBoundaryBelongsToTheFollowingChapter() {
-        XCTAssertEqual(timeline.chapterIndex(at: 504.189388), 1)
-        XCTAssertEqual(timeline.chapterIndex(at: 1042.860408), 2)
+        XCTAssertEqual(timeline.chapterIndex(at: 498.125), 1)
+        XCTAssertEqual(timeline.chapterIndex(at: 1037.5), 2)
     }
 
     func testRoundTripThroughChapterOffset() throws {
@@ -43,7 +43,7 @@ final class BookTimelineTests: XCTestCase {
             return XCTFail("expected a chapter")
         }
         XCTAssertEqual(split.index, 1)
-        XCTAssertEqual(split.offsetSecs, 700.5 - 504.189388, accuracy: 1e-9)
+        XCTAssertEqual(split.offsetSecs, 700.5 - 498.125, accuracy: 1e-9)
         XCTAssertEqual(try XCTUnwrap(timeline.position(chapterIndex: split.index,
                                                        offsetSecs: split.offsetSecs)),
                        p, accuracy: 1e-9)
@@ -66,19 +66,19 @@ final class BookTimelineTests: XCTestCase {
 
     func testOutOfRangePositions() {
         XCTAssertNil(timeline.chapterIndex(at: -1))
-        XCTAssertNil(timeline.chapterIndex(at: 1995.049796))
+        XCTAssertNil(timeline.chapterIndex(at: 1990.0))
         XCTAssertNil(timeline.chapterIndex(at: 99999))
     }
 
     func testClampKeepsPositionsInsideTheBook() {
         XCTAssertEqual(timeline.clamp(-5), 0)
         XCTAssertEqual(timeline.clamp(500), 500)
-        XCTAssertEqual(timeline.clamp(99999), 1995.049796, accuracy: 1e-9)
+        XCTAssertEqual(timeline.clamp(99999), 1990.0, accuracy: 1e-9)
     }
 
     func testBoundaryNavigation() throws {
-        XCTAssertEqual(try XCTUnwrap(timeline.boundary(after: 100)), 504.189388, accuracy: 1e-9)
-        XCTAssertEqual(try XCTUnwrap(timeline.boundary(before: 600)), 504.189388, accuracy: 1e-9)
+        XCTAssertEqual(try XCTUnwrap(timeline.boundary(after: 100)), 498.125, accuracy: 1e-9)
+        XCTAssertEqual(try XCTUnwrap(timeline.boundary(before: 600)), 498.125, accuracy: 1e-9)
         XCTAssertEqual(try XCTUnwrap(timeline.boundary(before: 100)), 0, accuracy: 1e-9)
         XCTAssertNil(timeline.boundary(after: 1900))
     }
@@ -101,7 +101,7 @@ final class BookTimelineTests: XCTestCase {
         )
         XCTAssertEqual(
             try XCTUnwrap(timeline.inPlaceSeekOffset(fromChapterIndex: 1, to: 700.5)),
-            700.5 - 504.189388,
+            700.5 - 498.125,
             accuracy: 1e-9
         )
         XCTAssertEqual(
@@ -116,7 +116,7 @@ final class BookTimelineTests: XCTestCase {
         XCTAssertNil(timeline.inPlaceSeekOffset(fromChapterIndex: 1, to: 100))
         // A position on a boundary belongs to the chapter it starts, so
         // leaving chapter 0 for chapter 1 is a rebuild.
-        XCTAssertNil(timeline.inPlaceSeekOffset(fromChapterIndex: 0, to: 504.189388))
+        XCTAssertNil(timeline.inPlaceSeekOffset(fromChapterIndex: 0, to: 498.125))
     }
 
     func testInPlaceSeekOffsetIsNilWithoutACurrentChapter() {
@@ -126,11 +126,11 @@ final class BookTimelineTests: XCTestCase {
 
     func testInPlaceSeekOffsetAtTheEndOfTheBookStaysOnTheLastChapter() throws {
         XCTAssertEqual(
-            try XCTUnwrap(timeline.inPlaceSeekOffset(fromChapterIndex: 3, to: 1995.049796)),
-            1995.049796 - 1452.382041,
+            try XCTUnwrap(timeline.inPlaceSeekOffset(fromChapterIndex: 3, to: 1990.0)),
+            1990.0 - 1450.25,
             accuracy: 1e-9
         )
-        XCTAssertNil(timeline.inPlaceSeekOffset(fromChapterIndex: 2, to: 1995.049796))
+        XCTAssertNil(timeline.inPlaceSeekOffset(fromChapterIndex: 2, to: 1990.0))
     }
 
     func testInPlaceSeekOffsetUsesDomainChapterIndices() throws {
