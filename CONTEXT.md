@@ -12,7 +12,7 @@ together with everything that must happen alongside it: the library status chang
 parent `LibraryMedia`/`LibraryEpisode`, the request notification, and the post-process job
 it schedules.
 
-Owned by `apps/api/src/services/downloadOutcome.ts`. Every path that finishes a download
+Owned by `apps/api/src/services/downloads/downloadOutcome.ts`. Every path that finishes a download
 goes through it: the reconcile loop, duplicate adoption, rescan, and the admin
 retry-post-process endpoint. Nothing else writes a terminal `DownloadHistory` state.
 

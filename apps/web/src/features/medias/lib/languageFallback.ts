@@ -17,21 +17,12 @@ function sortedCounts(summary: LanguageFallbackSummary) {
   );
 }
 
-export function languageFallbackTotal(summary: LanguageFallbackSummary) {
+function languageFallbackTotal(summary: LanguageFallbackSummary) {
   return sortedCounts(summary).reduce((sum, [, n]) => sum + n, 0);
 }
 
-export function isFrenchSummary(summary: LanguageFallbackSummary): boolean {
+function isFrenchSummary(summary: LanguageFallbackSummary): boolean {
   return Object.keys(summary.counts).every(isFrenchFallbackTag);
-}
-
-/** "VFF (4), VFI (2)" */
-export function languageFallbackBreakdown(
-  summary: LanguageFallbackSummary,
-): string {
-  return sortedCounts(summary)
-    .map(([tag, n]) => `${tag} (${n})`)
-    .join(", ");
 }
 
 /** "No VFQ or VF2 release yet; 6 in other French versions (VFF 4, VFI 2)" */

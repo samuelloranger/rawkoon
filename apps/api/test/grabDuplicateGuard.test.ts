@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
+import { dbModule } from "./mocks/prisma";
+import { makeNotifyLibraryEventsMock } from "./mocks/notifyLibraryEvents";
 
 /**
  * Regression: a wanted movie could be grabbed twice, seconds apart.
@@ -39,75 +41,82 @@ function matchesTarget(
   );
 }
 
-mock.module("@rawkoon/api/db", () => ({
-  prisma: {
-    libraryMedia: {
-      findUnique: async () => mediaRow,
-      update: async () => mediaRow,
-    },
-    libraryEpisode: {
-      findUnique: async () => ({ season: episodeSeason }),
-      update: async () => ({ id: 1 }),
-    },
-    grabBlocklist: {
-      findFirst: async () => null,
-    },
-    downloadHistory: {
-      findFirst: async (args: { where: Record<string, unknown> }) => {
-        findFirstWhere.push(args.where);
-        if (activeGrab) return activeGrab;
-        const found = createdRows.find((row) => matchesTarget(row, args.where));
-        return found ? { id: found.id } : null;
+mock.module("@rawkoon/api/workers/notifyLibraryEvents", () =>
+  makeNotifyLibraryEventsMock(),
+);
+mock.module("@rawkoon/api/db", () =>
+  dbModule({
+    prisma: {
+      libraryMedia: {
+        findUnique: async () => mediaRow,
+        update: async () => mediaRow,
       },
-      findMany: async (args: {
-        where: { mediaId: number | { in: number[] } };
-      }) => {
-        const ids = args.where.mediaId;
-        if (typeof ids === "number") {
-          // Season- and episode-level rows in flight for one show.
+      libraryEpisode: {
+        findUnique: async () => ({ season: episodeSeason }),
+        update: async () => ({ id: 1 }),
+      },
+      grabBlocklist: {
+        findFirst: async () => null,
+      },
+      downloadHistory: {
+        findFirst: async (args: { where: Record<string, unknown> }) => {
+          findFirstWhere.push(args.where);
+          if (activeGrab) return activeGrab;
+          const found = createdRows.find((row) =>
+            matchesTarget(row, args.where),
+          );
+          return found ? { id: found.id } : null;
+        },
+        findMany: async (args: {
+          where: { mediaId: number | { in: number[] } };
+        }) => {
+          const ids = args.where.mediaId;
+          if (typeof ids === "number") {
+            // Season- and episode-level rows in flight for one show.
+            return createdRows
+              .filter(
+                (row) =>
+                  row.mediaId === ids &&
+                  (row.episodeId !== null || row.season !== null),
+              )
+              .map((row) => ({
+                season: row.season,
+                episode: row.episodeId ? { season: episodeSeason } : null,
+              }));
+          }
           return createdRows
             .filter(
               (row) =>
-                row.mediaId === ids &&
-                (row.episodeId !== null || row.season !== null),
+                ids.in.includes(row.mediaId) &&
+                row.episodeId === null &&
+                row.season === null,
             )
             .map((row) => ({
-              season: row.season,
-              episode: row.episodeId ? { season: episodeSeason } : null,
+              mediaId: row.mediaId,
+              releaseTitle: row.releaseTitle,
             }));
-        }
-        return createdRows
-          .filter(
-            (row) =>
-              ids.in.includes(row.mediaId) &&
-              row.episodeId === null &&
-              row.season === null,
-          )
-          .map((row) => ({
-            mediaId: row.mediaId,
-            releaseTitle: row.releaseTitle,
-          }));
+        },
+        create: async (args: { data: Record<string, unknown> }) => {
+          createCalls.push(args.data);
+          if (createError) throw createError;
+          const row: HistoryRow = {
+            id: nextHistoryId++,
+            mediaId: args.data.mediaId as number,
+            episodeId: (args.data.episodeId as number | null) ?? null,
+            season: (args.data.season as number | null) ?? null,
+            releaseTitle: args.data.releaseTitle as string,
+          };
+          createdRows.push(row);
+          return { id: row.id };
+        },
+        update: async () => ({ id: 9001 }),
       },
-      create: async (args: { data: Record<string, unknown> }) => {
-        createCalls.push(args.data);
-        if (createError) throw createError;
-        const row: HistoryRow = {
-          id: nextHistoryId++,
-          mediaId: args.data.mediaId as number,
-          episodeId: (args.data.episodeId as number | null) ?? null,
-          season: (args.data.season as number | null) ?? null,
-          releaseTitle: args.data.releaseTitle as string,
-        };
-        createdRows.push(row);
-        return { id: row.id };
+      activityLog: {
+        create: async () => ({ id: 1 }),
       },
-      update: async () => ({ id: 9001 }),
     },
-    activityLog: {
-      create: async () => ({ id: 1 }),
-    },
-  },
-}));
+  }),
+);
 
 mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
   resolveActiveAdapter: async () => ({
@@ -123,7 +132,9 @@ mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
   }),
 }));
 
-const { grabRelease } = await import("@rawkoon/api/services/mediaGrabberGrab");
+const { grabRelease } = await import(
+  "@rawkoon/api/services/mediaGrabber/mediaGrabberGrab"
+);
 
 const MAGNET = "magnet:?xt=urn:btih:aaaabbbbccccddddeeeeffff0000111122223333";
 

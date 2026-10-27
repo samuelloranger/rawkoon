@@ -7,8 +7,8 @@ import {
   authenticateJellyfinUser,
   getJellyfinConfig,
   JellyfinUnreachableError,
-} from "@rawkoon/api/services/jellyfinUsers";
-import { resolveOrCreateJellyfinRawkoonUser } from "@rawkoon/api/services/jellyfinSignIn";
+} from "@rawkoon/api/services/jellyfin/jellyfinUsers";
+import { resolveOrCreateJellyfinRawkoonUser } from "@rawkoon/api/services/jellyfin/jellyfinSignIn";
 
 export const jellyfinSignInBody = z.object({
   username: z.string().min(1).max(256),

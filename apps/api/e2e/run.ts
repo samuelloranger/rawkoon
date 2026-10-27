@@ -12,6 +12,7 @@ import type { Fixture, Phase, Route } from "./fixtures/types";
 import { routeKey } from "./fixtures/types";
 import { checkAuth, checkNegative, checkPositive, type Result } from "./assert";
 import { printReport, writeResults } from "./report";
+import { recordedCalls } from "./httpClient";
 
 const PHASE_ORDER: Phase[] = [
   "bootstrap",
@@ -76,6 +77,9 @@ async function main(): Promise<void> {
     }
 
     await writeResults("./e2e/results.json", results);
+    if (process.env.E2E_RECORD) {
+      await Bun.write(process.env.E2E_RECORD, JSON.stringify(recordedCalls));
+    }
     code = printReport(results, coverage);
   }
   process.exit(code);

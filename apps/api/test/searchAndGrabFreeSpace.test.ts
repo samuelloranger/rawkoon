@@ -1,5 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 import { tmpdir } from "node:os";
+import { dbModule } from "./mocks/prisma";
+import { makeNotifyLibraryEventsMock } from "./mocks/notifyLibraryEvents";
 
 // Real statfs on a real directory; sizes force each outcome.
 const addedTorrents: { magnetOrUrl?: string }[] = [];
@@ -62,48 +64,56 @@ mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
     },
   }),
 }));
-mock.module("@rawkoon/api/db", () => ({
-  prisma: {
-    mediaSettings: {
-      findUnique: async () => ({
-        minFreeSpaceGb: 1,
-        downloadsPath: tmpdir(),
-        moviesLibraryPath: null,
-        showsLibraryPath: null,
-      }),
-    },
-    libraryMedia: {
-      findUnique: async () => ({
-        id: 42,
-        type: "movie",
-        title: "Some Movie",
-        year: 2026,
-        searchTitle: null,
-        originalTitle: null,
-      }),
-      update: async () => ({}),
-    },
-    libraryEpisode: { findUnique: async () => null, update: async () => ({}) },
-    qualityProfile: { findUnique: async () => null },
-    grabBlocklist: {
-      findMany: async () => [],
-      findFirst: async () => null,
-      create: async (a: unknown) => {
-        blocklistWrites.push(a);
-        return {};
+mock.module("@rawkoon/api/workers/notifyLibraryEvents", () =>
+  makeNotifyLibraryEventsMock(),
+);
+mock.module("@rawkoon/api/db", () =>
+  dbModule({
+    prisma: {
+      mediaSettings: {
+        findUnique: async () => ({
+          minFreeSpaceGb: 1,
+          downloadsPath: tmpdir(),
+          moviesLibraryPath: null,
+          showsLibraryPath: null,
+        }),
       },
+      libraryMedia: {
+        findUnique: async () => ({
+          id: 42,
+          type: "movie",
+          title: "Some Movie",
+          year: 2026,
+          searchTitle: null,
+          originalTitle: null,
+        }),
+        update: async () => ({}),
+      },
+      libraryEpisode: {
+        findUnique: async () => null,
+        update: async () => ({}),
+      },
+      qualityProfile: { findUnique: async () => null },
+      grabBlocklist: {
+        findMany: async () => [],
+        findFirst: async () => null,
+        create: async (a: unknown) => {
+          blocklistWrites.push(a);
+          return {};
+        },
+      },
+      downloadHistory: {
+        findFirst: async () => null,
+        create: async () => ({ id: 9001 }),
+        update: async () => ({ id: 9001 }),
+      },
+      activityLog: { create: async () => ({ id: 1 }) },
     },
-    downloadHistory: {
-      findFirst: async () => null,
-      create: async () => ({ id: 9001 }),
-      update: async () => ({ id: 9001 }),
-    },
-    activityLog: { create: async () => ({ id: 1 }) },
-  },
-}));
+  }),
+);
 
 const { searchAndGrab } = await import(
-  "@rawkoon/api/services/mediaGrabberSearch"
+  "@rawkoon/api/services/mediaGrabber/mediaGrabberSearch"
 );
 
 afterAll(() => {

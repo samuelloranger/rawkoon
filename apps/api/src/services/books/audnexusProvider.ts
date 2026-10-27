@@ -18,16 +18,7 @@ import {
   type ProviderFields,
 } from "./types";
 
-/**
- * Audnexus (GPL-3.0) is the API Audiobookshelf uses by default. Verified live
- * 2026-08-24: the public instance is keyless and rate-limits at 300 requests
- * per 60s per IP, Cloudflare-cached for 24h.
- *
- * Two facts shape this file:
- *  - There is no book title search, so an ASIN must be resolved from the
- *    Audible catalog first (audibleCatalog.ts + asinResolver.ts).
- *  - `region` must be passed explicitly on every call; it is not inferred.
- */
+/** Audnexus has no title search, so an ASIN is resolved from the Audible catalog first; `region` must be passed on every call. */
 
 const CACHE_TTL_BOOK = 86_400; // 24h, matching Audnexus' own cache-control.
 const MAX_ATTEMPTS = 3;
@@ -53,7 +44,6 @@ const toIso639 = (raw: string | null): string | null => {
   return LANG_ALIASES[key] ?? (/^[a-z]{2}$/.test(key) ? key : null);
 };
 
-/** `[{ name }]` -> `["name"]`, dropping anything unnamed. */
 const namesOf = (v: unknown): string[] => {
   if (!Array.isArray(v)) return [];
   const out: string[] = [];
@@ -81,14 +71,11 @@ export function mapAudnexusBook(raw: unknown): ProviderFields {
     title,
     subtitle: str(b.subtitle),
     narrators: namesOf(b.narrators),
-    // Audible splits its taxonomy into `genre` and `tag`. Both are genres
-    // here; the type must not leak into the stored value.
+    // `genre` and `tag` are both genres; the type must not leak into the stored value.
     genres: namesOf(b.genres),
     publisher: str(b.publisherName),
     isbn13: str(b.isbn),
     coverUrl: str(b.image),
-    // Sanitized on ingest so the database only ever holds clean HTML, matching
-    // what the Google Books provider already does.
     overview:
       sanitizeProviderHtml(str(b.summary) ?? str(b.description) ?? "") || null,
     seriesName: normalizeSeriesName(str(series?.name)),
@@ -105,11 +92,6 @@ export function mapAudnexusBook(raw: unknown): ProviderFields {
   return fields;
 }
 
-/**
- * Author payloads are a different shape from book payloads — `name`, not
- * `title` — so they get their own mapper rather than one function sniffing
- * which kind it was handed.
- */
 export function mapAudnexusAuthor(raw: unknown): ProviderFields {
   if (!raw || typeof raw !== "object") return {};
   const a = raw as Record<string, unknown>;
@@ -119,15 +101,12 @@ export function mapAudnexusAuthor(raw: unknown): ProviderFields {
   const fields: ProviderFields = {};
   const image = str(a.image);
   if (image) fields.authorImageUrl = image;
-  // An empty description is missing data, not an assertion of emptiness, so
-  // the key stays absent: a lower-priority source or another region can still
-  // supply it.
+  // Empty description stays absent so a lower-priority source can still supply it.
   const bio = str(a.description);
   if (bio) fields.authorBio = bio;
   return fields;
 }
 
-/** The author search returns the same ASIN many times over. */
 export function dedupeAudnexusAuthors(
   raw: unknown,
 ): Array<{ asin: string; name: string }> {
@@ -181,7 +160,6 @@ export class AudnexusProvider implements BookMetadataProvider {
     private readonly region: string,
   ) {}
 
-  /** Resolve an ASIN from the Audible catalog. Null means "no confident match". */
   async resolveAsin(book: BookMatchInput): Promise<string | null> {
     const candidates = await searchAudibleProducts(
       `${book.title} ${book.authors.join(" ")}`,
@@ -194,7 +172,6 @@ export class AudnexusProvider implements BookMetadataProvider {
     return match?.candidate.asin ?? null;
   }
 
-  /** Fetch one ASIN's record, or null when this region does not carry it. */
   private async fetchBook(asin: string): Promise<ProviderFields | null> {
     const cacheKey = `books:audnexus:book:${this.region}:${asin}`;
     const cached = await getJsonCache<ProviderFields>(cacheKey);
@@ -215,12 +192,7 @@ export class AudnexusProvider implements BookMetadataProvider {
 
     if (stored) {
       const fields = await this.fetchBook(stored);
-      /**
-       * A stored id skips resolveAsin, so it also skips the scorer that would
-       * reject it today. Re-check the one thing that makes a complete record
-       * wrong rather than merely thin — it is a different language edition —
-       * and fall through to a fresh search when it is.
-       */
+      /** A stored id skips the scorer, so re-check for a different-language edition and re-search if so. */
       if (
         fields &&
         languagesDisagree(book, {
@@ -235,15 +207,7 @@ export class AudnexusProvider implements BookMetadataProvider {
       } else if (fields) {
         return this.withAsin(book, fields, stored);
       } else {
-        /**
-         * The stored ASIN is not in this region's catalogue.
-         *
-         * ASINs are regional and the stored id carries no region, so changing
-         * the configured region strands every book that had already resolved:
-         * the old id 404s here forever and resolution is never retried. Falling
-         * through re-resolves against the current region, and the newly found id
-         * replaces the stale one via __asin.
-         */
+        /** ASINs are regional: after a region change the stored id 404s forever, so re-resolve and let __asin replace it. */
         console.warn(
           `[audnexus] stored ASIN ${stored} is unknown in region ${this.region} — re-resolving`,
         );
@@ -264,18 +228,10 @@ export class AudnexusProvider implements BookMetadataProvider {
     ) {
       return {};
     }
-    // The resolved ASIN travels back so the caller can persist it.
     return this.withAsin(book, fields, asin);
   }
 
-  /**
-   * Attach the ASIN id, and drop isbn13 when the book already has one.
-   *
-   * Audnexus ranks above Google Books. Its ISBN is often an Audible-region
-   * product code for a different language edition of the same title, so
-   * contributing it would overwrite the ISBN the operator typed at add time.
-   * Filling an empty isbn13 is still useful.
-   */
+  /** Audnexus ISBN is often a different-language edition's code, so drop it when the book already has one. */
   private withAsin(
     book: BookMatchInput,
     fields: ProviderFields,
@@ -287,21 +243,14 @@ export class AudnexusProvider implements BookMetadataProvider {
     return { ...rest, __asin: asin };
   }
 
-  /**
-   * Author bio and image.
-   *
-   * The FR region was observed returning a good image with an EMPTY
-   * description, so the bio — and only the bio — falls back to the default
-   * region. The image from the requested region is correct and is kept.
-   */
+  /** FR region can return an image with an empty bio, so only the bio falls back to the default region. */
   async enrichAuthor(authorName: string): Promise<ProviderFields> {
     const cacheKey = `books:audnexus:author:${this.region}:${authorName.trim().toLowerCase()}`;
     const cached = await getJsonCache<ProviderFields>(cacheKey);
     if (cached) return cached;
 
     const result = await this.fetchAuthor(authorName);
-    // Cache only a real hit. An empty result is often a transient miss, and
-    // caching it would hide a newly-catalogued author until the TTL expired.
+    // Don't cache empty results: often a transient miss.
     if (Object.keys(result).length > 0) {
       await setJsonCache(cacheKey, result, CACHE_TTL_BOOK);
     }

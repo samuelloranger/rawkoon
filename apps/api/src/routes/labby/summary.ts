@@ -1,5 +1,5 @@
 import { getJsonCache } from "@rawkoon/api/services/cache";
-import { getLastRssRun } from "@rawkoon/api/services/rssRunStatus";
+import { getLastRssRun } from "@rawkoon/api/services/rss/rssRunStatus";
 import { TMDB_UPCOMING_CACHE_KEY } from "@rawkoon/api/utils/dashboard/tmdbUpcoming";
 import { getGlobalTmdbRegion } from "@rawkoon/api/utils/medias/tmdbRegion";
 import type { DashboardUpcomingItem } from "@rawkoon/api/types/dashboardUpcoming";

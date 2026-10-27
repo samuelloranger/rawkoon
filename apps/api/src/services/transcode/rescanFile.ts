@@ -2,7 +2,7 @@ import { basename } from "node:path";
 import { classifyLanguageTags, type LibraryAudioTrack } from "@rawkoon/shared";
 import { prisma } from "@rawkoon/api/db";
 import { emitLibraryUpdate } from "@rawkoon/api/services/libraryEvents";
-import { triggerJellyfinLibraryScan } from "@rawkoon/api/services/jellyfinLibraryRefresh";
+import { triggerJellyfinLibraryScan } from "@rawkoon/api/services/jellyfin/jellyfinLibraryRefresh";
 import {
   fingerprintDbFields,
   statFileFingerprint,

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterAll, mock } from "bun:test";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { dbModule } from "./mocks/prisma";
 
 // Registering the chapter timeline is what makes an audiobook offline-ready.
 // If the download import skips it, every manifest request 400s until someone
@@ -17,41 +18,43 @@ const state: { kind: string; registered: number[] } = {
   registered: [],
 };
 
-mock.module("@rawkoon/api/db", () => ({
-  prisma: {
-    bookEdition: {
-      findUnique: () =>
-        Promise.resolve({
-          id: 7,
-          bookId: 3,
-          kind: state.kind,
-          book: {
-            title: "A Quiet Harbour",
-            authors: ["Camille Rousseau"],
-            language: "fr",
-            publishedYear: 2019,
-          },
-          bookQualityProfile: { allowedFormats: ["mp3", "m4b", "epub"] },
-        }),
-      update: () => Promise.resolve({ bookId: 3 }),
+mock.module("@rawkoon/api/db", () =>
+  dbModule({
+    prisma: {
+      bookEdition: {
+        findUnique: () =>
+          Promise.resolve({
+            id: 7,
+            bookId: 3,
+            kind: state.kind,
+            book: {
+              title: "A Quiet Harbour",
+              authors: ["Camille Rousseau"],
+              language: "fr",
+              publishedYear: 2019,
+            },
+            bookQualityProfile: { allowedFormats: ["mp3", "m4b", "epub"] },
+          }),
+        update: () => Promise.resolve({ bookId: 3 }),
+      },
+      mediaSettings: {
+        upsert: () =>
+          Promise.resolve({
+            booksLibraryPath: booksRoot,
+            audiobooksLibraryPath: audiobooksRoot,
+            bookTemplate: "{author}/{title} ({year})/{title} ({year})",
+            audiobookTemplate: "{author}/{title} ({year})/{title}",
+          }),
+      },
+      bookFile: {
+        findMany: () => Promise.resolve([]),
+        deleteMany: () => Promise.resolve({ count: 0 }),
+        create: (args: { data: Record<string, unknown> }) =>
+          Promise.resolve({ id: 1, ...args.data }),
+      },
     },
-    mediaSettings: {
-      upsert: () =>
-        Promise.resolve({
-          booksLibraryPath: booksRoot,
-          audiobooksLibraryPath: audiobooksRoot,
-          bookTemplate: "{author}/{title} ({year})/{title} ({year})",
-          audiobookTemplate: "{author}/{title} ({year})/{title}",
-        }),
-    },
-    bookFile: {
-      findMany: () => Promise.resolve([]),
-      deleteMany: () => Promise.resolve({ count: 0 }),
-      create: (args: { data: Record<string, unknown> }) =>
-        Promise.resolve({ id: 1, ...args.data }),
-    },
-  },
-}));
+  }),
+);
 
 const realRegister = await import(
   "@rawkoon/api/services/books/registerBookChapters"
@@ -80,7 +83,7 @@ mock.module("@rawkoon/api/utils/books/ebookMetadata", () => ({
 }));
 
 const { postProcessBook } = await import(
-  "@rawkoon/api/services/postProcessorBook"
+  "@rawkoon/api/services/postProcessor/postProcessorBook"
 );
 
 afterAll(async () => {

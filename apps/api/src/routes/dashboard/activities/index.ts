@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
+import { findRecentActivityLogs } from "@rawkoon/api/services/dashboard/activityLogs";
 import { formatIso } from "@rawkoon/api/utils";
 import { ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
@@ -167,18 +167,9 @@ export const dashboardActivitiesRoutes = new Hono<Env>()
         type: query.type?.trim() || undefined,
       };
 
-      const recentLogs = await prisma.activityLog.findMany({
-        orderBy: { createdAt: "desc" },
-        take: ACTIVITY_FEED_SOURCE_LIMIT,
-        include: {
-          user: {
-            select: {
-              firstName: true,
-              email: true,
-            },
-          },
-        },
-      });
+      const recentLogs = await findRecentActivityLogs(
+        ACTIVITY_FEED_SOURCE_LIMIT,
+      );
 
       const allActivities = sortActivitiesDescending(
         recentLogs

@@ -362,14 +362,6 @@ export interface LandedArrival {
   ts: number;
 }
 
-/** Server-pushed live download progress for one library media. */
-export interface DownloadProgressEvent {
-  kind: "download-progress";
-  mediaId: number;
-  ts: number;
-  downloads: DownloadProgressItem[];
-}
-
 export type SearchOutcome =
   | "grabbed"
   | "delayed"
@@ -417,20 +409,6 @@ export interface LibrarySearchResponse {
   search_result?: SearchResultPayload;
   /** Set on a failed replace-grab: the running download was already stopped. */
   replaced_previous?: boolean;
-}
-
-/** Body of POST /api/library/:id/grab. */
-export interface LibraryGrabRequest {
-  download_url: string;
-  release_title: string;
-  indexer?: string;
-  quality_parsed?: unknown;
-  size_bytes?: number | null;
-  episode_id?: number | null;
-  season?: number | null;
-  is_upgrade?: boolean;
-  /** Admin opt-in: stop a movie's running download and grab this release instead. */
-  replace?: boolean;
 }
 
 interface GlobalDownloadHistoryItem extends LibraryDownloadHistoryItem {
@@ -572,7 +550,7 @@ export interface LibraryGrowthResponse {
 
 export type GrabReadinessStatus = "ok" | "warn" | "error";
 
-export type GrabReadinessCheckId =
+type GrabReadinessCheckId =
   | "indexer_manager"
   | "download_client"
   | "default_movie_profile"

@@ -1,15 +1,16 @@
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 import {
-  DEFAULT_TMDB_REGION,
-  normalizeTmdbRegion,
-} from "@rawkoon/api/utils/medias/tmdbRegion";
+  getOrCreateAppSettings,
+  upsertAppSettings,
+  type AppSettingsUpdate,
+} from "@rawkoon/api/services/settings/appSettings";
+import { normalizeTmdbRegion } from "@rawkoon/api/utils/medias/tmdbRegion";
 
 import type { AppSettings } from "@prisma/client";
 
@@ -35,11 +36,7 @@ export const settingsRoutes = new Hono<Env>()
   .use("*", requireAdmin)
   .get("/", async () => {
     try {
-      const row = await prisma.appSettings.upsert({
-        where: { id: 1 },
-        create: { id: 1, countryCode: DEFAULT_TMDB_REGION },
-        update: {},
-      });
+      const row = await getOrCreateAppSettings();
       return ok({ settings: mapSettings(row) });
     } catch {
       return serverError("Failed to load settings");
@@ -54,12 +51,7 @@ export const settingsRoutes = new Hono<Env>()
       }
       const countryCode = trimmedCountry || null;
 
-      const updateData: {
-        countryCode?: string;
-        upcomingWindowMonths?: number;
-        upcomingLanguages?: string;
-        booksEnabled?: boolean;
-      } = {};
+      const updateData: AppSettingsUpdate = {};
 
       if (body.country_code && countryCode)
         updateData.countryCode = countryCode;
@@ -79,11 +71,7 @@ export const settingsRoutes = new Hono<Env>()
         updateData.booksEnabled = body.books_enabled;
       }
 
-      const row = await prisma.appSettings.upsert({
-        where: { id: 1 },
-        create: { id: 1, countryCode: countryCode ?? DEFAULT_TMDB_REGION },
-        update: updateData,
-      });
+      const row = await upsertAppSettings(countryCode, updateData);
       return ok({ settings: mapSettings(row) });
     } catch {
       return serverError("Failed to update settings");

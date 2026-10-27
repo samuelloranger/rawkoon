@@ -3,7 +3,7 @@ import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 // Past the fast misses, the release sweep searches a movie or episode about
 // once a day instead of on every run, so the miss cap spans weeks, not days.
 const realSearch = {
-  ...(await import("@rawkoon/api/services/mediaGrabberSearch")),
+  ...(await import("@rawkoon/api/services/mediaGrabber/mediaGrabberSearch")),
 };
 const realActive = {
   ...(await import("@rawkoon/api/services/activeShowGrab")),
@@ -20,7 +20,7 @@ const searches: { episodeId?: number; season?: number }[] = [];
 const mediaUpdates: Record<string, unknown>[] = [];
 const episodeUpdates: Record<string, unknown>[] = [];
 
-mock.module("@rawkoon/api/services/mediaGrabberSearch", () => ({
+mock.module("@rawkoon/api/services/mediaGrabber/mediaGrabberSearch", () => ({
   ...realSearch,
   searchAndGrabWithTitleFallback: async (a: {
     episodeId?: number;
@@ -89,7 +89,9 @@ mock.module("@rawkoon/api/db", () => ({
   },
 }));
 
-const { isGrabSearchDue } = await import("@rawkoon/api/services/grabAttempts");
+const { isGrabSearchDue } = await import(
+  "@rawkoon/api/services/grab/grabAttempts"
+);
 const { checkMovieReleases } = await import(
   "@rawkoon/api/workers/checkMovieReleases"
 );
@@ -98,7 +100,10 @@ const { checkEpisodeReleases } = await import(
 );
 
 afterAll(() => {
-  mock.module("@rawkoon/api/services/mediaGrabberSearch", () => realSearch);
+  mock.module(
+    "@rawkoon/api/services/mediaGrabber/mediaGrabberSearch",
+    () => realSearch,
+  );
   mock.module("@rawkoon/api/services/activeShowGrab", () => realActive);
   mock.module("@rawkoon/api/services/libraryTmdbRefresh", () => realRefresh);
 });

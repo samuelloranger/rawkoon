@@ -28,6 +28,18 @@ export interface RequestOpts {
   body?: unknown;
 }
 
+export interface RecordedCall {
+  method: string;
+  path: string;
+  authed: boolean;
+  sent: unknown;
+  status: number;
+  body: unknown;
+}
+
+// Every call in order when E2E_RECORD is set, so two runs can be diffed body-for-body.
+export const recordedCalls: RecordedCall[] = [];
+
 export function baseUrl(): string {
   return process.env.BASE_URL || "http://localhost:3111";
 }
@@ -60,6 +72,16 @@ export async function request(
     json = text ? JSON.parse(text) : undefined;
   } catch {
     json = undefined;
+  }
+  if (process.env.E2E_RECORD) {
+    recordedCalls.push({
+      method,
+      path: url.pathname + url.search,
+      authed: Boolean(opts.cookie),
+      sent: opts.body,
+      status: res.status,
+      body: json ?? text,
+    });
   }
   return { status: res.status, json, text, headers: res.headers };
 }

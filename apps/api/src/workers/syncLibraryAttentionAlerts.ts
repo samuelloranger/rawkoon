@@ -1,4 +1,4 @@
-import { syncLibraryAttentionAlerts } from "@rawkoon/api/services/libraryAttentionSync";
+import { syncLibraryAttentionAlerts } from "@rawkoon/api/services/libraryAttention/libraryAttentionSync";
 
 export async function runSyncLibraryAttentionAlerts(): Promise<void> {
   const r = await syncLibraryAttentionAlerts();

@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import type {
   DownloadClientHookConfig,
@@ -7,7 +7,6 @@ import type {
   DownloadClientType,
 } from "@rawkoon/shared/types/integrations";
 import { Hono } from "hono";
-import { prisma } from "@rawkoon/api/db";
 import { badRequest, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { jsonV } from "@rawkoon/api/middleware/validate";
@@ -36,7 +35,14 @@ import {
   isValidHttpUrl,
   normalizeUrl,
 } from "@rawkoon/api/utils/integrations/utils";
-import { nowUtc } from "@rawkoon/api/utils";
+import {
+  readHookSettings,
+  saveHookSettings,
+} from "@rawkoon/api/services/downloadClient/hookState";
+import {
+  findIntegrationRow,
+  upsertIntegrationRow,
+} from "@rawkoon/api/services/integrations/integrationSettings";
 import { HOOK_RECENT_WINDOW_MS } from "@rawkoon/api/workers/checkDownloadCompletion";
 
 interface RawView {
@@ -116,24 +122,6 @@ const buildHookConfigResponse = async (input: {
     qbittorrentCommand: buildQbittorrentCommand(generators),
     delugeScript: buildDelugeScript(generators),
     transmissionScript: buildTransmissionScript(generators),
-  };
-};
-
-const readHookSettings = async () => {
-  const settings = await prisma.mediaSettings.findUnique({
-    where: { id: 1 },
-    select: {
-      downloadHookCallbackUrl: true,
-      downloadHookAutoConfigure: true,
-      downloadHookLastSeenAt: true,
-      downloadPollActiveHookedSecs: true,
-    },
-  });
-  return {
-    callbackUrl: settings?.downloadHookCallbackUrl ?? null,
-    autoConfigure: settings?.downloadHookAutoConfigure ?? true,
-    lastSeenAt: settings?.downloadHookLastSeenAt ?? null,
-    activeHookedSecs: settings?.downloadPollActiveHookedSecs ?? 120,
   };
 };
 
@@ -224,9 +212,7 @@ const tryApplyQbittorrentAutorun = async (input: {
 export const downloadClientIntegrationRoutes = new Hono<Env>()
   .get("/download-client", async () => {
     try {
-      const integration = await prisma.integration.findFirst({
-        where: { type: "download-client" },
-      });
+      const integration = await findIntegrationRow("download-client");
       const config = rawConfig(integration?.config);
       const clientType = stringValue(config.client_type);
       const validType: DownloadClientType =
@@ -286,9 +272,7 @@ export const downloadClientIntegrationRoutes = new Hono<Env>()
       }
 
       try {
-        const existing = await prisma.integration.findFirst({
-          where: { type: "download-client" },
-        });
+        const existing = await findIntegrationRow("download-client");
         const existingConfig = rawConfig(existing?.config);
         const providedPassword = body.password?.trim();
         const password = providedPassword
@@ -305,16 +289,10 @@ export const downloadClientIntegrationRoutes = new Hono<Env>()
           label,
           ...(savePath ? { save_path: savePath } : {}),
         };
-        const integration = await prisma.integration.upsert({
-          where: { type: "download-client" },
-          update: { enabled, config, updatedAt: nowUtc() },
-          create: {
-            type: "download-client",
-            enabled,
-            config,
-            createdAt: nowUtc(),
-            updatedAt: nowUtc(),
-          },
+        const integration = await upsertIntegrationRow({
+          type: "download-client",
+          enabled,
+          config,
         });
         await invalidateDownloadClientIntegrationConfigCache();
 
@@ -433,20 +411,10 @@ export const downloadClientIntegrationRoutes = new Hono<Env>()
           activeHookedSecs = Math.trunc(body.activeHookedSecs);
         }
 
-        // upsert, not update: nothing seeds media_settings row 1.
-        await prisma.mediaSettings.upsert({
-          where: { id: 1 },
-          update: {
-            downloadHookCallbackUrl: callbackUrl,
-            downloadHookAutoConfigure: autoConfigure,
-            downloadPollActiveHookedSecs: activeHookedSecs,
-          },
-          create: {
-            id: 1,
-            downloadHookCallbackUrl: callbackUrl,
-            downloadHookAutoConfigure: autoConfigure,
-            downloadPollActiveHookedSecs: activeHookedSecs,
-          },
+        await saveHookSettings({
+          callbackUrl,
+          autoConfigure,
+          activeHookedSecs,
         });
 
         const token = await getOrCreateHookToken();

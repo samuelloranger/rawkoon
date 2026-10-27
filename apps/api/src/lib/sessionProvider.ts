@@ -1,4 +1,4 @@
-import { JELLYFIN_PROVIDER_ID } from "@rawkoon/api/services/jellyfinUsers";
+import { JELLYFIN_PROVIDER_ID } from "@rawkoon/api/services/jellyfin/jellyfinUsers";
 
 /** Which sign-in method opened a session, from the better-auth endpoint path. */
 export function sessionProviderId(

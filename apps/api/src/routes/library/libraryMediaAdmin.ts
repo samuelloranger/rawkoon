@@ -1,15 +1,12 @@
-import { basename, extname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { z } from "zod";
-import { parseReleaseStructure } from "@rawkoon/shared/utils/releaseStructure";
 import { stat } from "node:fs/promises";
 import { Hono } from "hono";
 
-import { prisma } from "@rawkoon/api/db";
 import {
   DEFAULT_RELEASE_CHECK_CRON,
   DEFAULT_RSS_POLL_INTERVAL_MINUTES,
   isRssPollInterval,
-  normalizeCron,
   RSS_POLL_INTERVAL_MINUTES,
   type RssPollIntervalMinutes,
 } from "@rawkoon/shared/utils";
@@ -17,34 +14,19 @@ import { badRequest, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
-import { getGrabReadiness } from "@rawkoon/api/services/grabReadiness";
+import { getGrabReadiness } from "@rawkoon/api/services/grab/grabReadiness";
+import { importScannedVideos } from "@rawkoon/api/services/library/importScannedVideos";
 import {
-  parseReleaseCheckCron,
-  rescheduleThenPersist,
-} from "@rawkoon/api/services/releaseCheckSchedule";
-import {
-  loadRssPollInterval,
-  rescheduleRssPollThenPersist,
-} from "@rawkoon/api/services/rssPollSchedule";
+  loadOrCreateMediaSettings,
+  saveMediaSettings,
+  type MediaSettingsUpdate,
+} from "@rawkoon/api/services/library/mediaSettingsStore";
+import { parseReleaseCheckCron } from "@rawkoon/api/services/releaseCheckSchedule";
 import { normalizeExtension } from "@rawkoon/api/services/seeding/seedPolicy";
-import { TMDB_LANGUAGE_LIBRARY_PERSISTENCE } from "@rawkoon/api/utils/medias/tmdbFetcherTypes";
 import { listVideoFilesUnder } from "@rawkoon/api/utils/medias/fileIdentifier";
-import {
-  getLibraryTmdbApiKey,
-  resolveDownloadedStatus,
-  sortTitleFromName,
-  tmdbApiFetch,
-} from "@rawkoon/api/utils/medias/libraryHelpers";
+import { getLibraryTmdbApiKey } from "@rawkoon/api/utils/medias/libraryHelpers";
 
-const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342";
-
-export function parseFilenameForScan(nameWithoutExt: string): {
-  title: string;
-  year: number | null;
-} {
-  const { title, year } = parseReleaseStructure(nameWithoutExt);
-  return { title, year };
-}
+export { parseFilenameForScan } from "@rawkoon/api/services/library/importScannedVideos";
 
 export function mapSettings(row: {
   moviesLibraryPath: string | null;
@@ -117,10 +99,7 @@ export function mapSettings(row: {
 export const libraryMediaAdminRoutes = new Hono<Env>()
   .get("/post-processing/settings", requireAdmin, async () => {
     try {
-      let row = await prisma.mediaSettings.findUnique({ where: { id: 1 } });
-      if (!row) {
-        row = await prisma.mediaSettings.create({ data: { id: 1 } });
-      }
+      const row = await loadOrCreateMediaSettings();
       return ok({ settings: mapSettings(row) });
     } catch {
       return serverError("Failed to load media settings");
@@ -191,33 +170,7 @@ export const libraryMediaAdminRoutes = new Hono<Env>()
     async (c) => {
       const body = c.req.valid("json");
       try {
-        const update: {
-          moviesLibraryPath?: string | null;
-          showsLibraryPath?: string | null;
-          downloadsPath?: string | null;
-          fileOperation?: string;
-          movieTemplate?: string;
-          episodeTemplate?: string;
-          minSeedRatio?: number;
-          postProcessingEnabled?: boolean;
-          defaultMovieQualityProfileId?: number | null;
-          defaultShowQualityProfileId?: number | null;
-          searchOnAdd?: boolean;
-          releaseCheckCron?: string;
-          rssPollIntervalMinutes?: number;
-          activeIndexerManager?: string | null;
-          booksLibraryPath?: string | null;
-          audiobooksLibraryPath?: string | null;
-          bookTemplate?: string;
-          audiobookTemplate?: string;
-          defaultBookQualityProfileId?: number | null;
-          publicSeedTimeMins?: number | null;
-          privateSeedRatio?: number | null;
-          privateSeedTimeMins?: number | null;
-          seedSweepEnabled?: boolean;
-          blockedExtensions?: string[];
-          minFreeSpaceGb?: number;
-        } = {};
+        const update: MediaSettingsUpdate = {};
         if (body.movies_library_path !== undefined)
           update.moviesLibraryPath = body.movies_library_path;
         if (body.shows_library_path !== undefined)
@@ -307,47 +260,8 @@ export const libraryMediaAdminRoutes = new Hono<Env>()
           update.blockedExtensions = [...new Set(normalized as string[])];
         }
 
-        let row = await prisma.mediaSettings.findUnique({ where: { id: 1 } });
-        const previousCron =
-          row?.releaseCheckCron ?? DEFAULT_RELEASE_CHECK_CRON;
-        const existing = row;
-        const persist = async () => {
-          if (!existing) {
-            row = await prisma.mediaSettings.create({
-              data: { id: 1, ...update },
-            });
-          } else if (Object.keys(update).length > 0) {
-            row = await prisma.mediaSettings.update({
-              where: { id: 1 },
-              data: update,
-            });
-          }
-        };
-        let save = persist;
-        if (
-          update.releaseCheckCron !== undefined &&
-          update.releaseCheckCron !== previousCron
-        ) {
-          const cron = update.releaseCheckCron;
-          // Schedule before saving so a cron BullMQ rejects is never stored.
-          save = () => rescheduleThenPersist(cron, previousCron, persist);
-        }
-        if (rssPollInterval !== undefined) {
-          const previousInterval = await loadRssPollInterval(
-            async () => existing?.rssPollIntervalMinutes,
-          );
-          if (rssPollInterval !== previousInterval) {
-            const inner = save;
-            save = () =>
-              rescheduleRssPollThenPersist(
-                rssPollInterval,
-                previousInterval,
-                inner,
-              );
-          }
-        }
-        await save();
-        return ok({ settings: mapSettings(row!) });
+        const row = await saveMediaSettings(update, rssPollInterval);
+        return ok({ settings: mapSettings(row) });
       } catch {
         return serverError("Failed to update media settings");
       }
@@ -374,132 +288,11 @@ export const libraryMediaAdminRoutes = new Hono<Env>()
         return badRequest("Path does not exist or is not accessible");
       }
       const videos = await listVideoFilesUnder(absPath);
-      const unmatched: string[] = [];
-      let matched = 0;
-
-      for (const filePath of videos) {
-        const base = basename(filePath, extname(filePath));
-        const { title, year } = parseFilenameForScan(base);
-        if (!title) {
-          unmatched.push(base);
-          continue;
-        }
-
-        try {
-          if (body.type === "movie") {
-            const search = await tmdbApiFetch<{
-              results: Array<{
-                id: number;
-                title: string;
-                release_date?: string;
-              }>;
-            }>("search/movie", key, {
-              query: title,
-              language: TMDB_LANGUAGE_LIBRARY_PERSISTENCE,
-              ...(year ? { year: String(year) } : {}),
-            });
-            const top = search.results[0];
-            if (!top) {
-              unmatched.push(base);
-              continue;
-            }
-            const exists = await prisma.libraryMedia.findUnique({
-              where: { tmdbId: top.id },
-            });
-            if (exists) continue;
-
-            const details = await tmdbApiFetch<{
-              title: string;
-              release_date: string;
-              poster_path: string | null;
-              overview: string;
-            }>(`movie/${top.id}`, key, {
-              language: TMDB_LANGUAGE_LIBRARY_PERSISTENCE,
-            });
-
-            const y = details.release_date
-              ? parseInt(details.release_date.slice(0, 4), 10)
-              : year;
-            const posterUrl = details.poster_path
-              ? `${TMDB_IMAGE_BASE}${details.poster_path}`
-              : null;
-
-            await prisma.libraryMedia.create({
-              data: {
-                tmdbId: top.id,
-                type: "movie",
-                title: details.title,
-                sortTitle: sortTitleFromName(details.title),
-                year: y,
-                status: "downloaded",
-                posterUrl,
-                overview: details.overview || null,
-              },
-            });
-            matched++;
-          } else {
-            const search = await tmdbApiFetch<{
-              results: Array<{
-                id: number;
-                name: string;
-                first_air_date?: string;
-              }>;
-            }>("search/tv", key, {
-              query: title,
-              language: TMDB_LANGUAGE_LIBRARY_PERSISTENCE,
-            });
-            const top = search.results[0];
-            if (!top) {
-              unmatched.push(base);
-              continue;
-            }
-            const exists = await prisma.libraryMedia.findUnique({
-              where: { tmdbId: top.id },
-            });
-            if (exists) continue;
-
-            const details = await tmdbApiFetch<{
-              name: string;
-              first_air_date: string;
-              poster_path: string | null;
-              overview: string;
-              status: string | null;
-            }>(`tv/${top.id}`, key, {
-              language: TMDB_LANGUAGE_LIBRARY_PERSISTENCE,
-            });
-
-            const y = details.first_air_date
-              ? parseInt(details.first_air_date.slice(0, 4), 10)
-              : year;
-            const posterUrl = details.poster_path
-              ? `${TMDB_IMAGE_BASE}${details.poster_path}`
-              : null;
-
-            await prisma.libraryMedia.create({
-              data: {
-                tmdbId: top.id,
-                type: "show",
-                title: details.name,
-                sortTitle: sortTitleFromName(details.name),
-                year: y,
-                status: resolveDownloadedStatus("show", details.status ?? null),
-                tmdbStatus: details.status ?? null,
-                posterUrl,
-                overview: details.overview || null,
-              },
-            });
-            await prisma.$executeRaw`
-              UPDATE "library_media"
-              SET "tmdb_status_refreshed_at" = NOW()
-              WHERE "tmdb_id" = ${top.id}
-                AND "type" = 'show'
-            `;
-            matched++;
-          }
-        } catch {
-          unmatched.push(base);
-        }
-      }
+      const { matched, unmatched } = await importScannedVideos(
+        videos,
+        body.type,
+        key,
+      );
 
       return ok({ matched, unmatched });
     },

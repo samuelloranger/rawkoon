@@ -11,8 +11,8 @@ import type {
   GitHubReleasesResponse,
   RefreshGitHubReleasesResponse,
 } from "@rawkoon/shared/types";
-import { getAdminNotificationTargets } from "@rawkoon/api/services/notificationPreferences";
-import { notificationCopy } from "@rawkoon/api/services/notificationCopy";
+import { getAdminNotificationTargets } from "@rawkoon/api/services/notification/notificationPreferences";
+import { notificationCopy } from "@rawkoon/api/services/notification/notificationCopy";
 import { fetchWithTimeout } from "@rawkoon/api/utils/fetchWithTimeout";
 
 const RELEASES_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;

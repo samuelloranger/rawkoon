@@ -8,7 +8,7 @@ import {
   libraryReindexLanguagesQueue,
   libraryRemuxQueue,
 } from "@rawkoon/api/services/queueService";
-import { getNextRssRunAt } from "@rawkoon/api/services/rssNextRun";
+import { getNextRssRunAt } from "@rawkoon/api/services/rss/rssNextRun";
 import { createContractSseResponse } from "@rawkoon/api/utils/sse";
 import {
   assertSseContractIDs,
@@ -20,7 +20,7 @@ import type { LibraryRemuxJobData } from "@rawkoon/api/services/jobs/libraryRemu
 import {
   getLastRssRun,
   getRssRunHistory,
-} from "@rawkoon/api/services/rssRunStatus";
+} from "@rawkoon/api/services/rss/rssRunStatus";
 import {
   libraryEventBus,
   type LibraryLandedEvent,

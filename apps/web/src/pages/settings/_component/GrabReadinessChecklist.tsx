@@ -19,7 +19,7 @@ import type {
   GrabReadinessStatus,
 } from "@rawkoon/shared/types";
 
-export const GRAB_READINESS_ANCHOR = "grab-readiness";
+const GRAB_READINESS_ANCHOR = "grab-readiness";
 
 const SELECT_IDS = {
   default_movie_profile:

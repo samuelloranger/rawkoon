@@ -1,24 +1,11 @@
 import { inflateRawSync } from "node:zlib";
 
-/**
- * Minimal read-only zip support: locate one entry by name and inflate it.
- *
- * Bun.Archive (1.4) only understands tar and tar.gz — handed a zip it throws
- * "Unrecognized archive format" — and there is no other zip API, so reading an
- * epub means either shelling out to `unzip` or parsing the container here.
- * Parsing it here keeps epub import working on hosts without `unzip` and costs
- * no subprocesses.
- *
- * Only what an epub needs is implemented: the end-of-central-directory record,
- * the central directory, and stored/deflate entries. Zip64 and encrypted
- * entries are detected and refused rather than mis-parsed.
- */
+/** Minimal read-only zip support for epubs, since Bun.Archive only reads tar; zip64 and encrypted entries are refused. */
 
 const EOCD_SIGNATURE = 0x06054b50;
 const CENTRAL_SIGNATURE = 0x02014b50;
 const LOCAL_SIGNATURE = 0x04034b50;
 
-/** Fixed size of each record, excluding the variable-length fields that follow. */
 const EOCD_FIXED_SIZE = 22;
 const CENTRAL_FIXED_SIZE = 46;
 const LOCAL_FIXED_SIZE = 30;
@@ -36,19 +23,10 @@ const METHOD_DEFLATE = 8;
 /** General-purpose bit 0 means the entry is encrypted. */
 const FLAG_ENCRYPTED = 0x1;
 
-/**
- * Ceiling on any single entry, compressed or inflated. Epub files arrive from
- * an indexer, so they are untrusted: deflate reaches roughly 1000:1, and an
- * unbounded inflate of a hostile or corrupt entry would happily allocate
- * gigabytes inside the API process. A package document is a few KB — 8 MiB is
- * already far past anything legitimate.
- */
+/** Ceiling per entry, compressed or inflated: epubs are untrusted and deflate reaches ~1000:1. */
 const MAX_ENTRY_BYTES = 8 * 1024 * 1024;
 
-/**
- * Ceiling on the central directory itself, which is read whole. Its declared
- * size is a uint32, so without this a malformed header could ask for 4 GiB.
- */
+/** Ceiling on the central directory, which is read whole; its declared uint32 size could ask for 4 GiB. */
 const MAX_CENTRAL_DIRECTORY_BYTES = 16 * 1024 * 1024;
 
 export interface ZipEntry {
@@ -69,10 +47,7 @@ async function readRange(
   return Buffer.from(bytes);
 }
 
-/**
- * Find the end-of-central-directory record and return the central directory's
- * offset and size, or null when this is not a (non-zip64) zip.
- */
+/** Returns the central directory's offset and size, or null when this is not a non-zip64 zip. */
 async function readEocd(
   path: string,
   fileSize: number,
@@ -93,7 +68,7 @@ async function readEocd(
     const size = tail.readUInt32LE(i + 12);
     const offset = tail.readUInt32LE(i + 16);
 
-    // Any sentinel means the real value lives in a zip64 record we do not read.
+    // A sentinel means the real value is in a zip64 record we do not read.
     if (
       entryCount === ZIP64_SENTINEL_16 ||
       size === ZIP64_SENTINEL_32 ||
@@ -138,8 +113,7 @@ export async function listZipEntries(path: string): Promise<ZipEntry[]> {
       const nameEnd = nameStart + nameLength;
       if (nameEnd > central.length) break;
 
-      // Sizes or offsets needing zip64 are stored in the extra field; skip
-      // rather than read the sentinel as a real value.
+      // Zip64 values live in the extra field; skip rather than read the sentinel as real.
       const needsZip64 =
         compressedSize === ZIP64_SENTINEL_32 ||
         uncompressedSize === ZIP64_SENTINEL_32 ||
@@ -147,8 +121,6 @@ export async function listZipEntries(path: string): Promise<ZipEntry[]> {
 
       if (!needsZip64) {
         entries.push({
-          // Entry names are UTF-8 when bit 11 is set and otherwise CP437; epub
-          // requires UTF-8, and OPF paths are ASCII in practice either way.
           name: central.toString("utf8", nameStart, nameEnd),
           compressionMethod,
           compressedSize,
@@ -167,10 +139,7 @@ export async function listZipEntries(path: string): Promise<ZipEntry[]> {
   }
 }
 
-/**
- * Read and decompress one entry's bytes. Returns null when the entry cannot be
- * read — an unsupported compression method, encryption, or a corrupt header.
- */
+/** Returns null when the entry cannot be read: unsupported method, encryption, or corrupt header. */
 export async function readZipEntry(
   path: string,
   entry: ZipEntry,
@@ -182,8 +151,7 @@ export async function readZipEntry(
   ) {
     return null;
   }
-  // Refuse on the declared sizes before reading or allocating anything. The
-  // inflate below is capped too, since a hostile entry can understate these.
+  // Refuse on declared sizes first; the inflate is capped too since a hostile entry can understate them.
   if (
     entry.compressedSize > MAX_ENTRY_BYTES ||
     entry.uncompressedSize > MAX_ENTRY_BYTES
@@ -192,8 +160,7 @@ export async function readZipEntry(
   }
 
   try {
-    // The local header repeats the name and carries its own extra field, whose
-    // length can differ from the central directory's — so read it, don't guess.
+    // The local header's extra field length can differ from the central directory's, so read it.
     const header = await readRange(
       path,
       entry.localHeaderOffset,
@@ -215,18 +182,14 @@ export async function readZipEntry(
     if (compressed.length !== entry.compressedSize) return null;
 
     if (entry.compressionMethod === METHOD_STORED) return compressed;
-    // maxOutputLength throws ERR_BUFFER_TOO_LARGE rather than allocating, which
-    // is what actually stops a zip bomb that lies about its uncompressed size.
+    // maxOutputLength throws instead of allocating, which stops a zip bomb that lies about its size.
     return inflateRawSync(compressed, { maxOutputLength: MAX_ENTRY_BYTES });
   } catch {
     return null;
   }
 }
 
-/**
- * Read the first entry whose name satisfies `match`, as UTF-8 text.
- * Returns null when no entry matches or the entry cannot be decompressed.
- */
+/** Reads the first entry matching `match` as UTF-8, or null if none matches or it cannot be decompressed. */
 export async function readZipEntryText(
   path: string,
   match: (name: string) => boolean,

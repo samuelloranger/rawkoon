@@ -3,31 +3,22 @@ import { z } from "zod";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, queryV } from "@rawkoon/api/middleware/validate";
-import { prisma } from "@rawkoon/api/db";
 import {
   getActiveIndexerManager,
   tieredSearch,
 } from "@rawkoon/api/services/indexerManager";
-import type { NormalizedRelease } from "@rawkoon/api/services/indexerManager";
 import type {
   InteractiveReleaseItem,
   LanguageFallbackSummary,
 } from "@rawkoon/shared/types";
+import { profileToScoreInput } from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
 import {
-  buildLanguageFallbackSummary,
-  classifyLanguageFallback,
-} from "@rawkoon/api/utils/medias/languageFallback";
-import { parseReleaseTitle } from "@rawkoon/api/utils/medias/filenameParser";
-import { scoreReleaseDetailed } from "@rawkoon/api/utils/medias/releaseScorer";
-import type { ScoreBreakdownDto } from "@rawkoon/shared/types";
-import {
-  profileToScoreInput,
-  qualityProfileFormatsInclude,
-} from "@rawkoon/api/services/mediaGrabberHelpers";
-import {
-  isSeasonPack,
-  isCompleteSeries,
-} from "@rawkoon/api/utils/medias/mappers";
+  applyQualityProfileToReleases,
+  findEpisodeMediaId,
+  findMediaWithQualityProfile,
+  libraryMediaExists,
+  normalizedToInteractive,
+} from "@rawkoon/api/services/medias/interactiveSearch";
 import {
   badGateway,
   badRequest,
@@ -39,43 +30,13 @@ import {
   unprocessable,
 } from "@rawkoon/api/errors";
 import { gateAiCall } from "@rawkoon/api/services/aiProvider/aiGate";
-import { grabRelease } from "@rawkoon/api/services/mediaGrabberGrab";
+import { grabRelease } from "@rawkoon/api/services/mediaGrabber/mediaGrabberGrab";
 import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationConfigCache";
 import { normalizeAiProviderConfig } from "@rawkoon/api/utils/integrations/normalizers";
 import {
   loadEnabledAiProviderConfig,
   pickReleaseWithAi,
 } from "@rawkoon/api/services/aiProvider/client";
-
-function normalizedToInteractive(
-  r: NormalizedRelease,
-  source: "prowlarr" | "jackett",
-  downloadToken: string | null,
-): InteractiveReleaseItem {
-  return {
-    guid: r.guid,
-    title: r.title,
-    indexer: r.indexer,
-    indexer_id: r.indexerId,
-    languages: r.languages,
-    protocol: r.protocol,
-    size_bytes: r.sizeBytes,
-    age: r.age,
-    seeders: r.seeders,
-    leechers: r.leechers,
-    rejected: r.rejected,
-    rejection_reason: r.rejections.length > 0 ? r.rejections.join(", ") : null,
-    info_url: r.infoUrl,
-    source,
-    download_token: downloadToken,
-    download_url: r.magnetUrl ?? r.downloadUrl ?? null,
-    is_season_pack: isSeasonPack(r.title),
-    is_complete_series: isCompleteSeries(r.title),
-    freeleech: r.freeleech || undefined,
-    language_fallback: false,
-    language_fallback_tag: null,
-  };
-}
 
 let warmInFlight = false;
 
@@ -125,22 +86,14 @@ export async function downloadInteractiveSearchRelease(
 
     let mediaId = body.library_media_id;
     if (mediaId == null && body.episode_id != null) {
-      const episode = await prisma.libraryEpisode.findUnique({
-        where: { id: body.episode_id },
-        select: { mediaId: true },
-      });
-      mediaId = episode?.mediaId;
+      mediaId = await findEpisodeMediaId(body.episode_id);
     }
     if (mediaId == null) {
       return conflict(
         "No library item to attach this download to. Add the title to your library first.",
       );
     }
-    const media = await prisma.libraryMedia.findUnique({
-      where: { id: mediaId },
-      select: { id: true },
-    });
-    if (!media) {
+    if (!(await libraryMediaExists(mediaId))) {
       return conflict(
         "No library item to attach this download to. Add the title to your library first.",
       );
@@ -233,10 +186,7 @@ export async function handleAiPick(
   let preferredLanguages: string[] = [];
   if (body.media_id != null) {
     try {
-      const media = await prisma.libraryMedia.findUnique({
-        where: { id: body.media_id },
-        include: { qualityProfile: { include: qualityProfileFormatsInclude } },
-      });
+      const media = await findMediaWithQualityProfile(body.media_id);
       if (media?.qualityProfile) {
         preferredLanguages = profileToScoreInput(
           media.qualityProfile,
@@ -343,100 +293,15 @@ export const mediasSearchRoutes = new Hono<Env>()
           const libId =
             typeof lmRaw === "number" ? lmRaw : parseInt(String(lmRaw), 10);
           if (Number.isFinite(libId)) {
-            const media = await prisma.libraryMedia.findUnique({
-              where: { id: libId },
-              include: {
-                qualityProfile: { include: qualityProfileFormatsInclude },
-              },
-            });
+            const media = await findMediaWithQualityProfile(libId);
             const qp = media?.qualityProfile;
             if (qp) {
-              const profile = profileToScoreInput(qp);
-              mapped = mapped.map((r) => {
-                const parsed = parseReleaseTitle(r.title);
-                const breakdown = scoreReleaseDetailed(
-                  {
-                    parsed,
-                    rawTitle: r.title,
-                    sizeBytes: r.size_bytes,
-                    indexerName: r.indexer,
-                    seeders: r.seeders,
-                    freeleech: Boolean(r.freeleech),
-                  },
-                  profile,
-                );
-                const qualityReject = breakdown.rejected;
-                // An indexer-side rejection keeps the release out of the fallback group.
-                const fallbackTag =
-                  !r.rejected && breakdown.rejected
-                    ? classifyLanguageFallback(
-                        r.title,
-                        breakdown.reasons.map((x) => x.code),
-                        profile.preferredLanguages,
-                      )
-                    : null;
-                const parsed_quality = {
-                  resolution: parsed.resolution,
-                  source: parsed.source,
-                  codec: parsed.codec,
-                  hdr: parsed.hdr,
-                };
-                const rejected = r.rejected || qualityReject;
-                let rejection_reason = r.rejection_reason;
-                if (qualityReject) {
-                  const qmsg = breakdown.reasons.map((x) => x.code).join(", ");
-                  rejection_reason = rejection_reason
-                    ? `${rejection_reason}; ${qmsg}`
-                    : qmsg;
-                }
-                const score_breakdown: ScoreBreakdownDto = breakdown.rejected
-                  ? {
-                      rejected: true,
-                      total: null,
-                      components: [],
-                      matched_formats: [],
-                    }
-                  : {
-                      rejected: false,
-                      total: breakdown.total,
-                      components: breakdown.components.map((c) => ({
-                        code: c.code,
-                        value: c.value,
-                        ...(c.params ? { params: c.params } : {}),
-                      })),
-                      matched_formats: breakdown.matchedFormats,
-                    };
-                return {
-                  ...r,
-                  quality_score: qualityReject ? null : breakdown.total,
-                  quality_rejection_reasons: qualityReject
-                    ? breakdown.reasons.map((x) => x.code)
-                    : null,
-                  parsed_quality,
-                  rejected,
-                  rejection_reason,
-                  score_breakdown,
-                  language_fallback: fallbackTag != null,
-                  language_fallback_tag: fallbackTag,
-                };
-              });
-              if (!mapped.some((r) => !r.rejected)) {
-                languageFallbackSummary = buildLanguageFallbackSummary(
-                  profile.preferredLanguages,
-                  mapped.flatMap((r) =>
-                    r.language_fallback_tag ? [r.language_fallback_tag] : [],
-                  ),
-                );
-              }
-              mapped.sort((a, b) => {
-                const ar = a.rejected ? 1 : 0;
-                const br = b.rejected ? 1 : 0;
-                if (ar !== br) return ar - br;
-                const as = a.quality_score ?? -Number.MAX_SAFE_INTEGER;
-                const bs = b.quality_score ?? -Number.MAX_SAFE_INTEGER;
-                if (as !== bs) return bs - as;
-                return a.title.localeCompare(b.title);
-              });
+              const scored = applyQualityProfileToReleases(
+                mapped,
+                profileToScoreInput(qp),
+              );
+              mapped = scored.releases;
+              languageFallbackSummary = scored.languageFallbackSummary;
             }
           }
         }

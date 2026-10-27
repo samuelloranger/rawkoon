@@ -1,8 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
-import { hashPassword, verifyPassword } from "@rawkoon/api/utils/password";
 import { validatePassword } from "@rawkoon/shared/utils";
+import { changeUserPassword } from "@rawkoon/api/services/account/passwordChange";
 import {
   getContentType,
   getImage,
@@ -78,7 +77,7 @@ export const usersRoutes = new Hono<Env>()
       const body = c.req.valid("json");
       try {
         const { updateUserNotificationPreferences } = await import(
-          "@rawkoon/api/services/notificationPreferences"
+          "@rawkoon/api/services/notification/notificationPreferences"
         );
         const prefs = await updateUserNotificationPreferences(
           user.id,
@@ -101,33 +100,22 @@ export const usersRoutes = new Hono<Env>()
     if (!isValid) return badRequest(passwordError ?? "Invalid password");
 
     try {
-      const dbUser = await prisma.user.findFirst({
-        where: { id: user.id },
-        select: { id: true, passwordHash: true },
-      });
-
-      if (!dbUser) return unauthorized("User not found");
-      if (!dbUser.passwordHash) {
-        return badRequest(
-          "This account uses passkey authentication and has no password.",
-        );
-      }
-
-      const isCurrentValid = await verifyPassword(
+      const result = await changeUserPassword(
+        user.id,
         current_password,
-        dbUser.passwordHash,
+        new_password,
       );
-      if (!isCurrentValid) return badRequest("Current password is incorrect");
-
-      const passwordHash = await hashPassword(new_password);
-      await prisma.$transaction([
-        prisma.user.update({ where: { id: user.id }, data: { passwordHash } }),
-        prisma.baAccount.updateMany({
-          where: { userId: user.id, providerId: "credential" },
-          data: { password: passwordHash },
-        }),
-        prisma.baSession.deleteMany({ where: { userId: user.id } }),
-      ]);
+      if (!result.ok) {
+        if (result.reason === "user_not_found") {
+          return unauthorized("User not found");
+        }
+        if (result.reason === "no_password") {
+          return badRequest(
+            "This account uses passkey authentication and has no password.",
+          );
+        }
+        return badRequest("Current password is incorrect");
+      }
 
       return ok({ message: "Password updated successfully" });
     } catch (error) {

@@ -60,14 +60,14 @@ A public endpoint tells the login page whether to show the button: add `jellyfin
 
 ## API
 
-### Jellyfin client (`services/jellyfinUsers.ts`)
+### Jellyfin client (`services/jellyfin/jellyfinUsers.ts`)
 
 - `authenticateJellyfinUser(config, username, password)` → `POST {website_url}/Users/AuthenticateByName` with body `{ Username, Pw }` and a `MediaBrowser Client="Rawkoon", Device="Rawkoon", DeviceId=…, Version=…` authorization header (Jellyfin requires those fields on this call). Returns `{ id, name, disabled }` on success, `null` on 401, and throws on any other failure. Immediately after success, call `POST /Sessions/Logout` with the returned access token, best-effort, so no Jellyfin device entry is left behind.
 - `toJellyfinUser` / `JellyfinUser` gain `disabled: boolean` (from `Policy.IsDisabled`) so `listJellyfinUsers` can drive both the import list and the sync.
 
 ### Resolving the Rawkoon user (one shared function)
 
-`resolveOrCreateJellyfinRawkoonUser(jellyfinUser, config)` in a new `services/jellyfinSignIn.ts`:
+`resolveOrCreateJellyfinRawkoonUser(jellyfinUser, config)` in a new `services/jellyfin/jellyfinSignIn.ts`:
 
 1. Jellyfin user is disabled → `no_access`.
 2. A Rawkoon user has that `jellyfinUserId` → return it.
@@ -113,7 +113,7 @@ Rate-limit `POST` like sign-in: it takes a password.
 
 ### Avatar copy
 
-`copyJellyfinAvatar(config, jellyfinUserId, rawkoonUserId)` in `services/jellyfinSignIn.ts`, called:
+`copyJellyfinAvatar(config, jellyfinUserId, rawkoonUserId)` in `services/jellyfin/jellyfinSignIn.ts`, called:
 
 - after an account is created (automatic creation in the resolver, and admin import),
 - after a self-service link, only if the user has no `avatarUrl`.

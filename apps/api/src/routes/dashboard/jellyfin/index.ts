@@ -6,7 +6,7 @@ import {
   mapJellyfinSessions,
 } from "@rawkoon/api/utils/dashboard/jellyfin";
 import { normalizeJellyfinConfig } from "@rawkoon/api/utils/integrations/normalizers";
-import { jellyfinAuthHeader } from "@rawkoon/api/services/jellyfinUsers";
+import { jellyfinAuthHeader } from "@rawkoon/api/services/jellyfin/jellyfinUsers";
 import { badGateway, notFound, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";

@@ -1,12 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
 import { formatIso, sanitizeInput } from "@rawkoon/api/utils";
-import { hashPassword } from "@rawkoon/api/utils/password";
-import {
-  generateOpaqueToken,
-  hashOpaqueToken,
-} from "@rawkoon/api/utils/tokens";
 import {
   badGateway,
   badRequest,
@@ -22,12 +16,28 @@ import {
   copyJellyfinAvatar,
   copyJellyfinAvatars,
   createJellyfinRawkoonUser,
-} from "@rawkoon/api/services/jellyfinSignIn";
+} from "@rawkoon/api/services/jellyfin/jellyfinSignIn";
 import {
   getJellyfinConfig,
-  jellyfinSessionWhere,
   listJellyfinUsers,
-} from "@rawkoon/api/services/jellyfinUsers";
+} from "@rawkoon/api/services/jellyfin/jellyfinUsers";
+import {
+  createUserWithCredential,
+  deleteUser,
+  findUserByEmail,
+  findUsersLinkedToJellyfin,
+  isJellyfinUserLinked,
+  listUsers,
+  resetUserPassword,
+  setJellyfinLink,
+  setUserRole,
+} from "@rawkoon/api/services/admin/adminUsers";
+import {
+  createInvitation,
+  listInvitations,
+  regenerateInvitation,
+  revokeInvitation,
+} from "@rawkoon/api/services/admin/adminInvitations";
 
 const validateEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -38,9 +48,7 @@ const validateEmail = (email: string): boolean => {
 export const adminUserRoutes = new Hono<Env>()
   .get("/users", async () => {
     try {
-      const allUsers = await prisma.user.findMany({
-        orderBy: { createdAt: "desc" },
-      });
+      const allUsers = await listUsers();
 
       const usersData = allUsers.map((u) => ({
         id: u.id,
@@ -85,48 +93,19 @@ export const adminUserRoutes = new Hono<Env>()
       }
 
       const sanitizedEmail = sanitizeInput(emailTrimmed);
-      const existingUser = await prisma.user.findFirst({
-        where: { email: sanitizedEmail },
-      });
+      const existingUser = await findUserByEmail(sanitizedEmail);
       if (existingUser) {
         return badRequest("A user with this email already exists");
       }
 
       try {
-        const passwordHash = await hashPassword(body.password);
-        const displayName = [body.first_name, body.last_name]
-          .filter(Boolean)
-          .join(" ");
-
-        const newUser = await prisma.$transaction(async (tx) => {
-          const user = await tx.user.create({
-            data: {
-              name: displayName || sanitizedEmail,
-              email: sanitizedEmail,
-              emailVerified: true,
-              passwordHash,
-              firstName: body.first_name || null,
-              lastName: body.last_name || null,
-              isAdmin: body.is_admin || false,
-              locale: body.locale || "en",
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-          });
-
-          await tx.baAccount.create({
-            data: {
-              id: crypto.randomUUID(),
-              accountId: sanitizedEmail,
-              providerId: "credential",
-              userId: user.id,
-              password: passwordHash,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-          });
-
-          return user;
+        const newUser = await createUserWithCredential({
+          email: sanitizedEmail,
+          password: body.password,
+          firstName: body.first_name,
+          lastName: body.last_name,
+          isAdmin: body.is_admin,
+          locale: body.locale,
         });
 
         return ok(
@@ -160,10 +139,7 @@ export const adminUserRoutes = new Hono<Env>()
     }
     try {
       const users = await listJellyfinUsers(config);
-      const linked = await prisma.user.findMany({
-        where: { jellyfinUserId: { in: users.map((u) => u.id) } },
-        select: { id: true, jellyfinUserId: true },
-      });
+      const linked = await findUsersLinkedToJellyfin(users.map((u) => u.id));
       const linkedBy = new Map(linked.map((u) => [u.jellyfinUserId, u.id]));
       return ok({
         users: users.map((u) => ({
@@ -222,9 +198,7 @@ export const adminUserRoutes = new Hono<Env>()
           skipped.push({ jellyfin_user_id: id, reason: "not_found" });
         } else if (jellyfinUser.disabled) {
           skipped.push({ jellyfin_user_id: id, reason: "disabled" });
-        } else if (
-          await prisma.user.findUnique({ where: { jellyfinUserId: id } })
-        ) {
+        } else if (await isJellyfinUserLinked(id)) {
           skipped.push({ jellyfin_user_id: id, reason: "already_linked" });
         } else {
           const result = await createJellyfinRawkoonUser(
@@ -255,38 +229,13 @@ export const adminUserRoutes = new Hono<Env>()
     async (c) => {
       const userId = c.req.param("id");
       const jellyfinUserId = c.req.valid("json").jellyfin_user_id;
-      const user = await prisma.user.findUnique({ where: { id: userId } });
-      if (!user) return notFound("User not found");
-      if (user.jellyfinUserId === jellyfinUserId) {
-        return ok({ success: true, jellyfin_user_id: jellyfinUserId });
-      }
-      if (jellyfinUserId) {
-        const owner = await prisma.user.findUnique({
-          where: { jellyfinUserId },
-        });
-        if (owner) {
-          return conflict("That Jellyfin user is linked to another account");
-        }
-      }
-      // Sessions minted from the old link must not outlive it.
-      try {
-        await prisma.$transaction([
-          prisma.user.update({
-            where: { id: userId },
-            data: { jellyfinUserId },
-          }),
-          prisma.baSession.deleteMany({
-            where: jellyfinSessionWhere(userId),
-          }),
-        ]);
-      } catch (error) {
-        if ((error as { code?: string }).code === "P2002") {
-          return conflict("That Jellyfin user is linked to another account");
-        }
-        throw error;
+      const link = await setJellyfinLink(userId, jellyfinUserId);
+      if (link.kind === "not_found") return notFound("User not found");
+      if (link.kind === "conflict") {
+        return conflict("That Jellyfin user is linked to another account");
       }
       // Same rule as the self-service link: a user without a picture gets their Jellyfin one.
-      if (jellyfinUserId && !user.avatarUrl) {
+      if (link.kind === "linked" && jellyfinUserId && !link.hadAvatar) {
         // Best effort: the link already committed, so a failure here must not turn it into an error.
         void getJellyfinConfig()
           .then((config) =>
@@ -309,28 +258,15 @@ export const adminUserRoutes = new Hono<Env>()
       const userId = c.req.param("id");
       const body = c.req.valid("json");
       try {
-        const userToUpdate = await prisma.user.findFirst({
-          where: { id: userId },
-        });
-        if (!userToUpdate) return notFound("User not found");
-
-        if (body.is_admin === false && userToUpdate.isAdmin) {
-          const adminCount = await prisma.user.count({
-            where: { isAdmin: true, id: { not: userId } },
-          });
-          if (adminCount === 0) {
-            return badRequest("Cannot demote the last remaining admin user");
-          }
+        const result = await setUserRole(userId, body.is_admin);
+        if (result.kind === "not_found") return notFound("User not found");
+        if (result.kind === "last_admin") {
+          return badRequest("Cannot demote the last remaining admin user");
         }
-
-        const updated = await prisma.user.update({
-          where: { id: userId },
-          data: { isAdmin: body.is_admin },
-        });
 
         return ok({
           success: true,
-          user: { id: updated.id, is_admin: updated.isAdmin },
+          user: { id: result.user.id, is_admin: result.user.isAdmin },
         });
       } catch (error) {
         console.error("Error updating user role:", error);
@@ -350,24 +286,8 @@ export const adminUserRoutes = new Hono<Env>()
       }
 
       try {
-        const userToUpdate = await prisma.user.findFirst({
-          where: { id: userId },
-        });
-        if (!userToUpdate) return notFound("User not found");
-
-        const passwordHash = await hashPassword(body.password);
-
-        await prisma.$transaction([
-          prisma.user.update({
-            where: { id: userId },
-            data: { passwordHash },
-          }),
-          prisma.baAccount.updateMany({
-            where: { userId, providerId: "credential" },
-            data: { password: passwordHash },
-          }),
-          prisma.baSession.deleteMany({ where: { userId } }),
-        ]);
+        const result = await resetUserPassword(userId, body.password);
+        if (result === "not_found") return notFound("User not found");
 
         return ok({ success: true, message: "Password reset successfully" });
       } catch (error) {
@@ -401,53 +321,21 @@ export const adminUserRoutes = new Hono<Env>()
 
         const sanitizedEmail = sanitizeInput(emailTrimmed);
 
-        const existingUser = await prisma.user.findFirst({
-          where: { email: sanitizedEmail },
+        const result = await createInvitation({
+          email: sanitizedEmail,
+          isAdmin: body.is_admin,
+          locale: body.locale,
+          invitedBy: c.get("user").id,
         });
-
-        if (existingUser) {
+        if (result.kind === "user_exists") {
           return badRequest("A user with this email already exists");
         }
-
-        const existingInvitation = await prisma.invitation.findFirst({
-          where: {
-            email: sanitizedEmail,
-            status: "pending",
-            expiresAt: { gt: new Date() },
-          },
-        });
-
-        if (existingInvitation) {
+        if (result.kind === "pending_exists") {
           return badRequest(
             "A pending invitation already exists for this email. You can regenerate the link instead.",
           );
         }
-
-        const token = generateOpaqueToken();
-        const locale = (body.locale || "en").trim().slice(0, 10);
-        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-        let invitation;
-        try {
-          invitation = await prisma.invitation.create({
-            data: {
-              email: sanitizedEmail,
-              token: hashOpaqueToken(token),
-              status: "pending",
-              expiresAt,
-              invitedBy: c.get("user").id,
-              locale,
-              isAdmin: body.is_admin || false,
-            },
-          });
-        } catch (error) {
-          if ((error as { code?: string }).code === "P2002") {
-            return badRequest(
-              "A pending invitation already exists for this email. You can regenerate the link instead.",
-            );
-          }
-          throw error;
-        }
+        const { token, invitation } = result;
 
         return ok(
           {
@@ -475,14 +363,7 @@ export const adminUserRoutes = new Hono<Env>()
 
   .get("/invitations", async () => {
     try {
-      const invitations = await prisma.invitation.findMany({
-        orderBy: { createdAt: "desc" },
-        include: {
-          inviter: {
-            select: { email: true, firstName: true, lastName: true },
-          },
-        },
-      });
+      const invitations = await listInvitations();
 
       const now = new Date();
 
@@ -519,25 +400,18 @@ export const adminUserRoutes = new Hono<Env>()
     if (isNaN(id)) return badRequest("Invalid invitation ID");
 
     try {
-      const invitation = await prisma.invitation.findFirst({ where: { id } });
-      if (!invitation) return notFound("Invitation not found");
-      if (invitation.status !== "pending")
+      const result = await regenerateInvitation(id);
+      if (result.kind === "not_found") return notFound("Invitation not found");
+      if (result.kind === "not_pending") {
         return badRequest("Can only regenerate pending invitations");
-
-      const token = generateOpaqueToken();
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-      const result = await prisma.invitation.updateMany({
-        where: { id, status: "pending" },
-        data: { token: hashOpaqueToken(token), expiresAt },
-      });
-      if (result.count === 0) {
+      }
+      if (result.kind === "raced") {
         return badRequest("Invitation not found or no longer pending");
       }
 
       return ok({
         success: true,
-        token,
+        token: result.token,
         message: "Invitation link regenerated",
       });
     } catch (error) {
@@ -551,16 +425,12 @@ export const adminUserRoutes = new Hono<Env>()
     if (isNaN(id)) return badRequest("Invalid invitation ID");
 
     try {
-      const invitation = await prisma.invitation.findFirst({ where: { id } });
-      if (!invitation) return notFound("Invitation not found");
-      if (invitation.status !== "pending")
+      const result = await revokeInvitation(id);
+      if (result.kind === "not_found") return notFound("Invitation not found");
+      if (result.kind === "not_pending") {
         return badRequest("Can only revoke pending invitations");
-
-      const result = await prisma.invitation.updateMany({
-        where: { id, status: "pending" },
-        data: { status: "revoked" },
-      });
-      if (result.count === 0) {
+      }
+      if (result.kind === "raced") {
         return badRequest("Invitation not found or no longer pending");
       }
 
@@ -578,21 +448,12 @@ export const adminUserRoutes = new Hono<Env>()
       if (userId === c.get("user").id)
         return badRequest("Cannot delete your own account");
 
-      const userToDelete = await prisma.user.findFirst({
-        where: { id: userId },
-      });
-      if (!userToDelete) return notFound("User not found");
-
-      const userEmail = userToDelete.email;
-      // Self-delete is already blocked by the early return above.
-      const result = await prisma.user.deleteMany({ where: { id: userId } });
-      if (result.count === 0) {
-        return notFound("User not found");
-      }
+      const result = await deleteUser(userId);
+      if (result.kind === "not_found") return notFound("User not found");
 
       return ok({
         success: true,
-        message: `User ${userEmail} deleted successfully`,
+        message: `User ${result.email} deleted successfully`,
       });
     } catch (error) {
       console.error("Error deleting user:", error);

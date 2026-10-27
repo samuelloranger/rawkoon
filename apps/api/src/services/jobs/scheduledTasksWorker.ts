@@ -65,7 +65,7 @@ export async function processScheduledJob(job: Job) {
       }
       case SCHEDULED_JOB_NAMES.CHECK_LIBRARY_INTEGRITY: {
         const { runLibraryIntegrityCheck } = await import(
-          "../libraryIntegrityRun"
+          "../libraryIntegrity/libraryIntegrityRun"
         );
         const { trigger } = job.data as { trigger?: string };
         await runLibraryIntegrityCheck({ trigger: trigger ?? "cron" });
@@ -73,7 +73,7 @@ export async function processScheduledJob(job: Job) {
       }
       case SCHEDULED_JOB_NAMES.POLL_INDEXER_RSS: {
         const { pollIndexerRss } = await import("../../workers/pollIndexerRss");
-        const { saveRssRunResult } = await import("../rssRunStatus");
+        const { saveRssRunResult } = await import("../rss/rssRunStatus");
         const startedAt = new Date().toISOString();
         try {
           const stats = await pollIndexerRss();

@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
 import { badRequest, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
@@ -9,6 +8,10 @@ import {
   loadEnabledTmdbConfig,
   resolveLanguage,
 } from "@rawkoon/api/routes/medias/tmdb/tmdbRouteHelpers";
+import {
+  dismissDiscoverTitle,
+  undoDiscoverDismissal,
+} from "@rawkoon/api/services/medias/discoverDismissals";
 import { TmdbProvider } from "@rawkoon/api/services/discover/tmdbProvider";
 import { buildDiscoverDeck } from "@rawkoon/api/services/discover/buildDiscoverDeck";
 
@@ -71,21 +74,7 @@ export const mediasDiscoverRoutes = new Hono<Env>()
     async (c) => {
       const body = c.req.valid("json");
       try {
-        await prisma.discoverDismissal.upsert({
-          where: {
-            userId_tmdbId_mediaType: {
-              userId: c.get("user").id,
-              tmdbId: body.tmdb_id,
-              mediaType: body.type,
-            },
-          },
-          create: {
-            userId: c.get("user").id,
-            tmdbId: body.tmdb_id,
-            mediaType: body.type,
-          },
-          update: {},
-        });
+        await dismissDiscoverTitle(c.get("user").id, body.tmdb_id, body.type);
         return ok({ dismissed: true });
       } catch {
         return serverError("Failed to dismiss media");
@@ -102,9 +91,7 @@ export const mediasDiscoverRoutes = new Hono<Env>()
       return badRequest("Missing or invalid type query param");
     }
     try {
-      await prisma.discoverDismissal.deleteMany({
-        where: { userId: c.get("user").id, tmdbId, mediaType: type },
-      });
+      await undoDiscoverDismissal(c.get("user").id, tmdbId, type);
       return ok({ success: true });
     } catch {
       return serverError("Failed to undo dismissal");

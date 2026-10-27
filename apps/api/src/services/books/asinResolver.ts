@@ -1,40 +1,19 @@
 import { normalizeTitleForMatch } from "@rawkoon/api/utils/medias/filenameParser";
 import type { AsinCandidate, AsinMatch, AsinWant } from "./types";
 
-/**
- * ASIN resolution and — more importantly — rejection.
- *
- * Audnexus is ASIN-keyed and exposes no book title search, so every ASIN comes
- * from a freetext Audible catalog query. Nothing but this scorer stands between
- * the library and a confidently wrong record, which is worse than no record at
- * all: a wrong ASIN attaches a complete, plausible, incorrect book.
- *
- * Measured against a live catalog on 2026-08-24.
- */
+/** Audnexus has no title search, so ASINs come from freetext catalog queries and this scorer must reject confidently wrong matches. */
 
 export type { AsinCandidate, AsinMatch, AsinWant } from "./types";
 
 /** Below this, no ASIN is recorded and the book keeps its Google Books data. */
 export const ASIN_MIN_SCORE = 60;
 
-/**
- * What a language disagreement costs.
- *
- * Sized to sink the strongest possible match: an exact title plus a full author
- * overlap scores 80, so anything less than 21 leaves the language signal
- * decorative — which is exactly how an English audiobook of a French book
- * passed at 80, then displaced the French blurb, cover and publisher. 30 also
- * leaves a cross-language candidate corroborated by an exact volume match
- * (90) at the floor rather than below it.
- */
+/** Sized to sink an exact-title, full-author match (80) on a language mismatch, yet leave an exact-volume match (90) at the floor. */
 const LANGUAGE_MISMATCH_PENALTY = 30;
 
 const DISQUALIFIED = -1;
 
-/**
- * Volume markers as providers actually spell them. The `\d{1,3}` bound keeps a
- * four-digit year from being read as a volume number.
- */
+/** Volume markers as providers spell them; the 1-3 digit bound keeps a year from reading as a volume. */
 const VOLUME_RE =
   /\b(?:tome|tomo|volume|vol|book|livre|partie|part|t)\s*\.?\s*(\d{1,3})\b/iu;
 
@@ -45,11 +24,7 @@ export function extractVolumeNumber(title: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/**
- * A candidate's volume can live in three places. Title first, then subtitle,
- * then seriesPosition — and that last fallback is what catches the observed
- * collision, where the volume-1 product's title carries no number at all.
- */
+/** Volume can be in title, subtitle or seriesPosition; the last catches a volume-1 title with no number. */
 const candidateVolume = (c: AsinCandidate): number | null =>
   extractVolumeNumber(c.title) ??
   (c.subtitle ? extractVolumeNumber(c.subtitle) : null) ??
@@ -74,11 +49,7 @@ const toIso639 = (raw: string | null): string | null => {
   return /^[a-z]{2}$/.test(key) ? key : null;
 };
 
-/**
- * The language an explicit edition marker claims, which outranks any language
- * field: the marker is the one place a translated edition states itself
- * unambiguously, and the retailer's own tag is demonstrably unreliable.
- */
+/** Language claimed by an explicit edition marker, which outranks the retailer's unreliable language tag. */
 const EDITION_LANGUAGE: Array<[RegExp, string]> = [
   [/\b(?:version|[ée]dition)\s+fran[çc]aise?\b/iu, "fr"],
   [/\bfrench\s+edition\b/iu, "fr"],
@@ -94,18 +65,7 @@ const editionLanguage = (raw: string | null | undefined): string | null => {
   return null;
 };
 
-/**
- * Whether a product is a different language edition than the book wants.
- *
- * Shared with the stored-ASIN path in audnexusProvider: an id already on a book
- * skips this scorer entirely, so without the same check there, tightening the
- * scorer would leave every already-resolved book showing the wrong edition.
- *
- * An edition marker on either side outranks the reported language, and a marker
- * on the *library* title suppresses the verdict altogether: it says the row is
- * itself a translated edition, and the retailer's tag for that same product was
- * observed to be wrong.
- */
+/** Whether a product is another language edition; shared with the stored-ASIN path, and a marker on the library title suppresses the verdict. */
 export function languagesDisagree(
   want: { title: string; language: string },
   candidate: {
@@ -123,17 +83,7 @@ export function languagesDisagree(
   return candLang !== null && candLang !== wantLang;
 }
 
-/**
- * Edition suffixes a retailer bolts onto a title. They are noise for matching:
- * the library title "<name> - Version française" and the catalog title "<name>"
- * are the same book, and without stripping these the pair only reaches
- * containment scoring, which is not enough to clear the floor on its own.
- *
- * Both word orders occur, and covering only one is not a cosmetic gap: the
- * genuine French audiobook is listed as "<name> (French Edition)", so with the
- * suffix left in place it scored 55 against a floor of 60 and lost to the
- * English product it was there to displace.
- */
+/** Retailer edition suffixes, in both word orders; left in, a genuine French edition scored under the floor. */
 const EDITION_NOISE =
   /\b(?:(?:version|edition|édition)\s+(?:fran[çc]aise?|originale?|english|french|integrale|intégrale)|(?:fran[çc]aise?|english|french|original)\s+(?:version|edition|édition))\b/giu;
 
@@ -145,7 +95,6 @@ const authorTokens = (names: string[]): Set<string> => {
   const out = new Set<string>();
   for (const name of names) {
     for (const tok of normalizeTitleForMatch(name).split(" ")) {
-      // Two-letter fragments are initials and particles; they match everything.
       if (tok.length > 2) out.add(tok);
     }
   }
@@ -156,16 +105,14 @@ export function scoreAsinCandidate(
   want: AsinWant,
   candidate: AsinCandidate,
 ): number {
-  // 1. Volume agreement. Disqualifying, not merely penalising: a "tome 2"
-  // request must never resolve to the tome-1 product.
+  // 1. Volume mismatch disqualifies: a tome 2 request must never resolve to the tome-1 product.
   const wantVol = extractVolumeNumber(want.title);
   const candVol = candidateVolume(candidate);
   if (wantVol !== null && candVol !== null && wantVol !== candVol) {
     return DISQUALIFIED;
   }
 
-  // 2. Author overlap. No shared token means a different book by a different
-  // person, whatever the title similarity says.
+  // 2. No shared author token means a different book, whatever the title similarity.
   const wantAuthors = authorTokens(want.authors);
   const candAuthors = authorTokens(candidate.authors);
   let shared = 0;
@@ -174,14 +121,7 @@ export function scoreAsinCandidate(
   const authorScore =
     wantAuthors.size === 0 ? 0 : (shared / wantAuthors.size) * 30;
 
-  // 3. Title. Exact normalized equality is the strong signal. Containment is
-  // deliberately far weaker — containment is what causes sibling-volume
-  // collisions, and on its own it must NOT clear ASIN_MIN_SCORE. Measured
-  // live: "Les secrets de la femme de ménage" contains the volume-1 product
-  // title "La femme de ménage", and neither title carries a volume number, so
-  // the volume check above cannot save it. Only corroboration — an exact
-  // title, or a confirmed volume match — should push a containment hit over
-  // the floor.
+  // 3. Containment alone must not clear ASIN_MIN_SCORE (it causes sibling-volume collisions); only an exact title or volume match corroborates it.
   const wantTitle = compareTitle(want.title);
   const candTitle = compareTitle(candidate.title);
   let titleScore = 0;
@@ -195,20 +135,7 @@ export function scoreAsinCandidate(
   }
   if (titleScore === 0) return DISQUALIFIED;
 
-  /**
-   * 4. Language. A bonus when it agrees, a heavy penalty when it disagrees, and
-   * nothing at all when the disagreement cannot be trusted.
-   *
-   * Not disqualifying, and not merely a bonus either. A French edition was
-   * observed reporting "english", so an outright gate loses correct matches —
-   * but leaving it a 10-point bonus made it powerless, because an exact title
-   * plus a matching author already clears the floor on its own. That is how the
-   * English audiobook of a French-only print title got attached.
-   *
-   * The one disagreement to ignore is the mislabelled-edition case: when the
-   * library title announces its own translated edition, that same edition is
-   * the product being scored, and the retailer's tag for it is known wrong.
-   */
+  // 4. Language is a penalty, not a gate (editions get mislabelled), and a marker on the library title suppresses it.
   const wantLang = want.language.toLowerCase();
   const candLang =
     editionLanguage(candidate.title) ??

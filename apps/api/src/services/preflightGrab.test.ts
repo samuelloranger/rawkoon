@@ -30,7 +30,7 @@ mock.module("@rawkoon/api/utils/medias/safeTorrentFetchUrl", () => ({
   fetchHttpWithSafeRedirects: async () => new Response(),
 }));
 
-const { preflightGrab } = await import("./mediaGrabberGrab");
+const { preflightGrab } = await import("./mediaGrabber/mediaGrabberGrab");
 
 const magnet = `magnet:?xt=urn:btih:${"a".repeat(40)}`;
 const reason = async (opts: Parameters<typeof preflightGrab>[0]) => {

@@ -65,7 +65,7 @@ export interface TranscodeExcludedFile {
   reason: string;
 }
 
-export type TranscodeEstimateSource = "rough" | "refined" | "target";
+type TranscodeEstimateSource = "rough" | "refined" | "target";
 
 export interface TranscodeEstimate {
   files: TranscodeEstimateFile[];

@@ -1,7 +1,10 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
-import { nowUtc } from "@rawkoon/api/utils";
+import {
+  findIntegrationRow,
+  upsertIntegrationRow,
+} from "@rawkoon/api/services/integrations/integrationSettings";
+import { syncActiveIndexerManager } from "@rawkoon/api/services/indexerManager/activeManagerSync";
 import {
   isValidHttpUrl,
   normalizeUrl,
@@ -18,9 +21,7 @@ import { JackettAdapter } from "@rawkoon/api/services/indexerManager/jackettAdap
 export const jackettIntegrationRoutes = new Hono<Env>()
   .get("/jackett", async () => {
     try {
-      const integration = await prisma.integration.findFirst({
-        where: { type: "jackett" },
-      });
+      const integration = await findIntegrationRow("jackett");
 
       const config = normalizeJackettConfig(integration?.config);
       return ok({
@@ -50,9 +51,7 @@ export const jackettIntegrationRoutes = new Hono<Env>()
     async (c) => {
       const body = c.req.valid("json");
       const websiteUrl = normalizeUrl(body.website_url);
-      const existingIntegration = await prisma.integration.findFirst({
-        where: { type: "jackett" },
-      });
+      const existingIntegration = await findIntegrationRow("jackett");
       const existingConfig = normalizeJackettConfig(
         existingIntegration?.config,
       );
@@ -69,57 +68,21 @@ export const jackettIntegrationRoutes = new Hono<Env>()
       }
 
       try {
-        const now = nowUtc();
         const rssIndexers = Array.isArray(body.rss_indexers)
           ? body.rss_indexers
           : (existingConfig?.rss_indexers ?? []);
 
-        const integration = await prisma.integration.upsert({
-          where: { type: "jackett" },
-          update: {
-            enabled,
-            config: {
-              website_url: websiteUrl,
-              api_key: encrypt(apiKey),
-              rss_indexers: rssIndexers,
-            },
-            updatedAt: now,
-          },
-          create: {
-            type: "jackett",
-            enabled,
-            config: {
-              website_url: websiteUrl,
-              api_key: encrypt(apiKey),
-              rss_indexers: rssIndexers,
-            },
-            createdAt: now,
-            updatedAt: now,
+        const integration = await upsertIntegrationRow({
+          type: "jackett",
+          enabled,
+          config: {
+            website_url: websiteUrl,
+            api_key: encrypt(apiKey),
+            rss_indexers: rssIndexers,
           },
         });
 
-        const settings = await prisma.mediaSettings.findUnique({
-          where: { id: 1 },
-        });
-        if (enabled && !settings?.activeIndexerManager) {
-          await prisma.mediaSettings.upsert({
-            where: { id: 1 },
-            update: { activeIndexerManager: "jackett" },
-            create: { id: 1, activeIndexerManager: "jackett" },
-          });
-        }
-
-        if (!enabled && settings?.activeIndexerManager === "jackett") {
-          const prowlarr = await prisma.integration.findFirst({
-            where: { type: "prowlarr", enabled: true },
-          });
-          await prisma.mediaSettings.update({
-            where: { id: 1 },
-            data: {
-              activeIndexerManager: prowlarr ? "prowlarr" : null,
-            },
-          });
-        }
+        await syncActiveIndexerManager("jackett", enabled);
 
         await logActivity({
           type: "integration_updated",
@@ -144,8 +107,8 @@ export const jackettIntegrationRoutes = new Hono<Env>()
   )
   .get("/jackett/indexers", async () => {
     try {
-      const integration = await prisma.integration.findFirst({
-        where: { type: "jackett", enabled: true },
+      const integration = await findIntegrationRow("jackett", {
+        enabledOnly: true,
       });
       const config = normalizeJackettConfig(integration?.config);
       if (!config) return ok({ indexers: [] });

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { prisma } from "@rawkoon/api/db";
 import { ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
+import { listRecentLibraryHealthLogs } from "@rawkoon/api/services/admin/libraryHealthLogs";
 import { formatIso } from "@rawkoon/api/utils";
 
 // Mounted under /api/admin; requireAdmin is applied at the admin parent.
@@ -13,10 +13,7 @@ export const adminLibraryHealthRoutes = new Hono<Env>().get(
         25,
         Math.max(1, parseInt(c.req.query("limit") || "5", 10) || 5),
       );
-      const logs = await prisma.libraryHealthLog.findMany({
-        orderBy: { startedAt: "desc" },
-        take: limit,
-      });
+      const logs = await listRecentLibraryHealthLogs(limit);
 
       const getIssueCount = (summary: unknown) => {
         if (typeof summary !== "object" || summary === null) return 0;

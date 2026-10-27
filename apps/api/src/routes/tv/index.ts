@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
 import {
   badGateway,
   forbidden,
@@ -15,7 +14,8 @@ import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationCon
 import {
   authorizeJellyfinQuickConnect,
   getJellyfinConfig,
-} from "@rawkoon/api/services/jellyfinUsers";
+} from "@rawkoon/api/services/jellyfin/jellyfinUsers";
+import { findTvUser } from "@rawkoon/api/services/tv/tvUsers";
 import { normalizeTmdbConfig } from "@rawkoon/api/utils/integrations/normalizers";
 
 // Mounted at /api/tv. Guards are per route: a .use("*") here would leak into
@@ -26,7 +26,7 @@ export const tvRoutes = new Hono<Env>()
   .get("/bootstrap", requireUser, async (c) => {
     const sessionUser = c.get("user");
     const [user, jellyfin, tmdbIntegration] = await Promise.all([
-      prisma.user.findUnique({ where: { id: sessionUser.id } }),
+      findTvUser(sessionUser.id),
       getJellyfinConfig(),
       getIntegrationConfigRecord("tmdb"),
     ]);
@@ -57,9 +57,7 @@ export const tvRoutes = new Hono<Env>()
       if (!config) {
         return serviceUnavailable("Jellyfin integration is not configured");
       }
-      const user = await prisma.user.findUnique({
-        where: { id: c.get("user").id },
-      });
+      const user = await findTvUser(c.get("user").id);
       if (!user?.jellyfinUserId) {
         return forbidden(
           "This account is not linked to a Jellyfin user. Ask an admin to link it.",

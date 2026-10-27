@@ -2,6 +2,7 @@
  * Route tests for /api/requests — isolated prisma + auth stubs (see custom-formats).
  */
 import { describe, it, expect, beforeEach, mock, afterAll } from "bun:test";
+import { dbModule } from "./mocks/prisma";
 
 const EPOCH = new Date("2026-06-19T00:00:00Z");
 
@@ -121,7 +122,7 @@ const prismaStub = {
   },
 };
 
-mock.module("@rawkoon/api/db", () => ({ prisma: prismaStub }));
+mock.module("@rawkoon/api/db", () => dbModule({ prisma: prismaStub }));
 mock.module("@rawkoon/api/lib/auth", () => ({
   auth: {
     api: {

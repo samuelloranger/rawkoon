@@ -40,13 +40,6 @@ export const NOTIFICATION_PREFERENCE_KEYS: NotificationPreferenceKey[] = [
   "github_release",
 ];
 
-export const DEFAULT_NOTIFICATION_PREFERENCES: Record<
-  NotificationPreferenceKey,
-  boolean
-> = Object.fromEntries(
-  NOTIFICATION_PREFERENCE_KEYS.map((k) => [k, true]),
-) as Record<NotificationPreferenceKey, boolean>;
-
 export function resolveNotificationPreference(
   prefs: NotificationPreferences | null | undefined,
   key: NotificationPreferenceKey,

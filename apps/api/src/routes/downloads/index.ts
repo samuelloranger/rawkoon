@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
 import {
   badRequest,
   notFound,
@@ -13,7 +12,17 @@ import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, paramV, queryV } from "@rawkoon/api/middleware/validate";
 import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import type { NormalizedTorrent } from "@rawkoon/api/services/downloadClient/types";
-import { listKnownIndexers } from "@rawkoon/api/services/seeding/indexerPrivacy";
+import { loadJanitorStats } from "@rawkoon/api/services/downloadsApi/janitorStats";
+import {
+  listPendingReleaseItems,
+  releaseHeldTarget,
+} from "@rawkoon/api/services/downloadsApi/pendingReleases";
+import {
+  deleteSeedRules,
+  loadSeedRuleRows,
+  saveSeedRule,
+} from "@rawkoon/api/services/downloadsApi/seedRules";
+import { loadSeedingView } from "@rawkoon/api/services/downloadsApi/seedingList";
 import {
   loadOwnedHashes,
   loadOwnedRowIds,
@@ -36,17 +45,6 @@ import {
   supersededIds,
 } from "@rawkoon/api/services/seeding/seedingView";
 import { processPendingReleases } from "@rawkoon/api/workers/processPendingReleases";
-import type {
-  PendingReleaseItem,
-  ReleasedTorrent,
-  SeedReleaseReason,
-} from "@rawkoon/shared/types";
-
-const RELEASE_REASONS_SHOWN: SeedReleaseReason[] = [
-  "target_met",
-  "manual",
-  "move_mode",
-];
 
 async function listClientTorrents(): Promise<NormalizedTorrent[] | null> {
   const active = await resolveActiveAdapter();
@@ -75,150 +73,11 @@ export const downloadsRoutes = new Hono<Env>()
         const torrents = await listClientTorrents();
         if (torrents === null)
           return serviceUnavailable("Download client is unreachable");
-        const [enabled, ctx, rows] = await Promise.all([
-          defaultSweepDeps.isEnabled(),
-          loadSeedContext(),
-          prisma.downloadHistory.findMany({
-            where: {
-              completedAt: { not: null },
-              failed: false,
-              seedReleasedAt: null,
-              torrentHash: { not: null },
-            },
-            select: {
-              id: true,
-              torrentHash: true,
-              indexer: true,
-              grabbedAt: true,
-              mediaId: true,
-              episodeId: true,
-              bookEditionId: true,
-              media: {
-                select: {
-                  id: true,
-                  title: true,
-                  year: true,
-                  posterUrl: true,
-                  type: true,
-                },
-              },
-              bookEdition: {
-                select: {
-                  kind: true,
-                  book: { select: { id: true, title: true, coverUrl: true } },
-                },
-              },
-            },
-          }),
-        ]);
-        const held = rows.flatMap((r) =>
-          r.torrentHash
-            ? [
-                {
-                  id: r.id,
-                  torrentHash: r.torrentHash,
-                  indexer: r.indexer,
-                  grabbedAt: r.grabbedAt,
-                  mediaId: r.mediaId,
-                  episodeId: r.episodeId,
-                  bookEditionId: r.bookEditionId,
-                  media: r.media,
-                  book: r.bookEdition
-                    ? { ...r.bookEdition.book, kind: r.bookEdition.kind }
-                    : null,
-                },
-              ]
-            : [],
-        );
-        const mediaIds = [
-          ...new Set(
-            held.flatMap((h) => (h.mediaId != null ? [h.mediaId] : [])),
-          ),
-        ];
-        const editionIds = [
-          ...new Set(
-            held.flatMap((h) =>
-              h.bookEditionId != null ? [h.bookEditionId] : [],
-            ),
-          ),
-        ];
-        const completed = await prisma.downloadHistory.findMany({
-          where: {
-            completedAt: { not: null },
-            failed: false,
-            OR: [
-              { mediaId: { in: mediaIds } },
-              { bookEditionId: { in: editionIds } },
-            ],
-          },
-          select: {
-            id: true,
-            mediaId: true,
-            episodeId: true,
-            bookEditionId: true,
-            grabbedAt: true,
-          },
-        });
-        const torrentsView = buildSeedingTorrents(
-          held,
+        const view = await loadSeedingView(
           torrents,
-          ctx,
-          supersededIds(held, completed),
+          c.req.valid("query").preview === "1",
         );
-
-        const startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
-        const releasedRows = await prisma.downloadHistory.findMany({
-          where: {
-            seedReleasedAt: { gte: startOfDay },
-            seedReleaseReason: { in: RELEASE_REASONS_SHOWN },
-          },
-          select: {
-            torrentHash: true,
-            releaseTitle: true,
-            seedReleaseReason: true,
-            seedReleasedAt: true,
-            seedReleasedBytes: true,
-            media: { select: { title: true } },
-            bookEdition: { select: { book: { select: { title: true } } } },
-          },
-          orderBy: { seedReleasedAt: "desc" },
-        });
-        const releasedByHash = new Map<string, ReleasedTorrent>();
-        for (const r of releasedRows) {
-          const hash = r.torrentHash?.toLowerCase();
-          if (!hash || releasedByHash.has(hash) || !r.seedReleasedAt) continue;
-          releasedByHash.set(hash, {
-            hash,
-            title:
-              r.media?.title ?? r.bookEdition?.book.title ?? r.releaseTitle,
-            reason: r.seedReleaseReason as SeedReleaseReason,
-            released_at: r.seedReleasedAt.toISOString(),
-            size_bytes:
-              r.seedReleasedBytes != null ? Number(r.seedReleasedBytes) : null,
-          });
-        }
-
-        let wouldReleaseNow: { count: number; bytes: number } | undefined;
-        if (c.req.valid("query").preview === "1") {
-          const pendingHashes = await defaultSweepDeps.loadPendingHashes();
-          wouldReleaseNow = previewSeedRelease(
-            held.map((h) => ({
-              id: h.id,
-              torrentHash: h.torrentHash,
-              indexer: h.indexer,
-            })),
-            torrents,
-            { ...ctx, pendingHashes },
-          );
-        }
-
-        return ok({
-          enabled,
-          torrents: torrentsView,
-          released_today: [...releasedByHash.values()],
-          ...(wouldReleaseNow ? { would_release_now: wouldReleaseNow } : {}),
-        });
+        return ok(view);
       } catch (e) {
         console.error("[downloads] seeding list failed:", e);
         return serverError("Failed to load seeding torrents");
@@ -301,29 +160,7 @@ export const downloadsRoutes = new Hono<Env>()
   )
   .get("/seed-rules", requireAdmin, async () => {
     try {
-      const [indexers, overrides, ctx, held] = await Promise.all([
-        listKnownIndexers(),
-        prisma.indexerSeedRule.findMany(),
-        loadSeedContext(),
-        prisma.downloadHistory.findMany({
-          where: {
-            completedAt: { not: null },
-            failed: false,
-            seedReleasedAt: null,
-            torrentHash: { not: null },
-          },
-          select: { indexer: true, torrentHash: true },
-          distinct: ["torrentHash"],
-        }),
-      ]);
-      const heldByIndexer = new Map<string, number>();
-      for (const h of held) {
-        const key = indexerKey(h.indexer);
-        if (key) heldByIndexer.set(key, (heldByIndexer.get(key) ?? 0) + 1);
-      }
-      return ok({
-        indexers: buildSeedRuleRows(indexers, overrides, heldByIndexer, ctx),
-      });
+      return ok({ indexers: await loadSeedRuleRows() });
     } catch {
       return serverError("Failed to load seed rules");
     }
@@ -337,16 +174,7 @@ export const downloadsRoutes = new Hono<Env>()
       const name = c.req.valid("param").indexer.trim();
       const body = c.req.valid("json");
       try {
-        const existing = await prisma.indexerSeedRule.findFirst({
-          where: { indexerName: { equals: name, mode: "insensitive" } },
-        });
-        const data = { ratio: body.ratio, seedTimeMins: body.seed_time_mins };
-        // Upsert so two concurrent first saves can't both hit the unique constraint.
-        const rule = await prisma.indexerSeedRule.upsert({
-          where: { indexerName: existing?.indexerName ?? name },
-          update: data,
-          create: { indexerName: name, ...data },
-        });
+        const rule = await saveSeedRule(name, body);
         return ok({
           rule: {
             indexer: rule.indexerName,
@@ -366,10 +194,7 @@ export const downloadsRoutes = new Hono<Env>()
     async (c) => {
       const name = c.req.valid("param").indexer.trim();
       try {
-        const res = await prisma.indexerSeedRule.deleteMany({
-          where: { indexerName: { equals: name, mode: "insensitive" } },
-        });
-        return ok({ deleted: res.count });
+        return ok({ deleted: await deleteSeedRules(name) });
       } catch {
         return serverError("Failed to delete seed rule");
       }
@@ -377,52 +202,7 @@ export const downloadsRoutes = new Hono<Env>()
   )
   .get("/pending-releases", requireAdmin, async () => {
     try {
-      const rows = await prisma.pendingRelease.findMany({
-        orderBy: [{ grabAfter: "asc" }, { score: "desc" }],
-        include: { media: { select: { title: true, posterUrl: true } } },
-      });
-      const episodeIds = [
-        ...new Set(
-          rows.flatMap((r) => (r.episodeId == null ? [] : [r.episodeId])),
-        ),
-      ];
-      const episodes = episodeIds.length
-        ? await prisma.libraryEpisode.findMany({
-            where: { id: { in: episodeIds } },
-            select: { id: true, season: true, episode: true },
-          })
-        : [];
-      const episodeById = new Map(episodes.map((e) => [e.id, e]));
-
-      const byTarget = new Map<string, PendingReleaseItem>();
-      for (const r of rows) {
-        const existing = byTarget.get(r.targetKey);
-        if (existing) {
-          existing.candidate_count++;
-          continue;
-        }
-        const ep = r.episodeId != null ? episodeById.get(r.episodeId) : null;
-        byTarget.set(r.targetKey, {
-          target_key: r.targetKey,
-          media_id: r.mediaId,
-          media_title: r.media.title,
-          poster_url: r.media.posterUrl,
-          season: ep?.season ?? r.season,
-          episode: ep?.episode ?? null,
-          release_title: r.releaseTitle,
-          candidate_count: 1,
-          grab_after: r.grabAfter.toISOString(),
-        });
-      }
-      const bestScore = new Map<string, number>();
-      for (const r of rows) {
-        const item = byTarget.get(r.targetKey)!;
-        if (r.score > (bestScore.get(r.targetKey) ?? -Infinity)) {
-          bestScore.set(r.targetKey, r.score);
-          item.release_title = r.releaseTitle;
-        }
-      }
-      return ok({ items: [...byTarget.values()] });
+      return ok({ items: await listPendingReleaseItems() });
     } catch {
       return serverError("Failed to load pending releases");
     }
@@ -435,12 +215,8 @@ export const downloadsRoutes = new Hono<Env>()
       const { target_key } = c.req.valid("json");
       try {
         // Pull the window forward, then replay the normal due-target pass for this target only.
-        const moved = await prisma.pendingRelease.updateMany({
-          where: { targetKey: target_key },
-          data: { grabAfter: new Date() },
-        });
-        if (moved.count === 0)
-          return notFound("No held release for that target");
+        const moved = await releaseHeldTarget(target_key);
+        if (moved === 0) return notFound("No held release for that target");
         const { grabbed, reason } = await processPendingReleases(
           new Date(),
           target_key,
@@ -457,20 +233,7 @@ export const downloadsRoutes = new Hono<Env>()
   )
   .get("/janitor-stats", requireAdmin, async () => {
     try {
-      const since = new Date(Date.now() - 30 * 86_400_000);
-      const groups = await prisma.grabBlocklist.groupBy({
-        by: ["kind"],
-        where: { blockedAt: { gte: since }, kind: { not: null } },
-        _count: { _all: true },
-      });
-      const count = (kind: string) =>
-        groups.find((g) => g.kind === kind)?._count._all ?? 0;
-      return ok({
-        days: 30,
-        stalled: count("stalled"),
-        malware: count("malware"),
-        import_rejected: count("import_rejected"),
-      });
+      return ok(await loadJanitorStats());
     } catch {
       return serverError("Failed to load janitor stats");
     }

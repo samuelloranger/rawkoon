@@ -50,7 +50,7 @@ export const NOTIFICATION_JOB_NAMES = {
   SEND_NOTIFICATION: "send-notification",
 } as const;
 
-/** Job name on the post-process queue — see services/downloadOutcome.ts. */
+/** Job name on the post-process queue — see services/downloads/downloadOutcome.ts. */
 export const POST_PROCESS_JOB_NAME = "post-process";
 
 const defaultQueueOptions: QueueOptions = {
@@ -314,7 +314,7 @@ export async function setupScheduledJobs() {
   const { loadReleaseCheckCron, registerSchedulers } = await import(
     "./releaseCheckSchedule"
   );
-  const { loadRssPollInterval } = await import("./rssPollSchedule");
+  const { loadRssPollInterval } = await import("./rss/rssPollSchedule");
   const releaseCheckCron = await loadReleaseCheckCron();
   const rssPollPattern = rssPollCron(await loadRssPollInterval());
 

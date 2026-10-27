@@ -29,10 +29,6 @@ export interface UpdateProfileRequest {
   nav_position?: NavPosition | null;
 }
 
-export interface UpdateNotificationPreferencesRequest {
-  notification_preferences: NotificationPreferences;
-}
-
 export interface ChangePasswordRequest {
   current_password: string;
   new_password: string;

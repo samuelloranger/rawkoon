@@ -1,9 +1,4 @@
-import {
-  stat as statFile,
-  readdir,
-  rename as renameFile,
-} from "node:fs/promises";
-import { join, dirname, extname } from "node:path";
+import { stat as statFile } from "node:fs/promises";
 import { prisma } from "@rawkoon/api/db";
 import {
   scanMediaInfo,
@@ -15,19 +10,19 @@ import {
   fingerprintFromStats,
   mapPool,
 } from "@rawkoon/api/utils/medias/fileFingerprint";
-import {
-  parseFilenameMetadata,
-  parseReleaseSeasonEpisode,
-  parseReleaseTitle,
-} from "@rawkoon/api/utils/medias/filenameParser";
-import { isExcludedDir } from "@rawkoon/api/utils/medias/fileIdentifier";
-import { enqueuePostProcess } from "@rawkoon/api/services/downloadOutcome";
+import { parseFilenameMetadata } from "@rawkoon/api/utils/medias/filenameParser";
+import { enqueuePostProcess } from "@rawkoon/api/services/downloads/downloadOutcome";
 import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import { reconcilePendingDownloads } from "@rawkoon/api/workers/checkDownloadCompletion";
-import { classifyLanguageTags } from "@rawkoon/shared";
-import type { LibraryAudioTrack } from "@rawkoon/shared";
-import { renderMovieTemplate } from "@rawkoon/api/utils/medias/fileTemplate";
 import { withKeyedLock } from "@rawkoon/api/utils/keyedLock";
+import {
+  discoverMovieFiles,
+  discoverShowEpisodes,
+} from "@rawkoon/api/services/library/rescanDiscovery";
+import {
+  renameFilesToTemplate,
+  type FreshFileMeta,
+} from "@rawkoon/api/services/library/rescanRename";
 import { PERF_TIMING_ENABLED } from "@rawkoon/api/services/perf/perfStore";
 
 export type RescanResult = {
@@ -47,26 +42,8 @@ export type RescanResult = {
   };
 };
 
-const VIDEO_EXTENSIONS = new Set([".mkv", ".mp4", ".avi", ".m4v"]);
 const SCAN_CONCURRENCY = 4;
 const DB_WRITE_CONCURRENCY = 8;
-
-function normalizeForDiscovery(str: string): string {
-  // Fold accents first: "Ça" must become "ca", not " a" (which would then
-  // match any filename containing the letter "a"). NFD leaves ligatures and
-  // stroked letters whole, so those are spelled out by hand.
-  return str
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase()
-    .replace(/œ/g, "oe")
-    .replace(/æ/g, "ae")
-    .replace(/ø/g, "o")
-    .replace(/ß/g, "ss")
-    .replace(/[^a-z0-9]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 export async function rescanLibraryItem(
   mediaId: number,
@@ -155,13 +132,7 @@ async function rescanLibraryItemInner(
   let hasValidFile = transcoding.size > 0;
   for (const f of allFiles)
     if (transcoding.has(f.id) && f.episodeId) validEpisodeIds.add(f.episodeId);
-  // Capture fresh MediaInfo + parsed filename data per file, so Step 1c
-  // (rename) sees the post-rescan values rather than the stale row.
-  type FreshFileMeta = {
-    resolution: number | null;
-    source: string | null;
-    videoCodec: string | null;
-  };
+  // Fresh MediaInfo per file, so Step 1c (rename) sees post-rescan values.
   const freshMeta = new Map<number, FreshFileMeta>();
 
   await mapPool(files, SCAN_CONCURRENCY, async (file) => {
@@ -261,118 +232,12 @@ async function rescanLibraryItemInner(
   // for any video file whose name contains this item's title and year as whole
   // words and that no library item tracks yet. Updates status to "downloaded"
   // if it was "wanted".
-  const normalizedMovieTitle =
-    media.type === "movie" && media.title
-      ? normalizeForDiscovery(media.title)
-      : "";
-  // A title with no Latin letters or digits normalizes to "" and would match
-  // every file, so it skips discovery.
-  if (mediaSettings && normalizedMovieTitle) {
-    const libraryPath = mediaSettings.moviesLibraryPath;
-    if (libraryPath) {
-      const remappedLibDir = remapPath(libraryPath);
-      try {
-        const entries = await readdir(remappedLibDir, { withFileTypes: true });
-        const titleWords = ` ${normalizedMovieTitle} `;
-        const yearWord = media.year != null ? ` ${media.year} ` : null;
-
-        const candidates: Array<{
-          diskPath: string;
-          dbPath: string;
-          name: string;
-        }> = [];
-        for (const entry of entries) {
-          if (!entry.isFile()) continue;
-          const ext = extname(entry.name);
-          if (!VIDEO_EXTENSIONS.has(ext) || entry.name.startsWith("."))
-            continue;
-
-          const stem = entry.name.slice(0, -ext.length);
-          const words = ` ${normalizeForDiscovery(stem)} `;
-          if (!words.includes(titleWords)) continue;
-          if (yearWord != null && !words.includes(yearWord)) continue;
-
-          const diskPath = join(remappedLibDir, entry.name);
-          const dbPath = join(libraryPath, entry.name);
-          if (trackedPaths.has(dbPath)) continue;
-          candidates.push({ diskPath, dbPath, name: entry.name });
-        }
-
-        // A file another library item already tracks belongs to that item.
-        const ownedElsewhere =
-          candidates.length > 0
-            ? new Set(
-                (
-                  await prisma.mediaFile.findMany({
-                    where: {
-                      filePath: { in: candidates.map((c) => c.dbPath) },
-                      mediaId: { not: mediaId },
-                    },
-                    select: { filePath: true },
-                  })
-                ).map((f) => f.filePath),
-              )
-            : new Set<string>();
-
-        const created = await mapPool(
-          candidates.filter((c) => !ownedElsewhere.has(c.dbPath)),
-          SCAN_CONCURRENCY,
-          async ({ diskPath, dbPath, name }) => {
-            let st;
-            try {
-              st = await statFile(diskPath, { bigint: true });
-            } catch {
-              return false;
-            }
-            if (!st.isFile()) return false;
-            const fp = fingerprintFromStats(st);
-            const mi = await scanMediaInfo(diskPath);
-            if (!mi) return false;
-
-            const fnData = parseFilenameMetadata(name);
-            await prisma.mediaFile.create({
-              data: {
-                mediaId,
-                filePath: dbPath,
-                fileName: name,
-                ...fingerprintDbFields(fp),
-                durationSecs: mi.durationSecs,
-                releaseGroup: mi.releaseGroup,
-                videoCodec: mi.videoCodec,
-                videoProfile: mi.videoProfile,
-                width: mi.width,
-                height: mi.height,
-                frameRate: mi.frameRate,
-                bitDepth: mi.bitDepth,
-                videoBitrate: mi.videoBitrate,
-                hdrFormat: mi.hdrFormat ?? fnData.hdrFormat,
-                resolution: mi.resolution ?? fnData.resolution,
-                source: mi.source ?? fnData.source,
-                audioTracks: mi.audioTracks as object[],
-                subtitleTracks: mi.subtitleTracks as object[],
-                languageTags: classifyLanguageTags(
-                  mi.audioTracks as LibraryAudioTrack[],
-                  null,
-                ),
-              },
-            });
-            trackedPaths.add(dbPath);
-            return true;
-          },
-        );
-        imported += created.filter(Boolean).length;
-      } catch {
-        // Library dir unreadable — skip discovery
-      }
-
-      if (imported > 0 && media.status === "wanted") {
-        await prisma.libraryMedia.update({
-          where: { id: mediaId },
-          data: { status: "downloaded" },
-        });
-      }
-    }
-  }
+  imported += await discoverMovieFiles({
+    media,
+    mediaSettings,
+    mediaId,
+    trackedPaths,
+  });
 
   // ── Step 1b (shows): Discovery — scan the show dir for untracked episode files ─
   // Walk the configured shows library path for directories that fuzzy-match this
@@ -380,217 +245,25 @@ async function rescanLibraryItemInner(
   // SxxExx and insert a media_files row. Mirrors the movie discovery above; needed
   // because a mislinked/failed post-process can leave real episode files on disk
   // that never got tracked (e.g. an EEXIST collision).
-  if (mediaSettings && media.type === "show" && media.title) {
-    const libraryPath = mediaSettings.showsLibraryPath;
-    if (libraryPath) {
-      const remappedLibDir = remapPath(libraryPath);
-      const normalizedTitle = normalizeForDiscovery(media.title);
-      // Match the show folder exactly (optionally with a trailing year), not by
-      // substring: a short title like "From" must not admit "Tales From the
-      // Crypt" and pull that show's SxxExx files into the wrong library item.
-      const showDirNames = new Set([normalizedTitle]);
-      if (media.year != null) {
-        showDirNames.add(`${normalizedTitle} ${media.year}`);
-      }
-      const episodes = await prisma.libraryEpisode.findMany({
-        where: { mediaId },
-        select: { id: true, season: true, episode: true, status: true },
-      });
-      const epByKey = new Map(
-        episodes.map((e) => [`${e.season}x${e.episode}`, e]),
-      );
-
-      try {
-        const showDirs = await readdir(remappedLibDir, { withFileTypes: true });
-        for (const showEntry of showDirs) {
-          if (!showEntry.isDirectory()) continue;
-          if (!showDirNames.has(normalizeForDiscovery(showEntry.name)))
-            continue;
-
-          const showDiskDir = join(remappedLibDir, showEntry.name);
-          const showDbDir = join(libraryPath, showEntry.name);
-          // Recurse one level (Season folders) plus files directly under the show.
-          const seasonEntries = await readdir(showDiskDir, {
-            withFileTypes: true,
-          });
-          const scanDirs: Array<{ disk: string; db: string }> = [
-            { disk: showDiskDir, db: showDbDir },
-          ];
-          for (const se of seasonEntries) {
-            // Skip sidecar dirs (Sample, Extras, …) so a tagged sample video
-            // inside them can't be imported as the real episode.
-            if (se.isDirectory() && !isExcludedDir(se.name))
-              scanDirs.push({
-                disk: join(showDiskDir, se.name),
-                db: join(showDbDir, se.name),
-              });
-          }
-
-          for (const dir of scanDirs) {
-            const fileEntries = await readdir(dir.disk, {
-              withFileTypes: true,
-            }).catch(() => []);
-            const candidates: Array<{
-              diskPath: string;
-              dbPath: string;
-              name: string;
-              epId: number;
-            }> = [];
-            for (const entry of fileEntries) {
-              if (!entry.isFile()) continue;
-              const ext = extname(entry.name).toLowerCase();
-              if (!VIDEO_EXTENSIONS.has(ext) || entry.name.startsWith("."))
-                continue;
-
-              const dbPath = join(dir.db, entry.name);
-              if (trackedPaths.has(dbPath)) continue;
-
-              if (parseReleaseTitle(entry.name).isSample) continue;
-              const se = parseReleaseSeasonEpisode(entry.name);
-              if (!se || se.episode == null) continue;
-              const ep = epByKey.get(`${se.season}x${se.episode}`);
-              if (!ep) continue;
-
-              candidates.push({
-                diskPath: join(dir.disk, entry.name),
-                dbPath,
-                name: entry.name,
-                epId: ep.id,
-              });
-            }
-
-            const created = await mapPool(
-              candidates,
-              SCAN_CONCURRENCY,
-              async ({ diskPath, dbPath, name, epId }) => {
-                let st;
-                try {
-                  st = await statFile(diskPath, { bigint: true });
-                } catch {
-                  return false;
-                }
-                if (!st.isFile()) return false;
-                const fp = fingerprintFromStats(st);
-                const mi = await scanMediaInfo(diskPath);
-                if (!mi) return false;
-
-                const fnData = parseFilenameMetadata(name);
-                await prisma.mediaFile.create({
-                  data: {
-                    mediaId,
-                    episodeId: epId,
-                    filePath: dbPath,
-                    fileName: name,
-                    ...fingerprintDbFields(fp),
-                    durationSecs: mi.durationSecs,
-                    releaseGroup: mi.releaseGroup,
-                    videoCodec: mi.videoCodec,
-                    videoProfile: mi.videoProfile,
-                    width: mi.width,
-                    height: mi.height,
-                    frameRate: mi.frameRate,
-                    bitDepth: mi.bitDepth,
-                    videoBitrate: mi.videoBitrate,
-                    hdrFormat: mi.hdrFormat ?? fnData.hdrFormat,
-                    resolution: mi.resolution ?? fnData.resolution,
-                    source: mi.source ?? fnData.source,
-                    audioTracks: mi.audioTracks as object[],
-                    subtitleTracks: mi.subtitleTracks as object[],
-                    languageTags: classifyLanguageTags(
-                      mi.audioTracks as LibraryAudioTrack[],
-                      null,
-                    ),
-                  },
-                });
-                await prisma.libraryEpisode.update({
-                  where: { id: epId },
-                  data: { status: "downloaded", downloadedAt: new Date() },
-                });
-                validEpisodeIds.add(epId);
-                // Intentionally do NOT set hasValidFile: it gates the requeue of
-                // null-episode (season-pack / full-series) download histories.
-                // Importing one orphaned episode must not suppress reprocessing a
-                // still-present pack that could recover the remaining episodes;
-                // per-episode histories are covered by validEpisodeIds above.
-                trackedPaths.add(dbPath);
-                return true;
-              },
-            );
-            imported += created.filter(Boolean).length;
-          }
-        }
-      } catch {
-        // Library dir unreadable — skip discovery
-      }
-    }
-  }
+  imported += await discoverShowEpisodes({
+    media,
+    mediaSettings,
+    mediaId,
+    trackedPaths,
+    validEpisodeIds,
+  });
 
   // ── Step 1c: Rename — rename files that don't match the configured template ─
   // Skipped when fileOperation is "none" (manual placement) or when a download
   // is in progress (the post-processor will rename after hardlinking).
-  if (
-    mediaSettings &&
-    media.type === "movie" &&
-    mediaSettings.fileOperation !== "none" &&
-    media.title
-  ) {
-    const activeDownloads = await prisma.downloadHistory.count({
-      where: { mediaId, completedAt: null, failed: false },
-    });
-    if (activeDownloads === 0) {
-      const survivingFiles = files.filter((f) => !toDeleteIds.includes(f.id));
-      // Track destination paths claimed within this loop so two files
-      // resolving to the same template stem don't clobber each other.
-      const claimedTargets = new Set<string>();
-      for (const file of survivingFiles) {
-        const ext = extname(file.fileName);
-        // Prefer post-rescan MediaInfo over the pre-update row, which may
-        // hold stale or null values for resolution/source/codec.
-        const fresh = freshMeta.get(file.id);
-        const resolution = fresh?.resolution ?? file.resolution;
-        const source = fresh?.source ?? file.source;
-        const codec = fresh?.videoCodec ?? file.videoCodec;
-        const res = resolution != null ? `${resolution}p` : null;
-        const expectedStem = renderMovieTemplate(mediaSettings.movieTemplate, {
-          title: media.title,
-          year: media.year ?? null,
-          resolution: res,
-          source: source ?? null,
-          codec: codec ?? null,
-          ext: ext.slice(1),
-        });
-        const currentStem = file.fileName.slice(0, -ext.length);
-        if (expectedStem === currentStem) continue;
-
-        const newFileName = expectedStem + ext;
-        const diskFrom = remapPath(file.filePath);
-        const diskTo = join(dirname(diskFrom), newFileName);
-
-        // Skip if another file in this same rescan already claimed the
-        // target, or if a different file already exists on disk at it —
-        // fs.rename on POSIX silently overwrites and we'd lose data.
-        if (claimedTargets.has(diskTo)) continue;
-        try {
-          await statFile(diskTo);
-          // Target already exists on disk — refuse to overwrite.
-          continue;
-        } catch {
-          // ENOENT — safe to proceed.
-        }
-
-        await renameFile(diskFrom, diskTo);
-        claimedTargets.add(diskTo);
-        await prisma.mediaFile.update({
-          where: { id: file.id },
-          data: {
-            filePath: join(dirname(file.filePath), newFileName),
-            fileName: newFileName,
-          },
-        });
-        renamed++;
-      }
-    }
-  }
+  renamed += await renameFilesToTemplate({
+    media,
+    mediaSettings,
+    mediaId,
+    files,
+    toDeleteIds,
+    freshMeta,
+  });
 
   // ── Step 2: re-queue post-processing for completed client downloads ────
   // Handles the case where a torrent finished downloading but the hardlink/move

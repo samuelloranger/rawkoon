@@ -1,10 +1,10 @@
 import type { Job } from "bullmq";
 
-import { finishPostProcess } from "@rawkoon/api/services/downloadOutcome";
+import { finishPostProcess } from "@rawkoon/api/services/downloads/downloadOutcome";
 
 /**
  * Shim for the post-process queue. The outcome policy lives in
- * services/downloadOutcome.ts so it can be read and tested without BullMQ.
+ * services/downloads/downloadOutcome.ts so it can be read and tested without BullMQ.
  */
 export async function processPostProcessJob(job: Job): Promise<unknown> {
   const { downloadHistoryId } = job.data as { downloadHistoryId?: number };

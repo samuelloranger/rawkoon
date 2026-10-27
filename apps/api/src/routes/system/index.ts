@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { prisma } from "@rawkoon/api/db";
 import { ok, notFound } from "@rawkoon/api/errors";
+import { getBooksEnabled } from "@rawkoon/api/services/settings/appSettings";
 import { getAppVersion } from "@rawkoon/api/services/versionService";
 
 // Mounted at /api/system by the edge, so
@@ -12,10 +12,6 @@ export const systemRoutes = new Hono()
    * books nav entry could never be gated for a non-admin without this.
    */
   .get("/features", async () => {
-    const row = await prisma.appSettings.findUnique({
-      where: { id: 1 },
-      select: { booksEnabled: true },
-    });
-    return ok({ books_enabled: row?.booksEnabled ?? false });
+    return ok({ books_enabled: await getBooksEnabled() });
   })
   .notFound(() => notFound("Not found"));

@@ -1,16 +1,15 @@
 import { prisma } from "@rawkoon/api/db";
 import { getActiveIndexerManager } from "@rawkoon/api/services/indexerManager/factory";
 import type { NormalizedRelease } from "@rawkoon/api/services/indexerManager/types";
-import type { RssRunStats } from "@rawkoon/api/services/rssRunStatus";
-import { grabRelease } from "@rawkoon/api/services/mediaGrabberGrab";
+import type { RssRunStats } from "@rawkoon/api/services/rss/rssRunStatus";
+import { grabRelease } from "@rawkoon/api/services/mediaGrabber/mediaGrabberGrab";
 import { loadEnabledAiProviderConfig } from "@rawkoon/api/services/aiProvider/client";
-import { normalizeTitleForMatch } from "@rawkoon/api/utils/medias/filenameParser";
 import {
   clearPending,
   delaySettingsOf,
   evaluateDelay,
   toDelayCandidate,
-} from "@rawkoon/api/services/grabDelay";
+} from "@rawkoon/api/services/grab/grabDelay";
 import { scoreReleasesForProfile } from "@rawkoon/api/utils/medias/pickBestRelease";
 import { pickReleaseForGrab } from "@rawkoon/api/utils/medias/pickReleaseForGrab";
 import { mapPool } from "@rawkoon/api/utils/medias/fileFingerprint";
@@ -23,32 +22,23 @@ const GRAB_CONCURRENCY = 3;
 import {
   profileToScoreInput,
   qualityProfileFormatsInclude,
-} from "@rawkoon/api/services/mediaGrabberHelpers";
+} from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
 import type { AiPickMediaContext } from "@rawkoon/api/utils/medias/buildAiPickPrompt";
-import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
-import { pollIndexerRssBooks } from "@rawkoon/api/workers/pollIndexerRssBooks";
 import {
-  parseReleaseSeasonSpan,
-  parseReleaseStructure,
-} from "@rawkoon/shared/utils/releaseStructure";
+  extractTitleFromRelease,
+  logRssMatch,
+  matchableRssRelease,
+  movieMediaContext,
+  normalizedTitleSet,
+  titleMatches,
+  tvMediaContext,
+} from "@rawkoon/api/workers/rssReleaseMatching";
+import { pollIndexerRssBooks } from "@rawkoon/api/workers/pollIndexerRssBooks";
 import {
   APP_DISPLAY_TIMEZONE,
   localDateYmd,
   toUtcMidnightDate,
 } from "@rawkoon/shared/utils/date";
-
-function normalizedTitleSet(media: {
-  title: string;
-  searchTitle: string | null;
-  originalTitle: string | null;
-}): Set<string> {
-  const { matchTitles } = resolveSearchTitles(media);
-  return new Set(
-    matchTitles
-      .map((t) => normalizeTitleForMatch(t))
-      .filter((t) => t.length > 0),
-  );
-}
 
 export async function pollIndexerRss(): Promise<RssRunStats | null> {
   const adapter = await getActiveIndexerManager();
@@ -494,77 +484,4 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
   };
 }
 
-function tvMediaContext(
-  title: string,
-  season: number,
-  episode: number | null = null,
-): AiPickMediaContext {
-  return { title, year: null, type: "tv", season, episode };
-}
-
-function movieMediaContext(
-  title: string,
-  year: number | null,
-): AiPickMediaContext {
-  return { title, year, type: "movie" };
-}
-
-function logRssMatch(
-  best: Awaited<ReturnType<typeof pickReleaseForGrab>> & object,
-  label: string,
-) {
-  const via = best.picked_by === "ai" ? "AI pick" : `score: ${best.score}`;
-  console.log(
-    `[pollIndexerRss] Match: "${best.release.title}" → ${label} (${via})`,
-  );
-}
-
-/** A multi-season pack has no single season slot; the add-time search finds it, the feed doesn't match it as season N. */
-export function matchableRssRelease(
-  title: string,
-): ReturnType<typeof extractTitleFromRelease> {
-  return parseReleaseSeasonSpan(title) ? null : extractTitleFromRelease(title);
-}
-
-export function extractTitleFromRelease(title: string): {
-  normalizedTitle: string;
-  /** Show title with its trailing year kept, for shows named after a year. */
-  normalizedTitleWithYear: string | null;
-  season: number | null;
-  episode: number | null;
-  year: number | null;
-} | null {
-  if (!title) return null;
-  const parsed = parseReleaseStructure(title);
-  // Daily shows, absolute-numbered anime and whole-series packs have no
-  // season/episode slot to match, and must not fall through to movie matching.
-  if (
-    parsed.season == null &&
-    (parsed.episodes.length > 0 || parsed.airDate || parsed.completeSeries)
-  ) {
-    return null;
-  }
-  const normalizedTitle = normalizeTitleForMatch(parsed.title);
-  if (!normalizedTitle) return null;
-  const isTv = parsed.season != null;
-  return {
-    normalizedTitle,
-    normalizedTitleWithYear: parsed.titleWithYear
-      ? normalizeTitleForMatch(parsed.titleWithYear)
-      : null,
-    season: parsed.season,
-    episode: isTv ? (parsed.episodes[0] ?? null) : null,
-    year: isTv ? null : parsed.year,
-  };
-}
-
-function titleMatches(
-  titles: Set<string>,
-  parsed: { normalizedTitle: string; normalizedTitleWithYear: string | null },
-): boolean {
-  return (
-    titles.has(parsed.normalizedTitle) ||
-    (parsed.normalizedTitleWithYear != null &&
-      titles.has(parsed.normalizedTitleWithYear))
-  );
-}
+export { extractTitleFromRelease, matchableRssRelease };

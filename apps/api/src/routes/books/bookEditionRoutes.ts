@@ -4,40 +4,27 @@ import { z } from "zod";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, paramV } from "@rawkoon/api/middleware/validate";
-import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound, ok } from "@rawkoon/api/errors";
 import { loadConfig } from "@rawkoon/api/config";
 import type { BookEditionKind } from "@rawkoon/shared/types";
 import { signGrant } from "@rawkoon/api/services/books/downloadGrant";
 
-import { rescanBookEdition } from "@rawkoon/api/services/postProcessorBook";
+import { rescanBookEdition } from "@rawkoon/api/services/postProcessor/postProcessorBook";
+
+import {
+  bookExists,
+  createEdition,
+  deleteEditionFile,
+  EDITION_STATUSES,
+  findBookQualityProfile,
+  findEditionIdByKind,
+  findEditionWithFiles,
+  updateEdition,
+} from "@rawkoon/api/services/books/bookEditionAdmin";
 
 import { mapBookEdition } from "./bookHelpers";
 
-const EDITION_STATUSES = [
-  "wanted",
-  "downloading",
-  "downloaded",
-  "skipped",
-  "upgrading",
-];
 const EDITION_FILE_GRANT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-const editionSelect = {
-  id: true,
-  kind: true,
-  status: true,
-  monitored: true,
-  bookQualityProfileId: true,
-  bookQualityProfile: { select: { id: true, name: true } },
-  narrators: true,
-  durationSecs: true,
-  searchAttempts: true,
-  lastGrabbedAt: true,
-  totalSizeBytes: true,
-  offlineReady: true,
-  files: { select: { id: true, format: true } },
-} as const;
 
 const editionKindParams = z.object({
   id: z.coerce.number(),
@@ -68,10 +55,7 @@ export const bookEditionRoutes = new Hono<Env>()
     async (c) => {
       const params = c.req.valid("param");
       const body = c.req.valid("json");
-      const edition = await prisma.bookEdition.findUnique({
-        where: { bookId_kind: { bookId: params.id, kind: params.kind } },
-        select: { id: true },
-      });
+      const edition = await findEditionIdByKind(params.id, params.kind);
       if (!edition) return notFound("Edition not found");
 
       if (body.status && !EDITION_STATUSES.includes(body.status)) {
@@ -81,10 +65,9 @@ export const bookEditionRoutes = new Hono<Env>()
       }
 
       if (body.book_quality_profile_id != null) {
-        const profile = await prisma.bookQualityProfile.findUnique({
-          where: { id: body.book_quality_profile_id },
-          select: { id: true, kind: true },
-        });
+        const profile = await findBookQualityProfile(
+          body.book_quality_profile_id,
+        );
         if (!profile) return notFound("Book quality profile not found");
         // A profile scoped to one kind must not be attached to the other.
         if (profile.kind !== "both" && profile.kind !== params.kind) {
@@ -94,18 +77,10 @@ export const bookEditionRoutes = new Hono<Env>()
         }
       }
 
-      const updated = await prisma.bookEdition.update({
-        where: { id: edition.id },
-        data: {
-          ...(body.monitored !== undefined
-            ? { monitored: body.monitored }
-            : {}),
-          ...(body.status !== undefined ? { status: body.status } : {}),
-          ...(body.book_quality_profile_id !== undefined
-            ? { bookQualityProfileId: body.book_quality_profile_id }
-            : {}),
-        },
-        select: editionSelect,
+      const updated = await updateEdition(edition.id, {
+        monitored: body.monitored,
+        status: body.status,
+        bookQualityProfileId: body.book_quality_profile_id,
       });
 
       return ok({ edition: mapBookEdition(updated) });
@@ -127,40 +102,18 @@ export const bookEditionRoutes = new Hono<Env>()
     async (c) => {
       const params = c.req.valid("param");
       const body = c.req.valid("json");
-      const book = await prisma.libraryBook.findUnique({
-        where: { id: params.id },
-        select: { id: true },
-      });
+      const book = await bookExists(params.id);
       if (!book) return notFound("Book not found");
 
       const kind = body.kind as BookEditionKind;
-      const existing = await prisma.bookEdition.findUnique({
-        where: { bookId_kind: { bookId: params.id, kind } },
-        select: { id: true },
-      });
+      const existing = await findEditionIdByKind(params.id, kind);
       if (existing) {
         return badRequest(`This book already has an ${kind} edition`);
       }
 
-      const profile =
-        body.book_quality_profile_id ??
-        (
-          await prisma.bookQualityProfile.findFirst({
-            where: { OR: [{ kind }, { kind: "both" }] },
-            select: { id: true },
-            orderBy: { kind: "asc" },
-          })
-        )?.id ??
-        null;
-
-      const created = await prisma.bookEdition.create({
-        data: {
-          bookId: params.id,
-          kind,
-          monitored: body.monitored ?? true,
-          bookQualityProfileId: profile,
-        },
-        select: editionSelect,
+      const created = await createEdition(params.id, kind, {
+        monitored: body.monitored,
+        bookQualityProfileId: body.book_quality_profile_id,
       });
 
       return ok({ edition: mapBookEdition(created) });
@@ -173,10 +126,7 @@ export const bookEditionRoutes = new Hono<Env>()
     paramV(editionKindParams),
     async (c) => {
       const params = c.req.valid("param");
-      const edition = await prisma.bookEdition.findUnique({
-        where: { bookId_kind: { bookId: params.id, kind: params.kind } },
-        include: { files: { orderBy: { fileName: "asc" } } },
-      });
+      const edition = await findEditionWithFiles(params.id, params.kind);
       if (!edition) return notFound("Edition not found");
       const secret = loadConfig().SECRET_KEY;
       const expiresAt = Date.now() + EDITION_FILE_GRANT_TTL_MS;
@@ -223,10 +173,7 @@ export const bookEditionRoutes = new Hono<Env>()
     paramV(editionKindParams),
     async (c) => {
       const params = c.req.valid("param");
-      const edition = await prisma.bookEdition.findUnique({
-        where: { bookId_kind: { bookId: params.id, kind: params.kind } },
-        select: { id: true },
-      });
+      const edition = await findEditionIdByKind(params.id, params.kind);
       if (!edition) return notFound("Edition not found");
 
       const result = await rescanBookEdition(edition.id);
@@ -248,12 +195,8 @@ export const bookEditionRoutes = new Hono<Env>()
     paramV(z.object({ id: z.coerce.number(), fileId: z.coerce.number() })),
     async (c) => {
       const params = c.req.valid("param");
-      const file = await prisma.bookFile.findFirst({
-        where: { id: params.fileId, edition: { bookId: params.id } },
-        select: { id: true },
-      });
-      if (!file) return notFound("File not found");
-      await prisma.bookFile.delete({ where: { id: file.id } });
+      const deleted = await deleteEditionFile(params.id, params.fileId);
+      if (!deleted) return notFound("File not found");
       return ok({ deleted: true });
     },
   );

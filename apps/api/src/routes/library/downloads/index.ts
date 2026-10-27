@@ -5,11 +5,11 @@ import { ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, queryV } from "@rawkoon/api/middleware/validate";
-import { assignDownloadFromDisk } from "@rawkoon/api/services/downloadsAssign";
-import { scanDownloads } from "@rawkoon/api/services/downloadsScanner";
+import { assignDownloadFromDisk } from "@rawkoon/api/services/downloads/downloadsAssign";
+import { scanDownloads } from "@rawkoon/api/services/downloads/downloadsScanner";
 
 function mapParsed(
-  p: import("@rawkoon/api/services/downloadsScanner").RawDownloadRow["parsed"],
+  p: import("@rawkoon/api/services/downloads/downloadsScanner").RawDownloadRow["parsed"],
 ) {
   return {
     title: p.title,

@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { mock } from "bun:test";
+import { afterEach, mock } from "bun:test";
 
 /**
  * bunfig cannot set --isolate (oven-sh/bun#38728). mock.module + ESM caching
@@ -133,3 +133,27 @@ mock.module("../src/db", () => ({
     },
   ),
 }));
+
+// A partial prisma mock crashes the code under test, whose try/catch logs and
+// swallows the TypeError, so the test passes without running its path.
+const MOCK_CRASH =
+  /undefined is not an object \(evaluating '(?:prisma|db)\.|(?:prisma|db)\.[\w$]+\.[\w$]+ is not a function/;
+let mockCrashes: string[] = [];
+for (const level of ["error", "warn"] as const) {
+  const original = console[level].bind(console);
+  console[level] = (...args: unknown[]) => {
+    const text = args
+      .map((a) => (a instanceof Error ? a.message : String(a)))
+      .join(" ");
+    if (MOCK_CRASH.test(text)) mockCrashes.push(text);
+    original(...args);
+  };
+}
+afterEach(() => {
+  if (mockCrashes.length === 0) return;
+  const found = mockCrashes;
+  mockCrashes = [];
+  throw new Error(
+    `Incomplete prisma mock: code under test crashed on a missing model/method (swallowed by a catch). Complete the mock (see test/mocks/prisma.ts).\n${found.join("\n")}`,
+  );
+});

@@ -9,7 +9,7 @@ import {
 import {
   infoHashFromTorrentBuffer,
   prowlarrHeadersForTorrentUrl,
-} from "@rawkoon/api/services/mediaGrabberHelpers";
+} from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
 
 /**
  * Hand a release URL to the active download client.

@@ -52,7 +52,7 @@ import {
   invalidateLibraryInodeKeySetCache,
   deriveDownloadsScanRoots,
   pathIsInsideRoot,
-} from "../src/services/downloadsScanner";
+} from "../src/services/downloads/downloadsScanner";
 import { stat } from "node:fs/promises";
 
 async function truncateBigFile(path: string, bytes: number) {

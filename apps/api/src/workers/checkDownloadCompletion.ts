@@ -5,18 +5,39 @@ import {
   completeDownload,
   completeDownloadByHash,
   failDownload,
-} from "@rawkoon/api/services/downloadOutcome";
-import { rejectRelease } from "@rawkoon/api/services/downloadJanitor";
+} from "@rawkoon/api/services/downloads/downloadOutcome";
+import { rejectRelease } from "@rawkoon/api/services/downloads/downloadJanitor";
+import {
+  classifyPendingAgainstTorrent,
+  computeNextPollDelaySecs,
+  createReconcileState,
+  findPendingTorrent,
+  getOrInitTrack,
+  HOOK_RECENT_WINDOW_MS,
+  isMassStall,
+  rejectable,
+  selectActiveCadenceSecs,
+  type PendingOutcome,
+  type ReconcileSettings,
+  type ReconcileState,
+  type StallTrack,
+} from "@rawkoon/api/workers/downloadReconcilePolicy";
 import { findBlockedFile } from "@rawkoon/api/services/seeding/seedPolicy";
 
-/**
- * Reconcile — one pass comparing pending DownloadHistory rows against the
- * download client, deciding per row whether it completed, failed, stalled, or
- * should keep waiting.
- *
- * This module owns polling cadence and stall/max-age policy only. The
- * transitions themselves belong to services/downloadOutcome.ts.
- */
+/** One pass over pending DownloadHistory rows; owns polling cadence and stall/max-age policy, while transitions live in downloadOutcome. */
+
+export {
+  classifyPendingAgainstTorrent,
+  computeNextPollDelaySecs,
+  createReconcileState,
+  findPendingTorrent,
+  HOOK_RECENT_WINDOW_MS,
+  selectActiveCadenceSecs,
+  type PendingOutcome,
+  type ReconcileSettings,
+  type ReconcileState,
+  type StallTrack,
+};
 
 /** The subset of the download outcome module this loop drives. */
 export type DownloadOutcomeHandlers = {
@@ -39,281 +60,15 @@ export type PendingReconcileResult = {
   missing: number;
 };
 
-export interface StallTrack {
-  createdAtMs: number;
-  lastProgress: number;
-  lastProgressAtMs: number;
-}
-
-export interface ReconcileSettings {
-  stallTimeoutSecs: number;
-  maxAgeSecs: number;
-}
-
-export type PendingOutcome =
-  | { outcome: "complete" }
-  | { outcome: "fail"; reason: string; failKind: "stalled" | "error" }
-  | { outcome: "wait"; progressed: boolean };
-
-export function classifyPendingAgainstTorrent(
-  torrent: NormalizedTorrent,
-  track: StallTrack,
-  nowMs: number,
-  settings: ReconcileSettings,
-): PendingOutcome {
-  // Completion first: a torrent that finished while Rawkoon was down is imported, not condemned.
-  if (
-    torrent.state === "completed" ||
-    (torrent.state === "paused" && torrent.progress >= 1)
-  ) {
-    return { outcome: "complete" };
-  }
-  if (torrent.state === "error") {
-    return {
-      outcome: "fail",
-      reason: "download client reported error state",
-      failKind: "error",
-    };
-  }
-  // Full progress without a finished state means the files are still landing
-  // (rdt-client before its local download, qBittorrent moving or checking).
-  if (torrent.progress >= 1) return { outcome: "wait", progressed: false };
-  if (nowMs - track.createdAtMs > settings.maxAgeSecs * 1000) {
-    return {
-      outcome: "fail",
-      reason: "exceeded max age with no completion",
-      // A torrent paused on purpose is not the release's fault.
-      failKind: torrent.state === "paused" ? "error" : "stalled",
-    };
-  }
-  const progressed = torrent.progress > track.lastProgress + 1e-9;
-  if (progressed) return { outcome: "wait", progressed: true };
-
-  const timedOut =
-    nowMs - track.lastProgressAtMs > settings.stallTimeoutSecs * 1000;
-  if (
-    timedOut &&
-    (torrent.state === "stalled" || torrent.state === "downloading")
-  ) {
-    return {
-      outcome: "fail",
-      reason:
-        torrent.state === "stalled"
-          ? "stalled - no progress"
-          : "no progress before stall timeout",
-      failKind: "stalled",
-    };
-  }
-  return { outcome: "wait", progressed: false };
-}
-
-export function findPendingTorrent(
-  torrents: NormalizedTorrent[],
-  downloadHistoryId: number,
-  hash: string | null,
-): NormalizedTorrent | undefined {
-  const normalizedHash = hash?.trim().toLowerCase();
-  if (normalizedHash) {
-    const byHash = torrents.find(
-      (torrent) => torrent.hash.toLowerCase() === normalizedHash,
-    );
-    if (byHash) return byHash;
-  }
-  const tag = `rawkoon-dh-${downloadHistoryId}`.toLowerCase();
-  return torrents.find((torrent) =>
-    torrent.labels.some((label) => label.toLowerCase() === tag),
-  );
-}
-
-/**
- * Poll state carried between reconcile passes.
- *
- * Explicit rather than module-global so a test can drive the loop with a fresh
- * state instead of inheriting whatever the previous test left behind.
- */
-export type ReconcileState = {
-  /** Per-row progress tracking, used to detect stalls. */
-  stallTracks: Map<number, StallTrack>;
-  /**
-   * Whether the last pass saw a row still live in the client — downloading,
-   * or stalled but expected to resume. Drives poll cadence.
-   *
-   * Deliberately not "made progress this pass": a fresh magnet sits at
-   * `stalled` with no peers for the first few passes, and a torrent that
-   * finishes during a long backoff stays unrecorded until the next tick.
-   */
-  lastReconcileHadActive: boolean;
-  /** Consecutive passes with nothing live — indexes the backoff ramp. */
-  idlePasses: number;
-  /** Earliest time the next poll is allowed to do work. */
-  nextPollAtMs: number;
-  /** Rows seen last pass, so a newly-grabbed row can pre-empt the backoff. */
-  knownPendingIds: Set<number>;
-  /** Rows whose file list was already checked clean, so the client is asked once. */
-  filesChecked: Set<number>;
-};
-
-export function createReconcileState(): ReconcileState {
-  return {
-    stallTracks: new Map(),
-    lastReconcileHadActive: false,
-    idlePasses: 0,
-    nextPollAtMs: 0,
-    knownPendingIds: new Set(),
-    filesChecked: new Set(),
-  };
-}
-
 /** Production state for the scheduled job. */
 const pollState = createReconcileState();
 
-/** How long a received hook keeps the slow cadence in effect. */
-export const HOOK_RECENT_WINDOW_MS = 24 * 60 * 60 * 1000;
-
-/**
- * Clear the poll gate so the next `checkDownloadCompletion()` runs immediately.
- *
- * Callers MUST invoke this *before* enqueuing the check job: the job returns
- * early while the gate is closed, so enqueuing first makes the wake a no-op.
- */
+/** Clear the poll gate; call it BEFORE enqueuing the check job, which returns early while the gate is closed. */
 export function requestImmediatePoll(): void {
   pollState.nextPollAtMs = 0;
 }
 
-/**
- * Pick the active poll interval.
- *
- * A hook that has gone quiet — never configured, broken, or pointing at a stale
- * token — yields the unhooked interval, so a silently broken hook can never make
- * detection slower than it was before hooks existed.
- */
-export function selectActiveCadenceSecs(input: {
-  hookLastSeenAt: Date | null;
-  nowMs: number;
-  activeSecs: number;
-  hookedActiveSecs: number;
-}): number {
-  const { hookLastSeenAt, nowMs, activeSecs, hookedActiveSecs } = input;
-  if (!hookLastSeenAt) return activeSecs;
-  const age = nowMs - hookLastSeenAt.getTime();
-  if (age < 0 || age >= HOOK_RECENT_WINDOW_MS) return activeSecs;
-  return hookedActiveSecs;
-}
-
-/**
- * Multipliers on the active interval for each consecutive idle pass. With the
- * default 20s active / 1800s idle that ramps 20s → 60s → 300s → 1800s, so a
- * torrent that goes quiet for a while is still noticed within minutes rather
- * than half an hour.
- */
-const IDLE_RAMP_MULTIPLIERS = [1, 3, 15];
-
-export function computeNextPollDelaySecs(
-  hasActive: boolean,
-  activeSecs: number,
-  idleSecs: number,
-  idlePasses = 0,
-): number {
-  if (hasActive) return activeSecs;
-  const multiplier = IDLE_RAMP_MULTIPLIERS[idlePasses];
-  if (multiplier === undefined) return idleSecs;
-  return Math.min(activeSecs * multiplier, idleSecs);
-}
-
-function getOrInitTrack(
-  state: ReconcileState,
-  id: number,
-  createdAtMs: number,
-  progress: number,
-  nowMs: number,
-): StallTrack {
-  const existing = state.stallTracks.get(id);
-  if (existing) return existing;
-  const track = {
-    createdAtMs,
-    lastProgress: progress,
-    lastProgressAtMs: nowMs,
-  };
-  state.stallTracks.set(id, track);
-  return track;
-}
-
-/**
- * True when at least two live downloads all hit the stall timeout in the same
- * pass — the signature of a VPN or network drop rather than dead releases.
- */
-function isMassStall(
-  pending: Array<{
-    id: number;
-    torrentHash: string | null;
-    grabbedAt?: Date | null;
-  }>,
-  torrents: NormalizedTorrent[],
-  state: ReconcileState,
-  nowMs: number,
-  settings: ReconcileSettings,
-): boolean {
-  let live = 0;
-  let stalled = 0;
-  for (const dh of pending) {
-    const match = findPendingTorrent(torrents, dh.id, dh.torrentHash);
-    if (!match || match.state === "paused") continue;
-    const track = getOrInitTrack(
-      state,
-      dh.id,
-      dh.grabbedAt?.getTime() ?? nowMs,
-      match.progress,
-      nowMs,
-    );
-    const verdict = classifyPendingAgainstTorrent(
-      match,
-      track,
-      nowMs,
-      settings,
-    );
-    if (verdict.outcome === "complete") continue;
-    live += 1;
-    if (
-      verdict.outcome === "fail" &&
-      verdict.failKind === "stalled" &&
-      verdict.reason !== "exceeded max age with no completion"
-    ) {
-      stalled += 1;
-    }
-  }
-  return stalled >= 2 && stalled === live;
-}
-
-/** The fields rejectRelease needs, from a pending row that may predate them. */
-function rejectable(dh: {
-  id: number;
-  mediaId: number | null;
-  episodeId: number | null;
-  torrentHash: string | null;
-  releaseTitle?: string;
-  indexer?: string | null;
-  bookEditionId?: number | null;
-  isUpgrade?: boolean;
-}) {
-  return {
-    id: dh.id,
-    mediaId: dh.mediaId,
-    episodeId: dh.episodeId,
-    bookEditionId: dh.bookEditionId ?? null,
-    isUpgrade: dh.isUpgrade ?? false,
-    torrentHash: dh.torrentHash,
-    releaseTitle: dh.releaseTitle ?? "",
-    indexer: dh.indexer ?? null,
-  };
-}
-
-/**
- * Reconcile a set of pending (non-completed, non-failed) download_history rows
- * against normalized download-client state. If `treatMissingAsFailed` is true,
- * rows whose torrent is absent are marked failed and the library status
- * reverted — used by the rescan action so the UI isn't stuck on "downloading"
- * when the user deleted the torrent out-of-band.
- */
+/** Reconcile pending rows against client state; `treatMissingAsFailed` (rescan) fails rows whose torrent was deleted out-of-band. */
 export async function reconcilePendingDownloads(
   pending: Array<{
     id: number;
@@ -330,17 +85,9 @@ export async function reconcilePendingDownloads(
     treatMissingAsFailed?: boolean;
     settings?: ReconcileSettings;
     state?: ReconcileState;
-    /**
-     * Torrent source. Defaults to the configured download client; passed in by
-     * callers that already hold an adapter, and by tests, which then need no
-     * module mocking to drive the loop.
-     */
+    /** Torrent source; injectable so tests need no module mocking. */
     listTorrents?: () => Promise<NormalizedTorrent[]>;
-    /**
-     * The transitions this loop delegates to. Defaults to the download outcome
-     * module — injectable so a test can assert what the loop *decided* without
-     * standing up the DB behind what the outcome then *does*.
-     */
+    /** Outcome transitions; injectable so tests can assert decisions without the DB. */
     outcome?: DownloadOutcomeHandlers;
     /** File listing for the blocked-extension check; defaults to the active client. */
     listFiles?: (hash: string) => Promise<string[] | null>;
@@ -372,10 +119,7 @@ export async function reconcilePendingDownloads(
     torrents = await listTorrents();
   } catch (error) {
     console.warn("[reconcilePendingDownloads] listTorrents failed:", error);
-    // `pending.length` is already known > 0 here (checked above), so this is a
-    // transient client-unreachable failure, not an idle period. Keeping
-    // lastReconcileHadActive true stops the idle backoff ramp from firing on a
-    // blip and pushing the next real check out to minutes away.
+    // Pending is non-empty here, so this is a client blip; keep lastReconcileHadActive true to avoid the idle backoff.
     state.lastReconcileHadActive = true;
     return result;
   }
@@ -398,8 +142,7 @@ export async function reconcilePendingDownloads(
           );
           result.missing += 1;
         }
-        // The row is gone from the client either way — stop tracking it, or the
-        // map grows for every torrent the user ever removed out-of-band.
+        // Stop tracking, or the map grows for every torrent removed out-of-band.
         state.stallTracks.delete(dh.id);
         state.filesChecked.delete(dh.id);
         continue;
@@ -447,8 +190,7 @@ export async function reconcilePendingDownloads(
       );
 
       if (verdict.outcome === "wait") {
-        // Anything the client still intends to finish keeps the fast cadence.
-        // A paused torrent is excluded — it will not move until the user acts.
+        // Anything still intended to finish keeps the fast cadence; a paused torrent won't move until the user acts.
         if (match.state !== "paused") state.lastReconcileHadActive = true;
         if (verdict.progressed) {
           track.lastProgress = match.progress;
@@ -474,9 +216,7 @@ export async function reconcilePendingDownloads(
         continue;
       }
 
-      // Prefer the hash: several rows can share it after a retry or re-grab,
-      // and it also carries the recovery case for a row already marked complete
-      // whose file never reached the library.
+      // Prefer the hash: rows can share it after a re-grab, and it covers a completed row whose file never reached the library.
       const completedId = dh.torrentHash
         ? await outcome.completeDownloadByHash(dh.torrentHash)
         : null;
@@ -495,30 +235,10 @@ export async function reconcilePendingDownloads(
   return result;
 }
 
-/**
- * In-flight reconcile, so overlapping triggers coalesce instead of racing.
- *
- * The scheduled-tasks worker runs at concurrency 3 and there are now three ways
- * to trigger a pass: the 20s cron tick, a hook wake, and a second hook wake from
- * a torrent that finished moments later. Without this guard two passes can read
- * the same pending snapshot; the first completes a row, and the second then hits
- * `completeDownloadByHash`'s already-complete recovery branch, which enqueues
- * post-processing with `force` — a deliberately unique job id that bypasses
- * BullMQ's dedupe. The same download would be imported twice, which is exactly
- * the duplicate-hook idempotency the hook design claims to have.
- */
+/** In-flight reconcile: overlapping triggers must coalesce, or two passes import the same download twice via the forced recovery branch. */
 let reconcileInFlight: Promise<void> | null = null;
 
-/**
- * Run `pass`, or join the one already running.
- *
- * Awaiting the shared promise (rather than returning immediately) keeps each
- * BullMQ job's lifetime honest: it stays "active" until the work it asked for
- * has actually finished.
- *
- * Exported so the coalescing itself is testable — `checkDownloadCompletion`
- * reaches Prisma, which the test preload stubs out.
- */
+/** Run `pass` or join the running one; awaiting keeps each job active until the work finishes. Exported for tests. */
 export async function runCoalescedPass(
   pass: () => Promise<void>,
 ): Promise<void> {
@@ -533,24 +253,13 @@ export async function checkDownloadCompletion(): Promise<void> {
   return await runCoalescedPass(runDownloadCompletionPass);
 }
 
-/**
- * Above this, log that the active set is abnormally large. Deliberately a
- * warning and not a `take`: a row whose torrent is absent from the client stays
- * pending forever on a scheduled pass (reconcilePendingDownloads only fails
- * those when treatMissingAsFailed is set, which just the rescan path does), so
- * an oldest-first page could fill with orphans and starve every newer download
- * of completion and import. The query itself no longer needs a bound — the
- * partial index makes it 0.014ms at 47k rows.
- */
+/** Warn-only threshold: a `take` would let orphaned pending rows starve newer downloads; the partial index keeps the query cheap. */
 const PENDING_RECONCILE_WARN_AT = 500;
 
 async function runDownloadCompletionPass(): Promise<void> {
   const [pending, settings] = await Promise.all([
     prisma.downloadHistory.findMany({
-      // Served end-to-end by the partial index
-      // ix_download_history_active_grabbed_at, which covers this filter AND
-      // the grabbed_at sort. This runs every ~20s against a table that only
-      // grows; measured at 47k rows it is 0.014ms vs 12.6ms without it.
+      // Served by partial index ix_download_history_active_grabbed_at (filter and sort).
       where: { completedAt: null, failed: false },
       select: {
         id: true,

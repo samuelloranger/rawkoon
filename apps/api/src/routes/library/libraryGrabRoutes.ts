@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import { z } from "zod";
 
 import { withKeyedLock } from "@rawkoon/api/utils/keyedLock";
-import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
@@ -11,16 +10,11 @@ import { cancelActiveMovieDownloads } from "@rawkoon/api/services/replaceActiveD
 import {
   grabRelease,
   preflightGrab,
-} from "@rawkoon/api/services/mediaGrabberGrab";
-import { downloadedEpisodesFailingProfile } from "@rawkoon/api/services/upgradeTargets";
-import {
-  loadProfileWithFormats,
-  profileToScoreInput,
-} from "@rawkoon/api/services/mediaGrabberHelpers";
+} from "@rawkoon/api/services/mediaGrabber/mediaGrabberGrab";
 import {
   searchAndGrab,
   searchAndGrabWithTitleFallback,
-} from "@rawkoon/api/services/mediaGrabberSearch";
+} from "@rawkoon/api/services/mediaGrabber/mediaGrabberSearch";
 import type {
   LanguageFallbackSummary,
   SearchResultPayload,
@@ -31,14 +25,17 @@ import {
 } from "@rawkoon/api/services/searchResult";
 import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
 import {
-  episodeMapKey,
-  resolveGrabEpisodeId,
-} from "@rawkoon/api/services/grabEpisodeResolver";
-import {
-  addJob,
-  QUEUE_NAMES,
-  SCHEDULED_JOB_NAMES,
-} from "@rawkoon/api/services/queueService";
+  countDownloadingEpisodes,
+  enqueueAutoUpgrade,
+  findEpisodeOfMedia,
+  findLibraryMediaForUpgrade,
+  findLibraryMediaRow,
+  listWantedEpisodes,
+  resetEpisodeForManualSearch,
+  resetMovieForManualSearch,
+  resolveShowGrabEpisode,
+  retrySkippedEpisodes,
+} from "@rawkoon/api/services/library/libraryGrabQueries";
 
 function missBody(
   miss: {
@@ -87,7 +84,7 @@ export const libraryGrabRoutes = new Hono<Env>()
       try {
         const id = parseInt(c.req.param("id"), 10);
         const body = c.req.valid("json");
-        const media = await prisma.libraryMedia.findUnique({ where: { id } });
+        const media = await findLibraryMediaRow(id);
         if (!media) return notFound("Library item not found");
         // For shows, episode-level status governs grabs — don't gate on media status
         if (body.replace && media.type !== "movie") {
@@ -107,43 +104,14 @@ export const libraryGrabRoutes = new Hono<Env>()
 
         let episodeId = body.episode_id ?? undefined;
 
-        // Reconcile the requested episode against the release's own SxxExx.
-        // The interactive search panel tags every grab with a single episode
-        // context, so grabbing a different episode's release from that panel
-        // would mislink it and make the post-processor render every grab to
-        // the same destination (later grabs then fail with EEXIST).
-        // With no episode context, a single-episode release is linked from its
-        // SxxExx so it isn't keyed as a season pack.
         if (media.type === "show") {
-          const [requested, allEpisodes] = await Promise.all([
-            episodeId != null
-              ? prisma.libraryEpisode.findFirst({
-                  where: { id: episodeId, mediaId: id },
-                  select: { id: true, season: true, episode: true },
-                })
-              : null,
-            prisma.libraryEpisode.findMany({
-              where: { mediaId: id },
-              select: { id: true, season: true, episode: true },
-            }),
-          ]);
-          // A provided episode id that no longer belongs to this item is a
-          // stale context — reject rather than silently degrade to a
-          // season-pack grab.
-          if (episodeId != null && !requested) {
-            return badRequest("Episode not found for this library item");
-          }
-          const resolved = resolveGrabEpisodeId({
-            requested,
-            releaseTitle: body.release_title,
-            episodesBySeasonEpisode: new Map(
-              allEpisodes.map((e) => [episodeMapKey(e.season, e.episode), e]),
-            ),
-          });
-          if (!resolved.ok) {
-            return badRequest(resolved.reason);
-          }
-          episodeId = resolved.episodeId ?? undefined;
+          const resolved = await resolveShowGrabEpisode(
+            id,
+            episodeId,
+            body.release_title,
+          );
+          if (!resolved.ok) return badRequest(resolved.reason);
+          episodeId = resolved.episodeId;
         }
 
         const execute = async () => {
@@ -224,7 +192,7 @@ export const libraryGrabRoutes = new Hono<Env>()
     try {
       const id = parseInt(c.req.param("id"), 10);
       const body = c.req.valid("json");
-      const media = await prisma.libraryMedia.findUnique({ where: { id } });
+      const media = await findLibraryMediaRow(id);
       if (!media) return notFound("Library item not found");
       if (media.type !== "movie") {
         return badRequest("Search is only available for movies");
@@ -234,10 +202,7 @@ export const libraryGrabRoutes = new Hono<Env>()
       }
 
       // Manual search resets counter + status so users can always retry.
-      await prisma.libraryMedia.update({
-        where: { id },
-        data: { searchAttempts: 0, status: "wanted" },
-      });
+      await resetMovieForManualSearch(id);
 
       const explicit = body.search_query?.trim();
       const result = explicit
@@ -290,17 +255,13 @@ export const libraryGrabRoutes = new Hono<Env>()
         const episodeId = parseInt(c.req.param("episodeId"), 10);
         const body = c.req.valid("json");
 
-        const media = await prisma.libraryMedia.findUnique({
-          where: { id: mediaId },
-        });
+        const media = await findLibraryMediaRow(mediaId);
         if (!media) return notFound("Library item not found");
         if (media.type !== "show") {
           return badRequest("Episode search only applies to TV shows");
         }
 
-        const ep = await prisma.libraryEpisode.findFirst({
-          where: { id: episodeId, mediaId },
-        });
+        const ep = await findEpisodeOfMedia(mediaId, episodeId);
         if (!ep) return notFound("Episode not found");
 
         if (ep.status === "downloading") {
@@ -310,10 +271,7 @@ export const libraryGrabRoutes = new Hono<Env>()
         }
 
         // Manual search resets counter + status so users can always retry.
-        await prisma.libraryEpisode.update({
-          where: { id: episodeId },
-          data: { searchAttempts: 0, status: "wanted" },
-        });
+        await resetEpisodeForManualSearch(episodeId);
 
         const s = String(ep.season).padStart(2, "0");
         const e = String(ep.episode).padStart(2, "0");
@@ -366,11 +324,7 @@ export const libraryGrabRoutes = new Hono<Env>()
     try {
       const mediaId = parseInt(c.req.param("id"), 10);
       const season = parseInt(c.req.param("season"), 10);
-      const result = await prisma.libraryEpisode.updateMany({
-        where: { mediaId, season, status: "skipped" },
-        data: { status: "wanted", searchAttempts: 0 },
-      });
-      return ok({ retried: result.count });
+      return ok({ retried: await retrySkippedEpisodes(mediaId, season) });
     } catch {
       return serverError("Failed to retry skipped episodes");
     }
@@ -386,17 +340,16 @@ export const libraryGrabRoutes = new Hono<Env>()
         const season = parseInt(c.req.param("season"), 10);
         const body = c.req.valid("json");
 
-        const media = await prisma.libraryMedia.findUnique({
-          where: { id: mediaId },
-        });
+        const media = await findLibraryMediaRow(mediaId);
         if (!media) return notFound("Library item not found");
         if (media.type !== "show") {
           return badRequest("Season search only applies to TV shows");
         }
 
-        const downloadingCount = await prisma.libraryEpisode.count({
-          where: { mediaId, season, status: "downloading" },
-        });
+        const downloadingCount = await countDownloadingEpisodes(
+          mediaId,
+          season,
+        );
         if (downloadingCount > 0) {
           return badRequest(
             "One or more episodes in this season are already downloading",
@@ -404,14 +357,9 @@ export const libraryGrabRoutes = new Hono<Env>()
         }
 
         // Manual search resets skipped episodes so users can retry without being blocked.
-        await prisma.libraryEpisode.updateMany({
-          where: { mediaId, season, status: "skipped" },
-          data: { status: "wanted", searchAttempts: 0 },
-        });
+        await retrySkippedEpisodes(mediaId, season);
 
-        const wantedEpisodes = await prisma.libraryEpisode.findMany({
-          where: { mediaId, season, status: "wanted" },
-        });
+        const wantedEpisodes = await listWantedEpisodes(mediaId, season);
         if (wantedEpisodes.length === 0) {
           return badRequest("No wanted episodes in this season");
         }
@@ -478,68 +426,11 @@ export const libraryGrabRoutes = new Hono<Env>()
         }
 
         // mode === "auto"
-        const media = await prisma.libraryMedia.findUnique({
-          where: { id },
-          select: {
-            id: true,
-            type: true,
-            status: true,
-            qualityProfileId: true,
-          },
-        });
+        const media = await findLibraryMediaForUpgrade(id);
         if (!media) return notFound("Library item not found");
 
-        if (media.type === "movie") {
-          await prisma.libraryMedia.update({
-            where: { id },
-            data: { status: "upgrading" },
-          });
-          await addJob(
-            QUEUE_NAMES.SCHEDULED_TASKS,
-            SCHEDULED_JOB_NAMES.UPGRADE_MEDIA_SEARCH,
-            { mediaId: id, episodeId: null },
-          );
-          return ok({ queued: true, mode: "auto" as const, count: 1 });
-        } else {
-          // Only the episodes whose files fail the profile; without a profile
-          // nothing can be judged, so every downloaded episode is searched.
-          const profile =
-            media.qualityProfileId != null
-              ? await loadProfileWithFormats(media.qualityProfileId)
-              : null;
-          const episodes = profile
-            ? (
-                await downloadedEpisodesFailingProfile(
-                  id,
-                  profileToScoreInput(profile),
-                )
-              ).map((epId) => ({ id: epId }))
-            : await prisma.libraryEpisode.findMany({
-                where: { mediaId: id, status: "downloaded" },
-                select: { id: true },
-              });
-
-          await prisma.libraryEpisode.updateMany({
-            where: { id: { in: episodes.map((ep) => ep.id) } },
-            data: { status: "upgrading" },
-          });
-
-          await Promise.all(
-            episodes.map((ep) =>
-              addJob(
-                QUEUE_NAMES.SCHEDULED_TASKS,
-                SCHEDULED_JOB_NAMES.UPGRADE_MEDIA_SEARCH,
-                { mediaId: id, episodeId: ep.id },
-              ),
-            ),
-          );
-
-          return ok({
-            queued: true,
-            mode: "auto" as const,
-            count: episodes.length,
-          });
-        }
+        const count = await enqueueAutoUpgrade(media);
+        return ok({ queued: true, mode: "auto" as const, count });
       } catch {
         return serverError("Failed to enqueue upgrade");
       }

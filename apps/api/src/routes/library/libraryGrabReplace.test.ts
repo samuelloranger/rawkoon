@@ -28,7 +28,7 @@ mock.module("@rawkoon/api/db", () => ({
 mock.module("@rawkoon/api/middleware/hono/auth", () => ({
   requireAdmin: async (_c: unknown, next: () => Promise<void>) => next(),
 }));
-mock.module("@rawkoon/api/services/mediaGrabberGrab", () => ({
+mock.module("@rawkoon/api/services/mediaGrabber/mediaGrabberGrab", () => ({
   grabRelease,
   preflightGrab,
 }));

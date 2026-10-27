@@ -44,7 +44,7 @@ mock.module("@rawkoon/api/db", () => ({
   },
 }));
 
-mock.module("@rawkoon/api/services/postProcessorSingle", () => ({
+mock.module("@rawkoon/api/services/postProcessor/postProcessorSingle", () => ({
   postProcess: async () => ({
     success: true,
     destinationPath: "/tv/Some Show/S01E04.mkv",
@@ -52,7 +52,7 @@ mock.module("@rawkoon/api/services/postProcessorSingle", () => ({
   }),
 }));
 
-mock.module("@rawkoon/api/services/postProcessorBook", () => ({
+mock.module("@rawkoon/api/services/postProcessor/postProcessorBook", () => ({
   postProcessBookDownload: async () => ({ success: false, reason: "unused" }),
 }));
 
@@ -68,14 +68,14 @@ mock.module("@rawkoon/api/services/libraryEvents", () => ({
 mock.module("@rawkoon/api/services/seeding/seedSweep", () => ({
   evaluateSeedRelease: async () => {},
 }));
-mock.module("@rawkoon/api/services/downloadJanitor", () => ({
+mock.module("@rawkoon/api/services/downloads/downloadJanitor", () => ({
   rejectRelease: async () => {},
   findBlockedFileInTorrent: async () => null,
 }));
 mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
   resolveActiveAdapter: async () => null,
 }));
-mock.module("@rawkoon/api/services/jellyfinLibraryRefresh", () => ({
+mock.module("@rawkoon/api/services/jellyfin/jellyfinLibraryRefresh", () => ({
   triggerJellyfinLibraryScan: async () => {},
 }));
 mock.module("@rawkoon/api/services/mediaRequests", () => ({
@@ -90,7 +90,7 @@ mock.module("@rawkoon/api/workers/notifyLibraryEvents", () => ({
 }));
 
 const { finishPostProcess } = await import(
-  "@rawkoon/api/services/downloadOutcome"
+  "@rawkoon/api/services/downloads/downloadOutcome"
 );
 
 beforeEach(() => {

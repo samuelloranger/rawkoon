@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterAll, mock } from "bun:test";
 import { mkdtemp, mkdir, rm, writeFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { dbModule } from "./mocks/prisma";
 
 // An upgrade import has to delete what it replaced. Without that the edition
 // holds both formats, its aggregated size counts both, and the library grows on
@@ -27,74 +28,77 @@ const state: {
   editionUpdates: [],
 };
 
-mock.module("@rawkoon/api/db", () => ({
-  prisma: {
-    bookEdition: {
-      findUnique: () =>
-        Promise.resolve({
-          id: 1,
-          bookId: 9,
-          kind: "ebook",
-          book: {
-            title: "A Quiet Harbour",
-            authors: ["Camille Rousseau"],
-            language: "fr",
-            publishedYear: 2019,
-          },
-          bookQualityProfile: { allowedFormats: ["epub", "pdf"] },
-        }),
-      update: (args: { data: Record<string, unknown> }) => {
-        state.editionUpdates.push(args.data);
-        return Promise.resolve({ bookId: 9 });
+mock.module("@rawkoon/api/db", () =>
+  dbModule({
+    prisma: {
+      bookEdition: {
+        findUnique: () =>
+          Promise.resolve({
+            id: 1,
+            bookId: 9,
+            kind: "ebook",
+            book: {
+              title: "A Quiet Harbour",
+              authors: ["Camille Rousseau"],
+              language: "fr",
+              publishedYear: 2019,
+            },
+            bookQualityProfile: { allowedFormats: ["epub", "pdf"] },
+          }),
+        update: (args: { data: Record<string, unknown> }) => {
+          state.editionUpdates.push(args.data);
+          return Promise.resolve({ bookId: 9 });
+        },
       },
-    },
-    mediaSettings: {
-      upsert: () =>
-        Promise.resolve({
-          booksLibraryPath: booksRoot,
-          audiobooksLibraryPath: join(root, "Audiobooks"),
-          bookTemplate: "{author}/{title} ({year})/{title} ({year}) [{format}]",
-          audiobookTemplate: "{author}/{title} ({year})/{title}",
-        }),
-    },
-    bookFile: {
-      findMany: (args: { where: { filePath?: { notIn?: string[] } } }) => {
-        const notIn = args.where.filePath?.notIn;
-        return Promise.resolve(
-          notIn
-            ? state.files.filter((f) => !notIn.includes(f.filePath))
-            : state.files,
-        );
+      mediaSettings: {
+        upsert: () =>
+          Promise.resolve({
+            booksLibraryPath: booksRoot,
+            audiobooksLibraryPath: join(root, "Audiobooks"),
+            bookTemplate:
+              "{author}/{title} ({year})/{title} ({year}) [{format}]",
+            audiobookTemplate: "{author}/{title} ({year})/{title}",
+          }),
       },
-      deleteMany: (args: {
-        where: { filePath?: string; id?: { in: number[] } };
-      }) => {
-        const before = state.files.length;
-        if (args.where.id?.in) {
-          state.deletedIds.push(...args.where.id.in);
-          state.files = state.files.filter(
-            (f) => !args.where.id!.in.includes(f.id),
+      bookFile: {
+        findMany: (args: { where: { filePath?: { notIn?: string[] } } }) => {
+          const notIn = args.where.filePath?.notIn;
+          return Promise.resolve(
+            notIn
+              ? state.files.filter((f) => !notIn.includes(f.filePath))
+              : state.files,
           );
-        } else if (args.where.filePath) {
-          state.files = state.files.filter(
-            (f) => f.filePath !== args.where.filePath,
-          );
-        }
-        return Promise.resolve({ count: before - state.files.length });
-      },
-      create: (args: { data: Record<string, unknown> }) => {
-        const row = {
-          id: state.nextId++,
-          editionId: args.data.editionId as number,
-          filePath: args.data.filePath as string,
-        };
-        state.created.push(row.filePath);
-        state.files.push(row);
-        return Promise.resolve(row);
+        },
+        deleteMany: (args: {
+          where: { filePath?: string; id?: { in: number[] } };
+        }) => {
+          const before = state.files.length;
+          if (args.where.id?.in) {
+            state.deletedIds.push(...args.where.id.in);
+            state.files = state.files.filter(
+              (f) => !args.where.id!.in.includes(f.id),
+            );
+          } else if (args.where.filePath) {
+            state.files = state.files.filter(
+              (f) => f.filePath !== args.where.filePath,
+            );
+          }
+          return Promise.resolve({ count: before - state.files.length });
+        },
+        create: (args: { data: Record<string, unknown> }) => {
+          const row = {
+            id: state.nextId++,
+            editionId: args.data.editionId as number,
+            filePath: args.data.filePath as string,
+          };
+          state.created.push(row.filePath);
+          state.files.push(row);
+          return Promise.resolve(row);
+        },
       },
     },
-  },
-}));
+  }),
+);
 
 const realEbookMetadata = await import(
   "@rawkoon/api/utils/books/ebookMetadata"
@@ -105,7 +109,7 @@ mock.module("@rawkoon/api/utils/books/ebookMetadata", () => ({
 }));
 
 const { postProcessBook } = await import(
-  "@rawkoon/api/services/postProcessorBook"
+  "@rawkoon/api/services/postProcessor/postProcessorBook"
 );
 
 const libraryDir = join(

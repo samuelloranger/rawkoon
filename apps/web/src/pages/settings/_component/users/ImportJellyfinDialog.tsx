@@ -37,7 +37,7 @@ export function skipReasonKey(reason: string): string {
     : "settings.users.importJellyfin.skipReasons.unknown";
 }
 
-export const isImportable = (user: JellyfinUserOption) =>
+const isImportable = (user: JellyfinUserOption) =>
   !user.disabled && !user.linked_user_id;
 
 export function ImportJellyfinDialog({ isOpen, onClose, users }: Props) {

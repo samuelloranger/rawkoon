@@ -23,7 +23,9 @@ mock.module("@rawkoon/api/db", () => ({
   },
 }));
 
-const { adoptDownload } = await import("@rawkoon/api/services/downloadOutcome");
+const { adoptDownload } = await import(
+  "@rawkoon/api/services/downloads/downloadOutcome"
+);
 
 describe("adoptDownload", () => {
   it("marks the row adopted so its torrent is never released by Rawkoon", async () => {

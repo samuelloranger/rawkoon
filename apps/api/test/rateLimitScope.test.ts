@@ -9,6 +9,7 @@
  * its own route.
  */
 import { describe, it, expect, mock } from "bun:test";
+import { dbModule } from "./mocks/prisma";
 
 let sessionExists = true;
 
@@ -30,12 +31,14 @@ mock.module("@rawkoon/api/lib/apiKeyApi", () => ({
   },
 }));
 
-mock.module("@rawkoon/api/db", () => ({
-  prisma: {
-    downloadClient: { findMany: () => Promise.resolve([]) },
-    downloadHistory: { findFirst: () => Promise.resolve(null) },
-  },
-}));
+mock.module("@rawkoon/api/db", () =>
+  dbModule({
+    prisma: {
+      downloadClient: { findMany: () => Promise.resolve([]) },
+      downloadHistory: { findFirst: () => Promise.resolve(null) },
+    },
+  }),
+);
 
 const { Hono } = await import("hono");
 const { downloadClientHookRoutes } = await import(
@@ -75,24 +78,26 @@ describe("download-client hook rate limit", () => {
 
   it("still limits its own hook endpoint", async () => {
     // The endpoint is unauthenticated and reachable by anything that learns the
-    // URL, so it must stay limited. Asserted through the limiter's own headers
-    // rather than by exhausting the budget: the plugin does not count failed
-    // requests, and this endpoint rejects a bad token.
+    // URL, so it must stay limited. Exhaust the budget with bad tokens (a 401
+    // still counts); the limiter's headers are not reliable on raw Responses.
     const app = buildApp();
+    const hook = () =>
+      app.request(
+        new Request("http://localhost/api/download-client/hook/complete", {
+          method: "POST",
+          headers: {
+            "x-forwarded-for": "203.0.113.20",
+            "x-rawkoon-token": "nope",
+          },
+        }),
+      );
 
-    const hook = await app.request(
-      new Request("http://localhost/api/download-client/hook/complete", {
-        method: "POST",
-        headers: {
-          "x-forwarded-for": "203.0.113.20",
-          "x-rawkoon-token": "nope",
-        },
-      }),
-    );
+    let last = 0;
+    for (let i = 0; i < HOOK_LIMIT + 1; i++) last = (await hook()).status;
     const other = await call(app, "/api/books", "203.0.113.20");
 
-    expect(hook.headers.get("ratelimit-limit")).toBe(String(HOOK_LIMIT));
-    expect(other.headers.get("ratelimit-limit")).toBeNull();
+    expect(last).toBe(429);
+    expect(other.status).toBe(200);
   });
 });
 

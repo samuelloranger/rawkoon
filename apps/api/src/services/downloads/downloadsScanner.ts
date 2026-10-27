@@ -1,0 +1,331 @@
+import { stat } from "node:fs/promises";
+import { basename, dirname, resolve } from "node:path";
+
+import { prisma } from "@rawkoon/api/db";
+import { listVideoFilesUnder } from "@rawkoon/api/utils/medias/fileIdentifier";
+import {
+  fingerprintDbFields,
+  fingerprintFromStats,
+  inodeKeyFromParts,
+  normalizeInode,
+  mapPool,
+} from "@rawkoon/api/utils/medias/fileFingerprint";
+import { parseReleaseTitle } from "@rawkoon/api/utils/medias/filenameParser";
+import { parseReleaseStructure } from "@rawkoon/shared/utils/releaseStructure";
+import { remapPath } from "@rawkoon/api/utils/medias/mediainfoScanner";
+import { PERF_TIMING_ENABLED } from "@rawkoon/api/services/perf/perfStore";
+
+export const DOWNLOADS_MIN_BYTES = 100 * 1024 * 1024;
+const MIN_BYTES = DOWNLOADS_MIN_BYTES;
+const CACHE_MS = 30_000;
+/** Bound concurrent stat() calls when building the library inode index / downloads walk. */
+const FS_STAT_CONCURRENCY = 16;
+const DB_WRITE_CONCURRENCY = 8;
+/** Cursor page size for full-table media_file sweeps. */
+const DB_PAGE_SIZE = 500;
+
+let cachedInodeKeySet: Set<string> | null = null;
+let cachedInodeExpiresAt = 0;
+
+/** Library inode index for hardlink detection, cached 30s; stats only rows missing persisted fileDev/fileIno and backfills them. */
+export async function buildLibraryInodeKeySet(
+  refresh = false,
+): Promise<Set<string>> {
+  const now = Date.now();
+  if (!refresh && cachedInodeKeySet && cachedInodeExpiresAt > now) {
+    return cachedInodeKeySet;
+  }
+
+  const keys = new Set<string>();
+  const needStat: Array<{ id: number; filePath: string }> = [];
+
+  // Cursor batches folded into the key set so a large library never materializes every row at once.
+  let cursor: { id: number } | undefined;
+  for (;;) {
+    const batch = await prisma.mediaFile.findMany({
+      take: DB_PAGE_SIZE,
+      ...(cursor ? { cursor, skip: 1 } : {}),
+      select: {
+        id: true,
+        filePath: true,
+        fileDev: true,
+        fileIno: true,
+      },
+      orderBy: { id: "asc" },
+    });
+    if (batch.length === 0) break;
+
+    for (const row of batch) {
+      // Stored values can be bad (Bun 1.3.11 persisted INT64_MAX on pooled filesystems); re-stat rather than poison the key set.
+      const storedIno =
+        row.fileIno != null ? normalizeInode(BigInt(row.fileIno)) : null;
+      if (row.fileDev != null && storedIno != null) {
+        keys.add(inodeKeyFromParts(row.fileDev, storedIno));
+      } else {
+        needStat.push({ id: row.id, filePath: row.filePath });
+      }
+    }
+
+    if (batch.length < DB_PAGE_SIZE) break;
+    cursor = { id: batch[batch.length - 1]!.id };
+  }
+
+  const backfills = (
+    await mapPool(needStat, FS_STAT_CONCURRENCY, async (row) => {
+      try {
+        const st = await stat(remapPath(row.filePath), { bigint: true });
+        if (!st.isFile()) return null;
+        const fp = fingerprintFromStats(st);
+        // Null when the inode is untrustworthy; a placeholder key would match every such file.
+        if (fp.dev !== null && fp.ino !== null) {
+          keys.add(inodeKeyFromParts(fp.dev, fp.ino));
+        }
+        return { id: row.id, data: fingerprintDbFields(fp) };
+      } catch {
+        return null;
+      }
+    })
+  ).filter((b): b is NonNullable<typeof b> => b != null);
+
+  if (backfills.length > 0) {
+    await mapPool(backfills, DB_WRITE_CONCURRENCY, (b) =>
+      prisma.mediaFile.update({ where: { id: b.id }, data: b.data }),
+    );
+  }
+
+  cachedInodeKeySet = keys;
+  cachedInodeExpiresAt = now + CACHE_MS;
+  return keys;
+}
+
+/** Key for a live stat, normalized like the library side; "?" for an unusable inode so it never matches. */
+function inodeKey(dev: bigint | undefined, ino: bigint | undefined): string {
+  if (dev === undefined || ino === undefined) return "?";
+  const normalized = normalizeInode(ino);
+  if (normalized === null) return "?";
+  return inodeKeyFromParts(BigInt.asUintN(64, dev).toString(), normalized);
+}
+
+export function deriveDownloadsScanRoots(media: {
+  moviesLibraryPath: string | null;
+  showsLibraryPath: string | null;
+  downloadsPath?: string | null;
+}): string[] {
+  const configured = media.downloadsPath?.trim();
+  if (configured) return [resolve(configured.replace(/\/+$/, ""))];
+
+  const roots = new Set<string>();
+  const m = media.moviesLibraryPath?.trim();
+  const s = media.showsLibraryPath?.trim();
+  if (m) roots.add(dirname(resolve(m.replace(/\/+$/, ""))));
+  if (s) roots.add(dirname(resolve(s.replace(/\/+$/, ""))));
+  return [...roots];
+}
+
+/** Library subtrees to exclude from the Downloads walk: the root is `dirname(libraryPath)`, so it contains the library and would flag every library file as imported. */
+export function deriveLibraryExcludeRoots(media: {
+  moviesLibraryPath: string | null;
+  showsLibraryPath: string | null;
+}): string[] {
+  const out: string[] = [];
+  const m = media.moviesLibraryPath?.trim();
+  const s = media.showsLibraryPath?.trim();
+  if (m) out.push(resolve(m.replace(/\/+$/, "")));
+  if (s) out.push(resolve(s.replace(/\/+$/, "")));
+  return out;
+}
+
+/** True when `candidate` resolves under `root`. */
+export function pathIsInsideRoot(candidate: string, root: string): boolean {
+  const c = resolve(candidate);
+  const r = resolve(root);
+  const prefix = r.endsWith("/") ? r : `${r}/`;
+  return c === r || c.startsWith(prefix);
+}
+
+export function invalidateDownloadsScannerCache(): void {
+  // No-op when already cleared, so repeated assigns during a Submit run cost nothing.
+  if (cache === undefined) return;
+  cache = undefined;
+}
+
+export function invalidateLibraryInodeKeySetCache(): void {
+  cachedInodeKeySet = null;
+  cachedInodeExpiresAt = 0;
+}
+
+export type ScanResult = {
+  entries: RawDownloadRow[];
+  file_operation: "hardlink" | "move";
+};
+
+type Cached = ScanResult & { expiresAt: number };
+let cache: Cached | undefined;
+
+export type DownloadParsed = {
+  title: string | null;
+  year: number | null;
+  season: number | null;
+  episode: number | null;
+  quality: string | null;
+  codec: string | null;
+  release_group: string | null;
+  hdr: string | null;
+  audio: string[];
+  subtitles: string[];
+  kind: "movie" | "tv";
+};
+
+export type RawDownloadRow = {
+  file_path: string;
+  file_name: string;
+  size_bytes: number;
+  modified_at: string;
+  dev: number;
+  ino: number;
+  /** Shares an inode with a library `MediaFile` (hardlink mode only; move mode can't produce it); name is mode-agnostic. */
+  is_imported: boolean;
+  parsed: DownloadParsed;
+};
+
+export function buildParsed(fileNameWithExt: string): DownloadParsed {
+  const stem = fileNameWithExt.replace(
+    /\.(mkv|mp4|avi|m4v|wmv|ts|m2ts|mov)$/i,
+    "",
+  );
+  const rel = parseReleaseTitle(stem);
+  const structure = parseReleaseStructure(stem);
+
+  const season = structure.season;
+  const episodeNum = structure.episodes[0] ?? null;
+  // Assigning needs an exact episode, so packs stay on the movie flow as before.
+  const kind: "movie" | "tv" =
+    season != null && episodeNum != null ? "tv" : "movie";
+  const title = structure.title.length >= 2 ? structure.title : null;
+  const year = structure.year;
+
+  const quality = rel.resolution != null ? `${rel.resolution}p` : null;
+  const audio = rel.audio ? [rel.audio] : [];
+
+  return {
+    title,
+    year,
+    season,
+    episode: episodeNum,
+    quality,
+    codec: rel.codec,
+    release_group: rel.group,
+    hdr: rel.hdr,
+    audio,
+    subtitles: [],
+    kind,
+  };
+}
+
+async function walkDownloadsOnce(
+  roots: string[],
+  excludeRoots: string[],
+  inodeKeySet: Set<string>,
+): Promise<RawDownloadRow[]> {
+  const seenPaths = new Set<string>();
+  const candidatePaths: string[] = [];
+
+  for (const rootRaw of roots) {
+    let videos: string[];
+    try {
+      videos = await listVideoFilesUnder(remapPath(resolve(rootRaw)));
+    } catch {
+      continue;
+    }
+
+    for (const relPathRaw of videos) {
+      const filePath = resolve(relPathRaw);
+      if (seenPaths.has(filePath)) continue;
+      seenPaths.add(filePath);
+
+      // Skip library subtrees: they are the library, not Downloads files.
+      if (excludeRoots.some((ex) => pathIsInsideRoot(filePath, ex))) continue;
+      candidatePaths.push(filePath);
+    }
+  }
+
+  const out = (
+    await mapPool(candidatePaths, FS_STAT_CONCURRENCY, async (filePath) => {
+      let st;
+      try {
+        // bigint stats: a plain stat rounds inodes over 2^53, so keys wouldn't match the library's and hardlinks would read as not imported.
+        st = await stat(remapPath(filePath), { bigint: true });
+      } catch {
+        return null;
+      }
+
+      if (!st.isFile() || BigInt(st.size) < BigInt(MIN_BYTES)) return null;
+      if (st.dev === undefined || st.ino === undefined) return null;
+
+      const fileName = basename(filePath);
+      const keyStr = inodeKey(st.dev, st.ino);
+
+      return {
+        file_path: filePath,
+        file_name: fileName,
+        size_bytes:
+          typeof st.size === "bigint"
+            ? Number(st.size)
+            : Math.trunc(Number(st.size)),
+        modified_at: st.mtime.toISOString(),
+        dev: Number(st.dev),
+        ino: Number(st.ino),
+        is_imported: inodeKeySet.has(keyStr),
+        parsed: buildParsed(fileName),
+      } satisfies RawDownloadRow;
+    })
+  ).filter((row): row is RawDownloadRow => row != null);
+
+  out.sort((a, b) => b.size_bytes - a.size_bytes);
+  return out;
+}
+
+/** Recursive scan under both Downloads roots (`dirname(library_paths)`), cached 30s unless `refresh`. */
+export async function scanDownloads(
+  opts: { refresh?: boolean } = {},
+): Promise<ScanResult> {
+  const now = Date.now();
+  if (!opts.refresh && cache && cache.expiresAt > now) {
+    return { entries: cache.entries, file_operation: cache.file_operation };
+  }
+
+  const settings = await prisma.mediaSettings.findUnique({ where: { id: 1 } });
+  if (!settings)
+    throw new Error("Media settings missing (expected singleton id = 1)");
+
+  const fileOperation: "hardlink" | "move" =
+    settings.fileOperation === "move" ? "move" : "hardlink";
+
+  const roots = deriveDownloadsScanRoots(settings);
+  if (roots.length === 0) {
+    cache = {
+      entries: [],
+      file_operation: fileOperation,
+      expiresAt: now + CACHE_MS,
+    };
+    return { entries: [], file_operation: fileOperation };
+  }
+
+  const excludeRoots = deriveLibraryExcludeRoots(settings);
+  const inodeKeySet = await buildLibraryInodeKeySet(opts.refresh);
+  // Perf baseline: gated wall-clock log like scheduledTasksWorker's job-duration line.
+  const scanStartedAt = PERF_TIMING_ENABLED ? Date.now() : 0;
+  const entries = await walkDownloadsOnce(roots, excludeRoots, inodeKeySet);
+  if (PERF_TIMING_ENABLED) {
+    console.log(
+      `[perf] walkDownloadsOnce scanned ${entries.length} files in ${Date.now() - scanStartedAt}ms`,
+    );
+  }
+  cache = {
+    entries,
+    file_operation: fileOperation,
+    expiresAt: now + CACHE_MS,
+  };
+
+  return { entries, file_operation: fileOperation };
+}

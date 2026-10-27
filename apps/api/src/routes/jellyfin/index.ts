@@ -14,8 +14,8 @@ import {
   getJellyfinConfig,
   JELLYFIN_SESSION_AGENT_PREFIX,
   resolveJellyfinTokenUser,
-} from "@rawkoon/api/services/jellyfinUsers";
-import { resolveOrCreateJellyfinRawkoonUser } from "@rawkoon/api/services/jellyfinSignIn";
+} from "@rawkoon/api/services/jellyfin/jellyfinUsers";
+import { resolveOrCreateJellyfinRawkoonUser } from "@rawkoon/api/services/jellyfin/jellyfinSignIn";
 
 const sessionBody = z.object({
   jellyfin_token: z.string().min(1).max(512),

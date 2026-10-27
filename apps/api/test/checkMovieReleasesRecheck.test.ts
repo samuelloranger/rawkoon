@@ -3,7 +3,7 @@ import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 // A future digital date is re-checked once its last TMDB check is stale, so a
 // date moved earlier is not missed; a recent check costs no TMDB call.
 const realSearch = {
-  ...(await import("@rawkoon/api/services/mediaGrabberSearch")),
+  ...(await import("@rawkoon/api/services/mediaGrabber/mediaGrabberSearch")),
 };
 const realRefresh = {
   ...(await import("@rawkoon/api/services/libraryTmdbRefresh")),
@@ -16,7 +16,7 @@ let refreshedTo: Date | null = future;
 let refreshCalls = 0;
 let searchCalls = 0;
 
-mock.module("@rawkoon/api/services/mediaGrabberSearch", () => ({
+mock.module("@rawkoon/api/services/mediaGrabber/mediaGrabberSearch", () => ({
   ...realSearch,
   searchAndGrabWithTitleFallback: async () => {
     searchCalls++;
@@ -56,7 +56,10 @@ const { checkMovieReleases } = await import(
 );
 
 afterAll(() => {
-  mock.module("@rawkoon/api/services/mediaGrabberSearch", () => realSearch);
+  mock.module(
+    "@rawkoon/api/services/mediaGrabber/mediaGrabberSearch",
+    () => realSearch,
+  );
   mock.module("@rawkoon/api/services/libraryTmdbRefresh", () => realRefresh);
 });
 

@@ -1,6 +1,6 @@
 import { APP_PATHS } from "@rawkoon/shared/constants";
-import { notificationCopy } from "@rawkoon/api/services/notificationCopy";
-import { getAdminNotificationTargets } from "@rawkoon/api/services/notificationPreferences";
+import { notificationCopy } from "@rawkoon/api/services/notification/notificationCopy";
+import { getAdminNotificationTargets } from "@rawkoon/api/services/notification/notificationPreferences";
 import { createAndQueueNotification } from "@rawkoon/api/workers/notificationService";
 import type { ClaimedJob } from "@rawkoon/api/services/transcode/repo";
 import type { TranscodeNotifier } from "@rawkoon/api/services/transcode/dispatcher";

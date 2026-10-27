@@ -1,13 +1,15 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
-import { apiKeyApi } from "@rawkoon/api/lib/apiKeyApi";
 import { badRequest, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { jsonV } from "@rawkoon/api/middleware/validate";
+import {
+  createApiKey,
+  deleteApiKey,
+  listApiKeys,
+} from "@rawkoon/api/services/admin/adminApiKeys";
 
 const MAX_EXPIRY_DAYS = 365;
-const SECONDS_PER_DAY = 60 * 60 * 24;
 
 type ApiKeyRow = {
   id: string;
@@ -37,9 +39,7 @@ function mapApiKey(row: ApiKeyRow) {
 export const adminApiKeyRoutes = new Hono<Env>()
   .get("/api-keys", async () => {
     try {
-      const rows = await prisma.baApiKey.findMany({
-        orderBy: { createdAt: "desc" },
-      });
+      const rows = await listApiKeys();
       return ok({ api_keys: rows.map(mapApiKey) });
     } catch (error) {
       console.error("Error listing API keys:", error);
@@ -70,23 +70,16 @@ export const adminApiKeyRoutes = new Hono<Env>()
       }
 
       try {
-        const existing = await prisma.baApiKey.findFirst({ where: { name } });
-        if (existing) {
+        const result = await createApiKey(name, days, c.req.raw.headers);
+        if (result.status === "duplicate") {
           return badRequest("An API key with this name already exists");
         }
-
-        // Owned by the acting admin; the plugin generates and hashes the key.
-        const created = await apiKeyApi.createApiKey({
-          body: { name, expiresIn: days ? days * SECONDS_PER_DAY : null },
-          headers: c.req.raw.headers,
-        });
-        const row = await prisma.baApiKey.findUnique({
-          where: { id: created.id },
-        });
-        if (!row) return serverError("Failed to create API key");
+        if (result.status === "failed") {
+          return serverError("Failed to create API key");
+        }
 
         // `key` (the plaintext) is returned exactly once and never stored.
-        return ok({ key: created.key, api_key: mapApiKey(row) }, 201);
+        return ok({ key: result.key, api_key: mapApiKey(result.row) }, 201);
       } catch (error) {
         if ((error as { code?: string }).code === "P2002") {
           return badRequest("An API key with this name already exists");
@@ -98,7 +91,7 @@ export const adminApiKeyRoutes = new Hono<Env>()
   )
   .delete("/api-keys/:id", async (c) => {
     try {
-      await prisma.baApiKey.delete({ where: { id: c.req.param("id") } });
+      await deleteApiKey(c.req.param("id"));
       return ok({ success: true });
     } catch (error) {
       console.error("Error deleting API key:", error);

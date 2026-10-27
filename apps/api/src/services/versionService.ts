@@ -2,7 +2,7 @@ import { prisma } from "@rawkoon/api/db";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import { getJsonCache, setJsonCache } from "./cache";
 import { createAndQueueNotification } from "@rawkoon/api/workers/notificationService";
-import { notificationCopy } from "@rawkoon/api/services/notificationCopy";
+import { notificationCopy } from "@rawkoon/api/services/notification/notificationCopy";
 
 const APP_VERSION_KEY = "rawkoon:app_version";
 

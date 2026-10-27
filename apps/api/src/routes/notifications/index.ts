@@ -2,10 +2,15 @@ import { getBaseUrl } from "@rawkoon/api/config";
 import { APP_PATHS } from "@rawkoon/shared/constants";
 import { Hono } from "hono";
 import { z } from "zod";
-import type { Prisma } from "@prisma/client";
 import { notificationChannelsRoutes } from "./channels";
+import {
+  apnsRegisterBody,
+  listQuery,
+  subscribeBody,
+  testBody,
+  unsubscribeBody,
+} from "./schemas";
 import { normalizeNotificationUrl } from "@rawkoon/shared/utils";
-import { prisma } from "@rawkoon/api/db";
 import {
   getVapidPublicKey,
   sendWebPushNotification,
@@ -15,10 +20,25 @@ import {
   createAndQueueNotification,
   getAllUsers,
 } from "@rawkoon/api/workers/notificationService";
+import { createNotificationStream } from "@rawkoon/api/services/notification/notificationStream";
 import {
-  notificationEventBus,
-  type NotificationStreamEvent,
-} from "@rawkoon/api/services/notificationEvents";
+  countUnread,
+  deleteNotification,
+  listNotifications,
+  listUnreadIds,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "@rawkoon/api/services/notification/notificationInbox";
+import {
+  deleteApnsDevice,
+  deleteWebPushDevice,
+  listApnsDevices,
+  listWebPushDevices,
+  registerApnsDevice,
+  removeWebPushSubscription,
+  saveWebPushSubscription,
+  unregisterApnsDevice,
+} from "@rawkoon/api/services/notification/pushDevices";
 import {
   badRequest,
   notFound,
@@ -36,58 +56,6 @@ import {
 } from "@rawkoon/api/contracts/sseContract";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 
-const listQuery = z.object({
-  page: z.coerce.number().optional(),
-  limit: z.coerce.number().optional(),
-  read: z.string().optional(),
-});
-
-// Optional bodies validated by safeParse in the handlers (a missing body is a
-// no-op; a present-but-malformed one is a 400) — matches the original schemas.
-const unsubscribeBody = z
-  .object({ subscription: z.object({ endpoint: z.string() }).optional() })
-  .optional();
-
-const testBody = z
-  .object({
-    subscription: z
-      .object({
-        endpoint: z.string(),
-        keys: z.object({ p256dh: z.string(), auth: z.string() }),
-      })
-      .optional(),
-  })
-  .optional();
-
-const subscribeBody = z.object({
-  subscription: z.object({
-    endpoint: z.string(),
-    keys: z.object({ p256dh: z.string(), auth: z.string() }),
-  }),
-  device_info: z
-    .object({
-      deviceName: z.string().nullable().optional(),
-      osName: z.string().nullable().optional(),
-      osVersion: z.string().nullable().optional(),
-      browserName: z.string().nullable().optional(),
-      browserVersion: z.string().nullable().optional(),
-      platform: z.string().nullable().optional(),
-    })
-    .optional(),
-});
-
-const apnsRegisterBody = z.object({
-  device_token: z.string(),
-  device_info: z
-    .object({
-      device_name: z.string().optional(),
-      os_version: z.string().optional(),
-      app_version: z.string().optional(),
-      bundle_id: z.string().optional(),
-    })
-    .optional(),
-});
-
 // Mounted at /api/notifications by the edge.
 // Auth is per-route (requireUser) — every route is guarded EXCEPT the public
 // GET /vapid-public-key. Guards are route-level so they don't leak across the
@@ -98,55 +66,7 @@ export const notificationsRoutes = new Hono<Env>()
     const userId = c.get("user").id;
 
     assertSseContractIDs(SSE_ROUTE_DECLARATIONS.notificationsStream.ids);
-    const encoder = new TextEncoder();
-    const signal = c.req.raw.signal;
-
-    // All setup happens INSIDE start(controller) — this mirrors the working
-    // dashboard SSE (createJsonSseResponse). Capturing the controller in start
-    // and enqueuing from outside does not flush the response under Bun.
-    const stream = new ReadableStream<Uint8Array>({
-      start(controller) {
-        let closed = false;
-        let heartbeat: ReturnType<typeof setInterval> | null = null;
-
-        const writeChunk = (chunk: string) => {
-          if (closed) return;
-          try {
-            controller.enqueue(encoder.encode(chunk));
-          } catch {
-            closeStream();
-          }
-        };
-
-        const onNotification = (event: NotificationStreamEvent) => {
-          if (event.userId !== userId) return;
-          writeChunk(`data: ${JSON.stringify(event)}\n\n`);
-        };
-
-        const closeStream = () => {
-          if (closed) return;
-          closed = true;
-          notificationEventBus.off("notification", onNotification);
-          if (heartbeat) clearInterval(heartbeat);
-          try {
-            controller.close();
-          } catch {
-            // already closed by the runtime
-          }
-        };
-
-        notificationEventBus.on("notification", onNotification);
-        heartbeat = setInterval(() => writeChunk(": ping\n\n"), 15_000);
-        signal.addEventListener("abort", closeStream);
-
-        writeChunk("retry: 3000\n\n");
-        // Handshake so the client knows the stream is live.
-        writeChunk(`data: ${JSON.stringify({ connected: true })}\n\n`);
-      },
-      cancel() {
-        // Cleanup is driven by the request abort signal above.
-      },
-    });
+    const stream = createNotificationStream(userId, c.req.raw.signal);
 
     // Headers go on the Response directly. EventSource requires the
     // `text/event-stream` content type, and Caddy only disables buffering for it.
@@ -167,21 +87,11 @@ export const notificationsRoutes = new Hono<Env>()
     const readFilter = query.read;
 
     try {
-      const where: Prisma.NotificationWhereInput = { userId: user.id };
-
-      if (readFilter === "true") {
-        where.read = true;
-      } else if (readFilter === "false") {
-        where.read = false;
-      }
-
-      const total = await prisma.notification.count({ where });
-
-      const notificationsList = await prisma.notification.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        take: limit,
-        skip: (page - 1) * limit,
+      const { rows: notificationsList, total } = await listNotifications({
+        userId: user.id,
+        page,
+        limit,
+        read: readFilter,
       });
 
       return ok({
@@ -211,9 +121,7 @@ export const notificationsRoutes = new Hono<Env>()
   })
   .get("/unread-count", requireUser, async (c) => {
     try {
-      const count = await prisma.notification.count({
-        where: { userId: c.get("user").id, read: false },
-      });
+      const count = await countUnread(c.get("user").id);
 
       return ok({ unread_count: count });
     } catch (error) {
@@ -223,12 +131,9 @@ export const notificationsRoutes = new Hono<Env>()
   })
   .get("/unread-ids", requireUser, async (c) => {
     try {
-      const unread = await prisma.notification.findMany({
-        where: { userId: c.get("user").id, read: false },
-        select: { id: true },
-      });
+      const ids = await listUnreadIds(c.get("user").id);
 
-      return ok({ ids: unread.map((n) => n.id) });
+      return ok({ ids });
     } catch (error) {
       console.error("Error getting unread notification IDs:", error);
       return serverError("Failed to get unread IDs");
@@ -241,19 +146,12 @@ export const notificationsRoutes = new Hono<Env>()
     }
 
     try {
-      const notification = await prisma.notification.findFirst({
-        where: { id: notificationId, userId: c.get("user").id },
-      });
-
-      if (!notification) {
+      const result = await markNotificationRead(
+        c.get("user").id,
+        notificationId,
+      );
+      if (result === "not_found") {
         return notFound("Notification not found");
-      }
-
-      if (!notification.read) {
-        await prisma.notification.update({
-          where: { id: notificationId },
-          data: { read: true, readAt: new Date().toISOString() },
-        });
       }
 
       return ok({ success: true, message: "Notification marked as read" });
@@ -264,15 +162,12 @@ export const notificationsRoutes = new Hono<Env>()
   })
   .put("/read-all", requireUser, async (c) => {
     try {
-      const result = await prisma.notification.updateMany({
-        where: { userId: c.get("user").id, read: false },
-        data: { read: true, readAt: new Date().toISOString() },
-      });
+      const count = await markAllNotificationsRead(c.get("user").id);
 
       return ok({
         success: true,
-        message: `Marked ${result.count} notifications as read`,
-        count: result.count,
+        message: `Marked ${count} notifications as read`,
+        count,
       });
     } catch (error) {
       console.error("Error marking all notifications as read:", error);
@@ -286,15 +181,10 @@ export const notificationsRoutes = new Hono<Env>()
     }
 
     try {
-      const notification = await prisma.notification.findFirst({
-        where: { id: notificationId, userId: c.get("user").id },
-      });
-
-      if (!notification) {
+      const result = await deleteNotification(c.get("user").id, notificationId);
+      if (result === "not_found") {
         return notFound("Notification not found");
       }
-
-      await prisma.notification.delete({ where: { id: notificationId } });
 
       return ok({ success: true, message: "Notification deleted" });
     } catch (error) {
@@ -304,10 +194,7 @@ export const notificationsRoutes = new Hono<Env>()
   })
   .get("/devices", requireUser, async (c) => {
     try {
-      const devices = await prisma.userSubscription.findMany({
-        where: { userId: c.get("user").id },
-        orderBy: { createdAt: "desc" },
-      });
+      const devices = await listWebPushDevices(c.get("user").id);
 
       return ok({
         devices: devices.map((d) => ({
@@ -332,15 +219,10 @@ export const notificationsRoutes = new Hono<Env>()
     const deviceId = parseInt(c.req.param("id"), 10);
 
     try {
-      const device = await prisma.userSubscription.findFirst({
-        where: { id: deviceId, userId: c.get("user").id },
-      });
-
-      if (!device) {
+      const result = await deleteWebPushDevice(c.get("user").id, deviceId);
+      if (result === "not_found") {
         return notFound("Device not found");
       }
-
-      await prisma.userSubscription.delete({ where: { id: deviceId } });
 
       return ok({ success: true, message: "Device deleted successfully" });
     } catch (error) {
@@ -376,46 +258,18 @@ export const notificationsRoutes = new Hono<Env>()
       const browserVersion = device_info?.browserVersion || null;
       const platform = device_info?.platform || null;
 
-      const existingSubscription = await prisma.userSubscription.findFirst({
-        where: { userId: user.id, endpoint },
-      });
-
-      const now = new Date().toISOString();
-      let isNewSubscription = false;
-
-      if (existingSubscription) {
-        await prisma.userSubscription.update({
-          where: { id: existingSubscription.id },
-          data: {
-            subscriptionInfo: JSON.stringify(subscription),
-            updatedAt: now,
-            deviceName,
-            osName,
-            osVersion,
-            browserName,
-            browserVersion,
-            platform,
-          },
-        });
-      } else {
-        await prisma.userSubscription.create({
-          data: {
-            userId: user.id,
-            subscriptionInfo: JSON.stringify(subscription),
-            endpoint,
-            deviceName,
-            osName,
-            osVersion,
-            browserName,
-            browserVersion,
-            platform,
-            createdAt: now,
-            updatedAt: now,
-          },
-        });
-
-        isNewSubscription = true;
-      }
+      const isNewSubscription = await saveWebPushSubscription(
+        user.id,
+        subscription,
+        {
+          deviceName,
+          osName,
+          osVersion,
+          browserName,
+          browserVersion,
+          platform,
+        },
+      );
 
       if (isNewSubscription) {
         try {
@@ -432,9 +286,7 @@ export const notificationsRoutes = new Hono<Env>()
             },
           );
           if (!pushResult.success) {
-            await prisma.userSubscription.deleteMany({
-              where: { userId: user.id, endpoint },
-            });
+            await removeWebPushSubscription(user.id, endpoint);
             return badRequest(
               `Failed to verify push subscription: ${pushResult.error || "unknown error"}`,
             );
@@ -448,9 +300,7 @@ export const notificationsRoutes = new Hono<Env>()
             "Failed to send welcome push notification:",
             welcomeError,
           );
-          await prisma.userSubscription.deleteMany({
-            where: { userId: user.id, endpoint },
-          });
+          await removeWebPushSubscription(user.id, endpoint);
           const reason =
             welcomeError instanceof Error
               ? welcomeError.message
@@ -479,9 +329,7 @@ export const notificationsRoutes = new Hono<Env>()
       const subscription = parsed.data?.subscription;
 
       if (subscription && subscription.endpoint) {
-        await prisma.userSubscription.deleteMany({
-          where: { userId: user.id, endpoint: subscription.endpoint },
-        });
+        await removeWebPushSubscription(user.id, subscription.endpoint);
         await logActivity({
           type: "notification_unsubscribed",
           userId: user.id,
@@ -547,32 +395,13 @@ export const notificationsRoutes = new Hono<Env>()
     const { device_token, device_info } = c.req.valid("json");
     if (!device_token) return badRequest("device_token is required");
     try {
-      const data = {
-        userId: user.id,
+      await registerApnsDevice(user.id, {
         deviceToken: device_token,
         deviceName: device_info?.device_name ?? null,
         osVersion: device_info?.os_version ?? null,
         appVersion: device_info?.app_version ?? null,
         bundleId: device_info?.bundle_id ?? null,
-        updatedAt: new Date(),
-      };
-      // An APNs token identifies an app installation, not an account, so it
-      // must belong to exactly one user. Without the delete, signing out and
-      // signing in as someone else leaves the previous user's row in place
-      // and their notifications keep arriving on a device that now belongs to
-      // somebody else.
-      await prisma.$transaction([
-        prisma.apnsDevice.deleteMany({
-          where: { deviceToken: device_token, userId: { not: user.id } },
-        }),
-        prisma.apnsDevice.upsert({
-          where: {
-            userId_deviceToken: { userId: user.id, deviceToken: device_token },
-          },
-          update: data,
-          create: data,
-        }),
-      ]);
+      });
       return ok({ success: true });
     } catch {
       return serverError("Failed to register device");
@@ -589,9 +418,7 @@ export const notificationsRoutes = new Hono<Env>()
       const { device_token } = c.req.valid("json");
       if (!device_token) return badRequest("device_token is required");
       try {
-        await prisma.apnsDevice.deleteMany({
-          where: { userId: user.id, deviceToken: device_token },
-        });
+        await unregisterApnsDevice(user.id, device_token);
         return ok({ success: true });
       } catch {
         return serverError("Failed to unregister device");
@@ -600,10 +427,7 @@ export const notificationsRoutes = new Hono<Env>()
   )
   .get("/apns/devices", requireUser, async (c) => {
     try {
-      const devices = await prisma.apnsDevice.findMany({
-        where: { userId: c.get("user").id },
-        orderBy: { updatedAt: "desc" },
-      });
+      const devices = await listApnsDevices(c.get("user").id);
       return ok({
         devices: devices.map((d) => ({
           id: d.id,
@@ -621,11 +445,8 @@ export const notificationsRoutes = new Hono<Env>()
     const id = parseInt(c.req.param("id"), 10);
     if (Number.isNaN(id)) return badRequest("Invalid device ID");
     try {
-      const device = await prisma.apnsDevice.findFirst({
-        where: { id, userId: c.get("user").id },
-      });
-      if (!device) return badRequest("Device not found");
-      await prisma.apnsDevice.delete({ where: { id } });
+      const result = await deleteApnsDevice(c.get("user").id, id);
+      if (result === "not_found") return badRequest("Device not found");
       return ok({ success: true });
     } catch {
       return serverError("Failed to delete device");

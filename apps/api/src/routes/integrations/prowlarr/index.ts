@@ -1,7 +1,10 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
-import { nowUtc } from "@rawkoon/api/utils";
+import {
+  findIntegrationRow,
+  upsertIntegrationRow,
+} from "@rawkoon/api/services/integrations/integrationSettings";
+import { syncActiveIndexerManager } from "@rawkoon/api/services/indexerManager/activeManagerSync";
 import {
   isValidHttpUrl,
   normalizeUrl,
@@ -18,9 +21,7 @@ import { ProwlarrAdapter } from "@rawkoon/api/services/indexerManager/prowlarrAd
 export const prowlarrIntegrationRoutes = new Hono<Env>()
   .get("/prowlarr", async () => {
     try {
-      const integration = await prisma.integration.findFirst({
-        where: { type: "prowlarr" },
-      });
+      const integration = await findIntegrationRow("prowlarr");
 
       const config = normalizeProwlarrConfig(integration?.config);
       return ok({
@@ -50,9 +51,7 @@ export const prowlarrIntegrationRoutes = new Hono<Env>()
     async (c) => {
       const body = c.req.valid("json");
       const websiteUrl = normalizeUrl(body.website_url);
-      const existingIntegration = await prisma.integration.findFirst({
-        where: { type: "prowlarr" },
-      });
+      const existingIntegration = await findIntegrationRow("prowlarr");
       const existingConfig = normalizeProwlarrConfig(
         existingIntegration?.config,
       );
@@ -69,57 +68,16 @@ export const prowlarrIntegrationRoutes = new Hono<Env>()
       }
 
       try {
-        const now = nowUtc();
-        const rssIndexers = Array.isArray(body.rss_indexers)
-          ? body.rss_indexers
-          : (existingConfig?.rss_indexers ?? []);
-
-        const integration = await prisma.integration.upsert({
-          where: { type: "prowlarr" },
-          update: {
-            enabled,
-            config: {
-              website_url: websiteUrl,
-              api_key: encrypt(apiKey),
-              rss_indexers: rssIndexers,
-            },
-            updatedAt: now,
-          },
-          create: {
-            type: "prowlarr",
-            enabled,
-            config: {
-              website_url: websiteUrl,
-              api_key: encrypt(apiKey),
-              rss_indexers: rssIndexers,
-            },
-            createdAt: now,
-            updatedAt: now,
+        const integration = await upsertIntegrationRow({
+          type: "prowlarr",
+          enabled,
+          config: {
+            website_url: websiteUrl,
+            api_key: encrypt(apiKey),
           },
         });
 
-        const settings = await prisma.mediaSettings.findUnique({
-          where: { id: 1 },
-        });
-        if (enabled && !settings?.activeIndexerManager) {
-          await prisma.mediaSettings.upsert({
-            where: { id: 1 },
-            update: { activeIndexerManager: "prowlarr" },
-            create: { id: 1, activeIndexerManager: "prowlarr" },
-          });
-        }
-
-        if (!enabled && settings?.activeIndexerManager === "prowlarr") {
-          const jackett = await prisma.integration.findFirst({
-            where: { type: "jackett", enabled: true },
-          });
-          await prisma.mediaSettings.update({
-            where: { id: 1 },
-            data: {
-              activeIndexerManager: jackett ? "jackett" : null,
-            },
-          });
-        }
+        await syncActiveIndexerManager("prowlarr", enabled);
 
         await logActivity({
           type: "integration_updated",
@@ -144,8 +102,8 @@ export const prowlarrIntegrationRoutes = new Hono<Env>()
   )
   .get("/prowlarr/indexers", async () => {
     try {
-      const integration = await prisma.integration.findFirst({
-        where: { type: "prowlarr", enabled: true },
+      const integration = await findIntegrationRow("prowlarr", {
+        enabledOnly: true,
       });
       const config = normalizeProwlarrConfig(integration?.config);
       if (!config) return ok({ indexers: [] });

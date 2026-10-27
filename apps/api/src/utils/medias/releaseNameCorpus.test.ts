@@ -17,11 +17,11 @@ import {
   isSeasonPack,
 } from "@rawkoon/api/utils/medias/mappers";
 import { extractTitleFromRelease } from "@rawkoon/api/workers/pollIndexerRss";
-import { buildParsed } from "@rawkoon/api/services/downloadsScanner";
+import { buildParsed } from "@rawkoon/api/services/downloads/downloadsScanner";
 import { parseFilenameForScan } from "@rawkoon/api/routes/library/libraryMediaAdmin";
-import { inferSeasonFromReleaseTitle } from "@rawkoon/api/services/libraryAttentionCandidatesSeason";
-import { parseSeasonEpisode } from "@rawkoon/api/services/postProcessorHelpers";
-import { isMultiEpisodeRelease } from "@rawkoon/api/services/grabEpisodeResolver";
+import { inferSeasonFromReleaseTitle } from "@rawkoon/api/services/libraryAttention/libraryAttentionCandidatesSeason";
+import { parseSeasonEpisode } from "@rawkoon/api/services/postProcessor/postProcessorHelpers";
+import { isMultiEpisodeRelease } from "@rawkoon/api/services/grab/grabEpisodeResolver";
 
 // Snapshots of every release/filename parser over the shared corpus, so a
 // parser change shows up as a reviewable per-name diff.

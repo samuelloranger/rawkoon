@@ -1,22 +1,4 @@
-/**
- * Sanitize HTML that came from a third-party metadata provider.
- *
- * Google Books descriptions contain real markup: publishers commonly separate
- * paragraphs with `<br><br>` rather than `<p>`. So the text cannot simply be
- * printed, and it equally cannot be handed to dangerouslySetInnerHTML as
- * received.
- *
- * The strategy is allowlist-by-construction rather than blocklisting:
- *
- *   1. decode entities, so `&#60;script&gt;` cannot smuggle a bracket past step 2
- *   2. escape EVERY `&`, `<`, `>` and `"` — at this point the string is inert
- *   3. restore only exact, attribute-less tags from a fixed list
- *
- * Because step 3 matches literal strings like `<br>` and `</p>` and nothing
- * else, no attribute can survive: there is no way to express `href`,
- * `onerror`, `style`, or a `javascript:` URL. Adding a tag to ALLOWED_TAGS can
- * never introduce an attribute vector, which is what makes this safe to extend.
- */
+/** Allowlist sanitizer for provider HTML: decode entities, escape everything, then restore only exact attribute-less tags, so no attribute vector can exist. */
 
 /** Attribute-less tags worth keeping. Any tag not listed becomes visible text. */
 const ALLOWED_TAGS = [
@@ -50,16 +32,13 @@ const NAMED_ENTITIES: Record<string, string> = {
   "&ldquo;": "“",
 };
 
-/**
- * Decode entities first so that an encoded bracket cannot slip through the
- * escape step still looking like markup.
- */
+/** Decode first so an encoded bracket can't survive the escape step as markup. */
 const decodeEntities = (input: string): string => {
   let out = input;
   for (const [entity, char] of Object.entries(NAMED_ENTITIES)) {
     out = out.split(entity).join(char);
   }
-  // Numeric forms, decimal and hex. Decoded here, escaped in the next step.
+  // Numeric forms, decimal and hex; escaped in the next step.
   out = out.replace(/&#(\d{1,7});/g, (_, d: string) => {
     const code = Number(d);
     return Number.isFinite(code) && code > 0 && code <= 0x10ffff
@@ -82,10 +61,7 @@ const escapeAll = (input: string): string =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
-/**
- * Restore the allowlist. Self-closing and whitespace-padded spellings are
- * normalized (`<br/>`, `<BR />` → `<br>`); everything else stays escaped.
- */
+/** Restore allowlisted tags, normalizing spellings like `<br/>`; everything else stays escaped. */
 const restoreAllowedTags = (escaped: string): string => {
   let out = escaped;
   for (const tag of ALLOWED_TAGS) {
@@ -103,24 +79,13 @@ const restoreAllowedTags = (escaped: string): string => {
   return out;
 };
 
-/**
- * Returns HTML safe to pass to dangerouslySetInnerHTML.
- *
- * Applied twice on purpose: once when ingesting from the provider, so the
- * database only ever holds clean markup, and again at render time, which covers
- * rows stored before this existed. The function is idempotent, so the second
- * pass is a no-op on already-clean input.
- */
+/** HTML safe for dangerouslySetInnerHTML; idempotent, so it runs on ingest and again at render for older rows. */
 export function sanitizeProviderHtml(input: string | null | undefined): string {
   if (!input) return "";
   return restoreAllowedTags(escapeAll(decodeEntities(input)));
 }
 
-/**
- * Plain text version, for list subtitles, meta descriptions, and anywhere a
- * single unstyled line is wanted. Block-level tags become spaces so words do
- * not run together.
- */
+/** Plain text for subtitles and meta descriptions; block tags become spaces. */
 export function providerHtmlToText(input: string | null | undefined): string {
   if (!input) return "";
   return decodeEntities(input)
@@ -130,14 +95,7 @@ export function providerHtmlToText(input: string | null | undefined): string {
     .trim();
 }
 
-/**
- * Split sanitized markup into paragraphs for typographic control.
- *
- * Publishers express a paragraph break as `<br><br>` about as often as `<p>`,
- * so rendering the raw string leaves prose as one wall of text with line
- * breaks in it. Splitting lets the description be set with real paragraph
- * spacing instead.
- */
+/** Split into paragraphs, since publishers use `<br><br>` as often as `<p>`. */
 export function providerHtmlParagraphs(
   input: string | null | undefined,
 ): string[] {
