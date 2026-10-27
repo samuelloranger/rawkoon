@@ -122,7 +122,7 @@ struct LibraryMediaRow: View {
     // MARK: Derived data
 
     private var statusTint: Color {
-        switch media.status {
+        switch media.displayStatus {
         case "downloaded": Theme.seed
         case "downloading": Theme.importing
         default: Theme.muted
