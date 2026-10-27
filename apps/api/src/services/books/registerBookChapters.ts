@@ -2,6 +2,7 @@ import { basename } from "node:path";
 
 import { prisma } from "@rawkoon/api/db";
 import { buildTimeline } from "@rawkoon/api/services/books/bookTimeline";
+import { ebookChapterNames } from "@rawkoon/api/services/books/ebookChapterNames";
 import { probeAudioDuration } from "@rawkoon/api/services/books/probeAudioDuration";
 import {
   type ChapterAtom,
@@ -30,6 +31,10 @@ export const chapterTitleFromFileName = (name: string): string => {
   const stem = name.replace(/\.[^.]+$/, "");
   return stem.replace(ORDINAL, "").trim() || stem;
 };
+
+/** Releases often name every file after the book, which leaves nothing to tell chapters apart. */
+export const titlesAreUninformative = (titles: string[]): boolean =>
+  titles.length > 1 && titles.every((t) => t === titles[0]);
 
 /** Numeric order by leading ordinal, so 10 follows 2 rather than preceding it. */
 export const sortChapterFiles = (names: string[]): string[] =>
@@ -255,8 +260,18 @@ export async function registerBookChapters(
     chapterInputs.push({ title, durationSecs, bookFileId: file.id });
   }
 
+  const fileTitles = chapterInputs.map((c) => c.title);
+  const titles = titlesAreUninformative(fileTitles)
+    ? ((await ebookChapterNames(
+        editionId,
+        chapterInputs.map((c) => c.durationSecs),
+      )) ?? fileTitles.map((_, i) => `Chapter ${i + 1}`))
+    : fileTitles;
   const timeline = buildTimeline(
-    chapterInputs.map(({ title, durationSecs }) => ({ title, durationSecs })),
+    chapterInputs.map(({ durationSecs }, i) => ({
+      title: titles[i]!,
+      durationSecs,
+    })),
   );
 
   await prisma.$transaction(async (tx) => {
