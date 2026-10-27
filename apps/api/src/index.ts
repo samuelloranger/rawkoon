@@ -35,6 +35,7 @@ import { requestRoutes } from "./routes/requests";
 import { notificationsRoutes } from "./routes/notifications";
 import { integrationsRoutes } from "./routes/integrations";
 import { labbyRoutes } from "./routes/labby";
+import { exportRoutes } from "./routes/export";
 import { releasesRoutes } from "./routes/releases";
 import { searchRoutes } from "./routes/search";
 import { settingsRoutes } from "./routes/settings";
@@ -106,6 +107,7 @@ app
   .route("/api/profile", profileRoutes)
   .route("/api/notifications", notificationsRoutes)
   .route("/api/labby", labbyRoutes)
+  .route("/api/export", exportRoutes)
   .route("/api/releases", releasesRoutes)
   .route("/api/settings", settingsRoutes)
   .route("/api/admin", adminRoutes)

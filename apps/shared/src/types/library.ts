@@ -569,3 +569,70 @@ export interface GrabReadinessCheck {
 export interface GrabReadinessResponse {
   checks: GrabReadinessCheck[];
 }
+
+interface ExportMediaFile {
+  id: number;
+  episode_id: number | null;
+  season: number | null;
+  episode: number | null;
+  file_path: string;
+  file_name: string;
+  /** BigInt serialised as a string. */
+  size_bytes: string;
+  duration_secs: number | null;
+  release_group: string | null;
+  source: string | null;
+  resolution: number | null;
+  video_codec: string | null;
+  video_profile: string | null;
+  hdr_format: string | null;
+  bit_depth: number | null;
+  width: number | null;
+  height: number | null;
+  frame_rate: number | null;
+  audio_format: string | null;
+  audio_tracks: unknown;
+  subtitle_tracks: unknown;
+  language_tags: string[];
+}
+
+interface ExportMediaEpisode {
+  id: number;
+  season: number;
+  episode: number;
+  /** YYYY-MM-DD */
+  air_date: string | null;
+  status: string;
+}
+
+interface ExportMediaDownload {
+  release_title: string;
+  torrent_hash: string | null;
+  indexer: string | null;
+  season: number | null;
+  episode_id: number | null;
+  completed_at: string;
+}
+
+export interface ExportMedia {
+  id: number;
+  tmdb_id: number;
+  type: string;
+  title: string;
+  original_title: string | null;
+  original_language: string | null;
+  year: number | null;
+  overview: string | null;
+  poster_url: string | null;
+  updated_at: string;
+  files: ExportMediaFile[];
+  episodes: ExportMediaEpisode[];
+  downloads: ExportMediaDownload[];
+}
+
+export interface ExportLibraryResponse {
+  items: ExportMedia[];
+  page: number;
+  limit: number;
+  has_more: boolean;
+}
