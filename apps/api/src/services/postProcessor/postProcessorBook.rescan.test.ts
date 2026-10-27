@@ -19,7 +19,7 @@ mock.module("@rawkoon/api/db", () => ({
   prisma: { bookFile: { findFirst, update, create } },
 }));
 
-const { upsertBookFile } = await import("./postProcessorBook");
+const { upsertBookFile } = await import("./postProcessorBookFiles");
 
 const payload = {
   editionId: 61,

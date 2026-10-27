@@ -3,7 +3,7 @@ import { basename } from "node:path";
 
 import { prisma } from "@rawkoon/api/db";
 import { addBookFromVolume } from "@rawkoon/api/services/books/bookLibrary";
-import { postProcessBook } from "@rawkoon/api/services/postProcessor/postProcessorBook";
+import { postProcessBook } from "@rawkoon/api/services/postProcessor/postProcessorBookImport";
 import {
   formatForPath,
   readEbookMetadata,

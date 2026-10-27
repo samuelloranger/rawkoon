@@ -6,16 +6,15 @@ import { dbModule } from "./mocks/prisma";
  * Regression (board task 723): a second grab for an item whose file another
  * grab already imported post-processed "successfully" but imported nothing.
  *
- * The pre-scan short-circuit in postProcessorSingle / postProcessorBook finds
- * the winning grab's file on disk, marks the item downloaded, sets
- * postProcessDestinationPath, clears postProcessError, and returns success —
- * with NO placeFile and NO new media_files/book_files row. That silent no-op
- * looked identical to a real import.
+ * The pre-scan short-circuit in postProcessorSingle / postProcessorBookDownload finds
+ * the winning grab's file on disk, marks the item downloaded and returns
+ * success — with NO placeFile and NO new media_files/book_files row. That
+ * silent no-op looked identical to a real import.
  *
- * Fix (option 3): keep success semantics but RECORD the skip in a dedicated
- * postProcessSkipReason field (NOT postProcessError, which drives failure
- * notifications) and surface it through the outcome so the "downloaded"
- * notification is suppressed for a duplicate.
+ * Fix (option 3): keep success semantics but surface the skip through the
+ * returned outcome (skipped + skipReason), which finishPostProcess alone
+ * records in postProcessSkipReason (NOT postProcessError, which drives failure
+ * notifications) and uses to suppress the "downloaded" notification.
  */
 
 type Dh = Record<string, unknown> & { media?: unknown; episode?: unknown };
@@ -95,7 +94,7 @@ const { postProcess } = await import(
   "@rawkoon/api/services/postProcessor/postProcessorSingle"
 );
 const { postProcessBookDownload } = await import(
-  "@rawkoon/api/services/postProcessor/postProcessorBook"
+  "@rawkoon/api/services/postProcessor/postProcessorBookDownload"
 );
 
 beforeEach(() => {
@@ -136,7 +135,7 @@ describe("postProcessorSingle duplicate pre-scan skip", () => {
     // The winning grab's already-imported MediaFile, on disk.
     state.mediaFiles = [{ id: 5, filePath: "/movies/Some Movie (2026).mkv" }];
 
-    const result = await postProcess(1);
+    const result = await postProcess(state.dh as never);
 
     expect(result.success).toBe(true);
     expect(result.success && result.skipped).toBe(true);
@@ -144,14 +143,11 @@ describe("postProcessorSingle duplicate pre-scan skip", () => {
       "duplicate-already-imported",
     );
 
-    const skipWrite = state.dhUpdates.find(
-      (d) => d.postProcessSkipReason === "duplicate-already-imported",
-    );
-    expect(skipWrite).toBeDefined();
-    expect(skipWrite?.postProcessError).toBeNull();
-    expect(skipWrite?.postProcessDestinationPath).toBe(
+    expect(result.success && result.destinationPath).toBe(
       "/movies/Some Movie (2026).mkv",
     );
+    // The outcome is returned, never written by the post-processor.
+    expect(state.dhUpdates).toHaveLength(0);
 
     // The whole point: nothing was imported.
     expect(state.mediaFileCreates).toHaveLength(0);
@@ -172,7 +168,7 @@ describe("postProcessorBook duplicate pre-scan skip", () => {
     state.settings = { postProcessingEnabled: true };
     state.bookFiles = [{ filePath: "/books/Some Book/Some Book.epub" }];
 
-    const result = await postProcessBookDownload(2);
+    const result = await postProcessBookDownload(state.dh as never);
 
     expect(result.success).toBe(true);
     expect(result.success && result.skipped).toBe(true);

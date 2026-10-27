@@ -4,23 +4,8 @@ import {
   productionOutcomeEffects,
 } from "@rawkoon/api/services/downloads/outcomeEffects";
 import { postProcess } from "@rawkoon/api/services/postProcessor/postProcessorSingle";
-import { postProcessBookDownload } from "@rawkoon/api/services/postProcessor/postProcessorBook";
-import type { PostProcessFailure } from "@rawkoon/api/services/postProcessor/postProcessFailure";
-
-export type PostProcessOutcome =
-  | {
-      success: true;
-      destinationPath: string;
-      episodeCount?: number;
-      /**
-       * Success that imported nothing because another grab already placed the
-       * file (a losing duplicate). Recorded on the row and used to suppress the
-       * "downloaded" admin notification — a skip is not a fresh import.
-       */
-      skipped?: boolean;
-      skipReason?: string;
-    }
-  | PostProcessFailure;
+import { postProcessBookDownload } from "@rawkoon/api/services/postProcessor/postProcessorBookDownload";
+import type { PostProcessOutcome } from "@rawkoon/api/services/postProcessor/postProcessOutcome";
 
 /**
  * Completion already marked the title downloaded; a rejected import left no
@@ -105,16 +90,7 @@ export async function finishPostProcess(
   try {
     const dh = await prisma.downloadHistory.findUnique({
       where: { id: downloadHistoryId },
-      select: {
-        mediaId: true,
-        episodeId: true,
-        season: true,
-        bookEditionId: true,
-        isUpgrade: true,
-        torrentHash: true,
-        releaseTitle: true,
-        indexer: true,
-      },
+      include: { media: true, episode: true },
     });
     mediaId = dh?.mediaId;
     bookEditionId = dh?.bookEditionId;
@@ -172,10 +148,11 @@ export async function finishPostProcess(
 
     // A row is either a media grab or a book grab (enforced by
     // ck_download_history_single_target), so the foreign key IS the dispatch.
-    const result: PostProcessOutcome =
-      dh?.bookEditionId != null
-        ? await postProcessBookDownload(downloadHistoryId)
-        : await postProcess(downloadHistoryId);
+    const result: PostProcessOutcome = !dh
+      ? { success: false, reason: "Download history or media not found" }
+      : dh.bookEditionId != null
+        ? await postProcessBookDownload(dh)
+        : await postProcess(dh);
 
     if (!result.success) {
       await prisma.downloadHistory.update({

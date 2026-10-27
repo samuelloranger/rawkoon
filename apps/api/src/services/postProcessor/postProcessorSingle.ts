@@ -1,5 +1,6 @@
 import { basename, extname, join } from "node:path";
-import type { PostProcessFailure } from "@rawkoon/api/services/postProcessor/postProcessFailure";
+import type { PostProcessOutcome } from "@rawkoon/api/services/postProcessor/postProcessOutcome";
+import type { Prisma } from "@prisma/client";
 import { stat, unlink } from "node:fs/promises";
 
 import { prisma } from "@rawkoon/api/db";
@@ -39,28 +40,21 @@ import {
   applyAfterImportAction,
 } from "@rawkoon/api/services/downloadClient/afterImport";
 
+/** The row a media post-process needs, loaded once by `finishPostProcess`. */
+export type MediaPostProcessRow = Prisma.DownloadHistoryGetPayload<{
+  include: { media: true; episode: true };
+}>;
+
 /**
  * After a library torrent completes: hardlink/move into the configured library tree.
+ * Returns the outcome; recording it on the row is `finishPostProcess`'s job.
  */
-export async function postProcess(downloadHistoryId: number): Promise<
-  | {
-      success: true;
-      destinationPath: string;
-      episodeCount?: number;
-      /** True when success meant "already imported by another grab", not a fresh import. */
-      skipped?: boolean;
-      skipReason?: string;
-    }
-  | PostProcessFailure
-> {
-  const [dh, settings] = await Promise.all([
-    prisma.downloadHistory.findUnique({
-      where: { id: downloadHistoryId },
-      include: { media: true, episode: true },
-    }),
-    prisma.mediaSettings.findUnique({ where: { id: 1 } }),
-  ]);
-  if (!dh || !dh.media) {
+export async function postProcess(
+  dh: MediaPostProcessRow,
+): Promise<PostProcessOutcome> {
+  const downloadHistoryId = dh.id;
+  const settings = await prisma.mediaSettings.findUnique({ where: { id: 1 } });
+  if (!dh.media) {
     return { success: false, reason: "Download history or media not found" };
   }
   if (dh.failed || !dh.completedAt) {
@@ -140,19 +134,10 @@ export async function postProcess(downloadHistoryId: number): Promise<
         // File is on disk — another grab already imported it. Mark the item
         // downloaded (idempotent) and return WITHOUT hardlinking or creating a
         // MediaFile row. This is a losing-duplicate skip, not a fresh import:
-        // record why in postProcessSkipReason (never postProcessError, which
-        // drives failure notices) so the "downloaded" notification is
-        // suppressed. Rescan idempotency is preserved — a legitimate re-run
+        // report why as a skip (never an error, which drives failure notices)
+        // so the "downloaded" notification is suppressed. Rescan idempotency is preserved — a legitimate re-run
         // still finds the same file and re-marks it.
         await markItemDownloaded({ media: dh.media!, episode: dh.episode });
-        await prisma.downloadHistory.update({
-          where: { id: downloadHistoryId },
-          data: {
-            postProcessDestinationPath: ef.filePath,
-            postProcessError: null,
-            postProcessSkipReason: "duplicate-already-imported",
-          },
-        });
         return {
           success: true,
           destinationPath: ef.filePath,

@@ -9,7 +9,7 @@ import { loadConfig } from "@rawkoon/api/config";
 import type { BookEditionKind } from "@rawkoon/shared/types";
 import { signGrant } from "@rawkoon/api/services/books/downloadGrant";
 
-import { rescanBookEdition } from "@rawkoon/api/services/postProcessor/postProcessorBook";
+import { rescanBookEdition } from "@rawkoon/api/services/postProcessor/postProcessorBookRescan";
 
 import {
   bookExists,

@@ -9,19 +9,27 @@ import { recordingEffects } from "./mocks/outcomeEffects";
  * mediaDownloaded.
  */
 
-const state: { dhUpdates: Record<string, unknown>[] } = { dhUpdates: [] };
+const state: {
+  dhUpdates: Record<string, unknown>[];
+  loads: number;
+  rowsGiven: unknown[];
+} = { dhUpdates: [], loads: 0, rowsGiven: [] };
 let effects = recordingEffects();
 
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
     downloadHistory: {
-      findUnique: async () => ({
-        mediaId: 42,
-        episodeId: null,
-        season: null,
-        bookEditionId: null,
-        isUpgrade: false,
-      }),
+      findUnique: async () => {
+        state.loads += 1;
+        return {
+          id: 1,
+          mediaId: 42,
+          episodeId: null,
+          season: null,
+          bookEditionId: null,
+          isUpgrade: false,
+        };
+      },
       update: async (args: { data: Record<string, unknown> }) => {
         state.dhUpdates.push(args.data);
         return { id: 1 };
@@ -32,20 +40,26 @@ mock.module("@rawkoon/api/db", () => ({
 }));
 
 mock.module("@rawkoon/api/services/postProcessor/postProcessorSingle", () => ({
-  postProcess: async () => ({
-    success: true,
-    destinationPath: "/movies/Some Movie (2026).mkv",
-    skipped: true,
-    skipReason: "duplicate-already-imported",
-  }),
+  postProcess: async (row: unknown) => {
+    state.rowsGiven.push(row);
+    return {
+      success: true,
+      destinationPath: "/movies/Some Movie (2026).mkv",
+      skipped: true,
+      skipReason: "duplicate-already-imported",
+    };
+  },
 }));
 
-mock.module("@rawkoon/api/services/postProcessor/postProcessorBook", () => ({
-  postProcessBookDownload: async () => ({
-    success: false,
-    reason: "unused",
+mock.module(
+  "@rawkoon/api/services/postProcessor/postProcessorBookDownload",
+  () => ({
+    postProcessBookDownload: async () => ({
+      success: false,
+      reason: "unused",
+    }),
   }),
-}));
+);
 
 mock.module("@rawkoon/api/services/downloads/downloadJanitor", () => ({
   rejectRelease: async () => {},
@@ -61,6 +75,8 @@ const { finishPostProcess } = await import(
 
 beforeEach(() => {
   state.dhUpdates = [];
+  state.loads = 0;
+  state.rowsGiven = [];
   effects = recordingEffects();
 });
 
@@ -75,9 +91,18 @@ describe("finishPostProcess duplicate skip", () => {
     );
     expect(write).toBeDefined();
     expect(write?.postProcessError).toBeNull();
+    expect(write?.postProcessDestinationPath).toBe(
+      "/movies/Some Movie (2026).mkv",
+    );
 
     // A skip is not a fresh import — no "downloaded" admin notification.
     expect(effects.named("mediaDownloaded")).toHaveLength(0);
     expect(effects.named("importLanded")).toHaveLength(0);
+  });
+
+  it("loads the row once and hands that row to the post-processor", async () => {
+    await finishPostProcess(1, effects);
+    expect(state.loads).toBe(1);
+    expect(state.rowsGiven).toMatchObject([{ id: 1, mediaId: 42 }]);
   });
 });
