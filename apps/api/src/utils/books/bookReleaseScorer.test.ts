@@ -287,21 +287,21 @@ describe("meetsBookCutoff", () => {
  * shares a stem must still be rejected.
  */
 describe("apostrophes in titles", () => {
-  const ELIDED = "L'intruse";
+  const ELIDED = "L'inconnue";
 
   test.each([
-    ["apostrophe glued away", "Lintruse.Author.Name.2026.FR.[EPUB]-G11"],
-    ["apostrophe as a dot", "L.Intruse.Author.Name.2026.FR.[EPUB]-G11"],
-    ["apostrophe kept", "L'intruse - Author Name [EPUB] Fr"],
-    ["apostrophe as a space", "L Intruse Author Name [EPUB]"],
-    ["typographic apostrophe", "L’intruse - Author Name [EPUB]"],
+    ["apostrophe glued away", "Linconnue.Author.Name.2026.FR.[EPUB]-G11"],
+    ["apostrophe as a dot", "L.Inconnue.Author.Name.2026.FR.[EPUB]-G11"],
+    ["apostrophe kept", "L'inconnue - Author Name [EPUB] Fr"],
+    ["apostrophe as a space", "L Inconnue Author Name [EPUB]"],
+    ["typographic apostrophe", "L’inconnue - Author Name [EPUB]"],
   ])("matches when the release writes it with the %s", (_label, release) => {
     expect(releaseMatchesBookTitle(release, ELIDED)).toBe(true);
   });
 
   test.each([
-    ["a shorter stem", "L.Intrus.Other.Author.2026.fr.[EPUB]-NoTag"],
-    ["a shorter stem, glued", "Lintrus.Other.Author.2025.FR.[EPUB]-G11"],
+    ["a shorter stem", "L.Inconnu.Other.Author.2026.fr.[EPUB]-NoTag"],
+    ["a shorter stem, glued", "Linconnu.Other.Author.2025.FR.[EPUB]-G11"],
     ["an unrelated title", "Le.Jardin.Author.Name.2026.FR.[EPUB]"],
   ])("still rejects %s", (_label, release) => {
     expect(releaseMatchesBookTitle(release, ELIDED)).toBe(false);

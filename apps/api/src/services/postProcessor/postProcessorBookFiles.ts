@@ -249,8 +249,8 @@ export async function upsertBookFile(
 ): Promise<{ id: number; existed: boolean }> {
   // Scoped to the edition, not the path alone. The update below writes
   // `editionId`, so a path-only lookup let two editions that point at the same
-  // file steal the row from each other: rescanning the duplicate "Le boyfriend"
-  // edition moved the row off the real one, and rescanning the real one moved
+  // file steal the row from each other: rescanning a duplicate edition moved
+  // the row off the real one, and rescanning the real one moved
   // it back. Whichever ran last owned the file and the other looked empty.
   const existing = await prisma.bookFile.findFirst({
     where: { editionId: data.editionId, filePath: data.filePath },

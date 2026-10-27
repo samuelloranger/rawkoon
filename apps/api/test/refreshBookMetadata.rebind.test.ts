@@ -111,7 +111,7 @@ describe("refreshBookMetadata ISBN rebind guards", () => {
     state.book = {
       ...bookFixture(),
       googleVolumeId: "EN-VOLUME",
-      title: "Vengeful",
+      title: "Ironwake",
       language: "en",
       overrides: { isbn13: "9782371022508" },
     };

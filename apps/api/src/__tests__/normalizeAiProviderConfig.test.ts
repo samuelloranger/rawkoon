@@ -18,22 +18,22 @@ describe("normalizeAiProviderConfig", () => {
 
   it("returns config with trimmed trailing slash on base_url", () => {
     const result = normalizeAiProviderConfig({
-      base_url: "http://homelab:11434/",
+      base_url: "http://ollama:11434/",
       model: "llama3.2",
     });
     expect(result).toEqual({
-      base_url: "http://homelab:11434",
+      base_url: "http://ollama:11434",
       model: "llama3.2",
     });
   });
 
   it("returns config as-is when valid", () => {
     const result = normalizeAiProviderConfig({
-      base_url: "http://homelab:11434",
+      base_url: "http://ollama:11434",
       model: "mistral",
     });
     expect(result).toEqual({
-      base_url: "http://homelab:11434",
+      base_url: "http://ollama:11434",
       model: "mistral",
     });
   });

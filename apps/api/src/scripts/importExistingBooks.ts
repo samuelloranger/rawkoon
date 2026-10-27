@@ -1,4 +1,4 @@
-/** One-time backfill of books already on disk: curated manifest, then the same addBookFromVolume/postProcessBook path as downloads. Usage: `bun src/scripts/importExistingBooks.ts --resolve|--dry-run|--apply [--only <key>]` (re-running --apply is safe). */
+/** One-time backfill of books already on disk: curated manifest, then the same addBookFromVolume/postProcessBook path as downloads. Usage: `bun src/scripts/importExistingBooks.ts --manifest <file.json> --resolve|--dry-run|--apply [--only <key>]` (re-running --apply is safe). The manifest is a JSON array of `Entry` (see importExistingBooksManifest.ts), kept outside the repo. */
 
 import { stat } from "node:fs/promises";
 import { basename } from "node:path";
@@ -8,7 +8,7 @@ import { getBookMetadataProvider } from "@rawkoon/api/services/books";
 import { apply } from "@rawkoon/api/scripts/importExistingBooksApply";
 import {
   type Entry,
-  MANIFEST,
+  loadManifest,
 } from "@rawkoon/api/scripts/importExistingBooksManifest";
 import { readEbookMetadata } from "@rawkoon/api/utils/books/ebookMetadata";
 import { renderBookTemplate } from "@rawkoon/api/utils/medias/fileTemplate";
@@ -45,11 +45,17 @@ const argValue = (name: string): string | null => {
   return value;
 };
 
-function selectEntries(): Entry[] {
+async function selectEntries(): Promise<Entry[]> {
+  const manifestPath = argValue("manifest");
+  if (!manifestPath) {
+    console.error("Pass --manifest <file.json> (a JSON array of entries).");
+    process.exit(1);
+  }
+  const manifest = await loadManifest(manifestPath);
   const only = argValue("only");
-  if (!only) return MANIFEST;
+  if (!only) return manifest;
   const keys = new Set(only.split(",").map((k) => k.trim()));
-  const picked = MANIFEST.filter((e) => keys.has(e.key));
+  const picked = manifest.filter((e) => keys.has(e.key));
   if (picked.length === 0) {
     console.error(`No manifest entry matches --only ${only}`);
     process.exit(1);
@@ -223,7 +229,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const entries = selectEntries();
+  const entries = await selectEntries();
   const mode = hasFlag("resolve")
     ? "resolve"
     : hasFlag("dry-run")

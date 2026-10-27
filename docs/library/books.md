@@ -36,8 +36,8 @@ setup. Each flag is optional.
 
 ```bash
 docker compose exec rawkoon bun apps/api/src/scripts/configureBooks.ts \
-  --books-path /mnt/storage/Books \
-  --audiobooks-path /mnt/storage/Audiobooks \
+  --books-path /data/Books \
+  --audiobooks-path /data/Audiobooks \
   --google-key AIza... \
   --enable
 ```

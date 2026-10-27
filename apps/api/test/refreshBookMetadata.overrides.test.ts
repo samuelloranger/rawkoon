@@ -223,7 +223,7 @@ describe("refreshBookMetadata", () => {
     state.book = {
       ...bookFixture(),
       googleVolumeId: "EN-VOLUME",
-      title: "Vengeful",
+      title: "Ironwake",
       language: "en",
       isbn13: "9781250303554",
       overview: "English blurb",
@@ -245,9 +245,9 @@ describe("refreshBookMetadata", () => {
       resolveIsbn: (isbn: string) =>
         Promise.resolve({
           volumeId: "FR-VOLUME",
-          title: "Vengeful",
+          title: "Ironwake",
           subtitle: null,
-          authors: ["V. E. Schwab"],
+          authors: ["J. L. Marrow"],
           language: "fr",
           publishedYear: 2019,
           isbn13: isbn.replace(/[\s-]/g, ""),
@@ -272,7 +272,7 @@ describe("refreshBookMetadata", () => {
           coverUrl: "https://example.invalid/fr.jpg",
           isbn13: "9782371022508",
           language: "fr",
-          title: "Vengeful",
+          title: "Ironwake",
         });
       },
     };
@@ -312,9 +312,9 @@ describe("refreshBookMetadata", () => {
       resolveIsbn: () =>
         Promise.resolve({
           volumeId: "FR-VOLUME",
-          title: "Vengeful",
+          title: "Ironwake",
           subtitle: null,
-          authors: ["V. E. Schwab"],
+          authors: ["J. L. Marrow"],
           language: "fr",
           publishedYear: 2019,
           isbn13: "9782371022508",

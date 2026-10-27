@@ -82,9 +82,9 @@ describe("downloadsScanner helpers", () => {
       deriveDownloadsScanRoots({
         moviesLibraryPath: "/a/b/movies",
         showsLibraryPath: "/a/b/shows",
-        downloadsPath: "/mnt/storage/Downloads/",
+        downloadsPath: "/data/Downloads/",
       }),
-    ).toEqual(["/mnt/storage/Downloads"]);
+    ).toEqual(["/data/Downloads"]);
   });
 
   it("pathIsInsideRoot rejects traversals outside root", () => {

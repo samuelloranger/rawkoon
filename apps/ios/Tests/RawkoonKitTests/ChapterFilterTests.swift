@@ -24,9 +24,9 @@ final class ChapterFilterTests: XCTestCase {
     }
 
     func testDiacriticInsensitiveTitleMatch() {
-        let all = chapters(["Prologue", "Les secrets de la femme de ménage", "Epilogue"])
+        let all = chapters(["Prologue", "Les secrets du ménage", "Epilogue"])
         let result = filterChapters(all, query: "menage")
-        XCTAssertEqual(result.map(\.title), ["Les secrets de la femme de ménage"])
+        XCTAssertEqual(result.map(\.title), ["Les secrets du ménage"])
     }
 
     func testNumericMatchOnOneBasedIndex() {

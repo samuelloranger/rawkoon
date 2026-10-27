@@ -7,16 +7,16 @@ final class BookManifestTests: XCTestCase {
     {
       "edition_id": 14,
       "book_id": 17,
-      "title": "L'intruse",
-      "authors": ["Freida McFadden"],
-      "total_duration_secs": 29383.444895,
+      "title": "L'inconnue",
+      "authors": ["Nora Whitfield"],
+      "total_duration_secs": 28800.5,
       "chapters": [
         {"index": 0, "title": "Chapter 1", "start_secs": 0,
-         "end_secs": 504.189388, "file_id": 267, "size_bytes": 12367295,
-         "sha256": null, "url": "/api/books/files/267/content?grant=abc"},
-        {"index": 1, "title": "Chapter 2", "start_secs": 504.189388,
-         "end_secs": 1042.860408, "file_id": 268, "size_bytes": 13026495,
-         "sha256": null, "url": "/api/books/files/268/content?grant=def"}
+         "end_secs": 498.125, "file_id": 301, "size_bytes": 12000000,
+         "sha256": null, "url": "/api/books/files/301/content?grant=abc"},
+        {"index": 1, "title": "Chapter 2", "start_secs": 498.125,
+         "end_secs": 1037.5, "file_id": 302, "size_bytes": 12500000,
+         "sha256": null, "url": "/api/books/files/302/content?grant=def"}
       ]
     }
     """.data(using: .utf8)!
@@ -26,11 +26,11 @@ final class BookManifestTests: XCTestCase {
         d.keyDecodingStrategy = .convertFromSnakeCase
         let m = try d.decode(BookManifest.self, from: json)
         XCTAssertEqual(m.editionId, 14)
-        XCTAssertEqual(m.title, "L'intruse")
+        XCTAssertEqual(m.title, "L'inconnue")
         XCTAssertEqual(m.chapters.count, 2)
-        XCTAssertEqual(m.chapters[0].fileId, 267)
-        XCTAssertEqual(m.chapters[0].sizeBytes, 12_367_295)
-        XCTAssertEqual(m.totalDurationSecs, 29383.444895, accuracy: 0.000001)
+        XCTAssertEqual(m.chapters[0].fileId, 301)
+        XCTAssertEqual(m.chapters[0].sizeBytes, 12_000_000)
+        XCTAssertEqual(m.totalDurationSecs, 28800.5, accuracy: 0.000001)
     }
 
     /// sha256 is null throughout phase 1 and populated later. A decoder that
@@ -66,7 +66,7 @@ final class BookManifestTests: XCTestCase {
         let fromDisk = try JSONDecoder().decode(BookManifest.self, from: data)
         XCTAssertEqual(fromDisk.editionId, 14)
         XCTAssertEqual(fromDisk.chapters.count, 2)
-        XCTAssertEqual(fromDisk.chapters[0].fileId, 267)
+        XCTAssertEqual(fromDisk.chapters[0].fileId, 301)
     }
 
     func testDecodePersistedAcceptsCamelCaseDiskJSON() throws {
@@ -83,7 +83,7 @@ final class BookManifestTests: XCTestCase {
         let decoded = BookManifest.decodePersisted(json)
         XCTAssertEqual(decoded?.editionId, 14)
         XCTAssertEqual(decoded?.chapters.count, 2)
-        XCTAssertEqual(decoded?.chapters[0].fileId, 267)
+        XCTAssertEqual(decoded?.chapters[0].fileId, 301)
     }
 
     func testDecodesFilesArray() throws {
@@ -118,11 +118,11 @@ final class BookManifestTests: XCTestCase {
         // `json` (top of file) is a two-chapter manifest with no files array.
         let m = try XCTUnwrap(BookManifest.decodePersisted(json))
         XCTAssertEqual(m.files.count, 2)
-        XCTAssertEqual(m.files[0].id, 267)
+        XCTAssertEqual(m.files[0].id, 301)
         XCTAssertEqual(m.files[0].startSecs, 0, accuracy: 1e-9)
-        XCTAssertEqual(m.files[1].id, 268)
-        XCTAssertEqual(m.files[1].startSecs, 504.189388, accuracy: 1e-6)
-        XCTAssertEqual(m.files[1].durationSecs, 1042.860408 - 504.189388, accuracy: 1e-6)
+        XCTAssertEqual(m.files[1].id, 302)
+        XCTAssertEqual(m.files[1].startSecs, 498.125, accuracy: 1e-6)
+        XCTAssertEqual(m.files[1].durationSecs, 1037.5 - 498.125, accuracy: 1e-6)
     }
 
     /// A server re-import changes ids or sizes; the old local copies must go,

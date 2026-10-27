@@ -159,7 +159,7 @@ function AiProviderIntegrationSectionImpl({
           label="Base URL"
           value={baseUrl}
           onChange={setBaseUrl}
-          placeholder="http://homelab:11434"
+          placeholder="http://ollama:11434"
         />
         <div className="space-y-1.5">
           <label

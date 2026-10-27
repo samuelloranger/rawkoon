@@ -451,7 +451,7 @@ export function MediaPostProcessingSettingsBody({
             label={t("settings.mediaLibrary.scanPath")}
             value={scanPath}
             onChange={(e) => setScanPath(e.target.value)}
-            placeholder="/mnt/media/Movies"
+            placeholder="/data/Movies"
             className="font-mono text-xs"
           />
           <div>

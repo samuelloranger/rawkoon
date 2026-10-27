@@ -254,8 +254,8 @@ struct BookEbookView: View {
         }
     }
 
-    /// The in-app reader unpacks EPUB only. Other formats in the library (the
-    /// Harry Potter editions ship a .mobi beside each .epub) are downloadable
+    /// The in-app reader unpacks EPUB only. Other formats in the library (some
+    /// editions ship a .mobi beside each .epub) are downloadable
     /// but not readable here, and offering Read on them just produces a "not a
     /// valid EPUB container" error.
     func isReadableEbook(_ file: BookEditionFile) -> Bool {

@@ -62,15 +62,20 @@ describe("GET /api/search/quick — books", () => {
     state.booksEnabled = true;
     state.bookQueries = [];
     state.books = [
-      { id: 7, title: "La prof", authors: ["Freida McFadden"], listYear: 2025 },
+      {
+        id: 7,
+        title: "La voisine",
+        authors: ["Nora Whitfield"],
+        listYear: 2025,
+      },
     ];
   });
 
   it("returns matching books when books are enabled", async () => {
-    const result = await call("prof");
+    const result = await call("voisine");
 
     expect(result.books).toEqual([
-      { id: 7, title: "La prof", authors: ["Freida McFadden"], year: 2025 },
+      { id: 7, title: "La voisine", authors: ["Nora Whitfield"], year: 2025 },
     ]);
     expect(state.bookQueries.length).toBe(1);
   });
@@ -78,7 +83,7 @@ describe("GET /api/search/quick — books", () => {
   it("returns no books and skips the query when books are disabled", async () => {
     state.booksEnabled = false;
 
-    const result = await call("prof");
+    const result = await call("voisine");
 
     expect(result.books).toEqual([]);
     expect(state.bookQueries.length).toBe(0);

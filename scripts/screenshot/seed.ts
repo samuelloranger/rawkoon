@@ -91,7 +91,7 @@ const file = (mediaId: number, name: string, res: number, codec: string) =>
   prisma.mediaFile.create({
     data: {
       mediaId,
-      filePath: `/mnt/storage/movies/${name}`,
+      filePath: `/data/movies/${name}`,
       fileName: name,
       sizeBytes: BigInt(Math.floor(8 + Math.random() * 40) * 1024 ** 3),
       videoCodec: codec,
