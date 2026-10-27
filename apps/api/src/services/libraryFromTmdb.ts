@@ -145,7 +145,7 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
       : null;
 
     const existingMovie = await prisma.libraryMedia.findUnique({
-      where: { tmdbId: tmdb_id },
+      where: { tmdbId_type: { tmdbId: tmdb_id, type: "movie" } },
       select: { overrides: true },
     });
     const movieOv = (existingMovie?.overrides ?? {}) as Record<string, unknown>;
@@ -161,7 +161,7 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
     });
 
     const movie = await prisma.libraryMedia.upsert({
-      where: { tmdbId: tmdb_id },
+      where: { tmdbId_type: { tmdbId: tmdb_id, type: "movie" } },
       create: {
         tmdbId: tmdb_id,
         type: "movie",
@@ -229,7 +229,7 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
     : null;
 
   const existingShow = await prisma.libraryMedia.findUnique({
-    where: { tmdbId: tmdb_id },
+    where: { tmdbId_type: { tmdbId: tmdb_id, type: "show" } },
     select: { overrides: true },
   });
   const showOv = (existingShow?.overrides ?? {}) as Record<string, unknown>;
@@ -247,7 +247,7 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
   });
 
   const media = await prisma.libraryMedia.upsert({
-    where: { tmdbId: tmdb_id },
+    where: { tmdbId_type: { tmdbId: tmdb_id, type: "show" } },
     create: {
       tmdbId: tmdb_id,
       type: "show",

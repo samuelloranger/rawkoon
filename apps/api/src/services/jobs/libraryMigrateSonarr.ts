@@ -92,12 +92,12 @@ export async function migrateFromSonarr(
         );
 
         const existing = await prisma.libraryMedia.findUnique({
-          where: { tmdbId },
+          where: { tmdbId_type: { tmdbId, type: "show" } },
           select: { id: true, status: true },
         });
 
         const mediaRow = await prisma.libraryMedia.upsert({
-          where: { tmdbId },
+          where: { tmdbId_type: { tmdbId, type: "show" } },
           create: {
             tmdbId,
             type: "show",

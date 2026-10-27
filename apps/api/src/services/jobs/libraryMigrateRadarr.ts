@@ -71,7 +71,7 @@ export async function migrateFromRadarr(
           movie.images.find((i) => i.coverType === "poster")?.remoteUrl ?? null;
 
         const existing = await prisma.libraryMedia.findUnique({
-          where: { tmdbId: movie.tmdbId },
+          where: { tmdbId_type: { tmdbId: movie.tmdbId, type: "movie" } },
           select: { id: true, status: true },
         });
 
@@ -97,7 +97,7 @@ export async function migrateFromRadarr(
         }
 
         const mediaRow = await prisma.libraryMedia.upsert({
-          where: { tmdbId: movie.tmdbId },
+          where: { tmdbId_type: { tmdbId: movie.tmdbId, type: "movie" } },
           create: {
             tmdbId: movie.tmdbId,
             type: "movie",

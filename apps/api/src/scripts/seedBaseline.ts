@@ -64,7 +64,7 @@ async function seedMovies(count: number): Promise<void> {
     const title = `Seed Movie ${i}`;
     const year = 1980 + (i % 45);
     const media = await prisma.libraryMedia.upsert({
-      where: { tmdbId },
+      where: { tmdbId_type: { tmdbId, type: "movie" } },
       update: { title, year, listTitle: title, listYear: year },
       create: {
         tmdbId,
@@ -108,7 +108,7 @@ async function seedShows(
       const title = `Seed Show ${i}`;
       const year = 1990 + (i % 35);
       const media = await prisma.libraryMedia.upsert({
-        where: { tmdbId },
+        where: { tmdbId_type: { tmdbId, type: "show" } },
         update: { title, year, listTitle: title, listYear: year },
         create: {
           tmdbId,

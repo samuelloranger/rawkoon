@@ -12,7 +12,7 @@ useMediaRequestHooks();
 
 describe("createRequest", () => {
   it("rejects when title already in library", async () => {
-    state.library = [{ tmdbId: 5 }];
+    state.library = [{ tmdbId: 5, type: "movie" }];
     const r = await createRequest({
       tmdbId: 5,
       type: "movie",
@@ -22,6 +22,19 @@ describe("createRequest", () => {
       userId: "u1",
     });
     expect(r).toEqual({ ok: false, reason: "exists_in_library" });
+  });
+
+  it("accepts a movie whose TMDB id belongs to a show in the library", async () => {
+    state.library = [{ tmdbId: 5, type: "show" }];
+    const r = await createRequest({
+      tmdbId: 5,
+      type: "movie",
+      title: "X",
+      posterUrl: null,
+      year: null,
+      userId: "u1",
+    });
+    expect(r).toMatchObject({ ok: true, status: "pending" });
   });
 
   it("rejects a duplicate request", async () => {

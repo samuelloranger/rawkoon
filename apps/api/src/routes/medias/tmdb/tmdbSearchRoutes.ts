@@ -10,7 +10,8 @@ import {
 } from "@rawkoon/api/utils/medias/mappers";
 import { toTmdbLanguage } from "@rawkoon/api/utils/medias/tmdbFetcherCore";
 import {
-  libraryEntriesForTmdbIds,
+  libraryEntriesForTmdbItems,
+  libraryKey,
   loadEnabledTmdbConfig,
 } from "./tmdbRouteHelpers";
 
@@ -78,18 +79,22 @@ export const tmdbSearchRoutes = new Hono<Env>().get(
 
       items = items.slice(0, 20);
 
-      const tmdbIds = items.map((i) => i.tmdb_id);
-      const libraryByTmdbId = await libraryEntriesForTmdbIds(tmdbIds);
+      const libraryByKey = await libraryEntriesForTmdbItems(items);
 
-      items = items.map((item) => ({
-        ...item,
-        service: "prowlarr" as const,
-        already_exists: libraryByTmdbId.has(item.tmdb_id),
-        can_add: true,
-        source_id: null,
-        library_id: libraryByTmdbId.get(item.tmdb_id)?.id ?? null,
-        library_status: libraryByTmdbId.get(item.tmdb_id)?.status ?? null,
-      }));
+      items = items.map((item) => {
+        const entry = libraryByKey.get(
+          libraryKey(item.tmdb_id, item.media_type),
+        );
+        return {
+          ...item,
+          service: "prowlarr" as const,
+          already_exists: entry != null,
+          can_add: true,
+          source_id: null,
+          library_id: entry?.id ?? null,
+          library_status: entry?.status ?? null,
+        };
+      });
 
       response.items = items;
       return ok(response);

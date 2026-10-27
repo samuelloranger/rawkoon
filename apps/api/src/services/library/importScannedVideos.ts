@@ -55,7 +55,7 @@ export async function importScannedVideos(
           continue;
         }
         const exists = await prisma.libraryMedia.findUnique({
-          where: { tmdbId: top.id },
+          where: { tmdbId_type: { tmdbId: top.id, type: "movie" } },
         });
         if (exists) continue;
 
@@ -105,7 +105,7 @@ export async function importScannedVideos(
           continue;
         }
         const exists = await prisma.libraryMedia.findUnique({
-          where: { tmdbId: top.id },
+          where: { tmdbId_type: { tmdbId: top.id, type: "show" } },
         });
         if (exists) continue;
 

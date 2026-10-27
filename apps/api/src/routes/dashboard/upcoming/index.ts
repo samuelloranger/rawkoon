@@ -130,11 +130,7 @@ export const dashboardUpcomingRoutes = new Hono<Env>()
     try {
       const region = await getGlobalTmdbRegion();
       const libType = mediaType === "movie" ? "movie" : "show";
-      // tmdbId is globally unique in LibraryMedia and addOrUpdateLibraryFromTmdb
-      // upserts by tmdbId alone, so treat ANY row with this tmdbId as occupied:
-      // a type-scoped lookup would let a show add clobber a same-id movie row.
-      // (Revisit if the schema moves to a composite [tmdbId, type] key.)
-      const existing = await findLibraryMediaByTmdbId(tmdbId);
+      const existing = await findLibraryMediaByTmdbId(tmdbId, libType);
       if (existing) {
         await invalidateUpcomingCache(region);
         return ok({ success: true, added: false, already_exists: true });
@@ -158,10 +154,13 @@ export const dashboardUpcomingRoutes = new Hono<Env>()
     }
   })
   .post("/upcoming/status", jsonV(upcomingItemBody), async (c) => {
-    const { tmdb_id: tmdbId } = c.req.valid("json");
+    const { tmdb_id: tmdbId, media_type: mediaType } = c.req.valid("json");
 
     try {
-      const row = await findLibraryMediaByTmdbId(tmdbId);
+      const row = await findLibraryMediaByTmdbId(
+        tmdbId,
+        mediaType === "movie" ? "movie" : "show",
+      );
 
       return ok({ exists: Boolean(row), library_id: row?.id ?? null });
     } catch (error) {

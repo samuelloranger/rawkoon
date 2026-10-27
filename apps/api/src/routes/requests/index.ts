@@ -115,15 +115,14 @@ export const requestRoutes = new Hono<Env>()
       const user = c.get("user");
       const [media, request] = await findTitleRequestState(tmdbId, type);
       const body: RequestTitleStatusResponse = {
-        library:
-          media && media.type === type
-            ? {
-                id: media.id,
-                status: media.status,
-                episode_count: media.episodeCount,
-                downloaded_episode_count: media.downloadedEpisodeCount,
-              }
-            : null,
+        library: media
+          ? {
+              id: media.id,
+              status: media.status,
+              episode_count: media.episodeCount,
+              downloaded_episode_count: media.downloadedEpisodeCount,
+            }
+          : null,
         // Someone else's request is shown by status only, like GET / hides it.
         request: request
           ? {

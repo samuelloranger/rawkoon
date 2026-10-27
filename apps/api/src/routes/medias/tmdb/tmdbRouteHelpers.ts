@@ -1,6 +1,7 @@
 import {
   fetchModalLibraryEpisodes,
-  libraryEntriesForTmdbIds,
+  libraryEntriesForTmdbItems,
+  libraryKey,
   loadAllLibraryTmdbIds,
 } from "@rawkoon/api/services/medias/tmdbLibraryLookup";
 import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationConfigCache";
@@ -13,7 +14,8 @@ import { toTmdbLanguage } from "@rawkoon/api/utils/medias/tmdbFetcherCore";
 
 export {
   fetchModalLibraryEpisodes,
-  libraryEntriesForTmdbIds,
+  libraryEntriesForTmdbItems,
+  libraryKey,
   loadAllLibraryTmdbIds,
 };
 
@@ -68,13 +70,13 @@ export type LibraryEntry = { id: number; status: string };
 
 export function enrichSearchItems(
   items: unknown[],
-  libraryByTmdbId: Map<number, LibraryEntry>,
+  libraryByKey: Map<string, LibraryEntry>,
 ): TmdbSearchItem[] {
   return items
     .map(mapTmdbSearchItem)
     .filter((item): item is TmdbSearchItem => Boolean(item))
     .map((item) => {
-      const entry = libraryByTmdbId.get(item.tmdb_id);
+      const entry = libraryByKey.get(libraryKey(item.tmdb_id, item.media_type));
       return {
         ...item,
         service: "prowlarr" as const,
@@ -89,15 +91,13 @@ export function enrichSearchItems(
 
 export async function enrichItemsFromRaw(
   items: unknown[],
-  libraryByTmdbId?: Map<number, LibraryEntry>,
+  libraryByKey?: Map<string, LibraryEntry>,
 ): Promise<TmdbSearchItem[]> {
   const baseItems = items
     .map(mapTmdbSearchItem)
     .filter((item): item is TmdbSearchItem => Boolean(item));
 
-  const libMap =
-    libraryByTmdbId ??
-    (await libraryEntriesForTmdbIds(baseItems.map((i) => i.tmdb_id)));
+  const libMap = libraryByKey ?? (await libraryEntriesForTmdbItems(baseItems));
 
   return enrichSearchItems(items, libMap);
 }
