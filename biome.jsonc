@@ -116,7 +116,6 @@
       "includes": [
         "apps/api/src/routes/admin/adminLibraryHealthRoutes.ts",
         "apps/api/src/routes/admin/adminMiscRoutes.ts",
-        "apps/api/src/routes/admin/adminUserRoutes.ts",
         "apps/api/src/routes/admin/apiKeyRoutes.ts",
         "apps/api/src/routes/books/authorRoutes.ts",
         "apps/api/src/routes/books/bookEditionRoutes.ts",
@@ -157,7 +156,6 @@
         "apps/api/src/routes/medias/tmdb/tmdbRouteHelpers.ts",
         "apps/api/src/routes/medias/watchlist/index.ts",
         "apps/api/src/routes/notifications/channels.ts",
-        "apps/api/src/routes/notifications/index.ts",
         "apps/api/src/routes/profile/index.ts",
         "apps/api/src/routes/quality-profiles/index.ts",
         "apps/api/src/routes/requests/index.ts",
@@ -180,11 +178,9 @@
       // Files over the line cap today; this list may only shrink.
       "includes": [
         "apps/api/src/__tests__/aiProviderClient.test.ts",
-        "apps/api/src/routes/admin/adminUserRoutes.ts",
         "apps/api/src/routes/books/bookPlaybackRoutes.ts",
         "apps/api/src/routes/library/libraryGrabRoutes.ts",
         "apps/api/src/routes/medias/search/index.ts",
-        "apps/api/src/routes/notifications/index.ts",
         "apps/api/src/scripts/importExistingBooks.ts",
         "apps/api/src/services/books/registerBookChapters.test.ts",
         "apps/api/src/services/downloads/downloadOutcome.ts",
