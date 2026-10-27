@@ -1,22 +1,20 @@
 import { Hono } from "hono";
 import { UAParser } from "ua-parser-js";
-import { prisma } from "@rawkoon/api/db";
 import { badRequest, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
+import {
+  deleteWebPushSubscription,
+  listActiveSessions,
+  listWebPushSubscriptions,
+  revokeSession,
+  revokeUserSessions,
+} from "@rawkoon/api/services/admin/adminSessions";
 
 // Mounted under /api/admin; requireAdmin is applied at the admin parent.
 export const adminMiscRoutes = new Hono<Env>()
   .get("/sessions", async () => {
     try {
-      const sessions = await prisma.baSession.findMany({
-        where: { expiresAt: { gt: new Date() } },
-        include: {
-          user: {
-            select: { id: true, email: true, firstName: true, lastName: true },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      });
+      const sessions = await listActiveSessions();
 
       return ok({
         success: true,
@@ -50,7 +48,7 @@ export const adminMiscRoutes = new Hono<Env>()
 
   .delete("/sessions/:id", async (c) => {
     try {
-      await prisma.baSession.deleteMany({ where: { id: c.req.param("id") } });
+      await revokeSession(c.req.param("id"));
       return ok({ success: true, message: "Session revoked" });
     } catch (error) {
       console.error("Error revoking session:", error);
@@ -60,9 +58,7 @@ export const adminMiscRoutes = new Hono<Env>()
 
   .delete("/sessions/user/:userId", async (c) => {
     try {
-      await prisma.baSession.deleteMany({
-        where: { userId: c.req.param("userId") },
-      });
+      await revokeUserSessions(c.req.param("userId"));
       return ok({ success: true, message: "All sessions revoked" });
     } catch (error) {
       console.error("Error revoking user sessions:", error);
@@ -72,14 +68,7 @@ export const adminMiscRoutes = new Hono<Env>()
 
   .get("/web-push", async () => {
     try {
-      const subs = await prisma.userSubscription.findMany({
-        include: {
-          user: {
-            select: { id: true, email: true, firstName: true, lastName: true },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      });
+      const subs = await listWebPushSubscriptions();
 
       return ok({
         success: true,
@@ -112,7 +101,7 @@ export const adminMiscRoutes = new Hono<Env>()
     if (isNaN(id)) return badRequest("Invalid subscription ID");
 
     try {
-      await prisma.userSubscription.delete({ where: { id } });
+      await deleteWebPushSubscription(id);
       return ok({ success: true, message: "Web push subscription deleted" });
     } catch (error) {
       console.error("Error deleting web push subscription:", error);

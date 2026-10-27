@@ -1,11 +1,17 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { APP_PATHS } from "@rawkoon/shared/constants";
-import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
+import {
+  createChannel,
+  deleteChannel,
+  findChannel,
+  listChannels,
+  updateChannel,
+} from "@rawkoon/api/services/notification/notificationChannels";
 import {
   dispatchToChannel,
   parseNtfyConfig,
@@ -92,10 +98,7 @@ const patchBody = z.object({
 export const notificationChannelsRoutes = new Hono<Env>()
   .get("/", requireUser, async (c) => {
     try {
-      const channels = await prisma.notificationChannel.findMany({
-        where: { userId: c.get("user").id },
-        orderBy: { createdAt: "asc" },
-      });
+      const channels = await listChannels(c.get("user").id);
       return ok({ channels: channels.map(mapChannel) });
     } catch {
       return serverError("Failed to fetch notification channels");
@@ -111,14 +114,11 @@ export const notificationChannelsRoutes = new Hono<Env>()
     const configErr = validateConfig(body.type, body.config);
     if (configErr) return badRequest(configErr);
     try {
-      const channel = await prisma.notificationChannel.create({
-        data: {
-          userId: user.id,
-          type: body.type,
-          label: body.label,
-          config: body.config as object,
-          enabled: true,
-        },
+      const channel = await createChannel({
+        userId: user.id,
+        type: body.type,
+        label: body.label,
+        config: body.config as object,
       });
       return ok({ channel: mapChannel(channel) });
     } catch {
@@ -132,9 +132,7 @@ export const notificationChannelsRoutes = new Hono<Env>()
     const id = parseId(c.req.param("id"));
     if (id === null) return badRequest("Invalid channel id");
     try {
-      const existing = await prisma.notificationChannel.findFirst({
-        where: { id, userId: user.id },
-      });
+      const existing = await findChannel(id, user.id);
       if (!existing) return notFound("Channel not found");
 
       if (body.config !== undefined) {
@@ -142,20 +140,10 @@ export const notificationChannelsRoutes = new Hono<Env>()
         if (configErr) return badRequest(configErr);
       }
 
-      const result = await prisma.notificationChannel.updateMany({
-        where: { id, userId: user.id },
-        data: {
-          ...(body.label !== undefined ? { label: body.label } : {}),
-          ...(body.enabled !== undefined ? { enabled: body.enabled } : {}),
-          ...(body.config !== undefined
-            ? { config: body.config as object }
-            : {}),
-        },
-      });
-      if (result.count === 0) return notFound("Channel not found");
-
-      const channel = await prisma.notificationChannel.findUnique({
-        where: { id },
+      const channel = await updateChannel(id, user.id, {
+        label: body.label,
+        enabled: body.enabled,
+        config: body.config as object | undefined,
       });
       if (!channel) return notFound("Channel not found");
       return ok({ channel: mapChannel(channel) });
@@ -169,14 +157,10 @@ export const notificationChannelsRoutes = new Hono<Env>()
     const id = parseId(c.req.param("id"));
     if (id === null) return badRequest("Invalid channel id");
     try {
-      const existing = await prisma.notificationChannel.findFirst({
-        where: { id, userId: user.id },
-      });
+      const existing = await findChannel(id, user.id);
       if (!existing) return notFound("Channel not found");
-      const result = await prisma.notificationChannel.deleteMany({
-        where: { id, userId: user.id },
-      });
-      if (result.count === 0) return notFound("Channel not found");
+      if (!(await deleteChannel(id, user.id)))
+        return notFound("Channel not found");
       return ok({ success: true });
     } catch {
       return serverError("Failed to delete notification channel");
@@ -188,9 +172,7 @@ export const notificationChannelsRoutes = new Hono<Env>()
     const id = parseId(c.req.param("id"));
     if (id === null) return badRequest("Invalid channel id");
     try {
-      const channel = await prisma.notificationChannel.findFirst({
-        where: { id, userId: user.id },
-      });
+      const channel = await findChannel(id, user.id);
       if (!channel) return notFound("Channel not found");
 
       await dispatchToChannel(mapChannel(channel), {
