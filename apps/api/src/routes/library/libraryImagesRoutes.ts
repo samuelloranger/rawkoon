@@ -1,12 +1,12 @@
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { queryV } from "@rawkoon/api/middleware/validate";
 import { getArtworkCandidates } from "@rawkoon/api/services/images/artworkService";
+import { findLibraryMediaTmdbRef } from "@rawkoon/api/services/library/libraryMediaLookup";
 
 const imagesQuery = z.object({
   kind: z.enum(["poster", "backdrop"]).optional(),
@@ -26,10 +26,7 @@ export const libraryImagesRoutes = new Hono<Env>().get(
     const { kind = "poster" } = c.req.valid("query");
 
     try {
-      const media = await prisma.libraryMedia.findUnique({
-        where: { id },
-        select: { tmdbId: true, type: true },
-      });
+      const media = await findLibraryMediaTmdbRef(id);
       if (!media) return notFound("Library item not found");
 
       const candidates = await getArtworkCandidates({

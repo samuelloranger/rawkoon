@@ -1,22 +1,32 @@
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 import {
+  findLibraryMedia,
+  findLibraryMediaForSearchTitle,
+  findLibraryOverrides,
+  listMovieFilesForUpgradeCheck,
+  setEpisodeMonitored,
+  setEpisodeStatus,
+  setSeasonMonitored,
+  updateLibraryMonitored,
+  updateLibraryOverrides,
+  updateLibraryQualityProfile,
+  updateLibrarySearchTitle,
+  updateLibraryStatus,
+} from "@rawkoon/api/services/library/libraryMetaMutations";
+import {
   profileToScoreInput,
   loadProfileWithFormats,
 } from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
 import { filesFailProfile } from "@rawkoon/api/services/upgradeDetection";
-import {
-  downloadedEpisodesFailingProfile,
-  upgradeFileSelect,
-} from "@rawkoon/api/services/upgradeTargets";
+import { downloadedEpisodesFailingProfile } from "@rawkoon/api/services/upgradeTargets";
 
-import { mapLibraryMedia, libraryMediaInclude } from "./libraryHelpers";
+import { mapLibraryMedia } from "./libraryHelpers";
 import {
   getLibraryTmdbApiKey,
   tmdbApiFetch,
@@ -48,14 +58,7 @@ export const libraryMetaRoutes = new Hono<Env>()
       const id = parseInt(c.req.param("id"), 10);
       if (!Number.isFinite(id)) return badRequest("Invalid ID");
       const body = c.req.valid("json");
-      const item = await prisma.libraryMedia.update({
-        where: { id },
-        data: {
-          status: body.status,
-          ...(body.status === "wanted" ? { searchAttempts: 0 } : {}),
-        },
-        include: libraryMediaInclude,
-      });
+      const item = await updateLibraryStatus(id, body.status);
       return ok({ item: mapLibraryMedia(item) });
     } catch {
       return serverError("Failed to update status");
@@ -66,11 +69,10 @@ export const libraryMetaRoutes = new Hono<Env>()
     try {
       const id = parseInt(c.req.param("id"), 10);
       if (!Number.isFinite(id)) return badRequest("Invalid ID");
-      const item = await prisma.libraryMedia.update({
-        where: { id },
-        data: { monitored: c.req.valid("json").monitored },
-        include: libraryMediaInclude,
-      });
+      const item = await updateLibraryMonitored(
+        id,
+        c.req.valid("json").monitored,
+      );
       return ok({ item: mapLibraryMedia(item) });
     } catch {
       return serverError("Failed to update monitored status");
@@ -86,9 +88,7 @@ export const libraryMetaRoutes = new Hono<Env>()
         const id = parseInt(c.req.param("id"), 10);
         if (!Number.isFinite(id)) return badRequest("Invalid ID");
         const body = c.req.valid("json");
-        const existing = await prisma.libraryMedia.findUnique({
-          where: { id },
-        });
+        const existing = await findLibraryMedia(id);
         if (!existing) return notFound("Library item not found");
 
         let newProfile: Awaited<ReturnType<typeof loadProfileWithFormats>> =
@@ -100,11 +100,10 @@ export const libraryMetaRoutes = new Hono<Env>()
           }
         }
 
-        const item = await prisma.libraryMedia.update({
-          where: { id },
-          data: { qualityProfileId: body.quality_profile_id },
-          include: libraryMediaInclude,
-        });
+        const item = await updateLibraryQualityProfile(
+          id,
+          body.quality_profile_id,
+        );
 
         // Detect whether existing files fail the new profile
         let needs_upgrade = false;
@@ -120,10 +119,7 @@ export const libraryMetaRoutes = new Hono<Env>()
           const profileInput = profileToScoreInput(newProfile);
 
           if (existing.type === "movie") {
-            const files = await prisma.mediaFile.findMany({
-              where: { mediaId: id, episodeId: null },
-              select: upgradeFileSelect,
-            });
+            const files = await listMovieFilesForUpgradeCheck(id);
             needs_upgrade = filesFailProfile(files, profileInput);
           } else {
             const failing = await downloadedEpisodesFailingProfile(
@@ -174,15 +170,7 @@ export const libraryMetaRoutes = new Hono<Env>()
         }
         if (!title) return badRequest("search_title is required");
 
-        const existing = await prisma.libraryMedia.findUnique({
-          where: { id },
-          select: {
-            id: true,
-            tmdbId: true,
-            type: true,
-            title: true,
-          },
-        });
+        const existing = await findLibraryMediaForSearchTitle(id);
         if (!existing) return notFound("Library item not found");
 
         const apiKey = await getLibraryTmdbApiKey();
@@ -230,14 +218,7 @@ export const libraryMetaRoutes = new Hono<Env>()
           );
         }
 
-        const item = await prisma.libraryMedia.update({
-          where: { id },
-          data: {
-            searchTitle: title,
-            searchTitleLanguage: language,
-          },
-          include: libraryMediaInclude,
-        });
+        const item = await updateLibrarySearchTitle(id, title, language);
         return ok({ item: mapLibraryMedia(item) });
       } catch (e) {
         console.warn("[library] search-title update failed:", e);
@@ -257,11 +238,12 @@ export const libraryMetaRoutes = new Hono<Env>()
         if (!Number.isFinite(mediaId) || !Number.isFinite(season)) {
           return badRequest("Invalid ID or season");
         }
-        const result = await prisma.libraryEpisode.updateMany({
-          where: { mediaId, season },
-          data: { monitored: c.req.valid("json").monitored },
-        });
-        return ok({ updated: result.count });
+        const updated = await setSeasonMonitored(
+          mediaId,
+          season,
+          c.req.valid("json").monitored,
+        );
+        return ok({ updated });
       } catch {
         return serverError("Failed to update season monitored status");
       }
@@ -279,10 +261,11 @@ export const libraryMetaRoutes = new Hono<Env>()
         if (!Number.isFinite(mediaId) || !Number.isFinite(episodeId)) {
           return badRequest("Invalid ID or episode ID");
         }
-        const ep = await prisma.libraryEpisode.update({
-          where: { id: episodeId, mediaId },
-          data: { monitored: c.req.valid("json").monitored },
-        });
+        const ep = await setEpisodeMonitored(
+          mediaId,
+          episodeId,
+          c.req.valid("json").monitored,
+        );
         return ok({ episode: { id: ep.id, monitored: ep.monitored } });
       } catch {
         return serverError("Failed to update episode monitored status");
@@ -308,10 +291,7 @@ export const libraryMetaRoutes = new Hono<Env>()
         const id = parseInt(c.req.param("id"), 10);
         if (!Number.isFinite(id)) return badRequest("Invalid ID");
         const body = c.req.valid("json");
-        const existing = await prisma.libraryMedia.findUnique({
-          where: { id },
-          select: { overrides: true },
-        });
+        const existing = await findLibraryOverrides(id);
         if (!existing) return notFound("Library item not found");
 
         // Merge: existing overrides + incoming fields; null values remove the key
@@ -325,11 +305,7 @@ export const libraryMetaRoutes = new Hono<Env>()
           }
         }
 
-        const item = await prisma.libraryMedia.update({
-          where: { id },
-          data: { overrides: merged as object },
-          include: libraryMediaInclude,
-        });
+        const item = await updateLibraryOverrides(id, merged);
         return ok({ item: mapLibraryMedia(item) });
       } catch {
         return serverError("Failed to update overrides");
@@ -349,13 +325,7 @@ export const libraryMetaRoutes = new Hono<Env>()
           return badRequest("Invalid ID or episode ID");
         }
         const body = c.req.valid("json");
-        const ep = await prisma.libraryEpisode.update({
-          where: { id: episodeId, mediaId },
-          data: {
-            status: body.status,
-            ...(body.status === "wanted" ? { searchAttempts: 0 } : {}),
-          },
-        });
+        const ep = await setEpisodeStatus(mediaId, episodeId, body.status);
         return ok({
           episode: {
             id: ep.id,
