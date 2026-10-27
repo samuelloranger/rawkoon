@@ -3,9 +3,8 @@ import { describe, expect, mock, test } from "bun:test";
 // The module imports prisma at load; these tests only touch its pure helpers.
 mock.module("@rawkoon/api/db", () => ({ prisma: {} }));
 
-const { chapterTitleFromFileName, sortChapterFiles } = await import(
-  "./registerBookChapters"
-);
+const { chapterTitleFromFileName, titlesAreUninformative, sortChapterFiles } =
+  await import("./registerBookChapters");
 
 describe("chapterTitleFromFileName", () => {
   test("strips the ordinal prefix and the extension", () => {
@@ -76,5 +75,28 @@ describe("sortChapterFiles", () => {
       "10 Chapitre 10.mp3",
       "62 Epilogue.mp3",
     ]);
+  });
+});
+
+describe("titlesAreUninformative", () => {
+  test("flags files that are all named after the book", () => {
+    expect(
+      titlesAreUninformative(["Book Title", "Book Title", "Book Title"]),
+    ).toBe(true);
+  });
+
+  test("keeps titles that tell the chapters apart, even with some repeats", () => {
+    expect(
+      titlesAreUninformative([
+        "Prologue",
+        "Chapter 1",
+        "Chapter 1",
+        "Epilogue",
+      ]),
+    ).toBe(false);
+  });
+
+  test("a lone chapter's title is kept", () => {
+    expect(titlesAreUninformative(["Book Title"])).toBe(false);
   });
 });
