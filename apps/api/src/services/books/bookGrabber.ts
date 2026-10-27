@@ -1,5 +1,6 @@
 import { prisma } from "@rawkoon/api/db";
 import { getActiveIndexerManager } from "@rawkoon/api/services/indexerManager";
+import type { GrabResult } from "@rawkoon/api/services/mediaGrabber/mediaGrabberConflicts";
 import { checkBlocklist } from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import { emitBookUpdate } from "@rawkoon/api/services/libraryEvents";
@@ -231,9 +232,8 @@ export async function searchBookReleases(
   return { releases, indexerWarnings: [...warnings.values()] };
 }
 
-export type BookGrabOutcome =
-  | { grabbed: true; releaseTitle: string }
-  | { grabbed: false; reason: string };
+/** Same shape as a media grab's result; books never set a refusal code. */
+export type BookGrabOutcome = GrabResult;
 
 /** The partial unique index enforces one active grab per edition; the pre-check gives a clean message and the P2002 catch closes the race. */
 export async function grabBookRelease(opts: {

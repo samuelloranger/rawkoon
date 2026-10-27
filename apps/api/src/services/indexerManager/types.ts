@@ -56,7 +56,8 @@ export interface NormalizedIndexer {
   privacy: string;
 }
 
-export interface GrabResult {
+/** What a stored release token resolves to; not the outcome of a grab. */
+export interface ReleaseTokenResolution {
   success: boolean;
   downloadUrl?: string;
   magnetUrl?: string;
@@ -93,7 +94,7 @@ export interface IndexerManagerAdapter {
    * Resolve a stored token to a download URL/magnet (and title).
    * Neither adapter hands the torrent to a download client — Rawkoon owns that.
    */
-  grabRelease(token: string): Promise<GrabResult>;
+  grabRelease(token: string): Promise<ReleaseTokenResolution>;
 
   /**
    * Store a release and return a download token for later grab.
