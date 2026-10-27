@@ -1,11 +1,9 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
 
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, paramV, queryV } from "@rawkoon/api/middleware/validate";
-import { prisma } from "@rawkoon/api/db";
 import {
   badRequest,
   notFound,
@@ -19,15 +17,18 @@ import {
 } from "@rawkoon/api/services/books";
 import { loadRequestsByVolumeId } from "@rawkoon/api/services/books/bookDiscovery";
 import { addBookFromVolume } from "@rawkoon/api/services/books/bookLibrary";
-import { deleteLibraryBookWithRequests } from "@rawkoon/api/services/mediaRequests";
 import {
-  loadReadAtByBookId,
-  resetBookProgress,
-  setBookRead,
-} from "@rawkoon/api/services/books/setBookRead";
+  findBookDetail,
+  findBookDetailWithReadAt,
+  findLibraryBooksByVolumeIds,
+  listBooksPage,
+  markBookRead,
+  removeBook,
+  resetProgressForBook,
+} from "@rawkoon/api/services/books/bookListQueries";
 import type { BookEditionKind } from "@rawkoon/shared/types";
 
-import { bookInclude, mapBook } from "./bookHelpers";
+import { mapBook } from "./bookHelpers";
 
 const KINDS: BookEditionKind[] = ["ebook", "audiobook"];
 const idParam = z.object({ id: z.coerce.number() });
@@ -60,59 +61,15 @@ export const bookListRoutes = new Hono<Env>()
     async (c) => {
       const user = c.get("user");
       try {
-        const { q, kind, status, page, limit, sort_by, sort_dir } =
-          c.req.valid("query");
-
-        const where: Prisma.LibraryBookWhereInput = {
-          ...(q
-            ? { title: { contains: q, mode: "insensitive" as const } }
-            : {}),
-          ...(kind || status
-            ? {
-                editions: {
-                  some: {
-                    ...(kind ? { kind } : {}),
-                    ...(status ? { status } : {}),
-                  },
-                },
-              }
-            : {}),
-        };
-
-        const dir = sort_dir === "asc" ? "asc" : "desc";
-        const orderBy: Prisma.LibraryBookOrderByWithRelationInput =
-          sort_by === "title"
-            ? { listTitle: dir }
-            : sort_by === "year"
-              ? { listYear: dir }
-              : { addedAt: dir };
-
-        const take = Math.min(200, Math.max(1, limit ?? 50));
-        const skip = Math.max(0, ((page ?? 1) - 1) * take);
-
-        const [total, rows] = await Promise.all([
-          prisma.libraryBook.count({ where }),
-          prisma.libraryBook.findMany({
-            where,
-            orderBy,
-            include: bookInclude,
-            skip,
-            take: take + 1,
-          }),
-        ]);
-
-        const has_more = rows.length > take;
-        const listed = has_more ? rows.slice(0, take) : rows;
-        const readAt = await loadReadAtByBookId(
-          prisma,
+        const { listed, total, hasMore, readAt } = await listBooksPage(
           user.id,
-          listed.map((b) => b.id),
+          c.req.valid("query"),
         );
         const items = listed.map((b) =>
           mapBook(b, { readAt: readAt.get(b.id) ?? null }),
         );
 
-        return ok({ items, total, has_more });
+        return ok({ items, total, has_more: hasMore });
       } catch (e) {
         console.error("[books] list failed:", e);
         return serverError("Failed to list books");
@@ -140,10 +97,7 @@ export const bookListRoutes = new Hono<Env>()
       try {
         const found = await provider.searchBooks(term, { limit: 20 });
         const volumeIds = found.map((b) => b.volumeId);
-        const existing = await prisma.libraryBook.findMany({
-          where: { googleVolumeId: { in: volumeIds } },
-          select: { id: true, googleVolumeId: true },
-        });
+        const existing = await findLibraryBooksByVolumeIds(volumeIds);
         const byVolume = new Map(existing.map((e) => [e.googleVolumeId, e.id]));
         const requests = await loadRequestsByVolumeId(volumeIds);
 
@@ -180,13 +134,9 @@ export const bookListRoutes = new Hono<Env>()
   .get("/:id", requireUser, paramV(idParam), async (c) => {
     const user = c.get("user");
     const { id } = c.req.valid("param");
-    const book = await prisma.libraryBook.findUnique({
-      where: { id },
-      include: bookInclude,
-    });
-    if (!book) return notFound("Book not found");
-    const readAt = await loadReadAtByBookId(prisma, user.id, [book.id]);
-    return ok({ item: mapBook(book, { readAt: readAt.get(book.id) ?? null }) });
+    const found = await findBookDetailWithReadAt(user.id, id);
+    if (!found) return notFound("Book not found");
+    return ok({ item: mapBook(found.book, { readAt: found.readAt }) });
   })
 
   .put(
@@ -197,29 +147,17 @@ export const bookListRoutes = new Hono<Env>()
     async (c) => {
       const user = c.get("user");
       const { id } = c.req.valid("param");
-      const result = await setBookRead(prisma, {
-        userId: user.id,
-        bookId: id,
-        read: c.req.valid("json").read,
-      });
-      if (!result.ok) return notFound("Book not found");
-      const book = await prisma.libraryBook.findUnique({
-        where: { id },
-        include: bookInclude,
-      });
-      if (!book) return notFound("Book not found");
-      return ok({ item: mapBook(book, { readAt: result.readAt }) });
+      const result = await markBookRead(user.id, id, c.req.valid("json").read);
+      if (!result) return notFound("Book not found");
+      return ok({ item: mapBook(result.book, { readAt: result.readAt }) });
     },
   )
 
   .delete("/:id/progress", requireUser, paramV(idParam), async (c) => {
     const user = c.get("user");
     const { id } = c.req.valid("param");
-    const result = await resetBookProgress(prisma, {
-      userId: user.id,
-      bookId: id,
-    });
-    if (!result.ok) return notFound("Book not found");
+    if (!(await resetProgressForBook(user.id, id)))
+      return notFound("Book not found");
     return ok({ ok: true });
   })
 
@@ -274,10 +212,7 @@ export const bookListRoutes = new Hono<Env>()
         return badRequest(result.reason);
       }
 
-      const book = await prisma.libraryBook.findUnique({
-        where: { id: result.bookId },
-        include: bookInclude,
-      });
+      const book = await findBookDetail(result.bookId);
       if (!book) return serverError("Failed to add book");
       return ok({ item: mapBook(book) });
     },
@@ -285,23 +220,6 @@ export const bookListRoutes = new Hono<Env>()
 
   .delete("/:id", requireAdmin, paramV(idParam), async (c) => {
     const { id } = c.req.valid("param");
-    const existing = await prisma.libraryBook.findUnique({
-      where: { id },
-      select: { id: true },
-    });
-    if (!existing) return notFound("Book not found");
-    // A grab still downloading can never import once its edition is gone.
-    const pending = await prisma.downloadHistory.findMany({
-      where: { bookEdition: { bookId: id }, completedAt: null, failed: false },
-      select: { id: true, torrentHash: true },
-    });
-    const { abandonPendingDownloads } = await import(
-      "@rawkoon/api/services/seeding/seedSweep"
-    );
-    await abandonPendingDownloads(pending);
-    // Editions and files cascade; library files on disk are left alone,
-    // matching how removing a library media item behaves. Completed grabs keep
-    // their rows (book_edition_id → NULL) so their torrents seed to target.
-    await deleteLibraryBookWithRequests(id);
+    if (!(await removeBook(id))) return notFound("Book not found");
     return ok({ deleted: true });
   });

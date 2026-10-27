@@ -5,7 +5,6 @@ import type { BunFile } from "bun";
 import { Hono } from "hono";
 
 import { loadConfig } from "@rawkoon/api/config";
-import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound, ok, unauthorized } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
@@ -15,10 +14,14 @@ import {
   verifyGrant,
 } from "@rawkoon/api/services/books/downloadGrant";
 import {
-  AUTO_SYNC_DEVICE_ID,
-  scheduleProgressSync,
-} from "@rawkoon/api/services/books/progressAutoSync";
-import { applyListeningCredit } from "@rawkoon/api/services/books/listeningStats";
+  clampClientTimestamp,
+  findBookFilePath,
+  findManifestEdition,
+  listListeningProgress,
+  listReadingProgress,
+  saveListeningProgress,
+  saveReadingProgress,
+} from "@rawkoon/api/services/books/playbackProgress";
 import { parseByteRange, type ParsedByteRange } from "@rawkoon/shared/utils";
 import type { BookManifestFile } from "@rawkoon/shared/types";
 
@@ -66,15 +69,6 @@ export function buildManifestFiles(
 
 const GRANT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const CONTENT_CACHE_CONTROL = "private, immutable, max-age=31536000";
-const progressBookSelect = {
-  edition: {
-    select: {
-      book: {
-        select: { id: true, title: true, authors: true, coverUrl: true },
-      },
-    },
-  },
-} as const;
 const contentTypeForPath = (filePath: string): string => {
   switch (extname(filePath).toLowerCase()) {
     case ".mp3":
@@ -94,17 +88,7 @@ const contentTypeForPath = (filePath: string): string => {
   }
 };
 
-/**
- * A client timestamp is trusted backwards but not forwards.
- *
- * Last-write-wins uses the client `updated_at`, so a device clock set years in
- * the future would otherwise win every sync forever.
- */
-export const clampClientTimestamp = (clientIso: string, now: Date): Date => {
-  const parsed = new Date(clientIso);
-  if (Number.isNaN(parsed.getTime())) return now;
-  return parsed.getTime() > now.getTime() ? now : parsed;
-};
+export { clampClientTimestamp };
 
 /** parseByteRange returns inclusive end; Blob.slice expects exclusive end. */
 export const sliceForRange = (range: ParsedByteRange) => ({
@@ -142,37 +126,7 @@ export const bookPlaybackRoutes = new Hono<Env>().get(
   requireUser,
   paramV(editionIdParam),
   async (c) => {
-    const edition = await prisma.bookEdition.findUnique({
-      where: { id: c.req.valid("param").id },
-      select: {
-        id: true,
-        offlineReady: true,
-        book: {
-          select: {
-            id: true,
-            title: true,
-            authors: true,
-          },
-        },
-        chapters: {
-          orderBy: { index: "asc" },
-          select: {
-            index: true,
-            title: true,
-            startSecs: true,
-            endSecs: true,
-            bookFile: {
-              select: {
-                id: true,
-                sizeBytes: true,
-                sha256: true,
-                filePath: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    const edition = await findManifestEdition(c.req.valid("param").id);
     if (!edition) return notFound("Edition not found");
     if (!edition.offlineReady || edition.chapters.length === 0) {
       return badRequest("Edition is not offline-ready");
@@ -241,12 +195,7 @@ export const bookContentRoutes = new Hono<Env>().get(
     // Datasaver files are not generated yet, so only "original" is serveable.
     if (grant.variant !== "original") return notFound("File not found");
 
-    const file = await prisma.bookFile.findUnique({
-      where: { id: params.fileId },
-      select: {
-        filePath: true,
-      },
-    });
+    const file = await findBookFilePath(params.fileId);
     if (!file) return notFound("File not found");
 
     const handle = Bun.file(file.filePath);
@@ -320,18 +269,7 @@ export const bookContentRoutes = new Hono<Env>().get(
 
 export const bookProgressRoutes = new Hono<Env>()
   .get("/progress", requireUser, async (c) => {
-    const rows = await prisma.bookListeningProgress.findMany({
-      where: { userId: c.get("user").id },
-      select: {
-        editionId: true,
-        positionSecs: true,
-        totalDurationSecs: true,
-        finished: true,
-        updatedAt: true,
-        ...progressBookSelect,
-      },
-      orderBy: { updatedAt: "desc" },
-    });
+    const rows = await listListeningProgress(c.get("user").id);
 
     return ok({
       progress: rows.flatMap((row) => {
@@ -367,64 +305,9 @@ export const bookProgressRoutes = new Hono<Env>()
       const user = c.get("user");
       const { id } = c.req.valid("param");
       const body = c.req.valid("json");
-      const edition = await prisma.bookEdition.findUnique({
-        where: { id },
-        select: { id: true, bookId: true },
-      });
-      if (!edition) return notFound("Edition not found");
-
-      const now = new Date();
-      const updatedAt = clampClientTimestamp(body.updated_at, now);
-
-      const existing = await prisma.bookListeningProgress.findUnique({
-        where: {
-          userId_editionId: { userId: user.id, editionId: id },
-        },
-        select: { updatedAt: true, positionSecs: true, receivedAt: true },
-      });
-      if (existing && existing.updatedAt > updatedAt)
-        return ok({ applied: false });
-
-      const baseData = {
-        positionSecs: body.position_secs,
-        totalDurationSecs: body.total_duration_secs,
-        updatedAt,
-        receivedAt: now,
-        deviceId: body.device_id ?? null,
-      };
-
-      const updateData = {
-        ...baseData,
-        ...(body.finished === undefined ? {} : { finished: body.finished }),
-      };
-
-      await prisma.bookListeningProgress.upsert({
-        where: {
-          userId_editionId: { userId: user.id, editionId: id },
-        },
-        update: updateData,
-        create: {
-          ...baseData,
-          finished: body.finished ?? false,
-          userId: user.id,
-          editionId: id,
-        },
-      });
-
-      await applyListeningCredit({
-        userId: user.id,
-        created: !existing,
-        previous: existing,
-        newPosition: body.position_secs,
-        receivedAt: now,
-      });
-
-      if (body.device_id !== AUTO_SYNC_DEVICE_ID)
-        void scheduleProgressSync({
-          userId: user.id,
-          bookId: edition.bookId,
-          direction: "listen_to_read",
-        });
+      const result = await saveListeningProgress(user.id, id, body);
+      if (result === "edition_not_found") return notFound("Edition not found");
+      if (result === "stale") return ok({ applied: false });
 
       return ok({ applied: true });
     },
@@ -439,22 +322,7 @@ export const bookProgressRoutes = new Hono<Env>()
  */
 export const bookReadingProgressRoutes = new Hono<Env>()
   .get("/reading-progress", requireUser, async (c) => {
-    const rows = await prisma.bookReadingProgress.findMany({
-      where: { userId: c.get("user").id },
-      select: {
-        editionId: true,
-        fileId: true,
-        spineIndex: true,
-        spinePath: true,
-        spineCount: true,
-        scrollFraction: true,
-        locator: true,
-        finished: true,
-        updatedAt: true,
-        ...progressBookSelect,
-      },
-      orderBy: { updatedAt: "desc" },
-    });
+    const rows = await listReadingProgress(c.get("user").id);
 
     return ok({
       progress: rows.flatMap((row) => {
@@ -498,64 +366,12 @@ export const bookReadingProgressRoutes = new Hono<Env>()
       const user = c.get("user");
       const { id } = c.req.valid("param");
       const body = c.req.valid("json");
-      const edition = await prisma.bookEdition.findUnique({
-        where: { id },
-        select: { id: true, bookId: true },
-      });
-      if (!edition) return notFound("Edition not found");
-
-      if (body.spine_index < 0 || body.spine_index >= body.spine_count) {
+      const result = await saveReadingProgress(user.id, id, body);
+      if (result === "edition_not_found") return notFound("Edition not found");
+      if (result === "spine_out_of_range") {
         return badRequest("spine_index is outside the spine");
       }
-
-      const now = new Date();
-      const updatedAt = clampClientTimestamp(body.updated_at, now);
-
-      const existing = await prisma.bookReadingProgress.findUnique({
-        where: {
-          userId_editionId: { userId: user.id, editionId: id },
-        },
-        select: { updatedAt: true },
-      });
-      if (existing && existing.updatedAt > updatedAt)
-        return ok({ applied: false });
-
-      const baseData = {
-        fileId: body.file_id ?? null,
-        spineIndex: body.spine_index,
-        spinePath: body.spine_path,
-        spineCount: body.spine_count,
-        // Clamped rather than rejected: a client that reports 1.0000001 after a
-        // bounce-scroll should not lose its position over it.
-        scrollFraction: Math.min(Math.max(body.scroll_fraction, 0), 1),
-        locator: body.locator ?? null,
-        updatedAt,
-        receivedAt: now,
-        deviceId: body.device_id ?? null,
-      };
-
-      await prisma.bookReadingProgress.upsert({
-        where: {
-          userId_editionId: { userId: user.id, editionId: id },
-        },
-        update: {
-          ...baseData,
-          ...(body.finished === undefined ? {} : { finished: body.finished }),
-        },
-        create: {
-          ...baseData,
-          finished: body.finished ?? false,
-          userId: user.id,
-          editionId: id,
-        },
-      });
-
-      if (body.device_id !== AUTO_SYNC_DEVICE_ID)
-        void scheduleProgressSync({
-          userId: user.id,
-          bookId: edition.bookId,
-          direction: "read_to_listen",
-        });
+      if (result === "stale") return ok({ applied: false });
 
       return ok({ applied: true });
     },
