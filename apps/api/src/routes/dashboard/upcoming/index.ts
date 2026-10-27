@@ -18,7 +18,10 @@ import {
   collectLibraryUpcoming,
   mergeUpcomingById,
 } from "@rawkoon/api/utils/dashboard/libraryUpcoming";
-import { prisma } from "@rawkoon/api/db";
+import {
+  buildUpcomingPayload,
+  findLibraryMediaByTmdbId,
+} from "@rawkoon/api/services/dashboard/upcomingPayload";
 import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationConfigCache";
 import {
   deleteCache,
@@ -29,91 +32,6 @@ import { normalizeTmdbConfig } from "@rawkoon/api/utils/integrations/normalizers
 import type { DashboardUpcomingItem } from "@rawkoon/api/types/dashboardUpcoming";
 import { badGateway, badRequest, ok, serverError } from "@rawkoon/api/errors";
 import { addOrUpdateLibraryFromTmdb } from "@rawkoon/api/services/libraryFromTmdb";
-
-const buildUpcomingPayload = async (
-  tmdbApiKey: string,
-  popularityThreshold: number,
-  region: string,
-  tmdbLanguage: string = DEFAULT_UPCOMING_LANGUAGE,
-): Promise<{ enabled: true; items: DashboardUpcomingItem[] } | null> => {
-  const appSettings = await prisma.appSettings.findUnique({
-    where: { id: 1 },
-  });
-
-  const upcomingWindowMonths = appSettings?.upcomingWindowMonths ?? 12;
-  const upcomingLanguages = appSettings?.upcomingLanguages ?? "en,fr";
-  const { todayIso, endDateIso } =
-    getTmdbUpcomingDateWindowIso(upcomingWindowMonths);
-
-  const POOL_SIZE_PER_TYPE = 40;
-  const [moviesResult, tvResult] = await Promise.all([
-    collectTmdbUpcoming(
-      "movie",
-      POOL_SIZE_PER_TYPE,
-      tmdbApiKey,
-      todayIso,
-      endDateIso,
-      region,
-      upcomingLanguages,
-      tmdbLanguage,
-    ),
-    collectTmdbUpcoming(
-      "tv",
-      POOL_SIZE_PER_TYPE,
-      tmdbApiKey,
-      todayIso,
-      endDateIso,
-      region,
-      upcomingLanguages,
-      tmdbLanguage,
-    ),
-  ]);
-
-  if (!moviesResult || !tvResult) return null;
-
-  const filteredTv = tvResult.items.filter(
-    (item) => (item.popularity ?? 0) >= popularityThreshold,
-  );
-
-  const libraryItems = await collectLibraryUpcoming(todayIso, endDateIso);
-  const mergedItems = mergeUpcomingById(
-    [
-      ...moviesResult.items.filter(
-        (item) => (item.popularity ?? 0) >= popularityThreshold,
-      ),
-      ...filteredTv,
-    ],
-    libraryItems,
-  );
-
-  const sortedItems = (await attachLibraryIds(mergedItems))
-    .filter((item) => {
-      if (!item.release_date) return false;
-      const releaseTime = Date.parse(item.release_date);
-      const todayTime = Date.parse(todayIso);
-      const endTime = Date.parse(endDateIso);
-      return (
-        Number.isFinite(releaseTime) &&
-        releaseTime >= todayTime &&
-        releaseTime <= endTime
-      );
-    })
-    .sort((a, b) => {
-      const aTime = a.release_date
-        ? Date.parse(a.release_date)
-        : Number.POSITIVE_INFINITY;
-      const bTime = b.release_date
-        ? Date.parse(b.release_date)
-        : Number.POSITIVE_INFINITY;
-      return aTime - bTime;
-    });
-
-  const cleanItems: DashboardUpcomingItem[] = sortedItems.map(
-    ({ popularity: _, ...rest }) => rest,
-  );
-
-  return { enabled: true, items: cleanItems };
-};
 
 const upcomingItemBody = z.object({
   media_type: z.union([z.literal("movie"), z.literal("tv")]),
@@ -216,9 +134,7 @@ export const dashboardUpcomingRoutes = new Hono<Env>()
       // upserts by tmdbId alone, so treat ANY row with this tmdbId as occupied:
       // a type-scoped lookup would let a show add clobber a same-id movie row.
       // (Revisit if the schema moves to a composite [tmdbId, type] key.)
-      const existing = await prisma.libraryMedia.findUnique({
-        where: { tmdbId },
-      });
+      const existing = await findLibraryMediaByTmdbId(tmdbId);
       if (existing) {
         await invalidateUpcomingCache(region);
         return ok({ success: true, added: false, already_exists: true });
@@ -245,10 +161,7 @@ export const dashboardUpcomingRoutes = new Hono<Env>()
     const { tmdb_id: tmdbId } = c.req.valid("json");
 
     try {
-      const row = await prisma.libraryMedia.findUnique({
-        where: { tmdbId },
-        select: { id: true },
-      });
+      const row = await findLibraryMediaByTmdbId(tmdbId);
 
       return ok({ exists: Boolean(row), library_id: row?.id ?? null });
     } catch (error) {
