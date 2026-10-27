@@ -1,51 +1,11 @@
 import { prisma } from "@rawkoon/api/db";
 import {
-  emitLibraryLanded,
-  emitLibraryUpdate,
-} from "@rawkoon/api/services/libraryEvents";
-import { triggerJellyfinLibraryScan } from "@rawkoon/api/services/jellyfin/jellyfinLibraryRefresh";
+  type OutcomeEffects,
+  productionOutcomeEffects,
+} from "@rawkoon/api/services/downloads/outcomeEffects";
 import { postProcess } from "@rawkoon/api/services/postProcessor/postProcessorSingle";
 import { postProcessBookDownload } from "@rawkoon/api/services/postProcessor/postProcessorBook";
 import type { PostProcessFailure } from "@rawkoon/api/services/postProcessor/postProcessFailure";
-import { notifyAdminsMediaDownloaded } from "@rawkoon/api/workers/notifyMediaDownloaded";
-import { notifyAdminsPostProcessFailed } from "@rawkoon/api/workers/notifyLibraryEvents";
-
-/** Tells live clients what just finished importing; must never break the import. */
-async function emitLanded(
-  mediaId: number,
-  episodeId: number | null | undefined,
-  season: number | null | undefined,
-  episodeCount: number | null | undefined,
-): Promise<void> {
-  try {
-    const media = await prisma.libraryMedia.findUnique({
-      where: { id: mediaId },
-      select: { title: true, type: true, posterUrl: true, overrides: true },
-    });
-    if (!media) return;
-    const episode =
-      episodeId != null
-        ? await prisma.libraryEpisode.findUnique({
-            where: { id: episodeId },
-            select: { season: true, episode: true },
-          })
-        : null;
-    const ov = (media.overrides ?? {}) as Record<string, unknown>;
-    emitLibraryLanded({
-      mediaId,
-      mediaType: media.type === "movie" ? "movie" : "tv",
-      title: typeof ov.title === "string" ? ov.title : media.title,
-      posterUrl:
-        typeof ov.poster_url === "string" ? ov.poster_url : media.posterUrl,
-      season:
-        episode?.season ?? (media.type === "movie" ? null : (season ?? null)),
-      episode: episode?.episode ?? null,
-      episodeCount: episode ? null : (episodeCount ?? null),
-    });
-  } catch (e) {
-    console.warn(`[downloadOutcome] landed event failed media=${mediaId}:`, e);
-  }
-}
 
 export type PostProcessOutcome =
   | {
@@ -136,6 +96,7 @@ function rejectableFrom(
  */
 export async function finishPostProcess(
   downloadHistoryId: number,
+  effects: OutcomeEffects = productionOutcomeEffects,
 ): Promise<PostProcessOutcome> {
   let mediaId: number | null | undefined;
   let bookEditionId: number | null | undefined;
@@ -234,24 +195,15 @@ export async function finishPostProcess(
         await revertRejectedImport(dh, isUpgrade);
         return result;
       }
-      if (mediaId != null) emitLibraryUpdate(mediaId);
-      if (bookEditionId != null) {
-        const { notifyAdminsBookImportFailed } = await import(
-          "@rawkoon/api/workers/notifyBookEvents"
-        );
-        await notifyAdminsBookImportFailed(
-          bookEditionId,
-          result.reason,
-          isUpgrade,
-        );
-      } else {
-        await notifyAdminsPostProcessFailed(
-          downloadHistoryId,
-          result.reason,
-          mediaId,
-          episodeId,
-        );
-      }
+      if (mediaId != null) effects.libraryChanged(mediaId);
+      await effects.importFailed({
+        downloadHistoryId,
+        reason: result.reason,
+        mediaId,
+        episodeId,
+        bookEditionId,
+        isUpgrade,
+      });
       return result;
     }
 
@@ -268,13 +220,18 @@ export async function finishPostProcess(
       },
     });
     if (mediaId != null) {
-      emitLibraryUpdate(mediaId);
+      effects.libraryChanged(mediaId);
       if (!result.skipped) {
         const packEpisodeCount = result.episodeCount;
         if (!isUpgrade) {
-          await emitLanded(mediaId, episodeId, season, packEpisodeCount);
+          await effects.importLanded({
+            mediaId,
+            episodeId,
+            season,
+            episodeCount: packEpisodeCount,
+          });
         }
-        await notifyAdminsMediaDownloaded({
+        await effects.mediaDownloaded({
           mediaId,
           episodeId,
           season,
@@ -284,23 +241,19 @@ export async function finishPostProcess(
       }
     }
     if (bookEditionId != null && !result.skipped) {
-      const { notifyAdminsBookDownloaded } = await import(
-        "@rawkoon/api/workers/notifyBookEvents"
-      );
-      await notifyAdminsBookDownloaded(bookEditionId, isUpgrade);
+      await effects.bookDownloaded(bookEditionId, isUpgrade);
     }
     if (dh?.torrentHash) {
-      const { evaluateSeedRelease } = await import(
-        "@rawkoon/api/services/seeding/seedSweep"
-      );
-      await evaluateSeedRelease(dh.torrentHash).catch((e) =>
-        console.warn(
-          `[downloadOutcome] seed release check failed dh=${downloadHistoryId}:`,
-          e,
-        ),
-      );
+      await effects
+        .seedReleaseCheck(dh.torrentHash)
+        .catch((e) =>
+          console.warn(
+            `[downloadOutcome] seed release check failed dh=${downloadHistoryId}:`,
+            e,
+          ),
+        );
     }
-    await triggerJellyfinLibraryScan();
+    await effects.libraryScan();
     return result;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -313,19 +266,14 @@ export async function finishPostProcess(
         where: { id: downloadHistoryId },
         data: { postProcessError: msg },
       });
-      if (bookEditionId != null) {
-        const { notifyAdminsBookImportFailed } = await import(
-          "@rawkoon/api/workers/notifyBookEvents"
-        );
-        await notifyAdminsBookImportFailed(bookEditionId, msg, isUpgrade);
-      } else {
-        await notifyAdminsPostProcessFailed(
-          downloadHistoryId,
-          msg,
-          mediaId,
-          episodeId,
-        );
-      }
+      await effects.importFailed({
+        downloadHistoryId,
+        reason: msg,
+        mediaId,
+        episodeId,
+        bookEditionId,
+        isUpgrade,
+      });
     } catch (persistError) {
       console.warn(
         `[downloadOutcome] failed to persist postProcessError dh=${downloadHistoryId}:`,

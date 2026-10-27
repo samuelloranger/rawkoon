@@ -1,17 +1,16 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
+import { recordingEffects } from "./mocks/outcomeEffects";
 
 /**
  * Regression (board task 723): a duplicate grab whose file another grab already
  * imported must NOT fire the "downloaded" admin notification — a skip is not a
  * fresh import. finishPostProcess threads `skipped`/`skipReason` from the
  * post-processor and (a) records postProcessSkipReason, (b) suppresses
- * notifyAdminsMediaDownloaded.
+ * mediaDownloaded.
  */
 
-const state: {
-  dhUpdates: Record<string, unknown>[];
-  mediaDownloadedCalls: unknown[];
-} = { dhUpdates: [], mediaDownloadedCalls: [] };
+const state: { dhUpdates: Record<string, unknown>[] } = { dhUpdates: [] };
+let effects = recordingEffects();
 
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
@@ -48,16 +47,6 @@ mock.module("@rawkoon/api/services/postProcessor/postProcessorBook", () => ({
   }),
 }));
 
-mock.module("@rawkoon/api/services/libraryEvents", () => ({
-  emitLibraryUpdate: () => {},
-  emitBookUpdate: () => {},
-  emitSeedState: () => {},
-  emitLibraryLanded: () => {},
-}));
-
-mock.module("@rawkoon/api/services/seeding/seedSweep", () => ({
-  evaluateSeedRelease: async () => {},
-}));
 mock.module("@rawkoon/api/services/downloads/downloadJanitor", () => ({
   rejectRelease: async () => {},
   findBlockedFileInTorrent: async () => null,
@@ -66,37 +55,18 @@ mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
   resolveActiveAdapter: async () => null,
 }));
 
-mock.module("@rawkoon/api/services/jellyfin/jellyfinLibraryRefresh", () => ({
-  triggerJellyfinLibraryScan: async () => {},
-}));
-
-mock.module("@rawkoon/api/services/mediaRequests", () => ({
-  notifyRequestAvailable: async () => {},
-}));
-
-mock.module("@rawkoon/api/workers/notifyMediaDownloaded", () => ({
-  notifyAdminsMediaDownloaded: async (arg: unknown) => {
-    state.mediaDownloadedCalls.push(arg);
-  },
-}));
-
-mock.module("@rawkoon/api/workers/notifyLibraryEvents", () => ({
-  notifyAdminsPostProcessFailed: async () => {},
-  notifyAdminsLibraryDownloadFailed: async () => {},
-}));
-
 const { finishPostProcess } = await import(
   "@rawkoon/api/services/downloads/downloadOutcome"
 );
 
 beforeEach(() => {
   state.dhUpdates = [];
-  state.mediaDownloadedCalls = [];
+  effects = recordingEffects();
 });
 
 describe("finishPostProcess duplicate skip", () => {
   it("records the skip reason and suppresses the downloaded notification", async () => {
-    const result = await finishPostProcess(1);
+    const result = await finishPostProcess(1, effects);
 
     expect(result.success).toBe(true);
 
@@ -107,6 +77,7 @@ describe("finishPostProcess duplicate skip", () => {
     expect(write?.postProcessError).toBeNull();
 
     // A skip is not a fresh import — no "downloaded" admin notification.
-    expect(state.mediaDownloadedCalls).toHaveLength(0);
+    expect(effects.named("mediaDownloaded")).toHaveLength(0);
+    expect(effects.named("importLanded")).toHaveLength(0);
   });
 });
