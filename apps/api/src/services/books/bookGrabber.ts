@@ -13,7 +13,7 @@ import { addReleaseToDownloadClient } from "./bookDownloadHandoff";
 import { qbCategoryForEditionKind } from "./bookCategories";
 import { pickBookCandidate, type BookPickCandidate } from "./bookAiPick";
 import type { AiTrigger } from "@rawkoon/shared/types";
-import { tryAdoptQbDuplicateForBook } from "./bookAdopt";
+import { tryAdoptDuplicateForBook } from "./bookAdopt";
 
 export { qbCategoryForEditionKind };
 
@@ -296,8 +296,9 @@ export async function grabBookRelease(opts: {
 
   if (!handoff.ok) {
     // The client already holds this torrent: take it over, or an edition stays ungrabbable when an earlier attempt outlived its history row.
-    if (handoff.duplicate) {
-      const adopted = await tryAdoptQbDuplicateForBook({
+    if (handoff.duplicate && handoff.adapter) {
+      const adopted = await tryAdoptDuplicateForBook({
+        adapter: handoff.adapter,
         dhRowId: dhRow.id,
         editionId: opts.editionId,
         kind: ctx.kind,

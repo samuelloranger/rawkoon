@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { decideAutorunUpdate } from "@rawkoon/api/services/qbittorrent/preferences";
+import { decideAutorunUpdate } from "@rawkoon/api/services/downloadClient/qbittorrentAutorun";
 
 const HOOK_PATH = "/api/download-client/hook/complete";
 const desired = `curl -fsS -m 10 -X POST -H "X-Rawkoon-Token: tok" "http://rawkoon:3000${HOOK_PATH}?hash=%I"`;

@@ -29,7 +29,7 @@ import { buildAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import {
   applyQbittorrentAutorun,
   isAutorunProgramForeign,
-} from "@rawkoon/api/services/qbittorrent/preferences";
+} from "@rawkoon/api/services/downloadClient/qbittorrentAutorun";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import {
   isValidHttpUrl,

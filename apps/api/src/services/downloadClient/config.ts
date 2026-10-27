@@ -5,10 +5,7 @@ import {
   setJsonCache,
 } from "@rawkoon/api/services/cache";
 import { decrypt } from "@rawkoon/api/services/crypto";
-import {
-  toRecord,
-  toStringOrNull,
-} from "@rawkoon/api/services/qbittorrent/clientNormalizers";
+import { toRecord, toStringOrNull } from "@rawkoon/api/utils/medias/mappers";
 import type { DownloadClientType } from "./types";
 
 export interface DownloadClientIntegrationConfig {

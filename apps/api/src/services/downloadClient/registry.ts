@@ -20,6 +20,7 @@ export function buildAdapter(
       });
     case "rdtclient":
       // rdt-client emulates the qBittorrent Web API.
+      // Adoption stays qBittorrent-only: rdt-client torrents are not claimable this way.
       return {
         ...createQbittorrentAdapter({
           website_url: config.website_url,
@@ -27,6 +28,7 @@ export function buildAdapter(
           password: config.password,
         }),
         type: "rdtclient",
+        claimExisting: undefined,
       };
     case "transmission":
       return createTransmissionAdapter(config);
