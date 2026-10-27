@@ -40,6 +40,8 @@ describe("rescanBookEdition", () => {
       offlineReady: false,
     });
     expect(state.chapterDeleteCalls).toBe(1);
+    // A newly adopted epub may name the same book's placeholder audiobook chapters.
+    expect(state.renamed).toEqual([9]);
   });
 
   // Repeat scans used to report registered: 1 forever, because rows are
@@ -53,6 +55,8 @@ describe("rescanBookEdition", () => {
 
     expect(second.registered).toBe(0);
     expect(second.refreshed).toBe(1);
+    // Nothing new was adopted on the second scan, so the epub isn't re-read.
+    expect(state.renamed).toEqual([9]);
     expect(state.files).toHaveLength(1);
     expect(state.chapterDeleteCalls).toBe(1);
   });
@@ -138,6 +142,8 @@ describe("rescanBookEdition", () => {
       "02.mp3",
       "03.mp3",
     ]);
+    // An audiobook adopted after its epub can still be named from it.
+    expect(state.renamed).toEqual([9]);
   });
 
   // An audiobook rescan now also registers the chapter timeline, which is what
