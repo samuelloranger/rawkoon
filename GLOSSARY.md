@@ -67,7 +67,7 @@ Whether a show is still producing episodes: Returning, In production, Planned, o
 _Avoid_: Show status, series status
 
 **Search attempt**:
-One automatic search that found nothing usable. Repeated attempts end in Skipped; a held release or a refusal for low disk space does not count.
+One automatic search that found nothing usable. Repeated attempts end in Skipped; a delayed grab or a refusal for low disk space does not count.
 _Avoid_: Retry, miss
 
 **Upgrade**:
@@ -89,16 +89,16 @@ The thing a grab is for: a movie, a single episode, a season of a show, or a boo
 _Avoid_: Subject
 
 **Grab**:
-The act of choosing a release and handing it to the download client. A manual grab happens at once; an automatic grab may first be held. The record that results is a Download.
-_Avoid_: Fetch, snatch; and "grab" for the record or for a held release
+The act of choosing a release and handing it to the download client. A manual grab happens at once; an automatic grab may first be a Delayed grab. The record that results is a Download.
+_Avoid_: Fetch, snatch; and "grab" for the record
 
 **Download**:
 The tracked life of one grabbed release, from the grab until it ends in completion or failure. Shown in history and in the activity views.
 _Avoid_: Grab (for the record), torrent, transfer
 
-**Hold**:
-A release found by an automatic search but kept back by the quality profile's grab delay, so better releases for the same target can arrive first. When the delay ends, the best held release is grabbed, unless the target has been satisfied meanwhile.
-_Avoid_: Pending release, delayed grab, queued release
+**Delayed grab**:
+A release found by an automatic search but kept back by the quality profile's grab delay, so better releases for the same target can arrive first. When the delay ends, the best delayed release is grabbed, unless the target has been satisfied meanwhile.
+_Avoid_: Hold, pending release, queued release
 
 **Grab delay**:
 How long an automatic grab waits after a release is published before it is taken. A release that already meets the cutoff can skip it.
@@ -152,7 +152,7 @@ _Avoid_: Sharing
 
 **Seed target**:
 The ratio or seeding time after which Rawkoon stops seeding a download and removes it from the client. Can differ per indexer.
-_Avoid_: Seed goal, seed release
+_Avoid_: Seed goal, seed release, "released" (a release is an indexer result, not the end of seeding)
 
 ## Requests
 
@@ -191,6 +191,6 @@ _Avoid_: Token, signed URL
 - A **Title** becomes a **Library item** when requested and approved, or when an administrator adds it directly.
 - A **Library item** has a **Quality profile**; a show has **Episodes**, a book has **Editions**.
 - A **Target** is searched when it is **Wanted** and **Monitored**; the search yields **Releases** that the profile accepts or rejects.
-- A **Grab** of a **Release** creates one **Download** for a **Target**; a **Hold** postpones the grab.
+- A **Grab** of a **Release** creates one **Download** for a **Target**; a **Delayed grab** postpones it.
 - A **Download outcome** moves the **Library status** and may make a movie or show **Request** **Available**; for a book, **Post-process** does.
 - A show's **Library status** and **Airing state** vary independently; a show request becomes **Available** only when a show-wide download finishes after the show has stopped airing.
