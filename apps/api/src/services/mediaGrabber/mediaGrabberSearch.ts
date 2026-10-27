@@ -1,10 +1,9 @@
 import { prisma } from "@rawkoon/api/db";
 import type { AiTrigger, LanguageFallbackSummary } from "@rawkoon/shared/types";
 import type { AiProviderConfig } from "@rawkoon/api/utils/integrations/types";
-import {
-  loadEnabledAiProviderConfig,
-  pickReleaseWithAi,
-} from "@rawkoon/api/services/aiProvider/client";
+import { loadEnabledAiProviderConfig } from "@rawkoon/api/services/aiProvider/client";
+import { dropBlocklistedTitles } from "@rawkoon/api/services/mediaGrabber/mediaGrabberBlocklist";
+import { pickAiRow } from "@rawkoon/api/services/mediaGrabber/mediaGrabberAiPick";
 import { getActiveIndexerManager } from "@rawkoon/api/services/indexerManager";
 import { tieredSearch } from "@rawkoon/api/services/indexerManager/searchStrategy";
 import { parseReleaseSeasonSpan } from "@rawkoon/shared/utils/releaseStructure";
@@ -36,7 +35,10 @@ import {
   targetKey,
   toDelayCandidate,
 } from "@rawkoon/api/services/grab/grabDelay";
-import { inFlightGrabWhere } from "@rawkoon/api/services/activeShowGrab";
+import {
+  loadSeasonsInUse,
+  type SeasonsInUse,
+} from "@rawkoon/api/services/mediaGrabber/mediaGrabberSeasonsInUse";
 import {
   grabRelease,
   type GrabRefusal,
@@ -169,49 +171,8 @@ export async function searchAndGrab(opts: {
     }
 
     // Seasons already downloaded, grabbed or carried by a grab in flight; `all` when a series-wide pack is.
-    let inUse: { seasons: number[]; all: boolean } | null = null;
-    const seasonsInUse = async () => {
-      if (inUse) return inUse;
-      const [eps, grabs] = await Promise.all([
-        prisma.libraryEpisode.findMany({
-          where: { mediaId, season: { gt: 0 } },
-          select: {
-            season: true,
-            status: true,
-            _count: { select: { files: true } },
-          },
-        }),
-        prisma.downloadHistory.findMany({
-          where: { ...(await inFlightGrabWhere()), mediaId },
-          select: {
-            season: true,
-            episodeId: true,
-            releaseTitle: true,
-            episode: { select: { season: true } },
-          },
-        }),
-      ]);
-      const seasons = eps
-        .filter(
-          (e) =>
-            e._count.files > 0 ||
-            ["downloaded", "downloading", "upgrading"].includes(e.status),
-        )
-        .map((e) => e.season);
-      let all = false;
-      for (const g of grabs) {
-        const s = g.season ?? g.episode?.season;
-        if (s != null) {
-          seasons.push(s);
-          continue;
-        }
-        const span = parseReleaseSeasonSpan(g.releaseTitle);
-        if (!span) all = true;
-        else for (let n = span.from; n <= span.to; n++) seasons.push(n);
-      }
-      inUse = { seasons, all };
-      return inUse;
-    };
+    let inUse: Promise<SeasonsInUse> | null = null;
+    const seasonsInUse = () => (inUse ??= loadSeasonsInUse(mediaId));
 
     const rows: CandidateRow[] = [];
     // Rejected for language only; reported on a miss, never grabbed.
@@ -341,27 +302,7 @@ export async function searchAndGrab(opts: {
 
     if (rows.length === 0) return noMatch();
 
-    // Pre-filter blocklisted titles so we don't waste the grab attempt on them.
-    // Scope the query to the candidate titles actually being checked rather
-    // than loading the entire blocklist into memory on every search. Match
-    // case-insensitively (Postgres `in` is case-sensitive) so an entry that
-    // differs only by casing still suppresses the release.
-    // Hash-based blocklist is a secondary check inside grabRelease itself.
-    const candidateTitles = rows.map((r) => r.title);
-    const blocklistTitles = await prisma.grabBlocklist
-      .findMany({
-        where: {
-          OR: candidateTitles.map((title) => ({
-            releaseTitle: { equals: title, mode: "insensitive" as const },
-          })),
-        },
-        select: { releaseTitle: true },
-      })
-      .then((rows) => new Set(rows.map((r) => r.releaseTitle.toLowerCase())));
-
-    const viable = rows.filter(
-      (r) => !blocklistTitles.has(r.title.toLowerCase()) && r.raw._downloadUrl,
-    );
+    const viable = await dropBlocklistedTitles(rows);
 
     // Only unattended, non-upgrade searches wait; manual and upgrade searches act at once.
     const delayTarget = {
@@ -398,41 +339,17 @@ export async function searchAndGrab(opts: {
       }
     }
 
-    let aiRow: CandidateRow | null = null;
-    if (viable.length >= 2) {
-      const aiConfig =
-        opts.aiConfig !== undefined
-          ? opts.aiConfig
-          : await loadEnabledAiProviderConfig().catch(() => null);
-      if (aiConfig) {
-        const pick = await pickReleaseWithAi(
-          aiConfig,
-          {
-            title: media?.title ?? "",
-            year: media?.year ?? null,
-            type: media?.type ?? mediaType,
-            preferred_languages: profileInput?.preferredLanguages,
-            season: expectedSeason ?? season ?? null,
-            episode: expectedEpisode,
-          },
-          // Index keys: two results can share a download URL under different titles.
-          viable.map((r, i) => ({
-            key: String(i),
-            title: r.title,
-            size_bytes: r.size,
-            seeders: r.seeders,
-            score: profileInput ? r.score : null,
-          })),
-          {
-            feature: "release_pick_search",
-            trigger,
-            classicTitle: viable[0]!.title,
-            mediaId,
-          },
-        ).catch(() => null);
-        aiRow = pick ? (viable[Number(pick.release_key)] ?? null) : null;
-      }
-    }
+    const aiRow = await pickAiRow({
+      viable,
+      aiConfig: opts.aiConfig,
+      media,
+      mediaType,
+      profileInput,
+      trigger,
+      mediaId,
+      season: expectedSeason ?? season ?? null,
+      episode: expectedEpisode,
+    });
 
     // The AI pick goes first; the rest keep the classic order as fallbacks.
     const ordered = aiRow
