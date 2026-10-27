@@ -196,7 +196,6 @@
         "apps/api/src/services/mediaGrabber/mediaGrabberGrab.ts",
         "apps/api/src/services/mediaGrabber/mediaGrabberSearch.ts",
         "apps/api/src/services/mediaRequests.ts",
-        "apps/api/src/services/postProcessor/postProcessorBook.ts",
         "apps/api/src/services/postProcessor/postProcessorSeasonPack.ts",
         "apps/api/src/utils/dashboard/tmdbUpcoming.ts",
         "apps/api/src/utils/medias/filenameParser.ts",
