@@ -2,22 +2,30 @@ import { prisma } from "@rawkoon/api/db";
 
 type LibraryEntry = { id: number; status: string };
 
-export async function libraryEntriesForTmdbIds(
-  tmdbIds: number[],
-): Promise<Map<number, { id: number; status: string }>> {
-  if (tmdbIds.length === 0) return new Map();
+/** Map key for a library title; a movie and a show can share a TMDB id. */
+export const libraryKey = (
+  tmdbId: number,
+  mediaType: "movie" | "show" | "tv",
+): string => `${mediaType === "movie" ? "movie" : "show"}:${tmdbId}`;
+
+export async function libraryEntriesForTmdbItems(
+  items: { tmdb_id: number; media_type: "movie" | "tv" }[],
+): Promise<Map<string, LibraryEntry>> {
+  if (items.length === 0) return new Map();
   const entries = await prisma.libraryMedia.findMany({
-    where: { tmdbId: { in: tmdbIds } },
-    select: { tmdbId: true, id: true, status: true },
+    where: { tmdbId: { in: items.map((i) => i.tmdb_id) } },
+    select: { tmdbId: true, type: true, id: true, status: true },
   });
   return new Map(
-    entries.map((e) => [e.tmdbId, { id: e.id, status: e.status }]),
+    entries.map((e) => [
+      libraryKey(e.tmdbId, e.type === "movie" ? "movie" : "show"),
+      { id: e.id, status: e.status },
+    ]),
   );
 }
 
 export async function loadAllLibraryTmdbIds(): Promise<{
-  libraryIdByTmdbId: Map<number, number>;
-  libraryByTmdbId: Map<number, LibraryEntry>;
+  libraryByKey: Map<string, LibraryEntry>;
   allTmdbIds: Set<number>;
   movieTmdbIds: number[];
   showTmdbIds: number[];
@@ -26,14 +34,12 @@ export async function loadAllLibraryTmdbIds(): Promise<{
     select: { tmdbId: true, id: true, type: true, status: true },
   });
 
-  const libraryIdByTmdbId = new Map(
-    libraryAllEntries.map((e) => [e.tmdbId, e.id]),
-  );
-
   return {
-    libraryIdByTmdbId,
-    libraryByTmdbId: new Map(
-      libraryAllEntries.map((e) => [e.tmdbId, { id: e.id, status: e.status }]),
+    libraryByKey: new Map(
+      libraryAllEntries.map((e) => [
+        libraryKey(e.tmdbId, e.type === "movie" ? "movie" : "show"),
+        { id: e.id, status: e.status },
+      ]),
     ),
     allTmdbIds: new Set(libraryAllEntries.map((e) => e.tmdbId)),
     movieTmdbIds: libraryAllEntries

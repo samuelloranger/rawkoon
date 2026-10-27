@@ -14,7 +14,9 @@ export function listMediaRequests(where: { requestedById?: string }) {
 
 export function findTitleRequestState(tmdbId: number, type: "movie" | "show") {
   return Promise.all([
-    prisma.libraryMedia.findUnique({ where: { tmdbId } }),
+    prisma.libraryMedia.findUnique({
+      where: { tmdbId_type: { tmdbId, type } },
+    }),
     prisma.mediaRequest.findUnique({
       where: { tmdbId_type: { tmdbId, type } },
     }),

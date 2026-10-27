@@ -1,4 +1,5 @@
 import { prisma } from "@rawkoon/api/db";
+import { libraryKey } from "@rawkoon/api/services/medias/tmdbLibraryLookup";
 import type { DashboardUpcomingItem } from "@rawkoon/api/types/dashboardUpcoming";
 import { toIsoDate } from "@rawkoon/api/utils/dashboard/tmdbUpcoming";
 
@@ -208,10 +209,13 @@ export const attachLibraryIds = async (
 
   const libraryRows = await prisma.libraryMedia.findMany({
     where: { tmdbId: { in: tmdbIds } },
-    select: { id: true, tmdbId: true },
+    select: { id: true, tmdbId: true, type: true },
   });
-  const libraryIdByTmdbId = new Map(
-    libraryRows.map((row) => [row.tmdbId, row.id]),
+  const libraryIdByKey = new Map(
+    libraryRows.map((row) => [
+      libraryKey(row.tmdbId, row.type === "movie" ? "movie" : "show"),
+      row.id,
+    ]),
   );
 
   return items.map((item) => {
@@ -220,7 +224,7 @@ export const attachLibraryIds = async (
     if (source !== "movie" && source !== "tv") return item;
     const tmdbId = numericPart ? parseInt(numericPart, 10) : Number.NaN;
     const libraryId = Number.isFinite(tmdbId)
-      ? (libraryIdByTmdbId.get(tmdbId) ?? null)
+      ? (libraryIdByKey.get(libraryKey(tmdbId, source)) ?? null)
       : null;
     return libraryId == null ? item : { ...item, library_id: libraryId };
   });

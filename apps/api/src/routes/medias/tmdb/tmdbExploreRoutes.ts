@@ -16,7 +16,8 @@ import {
   fetchTmdbResults,
   getExploreBaseSections,
   injectMediaType,
-  libraryEntriesForTmdbIds,
+  libraryEntriesForTmdbItems,
+  libraryKey,
   loadAllLibraryTmdbIds,
   loadEnabledTmdbConfig,
   resolveLanguage,
@@ -88,11 +89,11 @@ export const tmdbExploreRoutes = new Hono<Env>()
         },
       });
 
-      const { libraryByTmdbId, allTmdbIds, movieTmdbIds, showTmdbIds } =
+      const { libraryByKey, movieTmdbIds, showTmdbIds } =
         await loadAllLibraryTmdbIds();
 
       const normalize = (items: unknown[]) =>
-        enrichSearchItems(items, libraryByTmdbId);
+        enrichSearchItems(items, libraryByKey);
 
       const recommendationsCacheKey = `medias:explore:recommendations:${language}`;
 
@@ -123,13 +124,13 @@ export const tmdbExploreRoutes = new Hono<Env>()
           ),
         ]);
 
-        const seen = new Set<number>();
+        const seen = new Set<string>();
 
         recommended = normalize(recResults.flat())
           .filter((item) => {
-            if (seen.has(item.tmdb_id) || allTmdbIds.has(item.tmdb_id))
-              return false;
-            seen.add(item.tmdb_id);
+            const key = libraryKey(item.tmdb_id, item.media_type);
+            if (seen.has(key) || item.already_exists) return false;
+            seen.add(key);
             return true;
           })
           .slice(0, 20);
@@ -193,11 +194,11 @@ export const tmdbExploreRoutes = new Hono<Env>()
         items = injectMediaType(config.type)(items);
       }
 
-      const catTmdbIds = items
-        .map(mapTmdbSearchItem)
-        .filter((item): item is TmdbSearchItem => Boolean(item))
-        .map((i) => i.tmdb_id);
-      const catLibMap = await libraryEntriesForTmdbIds(catTmdbIds);
+      const catLibMap = await libraryEntriesForTmdbItems(
+        items
+          .map(mapTmdbSearchItem)
+          .filter((item): item is TmdbSearchItem => Boolean(item)),
+      );
 
       const enrichedNormalized = enrichSearchItems(items, catLibMap);
 
@@ -261,9 +262,7 @@ export const tmdbExploreRoutes = new Hono<Env>()
         .filter((item): item is TmdbSearchItem => Boolean(item))
         .slice(0, 40);
 
-      const simLibMap = await libraryEntriesForTmdbIds(
-        baseItems.map((i) => i.tmdb_id),
-      );
+      const simLibMap = await libraryEntriesForTmdbItems(baseItems);
       const enrichedItems = enrichSearchItems(withType, simLibMap).slice(0, 40);
 
       await setJsonCache(cacheKey, enrichedItems, 60 * 60);

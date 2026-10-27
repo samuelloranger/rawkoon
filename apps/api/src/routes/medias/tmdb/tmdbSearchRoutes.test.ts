@@ -1,7 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 const findMany = mock(async (_args: unknown) => [
-  { tmdbId: 11, id: 5, status: "downloading" },
+  { tmdbId: 11, type: "movie", id: 5, status: "downloading" },
+  // A show sharing a result's TMDB id must not mark the movie as in the library.
+  { tmdbId: 12, type: "show", id: 6, status: "downloaded" },
 ]);
 
 mock.module("@rawkoon/api/db", () => ({

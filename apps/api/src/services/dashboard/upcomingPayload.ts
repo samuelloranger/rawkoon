@@ -96,8 +96,11 @@ export const buildUpcomingPayload = async (
   return { enabled: true, items: cleanItems };
 };
 
-export const findLibraryMediaByTmdbId = (tmdbId: number) =>
+export const findLibraryMediaByTmdbId = (
+  tmdbId: number,
+  type: "movie" | "show",
+) =>
   prisma.libraryMedia.findUnique({
-    where: { tmdbId },
+    where: { tmdbId_type: { tmdbId, type } },
     select: { id: true },
   });

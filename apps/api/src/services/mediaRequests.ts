@@ -162,7 +162,7 @@ export async function createRequest(opts: CreateOpts): Promise<CreateResult> {
   }
 
   const inLibrary = await prisma.libraryMedia.findUnique({
-    where: { tmdbId: opts.tmdbId },
+    where: { tmdbId_type: { tmdbId: opts.tmdbId, type: opts.type } },
   });
   if (inLibrary) return { ok: false, reason: "exists_in_library" };
 
@@ -249,7 +249,12 @@ export async function approveRequest(
   // library add flow, and invalidate the same per-region upcoming cache.
   const alreadyInLibrary = await prisma.libraryMedia.findUnique({
     // Movie/show requests always carry a tmdbId; only book requests leave it null.
-    where: { tmdbId: req.tmdbId as number },
+    where: {
+      tmdbId_type: {
+        tmdbId: req.tmdbId as number,
+        type: req.type as "movie" | "show",
+      },
+    },
     select: { id: true },
   });
 

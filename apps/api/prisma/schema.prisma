@@ -484,7 +484,7 @@ model BaPasskey {
 
 model LibraryMedia {
   id                    Int       @id @default(autoincrement())
-  tmdbId                Int       @unique @map("tmdb_id")
+  tmdbId                Int       @map("tmdb_id")
   type                  String // "movie" | "show"
   title                 String
   sortTitle             String?   @map("sort_title")
@@ -540,6 +540,8 @@ model LibraryMedia {
   transcodeJobs     TranscodeJob[]
   pendingReleases   PendingRelease[]
 
+  // TMDB numbers movies and shows separately, so one id can name both.
+  @@unique([tmdbId, type], map: "uq_library_media_tmdb_id_type")
   @@index([type], map: "ix_library_media_type")
   @@index([status], map: "ix_library_media_status")
   @@index([qualityProfileId], map: "ix_library_media_quality_profile_id")

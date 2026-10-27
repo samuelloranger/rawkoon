@@ -14,7 +14,7 @@ export type Req = {
 };
 
 export const state: {
-  library: Array<{ tmdbId: number }>;
+  library: Array<{ tmdbId: number; type: "movie" | "show" }>;
   libraryBooks: Array<{ googleVolumeId: string }>;
   requests: Req[];
   created: unknown[];
@@ -60,7 +60,10 @@ function installMediaRequestDbMock() {
         findUnique: ({
           where,
         }: {
-          where: { tmdbId?: number; id?: number };
+          where: {
+            tmdbId_type?: { tmdbId: number; type: string };
+            id?: number;
+          };
         }) => {
           if (where.id != null)
             return Promise.resolve(
@@ -69,7 +72,11 @@ function installMediaRequestDbMock() {
                 : null,
             );
           return Promise.resolve(
-            state.library.find((m) => m.tmdbId === where.tmdbId) ?? null,
+            state.library.find(
+              (m) =>
+                m.tmdbId === where.tmdbId_type?.tmdbId &&
+                m.type === where.tmdbId_type?.type,
+            ) ?? null,
           );
         },
         update: () => Promise.resolve({}),

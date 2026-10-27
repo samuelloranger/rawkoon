@@ -105,7 +105,7 @@ describe("enrichSearchItems", () => {
   it("sets library_id and library_status for titles in the library", () => {
     const [inLib, notInLib] = enrichSearchItems(
       [raw(1), raw(2)],
-      new Map([[1, { id: 7, status: "wanted" }]]),
+      new Map([["movie:1", { id: 7, status: "wanted" }]]),
     );
     expect(inLib).toMatchObject({
       already_exists: true,
