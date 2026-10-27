@@ -1,10 +1,4 @@
-/**
- * Books and audiobooks.
- *
- * A book is exactly one Google Books volume, so `title` is always the title
- * trackers use — there is no searchTitle indirection like LibraryMedia needs.
- * A translation and its original are two independent books.
- */
+/** A book is one Google Books volume; a translation and its original are independent books. */
 
 import type { MediaRequestStatus } from "./request";
 
@@ -172,10 +166,7 @@ export interface Book {
   added_at: string;
   updated_at: string;
   overrides?: Record<string, unknown>;
-  /**
-   * Field name -> the source that supplied it. A field absent from this map was
-   * never enriched, or was set by an override (the operator is the source).
-   */
+  /** Field -> source that supplied it; absent means never enriched or set by an operator override. */
   metadata_sources: Record<string, BookMetadataSource>;
   editions: BookEdition[];
   /** When this user marked the whole book read. Null if they have not. */
@@ -222,13 +213,7 @@ export interface BookSearchResponse {
 
 export interface AddBookRequest {
   google_volume_id: string;
-  /**
-   * Prefer this ISBN-13 when storing the book.
-   *
-   * Set by the add dialog after an ISBN search: Google's volume record may
-   * list a sibling edition's identifier, and a subsequent getBook would
-   * otherwise discard the one the operator typed.
-   */
+  /** Preferred ISBN-13 to store; Google's volume may list a sibling edition's id instead. */
   isbn13?: string | null;
   /** Which editions to create and monitor. Defaults to ["ebook"]. */
   kinds?: BookEditionKind[];
@@ -236,11 +221,7 @@ export interface AddBookRequest {
   monitored?: boolean;
 }
 
-/**
- * A candidate release from the indexer, scored for one edition.
- * `kind` is derived from the parsed format and size, NOT the indexer category —
- * real audiobook releases turn up filed under the Books category.
- */
+/** `kind` comes from parsed format and size, not indexer category; audiobooks turn up under Books. */
 export interface BookRelease {
   guid: string;
   title: string;
@@ -290,13 +271,7 @@ export interface BookQualityProfileListResponse {
   profiles: BookQualityProfile[];
 }
 
-/**
- * A monitored author.
- *
- * Identity is the provider's author name — Google Books exposes no author id,
- * so homonymous authors collide. `monitor_edition_kinds` is empty for an
- * unmonitored author and decides which editions new titles get.
- */
+/** Identity is the provider's author name (no author id exists), so homonyms collide; empty `monitor_edition_kinds` means unmonitored. */
 export interface Author {
   id: number;
   name: string;
@@ -307,11 +282,7 @@ export interface Author {
   /** Only titles published in or after this year are added. */
   monitor_from: string | null;
   monitor_edition_kinds: BookEditionKind[];
-  /**
-   * ISO 639-1 codes a new title must be in to be added. Empty means any
-   * language. Language is a property of the book, not of the edition, so this
-   * is the only way to follow an author without collecting every translation.
-   */
+  /** ISO 639-1 codes a new title must be in; empty means any. */
   monitor_languages: string[];
   book_quality_profile_id: number | null;
   last_checked_at: string | null;
@@ -327,12 +298,7 @@ export interface AuthorResponse {
   author: Author;
 }
 
-/**
- * A metadata source, in the order the merge considers them by default.
- * "local" is on-disk file metadata: the operator can fix a file with a tagger
- * and rescan, so it must outrank every remote source or that repair would be
- * silently reverted on the next refresh.
- */
+/** Sources in default merge order; "local" outranks remote so a tagger repair isn't reverted on refresh. */
 export type BookMetadataSource =
   | "local"
   | "audnexus"
@@ -373,13 +339,7 @@ export interface AudnexusTestResponse {
   error?: string;
 }
 
-/**
- * Manual metadata overrides. Every field optional; null clears it and hands the
- * field back to the source chain.
- *
- * `authors` is absent by design: LibraryBook.authors is maintained by a trigger
- * over the book_authors join table, not written directly.
- */
+/** Manual overrides; null clears a field back to the source chain. `authors` is absent because a trigger maintains it. */
 export interface BookOverridesRequest {
   title?: string | null;
   subtitle?: string | null;
@@ -399,12 +359,7 @@ export interface BookOverridesRequest {
   isbn13?: string | null;
 }
 
-/**
- * Where a reader left off in an ebook edition.
- *
- * A reading position is a spine document plus an offset inside it, so it shares
- * nothing with the whole-book seconds an audiobook position uses.
- */
+/** Reader position: a spine document plus an offset, unrelated to audiobook seconds. */
 export interface BookReadingProgress {
   edition_id: number;
   book_id: number;
@@ -414,10 +369,7 @@ export interface BookReadingProgress {
   /** Which file the position was recorded against; an edition can hold several. */
   file_id: number | null;
   spine_index: number;
-  /**
-   * The spine document's path inside the archive. A re-download can reorder the
-   * spine, so a client verifies this before trusting `spine_index`.
-   */
+  /** Spine document path in the archive; verify it before trusting `spine_index`, since a re-download can reorder the spine. */
   spine_path: string;
   spine_count: number;
   /** 0–1 scroll offset within the spine document. */
@@ -445,11 +397,7 @@ export interface BookReadingProgressRequest {
   device_id?: string;
 }
 
-/**
- * Book discovery (Explore). Ranked bestseller lists from pluggable external
- * sources — the leslibraires Palmarès and NYT Bestsellers — enriched by ISBN
- * through the metadata provider chain.
- */
+/** Explore: ranked bestseller lists from external sources, enriched by ISBN through the provider chain. */
 export type BookDiscoverySourceId = "leslibraires" | "nyt";
 
 export interface BookDiscoveryBook {

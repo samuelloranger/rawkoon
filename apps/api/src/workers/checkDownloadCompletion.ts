@@ -24,14 +24,7 @@ import {
 } from "@rawkoon/api/workers/downloadReconcilePolicy";
 import { findBlockedFile } from "@rawkoon/api/services/seeding/seedPolicy";
 
-/**
- * Reconcile — one pass comparing pending DownloadHistory rows against the
- * download client, deciding per row whether it completed, failed, stalled, or
- * should keep waiting.
- *
- * This module owns polling cadence and stall/max-age policy only. The
- * transitions themselves belong to services/downloads/downloadOutcome.ts.
- */
+/** One pass over pending DownloadHistory rows; owns polling cadence and stall/max-age policy, while transitions live in downloadOutcome. */
 
 export {
   classifyPendingAgainstTorrent,
@@ -70,23 +63,12 @@ export type PendingReconcileResult = {
 /** Production state for the scheduled job. */
 const pollState = createReconcileState();
 
-/**
- * Clear the poll gate so the next `checkDownloadCompletion()` runs immediately.
- *
- * Callers MUST invoke this *before* enqueuing the check job: the job returns
- * early while the gate is closed, so enqueuing first makes the wake a no-op.
- */
+/** Clear the poll gate; call it BEFORE enqueuing the check job, which returns early while the gate is closed. */
 export function requestImmediatePoll(): void {
   pollState.nextPollAtMs = 0;
 }
 
-/**
- * Reconcile a set of pending (non-completed, non-failed) download_history rows
- * against normalized download-client state. If `treatMissingAsFailed` is true,
- * rows whose torrent is absent are marked failed and the library status
- * reverted — used by the rescan action so the UI isn't stuck on "downloading"
- * when the user deleted the torrent out-of-band.
- */
+/** Reconcile pending rows against client state; `treatMissingAsFailed` (rescan) fails rows whose torrent was deleted out-of-band. */
 export async function reconcilePendingDownloads(
   pending: Array<{
     id: number;
@@ -103,17 +85,9 @@ export async function reconcilePendingDownloads(
     treatMissingAsFailed?: boolean;
     settings?: ReconcileSettings;
     state?: ReconcileState;
-    /**
-     * Torrent source. Defaults to the configured download client; passed in by
-     * callers that already hold an adapter, and by tests, which then need no
-     * module mocking to drive the loop.
-     */
+    /** Torrent source; injectable so tests need no module mocking. */
     listTorrents?: () => Promise<NormalizedTorrent[]>;
-    /**
-     * The transitions this loop delegates to. Defaults to the download outcome
-     * module — injectable so a test can assert what the loop *decided* without
-     * standing up the DB behind what the outcome then *does*.
-     */
+    /** Outcome transitions; injectable so tests can assert decisions without the DB. */
     outcome?: DownloadOutcomeHandlers;
     /** File listing for the blocked-extension check; defaults to the active client. */
     listFiles?: (hash: string) => Promise<string[] | null>;
@@ -145,10 +119,7 @@ export async function reconcilePendingDownloads(
     torrents = await listTorrents();
   } catch (error) {
     console.warn("[reconcilePendingDownloads] listTorrents failed:", error);
-    // `pending.length` is already known > 0 here (checked above), so this is a
-    // transient client-unreachable failure, not an idle period. Keeping
-    // lastReconcileHadActive true stops the idle backoff ramp from firing on a
-    // blip and pushing the next real check out to minutes away.
+    // Pending is non-empty here, so this is a client blip; keep lastReconcileHadActive true to avoid the idle backoff.
     state.lastReconcileHadActive = true;
     return result;
   }
@@ -171,8 +142,7 @@ export async function reconcilePendingDownloads(
           );
           result.missing += 1;
         }
-        // The row is gone from the client either way — stop tracking it, or the
-        // map grows for every torrent the user ever removed out-of-band.
+        // Stop tracking, or the map grows for every torrent removed out-of-band.
         state.stallTracks.delete(dh.id);
         state.filesChecked.delete(dh.id);
         continue;
@@ -220,8 +190,7 @@ export async function reconcilePendingDownloads(
       );
 
       if (verdict.outcome === "wait") {
-        // Anything the client still intends to finish keeps the fast cadence.
-        // A paused torrent is excluded — it will not move until the user acts.
+        // Anything still intended to finish keeps the fast cadence; a paused torrent won't move until the user acts.
         if (match.state !== "paused") state.lastReconcileHadActive = true;
         if (verdict.progressed) {
           track.lastProgress = match.progress;
@@ -247,9 +216,7 @@ export async function reconcilePendingDownloads(
         continue;
       }
 
-      // Prefer the hash: several rows can share it after a retry or re-grab,
-      // and it also carries the recovery case for a row already marked complete
-      // whose file never reached the library.
+      // Prefer the hash: rows can share it after a re-grab, and it covers a completed row whose file never reached the library.
       const completedId = dh.torrentHash
         ? await outcome.completeDownloadByHash(dh.torrentHash)
         : null;
@@ -268,30 +235,10 @@ export async function reconcilePendingDownloads(
   return result;
 }
 
-/**
- * In-flight reconcile, so overlapping triggers coalesce instead of racing.
- *
- * The scheduled-tasks worker runs at concurrency 3 and there are now three ways
- * to trigger a pass: the 20s cron tick, a hook wake, and a second hook wake from
- * a torrent that finished moments later. Without this guard two passes can read
- * the same pending snapshot; the first completes a row, and the second then hits
- * `completeDownloadByHash`'s already-complete recovery branch, which enqueues
- * post-processing with `force` — a deliberately unique job id that bypasses
- * BullMQ's dedupe. The same download would be imported twice, which is exactly
- * the duplicate-hook idempotency the hook design claims to have.
- */
+/** In-flight reconcile: overlapping triggers must coalesce, or two passes import the same download twice via the forced recovery branch. */
 let reconcileInFlight: Promise<void> | null = null;
 
-/**
- * Run `pass`, or join the one already running.
- *
- * Awaiting the shared promise (rather than returning immediately) keeps each
- * BullMQ job's lifetime honest: it stays "active" until the work it asked for
- * has actually finished.
- *
- * Exported so the coalescing itself is testable — `checkDownloadCompletion`
- * reaches Prisma, which the test preload stubs out.
- */
+/** Run `pass` or join the running one; awaiting keeps each job active until the work finishes. Exported for tests. */
 export async function runCoalescedPass(
   pass: () => Promise<void>,
 ): Promise<void> {
@@ -306,24 +253,13 @@ export async function checkDownloadCompletion(): Promise<void> {
   return await runCoalescedPass(runDownloadCompletionPass);
 }
 
-/**
- * Above this, log that the active set is abnormally large. Deliberately a
- * warning and not a `take`: a row whose torrent is absent from the client stays
- * pending forever on a scheduled pass (reconcilePendingDownloads only fails
- * those when treatMissingAsFailed is set, which just the rescan path does), so
- * an oldest-first page could fill with orphans and starve every newer download
- * of completion and import. The query itself no longer needs a bound — the
- * partial index makes it 0.014ms at 47k rows.
- */
+/** Warn-only threshold: a `take` would let orphaned pending rows starve newer downloads; the partial index keeps the query cheap. */
 const PENDING_RECONCILE_WARN_AT = 500;
 
 async function runDownloadCompletionPass(): Promise<void> {
   const [pending, settings] = await Promise.all([
     prisma.downloadHistory.findMany({
-      // Served end-to-end by the partial index
-      // ix_download_history_active_grabbed_at, which covers this filter AND
-      // the grabbed_at sort. This runs every ~20s against a table that only
-      // grows; measured at 47k rows it is 0.014ms vs 12.6ms without it.
+      // Served by partial index ix_download_history_active_grabbed_at (filter and sort).
       where: { completedAt: null, failed: false },
       select: {
         id: true,

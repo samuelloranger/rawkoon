@@ -1,28 +1,11 @@
 import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
 import { BookProviderUnavailableError } from "@rawkoon/api/services/books/types";
 
-/**
- * Scraper for the weekly Palmarès (Gaspard) bestseller lists on leslibraires.ca,
- * the Québec independent-bookstore co-op. It is the only free "most-sold
- * francophone books" signal available — Google Books has no popularity ranking
- * and the paid Gaspard/BTLF feed is membership-gated — so it backs the books
- * Explore "popular" shelf the way TMDB's trending endpoint backs movies/TV.
- *
- * The page has no public API, but it ships a schema.org `ItemList` in a
- * `<script type="application/ld+json">` block. That structured data is far more
- * stable than the visual DOM, so we parse it and nothing else: a CSS reskin
- * breaks the layout, not this. It yields rank + title + product URL (which
- * carries the ISBN-13); author/genre/overview are intentionally left to the
- * existing provider chain via `resolveIsbn`, so this file stays a pure ranking
- * source and never duplicates metadata mapping.
- */
+/** Scrapes the weekly Palmarès bestseller lists from leslibraires.ca via the schema.org `ItemList` JSON-LD (more stable than the DOM); other metadata is left to `resolveIsbn`. */
 
 const BASE_URL = "https://www.leslibraires.ca/theme";
 
-/**
- * A descriptive User-Agent — this scrapes a small co-op's site, so identify the
- * client honestly rather than spoofing a browser.
- */
+/** Descriptive User-Agent: this scrapes a small co-op's site, so don't spoof a browser. */
 const USER_AGENT =
   "Rawkoon/1.x (self-hosted media library; +https://github.com/samuelloranger/rawkoon)";
 
@@ -53,11 +36,7 @@ export interface PalmaresEntry {
   url: string;
   /** Cover image on leslibraires' CDN; null when the ISBN is missing. */
   coverUrl: string | null;
-  /**
-   * Author, synopsis and year, scraped from the product page. leslibraires is
-   * the authority for francophone-Québec titles that Google Books does not
-   * index, so we read these here rather than depending on later enrichment.
-   */
+  /** Scraped from the product page: leslibraires covers francophone-Québec titles Google Books lacks. */
   author: string | null;
   overview: string | null;
   publishedYear: number | null;
@@ -69,11 +48,7 @@ const DETAIL_CACHE_TTL = 24 * 60 * 60;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/**
- * Product URLs carry the ISBN-13 as the last path token: `…-<isbn13>`, then a
- * `.html` suffix, a `?utm…` query, or nothing. Match 13 digits after a hyphen
- * not followed by a further digit, so every suffix form is covered.
- */
+/** Product URLs end in `-<isbn13>` then `.html`, a `?utm…` query or nothing; match 13 digits not followed by a digit. */
 const isbnFromUrl = (url: string): string | null => {
   const match = url.match(/-(\d{13})(?!\d)/);
   return match ? match[1] : null;
@@ -98,11 +73,7 @@ interface JsonLdItemList {
   itemListElement?: JsonLdListItem[];
 }
 
-/**
- * Pull every `application/ld+json` block out of the page and return the first
- * that is an `ItemList`. Malformed blocks are skipped, not fatal — the page
- * also embeds a `LocalBusiness` block that must be ignored.
- */
+/** First `ItemList` JSON-LD block; malformed blocks are skipped and the `LocalBusiness` block ignored. */
 function extractItemList(html: string): JsonLdItemList | null {
   const blocks = html.matchAll(
     /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi,
@@ -125,11 +96,7 @@ function extractItemList(html: string): JsonLdItemList | null {
   return null;
 }
 
-/**
- * Parse a palmarès page's HTML into ranked entries. Exported and pure so the
- * fragile bits — JSON-LD extraction and the ISBN-suffix parsing — are tested
- * against a saved fixture without a network round-trip.
- */
+/** Pure and exported so JSON-LD extraction and ISBN parsing are testable against a fixture. */
 export function parsePalmaresHtml(html: string): PalmaresEntry[] {
   const list = extractItemList(html);
   if (!list?.itemListElement) return [];
@@ -170,11 +137,7 @@ export interface PalmaresProductDetails {
   publishedYear: number | null;
 }
 
-/**
- * Parse the `Product`/`Book` JSON-LD block on a leslibraires product page.
- * The block carries the author, full synopsis, a large cover, and the
- * publication date — everything the detail view needs for a francophone title.
- */
+/** Parse the `Product`/`Book` JSON-LD block on a product page. */
 export function parseProductDetails(html: string): PalmaresProductDetails {
   const empty: PalmaresProductDetails = {
     author: null,
@@ -256,8 +219,7 @@ async function enrichFromProductPages(entries: PalmaresEntry[]): Promise<void> {
       entry.author = details.author ?? entry.author;
       entry.overview = details.overview ?? entry.overview;
       entry.publishedYear = details.publishedYear ?? entry.publishedYear;
-      // Prefer the product page's own cover URL over the guessed CDN path — some
-      // titles have no cover at the guessed size and would render blank.
+      // Prefer the page's own cover: some titles have none at the guessed CDN size.
       entry.coverUrl = details.coverUrl ?? entry.coverUrl;
     }
   };
@@ -269,11 +231,7 @@ async function enrichFromProductPages(entries: PalmaresEntry[]): Promise<void> {
   );
 }
 
-/**
- * Fetch the raw HTML with retry on 5xx/network failure. Throws
- * BookProviderUnavailableError so callers can tell "the site is down" from "the
- * list is empty" — and so the caller never caches a transient failure.
- */
+/** Fetch HTML with retry; throws BookProviderUnavailableError so a transient failure isn't mistaken for an empty list or cached. */
 async function fetchPalmaresHtml(theme: PalmaresTheme): Promise<string> {
   const slug = PALMARES_THEMES[theme];
   const url = `${BASE_URL}/${slug}`;
@@ -305,11 +263,7 @@ async function fetchPalmaresHtml(theme: PalmaresTheme): Promise<string> {
   );
 }
 
-/**
- * The weekly bestseller list for one palmarès theme, cached for half a day.
- * A successful-but-empty parse is not cached — an empty result usually means the
- * page markup shifted, and caching it would hide the shelf for the whole TTL.
- */
+/** Weekly list for one theme, cached half a day; an empty parse isn't cached since it usually means the markup shifted. */
 export async function getPalmares(
   theme: PalmaresTheme = "general",
   opts: { skipCache?: boolean } = {},

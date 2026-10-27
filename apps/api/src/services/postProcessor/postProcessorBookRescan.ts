@@ -32,10 +32,7 @@ type KnownFile = {
   fileMtimeMs: bigint | null;
 };
 
-/**
- * Drop rows whose file is gone, so a rescan also cleans up after a manual
- * deletion on disk. Returns the surviving rows by path and the removed count.
- */
+/** Drop rows whose file is gone; returns surviving rows by path and the removed count. */
 async function dropMissingRows(editionId: number) {
   let removed = 0;
   const known = await prisma.bookFile.findMany({
@@ -64,8 +61,7 @@ async function dropMissingRows(editionId: number) {
 
 async function invalidateChapterTimeline(editionId: number): Promise<void> {
   await prisma.$transaction(async (tx) => {
-    // A changed file set invalidates the whole chapter timeline because each
-    // chapter's start/end offsets are cumulative from all prior chapters.
+    // A changed file set invalidates the chapter timeline: offsets are cumulative.
     await tx.bookChapter.deleteMany({ where: { editionId } });
     await tx.bookEdition.update({
       where: { id: editionId },
@@ -79,9 +75,7 @@ function candidateDirs(ctx: EditionContext, rowPaths: string[]): string[] {
   const { edition, kind, libraryRoot, template } = ctx;
   const allowedFormats = edition.bookQualityProfile?.allowedFormats ?? [];
 
-  // The template's own format token is unknown before scanning, so try each
-  // allowed format's rendering plus a format-less one. Whichever directory
-  // exists is the edition's.
+  // The template's format token is unknown pre-scan, so try each allowed format plus a format-less one.
   const candidateFormats: (string | null)[] = [
     ...(allowedFormats.length > 0 ? allowedFormats : []),
     null,
@@ -102,14 +96,7 @@ function candidateDirs(ctx: EditionContext, rowPaths: string[]): string[] {
     return join(libraryRoot, relDir);
   });
 
-  // A metadata refresh can change {title} or {year} after the import that
-  // created the directory: "La femme de ménage (2023)" on disk, publishedYear
-  // now 2024. Re-rendering the template then names a directory that never
-  // existed, and the rescan answered "no files found in the library for this
-  // edition" about files sitting right there. The parent directories of the
-  // rows already on the edition are the fallback — that is where the files
-  // actually are. Rendered names come first, so a library that really was
-  // renamed to match new metadata still wins.
+  // A metadata refresh can change {title}/{year} after import, so re-rendering names a nonexistent dir; fall back to the existing rows' parents, rendered names first.
   const rowDirs = [...new Set(rowPaths.map((p) => dirname(p)))];
   return [...renderedDirs, ...rowDirs];
 }
@@ -142,12 +129,7 @@ async function findEditionFiles(
   return { directory: null, keepers: [] };
 }
 
-/**
- * True when the keeper's bytes are unchanged from its existing row. Probing
- * costs an ffprobe spawn each time; on a 60+ chapter audiobook that made every
- * rescan take tens of seconds — a cost the iOS client paid on every open of a
- * book whose manifest was not ready yet.
- */
+/** True when the keeper's bytes match its existing row; skips an ffprobe spawn per chapter, which made rescans take tens of seconds. */
 function isUnchanged(
   prior: KnownFile | undefined,
   st: Stats,
@@ -171,10 +153,7 @@ async function syncKeepers(
 ) {
   let registered = 0;
   let refreshed = 0;
-  // Files whose bytes actually changed, as opposed to the ones the fast path
-  // left alone. A chapter replaced or re-encoded in place keeps its row,
-  // so it counts as neither registered nor removed — but its duration moved,
-  // which shifts every cumulative offset after it in the timeline.
+  // Files whose bytes changed in place: neither registered nor removed, but their duration shifts later offsets.
   let reprobed = 0;
   for (const keeper of keepers) {
     let st: Stats | null = null;
@@ -222,21 +201,7 @@ async function syncKeepers(
   return { registered, refreshed, reprobed };
 }
 
-/**
- * Register files already sitting in the library for an edition that has none.
- *
- * Two situations produce that state, and both were unreachable before this
- * existed:
- *
- *  - Removing a book keeps its files on disk by design. Re-adding the book
- *    creates a fresh edition with no file rows, so the library shows it as
- *    wanted while the file is right there.
- *  - A post-process that placed files but failed before writing its rows.
- *
- * Mirrors the pre-scan postProcessorSingle does for media. It only ever looks
- * inside the directory the naming template points at, so it cannot sweep in
- * unrelated files, and it drops rows whose file has since disappeared.
- */
+/** Register files already in the library for an edition with none (e.g. a re-added book whose files were kept, or a post-process that failed before writing rows); only scans the template's directory. */
 export async function rescanBookEdition(editionId: number): Promise<{
   /** Files that had no row before this scan. */
   registered: number;
@@ -266,8 +231,7 @@ export async function rescanBookEdition(editionId: number): Promise<{
   );
 
   if (keepers.length === 0) {
-    // Nothing on disk. If rows were removed the edition no longer has files,
-    // so put it back to wanted rather than leaving a lie on screen.
+    // Nothing on disk: if rows were removed, put the edition back to wanted.
     if (removed > 0) {
       await invalidateChapterTimeline(editionId);
       await prisma.bookEdition.update({
@@ -301,11 +265,7 @@ export async function rescanBookEdition(editionId: number): Promise<{
     shouldEmitBookUpdate = true;
   }
 
-  // Registering the chapter timeline is what flips `offlineReady`, and nothing
-  // in the import path was doing it — so a chapterized audiobook stayed "not
-  // offline-ready" forever, every manifest request 400'd, and every client that
-  // asked triggered yet another rescan. Runs after the invalidation above so it
-  // rebuilds rather than races it.
+  // Registering the chapter timeline flips `offlineReady`; runs after the invalidation above so it rebuilds rather than races.
   if (
     kind === "audiobook" &&
     (registered > 0 || removed > 0 || reprobed > 0 || !edition.offlineReady)

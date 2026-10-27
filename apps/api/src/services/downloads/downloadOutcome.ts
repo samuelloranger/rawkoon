@@ -7,23 +7,7 @@ import { notifyRequestAvailable } from "@rawkoon/api/services/mediaRequests";
 import { resolveDownloadedStatus } from "@rawkoon/api/utils/medias/libraryHelpers";
 import { notifyAdminsLibraryDownloadFailed } from "@rawkoon/api/workers/notifyLibraryEvents";
 
-/**
- * Download outcome — the terminal transition of a DownloadHistory row.
- *
- * Every path that finishes a download goes through this module: the reconcile
- * loop, duplicate adoption, rescan, and the admin retry-post-process endpoint.
- * Nothing else writes a terminal DownloadHistory state.
- *
- * A terminal transition is never just the DownloadHistory row — it carries the
- * library status change on the parent media/episode, the request notification,
- * and the post-process job it schedules. Keeping those together is the point of
- * this module: they used to be spread across the completion worker, a
- * fire-and-forget "queue" that had no queue, and three call sites that each
- * did a subset.
- *
- * Grab-time failure (a release that was never handed to the download client) is
- * NOT a download outcome and stays in the grab path.
- */
+/** The only place a DownloadHistory row reaches a terminal state; grab-time failures stay in the grab path. */
 
 /** The minimum a caller must know about a row to finish it. */
 export type DownloadRef = {
@@ -34,18 +18,11 @@ export type DownloadRef = {
   bookEditionId?: number | null;
 };
 
-/**
- * If no other active grab exists for the item, unblock it: `downloading` falls
- * back to `wanted`, and an in-flight upgrade falls back to `downloaded` (the
- * file it was upgrading is still there).
- *
- * Two triggers, one rule: a download failed, or an operator deleted a file.
- */
+/** Unblock an item with no other active grab: `downloading` -> `wanted`, in-flight upgrade -> `downloaded`. */
 export async function revertToWantedIfNoActiveGrabs(
   dh: DownloadRef,
 ): Promise<void> {
-  // Books first: a book row has no mediaId, so without this a failed book
-  // download would leave its edition stuck on "downloading" forever.
+  // Books first: a book row has no mediaId, so a failed book download would stay "downloading".
   if (dh.bookEditionId != null) {
     const otherBookPending = await prisma.downloadHistory.count({
       where: {
@@ -109,13 +86,7 @@ export async function revertToWantedIfNoActiveGrabs(
   }
 }
 
-/**
- * The DB half of a completion: stamp the row, move the item to its downloaded
- * state, and clear search attempts.
- *
- * `resolveDownloadedStatus` matters for shows — an airing series is not
- * "downloaded" just because one grab finished.
- */
+/** DB half of a completion; shows use `resolveDownloadedStatus` because an airing series isn't done after one grab. */
 async function applyCompletionTransition(dh: DownloadRef): Promise<void> {
   const completedAt = new Date();
   await prisma.downloadHistory.update({
@@ -150,12 +121,7 @@ async function applyCompletionTransition(dh: DownloadRef): Promise<void> {
   }
 }
 
-/**
- * Finish a download: apply the transition, tell listeners, notify any waiting
- * requester, and schedule post-processing.
- *
- * Returns the DownloadHistory id that was completed.
- */
+/** Finish a download: transition, notify listeners and requester, schedule post-processing. */
 export async function completeDownload(dh: DownloadRef): Promise<number> {
   await applyCompletionTransition(dh);
 
@@ -165,11 +131,7 @@ export async function completeDownload(dh: DownloadRef): Promise<number> {
     await notifyRequestAvailable(dh.mediaId);
   }
 
-  // Scheduling must not undo the transition. The row is already stamped
-  // complete, and the reconcile loop only revisits rows with completedAt: null
-  // — so letting a queue outage throw here would strand the file with nothing
-  // recording why. Persist the reason instead: the UI surfaces it and rescan
-  // can re-queue.
+  // Scheduling failure must not undo the transition (reconcile skips completed rows), so persist the reason.
   try {
     await enqueuePostProcess(dh.id);
   } catch (e) {
@@ -188,16 +150,7 @@ export async function completeDownload(dh: DownloadRef): Promise<number> {
   return dh.id;
 }
 
-/**
- * Complete the download owned by a torrent hash.
- *
- * When several rows share a hash (common after retries and re-grabs) the newest
- * *pending* row wins. If none is pending, the newest already-completed row is
- * re-queued for post-processing instead — the recovery handle for a download
- * marked complete in the DB whose file never reached the library.
- *
- * Returns the DownloadHistory id handled, or null when the hash is unknown.
- */
+/** Complete the newest pending row for a hash, else re-queue the newest completed one (recovery for a file that never landed). */
 export async function completeDownloadByHash(
   hash: string,
 ): Promise<number | null> {
@@ -218,9 +171,7 @@ export async function completeDownloadByHash(
   // A kept row whose library item was removed only seeds; there is nothing to import.
   if (completed.mediaId == null && completed.bookEditionId == null) return null;
 
-  // force: this is the recovery path for a row whose file never landed. A
-  // completed job for the same row may still be retained by the queue, and
-  // BullMQ ignores an add whose id already exists.
+  // force: a retained completed job with the same id would make the add a no-op.
   await enqueuePostProcess(completed.id, { force: true });
   return completed.id;
 }
@@ -249,13 +200,7 @@ export async function failDownload(
   }
 }
 
-/**
- * Attach an existing client torrent to a DownloadHistory row instead of adding
- * the torrent again.
- *
- * An adopted torrent that is already complete produces a full completion — the
- * same one a fresh grab would, including the request notification.
- */
+/** Attach an existing client torrent to a row; one already complete gets a full completion. */
 export async function adoptDownload(ctx: {
   dh: DownloadRef;
   torrentHash: string;
@@ -302,13 +247,7 @@ export async function adoptDownload(ctx: {
   }
 }
 
-/**
- * Build the job id for a post-process run.
- *
- * Hyphens, not colons: BullMQ reserves `:` as its key separator and rejects a
- * custom id containing one (the only exception is a three-segment id, kept for
- * repeatable-job compatibility — not something to rely on).
- */
+/** Hyphens, not colons: BullMQ rejects custom job ids containing `:`. */
 export function postProcessJobId(
   downloadHistoryId: number,
   opts: { force?: boolean; nowMs?: number } = {},
@@ -317,18 +256,7 @@ export function postProcessJobId(
   return opts.force ? `${base}-${opts.nowMs ?? Date.now()}` : base;
 }
 
-/**
- * Schedule post-processing for a completed download.
- *
- * The job id keeps a row from being queued twice while a run is pending.
- * `force` bypasses that, and every *recovery* enqueue uses it — rescan, the
- * already-complete branch of `completeDownloadByHash`, and the admin retry —
- * because a retained completed job would otherwise make the add a silent no-op
- * that still reports success.
- *
- * Returns false when post-processing is disabled, in which case nothing is
- * queued at all.
- */
+/** Schedule post-processing; `force` bypasses the dedupe id, which a retained completed job would turn into a silent no-op. */
 export async function enqueuePostProcess(
   downloadHistoryId: number,
   opts: { force?: boolean } = {},
@@ -341,10 +269,7 @@ export async function enqueuePostProcess(
 
   const jobId = postProcessJobId(downloadHistoryId, opts);
 
-  // Loaded lazily: queueService constructs BullMQ queues and opens a redis
-  // client at import time, so pulling it into this module's import graph would
-  // stand up redis for every consumer of a download outcome — including tests
-  // that only exercise the DB transition.
+  // Lazy: queueService opens redis at import time, which DB-only consumers and tests must not trigger.
   const { addJob, POST_PROCESS_JOB_NAME, QUEUE_NAMES } = await import(
     "@rawkoon/api/services/queueService"
   );

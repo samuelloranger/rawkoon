@@ -20,32 +20,10 @@ const API_BASE = "https://www.googleapis.com/books/v1/volumes";
 const CACHE_TTL_SEARCH = 3600; // 1h
 const CACHE_TTL_VOLUME = 86_400; // 24h
 
-/**
- * How many sibling editions to pull for an ISBN lookup.
- *
- * Google's `isbn:` query returns related printings of the same work, not a
- * strict identifier match. Taking the first hit with maxResults=1 is what
- * mapped a French Lumen ISBN onto the English Tor volume. Ten is enough to
- * cover the usual English + translation cluster without wasting quota.
- */
+/** Google's `isbn:` query returns sibling printings, so fetch several and pick; maxResults=1 mapped an ISBN onto the wrong edition. */
 const ISBN_LOOKUP_LIMIT = 10;
 
-/**
- * Every rule below came out of testing this API live against a French-language
- * title on 2026-08-20:
- *
- *  - Quoted phrase queries return HTTP 503. Unquoted ones return 200.
- *  - `isbn:` and `inauthor:` are precise; loose free text returned 300 hits
- *    with a university staff directory outranking the actual book.
- *  - HTTP 503 `backendFailed` is nondeterministic — the same URL failed three
- *    times and then succeeded — so retry, and never cache the failure.
- *  - Records are sparse: pageCount 0, empty description, null categories and
- *    null seriesInfo all occur on real volumes. Only title, authors and
- *    language can be relied on.
- *  - An `isbn:` query for a French edition still ranks the English original
- *    first. Prefer the volume that carries the queried ISBN; fall back to the
- *    registration-group language when no exact identifier match exists.
- */
+/** Live-tested quirks: quoted phrases 503, `backendFailed` 503s are transient (retry, never cache), and records are sparse. */
 
 const MAX_ATTEMPTS = 4;
 const RETRY_BASE_MS = 250;
@@ -99,16 +77,7 @@ const isbn13From = (v: unknown): string | null => {
 /** Digits only; drops hyphens and spaces. */
 export const isbnDigits = (raw: string): string => raw.replace(/[\s-]/g, "");
 
-/**
- * Canonical ISBN-13 for an ISBN of either length, or null when the input is
- * not an ISBN at all.
- *
- * Everything downstream compares and stores 13 digits: `industryIdentifiers`
- * exposes ISBN_13, and only an ISBN-13 has a registration group to read a
- * language from. Without this conversion a 10-digit identifier can never match
- * a volume exactly and never resolves a language, so it silently fell through
- * to whatever Google ranked first.
- */
+/** Canonical ISBN-13 (or null); only 13-digit ids match `industryIdentifiers` and carry a registration group for language. */
 export function toIsbn13(raw: string): string | null {
   const digits = isbnDigits(raw);
   if (/^\d{13}$/.test(digits)) return digits;
@@ -121,21 +90,7 @@ export function toIsbn13(raw: string): string | null {
   return `${core}${(10 - (sum % 10)) % 10}`;
 }
 
-/**
- * Pick the Google Books hit that actually is the edition the operator asked
- * for.
- *
- * Order of preference:
- *  1. Exact isbn13 match (the operator's identifier is on that volume).
- *  2. Language matching the ISBN registration group (978-2 → fr, …).
- *  3. First mapped hit — last resort when Google returns nothing usable.
- *
- * `strict` stops at tier 1. Tiers 2 and 3 are guesses, which is acceptable
- * when the answer is one search result among many but not when it decides a
- * book's identity: a rebind rewrites volumeId, title and language, and
- * pinQueriedIsbn then stamps the queried ISBN on the guess, hiding the
- * mismatch that would otherwise be visible.
- */
+/** Prefer the volume carrying the queried ISBN, then the registration-group language; `strict` stops at the exact match because a rebind must not act on a guess. */
 export function pickBookForIsbn(
   books: ProviderBook[],
   queriedIsbn: string,
@@ -160,13 +115,7 @@ export function pickBookForIsbn(
   return books[0] ?? null;
 }
 
-/**
- * Force the operator's ISBN onto the chosen volume.
- *
- * Google may attach a sibling edition's ISBN_13 as the "primary" identifier,
- * or the language field may disagree with the registration group. After an
- * ISBN search the typed identifier is the source of truth for both.
- */
+/** The typed ISBN is the source of truth over Google's primary identifier and language. */
 export function pinQueriedIsbn(
   book: ProviderBook,
   queriedIsbn: string,
@@ -177,11 +126,7 @@ export function pinQueriedIsbn(
   return { ...book, isbn13: digits, language };
 }
 
-/**
- * Google returns only `smallThumbnail` and `thumbnail`, both far too small for
- * a library grid. The content endpoint renders the same cover larger, so
- * prefer it and keep the thumbnail as a fallback.
- */
+/** The content endpoint renders a larger cover than Google's tiny thumbnails; keep the thumbnail as fallback. */
 const coverFrom = (volumeId: string, links: unknown): string | null => {
   if (volumeId) {
     return `https://books.google.com/books/content?id=${encodeURIComponent(
@@ -222,9 +167,7 @@ const mapVolume = (raw: GoogleVolume): ProviderBook | null => {
   }
 
   const isbn13 = isbn13From(info.industryIdentifiers);
-  // Google's `language` is unreliable — a French volume with a French
-  // publisher, description and ISBN came back as Arabic. Cross-check it
-  // against the ISBN registration group and prefer that when they disagree.
+  // Google's `language` is unreliable (a French volume came back as Arabic), so prefer the ISBN registration group.
   const { language, correctedFrom } = reconcileBookLanguage(
     str(info.language),
     isbn13,
@@ -244,9 +187,7 @@ const mapVolume = (raw: GoogleVolume): ProviderBook | null => {
     publishedYear: yearFrom(info.publishedDate),
     isbn13,
     coverUrl: coverFrom(volumeId, info.imageLinks),
-    // Descriptions arrive as markup. Sanitized on ingest so the database only
-    // ever holds clean HTML; the renderer sanitizes again, which covers rows
-    // stored before this existed.
+    // Sanitized on ingest; the renderer sanitizes again for older rows.
     overview: sanitizeProviderHtml(str(info.description)) || null,
     seriesName,
     seriesPosition,
@@ -273,11 +214,7 @@ async function loadCountry(): Promise<string> {
   }
 }
 
-/**
- * Fetch with retry on 5xx. Throws BookProviderUnavailableError when the
- * provider errored, so callers can tell "unavailable" from "no results" —
- * never conflate the two, and never cache the former.
- */
+/** Retries 5xx; throws BookProviderUnavailableError so callers can tell "unavailable" from "no results". */
 async function fetchVolumes(
   query: string,
   apiKey: string,
@@ -329,11 +266,7 @@ async function fetchVolumes(
   );
 }
 
-/**
- * Cache successful lookups only. A BookProviderUnavailableError propagates
- * uncached — caching a 503 as an empty result would hide the book until the
- * TTL expired.
- */
+/** Caches successes only: caching a 503 as empty would hide the book until the TTL expired. */
 async function cachedVolumes(
   cacheKey: string,
   ttl: number,
@@ -440,17 +373,13 @@ export class GoogleBooksProvider implements BookIdentityProvider {
     const digits = isbnDigits(isbn13);
     const canonical = toIsbn13(digits);
     if (!canonical) return null;
-    // Cache key bumped to v2: v1 stored the first Google hit regardless of
-    // whether it carried the queried ISBN, and those wrong answers live for
-    // 24h. Busting the key is cheaper than teaching the picker to un-poison
-    // a stale singleton list.
+    // Cache key v2: v1 cached the first hit even without the queried ISBN.
     const results = await cachedVolumes(
       `books:gb:isbn:v2:${digits}`,
       CACHE_TTL_VOLUME,
       () => this.run(`isbn:${digits}`, ISBN_LOOKUP_LIMIT),
     );
-    // Queried as typed — Google indexes both lengths — but matched against the
-    // canonical 13-digit form, which is the only one a volume record carries.
+    // Queried as typed, matched against the canonical ISBN-13 volumes carry.
     const picked = pickBookForIsbn(results, canonical, opts);
     return picked ? pinQueriedIsbn(picked, canonical) : null;
   }
@@ -470,8 +399,7 @@ export class GoogleBooksProvider implements BookIdentityProvider {
       ),
     ].sort();
 
-    // langRestrict is part of the cache key: the unrestricted result and the
-    // fr-only result are different answers to different questions.
+    // langRestrict is in the cache key because it changes the answer.
     const cacheKey = `books:gb:author:${this.country}:${name.toLowerCase()}:${limit}:${
       languages.join(",") || "any"
     }`;
@@ -495,8 +423,7 @@ export class GoogleBooksProvider implements BookIdentityProvider {
     if (!volumeId) return {};
     const meta = await this.getBook(volumeId);
     if (!meta) return {};
-    // Only the fields Google actually supplies. Everything it does not know is
-    // absent rather than null, so a lower-priority source can still fill it.
+    // Unknown fields stay absent (not null) so a lower-priority source can fill them.
     const fields: ProviderFields = {
       title: meta.title,
       subtitle: meta.subtitle,
@@ -509,25 +436,13 @@ export class GoogleBooksProvider implements BookIdentityProvider {
       seriesName: meta.seriesName,
       seriesPosition: meta.seriesPosition,
     };
-    /**
-     * Never overwrite an ISBN the book already has — the same rule Audnexus
-     * follows.
-     *
-     * A volume record lists one ISBN_13 as primary and it is regularly a
-     * sibling printing's, so contributing it walks the operator's typed
-     * identifier away on the very next refresh. Filling an empty isbn13 is
-     * still useful.
-     */
+    /** Never overwrite an existing ISBN: Google's primary ISBN_13 is often a sibling printing's. */
     if (book.isbn13) delete fields.isbn13;
     return fields;
   }
 }
 
-/**
- * Returns the configured provider, or null when Google Books is not set up.
- * Books require a key: keyless Google Books is quota-exhausted in practice, so
- * there is no useful degraded mode.
- */
+/** Null when no key is set: keyless Google Books is quota-exhausted, so there is no degraded mode. */
 export async function getBookMetadataProvider(): Promise<BookIdentityProvider | null> {
   const cfg = await loadConfig();
   if (!cfg) return null;

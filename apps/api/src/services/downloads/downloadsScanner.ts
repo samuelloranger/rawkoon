@@ -27,11 +27,7 @@ const DB_PAGE_SIZE = 500;
 let cachedInodeKeySet: Set<string> | null = null;
 let cachedInodeExpiresAt = 0;
 
-/**
- * Library inode index for hardlink detection. Cached for 30s.
- * Prefers persisted MediaFile.fileDev/fileIno; only stats rows missing them
- * (and backfills the fingerprint columns).
- */
+/** Library inode index for hardlink detection, cached 30s; stats only rows missing persisted fileDev/fileIno and backfills them. */
 export async function buildLibraryInodeKeySet(
   refresh = false,
 ): Promise<Set<string>> {
@@ -43,9 +39,7 @@ export async function buildLibraryInodeKeySet(
   const keys = new Set<string>();
   const needStat: Array<{ id: number; filePath: string }> = [];
 
-  // Cursor batches, folded into the key set as they arrive: the result covers
-  // the whole table, but a large library never materializes every media_file
-  // row in one buffer.
+  // Cursor batches folded into the key set so a large library never materializes every row at once.
   let cursor: { id: number } | undefined;
   for (;;) {
     const batch = await prisma.mediaFile.findMany({
@@ -62,10 +56,7 @@ export async function buildLibraryInodeKeySet(
     if (batch.length === 0) break;
 
     for (const row of batch) {
-      // A stored value can still be untrustworthy: builds running Bun 1.3.11
-      // persisted INT64_MAX for every file on a pooled filesystem. A migration
-      // clears those, but re-check here so a row written by an older instance
-      // mid-upgrade is re-statted instead of poisoning the whole key set.
+      // Stored values can be bad (Bun 1.3.11 persisted INT64_MAX on pooled filesystems); re-stat rather than poison the key set.
       const storedIno =
         row.fileIno != null ? normalizeInode(BigInt(row.fileIno)) : null;
       if (row.fileDev != null && storedIno != null) {
@@ -85,8 +76,7 @@ export async function buildLibraryInodeKeySet(
         const st = await stat(remapPath(row.filePath), { bigint: true });
         if (!st.isFile()) return null;
         const fp = fingerprintFromStats(st);
-        // Null when the runtime cannot report a trustworthy inode. Adding a
-        // placeholder key would make every such file match every other one.
+        // Null when the inode is untrustworthy; a placeholder key would match every such file.
         if (fp.dev !== null && fp.ino !== null) {
           keys.add(inodeKeyFromParts(fp.dev, fp.ino));
         }
@@ -108,11 +98,7 @@ export async function buildLibraryInodeKeySet(
   return keys;
 }
 
-/**
- * Key for a live stat, normalized exactly like the library side. Returns "?"
- * when the inode is unusable so the file simply never matches, rather than
- * matching everything.
- */
+/** Key for a live stat, normalized like the library side; "?" for an unusable inode so it never matches. */
 function inodeKey(dev: bigint | undefined, ino: bigint | undefined): string {
   if (dev === undefined || ino === undefined) return "?";
   const normalized = normalizeInode(ino);
@@ -136,12 +122,7 @@ export function deriveDownloadsScanRoots(media: {
   return [...roots];
 }
 
-/**
- * Library subtree paths that must be excluded from the Downloads walk.
- * The Downloads root is `dirname(libraryPath)`, which by definition contains
- * the library subdir — walking it naively would pick up every library file
- * and (since their inodes are in the library set) flag them all as imported.
- */
+/** Library subtrees to exclude from the Downloads walk: the root is `dirname(libraryPath)`, so it contains the library and would flag every library file as imported. */
 export function deriveLibraryExcludeRoots(media: {
   moviesLibraryPath: string | null;
   showsLibraryPath: string | null;
@@ -163,9 +144,7 @@ export function pathIsInsideRoot(candidate: string, root: string): boolean {
 }
 
 export function invalidateDownloadsScannerCache(): void {
-  // No-op when already cleared: during a Submit run, every successful assign
-  // would otherwise clear an already-empty cache. The first clear is the only
-  // one that does work; the rest naturally collapse to nothing here.
+  // No-op when already cleared, so repeated assigns during a Submit run cost nothing.
   if (cache === undefined) return;
   cache = undefined;
 }
@@ -204,12 +183,7 @@ export type RawDownloadRow = {
   modified_at: string;
   dev: number;
   ino: number;
-  /**
-   * True when this Downloads file shares an inode with a library `MediaFile`.
-   * In hardlink mode, that means it's already linked into the library. In move
-   * mode, this can't happen by construction (move removes the source). The
-   * field name is mode-agnostic; the UI label adapts to `file_operation`.
-   */
+  /** Shares an inode with a library `MediaFile` (hardlink mode only; move mode can't produce it); name is mode-agnostic. */
   is_imported: boolean;
   parsed: DownloadParsed;
 };
@@ -269,8 +243,7 @@ async function walkDownloadsOnce(
       if (seenPaths.has(filePath)) continue;
       seenPaths.add(filePath);
 
-      // Skip anything inside a configured library subtree — those are not
-      // Downloads files, they're the library itself.
+      // Skip library subtrees: they are the library, not Downloads files.
       if (excludeRoots.some((ex) => pathIsInsideRoot(filePath, ex))) continue;
       candidatePaths.push(filePath);
     }
@@ -280,10 +253,7 @@ async function walkDownloadsOnce(
     await mapPool(candidatePaths, FS_STAT_CONCURRENCY, async (filePath) => {
       let st;
       try {
-        // bigint stats, matching buildLibraryInodeKeySet above. A plain stat
-        // rounds inodes over 2^53, so the key built here would not equal the
-        // exact key stored for the library and every hardlinked download would
-        // be reported as not imported.
+        // bigint stats: a plain stat rounds inodes over 2^53, so keys wouldn't match the library's and hardlinks would read as not imported.
         st = await stat(remapPath(filePath), { bigint: true });
       } catch {
         return null;
@@ -315,10 +285,7 @@ async function walkDownloadsOnce(
   return out;
 }
 
-/**
- * Recursive scan under both configured Downloads roots (`dirname(library_paths)`).
- * Cached 30s unless `refresh` bypasses cache.
- */
+/** Recursive scan under both Downloads roots (`dirname(library_paths)`), cached 30s unless `refresh`. */
 export async function scanDownloads(
   opts: { refresh?: boolean } = {},
 ): Promise<ScanResult> {
@@ -346,8 +313,7 @@ export async function scanDownloads(
 
   const excludeRoots = deriveLibraryExcludeRoots(settings);
   const inodeKeySet = await buildLibraryInodeKeySet(opts.refresh);
-  // Perf-baseline: wall-clock the downloads walk. Gated + logged like
-  // scheduledTasksWorker.ts's job-duration line; no-op unless enabled.
+  // Perf baseline: gated wall-clock log like scheduledTasksWorker's job-duration line.
   const scanStartedAt = PERF_TIMING_ENABLED ? Date.now() : 0;
   const entries = await walkDownloadsOnce(roots, excludeRoots, inodeKeySet);
   if (PERF_TIMING_ENABLED) {

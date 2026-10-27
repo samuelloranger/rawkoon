@@ -7,17 +7,7 @@ export interface Source {
   kind: BookEditionKind;
   /** File for a single-format ebook, directory for everything else. */
   path: string;
-  /**
-   * Register the file where it already is instead of placing it under the
-   * library template.
-   *
-   * The escape hatch for a destination the API cannot create: the container
-   * runs as uid 1000, and an author directory owned by root makes the template
-   * mkdir fail with EACCES. Registering in place keeps the book usable — only
-   * its path is off-template — and moves nothing on disk. Ebook only: an
-   * audiobook needs the MediaInfo pass for duration and narrators,
-   * which is postProcessBook's job.
-   */
+  /** Register the file where it is, for destinations the API cannot create (root-owned dir); ebook only, since audiobooks need postProcessBook. */
   inPlace?: boolean;
 }
 
@@ -30,15 +20,7 @@ export interface Entry {
   volumeId?: string;
   /** What the volume is expected to be, so a bad match is obvious in review. */
   expect: string;
-  /**
-   * Overwrite the language the provider reported, after the book is created.
-   *
-   * Needed for volumes whose ISBN is registered in a group that disagrees with
-   * the text: the Pottermore French Harry Potter ebooks are registered under
-   * the UK group, so reconciliation calls them English. Applied post-create
-   * because addBookFromVolume only sets language on insert — its refresh path
-   * leaves language alone, so this is not fighting a later metadata refresh.
-   */
+  /** Overrides the provider-reported language after create, for volumes whose ISBN group disagrees with the text. */
   forceLanguage?: string;
   sources: Source[];
 }
@@ -50,12 +32,7 @@ const YARROS = `${BOOKS}/Rebecca Yaros`;
 
 export const MANIFEST: Entry[] = [
   // ---- J.K. Rowling, Harry Potter (fr) — ebook (epub+mobi) and audiobook ----
-  // The Pottermore French editions, which are the only self-consistent set:
-  // one author spelling, French titles, cover and description on all seven.
-  // The per-book French volumes were rejected because they spell the author
-  // three different ways — splitting one person into three Author rows and
-  // three library folders — and one of them carries an English title.
-  // Their ISBNs are UK-registered, so forceLanguage corrects the language.
+  // The only self-consistent French set (one author spelling); UK-registered ISBNs need forceLanguage.
   {
     key: "hp1",
     query: 'intitle:"Harry Potter à l\'école des sorciers" inauthor:Rowling',
@@ -178,16 +155,12 @@ export const MANIFEST: Entry[] = [
   },
 
   // ---- Sarah J. Maas, Un palais d'épines et de roses (fr) ----
-  // Titled by real book title rather than by series position. The de Saxus
-  // "Un Palais d'épines et de roses TN" volumes carry series metadata and
-  // descriptions, but show a position where the title belongs, so the actual
-  // name of each book would appear nowhere in the library.
+  // Titled by real book title; the alternative volumes show a series position where the title belongs.
   {
     key: "acotar1",
     query: 'intitle:"Un palais d\'épines et de roses" inauthor:Maas',
     volumeId: "OlkOugEACAAJ",
-    // The source epub is a 2-in-1 bundle ("tomes 1 et 3"), so this edition
-    // holds tome 3 as well. Splitting it would mean splitting the file.
+    // The source epub bundles tomes 1 and 3, and splitting it would mean splitting the file.
     expect:
       "Un palais d'épines et de roses T1 (fr) — source epub bundles T1+T3",
     sources: [
@@ -251,15 +224,11 @@ export const MANIFEST: Entry[] = [
   },
 
   // ---- Rebecca Yarros, The Empyrean (fr) ----
-  // The audiobooks are French ("Livre Audio", French chapter titles), so the
-  // French editions are the right match.
   {
     key: "empyrean1",
     query: "Fourth Wing Rebecca Yarros français",
     volumeId: "PzfpEAAAQBAJ",
-    // Audiobook only: "Fourth Wing - Rebecca Yarros.epub" is a truncated
-    // download — valid EPUB header, no end-of-central-directory — so it is
-    // left on disk rather than registered as a readable ebook.
+    // Audiobook only: the epub is truncated (no end-of-central-directory).
     expect: "Fourth Wing VF / Empyrean 1 (fr), audiobook only",
     sources: [
       {
@@ -329,8 +298,7 @@ export const MANIFEST: Entry[] = [
   },
 
   // ---- Colleen Hoover (fr) ----
-  // The matching pdfs stay on disk: the profile prefers epub, and a second
-  // format of a book already in the library adds nothing here.
+  // The matching pdfs stay on disk; epub is preferred and a second format adds nothing.
   {
     key: "hoover-jamais-plus",
     query: 'intitle:"Jamais plus" inauthor:Hoover',
@@ -348,8 +316,7 @@ export const MANIFEST: Entry[] = [
     key: "hoover-souvenirs",
     query: "Reminders of Him Souvenirs de lui Colleen Hoover",
     volumeId: "5xvpEAAAQBAJ",
-    // Published in French first as "Souvenirs de lui", reissued under the
-    // English title; same book, and this is the edition Google carries.
+    // Published in French first, then reissued under the English title; same book.
     expect: "Souvenirs de lui / Reminders of him VF (fr)",
     sources: [
       {
@@ -360,8 +327,7 @@ export const MANIFEST: Entry[] = [
   },
 
   // ---- Freida McFadden — only the titles not already in the library ----
-  // "Never Lie (2022).epub" is NOT Never Lie: its OPF says "La psy", which is
-  // already book 4 in the library. It stays on disk.
+  // "Never Lie (2022).epub" is actually "La psy" per its OPF, already in the library.
   {
     key: "mcfadden-boyfriend",
     query: "Le boyfriend Freida McFadden",
@@ -376,8 +342,7 @@ export const MANIFEST: Entry[] = [
   },
 
   // ---- Titles whose filenames were English but whose files are French ----
-  // Each of these epubs declares fr in its OPF, so the French edition is the
-  // correct match despite the English filename.
+  // Each epub declares fr in its OPF despite the English filename.
   {
     key: "weir-martian",
     query: "Seul sur Mars Andy Weir",

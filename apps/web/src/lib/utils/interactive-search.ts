@@ -15,9 +15,9 @@ export const UNKNOWN_TRACKER_KEY = "__unknown_tracker__";
 export const UNKNOWN_LANGUAGE_KEY = "__unknown_language__";
 
 export interface TitleOption {
-  /** ISO 639-1 language code (e.g. "en", "fr", "ja") */
+  /** ISO 639-1 code */
   languageCode: string;
-  /** The full search query for this language (title + any season/episode suffix) */
+  /** Full search query (title plus any season/episode suffix) */
   query: string;
   /** True when this language is the media's original language */
   isOriginal: boolean;
@@ -28,10 +28,7 @@ export interface LabeledTitleOption extends TitleOption {
   label: string;
 }
 
-/**
- * Languages shown in the search-title picker (beyond the platform language,
- * English, French, and the original language) when TMDB has a title for them.
- */
+/** Extra picker languages offered when TMDB has a title for them. */
 const COMMON_TITLE_LANGUAGES = [
   "es",
   "de",
@@ -43,21 +40,7 @@ const COMMON_TITLE_LANGUAGES = [
   "ru",
 ] as const;
 
-/**
- * Builds the ordered list of search-title options for the interactive-search
- * language picker. Private trackers name releases with different localized
- * titles, so the user can pick which language's title to search by.
- *
- * Order: `localized` first (the default query), then English and French
- * pinned, then the original-language title, then the common allowlist — each
- * included only when a non-empty title exists. Options are deduped by query
- * (case-insensitive) so the same title never appears twice.
- *
- * `localizedLanguage` must be the language `localized` is actually written in,
- * NOT the UI language: library titles are persisted in English regardless of
- * the user's locale, and claiming otherwise both mislabels the default option
- * and suppresses the real translation for that language.
- */
+/** Ordered, query-deduped title options; `localizedLanguage` must be the language `localized` is written in, NOT the UI language, since library titles are persisted in English. */
 export function buildTitleOptions(input: {
   localized: string;
   /** ISO 639-1 code of the language `localized` is written in */
@@ -80,12 +63,7 @@ export function buildTitleOptions(input: {
     }
   }
 
-  // Library titles are persisted in the English slot, but the stored text can
-  // actually be any language's title — a title added under a non-English
-  // locale, or a foreign film whose English slot falls back to the original.
-  // Detect the real language by matching the stored title against the original
-  // title and the per-language translations, and label the default option by
-  // that language instead of mislabeling it as the persistence slot.
+  // The English slot can hold any language's title, so detect the real language by matching against the original title and translations.
   const normalizeTitle = (value: string) => value.trim().toLocaleLowerCase();
   const localizedKey = normalizeTitle(input.localized || "");
   let detectedLanguage: string | null = null;
@@ -110,12 +88,7 @@ export function buildTitleOptions(input: {
   const localizedIsOriginal =
     platformLanguage !== platform && platformLanguage === originalLanguage;
 
-  // Ordered candidates: the platform (localized) title is the default; EN/FR
-  // are pinned; the original-language title is offered next — tagged, and kept
-  // even when it shares the platform language but differs from the localized
-  // title (preserving the old localized↔original choice); then the common
-  // allowlist. Each candidate tracks whether it is the platform/original title
-  // so we never mislabel the localized title as the original.
+  // Order: localized (default), EN/FR pinned, original (kept even if it shares the platform language), then the allowlist.
   type TitleCandidate = {
     languageCode: string;
     title: string | null;
@@ -123,9 +96,7 @@ export function buildTitleOptions(input: {
     isPlatform: boolean;
   };
 
-  // Languages already represented by the platform or original entries; their
-  // pinned/common translation slots are skipped so we don't surface a less
-  // canonical translation next to the authoritative title.
+  // Skip pinned/common slots for languages already represented, so a less canonical translation doesn't sit beside the authoritative title.
   const coveredCodes = new Set(
     [platformLanguage, originalLanguage].filter(Boolean),
   );
@@ -174,8 +145,7 @@ export function buildTitleOptions(input: {
   const seenQueries = new Set<string>();
   for (const candidate of candidates) {
     const base = candidate.title?.trim();
-    // The platform title is always kept; secondary titles need 2+ chars to
-    // avoid noisy single-letter indexer queries.
+    // Platform title always kept; secondary titles need 2+ chars to avoid noisy indexer queries.
     const minLength = candidate.isPlatform ? 1 : 2;
     if (!base || base.length < minLength) continue;
     const query = `${base}${suffix}`;
@@ -207,9 +177,9 @@ export interface FilterParams {
   sortBy: InteractiveSortKey;
   sortDir: InteractiveSortDir;
   isSearchMode?: boolean;
-  /** Expected media title — used for client-side title/year rejection in Prowlarr mode */
+  /** Expected title, for client-side rejection in Prowlarr mode */
   mediaTitle?: string | null;
-  /** Expected media year — used for client-side year mismatch rejection in Prowlarr mode */
+  /** Expected year, for client-side rejection in Prowlarr mode */
   mediaYear?: number | null;
 }
 
@@ -245,12 +215,7 @@ const STOP_WORDS = new Set([
   "via",
 ]);
 
-/**
- * Client-side rejection heuristic for Prowlarr results (no arr service involvement).
- * Rejects a release if:
- *  - The release title contains a 4-digit year that doesn't match the expected year, OR
- *  - The release title is missing too many distinctive words from the expected media title.
- */
+/** Client-side Prowlarr rejection: year mismatch or too few distinctive title words. */
 function isClientRejected(
   releaseTitle: string,
   mediaTitle: string,
@@ -268,8 +233,7 @@ function isClientRejected(
     if (yearMatch && parseInt(yearMatch[1], 10) !== mediaYear) return true;
   }
 
-  // Title check: distinctive words (≥3 chars, not stop words) from the expected
-  // title must appear in the release title. Require 70% match.
+  // Distinctive words (3+ chars, non-stop) of the expected title must match at 70%.
   const titleWords = mediaTitle
     .normalize("NFD")
     .replace(/\p{Mn}/gu, "")
@@ -286,9 +250,7 @@ function isClientRejected(
   return matchCount < Math.ceil(titleWords.length * 0.7);
 }
 
-/**
- * Filter and sort a list of interactive release items.
- */
+/** Filter and sort a list of interactive release items. */
 export function filterAndSortReleases(
   rawReleases: InteractiveReleaseItem[],
   params: FilterParams,

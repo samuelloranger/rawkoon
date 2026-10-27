@@ -6,14 +6,7 @@ import {
   type ParsedBookRelease,
 } from "@rawkoon/api/utils/books/bookReleaseParser";
 
-/**
- * Book release scoring and — more importantly — rejection.
- *
- * Rejection is the highest-risk unit in the whole books feature. Torznab has no
- * `isbn` or `bookid` parameter (verified against live caps: book-search
- * advertises `supportedParams="q"` only), so every book search is freetext and
- * nothing but this filter stands between the library and unrelated results.
- */
+/** Release scoring and rejection; Torznab book-search supports only `q`, so this filter is all that stands between freetext results and the library. */
 
 export interface BookScoreProfile {
   /** Ordered preference; first entry is best. */
@@ -51,20 +44,7 @@ const tokenize = (value: string): string[] =>
     .split(" ")
     .filter((t) => t.length >= MIN_TOKEN_LEN);
 
-/**
- * Apostrophes appear in three spellings across trackers: kept, replaced by a
- * separator, or dropped so an elided article glues to the next word.
- * normalizeTitleForMatch turns punctuation into spaces, which handles the first
- * two but splits the third apart — and the leftover one-letter article then
- * falls under MIN_TOKEN_LEN and disappears. The same title therefore tokenized
- * one way on the library side and another on the release side, and correct
- * releases were rejected with "Title does not match".
- *
- * So tokenize both ways and let a match on either spelling count. The glued
- * variant yields a longer, more specific token, so this does not loosen
- * matching: a different title that merely shares a stem still fails on token
- * equality.
- */
+/** Apostrophes come kept, spaced, or dropped (gluing an elided article to the next word); tokenize every spelling so a match on any counts without loosening token equality. */
 const tokenVariants = (value: string): string[][] => {
   const spaced = tokenize(value);
   if (!/['\u2019`]/.test(value)) return [spaced];
@@ -76,13 +56,7 @@ const tokenVariants = (value: string): string[][] => {
 const tokenUniverse = (value: string): Set<string> =>
   new Set(tokenVariants(value).flat());
 
-/**
- * Does the release title contain the book's title?
- *
- * Token equality, not substring. Competing translations of one work often
- * share a word stem, so a substring test accepts the wrong edition; comparing
- * whole tokens keeps them apart.
- */
+/** Token equality, not substring: competing translations share word stems, so a substring test accepts the wrong edition. */
 export function releaseMatchesBookTitle(
   releaseTitle: string,
   bookTitle: string,
@@ -94,12 +68,7 @@ export function releaseMatchesBookTitle(
   return variants.some((wanted) => wanted.every((t) => have.has(t)));
 }
 
-/**
- * Does the release name credit the author?
- *
- * Surname only. Given names get abbreviated, reordered, or dropped by
- * trackers, but the surname survives.
- */
+/** Surname only: trackers abbreviate, reorder or drop given names. */
 export function releaseMatchesAuthor(
   releaseTitle: string,
   authors: string[],
@@ -107,8 +76,7 @@ export function releaseMatchesAuthor(
   if (authors.length === 0) return true; // nothing to check against
   const have = tokenUniverse(releaseTitle);
   return authors.some((author) =>
-    // Same apostrophe problem as titles: a surname like O'Brien is written
-    // OBrien and O.Brien about as often as with the apostrophe.
+    // O'Brien is written OBrien and O.Brien as often as with the apostrophe.
     tokenVariants(author).some((parts) => {
       if (parts.length === 0) return false;
       const surname = parts[parts.length - 1];
@@ -123,12 +91,7 @@ const formatRank = (format: BookFormat | null, allowed: string[]): number => {
   return idx;
 };
 
-/**
- * Score and vet one release for one edition.
- *
- * Language is scored, never filtered. Plenty of releases carry no language tag
- * at all, so rejecting untagged ones would discard genuine results.
- */
+/** Score and vet one release; language is scored, never filtered, since many releases carry no language tag. */
 export function scoreBookRelease(
   candidate: BookReleaseCandidate,
   opts: {
@@ -249,14 +212,10 @@ export function pickBestBookRelease<T>(
   );
 }
 
-/**
- * Has this edition reached its profile's cutoff format? Used to stop
- * pointless upgrade searches, mirroring cutoffResolution for video.
- */
+/** Has this edition reached its profile's cutoff format? Stops pointless upgrade searches. */
 export function meetsBookCutoff(
   currentFormat: BookFormat | null,
-  // Only the two fields the comparison reads, so a caller holding just a
-  // profile row does not have to fabricate scoring fields it has no use for.
+  // Only the fields the comparison reads, so callers needn't fabricate scoring fields.
   profile: Pick<BookScoreProfile, "allowedFormats" | "cutoffFormat">,
 ): boolean {
   if (!profile.cutoffFormat || !currentFormat) return false;

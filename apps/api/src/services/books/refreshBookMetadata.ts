@@ -16,18 +16,7 @@ import {
   type ProviderFields,
 } from "./types";
 
-/**
- * Re-runs the source chain for one book and writes the merged result.
- *
- * There is no scheduled sweep by design: metadata changes only when someone
- * asks, so a source that failed is reported back to the caller rather than
- * silently retried later.
- *
- * An *overridden* ISBN that no longer matches the stored googleVolumeId rebinds
- * identity first: resolveIsbn picks the edition, googleVolumeId and language
- * follow it, and a stale Audnexus ASIN is dropped so narrators/series
- * re-resolve for the new edition rather than keeping the previous one's record.
- */
+/** Re-runs the source chain for one book; there is no scheduled sweep, so failed sources are reported to the caller. */
 
 export type RefreshMetadataOutcome =
   | {
@@ -36,32 +25,12 @@ export type RefreshMetadataOutcome =
       changedFields: string[];
       failedSources: BookMetadataSource[];
       usedSources: BookMetadataSource[];
-      /**
-       * Cleared overrides on columns that cannot be emptied, where no source
-       * supplied a replacement. The caller must put the override back: the
-       * column still holds the manual value, and leaving it with no override
-       * marker would strand it, with no Revert action and no later refresh
-       * able to repair it.
-       */
+      /** Cleared overrides on non-emptiable columns with no replacement; the caller must restore the override. */
       unrestoredFields: string[];
     }
   | { ok: false; reason: string };
 
-/**
- * The ISBN allowed to re-point identity: an operator override, and nothing
- * else.
- *
- * Deliberately not the isbn13 column. Providers write that column, so trusting
- * it turns provider drift into an identity change: a book added by title has no
- * ISBN, Audnexus fills one — regularly an Audible product code for another
- * language's edition of the same title — and the next refresh would rebind the
- * book to that edition's volume. An override is the only ISBN a person
- * asserted.
- *
- * An override being reverted by this very request is already gone from the JSON
- * while the column still holds its value, so it must not rebind either: that
- * would re-point the book at the edition the operator just abandoned.
- */
+/** Only an operator override may re-point identity; the provider-written isbn13 column drifts to other editions. */
 function effectiveIsbn(
   overrides: Record<string, unknown> | null,
   cleared: Set<string>,
@@ -72,16 +41,7 @@ function effectiveIsbn(
   return toIsbn13(fromOverride);
 }
 
-/**
- * When the book's ISBN points at a different Google volume than the one we
- * store, rebind. Returns null when there is nothing to do, no exact match, or
- * the target volume already belongs to another library book.
- *
- * Resolution is strict: only a volume that actually carries the ISBN may take
- * over a book's identity. Google's `isbn:` query answers with the whole
- * edition cluster, so a loose pick would re-point title, language and cover at
- * an arbitrary sibling and then stamp the queried ISBN on it.
- */
+/** Rebinds to the Google volume carrying the ISBN; strict because `isbn:` returns a whole edition cluster. */
 async function rebindIdentityFromIsbn(
   book: { id: number; googleVolumeId: string },
   isbn: string,
@@ -112,30 +72,13 @@ async function rebindIdentityFromIsbn(
   return resolved;
 }
 
-/**
- * Columns no *provider* may write, but an operator override may.
- *
- * The reasons they are protected are all about untrusted provider data: the
- * title is the indexer search term, and language re-points every indexer
- * search. A person editing the field deliberately is the case those rules
- * exist to protect, not the case they are meant to block — fixing a title or a
- * language a provider got wrong is precisely why overrides exist.
- */
+/** Columns no provider may write (untrusted data) but an operator override may. */
 const OVERRIDE_ONLY_COLUMNS = new Set<string>(["title", "language"]);
 
-/**
- * Columns that can never be emptied.
- *
- * A book must have a title, and language is NOT NULL with a default. Clearing
- * an override on either falls back to the source value when there is one, and
- * otherwise keeps what is there — an empty title is not a state this app has.
- */
+/** A book needs a title and language is NOT NULL, so clearing these keeps the current value. */
 const NEVER_EMPTIED_COLUMNS = new Set<string>(["title", "language"]);
 
-/**
- * What "empty" means per column. List columns are required by the Prisma
- * client even though Postgres would accept null, so they empty to [].
- */
+/** List columns are required by Prisma even though Postgres accepts null, so they empty to []. */
 const EMPTY_VALUE: Record<string, unknown> = {
   narrators: [],
   genres: [],
@@ -158,12 +101,7 @@ const BOOK_COLUMNS = new Set<string>([
   "ratingCount",
 ]);
 
-/**
- * Whether a stored column value and a freshly merged one are the same.
- *
- * Arrays are compared element-wise and dates by instant: `!==` on either would
- * report a change on every single refresh.
- */
+/** Arrays compare element-wise and dates by instant; `!==` would report a change on every refresh. */
 function sameValue(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (a instanceof Date && b instanceof Date)
@@ -188,10 +126,8 @@ async function collectProviders(
       const p = await getBookMetadataProvider();
       if (p) out.push(p);
     } else if (source === "local") {
-      // Always available: it needs no configuration, only files on disk.
       out.push(getLocalFileProvider());
     } else if (source === "openlibrary") {
-      // Also keyless.
       out.push(getOpenLibraryProvider());
     }
   }
@@ -202,21 +138,8 @@ export async function refreshBookMetadata(
   bookId: number,
   opts?: {
     providers?: BookMetadataProvider[];
-    /**
-     * Optional identity provider for ISBN rebind. Tests inject it; production
-     * falls back to the configured Google Books provider.
-     */
     identityProvider?: BookIdentityProvider | null;
-    /**
-     * Override keys removed by this request.
-     *
-     * Two things depend on knowing them. An override-only column (title,
-     * language) has to be re-authorised for one run, or the reverted value
-     * would stay frozen at whatever the operator typed — no provider may write
-     * that column. And a cleared field that no source supplies has to be
-     * emptied outright; leaving it would show a manual value the book no longer
-     * records as manual, with no way left to remove it.
-     */
+    /** Override keys removed by this request, so their columns get re-authorised or emptied. */
     clearedOverrides?: string[];
   },
 ): Promise<RefreshMetadataOutcome> {
@@ -230,11 +153,9 @@ export async function refreshBookMetadata(
       language: true,
       overrides: true,
       externalIds: { select: { source: true, externalId: true } },
-      // Which source owns each field today. Needed to protect the provenance
-      // of a source that is failing right now.
+      // Provenance owners, to protect a failing source's fields.
       metadataFields: { select: { field: true, source: true } },
-      // Current values of every writable column, so a refresh can report and
-      // write only what actually differs.
+      // Current values, so only real differences are written.
       subtitle: true,
       narrators: true,
       genres: true,
@@ -283,10 +204,7 @@ export async function refreshBookMetadata(
     externalIds,
   };
 
-  // Before enrich, so every provider sees the new identity. Gated on the
-  // source order for the same reason the provider list below is: with
-  // googlebooks disabled, Google must not get to rewrite volumeId, title and
-  // language through the back door.
+  // Before enrich so providers see the new identity; gated on googlebooks so a disabled Google can't rewrite it.
   const isbn = effectiveIsbn(overrides, cleared);
   let rebound: ProviderBook | null = null;
   if (isbn && order.includes("googlebooks")) {
@@ -312,8 +230,7 @@ export async function refreshBookMetadata(
     }
   }
 
-  // A provider outside the configured order is dropped here, so an injected
-  // provider cannot smuggle itself past the operator's source list.
+  // Drop providers outside the configured order so an injected one can't bypass it.
   const providers = (opts?.providers ?? (await collectProviders(order))).filter(
     (p) => order.includes(p.source),
   );
@@ -334,8 +251,7 @@ export async function refreshBookMetadata(
         }
         return { source: provider.source, fields };
       } catch (e) {
-        // An outage is skipped, never recorded. Recording it would make a
-        // transient 503 look like a permanent absence.
+        // An outage is skipped, not recorded: a transient 503 must not look like absence.
         if (e instanceof BookProviderUnavailableError) {
           failedSources.push(provider.source);
           return null;
@@ -356,23 +272,12 @@ export async function refreshBookMetadata(
     overrides,
   );
 
-  /**
-   * Fields owned by a source that is failing right now are left completely
-   * alone — value and provenance both.
-   *
-   * Without this, an outage is destructive in two ways: the wholesale
-   * provenance delete would strip the failing source's rows, so a value it had
-   * supplied would start rendering as "set by hand"; and a lower-priority
-   * source would win the field for this run and overwrite the better value.
-   * Neither is acceptable for a transient 503.
-   */
+  /** Fields owned by a failing source keep value and provenance, so an outage neither strips them nor lets a lower source overwrite. */
   const failed = new Set<string>(failedSources);
   const currentProvenance = new Map<string, string>(
     book.metadataFields.map((f) => [f.field, f.source]),
   );
-  // An operator override outranks everything, including the protection given
-  // to a source that is currently down — otherwise editing a field while that
-  // source is unreachable would silently do nothing.
+  // An override outranks the lock on a down source, or editing would silently do nothing.
   const overridden = new Set<string>(overrides ? Object.keys(overrides) : []);
   const lockedFields = new Set<string>(
     [...currentProvenance.entries()]
@@ -397,27 +302,16 @@ export async function refreshBookMetadata(
       field === "publishedDate" && typeof value === "string"
         ? new Date(value)
         : value;
-    // Only write what actually differs. An unconditional write reports every
-    // merged column as "changed" on every refresh and churns updatedAt.
+    // Write only differences, or every refresh reports changes and churns updatedAt.
     if (!sameValue(current[field], next)) data[field] = next;
   }
 
-  /**
-   * A cleared override the source chain cannot replace.
-   *
-   * The loop above only writes fields present in `merged`, so a manually added
-   * value that no provider supplies would survive its own removal: the column
-   * would keep showing it while `overrides` no longer marked it as edited,
-   * leaving the UI nothing to revert and no way to clear it.
-   */
+  // A cleared override no source replaces must be emptied, or the column keeps a value no longer marked as manual.
   for (const field of cleared) {
     if (field in merged) continue;
     if (!BOOK_COLUMNS.has(field) && !OVERRIDE_ONLY_COLUMNS.has(field)) continue;
     if (lockedFields.has(field)) continue;
-    // A column that cannot hold null needs its own empty value, or the write
-    // fails *after* the override has already been deleted — leaving a manual
-    // value the book no longer records as manual and a 500 in the operator's
-    // face.
+    // A non-nullable column can't be emptied; report it so the caller restores the override.
     if (NEVER_EMPTIED_COLUMNS.has(field)) {
       unrestoredFields.push(field);
       continue;
@@ -427,20 +321,7 @@ export async function refreshBookMetadata(
     data[field] = empty;
   }
 
-  /**
-   * A column whose only supplier has stopped claiming it.
-   *
-   * The loop above writes what `merged` holds, so a field no source mentions
-   * any more keeps its old value forever — and the wholesale provenance delete
-   * below strips its row, so it starts rendering as hand-set with nothing to
-   * revert. That is how an English audiobook's publisher and narrator survived
-   * on a French book long after its record was rejected.
-   *
-   * Only cleared when the source that owned the field actually answered this
-   * run. A source that is failing keeps its value through `lockedFields`, and
-   * one the operator has disabled never answers at all — turning a source off
-   * must not wipe what it had already contributed.
-   */
+  // Empty columns whose supplier answered but stopped claiming them; failing or disabled sources keep theirs.
   const answered = new Set<BookMetadataSource>(candidates.map((c) => c.source));
   for (const [field, source] of currentProvenance) {
     if (!answered.has(source as BookMetadataSource)) continue;
@@ -452,11 +333,7 @@ export async function refreshBookMetadata(
     data[field] = empty;
   }
 
-  /**
-   * Provenance for this run: what the merge resolved, plus the untouched rows
-   * of any failing source. Recorded only for fields that map to a column, so
-   * the tooltip cannot claim a source for something the book does not show.
-   */
+  // Provenance only for mapped columns, plus untouched rows of failing sources.
   const nextProvenance = new Map<string, string>();
   for (const [field, source] of currentProvenance) {
     if (lockedFields.has(field)) nextProvenance.set(field, source);
@@ -469,15 +346,7 @@ export async function refreshBookMetadata(
     ([field, source]) => ({ bookId: book.id, field, source }),
   );
 
-  /**
-   * ISBN rebind is an intentional identity change, so title and language — which
-   * a normal refresh must never flip — follow the new edition unless the
-   * operator has overridden them.
-   *
-   * Built per attempt rather than folded into `data`, so losing the race for
-   * the volume id can drop the identity columns and still write everything
-   * else.
-   */
+  /** Title and language follow a rebind unless overridden; built per attempt so a lost volume-id race can drop them. */
   const identityWrites = (reb: ProviderBook): Record<string, unknown> => {
     const out: Record<string, unknown> = { googleVolumeId: reb.volumeId };
     if (!overridden.has("title") && !sameValue(book.title, reb.title)) {
@@ -525,8 +394,7 @@ export async function refreshBookMetadata(
           update: { externalId, fetchedAt: new Date() },
         });
       }
-      // Replaced wholesale: a field that no longer resolves must lose its stale
-      // provenance row rather than keep claiming a source.
+      // Replaced wholesale so a field that no longer resolves loses its stale provenance row.
       await tx.bookMetadataField.deleteMany({ where: { bookId: book.id } });
       if (provenanceRows.length > 0) {
         await tx.bookMetadataField.createMany({ data: provenanceRows });
@@ -535,12 +403,7 @@ export async function refreshBookMetadata(
     return write;
   };
 
-  /**
-   * googleVolumeId is unique and the queue only serializes per book, so the
-   * clash check above is advisory: two books refreshing toward the same volume
-   * both pass it and the loser's update raises P2002 — which onError would
-   * report as a bare 500. Retry without the identity change instead.
-   */
+  // googleVolumeId is unique and the clash check is advisory, so a lost race raises P2002; retry without the identity change.
   let written: Record<string, unknown>;
   try {
     written = await runWrites(rebound);
@@ -564,17 +427,7 @@ export async function refreshBookMetadata(
   };
 }
 
-/**
- * Fill the book's primary author's bio/image, best-effort.
- *
- * Author rows are shared across every book by that author, so this is fill-only
- * (see authorProfileFill) and runs after the book write rather than inside its
- * transaction — it must never fail a refresh that already succeeded. Skipped
- * once the author has both fields, so the network round-trip only happens while
- * something is still missing. Only Audnexus supplies author data; the source
- * order already filtered `providers`, so a disabled Audnexus contributes
- * nothing here either.
- */
+/** Best-effort, fill-only author bio/image after the book write, since author rows are shared across books. */
 async function enrichPrimaryAuthor(
   authors: string[],
   providers: BookMetadataProvider[],

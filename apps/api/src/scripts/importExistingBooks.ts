@@ -1,38 +1,4 @@
-/**
- * Register books and audiobooks that already sit in the library folders.
- *
- * The download path is the only way a book normally enters the library, so a
- * collection that predates the books feature is invisible to rawkoon. This
- * script closes that gap for a one-time backfill. It deliberately owns no
- * import logic of its own — it curates metadata and then calls the same two
- * functions the web add flow and the post-processor use:
- *
- *   addBookFromVolume()  -> library_books + authors + book_authors + editions
- *   postProcessBook()    -> template layout, probe, book_files
- *
- * so a backfilled row is indistinguishable from a downloaded one.
- *
- * The manifest below is hand-written on purpose. Filenames in a real
- * collection are too inconsistent to match automatically ("Un palais de glace
- * et de lumier", "La.Femme.De.Menage.2023"), and a wrong auto-match writes a
- * wrong book into the library silently.
- *
- * Usage, from inside the container:
- *   docker compose exec rawkoon bun src/scripts/importExistingBooks.ts --resolve
- *   docker compose exec rawkoon bun src/scripts/importExistingBooks.ts --dry-run
- *   docker compose exec rawkoon bun src/scripts/importExistingBooks.ts --apply
- *
- * --resolve prints Google Books candidates per entry plus the language embedded
- * in each source epub, and changes nothing. Paste the chosen volumeId into the
- * manifest, then --dry-run, then --apply.
- *
- * Both --dry-run and --apply refuse to run while any entry lacks a volumeId.
- * --only <key> restricts every mode to one entry, which is how to test one
- * book before committing to the whole set.
- *
- * Re-running --apply is safe: addBookFromVolume upserts, and postProcessBook
- * replaces a book_file row by destination path instead of accumulating.
- */
+/** One-time backfill of books already on disk: curated manifest, then the same addBookFromVolume/postProcessBook path as downloads. Usage: `bun src/scripts/importExistingBooks.ts --resolve|--dry-run|--apply [--only <key>]` (re-running --apply is safe). */
 
 import { stat } from "node:fs/promises";
 import { basename } from "node:path";
@@ -47,11 +13,7 @@ import {
 import { readEbookMetadata } from "@rawkoon/api/utils/books/ebookMetadata";
 import { renderBookTemplate } from "@rawkoon/api/utils/medias/fileTemplate";
 
-/**
- * One line per candidate. The cover/desc columns matter: a volume with neither
- * produces a library entry with no art and no synopsis, which is usually reason
- * enough to prefer a different edition of the same book.
- */
+/** One line per candidate; cover/desc columns show which volumes would yield an entry with no art or synopsis. */
 function formatCandidate(c: {
   volumeId: string;
   language: string;
@@ -126,8 +88,7 @@ async function resolve(entries: Entry[]): Promise<void> {
     console.log(`\n=== ${entry.key} — ${entry.expect}`);
     if (entry.volumeId) console.log(`  already set: ${entry.volumeId}`);
 
-    // The language embedded in the epub is the only trustworthy signal for a
-    // file whose name says nothing about it.
+    // The epub's embedded language is the only trustworthy signal when the filename says nothing.
     for (const source of entry.sources) {
       if (
         source.kind !== "ebook" ||
@@ -160,12 +121,7 @@ async function resolve(entries: Entry[]): Promise<void> {
   }
 }
 
-/**
- * Ad-hoc provider search, for when a manifest query returns nothing usable.
- * Google Books answers `intitle:`/`inauthor:` far worse than plain text for
- * translated editions and small French publishers, so chasing a volume by hand
- * is a normal part of resolving.
- */
+/** Ad-hoc search for when a manifest query returns nothing; Google answers plain text better than `intitle:`/`inauthor:` for translated editions. */
 async function search(query: string): Promise<void> {
   const provider = await getBookMetadataProvider();
   if (!provider) {
@@ -180,13 +136,7 @@ async function search(query: string): Promise<void> {
   for (const c of candidates) console.log(formatCandidate(c));
 }
 
-/**
- * Inspect specific volumes exactly as the importer will see them.
- *
- * searchBooks and getBook do not always agree: getBook resolves a fuller
- * record, so its ISBN — and therefore the reconciled language — can differ
- * from what the search hit reported. Only this view is authoritative.
- */
+/** Show volumes as the importer sees them; getBook's fuller record can differ from the search hit's ISBN and language, so only this is authoritative. */
 async function inspectVolumes(ids: string): Promise<void> {
   const provider = await getBookMetadataProvider();
   if (!provider) {
@@ -249,8 +199,7 @@ async function describeDestinations(entries: Entry[]): Promise<void> {
         author: meta.authors[0] ?? null,
         title: meta.title,
         year: meta.publishedYear,
-        // Illustrative only: postProcessBook picks the real best format from
-        // what the source actually holds.
+        // Illustrative only: postProcessBook picks the real best format.
         format: source.kind === "audiobook" ? "mp3" : "epub",
         language: meta.language,
       });

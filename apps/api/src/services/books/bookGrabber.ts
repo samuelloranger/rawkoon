@@ -17,14 +17,7 @@ import { tryAdoptQbDuplicateForBook } from "./bookAdopt";
 
 export { qbCategoryForEditionKind };
 
-/**
- * Book search and grab.
- *
- * Every book search is freetext — Torznab exposes no `isbn` or `bookid`
- * parameter (verified against live caps, which advertise `supportedParams="q"`
- * for book-search). Correctness therefore rests on the query ladder here and
- * the reject filter in bookReleaseScorer.
- */
+/** Torznab book-search only supports `q`, so every search is freetext and correctness rests on the query ladder and the reject filter. */
 
 const DEFAULT_PROFILE: Record<BookEditionKind, BookScoreProfile> = {
   ebook: {
@@ -62,13 +55,7 @@ export type EditionContext = {
   profile: BookScoreProfile;
 };
 
-/**
- * The edition's identity plus its effective scoring profile.
- *
- * Exported because the RSS pass scores releases it did not search for and needs
- * exactly the same profile resolution — including the rule that the book's own
- * language is always a preference.
- */
+/** Exported so the RSS pass resolves the same scoring profile, including the book's own language as a preference. */
 export async function loadEditionContext(
   editionId: number,
 ): Promise<EditionContext | null> {
@@ -106,8 +93,7 @@ export async function loadEditionContext(
       }
     : DEFAULT_PROFILE[kind];
 
-  // The book's own language is always a preference, even when the profile
-  // lists none: a French book should rank French releases first.
+  // The book's own language is always a preference, even when the profile lists none.
   const preferredLanguages = profile.preferredLanguages.includes(
     edition.book.language,
   )
@@ -126,11 +112,7 @@ export async function loadEditionContext(
   };
 }
 
-/**
- * Ordered query ladder. Surname first because it is the most discriminating
- * token a tracker reliably carries; the bare title is the fallback for
- * releases that omit the author.
- */
+/** Surname first (most discriminating token trackers carry); bare title covers releases that omit the author. */
 export function buildBookQueries(ctx: {
   bookTitle: string;
   authors: string[];
@@ -164,11 +146,7 @@ export interface BookSearchOutcome {
   error?: string;
 }
 
-/**
- * Search every query in the ladder, dedupe by guid, and score against the
- * edition. Stops early once a query yields at least one viable release, so a
- * good first hit does not cost three round trips.
- */
+/** Stops at the first query that yields a viable release. */
 export async function searchBookReleases(
   editionId: number,
 ): Promise<BookSearchOutcome> {
@@ -196,8 +174,7 @@ export async function searchBookReleases(
     const { releases, indexerWarnings } = await adapter.search({
       query,
       type: "freetext",
-      // Both kinds query categories 7000 + 3000; kind comes from the parsed
-      // format, because trackers file audiobooks under Books too.
+      // Kind comes from the parsed format because trackers file audiobooks under Books too.
       mediaType: ctx.kind === "audiobook" ? "audiobook" : "book",
       limit: 100,
     });
@@ -258,14 +235,7 @@ export type BookGrabOutcome =
   | { grabbed: true; releaseTitle: string }
   | { grabbed: false; reason: string };
 
-/**
- * Grab one release for an edition.
- *
- * At most one active grab per edition is enforced by the
- * ux_download_history_active_book_target partial unique index. The pre-check
- * gives a clean rejection message; the P2002 catch closes the check-then-insert
- * race, exactly as the media path does.
- */
+/** The partial unique index enforces one active grab per edition; the pre-check gives a clean message and the P2002 catch closes the race. */
 export async function grabBookRelease(opts: {
   editionId: number;
   downloadUrl: string;
@@ -325,9 +295,7 @@ export async function grabBookRelease(opts: {
   });
 
   if (!handoff.ok) {
-    // The client already holds this torrent. Take it over rather than fail:
-    // the alternative left an edition permanently ungrabbable whenever an
-    // earlier attempt outlived its DownloadHistory row.
+    // The client already holds this torrent: take it over, or an edition stays ungrabbable when an earlier attempt outlived its history row.
     if (handoff.duplicate) {
       const adopted = await tryAdoptQbDuplicateForBook({
         dhRowId: dhRow.id,
@@ -348,9 +316,7 @@ export async function grabBookRelease(opts: {
     return { grabbed: false, reason: handoff.reason };
   }
 
-  // The torrent is already sitting in the download client at this point — a
-  // failure past this line must never surface as a failed grab, mirroring
-  // mediaGrabberGrab.grabRelease's grabCommittedOk handling for the media path.
+  // The torrent is already in the client here, so a failure past this line must never surface as a failed grab.
   try {
     await prisma.downloadHistory.update({
       where: { id: dhRow.id },
@@ -360,9 +326,7 @@ export async function grabBookRelease(opts: {
     const updated = await prisma.bookEdition.update({
       where: { id: opts.editionId },
       data: {
-        // An upgrade keeps the file it is replacing, so it is not "downloading"
-        // from nothing — revertToWantedIfNoActiveGrabs relies on the distinction
-        // to put a failed upgrade back to downloaded rather than wanted.
+        // An upgrade keeps its old file; revertToWantedIfNoActiveGrabs relies on this to restore downloaded, not wanted.
         status: opts.isUpgrade ? "upgrading" : "downloading",
         searchAttempts: { increment: 1 },
       },
