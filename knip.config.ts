@@ -5,14 +5,9 @@ const config: KnipConfig = {
     ".": {
       entry: [],
       project: [],
-      // eslint-config-prettier is referenced via a string `extends: "prettier"`
-      // in eslint.config.mjs (FlatCompat), not a JS import — knip can't see it.
-      ignoreDependencies: ["eslint-config-prettier"],
     },
     "apps/api": {
       project: ["src/**/*.ts"],
-      // @react-email/*: JSX imports in emailService — knip misses JSX-only deps
-      ignoreDependencies: ["@react-email/components", "@react-email/tailwind"],
     },
     "apps/web": {
       // index.html -> main.tsx is auto-detected by knip's Vite plugin. The
@@ -23,7 +18,11 @@ const config: KnipConfig = {
       entry: ["src/sw/index.ts", "src/routeTree.gen.ts"],
       project: ["src/**/*.{ts,tsx}"],
       // @tailwindcss/typography: CSS @plugin directive — not a JS import, knip can't see it
-      ignoreDependencies: ["@tailwindcss/typography"],
+      // @readium/navigator-html-injectables: pinned directly but only loaded transitively by @readium/navigator
+      ignoreDependencies: [
+        "@tailwindcss/typography",
+        "@readium/navigator-html-injectables",
+      ],
     },
     "apps/shared": {
       project: ["src/**/*.ts"],

@@ -1,0 +1,224 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.3/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "apps/web/**",
+      "apps/api/**",
+      "apps/shared/**",
+      "apps/relay/**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/routeTree.gen.ts",
+      "!**/worker-configuration.d.ts",
+      "!**/*.css",
+      "!apps/web/playwright-report",
+      "!apps/web/test-results"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 80
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": false,
+      "suspicious": {
+        "noExplicitAny": "error"
+      },
+      "correctness": {
+        "noUnusedVariables": "error",
+        "useExhaustiveDependencies": "warn"
+      }
+    }
+  },
+  "assist": {
+    "enabled": false
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.d.ts"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedVariables": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/*.spec.ts",
+        "**/*.spec.tsx",
+        "**/__tests__/**",
+        "apps/api/test/**",
+        "apps/web/src/test/**",
+        "apps/web/src/test-utils/**"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/web/**", "apps/api/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noExcessiveLinesPerFile": {
+              "level": "error",
+              "options": {
+                "maxLines": 500
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/api/src/routes/**", "!**/*.test.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@rawkoon/api/db": "Routes must not import the DB client; move the query into a service."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      // Route files that import the DB client today; this list may only shrink.
+      "includes": [
+        "apps/api/src/routes/admin/adminLibraryHealthRoutes.ts",
+        "apps/api/src/routes/admin/adminMiscRoutes.ts",
+        "apps/api/src/routes/admin/adminUserRoutes.ts",
+        "apps/api/src/routes/admin/apiKeyRoutes.ts",
+        "apps/api/src/routes/books/authorRoutes.ts",
+        "apps/api/src/routes/books/bookEditionRoutes.ts",
+        "apps/api/src/routes/books/bookGrabRoutes.ts",
+        "apps/api/src/routes/books/bookListRoutes.ts",
+        "apps/api/src/routes/books/bookMetadataRoutes.ts",
+        "apps/api/src/routes/books/bookOverridesRoutes.ts",
+        "apps/api/src/routes/books/bookPlaybackRoutes.ts",
+        "apps/api/src/routes/books/bookQualityProfileRoutes.ts",
+        "apps/api/src/routes/calendar/index.ts",
+        "apps/api/src/routes/custom-formats/index.ts",
+        "apps/api/src/routes/dashboard/activities/index.ts",
+        "apps/api/src/routes/dashboard/upcoming/index.ts",
+        "apps/api/src/routes/downloads/index.ts",
+        "apps/api/src/routes/integrations/ai-provider/index.ts",
+        "apps/api/src/routes/integrations/audnexus/index.ts",
+        "apps/api/src/routes/integrations/downloadClient/hookRoutes.ts",
+        "apps/api/src/routes/integrations/downloadClient/index.ts",
+        "apps/api/src/routes/integrations/fanart/index.ts",
+        "apps/api/src/routes/integrations/googlebooks/index.ts",
+        "apps/api/src/routes/integrations/jackett/index.ts",
+        "apps/api/src/routes/integrations/jellyfin/index.ts",
+        "apps/api/src/routes/integrations/nyt/index.ts",
+        "apps/api/src/routes/integrations/oidc/index.ts",
+        "apps/api/src/routes/integrations/prowlarr/index.ts",
+        "apps/api/src/routes/integrations/tmdb/index.ts",
+        "apps/api/src/routes/library/libraryFilesRoutes.ts",
+        "apps/api/src/routes/library/libraryGrabRoutes.ts",
+        "apps/api/src/routes/library/libraryImagesRoutes.ts",
+        "apps/api/src/routes/library/libraryJobStatsRoutes.ts",
+        "apps/api/src/routes/library/libraryListRoutes.ts",
+        "apps/api/src/routes/library/libraryMediaAdmin.ts",
+        "apps/api/src/routes/library/libraryMetaRoutes.ts",
+        "apps/api/src/routes/medias/blocklist/index.ts",
+        "apps/api/src/routes/medias/collections/index.ts",
+        "apps/api/src/routes/medias/discover/index.ts",
+        "apps/api/src/routes/medias/search/index.ts",
+        "apps/api/src/routes/medias/tmdb/tmdbMetaRoutes.ts",
+        "apps/api/src/routes/medias/tmdb/tmdbRouteHelpers.ts",
+        "apps/api/src/routes/medias/watchlist/index.ts",
+        "apps/api/src/routes/notifications/channels.ts",
+        "apps/api/src/routes/notifications/index.ts",
+        "apps/api/src/routes/profile/index.ts",
+        "apps/api/src/routes/quality-profiles/index.ts",
+        "apps/api/src/routes/requests/index.ts",
+        "apps/api/src/routes/search/index.ts",
+        "apps/api/src/routes/settings/index.ts",
+        "apps/api/src/routes/system/index.ts",
+        "apps/api/src/routes/transcode/index.ts",
+        "apps/api/src/routes/tv/index.ts",
+        "apps/api/src/routes/users/index.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": "off"
+          }
+        }
+      }
+    },
+    {
+      // Files over the line cap today; this list may only shrink.
+      "includes": [
+        "apps/api/src/__tests__/aiProviderClient.test.ts",
+        "apps/api/src/routes/admin/adminUserRoutes.ts",
+        "apps/api/src/routes/books/bookPlaybackRoutes.ts",
+        "apps/api/src/routes/library/libraryFilesRoutes.ts",
+        "apps/api/src/routes/library/libraryGrabRoutes.ts",
+        "apps/api/src/routes/medias/search/index.ts",
+        "apps/api/src/routes/notifications/index.ts",
+        "apps/api/src/scripts/importExistingBooks.ts",
+        "apps/api/src/services/books/registerBookChapters.test.ts",
+        "apps/api/src/services/downloadOutcome.ts",
+        "apps/api/src/services/downloadsAssign.ts",
+        "apps/api/src/services/library/rescan.ts",
+        "apps/api/src/services/libraryIntegrityCollectors.ts",
+        "apps/api/src/services/mediaGrabberGrab.ts",
+        "apps/api/src/services/mediaGrabberSearch.ts",
+        "apps/api/src/services/mediaRequests.ts",
+        "apps/api/src/services/postProcessorBook.ts",
+        "apps/api/src/services/postProcessorSeasonPack.ts",
+        "apps/api/src/utils/dashboard/tmdbUpcoming.ts",
+        "apps/api/src/utils/medias/filenameParser.ts",
+        "apps/api/src/utils/medias/releaseScorer.test.ts",
+        "apps/api/src/utils/medias/releaseTitleParser.test.ts",
+        "apps/api/src/utils/notifications/channelDispatchers.test.ts",
+        "apps/api/src/workers/checkDownloadCompletion.ts",
+        "apps/api/src/workers/notifyLibraryEvents.ts",
+        "apps/api/src/workers/pollIndexerRss.ts",
+        "apps/api/test/mediaRequests.test.ts",
+        "apps/api/test/reconcilePendingDownloads.test.ts",
+        "apps/api/test/refreshBookMetadata.test.ts",
+        "apps/api/test/rescan.test.ts",
+        "apps/api/test/rescanBookEdition.test.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noExcessiveLinesPerFile": "off"
+          }
+        }
+      }
+    }
+  ]
+}

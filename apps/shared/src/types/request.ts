@@ -70,19 +70,6 @@ export type CreateMediaRequestBody =
       year?: number | null;
     };
 
-export interface ApproveMediaRequestBody {
-  /**
-   * Movie/show requests: the QualityProfile id. Book requests: the
-   * BookQualityProfile id (a separate table — same field, request-type-scoped
-   * meaning, so the request/approve contract stays a single field).
-   */
-  quality_profile_id: number;
-}
-
-export interface DenyMediaRequestBody {
-  deny_reason?: string;
-}
-
 /** Approving a movie or show request; the search fields are absent for a book request. */
 export interface ApproveRequestResponse {
   ok: true;

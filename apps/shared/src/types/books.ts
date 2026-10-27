@@ -10,7 +10,7 @@ import type { MediaRequestStatus } from "./request";
 
 export type BookEditionKind = "ebook" | "audiobook";
 
-export type BookEditionStatus =
+type BookEditionStatus =
   | "wanted"
   | "downloading"
   | "downloaded"
@@ -21,12 +21,12 @@ export type EbookFormat = "epub" | "azw3" | "mobi" | "pdf" | "cbz";
 export type AudiobookFormat = "m4b" | "mp3" | "flac" | "ogg";
 export type BookFormat = EbookFormat | AudiobookFormat;
 
-export interface BookQualityProfileRef {
+interface BookQualityProfileRef {
   id: number;
   name: string;
 }
 
-export interface BookFileInfo {
+interface BookFileInfo {
   id: number;
   file_name: string;
   file_path: string;
@@ -122,7 +122,7 @@ export interface BookListeningProgressRequest {
   device_id?: string;
 }
 
-export interface BookListeningSeriesStat {
+interface BookListeningSeriesStat {
   name: string;
   books_total: number;
   books_finished: number;
@@ -130,7 +130,7 @@ export interface BookListeningSeriesStat {
   current_title: string | null;
 }
 
-export interface BookListeningWeekDay {
+interface BookListeningWeekDay {
   day: string;
   seconds: number;
 }
@@ -268,12 +268,6 @@ export interface BookReleaseSearchResponse {
   indexer_warnings: { id: string; name: string; error: string }[];
 }
 
-export interface BookGrabResponse {
-  grabbed: boolean;
-  release_title?: string;
-  reason?: string;
-}
-
 export interface BookQualityProfile {
   id: number;
   name: string;
@@ -357,7 +351,7 @@ export interface BookMetadataSourceOrderResponse {
   order: BookMetadataSource[];
 }
 
-export interface AudnexusIntegration {
+interface AudnexusIntegration {
   type: "audnexus";
   enabled: boolean;
   /** Defaults to the public instance; a self-hosted one can be used instead. */
