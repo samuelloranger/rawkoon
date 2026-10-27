@@ -208,6 +208,16 @@ There is no sleep timer, datasaver, or CarPlay from the browser.
 
 The iOS app still has its own reader and player, including offline downloads.
 
+### Chapters, manifests and grants
+
+Chapter offsets sit on the whole-book timeline and are the running sum of the
+probed file durations, not the source chapter atoms, because frame-accurate
+`-c copy` splits drift. Clients read an edition through its manifest
+(`GET /api/books/editions/:id/manifest`), not the edition row. Each chapter
+URL in it carries a short-lived HMAC grant (`downloadGrant.ts`), since
+background `URLSession` downloads have no session cookie. A 401 on a chapter
+means the grant expired: refetch the manifest instead of failing the chapter.
+
 ### What the web app dropped in 1.8.0
 
 The first web reader and player were removed in 1.8.0. Reading progress from

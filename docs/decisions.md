@@ -140,3 +140,100 @@ Every iOS change has a repeatable macOS verification command without baking a
 simulator UUID into the repository. Work in that checkout preserves its
 untracked `HANDOFF.md` and `apps/ios/.swiftpm/` state; implementation commits
 must stage only intended files.
+
+## ADR-006: One download history for every grab target
+
+**Status:** accepted (recorded 2026-10-27, describing the shipped design).
+
+### Context
+
+A grab can target a movie, a single episode, a season pack, or a book
+edition. Giving each its own history table would have meant four copies of the
+same completion, failure, seeding and notification logic, and four places for
+the poll that finds active downloads to look. At the same time, two scheduled
+searches firing on the same tick, or a manual grab racing an automatic one,
+could add the same release twice to the download client.
+
+### Decision
+
+All grabs share one download-history table. The target is a nullable media
+reference, an optional episode, an optional season for packs, or a nullable
+book-edition reference; a check constraint forbids a row naming both a media
+item and a book edition. "At most one active download per target" is enforced
+by the database, not only by the application: a partial unique index on the
+media target and a second, disjoint one on the book edition, each applying only
+while the row is neither completed nor failed. The grab path pre-checks for a
+clear rejection reason and then treats the unique-violation error as the
+race-closing fallback.
+
+### Consequences
+
+Completion, adoption, seeding and attention logic are written once and every
+target kind gets them. The cost is nullable target columns and indexes that
+Prisma cannot express, which live only in hand-written migrations and are
+invisible in the schema file, so a fresh reader must look there. The two
+unique indexes are deliberately disjoint so the media rule and its error
+handling were not changed when books arrived. A row may end up with no target
+at all when its title is deleted, because the references are nulled rather than
+cascaded, so history survives deletion; the check forbids two targets, not zero.
+
+## ADR-007: Summary columns on the library item, kept by database triggers
+
+**Status:** accepted (recorded 2026-10-27, describing the shipped design).
+
+### Context
+
+The library list sorts and filters thousands of titles and needs, for each,
+the episode and downloaded-episode counts, season count, total file size, time
+of the last grab, and the display title and year after overrides. Computing
+these per request from episodes, files and download history made the list
+slow, and every write path (grab, completion, rescan, delete, metadata sync,
+manual edits) would otherwise have to remember to refresh them.
+
+### Decision
+
+These values are stored as columns on the library item and maintained by
+Postgres triggers on the tables they summarise, not by application code. Counts
+are null rather than zero for items with no episodes. The library status itself
+is not a trigger product: it is written by the application at grab, outcome and
+catalog-refresh time. Book editions follow the same pattern for totals, last
+grab and the cached author line.
+
+### Consequences
+
+Lists and sorts are index-friendly and stay correct whatever code path changes
+the underlying rows, including scripts and manual SQL. The logic lives in
+migrations, so changing a rule means a new migration that redefines the
+function, and tests that mock the database cannot see it. Bulk writes pay a
+per-row trigger cost. Anyone adding a new way to change episodes, files or
+history must not also update these columns by hand.
+
+## ADR-008: One request per title, reopened rather than recorded again
+
+**Status:** accepted (recorded 2026-10-27, describing the shipped design).
+
+### Context
+
+Rawkoon is a single shared household library. Two members asking for the same
+title would each expect to be told when it arrives, but a second request would
+add nothing for the administrator to decide, and a title removed and asked for
+again should not leave a trail of stale rows.
+
+### Decision
+
+A title has at most one request, unique on the catalog identity for movies and
+shows and on the volume for books. A new ask for a title that is not in the
+library, whose request is not pending, reopens the existing request: it goes
+back to pending under the new requester with its decision, reason and creation
+time reset, and administrators are notified again. A pending request refuses a
+second ask. A title in the library cannot be requested. Reopening an
+administrator's request approves it on the spot with the default quality
+profile.
+
+### Consequences
+
+There is no request history: the previous requester, decision and reason are
+overwritten, and only the current asker is notified when the title becomes
+available. The list of requests stays one row per title and the uniqueness rule
+closes duplicate-request races. If per-user histories or multiple concurrent
+requesters are ever wanted, this needs a second table and a data migration.
