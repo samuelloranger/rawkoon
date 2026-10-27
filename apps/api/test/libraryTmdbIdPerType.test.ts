@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, describe, expect, it, mock } from "bun:test";
 
 // TMDB numbers movies and shows separately, so adding a movie must not touch
 // a show that happens to share its TMDB id.
@@ -28,6 +28,7 @@ const find = (where: Where) =>
 
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
+    $executeRaw: async () => 0,
     mediaSettings: { findUnique: async () => null },
     qualityProfile: { findUnique: async () => null },
     libraryMedia: {
@@ -49,13 +50,12 @@ mock.module("@rawkoon/api/db", () => ({
 mock.module("@rawkoon/api/utils/medias/libraryHelpers", () => ({
   ...realHelpers,
   getLibraryTmdbApiKey: async () => "key",
-  tmdbDetailsFetch: async () => ({
-    title: "A Movie",
-    release_date: "2020-01-01",
-    poster_path: null,
-    overview: "",
-  }),
+  tmdbDetailsFetch: async (path: string) =>
+    path.startsWith("movie/")
+      ? { title: "A Movie", release_date: "2020-01-01", overview: "" }
+      : { name: "A Show", first_air_date: "2020-01-01", overview: "" },
   tmdbApiFetch: async () => ({ results: [] }),
+  upsertLibraryShowEpisodesFromTmdb: async () => {},
 }));
 mock.module("@rawkoon/api/services/localizedTitleSync", () => ({
   ...realTitles,
@@ -72,12 +72,9 @@ afterAll(() => {
   mock.module("@rawkoon/api/services/localizedTitleSync", () => realTitles);
 });
 
-beforeEach(() => {
-  rows = [{ id: 1, tmdbId: 42, type: "show", title: "A Show" }];
-});
-
 describe("addOrUpdateLibraryFromTmdb with a TMDB id shared by a movie and a show", () => {
   it("adds the movie as its own row and leaves the show untouched", async () => {
+    rows = [{ id: 1, tmdbId: 42, type: "show", title: "Existing Show" }];
     const movie = await addOrUpdateLibraryFromTmdb({
       tmdb_id: 42,
       type: "movie",
@@ -94,7 +91,25 @@ describe("addOrUpdateLibraryFromTmdb with a TMDB id shared by a movie and a show
       id: 1,
       tmdbId: 42,
       type: "show",
-      title: "A Show",
+      title: "Existing Show",
+    });
+  });
+
+  it("adds the show as its own row and leaves the movie untouched", async () => {
+    rows = [{ id: 1, tmdbId: 42, type: "movie", title: "Existing Movie" }];
+    const show = await addOrUpdateLibraryFromTmdb({
+      tmdb_id: 42,
+      type: "show",
+      qualityProfileId: null,
+    });
+
+    expect(show).toMatchObject({ tmdbId: 42, type: "show", title: "A Show" });
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toEqual({
+      id: 1,
+      tmdbId: 42,
+      type: "movie",
+      title: "Existing Movie",
     });
   });
 });

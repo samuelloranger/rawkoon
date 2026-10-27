@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import {
   enrichSearchItems,
+  libraryKey,
   exploreBaseCacheKey,
   getExploreBaseSections,
   type ExploreBaseSections,
@@ -117,5 +118,21 @@ describe("enrichSearchItems", () => {
       library_id: null,
       library_status: null,
     });
+  });
+
+  it("keeps a movie and a show that share a TMDB id apart", () => {
+    const [movie, show] = enrichSearchItems(
+      [raw(1), { id: 1, media_type: "tv", name: "S1" }],
+      new Map([[libraryKey(1, "show"), { id: 9, status: "downloaded" }]]),
+    );
+    expect(movie).toMatchObject({ already_exists: false, library_id: null });
+    expect(show).toMatchObject({ already_exists: true, library_id: 9 });
+  });
+});
+
+describe("libraryKey", () => {
+  it("treats TMDB's tv and the library's show as the same type", () => {
+    expect(libraryKey(5, "tv")).toBe(libraryKey(5, "show"));
+    expect(libraryKey(5, "movie")).not.toBe(libraryKey(5, "show"));
   });
 });
