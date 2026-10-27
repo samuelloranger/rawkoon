@@ -19,48 +19,14 @@ import { tryAdoptQbDuplicate } from "@rawkoon/api/services/mediaGrabber/mediaGra
 import { checkFreeSpaceForGrab } from "@rawkoon/api/services/grab/grabSpaceCheck";
 import { resolveGrabSeason } from "@rawkoon/api/services/grab/grabEpisodeResolver";
 import {
-  activeShowGrabCover,
-  inFlightGrabWhere,
-  SHOW_GRAB_ACTIVE_PREFIX,
-} from "@rawkoon/api/services/activeShowGrab";
-import { isMultiSeasonRelease } from "@rawkoon/api/utils/medias/completeSeries";
-import { parseReleaseSeasonSpan } from "@rawkoon/shared/utils/releaseStructure";
+  duplicateGrabReason,
+  findGrabConflict,
+  type GrabRefusal,
+  type GrabResult,
+  type GrabTarget,
+} from "@rawkoon/api/services/mediaGrabber/mediaGrabberConflicts";
 
-/**
- * Why a grab was refused before anything was sent to the download client.
- * Callers branch on this, never on the reason text.
- */
-export type GrabRefusal =
-  | "blocklisted"
-  | "no_space"
-  | "already_active"
-  | "show_grab_active";
-
-export type GrabResult =
-  | { grabbed: true; releaseTitle: string }
-  | { grabbed: false; reason: string; refusal?: GrabRefusal };
-
-/**
- * Identifies what a grab is FOR. Movies are (media, null, null), single
- * episodes (media, episode, null), season packs (media, null, season).
- * Mirrors the key of the ux_download_history_active_target unique index.
- */
-type GrabTarget = {
-  mediaId: number;
-  episodeId: number | null;
-  season: number | null;
-};
-
-function duplicateGrabReason(target: GrabTarget, activeId?: number): string {
-  const scope =
-    target.episodeId != null
-      ? `episode ${target.episodeId}`
-      : target.season != null
-        ? `season ${target.season}`
-        : "this item";
-  const ref = activeId != null ? ` (download #${activeId})` : "";
-  return `A download is already active for ${scope}${ref} — cancel it before grabbing another release`;
-}
+export type { GrabRefusal, GrabResult };
 
 /**
  * The refusals that need nothing but the release itself: a usable URL, a
@@ -200,72 +166,8 @@ export async function grabRelease(opts: {
       episodeId: episodeId ?? null,
       season,
     };
-    const activeGrab = await prisma.downloadHistory.findFirst({
-      where: { ...target, completedAt: null, failed: false },
-      select: { id: true },
-      orderBy: { id: "desc" },
-    });
-    if (activeGrab) {
-      return {
-        grabbed: false,
-        reason: duplicateGrabReason(target, activeGrab.id),
-        refusal: "already_active",
-      };
-    }
-    // A show-level pack would overwrite a season or episode grab already running inside its seasons.
-    if (
-      media.type === "show" &&
-      target.episodeId == null &&
-      target.season == null &&
-      isMultiSeasonRelease(releaseTitle)
-    ) {
-      const span = parseReleaseSeasonSpan(releaseTitle);
-      const inside = (
-        await prisma.downloadHistory.findMany({
-          where: {
-            ...(await inFlightGrabWhere()),
-            mediaId,
-            AND: [
-              { OR: [{ episodeId: { not: null } }, { season: { not: null } }] },
-            ],
-          },
-          select: { season: true, episode: { select: { season: true } } },
-        })
-      ).some((r) => {
-        const s = r.season ?? r.episode?.season;
-        return span == null || s == null || (s >= span.from && s <= span.to);
-      });
-      if (inside) {
-        return {
-          grabbed: false,
-          reason:
-            "A season or episode download is already active inside this pack's seasons — cancel it first",
-          refusal: "already_active",
-        };
-      }
-    }
-    // A show-level pack already carries the seasons it names; a season or episode of those would double-grab.
-    if (target.episodeId != null || target.season != null) {
-      const cover = await activeShowGrabCover(mediaId);
-      if (cover) {
-        const episodeSeason =
-          target.episodeId != null
-            ? (
-                await prisma.libraryEpisode.findUnique({
-                  where: { id: target.episodeId },
-                  select: { season: true },
-                })
-              )?.season
-            : target.season;
-        if (episodeSeason == null || cover(episodeSeason)) {
-          return {
-            grabbed: false,
-            reason: `${SHOW_GRAB_ACTIVE_PREFIX} — cancel it before grabbing a single season or episode`,
-            refusal: "show_grab_active",
-          };
-        }
-      }
-    }
+    const conflict = await findGrabConflict(media, target, releaseTitle);
+    if (conflict) return conflict;
 
     let dhRow: { id: number };
     try {
@@ -296,6 +198,36 @@ export async function grabRelease(opts: {
     pendingDownloadHistoryId = dhRow.id;
     const tag = `rawkoon-dh-${dhRow.id}`;
 
+    const failAdd = async (
+      error: unknown,
+      torrentHash: string | null,
+      fallback: string,
+    ): Promise<GrabResult> => {
+      if (adapter.type === "qbittorrent") {
+        const adopted = await tryAdoptQbDuplicate({
+          dhRowId: dhRow.id,
+          mediaId,
+          episodeId: episodeId ?? null,
+          mediaType: media.type,
+          torrentHash,
+          releaseTitle,
+          qJson,
+          isUpgrade: opts.isUpgrade,
+        });
+        if (adopted) {
+          grabCommittedOk = true;
+          successReleaseTitle = releaseTitle;
+          return { grabbed: true, releaseTitle };
+        }
+      }
+      const reason = error instanceof Error ? error.message : fallback;
+      await prisma.downloadHistory.update({
+        where: { id: dhRow.id },
+        data: { failed: true, failReason: reason },
+      });
+      return { grabbed: false, reason };
+    };
+
     let torrentHash: string | null = isMagnet
       ? infoHashFromMagnet(downloadUrl)
       : null;
@@ -310,30 +242,7 @@ export async function grabRelease(opts: {
         });
         if (added.hash) torrentHash = added.hash;
       } catch (error) {
-        if (adapter.type === "qbittorrent") {
-          const adopted = await tryAdoptQbDuplicate({
-            dhRowId: dhRow.id,
-            mediaId,
-            episodeId: episodeId ?? null,
-            mediaType: media.type,
-            torrentHash,
-            releaseTitle,
-            qJson,
-            isUpgrade: opts.isUpgrade,
-          });
-          if (adopted) {
-            grabCommittedOk = true;
-            successReleaseTitle = releaseTitle;
-            return { grabbed: true, releaseTitle };
-          }
-        }
-        const reason =
-          error instanceof Error ? error.message : "Magnet add failed";
-        await prisma.downloadHistory.update({
-          where: { id: dhRow.id },
-          data: { failed: true, failReason: reason },
-        });
-        return { grabbed: false, reason };
+        return await failAdd(error, torrentHash, "Magnet add failed");
       }
     } else {
       // Try to fetch the .torrent file. Some indexers redirect to a magnet instead.
@@ -393,30 +302,7 @@ export async function grabRelease(opts: {
           });
           if (added.hash) torrentHash = added.hash;
         } catch (error) {
-          if (adapter.type === "qbittorrent") {
-            const adopted = await tryAdoptQbDuplicate({
-              dhRowId: dhRow.id,
-              mediaId,
-              episodeId: episodeId ?? null,
-              mediaType: media.type,
-              torrentHash,
-              releaseTitle,
-              qJson,
-              isUpgrade: opts.isUpgrade,
-            });
-            if (adopted) {
-              grabCommittedOk = true;
-              successReleaseTitle = releaseTitle;
-              return { grabbed: true, releaseTitle };
-            }
-          }
-          const reason =
-            error instanceof Error ? error.message : "Magnet add failed";
-          await prisma.downloadHistory.update({
-            where: { id: dhRow.id },
-            data: { failed: true, failReason: reason },
-          });
-          return { grabbed: false, reason };
+          return await failAdd(error, torrentHash, "Magnet add failed");
         }
       } else if (fetchedFile) {
         try {
@@ -429,30 +315,7 @@ export async function grabRelease(opts: {
           });
           if (added.hash) torrentHash = added.hash;
         } catch (error) {
-          if (adapter.type === "qbittorrent") {
-            const adopted = await tryAdoptQbDuplicate({
-              dhRowId: dhRow.id,
-              mediaId,
-              episodeId: episodeId ?? null,
-              mediaType: media.type,
-              torrentHash,
-              releaseTitle,
-              qJson,
-              isUpgrade: opts.isUpgrade,
-            });
-            if (adopted) {
-              grabCommittedOk = true;
-              successReleaseTitle = releaseTitle;
-              return { grabbed: true, releaseTitle };
-            }
-          }
-          const reason =
-            error instanceof Error ? error.message : "Torrent add failed";
-          await prisma.downloadHistory.update({
-            where: { id: dhRow.id },
-            data: { failed: true, failReason: reason },
-          });
-          return { grabbed: false, reason };
+          return await failAdd(error, torrentHash, "Torrent add failed");
         }
       }
     }
