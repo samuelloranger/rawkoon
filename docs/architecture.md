@@ -124,6 +124,25 @@ path, and requests a Jellyfin refresh when configured.
 Failures remain in download history and can surface in the Library attention
 list instead of silently disappearing.
 
+### Download outcomes
+
+A download-history row reaches a terminal state (complete, fail, or adopt)
+in exactly one place, <code>services/downloads/downloadOutcome.ts</code>. It
+also changes the library status of the parent movie, episode or edition,
+sends the request notification, and queues the post-process job, which runs
+as a queued job rather than inline. Every path that finishes a download goes
+through it: the reconcile loop, duplicate adoption, rescan, and the admin
+retry-post-process endpoint. Nothing else writes a terminal state. A
+grab-time failure, where the release was never handed to the client, is not
+an outcome and stays in the grab path. The reconcile loop owns polling
+cadence and stall and max-age policy, and delegates the transitions
+themselves to the outcome module.
+
+Post-processing resolves the destination from the file template, moves or
+links the file, upserts the media-file row, and supersedes the file an
+upgrade replaces. Adopting a torrent already in the client is done through
+the download client adapter.
+
 ## Background work
 
 Valkey and BullMQ keep slow work away from HTTP requests. Rawkoon has separate
