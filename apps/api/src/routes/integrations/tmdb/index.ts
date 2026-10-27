@@ -1,11 +1,10 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
 import {
   getIntegrationConfigRecord,
   invalidateIntegrationConfigCache,
 } from "@rawkoon/api/services/integrationConfigCache";
-import { nowUtc } from "@rawkoon/api/utils";
+import { upsertIntegrationRow } from "@rawkoon/api/services/integrations/integrationSettings";
 import { normalizeTmdbConfig } from "@rawkoon/api/utils/integrations/normalizers";
 import { encrypt } from "@rawkoon/api/services/crypto";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
@@ -59,21 +58,14 @@ export const tmdbIntegrationRoutes = new Hono<Env>()
       }
 
       try {
-        const now = nowUtc();
         const configPayload = {
           api_key: encrypt(apiKey),
           popularity_threshold: popularityThreshold,
         };
-        const integration = await prisma.integration.upsert({
-          where: { type: "tmdb" },
-          update: { enabled, config: configPayload, updatedAt: now },
-          create: {
-            type: "tmdb",
-            enabled,
-            config: configPayload,
-            createdAt: now,
-            updatedAt: now,
-          },
+        const integration = await upsertIntegrationRow({
+          type: "tmdb",
+          enabled,
+          config: configPayload,
         });
         await invalidateIntegrationConfigCache("tmdb");
 

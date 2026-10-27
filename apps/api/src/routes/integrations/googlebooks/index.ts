@@ -1,11 +1,10 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
 import {
   getIntegrationConfigRecord,
   invalidateIntegrationConfigCache,
 } from "@rawkoon/api/services/integrationConfigCache";
-import { nowUtc } from "@rawkoon/api/utils";
+import { upsertIntegrationRow } from "@rawkoon/api/services/integrations/integrationSettings";
 import { normalizeGoogleBooksConfig } from "@rawkoon/api/utils/integrations/normalizers";
 import { encrypt } from "@rawkoon/api/services/crypto";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
@@ -67,18 +66,11 @@ export const googleBooksIntegrationRoutes = new Hono<Env>()
       }
 
       try {
-        const now = nowUtc();
         const config = apiKey ? { api_key: encrypt(apiKey) } : {};
-        const integration = await prisma.integration.upsert({
-          where: { type: "googlebooks" },
-          update: { enabled, config, updatedAt: now },
-          create: {
-            type: "googlebooks",
-            enabled,
-            config,
-            createdAt: now,
-            updatedAt: now,
-          },
+        const integration = await upsertIntegrationRow({
+          type: "googlebooks",
+          enabled,
+          config,
         });
         invalidateIntegrationConfigCache("googlebooks");
 

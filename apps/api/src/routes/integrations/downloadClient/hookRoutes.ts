@@ -2,9 +2,12 @@ import { Hono } from "hono";
 import { getConnInfo } from "hono/bun";
 import { rateLimiter } from "hono-rate-limiter";
 import type { Context } from "hono";
-import { prisma } from "@rawkoon/api/db";
 import { badRequest, ok, unauthorized } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
+import {
+  hasPendingDownloadForHash,
+  stampHookSeen,
+} from "@rawkoon/api/services/downloadClient/hookState";
 import { verifyHookToken } from "@rawkoon/api/services/downloadClient/hookToken";
 import {
   scheduledTasksQueue,
@@ -56,23 +59,8 @@ export async function handleCompletionHook(
 
 const liveDeps: HookDeps = {
   verifyToken: verifyHookToken,
-  hasPendingForHash: async (hash) => {
-    const row = await prisma.downloadHistory.findFirst({
-      where: { torrentHash: hash, completedAt: null, failed: false },
-      select: { id: true },
-    });
-    return row !== null;
-  },
-  stampHookSeen: async () => {
-    // upsert, not update: nothing seeds media_settings row 1, so `update`
-    // throws P2025 on a fresh install. See indexerManager/factory.ts:18.
-    const downloadHookLastSeenAt = new Date();
-    await prisma.mediaSettings.upsert({
-      where: { id: 1 },
-      update: { downloadHookLastSeenAt },
-      create: { id: 1, downloadHookLastSeenAt },
-    });
-  },
+  hasPendingForHash: hasPendingDownloadForHash,
+  stampHookSeen,
   wake: async () => {
     // Order is load-bearing: checkDownloadCompletion() returns early while the
     // poll gate is closed, so clearing it must happen before the job is queued.
