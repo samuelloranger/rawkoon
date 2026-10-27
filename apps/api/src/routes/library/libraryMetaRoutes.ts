@@ -9,7 +9,7 @@ import { jsonV } from "@rawkoon/api/middleware/validate";
 import {
   profileToScoreInput,
   loadProfileWithFormats,
-} from "@rawkoon/api/services/mediaGrabberHelpers";
+} from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
 import { filesFailProfile } from "@rawkoon/api/services/upgradeDetection";
 import {
   downloadedEpisodesFailingProfile,

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 
-import { postProcessJobId } from "@rawkoon/api/services/downloadOutcome";
+import { postProcessJobId } from "@rawkoon/api/services/downloads/downloadOutcome";
 
 // BullMQ reserves ':' as its key separator and validates custom job ids in
 // Job.addJob. An id it rejects makes every enqueue throw at runtime — and

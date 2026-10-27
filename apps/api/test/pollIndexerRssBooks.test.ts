@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
+import { dbModule } from "./mocks/prisma";
 
 // The book half of the RSS sweep grabs without anyone asking, so its filters are
 // what stand between a feed and a wrong file in the library: the categories it
@@ -34,16 +35,18 @@ const state: {
   grabCalls: [],
 };
 
-mock.module("@rawkoon/api/db", () => ({
-  prisma: {
-    appSettings: {
-      findUnique: () => Promise.resolve({ booksEnabled: state.booksEnabled }),
+mock.module("@rawkoon/api/db", () =>
+  dbModule({
+    prisma: {
+      appSettings: {
+        findUnique: () => Promise.resolve({ booksEnabled: state.booksEnabled }),
+      },
+      bookEdition: {
+        findMany: () => Promise.resolve(state.wanted),
+      },
     },
-    bookEdition: {
-      findMany: () => Promise.resolve(state.wanted),
-    },
-  },
-}));
+  }),
+);
 
 const realGrabber = await import("@rawkoon/api/services/books/bookGrabber");
 mock.module("@rawkoon/api/services/books/bookGrabber", () => ({

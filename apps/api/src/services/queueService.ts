@@ -314,7 +314,7 @@ export async function setupScheduledJobs() {
   const { loadReleaseCheckCron, registerSchedulers } = await import(
     "./releaseCheckSchedule"
   );
-  const { loadRssPollInterval } = await import("./rssPollSchedule");
+  const { loadRssPollInterval } = await import("./rss/rssPollSchedule");
   const releaseCheckCron = await loadReleaseCheckCron();
   const rssPollPattern = rssPollCron(await loadRssPollInterval());
 

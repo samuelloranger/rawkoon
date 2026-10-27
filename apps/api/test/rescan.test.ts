@@ -244,9 +244,9 @@ mock.module("@rawkoon/api/utils/medias/filenameParser", () => ({
 // rescan only re-queues post-processing; the rest of the download outcome
 // module is not exercised here, so stub just the enqueue.
 const realDownloadOutcome = await import(
-  "@rawkoon/api/services/downloadOutcome"
+  "@rawkoon/api/services/downloads/downloadOutcome"
 );
-mock.module("@rawkoon/api/services/downloadOutcome", () => ({
+mock.module("@rawkoon/api/services/downloads/downloadOutcome", () => ({
   ...realDownloadOutcome,
   enqueuePostProcess: (dhId: number) => {
     state.enqueuedDhIds.push(dhId);

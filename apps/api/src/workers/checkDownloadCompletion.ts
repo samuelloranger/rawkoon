@@ -5,8 +5,8 @@ import {
   completeDownload,
   completeDownloadByHash,
   failDownload,
-} from "@rawkoon/api/services/downloadOutcome";
-import { rejectRelease } from "@rawkoon/api/services/downloadJanitor";
+} from "@rawkoon/api/services/downloads/downloadOutcome";
+import { rejectRelease } from "@rawkoon/api/services/downloads/downloadJanitor";
 import { findBlockedFile } from "@rawkoon/api/services/seeding/seedPolicy";
 
 /**

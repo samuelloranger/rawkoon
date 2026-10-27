@@ -22,7 +22,7 @@ const searchAndGrabWithTitleFallbackMock = mock(async () => ({
   grabbed: true,
 }));
 
-mock.module("@rawkoon/api/services/mediaGrabberSearch", () => ({
+mock.module("@rawkoon/api/services/mediaGrabber/mediaGrabberSearch", () => ({
   searchAndGrabWithTitleFallback: searchAndGrabWithTitleFallbackMock,
 }));
 

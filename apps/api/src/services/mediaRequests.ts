@@ -8,9 +8,9 @@ import { deleteCache } from "@rawkoon/api/services/cache";
 import { queueSearchOnAdd } from "@rawkoon/api/services/searchOnAdd";
 import type { SearchSkippedReason } from "@rawkoon/shared/types";
 import { invalidateUpcomingCache } from "@rawkoon/api/utils/dashboard/tmdbUpcoming";
-import { getAdminNotificationTargets } from "@rawkoon/api/services/notificationPreferences";
-import { notificationCopy } from "@rawkoon/api/services/notificationCopy";
-import { getNotificationTarget } from "@rawkoon/api/services/notificationPreferences";
+import { getAdminNotificationTargets } from "@rawkoon/api/services/notification/notificationPreferences";
+import { notificationCopy } from "@rawkoon/api/services/notification/notificationCopy";
+import { getNotificationTarget } from "@rawkoon/api/services/notification/notificationPreferences";
 import { buildLibraryNotificationUrl } from "@rawkoon/shared/utils";
 
 type RequestKind = "movie" | "show" | "book";

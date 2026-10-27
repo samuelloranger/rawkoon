@@ -5,7 +5,7 @@
 **Goal:** Stop dead, fake and malicious releases from being re-grabbed. Release torrents from the client once their seed target is met, including after a delete or an upgrade. Surface orphaned torrents. Show all of it live on a new Downloads page.
 
 **Architecture:** `DownloadHistory` is the ownership ledger. It gains `seed_released_*` columns, and every piece of policy is a pure function in `services/seeding/seedPolicy.ts`. Two thin runners apply that policy:
-- `services/downloadJanitor.ts#rejectRelease`: fail, blocklist, remove.
+- `services/downloads/downloadJanitor.ts#rejectRelease`: fail, blocklist, remove.
 - `services/seeding/seedSweep.ts#runSeedSweep`: plan, then release.
 
 Both take injected deps, so tests never touch Prisma. The reconcile loop and `finishPostProcess` call the janitor. A 15-minute scheduled job and the post-import hook call the sweep. A new admin-only `/api/downloads` route domain feeds the web, and the `library.seed-state` SSE event keeps it live.
@@ -54,8 +54,8 @@ These are the input classes most likely to bite, each with the task whose tests 
 - `apps/api/src/services/seeding/indexerPrivacy.ts`: indexer name → private map, cached for 1 h.
 - `apps/api/src/services/seeding/seedSweep.ts`: `planSeedReleases` (pure), `runSeedSweep`, `evaluateSeedRelease`, `releaseTorrentNow`, `releasePendingForRemovedMedia`.
 - `apps/api/src/services/seeding/seedingView.ts`: pure view builders for the routes.
-- `apps/api/src/services/downloadJanitor.ts`: `rejectRelease`, `findBlockedFileInTorrent`.
-- `apps/api/src/services/postProcessFailure.ts`: the `PostProcessFailure` type, kept apart to avoid an import cycle.
+- `apps/api/src/services/downloads/downloadJanitor.ts`: `rejectRelease`, `findBlockedFileInTorrent`.
+- `apps/api/src/services/postProcessor/postProcessFailure.ts`: the `PostProcessFailure` type, kept apart to avoid an import cycle.
 - `apps/api/src/routes/downloads/index.ts`: the admin `/api/downloads` domain.
 - `apps/api/prisma/migrations/20260922000000_cleanup_release/migration.sql`
 - Tests: `apps/api/test/seedPolicy.test.ts`, `indexerPrivacy.test.ts`, `downloadJanitor.test.ts`, `seedSweep.test.ts`, `seedingView.test.ts`.
@@ -65,7 +65,7 @@ These are the input classes most likely to bite, each with the task whose tests 
 - `prisma/schema.prisma`
 - `services/downloadClient/{types,qbittorrentAdapter,transmissionAdapter,delugeAdapter}.ts`, plus `services/qbittorrent/torrentQueries.ts`.
 - `workers/checkDownloadCompletion.ts`
-- `services/downloadOutcome.ts`, `postProcessorSingle.ts`, `postProcessorSeasonPack.ts`, `postProcessorBook.ts`.
+- `services/downloads/downloadOutcome.ts`, `postProcessorSingle.ts`, `postProcessorSeasonPack.ts`, `postProcessorBook.ts`.
 - `services/queueService.ts`, `services/jobs/scheduledTasksWorker.ts`, `routes/admin/adminJobRoutes.ts`.
 - `services/libraryEvents.ts`, `contracts/sseContract.ts`, `apps/shared/contracts/sse-contract.v1.json`, `routes/library/libraryJobWorkerRoutes.ts`.
 - `routes/library/libraryListRoutes.ts` (delete), `routes/library/libraryFilesRoutes.ts` (history `seed`), `routes/library/libraryMediaAdmin.ts` (settings), `routes/medias/blocklist/index.ts` (kind and source), `src/index.ts` (mount).
@@ -1050,7 +1050,7 @@ git commit -m "feat(seeding): cached indexer privacy lookup"
 ### Task 5: `rejectRelease` janitor
 
 **Files:**
-- Create: `apps/api/src/services/downloadJanitor.ts`
+- Create: `apps/api/src/services/downloads/downloadJanitor.ts`
 - Test: `apps/api/test/downloadJanitor.test.ts`
 
 **Interfaces:**
@@ -1291,7 +1291,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/api/src/services/downloadJanitor.ts apps/api/test/downloadJanitor.test.ts
+git add apps/api/src/services/downloads/downloadJanitor.ts apps/api/test/downloadJanitor.test.ts
 git commit -m "feat(janitor): rejectRelease fails, blocklists and clears a condemned release"
 ```
 
@@ -2009,9 +2009,9 @@ git commit -m "feat(seeding): sweep releases torrents once every owning rule is 
 ### Task 8: Post-processing: typed rejects, malware gate, post-import release
 
 **Files:**
-- Create: `apps/api/src/services/postProcessFailure.ts`
-- Modify: `apps/api/src/services/downloadOutcome.ts` (`PostProcessOutcome`, `finishPostProcess`)
-- Modify: `apps/api/src/services/postProcessorSingle.ts`, `postProcessorSeasonPack.ts`, `postProcessorBook.ts`
+- Create: `apps/api/src/services/postProcessor/postProcessFailure.ts`
+- Modify: `apps/api/src/services/downloads/downloadOutcome.ts` (`PostProcessOutcome`, `finishPostProcess`)
+- Modify: `apps/api/src/services/postProcessor/postProcessorSingle.ts`, `postProcessorSeasonPack.ts`, `postProcessorBook.ts`
 - Test: `apps/api/test/finishPostProcessReject.test.ts` (new); update `apps/api/test/finishPostProcessSkip.test.ts` mocks.
 
 **Interfaces:**

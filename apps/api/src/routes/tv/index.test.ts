@@ -30,7 +30,7 @@ mock.module("@rawkoon/api/middleware/hono/auth", () => ({
   },
 }));
 // mock.module is process-wide, so keep every export other suites import.
-mock.module("@rawkoon/api/services/jellyfinUsers", () => ({
+mock.module("@rawkoon/api/services/jellyfin/jellyfinUsers", () => ({
   JELLYFIN_SESSION_AGENT_PREFIX: "Jellyfin: ",
   jellyfinAuthHeader: (token: string) => ({
     Authorization: `MediaBrowser Token="${token}"`,

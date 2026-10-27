@@ -1,5 +1,5 @@
 import { claimExistingQbTorrent } from "@rawkoon/api/services/qbittorrent/adoptExisting";
-import { adoptDownload } from "@rawkoon/api/services/downloadOutcome";
+import { adoptDownload } from "@rawkoon/api/services/downloads/downloadOutcome";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import type { BookEditionKind } from "@rawkoon/shared/types";
 

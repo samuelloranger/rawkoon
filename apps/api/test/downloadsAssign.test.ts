@@ -64,15 +64,15 @@ mock.module("@rawkoon/api/services/libraryFromTmdb", () => ({
 // files (e.g. completeDownloadByHash.test.ts) and silently breaks their emit
 // assertions under CI's file-discovery order.
 
-mock.module("@rawkoon/api/services/jellyfinLibraryRefresh", () => ({
+mock.module("@rawkoon/api/services/jellyfin/jellyfinLibraryRefresh", () => ({
   triggerJellyfinLibraryScan: async () => {},
 }));
 
-import { assignDownloadFromDisk } from "../src/services/downloadsAssign";
+import { assignDownloadFromDisk } from "../src/services/downloads/downloadsAssign";
 import {
   invalidateDownloadsScannerCache,
   invalidateLibraryInodeKeySetCache,
-} from "../src/services/downloadsScanner";
+} from "../src/services/downloads/downloadsScanner";
 
 const MIN_BYTES = 100 * 1024 * 1024;
 
@@ -226,7 +226,7 @@ describe("assignDownloadFromDisk validation", () => {
       }),
     }));
     const { assignDownloadFromDisk: assignWithStubTmdb } = await import(
-      "../src/services/downloadsAssign"
+      "../src/services/downloads/downloadsAssign"
     );
     const res = await assignWithStubTmdb({
       file_path: fp,

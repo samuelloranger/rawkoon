@@ -78,7 +78,7 @@ export const usersRoutes = new Hono<Env>()
       const body = c.req.valid("json");
       try {
         const { updateUserNotificationPreferences } = await import(
-          "@rawkoon/api/services/notificationPreferences"
+          "@rawkoon/api/services/notification/notificationPreferences"
         );
         const prefs = await updateUserNotificationPreferences(
           user.id,

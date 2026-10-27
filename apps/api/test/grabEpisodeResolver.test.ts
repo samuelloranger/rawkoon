@@ -4,7 +4,7 @@ import {
   resolveGrabEpisodeId,
   resolveGrabSeason,
   type GrabEpisodeRef,
-} from "../src/services/grabEpisodeResolver";
+} from "../src/services/grab/grabEpisodeResolver";
 
 const EPISODES: GrabEpisodeRef[] = [
   { id: 111, season: 3, episode: 4 },

@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "bun:test";
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isFullyReadable } from "@rawkoon/api/services/postProcessorHelpers";
+import { isFullyReadable } from "@rawkoon/api/services/postProcessor/postProcessorHelpers";
 
 const base = await mkdtemp(join(tmpdir(), "rawkoon-readable-"));
 const isRoot = process.getuid?.() === 0;

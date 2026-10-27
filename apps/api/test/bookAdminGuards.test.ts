@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 import { ensureAdmin } from "@rawkoon/api/middleware/ensureAdmin";
+import { dbModule } from "./mocks/prisma";
 
 // The guards resolve the session through this one seam; swap the user per test.
 let current: { id: string; is_admin: boolean } | null = null;
@@ -35,14 +36,16 @@ const book = {
   editions: [],
   metadataFields: [],
 };
-mock.module("@rawkoon/api/db", () => ({
-  prisma: {
-    libraryBook: { findUnique: async () => book },
-    oidcProvider: { findMany: async () => [] },
-    bookReadState: { findMany: async () => [] },
-    mediaRequest: { findMany: async () => [] },
-  },
-}));
+mock.module("@rawkoon/api/db", () =>
+  dbModule({
+    prisma: {
+      libraryBook: { findUnique: async () => book },
+      oidcProvider: { findMany: async () => [] },
+      bookReadState: { findMany: async () => [] },
+      mediaRequest: { findMany: async () => [] },
+    },
+  }),
+);
 
 const { bookRoutes } = await import("@rawkoon/api/routes/books");
 

@@ -19,8 +19,3 @@ export interface DiscoverDeckResponse {
   items: DiscoverDeckItem[];
   source: DiscoverDeckSource;
 }
-
-export interface DiscoverDismissRequest {
-  tmdb_id: number;
-  type: "movie" | "tv";
-}

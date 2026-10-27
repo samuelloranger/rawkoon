@@ -1,12 +1,12 @@
 import { prisma } from "@rawkoon/api/db";
 import type { SearchResultPayload } from "@rawkoon/shared/types";
 import { emitSearchResult } from "@rawkoon/api/services/libraryEvents";
-import { SPACE_REFUSAL_PREFIX } from "@rawkoon/api/services/grabSpaceCheck";
+import { SPACE_REFUSAL_PREFIX } from "@rawkoon/api/services/grab/grabSpaceCheck";
 import { NO_MATCH_REASON } from "@rawkoon/api/constants/libraryGrab";
 import type {
   SearchGrab,
   SearchMiss,
-} from "@rawkoon/api/services/mediaGrabberSearch";
+} from "@rawkoon/api/services/mediaGrabber/mediaGrabberSearch";
 
 /** Maps what the grabber returned onto the outcome clients show. */
 export function searchResultFrom(

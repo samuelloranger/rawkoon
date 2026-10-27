@@ -4,8 +4,8 @@ import { buildNotificationUrl } from "@rawkoon/shared/utils";
 import {
   notificationCopy,
   truncateReleaseTitle,
-} from "@rawkoon/api/services/notificationCopy";
-import { getAdminNotificationTargets } from "@rawkoon/api/services/notificationPreferences";
+} from "@rawkoon/api/services/notification/notificationCopy";
+import { getAdminNotificationTargets } from "@rawkoon/api/services/notification/notificationPreferences";
 import { createAndQueueNotification } from "@rawkoon/api/workers/notificationService";
 
 const KIND_LABEL: Record<string, "bookKindEbook" | "bookKindAudiobook"> = {

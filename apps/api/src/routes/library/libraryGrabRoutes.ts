@@ -11,16 +11,16 @@ import { cancelActiveMovieDownloads } from "@rawkoon/api/services/replaceActiveD
 import {
   grabRelease,
   preflightGrab,
-} from "@rawkoon/api/services/mediaGrabberGrab";
+} from "@rawkoon/api/services/mediaGrabber/mediaGrabberGrab";
 import { downloadedEpisodesFailingProfile } from "@rawkoon/api/services/upgradeTargets";
 import {
   loadProfileWithFormats,
   profileToScoreInput,
-} from "@rawkoon/api/services/mediaGrabberHelpers";
+} from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
 import {
   searchAndGrab,
   searchAndGrabWithTitleFallback,
-} from "@rawkoon/api/services/mediaGrabberSearch";
+} from "@rawkoon/api/services/mediaGrabber/mediaGrabberSearch";
 import type {
   LanguageFallbackSummary,
   SearchResultPayload,
@@ -33,7 +33,7 @@ import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitl
 import {
   episodeMapKey,
   resolveGrabEpisodeId,
-} from "@rawkoon/api/services/grabEpisodeResolver";
+} from "@rawkoon/api/services/grab/grabEpisodeResolver";
 import {
   addJob,
   QUEUE_NAMES,

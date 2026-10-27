@@ -103,7 +103,7 @@ translations in hand:
 | `services/jobs/libraryMigrateSonarr.ts` | no |
 | `scripts/refreshLibraryTitlesFromTmdb.ts` | no |
 
-(`services/libraryTmdbRefresh.ts` and `services/libraryIntegrityCollectors.ts`
+(`services/libraryTmdbRefresh.ts` and `services/libraryIntegrity/libraryIntegrityCollectors.ts`
 write episodes, status and dates — not titles. They need no change.)
 
 Patching all five is not the design. Instead:

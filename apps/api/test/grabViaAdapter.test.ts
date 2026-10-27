@@ -1,24 +1,31 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { dbModule } from "./mocks/prisma";
+import { makeNotifyLibraryEventsMock } from "./mocks/notifyLibraryEvents";
 
 const addTorrent = mock(async () => ({ hash: "resolvedhash" }));
 const downloadHistoryUpdate = mock(async () => ({}));
 
-mock.module("@rawkoon/api/db", () => ({
-  prisma: {
-    libraryMedia: {
-      findUnique: async () => ({ id: 1, type: "movie" }),
-      update: async () => ({}),
+mock.module("@rawkoon/api/workers/notifyLibraryEvents", () =>
+  makeNotifyLibraryEventsMock(),
+);
+mock.module("@rawkoon/api/db", () =>
+  dbModule({
+    prisma: {
+      libraryMedia: {
+        findUnique: async () => ({ id: 1, type: "movie" }),
+        update: async () => ({}),
+      },
+      libraryEpisode: { update: async () => ({}) },
+      downloadHistory: {
+        // No active grab for this target — see the duplicate-grab guard in
+        // grabRelease (ux_download_history_active_target).
+        findFirst: async () => null,
+        create: async () => ({ id: 123 }),
+        update: downloadHistoryUpdate,
+      },
     },
-    libraryEpisode: { update: async () => ({}) },
-    downloadHistory: {
-      // No active grab for this target — see the duplicate-grab guard in
-      // grabRelease (ux_download_history_active_target).
-      findFirst: async () => null,
-      create: async () => ({ id: 123 }),
-      update: downloadHistoryUpdate,
-    },
-  },
-}));
+  }),
+);
 mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
   buildAdapter: (type: string) => ({ type }),
   resolveActiveAdapter: async () => ({
@@ -35,7 +42,7 @@ mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
     label: "rawkoon",
   }),
 }));
-mock.module("@rawkoon/api/services/mediaGrabberHelpers", () => ({
+mock.module("@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers", () => ({
   checkBlocklist: async () => null,
   infoHashFromTorrentBuffer: () => null,
   prowlarrHeadersForTorrentUrl: async () => ({}),
@@ -54,7 +61,7 @@ describe("grabRelease via adapter", () => {
 
   it("adds a magnet with the download-history tag and stores returned hash", async () => {
     const { grabRelease } = await import(
-      "@rawkoon/api/services/mediaGrabberGrab"
+      "@rawkoon/api/services/mediaGrabber/mediaGrabberGrab"
     );
 
     const result = await grabRelease({

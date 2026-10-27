@@ -7,8 +7,8 @@ import {
   notificationCopy,
   showLabel,
   truncateReleaseTitle,
-} from "@rawkoon/api/services/notificationCopy";
-import { getAdminNotificationTargets } from "@rawkoon/api/services/notificationPreferences";
+} from "@rawkoon/api/services/notification/notificationCopy";
+import { getAdminNotificationTargets } from "@rawkoon/api/services/notification/notificationPreferences";
 import {
   createAndQueueNotification,
   type CreateNotificationOptions,

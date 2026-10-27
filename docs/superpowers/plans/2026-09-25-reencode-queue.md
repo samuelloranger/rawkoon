@@ -2812,7 +2812,7 @@ git commit -m "feat(transcode): detect encoders and run a validated re-encode pi
 - Create: `apps/api/src/services/transcode/dispatcher.ts`
 - Create: `apps/api/src/services/transcode/index.ts`
 - Modify: `apps/shared/src/types/notification.ts` (add two `NotificationType` members)
-- Modify: `apps/api/src/services/notificationCopy.ts` (add four copy keys)
+- Modify: `apps/api/src/services/notification/notificationCopy.ts` (add four copy keys)
 - Modify: `apps/api/src/services/queueService.ts` (start/stop dispatcher in `initWorkers` / `closeAllWorkers`)
 - Test: `apps/api/src/services/transcode/dispatcher.test.ts`
 
@@ -3157,7 +3157,7 @@ In `apps/shared/src/types/notification.ts`, add inside the `NotificationType` un
   | "library_transcode_failed"
 ```
 
-In `apps/api/src/services/notificationCopy.ts`, add next to `libraryPostProcessFailedBody`:
+In `apps/api/src/services/notification/notificationCopy.ts`, add next to `libraryPostProcessFailedBody`:
 ```ts
   libraryTranscodeFinishedTitle: {
     en: () => "Re-encode batch finished",
@@ -3438,7 +3438,7 @@ Expected: exit 0.
 - [ ] **Step 11: Commit**
 
 ```bash
-git add apps/api/src/services/transcode apps/api/src/services/queueService.ts apps/api/src/services/notificationCopy.ts apps/shared/src/types/notification.ts
+git add apps/api/src/services/transcode apps/api/src/services/queueService.ts apps/api/src/services/notification/notificationCopy.ts apps/shared/src/types/notification.ts
 git commit -m "feat(transcode): add queue dispatcher with boot recovery and notifications"
 ```
 

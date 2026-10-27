@@ -6,15 +6,15 @@ import { getBaseUrl } from "@rawkoon/api/config";
 import { prisma } from "@rawkoon/api/db";
 import { nowUtc } from "@rawkoon/api/utils";
 import { addJob, QUEUE_NAMES } from "@rawkoon/api/services/queueService";
-import { emitUserNotification } from "@rawkoon/api/services/notificationEvents";
+import { emitUserNotification } from "@rawkoon/api/services/notification/notificationEvents";
 import type { NotificationJobData } from "@rawkoon/api/services/jobs/notificationWorker";
 import { normalizeNotificationUrl } from "@rawkoon/shared/utils";
 import type { NotificationPreferenceKey } from "@rawkoon/shared/types/notificationPreferences";
 import {
   getNotificationTarget,
   isNotificationEnabled,
-} from "@rawkoon/api/services/notificationPreferences";
-import { notificationCopy } from "@rawkoon/api/services/notificationCopy";
+} from "@rawkoon/api/services/notification/notificationPreferences";
+import { notificationCopy } from "@rawkoon/api/services/notification/notificationCopy";
 
 interface NotificationMetadata {
   [key: string]: unknown;

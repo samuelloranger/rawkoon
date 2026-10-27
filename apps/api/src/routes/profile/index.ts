@@ -14,14 +14,14 @@ import { auth } from "@rawkoon/api/lib/auth";
 import { jellyfinSignInBody } from "@rawkoon/api/lib/jellyfinSignInPlugin";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
-import { copyJellyfinAvatar } from "@rawkoon/api/services/jellyfinSignIn";
+import { copyJellyfinAvatar } from "@rawkoon/api/services/jellyfin/jellyfinSignIn";
 import {
   authenticateJellyfinUser,
   getJellyfinConfig,
   JellyfinUnreachableError,
   jellyfinSessionWhere,
   listJellyfinUsers,
-} from "@rawkoon/api/services/jellyfinUsers";
+} from "@rawkoon/api/services/jellyfin/jellyfinUsers";
 
 async function canUnlink(userId: string, passwordHash: string | null) {
   if (passwordHash) return true;

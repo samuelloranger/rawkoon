@@ -106,7 +106,7 @@ libraryEventBus.on("update", (ev: { mediaId: number }) => {
 });
 
 const { completeDownloadByHash } = await import(
-  "@rawkoon/api/services/downloadOutcome"
+  "@rawkoon/api/services/downloads/downloadOutcome"
 );
 
 describe("completeDownloadByHash", () => {

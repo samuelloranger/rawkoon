@@ -15,7 +15,7 @@ import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationCon
 import {
   authorizeJellyfinQuickConnect,
   getJellyfinConfig,
-} from "@rawkoon/api/services/jellyfinUsers";
+} from "@rawkoon/api/services/jellyfin/jellyfinUsers";
 import { normalizeTmdbConfig } from "@rawkoon/api/utils/integrations/normalizers";
 
 // Mounted at /api/tv. Guards are per route: a .use("*") here would leak into

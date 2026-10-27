@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterAll, mock } from "bun:test";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
+import { dbModule } from "./mocks/prisma";
 
 // rescanBookEdition adopts files already sitting in the library. It walks real
 // directories, so these tests use a real tmpdir and mock only the database and
@@ -71,98 +72,101 @@ const editionFixture = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-mock.module("@rawkoon/api/db", () => ({
-  prisma: {
-    bookEdition: {
-      findUnique: () => Promise.resolve(state.edition),
-      update: pushEditionUpdate,
-    },
-    mediaSettings: {
-      upsert: () =>
-        Promise.resolve({
-          booksLibraryPath: booksRoot,
-          audiobooksLibraryPath: audiobooksRoot,
-          bookTemplate: "{author}/{title} ({year})/{title} ({year}) [{format}]",
-          audiobookTemplate: "{author}/{title} ({year})/{title}",
-        }),
-    },
-    bookFile: {
-      findMany: () => Promise.resolve(state.files),
-      findFirst: (args: { where: { filePath: string } }) =>
-        Promise.resolve(
-          state.files.find((f) => f.filePath === args.where.filePath) ?? null,
-        ),
-      delete: (args: { where: { id: number } }) => {
-        state.deletedIds.push(args.where.id);
-        state.files = state.files.filter((f) => f.id !== args.where.id);
-        return Promise.resolve({});
+mock.module("@rawkoon/api/db", () =>
+  dbModule({
+    prisma: {
+      bookEdition: {
+        findUnique: () => Promise.resolve(state.edition),
+        update: pushEditionUpdate,
       },
-      deleteMany: (args: { where: { filePath: string } }) => {
-        const before = state.files.length;
-        state.files = state.files.filter(
-          (f) => f.filePath !== args.where.filePath,
-        );
-        return Promise.resolve({ count: before - state.files.length });
+      mediaSettings: {
+        upsert: () =>
+          Promise.resolve({
+            booksLibraryPath: booksRoot,
+            audiobooksLibraryPath: audiobooksRoot,
+            bookTemplate:
+              "{author}/{title} ({year})/{title} ({year}) [{format}]",
+            audiobookTemplate: "{author}/{title} ({year})/{title}",
+          }),
       },
-      create: (args: { data: Record<string, unknown> }) => {
-        state.created.push(args.data);
-        const row: Row = {
-          id: state.nextFileId++,
-          editionId: args.data.editionId as number,
-          filePath: args.data.filePath as string,
-          fileName: args.data.fileName as string,
-          sizeBytes: args.data.sizeBytes as bigint,
-          fileDev: args.data.fileDev as string | null,
-          fileIno: args.data.fileIno as string | null,
-          fileMtimeMs: args.data.fileMtimeMs as bigint | null,
-        };
-        state.files.push(row);
-        return Promise.resolve(row);
+      bookFile: {
+        findMany: () => Promise.resolve(state.files),
+        findFirst: (args: { where: { filePath: string } }) =>
+          Promise.resolve(
+            state.files.find((f) => f.filePath === args.where.filePath) ?? null,
+          ),
+        delete: (args: { where: { id: number } }) => {
+          state.deletedIds.push(args.where.id);
+          state.files = state.files.filter((f) => f.id !== args.where.id);
+          return Promise.resolve({});
+        },
+        deleteMany: (args: { where: { filePath: string } }) => {
+          const before = state.files.length;
+          state.files = state.files.filter(
+            (f) => f.filePath !== args.where.filePath,
+          );
+          return Promise.resolve({ count: before - state.files.length });
+        },
+        create: (args: { data: Record<string, unknown> }) => {
+          state.created.push(args.data);
+          const row: Row = {
+            id: state.nextFileId++,
+            editionId: args.data.editionId as number,
+            filePath: args.data.filePath as string,
+            fileName: args.data.fileName as string,
+            sizeBytes: args.data.sizeBytes as bigint,
+            fileDev: args.data.fileDev as string | null,
+            fileIno: args.data.fileIno as string | null,
+            fileMtimeMs: args.data.fileMtimeMs as bigint | null,
+          };
+          state.files.push(row);
+          return Promise.resolve(row);
+        },
+        update: (args: { data: Record<string, unknown> }) => {
+          state.fileUpdates.push(args.data);
+          return Promise.resolve({});
+        },
       },
-      update: (args: { data: Record<string, unknown> }) => {
-        state.fileUpdates.push(args.data);
-        return Promise.resolve({});
-      },
-    },
-    $transaction: async (
-      arg:
-        | Promise<unknown>[]
-        | ((tx: {
+      $transaction: async (
+        arg:
+          | Promise<unknown>[]
+          | ((tx: {
+              bookChapter: {
+                deleteMany: (args: unknown) => Promise<unknown>;
+                create: (args: {
+                  data: Record<string, unknown>;
+                }) => Promise<unknown>;
+              };
+              bookFile: { update: (args: unknown) => Promise<unknown> };
+              bookEdition: {
+                update: (args: {
+                  where: { id: number };
+                  data: Record<string, unknown>;
+                }) => Promise<unknown>;
+              };
+            }) => Promise<unknown>),
+      ) => {
+        if (typeof arg === "function") {
+          return arg({
             bookChapter: {
-              deleteMany: (args: unknown) => Promise<unknown>;
-              create: (args: {
-                data: Record<string, unknown>;
-              }) => Promise<unknown>;
-            };
-            bookFile: { update: (args: unknown) => Promise<unknown> };
-            bookEdition: {
-              update: (args: {
-                where: { id: number };
-                data: Record<string, unknown>;
-              }) => Promise<unknown>;
-            };
-          }) => Promise<unknown>),
-    ) => {
-      if (typeof arg === "function") {
-        return arg({
-          bookChapter: {
-            deleteMany: async () => {
-              state.chapterDeleteCalls += 1;
-              return { count: 0 };
+              deleteMany: async () => {
+                state.chapterDeleteCalls += 1;
+                return { count: 0 };
+              },
+              create: async (args: { data: Record<string, unknown> }) => {
+                state.chaptersCreated.push(args.data);
+                return args.data;
+              },
             },
-            create: async (args: { data: Record<string, unknown> }) => {
-              state.chaptersCreated.push(args.data);
-              return args.data;
-            },
-          },
-          bookFile: { update: async () => ({}) },
-          bookEdition: { update: pushEditionUpdate },
-        });
-      }
-      return Promise.all(arg);
+            bookFile: { update: async () => ({}) },
+            bookEdition: { update: pushEditionUpdate },
+          });
+        }
+        return Promise.all(arg);
+      },
     },
-  },
-}));
+  }),
+);
 
 const realMediainfo = await import(
   "@rawkoon/api/utils/medias/mediainfoScanner"
@@ -185,7 +189,7 @@ mock.module("@rawkoon/api/utils/books/ebookMetadata", () => ({
 }));
 
 const { rescanBookEdition } = await import(
-  "@rawkoon/api/services/postProcessorBook"
+  "@rawkoon/api/services/postProcessor/postProcessorBook"
 );
 
 // Where the default templates put this fixture's files.

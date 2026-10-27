@@ -113,7 +113,7 @@ export interface TmdbIntegrationUpdateResponse {
   integration: TmdbIntegration;
 }
 
-export interface GoogleBooksIntegration {
+interface GoogleBooksIntegration {
   type: "googlebooks";
   enabled: boolean;
   /** Always empty: the stored key is never sent back to the client. */
@@ -137,7 +137,7 @@ export interface GoogleBooksTestResponse {
   error?: string;
 }
 
-export interface NytBooksIntegration {
+interface NytBooksIntegration {
   type: "nyt";
   enabled: boolean;
   /** Always empty: the stored key is never sent back to the client. */

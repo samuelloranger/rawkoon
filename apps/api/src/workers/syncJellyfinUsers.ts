@@ -1,10 +1,10 @@
 import { prisma } from "@rawkoon/api/db";
-import { copyJellyfinAvatars } from "@rawkoon/api/services/jellyfinSignIn";
+import { copyJellyfinAvatars } from "@rawkoon/api/services/jellyfin/jellyfinSignIn";
 import {
   getJellyfinConfig,
   jellyfinSessionWhere,
   listJellyfinUsers,
-} from "@rawkoon/api/services/jellyfinUsers";
+} from "@rawkoon/api/services/jellyfin/jellyfinUsers";
 
 type SyncResult = { revoked: number; avatarsChecked: number };
 

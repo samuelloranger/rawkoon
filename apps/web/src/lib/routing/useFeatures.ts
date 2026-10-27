@@ -3,7 +3,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { redirect } from "@tanstack/react-router";
 import { fetchApi } from "@/lib/api/client";
 
-export interface FeatureFlags {
+interface FeatureFlags {
   books_enabled: boolean;
 }
 

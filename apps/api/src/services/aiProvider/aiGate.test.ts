@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test";
+import { dbModule } from "../../../test/mocks/prisma";
 
 const aggregate = mock(async (_args?: unknown) => ({
   _sum: { inputTokens: 0, outputTokens: 0 },
@@ -9,13 +10,15 @@ const createCall = mock(
 const findFirst = mock(async (_args?: unknown) => null as unknown);
 const findMedia = mock(async (_args?: unknown) => null as unknown);
 
-mock.module("@rawkoon/api/db", () => ({
-  prisma: {
-    aiCall: { aggregate, create: createCall },
-    integration: { findFirst },
-    libraryMedia: { findUnique: findMedia },
-  },
-}));
+mock.module("@rawkoon/api/db", () =>
+  dbModule({
+    prisma: {
+      aiCall: { aggregate, create: createCall },
+      integration: { findFirst },
+      libraryMedia: { findUnique: findMedia },
+    },
+  }),
+);
 
 const { checkAiAllowed, invalidateAiSpendCache, noteAiSpend } = await import(
   "@rawkoon/api/services/aiProvider/aiGate"

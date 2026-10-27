@@ -10,7 +10,7 @@ import { jsonV } from "@rawkoon/api/middleware/validate";
 import { hashPassword } from "@rawkoon/api/utils/password";
 import { mapUser } from "@rawkoon/api/utils/mappers";
 import { opaqueTokenCandidates } from "@rawkoon/api/utils/tokens";
-import { getJellyfinConfig } from "@rawkoon/api/services/jellyfinUsers";
+import { getJellyfinConfig } from "@rawkoon/api/services/jellyfin/jellyfinUsers";
 import { validatePassword } from "@rawkoon/shared/utils";
 
 export const publicAuthRoutes = new Hono<Env>()

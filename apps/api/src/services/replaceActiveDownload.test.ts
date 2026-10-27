@@ -35,7 +35,7 @@ mock.module("@rawkoon/api/db", () => ({
 mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
   resolveActiveAdapter: async () => ({ adapter: { remove, getTorrent } }),
 }));
-mock.module("@rawkoon/api/services/downloadOutcome", () => ({
+mock.module("@rawkoon/api/services/downloads/downloadOutcome", () => ({
   revertToWantedIfNoActiveGrabs: revert,
 }));
 mock.module("@rawkoon/api/services/libraryEvents", () => ({

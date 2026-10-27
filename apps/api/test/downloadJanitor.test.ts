@@ -6,7 +6,7 @@ import type {
 import {
   rejectRelease,
   type JanitorDeps,
-} from "@rawkoon/api/services/downloadJanitor";
+} from "@rawkoon/api/services/downloads/downloadJanitor";
 
 const HASH = "ab".repeat(20);
 function t(o: Partial<NormalizedTorrent> = {}): NormalizedTorrent {

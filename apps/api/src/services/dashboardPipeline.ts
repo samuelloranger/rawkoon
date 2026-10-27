@@ -11,9 +11,9 @@ import {
 import {
   countOpenLibraryAttention,
   listOpenLibraryAttentionForApi,
-} from "@rawkoon/api/services/libraryAttentionApi";
-import { getNextRssRunAt } from "@rawkoon/api/services/rssNextRun";
-import { getLastRssRun } from "@rawkoon/api/services/rssRunStatus";
+} from "@rawkoon/api/services/libraryAttention/libraryAttentionApi";
+import { getNextRssRunAt } from "@rawkoon/api/services/rss/rssNextRun";
+import { getLastRssRun } from "@rawkoon/api/services/rss/rssRunStatus";
 import type {
   DashboardPipeline,
   DashboardPipelineDownloadItem,

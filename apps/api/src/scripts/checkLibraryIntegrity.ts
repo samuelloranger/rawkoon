@@ -7,7 +7,7 @@
  *   cd apps/api && bun --env-file=../../.env src/scripts/checkLibraryIntegrity.ts --json
  */
 
-import { runLibraryIntegrityCheck } from "@rawkoon/api/services/libraryIntegrityRun";
+import { runLibraryIntegrityCheck } from "@rawkoon/api/services/libraryIntegrity/libraryIntegrityRun";
 import { prisma } from "@rawkoon/api/db";
 
 async function main() {

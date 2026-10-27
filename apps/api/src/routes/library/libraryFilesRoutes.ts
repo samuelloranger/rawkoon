@@ -11,7 +11,7 @@ import { jsonV, queryV } from "@rawkoon/api/middleware/validate";
 import {
   enqueuePostProcess,
   revertToWantedIfNoActiveGrabs,
-} from "@rawkoon/api/services/downloadOutcome";
+} from "@rawkoon/api/services/downloads/downloadOutcome";
 import { estimateEtaSeconds } from "@rawkoon/api/services/downloadClient/eta";
 import { rescanLibraryItem } from "@rawkoon/api/services/library/rescan";
 import { pruneLibraryDirsAfterDelete } from "@rawkoon/api/services/library/pruneLibraryDirs";
