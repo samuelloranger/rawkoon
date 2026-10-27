@@ -42,7 +42,7 @@ mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
     label: "rawkoon",
   }),
 }));
-mock.module("@rawkoon/api/services/mediaGrabberHelpers", () => ({
+mock.module("@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers", () => ({
   checkBlocklist: async () => null,
   infoHashFromTorrentBuffer: () => null,
   prowlarrHeadersForTorrentUrl: async () => ({}),
@@ -61,7 +61,7 @@ describe("grabRelease via adapter", () => {
 
   it("adds a magnet with the download-history tag and stores returned hash", async () => {
     const { grabRelease } = await import(
-      "@rawkoon/api/services/mediaGrabberGrab"
+      "@rawkoon/api/services/mediaGrabber/mediaGrabberGrab"
     );
 
     const result = await grabRelease({

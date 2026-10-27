@@ -1,11 +1,11 @@
 import { prisma } from "@rawkoon/api/db";
 import { Prisma } from "@prisma/client";
-import { buildAttentionCandidates } from "@rawkoon/api/services/libraryAttentionCandidates";
-import type { AttentionCandidate } from "@rawkoon/api/services/libraryAttentionTypes";
+import { buildAttentionCandidates } from "@rawkoon/api/services/libraryAttention/libraryAttentionCandidates";
+import type { AttentionCandidate } from "@rawkoon/api/services/libraryAttention/libraryAttentionTypes";
 import {
   alertStillValidFromContext,
   buildValidationContext,
-} from "@rawkoon/api/services/libraryAttentionSyncValidation";
+} from "@rawkoon/api/services/libraryAttention/libraryAttentionSyncValidation";
 
 function matchOpenAlertWhere(c: AttentionCandidate) {
   return {

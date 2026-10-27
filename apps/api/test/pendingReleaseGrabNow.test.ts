@@ -5,7 +5,9 @@ let isAdmin = true;
 let due = false;
 let grabResult: { grabbed: boolean; reason?: string } = { grabbed: true };
 const grabRelease = mock(async (_o: unknown) => grabResult);
-mock.module("@rawkoon/api/services/mediaGrabberGrab", () => ({ grabRelease }));
+mock.module("@rawkoon/api/services/mediaGrabber/mediaGrabberGrab", () => ({
+  grabRelease,
+}));
 
 const updateMany = mock(
   async (_a: { where: { targetKey: string }; data: { grabAfter: Date } }) => ({

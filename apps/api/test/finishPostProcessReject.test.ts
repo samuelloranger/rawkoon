@@ -48,13 +48,13 @@ mock.module("@rawkoon/api/db", () =>
     },
   }),
 );
-mock.module("@rawkoon/api/services/postProcessorSingle", () => ({
+mock.module("@rawkoon/api/services/postProcessor/postProcessorSingle", () => ({
   postProcess: async () => {
     state.processed += 1;
     return state.result;
   },
 }));
-mock.module("@rawkoon/api/services/postProcessorBook", () => ({
+mock.module("@rawkoon/api/services/postProcessor/postProcessorBook", () => ({
   postProcessBookDownload: async () => ({ success: false, reason: "unused" }),
 }));
 mock.module("@rawkoon/api/services/libraryEvents", () => ({
@@ -63,7 +63,7 @@ mock.module("@rawkoon/api/services/libraryEvents", () => ({
   emitSeedState: () => {},
   emitLibraryLanded: () => {},
 }));
-mock.module("@rawkoon/api/services/jellyfinLibraryRefresh", () => ({
+mock.module("@rawkoon/api/services/jellyfin/jellyfinLibraryRefresh", () => ({
   triggerJellyfinLibraryScan: async () => {},
 }));
 mock.module("@rawkoon/api/services/mediaRequests", () => ({
@@ -83,7 +83,7 @@ mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
     adapter: { listFiles: async () => state.files },
   }),
 }));
-mock.module("@rawkoon/api/services/downloadJanitor", () => ({
+mock.module("@rawkoon/api/services/downloads/downloadJanitor", () => ({
   rejectRelease: async (dh: { id: number }, kind: string, reason: string) => {
     state.rejected.push({ id: dh.id, kind, reason });
   },
@@ -103,7 +103,7 @@ mock.module("@rawkoon/api/services/seeding/seedSweep", () => ({
 }));
 
 const { finishPostProcess } = await import(
-  "@rawkoon/api/services/downloadOutcome"
+  "@rawkoon/api/services/downloads/downloadOutcome"
 );
 
 beforeEach(() => {

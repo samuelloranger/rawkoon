@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { extname } from "node:path";
-import { parseSeasonEpisode } from "@rawkoon/api/services/postProcessorHelpers";
+import { parseSeasonEpisode } from "@rawkoon/api/services/postProcessor/postProcessorHelpers";
 import {
   mapSeasonPack,
   parsePartMarker,

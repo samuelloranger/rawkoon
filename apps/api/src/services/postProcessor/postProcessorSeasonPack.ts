@@ -1,5 +1,5 @@
 import { basename, extname, join } from "node:path";
-import type { PostProcessFailure } from "@rawkoon/api/services/postProcessFailure";
+import type { PostProcessFailure } from "@rawkoon/api/services/postProcessor/postProcessFailure";
 import { stat, rm } from "node:fs/promises";
 
 import { prisma } from "@rawkoon/api/db";
@@ -36,7 +36,7 @@ import {
   qualityStringsFromParsed,
   resolveTorrentContentPath,
   isFullyReadable,
-} from "@rawkoon/api/services/postProcessorHelpers";
+} from "@rawkoon/api/services/postProcessor/postProcessorHelpers";
 import {
   mapSeasonPack,
   parsePartMarker,

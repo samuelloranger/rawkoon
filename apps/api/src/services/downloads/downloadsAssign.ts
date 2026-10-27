@@ -1,5 +1,5 @@
 import { link, mkdir, rename, stat, unlink } from "node:fs/promises";
-import { copyFileAtomic } from "@rawkoon/api/services/postProcessorHelpers";
+import { copyFileAtomic } from "@rawkoon/api/services/postProcessor/postProcessorHelpers";
 import { basename, dirname, extname, join, resolve } from "node:path";
 
 import { prisma } from "@rawkoon/api/db";
@@ -11,10 +11,10 @@ import {
   pathIsInsideRoot,
   buildLibraryInodeKeySet,
   DOWNLOADS_MIN_BYTES,
-} from "@rawkoon/api/services/downloadsScanner";
+} from "@rawkoon/api/services/downloads/downloadsScanner";
 import { addOrUpdateLibraryFromTmdb } from "@rawkoon/api/services/libraryFromTmdb";
 import { emitLibraryUpdate } from "@rawkoon/api/services/libraryEvents";
-import { triggerJellyfinLibraryScan } from "@rawkoon/api/services/jellyfinLibraryRefresh";
+import { triggerJellyfinLibraryScan } from "@rawkoon/api/services/jellyfin/jellyfinLibraryRefresh";
 import {
   parseFilenameMetadata,
   parseReleaseSeasonEpisode,
@@ -42,7 +42,7 @@ import {
   type FileIdentity,
   type InodeParts,
   type PlacementMethod,
-} from "@rawkoon/api/services/downloadsAssignRules";
+} from "@rawkoon/api/services/downloads/downloadsAssignRules";
 import {
   remapPath,
   scanMediaInfo,

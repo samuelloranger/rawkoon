@@ -113,7 +113,7 @@ mock.module("@rawkoon/api/db", () =>
 );
 
 const { searchAndGrab } = await import(
-  "@rawkoon/api/services/mediaGrabberSearch"
+  "@rawkoon/api/services/mediaGrabber/mediaGrabberSearch"
 );
 
 afterAll(() => {

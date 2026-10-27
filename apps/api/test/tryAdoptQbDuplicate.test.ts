@@ -170,7 +170,7 @@ mock.module("@rawkoon/api/services/queueService", () => ({
 // (e.g. safeTorrentFetchUrl.test.ts) that depend on the real implementations.
 
 const { tryAdoptQbDuplicate } = await import(
-  "@rawkoon/api/services/mediaGrabberAdopt"
+  "@rawkoon/api/services/mediaGrabber/mediaGrabberAdopt"
 );
 
 const baseCtx = {

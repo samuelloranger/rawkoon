@@ -24,7 +24,7 @@ const { libraryMediaAdminRoutes } = await import(
   "@rawkoon/api/routes/library/libraryMediaAdmin"
 );
 const { evaluateGrabReadiness } = await import(
-  "@rawkoon/api/services/grabReadiness"
+  "@rawkoon/api/services/grab/grabReadiness"
 );
 
 const get = () =>

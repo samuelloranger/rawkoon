@@ -92,10 +92,10 @@ mock.module("@rawkoon/api/db", () =>
 );
 
 const { postProcess } = await import(
-  "@rawkoon/api/services/postProcessorSingle"
+  "@rawkoon/api/services/postProcessor/postProcessorSingle"
 );
 const { postProcessBookDownload } = await import(
-  "@rawkoon/api/services/postProcessorBook"
+  "@rawkoon/api/services/postProcessor/postProcessorBook"
 );
 
 beforeEach(() => {

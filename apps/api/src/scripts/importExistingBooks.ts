@@ -40,7 +40,7 @@ import { basename } from "node:path";
 import { prisma } from "@rawkoon/api/db";
 import { addBookFromVolume } from "@rawkoon/api/services/books/bookLibrary";
 import { getBookMetadataProvider } from "@rawkoon/api/services/books";
-import { postProcessBook } from "@rawkoon/api/services/postProcessorBook";
+import { postProcessBook } from "@rawkoon/api/services/postProcessor/postProcessorBook";
 import {
   formatForPath,
   readEbookMetadata,

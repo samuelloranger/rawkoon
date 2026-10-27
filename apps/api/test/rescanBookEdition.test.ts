@@ -189,7 +189,7 @@ mock.module("@rawkoon/api/utils/books/ebookMetadata", () => ({
 }));
 
 const { rescanBookEdition } = await import(
-  "@rawkoon/api/services/postProcessorBook"
+  "@rawkoon/api/services/postProcessor/postProcessorBook"
 );
 
 // Where the default templates put this fixture's files.

@@ -4,7 +4,7 @@ import {
   applyRssPollSchedule,
   loadRssPollInterval,
   rescheduleRssPollThenPersist,
-} from "@rawkoon/api/services/rssPollSchedule";
+} from "@rawkoon/api/services/rss/rssPollSchedule";
 
 function fakeQueue(failOn?: (pattern: string) => boolean) {
   const calls: string[] = [];

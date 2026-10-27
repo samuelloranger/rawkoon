@@ -13,7 +13,7 @@ import {
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
-import { qualityProfileFormatsInclude } from "@rawkoon/api/services/mediaGrabberHelpers";
+import { qualityProfileFormatsInclude } from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
 
 type ProfileWithFormats = Prisma.QualityProfileGetPayload<{
   include: typeof qualityProfileFormatsInclude;

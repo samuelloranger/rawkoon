@@ -1,5 +1,5 @@
 import { prisma } from "@rawkoon/api/db";
-import { searchAndGrabWithTitleFallback } from "@rawkoon/api/services/mediaGrabberSearch";
+import { searchAndGrabWithTitleFallback } from "@rawkoon/api/services/mediaGrabber/mediaGrabberSearch";
 import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
 
 export async function upgradeMediaSearch({

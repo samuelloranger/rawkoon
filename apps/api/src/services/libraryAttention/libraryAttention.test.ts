@@ -1,14 +1,16 @@
 import { describe, expect, it, beforeEach, mock } from "bun:test";
-import { prismaMock, clearPrismaMocks } from "../../test/mocks/prisma";
+import { prismaMock, clearPrismaMocks } from "../../../test/mocks/prisma";
 
 mock.module("@rawkoon/api/db", () => ({ prisma: prismaMock }));
 
 const importTypes = async () =>
-  await import("@rawkoon/api/services/libraryAttentionTypes");
+  await import("@rawkoon/api/services/libraryAttention/libraryAttentionTypes");
 const importCandidatesSeason = async () =>
-  await import("@rawkoon/api/services/libraryAttentionCandidatesSeason");
+  await import(
+    "@rawkoon/api/services/libraryAttention/libraryAttentionCandidatesSeason"
+  );
 const importSync = async () =>
-  await import("@rawkoon/api/services/libraryAttentionSync");
+  await import("@rawkoon/api/services/libraryAttention/libraryAttentionSync");
 
 describe("attentionKindPriority", () => {
   it("ranks download_failed above auto_grab_stalled", async () => {

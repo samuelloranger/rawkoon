@@ -2,7 +2,7 @@ import { describe, expect, it, mock } from "bun:test";
 
 mock.module("@rawkoon/api/db", () => ({ prisma: {} }));
 const { alertStillValidFromContext } = await import(
-  "./libraryAttentionSyncValidation"
+  "./libraryAttention/libraryAttentionSyncValidation"
 );
 const { REPLACED_FAIL_REASON } = await import("./replacedDownload");
 

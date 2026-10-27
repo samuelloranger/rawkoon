@@ -14,10 +14,10 @@ import {
   prowlarrHeadersForTorrentUrl,
   qbCategoryForLibraryType,
   qualityJsonValue,
-} from "@rawkoon/api/services/mediaGrabberHelpers";
-import { tryAdoptQbDuplicate } from "@rawkoon/api/services/mediaGrabberAdopt";
-import { checkFreeSpaceForGrab } from "@rawkoon/api/services/grabSpaceCheck";
-import { resolveGrabSeason } from "@rawkoon/api/services/grabEpisodeResolver";
+} from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
+import { tryAdoptQbDuplicate } from "@rawkoon/api/services/mediaGrabber/mediaGrabberAdopt";
+import { checkFreeSpaceForGrab } from "@rawkoon/api/services/grab/grabSpaceCheck";
+import { resolveGrabSeason } from "@rawkoon/api/services/grab/grabEpisodeResolver";
 import {
   activeShowGrabCover,
   inFlightGrabWhere,

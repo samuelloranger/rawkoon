@@ -4,7 +4,7 @@ import type { DownloadClientAdapter } from "@rawkoon/api/services/downloadClient
 import {
   type DownloadRef,
   failDownload,
-} from "@rawkoon/api/services/downloadOutcome";
+} from "@rawkoon/api/services/downloads/downloadOutcome";
 import {
   findBlockedFile,
   isRawkoonOwned,

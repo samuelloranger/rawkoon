@@ -43,7 +43,7 @@ mock.module("@rawkoon/api/services/indexerManager", () => ({
   tieredSearch: async () => ({ releases: [], indexerWarnings: [] }),
 }));
 
-mock.module("@rawkoon/api/services/mediaGrabberGrab", () => ({
+mock.module("@rawkoon/api/services/mediaGrabber/mediaGrabberGrab", () => ({
   grabRelease,
 }));
 

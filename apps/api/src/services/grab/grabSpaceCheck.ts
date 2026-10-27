@@ -1,6 +1,6 @@
 import { statfs } from "node:fs/promises";
 import { prisma } from "@rawkoon/api/db";
-import { deriveDownloadsScanRoots } from "@rawkoon/api/services/downloadsScanner";
+import { deriveDownloadsScanRoots } from "@rawkoon/api/services/downloads/downloadsScanner";
 
 export const SPACE_REFUSAL_PREFIX = "Not enough free space";
 

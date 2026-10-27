@@ -22,12 +22,12 @@ import {
   copyJellyfinAvatar,
   copyJellyfinAvatars,
   createJellyfinRawkoonUser,
-} from "@rawkoon/api/services/jellyfinSignIn";
+} from "@rawkoon/api/services/jellyfin/jellyfinSignIn";
 import {
   getJellyfinConfig,
   jellyfinSessionWhere,
   listJellyfinUsers,
-} from "@rawkoon/api/services/jellyfinUsers";
+} from "@rawkoon/api/services/jellyfin/jellyfinUsers";
 
 const validateEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

@@ -12,7 +12,7 @@ import { resolveUser } from "@rawkoon/api/middleware/auth";
 import {
   listOpenLibraryAttentionForApi,
   dismissLibraryAttentionAlert,
-} from "@rawkoon/api/services/libraryAttentionApi";
+} from "@rawkoon/api/services/libraryAttention/libraryAttentionApi";
 
 /**
  * GET /api/library/attention

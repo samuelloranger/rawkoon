@@ -1,5 +1,5 @@
 import { prisma } from "@rawkoon/api/db";
-import { searchAndGrabWithTitleFallback } from "@rawkoon/api/services/mediaGrabberSearch";
+import { searchAndGrabWithTitleFallback } from "@rawkoon/api/services/mediaGrabber/mediaGrabberSearch";
 import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
 import { refreshLibraryMovieDigitalDate } from "@rawkoon/api/services/libraryTmdbRefresh";
 import {
@@ -10,7 +10,7 @@ import {
   type SearchScope,
 } from "@rawkoon/api/services/searchOnAdd";
 import { activeShowGrabCover } from "@rawkoon/api/services/activeShowGrab";
-import { isNoMissRefusal } from "@rawkoon/api/services/grabRefusal";
+import { isNoMissRefusal } from "@rawkoon/api/services/grab/grabRefusal";
 import type { SearchResultPayload } from "@rawkoon/shared/types";
 import {
   GENERIC_ERROR_REASON,

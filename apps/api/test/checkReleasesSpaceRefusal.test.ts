@@ -3,7 +3,7 @@ import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 // A space refusal must leave the item wanted: no attempt bump, no skip, no
 // notification. Any other failure still counts as an attempt.
 const realSearch = {
-  ...(await import("@rawkoon/api/services/mediaGrabberSearch")),
+  ...(await import("@rawkoon/api/services/mediaGrabber/mediaGrabberSearch")),
 };
 const realNotify = {
   ...(await import("@rawkoon/api/workers/notifyLibraryGrabSkipped")),
@@ -29,7 +29,7 @@ const notifications: unknown[] = [];
 const SPACE =
   "Not enough free space: needs 50.0 GB, 5.0 GB free, keeping 10 GB";
 
-mock.module("@rawkoon/api/services/mediaGrabberSearch", () => ({
+mock.module("@rawkoon/api/services/mediaGrabber/mediaGrabberSearch", () => ({
   ...realSearch,
   searchAndGrabWithTitleFallback: async () => {
     searchCalls++;
@@ -109,7 +109,10 @@ const { checkEpisodeReleases } = await import(
 );
 
 afterAll(() => {
-  mock.module("@rawkoon/api/services/mediaGrabberSearch", () => realSearch);
+  mock.module(
+    "@rawkoon/api/services/mediaGrabber/mediaGrabberSearch",
+    () => realSearch,
+  );
   mock.module(
     "@rawkoon/api/workers/notifyLibraryGrabSkipped",
     () => realNotify,

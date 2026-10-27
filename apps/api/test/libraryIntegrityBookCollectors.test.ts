@@ -71,7 +71,9 @@ installIntegrityFsMock();
 const {
   collectDownloadedBookEditionsWithoutFiles,
   collectMissingBookFilePaths,
-} = await import("@rawkoon/api/services/libraryIntegrityCollectors");
+} = await import(
+  "@rawkoon/api/services/libraryIntegrity/libraryIntegrityCollectors"
+);
 
 describe("collectDownloadedBookEditionsWithoutFiles", () => {
   beforeEach(() => {

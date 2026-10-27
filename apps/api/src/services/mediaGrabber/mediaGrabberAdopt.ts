@@ -1,9 +1,9 @@
 import { Prisma } from "@prisma/client";
 
 import { claimExistingQbTorrent } from "@rawkoon/api/services/qbittorrent/adoptExisting";
-import { adoptDownload } from "@rawkoon/api/services/downloadOutcome";
+import { adoptDownload } from "@rawkoon/api/services/downloads/downloadOutcome";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
-import { qbCategoryForLibraryType } from "@rawkoon/api/services/mediaGrabberHelpers";
+import { qbCategoryForLibraryType } from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
 
 /**
  * If qBittorrent rejected an add because the infohash already exists,

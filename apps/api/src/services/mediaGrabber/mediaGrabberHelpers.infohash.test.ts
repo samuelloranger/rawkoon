@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, test } from "bun:test";
 
-import { infoHashFromTorrentBuffer } from "@rawkoon/api/services/mediaGrabberHelpers";
+import { infoHashFromTorrentBuffer } from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
 
 const enc = (s: string) => new TextEncoder().encode(s);
 const concat = (...parts: Uint8Array[]) => {

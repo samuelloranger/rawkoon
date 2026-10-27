@@ -132,7 +132,9 @@ mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
   }),
 }));
 
-const { grabRelease } = await import("@rawkoon/api/services/mediaGrabberGrab");
+const { grabRelease } = await import(
+  "@rawkoon/api/services/mediaGrabber/mediaGrabberGrab"
+);
 
 const MAGNET = "magnet:?xt=urn:btih:aaaabbbbccccddddeeeeffff0000111122223333";
 

@@ -3,8 +3,8 @@ import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { placeImportFile } from "@rawkoon/api/services/postProcessorHelpers";
-import { packPathConflict } from "@rawkoon/api/services/postProcessorSeasonPack";
+import { placeImportFile } from "@rawkoon/api/services/postProcessor/postProcessorHelpers";
+import { packPathConflict } from "@rawkoon/api/services/postProcessor/postProcessorSeasonPack";
 
 describe("placeImportFile", () => {
   let dir: string;

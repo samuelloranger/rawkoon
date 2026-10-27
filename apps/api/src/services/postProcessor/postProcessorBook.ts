@@ -1,5 +1,5 @@
 import { mkdir, readdir, stat, unlink } from "node:fs/promises";
-import type { PostProcessFailure } from "@rawkoon/api/services/postProcessFailure";
+import type { PostProcessFailure } from "@rawkoon/api/services/postProcessor/postProcessFailure";
 import { sha256File } from "@rawkoon/api/utils/books/fileHash";
 import { basename, dirname, extname, join } from "node:path";
 
@@ -11,7 +11,7 @@ import {
   isFullyReadable,
   placeFile,
   resolveTorrentContentPath,
-} from "@rawkoon/api/services/postProcessorHelpers";
+} from "@rawkoon/api/services/postProcessor/postProcessorHelpers";
 import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import { renderBookTemplate } from "@rawkoon/api/utils/medias/fileTemplate";
 import {

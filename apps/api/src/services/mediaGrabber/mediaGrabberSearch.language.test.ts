@@ -45,7 +45,9 @@ const grabRelease = mock(
       | { grabbed: true; releaseTitle: string }
       | { grabbed: false; reason: string },
 );
-mock.module("@rawkoon/api/services/mediaGrabberGrab", () => ({ grabRelease }));
+mock.module("@rawkoon/api/services/mediaGrabber/mediaGrabberGrab", () => ({
+  grabRelease,
+}));
 mock.module("@rawkoon/api/services/aiProvider/client", () => ({
   pickReleaseWithAi: mock(async () => null),
   loadEnabledAiProviderConfig: mock(async () => null),

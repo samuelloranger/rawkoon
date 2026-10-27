@@ -7,7 +7,7 @@ import {
   scheduledTasksQueue,
   SCHEDULED_JOB_NAMES,
 } from "@rawkoon/api/services/queueService";
-import { loadRssPollInterval } from "@rawkoon/api/services/rssPollSchedule";
+import { loadRssPollInterval } from "@rawkoon/api/services/rss/rssPollSchedule";
 
 /** The scheduler's next poll, or the next tick of the stored interval when it has none queued. */
 export async function getNextRssRunAt(

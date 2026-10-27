@@ -6,7 +6,7 @@ import {
   localDateYmd,
   toUtcMidnightDate,
 } from "@rawkoon/shared/utils/date";
-import type { AttentionCandidate } from "@rawkoon/api/services/libraryAttentionTypes";
+import type { AttentionCandidate } from "@rawkoon/api/services/libraryAttention/libraryAttentionTypes";
 
 /** Season named by a release (pack or single episode), or null. */
 export function inferSeasonFromReleaseTitle(title: string): number | null {

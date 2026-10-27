@@ -49,7 +49,7 @@ mock.module("@rawkoon/api/db", () => ({
 mock.module("@rawkoon/api/lib/auth", () => ({
   auth: { $context: Promise.resolve({ internalAdapter: { createSession } }) },
 }));
-mock.module("@rawkoon/api/services/jellyfinUsers", () => ({
+mock.module("@rawkoon/api/services/jellyfin/jellyfinUsers", () => ({
   JELLYFIN_SESSION_AGENT_PREFIX: "Jellyfin: ",
   // mock.module is process-wide, so keep every export other suites import.
   jellyfinAuthHeader: (token: string) => ({

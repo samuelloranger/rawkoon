@@ -10,8 +10,8 @@ import { loadTmdbConfig } from "@rawkoon/api/utils/medias/tmdbFetcherCore";
 import { fetchMediaDetails } from "@rawkoon/api/utils/medias/tmdbFetcherDetails";
 import { formatDateInTimezone } from "@rawkoon/api/utils";
 import { createAndQueueNotification } from "./notificationService";
-import { notificationCopy } from "@rawkoon/api/services/notificationCopy";
-import { getNotificationTarget } from "@rawkoon/api/services/notificationPreferences";
+import { notificationCopy } from "@rawkoon/api/services/notification/notificationCopy";
+import { getNotificationTarget } from "@rawkoon/api/services/notification/notificationPreferences";
 
 function dbDateToYmd(d: Date | null): string | null {
   if (!d) return null;

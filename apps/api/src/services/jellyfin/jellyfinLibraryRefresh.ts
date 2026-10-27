@@ -1,6 +1,6 @@
 import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationConfigCache";
 import { normalizeJellyfinConfig } from "@rawkoon/api/utils/integrations/normalizers";
-import { jellyfinAuthHeader } from "@rawkoon/api/services/jellyfinUsers";
+import { jellyfinAuthHeader } from "@rawkoon/api/services/jellyfin/jellyfinUsers";
 
 /**
  * Fires a POST /Library/Refresh to Jellyfin so it picks up newly post-processed files.

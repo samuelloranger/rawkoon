@@ -18,7 +18,7 @@ import {
 import {
   notificationEventBus,
   type NotificationStreamEvent,
-} from "@rawkoon/api/services/notificationEvents";
+} from "@rawkoon/api/services/notification/notificationEvents";
 import {
   badRequest,
   notFound,

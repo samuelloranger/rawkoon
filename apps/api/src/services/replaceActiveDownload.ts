@@ -1,6 +1,6 @@
 import { prisma } from "@rawkoon/api/db";
 import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
-import { revertToWantedIfNoActiveGrabs } from "@rawkoon/api/services/downloadOutcome";
+import { revertToWantedIfNoActiveGrabs } from "@rawkoon/api/services/downloads/downloadOutcome";
 import { emitLibraryUpdate } from "@rawkoon/api/services/libraryEvents";
 import { REPLACED_FAIL_REASON } from "@rawkoon/api/services/replacedDownload";
 import { infoHashFromMagnet } from "@rawkoon/api/utils/medias/prowlarrSearchUtils";

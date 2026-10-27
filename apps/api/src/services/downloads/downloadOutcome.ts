@@ -3,11 +3,11 @@ import {
   emitLibraryLanded,
   emitLibraryUpdate,
 } from "@rawkoon/api/services/libraryEvents";
-import { triggerJellyfinLibraryScan } from "@rawkoon/api/services/jellyfinLibraryRefresh";
+import { triggerJellyfinLibraryScan } from "@rawkoon/api/services/jellyfin/jellyfinLibraryRefresh";
 import { notifyRequestAvailable } from "@rawkoon/api/services/mediaRequests";
-import { postProcess } from "@rawkoon/api/services/postProcessorSingle";
-import { postProcessBookDownload } from "@rawkoon/api/services/postProcessorBook";
-import type { PostProcessFailure } from "@rawkoon/api/services/postProcessFailure";
+import { postProcess } from "@rawkoon/api/services/postProcessor/postProcessorSingle";
+import { postProcessBookDownload } from "@rawkoon/api/services/postProcessor/postProcessorBook";
+import type { PostProcessFailure } from "@rawkoon/api/services/postProcessor/postProcessFailure";
 import { emitBookUpdate } from "@rawkoon/api/services/libraryEvents";
 import { resolveDownloadedStatus } from "@rawkoon/api/utils/medias/libraryHelpers";
 import { notifyAdminsMediaDownloaded } from "@rawkoon/api/workers/notifyMediaDownloaded";
@@ -533,7 +533,7 @@ export async function finishPostProcess(
         { findBlockedFileInTorrent, rejectRelease },
         { resolveActiveAdapter },
       ] = await Promise.all([
-        import("@rawkoon/api/services/downloadJanitor"),
+        import("@rawkoon/api/services/downloads/downloadJanitor"),
         import("@rawkoon/api/services/downloadClient/registry"),
       ]);
       const [active, blockSettings] = await Promise.all([
@@ -580,7 +580,7 @@ export async function finishPostProcess(
       });
       if (result.rejectKind && dh) {
         const { rejectRelease } = await import(
-          "@rawkoon/api/services/downloadJanitor"
+          "@rawkoon/api/services/downloads/downloadJanitor"
         );
         // rejectRelease notifies admins, for media and book rows alike.
         await rejectRelease(

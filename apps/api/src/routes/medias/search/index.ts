@@ -23,7 +23,7 @@ import type { ScoreBreakdownDto } from "@rawkoon/shared/types";
 import {
   profileToScoreInput,
   qualityProfileFormatsInclude,
-} from "@rawkoon/api/services/mediaGrabberHelpers";
+} from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
 import {
   isSeasonPack,
   isCompleteSeries,
@@ -39,7 +39,7 @@ import {
   unprocessable,
 } from "@rawkoon/api/errors";
 import { gateAiCall } from "@rawkoon/api/services/aiProvider/aiGate";
-import { grabRelease } from "@rawkoon/api/services/mediaGrabberGrab";
+import { grabRelease } from "@rawkoon/api/services/mediaGrabber/mediaGrabberGrab";
 import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationConfigCache";
 import { normalizeAiProviderConfig } from "@rawkoon/api/utils/integrations/normalizers";
 import {

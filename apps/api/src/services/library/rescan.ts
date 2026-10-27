@@ -21,7 +21,7 @@ import {
   parseReleaseTitle,
 } from "@rawkoon/api/utils/medias/filenameParser";
 import { isExcludedDir } from "@rawkoon/api/utils/medias/fileIdentifier";
-import { enqueuePostProcess } from "@rawkoon/api/services/downloadOutcome";
+import { enqueuePostProcess } from "@rawkoon/api/services/downloads/downloadOutcome";
 import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import { reconcilePendingDownloads } from "@rawkoon/api/workers/checkDownloadCompletion";
 import { classifyLanguageTags } from "@rawkoon/shared";

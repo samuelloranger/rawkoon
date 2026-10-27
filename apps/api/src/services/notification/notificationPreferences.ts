@@ -5,7 +5,7 @@ import {
   resolveNotificationPreference,
   type NotificationPreferenceKey,
 } from "@rawkoon/shared/types/notificationPreferences";
-import { preferenceKeyForNotificationType } from "@rawkoon/api/services/notificationCopy";
+import { preferenceKeyForNotificationType } from "@rawkoon/api/services/notification/notificationCopy";
 
 export type NotificationTarget = {
   id: string;

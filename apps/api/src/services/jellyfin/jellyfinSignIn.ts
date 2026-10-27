@@ -7,7 +7,7 @@ import {
 import {
   jellyfinAuthHeader,
   type JellyfinUser,
-} from "@rawkoon/api/services/jellyfinUsers";
+} from "@rawkoon/api/services/jellyfin/jellyfinUsers";
 import type { JellyfinIntegrationConfig } from "@rawkoon/api/utils/integrations/types";
 import { validateImageMimeAndSize } from "@rawkoon/shared/utils";
 

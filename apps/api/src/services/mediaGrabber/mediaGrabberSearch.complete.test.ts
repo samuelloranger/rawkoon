@@ -8,7 +8,7 @@ const realStrategy = {
   ...(await import("@rawkoon/api/services/indexerManager/searchStrategy")),
 };
 const realGrab = {
-  ...(await import("@rawkoon/api/services/mediaGrabberGrab")),
+  ...(await import("@rawkoon/api/services/mediaGrabber/mediaGrabberGrab")),
 };
 const realAi = { ...(await import("@rawkoon/api/services/aiProvider/client")) };
 
@@ -83,7 +83,9 @@ const grabRelease = mock(
       | { grabbed: true; releaseTitle: string }
       | { grabbed: false; reason: string },
 );
-mock.module("@rawkoon/api/services/mediaGrabberGrab", () => ({ grabRelease }));
+mock.module("@rawkoon/api/services/mediaGrabber/mediaGrabberGrab", () => ({
+  grabRelease,
+}));
 mock.module("@rawkoon/api/services/aiProvider/client", () => ({
   ...realAi,
   pickReleaseWithAi: mock(async () => null),
@@ -99,7 +101,10 @@ afterAll(() => {
     "@rawkoon/api/services/indexerManager/searchStrategy",
     () => realStrategy,
   );
-  mock.module("@rawkoon/api/services/mediaGrabberGrab", () => realGrab);
+  mock.module(
+    "@rawkoon/api/services/mediaGrabber/mediaGrabberGrab",
+    () => realGrab,
+  );
   mock.module("@rawkoon/api/services/aiProvider/client", () => realAi);
 });
 

@@ -1,6 +1,6 @@
 import type { Job } from "bullmq";
 
-import { finishPostProcess } from "@rawkoon/api/services/downloadOutcome";
+import { finishPostProcess } from "@rawkoon/api/services/downloads/downloadOutcome";
 
 /**
  * Shim for the post-process queue. The outcome policy lives in

@@ -1,6 +1,6 @@
 import { prisma } from "@rawkoon/api/db";
 import { getActiveIndexerManager } from "@rawkoon/api/services/indexerManager";
-import { checkBlocklist } from "@rawkoon/api/services/mediaGrabberHelpers";
+import { checkBlocklist } from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import { emitBookUpdate } from "@rawkoon/api/services/libraryEvents";
 import type { BookEditionKind, BookRelease } from "@rawkoon/shared/types";

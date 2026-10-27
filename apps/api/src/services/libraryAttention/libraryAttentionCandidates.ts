@@ -13,11 +13,11 @@ import {
   type AttentionCandidate,
   type LibraryAttentionScopeType,
   attentionKindPriority,
-} from "@rawkoon/api/services/libraryAttentionTypes";
+} from "@rawkoon/api/services/libraryAttention/libraryAttentionTypes";
 import {
   inferSeasonFromReleaseTitle,
   pushEpisodePackOrIndividuals,
-} from "@rawkoon/api/services/libraryAttentionCandidatesSeason";
+} from "@rawkoon/api/services/libraryAttention/libraryAttentionCandidatesSeason";
 
 type DhRow = {
   id: number;

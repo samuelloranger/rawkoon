@@ -3,13 +3,13 @@ import {
   recordEpisodeMiss,
   recordMovieMiss,
   recordSeasonPackMiss,
-} from "@rawkoon/api/services/grabAttempts";
+} from "@rawkoon/api/services/grab/grabAttempts";
 import { blocklistedTitles } from "@rawkoon/api/utils/medias/pickReleaseForGrab";
-import { grabRelease } from "@rawkoon/api/services/mediaGrabberGrab";
+import { grabRelease } from "@rawkoon/api/services/mediaGrabber/mediaGrabberGrab";
 import {
   profileToScoreInput,
   qualityProfileFormatsInclude,
-} from "@rawkoon/api/services/mediaGrabberHelpers";
+} from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
 import type { GrabPendingReason } from "@rawkoon/shared/types";
 import type { NormalizedRelease } from "@rawkoon/api/services/indexerManager/types";
 import { scoreReleasesForProfile } from "@rawkoon/api/utils/medias/pickBestRelease";

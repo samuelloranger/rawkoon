@@ -64,7 +64,7 @@ mock.module("@rawkoon/api/utils/medias/mediainfoScanner", () => ({
 }));
 
 const { postProcessSeasonPack } = await import(
-  "@rawkoon/api/services/postProcessorSeasonPack"
+  "@rawkoon/api/services/postProcessor/postProcessorSeasonPack"
 );
 
 afterAll(() => {

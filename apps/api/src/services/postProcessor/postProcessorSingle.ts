@@ -1,5 +1,5 @@
 import { basename, extname, join } from "node:path";
-import type { PostProcessFailure } from "@rawkoon/api/services/postProcessFailure";
+import type { PostProcessFailure } from "@rawkoon/api/services/postProcessor/postProcessFailure";
 import { stat, unlink } from "node:fs/promises";
 
 import { prisma } from "@rawkoon/api/db";
@@ -31,8 +31,8 @@ import {
   placeImportFile,
   qualityStringsFromParsed,
   resolveTorrentContentPath,
-} from "@rawkoon/api/services/postProcessorHelpers";
-import { postProcessSeasonPack } from "@rawkoon/api/services/postProcessorSeasonPack";
+} from "@rawkoon/api/services/postProcessor/postProcessorHelpers";
+import { postProcessSeasonPack } from "@rawkoon/api/services/postProcessor/postProcessorSeasonPack";
 import { loadImportSeedRules } from "@rawkoon/api/services/seeding/importSeedRule";
 import {
   afterImportAction,

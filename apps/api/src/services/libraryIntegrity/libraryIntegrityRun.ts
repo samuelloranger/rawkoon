@@ -1,13 +1,13 @@
 import type { Prisma } from "@prisma/client";
 import type { LibraryHealthIssue, LibraryHealthSummary } from "@rawkoon/shared";
 import { prisma } from "@rawkoon/api/db";
-import { collectLibraryIntegrityIssues } from "@rawkoon/api/services/libraryIntegrityCollectors";
+import { collectLibraryIntegrityIssues } from "@rawkoon/api/services/libraryIntegrity/libraryIntegrityCollectors";
 import {
   libraryHealthEmptySummary,
   summarizeLibraryHealthIssues,
   type LibraryIntegrityResult,
   type LibraryIntegrityStatus,
-} from "@rawkoon/api/services/libraryIntegritySummary";
+} from "@rawkoon/api/services/libraryIntegrity/libraryIntegritySummary";
 
 /** Maximum persisted library health runs before deleting oldest */
 const MAX_LIBRARY_HEALTH_LOG_ROWS = 200;

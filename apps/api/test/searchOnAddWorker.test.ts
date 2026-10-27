@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 // Search-on-add reuses the scheduled grab path but must never record a miss.
 const realSearch = {
-  ...(await import("@rawkoon/api/services/mediaGrabberSearch")),
+  ...(await import("@rawkoon/api/services/mediaGrabber/mediaGrabberSearch")),
 };
 const realRefresh = {
   ...(await import("@rawkoon/api/services/libraryTmdbRefresh")),
@@ -43,7 +43,7 @@ const seasonJobs: number[] = [];
 const writes: unknown[] = [];
 const outcomes: Array<Record<string, unknown>> = [];
 
-mock.module("@rawkoon/api/services/mediaGrabberSearch", () => ({
+mock.module("@rawkoon/api/services/mediaGrabber/mediaGrabberSearch", () => ({
   ...realSearch,
   searchAndGrabWithTitleFallback: async (o: {
     suffix: string;
@@ -113,7 +113,10 @@ mock.module("@rawkoon/api/db", () => ({
 const { searchOnAdd } = await import("@rawkoon/api/workers/searchOnAdd");
 
 afterAll(() => {
-  mock.module("@rawkoon/api/services/mediaGrabberSearch", () => realSearch);
+  mock.module(
+    "@rawkoon/api/services/mediaGrabber/mediaGrabberSearch",
+    () => realSearch,
+  );
   mock.module("@rawkoon/api/services/libraryTmdbRefresh", () => realRefresh);
   mock.module(
     "@rawkoon/api/services/searchOnAdd",

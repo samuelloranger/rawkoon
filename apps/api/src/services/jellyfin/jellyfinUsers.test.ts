@@ -3,7 +3,7 @@ import {
   authenticateJellyfinUser,
   JellyfinUnreachableError,
   jellyfinSessionWhere,
-} from "@rawkoon/api/services/jellyfinUsers";
+} from "@rawkoon/api/services/jellyfin/jellyfinUsers";
 
 const config = {
   website_url: "http://jellyfin.test",

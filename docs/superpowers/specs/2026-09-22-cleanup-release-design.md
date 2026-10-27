@@ -24,7 +24,7 @@ Stop dead and fake releases from wasting grabs. Stop the download client from fi
 
 ## Current behaviour (verified in code)
 
-- **Stall and max-age timeouts.** `checkDownloadCompletion` → `failDownload` (`services/downloadOutcome.ts`) marks the row failed and calls `revertToWantedIfNoActiveGrabs`. It does **not** blocklist the release and does **not** remove the torrent. Search already skips blocklisted titles (`mediaGrabberSearch.ts`, pre-filter) and grab checks blocklisted hashes (`mediaGrabberGrab.ts` → `checkBlocklist`). Writing the blocklist entry is therefore enough to break the re-grab loop.
+- **Stall and max-age timeouts.** `checkDownloadCompletion` → `failDownload` (`services/downloads/downloadOutcome.ts`) marks the row failed and calls `revertToWantedIfNoActiveGrabs`. It does **not** blocklist the release and does **not** remove the torrent. Search already skips blocklisted titles (`mediaGrabberSearch.ts`, pre-filter) and grab checks blocklisted hashes (`mediaGrabberGrab.ts` → `checkBlocklist`). Writing the blocklist entry is therefore enough to break the re-grab loop.
 - **Seeding after import.** Post-processing (`postProcessorSingle.ts`, `postProcessorSeasonPack.ts`) removes the torrent with `remove(hash, false)` only if `ratio >= MediaSettings.minSeedRatio` **at import time**, or if `minSeedRatio <= 0`. A torrent below the ratio at import is never revisited. There is no seed-time target.
 - **Library delete.** `DELETE /api/library/:id` deletes the media's `DownloadHistory` rows and never touches the client, so the torrent is orphaned permanently.
 - **Upgrade.** The old library files are deleted, but the old grab's torrent is left in the client.
@@ -110,7 +110,7 @@ Applied to all three adapters (`services/downloadClient/*`).
 
 ## 4. Queue janitor
 
-The new `services/downloadJanitor.ts` exposes one condemning entry point:
+The new `services/downloads/downloadJanitor.ts` exposes one condemning entry point:
 
 ```ts
 rejectRelease(dh: DownloadRef & { torrentHash: string | null; releaseTitle: string; indexer: string | null },
