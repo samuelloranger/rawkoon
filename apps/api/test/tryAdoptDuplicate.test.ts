@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
+import { fakeAdapter } from "./mocks/downloadClientAdapter";
 import { dbModule } from "./mocks/prisma";
 
 // Regression test for the load-bearing fix: when mediaGrabber adopts an
@@ -21,8 +22,6 @@ const fakeTorrent = {
 };
 
 const state: {
-  qbCategoryCalls: Array<Record<string, unknown>>;
-  qbTagCalls: Array<Record<string, unknown>>;
   dhUpdates: Array<{ where: { id: number }; data: Record<string, unknown> }>;
   episodeUpdates: Array<{
     where: { id: number };
@@ -37,8 +36,6 @@ const state: {
   }>;
   mediaStatus: string;
 } = {
-  qbCategoryCalls: [],
-  qbTagCalls: [],
   dhUpdates: [],
   episodeUpdates: [],
   mediaUpdates: [],
@@ -106,46 +103,6 @@ mock.module("@rawkoon/api/workers/notificationService", () => ({
   createAndQueueNotification: () => Promise.resolve(undefined),
 }));
 
-const realQbConfig = await import("@rawkoon/api/services/qbittorrent/config");
-mock.module("@rawkoon/api/services/qbittorrent/config", () => ({
-  ...realQbConfig,
-  getQbittorrentIntegrationConfig: () =>
-    Promise.resolve({ enabled: true, config: { url: "http://qb" } }),
-}));
-
-// Spread the real module so unrelated consumers (postProcessor, dashboard
-// routes, …) still see every export under Bun's process-global mock.module.
-// Override only the functions this test exercises directly.
-const realTorrentQueries = await import(
-  "@rawkoon/api/services/qbittorrent/torrentQueries"
-);
-const realTorrentMutations = await import(
-  "@rawkoon/api/services/qbittorrent/torrentMutations"
-);
-mock.module("@rawkoon/api/services/qbittorrent/torrentQueries", () => ({
-  ...realTorrentQueries,
-  fetchQbittorrentTorrent: () => Promise.resolve({ torrent: state.torrent }),
-}));
-mock.module("@rawkoon/api/services/qbittorrent/torrentMutations", () => ({
-  ...realTorrentMutations,
-  setQbittorrentTorrentCategory: (
-    _cfg: unknown,
-    _enabled: boolean,
-    args: Record<string, unknown>,
-  ) => {
-    state.qbCategoryCalls.push(args);
-    return Promise.resolve({ success: true });
-  },
-  setQbittorrentTorrentTags: (
-    _cfg: unknown,
-    _enabled: boolean,
-    args: Record<string, unknown>,
-  ) => {
-    state.qbTagCalls.push(args);
-    return Promise.resolve({ success: true });
-  },
-}));
-
 mock.module("@rawkoon/api/utils/activityLogs", () => ({
   logActivity: () => Promise.resolve(undefined),
 }));
@@ -165,15 +122,30 @@ mock.module("@rawkoon/api/services/queueService", () => ({
 // @rawkoon/api/services/integrationConfigCache,
 // @rawkoon/api/utils/integrations/normalizers, or
 // @rawkoon/api/utils/medias/safeTorrentFetchUrl. mediaGrabber imports them but
-// `tryAdoptQbDuplicate` doesn't call into them, and bun's mock.module is
+// `tryAdoptDuplicate` doesn't call into them, and bun's mock.module is
 // process-global — stubbing them here would break other test files
 // (e.g. safeTorrentFetchUrl.test.ts) that depend on the real implementations.
 
-const { tryAdoptQbDuplicate } = await import(
+const { tryAdoptDuplicate } = await import(
   "@rawkoon/api/services/mediaGrabber/mediaGrabberAdopt"
 );
 
+const claimCalls: Array<{ hash: string; category: string; logPrefix: string }> =
+  [];
+// Stands in for the client: reports the staged torrent as claimable, or absent.
+const adapter = fakeAdapter({
+  claimExisting: async (opts) => {
+    claimCalls.push(opts);
+    if (!state.torrent) return null;
+    return {
+      completed:
+        state.torrent.state === completedQbState && state.torrent.progress >= 1,
+    };
+  },
+});
+
 const baseCtx = {
+  adapter,
   dhRowId: 1,
   mediaId: 10,
   episodeId: 20,
@@ -182,10 +154,9 @@ const baseCtx = {
   qJson: {},
 };
 
-describe("tryAdoptQbDuplicate", () => {
+describe("tryAdoptDuplicate", () => {
   beforeEach(() => {
-    state.qbCategoryCalls = [];
-    state.qbTagCalls = [];
+    claimCalls.length = 0;
     state.dhUpdates = [];
     state.episodeUpdates = [];
     state.mediaUpdates = [];
@@ -205,7 +176,7 @@ describe("tryAdoptQbDuplicate", () => {
       title: "Example",
     };
 
-    await tryAdoptQbDuplicate({ ...baseCtx, torrentHash: fakeTorrent.hash });
+    await tryAdoptDuplicate({ ...baseCtx, torrentHash: fakeTorrent.hash });
 
     expect(state.requestUpdates).toHaveLength(1);
     expect(state.requestUpdates[0]?.data.status).toBe("available");
@@ -223,7 +194,7 @@ describe("tryAdoptQbDuplicate", () => {
       progress: 0.5,
     };
 
-    await tryAdoptQbDuplicate({ ...baseCtx, torrentHash: fakeTorrent.hash });
+    await tryAdoptDuplicate({ ...baseCtx, torrentHash: fakeTorrent.hash });
 
     expect(state.requestUpdates).toEqual([]);
   });
@@ -235,7 +206,7 @@ describe("tryAdoptQbDuplicate", () => {
       progress: 1,
     };
 
-    const result = await tryAdoptQbDuplicate({
+    const result = await tryAdoptDuplicate({
       ...baseCtx,
       torrentHash: fakeTorrent.hash,
     });
@@ -254,7 +225,7 @@ describe("tryAdoptQbDuplicate", () => {
       progress: 0.5,
     };
 
-    const result = await tryAdoptQbDuplicate({
+    const result = await tryAdoptDuplicate({
       ...baseCtx,
       torrentHash: fakeTorrent.hash,
     });
@@ -266,7 +237,7 @@ describe("tryAdoptQbDuplicate", () => {
 
   it("returns null and does nothing when the torrent is not found in qBittorrent", async () => {
     state.torrent = null;
-    const result = await tryAdoptQbDuplicate({
+    const result = await tryAdoptDuplicate({
       ...baseCtx,
       torrentHash: fakeTorrent.hash,
     });
@@ -275,7 +246,7 @@ describe("tryAdoptQbDuplicate", () => {
   });
 
   it("returns null when no torrent hash is supplied", async () => {
-    const result = await tryAdoptQbDuplicate({
+    const result = await tryAdoptDuplicate({
       ...baseCtx,
       torrentHash: null,
     });

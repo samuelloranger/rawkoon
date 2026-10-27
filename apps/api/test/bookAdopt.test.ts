@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, mock } from "bun:test";
+import { fakeAdapter } from "./mocks/downloadClientAdapter";
 
 // A book edition whose earlier grab outlived its DownloadHistory row was
 // permanently ungrabbable: the download client still held the torrent, so every
@@ -17,8 +18,6 @@ const fakeTorrent = {
 };
 
 const state: {
-  qbCategoryCalls: Array<Record<string, unknown>>;
-  qbTagCalls: Array<Record<string, unknown>>;
   dhUpdates: Array<{ where: { id: number }; data: Record<string, unknown> }>;
   editionUpdates: Array<{
     where: { id: number };
@@ -27,8 +26,6 @@ const state: {
   queuedJobs: Array<{ jobId: string | undefined; data: unknown }>;
   torrent: typeof fakeTorrent | null;
 } = {
-  qbCategoryCalls: [],
-  qbTagCalls: [],
   dhUpdates: [],
   editionUpdates: [],
   queuedJobs: [],
@@ -70,45 +67,6 @@ mock.module("@rawkoon/api/db", () => ({
   },
 }));
 
-const realQbConfig = await import("@rawkoon/api/services/qbittorrent/config");
-mock.module("@rawkoon/api/services/qbittorrent/config", () => ({
-  ...realQbConfig,
-  getQbittorrentIntegrationConfig: () =>
-    Promise.resolve({ enabled: true, config: { url: "http://qb" } }),
-}));
-
-// Spread the real modules: bun's mock.module is process-global, so dropping an
-// export here would break unrelated test files that use it.
-const realTorrentQueries = await import(
-  "@rawkoon/api/services/qbittorrent/torrentQueries"
-);
-const realTorrentMutations = await import(
-  "@rawkoon/api/services/qbittorrent/torrentMutations"
-);
-mock.module("@rawkoon/api/services/qbittorrent/torrentQueries", () => ({
-  ...realTorrentQueries,
-  fetchQbittorrentTorrent: () => Promise.resolve({ torrent: state.torrent }),
-}));
-mock.module("@rawkoon/api/services/qbittorrent/torrentMutations", () => ({
-  ...realTorrentMutations,
-  setQbittorrentTorrentCategory: (
-    _cfg: unknown,
-    _enabled: boolean,
-    args: Record<string, unknown>,
-  ) => {
-    state.qbCategoryCalls.push(args);
-    return Promise.resolve({ success: true });
-  },
-  setQbittorrentTorrentTags: (
-    _cfg: unknown,
-    _enabled: boolean,
-    args: Record<string, unknown>,
-  ) => {
-    state.qbTagCalls.push(args);
-    return Promise.resolve({ success: true });
-  },
-}));
-
 mock.module("@rawkoon/api/utils/activityLogs", () => ({
   logActivity: () => Promise.resolve(undefined),
 }));
@@ -127,11 +85,26 @@ mock.module("@rawkoon/api/services/queueService", () => ({
   },
 }));
 
-const { tryAdoptQbDuplicateForBook } = await import(
+const { tryAdoptDuplicateForBook } = await import(
   "@rawkoon/api/services/books/bookAdopt"
 );
 
+const claimCalls: Array<{ hash: string; category: string; logPrefix: string }> =
+  [];
+// Stands in for the client: reports the staged torrent as claimable, or absent.
+const adapter = fakeAdapter({
+  claimExisting: async (opts) => {
+    claimCalls.push(opts);
+    if (!state.torrent) return null;
+    return {
+      completed:
+        state.torrent.state === completedQbState && state.torrent.progress >= 1,
+    };
+  },
+});
+
 const baseCtx = {
+  adapter,
   dhRowId: 42,
   editionId: 7,
   kind: "ebook" as const,
@@ -139,10 +112,9 @@ const baseCtx = {
   bookTitle: "Some Book",
 };
 
-describe("tryAdoptQbDuplicateForBook", () => {
+describe("tryAdoptDuplicateForBook", () => {
   beforeEach(() => {
-    state.qbCategoryCalls = [];
-    state.qbTagCalls = [];
+    claimCalls.length = 0;
     state.dhUpdates = [];
     state.editionUpdates = [];
     state.queuedJobs = [];
@@ -150,24 +122,23 @@ describe("tryAdoptQbDuplicateForBook", () => {
   });
 
   it("claims the torrent into the edition's own category", async () => {
-    await tryAdoptQbDuplicateForBook({
+    await tryAdoptDuplicateForBook({
       ...baseCtx,
       torrentHash: fakeTorrent.hash,
     });
 
-    expect(state.qbCategoryCalls).toHaveLength(1);
-    expect(state.qbCategoryCalls[0]?.category).toBe("rawkoon-books");
-    expect(state.qbTagCalls[0]?.tags).toEqual(["rawkoon"]);
+    expect(claimCalls).toHaveLength(1);
+    expect(claimCalls[0]?.category).toBe("rawkoon-books");
   });
 
   it("uses the audiobook category for an audiobook edition", async () => {
-    await tryAdoptQbDuplicateForBook({
+    await tryAdoptDuplicateForBook({
       ...baseCtx,
       kind: "audiobook",
       torrentHash: fakeTorrent.hash,
     });
 
-    expect(state.qbCategoryCalls[0]?.category).toBe("rawkoon-audiobooks");
+    expect(claimCalls[0]?.category).toBe("rawkoon-audiobooks");
   });
 
   // The whole point of adopting a finished torrent: it must run the same
@@ -176,7 +147,7 @@ describe("tryAdoptQbDuplicateForBook", () => {
   // process-global, so which queueService stub wins depends on test file
   // order. The completion stamp is the observable that stays stable.
   it("completes the download when the adopted torrent is already complete", async () => {
-    const result = await tryAdoptQbDuplicateForBook({
+    const result = await tryAdoptDuplicateForBook({
       ...baseCtx,
       torrentHash: fakeTorrent.hash,
     });
@@ -197,7 +168,7 @@ describe("tryAdoptQbDuplicateForBook", () => {
       progress: 0.4,
     };
 
-    const result = await tryAdoptQbDuplicateForBook({
+    const result = await tryAdoptDuplicateForBook({
       ...baseCtx,
       torrentHash: fakeTorrent.hash,
     });
@@ -219,7 +190,7 @@ describe("tryAdoptQbDuplicateForBook", () => {
       progress: 0.4,
     };
 
-    await tryAdoptQbDuplicateForBook({
+    await tryAdoptDuplicateForBook({
       ...baseCtx,
       torrentHash: fakeTorrent.hash,
       isUpgrade: true,
@@ -229,7 +200,7 @@ describe("tryAdoptQbDuplicateForBook", () => {
   });
 
   it("clears the failure fields on the DownloadHistory row it adopts", async () => {
-    await tryAdoptQbDuplicateForBook({
+    await tryAdoptDuplicateForBook({
       ...baseCtx,
       torrentHash: fakeTorrent.hash,
     });
@@ -246,7 +217,7 @@ describe("tryAdoptQbDuplicateForBook", () => {
   it("returns null without touching the row when qBittorrent has no such torrent", async () => {
     state.torrent = null;
 
-    const result = await tryAdoptQbDuplicateForBook({
+    const result = await tryAdoptDuplicateForBook({
       ...baseCtx,
       torrentHash: fakeTorrent.hash,
     });
@@ -259,52 +230,12 @@ describe("tryAdoptQbDuplicateForBook", () => {
   // A .torrent add that fails before the hash is known leaves nothing to look
   // up, so the grab has to fail with its own reason.
   it("returns null when there is no torrent hash to adopt by", async () => {
-    const result = await tryAdoptQbDuplicateForBook({
+    const result = await tryAdoptDuplicateForBook({
       ...baseCtx,
       torrentHash: null,
     });
 
     expect(result).toBeNull();
-    expect(state.qbCategoryCalls).toEqual([]);
-  });
-
-  // Claiming a torrent whose category could not be set would leave it running
-  // under a category nothing in Rawkoon watches.
-  it("returns null when the category could not be set", async () => {
-    mock.module("@rawkoon/api/services/qbittorrent/torrentMutations", () => ({
-      ...realTorrentMutations,
-      setQbittorrentTorrentCategory: () =>
-        Promise.resolve({ success: false, error: "qb refused" }),
-      setQbittorrentTorrentTags: () => Promise.resolve({ success: true }),
-    }));
-
-    const result = await tryAdoptQbDuplicateForBook({
-      ...baseCtx,
-      torrentHash: fakeTorrent.hash,
-    });
-
-    expect(result).toBeNull();
-    expect(state.dhUpdates).toEqual([]);
-
-    // Restore for any test that runs after this one.
-    mock.module("@rawkoon/api/services/qbittorrent/torrentMutations", () => ({
-      ...realTorrentMutations,
-      setQbittorrentTorrentCategory: (
-        _cfg: unknown,
-        _enabled: boolean,
-        args: Record<string, unknown>,
-      ) => {
-        state.qbCategoryCalls.push(args);
-        return Promise.resolve({ success: true });
-      },
-      setQbittorrentTorrentTags: (
-        _cfg: unknown,
-        _enabled: boolean,
-        args: Record<string, unknown>,
-      ) => {
-        state.qbTagCalls.push(args);
-        return Promise.resolve({ success: true });
-      },
-    }));
+    expect(claimCalls).toEqual([]);
   });
 });

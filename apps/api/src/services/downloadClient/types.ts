@@ -63,6 +63,18 @@ export interface DownloadClientAdapter {
   pause(hash: string): Promise<void>;
   resume(hash: string): Promise<void>;
   remove(hash: string, deleteData: boolean): Promise<void>;
+  /**
+   * Take over a torrent the client already holds (an add answered "duplicate"):
+   * make it ours (category/label) and report whether it has finished. Null when
+   * the torrent is absent or could not be claimed. Absent on clients that do
+   * not support adoption, so callers treat a missing method as "not adoptable".
+   */
+  claimExisting?(opts: {
+    hash: string;
+    category: string;
+    /** Prefixes warning logs so the caller's domain is identifiable. */
+    logPrefix: string;
+  }): Promise<{ completed: boolean } | null>;
 }
 
 export class DownloadClientError extends Error {

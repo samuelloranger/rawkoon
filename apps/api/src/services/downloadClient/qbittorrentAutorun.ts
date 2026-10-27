@@ -1,6 +1,9 @@
-import { qbFetchJson, qbFetchText } from "./clientFetch";
-import type { QbittorrentIntegrationConfig } from "./clientTypes";
-import { toStringOrNull } from "./clientNormalizers";
+import {
+  qbFetchJson,
+  qbFetchText,
+} from "@rawkoon/api/services/qbittorrent/clientFetch";
+import type { QbittorrentIntegrationConfig } from "@rawkoon/api/services/qbittorrent/clientTypes";
+import { toStringOrNull } from "@rawkoon/api/services/qbittorrent/clientNormalizers";
 
 // Verified against live GET /api/v2/app/preferences on qBittorrent v4.6.7 and
 // v5.0.4: both expose exactly these two keys for the on-finished hook.

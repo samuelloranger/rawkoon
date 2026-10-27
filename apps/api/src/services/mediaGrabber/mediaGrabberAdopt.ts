@@ -1,25 +1,27 @@
 import { Prisma } from "@prisma/client";
 
-import { claimExistingQbTorrent } from "@rawkoon/api/services/qbittorrent/adoptExisting";
+import { claimExistingTorrent } from "@rawkoon/api/services/downloadClient/claimExisting";
+import type { DownloadClientAdapter } from "@rawkoon/api/services/downloadClient/types";
 import { adoptDownload } from "@rawkoon/api/services/downloads/downloadOutcome";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import { qbCategoryForLibraryType } from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
 
 /**
- * If qBittorrent rejected an add because the infohash already exists,
+ * If the download client rejected an add because the infohash already exists,
  * adopt the existing torrent into Rawkoon instead of marking the grab as failed.
  *
  * The client-side half (category, tag, completion state) lives in
- * claimExistingQbTorrent, which the book path shares; this function owns the
+ * claimExistingTorrent, which the book path shares; this function owns the
  * media-side database half: finalising the DownloadHistory row and updating the
  * library status — marking it `downloaded` immediately when the existing
- * torrent is already complete in qBittorrent.
+ * torrent is already complete in the client.
  *
- * Returns null when adoption is not applicable (no hash, qB unreachable, or
- * no matching torrent). Returns a success descriptor when the torrent was
+ * Returns null when adoption is not applicable (no hash, client unsupported or
+ * unreachable, or no matching torrent). Returns a success descriptor when the torrent was
  * adopted.
  */
-export async function tryAdoptQbDuplicate(ctx: {
+export async function tryAdoptDuplicate(ctx: {
+  adapter: DownloadClientAdapter;
   dhRowId: number;
   mediaId: number;
   episodeId: number | null;
@@ -30,6 +32,7 @@ export async function tryAdoptQbDuplicate(ctx: {
   isUpgrade?: boolean;
 }): Promise<{ adopted: true; completed: boolean } | null> {
   const {
+    adapter,
     dhRowId,
     mediaId,
     episodeId,
@@ -40,9 +43,9 @@ export async function tryAdoptQbDuplicate(ctx: {
     isUpgrade,
   } = ctx;
 
-  const claimed = await claimExistingQbTorrent({
-    torrentHash,
-    expectedCategory: qbCategoryForLibraryType(mediaType),
+  const claimed = await claimExistingTorrent(adapter, {
+    hash: torrentHash,
+    category: qbCategoryForLibraryType(mediaType),
     logPrefix: "[mediaGrabber]",
   });
   if (!claimed) return null;
@@ -50,7 +53,7 @@ export async function tryAdoptQbDuplicate(ctx: {
 
   try {
     await adoptDownload({
-      // Non-null: claimExistingQbTorrent returns null without a hash.
+      // Non-null: claimExistingTorrent returns null without a hash.
       dh: { id: dhRowId, mediaId, episodeId },
       torrentHash: torrentHash as string,
       completed,
@@ -58,7 +61,7 @@ export async function tryAdoptQbDuplicate(ctx: {
     });
   } catch (e) {
     console.warn(
-      "[mediaGrabber] adopted qB torrent but failed to record the outcome:",
+      "[mediaGrabber] adopted torrent but failed to record the outcome:",
       e,
     );
   }
@@ -76,7 +79,7 @@ export async function tryAdoptQbDuplicate(ctx: {
   });
 
   console.log(
-    `[mediaGrabber] adopted existing qB torrent hash=${torrentHash} media=${mediaId} episode=${episodeId ?? "none"} completed=${completed}`,
+    `[mediaGrabber] adopted existing torrent hash=${torrentHash} media=${mediaId} episode=${episodeId ?? "none"} completed=${completed}`,
   );
 
   return { adopted: true, completed };

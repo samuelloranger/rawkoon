@@ -1,4 +1,5 @@
-import { claimExistingQbTorrent } from "@rawkoon/api/services/qbittorrent/adoptExisting";
+import { claimExistingTorrent } from "@rawkoon/api/services/downloadClient/claimExisting";
+import type { DownloadClientAdapter } from "@rawkoon/api/services/downloadClient/types";
 import { adoptDownload } from "@rawkoon/api/services/downloads/downloadOutcome";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import type { BookEditionKind } from "@rawkoon/shared/types";
@@ -6,21 +7,22 @@ import type { BookEditionKind } from "@rawkoon/shared/types";
 import { qbCategoryForEditionKind } from "./bookCategories";
 
 /**
- * Book counterpart to tryAdoptQbDuplicate.
+ * Book counterpart to tryAdoptDuplicate.
  *
  * When the download client already holds the torrent, take it over instead of
  * failing the grab: an edition whose earlier attempt was removed from Rawkoon
  * but not from the client was otherwise unreachable — the re-grab hit 409 every
  * time, with no way forward but manual intervention in qBittorrent.
  *
- * The client-side work is shared with the media path (claimExistingQbTorrent);
+ * The client-side work is shared with the media path (claimExistingTorrent);
  * only the DownloadHistory finalisation differs, and adoptDownload already
  * knows how to finish a book row.
  *
  * Returns null when adoption does not apply, leaving the caller to fail the
  * grab with its own reason.
  */
-export async function tryAdoptQbDuplicateForBook(ctx: {
+export async function tryAdoptDuplicateForBook(ctx: {
+  adapter: DownloadClientAdapter;
   dhRowId: number;
   editionId: number;
   kind: BookEditionKind;
@@ -30,6 +32,7 @@ export async function tryAdoptQbDuplicateForBook(ctx: {
   isUpgrade?: boolean;
 }): Promise<{ adopted: true; completed: boolean } | null> {
   const {
+    adapter,
     dhRowId,
     editionId,
     kind,
@@ -39,9 +42,9 @@ export async function tryAdoptQbDuplicateForBook(ctx: {
     isUpgrade,
   } = ctx;
 
-  const claimed = await claimExistingQbTorrent({
-    torrentHash,
-    expectedCategory: qbCategoryForEditionKind(kind),
+  const claimed = await claimExistingTorrent(adapter, {
+    hash: torrentHash,
+    category: qbCategoryForEditionKind(kind),
     logPrefix: "[bookGrabber]",
   });
   if (!claimed) return null;
@@ -49,7 +52,7 @@ export async function tryAdoptQbDuplicateForBook(ctx: {
 
   try {
     await adoptDownload({
-      // Non-null: claimExistingQbTorrent returns null without a hash.
+      // Non-null: claimExistingTorrent returns null without a hash.
       dh: {
         id: dhRowId,
         mediaId: null,
@@ -62,7 +65,7 @@ export async function tryAdoptQbDuplicateForBook(ctx: {
     });
   } catch (e) {
     console.warn(
-      "[bookGrabber] adopted qB torrent but failed to record the outcome:",
+      "[bookGrabber] adopted torrent but failed to record the outcome:",
       e,
     );
   }
@@ -87,7 +90,7 @@ export async function tryAdoptQbDuplicateForBook(ctx: {
   }
 
   console.log(
-    `[bookGrabber] adopted existing qB torrent hash=${torrentHash} edition=${editionId} completed=${completed}`,
+    `[bookGrabber] adopted existing torrent hash=${torrentHash} edition=${editionId} completed=${completed}`,
   );
 
   return { adopted: true, completed };

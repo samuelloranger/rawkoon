@@ -1,4 +1,5 @@
 import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
+import type { DownloadClientAdapter } from "@rawkoon/api/services/downloadClient/types";
 import { infoHashFromMagnet } from "@rawkoon/api/utils/medias/prowlarrSearchUtils";
 import { MAX_TORRENT_FILE_BYTES } from "@rawkoon/api/constants/libraryGrab";
 import {
@@ -36,6 +37,8 @@ export type HandoffResult =
       reason: string;
       duplicate?: boolean;
       torrentHash?: string | null;
+      /** Set with `duplicate`: the client that refused the add. */
+      adapter?: DownloadClientAdapter;
     };
 
 export async function addReleaseToDownloadClient(opts: {
@@ -89,6 +92,7 @@ export async function addReleaseToDownloadClient(opts: {
           ok: false,
           duplicate: true,
           torrentHash: fallbackHash,
+          adapter,
           reason:
             "That release is already in the download client. Remove it there, or use Rescan files once it has finished downloading.",
         };

@@ -15,7 +15,7 @@ import {
   qbCategoryForLibraryType,
   qualityJsonValue,
 } from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
-import { tryAdoptQbDuplicate } from "@rawkoon/api/services/mediaGrabber/mediaGrabberAdopt";
+import { tryAdoptDuplicate } from "@rawkoon/api/services/mediaGrabber/mediaGrabberAdopt";
 import { checkFreeSpaceForGrab } from "@rawkoon/api/services/grab/grabSpaceCheck";
 import { resolveGrabSeason } from "@rawkoon/api/services/grab/grabEpisodeResolver";
 import {
@@ -203,8 +203,9 @@ export async function grabRelease(opts: {
       torrentHash: string | null,
       fallback: string,
     ): Promise<GrabResult> => {
-      if (adapter.type === "qbittorrent") {
-        const adopted = await tryAdoptQbDuplicate({
+      if (adapter.claimExisting) {
+        const adopted = await tryAdoptDuplicate({
+          adapter,
           dhRowId: dhRow.id,
           mediaId,
           episodeId: episodeId ?? null,

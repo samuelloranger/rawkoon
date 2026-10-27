@@ -12,6 +12,7 @@ import {
   pauseQbittorrentTorrent,
   resumeQbittorrentTorrent,
 } from "@rawkoon/api/services/qbittorrent/torrentMutations";
+import { claimExistingQbTorrent } from "@rawkoon/api/services/qbittorrent/adoptExisting";
 import { fetchQbittorrentTorrentFiles } from "@rawkoon/api/services/qbittorrent/torrentQueries";
 import { normalizeQbState } from "./stateNormalize";
 import {
@@ -141,5 +142,7 @@ export function createQbittorrentAdapter(
       });
       if (!result.success) fail(result.error ?? "delete failed");
     },
+
+    claimExisting: (opts) => claimExistingQbTorrent(config, opts),
   };
 }
