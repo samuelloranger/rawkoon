@@ -1,5 +1,8 @@
 import { basename, extname, join } from "node:path";
-import type { PostProcessFailure } from "@rawkoon/api/services/postProcessor/postProcessFailure";
+import type {
+  PostProcessFailure,
+  PostProcessOutcome,
+} from "@rawkoon/api/services/postProcessor/postProcessOutcome";
 import { stat, rm } from "node:fs/promises";
 
 import { prisma } from "@rawkoon/api/db";
@@ -88,16 +91,7 @@ export async function postProcessSeasonPack(
   },
   op: "hardlink" | "move",
   adapter: DownloadClientAdapter,
-): Promise<
-  | { success: true; destinationPath: string; episodeCount: number }
-  | {
-      success: true;
-      destinationPath: string;
-      skipped: true;
-      skipReason: string;
-    }
-  | PostProcessFailure
-> {
+): Promise<PostProcessOutcome> {
   const hash = dh.torrentHash?.trim();
   if (!hash) return { success: false, reason: "Torrent hash unknown" };
   const tor = await adapter.getTorrent(hash);
@@ -183,10 +177,6 @@ export async function postProcessSeasonPack(
    * blocklisted, or auto-search finds the same pack again and loops.
    */
   const refusePack = async (reason: string): Promise<PostProcessFailure> => {
-    await prisma.downloadHistory.update({
-      where: { id: downloadHistoryId },
-      data: { postProcessError: reason },
-    });
     await prisma.grabBlocklist.create({
       data: {
         torrentHash: hash,
@@ -247,14 +237,6 @@ export async function postProcessSeasonPack(
       },
     });
     const destinationPath = existingFiles[0]!.filePath;
-    await prisma.downloadHistory.update({
-      where: { id: downloadHistoryId },
-      data: {
-        postProcessDestinationPath: destinationPath,
-        postProcessError: null,
-        postProcessSkipReason: "all-episodes-present",
-      },
-    });
     return {
       success: true,
       destinationPath,

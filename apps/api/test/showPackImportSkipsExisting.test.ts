@@ -152,13 +152,9 @@ describe("show-level pack import", () => {
     });
     expect(createdFiles).toHaveLength(0);
     expect(blocklisted).toHaveLength(0);
-    expect(historyUpdates).toEqual([
-      {
-        postProcessDestinationPath: "/lib/101.mkv",
-        postProcessError: null,
-        postProcessSkipReason: "all-episodes-present",
-      },
-    ]);
+    expect(result).toMatchObject({ destinationPath: "/lib/101.mkv" });
+    // The outcome is returned; finishPostProcess records it.
+    expect(historyUpdates).toEqual([]);
   });
 
   it("replaces existing files for an upgrade", async () => {

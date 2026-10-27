@@ -5,7 +5,11 @@ import {
 } from "@rawkoon/api/services/downloads/outcomeEffects";
 import { resolveDownloadedStatus } from "@rawkoon/api/utils/medias/libraryHelpers";
 
-/** The only place a DownloadHistory row reaches a terminal state; grab-time failures stay in the grab path. */
+/**
+ * The only place a DownloadHistory row reaches a terminal state, and the only writer of the
+ * post-process outcome fields. Two mid-import checkpoints stay with their post-processors
+ * (see postProcessorSeasonPack and postProcessorBookDownload). Grab-time failures stay in the grab path.
+ */
 
 /** The minimum a caller must know about a row to finish it. */
 export type DownloadRef = {
@@ -289,7 +293,4 @@ export async function enqueuePostProcess(
   return true;
 }
 
-export {
-  finishPostProcess,
-  type PostProcessOutcome,
-} from "@rawkoon/api/services/downloads/downloadOutcomePostProcess";
+export { finishPostProcess } from "@rawkoon/api/services/downloads/downloadOutcomePostProcess";

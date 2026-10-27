@@ -1,6 +1,6 @@
 import { prisma } from "@rawkoon/api/db";
 import { registerBookChapters } from "@rawkoon/api/services/books/registerBookChapters";
-import { rescanBookEdition } from "@rawkoon/api/services/postProcessor/postProcessorBook";
+import { rescanBookEdition } from "@rawkoon/api/services/postProcessor/postProcessorBookRescan";
 
 function parseEditionId(arg: string | undefined): number | null {
   if (!arg) return null;

@@ -53,9 +53,12 @@ mock.module("@rawkoon/api/services/postProcessor/postProcessorSingle", () => ({
   }),
 }));
 
-mock.module("@rawkoon/api/services/postProcessor/postProcessorBook", () => ({
-  postProcessBookDownload: async () => ({ success: false, reason: "unused" }),
-}));
+mock.module(
+  "@rawkoon/api/services/postProcessor/postProcessorBookDownload",
+  () => ({
+    postProcessBookDownload: async () => ({ success: false, reason: "unused" }),
+  }),
+);
 
 mock.module("@rawkoon/api/services/libraryEvents", () => ({
   emitLibraryUpdate: () => {},

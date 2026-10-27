@@ -5,7 +5,7 @@ import { applyAfterImportAction } from "@rawkoon/api/services/downloadClient/aft
 import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import { emitBookUpdate } from "@rawkoon/api/services/libraryEvents";
 import { notifyBookRequestAvailable } from "@rawkoon/api/services/mediaRequests";
-import type { PostProcessFailure } from "@rawkoon/api/services/postProcessor/postProcessFailure";
+import type { PostProcessOutcome } from "@rawkoon/api/services/postProcessor/postProcessOutcome";
 import { postProcessBook } from "@rawkoon/api/services/postProcessor/postProcessorBookImport";
 import { rescanBookEdition } from "@rawkoon/api/services/postProcessor/postProcessorBookRescan";
 import {
@@ -14,15 +14,16 @@ import {
 } from "@rawkoon/api/services/postProcessor/postProcessorHelpers";
 import { remapPath } from "@rawkoon/api/utils/medias/mediainfoScanner";
 
-type BookDownloadResult =
-  | {
-      success: true;
-      destinationPath: string;
-      /** True when success meant "already imported by another grab", not a fresh import. */
-      skipped?: boolean;
-      skipReason?: string;
-    }
-  | PostProcessFailure;
+/** The row a book post-process needs, loaded once by `finishPostProcess`. */
+export type BookPostProcessRow = {
+  id: number;
+  bookEditionId: number | null;
+  torrentHash: string | null;
+  releaseTitle: string;
+  failed: boolean;
+  completedAt: Date | null;
+  isUpgrade: boolean;
+};
 
 /**
  * Pre-scan: are the files already in the library?
@@ -35,7 +36,7 @@ type BookDownloadResult =
 async function adoptExistingFiles(
   downloadHistoryId: number,
   editionId: number,
-): Promise<BookDownloadResult | null> {
+): Promise<PostProcessOutcome | null> {
   const existing = await prisma.bookFile.findMany({
     where: { editionId },
     select: { filePath: true },
@@ -50,7 +51,8 @@ async function adoptExistingFiles(
     // losing-duplicate skip — not a fresh import. Record why in
     // postProcessSkipReason (never postProcessError) so the "downloaded"
     // notification is suppressed. The rescan branch below, which registers
-    // genuinely new files, stays a real import.
+    // genuinely new files, stays a real import. Written here rather than by
+    // finishPostProcess because the request notice below can throw first.
     await prisma.bookEdition.update({
       where: { id: editionId },
       data: { status: "downloaded" },
@@ -85,13 +87,6 @@ async function adoptExistingFiles(
   // not exist yet and the scan finds nothing.
   const rescan = await rescanBookEdition(editionId);
   if (rescan.registered > 0 && rescan.directory) {
-    await prisma.downloadHistory.update({
-      where: { id: downloadHistoryId },
-      data: {
-        postProcessDestinationPath: rescan.directory,
-        postProcessError: null,
-      },
-    });
     return { success: true, destinationPath: rescan.directory };
   }
   return null;
@@ -106,25 +101,12 @@ async function adoptExistingFiles(
  * foreign key without special-casing the result.
  */
 export async function postProcessBookDownload(
-  downloadHistoryId: number,
-): Promise<BookDownloadResult> {
-  const [dh, settings] = await Promise.all([
-    prisma.downloadHistory.findUnique({
-      where: { id: downloadHistoryId },
-      select: {
-        id: true,
-        bookEditionId: true,
-        torrentHash: true,
-        releaseTitle: true,
-        failed: true,
-        completedAt: true,
-        isUpgrade: true,
-      },
-    }),
-    prisma.mediaSettings.findUnique({ where: { id: 1 } }),
-  ]);
+  dh: BookPostProcessRow,
+): Promise<PostProcessOutcome> {
+  const downloadHistoryId = dh.id;
+  const settings = await prisma.mediaSettings.findUnique({ where: { id: 1 } });
 
-  if (!dh?.bookEditionId) {
+  if (!dh.bookEditionId) {
     return {
       success: false,
       reason: "Download history or book edition not found",

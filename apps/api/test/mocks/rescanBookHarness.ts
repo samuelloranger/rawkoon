@@ -205,7 +205,7 @@ export async function setupRescanBookHarness() {
   }));
 
   const { rescanBookEdition } = await import(
-    "@rawkoon/api/services/postProcessor/postProcessorBook"
+    "@rawkoon/api/services/postProcessor/postProcessorBookRescan"
   );
 
   // Where the default templates put this fixture's files.

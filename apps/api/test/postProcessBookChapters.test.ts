@@ -96,7 +96,7 @@ mock.module("@rawkoon/api/utils/books/ebookMetadata", () => ({
 }));
 
 const { postProcessBook } = await import(
-  "@rawkoon/api/services/postProcessor/postProcessorBook"
+  "@rawkoon/api/services/postProcessor/postProcessorBookImport"
 );
 
 afterAll(async () => {
