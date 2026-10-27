@@ -65,8 +65,16 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           generate-routes: "true"
+      # Normally ~20s; a stalled apt mirror used to hold the job until its 25-minute timeout.
       - name: Install ffmpeg
-        run: sudo apt-get update -y && sudo apt-get install -y ffmpeg
+        timeout-minutes: 3
+        run: |
+          # man-db re-indexes every manual page after an install, which crawls on hosted runners.
+          sudo rm -f /var/lib/man-db/auto-update
+          APT="-o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20"
+          sudo apt-get update -y $APT
+          sudo apt-get install -y --no-install-recommends $APT ffmpeg
+          ffprobe -version | head -1
       # One step per suite, each with its own timeout, so a hang fails fast and names its suite.
       - name: Web tests
         timeout-minutes: 5
