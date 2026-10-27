@@ -570,7 +570,7 @@ export interface GrabReadinessResponse {
   checks: GrabReadinessCheck[];
 }
 
-export interface ExportMediaFile {
+interface ExportMediaFile {
   id: number;
   episode_id: number | null;
   season: number | null;
@@ -596,7 +596,7 @@ export interface ExportMediaFile {
   language_tags: string[];
 }
 
-export interface ExportMediaEpisode {
+interface ExportMediaEpisode {
   id: number;
   season: number;
   episode: number;
@@ -605,7 +605,7 @@ export interface ExportMediaEpisode {
   status: string;
 }
 
-export interface ExportMediaDownload {
+interface ExportMediaDownload {
   release_title: string;
   torrent_hash: string | null;
   indexer: string | null;
