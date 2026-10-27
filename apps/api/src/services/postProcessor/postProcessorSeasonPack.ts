@@ -3,20 +3,7 @@ import type { PostProcessFailure } from "@rawkoon/api/services/postProcessor/pos
 import { stat, rm } from "node:fs/promises";
 
 import { prisma } from "@rawkoon/api/db";
-import { classifyLanguageTags, type LibraryAudioTrack } from "@rawkoon/shared";
-import {
-  parseFilenameMetadata,
-  parseReleaseGroupFromTitle,
-  parseReleaseTitle,
-} from "@rawkoon/api/utils/medias/filenameParser";
-import {
-  scanMediaInfo,
-  remapPath,
-} from "@rawkoon/api/utils/medias/mediainfoScanner";
-import {
-  fingerprintDbFields,
-  fingerprintFromStats,
-} from "@rawkoon/api/utils/medias/fileFingerprint";
+import { remapPath } from "@rawkoon/api/utils/medias/mediainfoScanner";
 import { listVideoFilesUnder } from "@rawkoon/api/utils/medias/fileIdentifier";
 import {
   renderEpisodeTemplate,
@@ -43,9 +30,10 @@ import {
   splitUnknownSeasons,
 } from "@rawkoon/api/services/library/seasonPackMapping";
 import {
-  mkvAppend,
-  tracksCompatible,
-} from "@rawkoon/api/utils/medias/mkvMerge";
+  preflightMerges,
+  upsertPackMediaFile,
+} from "@rawkoon/api/services/postProcessor/postProcessorSeasonPackFile";
+import { mkvAppend } from "@rawkoon/api/utils/medias/mkvMerge";
 
 /**
  * Post-process a season pack / intégrale: find all video files under the torrent
@@ -286,24 +274,8 @@ export async function postProcessSeasonPack(
   // sibling episodes are already hardlinked, and since `processed > 0` the
   // run would then clear postProcessError, mark the show downloaded, and
   // possibly remove the torrent — the opposite of all-or-nothing.
-  for (const placement of placements) {
-    if (placement.kind !== "merge") continue;
-    const [a, b] = placement.sources;
-    const [miA, miB] = await Promise.all([
-      scanMediaInfo(a.path),
-      scanMediaInfo(b.path),
-    ]);
-    if (!miA || !miB) {
-      return refusePack(
-        `Season pack contains a split episode that MediaInfo cannot read — nothing imported. Could not scan "${miA ? b.fileName : a.fileName}".`,
-      );
-    }
-    if (!tracksCompatible(miA, miB)) {
-      return refusePack(
-        `Season pack contains a split episode whose parts are not mergeable — nothing imported. "${a.fileName}" and "${b.fileName}" have different track layouts.`,
-      );
-    }
-  }
+  const mergeProblem = await preflightMerges(placements);
+  if (mergeProblem) return refusePack(mergeProblem);
 
   type EpisodeResult =
     | { ok: true; destinationPath: string; placed: boolean }
@@ -404,71 +376,14 @@ export async function postProcessSeasonPack(
           }
         }
         try {
-          const fnData = parseFilenameMetadata(fn);
-          const destMapped = remapPath(destinationPath);
-          const destStat = await stat(destMapped, { bigint: true });
-          const fp = fingerprintFromStats(destStat);
-          const mi = await scanMediaInfo(destinationPath);
-          const existingFile = await prisma.mediaFile.findFirst({
-            where: { filePath: destinationPath },
-            select: { id: true },
+          await upsertPackMediaFile({
+            mediaId: dh.media.id,
+            episodeId: ep.id,
+            destinationPath,
+            fileName: fn,
+            releaseTitle: dh.releaseTitle,
+            fallbackSource: q.source,
           });
-          const rtParsedPack = parseReleaseTitle(dh.releaseTitle);
-          const fileData = mi
-            ? {
-                mediaId: dh.media.id,
-                episodeId: ep.id,
-                filePath: destinationPath,
-                fileName: basename(destinationPath),
-                ...fingerprintDbFields(fp),
-                durationSecs: mi.durationSecs,
-                releaseGroup:
-                  mi.releaseGroup ??
-                  parseReleaseGroupFromTitle(dh.releaseTitle),
-                videoCodec: mi.videoCodec,
-                videoProfile: mi.videoProfile,
-                width: mi.width,
-                height: mi.height,
-                frameRate: mi.frameRate,
-                bitDepth: mi.bitDepth,
-                videoBitrate: mi.videoBitrate,
-                hdrFormat: mi.hdrFormat ?? fnData.hdrFormat,
-                resolution: mi.resolution ?? fnData.resolution,
-                source: mi.source ?? fnData.source,
-                audioFormat: rtParsedPack.audio,
-                isProper: rtParsedPack.isProper,
-                audioTracks: mi.audioTracks as object[],
-                subtitleTracks: mi.subtitleTracks as object[],
-                languageTags: classifyLanguageTags(
-                  mi.audioTracks as LibraryAudioTrack[],
-                  dh.releaseTitle,
-                ),
-                scannedAt: new Date(),
-              }
-            : {
-                mediaId: dh.media.id,
-                episodeId: ep.id,
-                filePath: destinationPath,
-                fileName: basename(destinationPath),
-                ...fingerprintDbFields(fp),
-                releaseGroup: parseReleaseGroupFromTitle(dh.releaseTitle),
-                resolution: fnData.resolution,
-                source: fnData.source ?? q.source,
-                hdrFormat: fnData.hdrFormat,
-                audioFormat: rtParsedPack.audio,
-                isProper: rtParsedPack.isProper,
-                audioTracks: [] as object[],
-                subtitleTracks: [] as object[],
-                languageTags: [] as string[],
-              };
-          if (existingFile) {
-            await prisma.mediaFile.update({
-              where: { id: existingFile.id },
-              data: fileData,
-            });
-          } else {
-            await prisma.mediaFile.create({ data: fileData });
-          }
         } catch (e) {
           console.warn(
             `[postProcess/pack] MediaFile upsert failed for ${fn}:`,
